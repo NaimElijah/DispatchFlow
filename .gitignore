@@ -1,0 +1,26 @@
+# Local agent state — .claude/ itself stays tracked
+.claude/settings.local.json
+
+# Secrets — commit .env.example with keys and no values
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build output and tool caches
+target/
+.venv/
+__pycache__/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+.coverage
+
+# IDEs
+.idea/
+*.iml
+.vscode/

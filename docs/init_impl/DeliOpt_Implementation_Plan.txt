@@ -1,0 +1,169 @@
+## Part 1: Overview
+
+DeliOpt is a web platform for delivery businesses. Each morning, a dispatcher loads the day's orders and the system plans the routes. The plan decides which vehicle takes which orders and in what order, so that every delivery lands inside its time window, no vehicle is overloaded, and total driving time is as low as possible. This is the Vehicle Routing Problem with Time Windows (VRPTW).
+
+The system has four main pieces:
+
+1. **Dispatcher web app** (React). Import orders, see routes on a map, adjust them manually, publish them to drivers.
+2. **Core backend** (Spring Boot + PostgreSQL). Handles orders, fleets, users, plans, statuses, and authentication.
+3. **Optimization service** (Python + Google OR-Tools). Takes a problem (stops, time windows, capacities, travel-time matrix) and returns routes. Travel times come from a self-hosted OSRM routing engine running on Israel's OpenStreetMap data.
+4. **Driver app** (a mobile web app, installable on the phone). Shows the ordered stops, opens Waze for navigation, and lets the driver mark each delivery done or failed and capture proof of delivery.
+
+The academically interesting core is the optimization. You use OR-Tools as a solid baseline, and optionally implement your own metaheuristic and benchmark both on the standard Solomon VRPTW instances.
+
+---
+
+## Part 2: Detailed implementation
+
+### 1. Customer and problem
+
+Ideally you secure one real small business as a pilot customer before the approval meeting. Advisors care a lot about this. Today such businesses plan routes by hand or in their heads, or use enterprise tools that are too expensive and complex for them. The pain points are late deliveries, wasted fuel and driver hours, and no visibility into where drivers are. Your pitch is "enterprise-grade route optimization, sized and priced for a 5-van business."
+
+If you can't land a real customer, have a fallback: a synthetic order generator built on real Israeli addresses, plus the academic benchmarks. Say this explicitly as a risk mitigation.
+
+### 2. Architecture
+
+The system is split into services with clear responsibilities:
+
+- **Frontend.** One React app with two areas: the dispatcher console on desktop, and the driver view as a mobile-first installable web app. The map uses Leaflet or MapLibre with OpenStreetMap tiles.
+- **Core backend (Spring Boot).** A REST API, Spring Security with JWT and role-based access (Admin, Dispatcher, Driver), and multi-tenancy, meaning every entity belongs to an organization. It also runs the planning workflow and pushes live updates to the dispatcher over WebSocket or server-sent events.
+- **Optimization service (Python, FastAPI, OR-Tools).** It is stateless: it receives a problem and returns a solution. Solving can take 5–60 seconds, so it runs as an asynchronous job. The backend creates a job record, the solver picks it up, and when the solution comes back the backend notifies the frontend. A job table in PostgreSQL is enough for a queue at this scale; RabbitMQ is an option if you want to show it.
+- **OSRM (Docker).** Self-hosted on the Geofabrik Israel extract. It provides two things: the table service for travel-time/distance matrices, and the route service for the actual road geometry drawn on the map. It is free, fast, and has no API quotas.
+- **Geocoding.** This converts addresses to coordinates, through an adapter interface. I'd recommend the Google Geocoding API as the primary provider, because free options handle Hebrew addresses poorly. Results are cached in the database. The dispatcher can drag a pin to fix a bad match, and the corrected location is saved per customer.
+- **Deployment and CI.** Everything runs under Docker Compose, deployable to a single cloud VM. GitHub Actions runs tests and builds on every pull request.
+
+Why a separate Python solver? OR-Tools' Python ecosystem and documentation are the richest, the algorithm work can iterate independently of the backend, and the service boundary lets you swap solvers later (OR-Tools versus your own). That swappability is a good design point to raise with the advisor. The cost is working in two languages, so mention that you considered it.
+
+### 3. Data model (core entities)
+
+- **Organization**
+- **User**, with a role
+- **Depot**, with a location
+- **Vehicle**: capacity in units or weight, plus its start and end depot
+- **Driver**: shift start and end, and the assigned vehicle
+- **Customer**: address, coordinates, default time window
+- **Order**: customer, date, time window, demand, service duration, priority, status
+- **Plan**: date and status (draft, solving, ready, published, completed)
+- **Route**: plan, vehicle, driver, totals
+- **Stop**: route, order, sequence, planned ETA, actual arrival, status, failure reason
+- **SolveJob**: parameters, status, timings, solver used, objective value
+- **LocationPing**: driver, time, coordinates
+- **DeliveryProof**: photo or signature, and a note
+
+### 4. The optimization engine (the heart of the project)
+
+**Modeling in OR-Tools.**
+
+- The routing model is built on the travel-time matrix from OSRM.
+- A time dimension with slack models waiting, and each stop's time window is applied as a constraint on that dimension.
+- Service time is added to the transit time at each stop.
+- A capacity dimension enforces vehicle capacities.
+- Each vehicle's start and end times come from the driver's shift.
+- Each order gets a drop penalty proportional to its priority. When not everything fits, the solver can skip orders instead of failing, and the system reports which orders were dropped and why.
+
+**Search strategy.** An initial solution comes from a construction heuristic (cheapest arc). It is then improved with Guided Local Search under a configurable time limit, so the dispatcher gets a good answer in bounded time.
+
+**Objective.** Minimize total travel time, plus penalties for dropped orders. An optional fixed cost per vehicle lets the solver also reduce fleet usage.
+
+**Feasibility validator.** This is an independent module that doesn't trust the solver. It re-checks every constraint on any solution: time windows, capacities, shifts, and that each order is visited at most once. It's used in tests and after every solve. This is a strong point to present.
+
+**Academic depth (a "Should" item).** Implement your own metaheuristic, for example Adaptive Large Neighborhood Search (ALNS) with destroy and repair operators. Benchmark it against OR-Tools on the Solomon instances (56 instances with 100 customers, in classes C1/C2/R1/R2/RC1/RC2). Measure the gap from the published best-known solutions and the solve time. This gives the project a research component without making the product depend on it.
+
+**Real-world baseline.** Compare optimized routes against a naive baseline (nearest-neighbor ordering) and, if you have a pilot customer, against their actual manual routes.
+
+### 5. Manual editing and re-optimization
+
+**Manual edits.** The dispatcher can drag a stop to another route or position. The backend then recalculates ETAs with OSRM and immediately flags any time-window or capacity violations. The solver is not called for this.
+
+**Re-optimization during the day (a "Could" item).** New orders arrive or a driver runs late, and the system re-solves only the remaining stops. Completed and in-progress stops are locked, and each vehicle's current location becomes its new start point.
+
+### 6. Driver app
+
+The driver app includes:
+
+- Today's route in order
+- Customer details and notes
+- A "Navigate" button that deep-links to Waze or Google Maps
+- Arrived, delivered, and failed buttons (with a reason for failures)
+- Proof of delivery (photo or signature)
+- Location pings while the app is open
+
+Status updates flow to the dispatcher's map in real time.
+
+### 7. Technology stack
+
+| Layer | Choice | Why |
+|---|---|---|
+| Frontend | React + TypeScript, Leaflet/MapLibre, installable web app | One codebase for the dispatcher and driver views |
+| Backend | Java 21, Spring Boot, Spring Security, JPA | Team familiarity, mature ecosystem |
+| Solver | Python, FastAPI, Google OR-Tools | Best-in-class open-source VRP solver |
+| Routing data | OSRM + OpenStreetMap (Israel) | Free, self-hosted, fast matrices |
+| Geocoding | Google Geocoding API behind an adapter, with a DB cache | Handles Hebrew addresses |
+| Database | PostgreSQL (PostGIS optional) | Relational data plus geo queries |
+| Infra | Docker Compose, GitHub Actions, one cloud VM | Simple, reproducible |
+| Testing | JUnit, Testcontainers, pytest + Hypothesis, Playwright, k6 | See section 9 |
+
+### 8. Scope, prioritized so the project is clearly the right size
+
+**Must**
+- Organization and user management with roles
+- Vehicle and driver setup
+- Order entry by form and CSV import
+- Geocoding with manual correction
+- VRPTW solving with capacities, shifts, and dropped-order reporting
+- Map view of routes
+- Publishing routes to drivers
+- Driver app with statuses
+- Daily summary
+
+**Should**
+- Manual drag-and-drop editing with live violation checks
+- Proof of delivery
+- Live driver location
+- Your own ALNS solver with the benchmark study
+
+**Could**
+- Mid-day re-optimization
+- Customer SMS or email with ETA
+- Analytics dashboard (on-time %, kilometers saved)
+- Multiple depots
+
+**Won't (explicitly out of scope)**
+- Live traffic data
+- Native mobile apps
+- Payments
+- Marketplace or crowdsourced drivers
+
+### 9. Testing and evaluation
+
+**Unit tests.** Backend logic (JUnit) and solver model building (pytest).
+
+**Solver correctness.**
+- The feasibility validator runs on every solution.
+- Property-based tests (Hypothesis) generate random instances and assert that every solution is feasible.
+- Small hand-crafted instances with known optimal answers.
+
+**Integration tests.** Testcontainers spins up real PostgreSQL and OSRM, and tests the full path from orders to published routes.
+
+**End-to-end tests.** Playwright covers the dispatcher and driver flows.
+
+**Performance tests.** Solve time and solution quality at 25, 50, 100, and 200 stops. k6 load-tests the API.
+
+**Evaluation metrics.**
+- Total driving time and distance versus the baseline
+- Vehicles used
+- Percentage of deliveries inside their windows
+- Solve time
+- Gap from best-known solutions on the Solomon instances
+
+**Acceptance.** A pilot with the customer, with their feedback collected.
+
+### 10. Risks and mitigations (have these ready; this is what the email means by knowing how to deal with the challenges)
+
+- **The solver is too slow or gives poor results.** Mitigations: OR-Tools baseline, configurable time limits, and early benchmarking.
+- **Poor geocoding of Hebrew addresses.** Mitigations: Google API, caching, manual pin correction, and saving corrected locations per customer.
+- **No live traffic, so ETAs will be off.** Mitigations: time-of-day travel-time multipliers, and a buffer calibrated against actual arrival times from driver pings. State this openly as a known limitation.
+- **No real customer.** Mitigations: pursue one now, and fall back on synthetic Israeli data plus the benchmarks.
+- **Mobile web apps are limited in tracking location in the background, especially on iOS.** Mitigations: track only while the app is open, and use delivery status updates as a location proxy.
+- **Two-language stack.** Mitigations: a clear API contract between backend and solver, defined early (an OpenAPI spec).
+- **Scope creep.** Mitigation: the priority list above, reviewed at each milestone.
