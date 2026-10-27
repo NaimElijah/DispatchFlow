@@ -21,8 +21,8 @@ solution was chosen, see [`../ADRs/`](../ADRs/README.md).
 
 | Code | Source |
 |---|---|
-| P | [Implementation plan](<../init_impl/DispatchFlow — Implementation Plan.md>) (the `.txt` next to it is an earlier draft of the same plan) |
-| S*n* | [Initial presentation](../presentation/DispatchFlow_Init_Presentation.pptx), slide *n* |
+| P | [Implementation plan](<../init_impl/DeliOpt — Implementation Plan.md>) (the `.txt` next to it is an earlier draft of the same plan). Revised on 2026-10-27 for the solver strategy ([ADR-005](../ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md)) |
+| S*n* | [Initial presentation](../presentation/DispatchFlow_Presentation.pptx), slide *n* counted from the Customer slide: S1 is slide 3 of the file, after the title and team slides, so S*n* is slide *n*+2. Revised on 2026-10-27 for the solver strategy ([ADR-005](../ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md)) |
 | D | Decision of the owner on 2026-10-09 or later, resolving a conflict between P and S or an open question; the linked ADR, or the resolved open question, records it |
 
 **Priorities** use MoSCoW: **Must**, **Should**, **Could**; **Won't** items are listed under
@@ -55,12 +55,30 @@ against a baseline in kilometres, driver-hours and on-time percentage. (P, S3, S
 | Dispatcher | Manage fleet, shifts, customers and orders; plan, edit, publish and monitor routes; re-optimize during the day |
 | Driver | Follow the published route, report each stop's outcome, capture proof of delivery |
 
-**Academic aim.** DispatchFlow includes its own metaheuristic solver — Clarke-Wright savings
-construction improved by Adaptive Large Neighbourhood Search — benchmarked honestly against
-Google OR-Tools on the standard Solomon and Gehring-Homberger instances. The product must not
-reduce to an OR-Tools integration with a map, and it must not depend on the research solver
-succeeding either: OR-Tools remains the default production solver. (S3, S6, D —
-[ADR-004](../ADRs/ADR-004-pluggable-solver-port.md))
+**Academic aim.** DispatchFlow runs on Google OR-Tools. It is the solver the product ships,
+demos and pilots with, so a working system never waits on research. Beside it, behind the same
+solver interface ([FR-20](#daily-planning)), DispatchFlow builds its own metaheuristic solver:
+Clarke-Wright savings construction improved by Adaptive Large Neighbourhood Search. That keeps
+the product from reducing to an OR-Tools integration with a map. The DispatchFlow solver is
+aimed where it can plausibly win, which is live re-optimization: repairing the current plan
+after a disruption instead of solving again from scratch. It is not expected to beat OR-Tools
+on static instances ([Non-goals](#non-goals)). The two solvers are compared in a planned
+experiment whose success criteria are fixed in advance
+([Solver research targets](#solver-research-targets)):
+
+- on the Solomon and Gehring-Homberger instances and on the pilot's real days;
+- under equal time limits;
+- with PyVRP as a state-of-the-art reference.
+
+The results are reported whether or not the DispatchFlow solver wins. (S3, S6, D —
+[ADR-004](../ADRs/ADR-004-pluggable-solver-port.md),
+[ADR-005](../ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md))
+
+> Until 2026-10-27, P ranked the DispatchFlow solver a Should and re-optimization a Could. S6
+> used OR-Tools only as a benchmark baseline, and S10 scheduled the solver core before the
+> platform. All of these were revised to follow
+> [ADR-005](../ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md): OR-Tools
+> first, and the DispatchFlow solver as a measured research track.
 
 **Scope.** Israel only: road data from the OpenStreetMap Israel extract, Hebrew addresses.
 One plan per organization per day, at the scale stated in [NFR-05](#nfr-05). Everything
@@ -122,7 +140,7 @@ role may; the server checks it on every call, and the organization is always the
 | FR-17 | A solve assigns orders to vehicles, orders the stops of every route, and gives each stop a planned ETA, honouring every rule in [Business rules](#business-rules-and-invariants). | Must | P | Partly. Every order is assigned or dropped and every stop gets the ETA the validated solution gives it, with route totals measured on the road: `SolveJobProcessorTest#GivenQueuedDailySolve_WhenProcessed_ThenPlanReadyWithTheSolversRoutesMeasuredOnTheRoad`; an answer that loses an order fails the job: `SolveJobProcessorTest#GivenAnswerThatLosesAnOrder_WhenProcessed_ThenJobFailsAndThePlanIsNotLeftSolving`. The optimization and OSRM adapters are pending |
 | FR-18 | When not every order fits, the solve still returns a plan and lists every dropped order with the reason it was dropped: *capacity*, *time window*, *shift*, *displaced* by other orders, or *missing location* for an order whose customer has no coordinates. | Must | P, D — [ADR-029](../ADRs/ADR-029-plan-lifecycle-publishing-stability-and-drop-reasons.md) | `test_diagnosis.py` (the four diagnosed reasons and their precedence), attached to every feasible solve whatever the solver: `test_solve.py::test_given_an_order_no_vehicle_can_carry_when_solved_then_dropped_for_capacity`, `test_solve.py::test_given_an_order_no_vehicle_reaches_in_time_when_solved_then_dropped_for_its_window`; the backend's `DropReason.MISSING_LOCATION` and `RoutableOrdersTest` (unroutable orders); `PlanTest#GivenSolving_WhenSolveCompleted_ThenReadyWithRoutesAndPlanReadyRaised` (a plan keeps its dropped orders with reasons); unroutable orders dropped for their missing location by the solve: `SolveJobProcessorTest#GivenUnroutableOrder_WhenProcessed_ThenNeverSentToTheSolverAndDroppedForItsMissingLocation` and by a re-optimization: `ReoptimizationServiceTest#GivenNewOrderWithoutALocation_WhenReoptimized_ThenDroppedForItWithoutGoingToTheSolver`; the plan keeps each order the solver drops with the reason it gave: `SolveJobProcessorTest#GivenAnswerThatDropsARoutableOrder_WhenProcessed_ThenReadyWithItDroppedForItsReason` |
 | FR-19 | The solve time limit is configurable within the range in [NFR-06](#nfr-06); the solve returns the best solution found within it. (Default value and who may change it: [Q-21](#open-questions).) | Must | P | Use cases: the time limit is chosen per solve or comes from the organization's settings, and is recorded on the job: `PlanServiceTest#GivenChosenSolverTimeLimitAndSeed_WhenSolveRequested_ThenRecordedOnTheJob`, `PlanServiceTest#GivenNoChoices_WhenSolveRequested_ThenTheOrganizationsDefaultsAndASeedFromTheJobAreRecorded`. The default value waits on Q-21 |
-| FR-20 | A solve can be run with either solver: OR-Tools (the default) or the DispatchFlow solver (Clarke-Wright + ALNS). | Must | D — [ADR-004](../ADRs/ADR-004-pluggable-solver-port.md) | Solver side: every solver behind one `Solver` protocol, each in `test_solver_properties.py`, chosen by name from the injected registry: `test_solve.py::test_given_several_solvers_when_solved_then_only_the_named_one_runs`, `test_solve.py::test_given_a_solver_missing_from_the_registry_when_solved_then_unknown_solver`; choosing one per solve: `SolveJobTest`, `PlanServiceTest#GivenChosenSolverTimeLimitAndSeed_WhenSolveRequested_ThenRecordedOnTheJob`. The OR-Tools adapter is pending |
+| FR-20 | A solve or a re-optimization can be run with either solver: OR-Tools, the default, or the DispatchFlow solver (Clarke-Wright + ALNS). Outside the optimization service a solver is known only by its name, and choosing one changes nothing else. | Must | D — [ADR-004](../ADRs/ADR-004-pluggable-solver-port.md), [ADR-005](../ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md) | Solver side: every solver behind one `Solver` protocol, each in `test_solver_properties.py`, chosen by name from the injected registry: `test_solve.py::test_given_several_solvers_when_solved_then_only_the_named_one_runs`, `test_solve.py::test_given_a_solver_missing_from_the_registry_when_solved_then_unknown_solver`; choosing one per solve: `SolveJobTest`, `PlanServiceTest#GivenChosenSolverTimeLimitAndSeed_WhenSolveRequested_ThenRecordedOnTheJob`. The OR-Tools adapter, choosing a solver for a re-optimization, and the backend always sending a solver name are pending |
 | FR-21 | An organization can enable a fixed cost per vehicle used, so the solver also reduces the number of vehicles on the road. | Must | P | `test_objective.py::test_given_fixed_cost_when_evaluated_then_charged_per_route`; the organization's fixed cost goes into every daily solve: `PlanServiceTest#GivenNoChoices_WhenSolveRequested_ThenTheOrganizationsDefaultsAndASeedFromTheJobAreRecorded`. Where the setting is stored is pending |
 
 ### Manual editing
@@ -174,13 +192,14 @@ role may; the server checks it on every call, and the organization is always the
 
 | ID | Requirement | Priority | Source | Enforced by |
 |---|---|---|---|---|
-| FR-42 | DispatchFlow has its own solver: a Clarke-Wright savings construction improved by Adaptive Large Neighbourhood Search with destroy and repair operators and simulated-annealing acceptance, behind the same solver interface as OR-Tools. | Must | S3, S4, S6, D — [ADR-004](../ADRs/ADR-004-pluggable-solver-port.md) | Construction: `test_savings.py`. ALNS: `test_search.py`, `test_operators.py`, `test_more_destroyers.py`, `test_regret.py`, `test_adaptive.py`, `test_priority.py`, `test_config.py`. Re-optimization warm start: `test_warm_start.py`. Every result validates: `test_solver_properties.py` |
-| FR-43 | A benchmark harness runs both solvers on the Solomon instances (56 instances of 100 customers, classes C1, C2, R1, R2, RC1, RC2) and on Gehring-Homberger instances, reporting the gap from best-known solutions and the solve time. (Gehring-Homberger subset: [Q-22](#open-questions).) | Must | P, S6, S9, D | Partly. The harness use case runs every instance, solver and seed through the validated solve and reports the gap on distance: `test_benchmark.py::test_given_a_best_known_solution_when_run_then_the_gap_is_measured_on_distance`. The Solomon and Gehring-Homberger readers, their best-known files, the command line, the OR-Tools adapter and the study itself are pending |
+| FR-42 | DispatchFlow has its own solver: a Clarke-Wright savings construction improved by Adaptive Large Neighbourhood Search with destroy and repair operators and simulated-annealing acceptance, behind the same solver interface as OR-Tools. For a re-optimization it starts from the current routes and repairs them, destroying and reinserting stops around the disruption, instead of solving again from scratch. No product capability depends on it ([Non-goals](#non-goals)). | Must | S3, S4, S6, D — [ADR-004](../ADRs/ADR-004-pluggable-solver-port.md), [ADR-005](../ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md) | Construction: `test_savings.py`. ALNS: `test_search.py`, `test_operators.py`, `test_more_destroyers.py`, `test_regret.py`, `test_adaptive.py`, `test_priority.py`, `test_config.py`. Re-optimization warm start: `test_warm_start.py`. Every result validates: `test_solver_properties.py`. Repairing only around the disruption, and the product's independence from this solver, are pending |
+| FR-43 | A benchmark harness runs OR-Tools and the DispatchFlow solver on the Solomon instances (56 instances of 100 customers, classes C1, C2, R1, R2, RC1, RC2), on Gehring-Homberger instances, and on the pilot's real days once the pilot provides them ([Q-01](#open-questions)). It reports the gap from best-known solutions where they are published, the DispatchFlow solver's gap from OR-Tools ([NFR-24](#nfr-24)), and the solve time. Both solvers get the same time limit on the same hardware, and every result is scored by the shared objective ([BR-09](#business-rules-and-invariants)) once the validator accepts it ([BR-15](#business-rules-and-invariants)). (Gehring-Homberger subset: [Q-22](#open-questions).) | Must | P, S6, S9, D — [ADR-005](../ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md) | Partly. The harness use case runs every instance, solver and seed through the validated solve and reports the gap on distance: `test_benchmark.py::test_given_a_best_known_solution_when_run_then_the_gap_is_measured_on_distance`. The Solomon and Gehring-Homberger readers, their best-known files, the command line, the OR-Tools adapter, the gap from OR-Tools, the pilot's days and the study itself are pending |
 | FR-44 | A scaling study reports solve time and solution quality at 25, 50, 100 and 200 stops. | Must | P | Partly. Solve time and quality per run, best and mean per instance and solver: `test_benchmark.py::test_given_seeds_with_different_results_when_summarized_then_best_and_mean`. The synthetic 25/50/100/200-stop days, the command line and the study itself are pending |
 | FR-45 | A synthetic order generator builds realistic days from real Israeli addresses, for testing and as the fallback when no pilot data is available. | Must | P, S6 | — |
-| FR-46 | A simulation replays a real or synthetic day with injected delays, breakdowns and new orders, and measures re-optimization latency and route stability. | Must | S9, D | — |
+| FR-46 | A simulation replays a real or synthetic day with injected delays, breakdowns and new orders, generated from a recorded seed so that the day can be replayed. It runs every re-optimization with each solver at the same set of time limits: OR-Tools warm-started from the current routes, and the DispatchFlow solver repairing them. At each limit it measures each solver's objective, route stability, elapsed time and whether the new orders were served, all scored by the shared objective ([BR-09](#business-rules-and-invariants)). A run in which OR-Tools did not start from the current routes is reported and not counted as warm-started ([NFR-25](#nfr-25)). | Must | S9, D — [ADR-005](../ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md) | — |
 | FR-47 | A pilot runs DispatchFlow with a real customer; their feedback is collected and written up. (Pilot customer: [Q-01](#open-questions).) | Must | P, S5 | — |
 | FR-48 | A usability study runs task-based sessions with the pilot's dispatcher (build a plan, handle a breakdown) scored with the SUS questionnaire, collects driver feedback on route stability after re-optimization, and feeds UI iterations between rounds. | Should | S7 | — |
+| FR-51 | The benchmark harness also runs PyVRP, an open-source state-of-the-art VRP solver, on the static instances of FR-43 under the same time limits, as a reference for both solvers. Only the harness uses PyVRP; it never serves a solve in the product. | Should | D — [ADR-005](../ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md) | — |
 
 ### Later capabilities
 
@@ -240,6 +259,19 @@ role may; the server checks it on every call, and the organization is always the
 | <a id="nfr-09"></a>NFR-09 | Stop-status and position updates reach the dispatcher's map in real time. (Latency target: [Q-08](#open-questions).) | P | — |
 | <a id="nfr-10"></a>NFR-10 | The API is load-tested with k6. (Target load: [Q-08](#open-questions).) | P | — |
 
+### Solver research targets
+
+These are the success criteria of the planned comparison between the DispatchFlow solver and
+OR-Tools ([ADR-005](../ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md)).
+They bind the research track, not the product. OR-Tools serves the product whatever the
+outcome, and a missed target is a result to report, not a failed release. The study reports
+each target's measured value and whether it was met.
+
+| ID | Requirement | Source | Enforced by |
+|---|---|---|---|
+| <a id="nfr-24"></a>NFR-24 | **Static quality.** On the Solomon instances, with both solvers given the same time limit on the same hardware, the DispatchFlow solver's objective is on average within **N%** of OR-Tools'. Both solvers are scored by the shared objective ([BR-09](#business-rules-and-invariants)), with the study's drop penalty and fixed-cost setting. Each solver runs *k* times per instance, one solver at a time on an otherwise idle machine, and its result on the instance is the mean of those runs. The gap on an instance is (DispatchFlow − OR-Tools) / OR-Tools, and the average is the mean of the gaps over all instances. No failure is left out: the target is met only if every run of the DispatchFlow solver returns a solution the validator accepts ([BR-15](#business-rules-and-invariants)), and an instance on which an OR-Tools run fails or is rejected is reported and left out of the mean, which can only count against the DispatchFlow solver. Every run records its seed, the iterations or solutions it reached and the solver versions, so that it can be replayed under that budget ([NFR-13](#nfr-13)). (N, the time limit, *k*, the drop penalty and the fixed-cost setting: [Q-29](#open-questions).) | D — [ADR-005](../ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md) | — |
+| <a id="nfr-25"></a>NFR-25 | **Incremental re-optimization.** Given a published plan at the scale of [NFR-04](#nfr-04) and [NFR-05](#nfr-05) and one new order, both solvers get the same time limit of **T seconds**: the DispatchFlow solver repairs the plan, and OR-Tools is warm-started from it. Within that limit the DispatchFlow solver returns a solution the validator accepts that serves the new order, and over the study's insertions its objective is on average no worse than OR-Tools'. Both are scored by the shared objective ([BR-09](#business-rules-and-invariants)). Only insertions for which OR-Tools, solving the whole day from scratch, serves the new order are counted. The elapsed time is measured inside the optimization service, from receiving the problem to returning the solution, and stays within T at the 99th percentile. Both solvers are also run at a set of shorter and longer limits, and the report gives each solver's objective at each limit, so that a claim such as "ours at 1 s matches OR-Tools at 5 s" can be checked. This is a solver-side target; the end-to-end promise to the dispatcher remains [NFR-07](#nfr-07). (T, the set of limits, and how insertions are sampled: [Q-30](#open-questions).) | S9, D — [ADR-005](../ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md) | — |
+
 ### Reliability and persistence
 
 | ID | Requirement | Source | Enforced by |
@@ -283,6 +315,15 @@ DispatchFlow deliberately does not:
 - **Provide turn-by-turn navigation.** The driver app hands off to Waze or Google Maps. (P, S7)
 - **Serve enterprise-scale fleets.** It is sized for roughly 2–15 vehicles and 200 stops a day;
   larger fleets are not designed for. (P)
+- **Beat OR-Tools on static benchmarks.** The DispatchFlow solver is not expected to outperform
+  OR-Tools' mature routing solver on standard static VRPTW instances. Its target is live
+  re-optimization ([NFR-25](#nfr-25)); the static comparison measures how close it comes
+  ([NFR-24](#nfr-24)). (D —
+  [ADR-005](../ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md))
+- **Depend on the DispatchFlow solver.** No product capability, default, demo or pilot run
+  requires it. OR-Tools serves every solve unless the DispatchFlow solver is chosen
+  ([FR-20](#daily-planning)). (D —
+  [ADR-005](../ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md))
 
 > Native mobile apps were a non-goal in P. That was reversed on 2026-10-09: the driver app
 > ships for iOS and Android ([ADR-017](../ADRs/ADR-017-driver-app-react-native-expo.md)).
@@ -298,7 +339,7 @@ All owned by Naim Elijah unless noted.
 | Q-03 | Dispatcher map: Leaflet or MapLibre, and which tile source (OpenStreetMap's public tile servers have a usage policy). | FR-24 |
 | Q-04 | Real-time channel: WebSocket or server-sent events to the dispatcher console; how route changes reach a backgrounded driver app (push notification, socket, polling). | FR-16, FR-32, FR-33 |
 | Q-05 | ~~Status sets and Plan transitions.~~ **Resolved** on 2026-10-09 by [ADR-029](../ADRs/ADR-029-plan-lifecycle-publishing-stability-and-drop-reasons.md). Still open: what triggers a published plan's completion — the end of the day or the last delivery. | BR-12 |
-| Q-06 | How heavily route stability weighs in the objective, and how it is modelled in OR-Tools. (The measure itself was settled by [ADR-029](../ADRs/ADR-029-plan-lifecycle-publishing-stability-and-drop-reasons.md).) | FR-37, NFR-07 |
+| Q-06 | How heavily route stability weighs in the objective, and how it is modelled in OR-Tools. (The measure itself was settled by [ADR-029](../ADRs/ADR-029-plan-lifecycle-publishing-stability-and-drop-reasons.md).) How OR-Tools models stability also decides whether the re-optimization comparison is fair to it. | FR-37, FR-46, NFR-07 |
 | Q-07 | Is re-optimization only dispatcher-triggered, or may detected disruptions trigger it? What lateness counts as "at risk"? | FR-34, FR-35 |
 | Q-08 | Numeric targets: manual-edit check latency, live-update latency, k6 API load, SUS score, availability, backup and restore. | NFR-08, NFR-09, NFR-10, NFR-14, FR-48 |
 | Q-09 | ~~May a plan with flagged violations be published?~~ **Resolved** on 2026-10-09: no ([BR-17](#business-rules-and-invariants), [ADR-029](../ADRs/ADR-029-plan-lifecycle-publishing-stability-and-drop-reasons.md)). | FR-23 |
@@ -309,7 +350,7 @@ All owned by Naim Elijah unless noted.
 | Q-14 | Where proof-of-delivery files are stored; retention periods for pings, photos and signatures; the legal basis for tracking drivers' locations. | FR-30, FR-31, NFR-19 |
 | Q-15 | When location reporting starts and stops, and how often it pings (freshness versus battery). | FR-31 |
 | Q-16 | How the native driver app reaches the pilot's phones (app stores or internal distribution), and which tool runs end-to-end tests on native builds. | FR-31, NFR-15 — [ADR-017](../ADRs/ADR-017-driver-app-react-native-expo.md) |
-| Q-17 | Can the DispatchFlow solver, written in Python, reach enough ALNS iterations within the 30-second budget to compete? If not, what changes? (Evidence of 2026-10-10: about 1,800 iterations in 30 s on a 200-stop day, after constant-time insertion checks; see [optimization-engine.md](../architecture/optimization-engine.md#DispatchFlow-solver). Whether that competes is for the benchmarks.) | FR-42, NFR-07 — [ADR-003](../ADRs/ADR-003-separate-python-optimization-service.md) |
+| Q-17 | Can the DispatchFlow solver, written in Python, reach enough ALNS iterations within the 30-second budget to compete? If not, what changes? (Evidence of 2026-10-10: about 1,800 iterations in 30 s on a 200-stop day, after constant-time insertion checks; see [optimization-engine.md](../architecture/optimization-engine.md#DispatchFlow-solver). Whether that competes is for the benchmarks.) | FR-42, NFR-07, NFR-25 — [ADR-003](../ADRs/ADR-003-separate-python-optimization-service.md) |
 | Q-18 | When to adopt PostGIS — which first feature needs spatial queries. | [ADR-012](../ADRs/ADR-012-postgresql-system-of-record.md) |
 | Q-19 | ~~Which reasons the system can give for a dropped order, and how they are determined.~~ **Resolved** on 2026-10-09 by [ADR-029](../ADRs/ADR-029-plan-lifecycle-publishing-stability-and-drop-reasons.md). | FR-18 |
 | Q-20 | Time-of-day multipliers: which time buckets, where they apply (matrix or ETA calculation), and how they and the ETA buffer are calibrated from actual arrivals. | [ADR-009](../ADRs/ADR-009-no-live-traffic.md) |
@@ -321,3 +362,5 @@ All owned by Naim Elijah unless noted.
 | Q-26 | ~~May the last Admin of an organization be demoted?~~ **Resolved** on 2026-10-10: no ([BR-19](#business-rules-and-invariants)). | FR-01, FR-02 |
 | Q-27 | ~~When a Driver's role changes, what happens to their driver record in fleet?~~ **Resolved** on 2026-10-10 by [ADR-038](../ADRs/ADR-038-fleet-checks-the-driver-role-when-it-reads.md): fleet stops counting the record while the user is not a Driver, and another driver may take its van. | FR-02, FR-06 |
 | Q-28 | ~~Should publishing also catch a shift, capacity or depot change made after the solve?~~ **Resolved** on 2026-10-10 by [ADR-041](../ADRs/ADR-041-recheck-every-route-when-a-plan-is-published.md): every route is re-checked through `evaluate` against the current fleet, a broken rule refuses publishing, and the re-checked times are published when nothing breaks ([BR-21](#business-rules-and-invariants)). | BR-05, BR-06, BR-20 |
+| Q-29 | The parameters of [NFR-24](#nfr-24): the value of N, meaning how close to OR-Tools the DispatchFlow solver must come on static instances; the time limit both solvers get; the number of runs *k* per solver and instance; and the drop penalty and fixed-cost setting of the shared objective in the study, since the Solomon instances carry no priorities to derive a penalty from. To be agreed with the academic advisor before the study. | NFR-24 |
+| Q-30 | The parameters of [NFR-25](#nfr-25): the value of T, the time limit within which one new order is inserted into a published plan; the set of shorter and longer limits both solvers are also run at; and how the study's insertions are sampled (which plans, which new orders, how many). Q-17's evidence bears on what is reachable. To be agreed with the academic advisor before the study. | NFR-25, FR-46 |
