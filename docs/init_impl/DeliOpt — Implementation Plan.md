@@ -4,6 +4,8 @@ Oct 9, 2026 · @Naim Elijah
 
 Revised Oct 27, 2026 for the solver strategy: OR-Tools first, with our own solver as a measured research track ([ADR-005](../ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md)).
 
+Revised Oct 28, 2026 for the driver app: a native app for iOS and Android, and a Must, as the requirements decided ([Publishing and the driver app](../requirements/requirements.md#publishing-and-the-driver-app), [NFR-15](../requirements/requirements.md#nfr-15)).
+
 ## Overview
 
 DeliOpt is a web platform that plans each day's delivery routes for fleets of roughly 2–15 vehicles: pharmacies, florists, bakeries, local grocers, small courier companies. A dispatcher loads the day's orders and the system decides which vehicle takes which orders and in what order, so every delivery lands inside its time window, no vehicle is overloaded, and total driving time is as low as possible. That is the Vehicle Routing Problem with Time Windows (VRPTW).
@@ -13,7 +15,7 @@ Four components:
 1. **Dispatcher web app** (React) — import orders, see routes on a map, adjust them manually, publish to drivers.
 2. **Core backend** (Spring Boot + PostgreSQL) — orders, fleets, users, plans, statuses, authentication.
 3. **Optimization service** (Python) — takes stops, time windows, capacities and a travel-time matrix, returns routes. Every solver sits behind one solver interface: Google OR-Tools, which the product runs on, and our own metaheuristic. Travel times come from a self-hosted OSRM engine on Israeli OpenStreetMap data.
-4. **Driver app** (installable mobile web app) — ordered stop list, deep link to Waze, delivered/failed status, proof of delivery.
+4. **Driver app** (React Native, for iOS, Android and the browser) — ordered stop list, deep link to Waze, delivered/failed status, proof of delivery, live location.
 
 The academically interesting core is the optimization, and we build both solvers. OR-Tools is the solver the product runs on, so we always have a working system. Our own metaheuristic, Clarke-Wright savings plus ALNS, sits behind the same interface as a separate, measured part of the project. We aim it at live re-optimization, where it can plausibly win, and benchmark it honestly against OR-Tools and PyVRP.
 
@@ -99,14 +101,14 @@ We agree the values of N and T with the advisor. The results are reported whatev
 
 ## Driver app
 
-A mobile-first installable web app, not a native app:
+A Must. A native React Native app for iOS and Android, also built for the browser from the same codebase:
 
 - Today's route in order
 - Customer details and notes
 - A Navigate button that deep-links to Waze or Google Maps
 - Arrived, delivered and failed buttons, with a reason required on failure
-- Proof of delivery: photo or signature
-- Location pings while the app is open
+- Proof of delivery: photo or signature (Should)
+- Location pings while a route is in progress, in the background too on iOS and Android (the browser build sends them only while it is open)
 
 Status updates flow to the dispatcher's map in real time over WebSocket or server-sent events.
 
@@ -114,7 +116,8 @@ Status updates flow to the dispatcher's map in real time over WebSocket or serve
 
 | Layer | Choice | Why |
 | --- | --- | --- |
-| Frontend | React + TypeScript, Leaflet or MapLibre, installable web app | One codebase for dispatcher and driver views |
+| Dispatcher console | React + TypeScript, Leaflet or MapLibre | The console is a desktop web app (NFR-15) |
+| Driver app | React Native | One codebase for iOS, Android and the browser, with background location on the phones |
 | Backend | Java 21, Spring Boot, Spring Security, JPA | Team familiarity, mature ecosystem |
 | Solver | Python, FastAPI; Google OR-Tools and our own ALNS behind one solver interface | OR-Tools: the mature open-source VRP solver the product runs on. ALNS: our research component |
 | Benchmark reference | PyVRP, used by the benchmark harness only | State-of-the-art open-source reference point |
@@ -122,7 +125,7 @@ Status updates flow to the dispatcher's map in real time over WebSocket or serve
 | Geocoding | Google Geocoding API behind an adapter, cached in DB | Handles Hebrew addresses where free options fail |
 | Database | PostgreSQL, PostGIS optional | Relational data plus geo queries |
 | Infrastructure | Docker Compose, GitHub Actions, one cloud VM | Simple and reproducible |
-| Testing | JUnit, Testcontainers, pytest + Hypothesis, Playwright, k6 | See the testing section |
+| Testing | JUnit, Testcontainers, pytest + Hypothesis, Playwright, k6; the end-to-end tool for the native driver app is open (Q-16) | See the testing section |
 
 Why a separate Python solver: OR-Tools' Python ecosystem and documentation are the richest, algorithm work iterates independently of the backend, and one solver interface inside the service lets us run OR-Tools and our own solver side by side and choose one for each solve. That strategy pattern is a good design point to raise with the advisor. The cost is working in two languages, and we should say we considered it rather than wait to be asked.
 
@@ -143,7 +146,8 @@ Prioritized so the project is clearly the right size, and so scope creep has a w
 - VRPTW solving on OR-Tools with capacities, shifts and dropped-order reporting
 - Map view of routes
 - Publishing routes to drivers
-- Driver app with statuses
+- Driver app with statuses, native on iOS and Android
+- Live driver location
 - Daily summary
 - Mid-day re-optimization
 - Our own ALNS solver with the benchmark study (Phase 2)
@@ -152,7 +156,6 @@ Prioritized so the project is clearly the right size, and so scope creep has a w
 
 - Manual drag-and-drop editing with live violation checks
 - Proof of delivery
-- Live driver location
 - PyVRP as a benchmark reference
 
 **Could**
@@ -164,7 +167,6 @@ Prioritized so the project is clearly the right size, and so scope creep has a w
 **Won't (explicitly out of scope)**
 
 - Live traffic data
-- Native mobile apps
 - Payments
 - Marketplace or crowdsourced drivers
 - Beating OR-Tools on static benchmark instances (we measure the gap instead)
@@ -178,7 +180,7 @@ Prioritized so the project is clearly the right size, and so scope creep has a w
 
 **Integration tests.** Testcontainers spins up real PostgreSQL and OSRM and tests the full path from orders to published routes.
 
-**End-to-end tests.** Playwright covers the dispatcher and driver flows.
+**End-to-end tests.** Playwright covers the dispatcher flows and the driver app's browser build. The tool for the native iOS and Android builds, and how background location is verified on real phones, are still open (Q-16).
 
 **Performance tests.** Solve time and solution quality at 25, 50, 100 and 200 stops. Re-optimization quality at each short time limit for each solver, OR-Tools warm-started against ours. k6 load-tests the API.
 
@@ -199,6 +201,6 @@ This is what the seminar email means by knowing how to deal with the project's c
 | Poor geocoding of Hebrew addresses | Google API, DB caching, manual pin correction saved per customer |
 | No live traffic, so ETAs drift | Time-of-day travel-time multipliers, buffer calibrated against actual arrivals; stated openly as a known limitation |
 | No real customer | Pursue one now; fall back on synthetic Israeli data plus benchmarks |
-| Background location limited on mobile web, especially iOS | Track only while the app is open; use delivery status updates as a location proxy |
+| Phones limit background location, especially iOS | The native app asks for background location and reports while a route is in progress; the browser build tracks only while open. If the driver refuses background permission or the phone stops the app, delivery status updates serve as a location proxy (what the dispatcher is told: Q-15) |
 | Two-language stack | A clear API contract between backend and solver, defined early as an OpenAPI spec |
 | Scope creep | The Must/Should/Could/Won't list, reviewed at each milestone |

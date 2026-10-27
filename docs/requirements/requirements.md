@@ -21,8 +21,8 @@ solution was chosen, see [`../ADRs/`](../ADRs/README.md).
 
 | Code | Source |
 |---|---|
-| P | [Implementation plan](<../init_impl/DeliOpt — Implementation Plan.md>) (the `.txt` next to it is an earlier draft of the same plan). Revised on 2026-10-27 for the solver strategy ([ADR-005](../ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md)) |
-| S*n* | [Initial presentation](../presentation/DispatchFlow_Presentation.pptx), slide *n* counted from the Customer slide: S1 is slide 3 of the file, after the title and team slides, so S*n* is slide *n*+2. Revised on 2026-10-27 for the solver strategy ([ADR-005](../ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md)) |
+| P | [Implementation plan](<../init_impl/DeliOpt — Implementation Plan.md>) (the `.txt` next to it is an earlier draft of the same plan). Revised on 2026-10-27 for the solver strategy ([ADR-005](../ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md)), and on 2026-10-28 for the driver app ([Publishing and the driver app](#publishing-and-the-driver-app), [NFR-15](#nfr-15)) |
+| S*n* | [Initial presentation](../presentation/DispatchFlow_Presentation.pptx), slide *n* counted from the Customer slide: S1 is slide 3 of the file, after the title and team slides, so S*n* is slide *n*+2. Revised on 2026-10-27 for the solver strategy ([ADR-005](../ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md)), and on 2026-10-28 to stop marking the driver client optional ([Publishing and the driver app](#publishing-and-the-driver-app)) |
 | D | Decision of the owner on 2026-10-09 or later, resolving a conflict between P and S or an open question; the linked ADR, or the resolved open question, records it |
 
 **Priorities** use MoSCoW: **Must**, **Should**, **Could**; **Won't** items are listed under
@@ -327,6 +327,9 @@ DispatchFlow deliberately does not:
 
 > Native mobile apps were a non-goal in P. That was reversed on 2026-10-09: the driver app
 > ships for iOS and Android ([ADR-017](../ADRs/ADR-017-driver-app-react-native-expo.md)).
+> P was revised on 2026-10-28 to match: the driver app is native and a Must, and live driver
+> location is a Must. On the same day S4 stopped marking the driver client optional; S
+> carries no priorities.
 
 ## Open questions
 
@@ -348,8 +351,8 @@ All owned by Naim Elijah unless noted.
 | Q-12 | ~~Role permission matrix: which roles may manage fleet, customers and orders, solve, edit, publish, re-optimize.~~ **Resolved** on 2026-10-11: an Admin does everything a Dispatcher does, plus the organization and its users; a Dispatcher runs every operation and reads users; a Driver works their own route only (the matrix under [FR-03](#organization-users-and-roles), [ADR-056](../ADRs/ADR-056-authorize-every-web-handler-by-role.md)). | FR-03 |
 | Q-13 | ~~Tenant-isolation mechanism: application-level filtering, PostgreSQL row-level security, or both.~~ **Resolved** on 2026-10-10: application-level filtering, with keys that carry the organization and no row-level security ([ADR-050](../ADRs/ADR-050-tenant-isolation-by-filtering-and-tenant-keys.md)). | NFR-02 — [ADR-013](../ADRs/ADR-013-multi-tenancy-by-organization.md) |
 | Q-14 | Where proof-of-delivery files are stored; retention periods for pings, photos and signatures; the legal basis for tracking drivers' locations. | FR-30, FR-31, NFR-19 |
-| Q-15 | When location reporting starts and stops, and how often it pings (freshness versus battery). | FR-31 |
-| Q-16 | How the native driver app reaches the pilot's phones (app stores or internal distribution), and which tool runs end-to-end tests on native builds. | FR-31, NFR-15 — [ADR-017](../ADRs/ADR-017-driver-app-react-native-expo.md) |
+| Q-15 | When location reporting starts and stops, and how often it pings (freshness versus battery). What the app does when the driver refuses, limits or later revokes background location permission, and whether the dispatcher is told that the driver's location is unavailable. | FR-31 |
+| Q-16 | How the native driver app reaches the pilot's phones (app stores or internal distribution), and which tool runs end-to-end tests on native builds. How background location reporting (FR-31) is verified on real iOS and Android phones: automated, or a scripted device checklist run before each pilot build. | FR-31, NFR-15 — [ADR-017](../ADRs/ADR-017-driver-app-react-native-expo.md) |
 | Q-17 | Can the DispatchFlow solver, written in Python, reach enough ALNS iterations within the 30-second budget to compete? If not, what changes? (Evidence of 2026-10-10: about 1,800 iterations in 30 s on a 200-stop day, after constant-time insertion checks; see [optimization-engine.md](../architecture/optimization-engine.md#DispatchFlow-solver). Whether that competes is for the benchmarks.) | FR-42, NFR-07, NFR-25 — [ADR-003](../ADRs/ADR-003-separate-python-optimization-service.md) |
 | Q-18 | When to adopt PostGIS — which first feature needs spatial queries. | [ADR-012](../ADRs/ADR-012-postgresql-system-of-record.md) |
 | Q-19 | ~~Which reasons the system can give for a dropped order, and how they are determined.~~ **Resolved** on 2026-10-09 by [ADR-029](../ADRs/ADR-029-plan-lifecycle-publishing-stability-and-drop-reasons.md). | FR-18 |
