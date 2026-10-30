@@ -31,7 +31,8 @@ layout.
 - File name: `ADR-NNN-short-kebab-title.md`, with the next free number, zero-padded.
 - Sections, in this order:
   - the title, `# ADR-NNN: <the decision as a sentence>`;
-  - **Status** (Proposed, Accepted, or Superseded by ADR-NNN) and **Date**;
+  - **Status** (Proposed, Accepted, Accepted; extended by ADR-NNN, or Superseded by ADR-NNN) and
+    **Date**. "Extended by" marks a later ADR that adds to this one without changing course;
   - Context, Decision, Consequences (**Easy:**, **Hard:**, **Cost:**, **Risk:**), Alternatives
     considered, and Revisit when.
 - Record a decision *not* to adopt something too, with the trigger that would reopen it.

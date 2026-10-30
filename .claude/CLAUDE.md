@@ -33,6 +33,20 @@ when you work there ([ADR-018](../docs/ADRs/ADR-018-ai-assistant-context-in-the-
 Keep each file to what an assistant needs in that folder, and never repeat a rule that a parent
 file already states.
 
+## Team agents
+
+`.claude/agents/` holds four subagents, available to everyone
+([ADR-020](../docs/ADRs/ADR-020-team-subagents-in-the-repository.md)). None of them commits or
+pushes. Use them when they fit; a teammate with personal agents for the same jobs may use those
+instead.
+
+| Agent | Use it to |
+|---|---|
+| `df-code-reviewer` | Review a change before it is committed or opened as a pull request |
+| `df-security-reviewer` | Review a change to auth, tenant data, input, secrets, dependencies, CI or images |
+| `df-debugger` | Find the root cause of a bug, a failing test or a red CI job, with a failing test |
+| `df-tester` | Write tests for new or untested behaviour |
+
 ## Commands
 
 The root `justfile` is the only entry point, and CI runs the same recipes. `just` lists them.

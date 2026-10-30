@@ -1,6 +1,6 @@
 # ADR-018: The AI assistant's context lives in the repository
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-020
 - **Date:** 2026-10-30
 
 ## Context

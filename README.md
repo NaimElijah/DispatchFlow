@@ -178,7 +178,8 @@ requirements, architecture and ADRs in the same pull request.
 
 Rules for code, tests and commits are in [.claude/CLAUDE.md](.claude/CLAUDE.md), with backend and
 frontend specifics in `src/backend/CLAUDE.md` and `src/frontend/CLAUDE.md`, and each component's
-own rules and commands in a `CLAUDE.md` inside it. They apply to people and
+own rules and commands in a `CLAUDE.md` inside it. `.claude/agents/` holds four team agents, for
+code review, security review, debugging and tests. The rules apply to people and
 to coding assistants alike.
 
 ## Testing
