@@ -1,6 +1,6 @@
 # ADR-015: CI is one workflow with one job per component, and Dependabot keeps dependencies current
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-021
 - **Date:** 2026-10-30
 
 ## Context

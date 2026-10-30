@@ -22,12 +22,13 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-012](ADR-012-javascript-tooling-npm-eslint-prettier.md) | Both frontend apps use npm, ESLint and Prettier, with TypeScript held at 6.0 | Accepted |
 | [ADR-013](ADR-013-java-tooling-maven-wrapper-and-spotless.md) | The core backend builds with the Maven wrapper and formats with Spotless and palantir-java-format | Accepted |
 | [ADR-014](ADR-014-real-dependencies-in-containers-for-tests-and-local-runs.md) | Integration tests and local runs use a real PostgreSQL in a container | Accepted |
-| [ADR-015](ADR-015-ci-one-workflow-one-job-per-component.md) | CI is one workflow with one job per component, and Dependabot keeps dependencies current | Accepted |
+| [ADR-015](ADR-015-ci-one-workflow-one-job-per-component.md) | CI is one workflow with one job per component, and Dependabot keeps dependencies current | Accepted; extended by ADR-021 |
 | [ADR-016](ADR-016-dependency-audit-with-osv-scanner.md) | One OSV-Scanner pass audits every lockfile, and an accepted vulnerability expires | Accepted |
 | **Project and team** | | |
 | [ADR-017](ADR-017-proprietary-licence.md) | Release the code under a proprietary licence, all rights reserved | Accepted |
 | [ADR-018](ADR-018-ai-assistant-context-in-the-repository.md) | The AI assistant's context lives in the repository | Accepted; extended by ADR-020 |
 | [ADR-020](ADR-020-team-subagents-in-the-repository.md) | Specialised team subagents live in `.claude/agents/`, beside each person's own | Accepted |
+| [ADR-021](ADR-021-dependabot-targets-dev-and-skips-pinned-majors.md) | Dependabot opens its updates against `dev`, and skips the versions other ADRs pin | Accepted |
 | **Deployment** | | |
 | [ADR-019](ADR-019-container-images-run-as-non-root.md) | Each service ships as a container image that runs as a non-root user | Accepted |
 
