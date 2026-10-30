@@ -1,0 +1,47 @@
+[project]
+name = "dispatchflow-solver"
+version = "0.1.0"
+description = "DispatchFlow solver service: solves the routing problems the core backend sends it"
+authors = [
+    { name = "Naim Elijah" },
+    { name = "Shai Manor" },
+    { name = "Bentzion Hadad" },
+]
+# OR-Tools publishes wheels up to Python 3.14 (ADR-010).
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "fastapi>=0.162.0",
+    "uvicorn>=0.54.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.7,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.16.0",
+    "mypy>=2.4.1",
+    "pytest>=9.2.0",
+    "ruff>=0.17.3",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "N", "SIM", "D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+# Test names state their purpose; docstrings on them would repeat it.
+"tests/**" = ["D"]
+
+[tool.mypy]
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--import-mode=importlib", "--strict-markers", "--strict-config"]
