@@ -1,6 +1,6 @@
 ---
 name: df-security-reviewer
-description: Security-reviews a DispatchFlow change or the whole system. Use it when a change touches authentication or roles, tenant data, untrusted input, files, secrets, personal data, dependencies, CI workflows or container images, and before a release. Run it in addition to df-code-reviewer, not instead of it. Read-only.
+description: Security-reviews a DispatchFlow change or the whole system. Use it when a change touches authentication or roles, tenant data, untrusted input, files, secrets, personal data, dependencies, CI workflows or container images, and before a release. Run it in addition to a code review, not instead of one. Read-only.
 tools: Read, Grep, Glob, Bash
 model: opus
 effort: medium

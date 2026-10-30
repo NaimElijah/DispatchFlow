@@ -37,8 +37,14 @@ file already states.
 
 `.claude/agents/` holds four subagents, available to everyone
 ([ADR-020](../docs/ADRs/ADR-020-team-subagents-in-the-repository.md)). None of them commits or
-pushes. Use them when they fit; a teammate with personal agents for the same jobs may use those
-instead.
+pushes.
+
+**Each person's own agents come first**
+([ADR-022](../docs/ADRs/ADR-022-personal-subagents-come-before-team-subagents.md)). When an agent
+in the user's `~/.claude/agents/` does the same job as a team agent, use the user's agent: for
+example, their `code-reviewer` instead of `df-code-reviewer`. Use a team agent only for a job that
+none of the user's own agents covers, or when the user names it. Never give a personal agent a
+`df-` name: Claude Code would load the team agent in its place.
 
 | Agent | Use it to |
 |---|---|
