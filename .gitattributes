@@ -1,0 +1,7 @@
+# LF in the repository and in every working tree, whatever the OS, so that a script checked out
+# on Windows, such as mvnw, still runs in Linux CI and in containers.
+* text=auto eol=lf
+
+# cmd.exe needs CRLF to run a script.
+*.cmd text eol=crlf
+*.bat text eol=crlf

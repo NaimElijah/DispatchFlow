@@ -6,6 +6,16 @@
 .env.*
 !.env.example
 
+# Keys and certificates: they belong in a secret manager, never in the repository
+*.pem
+*.key
+*.p12
+*.jks
+
+# Local logs: the folder is kept, its contents never committed, since logs can hold personal data
+logs/*
+!logs/.gitkeep
+
 # OS files
 .DS_Store
 Thumbs.db
@@ -19,6 +29,12 @@ __pycache__/
 .pytest_cache/
 .hypothesis/
 .coverage
+*.egg-info/
+node_modules/
+.expo/
+dist/
+build/
+coverage/
 
 # IDEs
 .idea/
