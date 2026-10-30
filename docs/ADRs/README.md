@@ -1,14 +1,36 @@
 # DispatchFlow - Architecture Decision Records
 
 One file per decision, named `ADR-NNN-short-kebab-title.md`. Records are append-only. To change
-course, add a new ADR and mark the old one `Superseded by ADR-NNN`.
+course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write one is in
+[`../CLAUDE.md`](../CLAUDE.md#adrs).
 
 | ADR | Decision | Status |
 |---|---|---|
-| [ADR-004](ADR-004-pluggable-solver-port.md) | Every solver behind one solver port, chosen by name for each solve | Accepted |
+| **Architecture** | | |
+| [ADR-001](ADR-001-domain-driven-design-with-hexagonal-architecture.md) | Domain-driven design, with every service built as ports and adapters | Accepted |
+| [ADR-002](ADR-002-core-backend-and-separate-optimization-service.md) | A Java core backend and a separate Python optimization service | Accepted |
+| [ADR-003](ADR-003-dispatcher-console-and-driver-app.md) | Two clients: a React web console and a React Native driver app | Accepted |
+| [ADR-004](ADR-004-pluggable-solver-port.md) | Every solver behind one solver port | Accepted |
 | [ADR-005](ADR-005-or-tools-first-research-solver-for-re-optimization.md) | OR-Tools first, with our own solver as a measured research track aimed at re-optimization | Accepted |
+| [ADR-006](ADR-006-versioned-openapi-contracts.md) | Every API between components is a versioned OpenAPI contract, written first | Accepted |
+| [ADR-007](ADR-007-postgresql-with-flyway-migrations.md) | PostgreSQL is the system of record, and Flyway migrations own its schema | Accepted |
+| **Repository, build and delivery** | | |
+| [ADR-008](ADR-008-monorepo-layout-under-src.md) | One repository, with the code under `src/backend`, `src/frontend` and `src/research` | Accepted |
+| [ADR-009](ADR-009-just-as-the-single-entry-point.md) | The root `justfile` is the single entry point, and CI runs the same recipes | Accepted |
+| [ADR-010](ADR-010-toolchain-pins-in-version-files.md) | Toolchain versions are pinned in per-language version files | Accepted |
+| [ADR-011](ADR-011-python-tooling-uv-ruff-mypy-pytest.md) | Python projects use uv, ruff, mypy in strict mode and pytest | Accepted |
+| [ADR-012](ADR-012-javascript-tooling-npm-eslint-prettier.md) | Both frontend apps use npm, ESLint and Prettier, with TypeScript held at 6.0 | Accepted |
+| [ADR-013](ADR-013-java-tooling-maven-wrapper-and-spotless.md) | The core backend builds with the Maven wrapper and formats with Spotless and palantir-java-format | Accepted |
+| [ADR-014](ADR-014-real-dependencies-in-containers-for-tests-and-local-runs.md) | Integration tests and local runs use a real PostgreSQL in a container | Accepted |
+| [ADR-015](ADR-015-ci-one-workflow-one-job-per-component.md) | CI is one workflow with one job per component, and Dependabot keeps dependencies current | Accepted |
+| [ADR-016](ADR-016-dependency-audit-with-osv-scanner.md) | One OSV-Scanner pass audits every lockfile, and an accepted vulnerability expires | Accepted |
+| **Project and team** | | |
+| [ADR-017](ADR-017-proprietary-licence.md) | Release the code under a proprietary licence, all rights reserved | Accepted |
+| [ADR-018](ADR-018-ai-assistant-context-in-the-repository.md) | The AI assistant's context lives in the repository | Accepted |
+| **Deployment** | | |
+| [ADR-019](ADR-019-container-images-run-as-non-root.md) | Each service ships as a container image that runs as a non-root user | Accepted |
 
 > [!NOTE]
-> Numbering restarted on 2026-10-27 and does not begin at ADR-001: ADR-004 keeps the number
-> that `requirements.md` already cites. The requirements also cite 45 other records, numbered
-> between ADR-003 and ADR-063, that are not in this folder.
+> Numbering restarted at ADR-001 on 2026-10-30. ADR-004 and ADR-005 are older (2026-10-27) and
+> kept their numbers. Several decisions that `requirements.md` relies on have no ADR yet; each is
+> marked `ADR pending: <title>` there until its ADR is written.
