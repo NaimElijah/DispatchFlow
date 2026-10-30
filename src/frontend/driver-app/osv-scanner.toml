@@ -1,0 +1,16 @@
+# Vulnerabilities accepted for a limited time. Each entry expires on its ignoreUntil date, after
+# which the audit fails again and the entry must be fixed, re-justified or removed.
+
+[[IgnoredVulns]]
+id = "GHSA-mrhx-c7xc-m3w5"
+ignoreUntil = 2027-01-31
+reason = """zod 3.25.76 reaches us only through build tooling (@expo/cli, and
+eslint-plugin-react-hooks via eslint-config-expo), never the app bundle, and validates only our
+own config files, not attacker input. The only fix is zod 4, which @expo/cli does not accept."""
+
+[[IgnoredVulns]]
+id = "GHSA-gcqx-w48m-w2h4"
+ignoreUntil = 2027-01-31
+reason = """deepmerge 4.3.1 reaches us only through build and test tooling (@expo/config,
+jest-config), never the app bundle, and merges only our own config objects. No fixed version
+exists."""
