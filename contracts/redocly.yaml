@@ -1,0 +1,8 @@
+extends:
+  - recommended
+
+apis:
+  client-api@v1:
+    root: client-api/v1/openapi.yaml
+  optimization-api@v1:
+    root: optimization-api/v1/openapi.yaml

@@ -1,0 +1,36 @@
+openapi: 3.1.0
+info:
+  title: DispatchFlow optimization API
+  version: 1.0.0
+  description: The API that the solver serves to the core backend.
+  license:
+    name: Proprietary, all rights reserved
+    identifier: LicenseRef-DispatchFlow-Proprietary
+servers:
+  - url: /
+    description: Relative to wherever the solver is deployed.
+paths:
+  /health/liveness:
+    get:
+      operationId: getLiveness
+      summary: Liveness probe
+      description: Answers as long as the solver process is running.
+      security: []
+      responses:
+        '200':
+          description: The solver is running.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Probe'
+components:
+  schemas:
+    Probe:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - UP
