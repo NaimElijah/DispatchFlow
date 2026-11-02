@@ -1,0 +1,10 @@
+# Vulnerabilities accepted for a limited time. Each entry expires on its ignoreUntil date, after
+# which the audit fails again and the entry must be fixed, re-justified or removed.
+
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+ignoreUntil = 2027-01-31
+reason = """minimatch 10.2.6 reaches us only through lint tooling (eslint, typescript-eslint),
+never the app bundle. The denial of service needs optimizationLevel 2, which only glob sets, and
+the console has no glob. The only fix is minimatch 11.0.1 or later, which those packages do not
+accept (ADR-023)."""

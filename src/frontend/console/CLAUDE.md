@@ -12,6 +12,8 @@ The desktop web app for admins and dispatchers. React 19, TypeScript 6.0, Vite 8
 
 - It is a desktop app ([ADR-003]). Lay it out for a desktop screen; it does not need to work on
   a phone.
+- `osv-scanner.toml` holds the one vulnerability the audit ignores here, until 2027-01-31
+  ([ADR-023]).
 
 ## Tests
 
@@ -31,3 +33,4 @@ Run `just` recipes from the repository root, and `npm` or `npx` from this folder
 | `npx vitest run src/App.test.tsx` | One test file                                                  |
 
 [ADR-003]: ../../../docs/ADRs/ADR-003-dispatcher-console-and-driver-app.md
+[ADR-023]: ../../../docs/ADRs/ADR-023-accept-minimatch-and-glob-advisories.md

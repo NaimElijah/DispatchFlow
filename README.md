@@ -260,9 +260,11 @@ Known limitations:
 
 - Nothing is deployed; there is no staging or production environment yet.
 - `docker compose` is not set up; each component runs on its own until a service needs another.
-- Two vulnerabilities in the driver app's build tooling are ignored by the audit until
-  2027-01-31, pending the owner's review; the reasons are in
-  `src/frontend/driver-app/osv-scanner.toml` ([ADR-016](docs/ADRs/ADR-016-dependency-audit-with-osv-scanner.md)).
+- Four vulnerabilities in the frontends' build, lint and test tooling are ignored by the audit
+  until 2027-01-31. The zod and deepmerge entries still await the owner's review. The reasons are
+  in `src/frontend/console/osv-scanner.toml` and `src/frontend/driver-app/osv-scanner.toml`
+  ([ADR-016](docs/ADRs/ADR-016-dependency-audit-with-osv-scanner.md),
+  [ADR-023](docs/ADRs/ADR-023-accept-minimatch-and-glob-advisories.md)).
 
 ## Contributing
 
