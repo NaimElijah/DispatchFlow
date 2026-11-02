@@ -183,13 +183,17 @@ src/research/
 
 A Vite project. `src/main.tsx` mounts `src/App.tsx`, which renders a heading. `src/test/setup.ts`
 configures Vitest. The configuration files (`vite.config.ts`, `tsconfig*.json`,
-`eslint.config.js`, `.prettierrc.json`) sit at the project root.
+`eslint.config.js`, `.prettierrc.json`) sit at the project root. `osv-scanner.toml` lists the
+vulnerability the audit ignores there, with its reason and an expiry date
+([ADR-023](../ADRs/ADR-023-accept-minimatch-and-glob-advisories.md)).
 
 ### `src/frontend/driver-app`
 
 An Expo project. `index.ts` registers `App.tsx`, which renders a heading. `app.json`
 and `assets/` hold the Expo configuration and icons. `osv-scanner.toml` lists the vulnerabilities
-the audit ignores, each with a reason and an expiry date, pending the owner's review.
+the audit ignores, each with a reason and an expiry date. The zod and deepmerge entries still
+await the owner's review ([ADR-016](../ADRs/ADR-016-dependency-audit-with-osv-scanner.md),
+[ADR-023](../ADRs/ADR-023-accept-minimatch-and-glob-advisories.md)).
 
 The two apps share no code. The API client in each will be generated from
 `contracts/client-api/v1`.

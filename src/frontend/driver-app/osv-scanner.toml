@@ -14,3 +14,22 @@ ignoreUntil = 2027-01-31
 reason = """deepmerge 4.3.1 reaches us only through build and test tooling (@expo/config,
 jest-config), never the app bundle, and merges only our own config objects. No fixed version
 exists."""
+
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+ignoreUntil = 2027-01-31
+reason = """minimatch 3.1.5, 9.0.9 and 10.2.6 reach us only through build, lint and test tooling,
+for example eslint, jest and glob, never an app bundle. The denial of service needs
+optimizationLevel 2, which only glob sets, and an attacker-supplied pattern. Those glob calls take
+literals, repository config or command-line arguments, and 3.1.5 does not contain the flawed code.
+The only fix is minimatch 11.0.1 or later, which those packages do not accept (ADR-023)."""
+
+[[IgnoredVulns]]
+id = "GHSA-3g3m-2fjr-6pw4"
+ignoreUntil = 2027-01-31
+reason = """glob 10.5.0 and 13.0.6 reach us only through build and test tooling, for example
+@expo/cli and jest, never an app bundle. The flaw needs a caller that aborts a walk. The one live
+caller is the TypeScript check in @expo/cli (AbortSignal.timeout(5000)), which expo start and
+expo run reach only when tsconfig.json is missing, and we commit one. If it ever ran, its pattern
+is fixed and it walks only the developer's own project. The only fix is glob 14.0.2 or later, which
+those packages do not accept (ADR-023)."""
