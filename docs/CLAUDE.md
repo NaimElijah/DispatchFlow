@@ -16,13 +16,15 @@ layout.
 
 ## Requirements
 
-- Every row has a stable ID: `FR-`, `BR-`, `NFR-` or `Q-`. Never renumber or reuse an ID;
+- Every row has a stable ID: `FR-`, `BR-`, `NFR-`, `Q-` or `UC-`. Never renumber or reuse an ID;
   ADRs, tests and issues cite them.
 - *Size* is XS, S, M, L or XL, set by the team when it sizes the work. Leave it blank until then.
 - *Enforced by* stays blank until the requirement is implemented. Then it names the test that
   enforces the row, in the same pull request as the code.
 - `ADR pending: <title>` marks a decision the requirements rely on that has no ADR yet. When the
   ADR is written, replace the marker with a link to it.
+- `UC-` rows trace a process to the rows it exercises. They carry no priority, size or
+  *Enforced by*; NFR-83 is what tests them.
 - Behaviour found in code is not a requirement until the team agrees it is. When something is
   unknown, mark it `TODO` and ask.
 
