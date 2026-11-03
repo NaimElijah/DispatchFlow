@@ -9,7 +9,9 @@ solution was chosen, see [`../ADRs/`](../ADRs/README.md).
 until the team sizes and implements each requirement; *Enforced by* then names the test that
 enforces it. Rows numbered FR-52, BR-23, NFR-26 and Q-31 onward came from a gap analysis on
 2026-11-02, as did the last five non-goals. They are proposals until the team approves them under issue #3, and `(proposed)`
-marks a priority the team has not confirmed.
+marks a priority the team has not confirmed. On 2026-11-03 the business rules were grouped by
+subject and NFR-27, NFR-45 and NFR-46 moved to a new usability section, without changing their text,
+except that BR-16 now names the rules it called "above".
 
 ## Purpose and scope
 
@@ -270,46 +272,85 @@ organization is always the caller's own.
 
 ## Business rules and invariants
 
+Rules are grouped by subject; their IDs are unchanged.
+
+### Tenancy and access
+
 | ID | Rule | Size | Enforced by |
 |---|---|---|---|
 | BR-01 | **Tenant isolation.** Every entity belongs to exactly one organization. No user can read or change another organization's data. |  |  |
 | BR-02 | **Driver scope.** A Driver can see and update only the stops of routes assigned to them. (See also BR-27 and Q-35.) |  |  |
+| BR-19 | **At least one Admin.** An organization always keeps at least one Admin: the role of its only Admin cannot be changed. An Admin who wants to step down first makes another user an Admin. (See also FR-53.) |  |  |
+
+### Routing constraints
+
+| ID | Rule | Size | Enforced by |
+|---|---|---|---|
 | BR-03 | **Time windows.** Service at a stop starts inside its order's time window. A vehicle that arrives early waits. An order's window defaults to its customer's default window. (See also BR-23 and Q-32.) |  |  |
 | BR-04 | **Service time.** Each stop occupies the vehicle for the order's service duration, which counts toward the arrival time at the next stop. |  |  |
 | BR-05 | **Capacity.** On every route, the total weight demand never exceeds the vehicle's weight capacity, and the total volume demand never exceeds its volume capacity. Capacities are positive in both dimensions; demands are zero or more. |  |  |
 | BR-06 | **Shifts.** A route leaves no earlier than its driver's shift start and returns to its end depot no later than the shift end. |  |  |
+| BR-14 | **Routable orders only.** An order can be planned only when its customer has coordinates. |  |  |
+
+### Solving, dropping and validation
+
+| ID | Rule | Size | Enforced by |
+|---|---|---|---|
 | BR-07 | **Single assignment.** Within a plan, every order is either served by exactly one stop or reported as dropped — never both, never twice. (See also BR-30.) |  |  |
 | BR-08 | **Dropping.** An order is dropped only when not every order can be served. Priority is a whole number from 1 to 5, and dropping follows it strictly: a higher-priority order is never dropped to save any number of lower-priority orders, and among orders of one priority the fewest are dropped. (See also Q-43 and Q-51.) |  |  |
 | BR-09 | **Objective.** A solve minimizes total travel time plus drop penalties, plus the fixed vehicle cost when enabled ([FR-21](#daily-planning)). A re-optimization also adds a route-stability penalty ([FR-37](#live-operations-and-re-optimization)). |  |  |
-| BR-10 | **Locked stops.** Re-optimization never moves a completed or in-progress stop. Each vehicle's current location becomes its new starting point. (See also BR-24 and Q-52.) |  |  |
-| BR-11 | **Failure reason.** A stop cannot be marked *failed* without a reason. (See also Q-47.) |  |  |
-| BR-12 | **Plan lifecycle.** A plan moves `draft → solving → ready → published → completed`. A failed solve returns it to `draft`, or to `ready` if it was solved before; a ready plan may be solved again. Manual edits keep a plan `ready`; an accepted re-optimization keeps it `published` and changes it in place. No other transition exists; there is no cancel. (See also BR-26, BR-32 and Q-46.) |  |  |
-| BR-13 | **Corrected locations win.** A location a dispatcher corrected by hand overrides any geocoding result for that customer. (See also Q-53.) |  |  |
-| BR-14 | **Routable orders only.** An order can be planned only when its customer has coordinates. |  |  |
 | BR-15 | **Validated solutions only.** No solution — from either solver, or from a re-optimization — is stored as a plan or shown as feasible unless the independent feasibility validator accepts it. A solution the validator rejects fails its solve job and lists the violations. |  |  |
-| BR-16 | **Edits are flagged, never silently fixed.** A manual edit that breaks a rule above is kept as the dispatcher made it and flagged with every violation. |  |  |
+
+### Plan lifecycle and publishing
+
+| ID | Rule | Size | Enforced by |
+|---|---|---|---|
+| BR-12 | **Plan lifecycle.** A plan moves `draft → solving → ready → published → completed`. A failed solve returns it to `draft`, or to `ready` if it was solved before; a ready plan may be solved again. Manual edits keep a plan `ready`; an accepted re-optimization keeps it `published` and changes it in place. No other transition exists; there is no cancel. (See also BR-26, BR-32 and Q-46.) |  |  |
+| BR-16 | **Edits are flagged, never silently fixed.** A manual edit that breaks any of BR-01 to BR-15 is kept as the dispatcher made it and flagged with every violation. |  |  |
 | BR-17 | **No publishing with violations.** A plan with any flagged violation cannot be published; the dispatcher fixes it or solves again first. |  |  |
-| BR-18 | **Outcomes are final.** A delivery moves `pending → arrived → delivered` or `failed`, and may skip *arrived*. Once *delivered* or *failed* is recorded, it cannot change. (See also BR-28 and Q-33.) |  |  |
-| BR-19 | **At least one Admin.** An organization always keeps at least one Admin: the role of its only Admin cannot be changed. An Admin who wants to step down first makes another user an Admin. (See also FR-53.) |  |  |
 | BR-20 | **Published as solved.** A plan is published only while every route can still be driven as it was solved: its van is not marked unavailable, has a driver who holds the Driver role, and that driver is the route's. Otherwise nothing is published, every changed van is named, and the dispatcher solves again. Other changes since the solve, to a driver's shift, a van's capacity or its depots, are caught by BR-21. Accepting a re-optimization applies the same rule to every van the proposal keeps driving, skipping vans withdrawn mid-route, and refuses, naming every changed van, so the dispatcher re-optimizes again (ADR pending: check the vans when a re-optimization is accepted). (See also FR-53, FR-55 and FR-82.) |  |  |
 | BR-21 | **Rules hold at publishing.** Before a ready plan is published, every route is re-checked once by the shared validator against the current fleet and orders of its date: shifts, capacities, depots and time windows. If a route breaks a rule, nothing is published, every broken rule is listed, and the dispatcher solves again or edits the route. When nothing breaks, the re-checked times are published: they equal the solved times unless the fleet changed since the solve, and then they follow it. An order the plan does not account for refuses before it (BR-22). Violations already flagged refuse first (BR-17), without a re-check, and a plan without routes needs none. If the re-check cannot run, nothing is published. |  |  |
 | BR-22 | **Every order accounted for at publishing.** A plan is published only when it serves or drops every order of its date. An order placed after the solve was requested refuses publishing: nothing is published, every such order is named, and the dispatcher solves again. Changed vans (BR-20) are reported first; flagged violations (BR-17) and the re-check (BR-21) come after. Orders placed after publishing enter through re-optimization (FR-11). (See also BR-30.) |  |  |
+| BR-32 | **No plan stays `solving`.** A solve that has started and has not returned within its limit plus a fixed margin fails, as does one running when a restart interrupts it. The limit runs from the solve's start, and a queued solve still waits its turn ([NFR-12](#nfr-12)). [BR-12](#business-rules-and-invariants)'s failed-solve transition then applies. (Margin: [Q-21](#open-questions). ADR pending: solve job timeout) |  |  |
+| BR-34 | **One plan per organization per date.** An organization has at most one plan for a date. This binds what [Scope](#purpose-and-scope) states. |  |  |
+| BR-38 | **One change at a time.** A plan has at most one re-optimization at a time, and two dispatchers cannot silently overwrite each other's changes to a plan: the second request or the out-of-date change is refused with its reason. (Whether an open preview counts as a re-optimization: [Q-58](#open-questions).) (ADR pending: concurrent changes to a plan) |  |  |
+
+### Re-optimization
+
+| ID | Rule | Size | Enforced by |
+|---|---|---|---|
+| BR-10 | **Locked stops.** Re-optimization never moves a completed or in-progress stop. Each vehicle's current location becomes its new starting point. (See also BR-24 and Q-52.) |  |  |
 | BR-23 | **Facts are not violations.** Times already recorded are facts. When a re-optimization is validated ([BR-15](#business-rules-and-invariants)), [BR-03](#business-rules-and-invariants), [BR-04](#business-rules-and-invariants) and [BR-06](#business-rules-and-invariants) apply only to what has not happened yet, so a locked stop that ran late never fails the solution. (ADR pending: validator and reoptimization problem conventions) |  |  |
 | BR-24 | **Start point without a usable position.** If a vehicle has no position newer than the freshness limit, or its latest position is outside the service area or implies an impossible speed, re-optimization starts it from the last stop it reported, or from its start depot if it reported none. The preview names that vehicle. (Freshness limit: [Q-15](#open-questions). Speed: [Q-73](#open-questions).) GPS interference placed phones in Israel abroad in 2024 ([Ynet](https://www.ynetnews.com/article/rko9utojc)). (ADR pending: validator and reoptimization problem conventions) |  |  |
 | BR-25 | **Accepting re-checks recorded outcomes.** Accepting a re-optimization re-checks it against every stop status, cancellation, order change, hand-over and fleet change recorded since the preview. If the proposal would move or drop a stop that changed, or relies on an order, van or driver that changed, nothing is applied, what changed is named, and the dispatcher re-optimizes. A report on a stop the proposal leaves on the same van and in the same order does not refuse it, and the report stands. (How old a preview may be: [Q-58](#open-questions).) (ADR pending: check recorded changes when a re-optimization is accepted) |  |  |
 | BR-26 | **A failed re-optimization changes nothing.** A re-optimization that fails, is rejected by the validator or is declined leaves the plan `published` and every route as it was. A re-optimization that has not returned within its limit plus a fixed margin, or that a restart interrupts, has failed. The dispatcher is told why. (The limit, when it starts, and the margin: [Q-21](#open-questions).) |  |  |
+
+### Driver reports and outcomes
+
+| ID | Rule | Size | Enforced by |
+|---|---|---|---|
+| BR-11 | **Failure reason.** A stop cannot be marked *failed* without a reason. (See also Q-47.) |  |  |
+| BR-18 | **Outcomes are final.** A delivery moves `pending → arrived → delivered` or `failed`, and may skip *arrived*. Once *delivered* or *failed* is recorded, it cannot change. (See also BR-28 and Q-33.) |  |  |
 | BR-27 | **Outcomes outlive route changes.** An outcome a driver recorded while the stop was on their route is accepted however late it arrives, even if the stop has moved since (an exception to [BR-02](#business-rules-and-invariants)), unless the stop already has a recorded outcome or its order is cancelled; then [BR-28](#business-rules-and-invariants) applies. The stop leaves the other driver's route, that driver is told, and the dispatcher is alerted. (Whether this default stands, and who resolves a conflict: [Q-64](#open-questions). ADR pending: driver report sync and idempotency) |  |  |
 | BR-28 | **Repeated reports are harmless.** A report received twice takes effect once, and the repeat is answered as a success. A report contradicting a recorded outcome, or arriving for a cancelled order, is refused and shown to the dispatcher. (The default until [Q-64](#open-questions) is answered.) (ADR pending: driver report sync and idempotency) |  |  |
 | BR-29 | **Stops may be done out of order.** A driver can report a route's stops in a different order from the plan. The system records the actual order, and re-optimization treats those stops as done in that order. The start point stays [BR-10](#business-rules-and-invariants) and [BR-24](#business-rules-and-invariants). |  |  |
+
+### Orders, records and history
+
+| ID | Rule | Size | Enforced by |
+|---|---|---|---|
+| BR-13 | **Corrected locations win.** A location a dispatcher corrected by hand overrides any geocoding result for that customer. (See also Q-53.) |  |  |
 | BR-30 | **Cancelled orders.** A cancelled order is neither served nor dropped: [BR-07](#business-rules-and-invariants), [BR-22](#business-rules-and-invariants), on-time figures and the baseline no longer count it. An order whose current stop has been reported cannot be cancelled. |  |  |
-| BR-31 | **Israel local time.** Every date, time window, shift and ETA is Israel local time, on clock-change days too. A plan's date is the local calendar date. (An hour the clock skips or repeats: [Q-73](#open-questions). ADR pending: Israel local time) |  |  |
-| BR-32 | **No plan stays `solving`.** A solve that has started and has not returned within its limit plus a fixed margin fails, as does one running when a restart interrupts it. The limit runs from the solve's start, and a queued solve still waits its turn ([NFR-12](#nfr-12)). [BR-12](#business-rules-and-invariants)'s failed-solve transition then applies. (Margin: [Q-21](#open-questions). ADR pending: solve job timeout) |  |  |
 | BR-33 | **Order states.** An order is *unplanned*, *planned*, *dropped*, *delivered*, *failed* or *cancelled*. A state changes only through the actions that other rows define ([FR-17](#daily-planning), [FR-18](#daily-planning), [FR-29](#publishing-and-the-driver-app), [FR-36](#live-operations-and-re-optimization), [FR-57](#customers-and-orders), [FR-58](#customers-and-orders), [FR-73](#live-operations-and-re-optimization), [FR-75](#live-operations-and-re-optimization)), and [BR-30](#business-rules-and-invariants) still applies. [BR-18](#business-rules-and-invariants) governs a stop's outcome. An order leaves *failed* only through [FR-75](#live-operations-and-re-optimization). It leaves *dropped* through [FR-75](#live-operations-and-re-optimization), when a ready plan is solved again ([BR-12](#business-rules-and-invariants)), when its date changes ([FR-57](#customers-and-orders)), when it is cancelled ([FR-58](#customers-and-orders)), when a late report is accepted ([BR-27](#business-rules-and-invariants)), or when a dispatcher records its outcome ([FR-73](#live-operations-and-re-optimization)). |  |  |
-| BR-34 | **One plan per organization per date.** An organization has at most one plan for a date. This binds what [Scope](#purpose-and-scope) states. |  |  |
 | BR-35 | **Valid order data.** An order's time window starts before it ends and lies on the order's date. Its service duration is not negative. An order with invalid data is refused with its reason. (Windows that cross midnight: [FR-114](#later-capabilities). An order on a past date, or on a date whose plan is completed: [Q-46](#open-questions).) |  |  |
-| BR-36 | **Limits are enforced.** Adding a sixteenth vehicle to an organization is refused, and the message names the limit ([NFR-04](#nfr-04)). A date's orders are held to the limit of [NFR-05](#nfr-05) the same way. (What counts toward it, and where it is refused: [Q-70](#open-questions). ADR pending: hard limits on fleet and plan size) |  |  |
 | BR-37 | **History stays.** A plan that is completed, or whose date has passed, keeps the values it was solved and reported with, after the fleet or a customer changes. Editing a van does not rewrite an old report. (ADR pending: past plans keep their values) |  |  |
-| BR-38 | **One change at a time.** A plan has at most one re-optimization at a time, and two dispatchers cannot silently overwrite each other's changes to a plan: the second request or the out-of-date change is refused with its reason. (Whether an open preview counts as a re-optimization: [Q-58](#open-questions).) (ADR pending: concurrent changes to a plan) |  |  |
+
+### Time and limits
+
+| ID | Rule | Size | Enforced by |
+|---|---|---|---|
+| BR-31 | **Israel local time.** Every date, time window, shift and ETA is Israel local time, on clock-change days too. A plan's date is the local calendar date. (An hour the clock skips or repeats: [Q-73](#open-questions). ADR pending: Israel local time) |  |  |
+| BR-36 | **Limits are enforced.** Adding a sixteenth vehicle to an organization is refused, and the message names the limit ([NFR-04](#nfr-04)). A date's orders are held to the limit of [NFR-05](#nfr-05) the same way. (What counts toward it, and where it is refused: [Q-70](#open-questions). ADR pending: hard limits on fleet and plan size) |  |  |
 
 ## Non-functional requirements
 
@@ -386,12 +427,17 @@ research track, and their values are not yet agreed ([Q-40](#open-questions)).
 |---|---|---|---|
 | <a id="nfr-15"></a>NFR-15 | The dispatcher console is a desktop web app. The driver app runs on iOS, Android and in a browser, built from one codebase. |  |  |
 | <a id="nfr-16"></a>NFR-16 | Every server-side component starts with one Docker Compose command. CI builds and tests every change. |  |  |
-| <a id="nfr-27"></a>NFR-27 | Every screen of the console and the driver app is available in Hebrew, laid out right to left, and in English. Mixed text such as addresses with numbers keeps its correct reading order, checked against a stated list of sample strings. (ADR pending: interface languages. Further languages: [Q-44](#open-questions).) |  |  |
 | <a id="nfr-44"></a>NFR-44 | The server states the oldest supported version of the driver app. A version below it tells the driver to update, and every other version keeps working ([NFR-21](#nfr-21)). (Range, and a below-minimum app in the middle of a route: [Q-73](#open-questions). ADR pending: supported driver app versions) |  |  |
-| <a id="nfr-45"></a>NFR-45 | The driver app needs no action while the vehicle is moving, can be used one-handed, and is readable in sunlight. No prompt hides the route until the driver answers it, and that includes [FR-97](#publishing-and-the-driver-app)'s confirmation. Checked by hand on real phones with a scripted checklist before each pilot build ([Q-16](#open-questions)). |  |  |
-| <a id="nfr-46"></a>NFR-46 | Both clients meet WCAG 2.2 level AA: automated checks in CI, and a manual audit of the rest before the pilot. (Whether [IS 5568](https://www.boia.org/blog/israels-digital-accessibility-laws-an-overview), the Israeli web-accessibility standard, which that page says follows WCAG 2.0 AA, applies, and to which client: [Q-59](#open-questions). ADR pending: security and accessibility standards) |  |  |
 | <a id="nfr-47"></a>NFR-47 | A full shift of location reporting ([FR-31](#publishing-and-the-driver-app)) stays within a stated battery limit, measured on real phones ([Q-16](#open-questions)). (Limit: [Q-38](#open-questions).) |  |  |
 | <a id="nfr-52"></a>NFR-52 | The monthly running cost stays within a stated budget, checked against the bill each pilot month, and geocoding has a per-organization cap. (Budget, and how many organizations share one VM: [Q-62](#open-questions). The cap and what happens past it: [Q-73](#open-questions). Whether open sign-up stays: [Q-41](#open-questions).) |  |  |
+
+### Usability, accessibility and localization
+
+| ID | Requirement | Size | Enforced by |
+|---|---|---|---|
+| <a id="nfr-27"></a>NFR-27 | Every screen of the console and the driver app is available in Hebrew, laid out right to left, and in English. Mixed text such as addresses with numbers keeps its correct reading order, checked against a stated list of sample strings. (ADR pending: interface languages. Further languages: [Q-44](#open-questions).) |  |  |
+| <a id="nfr-45"></a>NFR-45 | The driver app needs no action while the vehicle is moving, can be used one-handed, and is readable in sunlight. No prompt hides the route until the driver answers it, and that includes [FR-97](#publishing-and-the-driver-app)'s confirmation. Checked by hand on real phones with a scripted checklist before each pilot build ([Q-16](#open-questions)). |  |  |
+| <a id="nfr-46"></a>NFR-46 | Both clients meet WCAG 2.2 level AA: automated checks in CI, and a manual audit of the rest before the pilot. (Whether [IS 5568](https://www.boia.org/blog/israels-digital-accessibility-laws-an-overview), the Israeli web-accessibility standard, which that page says follows WCAG 2.0 AA, applies, and to which client: [Q-59](#open-questions). ADR pending: security and accessibility standards) |  |  |
 
 ### Compliance and personal data
 
