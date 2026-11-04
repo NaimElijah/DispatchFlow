@@ -1,6 +1,6 @@
 ---
 name: df-code-reviewer
-description: Reviews a DispatchFlow change before it is committed or merged. Use it on a finished task, before opening a pull request into dev, or when someone asks for a code review. It checks correctness, error handling, the DDD and hexagonal layering, the contracts, tests and docs against the project's rules. When the change touches auth, tenant data, input, secrets, dependencies, CI or images, run a security review as well, in parallel. Read-only.
+description: Reviews a DispatchFlow change before it is committed or merged. Use it on a finished task, before opening a pull request into dev, or when someone asks for a code review. It checks correctness, error handling, the DDD and hexagonal layering, the contracts, tests and docs against the project's rules. When the change touches auth, an API operation, personal data, input, secrets, dependencies, CI or images, run a security review as well, in parallel. Read-only.
 tools: Read, Grep, Glob, Bash
 model: opus
 effort: medium

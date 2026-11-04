@@ -1,6 +1,6 @@
 # ADR-006: Every API between components is a versioned OpenAPI contract, written first
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-026
 - **Date:** 2026-10-30
 
 ## Context

@@ -3,7 +3,7 @@
 > Draft for the team to agree on (#1). Until then, raise anything you disagree with at the team
 > meeting rather than working around it.
 
-DispatchFlow plans and re-plans daily delivery routes for small fleets. What it must do is in
+DispatchFlow plans and re-plans daily delivery routes for one delivery company. What it must do is in
 `docs/requirements/requirements.md`; how it is built is in `docs/architecture/`; why each
 decision was taken is in `docs/ADRs/`. Read the relevant parts before proposing work.
 
@@ -49,7 +49,7 @@ none of the user's own agents covers, or when the user names it. Never give a pe
 | Agent | Use it to |
 |---|---|
 | `df-code-reviewer` | Review a change before it is committed or opened as a pull request |
-| `df-security-reviewer` | Review a change to auth, tenant data, input, secrets, dependencies, CI or images |
+| `df-security-reviewer` | Review a change to auth, API operations, personal data, input, secrets, dependencies, CI or images |
 | `df-debugger` | Find the root cause of a bug, a failing test or a red CI job, with a failing test |
 | `df-tester` | Write tests for new or untested behaviour |
 
