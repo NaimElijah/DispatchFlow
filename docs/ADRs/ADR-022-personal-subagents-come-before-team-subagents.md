@@ -1,6 +1,6 @@
 # ADR-022: Each person's own subagents come before the team's
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-025
 - **Date:** 2026-10-30
 
 ## Context
