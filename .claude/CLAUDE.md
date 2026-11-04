@@ -53,6 +53,21 @@ none of the user's own agents covers, or when the user names it. Never give a pe
 | `df-debugger` | Find the root cause of a bug, a failing test or a red CI job, with a failing test |
 | `df-tester` | Write tests for new or untested behaviour |
 
+## Team skills
+
+`.claude/skills/` holds three skills for the branch workflow, available to everyone
+([ADR-025](../docs/ADRs/ADR-025-team-skills-in-the-repository.md)). Only a person can start one, by
+typing its command.
+
+| Command | Use it to |
+|---|---|
+| `/finished-work-on-branch-and-making-pr-to-dev` | Commit finished work, merge the latest `dev`, review and fix, run `just check`, push, and open a pull request into `dev` |
+| `/sync-with-dev` | Merge the latest `dev` into your branch in the middle of work |
+| `/fix-pr-feedback` | Act on the review comments on your pull request, push, and reply to them |
+
+`/finished-work-on-branch-and-making-pr-to-dev` runs `df-code-reviewer`, and `df-security-reviewer` when
+the change calls for it, even if you have agents of your own.
+
 ## Commands
 
 The root `justfile` is the only entry point, and CI runs the same recipes. `just` lists them.
