@@ -2,7 +2,7 @@
 
 # DispatchFlow
 
-**Daily delivery-route planning and live re-planning for small fleets of 2–15 vehicles.**
+**Daily delivery-route planning and live re-planning for one delivery company with 2–15 vehicles.**
 
 [![CI](https://github.com/NaimElijah/DispatchFlow/actions/workflows/ci.yml/badge.svg)](https://github.com/NaimElijah/DispatchFlow/actions/workflows/ci.yml)
 
@@ -12,9 +12,9 @@
 
 ## What and why
 
-Small delivery businesses (pharmacies, florists, bakeries, local couriers) still plan routes by
-hand, in spreadsheets or in the dispatcher's head. The result is extra kilometres, missed delivery
-windows, and no way to adapt when a van breaks down at 10:00. DispatchFlow assigns the day's
+DispatchFlow is built for one delivery company. Planning routes by hand, in spreadsheets or in the
+dispatcher's head costs extra kilometres and missed delivery windows, with no way to adapt when a
+van breaks down at 10:00. DispatchFlow assigns the day's
 orders to vehicles and orders each route so that every delivery lands in its time window and no
 vehicle exceeds its capacity or its driver's shift. During the day it re-plans the remaining
 stops when something goes wrong. Underneath, this is the Vehicle Routing Problem with Time
@@ -22,7 +22,8 @@ Windows, solved with Google OR-Tools and with our own Clarke-Wright + ALNS solve
 research track.
 
 It deliberately does not use live traffic data, handle payments, provide turn-by-turn navigation
-(the driver app hands off to Waze or Google Maps), or serve enterprise-scale fleets.
+(the driver app hands off to Waze or Google Maps), or serve more than one company or
+enterprise-scale fleets.
 
 > [!IMPORTANT]
 > **Pre-alpha: the repository holds working skeletons, not features yet.** Every component builds
@@ -94,7 +95,7 @@ flowchart LR
 ```
 
 - **Core backend** (`src/backend/core`) is the system of record and the only API the clients
-  call. It owns organizations, fleets, orders, plans and their lifecycle.
+  call. It owns users, fleets, orders, plans and their lifecycle.
 - **Solver** (`src/backend/solver`) turns a routing problem into routes. Every solver sits behind
   one `Solver` port and is chosen by name; every solution passes a shared feasibility validator
   before it leaves the service ([ADR-004](docs/ADRs/ADR-004-pluggable-solver-port.md)).
@@ -252,7 +253,7 @@ linter, tests and CI job; the two contracts; the solver's and the core backend's
 and in the core, a placeholder `example` context that shows the DDD and hexagonal layers, to be
 removed once the first real context exists (#5).
 
-Planned, in the order of the [requirements](docs/requirements/requirements.md): organizations,
+Planned, in the order of the [requirements](docs/requirements/requirements.md):
 users and roles; fleet, customers and orders; the daily solve on OR-Tools; the route map;
 publishing to drivers and the driver app's stop flow; live tracking and re-optimization; and our
 own solver with its benchmark study.

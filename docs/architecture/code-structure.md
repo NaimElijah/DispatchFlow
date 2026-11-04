@@ -215,7 +215,7 @@ Unit and integration tests stay inside their component, where each tool looks fo
 ([`src/frontend/CLAUDE.md`](../../src/frontend/CLAUDE.md)), and [NFR-10] calls for k6 for load
 tests.
 
-The rule is that each side of a contract is tested against it ([NFR-21]). No test does that
+The rule is that each side of a contract is tested against it ([NFR-162]). No test does that
 yet.
 
 `just <component>-check` runs a component's tests with its format and lint checks, and
@@ -238,4 +238,4 @@ Only the PyVRP rule is checked by a test today. The others are conventions that 
 enforces; no tool such as ArchUnit or import-linter is configured.
 
 [NFR-10]: ../requirements/requirements.md#nfr-10
-[NFR-21]: ../requirements/requirements.md#nfr-21
+[NFR-162]: ../requirements/requirements.md#nfr-162

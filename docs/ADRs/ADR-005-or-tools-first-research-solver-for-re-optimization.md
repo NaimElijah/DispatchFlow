@@ -1,6 +1,6 @@
 # ADR-005: OR-Tools first, with our own solver as a measured research track aimed at re-optimization
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-029, which fixes the study's values this ADR left open
 - **Date:** 2026-10-27
 - **Research track owner:** Naim Elijah
 

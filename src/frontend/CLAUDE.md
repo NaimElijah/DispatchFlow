@@ -24,8 +24,8 @@ DispatchFlow's two clients ([ADR-003]). Both talk only to `src/backend/core`, th
 ## Tests
 
 - Unit tests sit next to the code they test, named Given/When/Then.
-- Browser end-to-end tests for both apps will live in `/tests/e2e`. The tool for native builds
-  is not chosen yet.
+- Browser end-to-end tests for both apps will live in `/tests/e2e`. Native builds get no
+  automated UI tests: they are checked by hand on real phones (ADR-028, NFR-140).
 
 ## Format and lint
 
