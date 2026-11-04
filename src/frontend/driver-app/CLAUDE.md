@@ -16,7 +16,7 @@ Expo SDK 58, React Native 0.88, React 19, TypeScript 6.0, npm.
   tooling under `devDependencies`.
 - The browser build is a real target ([ADR-003]). A feature that only a phone can offer must
   degrade in the browser. For example, the browser build reports location only while it is open
-  (FR-31).
+  (FR-243), and it needs a connection (FR-326).
 - `tsconfig.json` sets `"types": ["jest"]`, because TypeScript 6 no longer loads every
   installed `@types` package by default. A new global type package goes into that list.
 - `osv-scanner.toml` lists the vulnerabilities the audit ignores, each with a reason and an
@@ -27,7 +27,8 @@ Expo SDK 58, React Native 0.88, React 19, TypeScript 6.0, npm.
 
 - Jest through `jest-expo`, with React Native Testing Library.
 - Query the screen by role, label or text, never by component internals.
-- The tool for end-to-end tests on native builds is not chosen yet (Q-16).
+- End-to-end tests will run on the web build. Native behaviour is checked by hand on real phones
+  ([ADR-028], NFR-140).
 
 ## Commands
 
@@ -43,3 +44,4 @@ Run `just` recipes from the repository root, and `npm` or `npx` from this folder
 [ADR-003]: ../../../docs/ADRs/ADR-003-dispatcher-console-and-driver-app.md
 [ADR-016]: ../../../docs/ADRs/ADR-016-dependency-audit-with-osv-scanner.md
 [ADR-023]: ../../../docs/ADRs/ADR-023-accept-minimatch-and-glob-advisories.md
+[ADR-028]: ../../../docs/ADRs/ADR-028-driver-app-through-test-tracks-with-a-device-checklist.md
