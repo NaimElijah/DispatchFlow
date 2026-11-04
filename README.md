@@ -214,7 +214,7 @@ contracts/             versioned OpenAPI contracts between the components
 tests/                 cross-component tests only: e2e/, load/
 infra/                 road-network data (osrm/) and deployment (deploy/)
 logs/                  local log output; git ignores its contents
-docs/                  requirements, architecture, ADRs, presentation
+docs/                  requirements, architecture, ADRs, presentations
 justfile               every command, the same locally and in CI
 ```
 
