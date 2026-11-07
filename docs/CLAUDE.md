@@ -18,12 +18,19 @@ layout.
 
 - Every row has a stable ID: `FR-`, `BR-`, `NFR-`, `Q-` or `UC-`. Never renumber or reuse an ID;
   ADRs, tests and issues cite them.
-- An FR, BR or NFR row states one testable thing, in about 25 words and at most 40. A split row
-  keeps its ID for its core statement. Each other part takes the next free ID and sits directly
-  under it, with its priority unless the part states its own. After a split, search the repository
-  for the row's ID and repoint citations that rely on a moved part; accepted ADRs stay as they are.
+- An FR, BR or NFR row states one testable thing, in about 25 words and at most 40, not counting
+  link glosses. A split row keeps its ID for its core statement. Each other part takes the next
+  free ID and sits directly under it, with its priority unless the part states its own. After a
+  split, search the repository for the row's ID and repoint citations that rely on a moved part;
+  accepted ADRs stay as they are.
 - Links between rows are reference-style (`[FR-36]`), with their definitions at the bottom of the
   file. A new link needs a definition, and a moved row needs its definition changed.
+- In `requirements.md`, every link to a row or an ADR is followed by a gloss, a few words naming
+  what it is, so the text reads without following the link: `[BR-20] (routes publish only with
+  their solved van and driver)`, or `([FR-294]: first-password rules)` when the link already sits
+  in parentheses. An ID has one gloss, worded the same wherever it is linked, and a range takes
+  one. A gloss copies no value, so it stays true when a number changes; when a row's subject
+  changes, search for its ID and update its glosses.
 - *Size* is XS, S, M, L or XL, set by the team when it sizes the work. Leave it blank until then.
 - *Enforced by* stays blank until the requirement is implemented. Then it names the test that
   enforces the row, in the same pull request as the code.
