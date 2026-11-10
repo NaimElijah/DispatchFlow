@@ -8,7 +8,7 @@
 The team uses Claude Code. What the assistant knows about DispatchFlow decides how useful and
 how safe it is.
 
-- **Three people, three setups.** Each person has their own global instructions, agents and
+- **Four people, four setups.** Each person has their own global instructions, agents and
   skills on their own machine. Without a shared file, each assistant works from a different
   idea of the project: its commands, its layout, its rules.
 - **The project has rules the assistant must not miss.** Run `just check` before a push. Never
