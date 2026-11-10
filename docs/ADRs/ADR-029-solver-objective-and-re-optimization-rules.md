@@ -1,6 +1,6 @@
 # ADR-029: How both solvers trade drops, moved stops, lateness and travel time
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-032, which makes leave-at-door windows soft in solves too
 - **Date:** 2026-11-04
 
 ## Context
