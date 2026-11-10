@@ -15,7 +15,7 @@
 DispatchFlow is built for one delivery company. Planning routes by hand, in spreadsheets or in the
 dispatcher's head costs extra kilometres and missed delivery windows, with no way to adapt when a
 van breaks down at 10:00. DispatchFlow assigns the day's
-orders to vehicles and orders each route so that every delivery lands in its time window and no
+orders to vehicles and orders each route so that deliveries land in their time windows and no
 vehicle exceeds its capacity or its driver's shift. During the day it re-plans the remaining
 stops when something goes wrong. Underneath, this is the Vehicle Routing Problem with Time
 Windows, solved with Google OR-Tools and with our own Clarke-Wright + ALNS solver as a measured
@@ -255,8 +255,8 @@ removed once the first real context exists (#5).
 
 Planned, in the order of the [requirements](docs/requirements/requirements.md):
 users and roles; fleet, customers and orders; the daily solve on OR-Tools; the route map;
-publishing to drivers and the driver app's stop flow; live tracking and re-optimization; and our
-own solver with its benchmark study.
+publishing to drivers and the driver app's stop flow; SMS messages to recipients; live tracking and
+re-optimization; and our own solver with its benchmark study.
 
 Known limitations:
 
