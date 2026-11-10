@@ -1,6 +1,6 @@
 ---
 name: finished-work-on-branch-and-making-pr-to-dev
-description: Finish the work on the current branch. Commits it, merges the latest dev into it, runs the team code review and fixes what needs fixing, stops for the developer to confirm, passes just check, pushes, and opens a descriptive pull request into dev. Requests Naim Elijah as the reviewer, or a teammate on Naim's own pull requests.
+description: Finish the work on the current branch. Commits it descriptively, merges the latest dev into it, runs the team repository code review and fixes what needs fixing, stops for the developer to confirm, passes just check, pushes, and opens a descriptive pull request into dev. Requests Naim Elijah as the reviewer, or a teammate on Naim's own pull requests.
 argument-hint: "[what this work does]"
 disable-model-invocation: true
 allowed-tools:
@@ -73,9 +73,16 @@ Do this before committing, so the commit can cite it.
    several logical changes belong in, make one commit for each. A modified file they leave out blocks
    the next step, so they commit it or set it aside themselves.
 6. Stage by path with `git add -- <paths>`. Never use `-A`, `.` or `-f`.
-7. Write the message with the Write tool, to a temp file outside the repository, and run
-   `git commit -F <file>`. Follow the Git rules in `.claude/CLAUDE.md`, cite the issue, and use the
-   developer's description where they gave one. Never use `--amend` or `--no-verify`.
+7. Write a descriptive message from the staged diff, not from memory:
+   - the subject says what changed;
+   - the body says why, then what changed in each component, naming the key files;
+   - it ends with the issue reference, if there is one.
+
+   The body's length follows the change, so a one-line fix keeps it to a sentence or two. Follow the Git
+   rules in `.claude/CLAUDE.md`, and use the developer's description where they gave one. Never put raw
+   command output, environment values, tokens or personal data in a message.
+8. Write the message with the Write tool, to a temp file outside the repository, and run
+   `git commit -F <file>`. Never use `--amend` or `--no-verify`.
 
 ## B to E. Bring in the latest dev
 
