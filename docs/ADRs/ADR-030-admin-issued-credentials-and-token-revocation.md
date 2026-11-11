@@ -1,6 +1,6 @@
 # ADR-030: Admins issue drivers' credentials, and a revoked access token is refused at once
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-036
 - **Date:** 2026-11-04
 
 ## Context

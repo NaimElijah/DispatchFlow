@@ -18,8 +18,8 @@ it is in [ADR-009](../ADRs/ADR-009-just-as-the-single-entry-point.md) to
 |---|---|
 | `src/backend/core/` | The REST API and system of record: Java 21, Spring Boot 4.1.2, Maven |
 | `src/backend/solver/` | The optimization service: Python 3.14, FastAPI, uv |
-| `src/frontend/console/` | The console for admins and dispatchers: React, TypeScript, Vite |
-| `src/frontend/driver-app/` | The driver app: React Native, Expo SDK 58, TypeScript |
+| `src/frontend/console/` | The web app, for every role: React, TypeScript, Vite |
+| `src/frontend/driver-app/` | The phone app, for every role: React Native, Expo SDK 58, TypeScript |
 | `src/research/` | Benchmarks, simulation and the order generator: Python, uv. Never deployed |
 | `contracts/` | `client-api/v1` and `optimization-api/v1` (OpenAPI), and the Redocly lint setup |
 | `tests/` | Tests that span components: `e2e/` and `load/`. Both are placeholders |

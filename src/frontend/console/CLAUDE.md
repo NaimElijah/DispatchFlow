@@ -1,6 +1,7 @@
-# Console
+# Console: the web app
 
-The desktop web app for admins and dispatchers. React 19, TypeScript 6.0, Vite 8, npm.
+The web app for admins, dispatchers and drivers ([ADR-035]). Drivers work in it online only.
+React 19, TypeScript 6.0, Vite 8, npm.
 
 ## Layout
 
@@ -10,8 +11,11 @@ The desktop web app for admins and dispatchers. React 19, TypeScript 6.0, Vite 8
 
 ## Rules
 
-- It is a desktop app ([ADR-003]). Lay it out for a desktop screen; it does not need to work on
-  a phone.
+- Lay it out for a desktop screen, except the driver screens, which must also work in a phone's
+  browser (NFR-15, NFR-219).
+- On a route in progress, the open app reports the driver's location every 30 seconds (FR-243). It
+  learns of route changes from its event stream (FR-347, [ADR-026]), and takes proof photos with
+  the camera, never from files (NFR-204).
 - `osv-scanner.toml` holds the one vulnerability the audit ignores here, until 2027-01-31
   ([ADR-023]).
 
@@ -32,5 +36,6 @@ Run `just` recipes from the repository root, and `npm` or `npx` from this folder
 | `just console-run`                | Vite dev server                                                |
 | `npx vitest run src/App.test.tsx` | One test file                                                  |
 
-[ADR-003]: ../../../docs/ADRs/ADR-003-dispatcher-console-and-driver-app.md
+[ADR-026]: ../../../docs/ADRs/ADR-026-server-sent-events-and-push-for-live-updates.md
+[ADR-035]: ../../../docs/ADRs/ADR-035-both-apps-serve-every-role.md
 [ADR-023]: ../../../docs/ADRs/ADR-023-accept-minimatch-and-glob-advisories.md
