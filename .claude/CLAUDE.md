@@ -13,8 +13,8 @@ decision was taken is in `docs/ADRs/`. Read the relevant parts before proposing 
 |---|---|
 | `src/backend/core` | REST API and system of record (Java 21, Spring Boot) |
 | `src/backend/solver` | Solver service (Python, FastAPI) |
-| `src/frontend/console` | Dispatcher console (React, TypeScript) |
-| `src/frontend/driver-app` | Driver app (React Native, Expo) |
+| `src/frontend/console` | Web app, for every role (React, TypeScript) |
+| `src/frontend/driver-app` | Phone app, for every role (React Native, Expo) |
 | `src/research` | Benchmarks, simulation, order generator; never deployed |
 | `contracts/` | Versioned OpenAPI contracts between the components |
 | `tests/` | Tests that span components: `e2e/`, `load/` |

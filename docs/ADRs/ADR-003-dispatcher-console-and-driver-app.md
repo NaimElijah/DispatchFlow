@@ -1,6 +1,6 @@
 # ADR-003: Two clients: a React web console and a React Native driver app
 
-- **Status:** Accepted; extended by ADR-026 and ADR-028
+- **Status:** Superseded by ADR-035
 - **Date:** 2026-10-30
 
 ## Context
