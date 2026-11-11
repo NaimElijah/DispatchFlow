@@ -17,14 +17,35 @@ What the system must do. The [README](../../README.md) describes the product,
   FR-348, BR-119, NFR-189, Q-95 and UC-14 onward, and changed FR-30, FR-49, FR-57, FR-70, FR-105,
   FR-125, FR-157, FR-342, BR-03, BR-09, NFR-01, NFR-39, NFR-52, NFR-83, NFR-175, NFR-184, Q-20, Q-42,
   Q-62, Q-63 and Q-92. The team reviews them under issue #3.
+- **ARD reconciliation of 2026-11-11:** Naim aligned this file with the ARD, which keeps only the main
+  requirements, gave each person one account, and answered the review that followed. That added
+  FR-386 to FR-392, BR-123 to BR-125, NFR-208 to NFR-227, Q-97 and Q-98, withdrew FR-295, renamed "the console"
+  to "the web app" and "the driver app" to "the phone app", rewrote the non-goal *Run dispatching
+  offline*, and changed FR-02, FR-03, FR-19, FR-52, FR-89, FR-95, FR-100, FR-120, FR-121, FR-138, FR-142,
+  FR-155, FR-156, FR-176, FR-177, FR-184, FR-187, FR-188, FR-199, FR-213, FR-230, FR-243, FR-245, FR-246,
+  FR-249, FR-252, FR-264, FR-291, FR-292, FR-293, FR-294, FR-296, FR-307, FR-319, FR-326, FR-347, BR-02, BR-19,
+  BR-35, BR-41, BR-44, BR-45, BR-50, BR-114, NFR-03, NFR-07, NFR-10, NFR-15, NFR-19, NFR-35, NFR-38, NFR-45, NFR-48, NFR-61, NFR-71,
+  NFR-73, NFR-83, NFR-85, NFR-90, NFR-93, NFR-132, NFR-134, NFR-137 to NFR-140, NFR-145, NFR-147, NFR-149,
+  NFR-157, NFR-158, NFR-175 to NFR-178, NFR-184, NFR-186, NFR-204, Q-03, Q-11, Q-17, Q-21, Q-35, Q-37, Q-42, Q-44,
+  Q-62, Q-63, Q-69, Q-88, UC-01 and UC-02, the permission matrix, two non-goals, and the glosses of
+  FR-52, NFR-90 and BR-114 wherever they are linked. It departs from the ARD where Naim chose to:
+  NFR-29 stays at 1%, NFR-52 at ₪1,200 ([Q-62]: the monthly budget), NFR-61 is 3 seconds, an
+  account holds several roles, and every app serves every role.
 - **Split rows** keep their ID for the core statement. Their parts (FR-172, BR-48 and NFR-85 onward)
   sit directly under them, with the same status and priority unless a part states its own.
 - **IDs are never reused.** Withdrawn: FR-78, FR-122, BR-01, NFR-02, NFR-41, Q-13, Q-41, Q-61
   ([ADR-024](../ADRs/ADR-024-one-delivery-company-no-multi-tenancy.md): one company and no
-  multi-tenancy), and FR-50 ([Q-56]: adds nothing beyond depots and vehicles). Never used: FR-166,
-  FR-170, FR-171, NFR-63, NFR-78, NFR-81, NFR-84, Q-74, Q-75.
+  multi-tenancy), FR-50 ([Q-56]: adds nothing beyond depots and vehicles), and FR-295
+  ([ADR-036](../ADRs/ADR-036-one-account-per-person-signed-in-by-email.md): one account per
+  person, signed in by email). Never used: FR-166, FR-170, FR-171, NFR-63, NFR-78, NFR-81, NFR-84,
+  Q-74, Q-75.
 - **Old citations in ADRs:** NFR-16 (CI) is now NFR-133, NFR-15 (driver app platforms) NFR-132,
-  NFR-21 (contract tests) NFR-162, and FR-51 (PyVRP never serves the product) FR-286.
+  NFR-21 (contract tests) NFR-162, and FR-51 (PyVRP never serves the product) FR-286. FR-243,
+  FR-326 and FR-347 were about the driver app's web build until 2026-11-11 and are now about the web
+  app, and NFR-83 now runs on both apps ([ADR-035](../ADRs/ADR-035-both-apps-serve-every-role.md): both apps serve every role). In
+  ADR-030, FR-294 is the Admin-issued first password and FR-296 email recovery for Admins and
+  Dispatchers; since 2026-11-11 they are the set-password link and sign-in by email
+  ([ADR-036](../ADRs/ADR-036-one-account-per-person-signed-in-by-email.md): one account per person, signed in by email).
 
 ## Purpose and scope
 
@@ -35,6 +56,10 @@ result against a baseline. The [README](../../README.md#what-and-why) has the fu
 
 - **Users:** Admins, Dispatchers and Drivers, as the [permission matrix](#company-users-and-roles)
   sets out. Recipients take part only by SMS, with no account ([FR-49]: SMS messages to recipients).
+- **Clients:** a web app and a phone app, each serving Admins, Dispatchers and Drivers ([NFR-15]: web
+  app for all roles, [NFR-132]: phone app for all roles).
+- **Cost:** DispatchFlow itself is free; the company pays its own running costs ([NFR-52]: monthly
+  running cost, [Q-62]: the monthly budget).
 - **Scope:** Israel only, with OpenStreetMap's Israel road data and Hebrew addresses; one plan per
   day at the scale of [NFR-04] (fleet size limit) and [NFR-05] (plan size limit); Hebrew, right to
   left, and English ([NFR-27]: Hebrew and English interface).
@@ -50,8 +75,8 @@ usability study) and the end-to-end tests ([NFR-83]: end-to-end tests).
 
 | ID | Actor | Goal | Main flow | Alternatives and failures | Requirements |
 |---|---|---|---|---|---|
-| UC-01 | Admin | Set up DispatchFlow | Sign in with the account created at deployment; set the company's settings | Sign-in fails; a forgotten password is recovered | FR-01, FR-52, FR-125, FR-291, FR-172, FR-183, FR-184, FR-185, FR-186, FR-292, FR-299, FR-294, FR-295, FR-296, FR-346, FR-345, FR-350, FR-375 |
-| UC-02 | Admin | Give people access | Create users with roles; they receive first credentials and sign in | A forgotten password is recovered; a leaver is deactivated; the last two Admins cannot be demoted | FR-02, FR-03, FR-52, FR-53, FR-123, BR-19, FR-172, FR-173, FR-174, FR-175, FR-177, FR-178, FR-179, FR-180, FR-293, FR-294, FR-295, FR-296, FR-297, FR-298, FR-345 |
+| UC-01 | Admin | Set up DispatchFlow | Sign in with the account created at deployment; set the company's settings | Sign-in fails; a forgotten password is recovered | FR-01, FR-52, FR-125, FR-291, FR-172, FR-183, FR-184, FR-185, FR-186, FR-292, FR-299, FR-294, FR-296, FR-386, FR-346, FR-345, FR-350, FR-375 |
+| UC-02 | Admin | Give people access | Create users with roles; they receive a set-password link and sign in | A forgotten password is recovered; a leaver is deactivated; the last two Admins cannot be demoted | FR-02, FR-03, FR-52, FR-53, FR-123, BR-19, FR-172, FR-173, FR-174, FR-175, FR-177, FR-178, FR-179, FR-180, FR-293, FR-294, FR-296, FR-386, FR-297, FR-298, FR-345, FR-389, BR-123 |
 | UC-03 | Dispatcher | Set up the fleet | Define depots; register vans and drivers; set a date's drivers, shifts and vans; retire what is no longer used | A van breaks or a driver falls sick during the day | FR-04 to FR-06, FR-54, FR-56, FR-79, FR-129 to FR-132, FR-189, FR-190, FR-193, FR-195, FR-196, FR-197, FR-198, FR-199, FR-200, FR-305, FR-306, FR-307 |
 | UC-04 | Dispatcher | Keep customers current | Create or import customers; check geocoded pins; fix a bad pin by dragging it | No match, several matches, or the geocoder is down | FR-08, FR-12 to FR-14, FR-56, FR-59, FR-63, FR-64, FR-83, FR-134, FR-139, FR-140, FR-215, FR-193, FR-208, FR-216, FR-217, FR-218, FR-210, FR-212, FR-219, FR-220, FR-221, FR-305, FR-306, FR-307, FR-320, FR-318, FR-377 |
 | UC-05 | Dispatcher | Load the day's orders | Import a CSV or enter orders by form, or copy a previous day | A file with any rejected row imports nothing and lists every reason | FR-09, FR-10, FR-60 to FR-62, FR-84, FR-85, FR-138, FR-203, FR-204, FR-205, FR-209, FR-211, FR-213, FR-309, FR-319, FR-310, FR-311, FR-312, FR-313, FR-314, FR-364, FR-377 |
@@ -72,18 +97,19 @@ usability study) and the end-to-end tests ([NFR-83]: end-to-end tests).
 | ID | Requirement | Priority | Size | Enforced by |
 |---|---|---|---|---|
 | FR-01 | The first Admin account is created when the system is deployed. There is no public sign-up. | Must |  |  |
-| FR-291 | The first Admin is created by a step on the server, only when no active Admin exists, with a first password ([FR-294]: first-password rules) and no default credential, and leaves an audit record. | Must (proposed) |  |  |
-| FR-292 | On a written request from a person the pilot agreement names, a named team member with server access can run a step that creates a new Admin with a first password ([FR-294]: first-password rules) and leaves an audit record. | Must (proposed) |  |  |
+| FR-291 | The first Admin is created by a step on the server, only when no active Admin exists, with a set-password link ([FR-294]: set-password link) and no default credential, and leaves an audit record. | Must (proposed) |  |  |
+| FR-292 | On a written request from a person the pilot agreement names, a named team member with server access can run a step that creates a new Admin with a set-password link ([FR-294]: set-password link) and leaves an audit record. | Must (proposed) |  |  |
 | FR-346 | That step also deactivates each Admin account the request names and ends its sessions, an exception to [FR-174] (the last Admins cannot be deactivated) and [BR-19] (the minimum of active Admins). | Must (proposed) |  |  |
 | FR-299 | An Admin is warned at every sign-in while the company has fewer than two active Admins ([BR-19]: the minimum of active Admins). | Must (proposed) |  |  |
-| FR-02 | An Admin can create users and give each one a role: Admin, Dispatcher or Driver. | Must |  |  |
-| FR-293 | A user has one role, so someone who both dispatches and drives has two accounts with two sign-in identifiers. | Must (proposed) |  |  |
-| FR-03 | A user can sign in and use only the functions their role permits, as the [permission matrix](#company-users-and-roles) says. | Must |  |  |
-| FR-52 | A user receives first credentials and can recover a forgotten password without help from the DispatchFlow team. These calls are exceptions to [NFR-01] (access token on every call). (ADR pending: sign-in and transport security) | Must (proposed) |  |  |
+| FR-389 | Every active Admin is emailed when an account gains the Admin role, an Admin account is reactivated, or an Admin's password changes or new email takes effect. | Must (proposed) |  |  |
+| FR-02 | An Admin can create users and give each one or more roles: Admin, Dispatcher and Driver; a user with no role is refused with the reason. | Must |  |  |
+| FR-293 | An account can hold several roles, and may do everything any of them allows. ([ADR-036](../ADRs/ADR-036-one-account-per-person-signed-in-by-email.md): one account per person, signed in by email) | Must (proposed) |  |  |
+| FR-03 | A user can sign in and use only the functions their roles permit, as the [permission matrix](#company-users-and-roles) says. | Must |  |  |
+| FR-52 | A user receives first credentials, recovers a forgotten password and confirms a new email without help from the DispatchFlow team. These calls are exceptions to [NFR-01] (access token on every call). ([ADR-036](../ADRs/ADR-036-one-account-per-person-signed-in-by-email.md): one account per person, signed in by email) | Must (proposed) |  |  |
 | FR-172 | Attempts to recover a password are limited to 5 an hour per account. | Must (proposed) |  |  |
-| FR-294 | A first password is random, meets [NFR-95] (password policy), expires on first use or after 72 hours, and allows nothing except setting a new password. ([ADR-030](../ADRs/ADR-030-admin-issued-credentials-and-token-revocation.md): Admin-issued credentials and token revocation) | Must (proposed) |  |  |
-| FR-295 | A driver signs in with a username, and an Admin issues a new first password if they forget theirs, which ends their old password and sessions. | Must (proposed) |  |  |
-| FR-296 | Admins and Dispatchers have an email address and recover a forgotten password through an emailed link. | Must (proposed) |  |  |
+| FR-294 | A new user gets a set-password link at their email; it works once, expires 72 hours after it is sent, and allows nothing except setting a password that meets [NFR-95] (password policy). ([ADR-036](../ADRs/ADR-036-one-account-per-person-signed-in-by-email.md): one account per person, signed in by email) | Must (proposed) |  |  |
+| FR-296 | Every user signs in with their own email address. | Must (proposed) |  |  |
+| FR-386 | A user who forgets their password recovers it through a link emailed to them ([FR-345]: recovery link rules); requesting one leaves their current password working. | Must (proposed) |  |  |
 | FR-345 | A recovery link works once, expires within 1 hour, and ends every session of the user when used. | Must (proposed) |  |  |
 | FR-53 | An Admin can deactivate a user: sign-in stops, every session ends, and their history stays. | Should (proposed) |  |  |
 | FR-173 | An access token issued before a user is deactivated is refused at once ([NFR-177]: revoked tokens refused at once). | Should (proposed) |  |  |
@@ -92,28 +118,33 @@ usability study) and the end-to-end tests ([NFR-83]: end-to-end tests).
 | FR-297 | An Admin can reactivate a deactivated user, whose history stays intact. | Should (proposed) |  |  |
 | FR-298 | A deactivated driver's queued reports cannot be sent, so a dispatcher records those outcomes ([FR-73]: dispatcher records an outcome). | Should (proposed) |  |  |
 | FR-77 | Users accept the terms and a privacy notice. Acceptance is recorded and is never asked for during a route. [Q-42] (legal advice on personal data) | Should (proposed) |  |  |
-| FR-176 | Drivers see what the app collects about them. | Should (proposed) |  |  |
+| FR-176 | Drivers see what each app collects about them. | Should (proposed) |  |  |
 | FR-123 | A signed-in user can change their own password by giving the current one. | Must (proposed) |  |  |
-| FR-177 | A wrong current password counts toward the limit of [NFR-35] (sign-in attempt limit). | Must (proposed) |  |  |
-| FR-178 | Changing a password ends every session of that user, as [NFR-90] (role or password change revokes sessions) requires, so they sign in again. | Must (proposed) |  |  |
+| FR-177 | A wrong current password, wherever one is asked for ([FR-123]: change own password, [FR-387]: change of email, [NFR-214]: password before Admin operations), counts toward [NFR-35] (sign-in attempt limit) and [NFR-216] (per-address sign-in limit). | Must (proposed) |  |  |
+| FR-178 | Changing a password ends every session of that user, as [NFR-90] (role, password or email change revokes sessions) requires, so they sign in again. | Must (proposed) |  |  |
 | FR-179 | The password policy of [NFR-95] (password policy) applies to the new password. | Must (proposed) |  |  |
 | FR-180 | An access token issued before a password change is refused at once ([NFR-177]: revoked tokens refused at once). | Must (proposed) |  |  |
+| FR-387 | An Admin can change a user's email, and a user can change their own by giving their current password. | Must (proposed) |  |  |
+| FR-388 | A new email takes effect only once a link sent to it is used, within 1 hour of sending; the old address is told, without naming the new one. | Must (proposed) |  |  |
+| FR-392 | Sessions end ([NFR-90]: role, password or email change revokes sessions) when the new email takes effect, and an address another account holds is refused only then, the request being answered the same either way. | Must (proposed) |  |  |
 | FR-124 | A user can choose their interface language, Hebrew or English ([NFR-27]: Hebrew and English interface). | Should (proposed) |  |  |
 | FR-181 | A user's language choice follows them to every device they sign in on. | Should (proposed) |  |  |
 | FR-182 | A new user starts with the company's default language ([FR-125]: the company settings page). | Should (proposed) |  |  |
 | FR-125 | An Admin can see and change the company's settings in one place: name, dispatch phone ([FR-199]: call dispatch from the app), default interface language and the time window a new customer starts with ([FR-08]: create customers). | Must (proposed) |  |  |
 | FR-183 | An Admin can also see and change, in the same place, the departure allowance ([FR-67]: loading time before departure), fixed vehicle cost ([FR-21]: fixed cost per vehicle used) and default solve time limit within [NFR-06] (solve time limit range). | Should (proposed) |  |  |
-| FR-184 | Where [FR-89] (default service duration per customer) is built, an Admin can also see and change there the service duration a new customer starts with. | Should (proposed) |  |  |
+| FR-184 | Where [FR-89] (default service duration per customer) is built, an Admin can also see and change there the service duration a new customer starts with, which must be positive. | Should (proposed) |  |  |
 | FR-185 | Where [FR-108] (savings in money) is built, an Admin can also see and change there the cost per kilometre and per driver-hour. | Should (proposed) |  |  |
 | FR-186 | Each change to the company's settings is audited ([NFR-23]: audit records). | Should (proposed) |  |  |
 | FR-126 | An Admin can view the company's audit records ([NFR-23]: audit records) and filter them by user, operation, record and date. | Could (proposed) |  |  |
 | FR-127 | A user can see their own active sessions, with device and last use, and end any of them. | Could (proposed) |  |  |
-| FR-187 | An Admin can end every session of a user without deactivating them. | Could (proposed) |  |  |
-| FR-188 | An access token issued before a session is ended is refused at once ([NFR-177]: revoked tokens refused at once). | Could (proposed) |  |  |
+| FR-187 | An Admin can end every session of a user without deactivating them. | Must (proposed) |  |  |
+| FR-188 | An access token issued before a session is ended is refused at once ([NFR-177]: revoked tokens refused at once). | Must (proposed) |  |  |
 | FR-128 | The company can require a second sign-in factor for its Admins. | Could (proposed) |  |  |
 
 **Permission matrix** (FR-03; decided on 2026-10-11, Q-12, ADR pending: authorize every web
-handler by role). A ✓ means the role may; the server checks it on every call.
+handler by role). A ✓ means the role may; the server checks it on every call. An account with several
+roles may do everything any of them allows ([FR-293]: roles combined in one account), outcomes on
+its own route included.
 
 | Capability | Admin | Dispatcher | Driver |
 |---|---|---|---|
@@ -124,7 +155,9 @@ handler by role). A ✓ means the role may; the server checks it on every call.
 | Work their own route: read it, report stops and proofs, report positions | | | ✓ (BR-02) |
 | Record or correct a stop's outcome on a driver's behalf (FR-73, FR-333, proposed) | ✓ | ✓ | |
 | Deactivate or reactivate a user (FR-53, FR-297, proposed) | ✓ | | |
-| Issue a first password (FR-294, FR-295, proposed) | ✓ | | |
+| Send a new user a set-password link (FR-294, proposed) | ✓ | | |
+| Change a user's email (FR-387, proposed) | ✓ | Only their own | Only their own |
+| Retire a driver, which removes only the account's Driver role (FR-56, FR-307, proposed) | ✓ | ✓ | |
 | Start and finish their own route, report a problem, confirm a route change (FR-68, FR-95, FR-97, proposed) | | | ✓ |
 | View a stop's proof of delivery (FR-105, proposed) | ✓ | ✓ | Only on their own route |
 | Read recipients' ratings and comments (FR-360, FR-362, proposed) | ✓ | ✓ | |
@@ -156,7 +189,7 @@ handler by role). A ✓ means the role may; the server checks it on every call.
 | FR-193 | A retired record is not offered for new plans and stays on past ones ([BR-37]: past plans keep their values). | Must (proposed) |  |  |
 | FR-305 | A record that an uncancelled plan for today or a later date uses cannot be retired, and the refusal names the plan. | Must (proposed) |  |  |
 | FR-306 | A changed record applies to later plans; on an open plan, [BR-21] (re-check at publishing) or a flag catches any conflict. | Must (proposed) |  |  |
-| FR-307 | A retired customer matches no import row, a retired van does not count toward [BR-36] (the vehicle limit), and a retired driver cannot sign in and has every session ended. | Must (proposed) |  |  |
+| FR-307 | A retired customer matches no import row, a retired van does not count toward [BR-36] (the vehicle limit), and retiring a driver removes the Driver role from their account, which keeps its other roles. | Must (proposed) |  |  |
 | FR-79 | A dispatcher can define a weekly shift template, which fills the per-date values of [FR-54] (per-date shifts and vans) that a dispatcher has not set. | Should (proposed) |  |  |
 | FR-80 | The company has a working calendar that marks Israeli holidays and short Fridays, so a dispatcher setting a date's drivers and shifts ([FR-54]: per-date shifts and vans) can see them. | Could (proposed) |  |  |
 | FR-81 | Routes reserve time for driver breaks, as [BR-105] (time reserved for breaks) says, and the driver chooses when to take one. If breaks are a legal duty, this becomes a Must. [Q-39] (legal driver breaks) | Should (proposed) |  |  |
@@ -169,9 +202,9 @@ handler by role). A ✓ means the role may; the server checks it on every call.
 | FR-130 | A dispatcher sets a depot's location by address, geocoded as a customer's is ([FR-12]: geocode every address), or by placing its pin on the map ([FR-14]: drag a pin to fix a match). | Should (proposed) |  |  |
 | FR-197 | A depot without coordinates cannot start or end a route, so a solve leaves its vans out and names them. | Should (proposed) |  |  |
 | FR-131 | A vehicle has a display name and a licence plate, each unique among active vehicles ([BR-48]: unique vehicle names and plates). | Should (proposed) |  |  |
-| FR-198 | A vehicle's display name identifies it on the map, the timeline, the driver app and printouts. | Should (proposed) |  |  |
-| FR-132 | A driver has a contact phone, which the console shows beside their route. | Should (proposed) |  |  |
-| FR-199 | A driver can call the company's dispatch phone ([FR-125]: the company settings page) from the app with one tap. | Should (proposed) |  |  |
+| FR-198 | A vehicle's display name identifies it on the map, the timeline, the phone app and printouts. | Should (proposed) |  |  |
+| FR-132 | A driver has a contact phone, which the web app shows beside their route. | Should (proposed) |  |  |
+| FR-199 | A driver can call the company's dispatch phone ([FR-125]: the company settings page) from either app with one tap. | Should (proposed) |  |  |
 | FR-200 | A driver's contact phone is never a recovery channel. | Should (proposed) |  |  |
 | FR-133 | A vehicle can have a maximum route duration, a maximum driven distance or a maximum number of stops, and solves and re-optimizations honour them. | Could (proposed) |  |  |
 | FR-201 | An order that cannot be served because of a vehicle limit is dropped with the reason *vehicle limit*. | Could (proposed) |  |  |
@@ -219,7 +252,7 @@ handler by role). A ✓ means the role may; the server checks it on every call.
 | FR-86 | An order can carry a floor, an apartment and an entrance code, and the driver sees them at the stop. | Should (proposed) |  |  |
 | FR-87 | An order can carry its own recipient name and phone, and the driver sees them at the stop beside the customer's contact. | Should (proposed) |  |  |
 | FR-88 | A dispatcher can define a standing order that recurs on chosen weekdays. | Could (proposed) |  |  |
-| FR-89 | A customer can have a default service duration, used for that customer's new orders. | Could (proposed) |  |  |
+| FR-89 | A customer can have a default service duration, which must be positive, used for that customer's new orders. | Could (proposed) |  |  |
 | FR-110 | Pick-up and delivery jobs: an order is collected at one address and delivered to another, not only loaded at a depot. | Could (proposed) |  |  |
 | FR-113 | An order can have several time windows. (Would change [BR-03]: service starts inside the time window, [BR-35]: valid time window and service duration.) | Could (proposed) |  |  |
 | FR-116 | Another system can send orders to DispatchFlow through an API, a revisit trigger of [ADR-006](../ADRs/ADR-006-versioned-openapi-contracts.md) (versioned OpenAPI contracts). | Could (proposed) |  |  |
@@ -229,9 +262,9 @@ handler by role). A ✓ means the role may; the server checks it on every call.
 | FR-135 | An order can carry its own delivery note, beside the customer's standing notes ([FR-08]: create customers). The driver sees both at the stop, each labelled. | Should (proposed) |  |  |
 | FR-136 | An order can carry a package count. The driver sees it at the stop and on the loading list ([FR-153]: loading list). | Could (proposed) |  |  |
 | FR-137 | A dispatcher can see an order's history: when it was created, imported, changed, planned, dropped, moved by a re-optimization, reported or cancelled, and by whom. It is its own record, separate from the audit of [NFR-23] (audit records). | Should (proposed) |  |  |
-| FR-138 | A dispatcher can import orders from an Excel workbook (.xlsx) as well as CSV. | Could (proposed) |  |  |
-| FR-213 | The Excel import is validated exactly as [FR-203] (every import row validated), [FR-204] (all-or-nothing order import), [FR-205] (import rows name customers by address) and [FR-60] (each import row matches one customer) require, within the limits of [NFR-37] (upload size limits), [NFR-96] (unpacked size limit) and [NFR-97] (no external workbook references). | Could (proposed) |  |  |
-| FR-319 | The Excel import reads the workbook's first sheet. | Could (proposed) |  |  |
+| FR-138 | A dispatcher can import orders from an Excel workbook (.xlsx) as well as CSV. | Must (proposed) |  |  |
+| FR-213 | The Excel import is validated exactly as [FR-203] (every import row validated), [FR-204] (all-or-nothing order import), [FR-205] (import rows name customers by address) and [FR-60] (each import row matches one customer) require, within the limits of [NFR-37] (upload size limits), [NFR-96] (unpacked size limit) and [NFR-97] (no external workbook references). | Must (proposed) |  |  |
+| FR-319 | The Excel import reads the workbook's first sheet. | Must (proposed) |  |  |
 
 ### Geocoding
 
@@ -263,7 +296,7 @@ handler by role). A ✓ means the role may; the server checks it on every call.
 | FR-17 | A solve assigns orders to vehicles, orders the stops of every route, and gives each stop a planned ETA, honouring every rule in [Business rules](#business-rules-and-invariants). | Must |  |  |
 | FR-18 | When not every order fits, the solve still returns a plan and lists every dropped order with the reason it was dropped. | Must |  |  |
 | FR-223 | A dropped order's reason is *capacity*, *time window*, *shift*, *displaced* by other orders, *missing location* for an order whose customer has no coordinates, or one that [FR-66] (unreachable locations are dropped), [FR-146] (take a stop off by hand), [FR-195] (depot-hours drops), [FR-201] (vehicle-limit drops) or [FR-228] (an impossible van or driver pin drops the order) adds. | Must |  |  |
-| FR-19 | The solve time limit is configurable within the range in [NFR-06] (solve time limit range), with a default of 30 seconds; the solve returns the best solution found within it. | Must |  |  |
+| FR-19 | The solve time limit is configurable within the range in [NFR-06] (solve time limit range), with a default of 45 seconds; the solve returns the best solution found within it. | Must |  |  |
 | FR-20 | A solve or a re-optimization can be run with either solver: OR-Tools, the default, or the DispatchFlow solver (Clarke-Wright + ALNS). | Must |  |  |
 | FR-224 | Outside the optimization service, a solver is known only by its name, and choosing one changes nothing else. | Must |  |  |
 | FR-21 | The company can enable a fixed cost per vehicle used, so the solver also reduces the number of vehicles on the road. | Must |  |  |
@@ -288,9 +321,9 @@ handler by role). A ✓ means the role may; the server checks it on every call.
 | FR-118 | A route respects road limits that depend on the vehicle type. | Could (proposed) |  |  |
 | FR-119 | A dispatcher can plan across several days at once. (Would change [BR-34]: one plan per date.) | Could (proposed) |  |  |
 | FR-141 | Before a solve, a pre-flight check lists the known causes of dropped orders or a failed solve. | Should (proposed) |  |  |
-| FR-230 | The pre-flight check lists orders whose customer has no coordinates ([BR-14]: only orders with coordinates are planned), vans without a driver and drivers without a van on that date ([FR-54]: per-date shifts and vans), orders heavier or larger than every van, orders with no volume and windows outside every shift. | Should (proposed) |  |  |
+| FR-230 | The pre-flight check lists orders whose customer has no coordinates ([BR-14]: only orders with coordinates are planned), vans without a driver and drivers without a van on that date ([FR-54]: per-date shifts and vans), orders heavier or larger than every van, and windows outside every shift. | Should (proposed) |  |  |
 | FR-231 | The pre-flight check does not stop the solve, and a clean check does not promise that no order drops. | Should (proposed) |  |  |
-| FR-142 | While a solve runs, the dispatcher sees how long it has run out of its time limit ([FR-19]: configurable solve time limit). | Could (proposed) |  |  |
+| FR-142 | While a solve runs, the dispatcher sees how long its search has run out of its time limit ([FR-19]: configurable solve time limit), that it is queued or building the matrix before that, and any overrun past the limit. | Must (proposed) |  |  |
 | FR-143 | Before publishing, each route shows its load against the van's weight and volume capacity and its duration against the driver's shift. | Should (proposed) |  |  |
 | FR-232 | Before publishing, each route also shows its total waiting time and planned distance. | Should (proposed) |  |  |
 | FR-144 | Each dropped order's reason ([FR-18]: dropped orders listed with reasons) comes with the fact that caused it, in plain language, such as "weighs 450 kg; the largest van carries 400 kg" or "window ends at 09:00; the earliest arrival is 09:20". | Should (proposed) |  |  |
@@ -318,7 +351,7 @@ handler by role). A ✓ means the role may; the server checks it on every call.
 |---|---|---|---|---|
 | FR-24 | A dispatcher sees all routes of a plan on a map, drawn along the road network, with their stops. | Must |  |  |
 | FR-25 | A dispatcher sees a timeline of stops per vehicle. | Should |  |  |
-| FR-120 | A dispatcher can do their day-to-day tasks from a phone, not only from the desktop console. This is a revisit trigger of [ADR-003](../ADRs/ADR-003-dispatcher-console-and-driver-app.md) (web console and React Native driver app). (Would change [NFR-15]: desktop web console, `src/frontend/console/CLAUDE.md`.) (ADR pending: dispatcher on a phone) | Could (proposed) |  |  |
+| FR-120 | Admins and Dispatchers can do everything in the phone app that they can do in the web app. ([ADR-035](../ADRs/ADR-035-both-apps-serve-every-role.md): both apps serve every role) | Must (proposed) |  |  |
 | FR-148 | Each route has one colour and one label, used the same way on the map, the timeline, lists and printouts. | Should (proposed) |  |  |
 | FR-240 | Route colours are told apart by labels as well, never by colour alone ([NFR-46]: WCAG accessibility level). | Should (proposed) |  |  |
 | FR-149 | The map also shows depots, dropped orders at their customer's location, and the addresses flagged by [FR-63] (doubtful addresses flagged before a solve), each visibly different from a routed stop. | Should (proposed) |  |  |
@@ -326,7 +359,9 @@ handler by role). A ✓ means the role may; the server checks it on every call.
 | FR-241 | Selecting a stop shows its window, ETA, load, waiting time and any violation. | Should (proposed) |  |  |
 | FR-151 | A dispatcher sees every route and stop of a plan in a table that can be sorted and filtered, as an alternative to the map and timeline. | Should (proposed) |  |  |
 
-### Publishing and the driver app
+<a id="publishing-and-the-driver-app"></a>
+
+### Publishing and the phone app
 
 | ID | Requirement | Priority | Size | Enforced by |
 |---|---|---|---|---|
@@ -345,43 +380,44 @@ handler by role). A ✓ means the role may; the server checks it on every call.
 | FR-30 | A driver can capture proof of delivery: a photo or a signature, with an optional note. | Must (proposed) |  |  |
 | FR-367 | The server refuses a driver's *delivered* report that comes without a proof ([FR-30]: proof of delivery); an outcome a dispatcher records or corrects ([FR-73]: dispatcher records an outcome, [FR-333]: dispatcher corrects an outcome) needs none. | Must (proposed) |  |  |
 | FR-368 | A stop left at the door needs a photo as its proof, because nobody is there to sign; without a camera, a dispatcher records it ([FR-73]: dispatcher records an outcome). | Must (proposed) |  |  |
-| FR-31 | While a route is in progress, the driver app reports the driver's location every 30 seconds, including while it runs in the background on iOS and Android. | Must |  |  |
-| FR-243 | The web build reports the driver's location only while it is open. | Must |  |  |
-| FR-326 | The web build is for demos and development and needs a connection; offline work ([FR-69]: route shown offline, [FR-70]: report stops offline), background alerts ([FR-71]: route-change alerts) and encrypted storage ([NFR-39]: encrypted storage on the phone) bind iOS and Android only, and it shows a notice saying so. | Must (proposed) |  |  |
-| FR-347 | The web build learns of a route change by reading its route every 30 seconds while open. | Must (proposed) |  |  |
+| FR-31 | While a route is in progress, the phone app reports the driver's location every 30 seconds, including while it runs in the background on iOS and Android. | Must |  |  |
+| FR-243 | While a route is in progress and the web app is open and visible on it, the web app reports the driver's location every 30 seconds. | Must |  |  |
+| FR-326 | In the web app a driver works online only: offline work ([FR-69]: route shown offline, [FR-70]: report stops offline), background location, background alerts ([FR-71]: route-change alerts) and encrypted storage ([NFR-39]: encrypted storage on the phone) bind the phone app, and the web app says so. | Must (proposed) |  |  |
+| FR-347 | The web app learns of a route change from its event stream ([ADR-026](../ADRs/ADR-026-server-sent-events-and-push-for-live-updates.md): server-sent events and push), and reads the route again when the stream reconnects. | Must (proposed) |  |  |
+| FR-391 | While the web app is open on a driver's route, it alerts the driver to a route change ([FR-71]: route-change alerts) and to a newly published route ([FR-152]: drivers alerted on publishing). | Must (proposed) |  |  |
 | FR-32 | A driver on the road receives route changes after a re-optimization is applied. Manual edits happen only before publishing. | Must |  |  |
 | FR-68 | A driver can start and finish their route. | Must (proposed) |  |  |
 | FR-244 | A route is *not started*, *in progress* or *finished*. | Must (proposed) |  |  |
 | FR-327 | A driver's first stop report starts a route that was not started. | Must (proposed) |  |  |
 | FR-328 | Location collection stops 1 hour after shift end on a route nobody finished. | Must (proposed) |  |  |
 | FR-329 | A driver can finish a route with stops pending after a warning, and the dispatcher is alerted. | Must (proposed) |  |  |
-| FR-69 | The driver app shows the last received route, customer details and notes without a connection, with the route's date and when it was received. | Must (proposed) |  |  |
+| FR-69 | The phone app shows the last received route, customer details and notes without a connection, with the route's date and when it was received. | Must (proposed) |  |  |
 | FR-70 | A driver can start and finish a route and report stops without a connection, and capture proof too ([FR-30]: proof of delivery), which is sent with its report. | Must (proposed) |  |  |
-| FR-245 | Offline reports keep the time they were made and survive closing the app. | Must (proposed) |  |  |
-| FR-246 | Queued reports are sent within 60 seconds of the connection returning while the app is open, otherwise when it next opens. | Must (proposed) |  |  |
+| FR-245 | Offline reports keep the time they were made and survive closing the phone app. | Must (proposed) |  |  |
+| FR-246 | Queued reports are sent within 60 seconds of the connection returning while the phone app is open, otherwise when it next opens. | Must (proposed) |  |  |
 | FR-247 | Reports of one route are sent in the order they were made. | Must (proposed) |  |  |
 | FR-248 | A report stays queued until the server acknowledges it, and a refused one is shown to the driver, except as [NFR-101] (rate-limited reports stay silent) says. (ADR pending: driver report sync and idempotency) | Must (proposed) |  |  |
 | FR-330 | Signing out warns the driver about unsent reports. | Must (proposed) |  |  |
 | FR-331 | Reports queued when a session ends stay encrypted on the phone and are sent after the same user signs in again. | Must (proposed) |  |  |
-| FR-71 | When a route changes, the driver app alerts the driver, even in the background. | Must (proposed) |  |  |
-| FR-249 | The driver app shows which stops a route change added, removed or reordered. | Must (proposed) |  |  |
+| FR-71 | When a route changes, the phone app alerts the driver, even in the background. | Must (proposed) |  |  |
+| FR-249 | Either app shows which stops a route change added, removed or reordered. | Must (proposed) |  |  |
 | FR-72 | A dispatcher can print or export each route: stops in order, addresses, phones, notes and each stop's weight and volume. | Should (proposed) |  |  |
-| FR-95 | A driver can report a problem from the app (breakdown, running late, van full), and the dispatcher is alerted. | Should (proposed) |  |  |
+| FR-95 | A driver can report a problem from either app (breakdown, running late, van full), and the dispatcher is alerted. | Should (proposed) |  |  |
 | FR-96 | A driver sees updated ETAs for their remaining stops after each reported stop and each accepted re-optimization, using the projected arrival of [FR-254] (projected arrival). | Should (proposed) |  |  |
 | FR-97 | A driver confirms that they have seen a route change ([FR-71]: route-change alerts). | Should (proposed) |  |  |
 | FR-250 | The dispatcher sees which drivers have not confirmed a route change. | Should (proposed) |  |  |
 | FR-98 | A driver can scan a barcode at loading and at delivery. | Could (proposed) |  |  |
 | FR-99 | A driver can record an age or ID check at delivery, for orders that require one. | Could (proposed) |  |  |
-| FR-100 | A dispatcher and a driver can exchange messages in the app. | Could (proposed) |  |  |
+| FR-100 | A dispatcher and a driver can exchange messages in either app. | Could (proposed) |  |  |
 | FR-115 | A driver can record a partial delivery or a return of goods. | Could (proposed) |  |  |
-| FR-121 | The driver app is available in Arabic and Russian, beside Hebrew and English ([NFR-27]: Hebrew and English interface). | Could (proposed) |  |  |
+| FR-121 | The driver screens of both apps are available in Arabic and Russian, beside Hebrew and English ([NFR-27]: Hebrew and English interface). | Could (proposed) |  |  |
 | FR-152 | When a plan is published, every driver with a route is alerted that their route is ready, through the channel of [FR-71] (route-change alerts). | Should (proposed) |  |  |
 | FR-153 | Before leaving the depot, a driver sees a loading list: their orders in reverse stop order, with weight and volume, and package counts where [FR-136] (package count) is built. | Should (proposed) |  |  |
 | FR-154 | Each stop shows its time window and how long remains until it ends. | Should (proposed) |  |  |
 | FR-251 | A stop at risk ([FR-34]: alerts for at-risk stops) is marked in the driver's list as well as the dispatcher's. | Should (proposed) |  |  |
-| FR-155 | When the driver comes within 100 metres of the next stop, the app offers to mark it *arrived*. | Could (proposed) |  |  |
-| FR-252 | The app never marks a stop *arrived* on its own. | Could (proposed) |  |  |
-| FR-156 | When a driver finishes a route ([FR-68]: start and finish a route), the app shows a summary: stops delivered and failed, and any reports still waiting to be sent ([FR-70]: report stops offline). | Could (proposed) |  |  |
+| FR-155 | When the driver comes within 100 metres of the next stop, the app they use offers to mark it *arrived*. | Could (proposed) |  |  |
+| FR-252 | Neither app marks a stop *arrived* on its own. | Could (proposed) |  |  |
+| FR-156 | When a driver finishes a route ([FR-68]: start and finish a route), the app they use shows a summary: stops delivered and failed, and any reports still waiting to be sent ([FR-70]: report stops offline). | Could (proposed) |  |  |
 
 ### Live operations and re-optimization
 
@@ -419,7 +455,7 @@ handler by role). A ✓ means the role may; the server checks it on every call.
 | FR-157 | A dispatcher has one alert list that gathers every alert: stops at risk ([FR-34]: alerts for at-risk stops), problems drivers report ([FR-95]: driver problem reports), routes not started ([FR-101]: route-not-started alert), failed stops ([FR-102]: failed-stop alert), unconfirmed route changes ([FR-97]: driver confirms a route change), late reports ([BR-89]: an accepted late outcome removes the stop from the other route), refused reports ([BR-90]: contradicting reports are refused), routes finished with stops pending ([FR-329]: finish with stops pending) and low ratings ([FR-361]: low-rating alert). | Should (proposed) |  |  |
 | FR-260 | A dispatcher acknowledges an alert, which records who did it and when. | Should (proposed) |  |  |
 | FR-261 | An unacknowledged alert stays visible until its plan completes, and one raised after that stays until it is acknowledged. | Should (proposed) |  |  |
-| FR-335 | An alert raised while the console is closed waits in the alert list. | Should (proposed) |  |  |
+| FR-335 | An alert raised while the web app is closed waits in the alert list. | Should (proposed) |  |  |
 | FR-158 | A dispatcher sees each route's progress: stops done out of all stops, current delay against the plan, next stop and when the driver last reported. | Should (proposed) |  |  |
 | FR-159 | A dispatcher can limit a re-optimization to chosen routes, so that no stop moves into or out of a route left out. This mode is not part of [NFR-25] (incremental re-optimization study). | Should (proposed) |  |  |
 | FR-160 | A dispatcher can replay a past day on the map, within the retention of [NFR-31] (retention periods): each vehicle's recorded positions and each stop's reports, in time order. [Q-42] (legal advice on personal data) | Could (proposed) |  |  |
@@ -465,7 +501,7 @@ handler by role). A ✓ means the role may; the server checks it on every call.
 | ID | Requirement | Priority | Size | Enforced by |
 |---|---|---|---|---|
 | FR-38 | A dispatcher sees a daily summary of each plan, per route and in total: distance, driving time, stops, delivered and failed stops, on-time percentage, vehicles used and dropped orders. | Must |  |  |
-| FR-264 | The on-time percentage is the share of delivered stops whose actual arrival, as the driver's phone recorded it and [BR-114] (report times corrected for the phone's clock) corrected it, was at or before their window end. | Must |  |  |
+| FR-264 | The on-time percentage is the share of delivered stops whose actual arrival, as the driver's device recorded it and [BR-114] (report times corrected for the device's clock) corrected it, was at or before their window end. | Must |  |  |
 | FR-265 | With nothing delivered, the on-time percentage is shown as unavailable, not as zero. | Must |  |  |
 | FR-339 | The summary shows failed stops beside the on-time percentage, so marking late stops *failed* stays visible. | Must (proposed) |  |  |
 | FR-340 | A delivered stop with no arrival report counts its delivery time as its arrival. | Must (proposed) |  |  |
@@ -498,6 +534,7 @@ handler by role). A ✓ means the role may; the server checks it on every call.
 | FR-274 | No product capability depends on the DispatchFlow solver ([Non-goals](#non-goals)). | Must |  |  |
 | FR-43 | A benchmark harness runs OR-Tools and the DispatchFlow solver on the Solomon instances (56 instances of 100 customers, classes C1, C2, R1, R2, RC1, RC2). | Must |  |  |
 | FR-275 | The benchmark harness also runs both solvers on the 200-customer Gehring-Homberger instances, and the 400-customer ones if time remains, offline and never in CI. | Must |  |  |
+| FR-390 | The benchmark harness reads a benchmark instance's demands and capacities as weights, with no volume demand and no volume limit, exempt from [BR-50] (capacity and demand values). | Must (proposed) |  |  |
 | FR-276 | The benchmark harness also runs both solvers on the pilot's real days once the pilot provides them. [Q-01] (which company and what data) | Must |  |  |
 | FR-277 | The harness reports the gap from best-known solutions where they are published, the DispatchFlow solver's gap from OR-Tools ([NFR-24]: static quality target), and the solve time. | Must |  |  |
 | FR-278 | In the benchmark harness, both solvers get the same time limit on the same hardware. | Must |  |  |
@@ -535,10 +572,12 @@ Rules are grouped by subject.
 
 | ID | Rule | Size | Enforced by |
 |---|---|---|---|
-| BR-02 | **Driver scope.** A Driver can see and update only the stops of routes assigned to them. |  |  |
-| BR-19 | **Two Admins.** The company keeps two active Admins: an Admin's role cannot change while it has two or fewer. |  |  |
-| BR-41 | **Drivers see published routes only.** A plan that is `draft`, `solving` or `ready`, and a re-optimization preview not yet accepted ([FR-36]: re-optimization preview), is never shown to drivers. Priority: Must (proposed). |  |  |
-| BR-45 | **Unique sign-in.** A sign-in identifier belongs to at most one user. Priority: Must (proposed). |  |  |
+| BR-02 | **Driver scope.** The Driver role lets an account see and update only the stops of routes assigned to it; the account's other roles may allow more. |  |  |
+| BR-19 | **Two Admins.** The company keeps two active Admins: an account cannot lose the Admin role while the company has two or fewer. |  |  |
+| BR-41 | **Drivers see published routes only.** Through the Driver role the server never sends a plan that is `draft`, `solving` or `ready`, or a re-optimization preview not yet accepted ([FR-36]: re-optimization preview), nor do its screens show one, whatever the account's other roles. Priority: Must (proposed). |  |  |
+| BR-45 | **Unique sign-in.** An email address belongs to at most one user, compared after trimming spaces and folding ASCII letters only, with the domain in its ASCII (Punycode) form. Priority: Must (proposed). |  |  |
+| BR-123 | **No role, no sign-in.** An account that holds no role cannot sign in, recovery sends it nothing, and losing its last role ends its sessions ([NFR-90]: role, password or email change revokes sessions). Priority: Must (proposed). |  |  |
+| BR-125 | **Links go to the stored address.** Every link and notice goes to the address stored on the account, never to the address typed in a request. Priority: Must (proposed). |  |  |
 | BR-48 | **Unique vehicles.** A vehicle's display name and licence plate are each unique among active vehicles ([FR-131]: vehicle name and plate); a retired vehicle ([BR-43]: retire instead of delete) does not count. Priority: Should (proposed). |  |  |
 
 ### Routing constraints
@@ -551,7 +590,7 @@ Rules are grouped by subject.
 | BR-122 | **Door stops on arrival.** A van serves a leave-at-door stop when it arrives and never waits there, so the stop's start time follows from its route. ([ADR-032](../ADRs/ADR-032-leave-at-door-windows-are-preferences.md): leave-at-door windows are preferences) Priority: Must (proposed). |  |  |
 | BR-04 | **Service time.** Each stop occupies the vehicle for the order's service duration, which counts toward the arrival time at the next stop. |  |  |
 | BR-05 | **Capacity.** On every route, the total weight demand never exceeds the vehicle's weight capacity, and the total volume demand never exceeds its volume capacity. |  |  |
-| BR-50 | **Capacity values.** Vehicle capacities are positive, in kilograms and litres; order demands are zero or more, and a blank volume counts as zero. |  |  |
+| BR-50 | **Capacity values.** Vehicle capacities, and an order's weight and volume demands, are positive, in kilograms and litres; a blank value is refused with the reason. |  |  |
 | BR-06 | **Shifts.** A route leaves no earlier than its driver's shift start and returns to its end depot no later than the shift end, except after a hand-over confirmed under [FR-304] (hand-over that breaks a shift). |  |  |
 | BR-105 | **Break reserve.** Where [FR-81] (driver breaks) is built, a route on a shift of 6 hours or more returns at least 45 minutes before shift end. [Q-39] (legal driver breaks) Priority: Should (proposed). |  |  |
 | BR-14 | **Routable orders only.** An order can be planned only when its customer has coordinates. |  |  |
@@ -652,13 +691,13 @@ Rules are grouped by subject.
 | BR-27 | **Outcomes outlive route changes.** Except as [BR-88] (when a late outcome is refused) says, an outcome a driver recorded while the stop was on their route is accepted however late it arrives, even if the stop has moved since (an exception to [BR-02]: drivers see and update only their own stops). (ADR pending: driver report sync and idempotency) |  |  |
 | BR-88 | **Late outcome refused.** A late outcome is not accepted if the stop already has a recorded outcome or its order or plan is cancelled; [BR-90] (contradicting reports are refused) applies instead. |  |  |
 | BR-89 | **Stop leaves the other route.** When a late outcome is accepted for a stop that has moved, the stop leaves the other driver's route, that driver is told, and the dispatcher is alerted. |  |  |
-| BR-110 | **Judging a late report.** Whether a stop was on the driver's route is judged from the route's history at the report's corrected time ([BR-114]: report times corrected for the phone's clock). Priority: Must (proposed). |  |  |
+| BR-110 | **Judging a late report.** Whether a stop was on the driver's route is judged from the route's history at the report's corrected time ([BR-114]: report times corrected for the device's clock). Priority: Must (proposed). |  |  |
 | BR-28 | **Repeated reports are harmless.** A report received twice takes effect once, and the repeat gets the first answer. (ADR pending: driver report sync and idempotency) |  |  |
 | BR-90 | **Contradicting reports.** A report contradicting a recorded outcome, or arriving for a cancelled order or plan, is refused and shown to the dispatcher. |  |  |
 | BR-29 | **Stops may be done out of order.** A driver can report a route's stops in a different order from the plan, and the system records the actual order. |  |  |
 | BR-91 | **Out-of-order stops in re-optimization.** Re-optimization treats stops reported out of order as done in that order. The start point stays as [BR-79] (re-optimization starts from current locations) and [BR-24] (fallback start without a usable position) set it. |  |  |
-| BR-44 | **Two times on every report.** Every driver report keeps the time the phone recorded and the time the server received it. Priority: Must (proposed). |  |  |
-| BR-114 | **Clock correction.** A report's time is corrected by the phone's clock offset, measured when the report is sent. Priority: Must (proposed). |  |  |
+| BR-44 | **Two times on every report.** Every driver report keeps the time the device recorded and the time the server received it. Priority: Must (proposed). |  |  |
+| BR-114 | **Clock correction.** A report's time is corrected by the clock offset of the device that made it, measured when the report is sent. Priority: Must (proposed). |  |  |
 
 ### Orders, records and history
 
@@ -673,7 +712,8 @@ Rules are grouped by subject.
 | BR-94 | **Leaving *failed*.** An order leaves *failed* only through [FR-75] (put a failed or dropped order back) or a correction ([FR-333]: dispatcher corrects an outcome). |  |  |
 | BR-95 | **Leaving *dropped*.** An order leaves *dropped* through [FR-75] (put a failed or dropped order back), when a ready plan is solved again ([BR-60]: a ready plan may be solved again), when its date changes ([FR-57]: change an order) or when it is cancelled ([FR-58]: cancel an order). |  |  |
 | BR-96 | **Leaving *dropped*, continued.** An order also leaves *dropped* when a late report is accepted ([BR-27]: late outcomes are still accepted), when a dispatcher records its outcome ([FR-73]: dispatcher records an outcome), puts it on a route by hand ([FR-235]: put a dropped order on a route by hand) or undoes the edit that dropped it ([FR-145]: undo and redo edits), and when its plan is cancelled ([FR-337]: what cancelling a plan does). |  |  |
-| BR-35 | **Valid order data.** An order's time window starts before it ends and lies on the order's date, and its service duration is not negative. (For windows that cross midnight, see [FR-114]: shifts and windows crossing midnight.) |  |  |
+| BR-35 | **Valid order data.** An order's time window starts before it ends and lies on the order's date, and its service duration is positive. (For windows that cross midnight, see [FR-114]: shifts and windows crossing midnight.) |  |  |
+| BR-124 | **Blank service duration.** An order with no service duration takes its customer's default ([FR-89]: default service duration per customer), and is refused with the reason when there is none. |  |  |
 | BR-97 | **Invalid orders refused.** An order with invalid data is refused with its reason. |  |  |
 | BR-116 | **No past dates.** An order placed, moved or put back on a past date is refused with the reason. Priority: Must (proposed). |  |  |
 | BR-37 | **History stays.** A plan that is completed, or whose date has passed, keeps the values it was solved and reported with, after the fleet or a customer changes. (ADR pending: past plans keep their values) |  |  |
@@ -698,31 +738,41 @@ Rules are grouped by subject.
 
 | ID | Requirement | Size | Enforced by |
 |---|---|---|---|
-| <a id="nfr-01"></a>NFR-01 | Every API call requires a valid access token, except signing in, refreshing, signing out, health checks, the calls [FR-52] (first credentials and password recovery) and [FR-263] (tracking page through an unguessable link) name, and the calls of the SMS provider that [NFR-192] (SMS provider callbacks) accepts. |  |  |
-| <a id="nfr-85"></a>NFR-85 | Roles are checked on the server for every operation. |  |  |
+| <a id="nfr-01"></a>NFR-01 | Every API call requires a valid access token, except signing in, refreshing, signing out, health checks, the calls [FR-52] (first credentials, recovery and email confirmation) and [FR-263] (tracking page through an unguessable link) name, and the calls of the SMS provider that [NFR-192] (SMS provider callbacks) accepts. |  |  |
+| <a id="nfr-85"></a>NFR-85 | Roles are checked on the server for every operation and for every event the event stream sends. |  |  |
 | <a id="nfr-86"></a>NFR-86 | An access token is accepted for 15 minutes by default, unless [NFR-177] (revoked tokens refused at once) refuses it. |  |  |
-| <a id="nfr-177"></a>NFR-177 | The server refuses an access token issued before its user's last revocation. The user's other sessions refresh and carry on. ([ADR-030](../ADRs/ADR-030-admin-issued-credentials-and-token-revocation.md): Admin-issued credentials and token revocation) Priority: Must (proposed). |  |  |
-| <a id="nfr-188"></a>NFR-188 | An open event stream ends when its access token expires or its user's sessions are revoked, and the console reconnects with a fresh token. Priority: Must (proposed). |  |  |
-| <a id="nfr-03"></a>NFR-03 | Secrets (provider API keys, token-signing keys, database credentials, the first Admin's credential) come from the environment or a secret manager, never from the repository, logs or error messages. |  |  |
+| <a id="nfr-177"></a>NFR-177 | The server refuses an access token issued before its user's last revocation. The user's other sessions refresh and carry on. ([ADR-036](../ADRs/ADR-036-one-account-per-person-signed-in-by-email.md): one account per person, signed in by email) Priority: Must (proposed). |  |  |
+| <a id="nfr-188"></a>NFR-188 | An open event stream ends when its access token expires or its user's sessions are revoked, and the web app reconnects with a fresh token. Priority: Must (proposed). |  |  |
+| <a id="nfr-03"></a>NFR-03 | Secrets (provider API keys, token-signing keys, database credentials, the email sender's and the push service's credentials) come from the environment or a secret manager, never from the repository, logs or error messages. |  |  |
 | <a id="nfr-22"></a>NFR-22 | A signed-in user stays signed in through refresh tokens. Each is exchanged once, for a new access token and the session's next refresh token. |  |  |
 | <a id="nfr-87"></a>NFR-87 | A refresh token lasts 14 days by default from its issue. |  |  |
 | <a id="nfr-88"></a>NFR-88 | Presenting a refresh token that was already exchanged revokes its whole session, except as [NFR-178] (grace for a repeated refresh) says. |  |  |
-| <a id="nfr-178"></a>NFR-178 | While its session is live, a refresh token presented again within 30 seconds of its exchange gets a new token, which replaces the one that exchange issued, and revokes nothing. Presenting a replaced token revokes the session. ([ADR-030](../ADRs/ADR-030-admin-issued-credentials-and-token-revocation.md): Admin-issued credentials and token revocation) Priority: Must (proposed). |  |  |
+| <a id="nfr-178"></a>NFR-178 | While its session is live, a refresh token presented again within 30 seconds of its exchange gets a new token, which replaces the one that exchange issued, and revokes nothing. Presenting a replaced token revokes the session. ([ADR-036](../ADRs/ADR-036-one-account-per-person-signed-in-by-email.md): one account per person, signed in by email) Priority: Must (proposed). |  |  |
 | <a id="nfr-89"></a>NFR-89 | A sign-out revokes the session it ends. |  |  |
-| <a id="nfr-90"></a>NFR-90 | A role or password change revokes every session of the user. |  |  |
+| <a id="nfr-90"></a>NFR-90 | A role, password or email change revokes every session of the user. |  |  |
+| <a id="nfr-214"></a>NFR-214 | The server refuses every operation the permission matrix gives only to Admins unless that session gave the current password in the last 5 minutes; both apps ask for it. Priority: Must (proposed). |  |  |
+| <a id="nfr-227"></a>NFR-227 | Giving the password for [NFR-214] (password before Admin operations) issues the session new tokens, and the old ones are refused ([NFR-177]: revoked tokens refused at once). Priority: Must (proposed). |  |  |
 | <a id="nfr-91"></a>NFR-91 | Only a refresh token's hash is stored. |  |  |
+| <a id="nfr-211"></a>NFR-211 | A recovery, set-password or email-change link carries a token of at least 128 bits from a secure random source; only its hash is stored, and it never appears in a log. Priority: Must (proposed). |  |  |
+| <a id="nfr-212"></a>NFR-212 | The token travels in the link's fragment; the page posts it, sends no referrer, caches nothing, and removes the token from the address bar and history as it loads. Priority: Must (proposed). |  |  |
+| <a id="nfr-213"></a>NFR-213 | A recovery, set-password or email-change link opens the web app over HTTPS, or the phone app only through verified app links: Universal Links on iOS, App Links on Android. Priority: Must (proposed). |  |  |
+| <a id="nfr-223"></a>NFR-223 | Emails that carry a link token have link and open tracking turned off. Priority: Must (proposed). |  |  |
+| <a id="nfr-224"></a>NFR-224 | Only setting the password, or confirming the email, spends a token; a newer link of a kind voids older ones of that kind, and a change of email or password voids every unspent link. Priority: Must (proposed). |  |  |
 | <a id="nfr-92"></a>NFR-92 | Every refusal of a refresh token looks the same. |  |  |
 | <a id="nfr-23"></a>NFR-23 | Every API call that changes something, and every sign-in, refresh and sign-out, leaves one audit record. Reads are not audited. |  |  |
-| <a id="nfr-93"></a>NFR-93 | An audit record holds when, the acting user when known, the operation, the records it names, its outcome and its trace id. |  |  |
+| <a id="nfr-93"></a>NFR-93 | An audit record holds when, the acting user and session when known, the app and its version as the client declares them, the operation, the records it names, its outcome and its trace id. |  |  |
 | <a id="nfr-94"></a>NFR-94 | An audit record never carries personal data or a secret ([NFR-19]: no personal data in logs, [NFR-03]: secrets kept out of the repository and logs). |  |  |
 | <a id="nfr-26"></a>NFR-26 | In every deployed environment, all traffic between clients and the server is encrypted in transit, and an unencrypted request is refused or redirected, never served. (ADR pending: sign-in and transport security) |  |  |
-| <a id="nfr-35"></a>NFR-35 | Failed sign-ins for one account from one source address are limited to 10 in a rolling 15 minutes; past that, that pair is refused until the window clears, and a success resets the count. (ADR pending: sign-in and transport security) |  |  |
+| <a id="nfr-35"></a>NFR-35 | Failed sign-ins for one typed address from one source address are limited to 10 in a rolling 15 minutes; past that, that pair is refused until the window clears, and a success resets the count. ([ADR-036](../ADRs/ADR-036-one-account-per-person-signed-in-by-email.md): one account per person, signed in by email) |  |  |
+| <a id="nfr-215"></a>NFR-215 | At most 100 recovery emails ([FR-386]: password recovery by email) are sent per calendar day in Israel time; other emails are never held back, and the team is alerted once a day when the cap is reached. Priority: Must (proposed). |  |  |
+| <a id="nfr-216"></a>NFR-216 | Past 10 failed sign-ins for one typed address in a rolling 15 minutes, from any source, only one attempt on it is checked every 5 seconds; others are refused with when to retry. Priority: Must (proposed). |  |  |
+| <a id="nfr-226"></a>NFR-226 | A success resets the count of [NFR-216] (per-address sign-in limit), and neither it nor [NFR-35] (sign-in attempt limit) ever locks an account. Priority: Must (proposed). |  |  |
 | <a id="nfr-36"></a>NFR-36 | Passwords are stored only as salted hashes from a function built for passwords, never in a form that can be read back. (ADR pending: sign-in and transport security) |  |  |
 | <a id="nfr-95"></a>NFR-95 | Passwords have at least 8 characters, with no composition rules, and the 3,000 most common passwords of at least 8 characters are refused. |  |  |
 | <a id="nfr-37"></a>NFR-37 | Uploads are limited, and one over a limit is refused with the reason: CSV and Excel files to 5 MB, and delivery photos and signatures, in JPEG or PNG, to 5 MB. |  |  |
 | <a id="nfr-96"></a>NFR-96 | An uploaded compressed file over 50 MB unpacked is refused with the reason. |  |  |
 | <a id="nfr-97"></a>NFR-97 | An uploaded workbook's external references are never followed. |  |  |
-| <a id="nfr-38"></a>NFR-38 | Proof-of-delivery files are served only to signed-in users whose role permits it (the [permission matrix](#company-users-and-roles)). |  |  |
+| <a id="nfr-38"></a>NFR-38 | Proof-of-delivery files are served only to signed-in users whose roles permit it (the [permission matrix](#company-users-and-roles)). |  |  |
 | <a id="nfr-39"></a>NFR-39 | Tokens, the route data kept for offline use ([FR-69]: route shown offline), and queued reports with their proofs are stored encrypted on the phone, with the key in the phone's secure storage. (ADR pending: sign-in and transport security) |  |  |
 | <a id="nfr-98"></a>NFR-98 | Tokens and the route data kept for offline use are removed from the phone when the user signs out. |  |  |
 | <a id="nfr-179"></a>NFR-179 | When a session is revoked, the route data on the phone is wiped at its next server contact, or after 14 days on a phone that stays offline. Priority: Must (proposed). |  |  |
@@ -731,7 +781,7 @@ Rules are grouped by subject.
 | <a id="nfr-99"></a>NFR-99 | A request over a rate limit is refused, with when to retry. Priority: Should (proposed). |  |  |
 | <a id="nfr-100"></a>NFR-100 | A rate-limit refusal does not lose a driver's queued reports ([FR-70]: report stops offline). Priority: Should (proposed). |  |  |
 | <a id="nfr-101"></a>NFR-101 | A rate-limit refusal of a queued report is neither shown to the driver nor counted against the 60 seconds of [FR-246] (queued reports sent on reconnect). Priority: Should (proposed). |  |  |
-| <a id="nfr-102"></a>NFR-102 | Calls without a token ([NFR-01]: access token on every call, [FR-52]: first credentials and password recovery) are limited to 20 a minute per source address, and one over a limit is refused with when to retry. (ADR pending: API rate limiting) Priority: Must (proposed). |  |  |
+| <a id="nfr-102"></a>NFR-102 | Calls without a token ([NFR-01]: access token on every call, [FR-52]: first credentials, recovery and email confirmation) are limited to 20 a minute per source address, and one over a limit is refused with when to retry. (ADR pending: API rate limiting) Priority: Must (proposed). |  |  |
 | <a id="nfr-192"></a>NFR-192 | Calls from the SMS provider, replies and delivery reports alike, are accepted only with the provider's signature or a header secret, two while one is rotated, compared in constant time; any other call is refused and changes nothing. Priority: Must (proposed). |  |  |
 | <a id="nfr-199"></a>NFR-199 | A provider call received twice, with the same provider message identifier, takes effect once. Priority: Must (proposed). |  |  |
 | <a id="nfr-200"></a>NFR-200 | Calls with the provider's signature or secret are limited to 600 a minute in all, and calls without it as [NFR-102] (limit on calls without a token) says. Priority: Must (proposed). |  |  |
@@ -756,18 +806,18 @@ Rules are grouped by subject.
 | <a id="nfr-04"></a>NFR-04 | Fleet size: up to 15 vehicles. |  |  |
 | <a id="nfr-05"></a>NFR-05 | Plan size: up to 200 stops per plan. |  |  |
 | <a id="nfr-06"></a>NFR-06 | A daily solve finishes within its configured time limit, settable between 5 and 60 seconds; the limit covers the search, not building the travel-time matrix. |  |  |
-| <a id="nfr-07"></a>NFR-07 | A re-optimization returns its preview within 30 seconds at the 99th percentile, from the dispatcher's request to the preview on screen, measured under simulated disruptions at the scale of [NFR-04] (fleet size limit) and [NFR-05] (plan size limit). |  |  |
+| <a id="nfr-07"></a>NFR-07 | A re-optimization returns its preview within 30 seconds at the 95th percentile, from the dispatcher's request to the preview on screen, measured under simulated disruptions at the scale of [NFR-04] (fleet size limit) and [NFR-05] (plan size limit). |  |  |
 | <a id="nfr-08"></a>NFR-08 | Violation checks after a manual edit finish within 500 ms at the 95th percentile, from the edit to the flags on screen. |  |  |
 | <a id="nfr-09"></a>NFR-09 | Stop-status and position updates reach the dispatcher's map within 5 seconds of reaching the server, at the 95th percentile. |  |  |
 | <a id="nfr-180"></a>NFR-180 | Alerts and route changes reach an online reader within 30 seconds at the 95th percentile, and an offline phone when it reconnects. Priority: Must (proposed). |  |  |
-| <a id="nfr-10"></a>NFR-10 | The API is load-tested with k6: 15 phones and 5 consoles on a plan of 200 stops, with 30-second pings for 10 minutes and under 1% errors. |  |  |
+| <a id="nfr-10"></a>NFR-10 | The API is load-tested with k6: 15 phones and 5 web app sessions on a plan of 200 stops, with 30-second pings for 10 minutes and under 1% errors. |  |  |
 | <a id="nfr-57"></a>NFR-57 | The travel-time matrix for a plan at the scale of [NFR-04] (fleet size limit) and [NFR-05] (plan size limit) is built within 5 seconds. Priority: Should (proposed). |  |  |
-| <a id="nfr-181"></a>NFR-181 | [NFR-08] (edit-check latency), [NFR-09] (live update latency), [NFR-57] to [NFR-61] (matrix build through driver app opening times), [NFR-109] (console frame rate) and [NFR-180] (alert delivery time) are measured on the deployment VM, a mid-range laptop for the console and a mid-range Android phone for the driver app, at 200 stops and 15 routes, at the 95th percentile over at least 100 samples. Priority: Should (proposed). |  |  |
-| <a id="nfr-58"></a>NFR-58 | The console's first load finishes within 3 seconds on a throttled Fast 4G connection. Priority: Should (proposed). |  |  |
-| <a id="nfr-109"></a>NFR-109 | Panning, zooming and selecting in the console on a plan of 200 stops and 15 routes holds 30 frames a second. Priority: Should (proposed). |  |  |
+| <a id="nfr-181"></a>NFR-181 | [NFR-08] (edit-check latency), [NFR-09] (live update latency), [NFR-57] to [NFR-61] (matrix build through phone app opening times), [NFR-109] (web app frame rate) and [NFR-180] (alert delivery time) are measured on the deployment VM, a mid-range laptop for the web app and a mid-range Android phone for the phone app, at 200 stops and 15 routes, at the 95th percentile over at least 100 samples. Priority: Should (proposed). |  |  |
+| <a id="nfr-58"></a>NFR-58 | The web app's first load finishes within 3 seconds on a throttled Fast 4G connection. Priority: Should (proposed). |  |  |
+| <a id="nfr-109"></a>NFR-109 | Panning, zooming and selecting in the web app on a plan of 200 stops and 15 routes holds 30 frames a second. Priority: Should (proposed). |  |  |
 | <a id="nfr-59"></a>NFR-59 | Reads and writes that do not solve answer within 500 ms at the 95th percentile, per operation, under the load of [NFR-10] (API load test), except imports ([NFR-60]: import validation time) and publishing. Priority: Should (proposed). |  |  |
 | <a id="nfr-60"></a>NFR-60 | An import of 200 order rows ([FR-10]: CSV order import) is validated and reported within 10 seconds, not counting the geocoding of new addresses. Priority: Could (proposed). |  |  |
-| <a id="nfr-61"></a>NFR-61 | The driver app shows the last received route within 2 seconds of opening, with or without a connection ([FR-69]: route shown offline). Priority: Should (proposed). |  |  |
+| <a id="nfr-61"></a>NFR-61 | The phone app shows a driver's last received route within 3 seconds of opening, with or without a connection ([FR-69]: route shown offline). Priority: Should (proposed). |  |  |
 
 ### Solver research targets
 
@@ -835,8 +885,8 @@ research track, and their values are not yet agreed ([Q-40]: pilot protocol).
 | <a id="nfr-64"></a>NFR-64 | A report the server has acknowledged ([FR-248]: reports stay queued until acknowledged) is not lost when any one service crashes or restarts. Priority: Must (proposed). |  |  |
 | <a id="nfr-65"></a>NFR-65 | A driver's report can be retried safely, as [BR-28] (repeated reports take effect once) requires: its request key is scoped to the signed-in user. (ADR pending: driver report sync and idempotency) Priority: Must (proposed). |  |  |
 | <a id="nfr-130"></a>NFR-130 | A driver's report sent with a request key already used with a different body is refused. (ADR pending: driver report sync and idempotency) Priority: Must (proposed). |  |  |
-| <a id="nfr-66"></a>NFR-66 | If map tiles cannot be loaded, the console still lists routes and stops, with a notice that the map is unavailable. Priority: Should (proposed). |  |  |
-| <a id="nfr-131"></a>NFR-131 | If map tiles cannot be loaded, the driver app still shows the route, its stops and Navigate ([FR-28]: hand off to navigation), with a notice that the map is unavailable. Priority: Should (proposed). |  |  |
+| <a id="nfr-66"></a>NFR-66 | If map tiles cannot be loaded, the web app still lists routes and stops, with a notice that the map is unavailable. Priority: Should (proposed). |  |  |
+| <a id="nfr-131"></a>NFR-131 | If map tiles cannot be loaded, the phone app still shows the route, its stops and Navigate ([FR-28]: hand off to navigation), with a notice that the map is unavailable. Priority: Should (proposed). |  |  |
 | <a id="nfr-189"></a>NFR-189 | If the SMS provider cannot be reached or does not answer, every other function keeps working without waiting for it, as [NFR-42] (work goes on when a service is down) says for the other services. Priority: Must (proposed). |  |  |
 | <a id="nfr-190"></a>NFR-190 | A message the SMS provider has not accepted within 15 minutes of the server recording its trigger is dropped, and the number dropped is measured as [NFR-161] (measured service metrics) measures the others. Priority: Must (proposed). |  |  |
 | <a id="nfr-191"></a>NFR-191 | Each message, identified by its stop, its type and, for "time changed", how many came before it, is sent at most once, even when its trigger repeats ([BR-28]: repeated reports take effect once). Priority: Must (proposed). |  |  |
@@ -847,29 +897,33 @@ research track, and their values are not yet agreed ([Q-40]: pilot protocol).
 
 | ID | Requirement | Size | Enforced by |
 |---|---|---|---|
-| <a id="nfr-15"></a>NFR-15 | The dispatcher console is a desktop web app. |  |  |
-| <a id="nfr-132"></a>NFR-132 | The driver app runs on iOS, Android and in a browser, built from one codebase. |  |  |
-| <a id="nfr-186"></a>NFR-186 | The driver app reaches the pilot's phones through TestFlight and Google Play internal testing, on the company's developer accounts. ([Q-48]: app store review, [ADR-028](../ADRs/ADR-028-driver-app-through-test-tracks-with-a-device-checklist.md): driver app through test tracks) Priority: Must (proposed). |  |  |
+| <a id="nfr-15"></a>NFR-15 | The web app serves Admins, Dispatchers and Drivers in a desktop browser, and its driver screens also work in a phone's browser. ([ADR-035](../ADRs/ADR-035-both-apps-serve-every-role.md): both apps serve every role) |  |  |
+| <a id="nfr-132"></a>NFR-132 | The phone app runs on iOS and Android, from one codebase, and serves Admins, Dispatchers and Drivers. |  |  |
+| <a id="nfr-186"></a>NFR-186 | The phone app reaches the pilot's phones through TestFlight and Google Play internal testing, on the company's developer accounts. ([Q-48]: app store review, [ADR-028](../ADRs/ADR-028-driver-app-through-test-tracks-with-a-device-checklist.md): driver app through test tracks) Priority: Must (proposed). |  |  |
 | <a id="nfr-16"></a>NFR-16 | Every server-side component starts with one Docker Compose command. |  |  |
+| <a id="nfr-208"></a>NFR-208 | The server side's linux/amd64 container images start with one command ([NFR-16]: one-command Docker Compose start) and pass their health checks on Linux in CI, and on Windows and macOS through Docker Desktop, checked by hand before each pilot build. Priority: Must (proposed). |  |  |
 | <a id="nfr-133"></a>NFR-133 | CI builds and tests every change. |  |  |
-| <a id="nfr-44"></a>NFR-44 | The server states the oldest supported version of the driver app, which is the previous one. (ADR pending: supported driver app versions) |  |  |
-| <a id="nfr-134"></a>NFR-134 | A driver app below the oldest supported version tells the driver to update, keeps its route and still sends its queue, and every other version keeps working ([NFR-21]: versioned OpenAPI contracts). |  |  |
+| <a id="nfr-44"></a>NFR-44 | The server states the oldest supported version of the phone app, which is the previous one. (ADR pending: supported phone app versions) |  |  |
+| <a id="nfr-134"></a>NFR-134 | A phone app below the oldest supported version tells the user to update, keeps its route and still sends its queue, and every other version keeps working ([NFR-21]: versioned OpenAPI contracts). |  |  |
 | <a id="nfr-47"></a>NFR-47 | A full 8-hour shift of location reporting ([FR-31]: location reporting during a route), screen off and unplugged, uses at most 15% of the battery, measured on real phones. [Q-38] (driver phones and battery) |  |  |
 | <a id="nfr-52"></a>NFR-52 | The monthly running cost stays within ₪1,200, SMS messages to recipients included ([FR-49]: SMS messages to recipients), checked against the bills each pilot month. [Q-62] (the monthly budget) |  |  |
 | <a id="nfr-135"></a>NFR-135 | Geocoding lookups are held to 1,000 a day; past that, they wait for the next day and the dispatcher is told. |  |  |
-| <a id="nfr-67"></a>NFR-67 | The console supports the current and previous major versions of Chrome and Edge on screens of at least 1366×768; Firefox and Safari work as best effort. Priority: Should (proposed). |  |  |
+| <a id="nfr-67"></a>NFR-67 | The web app supports the current and previous major versions of Chrome and Edge on screens of at least 1366×768; Firefox and Safari work as best effort. Priority: Should (proposed). |  |  |
+| <a id="nfr-219"></a>NFR-219 | The web app's driver screens support the current and previous major versions of Chrome on Android and Safari on iOS. Priority: Should (proposed). |  |  |
+| <a id="nfr-220"></a>NFR-220 | The phone app's web build serves only development and the end-to-end tests: online only and with no push, it reads its route every 30 seconds while open, and it never reaches users or real data. Priority: Must (proposed). |  |  |
 
 ### Usability, accessibility and localization
 
 | ID | Requirement | Size | Enforced by |
 |---|---|---|---|
-| <a id="nfr-27"></a>NFR-27 | Every screen of the console and the driver app is available in Hebrew, laid out right to left, and in English. (ADR pending: interface languages) |  |  |
+| <a id="nfr-27"></a>NFR-27 | Every screen of the web app and the phone app is available in Hebrew, laid out right to left, and in English. (ADR pending: interface languages) |  |  |
 | <a id="nfr-136"></a>NFR-136 | Mixed text, such as addresses with numbers, keeps its correct reading order, checked against a stated list of sample strings. |  |  |
-| <a id="nfr-45"></a>NFR-45 | The driver app needs no action while the vehicle is moving. |  |  |
-| <a id="nfr-137"></a>NFR-137 | The driver app can be used one-handed: main actions are reachable by thumb on a checklist phone. |  |  |
-| <a id="nfr-138"></a>NFR-138 | The driver app is readable in sunlight, with a contrast of at least 7:1. |  |  |
-| <a id="nfr-139"></a>NFR-139 | No prompt in the driver app hides the route until the driver answers it, and that includes the confirmation of [FR-97] (driver confirms a route change). |  |  |
-| <a id="nfr-140"></a>NFR-140 | The driver app's use while moving, one-handed use, sunlight readability, prompts, background location, offline work, background alerts and encrypted storage are checked by hand on real phones with a scripted checklist before each pilot build. |  |  |
+| <a id="nfr-45"></a>NFR-45 | The driver screens of both apps need no action while the vehicle is moving. |  |  |
+| <a id="nfr-137"></a>NFR-137 | The driver screens of both apps can be used one-handed: main actions are reachable by thumb on a checklist phone. |  |  |
+| <a id="nfr-138"></a>NFR-138 | The driver screens of both apps are readable in sunlight, with a contrast of at least 7:1. |  |  |
+| <a id="nfr-139"></a>NFR-139 | No prompt on the driver screens of either app hides the route until the driver answers it, and that includes the confirmation of [FR-97] (driver confirms a route change). |  |  |
+| <a id="nfr-140"></a>NFR-140 | The phone app's driver screens (use while moving, one-handed use, sunlight readability, prompts), background location, offline work, background alerts and encrypted storage are checked by hand on real phones with a scripted checklist before each pilot build. |  |  |
+| <a id="nfr-221"></a>NFR-221 | The checklist of [NFR-140] (hand checklist on real phones) also walks the phone app's Admin and Dispatcher screens, its verified app links ([NFR-213]: links open only verified apps), and the web app's driver screens in the browsers of [NFR-219] (phone browsers for the driver screens). Priority: Must (proposed). |  |  |
 | <a id="nfr-46"></a>NFR-46 | Both clients meet WCAG 2.2 level AA. (ADR pending: security and accessibility standards) |  |  |
 | <a id="nfr-141"></a>NFR-141 | Automated WCAG 2.2 level AA checks of both clients run in CI. |  |  |
 | <a id="nfr-142"></a>NFR-142 | A team member audits by hand the WCAG 2.2 level AA criteria the automated checks do not cover, before the pilot, and it passes with no Level A or AA failures. |  |  |
@@ -877,11 +931,12 @@ research track, and their values are not yet agreed ([Q-40]: pilot protocol).
 | <a id="nfr-69"></a>NFR-69 | Every error message says what happened and what the user can do next, in the user's language. Priority: Should (proposed). |  |  |
 | <a id="nfr-143"></a>NFR-143 | No error message shows a stack trace or a bare internal code. Priority: Should (proposed). |  |  |
 | <a id="nfr-144"></a>NFR-144 | Every error code has Hebrew and English text and a next step. Priority: Should (proposed). |  |  |
-| <a id="nfr-145"></a>NFR-145 | Sign-in and recovery answer the same whether or not the identifier exists. Priority: Should (proposed). |  |  |
+| <a id="nfr-145"></a>NFR-145 | Sign-in and recovery give the same answer whether or not the address exists, a deactivated or role-less account gets the answer a wrong password gets, and a recovery refused by [FR-172] (recovery attempt limit) sends nothing. Priority: Must (proposed). |  |  |
+| <a id="nfr-225"></a>NFR-225 | An unknown address runs the same password-hash work as a known one, no answer waits for an email to be sent, and [NFR-35] (sign-in attempt limit) and [NFR-216] (per-address sign-in limit) count typed addresses whether or not an account holds them. Priority: Must (proposed). |  |  |
 | <a id="nfr-70"></a>NFR-70 | These actions ask for confirmation that names what will change: publishing, cancelling a plan, accepting a re-optimization, cancelling an order, handing over a route, recording or correcting an outcome on a driver's behalf ([FR-73]: dispatcher records an outcome, [FR-333]: dispatcher corrects an outcome) and deactivating a user. Priority: Should (proposed). |  |  |
 | <a id="nfr-146"></a>NFR-146 | A driver's own report on a stop asks for no confirmation, because [NFR-139] (prompts never hide the route) bars a prompt that hides the route. Priority: Should (proposed). |  |  |
-| <a id="nfr-71"></a>NFR-71 | In the driver app every touch target is at least 48 by 48 density-independent pixels. Priority: Should (proposed). |  |  |
-| <a id="nfr-147"></a>NFR-147 | In the driver app, text follows the phone's font size setting without breaking the layout ([NFR-137]: one-handed use, [NFR-138]: sunlight contrast). Priority: Should (proposed). |  |  |
+| <a id="nfr-71"></a>NFR-71 | On the driver screens of both apps every touch target is at least 48 by 48 density-independent (CSS) pixels. Priority: Should (proposed). |  |  |
+| <a id="nfr-147"></a>NFR-147 | On the driver screens of both apps, text follows the device's font size setting without breaking the layout ([NFR-137]: one-handed use, [NFR-138]: sunlight contrast). Priority: Should (proposed). |  |  |
 
 ### Compliance and personal data
 
@@ -890,14 +945,14 @@ research track, and their values are not yet agreed ([Q-40]: pilot protocol).
 | <a id="nfr-17"></a>NFR-17 | Use of every third-party map or geocoding service complies with its terms. |  |  |
 | <a id="nfr-148"></a>NFR-148 | For Google's Geocoding API, the restriction on use with a non-Google map and the 30-day limit on cached coordinates are both resolved before the pilot handles real data. |  |  |
 | <a id="nfr-18"></a>NFR-18 | Maps built on OpenStreetMap data show the attribution its licence requires. |  |  |
-| <a id="nfr-19"></a>NFR-19 | Personal data (customer names, addresses and phone numbers, driver location pings, delivery photos and signatures) never appears in logs. |  |  |
+| <a id="nfr-19"></a>NFR-19 | Personal data (customer names, addresses and phone numbers, users' email addresses, anything typed at sign-in, driver location pings, delivery photos and signatures) never appears in logs. |  |  |
 | <a id="nfr-30"></a>NFR-30 | Driver location is collected only while that driver's route is in progress ([FR-68]: start and finish a route), and stops as [FR-328] (location stops after shift end) says. |  |  |
-| <a id="nfr-149"></a>NFR-149 | The driver app shows the driver when location is being collected. |  |  |
+| <a id="nfr-149"></a>NFR-149 | Both apps show the driver when location is being collected. |  |  |
 | <a id="nfr-31"></a>NFR-31 | Each kind of personal data has a stated retention period and is deleted automatically when it ends. [Q-14] (retention of proofs and records) [Q-42] (legal advice on personal data) |  |  |
-| <a id="nfr-184"></a>NFR-184 | Until legal advice, retention is 7 days for location pings, 90 days for proofs and for messages to recipients with their replies, counted from sending or receipt, and 1 year after retirement for customers and drivers. [Q-14] (retention of proofs and records) [Q-42] (legal advice on personal data) Priority: Must (proposed). |  |  |
+| <a id="nfr-184"></a>NFR-184 | Until legal advice, retention is 7 days for location pings, 90 days for proofs and for messages to recipients with their replies, counted from sending or receipt, and 1 year after retirement for customers and driver records. [Q-14] (retention of proofs and records) [Q-42] (legal advice on personal data) Priority: Must (proposed). |  |  |
 | <a id="nfr-150"></a>NFR-150 | When the company stops using DispatchFlow, it can get its data exported, and the data is deleted 30 days later. |  |  |
-| <a id="nfr-48"></a>NFR-48 | The driver app explains why it needs background location before it asks for the permission. |  |  |
-| <a id="nfr-151"></a>NFR-151 | The driver app follows [Google Play's rule on background location](https://support.google.com/googleplay/android-developer/answer/9799150?hl=en). Apple's rules were not checked. [Q-48] (app store review) |  |  |
+| <a id="nfr-48"></a>NFR-48 | Each app explains why it needs location before it asks for the permission: the phone app for background location, the web app before the browser asks. |  |  |
+| <a id="nfr-151"></a>NFR-151 | The phone app follows [Google Play's rule on background location](https://support.google.com/googleplay/android-developer/answer/9799150?hl=en). Apple's rules were not checked. [Q-48] (app store review) |  |  |
 | <a id="nfr-49"></a>NFR-49 | A person's personal data can be found, corrected and deleted on request. [Q-42] (legal advice on personal data) |  |  |
 | <a id="nfr-152"></a>NFR-152 | After a person's data is deleted, reports keep their non-personal figures. |  |  |
 | <a id="nfr-185"></a>NFR-185 | A named team member runs the company's data export ([NFR-150]: export then deletion when the company leaves) and personal-data requests, on an Admin's written request, within 30 days. Priority: Must (proposed). |  |  |
@@ -908,14 +963,18 @@ research track, and their values are not yet agreed ([Q-40]: pilot protocol).
 | <a id="nfr-72"></a>NFR-72 | A data inventory lists every kind of personal data DispatchFlow keeps: where it is stored, why, for how long ([NFR-31]: retention periods) and who can read it. [Q-42] (legal advice on personal data) Priority: Should (proposed). |  |  |
 | <a id="nfr-155"></a>NFR-155 | The data inventory is kept current with each release. Priority: Should (proposed). |  |  |
 | <a id="nfr-156"></a>NFR-156 | Everything the data inventory lists counts as personal data under [NFR-19] (no personal data in logs). Priority: Should (proposed). |  |  |
-| <a id="nfr-73"></a>NFR-73 | The driver app asks only for the phone permissions it uses: location ([FR-31]: location reporting during a route), camera ([FR-30]: proof of delivery) and notifications ([FR-71]: route-change alerts). Priority: Should (proposed). |  |  |
-| <a id="nfr-157"></a>NFR-157 | The driver app asks for phone permissions after sign-in and before a route starts, never during a route in progress. Priority: Should (proposed). |  |  |
-| <a id="nfr-158"></a>NFR-158 | The driver app keeps working, with that feature degraded, when a phone permission is refused, limited or revoked. Priority: Should (proposed). |  |  |
+| <a id="nfr-73"></a>NFR-73 | The phone app asks only for the phone permissions it uses: location ([FR-31]: location reporting during a route) and camera ([FR-30]: proof of delivery) for an account holding the Driver role, and notifications ([FR-71]: route-change alerts). Priority: Should (proposed). |  |  |
+| <a id="nfr-157"></a>NFR-157 | The phone app asks for phone permissions after sign-in and, for a driver, before the route starts, never during a route in progress. Priority: Should (proposed). |  |  |
+| <a id="nfr-158"></a>NFR-158 | Both apps keep working, with that feature degraded, when a permission is refused, limited or revoked. Priority: Should (proposed). |  |  |
 | <a id="nfr-187"></a>NFR-187 | When location permission is refused, limited or revoked, the dispatcher sees that the driver's location is unavailable. Priority: Should (proposed). |  |  |
 | <a id="nfr-193"></a>NFR-193 | Messages sent to recipients, and their replies and comments, are personal data kept as [NFR-184] (default retention periods) says; each day's average rating and share answered stay. Priority: Must (proposed). |  |  |
 | <a id="nfr-202"></a>NFR-202 | A phone's opt-out ([FR-363]: opting out of messages) is kept as a hash of the phone, keyed by a secret ([NFR-03]: secrets kept out of the repository and logs), until the company leaves ([NFR-150]: export then deletion when the company leaves), whatever retention or a request removes. Priority: Must (proposed). |  |  |
-| <a id="nfr-204"></a>NFR-204 | Proof photos are taken inside the driver app, which asks to frame the package and the door, not people; they never reach the phone's gallery and leave the phone once the server acknowledges them. Priority: Must (proposed). |  |  |
+| <a id="nfr-204"></a>NFR-204 | Proof photos are taken inside either app, which asks to frame the package and the door, not people; they never come from or reach the device's gallery, and leave the device once the server acknowledges them. Priority: Must (proposed). |  |  |
+| <a id="nfr-222"></a>NFR-222 | The web app takes proof photos from the live camera stream inside the page, never through a file picker. Priority: Must (proposed). |  |  |
 | <a id="nfr-205"></a>NFR-205 | The server re-encodes each proof image and strips its metadata before storing it. Priority: Must (proposed). |  |  |
+| <a id="nfr-209"></a>NFR-209 | The server and its data, backups included, are hosted in Israel. (ADR pending: hosting) Priority: Must (proposed). |  |  |
+| <a id="nfr-217"></a>NFR-217 | The data inventory ([NFR-72]: data inventory) names each outside service that receives company data (the email sender, push, crash reporting, the geocoder, the SMS provider, map tiles), what it receives, and whether it keeps it in Israel or is an accepted exception. Priority: Must (proposed). |  |  |
+| <a id="nfr-218"></a>NFR-218 | No push notification carries personal data, for any role: it says only that something changed, and the app fetches the details with its own token. Priority: Must (proposed). |  |  |
 
 ### Observability and maintainability
 
@@ -927,8 +986,8 @@ research track, and their values are not yet agreed ([Q-40]: pilot protocol).
 | <a id="nfr-161"></a>NFR-161 | Solve latency, re-optimization latency, job queue depth, error rate, dropped-order rate and on-time percentage are measured. |  |  |
 | <a id="nfr-21"></a>NFR-21 | Every API, client to backend and backend to optimization service, is described by a versioned OpenAPI contract. |  |  |
 | <a id="nfr-162"></a>NFR-162 | Both sides of every API are tested against its OpenAPI contract. |  |  |
-| <a id="nfr-74"></a>NFR-74 | Errors in both clients and crashes of the driver app reach the team with the app version and trace id ([NFR-20]: structured logs with correlation ids). (ADR pending: client error and crash reporting) Priority: Should (proposed). |  |  |
-| <a id="nfr-163"></a>NFR-163 | Client errors and driver app crashes reported to the team carry no personal data ([NFR-19]: no personal data in logs), credentials or tokens. Priority: Should (proposed). |  |  |
+| <a id="nfr-74"></a>NFR-74 | Errors in both clients and crashes of the phone app reach the team with the app version and trace id ([NFR-20]: structured logs with correlation ids). (ADR pending: client error and crash reporting) Priority: Should (proposed). |  |  |
+| <a id="nfr-163"></a>NFR-163 | Client errors and phone app crashes reported to the team carry no personal data ([NFR-19]: no personal data in logs), credentials or tokens. Priority: Should (proposed). |  |  |
 | <a id="nfr-75"></a>NFR-75 | The team is alerted when solve failures pass 10% of a day, a preview takes over 30 seconds ([NFR-07]: re-optimization response time), 5 jobs are queued or disk use passes 80%. Priority: Should (proposed). |  |  |
 | <a id="nfr-164"></a>NFR-164 | The team is alerted when a backup fails ([NFR-28]: scheduled off-VM backups). Priority: Should (proposed). |  |  |
 | <a id="nfr-197"></a>NFR-197 | The team is alerted when sending stops at the cap of [NFR-196] (daily message cap) or more than 10% of a day's messages are dropped ([NFR-190]: stale messages dropped). Priority: Must (proposed). |  |  |
@@ -953,9 +1012,10 @@ research track, and their values are not yet agreed ([Q-40]: pilot protocol).
 | <a id="nfr-172"></a>NFR-172 | In property-based tests on instances built around a known full solution, every order is served. Priority: Should (proposed). |  |  |
 | <a id="nfr-173"></a>NFR-173 | In property-based tests, generated re-optimizations of a published plan pass [NFR-171] (validator property tests) and [NFR-172] (full-service property tests), and locked stops ([BR-10]: completed and in-progress stops are locked) also stay in place. Priority: Should (proposed). |  |  |
 | <a id="nfr-174"></a>NFR-174 | In property-based tests, the DispatchFlow solver gives the same solution for the same input, seed and iteration budget ([NFR-13]: reproducible solver), in separate processes too. Priority: Should (proposed). |  |  |
-| <a id="nfr-83"></a>NFR-83 | End-to-end tests run UC-06, UC-07, UC-08, UC-10 and UC-14 ([Use cases](#use-cases)), each main flow and at least one listed failure, in CI against the Docker Compose stack ([NFR-16]: one-command Docker Compose start), using the driver app's web build. Priority: Should (proposed). |  |  |
-| <a id="nfr-175"></a>NFR-175 | End-to-end tests run with a controllable clock, fixed road data, solves under a search budget rather than a time limit, a faked push service, a faked SMS provider and no outside network. Priority: Should (proposed). |  |  |
-| <a id="nfr-176"></a>NFR-176 | Tests through the API check every role against every capability of the [permission matrix](#company-users-and-roles), and one driver against another driver's routes, stops, proofs and positions, apart from the late reports of [BR-27] (late outcomes are still accepted). Priority: Must (proposed). |  |  |
+| <a id="nfr-83"></a>NFR-83 | End-to-end tests run UC-06, UC-07, UC-08, UC-10 and UC-14 ([Use cases](#use-cases)), each main flow and at least one listed failure, in CI against the Docker Compose stack ([NFR-16]: one-command Docker Compose start), on the web app and again on the phone app's web build. Priority: Should (proposed). |  |  |
+| <a id="nfr-175"></a>NFR-175 | End-to-end tests run with a controllable clock, fixed road data, solves under a search budget rather than a time limit, a faked push service, a faked SMS provider, a faked email sender and no outside network. Priority: Should (proposed). |  |  |
+| <a id="nfr-176"></a>NFR-176 | Tests through the API check every role against every capability of the [permission matrix](#company-users-and-roles), and one driver against another driver's routes, stops, proofs, positions and stream events, apart from the late reports of [BR-27] (late outcomes are still accepted). Priority: Must (proposed). |  |  |
+| <a id="nfr-210"></a>NFR-210 | Tests through the API also check each combination of two roles, and all three, against exactly the union of their capabilities ([FR-293]: roles combined in one account), outcomes on the account's own route included, and that a role-less account cannot sign in ([BR-123]: no role, no sign-in). Priority: Must (proposed). |  |  |
 
 ## Non-goals
 
@@ -971,7 +1031,7 @@ DispatchFlow deliberately does not:
 - **Handle payments,** including cash on delivery and billing for DispatchFlow itself. A note on an order
   may mention cash, but nothing is calculated. ([Q-57]: scope of the payments non-goal)
 - **Run a marketplace or crowdsourced drivers.** Every driver belongs to the company.
-- **Provide turn-by-turn navigation.** The driver app hands off to Waze or Google Maps.
+- **Provide turn-by-turn navigation.** Both apps hand off to Waze or Google Maps.
 - **Serve enterprise-scale fleets.** Its limits of 15 vehicles and 200 stops a plan are final
   ([Q-90]: real fleet size and daily stops); reopen them when a larger company wants DispatchFlow.
 - **Beat OR-Tools on static benchmarks.** The DispatchFlow solver is not expected to outperform
@@ -993,12 +1053,12 @@ DispatchFlow deliberately does not:
   (ADR pending: scope cuts for the first release)
 - **Forecast demand.** Reopen when the company needs a plan prepared before its orders exist.
   (ADR pending: scope cuts for the first release)
-- **Integrate vehicle telematics or trackers.** Positions come only from the driver app ([FR-31]:
-  location reporting during a route). Reopen when the company's vans already carry trackers.
+- **Integrate vehicle telematics or trackers.** Positions come only from the apps ([FR-31]: location
+  reporting during a route, [FR-243]: web app location while open). Reopen when the company's vans already carry trackers.
   (Proposed, 2026-11-03) (ADR pending: scope cuts for the first release)
-- **Run the dispatcher console offline.** Only the driver app works without a connection
+- **Run dispatching offline.** Only a driver's route work runs without a connection, in the phone app
   ([FR-69]: route shown offline, [FR-70]: report stops offline); printed routes
-  ([FR-72]: print or export routes) are the console's fallback. Reopen when the company's
+  ([FR-72]: print or export routes) are the fallback for dispatching. Reopen when the company's
   dispatcher cannot get through an outage on printed routes. (Proposed, 2026-11-03)
   (ADR pending: scope cuts for the first release)
 - **Take orders from end customers.** There is no storefront or order form for buyers; orders come
@@ -1037,7 +1097,7 @@ DispatchFlow deliberately does not:
 |---|---|---|
 | Q-01 | Which delivery company is it, and what does it provide — historical orders and routes, fleet data, access to dispatcher and drivers? Needed before the approval meeting; fallback is synthetic data ([FR-45]: synthetic order generator). Data owner: the company. | FR-40, FR-47, FR-48 and FR-276 |
 | Q-02 | Geocoding provider: Hebrew-accuracy test on real addresses against at least one alternative, plus a review of Google's terms on non-Google maps and caching. The chosen provider's terms must also allow keeping the coordinates copied onto customers and depots; if Google stays, those copies are geocoded again on a schedule before its retention runs out (settles Q-25). What does the chosen provider's answer count as partial or ambiguous ([FR-63]: doubtful addresses flagged before a solve)? Do its terms and price allow suggestions while typing ([FR-139]: address suggestions while typing), and does the accuracy test show that normalization ([FR-140]: Hebrew address normalization) is needed? The test also covers addresses in Arabic and in English transliteration ([Q-83]: Arabic or transliterated addresses). | FR-12, FR-13, NFR-17 — ADR pending: Google geocoding provider — also FR-63, FR-139, FR-140 |
-| Q-03 | Dispatcher map: Leaflet or MapLibre, and which tile source (OpenStreetMap's public tile servers have a usage policy). | FR-24 |
+| Q-03 | Map library for each app: Leaflet or MapLibre for the web app, which library for the phone app, and which tile source (OpenStreetMap's public tile servers have a usage policy). Does [NFR-109] (web app frame rate) also bind the phone app's map? The phone app's library must also run in its web build, which the end-to-end tests use ([NFR-220]: the phone app's web build). **Widened** on 2026-11-11 to both apps ([ADR-035](../ADRs/ADR-035-both-apps-serve-every-role.md): both apps serve every role). | FR-24, FR-120, NFR-109 |
 | Q-04 | ~~Real-time channel.~~ **Resolved** on 2026-11-04 by [ADR-026](../ADRs/ADR-026-server-sent-events-and-push-for-live-updates.md) (server-sent events and push): server-sent events to the console, HTTP POST for driver and console actions, and a push to a backgrounded driver app, which then fetches its route. An alert raised while the console is closed waits in the alert list ([FR-335]: alerts wait in the alert list). | FR-16, FR-32, FR-33 and FR-34, FR-65, FR-71, FR-95, FR-101, FR-102, BR-27, FR-152, FR-222, BR-89 |
 | Q-05 | ~~Status sets and Plan transitions.~~ **Resolved** on 2026-10-09 by ADR pending: plan lifecycle publishing stability and drop reasons. ~~What triggers a published plan's completion.~~ **Resolved** on 2026-11-04: the end of its date, at midnight Israel time ([BR-102]: plans complete at midnight). | BR-12 |
 | Q-06 | ~~How heavily route stability weighs.~~ **Resolved** on 2026-11-04 by [ADR-029](../ADRs/ADR-029-solver-objective-and-re-optimization-rules.md) (solver objective and re-optimization rules): a penalty per moved stop, starting at 5 minutes of travel time and tuned before the study ([BR-115]: the re-optimization penalties). Under [BR-106] (goods stay on their van), only drops and the stops of a van that is out count. (The measure itself was settled by ADR pending: plan lifecycle publishing stability and drop reasons.) | FR-37, FR-46, NFR-07 |
@@ -1045,16 +1105,16 @@ DispatchFlow deliberately does not:
 | Q-08 | ~~Numeric targets.~~ **Resolved** on 2026-11-04: [NFR-08] (edit-check latency), [NFR-09] (live update latency), [NFR-10] (API load test), [NFR-180] (alert delivery time) and [FR-343] (SUS score without a pass mark) carry the values. 1% downtime, the backup and a 4-hour restore stand, and a restore after losing the VM does not count against the 1% ([NFR-183]: VM loss excluded from downtime). | NFR-08, NFR-09, NFR-10, NFR-14, FR-48 and NFR-28, NFR-29, FR-207, FR-71, FR-95, FR-101, FR-102, NFR-59, NFR-125, NFR-126, NFR-128 |
 | Q-09 | ~~May a plan with flagged violations be published?~~ **Resolved** on 2026-10-09: no ([BR-17]: no publishing with violations; ADR pending: plan lifecycle publishing stability and drop reasons). | FR-23 |
 | Q-10 | ~~CSV column format, encodings, the customer file and the Excel sheet.~~ **Resolved** on 2026-11-04: named template columns ([FR-309]: fixed import columns); UTF-8, or Windows-1255 with a confirmed preview ([FR-313]: encoding detection); no UTF-16 ([FR-314]: UTF-16 files refused); customer rows as [FR-318] (customer row rules) says; the first sheet ([FR-319]: first sheet only). (Whether a file with invalid rows imports its valid rows was **resolved** on 2026-10-10: it imports nothing, and rows name their customer by address — ADR pending: CSV order import.) | FR-10 and FR-61, FR-210, FR-84, FR-138 |
-| Q-11 | ~~Capacity units, and an order with no volume.~~ **Resolved** on 2026-11-04: kilograms and litres, and a blank volume counts as zero ([BR-50]: capacity units and blank volumes). The pre-flight check lists those orders ([FR-230]: pre-flight check). | FR-05, FR-09 — ADR pending: capacity weight and volume, NFR-68 |
+| Q-11 | ~~Capacity units, and an order with no volume.~~ **Resolved** on 2026-11-04: kilograms and litres, and a blank volume counts as zero ([BR-50]: capacity and demand values). The pre-flight check lists those orders ([FR-230]: pre-flight check). **Changed** on 2026-11-11: weight and volume must be positive, a blank one is refused ([BR-50]: capacity and demand values), and the pre-flight check no longer lists orders with no volume ([FR-230]: pre-flight check). | FR-05, FR-09 — ADR pending: capacity weight and volume, NFR-68 |
 | Q-12 | ~~Role permission matrix: which roles may manage fleet, customers and orders, solve, edit, publish, re-optimize.~~ **Resolved** on 2026-10-11: an Admin does everything a Dispatcher does, plus the company and its users; a Dispatcher runs every operation and reads users; a Driver works their own route only (the matrix under [FR-03]: role-based access; ADR pending: authorize every web handler by role). | FR-03 |
 | Q-14 | Proof files: **resolved** on 2026-11-04 by [ADR-027](../ADRs/ADR-027-proof-files-on-the-vm-disk-with-hourly-backups.md) (proof files on the VM disk): on the VM's disk, backed up off it. Retention defaults are in [NFR-184] (default retention periods), [NFR-76] (log retention) and [NFR-150] (export then deletion when the company leaves). **Still open:** retention for orders and stops with their recipients and entrance codes, customers never retired, Admin and Dispatcher accounts, audit records, sessions, the geocode cache, research instances and backups, which [NFR-31] (retention periods) requires. The legal basis for tracking drivers moved to [Q-42] (legal advice on personal data). Suggested owner: Team, legal advice. | FR-30, FR-31, NFR-19 and NFR-31, NFR-76, FR-87, FR-160, NFR-150, NFR-184 |
 | Q-15 | ~~When location reporting runs, how often, staleness and refused permission.~~ **Resolved** on 2026-11-04: every 30 seconds from route start to finish ([FR-31]: location reporting during a route, [NFR-30]: location collected only on a route), stale after 5 minutes by the server's clock ([FR-74]: age of each vehicle position), and a refused permission shows the dispatcher that location is unavailable ([NFR-187]: location permission refused). | FR-31 and FR-68, FR-74, BR-80, NFR-30, NFR-158 |
 | Q-16 | ~~How the app reaches the phones, and how native builds are tested.~~ **Resolved** on 2026-11-04 by [ADR-028](../ADRs/ADR-028-driver-app-through-test-tracks-with-a-device-checklist.md) (driver app through test tracks): TestFlight and Google Play internal testing ([NFR-186]: app distribution through test tracks), a scripted checklist on real phones ([NFR-140]: hand checklist on real phones), and automated end-to-end tests on the web build ([NFR-83]: end-to-end tests). | FR-31, NFR-15 and FR-71, NFR-39, NFR-140, NFR-47, NFR-151, NFR-61, NFR-71, NFR-73, NFR-83 — [ADR-003](../ADRs/ADR-003-dispatcher-console-and-driver-app.md) (web console and React Native driver app), NFR-132 |
-| Q-17 | Can the DispatchFlow solver, written in Python, reach enough ALNS iterations within the 30-second budget to compete? If not, what changes? (Evidence of 2026-10-10: about 1,800 iterations in 30 s on a 200-stop day, after constant-time insertion checks; see [optimization-engine.md](../architecture/optimization-engine.md). Whether that competes is for the benchmarks.) | FR-42, NFR-07, NFR-25 — [ADR-002](../ADRs/ADR-002-core-backend-and-separate-optimization-service.md) (Java core and Python solver service) |
+| Q-17 | Can the DispatchFlow solver, written in Python, reach enough ALNS iterations within the default budget of [FR-19] (configurable solve time limit) to compete? If not, what changes? (Evidence of 2026-10-10: about 1,800 iterations in 30 s on a 200-stop day, after constant-time insertion checks; see [optimization-engine.md](../architecture/optimization-engine.md). Whether that competes is for the benchmarks.) | FR-42, NFR-07, NFR-25 — [ADR-002](../ADRs/ADR-002-core-backend-and-separate-optimization-service.md) (Java core and Python solver service) |
 | Q-18 | ~~When to adopt PostGIS.~~ **Resolved** on 2026-11-04: when the first feature needs a spatial query, as [ADR-007](../ADRs/ADR-007-postgresql-with-flyway-migrations.md) (PostgreSQL with Flyway migrations) already says. Until then, plain latitude and longitude columns, with service-area and distance checks in application code. | [ADR-007](../ADRs/ADR-007-postgresql-with-flyway-migrations.md) (PostgreSQL with Flyway migrations) |
 | Q-19 | ~~Which reasons the system can give for a dropped order, and how they are determined.~~ **Resolved** on 2026-10-09 by ADR pending: plan lifecycle publishing stability and drop reasons. | FR-18 |
 | Q-20 | Buckets and factors: **resolved** on 2026-11-04 by [ADR-029](../ADRs/ADR-029-solver-objective-and-re-optimization-rules.md) (solver objective and re-optimization rules): three buckets ([FR-321]: travel-time buckets), solvers plan at the highest factor and ETAs and the validator use each bucket's ([FR-322]: planning with the highest factor), and the buffer starts at 10% ([FR-227]: ETA buffer). **Still open:** the buckets' starting hours; the factor of an arc that crosses a boundary; which factor the shared objective and lateness use; whether the validator and [BR-03] (service starts inside the time window) ignore the buffer; and what an off-peak factor's earlier arrival costs at a door stop ([BR-122]: door stops are served on arrival). Suggested owner: Team. | FR-90, NFR-33 and ADR pending: no live traffic, FR-227, FR-321, FR-322 |
-| Q-21 | ~~Solve and re-optimization limits, margins and queues.~~ **Resolved** on 2026-11-04: a 30-second default solve limit, which an Admin changes ([FR-19]: configurable solve time limit, [FR-183]: planning settings for Admins); a 20-second re-optimization limit ([BR-84]: the re-optimization time limit); failure 30 seconds past either ([BR-32]: a solve that overruns its limit fails); queue limits in [BR-112] (solve queue limits); a queued re-optimization does not survive a restart ([BR-85]: a restart fails a re-optimization). | FR-19 and BR-84, BR-32, FR-183 |
+| Q-21 | ~~Solve and re-optimization limits, margins and queues.~~ **Resolved** on 2026-11-04: a 45-second default solve limit (changed from 30 seconds on 2026-11-11 to match the ARD), which an Admin changes ([FR-19]: configurable solve time limit, [FR-183]: planning settings for Admins); a 20-second re-optimization limit ([BR-84]: the re-optimization time limit); failure 30 seconds past either ([BR-32]: a solve that overruns its limit fails); queue limits in [BR-112] (solve queue limits); a queued re-optimization does not survive a restart ([BR-85]: a restart fails a re-optimization). | FR-19 and BR-84, BR-32, FR-183 |
 | Q-22 | ~~Which Gehring-Homberger sizes run where.~~ **Resolved** on 2026-11-04: none in CI, which runs a small Solomon smoke run; the offline study runs the 200-customer instances, and 400 if time remains ([FR-275]: Gehring-Homberger benchmarks). | FR-275 |
 | Q-23 | ~~Moving a stop to a van that is not carrying its goods.~~ **Resolved** on 2026-11-04 by [ADR-029](../ADRs/ADR-029-solver-objective-and-re-optimization-rules.md) (solver objective and re-optimization rules): goods stay on their van, except for a van that is out and for new orders ([BR-106]: goods stay on their van, [BR-117]: dropped and moved orders count as new), and the preview flags those for a hand-over ([FR-334]: preview names goods hand-overs). No depot visit is modelled. A late driver cannot shed stops to another van. | FR-07, FR-11, FR-35 and BR-05, FR-111 |
 | Q-24 | ~~Should a day with a vehicle withdrawn mid-route be compared with its baseline, and on what?~~ **Resolved** on 2026-10-10: it is compared on kilometres and on-time, without driver-hours, and the comparison names the withdrawn vehicles (FR-269). | FR-270, FR-271 |
@@ -1068,20 +1128,20 @@ DispatchFlow deliberately does not:
 | Q-32 | ~~A stop that cannot make its window during re-optimization.~~ **Resolved** on 2026-11-04 by [ADR-029](../ADRs/ADR-029-solver-objective-and-re-optimization-rules.md) (solver objective and re-optimization rules): it may stay on the route, late and flagged, within the driver's shift ([BR-107]: re-optimization may keep late stops). A solve stays bound by [BR-03] (service starts inside the time window). | BR-03, BR-15, BR-23, FR-35, FR-37, FR-46, FR-57, FR-103, NFR-25 |
 | Q-33 | ~~A mistaken final outcome.~~ **Resolved** on 2026-11-04: a dispatcher corrects it, with a reason, and the original stays in the history ([FR-333]: dispatcher corrects an outcome, [BR-18]: outcomes are final for drivers). | BR-18, BR-27, BR-28, BR-33, FR-38, FR-73, NFR-70 |
 | Q-34 | ~~Manual control on a published plan.~~ **Resolved** on 2026-11-04: only the named actions of [BR-47] (published routes change only through named actions). To change a route: re-optimize, hand over or cancel. [FR-22] (move stops by hand) stays a Should. | BR-12, BR-16, FR-22, FR-23, FR-32, FR-35, FR-55, FR-207, FR-91, BR-47 |
-| Q-35 | ~~One person dispatching and driving.~~ **Resolved** on 2026-11-04: two accounts, with one role each ([FR-293]: one role per user). | FR-02, FR-03, BR-02, BR-20 |
+| Q-35 | ~~One person dispatching and driving.~~ **Resolved** on 2026-11-04 as two accounts with one role each, and **changed** on 2026-11-11: one account per person, which can hold several roles ([FR-293]: roles combined in one account). | FR-02, FR-03, BR-02, BR-20 |
 | Q-36 | ~~One driver per van per date, or two part-day drivers.~~ **Resolved** on 2026-11-04: one ([BR-39]: one route per van and per driver). Reopen when the company runs two part-day drivers on one van. | FR-06, FR-15, FR-54, FR-55, FR-79, BR-06, BR-20, BR-39 |
-| Q-37 | ~~How drivers without email sign in and recover.~~ **Resolved** on 2026-11-04 by [ADR-030](../ADRs/ADR-030-admin-issued-credentials-and-token-revocation.md) (Admin-issued credentials and token revocation): a username and an Admin-issued password ([FR-294]: first-password rules, [FR-295]: driver sign-in and password reset), and an emailed link for Admins and Dispatchers ([FR-296]: emailed recovery for Admins and Dispatchers). No SMS, and [FR-200] (a driver's phone is no recovery channel) stands. | FR-02, FR-52, NFR-01, NFR-35, NFR-36, FR-200 |
+| Q-37 | ~~How drivers without email sign in and recover.~~ **Resolved** on 2026-11-04 by [ADR-030](../ADRs/ADR-030-admin-issued-credentials-and-token-revocation.md) (Admin-issued credentials and token revocation): a username and an Admin-issued password (then FR-294 and FR-295), and an emailed link for Admins and Dispatchers ([FR-386]: password recovery by email). No SMS, and [FR-200] (a driver's phone is no recovery channel) stands. **Changed** on 2026-11-11 by [ADR-036](../ADRs/ADR-036-one-account-per-person-signed-in-by-email.md) (one account per person, signed in by email): every user, drivers included, signs in with their own email and recovers through an emailed link. | FR-02, FR-52, NFR-01, NFR-35, NFR-36, FR-200 |
 | Q-38 | Are the phones company-owned or personal, which models and OS versions, and what battery use is acceptable over a full shift? Whether personal phones change the consent position needs verification. **Default until the company answers:** drivers' own iOS and Android phones, any version our Expo SDK supports, and the limit of [NFR-47] (battery use). Suggested owner: The company, team. | FR-31, FR-77, NFR-15, NFR-30, NFR-44, NFR-47, Q-15, Q-16, NFR-132 |
 | Q-39 | Must routes leave time for driver breaks by law? [Wikipedia](https://en.wikipedia.org/wiki/Israeli_labor_law), which is not the statute, says a work day of at least six hours gives 45 minutes of rest, including an uninterrupted 30-minute break. Rules specific to drivers were not found. Needs verification against the Hours of Work and Rest Law itself, and whether the company must keep records of driver hours ([Non-goals](#non-goals)). **Default until verified** (2026-11-04): [BR-105] (time reserved for breaks). Suggested owner: Team, legal advice. | BR-06, BR-15, FR-17, FR-81, [Non-goals](#non-goals), BR-105 |
 | Q-40 | What is the pilot protocol: length, operating hours and days, a shadow period first, collecting a manual baseline, which days are comparable, the target saving X of [NFR-32] (pilot savings target), how actuals are measured, support cover during exams, the manual fallback, whether overnight work is in scope, and what acceptance means if no company is confirmed? Owner: Team. | FR-40, FR-47, FR-48, FR-72, FR-106, FR-114, NFR-29, NFR-32, NFR-33, NFR-34, NFR-128 |
-| Q-42 | What needs legal advice about personal data? **Working assumptions until then** (2026-11-04): the company owns the data and the team processes it under a written pilot agreement; hosting in Israel; a deletion anonymizes names in kept rows; backups age out. How long backups are kept is not set. **Support access:** Naim Elijah, Moshe Klein, Bentzion Hadad and Shai Manor may see the company's data for support, and those reads are not audited. Still to verify: database registration; sending addresses to a third-party geocoder; tracking employees and the legal basis for it; whether pharmacy deliveries are health data; the privacy notice ([FR-77]: terms and privacy acceptance); what a report may show about an employee ([FR-109]: report per driver); what a delivery's rating and comment show about its driver ([FR-361]: low-rating alert); a person's rights ([NFR-49]: personal-data requests). Amendment 13 of the Privacy Protection Law was due to take effect on 14 August 2025 ([Pearl Cohen](https://www.pearlcohen.com/major-amendment-to-israeli-privacy-law-set-to-take-effect/)). Suggested owner: Team, legal advice. | Q-02, Q-14, FR-12, FR-31, FR-33, FR-47, FR-77, FR-109, NFR-14, NFR-19, NFR-28, NFR-30, NFR-31, NFR-49, NFR-50, FR-53, FR-73, FR-104, BR-37, FR-160, FR-161, NFR-72, NFR-184 |
+| Q-42 | What needs legal advice about personal data? **Working assumptions until then** (2026-11-04): the company owns the data and the team processes it under a written pilot agreement; hosting in Israel, now [NFR-209] (hosting in Israel); a deletion anonymizes names in kept rows; backups age out. How long backups are kept is not set. **Support access:** Naim Elijah, Moshe Klein, Bentzion Hadad and Shai Manor may see the company's data for support, and those reads are not audited. Still to verify: database registration; sending addresses to a third-party geocoder; tracking employees and the legal basis for it; whether pharmacy deliveries are health data; the privacy notice ([FR-77]: terms and privacy acceptance); what a report may show about an employee ([FR-109]: report per driver); what a delivery's rating and comment show about its driver ([FR-361]: low-rating alert); a person's rights ([NFR-49]: personal-data requests). Amendment 13 of the Privacy Protection Law was due to take effect on 14 August 2025 ([Pearl Cohen](https://www.pearlcohen.com/major-amendment-to-israeli-privacy-law-set-to-take-effect/)). Suggested owner: Team, legal advice. | Q-02, Q-14, FR-12, FR-31, FR-33, FR-47, FR-77, FR-109, NFR-14, NFR-19, NFR-28, NFR-30, NFR-31, NFR-49, NFR-50, FR-53, FR-73, FR-104, BR-37, FR-160, FR-161, NFR-72, NFR-184 |
 | Q-43 | ~~Which priority is highest, and the default.~~ **Resolved** on 2026-11-04: 1 is the highest, and the default is 3 ([BR-53]: the priority scale). | FR-09, FR-10, FR-57, FR-84, BR-53, BR-09 |
-| Q-44 | ~~Further interface languages.~~ **Resolved** on 2026-11-04: Hebrew and English only, and [FR-121] (Arabic and Russian driver app) stays a Could. Reopen when the company's drivers need it. | FR-121, NFR-27 |
+| Q-44 | ~~Further interface languages.~~ **Resolved** on 2026-11-04: Hebrew and English only, and [FR-121] (Arabic and Russian for drivers) stays a Could. Reopen when the company's drivers need it. | FR-121, NFR-27 |
 | Q-45 | ~~The service area's boundary.~~ **Resolved** on 2026-11-04: what the OpenStreetMap road-data extract covers ([FR-320]: the service area). | FR-14, FR-63, FR-64, BR-24, BR-80 |
 | Q-46 | ~~A day that does not run, and orders on past dates.~~ **Resolved** on 2026-11-04: a dispatcher can cancel a published plan ([FR-336]: cancel a published plan, [BR-103]: a cancelled plan is final), and past dates refuse orders ([BR-116]: no orders on past dates). | BR-12, BR-34, BR-97, Q-05, FR-11, FR-15, FR-38, FR-39, FR-75 |
 | Q-47 | ~~Failure reasons.~~ **Resolved** on 2026-11-04: a fixed list plus other with text ([BR-109]: the fixed list of failure reasons). | FR-242, FR-73, BR-11, FR-161 |
 | Q-48 | How long does store review take for an app using background location, and what do Apple's rules on it require? Do drivers count as TestFlight external testers, whose builds go to App Review, and does Google internal testing need each driver's Google account address? All need verification and could move the pilot date. **Decided on 2026-11-04:** the company owns the developer accounts ([NFR-186]: app distribution through test tracks), so distribution waits for [Q-01] (which company and what data). Suggested owner: Team. | Q-16, FR-31, FR-47, NFR-151, NFR-186 |
-| Q-49 | ~~The gaps in the measures of [FR-38] (the daily summary).~~ **Resolved** on 2026-11-04: failed stops shown beside on-time ([FR-339]: failed stops beside on-time), a missing arrival uses the delivery time ([FR-340]: delivery time stands in for arrival), clock correction ([BR-114]: report times corrected for the phone's clock), and planned distance ([FR-341]: the summary shows planned distance). | FR-38, FR-41, FR-70, FR-73, FR-106, NFR-32, NFR-33, BR-44 |
+| Q-49 | ~~The gaps in the measures of [FR-38] (the daily summary).~~ **Resolved** on 2026-11-04: failed stops shown beside on-time ([FR-339]: failed stops beside on-time), a missing arrival uses the delivery time ([FR-340]: delivery time stands in for arrival), clock correction ([BR-114]: report times corrected for the device's clock), and planned distance ([FR-341]: the summary shows planned distance). | FR-38, FR-41, FR-70, FR-73, FR-106, NFR-32, NFR-33, BR-44 |
 | Q-50 | ~~What the baseline of [FR-39] (nearest-neighbour baseline comparison) obeys and proves.~~ **Resolved** on 2026-11-04: it obeys the business rules ([FR-342]: rules the baseline obeys) and is a sanity check. The proof of value stays [NFR-32] (pilot savings target), against the company's own routes. | FR-39, FR-40, FR-108, NFR-32 |
 | Q-51 | ~~Strict or proportional drop penalties.~~ **Resolved** on 2026-11-04 by [ADR-029](../ADRs/ADR-029-solver-objective-and-re-optimization-rules.md) (solver objective and re-optimization rules): proportional ([BR-54]: drop penalty scales with priority), with fewer drops as best effort ([BR-55]: fewer drops preferred). A pin, lock or route limit is honoured over priority. For *displaced*, the fact given under [FR-144] (drop reasons explained) says that other orders took its place, without claiming one cause. | BR-54, BR-55, BR-09, FR-17, FR-42, FR-46, FR-91, NFR-24, NFR-25, FR-144, FR-147, FR-159 |
 | Q-52 | ~~Whether in-progress includes the stop being driven to.~~ **Resolved** on 2026-11-04: no, a stop locks when its driver marks it *arrived* ([BR-10]: completed and in-progress stops are locked). | BR-10, BR-25, FR-35 |
@@ -1091,16 +1151,16 @@ DispatchFlow deliberately does not:
 | Q-56 | ~~What FR-50 adds beyond [FR-04] (define depots) and [FR-05] (register vehicles).~~ **Resolved** on 2026-11-04: nothing, so FR-50 is withdrawn. | FR-04, FR-05 |
 | Q-57 | ~~What the non-goal on payments covers.~~ **Resolved** on 2026-11-04: cash on delivery and billing for DispatchFlow ([Non-goals](#non-goals)). | [Non-goals](#non-goals) |
 | Q-58 | ~~What the 30 seconds and the solve limit include.~~ **Resolved** on 2026-11-04: [NFR-07] (re-optimization response time) runs from the request to the preview on screen, the limit of [NFR-06] (solve time limit range) covers the search only, and an open preview blocks nothing and has no age limit ([BR-38]: one re-optimization at a time, [BR-25]: re-check when a re-optimization is accepted). | BR-25, BR-32, BR-38, FR-19, NFR-06, NFR-07, NFR-25, NFR-57 |
-| Q-59 | Does IS 5568, the Israeli web-accessibility standard ([BOIA](https://www.boia.org/blog/israels-digital-accessibility-laws-an-overview)), apply beyond public pages? **Assumed on 2026-11-04, not checked:** only a public page such as [FR-117] (customer live tracking page); the console and the driver app count as internal tools. Needs verification before [FR-117] (customer live tracking page) ships. [NFR-46] (WCAG accessibility level) stands either way. Suggested owner: Team, legal advice. | NFR-46, FR-117 |
+| Q-59 | Does IS 5568, the Israeli web-accessibility standard ([BOIA](https://www.boia.org/blog/israels-digital-accessibility-laws-an-overview)), apply beyond public pages? **Assumed on 2026-11-04, not checked:** only a public page such as [FR-117] (customer live tracking page); the web app and the phone app count as internal tools. Needs verification before [FR-117] (customer live tracking page) ships. [NFR-46] (WCAG accessibility level) stands either way. Suggested owner: Team, legal advice. | NFR-46, FR-117 |
 | Q-60 | How may pilot coordinates be used in research, given that they identify a home and a replay ([FR-46]: disruption simulation) needs them? **Assumed on 2026-11-04, not confirmed by Ben-Gurion University:** no ethics approval is needed for the usability study ([FR-48]: usability study) or for pilot data ([FR-47]: pilot at the company, [NFR-50]: pilot data pseudonymized). Suggested owner: Team, advisor. | FR-43, FR-46, FR-47, FR-48, NFR-153, FR-168, FR-276 |
-| Q-62 | **What monthly budget will the company accept?** **Resolved** on 2026-11-04 as ₪300 at most, and **reopened** on 2026-11-10: SMS messages to recipients ([FR-49]: SMS messages to recipients) raise the cap to ₪1,200 ([NFR-52]: monthly running cost). The team's guess at what the company will pay is ₪200 to ₪300, which the company has not confirmed. Will it pay ₪1,200, or must the messages be cut? Suggested owner: Team, the company. | NFR-52, FR-49 |
-| Q-63 | **Which Musts can four people deliver by June 2027, when the timeline on slide 12 of the [initial presentation](../presentations/proposal/DispatchFlow_Proposal_Presentation.pptx) ends?** 208 of 379 functional rows are Must; splitting, the answers of 2026-11-04 and the mentor's additions of 2026-11-10 raised that count. *Size* is blank, so the team sizes the Musts first. Can the pilot Musts be separated from the academic ones ([FR-20]: choice of solver, [FR-42] to [FR-46]: own solver through disruption simulation), and should [FR-13] (cache geocoding results), [FR-21] (fixed cost per vehicle used) and [FR-47] (pilot at the company) stay Must? [FR-274] (no product feature needs our solver) says no product capability depends on [FR-42] (our own solver). [ADR-005](../ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md) (OR-Tools first with our solver as research) says "We build both", behind the port of [ADR-004](../ADRs/ADR-004-pluggable-solver-port.md) (every solver behind one port), so dropping a solver row needs an ADR that supersedes them. Suggested owner: Team, advisor. | FR-13, FR-20, FR-21, FR-42 to FR-47 |
+| Q-62 | **What monthly budget will the company accept?** **Resolved** on 2026-11-04 as ₪300 at most, and **reopened** on 2026-11-10: SMS messages to recipients ([FR-49]: SMS messages to recipients) raise the cap to ₪1,200 ([NFR-52]: monthly running cost). The team's guess at what the company will pay is ₪200 to ₪300, which the company has not confirmed. Will it pay ₪1,200, or must the messages be cut? DispatchFlow itself is free, and the company pays its own running costs (decided 2026-11-11). Suggested owner: Team, the company. | NFR-52, FR-49 |
+| Q-63 | **Which Musts can four people deliver by June 2027, when the timeline on slide 12 of the [initial presentation](../presentations/proposal/DispatchFlow_Proposal_Presentation.pptx) ends?** 221 of 385 functional rows are Must; splitting, the answers of 2026-11-04, the mentor's additions of 2026-11-10 and the ARD reconciliation of 2026-11-11 raised that count. *Size* is blank, so the team sizes the Musts first. Can the pilot Musts be separated from the academic ones ([FR-20]: choice of solver, [FR-42] to [FR-46]: own solver through disruption simulation), and should [FR-13] (cache geocoding results), [FR-21] (fixed cost per vehicle used) and [FR-47] (pilot at the company) stay Must? [FR-274] (no product feature needs our solver) says no product capability depends on [FR-42] (our own solver). [ADR-005](../ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md) (OR-Tools first with our solver as research) says "We build both", behind the port of [ADR-004](../ADRs/ADR-004-pluggable-solver-port.md) (every solver behind one port), so dropping a solver row needs an ADR that supersedes them. Suggested owner: Team, advisor. | FR-13, FR-20, FR-21, FR-42 to FR-47 |
 | Q-64 | ~~Which record wins when a report arrives late.~~ **Resolved** on 2026-11-04: the first recorded wins, a dispatcher resolves a conflict ([BR-88]: when a late outcome is refused, [BR-90]: contradicting reports are refused, [FR-333]: dispatcher corrects an outcome), and the route's history decides ([BR-110]: late reports judged by route history). | BR-18, BR-27, BR-28, BR-30, FR-58, FR-70, FR-73, BR-88, BR-90 |
 | Q-65 | ~~What a hand-over allows.~~ **Resolved** on 2026-11-04: a free, active, available driver ([FR-302]: who can take a handed-over route), started routes too ([FR-303]: hand over a started route), and a shift break flagged for the dispatcher to confirm ([FR-304]: hand-over that breaks a shift). | FR-27, FR-55, BR-06, BR-20, BR-39 |
 | Q-66 | ~~Whether a put-back is a new order or a second stop.~~ **Resolved** on 2026-11-04: a second stop on the same order ([FR-258]: a put-back order gets a new stop, [BR-07]: each order served once or dropped). | FR-57, FR-58, FR-258, BR-07, BR-30, BR-33, BR-35 |
 | Q-67 | ~~Reports queued when a session ends.~~ **Resolved** on 2026-11-04: they survive and are sent after the same user signs in ([FR-331]: queued reports survive sign-out); sign-out warns ([FR-330]: sign-out warning); a deactivated driver's are recorded by a dispatcher ([FR-298]: a deactivated driver's reports go unsent); and revocation wipes route data ([NFR-179]: phone data wiped on revocation). | FR-53, FR-248, BR-27, NFR-22, NFR-98, FR-123, FR-127 |
 | Q-68 | ~~Order changes on ready, solving and published plans.~~ **Resolved** on 2026-11-04: [FR-315] (date change on a published plan), [FR-316] (order changes on a ready plan) and [FR-317] (order change during a solve). After *arrived*, no change or cancel ([BR-92]: no order change after arrival). | FR-57, FR-58, BR-07, BR-12, BR-21, BR-22, BR-30, FR-206 |
-| Q-69 | ~~Which driver-app rows bind the web build.~~ **Resolved** on 2026-11-04: it is online only, as [FR-326] (limits of the web build) says. | FR-69, FR-70, FR-71, NFR-15, NFR-39, FR-155, NFR-61, NFR-71, NFR-73, NFR-132 |
+| Q-69 | ~~Which driver-app rows bind the web build.~~ **Resolved** on 2026-11-04: it is online only, as [FR-326] (the web app for drivers) says. **Changed** on 2026-11-11: FR-326 now covers the web app, and the phone app's web build serves only development and tests ([NFR-220]: the phone app's web build). | FR-69, FR-70, FR-71, NFR-15, NFR-39, FR-155, NFR-61, NFR-71, NFR-73, NFR-132 |
 | Q-70 | ~~What counts toward the 200 stops, and where the limit is refused.~~ **Resolved** on 2026-11-04: [BR-113] (what the order limit counts). No new drop reason is needed. | BR-22, BR-101, FR-10, FR-11, FR-18, FR-75, NFR-05 |
 | Q-71 | ~~The route lifecycle's gaps.~~ **Resolved** on 2026-11-04: [FR-327] (first report starts the route), [FR-328] (location stops after shift end), [FR-329] (finish with stops pending), [FR-324] (routes for later dates) and [BR-108] (nothing added to finished routes). A finished route has no bearing on a plan's completion ([BR-102]: plans complete at midnight). | FR-29, FR-31, FR-33, FR-39, FR-68, NFR-30, Q-05, FR-27, FR-152, FR-267 |
 | Q-72 | ~~Changing or retiring a record in use.~~ **Resolved** on 2026-11-04: [FR-305] (records in use cannot be retired), [FR-306] (changed records apply to later plans) and [FR-307] (what retiring a record does). | FR-53, FR-54, FR-56, FR-60, BR-20, BR-21, BR-25, BR-36, BR-37 |
@@ -1117,15 +1177,17 @@ DispatchFlow deliberately does not:
 | Q-85 | ~~Moving stops into a route left out.~~ **Resolved** on 2026-11-04: never, and the limited mode is not in the study ([FR-159]: re-optimize chosen routes only). | FR-159, NFR-25 |
 | Q-86 | ~~The conditions behind the performance values.~~ **Resolved** on 2026-11-04: [NFR-181] (how latency targets are measured). None has been measured yet. | NFR-57, NFR-58, NFR-59, NFR-60, NFR-61, NFR-109 |
 | Q-87 | ~~Who sees a driver's home address.~~ **Resolved** on 2026-11-04: [FR-308] (privacy of a route's home address), if [FR-169] (routes from a driver's own address) is built. | FR-169, Q-42 |
-| Q-88 | ~~A stand-in for an unknown volume.~~ **Resolved** on 2026-11-04: none, a blank counts as zero ([BR-50]: capacity units and blank volumes), and the count of [FR-136] (package count) is only shown to the driver. | FR-05, FR-09, FR-136, BR-05, Q-11 |
+| Q-88 | ~~A stand-in for an unknown volume.~~ **Resolved** on 2026-11-04: none, a blank counts as zero ([BR-50]: capacity and demand values), and the count of [FR-136] (package count) is only shown to the driver. **Changed** on 2026-11-11: a blank weight or volume is refused ([BR-50]: capacity and demand values). | FR-05, FR-09, FR-136, BR-05, Q-11 |
 | Q-89 | ~~An access token outliving its session.~~ **Resolved** on 2026-11-04 by [ADR-030](../ADRs/ADR-030-admin-issued-credentials-and-token-revocation.md) (Admin-issued credentials and token revocation): ASVS 5.0 items 7.4.1 and 7.4.2 are Level 1, so the server refuses it at once ([NFR-177]: revoked tokens refused at once). | NFR-86, NFR-40, FR-173, FR-180, FR-188 |
 | Q-90 | ~~The company's real fleet size and daily stops.~~ **Resolved** on 2026-11-04: the limits of 15 vehicles and 200 stops are final ([NFR-04]: fleet size limit, [NFR-05]: plan size limit). A larger company reopens them, and [NFR-07] (re-optimization response time) with them. | NFR-04, NFR-05, NFR-07, BR-36, [Non-goals](#non-goals), BR-101 |
 | Q-91 | ~~Regaining control after losing the only Admin.~~ **Resolved** on 2026-11-04 by [ADR-030](../ADRs/ADR-030-admin-issued-credentials-and-token-revocation.md) (Admin-issued credentials and token revocation): the company keeps two active Admins ([BR-19]: the minimum of active Admins, [FR-299]: warning below the Admin minimum), and a named team member can run an audited server step on its written request ([FR-292]: Admin created on a written request). | FR-174, BR-19, NFR-166 |
-| Q-92 | Security and privacy gaps from the review of 2026-11-04. What does a restore do to sessions, revocations and deletions ([NFR-125]: restore time)? How are backups encrypted, and who holds their credential ([NFR-28]: scheduled off-VM backups)? Are queued reports and proofs removed from an abandoned phone ([FR-331]: queued reports survive sign-out, [NFR-39]: encrypted storage on the phone)? How does a phone know it was revoked ([NFR-179]: phone data wiped on revocation), given [NFR-92] (uniform refresh refusals)? What clears session data from the console and the web build ([NFR-98]: phone data removed at sign-out)? What removes a push token, and must Expo's access token be used? When is a team member's server access removed, and do server-side reads leave a record ([Q-42]: legal advice on personal data)? May a corrected time later than the server's receipt pass [BR-110] (late reports judged by route history)? Does location stop when a route is handed over or a driver is marked unavailable ([NFR-30]: location collected only on a route)? When do the 30 days of [NFR-150] (export then deletion when the company leaves) start, given the 30 days of [NFR-185] (who runs exports and requests)? Should [NFR-19] (no personal data in logs) name coordinates, recipients and entrance codes? Suggested owner: Team. | NFR-125, NFR-28, FR-331, NFR-39, NFR-179, NFR-98, BR-110, NFR-30, NFR-150, NFR-185, NFR-19 |
+| Q-92 | Security and privacy gaps from the review of 2026-11-04. What does a restore do to sessions, revocations and deletions ([NFR-125]: restore time)? How are backups encrypted, and who holds their credential ([NFR-28]: scheduled off-VM backups)? Are queued reports and proofs removed from an abandoned phone ([FR-331]: queued reports survive sign-out, [NFR-39]: encrypted storage on the phone)? How does a phone know it was revoked ([NFR-179]: phone data wiped on revocation), given [NFR-92] (uniform refresh refusals)? What clears session data from the web app ([NFR-98]: phone data removed at sign-out)? What removes a push token, and must Expo's access token be used? When is a team member's server access removed, and do server-side reads leave a record ([Q-42]: legal advice on personal data)? May a corrected time later than the server's receipt pass [BR-110] (late reports judged by route history)? Does location stop when a route is handed over or a driver is marked unavailable ([NFR-30]: location collected only on a route)? When do the 30 days of [NFR-150] (export then deletion when the company leaves) start, given the 30 days of [NFR-185] (who runs exports and requests)? Should [NFR-19] (no personal data in logs) name coordinates, recipients and entrance codes? Suggested owner: Team. | NFR-125, NFR-28, FR-331, NFR-39, NFR-179, NFR-98, BR-110, NFR-30, NFR-150, NFR-185, NFR-19 |
 | Q-93 | Study design gaps from the review of 2026-11-04, to settle with the advisor before any run, since a full run takes days. How large is the drop penalty, as a number or a formula ([BR-54]: drop penalty scales with priority, [NFR-110]: static study scoring)? Which solver and limit build the 30 plans of [NFR-182] (the study's seeded insertions), at what time of day is an order inserted, is each insertion separate, and how does 200 stops plus one pass [BR-101] (the order limit)? How many insertions may [NFR-118] (which insertions count) leave out, and is that reported? Is the test paired per plan and two-sided, and which limit is primary, given that a difference test cannot show "within 5%" ([FR-165]: paired statistical tests)? Do 60 seconds and 10 runs ([NFR-24]: static quality target, [NFR-111]: static study runs) bind Gehring-Homberger, PyVRP and [FR-44] (scaling study)? Should [NFR-120] (runs at other time limits) include the product's 20 seconds ([BR-84]: the re-optimization time limit)? Does a full study resume after a crash ([NFR-121]: one-command study rerun)? Under [BR-106] (goods stay on their van), stability varies only through drops, so does the stability fallback of [ADR-005](../ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md) (OR-Tools first with our solver as research) still hold? Suggested owner: Naim, advisor. | BR-54, NFR-110, NFR-182, BR-101, NFR-118, FR-165, FR-44, NFR-24, NFR-111, NFR-120, BR-84, NFR-121 |
-| Q-94 | Lifecycle and testing gaps from the review of 2026-11-04. What state does an order take when its stop is unreported at midnight ([BR-102]: plans complete at midnight, [BR-33]: the order states)? What if a dispatcher corrects a failed stop to delivered after a put-back ([FR-333]: dispatcher corrects an outcome, [FR-258]: a put-back order gets a new stop)? How does a re-optimization treat a route past its shift after a hand-over ([FR-304]: hand-over that breaks a shift)? What exactly does normalized mean in [FR-310] (matching rows by address)? How is the phone path of [NFR-180] (alert delivery time) measured, and how long may an offline phone take after reconnecting? What call mix and error definition does [NFR-10] (API load test) use, and can k6 hold the consoles' event streams? Which devices are mid-range in [NFR-181] (how latency targets are measured)? Suggested owner: Team. | BR-102, BR-33, FR-333, FR-258, FR-304, FR-310, NFR-180, NFR-10, NFR-181 |
+| Q-94 | Lifecycle and testing gaps from the review of 2026-11-04. What state does an order take when its stop is unreported at midnight ([BR-102]: plans complete at midnight, [BR-33]: the order states)? What if a dispatcher corrects a failed stop to delivered after a put-back ([FR-333]: dispatcher corrects an outcome, [FR-258]: a put-back order gets a new stop)? How does a re-optimization treat a route past its shift after a hand-over ([FR-304]: hand-over that breaks a shift)? What exactly does normalized mean in [FR-310] (matching rows by address)? How is the phone path of [NFR-180] (alert delivery time) measured, and how long may an offline phone take after reconnecting? What call mix and error definition does [NFR-10] (API load test) use, and can k6 hold the web apps' event streams? Which devices are mid-range in [NFR-181] (how latency targets are measured)? Suggested owner: Team. | BR-102, BR-33, FR-333, FR-258, FR-304, FR-310, NFR-180, NFR-10, NFR-181 |
 | Q-95 | What consent do messages to recipients need? Is the rating request ([FR-356]: delivered message with a rating request) advertising under the spam law (section 30A of the Communications Law), which needs prior written consent, and can its exception for existing customers cover a carrier? Must recipients get a privacy notice, and how, without links? Is asking for a rating a new purpose for a phone given for delivery? Must the pilot agreement name the SMS provider as a processor of phone numbers ([Q-42]: legal advice on personal data)? Is removing an opt-out at the person's request by phone ([FR-380]: opt-outs seen and recorded by dispatchers) enough, or must it be in writing? No ruling on survey messages was found on 2026-11-10. **Default until answered** (2026-11-10): delivery messages need no consent, nobody turns the rating question on ([FR-375]: the rating question's switch), and "הסר" or "STOP" stops every message. Suggested owner: Team, legal advice. | FR-49, FR-356, FR-357, FR-363, FR-375, Q-42 |
 | Q-96 | Which SMS provider? It needs an API over TLS only, a two-way virtual number, Hebrew in Unicode, where one message holds 70 characters, callbacks it signs or sends with a secret in a header ([NFR-192]: SMS provider callbacks), dropping repeated sends by a reference DispatchFlow gives ([NFR-198]: unknown sends not repeated), resending callbacks that are not acknowledged ([NFR-201]: callbacks acknowledged after storing), a spend limit, personal console accounts with a second factor, retention of message content within [NFR-184] (default retention periods) or deletion on request, and a statement of where it holds the data and which other parties receive it. Can its sender show the company's name and still take replies? Israeli price lists seen on 2026-11-10 ask ₪0.02 to ₪0.05 a message before VAT; [NFR-52] (monthly running cost) holds at 150 deliveries a day only below about ₪0.045 a segment before VAT. Twilio asks $0.2575, so it was ruled out ([ADR-031](../ADRs/ADR-031-sms-through-an-israeli-provider-for-recipient-messages.md): SMS for messages to recipients). A signed agreement on its handling of personal data comes before messages reach real recipients. Suggested owner: Team. | FR-49, NFR-52, NFR-192, NFR-198 |
+| Q-97 | How do an Admin's or a Dispatcher's alerts reach the phone app: push, or an open event stream? [ADR-026](../ADRs/ADR-026-server-sent-events-and-push-for-live-updates.md) (server-sent events and push) covers drivers' route alerts, and [ADR-035](../ADRs/ADR-035-both-apps-serve-every-role.md) (both apps serve every role) leaves this open. Suggested owner: Team. | FR-120, FR-222, NFR-180 |
+| Q-98 | What may the apps keep on a device for the Admin and Dispatcher roles? [NFR-39] (encrypted storage on the phone), [NFR-98] (phone data removed at sign-out) and [NFR-179] (phone data wiped on revocation) cover only tokens, a driver's route data and queued reports. Should the phone app write nothing it receives through those roles to storage, caches included? Should sign-out and revocation wipe everything the account received, phone exports go out only through the share sheet, and the web app, its driver screens included, clear its storage at sign-out ([Q-92]: security and privacy gaps)? The security review of 2026-11-11 raised it, and Naim left it open. It must be answered before the self-check of [NFR-40] (OWASP ASVS self-check), since ASVS 14.3.1 is Level 1. Owner: Naim Elijah. | FR-120, NFR-39, NFR-98, NFR-179, FR-72, FR-107 |
 
 [FR-03]: #company-users-and-roles
 [FR-04]: #fleet-depots-and-shifts
@@ -1145,10 +1207,10 @@ DispatchFlow deliberately does not:
 [FR-21]: #daily-planning
 [FR-22]: #manual-editing
 [FR-23]: #manual-editing
-[FR-28]: #publishing-and-the-driver-app
-[FR-29]: #publishing-and-the-driver-app
-[FR-30]: #publishing-and-the-driver-app
-[FR-31]: #publishing-and-the-driver-app
+[FR-28]: #publishing-and-the-phone-app
+[FR-29]: #publishing-and-the-phone-app
+[FR-30]: #publishing-and-the-phone-app
+[FR-31]: #publishing-and-the-phone-app
 [FR-34]: #live-operations-and-re-optimization
 [FR-35]: #live-operations-and-re-optimization
 [FR-36]: #live-operations-and-re-optimization
@@ -1176,11 +1238,11 @@ DispatchFlow deliberately does not:
 [FR-65]: #daily-planning
 [FR-66]: #daily-planning
 [FR-67]: #daily-planning
-[FR-68]: #publishing-and-the-driver-app
-[FR-69]: #publishing-and-the-driver-app
-[FR-70]: #publishing-and-the-driver-app
-[FR-71]: #publishing-and-the-driver-app
-[FR-72]: #publishing-and-the-driver-app
+[FR-68]: #publishing-and-the-phone-app
+[FR-69]: #publishing-and-the-phone-app
+[FR-70]: #publishing-and-the-phone-app
+[FR-71]: #publishing-and-the-phone-app
+[FR-72]: #publishing-and-the-phone-app
 [FR-73]: #live-operations-and-re-optimization
 [FR-74]: #live-operations-and-re-optimization
 [FR-75]: #live-operations-and-re-optimization
@@ -1192,9 +1254,9 @@ DispatchFlow deliberately does not:
 [FR-87]: #customers-and-orders
 [FR-89]: #customers-and-orders
 [FR-92]: #daily-planning
-[FR-95]: #publishing-and-the-driver-app
-[FR-96]: #publishing-and-the-driver-app
-[FR-97]: #publishing-and-the-driver-app
+[FR-95]: #publishing-and-the-phone-app
+[FR-96]: #publishing-and-the-phone-app
+[FR-97]: #publishing-and-the-phone-app
 [FR-101]: #live-operations-and-re-optimization
 [FR-102]: #live-operations-and-re-optimization
 [FR-103]: #live-operations-and-re-optimization
@@ -1207,7 +1269,8 @@ DispatchFlow deliberately does not:
 [FR-114]: #fleet-depots-and-shifts
 [FR-116]: #customers-and-orders
 [FR-117]: #live-operations-and-re-optimization
-[FR-121]: #publishing-and-the-driver-app
+[FR-121]: #publishing-and-the-phone-app
+[FR-123]: #company-users-and-roles
 [FR-125]: #company-users-and-roles
 [FR-128]: #company-users-and-roles
 [FR-129]: #fleet-depots-and-shifts
@@ -1219,12 +1282,13 @@ DispatchFlow deliberately does not:
 [FR-144]: #daily-planning
 [FR-145]: #manual-editing
 [FR-146]: #manual-editing
-[FR-152]: #publishing-and-the-driver-app
-[FR-153]: #publishing-and-the-driver-app
+[FR-152]: #publishing-and-the-phone-app
+[FR-153]: #publishing-and-the-phone-app
 [FR-157]: #live-operations-and-re-optimization
 [FR-159]: #live-operations-and-re-optimization
 [FR-165]: #research-and-evaluation
 [FR-169]: #fleet-depots-and-shifts
+[FR-172]: #company-users-and-roles
 [FR-174]: #company-users-and-roles
 [FR-183]: #company-users-and-roles
 [FR-190]: #fleet-depots-and-shifts
@@ -1241,9 +1305,10 @@ DispatchFlow deliberately does not:
 [FR-230]: #daily-planning
 [FR-233]: #manual-editing
 [FR-235]: #manual-editing
-[FR-242]: #publishing-and-the-driver-app
-[FR-246]: #publishing-and-the-driver-app
-[FR-248]: #publishing-and-the-driver-app
+[FR-242]: #publishing-and-the-phone-app
+[FR-243]: #publishing-and-the-phone-app
+[FR-246]: #publishing-and-the-phone-app
+[FR-248]: #publishing-and-the-phone-app
 [FR-253]: #live-operations-and-re-optimization
 [FR-254]: #live-operations-and-re-optimization
 [FR-255]: #live-operations-and-re-optimization
@@ -1261,8 +1326,6 @@ DispatchFlow deliberately does not:
 [FR-292]: #company-users-and-roles
 [FR-293]: #company-users-and-roles
 [FR-294]: #company-users-and-roles
-[FR-295]: #company-users-and-roles
-[FR-296]: #company-users-and-roles
 [FR-297]: #company-users-and-roles
 [FR-298]: #company-users-and-roles
 [FR-299]: #company-users-and-roles
@@ -1290,26 +1353,27 @@ DispatchFlow deliberately does not:
 [FR-321]: #daily-planning
 [FR-322]: #daily-planning
 [FR-323]: #daily-planning
-[FR-324]: #publishing-and-the-driver-app
-[FR-325]: #publishing-and-the-driver-app
-[FR-326]: #publishing-and-the-driver-app
-[FR-327]: #publishing-and-the-driver-app
-[FR-328]: #publishing-and-the-driver-app
-[FR-329]: #publishing-and-the-driver-app
-[FR-330]: #publishing-and-the-driver-app
-[FR-331]: #publishing-and-the-driver-app
+[FR-324]: #publishing-and-the-phone-app
+[FR-325]: #publishing-and-the-phone-app
+[FR-326]: #publishing-and-the-phone-app
+[FR-327]: #publishing-and-the-phone-app
+[FR-328]: #publishing-and-the-phone-app
+[FR-329]: #publishing-and-the-phone-app
+[FR-330]: #publishing-and-the-phone-app
+[FR-331]: #publishing-and-the-phone-app
 [FR-332]: #live-operations-and-re-optimization
 [FR-333]: #live-operations-and-re-optimization
 [FR-334]: #live-operations-and-re-optimization
 [FR-335]: #live-operations-and-re-optimization
-[FR-336]: #publishing-and-the-driver-app
-[FR-337]: #publishing-and-the-driver-app
+[FR-336]: #publishing-and-the-phone-app
+[FR-337]: #publishing-and-the-phone-app
 [FR-339]: #reporting-and-baseline
 [FR-340]: #reporting-and-baseline
 [FR-341]: #reporting-and-baseline
 [FR-342]: #reporting-and-baseline
 [FR-343]: #research-and-evaluation
 [FR-344]: #research-and-evaluation
+[FR-345]: #company-users-and-roles
 [FR-351]: #messages-to-recipients
 [FR-354]: #messages-to-recipients
 [FR-356]: #messages-to-recipients
@@ -1318,7 +1382,7 @@ DispatchFlow deliberately does not:
 [FR-361]: #messages-to-recipients
 [FR-363]: #messages-to-recipients
 [FR-364]: #customers-and-orders
-[FR-366]: #publishing-and-the-driver-app
+[FR-366]: #publishing-and-the-phone-app
 [FR-372]: #messages-to-recipients
 [FR-374]: #messages-to-recipients
 [FR-375]: #messages-to-recipients
@@ -1326,6 +1390,8 @@ DispatchFlow deliberately does not:
 [FR-377]: #messages-to-recipients
 [FR-379]: #messages-to-recipients
 [FR-380]: #messages-to-recipients
+[FR-386]: #company-users-and-roles
+[FR-387]: #company-users-and-roles
 [BR-02]: #access
 [BR-03]: #routing-constraints
 [BR-04]: #routing-constraints
@@ -1402,6 +1468,7 @@ DispatchFlow deliberately does not:
 [BR-119]: #routing-constraints
 [BR-120]: #solving-dropping-and-validation
 [BR-122]: #routing-constraints
+[BR-123]: #access
 [NFR-01]: #nfr-01
 [NFR-03]: #nfr-03
 [NFR-04]: #nfr-04
@@ -1446,6 +1513,7 @@ DispatchFlow deliberately does not:
 [NFR-60]: #nfr-60
 [NFR-61]: #nfr-61
 [NFR-67]: #nfr-67
+[NFR-72]: #nfr-72
 [NFR-76]: #nfr-76
 [NFR-83]: #nfr-83
 [NFR-90]: #nfr-90
@@ -1468,6 +1536,7 @@ DispatchFlow deliberately does not:
 [NFR-121]: #nfr-121
 [NFR-122]: #nfr-122
 [NFR-125]: #nfr-125
+[NFR-132]: #nfr-132
 [NFR-135]: #nfr-135
 [NFR-136]: #nfr-136
 [NFR-137]: #nfr-137
@@ -1495,6 +1564,12 @@ DispatchFlow deliberately does not:
 [NFR-198]: #nfr-198
 [NFR-201]: #nfr-201
 [NFR-206]: #nfr-206
+[NFR-209]: #nfr-209
+[NFR-213]: #nfr-213
+[NFR-214]: #nfr-214
+[NFR-216]: #nfr-216
+[NFR-219]: #nfr-219
+[NFR-220]: #nfr-220
 [Q-01]: #open-questions
 [Q-02]: #open-questions
 [Q-14]: #open-questions
@@ -1512,5 +1587,6 @@ DispatchFlow deliberately does not:
 [Q-62]: #open-questions
 [Q-83]: #open-questions
 [Q-90]: #open-questions
+[Q-92]: #open-questions
 [Q-95]: #open-questions
 [Q-96]: #open-questions

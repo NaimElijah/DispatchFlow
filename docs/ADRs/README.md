@@ -9,17 +9,19 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | **Architecture** | | |
 | [ADR-001](ADR-001-domain-driven-design-with-hexagonal-architecture.md) | Domain-driven design, with every service built as ports and adapters | Accepted |
 | [ADR-002](ADR-002-core-backend-and-separate-optimization-service.md) | A Java core backend and a separate Python optimization service | Accepted |
-| [ADR-003](ADR-003-dispatcher-console-and-driver-app.md) | Two clients: a React web console and a React Native driver app | Accepted; extended by ADR-026 and ADR-028 |
+| [ADR-003](ADR-003-dispatcher-console-and-driver-app.md) | Two clients: a React web console and a React Native driver app | Superseded by ADR-035 |
 | [ADR-004](ADR-004-pluggable-solver-port.md) | Every solver behind one solver port | Accepted; extended by ADR-029 |
 | [ADR-005](ADR-005-or-tools-first-research-solver-for-re-optimization.md) | OR-Tools first, with our own solver as a measured research track aimed at re-optimization | Accepted; extended by ADR-029, which fixes the study's values this ADR left open |
 | [ADR-006](ADR-006-versioned-openapi-contracts.md) | Every API between components is a versioned OpenAPI contract, written first | Accepted; extended by ADR-026 |
 | [ADR-007](ADR-007-postgresql-with-flyway-migrations.md) | PostgreSQL is the system of record, and Flyway migrations own its schema | Accepted |
 | [ADR-024](ADR-024-one-delivery-company-no-multi-tenancy.md) | DispatchFlow serves one delivery company, with no multi-tenancy | Accepted |
-| [ADR-026](ADR-026-server-sent-events-and-push-for-live-updates.md) | Live updates use server-sent events and push, and clients act through HTTP POST | Accepted |
+| [ADR-026](ADR-026-server-sent-events-and-push-for-live-updates.md) | Live updates use server-sent events and push, and clients act through HTTP POST | Accepted; extended by ADR-035 |
 | [ADR-029](ADR-029-solver-objective-and-re-optimization-rules.md) | How both solvers trade drops, moved stops, lateness and travel time | Accepted; extended by ADR-032, which makes leave-at-door windows soft in solves too |
-| [ADR-030](ADR-030-admin-issued-credentials-and-token-revocation.md) | Admins issue drivers' credentials, and a revoked access token is refused at once | Accepted |
+| [ADR-030](ADR-030-admin-issued-credentials-and-token-revocation.md) | Admins issue drivers' credentials, and a revoked access token is refused at once | Superseded by ADR-036 |
 | [ADR-031](ADR-031-sms-through-an-israeli-provider-for-recipient-messages.md) | Messages to recipients go by SMS through an Israeli provider, from a two-way virtual number | Accepted |
 | [ADR-032](ADR-032-leave-at-door-windows-are-preferences.md) | A leave-at-door order's time window is a preference, priced into the objective | Accepted |
+| [ADR-035](ADR-035-both-apps-serve-every-role.md) | Both apps serve Admins, Dispatchers and Drivers | Accepted |
+| [ADR-036](ADR-036-one-account-per-person-signed-in-by-email.md) | Each person has one account, signed in with their email, holding one or more roles | Accepted |
 | **Repository, build and delivery** | | |
 | [ADR-008](ADR-008-monorepo-layout-under-src.md) | One repository, with the code under `src/backend`, `src/frontend` and `src/research` | Accepted |
 | [ADR-009](ADR-009-just-as-the-single-entry-point.md) | The root `justfile` is the single entry point, and CI runs the same recipes | Accepted |
@@ -43,7 +45,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | **Deployment** | | |
 | [ADR-019](ADR-019-container-images-run-as-non-root.md) | Each service ships as a container image that runs as a non-root user | Accepted |
 | [ADR-027](ADR-027-proof-files-on-the-vm-disk-with-hourly-backups.md) | Proof files stay on the VM's disk, and backups run hourly during operating hours | Accepted |
-| [ADR-028](ADR-028-driver-app-through-test-tracks-with-a-device-checklist.md) | The driver app ships through test tracks, and real phones are checked by hand | Accepted |
+| [ADR-028](ADR-028-driver-app-through-test-tracks-with-a-device-checklist.md) | The driver app ships through test tracks, and real phones are checked by hand | Accepted; extended by ADR-035 |
 
 > [!NOTE]
 > Numbering restarted at ADR-001 on 2026-10-30. ADR-004 and ADR-005 are older (2026-10-27) and

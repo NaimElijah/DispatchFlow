@@ -22,7 +22,7 @@ Windows, solved with Google OR-Tools and with our own Clarke-Wright + ALNS solve
 research track.
 
 It deliberately does not use live traffic data, handle payments, provide turn-by-turn navigation
-(the driver app hands off to Waze or Google Maps), or serve more than one company or
+(both apps hand off to Waze or Google Maps), or serve more than one company or
 enterprise-scale fleets.
 
 > [!IMPORTANT]
@@ -66,8 +66,8 @@ Start a component:
 ```bash
 just core-run         # core backend on :8080, against a throwaway PostgreSQL container
 just solver-run       # solver on :8000, reloading on change
-just console-run      # dispatcher console (Vite dev server; it prints the URL)
-just driver-app-run   # driver app (Expo dev server for phones and the browser)
+just console-run      # web app (Vite dev server; it prints the URL)
+just driver-app-run   # phone app (Expo dev server for phones and the browser)
 ```
 
 Success looks like this:
@@ -87,8 +87,8 @@ curl http://localhost:8000/health/liveness   # {"status":"UP"}
 
 ```mermaid
 flowchart LR
-    Console[Dispatcher console<br/>React] -->|client-api v1| Core[Core backend<br/>Spring Boot]
-    Driver[Driver app<br/>Expo] -->|client-api v1| Core
+    Console[Web app<br/>React] -->|client-api v1| Core[Core backend<br/>Spring Boot]
+    Driver[Phone app<br/>Expo] -->|client-api v1| Core
     Core --> DB[(PostgreSQL)]
     Core -->|optimization-api v1| Solver[Solver<br/>FastAPI]
     Research[Research harness] -.->|imports| Solver
@@ -99,9 +99,10 @@ flowchart LR
 - **Solver** (`src/backend/solver`) turns a routing problem into routes. Every solver sits behind
   one `Solver` port and is chosen by name; every solution passes a shared feasibility validator
   before it leaves the service ([ADR-004](docs/ADRs/ADR-004-pluggable-solver-port.md)).
-- **Dispatcher console** (`src/frontend/console`) is the desktop web app for Admins and
-  Dispatchers. The **driver app** (`src/frontend/driver-app`) runs on iOS, Android and in the
-  browser from one codebase.
+- **Web app** (`src/frontend/console`) and **phone app** (`src/frontend/driver-app`, iOS and
+  Android from one codebase) each serve Admins, Dispatchers and Drivers
+  ([ADR-035](docs/ADRs/ADR-035-both-apps-serve-every-role.md)). A driver in the web app works
+  online only.
 - **Research** (`src/research`) benchmarks the solvers against each other. It is never deployed,
   and it is the only place PyVRP is installed.
 
@@ -111,7 +112,7 @@ adapters depend on the domain.
 
 The planned main path: a dispatcher requests a solve, the core backend queues a solve job, sends
 the day's orders, fleet and travel times to the solver, validates and stores the returned routes,
-and notifies the console. None of these calls exists in code yet. Today the solver answers its
+and notifies the web app. None of these calls exists in code yet. Today the solver answers its
 liveness probe, the core its health probe and two placeholder `Example` operations, and the two
 apps render a heading.
 
@@ -126,8 +127,8 @@ The repository layout and the dependency rules: [code-structure.md](docs/archite
 | Core backend | Java, Spring Boot, Spring Data JPA | 21, 4.1.2 | The team's strongest stack; mature ecosystem for the adapters |
 | Database | PostgreSQL 18.6; Flyway (version from the Spring Boot parent) | 18.6 | Relational data with real constraints; versioned SQL migrations |
 | Solver | Python, FastAPI | 3.14, 0.162 | OR-Tools' richest bindings; algorithm work iterates apart from the backend |
-| Console | React, TypeScript, Vite | 19.3, 6.0, 8.3 | Desktop web app for dispatchers |
-| Driver app | React Native, Expo | 0.88, SDK 58 | One codebase for iOS, Android and the browser |
+| Web app | React, TypeScript, Vite | 19.3, 6.0, 8.3 | Web app for every role; its driver screens also work in a phone's browser |
+| Phone app | React Native, Expo | 0.88, SDK 58 | One codebase for iOS and Android, for every role |
 | Contracts | OpenAPI, Redocly CLI | 3.1, 2.72 | Each side is built against the contract, not against the other side |
 | Tests | JUnit + Testcontainers, pytest, Vitest, Jest | | Real PostgreSQL in tests, never an in-memory stand-in |
 | Tooling | just, uv, npm, OSV-Scanner | 1.59, 0.12, 11, 2.7 | One command set locally and in CI; one audit across every ecosystem |
@@ -192,8 +193,8 @@ comments. The rules apply to people and to coding assistants alike.
 | Core integration (`*IT`) | Against a real PostgreSQL in a container | `just core-check` |
 | Solver | HTTP adapter, dependency boundary | `just solver-check` |
 | Research | Its environment: the solver and PyVRP are installed | `just research-check` |
-| Console | Components in jsdom (Vitest + Testing Library) | `just console-check` |
-| Driver app | Components (Jest + React Native Testing Library) | `just driver-app-check` |
+| Web app | Components in jsdom (Vitest + Testing Library) | `just console-check` |
+| Phone app | Components (Jest + React Native Testing Library) | `just driver-app-check` |
 | Contracts | Both OpenAPI documents lint clean | `just contracts-check` |
 | Dependencies | Known vulnerabilities in every lockfile and the pom | `just audit` |
 
@@ -207,8 +208,8 @@ and load tests (`tests/load`) have folders but no tests yet. There is no coverag
 src/
   backend/core/        REST API and system of record (Spring Boot)
   backend/solver/      solver service (FastAPI)
-  frontend/console/    dispatcher console (React + Vite)
-  frontend/driver-app/ driver app (Expo)
+  frontend/console/    web app (React + Vite)
+  frontend/driver-app/ phone app (Expo)
   research/            benchmarks, simulation, order generator; never deployed
 contracts/             versioned OpenAPI contracts between the components
 tests/                 cross-component tests only: e2e/, load/
@@ -255,7 +256,7 @@ removed once the first real context exists (#5).
 
 Planned, in the order of the [requirements](docs/requirements/requirements.md):
 users and roles; fleet, customers and orders; the daily solve on OR-Tools; the route map;
-publishing to drivers and the driver app's stop flow; SMS messages to recipients; live tracking and
+publishing to drivers and the phone app's stop flow; SMS messages to recipients; live tracking and
 re-optimization; and our own solver with its benchmark study.
 
 Known limitations:
