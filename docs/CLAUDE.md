@@ -27,7 +27,7 @@ layout.
   file. A new link needs a definition, and a moved row needs its definition changed.
 - In `requirements.md`, every link to a row or an ADR is followed by a gloss, a few words naming
   what it is, so the text reads without following the link: `[BR-20] (routes publish only with
-  their solved van and driver)`, or `([FR-294]: first-password rules)` when the link already sits
+  their solved van and driver)`, or `([FR-294]: set-password link)` when the link already sits
   in parentheses. An ID has one gloss, worded the same wherever it is linked, and a range takes
   one. A gloss copies no value, so it stays true when a number changes; when a row's subject
   changes, search for its ID and update its glosses.
