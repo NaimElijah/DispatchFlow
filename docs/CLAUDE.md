@@ -8,7 +8,7 @@ and never restates them.
 | `requirements/requirements.md` | What the system must do | Intent, not observation |
 | `architecture/` | How it is built, as it is today | Descriptive, never aspirational |
 | `ADRs/` | Why each decision was taken | Append-only |
-| `init_impl/`, `presentations/` | The implementation plan and the initial presentation | The planning material the requirements started from |
+| `presentations/` | The proposal and ARD presentations | The planning material the requirements started from |
 
 `architecture/architecture.md`, `bounded-contexts.md`, `data-model.md` and
 `optimization-engine.md` are empty stubs today. `code-structure.md` describes the repository
