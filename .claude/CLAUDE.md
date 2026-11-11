@@ -62,11 +62,15 @@ typing its command.
 | Command | Use it to |
 |---|---|
 | `/finished-work-on-branch-and-making-pr-to-dev` | Commit finished work, merge the latest `dev`, review and fix, run `just check`, push, and open a pull request into `dev` |
-| `/sync-with-dev` | Merge the latest `dev` into your branch in the middle of work |
+| `/sync-with-dev` | Merge the latest `dev` into your branch in the middle of work, review the merge and fix what the review finds |
 | `/fix-pr-feedback` | Act on the review comments on your pull request, push, and reply to them |
 
 `/finished-work-on-branch-and-making-pr-to-dev` runs `df-code-reviewer`, and `df-security-reviewer` when
-the change calls for it, even if you have agents of your own.
+the change calls for it, even if you have agents of your own. `/sync-with-dev` runs `df-code-reviewer` the
+same way, on Sonnet at high effort, when a merge has conflicts or files both sides changed
+([ADR-033](../docs/ADRs/ADR-033-sync-with-dev-reviews-the-merge-on-sonnet.md)). Both skills ask before
+merging a `dev` change to `.claude/`, `.github/`, `justfile` or a `CLAUDE.md`
+([ADR-034](../docs/ADRs/ADR-034-ask-before-merging-changes-to-the-assistant-setup.md)).
 
 ## Commands
 

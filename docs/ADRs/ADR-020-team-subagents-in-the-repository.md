@@ -1,6 +1,6 @@
 # ADR-020: Specialised team subagents live in `.claude/agents/`, beside each person's own
 
-- **Status:** Accepted; extended by ADR-022
+- **Status:** Accepted; extended by ADR-022 and ADR-033
 - **Date:** 2026-10-30
 
 ## Context
