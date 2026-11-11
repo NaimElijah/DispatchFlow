@@ -7,45 +7,12 @@ What the system must do. The [README](../../README.md) describes the product,
 - **Priorities** are MoSCoW: **Must**, **Should**, **Could**. **Won't** is under
   [Non-goals](#non-goals). *Size* and *Enforced by* stay blank until the team sizes and implements a
   row. BR and NFR rows without a Priority column state theirs at the end of the text, if they have one.
-- **Proposals** under issue #3: FR-52 to FR-171, BR-23 to BR-47, NFR-26 to NFR-84, Q-31 to Q-89,
-  FR-291, NFR-176, Q-90 to Q-94, every UC row, and the non-goals from *Keep payroll* on. `(proposed)`
-  marks a priority the team has not confirmed.
-- **Answers of 2026-11-04:** Naim answered the open questions, which added FR-292, BR-102 and NFR-177 onward.
-  The team reviews them under issue #3 like the other proposals.
-- **Mentor's additions of 2026-11-10:** Avi Segal, the seminar mentor, asked for SMS messages to
-  recipients, a delivery rating, leave-at-door orders and proof on every delivery. They added
-  FR-348, BR-119, NFR-189, Q-95 and UC-14 onward, and changed FR-30, FR-49, FR-57, FR-70, FR-105,
-  FR-125, FR-157, FR-342, BR-03, BR-09, NFR-01, NFR-39, NFR-52, NFR-83, NFR-175, NFR-184, Q-20, Q-42,
-  Q-62, Q-63 and Q-92. The team reviews them under issue #3.
-- **ARD reconciliation of 2026-11-11:** Naim aligned this file with the ARD, which keeps only the main
-  requirements, gave each person one account, and answered the review that followed. That added
-  FR-386 to FR-392, BR-123 to BR-125, NFR-208 to NFR-227, Q-97 and Q-98, withdrew FR-295, renamed "the console"
-  to "the web app" and "the driver app" to "the phone app", rewrote the non-goal *Run dispatching
-  offline*, and changed FR-02, FR-03, FR-19, FR-52, FR-89, FR-95, FR-100, FR-120, FR-121, FR-138, FR-142,
-  FR-155, FR-156, FR-176, FR-177, FR-184, FR-187, FR-188, FR-199, FR-213, FR-230, FR-243, FR-245, FR-246,
-  FR-249, FR-252, FR-264, FR-291, FR-292, FR-293, FR-294, FR-296, FR-307, FR-319, FR-326, FR-347, BR-02, BR-19,
-  BR-35, BR-41, BR-44, BR-45, BR-50, BR-114, NFR-03, NFR-07, NFR-10, NFR-15, NFR-19, NFR-35, NFR-38, NFR-45, NFR-48, NFR-61, NFR-71,
-  NFR-73, NFR-83, NFR-85, NFR-90, NFR-93, NFR-132, NFR-134, NFR-137 to NFR-140, NFR-145, NFR-147, NFR-149,
-  NFR-157, NFR-158, NFR-175 to NFR-178, NFR-184, NFR-186, NFR-204, Q-03, Q-11, Q-17, Q-21, Q-35, Q-37, Q-42, Q-44,
-  Q-62, Q-63, Q-69, Q-88, UC-01 and UC-02, the permission matrix, two non-goals, and the glosses of
-  FR-52, NFR-90 and BR-114 wherever they are linked. It departs from the ARD where Naim chose to:
-  NFR-29 stays at 1%, NFR-52 at ₪1,200 ([Q-62]: the monthly budget), NFR-61 is 3 seconds, an
-  account holds several roles, and every app serves every role.
-- **Split rows** keep their ID for the core statement. Their parts (FR-172, BR-48 and NFR-85 onward)
-  sit directly under them, with the same status and priority unless a part states its own.
 - **IDs are never reused.** Withdrawn: FR-78, FR-122, BR-01, NFR-02, NFR-41, Q-13, Q-41, Q-61
   ([ADR-024](../ADRs/ADR-024-one-delivery-company-no-multi-tenancy.md): one company and no
   multi-tenancy), FR-50 ([Q-56]: adds nothing beyond depots and vehicles), and FR-295
   ([ADR-036](../ADRs/ADR-036-one-account-per-person-signed-in-by-email.md): one account per
   person, signed in by email). Never used: FR-166, FR-170, FR-171, NFR-63, NFR-78, NFR-81, NFR-84,
   Q-74, Q-75.
-- **Old citations in ADRs:** NFR-16 (CI) is now NFR-133, NFR-15 (driver app platforms) NFR-132,
-  NFR-21 (contract tests) NFR-162, and FR-51 (PyVRP never serves the product) FR-286. FR-243,
-  FR-326 and FR-347 were about the driver app's web build until 2026-11-11 and are now about the web
-  app, and NFR-83 now runs on both apps ([ADR-035](../ADRs/ADR-035-both-apps-serve-every-role.md): both apps serve every role). In
-  ADR-030, FR-294 is the Admin-issued first password and FR-296 email recovery for Admins and
-  Dispatchers; since 2026-11-11 they are the set-password link and sign-in by email
-  ([ADR-036](../ADRs/ADR-036-one-account-per-person-signed-in-by-email.md): one account per person, signed in by email).
 
 ## Purpose and scope
 
