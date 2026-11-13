@@ -20,7 +20,8 @@ Four forces apply:
   - Google OR-Tools and Spring: Apache-2.0.
   - React, React Native, Expo, FastAPI and PyVRP: MIT.
   - OSRM: BSD-2-Clause.
-- **The copyright is shared** between three people: Naim Elijah, Shai Manor and Bentzion Hadad.
+- **The copyright is shared** between four people: Naim Elijah, Shai Manor, Bentzion Hadad and
+  Moshe Klein.
 
 One point is open. The team has not yet checked Ben-Gurion University's rules on intellectual
 property in student projects. They may give the university a claim on the code, or limit what
@@ -30,9 +31,9 @@ the team can license.
 
 We release the code as proprietary, all rights reserved.
 
-- **`LICENSE` at the root** names the copyright holders (Naim Elijah, Shai Manor and Bentzion
-  Hadad, 2026), forbids use, copying, modification, distribution and sale without their prior
-  written permission, and states that third-party components keep their own licences.
+- **`LICENSE` at the root** names the copyright holders (Naim Elijah, Shai Manor, Bentzion Hadad
+  and Moshe Klein, 2026), forbids use, copying, modification, distribution and sale without their
+  prior written permission, and states that third-party components keep their own licences.
 - **The OpenAPI contracts carry the same licence** in their `info.license` block ([ADR-006]): the
   name "Proprietary, all rights reserved" and the SPDX identifier
   `LicenseRef-DispatchFlow-Proprietary`, in `contracts/client-api/v1/openapi.yaml` and
@@ -48,9 +49,9 @@ We release the code as proprietary, all rights reserved.
   version of the code we choose.
 - **Easy:** no dependency conflicts with the licence, because none of the planned ones is
   copyleft.
-- **Hard:** nobody outside the three holders may use or contribute to the code without written
+- **Hard:** nobody outside the four holders may use or contribute to the code without written
   permission. This includes the pilot customer, who needs a written permission to run it.
-- **Hard:** a later change of licence needs the agreement of all three holders, and possibly of
+- **Hard:** a later change of licence needs the agreement of all four holders, and possibly of
   the university (see the open point above).
 - **Hard:** a new dependency with a copyleft licence, such as GPL or AGPL, would have to be
   checked against this licence before it is added.

@@ -6,13 +6,17 @@ and never restates them.
 | Path | States | Rule |
 |---|---|---|
 | `requirements/requirements.md` | What the system must do | Intent, not observation |
-| `architecture/` | How it is built, as it is today | Descriptive, never aspirational |
+| `architecture/` | How it is built, as it is today | Descriptive, never aspirational; the two proposed designs below are the exception |
+| `architecture/tech_stack.md` | The proposed tools and versions, and when each is adopted | Tools and versions only |
+| `architecture/domain_layer/` | The proposed domain model: contexts, aggregates, events, language | The one home of the model |
+| `init_impl_ref/` | The build plan: milestones, dates, schema, flows, code sketches | Milestones, dates, schema, flows and code sketches only |
 | `ADRs/` | Why each decision was taken | Append-only |
+| `requirements/ARD/` | The Application Requirements Document (ARD), as a PDF | Built outside the repository; the PDF is the only file here |
 | `presentations/` | The proposal and ARD presentations | The planning material the requirements started from |
 
-`architecture/architecture.md`, `bounded-contexts.md`, `data-model.md` and
-`optimization-engine.md` are empty stubs today. `code-structure.md` describes the repository
-layout.
+`architecture/architecture.md` describes today's system. `bounded-contexts.md`, `data-model.md` and
+`optimization-engine.md` point to the design sections that define their topics until code exists.
+`code-structure.md` describes the repository layout.
 
 ## Requirements
 
@@ -35,7 +39,7 @@ layout.
 - *Enforced by* stays blank until the requirement is implemented. Then it names the test that
   enforces the row, in the same pull request as the code.
 - `ADR pending: <title>` marks a decision the requirements rely on that has no ADR yet. When the
-  ADR is written, replace the marker with a link to it.
+  ADR is accepted, replace the marker with a link to it.
 - `UC-` rows trace a process to the rows it exercises. They carry no priority, size or
   *Enforced by*; NFR-83 is what tests them.
 - Behaviour found in code is not a requirement until the team agrees it is. When something is
@@ -46,14 +50,27 @@ layout.
 - File name: `ADR-NNN-short-kebab-title.md`, with the next free number, zero-padded.
 - Sections, in this order:
   - the title, `# ADR-NNN: <the decision as a sentence>`;
-  - **Status** (Proposed, Accepted, Accepted; extended by ADR-NNN, or Superseded by ADR-NNN) and
-    **Date**. "Extended by" marks a later ADR that adds to this one without changing course;
+  - **Status** and **Date**. Status is one of:
+    - `Proposed`, or `Proposed; would extend ADR-NNN`, `Proposed; would amend ADR-NNN` or
+      `Proposed; would supersede ADR-NNN`;
+    - `Accepted`, or `Accepted; extended by ADR-NNN` or `Accepted; amended by ADR-NNN`;
+    - `Superseded by ADR-NNN`.
+
+    *Extended* means the later ADR adds to this one without changing course. *Amended* means it
+    replaces part of this one and the rest stands. *Superseded* means it replaces this one whole;
   - Context, Decision, Consequences (**Easy:**, **Hard:**, **Cost:**, **Risk:**), Alternatives
     considered, and Revisit when.
 - Record a decision *not* to adopt something too, with the trigger that would reopen it.
 - Never rewrite an accepted ADR. To change course, write a new one and mark the old one
-  `Superseded by ADR-NNN`.
+  `Superseded by ADR-NNN`, or `Accepted; amended by ADR-NNN` when only part of it changes.
 - Add a row to `ADRs/README.md` in the same change.
+- A Proposed ADR that would change an accepted one says so in its Status: `Proposed; would
+  extend ADR-NNN`, `Proposed; would amend ADR-NNN` or `Proposed; would supersede ADR-NNN`. One
+  Status may combine relations, for example `Proposed; would supersede ADR-008 and amend
+  ADR-006`. The accepted ADR keeps its status until the new one is accepted. Then one commit
+  changes both statuses (the old one becomes `Accepted; extended by`, `Accepted; amended by` or
+  `Superseded by ADR-NNN`), the `ADR pending` markers the new ADR settles, and the `ADRs/README.md`
+  rows.
 - Links to other ADRs and to requirements go at the bottom, reference-style. Requirement links
   use the requirements' anchors, for example `../requirements/requirements.md#nfr-21`.
 
@@ -61,5 +78,12 @@ layout.
 
 - Plain English and short sentences. Back every claim with a number, a file or a link; avoid
   words like "robust", "seamless" and "powerful".
+- One topic, one document for the proposed design ([TS §19][TS-19]). The proposed domain model
+  lives only in `architecture/domain_layer/`, the proposed tools and versions only in
+  `architecture/tech_stack.md`, and the proposed milestones, dates, schema, flows and code sketches
+  only in `init_impl_ref/`. The others link; they never copy. A description of today's tree names
+  today's versions.
 - Mermaid diagrams use no colours, so they read in light and dark themes.
 - Before naming a version, a flag or a file, check it in the repository.
+
+[TS-19]: architecture/tech_stack.md#19-documentation-and-diagrams

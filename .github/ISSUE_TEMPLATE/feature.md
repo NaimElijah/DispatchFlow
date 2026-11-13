@@ -6,8 +6,13 @@ title: "feat: "
 
 ## Requirement
 
-<!-- The FR or NFR id in docs/requirements/requirements.md that this delivers. If no requirement
-covers it, add one before this issue goes to Ready. -->
+<!-- The FR, BR, NFR or UC id in docs/requirements/requirements.md that this delivers. If no
+requirement covers it, add one before this issue goes to Ready. -->
+
+## Milestone
+
+<!-- M0 to M13: the milestone in section 3 of
+docs/init_impl_ref/technical_implementation_plan.md that this belongs to. -->
 
 ## What changes
 
