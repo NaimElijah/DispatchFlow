@@ -8,9 +8,8 @@ each contract depend on it, and neither side owns it.
 | `client-api/v1/openapi.yaml` | `src/backend/core` | `src/frontend/console`, `src/frontend/driver-app` |
 | `optimization-api/v1/openapi.yaml` | `src/backend/solver` | `src/backend/core` |
 
-Both are OpenAPI 3.1. Today `client-api`, served under `/api/v1`, holds only the two placeholder
-`Example` operations (`/examples/widgets`), which go when the first real context arrives. `optimization-api` has only
-`GET /health/liveness`.
+Both are OpenAPI 3.1. Today `client-api`, served under `/api/v1`, declares no operation yet, and
+`optimization-api` has only `GET /health/liveness`.
 
 ## Rules
 

@@ -7,9 +7,8 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
 ## Layout
 
 - `src/main/java/com/dispatchflow/` holds one package per bounded context, each split into
-  `api`, `domain`, `application` and `adapter` ([ADR-001]). No real context exists yet (#5).
-  `example` is a placeholder that shows the structure to copy: see
-  `docs/architecture/code-structure.md`.
+  `api`, `domain`, `application` and `adapter` ([ADR-001]). No context exists yet (#5);
+  `docs/architecture/code-structure.md` shows the shape each one takes.
 - `src/main/resources/db/migration/` holds the Flyway migrations ([ADR-007]).
 - `src/test/java/com/dispatchflow/` holds the tests, `TestcontainersConfiguration` (PostgreSQL
   18.6 in a container) and `TestDispatchFlowApplication`, which `just core-run` starts.
