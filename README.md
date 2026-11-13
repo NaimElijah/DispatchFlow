@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/NaimElijah/DispatchFlow/actions/workflows/ci.yml/badge.svg)](https://github.com/NaimElijah/DispatchFlow/actions/workflows/ci.yml)
 
-[Requirements](docs/requirements/requirements.md) · [Architecture](docs/architecture/architecture.md) · [ADRs](docs/ADRs/README.md) · [Board](https://github.com/users/NaimElijah/projects/9)
+[Requirements](docs/requirements/requirements.md) · [Architecture](docs/architecture/architecture.md) · [Domain design](docs/architecture/domain_layer/domain_layer_design.md) · [Tech stack](docs/architecture/tech_stack.md) · [Plan](docs/init_impl_ref/technical_implementation_plan.md) · [ADRs](docs/ADRs/README.md) · [Board](https://github.com/users/NaimElijah/projects/9)
 
 </div>
 
@@ -14,7 +14,7 @@
 
 DispatchFlow is built for one delivery company. Planning routes by hand, in spreadsheets or in the
 dispatcher's head costs extra kilometres and missed delivery windows, with no way to adapt when a
-van breaks down at 10:00. DispatchFlow assigns the day's
+vehicle breaks down at 10:00. DispatchFlow assigns the day's
 orders to vehicles and orders each route so that deliveries land in their time windows and no
 vehicle exceeds its capacity or its driver's shift. During the day it re-plans the remaining
 stops when something goes wrong. Underneath, this is the Vehicle Routing Problem with Time
@@ -27,10 +27,10 @@ enterprise-scale fleets.
 
 > [!IMPORTANT]
 > **Pre-alpha: the repository holds working skeletons, not features yet.** Every component builds
-> and passes its tests with `just check`; CI runs the same recipes but has not run on GitHub yet.
-> None of the planning capabilities exists in code. What the system
-> must do is in [requirements.md](docs/requirements/requirements.md); what exists today is listed
-> under [Status and limitations](#status-and-limitations).
+> and passes its tests with `just check`, and CI runs the same recipes on every push and on
+> every pull request into `dev` or `main`. None of the planning capabilities exists in code.
+> What the system must do is in [requirements.md](docs/requirements/requirements.md); what exists
+> today and what comes next are under [Status and limitations](#status-and-limitations).
 
 This README is ordered for contributors, so Quick start comes before Architecture.
 
@@ -95,7 +95,9 @@ flowchart LR
 ```
 
 - **Core backend** (`src/backend/core`) is the system of record and the only API the clients
-  call. It owns users, fleets, orders, plans and their lifecycle.
+  call. It will hold one module per bounded context: Access, Fleet, Customers & Orders, Planning,
+  Live Operations, Recipient Messaging, Reporting and Audit
+  ([domain design](docs/architecture/domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts)).
 - **Solver** (`src/backend/solver`) turns a routing problem into routes. Every solver sits behind
   one `Solver` port and is chosen by name; every solution passes a shared feasibility validator
   before it leaves the service ([ADR-004](docs/ADRs/ADR-004-pluggable-solver-port.md)).
@@ -110,14 +112,25 @@ Components meet only at the versioned OpenAPI contracts in `contracts/`. Inside 
 dependencies point one way: the domain imports no framework, I/O or transport types, and
 adapters depend on the domain.
 
-The planned main path: a dispatcher requests a solve, the core backend queues a solve job, sends
-the day's orders, fleet and travel times to the solver, validates and stores the returned routes,
-and notifies the web app. None of these calls exists in code yet. Today the solver answers its
-liveness probe, the core its health probe, and the two apps render a heading.
+None of the calls between components exists in code yet. Today the solver answers its liveness
+probe, the core its health probe, and the two apps render a heading.
+[architecture.md](docs/architecture/architecture.md) describes that system as it is, and
+[code-structure.md](docs/architecture/code-structure.md) the repository layout.
 
-The repository layout and the dependency rules: [code-structure.md](docs/architecture/code-structure.md).
-[architecture.md](docs/architecture/architecture.md) is still a stub. Decisions and their reasons:
-[docs/ADRs/](docs/ADRs/README.md).
+The target design is proposed in three documents, which the team builds from:
+
+- [domain_layer_design.md](docs/architecture/domain_layer/domain_layer_design.md): the bounded
+  contexts, aggregates, events and the rules between them. Where the other two disagree with it,
+  it wins.
+- [tech_stack.md](docs/architecture/tech_stack.md): every tool and version, why it won, and the
+  milestone it is adopted at.
+- [technical_implementation_plan.md](docs/init_impl_ref/technical_implementation_plan.md): the
+  milestones, the one-VM deployment, the contracts, the schema and the key flows. Its main path:
+  a dispatcher requests a solve, the core queues a solve job, sends the whole problem with its
+  travel-time matrix to the optimizer, keeps only a validated result, and pushes progress to the
+  web app over server-sent events.
+
+Decisions and their reasons: [docs/ADRs/](docs/ADRs/README.md).
 
 ## Tech stack
 
@@ -134,6 +147,12 @@ The repository layout and the dependency rules: [code-structure.md](docs/archite
 
 TypeScript is held at 6.0 because typescript-eslint does not support 7 yet
 ([ADR-012](docs/ADRs/ADR-012-javascript-tooling-npm-eslint-prettier.md)).
+
+This table is what the code uses today. [tech_stack.md](docs/architecture/tech_stack.md) proposes
+the stack for the Alpha and after, and ADR-037 to ADR-047 (Proposed, in the
+[ADR index](docs/ADRs/README.md)) record where it departs from today's: Java 25, jOOQ in place of
+Spring Data JPA, Spring Modulith, pnpm, mise, and a flatter layout. Each change lands with the
+milestone that needs it.
 
 ## Configuration
 
@@ -172,7 +191,11 @@ The components are `core`, `solver`, `research`, `console` and `driver-app`. `ju
 recipe; `just check` and `just format` run them all.
 
 **Adding a feature end to end:** start from the requirement it delivers in
-[requirements.md](docs/requirements/requirements.md); change the contract in `contracts/` first;
+[requirements.md](docs/requirements/requirements.md), the aggregate that owns its rule in the
+[domain design](docs/architecture/domain_layer/domain_layer_design.md#4-aggregates-context-by-context),
+and the milestone it belongs to in the
+[plan](docs/init_impl_ref/technical_implementation_plan.md#3-build-sequence);
+change the contract in `contracts/` first;
 implement the domain, then the use case, then the adapter in `src/backend/core` (and in the solver
 if it needs new solving behaviour); then the client screens; tests at each layer; and update the
 requirements, architecture and ADRs in the same pull request.
@@ -188,7 +211,7 @@ comments. The rules apply to people and to coding assistants alike.
 
 | Layer | Covers | Command |
 |---|---|---|
-| Core unit (`*Test`) | Domain and use cases, no I/O (none yet: no bounded context exists) | `just core-check` |
+| Core unit (`*Test`) | Domain and use cases, no I/O; today only the web error handler (`UnexpectedErrorHandlerTest`), as no bounded context exists yet | `just core-check` |
 | Core integration (`*IT`) | Against a real PostgreSQL in a container | `just core-check` |
 | Solver | HTTP adapter, dependency boundary | `just solver-check` |
 | Research | Its environment: the solver and PyVRP are installed | `just research-check` |
@@ -214,9 +237,13 @@ contracts/             versioned OpenAPI contracts between the components
 tests/                 cross-component tests only: e2e/, load/
 infra/                 road-network data (osrm/) and deployment (deploy/)
 logs/                  local log output; git ignores its contents
-docs/                  requirements, architecture, ADRs, presentations
+docs/                  requirements, architecture and design, ADRs, the plan (init_impl_ref/), presentations
 justfile               every command, the same locally and in CI
 ```
+
+ADR-037 (Proposed) would flatten this tree to `src/core`, `src/optimizer`, `src/web`, `src/mobile`
+and `src/packages`, with `deploy/` and `e2e/` at the root. The pull request that moves the code
+updates this section.
 
 ## Design decisions
 
@@ -244,7 +271,9 @@ recipes developers run, and jobs are never skipped by path filters, so a require
 hangs. Cost: every contributor installs `just`, and CI builds every component on every push.
 
 The other decisions, including the repository layout, the two clients and the tooling, are in
-the [ADR index](docs/ADRs/README.md).
+the [ADR index](docs/ADRs/README.md). It also lists ADR-037 to ADR-047, which the team has yet to
+accept: each would supersede, amend or extend the accepted ADRs its status names, to match the
+design documents.
 
 ## Status and limitations
 
@@ -252,15 +281,30 @@ the [ADR index](docs/ADRs/README.md).
 linter, tests and CI job; the two contracts; and the solver's and the core backend's health
 probes.
 
-Planned, in the order of the [requirements](docs/requirements/requirements.md):
-users and roles; fleet, customers and orders; the daily solve on OR-Tools; the route map;
-publishing to drivers and the phone app's stop flow; SMS messages to recipients; live tracking and
-re-optimization; and our own solver with its benchmark study.
+Planned, in the milestones of the
+[implementation plan](docs/init_impl_ref/technical_implementation_plan.md#3-build-sequence):
+
+- **The Alpha** (M0 to M5, 12 November to 29 December 2026) is local, web-only and runs on
+  synthetic data. A dispatcher imports a day's orders from CSV, solves it with OR-Tools, sees the
+  routes on a map, a timeline and a table, and publishes. A driver, in the browser, reports each
+  stop and signs for each delivery. The day ends with a summary compared against a
+  nearest-neighbour baseline. The
+  [Alpha definition](docs/init_impl_ref/technical_implementation_plan.md#42-alpha-definition-for-1-december)
+  and its demo script are in the plan.
+- **Semester B** (M6 to M13) brings:
+  - access in full;
+  - Excel imports and geocoding;
+  - live operations and re-optimization;
+  - the phone app;
+  - our own solver and its study;
+  - SMS messages to recipients;
+  - production on one VM, and the pilot.
 
 Known limitations:
 
 - Nothing is deployed; there is no staging or production environment yet.
-- `docker compose` is not set up; each component runs on its own until a service needs another.
+- `docker compose` is not set up; each component runs on its own. `compose.dev.yaml` is part of
+  the M0 walking skeleton (ADR-042, Proposed).
 - Four vulnerabilities in the frontends' build, lint and test tooling are ignored by the audit
   until 2027-01-31. The zod and deepmerge entries still await the owner's review. The reasons are
   in `src/frontend/console/osv-scanner.toml` and `src/frontend/driver-app/osv-scanner.toml`
