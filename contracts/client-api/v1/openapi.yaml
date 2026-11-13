@@ -13,83 +13,7 @@ servers:
     description: >-
       Relative to wherever the core backend is deployed. The path carries the contract's major
       version, so a v2 can be served beside v1 (ADR-006).
-tags:
-  - name: Example
-    description: >-
-      Example only: placeholder operations that show how a bounded context is served
-      (com.dispatchflow.example). They are not DispatchFlow features, and they are deleted when the
-      team builds the first real context (#5).
-paths:
-  /examples/widgets:
-    post:
-      tags: [Example]
-      operationId: createExampleWidget
-      summary: Create an example widget
-      description: Example only. Creates a placeholder widget; both dimensions must be positive.
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateExampleWidgetRequest'
-      responses:
-        '201':
-          description: The widget was created.
-          headers:
-            Location:
-              description: The URL of the new widget.
-              schema:
-                type: string
-                format: uri
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ExampleWidget'
-        '400':
-          description: A field is missing or malformed, or a dimension is not positive.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/Problem'
-        default:
-          $ref: '#/components/responses/UnexpectedProblem'
-  /examples/widgets/{widgetId}:
-    get:
-      tags: [Example]
-      operationId: getExampleWidget
-      summary: Get an example widget
-      description: Example only. Returns one placeholder widget.
-      security: []
-      parameters:
-        - name: widgetId
-          in: path
-          required: true
-          description: The widget's identity.
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: The widget.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ExampleWidget'
-        '400':
-          description: The id is not a UUID.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/Problem'
-        '404':
-          description: No widget has this id.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/Problem'
-        default:
-          $ref: '#/components/responses/UnexpectedProblem'
+paths: {}
 components:
   responses:
     UnexpectedProblem:
@@ -101,38 +25,6 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
-    CreateExampleWidgetRequest:
-      type: object
-      description: Example only.
-      required:
-        - width
-        - height
-      properties:
-        width:
-          type: integer
-          format: int32
-          minimum: 1
-        height:
-          type: integer
-          format: int32
-          minimum: 1
-    ExampleWidget:
-      type: object
-      description: Example only.
-      required:
-        - id
-        - width
-        - height
-      properties:
-        id:
-          type: string
-          format: uuid
-        width:
-          type: integer
-          format: int32
-        height:
-          type: integer
-          format: int32
     Problem:
       type: object
       description: An error, as RFC 9457 defines it.

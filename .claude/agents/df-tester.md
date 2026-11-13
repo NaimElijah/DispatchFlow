@@ -30,7 +30,7 @@ You write DispatchFlow's tests. Tests are the executable specification, so each 
 ## Conventions per component
 
 - **`src/backend/core`** (JUnit 6 Jupiter, AssertJ):
-  - Unit tests `*Test` (Surefire): the domain alone, and use cases through the context's `api`, with in-memory fakes of the context's own ports (for example `InMemoryWidgetRepository`).
+  - Unit tests `*Test` (Surefire): the domain alone, and use cases through the context's `api`, with in-memory fakes of the context's own ports.
   - Integration tests `*IT` (Failsafe): annotate them with `@IntegrationTest` so they share one Spring context and one PostgreSQL 18.6 container. Drive HTTP with `MockMvcTester` under `/api/v1/…`, and check the response against `contracts/client-api/v1`: status, fields, `Location`, and `application/problem+json` errors with `status` and `title`.
   - Method names: `GivenX_WhenY_ThenZ`.
 - **`src/backend/solver` and `src/research`:**

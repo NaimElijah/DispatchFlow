@@ -113,8 +113,7 @@ adapters depend on the domain.
 The planned main path: a dispatcher requests a solve, the core backend queues a solve job, sends
 the day's orders, fleet and travel times to the solver, validates and stores the returned routes,
 and notifies the web app. None of these calls exists in code yet. Today the solver answers its
-liveness probe, the core its health probe and two placeholder `Example` operations, and the two
-apps render a heading.
+liveness probe, the core its health probe, and the two apps render a heading.
 
 The repository layout and the dependency rules: [code-structure.md](docs/architecture/code-structure.md).
 [architecture.md](docs/architecture/architecture.md) is still a stub. Decisions and their reasons:
@@ -189,7 +188,7 @@ comments. The rules apply to people and to coding assistants alike.
 
 | Layer | Covers | Command |
 |---|---|---|
-| Core unit (`*Test`) | Domain and use cases, no I/O (only the placeholder example context's so far) | `just core-check` |
+| Core unit (`*Test`) | Domain and use cases, no I/O (none yet: no bounded context exists) | `just core-check` |
 | Core integration (`*IT`) | Against a real PostgreSQL in a container | `just core-check` |
 | Solver | HTTP adapter, dependency boundary | `just solver-check` |
 | Research | Its environment: the solver and PyVRP are installed | `just research-check` |
@@ -250,9 +249,8 @@ the [ADR index](docs/ADRs/README.md).
 ## Status and limitations
 
 **Pre-alpha.** Shipped: a skeleton for each of the five components, with its build, formatter,
-linter, tests and CI job; the two contracts; the solver's and the core backend's health probes;
-and in the core, a placeholder `example` context that shows the DDD and hexagonal layers, to be
-removed once the first real context exists (#5).
+linter, tests and CI job; the two contracts; and the solver's and the core backend's health
+probes.
 
 Planned, in the order of the [requirements](docs/requirements/requirements.md):
 users and roles; fleet, customers and orders; the daily solve on OR-Tools; the route map;

@@ -42,7 +42,7 @@ report findings.
   - A context reaches another only through that context's `api`.
   - An error that crosses `api` is declared in `api`.
   - Inbound adapters call `api`; outbound adapters implement ports the inside declares.
-  - `com.dispatchflow.example` is the placeholder that shows the pattern.
+  - `docs/architecture/code-structure.md` shows the shape of a context.
 - **Layering in the solver:** `domain` and `application` never import FastAPI, Pydantic or OR-Tools. Every solver implements the one `Solver` port (ADR-004).
 - **Contracts (ADR-006):**
   - An API change updates `contracts/` in the same change.

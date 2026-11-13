@@ -48,9 +48,9 @@ flowchart LR
 - `core` is the only client of `solver`, through `contracts/optimization-api/v1`. `solver` serves
   that contract.
 - Neither side owns a contract, so the contracts sit at the root, outside every component.
-- Today `contracts/client-api/v1`, served under `/api/v1`, declares only the two placeholder
-  `Example` operations, and `contracts/optimization-api/v1` declares one:
-  `GET /health/liveness`. `core` has no client for the optimization API yet.
+- Today `contracts/client-api/v1`, served under `/api/v1`, declares no operation yet, and
+  `contracts/optimization-api/v1` declares one: `GET /health/liveness`. `core` has no client for
+  the optimization API yet.
 - `research` installs `solver` from `../backend/solver` as an editable path dependency, and adds
   PyVRP. The solver's environment never contains PyVRP:
   `src/backend/solver/tests/test_dependency_boundary.py` fails if it can be imported there
@@ -68,11 +68,10 @@ src/backend/core/
   .env.example                     the database connection keys, with no values
   src/main/java/com/dispatchflow/
     DispatchFlowApplication.java   the Spring Boot entry point
-    example/                       a placeholder context that shows the structure (see below)
     web/                           application-wide web concerns: the fallback for unexpected errors
   src/main/resources/
     application.properties
-    db/migration/                  Flyway migrations: only the example's V0_1, for now
+    db/migration/                  Flyway migrations: none yet
   src/test/java/com/dispatchflow/
     IntegrationTest.java                 the one annotation every *IT uses: the whole app and PostgreSQL
     DispatchFlowApplicationIT.java       the health probe answers UP against PostgreSQL
@@ -89,25 +88,20 @@ Each bounded context is one package under `com.dispatchflow`, split into four pa
 | `application` | The context's use cases |
 | `adapter` | The context's connections to the outside world |
 
-No real context exists yet: the team designs them in #5. `example` is a placeholder that shows the
-structure each one follows. `Widget` and the names around it are dummies, not DispatchFlow
-concepts. Once the first real context exists, delete the package, its tests and its `Example`
-operations in the client API. For its migration, `V0_1__create_example_widget.sql`:
-
-- if no persistent database has applied it yet, delete the file too;
-- if one has, keep it and add a migration that drops `example_widget`. Flyway refuses to start
-  against a database that applied a migration it can no longer find.
+No context exists yet: the team designs them in #5. Each one takes this shape, with `<context>`
+standing for its name:
 
 ```text
-com/dispatchflow/example/
-  api/                       ExampleApi, CreateWidgetCommand, WidgetView
-  domain/                    Widget (the aggregate), WidgetId, Size, InvalidWidgetException,
-                             WidgetRepository (a port)
-  application/               ExampleService, which implements ExampleApi: the service layer
-  adapter/inbound/web/       WidgetController and its request, response and problem types
+com/dispatchflow/<context>/
+  api/                       the use-case interface, its commands and views, and the errors it
+                             declares
+  domain/                    the aggregates, their value objects and exceptions, and the ports
+                             the domain declares, such as a repository
+  application/               the services that implement the api: the service layer
+  adapter/inbound/web/       the controller and its request, response and problem types
   adapter/outbound/persistence/
-                             WidgetEntity, WidgetJpaRepository, and WidgetPersistenceAdapter,
-                             which implements WidgetRepository
+                             the JPA entities and Spring Data repositories, and the adapters
+                             that implement the domain's ports
 ```
 
 ```mermaid
@@ -119,16 +113,16 @@ flowchart LR
 ```
 
 `domain` depends on nothing, and the inbound adapter imports only `api`. A rejection crosses `api`
-as an `api` type: the service catches the domain's `InvalidWidgetException` and throws
-`WidgetRejectedException`, so no caller needs the context's domain.
+as an `api` type: the service catches the domain's exception and throws one that `api`
+declares, so no caller needs the context's domain.
 
-`ExampleApi` is both what other contexts may call and what the web adapter calls. That is right
-while the two needs match. When a context's `api` gains an operation that no other context
+A context's `api` is both what other contexts may call and what its web adapter calls. That is
+right while the two needs match. When a context's `api` gains an operation that no other context
 calls, give the web adapter its own use-case interface in `application` instead.
 
-The tests follow the layers: `SizeTest` and `WidgetTest` test the domain alone,
-`ExampleServiceTest` tests the service layer with an in-memory fake of `WidgetRepository`, and
-`WidgetApiIT` drives the HTTP API down to a PostgreSQL container.
+The tests follow the layers: `*Test` classes test the domain alone, and the service layer with
+in-memory fakes of the domain's ports; `*IT` classes drive the HTTP API down to a PostgreSQL
+container.
 
 ### `src/backend/solver`
 
