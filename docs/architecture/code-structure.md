@@ -7,6 +7,9 @@ repository as it is today. What the system must do is in
 it is in [ADR-009](../ADRs/ADR-009-just-as-the-single-entry-point.md) to
 [ADR-016](../ADRs/ADR-016-dependency-audit-with-osv-scanner.md).
 
+[ADR-037](../ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md) (Proposed) would move
+this tree to a flat layout. The pull request that moves the code rewrites this file.
+
 > [!NOTE]
 > Most folders below are still empty. A folder listed as a placeholder holds only a `.gitkeep`
 > file. What is real today is the skeleton: each component builds, passes its own checks and
@@ -25,7 +28,7 @@ it is in [ADR-009](../ADRs/ADR-009-just-as-the-single-entry-point.md) to
 | `tests/` | Tests that span components: `e2e/` and `load/`. Both are placeholders |
 | `infra/` | `osrm/` and `deploy/`. Both are placeholders |
 | `logs/` | Local log output. Git keeps the folder and ignores everything in it |
-| `docs/` | `requirements/`, `architecture/`, `ADRs/`, and the project's planning material |
+| `docs/` | `requirements/` (with `ARD/`), `architecture/` (with `domain_layer/` and `tech_stack.md`), `ADRs/`, `init_impl_ref/` and `presentations/` |
 | `.github/` | The CI workflow, Dependabot configuration, and issue and pull request templates |
 | `justfile` | Every command. CI runs the same recipes |
 | `.java-version`, `.python-version`, `.nvmrc` | Toolchain pins: Java 21, Python 3.14, Node 24 |
@@ -37,11 +40,14 @@ Each component has its own manifest and lockfile, and nothing is shared at build
 
 ```mermaid
 flowchart LR
-    console["console"] -->|"client API"| core["core"]
-    driver["driver-app"] -->|"client API"| core
-    core -->|"optimization API"| solver["solver"]
+    console["console"] -.->|"client API"| core["core"]
+    driver["driver-app"] -.->|"client API"| core
+    core -.->|"optimization API"| solver["solver"]
     research["research"] -->|"editable path dependency"| solver
 ```
+
+A dotted arrow is a contract that is defined but that no code calls yet. The solid arrow is a
+build dependency that exists today.
 
 - The two frontends talk only to `core`, through `contracts/client-api/v1`. `core` serves that
   contract.
@@ -69,60 +75,32 @@ src/backend/core/
   src/main/java/com/dispatchflow/
     DispatchFlowApplication.java   the Spring Boot entry point
     web/                           application-wide web concerns: the fallback for unexpected errors
+      UnexpectedErrorHandler.java  answers an unhandled exception with a 500 problem body
+      package-info.java
   src/main/resources/
     application.properties
     db/migration/                  Flyway migrations: none yet
   src/test/java/com/dispatchflow/
+    web/UnexpectedErrorHandlerTest.java  the 500 problem body keeps the cause out
     IntegrationTest.java                 the one annotation every *IT uses: the whole app and PostgreSQL
     DispatchFlowApplicationIT.java       the health probe answers UP against PostgreSQL
     TestDispatchFlowApplication.java     what `just core-run` starts
     TestcontainersConfiguration.java     the PostgreSQL container
 ```
 
-Each bounded context is one package under `com.dispatchflow`, split into four packages:
-
-| Package | Holds |
-|---|---|
-| `api` | The context's public surface: the only package another context may use |
-| `domain` | The context's business rules. It imports no framework, I/O or transport type |
-| `application` | The context's use cases |
-| `adapter` | The context's connections to the outside world |
-
-No context exists yet: the team designs them in #5. Each one takes this shape, with `<context>`
-standing for its name:
-
-```text
-com/dispatchflow/<context>/
-  api/                       the use-case interface, its commands and views, and the errors it
-                             declares
-  domain/                    the aggregates, their value objects and exceptions, and the ports
-                             the domain declares, such as a repository
-  application/               the services that implement the api: the service layer
-  adapter/inbound/web/       the controller and its request, response and problem types
-  adapter/outbound/persistence/
-                             the JPA entities and Spring Data repositories, and the adapters
-                             that implement the domain's ports
-```
-
-```mermaid
-flowchart LR
-    web["adapter/inbound/web"] --> api["api"]
-    application["application"] --> api
-    application --> domain["domain"]
-    persistence["adapter/outbound/persistence"] --> domain
-```
-
-`domain` depends on nothing, and the inbound adapter imports only `api`. A rejection crosses `api`
-as an `api` type: the service catches the domain's exception and throws one that `api`
-declares, so no caller needs the context's domain.
-
-A context's `api` is both what other contexts may call and what its web adapter calls. That is
-right while the two needs match. When a context's `api` gains an operation that no other context
-calls, give the web adapter its own use-case interface in `application` instead.
-
-The tests follow the layers: `*Test` classes test the domain alone, and the service layer with
-in-memory fakes of the domain's ports; `*IT` classes drive the HTTP API down to a PostgreSQL
-container.
+No bounded context exists yet. The proposed design is in the
+[domain layer design](domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts). How a
+context is laid out inside is proposed in [tech stack §4](tech_stack.md#4-repository-layout),
+[implementation plan §11.1](../init_impl_ref/technical_implementation_plan.md#111-module-skeleton)
+and [domain layer design §13](domain_layer/domain_layer_design.md#13-inside-each-module-hexagon)
+(the hexagon). New contexts are written to tech stack §4 and implementation plan §11.1.
+[ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)
+(Proposed) would make each context a Spring Modulith module, and
+[ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md)
+(Proposed) would give each module its own schema, accessed through jOOQ.
+[ADR-001](../ADRs/ADR-001-domain-driven-design-with-hexagonal-architecture.md)'s layout (one package
+per context, split into `api`, `domain`, `application` and `adapter`) stays the accepted ADR until
+ADR-040 is accepted, under the [precedence rule](../../.claude/CLAUDE.md#documentation).
 
 ### `src/backend/solver`
 
@@ -189,8 +167,10 @@ the audit ignores, each with a reason and an expiry date. The zod and deepmerge 
 await the owner's review ([ADR-016](../ADRs/ADR-016-dependency-audit-with-osv-scanner.md),
 [ADR-023](../ADRs/ADR-023-accept-minimatch-and-glob-advisories.md)).
 
-The two apps share no code. The API client in each will be generated from
-`contracts/client-api/v1`.
+The two apps share no code. `contracts/client-api/v1` declares no operation yet, so neither has an
+API client.
+[ADR-043](../ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md)
+(Proposed) would generate code from the contracts on both sides.
 
 ## Where the tests live
 
@@ -202,12 +182,13 @@ The two apps share no code. The API client in each will be generated from
 | `research` | `src/research/tests` | pytest |
 | `console` | next to the code, in `src/` (`App.test.tsx`) | Vitest, in jsdom |
 | `driver-app` | next to the code (`App.test.tsx`) | Jest, through `jest-expo` |
-| End-to-end and load | `tests/e2e`, `tests/load` | Not chosen yet |
+| End-to-end and load | `tests/e2e`, `tests/load` | No tool is configured yet |
 
 Unit and integration tests stay inside their component, where each tool looks for them. Root
-`tests/` holds only tests that span components. The tool for end-to-end tests is not chosen
+`tests/` holds only tests that span components. No end-to-end tool is configured
 ([`src/frontend/CLAUDE.md`](../../src/frontend/CLAUDE.md)), and [NFR-10] calls for k6 for load
-tests.
+tests. [Tech stack §17](tech_stack.md#17-testing) proposes Playwright for end-to-end tests and k6
+for load tests.
 
 The rule is that each side of a contract is tested against it ([NFR-162]). No test does that
 yet.
@@ -222,7 +203,9 @@ These follow from
 
 - **Domain code imports no framework, I/O or transport type.** Adapters depend on the domain,
   never the reverse. There are no cycles between modules or packages.
-- **In `core`, a context reaches another only through that context's `api` package.**
+- **In `core`, a context reaches another only through that context's `api`, `spi` and `events`
+  packages** ([domain layer design §2.3](domain_layer/domain_layer_design.md#23-rules-between-contexts)).
+  ADR-001 names `api` only.
 - **In `solver`, every solver implements the one `Solver` port** and is chosen by name. The
   registry has no default, and a name it does not hold is rejected.
 - **PyVRP is never a dependency of `solver`.** Only `src/research` installs it.
@@ -230,6 +213,10 @@ These follow from
 
 Only the PyVRP rule is checked by a test today. The others are conventions that review
 enforces; no tool such as ArchUnit or import-linter is configured.
+[Tech stack §2.2](tech_stack.md#22-enforcement) plans ArchUnit, Spring Modulith's `verify()` and
+import-linter for the Alpha
+([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md),
+Proposed).
 
 [NFR-10]: ../requirements/requirements.md#nfr-10
 [NFR-162]: ../requirements/requirements.md#nfr-162

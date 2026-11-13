@@ -7,6 +7,15 @@ DispatchFlow plans and re-plans daily delivery routes for one delivery company. 
 `docs/requirements/requirements.md`; how it is built is in `docs/architecture/`; why each
 decision was taken is in `docs/ADRs/`. Read the relevant parts before proposing work.
 
+Three Proposed documents set the direction, and each owns one topic:
+
+- [`tech_stack.md`][TS] (in `docs/architecture/`): the tools and versions, and when each is adopted.
+- [`domain_layer_design.md`][DL] (in `docs/architecture/domain_layer/`): the domain model.
+- [`technical_implementation_plan.md`][PL] (in `docs/init_impl_ref/`): the milestones, dates,
+  schema, flows and code sketches.
+
+Which of them wins, and when their rules bind, is the precedence rule under Documentation.
+
 ## Layout
 
 | Path | What lives there |
@@ -20,6 +29,10 @@ decision was taken is in `docs/ADRs/`. Read the relevant parts before proposing 
 | `tests/` | Tests that span components: `e2e/`, `load/` |
 | `infra/` | Road-network data and deployment |
 | `logs/` | Local log output; git ignores its contents |
+
+[ADR-037] (Proposed) would move this tree to `src/core`, `src/optimizer`, `src/web`, `src/mobile`
+and `src/packages`, with `e2e/` and `deploy/` at the root and Terraform in `infra/`. [ADR-038]
+(Proposed) would move Java to 25. The pull request that moves the code updates this table.
 
 This file holds the rules for the whole repository. Narrower rules live next to the code and load
 when you work there ([ADR-018](../docs/ADRs/ADR-018-ai-assistant-context-in-the-repository.md)):
@@ -101,7 +114,11 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 - Dependencies point one way: domain logic never imports frameworks, I/O or transport types.
   Adapters depend on the core, never the reverse. No cyclic dependencies.
 - Every new third-party dependency needs a justification: what it replaces, its maintenance
-  status, its licence, and why the standard library or an existing dependency is not enough.
+  status, its licence, why the standard library or an existing dependency is not enough, and the
+  milestone at which [TS] adopts it. Nothing is adopted earlier ([TS §1][TS-1], rule 3).
+- Use the words of [DL §17][DL-17] in code, screens and new text, and avoid its "words not used".
+  The existing text of `requirements.md`, glosses included, keeps its wording (it says "van")
+  until the team aligns it with the domain document.
 
 ## Code style
 
@@ -152,8 +169,28 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 ## Documentation
 
 - `docs/requirements/requirements.md` states what the system must do, `docs/architecture/`
-  describes it as it is, and `docs/ADRs/` records why. Point across; never restate.
+  how it is built, and `docs/ADRs/` why. Point across; never restate.
+- `docs/architecture/tech_stack.md` and `docs/architecture/domain_layer/` hold the proposed
+  design, and `docs/init_impl_ref/` holds the build plan. The rest of `docs/architecture/`
+  describes what is built.
+- `requirements.md` outranks the three design documents, and where the tech stack or the plan
+  disagrees with the domain document, the domain document wins. New code is written to the design
+  documents' rules. Code that a Proposed ADR governs merges only once the team accepts that ADR
+  ([PL §25][PL-25]); until then the accepted ADR it would change still stands, and the pull request
+  says which Proposed ADR it depends on.
+- An accepted ADR comes before the code it governs merges. [PL §25][PL-25] and [TS §22][TS-22] list
+  the decisions that need one.
 - A change that alters behaviour updates the documents it affects in the same pull request.
 - Requirements are intent, not observation. Behaviour found in code is not a requirement until
   the team agrees it is.
 - Diagrams live in the repo as code (Mermaid), never as pasted images.
+
+[TS]: ../docs/architecture/tech_stack.md
+[TS-1]: ../docs/architecture/tech_stack.md#1-what-decides-close-calls
+[TS-22]: ../docs/architecture/tech_stack.md#22-open-decisions
+[DL]: ../docs/architecture/domain_layer/domain_layer_design.md
+[DL-17]: ../docs/architecture/domain_layer/domain_layer_design.md#17-ubiquitous-language
+[PL]: ../docs/init_impl_ref/technical_implementation_plan.md
+[PL-25]: ../docs/init_impl_ref/technical_implementation_plan.md#25-decisions-to-record-as-adrs
+[ADR-037]: ../docs/ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md
+[ADR-038]: ../docs/ADRs/ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md

@@ -20,6 +20,13 @@ Expo SDK 58, React Native 0.88, React 19, TypeScript 6.0, npm.
   must run in it online, and it reads its route every 30 seconds while open ([ADR-026]).
 - Admin and Dispatcher screens exist here too (FR-120). Driver-only rules, such as no action while
   moving (NFR-45) and no prompt hiding the route (NFR-139), bind the driver screens only.
+  [TS §22] leaves open whether those screens run as the web app in a web view. [ADR-035] is still
+  accepted, and this rule stands until the team decides otherwise.
+- Never use AsyncStorage or a persisted query cache. The route cache and the report outbox live in
+  the encrypted SQLCipher database (NFR-39, [TS §11]).
+- The report outbox is a `ReportQueue` port over a SQLCipher adapter. Each report carries an
+  idempotency key scoped to the signed-in user and a per-route sequence number, and stays queued
+  until the server acknowledges it ([TS §11]).
 - `tsconfig.json` sets `"types": ["jest"]`, because TypeScript 6 no longer loads every
   installed `@types` package by default. A new global type package goes into that list.
 - `osv-scanner.toml` lists the vulnerabilities the audit ignores, each with a reason and an
@@ -49,3 +56,5 @@ Run `just` recipes from the repository root, and `npm` or `npx` from this folder
 [ADR-023]: ../../../docs/ADRs/ADR-023-accept-minimatch-and-glob-advisories.md
 [ADR-028]: ../../../docs/ADRs/ADR-028-driver-app-through-test-tracks-with-a-device-checklist.md
 [ADR-035]: ../../../docs/ADRs/ADR-035-both-apps-serve-every-role.md
+[TS §11]: ../../../docs/architecture/tech_stack.md#11-phone-app
+[TS §22]: ../../../docs/architecture/tech_stack.md#22-open-decisions
