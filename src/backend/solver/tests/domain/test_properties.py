@@ -6,7 +6,14 @@ import numpy as np
 from hypothesis import assume, event, given, seed
 from hypothesis import strategies as st
 
-from dispatchflow_solver.domain.drops import Capacity, Displaced, DropReason, TimeWindow
+from dispatchflow_solver.domain.drops import (
+    Capacity,
+    Displaced,
+    DropReason,
+    NoVehicleAvailable,
+    TimeWindow,
+)
+from dispatchflow_solver.domain.exclusions import OrderExclusion
 from dispatchflow_solver.domain.problem import Pin, Problem
 from dispatchflow_solver.domain.rules import LIMIT_TOLERANCE, RuleId
 from dispatchflow_solver.domain.solution import Route, Solution
@@ -37,16 +44,26 @@ def travel_models(draw: st.DrawFn) -> TravelTimeModel:
 
 @st.composite
 def one_order_served_alone(draw: st.DrawFn) -> tuple[Problem, Solution]:
-    shift_start = draw(st.floats(min_value=0, max_value=20_000, allow_nan=False))
+    # A shift can start late enough that a window before it lies further off than the shift lasts.
+    shift_start = draw(st.floats(min_value=0, max_value=46_000, allow_nan=False))
     shift_end = shift_start + draw(st.floats(min_value=10_000, max_value=40_000, allow_nan=False))
-    door = draw(st.booleans())
-    # The window meets the shift somewhere, as BR-121's bound assumes: a door stop served within
-    # its shift is then outside its window for at most the shift's length.
-    inside = draw(st.floats(min_value=shift_start, max_value=shift_end, allow_nan=False))
-    window_start = draw(st.floats(min_value=0, max_value=inside, allow_nan=False))
-    window_end = (
-        draw(st.floats(min_value=inside, max_value=DAY, allow_nan=False)) if door else shift_end
-    )
+    # Half the cases are door windows wholly before or after the shift, which ADR-100's L covers.
+    placement = draw(st.sampled_from(["before", "after", "meets", "hard"]))
+    door = placement != "hard"
+    if placement == "before":
+        # A door window wholly before the shift: served late, far outside it (ADR-100).
+        window_end = draw(st.floats(min_value=0, max_value=shift_start, allow_nan=False))
+        window_start = draw(st.floats(min_value=0, max_value=window_end, allow_nan=False))
+    elif placement == "after":
+        window_start = draw(st.floats(min_value=shift_end, max_value=DAY, allow_nan=False))
+        window_end = draw(st.floats(min_value=window_start, max_value=DAY, allow_nan=False))
+    else:
+        inside = draw(st.floats(min_value=shift_start, max_value=shift_end, allow_nan=False))
+        window_start = draw(st.floats(min_value=0, max_value=inside, allow_nan=False))
+        window_end = (
+            draw(st.floats(min_value=inside, max_value=DAY, allow_nan=False)) if door else shift_end
+        )
+    event(f"window {placement}")
     day = DayBuilder(
         travel=draw(travel_models()),
         fixed_vehicle_cost=draw(st.floats(min_value=0, max_value=50_000, allow_nan=False)),
@@ -72,6 +89,8 @@ def test_given_any_one_order_served_alone_when_costed_then_k_exceeds_the_serving
     problem, solution = case
     report = problem.validate(solution)
     assume(report.accepted)
+    if report.timings[0].outside_window[0] > problem.drivers.shift_length(0):
+        event("door stop outside its window for longer than the shift")
 
     cost = problem.cost(solution, report.timings)
 
@@ -86,8 +105,13 @@ def any_day_and_solution(draw: st.DrawFn) -> tuple[Problem, Solution]:
         opens = draw(st.floats(min_value=0, max_value=20_000, allow_nan=False))
         closes = opens + draw(st.floats(min_value=0, max_value=60_000, allow_nan=False))
         day.depot_hours(opens=opens, closes=closes)
-    # Most dates have a vehicle; a few have none, which FR-223 leaves to the owner.
+    # Most dates have a vehicle; a few have none, so every drop is *no vehicle available*.
     vehicle_count = 0 if one_in_ten(draw) else draw(st.integers(min_value=1, max_value=3))
+    if not vehicle_count and draw(st.booleans()):
+        # A vehicle that exists but can drive no route (FR-197): the date still has none usable.
+        nowhere = day.depot(None)
+        day.vehicle(start_depot=nowhere, end_depot=nowhere)
+        event("only an excluded vehicle")
     for _ in range(vehicle_count):
         shift_start = draw(st.floats(min_value=0, max_value=40_000, allow_nan=False))
         shift_length = draw(st.floats(min_value=1, max_value=40_000, allow_nan=False))
@@ -178,7 +202,14 @@ def test_given_any_solution_when_drops_explained_then_every_dropped_order_has_a_
         assert isinstance(reason, DropReason.__value__)
         if problem.orders.leave_at_door[order]:
             assert not isinstance(reason, TimeWindow)
-        judged = problem.orders.is_routable(order) and order not in problem.removed_by_dispatcher
+        located = problem.orders.exclusion[order] is not OrderExclusion.MISSING_LOCATION
+        no_vehicle = not problem.vehicles.usable()
+        assert (reason == NoVehicleAvailable()) == (located and no_vehicle)
+        judged = (
+            problem.orders.is_routable(order)
+            and order not in problem.removed_by_dispatcher
+            and not no_vehicle
+        )
         assert isinstance(reason, Displaced) == (judged and serves_alone(problem, order))
         if judged and problem.orders.pin(order) is None:
             assert reason_is_capacity_by_arithmetic(problem, order, reason)
@@ -186,7 +217,8 @@ def test_given_any_solution_when_drops_explained_then_every_dropped_order_has_a_
 
 def reason_is_capacity_by_arithmetic(problem: Problem, order: int, reason: DropReason) -> bool:
     """The capacity oracle, by plain arithmetic: no vehicle that can reach the order by road
-    carries it alone, and the facts are the largest capacities among those vehicles."""
+    carries it alone, and the facts are the largest capacities among those vehicles. A routable
+    order on a date with a usable vehicle is reached by at least one."""
     vehicles, orders, durations = problem.vehicles, problem.orders, problem.durations
     location = int(orders.location[order])
     reaching = [
@@ -206,12 +238,8 @@ def reason_is_capacity_by_arithmetic(problem: Problem, order: int, reason: DropR
     return reason == Capacity(
         weight_kg=weight,
         volume_l=volume,
-        largest_weight_capacity_kg=max(
-            (float(vehicles.weight_capacity_kg[v]) for v in reaching), default=0.0
-        ),
-        largest_volume_capacity_l=max(
-            (float(vehicles.volume_capacity_l[v]) for v in reaching), default=0.0
-        ),
+        largest_weight_capacity_kg=max(float(vehicles.weight_capacity_kg[v]) for v in reaching),
+        largest_volume_capacity_l=max(float(vehicles.volume_capacity_l[v]) for v in reaching),
     )
 
 

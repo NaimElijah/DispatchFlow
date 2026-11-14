@@ -2,7 +2,10 @@ package com.dispatchflow.architecture;
 
 import org.junit.jupiter.api.Test;
 
-/** The shape rules of DL §3.5, §3.8, §7.3 and §13, checked against the production classes. */
+/**
+ * The shape rules of DL §3.5, §3.8, §7.3 and §13, and ADR-106's, checked against the production
+ * classes.
+ */
 class DomainShapeTest {
 
     private static final String ROOT = ProductionClasses.ROOT;
@@ -25,6 +28,11 @@ class DomainShapeTest {
     @Test
     void GivenTheProductionClasses_WhenErrorParametersAreChecked_ThenNoneCarriesPersonalData() {
         DomainShapeRules.errorParametersCarryNoPersonalData(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenPersonalValuesAreChecked_ThenEachDeclaresItsOwnToString() {
+        DomainShapeRules.personalValuesPrintRedacted(ROOT).check(ProductionClasses.ALL);
     }
 
     @Test

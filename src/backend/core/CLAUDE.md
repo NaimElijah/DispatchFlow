@@ -13,9 +13,10 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
 - `src/main/java/com/dispatchflow/` holds:
   - `DispatchFlowApplication`;
   - `web/`, the error handler that belongs to no context;
-  - `shared/`, the shared kernel: the typed IDs, the nine shared values with their errors, and
-    the building blocks ([ADR-097]). These are `DomainError`, `RuleViolation(s)`,
-    `StoredStateInvalid`, `Version`, `AggregateRoot`, `DomainEvent`, `EventId` and `FreshIds`.
+  - `shared/`, the shared kernel: the typed IDs, the shared values with their errors, and the
+    building blocks ([ADR-097], [ADR-106]). These are `DomainError`, `RuleViolation(s)`,
+    `StoredStateInvalid`, `Version`, `AggregateRoot`, `DomainEvent`, `EventId`, `FreshIds`,
+    `PlainText` with its `TextKind`, and the `PersonalData` marker.
     Never add a type that holds one context's rule.
 - No bounded context exists in code yet. The contexts are decided ([DL §1]), and each will be one
   module, laid out as in [TS §4] and [ADR-040]. Each module's domain is built ahead of its
@@ -64,11 +65,14 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
     - those of `ValidationReport`, `Evaluation` and `ValidatedSolution`.
   - Every interface that extends `DomainError` is sealed, and no error declares its own `code()`.
   - Error fields become a response's `params` ([ADR-043]), so they never hold text
-    (`CharSequence`), an `Object` or an array. Nor do they hold `PhoneNumber`, `GeoPoint`,
-    `EmailAddress`, `Address` or `NormalizedAddress`.
+    (`CharSequence` or `PlainText`), an `Object` or an array. Nor do they hold a value that
+    implements `PersonalData`, a list of one, or a DispatchFlow type that holds one at any depth
+    ([ADR-106]). Every personal value implements it; no test checks that, review does.
+  - Every concrete `PersonalData` type declares its own `toString()`, which prints redacted. A
+    record's implicit one doesn't count.
   - Events live in an `events` package. Their fields are typed IDs, the shared values other than
-    `PhoneNumber` and `GeoPoint`, `EventId`, `Version`, the package's own enums, `Instant`, `int`,
-    `long`, `boolean`, or lists of these.
+    `PhoneNumber`, `GeoPoint` and `PlainText`, `EventId`, `Version`, the package's own enums,
+    `Instant`, `int`, `long`, `boolean`, or lists of these. No field holds a `PersonalData` value.
 - `ErrorCodeUniquenessTest`, `EventNameUniquenessTest` and `ErrorRefusalTestsTest` check three
   things: error codes and event names are unique across modules, and every error has a refusal
   test. Each rule has a deliberately impure fixture under `archfixture/` that it must flag, so a
@@ -169,6 +173,7 @@ Windows).
 [ADR-057]: ../../../docs/ADRs/ADR-057-concurrent-changes-to-a-plan-use-optimistic-locking.md
 [ADR-068]: ../../../docs/ADRs/ADR-068-every-web-handler-is-authorized-by-role-from-the-contract.md
 [ADR-097]: ../../../docs/ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md
+[ADR-106]: ../../../docs/ADRs/ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md
 [NFR-176]: ../../../docs/requirements/requirements.md#nfr-176
 [DL §1]: ../../../docs/architecture/domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts
 [DL §2.3]: ../../../docs/architecture/domain_layer/domain_layer_design.md#23-rules-between-contexts
