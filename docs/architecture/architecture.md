@@ -48,8 +48,8 @@ numbers).
 domain's building blocks
 ([ADR-097](../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md),
 [ADR-106](../ADRs/ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md)). Nothing calls
-it yet. The `domain` and `events` packages of `access`, `audit`, `fleet`, `orders`, `planning` and
-`reporting` are built ahead of their milestones, and nothing calls them yet either.
+it yet. The `domain` and `events` packages of `access`, `audit`, `fleet`, `messaging`, `orders`,
+`planning` and `reporting` are built ahead of their milestones, and nothing calls them yet either.
 
 ## Communication
 
