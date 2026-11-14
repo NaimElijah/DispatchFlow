@@ -100,7 +100,7 @@ Audit without a cycle ([ADR-040]).
 |---|---|---|---|
 | Access | Every core module | Open host for identity; the others conform to its account IDs and roles | The `Actor` value; Access's `Accounts` query; for Live Operations also the `SessionContacts` query, which answers whether any session of an account made contact within a window (BR-132) |
 | Audit | Every core module | Open host | `AuditLog.record`, in the same transaction as the change (NFR-23) |
-| Access | Fleet | Customer and supplier; shared identity: a `Driver` has the ID of the driver's account | Fleet asks `Accounts` whether an account is active and holds the Driver role |
+| Access | Fleet | Customer and supplier; shared identity: a `Driver` has the ID of the driver's account | Fleet asks `Accounts` whether an account is active and holds the Driver role; Fleet's `DriverRetired` listener calls Access's API to remove the Driver role (FR-307, [ADR-103]); Fleet's `AccountAnonymized` listener anonymizes the driver record (NFR-258, [ADR-103]) |
 | Fleet | Planning | Customer and supplier | Planning reads the roster and the fleet register through Fleet's API, translating them into its own values; calls `MoveVehicleWithRoute`; implements Fleet's `RecordUsage` |
 | Customers & Orders | Planning | Customer and supplier | Planning reads `OrdersForDate`; hears `OrderCancelled` and `OrderRescheduled`; implements `OrderPlacement` and `RecordUsage` |
 | Planning | Live Operations | Customer and supplier | Live Operations hears `PlanPublished` and `PlanRevised`; asks `RouteMembership` and `PublishedRoutes`; calls `ReconcileLateOutcome`; implements `ExecutionFacts` |
@@ -201,7 +201,9 @@ kernel's `PersonalData` marker ([ADR-106]).
 | `ActiveAdmins` | Access | The active Admin accounts, read under row locks; refuses a change that leaves fewer than two (BR-19), and the first Admin while one exists (FR-291) | `TooFewAdmins`, `ActiveAdminExists` |
 | `PasswordHash`, `TokenHash` | Access | Opaque results of the hashing adapter, printed redacted (NFR-36, NFR-91, NFR-211) | — |
 | `CompanyName`, `DefaultWindow`, `DefaultServiceTime` | Access | The company's name, at most 19 characters (FR-382); the window a new customer starts with, opening before it closes, on no date (FR-125); the service duration a new customer starts with, positive (FR-184) ([ADR-104]) | `BlankCompanyName`, `CompanyNameTooLong`, `InvalidDefaultWindow`, `NonPositiveDefaultServiceTime` |
-| `Capacity`, `Plate`, `Shift`, `DepotHours`, `WeeklyShifts` | Fleet | A vehicle's weight and volume limits; a normalized plate; a start before an end | `InvalidPlate`, `InvalidShift` |
+| `Capacity`, `Plate`, `ShiftHours`, `Shift`, `DepotHours`, `WeeklyShifts` | Fleet | A vehicle's weight and volume limits; a normalized plate ([ADR-103]); a shift's hours, with the end after the start; those hours placed on a date, where both must exist (FR-190, BR-111); one opening and closing time for every date (FR-129); per weekday an optional shift and no vehicle (FR-79) | `InvalidPlate`, `InvalidShift`, `InvalidDepotHours` |
+| `VehicleName`, `DepotName`, `DriverName` | Fleet | Names read as `PlainText` `NAME` ([ADR-106]) and non-blank; a driver's is personal data | `BlankVehicleName`, `BlankDepotName`, `BlankDriverName`, `TextTooLong`, `TextHasForbiddenCharacters` |
+| `PlanUses`, `Standing`, `RosterDefault`, `Assignability`, `RosterVehicle`, `RosterFill` | Fleet | The facts Fleet's methods judge: the plans that use a record (FR-305); Access's and the register's answer on whether a driver or vehicle is active; a driver's default for a date (FR-189); the roster's answer to a hand-over (FR-302). A roster entry's vehicle: not set, none, or a vehicle (FR-79); and what a fill filled and skipped ([ADR-103]) | — |
 | `Address`, `NormalizedAddress` | Customers & Orders | The address as typed, and the form addresses are matched by (FR-310, Q-94 #4) | `BlankAddress` |
 | `CustomerMatch` | Customers & Orders | None, one, or several active customers for a normalized address; several can't be used (FR-310 to FR-312) | `AmbiguousAddress` |
 | `Location` | Customers & Orders | None, geocoded (with its quality), or placed by hand; a hand-placed location always wins (BR-13, FR-215) | — |
@@ -365,22 +367,34 @@ in Semester B.
 
 | Aggregate | Holds | Operations | Size and writers |
 |---|---|---|---|
-| `FleetRegister` | The company's depots (entities: name, `GeoPoint`, `DepotHours`, retirement) and vehicles (entities: name, `Plate`, `Capacity`, start and end depot, retirement) | `addDepot`, `changeDepotHours`, `retireDepot`, `addVehicle`, `changeVehicle`, `retireVehicle`, `reactivateVehicle` | One; at most 15 active vehicles plus retired ones; Admins, rarely |
-| `Driver` | The person's ID (the account's), name, phone, `WeeklyShifts`, retirement | `register`, `changeWeeklyShifts`, `retire`, `anonymize` | One per driver; Admins and dispatchers, rarely |
-| `DayRoster` | For one delivery date: each driver's `Shift` and availability, the vehicle each drives, and vehicles marked unavailable | `open`, `assign`, `unassign`, `markDriverUnavailable`, `markVehicleUnavailable`, `changeShift`, `moveVehicleWithRoute`, and the query `checkAssignable` | One per date, 15 entries; dispatchers and the hand-over listener |
+| `FleetRegister` | The company's depots (entities: name, a `GeoPoint` if known (FR-197), `DepotHours` if any, retirement) and vehicles (entities: name, `Plate`, `Capacity`, start and end depot, retirement) | `addDepot`, `changeDepot`, `changeDepotHours`, `retireDepot`, `addVehicle`, `changeVehicle`, `retireVehicle`, `reactivateVehicle`, and the queries `standingOf` and `activeVehicles` | One; at most 15 active vehicles plus retired ones; Admins, rarely |
+| `Driver` | The person's ID (the account's), name and phone, default shift and vehicle (FR-06, FR-189), `WeeklyShifts`, and state (*active*, *retired* or *anonymized*) | `register`, `changeDetails`, `changeWeeklyShifts`, `retire`, `anonymize`, `anonymizeWithAccount`, and the query `rosterDefaultOn` | One per driver; Admins and dispatchers, rarely |
+| `DayRoster` | For one delivery date: each driver's `Shift` and availability, the vehicle each drives, and vehicles marked unavailable | `open`, `fill`, `assign`, `unassign`, `markDriverUnavailable`, `markDriverAvailable`, `markVehicleUnavailable`, `markVehicleAvailable`, `changeShift`, `moveVehicleWithRoute`, and the query `checkAssignable` | One per date, 15 entries; dispatchers and the hand-over listener |
 
 | Invariant | Owner | Error |
 |---|---|---|
 | At most 15 active vehicles (BR-36) | `FleetRegister.addVehicle`, `reactivateVehicle` | `FleetFull` |
 | Active vehicles have unique names and plates (BR-48) | `FleetRegister` | `DuplicateVehicleName`, `DuplicatePlate` |
-| A vehicle starts and ends at active depots (BR-40) | `FleetRegister.addVehicle`, `changeVehicle`, `retireDepot` | `UnknownDepot`, `DepotInUse` |
+| A vehicle starts and ends at active depots (BR-40) | `FleetRegister.addVehicle`, `changeVehicle`, `reactivateVehicle`, `retireDepot` | `UnknownDepot`, `DepotHasActiveVehicles` |
+| A depot may have no coordinates; such a depot starts and ends no route (FR-197) | `FleetRegister.addDepot`, `changeDepot` | — |
+| Only a vehicle in the register is changed, retired or reactivated, and only an active one is changed or retired | `FleetRegister` | `UnknownVehicle`, `VehicleNotActive` |
 | Records are retired, never deleted (BR-43) | Every removal is a `retire` method | — |
-| A vehicle, depot or driver that a plan not yet completed uses can't be retired | `FleetRegister.retire…` and `Driver.retire`, which require the `InUse` answer read through `RecordUsage` | `VehicleInUse`, `DepotInUse`, `DriverInUse` |
+| A vehicle, depot or driver that an uncancelled plan for today or a later date uses can't be retired, and the refusal names the plan (FR-305) | `FleetRegister.retire…` and `Driver.retire`, which require `today` and the `PlanUses` answer read through `RecordUsage` | `VehicleInUse`, `DepotInUse`, `DriverInUse` |
+| Retiring a driver removes the Driver role from their account, which keeps its other roles (FR-307) | `Driver.retire` raises `DriverRetired`; Fleet's listener calls Access's API ([ADR-103]) | — |
 | A driver is registered only for an active account with the Driver role | `Driver.register`, which requires the account's standing | `NotAnActiveDriver` |
-| A retired driver is anonymized a year after retirement (BR-98, NFR-152) | `Driver.anonymize(now)` | `RetentionNotOver` |
+| A retired driver is anonymized a year after retirement, in Israel time (BR-98, NFR-152, NFR-184); a driver of any state is anonymized when Access anonymizes their account, a year after its deactivation (NFR-258, [ADR-103]) | `Driver.anonymize(now)`; `Driver.anonymizeWithAccount(now)`, from Fleet's listener on `AccountAnonymized` | `RetentionNotOver`; — |
+| A driver has a default shift and vehicle; weekly shifts, when there are any, give each weekday its shift or none, with the default vehicle. A fill sets only the values nobody set: a new driver's shift and vehicle, or an existing driver's vehicle when it is not set; a dispatcher's "no vehicle" stays. A driver whose default can't be used is skipped, every other driver is filled, and the fill reports each skip with its reason (FR-06, FR-79, FR-189, [ADR-103]) | `Driver.rosterDefaultOn`, `DayRoster.fill`, which returns a `RosterFill` | — (reported, not thrown: `NotAnActiveDriver`, `VehicleNotActive`, `VehicleAlreadyAssigned`, `NonexistentLocalTime`) |
 | On a date, a driver drives at most one vehicle and a vehicle has at most one driver (FR-54, FR-190) | `DayRoster.assign`, `moveVehicleWithRoute` | `VehicleAlreadyAssigned`, `DriverAlreadyHasVehicle` |
-| Only active vehicles and active drivers are rostered | `DayRoster.assign`, which requires their standing | `VehicleNotActive`, `NotAnActiveDriver` |
-| A shift ends after it starts | `Shift` | `InvalidShift` |
+| Only active vehicles and active drivers are rostered | `DayRoster.assign`, `changeShift` and `markVehicleUnavailable`, which require their standing; `fill`, which skips non-active drivers and unusable defaults and reports them | `VehicleNotActive`, `NotAnActiveDriver` |
+| A vehicle or a driver marked unavailable can be marked available again (FR-300) | `DayRoster.markVehicleAvailable`, `markDriverAvailable` | `DriverNotRostered` |
+| A route is handed over only to an active driver on the date's roster who is available and drives no other vehicle (FR-302) | `DayRoster.checkAssignable`, given the driver's standing, before the hand-over; `moveVehicleWithRoute` after it (FR-191) | `NotAnActiveDriver`, `DriverNotRostered`, `DriverMarkedUnavailable`, `DriverAlreadyHasVehicle` |
+| A shift ends after it starts and lies on its date (FR-190), and neither end falls in the hour the clock skips (BR-111) | `ShiftHours`; `Shift` | `InvalidShift`; `NonexistentLocalTime` |
+| Depot hours are one opening and one closing time for every date, and close after they open (FR-129, BR-46, [ADR-103]) | `DepotHours` | `InvalidDepotHours` |
+| A plate is trimmed, loses its spaces and hyphens, has its Latin letters upper-cased, and is then 1 to 10 ASCII letters or digits ([ADR-103]) | `Plate` | `InvalidPlate` |
+| A vehicle's, depot's or driver's name is read as `PlainText` `NAME` ([ADR-106]) and is not blank | `VehicleName`, `DepotName`, `DriverName` | `BlankVehicleName`, `BlankDepotName`, `BlankDriverName`, `TextTooLong`, `TextHasForbiddenCharacters` |
+
+A roster read that feeds a solve keeps only drivers whose standing is active, asked of Access each time
+([ADR-062], FR-193): a driver on a filled roster may since have retired or lost the Driver role.
 
 `FleetRegister` holds the set because the set is small by rule (BR-36), changes rarely, and two of its
 rules are about the whole set. That replaces a set-wide check and an advisory lock with an ordinary
@@ -583,9 +597,10 @@ classDiagram
     <<AggregateRoot>>
     DeliveryDate date
     List~RosterEntry~ entries
-    assign(driver, vehicle, standing)
+    fill(defaults, activeVehicles) RosterFill
+    assign(driver, vehicle, driverStanding, vehicleStanding)
     moveVehicleWithRoute(vehicle, from, to)
-    checkAssignable(vehicle, driver) Assignability
+    checkAssignable(vehicle, driver, standing) Assignability
   }
 
   Plan "1" *-- "many" Route
@@ -806,7 +821,8 @@ call, never in the same transaction.
 | The driver starts the route | — | `RouteRun` | `RouteStarted` |
 | The driver finishes the route | `RouteRun` → *finished* | An `Alert` when stops are pending (FR-329) | — |
 | A phone sends positions | — | Position records | — |
-| Mark a vehicle or a driver unavailable | `DayRoster` | — | — (only a person starts a re-optimization, FR-332) |
+| Mark a vehicle or a driver unavailable, or available again (FR-300) | `DayRoster` | — | — (only a person starts a re-optimization, FR-332) |
+| Retire a driver | `Driver` → *retired* | — | `DriverRetired` → Fleet's listener calls Access's API to remove the Driver role (FR-307) |
 | Change roles, password or email; remove the Driver role (FR-307); deactivate; end every session (FR-187) | `UserAccount`, `AccountGeneration` + 1 | — | `SessionsRevoked` |
 | Anonymize an account, a year after its deactivation (NFR-258) | `UserAccount` → *anonymized* | — | `AccountAnonymized` → Fleet anonymizes the driver record |
 | Confirm the password (step-up) | `Session`, `SessionGeneration` + 1 | — | — |
@@ -858,6 +874,7 @@ one may call anyway**: a direct call is simpler, unless it must be retried (reas
 | `OutcomeRecorded` | A stop was delivered or failed (the first outcome) | `Delivery` | Live Operations' own listener → late-outcome reconciliation through Planning (§8); Messaging → "delivered" or "missed you" (FR-355, FR-356, FR-374) | Planning is upstream, so the call must come from a retried listener (reason 2); Messaging is downstream (reason 1) |
 | `OutcomeCorrected` | A dispatcher changed a stop's outcome | `Delivery` | Messaging → the message follows the effective outcome (FR-333) | Downstream (reason 1) |
 | `RatingReceived` | A recipient rated a delivery | `RatingRequest` | Messaging's own listener → a 1 to 4 rating raises a Live Operations alert (FR-361) | The alert must follow reliably (reason 2) |
+| `DriverRetired` | A driver was retired | `Driver` | Fleet's own listener → calls Access's API to remove the Driver role, keeping the account's other roles (FR-307, [ADR-103]) | Fleet is downstream of Access, so the call must come from a retried listener (reason 2; §2.3, rule 2) |
 | `SessionsRevoked` | Every token and session of an account stopped being valid | `UserAccount` | The live-updates adapter → closes that account's streams opened under an older generation, which the event carries (NFR-188) | Several commands revoke (reason 3); the revocation cache itself is evicted at once, in the same thread, so "refused at once" doesn't wait for an event (NFR-177) |
 | `AccountAnonymized` | An account's personal data was removed, a year after its deactivation (NFR-258) | `UserAccount` | Fleet → anonymizes the driver record keyed by the account ([ADR-104]) | Fleet depends on Access, so Access can't call it (reason 1) |
 
@@ -1529,6 +1546,7 @@ Nothing. These ADRs record the decisions of this document:
 [ADR-058]: ../../ADRs/ADR-058-routes-changed-while-the-optimizer-is-down-are-checked-when-it-returns.md
 [ADR-059]: ../../ADRs/ADR-059-plan-revisions-are-stored-as-rows.md
 [ADR-061]: ../../ADRs/ADR-061-capacity-is-weight-and-volume.md
+[ADR-062]: ../../ADRs/ADR-062-fleet-checks-the-driver-role-when-it-reads.md
 [ADR-063]: ../../ADRs/ADR-063-a-transaction-changes-one-aggregate-and-every-rule-has-one-owner.md
 [ADR-064]: ../../ADRs/ADR-064-events-only-where-they-earn-their-place-through-the-modulith-registry.md
 [ADR-065]: ../../ADRs/ADR-065-facts-outrank-intent.md
@@ -1540,6 +1558,7 @@ Nothing. These ADRs record the decisions of this document:
 [ADR-086]: ../../ADRs/ADR-086-csv-imports-upload-then-confirm-within-an-hour.md
 [ADR-097]: ../../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md
 [ADR-100]: ../../ADRs/ADR-100-k-covers-door-windows-outside-a-shift-and-no-vehicle-is-a-drop-reason.md
+[ADR-103]: ../../ADRs/ADR-103-fleet-normalizes-plates-keeps-one-pair-of-depot-hours-holds-no-vehicle-in-weekly-shifts-and-retires-and-anonymizes-drivers-through-events.md
 [ADR-104]: ../../ADRs/ADR-104-the-company-profile-holds-customer-defaults-and-capabilities-follow-the-role-matrix.md
 [ADR-105]: ../../ADRs/ADR-105-a-re-optimizations-problem-carries-its-conventions-and-only-a-vehicle-that-is-out-has-no-driver.md
 [ADR-106]: ../../ADRs/ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md

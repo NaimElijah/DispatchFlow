@@ -97,6 +97,7 @@ src/backend/core/
     shared/                        the shared kernel: the typed IDs, the shared values, their
                                    errors, and the building blocks every module's domain uses
     access/                        a bounded context's module: its domain/ and events/ packages so far
+    fleet/                         a bounded context's module: its domain/ and events/ packages so far
     web/                           application-wide web concerns: the fallback for unexpected errors
       UnexpectedErrorHandler.java  answers an unhandled exception with a 500 problem body
       package-info.java
@@ -109,6 +110,7 @@ src/backend/core/
     architecture/                  the domain purity rules (ArchUnit) and the error-code check
     archfixture/                   deliberately impure classes that each purity rule must flag
     access/                        that module's domain tests
+    fleet/                         that module's domain tests
     web/UnexpectedErrorHandlerTest.java  the 500 problem body keeps the cause out
     IntegrationTest.java                 the one annotation every *IT uses: the whole app and PostgreSQL
     DispatchFlowApplicationIT.java       the health probe answers UP against PostgreSQL
@@ -118,7 +120,7 @@ src/backend/core/
 
 The shared kernel exists
 ([ADR-097](../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md)), and so do
-the `domain` and `events` packages of `access`. The decided design is the domain document, the tech stack and
+the `domain` and `events` packages of `access` and `fleet`. The decided design is the domain document, the tech stack and
 the ADRs: see the
 [domain layer design](domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts). How a
 context is laid out inside is in [tech stack §4](tech_stack.md#4-repository-layout) and
