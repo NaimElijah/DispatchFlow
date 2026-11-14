@@ -19,24 +19,27 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-029](ADR-029-solver-objective-and-re-optimization-rules.md) | How both solvers trade drops, moved stops, lateness and travel time | Accepted; extended by ADR-032, ADR-048, ADR-049, ADR-053 and ADR-091 |
 | [ADR-030](ADR-030-admin-issued-credentials-and-token-revocation.md) | Admins issue drivers' credentials, and a revoked access token is refused at once | Superseded by ADR-036 |
 | [ADR-031](ADR-031-sms-through-an-israeli-provider-for-recipient-messages.md) | Messages to recipients go by SMS through an Israeli provider, from a two-way virtual number | Accepted |
-| [ADR-032](ADR-032-leave-at-door-windows-are-preferences.md) | A leave-at-door order's time window is a preference, priced into the objective | Accepted; extended by ADR-048 |
+| [ADR-032](ADR-032-leave-at-door-windows-are-preferences.md) | A leave-at-door order's time window is a preference, priced into the objective | Accepted; extended by ADR-048; amended by ADR-100 |
 | [ADR-035](ADR-035-both-apps-serve-every-role.md) | Both apps serve Admins, Dispatchers and Drivers | Accepted; extended by ADR-076 and ADR-083; amended by ADR-037 and ADR-039 |
 | [ADR-036](ADR-036-one-account-per-person-signed-in-by-email.md) | Each person has one account, signed in with their email, holding one or more roles | Accepted; extended by ADR-069; amended by ADR-045 |
 | [ADR-040](ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md) | The core is a Spring Modulith monolith with one module per bounded context, checked in CI | Accepted; extended by ADR-097 |
-| [ADR-097](ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md) | The shared kernel also holds the building blocks every module's domain uses | Accepted |
+| [ADR-097](ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md) | The shared kernel also holds the building blocks every module's domain uses | Accepted; extended by ADR-106 |
+| [ADR-106](ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md) | Free text is normalized and capped by one kernel rule, and personal values carry a marker | Accepted |
 | [ADR-041](ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md) | Each module owns a PostgreSQL schema, read and written through jOOQ by a role that owns no table | Accepted |
 | [ADR-043](ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md) | Code is generated from both contracts on both sides, and errors are RFC 9457 Problem Details | Accepted; extended by ADR-068, ADR-073, ADR-087 and ADR-094 |
 | [ADR-094](ADR-094-each-pull-requests-contract-check-compares-against-its-base-branch.md) | Each pull request's contract check compares against its base branch | Accepted |
-| [ADR-044](ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md) | The solver port takes a start, a budget and a seed, and `Problem` alone judges a solution | Accepted; extended by ADR-050 and ADR-099 |
+| [ADR-044](ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md) | The solver port takes a start, a budget and a seed, and `Problem` alone judges a solution | Accepted; extended by ADR-050 and ADR-099; amended by ADR-105 |
 | [ADR-045](ADR-045-generation-counters-revoke-tokens.md) | Generation counters on the user and the session revoke tokens | Accepted |
 | [ADR-048](ADR-048-travel-times-from-buckets-and-a-buffer-with-no-live-traffic.md) | Travel times come from time-of-day buckets and a buffer, with no live traffic | Accepted; amended by ADR-098 |
 | [ADR-098](ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) | The validator works in double precision, compares limits within 1e-6, and rounds only product travel times | Accepted |
 | [ADR-099](ADR-099-a-route-may-carry-the-starts-its-solver-claims.md) | A route may carry the service starts its solver claims, and the validator checks them | Accepted |
-| [ADR-049](ADR-049-drop-penalty-unit-k-scaled-by-priority.md) | An order's drop penalty is K times 6 minus its priority, with K = 5L + 2T + F + 1 | Accepted |
-| [ADR-050](ADR-050-re-optimization-conventions-live-only-in-the-python-problem-factory.md) | Re-optimization conventions live only in the Python problem factory | Accepted |
+| [ADR-049](ADR-049-drop-penalty-unit-k-scaled-by-priority.md) | An order's drop penalty is K times 6 minus its priority, with K = 5L + 2T + F + 1 | Accepted; amended by ADR-100 and ADR-105 |
+| [ADR-100](ADR-100-k-covers-door-windows-outside-a-shift-and-no-vehicle-is-a-drop-reason.md) | K's L covers door windows outside a shift, and *no vehicle available* is a drop reason | Accepted; amended by ADR-105 |
+| [ADR-050](ADR-050-re-optimization-conventions-live-only-in-the-python-problem-factory.md) | Re-optimization conventions live only in the Python problem factory | Accepted; extended by ADR-105 |
+| [ADR-105](ADR-105-a-re-optimizations-problem-carries-its-conventions-and-only-a-vehicle-that-is-out-has-no-driver.md) | A re-optimization's problem carries its conventions, and only a vehicle that is out has no driver | Accepted |
 | [ADR-051](ADR-051-one-solver-worker-per-lane-killed-30-seconds-past-its-limit.md) | Each lane has one solver worker process, killed 30 seconds past its limit | Accepted |
 | [ADR-052](ADR-052-each-plan-stores-the-matrix-and-values-it-was-solved-with.md) | Each plan stores the travel-time matrix and the values it was solved with | Accepted |
-| [ADR-053](ADR-053-plan-lifecycle-publishing-stability-drop-reasons-and-abandoned-plans.md) | A plan follows one lifecycle that ends in completed, cancelled or abandoned, and every drop has a reason | Accepted |
+| [ADR-053](ADR-053-plan-lifecycle-publishing-stability-drop-reasons-and-abandoned-plans.md) | A plan follows one lifecycle that ends in completed, cancelled or abandoned, and every drop has a reason | Accepted; amended by ADR-100 |
 | [ADR-054](ADR-054-publishing-re-checks-every-route-against-the-current-fleet.md) | Publishing re-checks every route against the current fleet and orders | Accepted |
 | [ADR-055](ADR-055-accepting-a-re-optimization-checks-the-vehicles-it-keeps-driving.md) | Accepting a re-optimization checks the vehicles it keeps driving | Accepted |
 | [ADR-056](ADR-056-accepting-a-re-optimization-checks-changes-recorded-since-its-basis.md) | Accepting a re-optimization re-checks every change recorded since its preview | Accepted |
@@ -120,6 +123,6 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > requirements and the design documents for the team. ADR-037 to ADR-047 were accepted then, and
 > ADR-048 to ADR-093 record the rest, including every decision the requirements marked
 > `ADR pending`. ADR-094 to ADR-096, on 2026-11-14, settle three points that were found still open
-> afterwards. ADR-097 to ADR-099, on 2026-11-14, record decisions taken while the domain layer was
+> afterwards. ADR-097 onward, from 2026-11-14, record decisions taken while the domain layer was
 > being built. The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what
 > is still open.

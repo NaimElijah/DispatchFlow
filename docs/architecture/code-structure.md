@@ -94,7 +94,7 @@ src/backend/core/
   .env.example                     the database connection keys, with no values
   src/main/java/com/dispatchflow/
     DispatchFlowApplication.java   the Spring Boot entry point
-    shared/                        the shared kernel: the typed IDs, the nine shared values, their
+    shared/                        the shared kernel: the typed IDs, the shared values, their
                                    errors, and the building blocks every module's domain uses
     web/                           application-wide web concerns: the fallback for unexpected errors
       UnexpectedErrorHandler.java  answers an unhandled exception with a 500 problem body
