@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/NaimElijah/DispatchFlow/actions/workflows/ci.yml/badge.svg)](https://github.com/NaimElijah/DispatchFlow/actions/workflows/ci.yml)
 
-[Requirements](docs/requirements/requirements.md) · [Architecture](docs/architecture/architecture.md) · [Domain design](docs/architecture/domain_layer/domain_layer_design.md) · [Tech stack](docs/architecture/tech_stack.md) · [Plan](docs/init_impl_ref/technical_implementation_plan.md) · [ADRs](docs/ADRs/README.md) · [Board](https://github.com/users/NaimElijah/projects/9)
+[Requirements](docs/requirements/requirements.md) · [Architecture](docs/architecture/architecture.md) · [Domain design](docs/architecture/domain_layer/domain_layer_design.md) · [Tech stack](docs/architecture/tech_stack.md) · [Roadmap](docs/roadmap.md) · [ADRs](docs/ADRs/README.md) · [Board](https://github.com/users/NaimElijah/projects/9)
 
 </div>
 
@@ -118,7 +118,7 @@ probe, the core its health probe, and the two apps render a heading.
 [code-structure.md](docs/architecture/code-structure.md) the repository layout.
 
 The decided design is the domain document, the tech stack and the ADRs, which the team builds
-from:
+from, with the [roadmap](docs/roadmap.md) for dates:
 
 - [domain_layer_design.md](docs/architecture/domain_layer/domain_layer_design.md): the bounded
   contexts, aggregates, events and the rules between them. Where the tech stack disagrees with
@@ -127,11 +127,12 @@ from:
   milestone it is adopted at.
 - [docs/ADRs/](docs/ADRs/README.md): each decision and its reasons.
 
-The [implementation plan](docs/init_impl_ref/technical_implementation_plan.md) is, until a later
-pull request retires it, a Proposed source for the milestones, the one-VM deployment, the
-contracts, the schema and the key flows. Its main path: a dispatcher requests a solve, the core
-queues a solve job, sends the whole problem with its travel-time matrix to the optimizer, keeps
-only a validated result, and pushes progress to the web app over server-sent events.
+The main path: a dispatcher requests a solve, the core queues a solve job, sends the whole
+problem with its travel-time matrix to the optimizer, keeps only a validated result, and pushes
+progress to the web app over server-sent events
+([ADR-052](docs/ADRs/ADR-052-each-plan-stores-the-matrix-and-values-it-was-solved-with.md),
+[ADR-044](docs/ADRs/ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md),
+[ADR-026](docs/ADRs/ADR-026-server-sent-events-and-push-for-live-updates.md)).
 
 ## Tech stack
 
@@ -196,7 +197,7 @@ recipe; `just check` and `just format` run them all.
 [requirements.md](docs/requirements/requirements.md), the aggregate that owns its rule in the
 [domain design](docs/architecture/domain_layer/domain_layer_design.md#4-aggregates-context-by-context),
 and the milestone it belongs to in the
-[plan](docs/init_impl_ref/technical_implementation_plan.md#3-build-sequence);
+[roadmap](docs/roadmap.md#2-milestones);
 change the contract in `contracts/` first;
 implement the domain, then the use case, then the adapter in `src/backend/core` (and in the solver
 if it needs new solving behaviour); then the client screens; tests at each layer; and update the
@@ -239,7 +240,7 @@ contracts/             versioned OpenAPI contracts between the components
 tests/                 cross-component tests only: e2e/, load/
 infra/                 road-network data (osrm/) and deployment (deploy/)
 logs/                  local log output; git ignores its contents
-docs/                  requirements, architecture and design, ADRs, the plan (init_impl_ref/), presentations
+docs/                  requirements, architecture and design, ADRs, the roadmap, presentations
 justfile               every command, the same locally and in CI
 ```
 
@@ -274,7 +275,7 @@ hangs. Cost: every contributor installs `just`, and CI builds every component on
 
 The other decisions, including the repository layout, the two clients and the tooling, are in
 the [ADR index](docs/ADRs/README.md). It also lists ADR-037 to ADR-047, accepted in this round, on
-2026-11-13 and 2026-11-14, and ADR-048 to ADR-092, which record the rest of the decisions. Each
+2026-11-13 and 2026-11-14, and ADR-048 to ADR-093, which record the rest of the decisions. Each
 supersedes, amends or extends the ADRs its status names, to match the design documents. The code
 does not follow them yet.
 
@@ -284,24 +285,8 @@ does not follow them yet.
 linter, tests and CI job; the two contracts; and the solver's and the core backend's health
 probes.
 
-Planned, in the milestones of the
-[implementation plan](docs/init_impl_ref/technical_implementation_plan.md#3-build-sequence):
-
-- **The Alpha** (M0 to M5, 12 November to 29 December 2026) is local, web-only and runs on
-  synthetic data. A dispatcher imports a day's orders from CSV, solves it with OR-Tools, sees the
-  routes on a map, a timeline and a table, and publishes. A driver, in the browser, reports each
-  stop and signs for each delivery. The day ends with a summary compared against a
-  nearest-neighbour baseline. The
-  [Alpha definition](docs/init_impl_ref/technical_implementation_plan.md#42-alpha-definition-for-1-december)
-  and its demo script are in the plan.
-- **Semester B** (M6 to M13) brings:
-  - access in full;
-  - Excel imports and geocoding;
-  - live operations and re-optimization;
-  - the phone app;
-  - our own solver and its study;
-  - SMS messages to recipients;
-  - production on one VM, and the pilot.
+Planned: the [roadmap](docs/roadmap.md) has the course calendar, the milestones M0 to M13, and the
+definition and demo script of the Alpha (M0 to M5).
 
 Known limitations:
 

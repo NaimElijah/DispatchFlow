@@ -9,7 +9,7 @@ and never restates them.
 | `architecture/` | How it is built, as it is today | Descriptive, never aspirational; the two decided designs below are the exception |
 | `architecture/tech_stack.md` | The decided tools and versions, and when each is adopted | Tools and versions only |
 | `architecture/domain_layer/` | The decided domain model: contexts, aggregates, events, language | The one home of the model |
-| `init_impl_ref/` | The build plan: milestones, dates, schema, flows, code sketches | Milestones, dates, schema, flows and code sketches only |
+| `roadmap.md` | When each part is built: the course calendar, the milestones, the Alpha and its demo script, and who the team waits on | Dates and schedule only; it names the rows and ADRs it schedules and copies none of them |
 | `ADRs/` | Why each decision was taken | Append-only |
 | `requirements/ARD/` | The Application Requirements Document (ARD), as a PDF | Built outside the repository; the PDF is the only file here |
 | `presentations/` | The proposal and ARD presentations | The planning material the requirements started from |
@@ -80,9 +80,10 @@ and never restates them.
   words like "robust", "seamless" and "powerful".
 - One topic, one document for the decided design. The decided domain model lives only in
   `architecture/domain_layer/` and the decided tools and versions only in
-  `architecture/tech_stack.md` ([TS §19][TS-19]). The proposed milestones, dates, schema, flows and
-  code sketches live only in `init_impl_ref/`. The others link; they never copy. A description of
-  today's tree names today's versions.
+  `architecture/tech_stack.md` ([TS §19][TS-19]), and the milestones and dates only in
+  `roadmap.md`. The others link; they never copy. Beyond what the domain document and the ADRs
+  decide, a table layout or a step-by-step flow is written down by the migration or the code that
+  builds it, not ahead of it. A description of today's tree names today's versions.
 - Mermaid diagrams use no colours, so they read in light and dark themes.
 - Before naming a version, a flag or a file, check it in the repository.
 

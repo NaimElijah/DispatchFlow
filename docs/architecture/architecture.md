@@ -108,12 +108,11 @@ the ADRs:
   module graph.
 - [Tech stack](tech_stack.md): the tools, and what each beat.
 - [ADR index](../ADRs/README.md): ADR-037 to ADR-047 record the layout, tooling and module
-  decisions, and ADR-048 to ADR-092 the rest.
+  decisions, and ADR-048 to ADR-093 the rest.
+- [Roadmap](../roadmap.md#2-milestones): the milestones and dates.
 
-Until a later pull request retires it, the implementation plan is a Proposed source for the
-milestones, schema, flows and sketches: the plan's sketch of the
-[one-VM diagram](../init_impl_ref/technical_implementation_plan.md#2-architecture-at-a-glance), and
-its [build sequence](../init_impl_ref/technical_implementation_plan.md#3-build-sequence) for the
-milestones.
+The hosting is in [ADR-078](../ADRs/ADR-078-hosting-on-one-aws-vm-in-tel-aviv-built-with-terraform.md)
+and [tech stack §15](tech_stack.md#15-infrastructure-and-operations). Beyond what the design and
+the ADRs decide, the schema and the flows are written down by the migrations and code that build them.
 
-This file is rewritten as each milestone of the plan lands.
+This file is rewritten as each milestone of the [roadmap](../roadmap.md#2-milestones) lands.

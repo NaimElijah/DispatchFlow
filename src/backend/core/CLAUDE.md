@@ -12,7 +12,7 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
 
 - `src/main/java/com/dispatchflow/` holds `DispatchFlowApplication` and `web/`, the error handler
   that belongs to no context. No bounded context exists yet (#5). Each will be one module, laid out
-  as in [TS §4] and [PL §11.1]:
+  as in [TS §4] and [ADR-040]:
 
   ```text
   <module>/domain/, events/
@@ -45,7 +45,7 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
   Spring Modulith's `verify()` fails the build on any other use ([ADR-040], Accepted).
 - Each module owns its tables, in its own PostgreSQL schema. No SQL reads another module's schema
   ([DL §2.3], rule 3).
-- A use case follows [PL §11.2]:
+- A use case follows [TS §6.2], [ADR-063] and [ADR-064]:
   - One class per use case. Its one `@Transactional` method changes one existing aggregate, after
     the outside calls.
   - `@ApplicationModuleListener` reactions are idempotent, because delivery is at least once.
@@ -67,7 +67,7 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
 - `*Test` classes are unit tests, run by Surefire. `*IT` classes are integration tests, run by
   Failsafe against a real PostgreSQL: annotate them with `@IntegrationTest`, so they all share one
   Spring context and one container. They need Docker ([ADR-014], superseded by ADR-042, not in the code yet).
-- Once a module exists, test it in layers ([DL §14], [PL §24]):
+- Once a module exists, test it in layers ([DL §14], [TS §17.1]):
   - Domain tests use no Spring and no mocks. Aggregates take values, `now` and new IDs as
     parameters. Every invariant in [DL §4] has a test that breaks it and asserts the module's named
     error. Every transition has one test that takes it, plus one per other state that must refuse
@@ -80,7 +80,7 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
   - Permission tests are generated from the contract's `x-capability` mapping and the permission
     matrix ([NFR-176]).
   - Build test data with one builder per aggregate, such as `aPlan()`. No test reads a shared
-    fixture file that other tests also change ([PL §24]).
+    fixture file that other tests also change.
   - The failure paths the design names are listed in `.claude/agents/df-tester.md`.
 
 ## Commands
@@ -116,9 +116,9 @@ Windows).
 [DL §4]: ../../../docs/architecture/domain_layer/domain_layer_design.md#4-aggregates-context-by-context
 [DL §7.3]: ../../../docs/architecture/domain_layer/domain_layer_design.md#73-shape-and-delivery
 [DL §14]: ../../../docs/architecture/domain_layer/domain_layer_design.md#14-testing-the-domain
-[PL §11.1]: ../../../docs/init_impl_ref/technical_implementation_plan.md#111-module-skeleton
-[PL §11.2]: ../../../docs/init_impl_ref/technical_implementation_plan.md#112-rules-every-use-case-follows
-[PL §24]: ../../../docs/init_impl_ref/technical_implementation_plan.md#24-testing
+[ADR-063]: ../../../docs/ADRs/ADR-063-a-transaction-changes-one-aggregate-and-every-rule-has-one-owner.md
+[ADR-064]: ../../../docs/ADRs/ADR-064-events-only-where-they-earn-their-place-through-the-modulith-registry.md
+[TS §17.1]: ../../../docs/architecture/tech_stack.md#171-by-layer
 [TS §4]: ../../../docs/architecture/tech_stack.md#4-repository-layout
 [TS §6]: ../../../docs/architecture/tech_stack.md#6-core-service-java
 [TS §6.2]: ../../../docs/architecture/tech_stack.md#62-application-layer

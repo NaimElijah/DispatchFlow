@@ -21,9 +21,9 @@ Accepted, and not in the tree yet: [ADR-039] replaces npm with a pnpm workspace 
 - The client never decides feasibility. Violations come from the server's validator ([TS §10]).
 - The web app's feature folders, `src/features/<context>`, mirror the bounded contexts ([TS §10]).
 - An error is translated from its stable `code` through `@dispatchflow/i18n`. No stack trace and no
-  bare code reaches a screen ([PL §6.2]).
+  bare code reaches a screen ([ADR-043]).
 - The phone app is built from Semester B (M10). Until then the driver screens run in the web
-  app's browser ([TS §11], [PL §4.1]).
+  app's browser ([TS §11], [roadmap §4.1]).
 - The server decides what each role may do. The UI hides what a role cannot use, but never
   stands in for the server's check.
 - Nothing secret goes into either app: whatever ships to a browser or a phone is public.
@@ -53,7 +53,7 @@ installs ([ADR-012], superseded by ADR-039, not in the code yet).
 [ADR-012]: ../../docs/ADRs/ADR-012-javascript-tooling-npm-eslint-prettier.md
 [ADR-037]: ../../docs/ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md
 [ADR-039]: ../../docs/ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md
-[PL §4.1]: ../../docs/init_impl_ref/technical_implementation_plan.md#41-whats-in-what-waits
-[PL §6.2]: ../../docs/init_impl_ref/technical_implementation_plan.md#62-core-api-conventions
+[roadmap §4.1]: ../../docs/roadmap.md#41-whats-in-what-waits
+[ADR-043]: ../../docs/ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md
 [TS §10]: ../../docs/architecture/tech_stack.md#10-web-app
 [TS §11]: ../../docs/architecture/tech_stack.md#11-phone-app

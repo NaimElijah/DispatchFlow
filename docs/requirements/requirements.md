@@ -530,7 +530,7 @@ route included.
 | FR-281 | At each limit the simulation measures each solver's objective, route stability, elapsed time and whether the new orders were served, all scored by the shared objective ([BR-09]: the solve objective, [BR-56]: the re-optimization objective). | Must |  |  |
 | FR-282 | A simulation run in which OR-Tools did not start from the current routes is reported and not counted as warm-started ([NFR-25]: incremental re-optimization study). | Must |  |  |
 | FR-47 | A pilot runs DispatchFlow at the company. [Q-01] (which company and what data) [Q-40] (pilot protocol) | Must |  |  |
-| FR-407 | If no company is confirmed by the start of the pilot, the pilot is staged: 5 working days on synthetic data ([FR-45]: synthetic order generator), with classmates as drivers on their own phones and a stand-in dispatcher, on a production-like deployment. | Must |  |  |
+| FR-407 | If no company is confirmed by the start of M13 (the pilot milestone), the pilot is staged: 5 working days on synthetic data ([FR-45]: synthetic order generator), with classmates as drivers on their own phones and a stand-in dispatcher, on a production-like deployment. | Must |  |  |
 | FR-410 | A staged pilot counts as handling real personal data for [NFR-40] (OWASP ASVS self-check), [Q-42] (legal advice on personal data) and [NFR-72] (data inventory), because classmates' accounts and location traces are real. | Must |  |  |
 | FR-283 | The company's feedback from the pilot is collected and written up. | Must |  |  |
 | FR-48 | A usability study runs task-based sessions with the pilot's dispatcher (build a plan, handle a breakdown), scored with the SUS questionnaire. | Should |  |  |
@@ -925,6 +925,7 @@ protocol).
 | <a id="nfr-129"></a>NFR-129 | The road data in use is refreshed monthly, and the team is told when it is older than 60 days. |  |  |
 | <a id="nfr-64"></a>NFR-64 | A report the server has acknowledged ([FR-248]: reports stay queued until acknowledged) is not lost when any one service crashes or restarts. Priority: Must. |  |  |
 | <a id="nfr-65"></a>NFR-65 | A driver's report can be retried safely, as [BR-28] (repeated reports take effect once) requires: its request key is scoped to the signed-in user. ([ADR-087]: driver report sync and idempotency) Priority: Must. |  |  |
+| <a id="nfr-285"></a>NFR-285 | A batch of positions can be retried safely: it carries a request key scoped to the signed-in user, so a retried batch is stored once. ([ADR-087]: driver report sync and idempotency) Priority: Must. |  |  |
 | <a id="nfr-130"></a>NFR-130 | A driver's report sent with a request key already used with a different body is refused. ([ADR-087]: driver report sync and idempotency) Priority: Must. |  |  |
 | <a id="nfr-66"></a>NFR-66 | If map tiles cannot be loaded, the web app still lists routes and stops, with a notice that the map is unavailable. Priority: Should. |  |  |
 | <a id="nfr-131"></a>NFR-131 | If map tiles cannot be loaded, the phone app still shows the route, its stops and Navigate ([FR-28]: hand off to navigation), with a notice that the map is unavailable. Priority: Should. |  |  |
@@ -1710,6 +1711,7 @@ DispatchFlow deliberately does not:
 [NFR-282]: #nfr-282
 [NFR-283]: #nfr-283
 [NFR-284]: #nfr-284
+[NFR-285]: #nfr-285
 [Q-01]: #open-questions
 [Q-02]: #open-questions
 [Q-14]: #open-questions
