@@ -1,9 +1,10 @@
 """Drop reasons: why an order is unserved, and the fact that caused it (FR-18, FR-144, FR-223).
 
-`explain_drop` tests an unserved order in ADR-053's fixed order and stops at the first test that
-fails. Each reason carries its fact as fields, which the core turns into a sentence. It times an
-order alone through the validator's own `check_route`, never a copy of it, so a drop reason
-cannot disagree with what `validate` would say (BR-42).
+`explain_drop` tests an unserved order in ADR-053's fixed order, with *no vehicle available* second
+(ADR-100), and stops at the first test that fails. Each reason carries its fact as fields, which
+the core turns into a sentence. It times an order alone through the validator's own
+`check_route`, never a copy of it, so a drop reason cannot disagree with what `validate` would say
+(BR-42).
 
 `Problem` and `Pin` appear here in annotations only, under `TYPE_CHECKING`: `problem` imports
 this module at run time, and this module never imports it.
@@ -29,6 +30,15 @@ if TYPE_CHECKING:
 @dataclass(frozen=True, slots=True)
 class MissingLocation:
     """The order's customer has no coordinates (BR-14)."""
+
+
+@dataclass(frozen=True, slots=True)
+class NoVehicleAvailable:
+    """No vehicle can drive a route on the order's date (FR-197, FR-223, ADR-100).
+
+    Like `MissingLocation`, it carries no field: its fact is the date's vehicle exclusions, which
+    name each vehicle and its cause (FR-144).
+    """
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,6 +132,7 @@ class Displaced:
 
 type DropReason = (
     MissingLocation
+    | NoVehicleAvailable
     | UnreachableLocation
     | RemovedByDispatcher
     | PinNotHonoured
@@ -141,23 +152,26 @@ limit binds before the depot's closing, so equal limits give *shift*."""
 def explain_drop(problem: Problem, order: int, solution: Solution) -> DropReason:
     """Explains an unserved order; `Problem.explain_drop` delegates here.
 
-    The tests run in ADR-053's order, and the first that fails is the reason:
+    The tests run in ADR-053's order, as ADR-100 amends it, and the first that fails is the
+    reason:
 
-    1. missing or unreachable location, decided before the search (BR-14, FR-66);
-       a dispatcher's removal comes next, because it is why a routable order is off its route
-       (FR-146);
-    2. a pin to a vehicle or driver that is out, or that cannot serve the order even alone
+    1. missing location, decided before the search (BR-14);
+    2. no vehicle available: no vehicle can drive a route on the date (FR-197). A fact about the
+       whole date comes before every per-vehicle test, and a missing location stays the order's
+       own fault even when a vehicle is added (ADR-100);
+    3. unreachable location, decided before the search (FR-66); a dispatcher's removal comes
+       next, because it is why a routable order is off its route (FR-146);
+    4. a pin to a vehicle or driver that is out, or that cannot serve the order even alone
        (FR-228);
-    3. capacity: no vehicle that can reach it carries it alone;
-    4. time window: the earliest arrival any vehicle that can carry it makes, leaving its depot
+    5. capacity: no vehicle that can reach it carries it alone;
+    6. time window: the earliest arrival any vehicle that can carry it makes, leaving its depot
        at its earliest, is after the window ends; never for a door order (BR-121);
-    5. shift or depot hours: depot to order to depot passes every such vehicle's latest return,
+    7. shift or depot hours: depot to order to depot passes every such vehicle's latest return,
        and the reason and its fact are those of the vehicle that comes closest;
-    6. displaced: it would fit alone.
+    8. displaced: it would fit alone.
 
     "Alone" is a one-stop route on a usable vehicle with its rostered driver, judged by
-    `check_route`. A date with no usable vehicle gives *capacity* with a largest capacity of 0,
-    since FR-223 has no reason for it; that waits on the owner.
+    `check_route`.
 
     Args:
         problem: The problem.
@@ -176,9 +190,12 @@ def explain_drop(problem: Problem, order: int, solution: Solution) -> DropReason
     if order in solution.served():
         raise ValueError(f"order {order} is served, not dropped")
     exclusion = orders.exclusion[order]
+    if exclusion is OrderExclusion.MISSING_LOCATION:
+        return MissingLocation()
+    candidates = problem.vehicles.usable()
+    if not candidates:
+        return NoVehicleAvailable()
     match exclusion:
-        case OrderExclusion.MISSING_LOCATION:
-            return MissingLocation()
         case OrderExclusion.UNREACHABLE_LOCATION:
             return UnreachableLocation()
         case None:
@@ -187,7 +204,6 @@ def explain_drop(problem: Problem, order: int, solution: Solution) -> DropReason
             assert_never(exclusion)
     if order in problem.removed_by_dispatcher:
         return RemovedByDispatcher()
-    candidates = problem.vehicles.usable()
     pin = orders.pin(order)
     if pin is not None:
         candidates = tuple(vehicle for vehicle in candidates if _honours(problem, vehicle, pin))
@@ -294,15 +310,16 @@ def _honours(problem: Problem, vehicle: int, pin: Pin) -> bool:
 
 
 def _capacity(problem: Problem, order: int, vehicles: list[int]) -> Capacity:
-    # With no vehicle at all, the largest capacity is honestly 0: nothing carries it.
+    # Never empty: the date has a usable vehicle, and a routable order is reached by one of them
+    # (FR-66), so max() needs no default.
     capacities = problem.vehicles
     return Capacity(
         weight_kg=float(problem.orders.weight_kg[order]),
         volume_l=float(problem.orders.volume_l[order]),
         largest_weight_capacity_kg=max(
-            (float(capacities.weight_capacity_kg[vehicle]) for vehicle in vehicles), default=0.0
+            float(capacities.weight_capacity_kg[vehicle]) for vehicle in vehicles
         ),
         largest_volume_capacity_l=max(
-            (float(capacities.volume_capacity_l[vehicle]) for vehicle in vehicles), default=0.0
+            float(capacities.volume_capacity_l[vehicle]) for vehicle in vehicles
         ),
     )

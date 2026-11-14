@@ -4,6 +4,8 @@ the expected reason is the first that applies.
 The day: a depot at point 0 and a vehicle carrying 10 kg and 10 l, its driver on shift 0 to 1,000.
 """
 
+from collections.abc import Callable
+
 import pytest
 
 from dispatchflow_solver.domain.drops import (
@@ -11,6 +13,7 @@ from dispatchflow_solver.domain.drops import (
     DepotHours,
     Displaced,
     MissingLocation,
+    NoVehicleAvailable,
     PinNotHonoured,
     RemovedByDispatcher,
     Shift,
@@ -356,14 +359,69 @@ def test_given_a_pin_to_a_vehicle_with_no_road_to_the_order_when_explained_then_
     assert day.build().explain_drop(0, NOTHING_SERVED) == PinNotHonoured(Pin(vehicle=0), False)
 
 
-def test_given_no_usable_vehicle_when_explained_then_capacity_with_nothing_to_carry_it() -> None:
-    # FR-223 has no reason for a date with no usable vehicle; until the owner decides one, it is
-    # capacity, with the largest capacity 0.
+# --- a date with no usable vehicle (FR-197, FR-223, ADR-100) ---
+
+
+def a_day_with_no_usable_vehicle() -> DayBuilder:
     day = DayBuilder()
     nowhere = day.depot(None)
     day.vehicle(start_depot=nowhere, end_depot=nowhere)
-    day.order(100, weight=2, volume=3)
+    return day
 
-    assert day.build().explain_drop(0, NOTHING_SERVED) == Capacity(
-        weight_kg=2, volume_l=3, largest_weight_capacity_kg=0, largest_volume_capacity_l=0
-    )
+
+def test_given_no_usable_vehicle_and_no_location_when_explained_then_missing_location() -> None:
+    # A missing location stays the order's own fault: adding a vehicle would not serve it.
+    day = a_day_with_no_usable_vehicle()
+    day.order(None)
+
+    assert day.build().explain_drop(0, NOTHING_SERVED) == MissingLocation()
+
+
+@pytest.mark.parametrize(
+    "add_order",
+    [
+        pytest.param(lambda day: day.order(100, weight=2, volume=3), id="located"),
+        pytest.param(lambda day: day.order(100, weight=1_000), id="heavier than any"),
+        # The factory judges no reachability on a date with no usable vehicle, so this order is
+        # routable and the case equals "located": the order between *no vehicle available* and
+        # *unreachable location* cannot be seen at this boundary.
+        pytest.param(lambda day: day.order(100, reachable=False), id="no road"),
+        pytest.param(lambda day: day.order(100, pin=Pin(vehicle=0)), id="pinned to a vehicle"),
+        pytest.param(lambda day: day.order(100, pin=Pin(driver=0)), id="pinned to a driver"),
+    ],
+)
+def test_given_no_usable_vehicle_and_a_located_order_when_explained_then_no_vehicle_available(
+    add_order: Callable[[DayBuilder], object],
+) -> None:
+    # A fact about the whole date comes before every per-vehicle test: never unreachable,
+    # capacity or pin.
+    day = a_day_with_no_usable_vehicle()
+    add_order(day)
+
+    assert day.build().explain_drop(0, NOTHING_SERVED) == NoVehicleAvailable()
+
+
+def test_given_no_usable_vehicle_and_a_removed_order_when_explained_then_no_vehicle_available() -> (
+    None
+):
+    day = a_day_with_no_usable_vehicle()
+    day.order(100)
+    day.removed_by_dispatcher.add(0)
+
+    assert day.build().explain_drop(0, NOTHING_SERVED) == NoVehicleAvailable()
+
+
+def test_given_no_vehicle_at_all_when_explained_then_no_vehicle_available() -> None:
+    day = DayBuilder()
+    day.order(100)
+
+    assert day.build().explain_drop(0, NOTHING_SERVED) == NoVehicleAvailable()
+
+
+def test_given_vehicles_with_no_road_between_their_depots_when_explained_then_no_vehicle() -> None:
+    day = DayBuilder()
+    island = day.depot(5_000, reachable=False)
+    day.vehicle(start_depot=0, end_depot=island)
+    day.order(100)
+
+    assert day.build().explain_drop(0, NOTHING_SERVED) == NoVehicleAvailable()

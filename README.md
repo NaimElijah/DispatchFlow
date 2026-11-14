@@ -279,7 +279,7 @@ the [ADR index](docs/ADRs/README.md). It also lists ADR-037 to ADR-047, accepted
 supersedes, amends or extends the ADRs its status names, to match the design documents. The code
 does not follow them yet. ADR-094 to ADR-096 settle three points found open afterwards: the
 contract check's base branch, the zod and deepmerge advisories, and the root `CLAUDE.md`. ADR-097
-to ADR-099 record decisions taken while the domain layer is built.
+to ADR-100 record decisions taken while the domain layer is built.
 
 ## Status and limitations
 

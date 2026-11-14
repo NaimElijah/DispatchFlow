@@ -130,7 +130,7 @@ the ADRs:
   [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md) (a
   schema per module, read and written through jOOQ) give the target shape. None of them is in the
   tree yet. ADR-039 and ADR-042 to ADR-047 record the other tooling, contract, solver-port, token
-  and image decisions, and ADR-048 to ADR-099 the rest.
+  and image decisions, and ADR-048 to ADR-100 the rest.
 - [Roadmap](../roadmap.md#2-milestones): the milestones and dates.
 
 The hosting is in [ADR-078](../ADRs/ADR-078-hosting-on-one-aws-vm-in-tel-aviv-built-with-terraform.md)

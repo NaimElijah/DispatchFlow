@@ -1,6 +1,6 @@
 # ADR-053: A plan follows one lifecycle that ends in completed, cancelled or abandoned, and every drop has a reason
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-100
 - **Date:** 2026-11-14
 
 ## Context
