@@ -19,6 +19,7 @@ from dispatchflow_solver.domain.drops import (
 )
 from dispatchflow_solver.domain.problem import Pin
 from dispatchflow_solver.domain.solution import Route, Solution
+from dispatchflow_solver.domain.travel_time import TravelTimeModel
 from tests.domain.builders import DEPOT_LOCATION, DayBuilder
 
 NOTHING_SERVED = Solution(routes=(), dropped=frozenset({0}))
@@ -211,5 +212,131 @@ def test_given_an_order_past_the_problem_when_explained_then_refused() -> None:
     day = a_day()
     day.order(100)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="order 1"):
         day.build().explain_drop(1, NOTHING_SERVED)
+
+
+# --- boundaries: exactly on a limit fits alone (NFR-168), as the validator says ---
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        pytest.param(lambda day: day.order(100, weight=10, volume=10), id="capacity"),
+        pytest.param(lambda day: day.order(100, window=(0, 100)), id="window end"),
+        pytest.param(lambda day: day.order(500), id="shift end"),
+    ],
+)
+def test_given_an_order_exactly_on_a_limit_when_explained_then_displaced(
+    case: object,
+) -> None:
+    day = a_day()
+    case(day)  # type: ignore[operator]
+
+    assert day.build().explain_drop(0, NOTHING_SERVED) == Displaced()
+
+
+def test_given_buffered_travel_when_explained_then_the_reason_follows_the_validators_times() -> (
+    None
+):
+    # Static travel reaches the order at 100, inside its window; a 10% buffer makes it 110.
+    static = a_day()
+    static.order(100, window=(0, 105))
+    buffered = a_day()
+    buffered.travel = TravelTimeModel(buckets=(), off_peak_factor=1.0, buffer=0.1)
+    buffered.order(100, window=(0, 105))
+
+    assert static.build().explain_drop(0, NOTHING_SERVED) == Displaced()
+    assert buffered.build().explain_drop(0, NOTHING_SERVED) == TimeWindow(
+        window_end=105, earliest_arrival=110
+    )
+
+
+def test_given_the_second_vehicle_arrives_first_when_explained_then_its_arrival_is_the_fact() -> (
+    None
+):
+    day = a_day(shift=(30, 1_000))
+    day.vehicle(shift=(0, 1_000))
+    day.order(100, window=TOO_LATE)
+
+    assert day.build().explain_drop(0, NOTHING_SERVED) == TimeWindow(
+        window_end=50, earliest_arrival=100
+    )
+
+
+def test_given_the_second_vehicle_comes_closest_when_explained_then_its_facts_are_given() -> None:
+    day = a_day(shift=(0, 150))
+    day.vehicle(shift=(0, 190))
+    day.order(100)
+
+    assert day.build().explain_drop(0, NOTHING_SERVED) == Shift(
+        latest_return=190, earliest_return=200
+    )
+
+
+def test_given_depot_closing_equal_to_the_shift_end_when_explained_then_shift() -> None:
+    day = a_day(shift=(0, 199))
+    day.depot_hours(closes=199)
+    day.order(100)
+
+    assert day.build().explain_drop(0, NOTHING_SERVED) == Shift(
+        latest_return=199, earliest_return=200
+    )
+
+
+def test_given_a_depot_opening_late_when_explained_then_the_route_leaves_at_opening() -> None:
+    # The shared route check leaves at 900, when the depot opens, so the round trip ends at 1,100.
+    day = a_day()
+    day.depot_hours(opens=900)
+    day.order(100)
+
+    assert day.build().explain_drop(0, NOTHING_SERVED) == Shift(
+        latest_return=1_000, earliest_return=1_100
+    )
+
+
+def test_given_a_door_order_past_the_dates_end_when_explained_then_shift_at_the_date_end() -> None:
+    # The shift ends with the date at 150 (FR-190), the binding limit min(shift end, date end).
+    day = DayBuilder(day_length=150)
+    day.vehicle(shift=(0, 150))
+    day.order(200, door=True)
+
+    assert day.build().explain_drop(0, NOTHING_SERVED) == Shift(
+        latest_return=150, earliest_return=400
+    )
+
+
+def test_given_an_order_only_the_second_depot_reaches_when_explained_then_judged_from_it() -> None:
+    # Vehicle 0 has no road to the order, so only vehicle 1's arrival counts.
+    day = a_day()
+    other = day.depot(1_000)
+    day.vehicle(start_depot=other, end_depot=other)
+    order = day.order(950, window=(0, 10))
+    day.no_road(DEPOT_LOCATION, day.location_of(order))
+
+    assert day.build().explain_drop(0, NOTHING_SERVED) == TimeWindow(
+        window_end=10, earliest_arrival=50
+    )
+
+
+def test_given_a_pin_to_a_vehicle_with_no_road_to_the_order_when_explained_then_pin() -> None:
+    day = a_day()
+    other = day.depot(1_000)
+    day.vehicle(start_depot=other, end_depot=other)
+    order = day.order(950, pin=Pin(vehicle=0))
+    day.no_road(DEPOT_LOCATION, day.location_of(order))
+
+    assert day.build().explain_drop(0, NOTHING_SERVED) == PinNotHonoured(Pin(vehicle=0), False)
+
+
+def test_given_no_usable_vehicle_when_explained_then_capacity_with_nothing_to_carry_it() -> None:
+    # FR-223 has no reason for a date with no usable vehicle; until the owner decides one, it is
+    # capacity, with the largest capacity 0.
+    day = DayBuilder()
+    nowhere = day.depot(None)
+    day.vehicle(start_depot=nowhere, end_depot=nowhere)
+    day.order(100, weight=2, volume=3)
+
+    assert day.build().explain_drop(0, NOTHING_SERVED) == Capacity(
+        weight_kg=2, volume_l=3, largest_weight_capacity_kg=0, largest_volume_capacity_l=0
+    )

@@ -7,56 +7,33 @@ every solver, edit check, publishing re-check and research score goes through th
 
 Every time is in seconds since the delivery date's local midnight in `Asia/Jerusalem` (ADR-088).
 Every array is a read-only float64 copy, or int64 for indices, where -1 means "none".
+
+`Problem`'s methods delegate to `feasibility`, `objective` and `drops`, which name `Problem` only
+in type annotations, under `TYPE_CHECKING`. The cycle exists for the type checker alone: at run
+time this module imports them, and they never import it.
 """
 
 import math
-from collections.abc import Sized
+from collections.abc import Callable, Sized
 from dataclasses import dataclass
-from enum import StrEnum
+from typing import Any, Final
 
 import numpy as np
 import numpy.typing as npt
 
 from dispatchflow_solver.domain import drops, feasibility, objective
-from dispatchflow_solver.domain._arrays import NO_INDEX, frozen_bools, frozen_floats, frozen_ints
 from dispatchflow_solver.domain.drops import DropReason
+from dispatchflow_solver.domain.errors import InvalidProblemError
+from dispatchflow_solver.domain.exclusions import OrderExclusion, VehicleExclusion
 from dispatchflow_solver.domain.feasibility import Timings, ValidationReport
+from dispatchflow_solver.domain.indices import NO_INDEX
 from dispatchflow_solver.domain.objective import Cost
 from dispatchflow_solver.domain.penalty import HIGHEST_PRIORITY, LOWEST_PRIORITY, PenaltyScale
 from dispatchflow_solver.domain.solution import Solution
 from dispatchflow_solver.domain.travel_time import TravelTimeModel
 
-__all__ = [
-    "NO_INDEX",
-    "Drivers",
-    "InvalidProblemError",
-    "OrderExclusion",
-    "Orders",
-    "Pin",
-    "Problem",
-    "VehicleExclusion",
-    "Vehicles",
-]
-
-
-class InvalidProblemError(ValueError):
-    """A problem whose data contradicts itself or the rules it must hold before any solve."""
-
-
-class OrderExclusion(StrEnum):
-    """Why an order never enters the search (BR-14, FR-66)."""
-
-    MISSING_LOCATION = "missing_location"
-    """Its customer has no coordinates (BR-14)."""
-    UNREACHABLE_LOCATION = "unreachable_location"
-    """The road network has no route between its location and a depot (FR-66)."""
-
-
-class VehicleExclusion(StrEnum):
-    """Why a vehicle can drive no route in the solve (FR-197)."""
-
-    DEPOT_WITHOUT_LOCATION = "depot_without_location"
-    """Its start or end depot has no coordinates (FR-197)."""
+MATRIX_ENTRY_MAX: Final = 2_147_483_647
+"""The largest matrix entry: the contract carries the matrices as int32 (ADR-052)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,7 +55,10 @@ class Pin:
         """Refuses a pin to neither, to both, or to a negative index."""
         targets = [target for target in (self.vehicle, self.driver) if target is not None]
         if len(targets) != 1 or targets[0] < 0:
-            raise InvalidProblemError(f"a pin names exactly one vehicle or driver: {self}")
+            raise InvalidProblemError(
+                "a pin names exactly one vehicle or driver, as a non-negative index: "
+                f"vehicle={self.vehicle}, driver={self.driver}"
+            )
 
 
 @dataclass(frozen=True, slots=True, eq=False)
@@ -117,39 +97,53 @@ class Orders:
     def __post_init__(self) -> None:
         """Copies every array read-only and refuses values no order can have."""
         for name in ("location", "priority", "pinned_vehicle", "pinned_driver"):
-            object.__setattr__(self, name, frozen_ints(getattr(self, name)))
+            _set_column(self, "orders", name, np.int64)
         for name in ("weight_kg", "volume_l", "service_s", "window_start", "window_end"):
-            object.__setattr__(self, name, frozen_floats(getattr(self, name)))
-        object.__setattr__(self, "leave_at_door", frozen_bools(self.leave_at_door))
+            _set_column(self, "orders", name, np.float64)
+        _set_column(self, "orders", "leave_at_door", np.bool_)
         object.__setattr__(self, "exclusion", tuple(self.exclusion))
-        count = len(self.location)
         _require_lengths(
             "orders",
-            count,
-            self.weight_kg,
-            self.volume_l,
-            self.service_s,
-            self.window_start,
-            self.window_end,
-            self.priority,
-            self.leave_at_door,
-            self.pinned_vehicle,
-            self.pinned_driver,
-            self.exclusion,
+            len(self.location),
+            weight_kg=self.weight_kg,
+            volume_l=self.volume_l,
+            service_s=self.service_s,
+            window_start=self.window_start,
+            window_end=self.window_end,
+            priority=self.priority,
+            leave_at_door=self.leave_at_door,
+            pinned_vehicle=self.pinned_vehicle,
+            pinned_driver=self.pinned_driver,
+            exclusion=self.exclusion,
         )
         for name in ("weight_kg", "volume_l", "service_s"):
-            _require_finite_non_negative(f"order {name}", getattr(self, name))
-        windows_finite = np.isfinite(self.window_start) & np.isfinite(self.window_end)
-        if not np.all(windows_finite & (self.window_start <= self.window_end)):
-            raise InvalidProblemError("every order's window must be finite and end after it starts")
-        if not np.all((self.priority >= HIGHEST_PRIORITY) & (self.priority <= LOWEST_PRIORITY)):
-            raise InvalidProblemError("every order's priority runs from 1 to 5 (BR-53)")
-        if np.any((self.pinned_vehicle != NO_INDEX) & (self.pinned_driver != NO_INDEX)):
-            raise InvalidProblemError("an order is pinned to a vehicle or to a driver, not both")
+            _require_finite_non_negative(f"orders.{name}", getattr(self, name))
+        _refuse_first(
+            ~(
+                np.isfinite(self.window_start)
+                & np.isfinite(self.window_end)
+                & (self.window_start <= self.window_end)
+            ),
+            lambda i: (
+                f"orders.window_start[{i}] and window_end[{i}] must be finite, the start no "
+                f"later than the end: [{self.window_start[i]}, {self.window_end[i]}]"
+            ),
+        )
+        _refuse_first(
+            (self.priority < HIGHEST_PRIORITY) | (self.priority > LOWEST_PRIORITY),
+            lambda i: f"orders.priority[{i}] runs from 1 to 5 (BR-53): {self.priority[i]}",
+        )
+        _refuse_first(
+            (self.pinned_vehicle != NO_INDEX) & (self.pinned_driver != NO_INDEX),
+            lambda i: f"orders[{i}] is pinned to a vehicle and a driver; a pin names one",
+        )
         for order, exclusion in enumerate(self.exclusion):
-            missing = self.location[order] == NO_INDEX
-            if missing != (exclusion is OrderExclusion.MISSING_LOCATION):
-                raise InvalidProblemError(f"order {order}: no location iff excluded for it")
+            if (self.location[order] == NO_INDEX) != (exclusion is OrderExclusion.MISSING_LOCATION):
+                raise InvalidProblemError(
+                    f"orders.exclusion[{order}] is {exclusion}, but orders.location[{order}] is "
+                    f"{self.location[order]}: an order lacks a location exactly when excluded "
+                    "for it"
+                )
 
     def __len__(self) -> int:
         """The number of orders on the date."""
@@ -174,12 +168,13 @@ class Orders:
 class Vehicles:
     """The date's vehicles, each with its depots and its rostered driver, indexed by vehicle.
 
-    Depot hours are folded in: a vehicle leaves no earlier than its start depot opens and returns
-    no later than its end depot closes (BR-46).
+    The roster pairs each vehicle with one driver, and no driver drives two vehicles on a date
+    (FR-54, BR-20). Depot hours are folded in: a vehicle leaves no earlier than its start depot
+    opens and returns no later than its end depot closes (BR-46).
 
     Attributes:
         weight_capacity_kg: Weight capacity in kilograms (BR-05).
-        volume_capacity_l: Volume capacity in litres; infinite for research instances (FR-390).
+        volume_capacity_l: Volume capacity in litres; +inf for no volume limit (FR-390).
         start_location: The start depot's location, or -1 when the depot has none (FR-197).
         end_location: The end depot's location, or -1 when the depot has none (FR-197).
         start_depot_opens: When the start depot opens; -inf when it has no hours (FR-129).
@@ -188,7 +183,8 @@ class Vehicles:
         exclusion: Why each vehicle can drive no route, or None for a usable vehicle.
 
     Raises:
-        InvalidProblemError: If the arrays differ in length or hold a value no vehicle can have.
+        InvalidProblemError: If the arrays differ in length, hold a value no vehicle can have, or
+            roster one driver to two vehicles.
     """
 
     weight_capacity_kg: npt.NDArray[np.float64]
@@ -203,36 +199,68 @@ class Vehicles:
     def __post_init__(self) -> None:
         """Copies every array read-only and refuses values no vehicle can have."""
         for name in ("start_location", "end_location", "driver"):
-            object.__setattr__(self, name, frozen_ints(getattr(self, name)))
+            _set_column(self, "vehicles", name, np.int64)
         for name in (
             "weight_capacity_kg",
             "volume_capacity_l",
             "start_depot_opens",
             "end_depot_closes",
         ):
-            object.__setattr__(self, name, frozen_floats(getattr(self, name)))
+            _set_column(self, "vehicles", name, np.float64)
         object.__setattr__(self, "exclusion", tuple(self.exclusion))
         _require_lengths(
             "vehicles",
             len(self.driver),
-            self.weight_capacity_kg,
-            self.volume_capacity_l,
-            self.start_location,
-            self.end_location,
-            self.start_depot_opens,
-            self.end_depot_closes,
-            self.exclusion,
+            weight_capacity_kg=self.weight_capacity_kg,
+            volume_capacity_l=self.volume_capacity_l,
+            start_location=self.start_location,
+            end_location=self.end_location,
+            start_depot_opens=self.start_depot_opens,
+            end_depot_closes=self.end_depot_closes,
+            exclusion=self.exclusion,
         )
-        for capacity in (self.weight_capacity_kg, self.volume_capacity_l):
-            if np.any(np.isnan(capacity) | (capacity < 0)):
-                raise InvalidProblemError("every vehicle capacity must be zero or more")
-        if np.any(np.isnan(self.start_depot_opens) | np.isnan(self.end_depot_closes)):
-            raise InvalidProblemError("depot hours must be numbers; ±inf means none")
+        weight = self.weight_capacity_kg
+        _refuse_first(
+            ~(np.isfinite(weight) & (weight >= 0)),
+            lambda i: (
+                f"vehicles.weight_capacity_kg[{i}] must be finite and zero or more: {weight[i]}"
+            ),
+        )
+        volume = self.volume_capacity_l
+        _refuse_first(
+            np.isnan(volume) | (volume < 0),
+            lambda i: (
+                f"vehicles.volume_capacity_l[{i}] must be zero or more, or +inf for no "
+                f"limit: {volume[i]}"
+            ),
+        )
+        _refuse_first(
+            np.isnan(self.start_depot_opens) | (self.start_depot_opens == math.inf),
+            lambda i: (
+                f"vehicles.start_depot_opens[{i}] must be finite or -inf: "
+                f"{self.start_depot_opens[i]}"
+            ),
+        )
+        _refuse_first(
+            np.isnan(self.end_depot_closes) | (self.end_depot_closes == -math.inf),
+            lambda i: (
+                f"vehicles.end_depot_closes[{i}] must be finite or +inf: {self.end_depot_closes[i]}"
+            ),
+        )
+        rostered: dict[int, int] = {}
+        for vehicle, driver in enumerate(int(driver) for driver in self.driver):
+            if driver in rostered:
+                raise InvalidProblemError(
+                    f"driver {driver} is rostered to vehicles {rostered[driver]} and {vehicle}; "
+                    "a driver drives one vehicle on a date (FR-54)"
+                )
+            rostered[driver] = vehicle
         for vehicle, exclusion in enumerate(self.exclusion):
             no_depot = NO_INDEX in (self.start_location[vehicle], self.end_location[vehicle])
             if no_depot != (exclusion is VehicleExclusion.DEPOT_WITHOUT_LOCATION):
                 raise InvalidProblemError(
-                    f"vehicle {vehicle}: no depot location iff excluded for it"
+                    f"vehicles.exclusion[{vehicle}] is {exclusion}: a vehicle lacks a depot "
+                    "location exactly when excluded for it"
                 )
 
     def __len__(self) -> int:
@@ -257,21 +285,29 @@ class Drivers:
         shift_end: When each driver's shift ends.
 
     Raises:
-        InvalidProblemError: If the arrays differ in length or a shift is not finite or ends before
-            it starts.
+        InvalidProblemError: If the arrays differ in length or a shift is not finite or does not
+            end after it starts.
     """
 
     shift_start: npt.NDArray[np.float64]
     shift_end: npt.NDArray[np.float64]
 
     def __post_init__(self) -> None:
-        """Copies the arrays read-only and refuses a shift that ends before it starts."""
-        object.__setattr__(self, "shift_start", frozen_floats(self.shift_start))
-        object.__setattr__(self, "shift_end", frozen_floats(self.shift_end))
-        _require_lengths("drivers", len(self.shift_start), self.shift_end)
-        finite = np.isfinite(self.shift_start) & np.isfinite(self.shift_end)
-        if not np.all(finite & (self.shift_start <= self.shift_end)):
-            raise InvalidProblemError("every shift must be finite and end after it starts")
+        """Copies the arrays read-only and refuses a shift that does not end after it starts."""
+        _set_column(self, "drivers", "shift_start", np.float64)
+        _set_column(self, "drivers", "shift_end", np.float64)
+        _require_lengths("drivers", len(self.shift_start), shift_end=self.shift_end)
+        _refuse_first(
+            ~(
+                np.isfinite(self.shift_start)
+                & np.isfinite(self.shift_end)
+                & (self.shift_start < self.shift_end)
+            ),
+            lambda i: (
+                f"drivers.shift_start[{i}] and shift_end[{i}] must be finite, the end after "
+                f"the start: [{self.shift_start[i]}, {self.shift_end[i]}]"
+            ),
+        )
 
     def __len__(self) -> int:
         """The number of drivers on the date."""
@@ -289,22 +325,28 @@ class Problem:
     Build it with `ProblemFactory`, which decides each convention once and writes it here
     (ADR-050). The re-optimization context joins as a further field.
 
+    A date with no usable vehicle drops every order, and FR-223 names no reason for that; until the
+    owner decides one, `explain_drop` reports *capacity* with a largest capacity of 0.
+
     Attributes:
         orders: Every order of the date, excluded ones included.
         vehicles: Every vehicle of the date, excluded ones included.
         drivers: Every driver of the date.
         durations: Base durations in seconds between distinct locations; NaN where the road
             network has no route.
-        distances: Metres between distinct locations; NaN where there is no route.
+        distances: Metres between distinct locations; NaN exactly where durations are.
         travel: The travel-time model, the only place factors and the buffer apply.
         penalties: The drop unit and the rates the objective charges.
+        drop_penalties: What dropping each order costs, which `cost` reads (BR-54).
         day_length: The date's length in seconds: 23, 24 or 25 hours (ADR-088).
         breaks_reserved: Whether routes reserve time for breaks (FR-81, BR-105).
-        removed_by_dispatcher: Orders a dispatcher took off their route (FR-146).
+        removed_by_dispatcher: Orders a dispatcher took off the current routes (FR-146), so
+            `explain_drop` can give that reason. The validator does not enforce it: a new solve
+            may serve them again (BR-95).
 
     Raises:
-        InvalidProblemError: If the parts contradict each other, an index points past its array, or
-            two locations a solve may use have no road route between them.
+        InvalidProblemError: If the parts contradict each other, an index points past its array,
+            a shift lies outside the date, or an exclusion disagrees with the matrices.
     """
 
     orders: Orders
@@ -314,33 +356,43 @@ class Problem:
     distances: npt.NDArray[np.float64]
     travel: TravelTimeModel
     penalties: PenaltyScale
+    drop_penalties: npt.NDArray[np.float64]
     day_length: float
-    breaks_reserved: bool = False
+    breaks_reserved: bool
     removed_by_dispatcher: frozenset[int] = frozenset()
 
     def __post_init__(self) -> None:
-        """Copies the matrices read-only and refuses a problem that contradicts itself."""
-        object.__setattr__(self, "durations", frozen_floats(self.durations))
-        object.__setattr__(self, "distances", frozen_floats(self.distances))
-        size = self._require_matrices()
+        """Copies every input read-only and refuses a problem that contradicts itself."""
+        durations = require_matrix("durations", self.durations)
+        distances = require_matrix("distances", self.distances)
+        require_same_roads(durations, distances)
+        object.__setattr__(self, "durations", durations)
+        object.__setattr__(self, "distances", distances)
+        _set_column(self, "problem", "drop_penalties", np.float64)
+        object.__setattr__(self, "removed_by_dispatcher", frozenset(self.removed_by_dispatcher))
         if not (math.isfinite(self.day_length) and self.day_length > 0):
-            raise InvalidProblemError(f"the date must last a positive time: {self.day_length}")
-        _require_indices("order location", self.orders.location, size, allow_none=True)
-        _require_indices("vehicle start", self.vehicles.start_location, size, allow_none=True)
-        _require_indices("vehicle end", self.vehicles.end_location, size, allow_none=True)
-        _require_indices("rostered driver", self.vehicles.driver, len(self.drivers))
+            raise InvalidProblemError(f"day_length must be positive and finite: {self.day_length}")
+        size = durations.shape[0]
+        _require_indices("orders.location", self.orders.location, size, allow_none=True)
         _require_indices(
-            "pinned vehicle", self.orders.pinned_vehicle, len(self.vehicles), allow_none=True
+            "vehicles.start_location", self.vehicles.start_location, size, allow_none=True
+        )
+        _require_indices("vehicles.end_location", self.vehicles.end_location, size, allow_none=True)
+        _require_indices("vehicles.driver", self.vehicles.driver, len(self.drivers))
+        _require_indices(
+            "orders.pinned_vehicle", self.orders.pinned_vehicle, len(self.vehicles), allow_none=True
         )
         _require_indices(
-            "pinned driver", self.orders.pinned_driver, len(self.drivers), allow_none=True
+            "orders.pinned_driver", self.orders.pinned_driver, len(self.drivers), allow_none=True
         )
-        _require_indices(
-            "removed order",
-            np.array(sorted(self.removed_by_dispatcher), dtype=np.int64),
-            len(self.orders),
-        )
-        self._require_roads_between_usable_locations()
+        for order in sorted(self.removed_by_dispatcher):
+            if not 0 <= order < len(self.orders):
+                raise InvalidProblemError(
+                    f"removed_by_dispatcher holds order {order}, not one of {len(self.orders)}"
+                )
+        self._require_drop_penalties()
+        self._require_shifts_on_the_date()
+        self._require_exclusions_match_the_roads()
 
     def validate(self, solution: Solution) -> ValidationReport:
         """Judges a solution against every daily rule and times every route (BR-15, BR-42).
@@ -391,54 +443,224 @@ class Problem:
         served = solution.served()
         return tuple(order for order in range(len(self.orders)) if order not in served)
 
-    def _require_matrices(self) -> int:
-        shape = self.durations.shape
-        if len(shape) != 2 or shape[0] != shape[1] or self.distances.shape != shape:
-            raise InvalidProblemError("both matrices must be square and of one size")
-        for name, matrix in (("durations", self.durations), ("distances", self.distances)):
-            known = matrix[~np.isnan(matrix)]
-            if np.any(~np.isfinite(known) | (known < 0)):
-                raise InvalidProblemError(f"{name} must be zero or more, or NaN for no road")
-        return int(shape[0])
-
-    def _require_roads_between_usable_locations(self) -> None:
-        # The validator and the solvers time any leg between two locations a solve may use, so
-        # each such pair needs a road. ProblemFactory excludes what lacks one; this guards the rest.
-        # With no usable vehicle there is no depot to judge reachability from, and every route
-        # breaks BR-40 anyway, so nothing is guaranteed.
-        usable = self.vehicles.usable()
-        if not usable:
-            return
-        locations = {
-            *(int(self.vehicles.start_location[vehicle]) for vehicle in usable),
-            *(int(self.vehicles.end_location[vehicle]) for vehicle in usable),
-            *(
-                int(self.orders.location[order])
-                for order in range(len(self.orders))
-                if self.orders.is_routable(order)
-            ),
-        }
-        index = np.array(sorted(locations), dtype=np.int64)
-        block = np.ix_(index, index)
-        if np.any(np.isnan(self.durations[block]) | np.isnan(self.distances[block])):
+    def _require_drop_penalties(self) -> None:
+        penalties = self.drop_penalties
+        if len(penalties) != len(self.orders):
             raise InvalidProblemError(
-                "two locations a solve may use have no road route between them"
+                f"drop_penalties has {len(penalties)} entries for {len(self.orders)} orders"
             )
+        _refuse_first(
+            ~(np.isfinite(penalties) & (penalties >= 0)),
+            lambda i: f"drop_penalties[{i}] must be finite and zero or more: {penalties[i]}",
+        )
+
+    def _require_shifts_on_the_date(self) -> None:
+        # FR-190: a shift lies on its date, so a door stop after the date is also after its shift.
+        drivers = self.drivers
+        _refuse_first(
+            drivers.shift_start < 0,
+            lambda i: (
+                f"drivers.shift_start[{i}] is before the date starts: {drivers.shift_start[i]}"
+            ),
+        )
+        _refuse_first(
+            drivers.shift_end > self.day_length,
+            lambda i: (
+                f"drivers.shift_end[{i}] is after the date ends at {self.day_length}: "
+                f"{drivers.shift_end[i]}"
+            ),
+        )
+
+    def _require_exclusions_match_the_roads(self) -> None:
+        vehicles, orders = self.vehicles, self.orders
+        unconnected = depots_unconnected(
+            vehicles.start_location, vehicles.end_location, self.durations
+        )
+        for vehicle, exclusion in enumerate(vehicles.exclusion):
+            if exclusion is VehicleExclusion.DEPOT_WITHOUT_LOCATION:
+                continue
+            if unconnected[vehicle] != (exclusion is VehicleExclusion.NO_ROAD_BETWEEN_DEPOTS):
+                raise InvalidProblemError(
+                    f"vehicles.exclusion[{vehicle}] is {exclusion}, but the road from its start "
+                    f"depot to its end depot {'is missing' if unconnected[vehicle] else 'exists'}"
+                )
+        usable = np.array(vehicles.usable(), dtype=np.int64)
+        unreachable = unreachable_locations(
+            orders.location,
+            vehicles.start_location[usable],
+            vehicles.end_location[usable],
+            self.durations,
+        )
+        for order, order_exclusion in enumerate(orders.exclusion):
+            if order_exclusion is OrderExclusion.MISSING_LOCATION:
+                continue
+            if unreachable[order] != (order_exclusion is OrderExclusion.UNREACHABLE_LOCATION):
+                raise InvalidProblemError(
+                    f"orders.exclusion[{order}] is {order_exclusion}, but the matrices make it "
+                    f"{'unreachable' if unreachable[order] else 'reachable'}"
+                )
 
 
-def _require_lengths(what: str, count: int, *columns: Sized) -> None:
-    if any(len(column) != count for column in columns):
-        raise InvalidProblemError(f"every {what} column must have {count} entries")
+def require_matrix(name: str, values: npt.ArrayLike) -> npt.NDArray[np.float64]:
+    """Copies a matrix read-only, refusing anything the contract cannot carry (ADR-052).
+
+    Args:
+        name: The matrix's name, for the error.
+        values: A square matrix of seconds or metres, NaN where there is no road.
+
+    Returns:
+        A read-only float64 copy.
+
+    Raises:
+        InvalidProblemError: If it is not a square matrix of numbers, or an entry is negative,
+            infinite or past the int32 range.
+    """
+    matrix = converted(name, values, np.float64)
+    if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
+        raise InvalidProblemError(f"{name} must be a square matrix: shape {matrix.shape}")
+    known = ~np.isnan(matrix)
+    outside = known & ~((matrix >= 0) & (matrix <= MATRIX_ENTRY_MAX))
+    if np.any(outside):
+        row, column = (int(index) for index in np.argwhere(outside)[0])
+        raise InvalidProblemError(
+            f"{name}[{row}, {column}] must be 0 to {MATRIX_ENTRY_MAX}, or NaN for no road: "
+            f"{matrix[row, column]}"
+        )
+    matrix.setflags(write=False)
+    return matrix
+
+
+def require_same_roads(
+    durations: npt.NDArray[np.float64], distances: npt.NDArray[np.float64]
+) -> None:
+    """Refuses matrices that disagree on their size or on which pairs have no road.
+
+    Args:
+        durations: The base durations.
+        distances: The distances.
+
+    Raises:
+        InvalidProblemError: If the shapes differ or one matrix has a road the other lacks.
+    """
+    if durations.shape != distances.shape:
+        raise InvalidProblemError(
+            f"durations and distances must be the same size: {durations.shape} and "
+            f"{distances.shape}"
+        )
+    disagree = np.isnan(durations) != np.isnan(distances)
+    if np.any(disagree):
+        row, column = (int(index) for index in np.argwhere(disagree)[0])
+        raise InvalidProblemError(
+            f"durations and distances disagree on whether there is no road at [{row}, {column}]"
+        )
+
+
+def depots_unconnected(
+    start_location: npt.NDArray[np.int64],
+    end_location: npt.NDArray[np.int64],
+    durations: npt.NDArray[np.float64],
+) -> npt.NDArray[np.bool_]:
+    """Finds the vehicles whose start depot has no road to their end depot.
+
+    Args:
+        start_location: Each vehicle's start depot location, or -1.
+        end_location: Each vehicle's end depot location, or -1.
+        durations: The base durations, NaN for no road.
+
+    Returns:
+        True for a vehicle with both depot locations and no road from start to end.
+    """
+    located = (start_location != NO_INDEX) & (end_location != NO_INDEX)
+    result = np.zeros(len(start_location), dtype=np.bool_)
+    result[located] = np.isnan(durations[start_location[located], end_location[located]])
+    return result
+
+
+def unreachable_locations(
+    locations: npt.NDArray[np.int64],
+    start_locations: npt.NDArray[np.int64],
+    end_locations: npt.NDArray[np.int64],
+    durations: npt.NDArray[np.float64],
+) -> npt.NDArray[np.bool_]:
+    """Finds the locations no usable vehicle can serve by road (FR-66).
+
+    A location is reachable when some usable vehicle has a road from its start depot to it and
+    from it to its end depot. With no usable vehicle, nothing is judged unreachable: there is no
+    depot to judge from.
+
+    Args:
+        locations: The locations to judge, or -1 for none, which is never unreachable.
+        start_locations: Each usable vehicle's start depot location.
+        end_locations: The same vehicles' end depot locations, in the same order.
+        durations: The base durations, NaN for no road.
+
+    Returns:
+        True for each location with no such vehicle.
+    """
+    result = np.zeros(len(locations), dtype=np.bool_)
+    located = locations != NO_INDEX
+    if not start_locations.size or not np.any(located):
+        return result
+    targets = locations[located]
+    out = ~np.isnan(durations[np.ix_(start_locations, targets)])
+    back = ~np.isnan(durations[np.ix_(targets, end_locations)]).T
+    result[located] = ~np.any(out & back, axis=0)
+    return result
+
+
+def converted(name: str, values: npt.ArrayLike, dtype: type[np.generic]) -> npt.NDArray[Any]:
+    """Copies values into a NumPy array of one type, refusing what does not convert.
+
+    Args:
+        name: The input's name, for the error.
+        values: Anything NumPy reads.
+        dtype: The element type, such as `np.float64`.
+
+    Returns:
+        A new, writable array.
+
+    Raises:
+        InvalidProblemError: If a value is not a number of that type or overflows it, such as
+            2**64 as an int64.
+    """
+    try:
+        return np.array(values, dtype=dtype, copy=True)
+    except (TypeError, ValueError, OverflowError) as error:
+        raise InvalidProblemError(f"{name} must hold {dtype.__name__} values: {error}") from error
+
+
+def _set_column(owner: object, prefix: str, name: str, dtype: type[np.generic]) -> None:
+    column = converted(f"{prefix}.{name}", getattr(owner, name), dtype)
+    if column.ndim != 1:
+        raise InvalidProblemError(f"{prefix}.{name} must be one-dimensional: shape {column.shape}")
+    column.setflags(write=False)
+    object.__setattr__(owner, name, column)
+
+
+def _require_lengths(what: str, count: int, **columns: Sized) -> None:
+    for name, column in columns.items():
+        if len(column) != count:
+            raise InvalidProblemError(f"{what}.{name} has {len(column)} entries, not {count}")
+
+
+def _refuse_first(bad: npt.NDArray[np.bool_], message: Callable[[int], str]) -> None:
+    if np.any(bad):
+        index = int(np.flatnonzero(bad)[0])
+        raise InvalidProblemError(message(index))
 
 
 def _require_finite_non_negative(name: str, values: npt.NDArray[np.float64]) -> None:
-    if not np.all(np.isfinite(values) & (values >= 0)):
-        raise InvalidProblemError(f"every {name} must be finite and zero or more")
+    _refuse_first(
+        ~(np.isfinite(values) & (values >= 0)),
+        lambda i: f"{name}[{i}] must be finite and zero or more: {values[i]}",
+    )
 
 
 def _require_indices(
     name: str, indices: npt.NDArray[np.int64], size: int, *, allow_none: bool = False
 ) -> None:
     lowest = NO_INDEX if allow_none else 0
-    if indices.size and (indices.min() < lowest or indices.max() >= size):
-        raise InvalidProblemError(f"every {name} must index one of {size}")
+    _refuse_first(
+        (indices < lowest) | (indices >= size),
+        lambda i: f"{name}[{i}] is {indices[i]}, not one of {size}",
+    )

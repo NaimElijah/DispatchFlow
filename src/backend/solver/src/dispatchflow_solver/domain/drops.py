@@ -1,22 +1,27 @@
 """Drop reasons: why an order is unserved, and the fact that caused it (FR-18, FR-144, FR-223).
 
 `explain_drop` tests an unserved order in ADR-053's fixed order and stops at the first test that
-fails. Each reason carries its fact as fields, which the core turns into a sentence.
+fails. Each reason carries its fact as fields, which the core turns into a sentence. It times an
+order alone through the validator's own `check_route`, never a copy of it, so a drop reason
+cannot disagree with what `validate` would say (BR-42).
+
+`Problem` and `Pin` appear here in annotations only, under `TYPE_CHECKING`: `problem` imports
+this module at run time, and this module never imports it.
 """
 
-import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final, assert_never
 
-from dispatchflow_solver.domain._arrays import NO_INDEX
+from dispatchflow_solver.domain.exclusions import OrderExclusion
 from dispatchflow_solver.domain.feasibility import (
-    door_stop_outside,
-    earliest_departure,
-    road,
+    RouteTiming,
+    Violation,
+    check_route,
+    door_service_limit,
     shift_return_limit,
 )
-from dispatchflow_solver.domain.rules import TOLERANCE
-from dispatchflow_solver.domain.solution import Solution
+from dispatchflow_solver.domain.rules import RuleId
+from dispatchflow_solver.domain.solution import Route, Solution
 
 if TYPE_CHECKING:
     from dispatchflow_solver.domain.problem import Pin, Problem
@@ -29,7 +34,7 @@ class MissingLocation:
 
 @dataclass(frozen=True, slots=True)
 class UnreachableLocation:
-    """The road network has no route between the order's location and a depot (FR-66)."""
+    """No usable vehicle can reach the order by road and return to its end depot (FR-66)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,13 +58,13 @@ class PinNotHonoured:
 
 @dataclass(frozen=True, slots=True)
 class Capacity:
-    """No allowed vehicle can carry the order, even alone (FR-223).
+    """No vehicle that can reach the order can carry it, even alone (FR-223).
 
     Attributes:
         weight_kg: The order's weight.
         volume_l: The order's volume.
-        largest_weight_capacity_kg: The largest weight capacity among the allowed vehicles.
-        largest_volume_capacity_l: The largest volume capacity among the allowed vehicles.
+        largest_weight_capacity_kg: The largest weight capacity among those vehicles.
+        largest_volume_capacity_l: The largest volume capacity among those vehicles.
     """
 
     weight_kg: float
@@ -70,13 +75,13 @@ class Capacity:
 
 @dataclass(frozen=True, slots=True)
 class TimeWindow:
-    """The earliest arrival from any allowed vehicle's depot is after the window ends.
+    """The earliest arrival any vehicle that can carry the order can make is after its window.
 
     Never the reason for a leave-at-door order, whose window is a preference (BR-121).
 
     Attributes:
         window_end: When the order's window ends.
-        earliest_arrival: The earliest arrival any allowed vehicle can make.
+        earliest_arrival: The earliest such arrival, on the validator's buffered times.
     """
 
     window_end: float
@@ -85,10 +90,11 @@ class TimeWindow:
 
 @dataclass(frozen=True, slots=True)
 class Shift:
-    """Depot to order to depot does not fit any allowed vehicle's driver's shift (BR-06).
+    """Depot to order to depot fits no vehicle's rostered driver's shift (BR-06, BR-105, BR-119).
 
     Attributes:
-        latest_return: The latest return the shift allows, after any break reserve (BR-105).
+        latest_return: The binding limit: the shift end, less the break reserve where one applies
+            (BR-105), or for a door stop min(shift end, date end).
         earliest_return: The earliest return, serving the order alone.
     """
 
@@ -127,6 +133,10 @@ type DropReason = (
 )
 """Every reason a daily solve gives for a drop (FR-223). Vehicle limits (FR-201) are not built."""
 
+_TIME_LIMITS: Final = {RuleId.BR_06: 2, RuleId.BR_105: 2, RuleId.BR_119: 1, RuleId.BR_46: 0}
+"""The rules a lone round trip can break by time, ranked to settle a tie in seconds: a shift
+limit binds before the depot's closing, so equal limits give *shift*."""
+
 
 def explain_drop(problem: Problem, order: int, solution: Solution) -> DropReason:
     """Explains an unserved order; `Problem.explain_drop` delegates here.
@@ -138,13 +148,16 @@ def explain_drop(problem: Problem, order: int, solution: Solution) -> DropReason
        (FR-146);
     2. a pin to a vehicle or driver that is out, or that cannot serve the order even alone
        (FR-228);
-    3. capacity: no allowed vehicle carries it alone;
-    4. time window: the earliest arrival any allowed vehicle can make, leaving its depot at its
-       earliest, is after the window ends; never for a door order (BR-121);
-    5. shift or depot hours: depot to order to depot fits no allowed vehicle's latest return;
+    3. capacity: no vehicle that can reach it carries it alone;
+    4. time window: the earliest arrival any vehicle that can carry it makes, leaving its depot
+       at its earliest, is after the window ends; never for a door order (BR-121);
+    5. shift or depot hours: depot to order to depot passes every such vehicle's latest return,
+       and the reason and its fact are those of the vehicle that comes closest;
     6. displaced: it would fit alone.
 
-    An order "alone" is timed the way the validator times a route of that one stop.
+    "Alone" is a one-stop route on a usable vehicle with its rostered driver, judged by
+    `check_route`. A date with no usable vehicle gives *capacity* with a largest capacity of 0,
+    since FR-223 has no reason for it; that waits on the owner.
 
     Args:
         problem: The problem.
@@ -159,112 +172,122 @@ def explain_drop(problem: Problem, order: int, solution: Solution) -> DropReason
     """
     orders = problem.orders
     if not 0 <= order < len(orders):
-        raise ValueError(f"order {order} is not in the problem")
+        raise ValueError(f"order {order} is not one of {len(orders)}")
     if order in solution.served():
         raise ValueError(f"order {order} is served, not dropped")
-    if not orders.is_routable(order):
-        # Orders holds that an order lacks a location exactly when it is excluded for it, so any
-        # other exclusion is a missing road route.
-        if orders.location[order] == NO_INDEX:
+    exclusion = orders.exclusion[order]
+    match exclusion:
+        case OrderExclusion.MISSING_LOCATION:
             return MissingLocation()
-        return UnreachableLocation()
+        case OrderExclusion.UNREACHABLE_LOCATION:
+            return UnreachableLocation()
+        case None:
+            pass
+        case _:
+            assert_never(exclusion)
     if order in problem.removed_by_dispatcher:
         return RemovedByDispatcher()
-    allowed = problem.vehicles.usable()
+    candidates = problem.vehicles.usable()
     pin = orders.pin(order)
     if pin is not None:
-        allowed = tuple(vehicle for vehicle in allowed if _carries_pin(problem, vehicle, pin))
-        if not allowed:
+        candidates = tuple(vehicle for vehicle in candidates if _honours(problem, vehicle, pin))
+        if not candidates:
             return PinNotHonoured(pin=pin, target_out=True)
-        if not any(_alone(problem, order, vehicle).fits for vehicle in allowed):
-            return PinNotHonoured(pin=pin, target_out=False)
-    trials = [_alone(problem, order, vehicle) for vehicle in allowed]
-    carrying = [trial for trial in trials if trial.carries]
-    if not carrying:
-        return _capacity(problem, order, allowed)
-    on_time = carrying
-    if not orders.leave_at_door[order]:
-        window_end = float(orders.window_end[order])
-        earliest = min(trial.arrival for trial in carrying)
-        if earliest - window_end > TOLERANCE:
-            return TimeWindow(window_end=window_end, earliest_arrival=earliest)
-        on_time = [trial for trial in carrying if trial.arrival - window_end <= TOLERANCE]
-    if any(trial.fits for trial in on_time):
-        return Displaced()
-    closest = min(on_time, key=lambda trial: trial.overshoot)
-    if closest.depot_closes < closest.shift_limit:
-        return DepotHours(depot_closes=closest.depot_closes, earliest_return=closest.returns_at)
-    return Shift(latest_return=closest.shift_limit, earliest_return=closest.returns_at)
+    trials = [_alone(problem, order, vehicle) for vehicle in candidates]
+    if pin is not None and not any(trial.accepted for trial in trials):
+        return PinNotHonoured(pin=pin, target_out=False)
+    return _first_failing_limit(problem, order, trials)
 
 
 @dataclass(frozen=True, slots=True)
 class _Alone:
-    """One vehicle serving one order and nothing else, timed as the validator would."""
+    """One vehicle serving one order and nothing else, as `check_route` judges it."""
 
-    carries: bool
-    arrival: float
-    meets_window: bool
-    returns_at: float
-    shift_limit: float
-    depot_closes: float
-    door_outside: float
+    vehicle: int
+    violations: tuple[Violation, ...]
+    timing: RouteTiming
 
     @property
-    def overshoot(self) -> float:
-        latest = min(self.shift_limit, self.depot_closes)
-        return max(self.returns_at - latest, self.door_outside)
+    def rules(self) -> frozenset[RuleId]:
+        return frozenset(violation.rule for violation in self.violations)
 
     @property
-    def fits(self) -> bool:
-        return self.carries and self.meets_window and self.overshoot <= TOLERANCE
+    def accepted(self) -> bool:
+        return not self.violations
+
+    @property
+    def arrival(self) -> float:
+        return float(self.timing.arrival[0])
+
+    def binding(self) -> Violation:
+        # The time limit passed by the most seconds; a tie goes to the higher-ranked limit.
+        return max(
+            (violation for violation in self.violations if violation.rule in _TIME_LIMITS),
+            key=lambda violation: (violation.seconds or 0.0, _TIME_LIMITS[violation.rule]),
+        )
 
 
 def _alone(problem: Problem, order: int, vehicle: int) -> _Alone:
-    orders, vehicles, travel = problem.orders, problem.vehicles, problem.travel
-    driver = int(vehicles.driver[vehicle])
-    location = int(orders.location[order])
-    leaves = earliest_departure(problem, vehicle, driver)
-    out = road(problem, int(vehicles.start_location[vehicle]), location)
-    back = road(problem, location, int(vehicles.end_location[vehicle]))
-    if out is None or back is None:
-        # Problem refuses to exist without these roads, so reaching here is a bug, not a drop.
-        raise RuntimeError(f"no road between vehicle {vehicle}'s depots and order {order}")
-    arrival = leaves + travel.buffered(out, leaves)
-    door = bool(orders.leave_at_door[order])
-    window_end = float(orders.window_end[order])
-    start = arrival if door else max(arrival, float(orders.window_start[order]))
-    departure = start + float(orders.service_s[order])
-    shift_limit, _ = shift_return_limit(problem, driver)
-    return _Alone(
-        carries=bool(
-            orders.weight_kg[order] <= vehicles.weight_capacity_kg[vehicle] + TOLERANCE
-            and orders.volume_l[order] <= vehicles.volume_capacity_l[vehicle] + TOLERANCE
-        ),
-        arrival=arrival,
-        meets_window=door or start - window_end <= TOLERANCE,
-        returns_at=departure + travel.buffered(back, departure),
-        shift_limit=shift_limit,
-        depot_closes=float(vehicles.end_depot_closes[vehicle]),
-        door_outside=door_stop_outside(problem, driver, start) if door else -math.inf,
+    vehicles = problem.vehicles
+    route = Route(
+        vehicle=vehicle,
+        driver=int(vehicles.driver[vehicle]),
+        start=int(vehicles.start_location[vehicle]),
+        end=int(vehicles.end_location[vehicle]),
+        stops=(order,),
     )
+    violations, timing = check_route(problem, route)
+    return _Alone(vehicle=vehicle, violations=violations, timing=timing)
 
 
-def _carries_pin(problem: Problem, vehicle: int, pin: Pin) -> bool:
+def _first_failing_limit(problem: Problem, order: int, trials: list[_Alone]) -> DropReason:
+    reachable = [trial for trial in trials if RuleId.BR_14 not in trial.rules]
+    carrying = [trial for trial in reachable if RuleId.BR_05 not in trial.rules]
+    if not carrying:
+        return _capacity(problem, order, [trial.vehicle for trial in reachable])
+    on_time = carrying
+    if not problem.orders.leave_at_door[order]:
+        on_time = [trial for trial in carrying if RuleId.BR_03 not in trial.rules]
+        if not on_time:
+            return TimeWindow(
+                window_end=float(problem.orders.window_end[order]),
+                earliest_arrival=min(trial.arrival for trial in carrying),
+            )
+    if any(trial.accepted for trial in on_time):
+        return Displaced()
+    closest = min(on_time, key=lambda trial: trial.binding().seconds or 0.0)
+    return _time_reason(problem, closest)
+
+
+def _time_reason(problem: Problem, trial: _Alone) -> Shift | DepotHours:
+    rule = trial.binding().rule
+    returns_at = float(trial.timing.returns_at)
+    driver = int(problem.vehicles.driver[trial.vehicle])
+    if rule is RuleId.BR_46:
+        closes = float(problem.vehicles.end_depot_closes[trial.vehicle])
+        return DepotHours(depot_closes=closes, earliest_return=returns_at)
+    if rule is RuleId.BR_119:
+        return Shift(latest_return=door_service_limit(problem, driver), earliest_return=returns_at)
+    latest, _ = shift_return_limit(problem, driver)
+    return Shift(latest_return=latest, earliest_return=returns_at)
+
+
+def _honours(problem: Problem, vehicle: int, pin: Pin) -> bool:
     if pin.vehicle is not None:
         return vehicle == pin.vehicle
     return int(problem.vehicles.driver[vehicle]) == pin.driver
 
 
-def _capacity(problem: Problem, order: int, allowed: tuple[int, ...]) -> Capacity:
-    # With no allowed vehicle at all, the largest capacity is honestly 0: nothing carries it.
-    vehicles = problem.vehicles
+def _capacity(problem: Problem, order: int, vehicles: list[int]) -> Capacity:
+    # With no vehicle at all, the largest capacity is honestly 0: nothing carries it.
+    capacities = problem.vehicles
     return Capacity(
         weight_kg=float(problem.orders.weight_kg[order]),
         volume_l=float(problem.orders.volume_l[order]),
         largest_weight_capacity_kg=max(
-            (float(vehicles.weight_capacity_kg[vehicle]) for vehicle in allowed), default=0.0
+            (float(capacities.weight_capacity_kg[vehicle]) for vehicle in vehicles), default=0.0
         ),
         largest_volume_capacity_l=max(
-            (float(vehicles.volume_capacity_l[vehicle]) for vehicle in allowed), default=0.0
+            (float(capacities.volume_capacity_l[vehicle]) for vehicle in vehicles), default=0.0
         ),
     )

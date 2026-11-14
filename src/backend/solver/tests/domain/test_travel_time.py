@@ -4,6 +4,7 @@ import pytest
 from hypothesis import given, seed
 from hypothesis import strategies as st
 
+from dispatchflow_solver.domain.errors import InvalidProblemError
 from dispatchflow_solver.domain.travel_time import TravelBucket, TravelTimeModel
 from tests.domain.properties import PROPERTY_SEED, PROPERTY_SETTINGS
 
@@ -63,27 +64,57 @@ def test_given_the_largest_entry_when_largest_unbuffered_then_highest_factor_rou
     assert starting_values().largest_unbuffered(101.0) == math.ceil(101 * 1.3)
 
 
+def test_given_buckets_out_of_order_in_a_list_when_built_then_held_sorted_in_a_tuple() -> None:
+    model = TravelTimeModel(
+        buckets=[EVENING_PEAK, MORNING_PEAK],  # type: ignore[arg-type]
+        off_peak_factor=1.0,
+        buffer=0.1,
+    )
+
+    assert model.buckets == (MORNING_PEAK, EVENING_PEAK)
+    assert model.factor_at(8 * 3600) == 1.3
+    assert model.factor_at(16 * 3600) == 1.3
+    assert model.factor_at(12 * 3600) == 1.0
+
+
 @pytest.mark.parametrize(
-    ("buckets", "off_peak", "buffer"),
+    ("buckets", "off_peak", "buffer", "match"),
     [
-        ((TravelBucket(0, 100, 1.2), TravelBucket(50, 150, 1.3)), 1.0, 0.0),
-        ((), 0.0, 0.0),
-        ((), 1.0, -0.1),
-        ((), math.nan, 0.0),
+        pytest.param(
+            (TravelBucket(0, 100, 1.2), TravelBucket(50, 150, 1.3)),
+            1.0,
+            0.0,
+            "overlap",
+            id="overlap",
+        ),
+        pytest.param((), 0.0, 0.0, "off_peak_factor", id="zero off-peak factor"),
+        pytest.param((), math.nan, 0.0, "off_peak_factor", id="NaN off-peak factor"),
+        pytest.param((), 1.0, -0.1, "buffer", id="negative buffer"),
+        pytest.param((), 1.0, math.inf, "buffer", id="infinite buffer"),
+        pytest.param(("bucket",), 1.0, 0.0, "buckets", id="not a bucket"),
     ],
 )
 def test_given_overlapping_buckets_or_bad_values_when_model_built_then_refused(
-    buckets: tuple[TravelBucket, ...], off_peak: float, buffer: float
+    buckets: tuple[TravelBucket, ...], off_peak: float, buffer: float, match: str
 ) -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(InvalidProblemError, match=match):
         TravelTimeModel(buckets=buckets, off_peak_factor=off_peak, buffer=buffer)
 
 
-@pytest.mark.parametrize(("start", "end", "factor"), [(10, 10, 1.3), (10, 5, 1.3), (0, 10, 0.0)])
+@pytest.mark.parametrize(
+    ("start", "end", "factor", "match"),
+    [
+        pytest.param(10, 10, 1.3, "end after", id="empty"),
+        pytest.param(10, 5, 1.3, "end after", id="backwards"),
+        pytest.param(0, math.inf, 1.3, "end after", id="endless"),
+        pytest.param(0, 10, 0.0, "factor", id="zero factor"),
+        pytest.param(0, 10, math.inf, "factor", id="infinite factor"),
+    ],
+)
 def test_given_an_empty_bucket_or_bad_factor_when_built_then_refused(
-    start: float, end: float, factor: float
+    start: float, end: float, factor: float, match: str
 ) -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(InvalidProblemError, match=match):
         TravelBucket(start=start, end=end, factor=factor)
 
 
@@ -128,3 +159,14 @@ def test_given_any_bucket_when_factor_read_then_start_included_and_end_excluded(
     assert model.factor_at(math.nextafter(bucket.end, -math.inf)) == factor
     assert model.factor_at(bucket.end) == off_peak
     assert model.factor_at(math.nextafter(bucket.start, -math.inf)) == off_peak
+
+
+@PROPERTY_SETTINGS
+@seed(PROPERTY_SEED)
+@given(models(), day_seconds)
+def test_given_any_buckets_when_factor_read_then_the_containing_buckets_factor(
+    model: TravelTimeModel, departure: float
+) -> None:
+    containing = [bucket.factor for bucket in model.buckets if bucket.contains(departure)]
+
+    assert model.factor_at(departure) == (containing[0] if containing else model.off_peak_factor)

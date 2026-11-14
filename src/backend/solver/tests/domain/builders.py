@@ -5,19 +5,21 @@ two points, in seconds; its metres are ten times that. With the static travel mo
 a test is plain arithmetic.
 """
 
+import math
 from dataclasses import dataclass, field
 from typing import Final
 
 import numpy as np
+import numpy.typing as npt
 
 from dispatchflow_solver.domain.factory import (
-    NO_ROAD,
     DepotSpec,
     DriverSpec,
     OrderSpec,
     ProblemFactory,
     VehicleSpec,
 )
+from dispatchflow_solver.domain.penalty import DEFAULT_DOOR_WINDOW_RATE
 from dispatchflow_solver.domain.problem import Pin, Problem
 from dispatchflow_solver.domain.travel_time import TravelTimeModel
 
@@ -32,6 +34,7 @@ class DayBuilder:
 
     points: list[float] = field(default_factory=lambda: [0.0])
     cut_off: set[int] = field(default_factory=set)
+    one_way_gaps: set[tuple[int, int]] = field(default_factory=set)
     orders: list[OrderSpec] = field(default_factory=list)
     depots: list[DepotSpec] = field(default_factory=lambda: [DepotSpec(location=DEPOT_LOCATION)])
     vehicles: list[VehicleSpec] = field(default_factory=list)
@@ -39,6 +42,7 @@ class DayBuilder:
     travel: TravelTimeModel = field(default_factory=TravelTimeModel.static)
     day_length: float = DAY
     fixed_vehicle_cost: float = 0.0
+    door_window_rate: float = DEFAULT_DOOR_WINDOW_RATE
     breaks_reserved: bool = False
     removed_by_dispatcher: set[int] = field(default_factory=set)
 
@@ -47,6 +51,10 @@ class DayBuilder:
         if not reachable:
             self.cut_off.add(len(self.points) - 1)
         return len(self.points) - 1
+
+    def no_road(self, origin: int, destination: int) -> None:
+        """Removes the road one way between two locations."""
+        self.one_way_gaps.add((origin, destination))
 
     def order(
         self,
@@ -78,9 +86,14 @@ class DayBuilder:
         return len(self.orders) - 1
 
     def depot(
-        self, at: float | None, *, opens: float | None = None, closes: float | None = None
+        self,
+        at: float | None,
+        *,
+        opens: float | None = None,
+        closes: float | None = None,
+        reachable: bool = True,
     ) -> int:
-        location = None if at is None else self.location(at)
+        location = None if at is None else self.location(at, reachable=reachable)
         self.depots.append(DepotSpec(location=location, opens=opens, closes=closes))
         return len(self.depots) - 1
 
@@ -118,24 +131,30 @@ class DayBuilder:
         assert location is not None
         return location
 
-    def build(self) -> Problem:
-        points = np.array(self.points)
-        durations = np.abs(points[:, None] - points[None, :])
+    def durations(self) -> npt.NDArray[np.float64]:
+        points = np.array(self.points, dtype=np.float64)
+        durations: npt.NDArray[np.float64] = np.abs(points[:, None] - points[None, :])
         for location in self.cut_off:
-            durations[location, :] = NO_ROAD
-            durations[:, location] = NO_ROAD
+            durations[location, :] = math.nan
+            durations[:, location] = math.nan
             durations[location, location] = 0.0
-        distances = np.where(durations == NO_ROAD, NO_ROAD, durations * METRES_PER_SECOND)
+        for origin, destination in self.one_way_gaps:
+            durations[origin, destination] = math.nan
+        return durations
+
+    def build(self) -> Problem:
+        durations = self.durations()
         return ProblemFactory.daily(
             orders=self.orders,
             depots=self.depots,
             vehicles=self.vehicles,
             drivers=self.drivers,
             durations=durations,
-            distances=distances,
+            distances=durations * METRES_PER_SECOND,
             travel=self.travel,
             day_length=self.day_length,
             fixed_vehicle_cost=self.fixed_vehicle_cost,
+            door_window_rate=self.door_window_rate,
             breaks_reserved=self.breaks_reserved,
             removed_by_dispatcher=frozenset(self.removed_by_dispatcher),
         )

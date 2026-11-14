@@ -4,6 +4,8 @@ import numpy as np
 import pytest
 
 from dispatchflow_solver.domain.drops import MissingLocation, UnreachableLocation
+from dispatchflow_solver.domain.errors import InvalidProblemError
+from dispatchflow_solver.domain.exclusions import OrderExclusion, VehicleExclusion
 from dispatchflow_solver.domain.factory import (
     DepotSpec,
     DriverSpec,
@@ -11,31 +13,59 @@ from dispatchflow_solver.domain.factory import (
     ProblemFactory,
     VehicleSpec,
 )
-from dispatchflow_solver.domain.problem import (
-    InvalidProblemError,
-    OrderExclusion,
-    Pin,
-    VehicleExclusion,
-)
+from dispatchflow_solver.domain.penalty import DEFAULT_DOOR_WINDOW_RATE
+from dispatchflow_solver.domain.problem import Pin
 from dispatchflow_solver.domain.solution import Solution
 from dispatchflow_solver.domain.travel_time import TravelBucket, TravelTimeModel
 from tests.domain.builders import DAY, DayBuilder
 
 NOTHING_SERVED = Solution(routes=(), dropped=frozenset())
+INT32_MAX = 2_147_483_647
+
+
+def an_order(**fields: object) -> OrderSpec:
+    values: dict[str, object] = {
+        "location": 1,
+        "weight_kg": 1,
+        "volume_l": 1,
+        "service_s": 0,
+        "window_start": 0,
+        "window_end": DAY,
+        "priority": 3,
+    }
+    return OrderSpec(**{**values, **fields})  # type: ignore[arg-type]
+
+
+def a_vehicle(**fields: object) -> VehicleSpec:
+    values: dict[str, object] = {
+        "start_depot": 0,
+        "end_depot": 0,
+        "weight_capacity_kg": 10,
+        "volume_capacity_l": 10,
+        "driver": 0,
+    }
+    return VehicleSpec(**{**values, **fields})  # type: ignore[arg-type]
 
 
 def two_location_inputs(**overrides: object) -> dict[str, object]:
     inputs: dict[str, object] = {
-        "orders": [OrderSpec(1, 1, 1, 0, 0, DAY, 3)],
+        "orders": [an_order()],
         "depots": [DepotSpec(location=0)],
-        "vehicles": [VehicleSpec(0, 0, 10, 10, driver=0)],
+        "vehicles": [a_vehicle()],
         "drivers": [DriverSpec(0, DAY)],
         "durations": [[0, 100], [100, 0]],
         "distances": [[0, 1_000], [1_000, 0]],
         "travel": TravelTimeModel.static(),
         "day_length": DAY,
+        "fixed_vehicle_cost": 0.0,
+        "door_window_rate": DEFAULT_DOOR_WINDOW_RATE,
+        "breaks_reserved": False,
     }
     return {**inputs, **overrides}
+
+
+def build(**overrides: object) -> object:
+    return ProblemFactory.daily(**two_location_inputs(**overrides))  # type: ignore[arg-type]
 
 
 def test_given_orders_without_location_or_road_when_built_then_excluded_with_reasons() -> None:
@@ -57,11 +87,58 @@ def test_given_orders_without_location_or_road_when_built_then_excluded_with_rea
 
 
 def test_given_a_location_with_no_road_back_to_the_depot_when_built_then_unreachable() -> None:
-    inputs = two_location_inputs(durations=[[0, 100], [-1, 0]], distances=[[0, 1_000], [-1, 0]])
-
-    problem = ProblemFactory.daily(**inputs)  # type: ignore[arg-type]
+    nan = math.nan
+    problem = ProblemFactory.daily(
+        **two_location_inputs(  # type: ignore[arg-type]
+            durations=[[0, 100], [nan, 0]], distances=[[0, 1_000], [nan, 0]]
+        )
+    )
 
     assert problem.orders.exclusion == (OrderExclusion.UNREACHABLE_LOCATION,)
+
+
+def test_given_an_isolated_depot_beside_a_working_one_when_built_then_orders_stay_routable() -> (
+    None
+):
+    # FR-18, FR-66: one depot the road network cannot reach must not sink the date.
+    day = DayBuilder()
+    day.vehicle()
+    island = day.depot(5_000, reachable=False)
+    day.vehicle(start_depot=island, end_depot=island)
+    day.vehicle(start_depot=0, end_depot=island)
+    day.order(100)
+    day.order(200)
+
+    problem = day.build()
+
+    assert problem.orders.exclusion == (None, None)
+    assert problem.vehicles.exclusion == (None, None, VehicleExclusion.NO_ROAD_BETWEEN_DEPOTS)
+    assert problem.vehicles.usable() == (0, 1)
+
+
+def test_given_an_order_reachable_only_from_the_second_depot_when_built_then_routable() -> None:
+    day = DayBuilder()
+    day.vehicle()
+    other = day.depot(1_000)
+    day.vehicle(start_depot=other, end_depot=other)
+    order = day.order(900)
+    day.no_road(day.location_of(order), 0)
+
+    assert day.build().orders.exclusion == (None,)
+
+
+def test_given_no_usable_vehicle_when_built_then_no_order_is_judged_unreachable() -> None:
+    # With no depot to judge from, reachability is not decided. FR-223 has no reason for such a
+    # date's drops; that waits on the owner.
+    day = DayBuilder()
+    nowhere = day.depot(None)
+    day.vehicle(start_depot=nowhere, end_depot=nowhere)
+    day.order(100, reachable=False)
+
+    problem = day.build()
+
+    assert problem.vehicles.usable() == ()
+    assert problem.orders.exclusion == (None,)
 
 
 def test_given_a_depot_without_coordinates_when_built_then_its_vehicles_are_named_out() -> None:
@@ -100,21 +177,37 @@ def test_given_a_day_when_built_then_k_is_five_l_plus_two_t_plus_f_plus_one() ->
     assert problem.penalties.drop_unit == 5 * 500 + 2 * 450 + 7 + 1
 
 
-def test_given_contract_no_road_entries_when_built_then_held_as_nan() -> None:
-    inputs = two_location_inputs(durations=[[0, -1], [100, 0]], distances=[[0, -1], [1_000, 0]])
+def test_given_priorities_when_built_then_each_order_carries_its_drop_penalty() -> None:
+    day = DayBuilder()
+    day.vehicle()
+    day.order(100, priority=1)
+    day.order(None, priority=5)
 
-    problem = ProblemFactory.daily(**inputs)  # type: ignore[arg-type]
+    problem = day.build()
+
+    unit = problem.penalties.drop_unit
+    assert list(problem.drop_penalties) == [5 * unit, unit]
+
+
+def test_given_a_set_of_removed_orders_when_built_then_held_as_a_frozenset() -> None:
+    problem = ProblemFactory.daily(
+        **two_location_inputs(removed_by_dispatcher={0})  # type: ignore[arg-type]
+    )
+
+    assert problem.removed_by_dispatcher == frozenset({0})
+    assert isinstance(problem.removed_by_dispatcher, frozenset)
+
+
+def test_given_no_road_as_nan_when_built_then_held_as_nan() -> None:
+    nan = math.nan
+    problem = ProblemFactory.daily(
+        **two_location_inputs(  # type: ignore[arg-type]
+            durations=[[0, nan], [100, 0]], distances=[[0, nan], [1_000, 0]]
+        )
+    )
 
     assert math.isnan(problem.durations[0, 1])
     assert math.isnan(problem.distances[0, 1])
-
-
-@pytest.mark.parametrize("entry", [-2.0, math.nan])
-def test_given_a_negative_or_nan_matrix_entry_when_built_then_refused(entry: float) -> None:
-    inputs = two_location_inputs(durations=[[0, entry], [100, 0]])
-
-    with pytest.raises(InvalidProblemError):
-        ProblemFactory.daily(**inputs)  # type: ignore[arg-type]
 
 
 def test_given_a_built_problem_when_its_arrays_written_then_refused() -> None:
@@ -123,8 +216,14 @@ def test_given_a_built_problem_when_its_arrays_written_then_refused() -> None:
     day.order(100)
     problem = day.build()
 
-    for array in (problem.durations, problem.orders.window_end, problem.vehicles.driver):
-        with pytest.raises(ValueError):
+    arrays = (
+        problem.durations,
+        problem.orders.window_end,
+        problem.vehicles.driver,
+        problem.drop_penalties,
+    )
+    for array in arrays:
+        with pytest.raises(ValueError, match="read-only"):
             array[0] = 1
 
 
@@ -137,44 +236,111 @@ def test_given_the_inputs_changed_after_building_when_read_then_the_problem_is_u
     assert problem.durations[0, 1] == 100
 
 
-def test_given_two_routable_orders_with_no_road_between_them_when_built_then_refused() -> None:
-    inputs = two_location_inputs(
-        orders=[OrderSpec(1, 1, 1, 0, 0, DAY, 3), OrderSpec(2, 1, 1, 0, 0, DAY, 3)],
-        durations=[[0, 1, 1], [1, 0, -1], [1, -1, 0]],
-        distances=[[0, 1, 1], [1, 0, -1], [1, -1, 0]],
-    )
+def test_given_depot_hours_open_ended_when_built_then_accepted() -> None:
+    depot = DepotSpec(location=0, opens=-math.inf, closes=math.inf)
 
-    with pytest.raises(InvalidProblemError):
-        ProblemFactory.daily(**inputs)  # type: ignore[arg-type]
+    problem = ProblemFactory.daily(**two_location_inputs(depots=[depot]))  # type: ignore[arg-type]
+
+    assert problem.vehicles.start_depot_opens[0] == -math.inf
+    assert problem.vehicles.end_depot_closes[0] == math.inf
 
 
-@pytest.mark.parametrize(
-    "overrides",
-    [
-        {"orders": [OrderSpec(1, 1, 1, 0, 0, DAY, 0)]},
-        {"orders": [OrderSpec(1, 1, 1, 0, 0, DAY, 6)]},
-        {"orders": [OrderSpec(1, 1, 1, 0, 500, 100, 3)]},
-        {"orders": [OrderSpec(1, -1, 1, 0, 0, DAY, 3)]},
-        {"orders": [OrderSpec(1, 1, 1, -5, 0, DAY, 3)]},
-        {"orders": [OrderSpec(7, 1, 1, 0, 0, DAY, 3)]},
-        {"orders": [OrderSpec(1, 1, 1, 0, 0, DAY, 3, pin=Pin(vehicle=3))]},
-        {"orders": [OrderSpec(1, 1, 1, 0, 0, DAY, 3, pin=Pin(driver=3))]},
-        {"vehicles": [VehicleSpec(0, 4, 10, 10, driver=0)]},
-        {"vehicles": [VehicleSpec(0, 0, 10, 10, driver=2)]},
-        {"vehicles": [VehicleSpec(0, 0, -1, 10, driver=0)]},
-        {"drivers": [DriverSpec(500, 100)]},
-        {"day_length": 0.0},
-        {"durations": [[0, 100, 1], [100, 0, 1]]},
-        {"durations": [[0, 100], [100, 0], [1, 1]]},
-        {"distances": [[0, 100, 1], [100, 0, 1], [1, 1, 0]]},
-        {"removed_by_dispatcher": frozenset({4})},
-    ],
-)
+NAN = math.nan
+REFUSED = [
+    pytest.param({"durations": [[0, -1], [100, 0]]}, r"durations\[0, 1\]", id="negative entry"),
+    pytest.param({"durations": [[0, math.inf], [100, 0]]}, r"durations\[0, 1\]", id="inf entry"),
+    pytest.param(
+        {"durations": [[0, INT32_MAX + 1], [100, 0]]}, r"durations\[0, 1\]", id="past int32"
+    ),
+    pytest.param({"durations": [[0, "x"], [100, 0]]}, "durations", id="not numbers"),
+    pytest.param({"durations": [[0, 100, 1], [100, 0, 1]]}, "durations.*square", id="not square"),
+    pytest.param(
+        {"durations": [[0, 100], [100, 0], [1, 1]]}, "durations.*square", id="tall matrix"
+    ),
+    pytest.param(
+        {"distances": [[0, 100, 1], [100, 0, 1], [1, 1, 0]]}, "distances", id="sizes differ"
+    ),
+    pytest.param({"durations": [[0, NAN], [100, 0]]}, r"no road.*\[0, 1\]", id="roads disagree"),
+    pytest.param({"orders": [an_order(priority=0)]}, r"priority\[0\]", id="priority 0"),
+    pytest.param({"orders": [an_order(priority=6)]}, r"priority\[0\]", id="priority 6"),
+    pytest.param({"orders": [an_order(priority=2**64)]}, "priority", id="priority overflow"),
+    pytest.param(
+        {"orders": [an_order(window_start=500, window_end=100)]}, r"window\w*\[0\]", id="window"
+    ),
+    pytest.param({"orders": [an_order(weight_kg=-1)]}, r"weight_kg\[0\]", id="negative weight"),
+    pytest.param({"orders": [an_order(weight_kg=10**400)]}, "weight_kg", id="weight overflow"),
+    pytest.param({"orders": [an_order(service_s=-5)]}, r"service_s\[0\]", id="negative service"),
+    pytest.param({"orders": [an_order(location=7)]}, r"location.*7", id="order location"),
+    pytest.param({"orders": [an_order(location=2**64)]}, "location", id="location overflow"),
+    pytest.param(
+        {"orders": [an_order(pin=Pin(vehicle=3))]}, r"pinned_vehicle\[0\]", id="pin vehicle"
+    ),
+    pytest.param({"orders": [an_order(pin=Pin(driver=3))]}, r"pinned_driver\[0\]", id="pin driver"),
+    pytest.param({"depots": [DepotSpec(location=5)]}, r"depots\[0\].*5", id="depot location"),
+    pytest.param(
+        {"depots": [DepotSpec(location=0, opens=NAN)]}, r"depots\[0\].*opens", id="opens NaN"
+    ),
+    pytest.param(
+        {"depots": [DepotSpec(location=0, opens=math.inf)]}, r"depots\[0\].*opens", id="opens inf"
+    ),
+    pytest.param(
+        {"depots": [DepotSpec(location=0, closes=-math.inf)]},
+        r"depots\[0\].*closes",
+        id="closes -inf",
+    ),
+    pytest.param(
+        {"depots": [DepotSpec(location=0, opens=500, closes=100)]},
+        r"depots\[0\].*opens.*after",
+        id="opens after closing",
+    ),
+    pytest.param({"vehicles": [a_vehicle(start_depot=4)]}, r"vehicles\[0\].*4", id="depot index"),
+    pytest.param({"vehicles": [a_vehicle(driver=2)]}, r"driver\[0\]", id="driver index"),
+    pytest.param(
+        {"vehicles": [a_vehicle(weight_capacity_kg=-1)]},
+        r"weight_capacity_kg\[0\]",
+        id="negative weight capacity",
+    ),
+    pytest.param(
+        {"vehicles": [a_vehicle(weight_capacity_kg=math.inf)]},
+        r"weight_capacity_kg\[0\]",
+        id="infinite weight capacity",
+    ),
+    pytest.param(
+        {"vehicles": [a_vehicle(volume_capacity_l=-1)]},
+        r"volume_capacity_l\[0\]",
+        id="negative volume capacity",
+    ),
+    pytest.param(
+        {"vehicles": [a_vehicle(volume_capacity_l=math.inf)]},
+        r"volume_capacity_l\[0\]",
+        id="infinite volume capacity",
+    ),
+    pytest.param(
+        {"vehicles": [a_vehicle(), a_vehicle()]},
+        r"driver 0 is rostered to vehicles 0 and 1",
+        id="driver on two vehicles",
+    ),
+    pytest.param({"drivers": [DriverSpec(500, 100)]}, r"shift\w*\[0\]", id="shift backwards"),
+    pytest.param({"drivers": [DriverSpec(100, 100)]}, r"shift\w*\[0\]", id="zero shift"),
+    pytest.param({"drivers": [DriverSpec(-1, 100)]}, r"shift_start\[0\]", id="before the date"),
+    pytest.param({"drivers": [DriverSpec(0, DAY + 1)]}, r"shift_end\[0\]", id="after the date"),
+    pytest.param({"day_length": 0.0}, "day_length", id="empty date"),
+    pytest.param({"fixed_vehicle_cost": -1.0}, "fixed_vehicle_cost", id="negative fixed cost"),
+    pytest.param({"fixed_vehicle_cost": NAN}, "fixed_vehicle_cost", id="NaN fixed cost"),
+    pytest.param({"door_window_rate": -1.0}, "door_window_rate", id="negative door rate"),
+    pytest.param({"door_window_rate": math.inf}, "door_window_rate", id="infinite door rate"),
+    pytest.param(
+        {"removed_by_dispatcher": frozenset({4})}, r"removed_by_dispatcher.*4", id="removed order"
+    ),
+]
+
+
+@pytest.mark.parametrize(("overrides", "match"), REFUSED)
 def test_given_inputs_no_problem_can_hold_when_built_then_refused(
-    overrides: dict[str, object],
+    overrides: dict[str, object], match: str
 ) -> None:
-    with pytest.raises(InvalidProblemError):
-        ProblemFactory.daily(**two_location_inputs(**overrides))  # type: ignore[arg-type]
+    with pytest.raises(InvalidProblemError, match=match):
+        build(**overrides)
 
 
 @pytest.mark.parametrize(
@@ -183,5 +349,5 @@ def test_given_inputs_no_problem_can_hold_when_built_then_refused(
 def test_given_a_pin_to_neither_both_or_a_negative_index_when_built_then_refused(
     pin: object,
 ) -> None:
-    with pytest.raises(InvalidProblemError):
+    with pytest.raises(InvalidProblemError, match="pin"):
         pin()  # type: ignore[operator]

@@ -2,7 +2,11 @@
 
 It re-times every route itself and reports every broken rule, never only the first, and repairs
 nothing (BR-16). Times use buffered travel (FR-401), and limits are inclusive within ADR-098's
-tolerance (NFR-168).
+tolerance (NFR-168). `drops.explain_drop` times a lone order through `check_route`, so a drop
+reason and the validator never disagree.
+
+`Problem` appears here in annotations only, under `TYPE_CHECKING`: `problem` imports this module
+at run time, and this module never imports it.
 """
 
 import math
@@ -13,8 +17,9 @@ from typing import TYPE_CHECKING, Final
 import numpy as np
 import numpy.typing as npt
 
-from dispatchflow_solver.domain._arrays import NO_INDEX, frozen_floats
-from dispatchflow_solver.domain.rules import TOLERANCE, RuleId
+from dispatchflow_solver.domain._arrays import frozen_floats
+from dispatchflow_solver.domain.indices import NO_INDEX
+from dispatchflow_solver.domain.rules import LIMIT_TOLERANCE, RuleId
 from dispatchflow_solver.domain.solution import InvalidSolutionError, Route, Solution
 
 if TYPE_CHECKING:
@@ -122,14 +127,6 @@ class ValidationReport:
 def validate(problem: Problem, solution: Solution) -> ValidationReport:
     """Judges a solution; `Problem.validate` delegates here.
 
-    Each route leaves at its earliest moment, the later of its driver's shift start and its start
-    depot's opening (BR-06, BR-46). A stop with a hard window waits for the window to open
-    (BR-03); a door stop is served on arrival, whatever its window (BR-122, FR-403). A stop whose
-    leg has no road route cannot be timed: it is skipped, its times are NaN, and the route goes on
-    from the last place it reached. That happens only at a stop BR-14 already reports, or after a
-    start BR-40 already reports, because the problem guarantees a road between the locations a
-    solve may use. A route with no stops is not driven, so it has no times.
-
     Args:
         problem: The problem.
         solution: Any solution whose indices fall inside the problem.
@@ -144,24 +141,53 @@ def validate(problem: Problem, solution: Solution) -> ValidationReport:
     violations: list[Violation] = []
     _check_single_assignment(problem, solution, violations)
     _check_one_route_each(solution, violations)
-    timings = tuple(
-        _RouteCheck(problem, index, route, violations).run()
-        for index, route in enumerate(solution.routes)
-    )
-    return ValidationReport(violations=tuple(violations), timings=timings)
+    timings: list[RouteTiming] = []
+    for index, route in enumerate(solution.routes):
+        found, timing = check_route(problem, route, index=index)
+        violations.extend(found)
+        timings.append(timing)
+    return ValidationReport(violations=tuple(violations), timings=tuple(timings))
 
 
-def earliest_departure(problem: Problem, vehicle: int, driver: int) -> float:
-    """When a route may leave: the later of its driver's shift start and its depot's opening.
+def check_route(
+    problem: Problem, route: Route, *, index: int = 0
+) -> tuple[tuple[Violation, ...], RouteTiming]:
+    """Checks one route's own rules and times it: everything but BR-07 and BR-39.
+
+    - The route leaves at its earliest moment: the later of its rostered driver's shift start
+      and its start depot's opening (BR-06, BR-46). Its shift limits are the rostered driver's,
+      whoever the route names (BR-20).
+    - A stop with a hard window waits for the window to open (BR-03); a door stop is served on
+      arrival, whatever its window (BR-122, FR-403).
+    - A stop that is excluded, or that the route cannot reach by road, breaks BR-14. It is
+      skipped, its times are NaN, and the route goes on from the last place it reached. With no
+      road from the last stop to the end, that stop breaks BR-14 and the return is NaN.
+    - A route with no stops is not driven, so it has no times.
+
+    Args:
+        problem: The problem.
+        route: A route whose indices fall inside the problem.
+        index: The route's index in its solution, for the violations.
+
+    Returns:
+        The violations found, and the route's timing.
+    """
+    check = _RouteCheck(problem, index, route, [])
+    timing = check.run()
+    return tuple(check.violations), timing
+
+
+def earliest_departure(problem: Problem, vehicle: int) -> float:
+    """When a vehicle's route may leave: its rostered driver's shift start or its depot's opening.
 
     Args:
         problem: The problem.
         vehicle: The route's vehicle.
-        driver: The route's driver.
 
     Returns:
-        The earliest departure (BR-06, BR-46).
+        The later of the two (BR-06, BR-46).
     """
+    driver = int(problem.vehicles.driver[vehicle])
     return max(
         float(problem.drivers.shift_start[driver]),
         float(problem.vehicles.start_depot_opens[vehicle]),
@@ -183,26 +209,23 @@ def shift_return_limit(problem: Problem, driver: int) -> tuple[float, RuleId]:
     """
     shift_end = float(problem.drivers.shift_end[driver])
     if problem.breaks_reserved and (
-        problem.drivers.shift_length(driver) >= BREAK_SHIFT_THRESHOLD_S - TOLERANCE
+        problem.drivers.shift_length(driver) >= BREAK_SHIFT_THRESHOLD_S - LIMIT_TOLERANCE
     ):
         return shift_end - BREAK_RESERVE_S, RuleId.BR_105
     return shift_end, RuleId.BR_06
 
 
-def door_stop_outside(problem: Problem, driver: int, start: float) -> float:
-    """How far a door stop's start lies outside its driver's shift or its date (BR-119).
+def door_service_limit(problem: Problem, driver: int) -> float:
+    """The latest a door stop may be served: its driver's shift end or the date's end (BR-119).
 
     Args:
         problem: The problem.
         driver: The driver serving the stop.
-        start: When service starts.
 
     Returns:
-        The seconds by which the start misses the shift or the date; 0 or less within both.
+        min(shift end, day length).
     """
-    earliest = max(float(problem.drivers.shift_start[driver]), 0.0)
-    latest = min(float(problem.drivers.shift_end[driver]), problem.day_length)
-    return max(earliest - start, start - latest)
+    return min(float(problem.drivers.shift_end[driver]), problem.day_length)
 
 
 def road(problem: Problem, origin: int, destination: int) -> float | None:
@@ -223,18 +246,26 @@ def road(problem: Problem, origin: int, destination: int) -> float | None:
 
 
 def _require_inside(problem: Problem, solution: Solution) -> None:
-    locations = problem.durations.shape[0]
-    for route in solution.routes:
-        if route.vehicle >= len(problem.vehicles) or route.driver >= len(problem.drivers):
-            raise InvalidSolutionError(
-                f"a route names a vehicle or driver past the problem: {route}"
-            )
-        if route.start >= locations or route.end >= locations:
-            raise InvalidSolutionError(f"a route names a location past the problem: {route}")
-        if any(order >= len(problem.orders) for order in route.stops):
-            raise InvalidSolutionError(f"a route names an order past the problem: {route}")
-    if any(order >= len(problem.orders) for order in solution.dropped):
-        raise InvalidSolutionError("a dropped order is past the problem")
+    sizes = {
+        "vehicle": len(problem.vehicles),
+        "driver": len(problem.drivers),
+        "start": problem.durations.shape[0],
+        "end": problem.durations.shape[0],
+    }
+    orders = len(problem.orders)
+    for index, route in enumerate(solution.routes):
+        for name, size in sizes.items():
+            value = getattr(route, name)
+            if value >= size:
+                raise InvalidSolutionError(f"routes[{index}].{name} {value} is not one of {size}")
+        for position, order in enumerate(route.stops):
+            if order >= orders:
+                raise InvalidSolutionError(
+                    f"routes[{index}].stops[{position}] {order} is not one of {orders}"
+                )
+    for order in sorted(solution.dropped):
+        if order >= orders:
+            raise InvalidSolutionError(f"dropped order {order} is not one of {orders}")
 
 
 def _check_single_assignment(
@@ -273,14 +304,16 @@ class _RouteCheck:
     route: Route
     violations: list[Violation]
 
+    @property
+    def rostered(self) -> int:
+        return int(self.problem.vehicles.driver[self.route.vehicle])
+
     def run(self) -> RouteTiming:
-        vehicles = self.problem.vehicles
-        if self.route.start != vehicles.start_location[self.route.vehicle]:
-            self._report(RuleId.BR_40)
-        if self.route.end != vehicles.end_location[self.route.vehicle]:
-            self._report(RuleId.BR_40)
+        self._check_depots()
+        if self.route.driver != self.rostered:
+            self._report(RuleId.BR_20, driver=self.route.driver)
         self._check_loads()
-        self._check_stops_allowed()
+        self._check_pins()
         return self._time()
 
     def _report(
@@ -306,21 +339,31 @@ class _RouteCheck:
             )
         )
 
+    def _check_depots(self) -> None:
+        vehicles, vehicle = self.problem.vehicles, self.route.vehicle
+        wrong_start = self.route.start != vehicles.start_location[vehicle]
+        wrong_end = self.route.end != vehicles.end_location[vehicle]
+        if wrong_start:
+            self._report(RuleId.BR_40)
+        if wrong_end:
+            self._report(RuleId.BR_40)
+        if not (wrong_start or wrong_end or vehicles.is_usable(vehicle)):
+            # The right depots, but no road between them (FR-197): no route can be driven.
+            self._report(RuleId.BR_40)
+
     def _check_loads(self) -> None:
         orders, vehicles, vehicle = self.problem.orders, self.problem.vehicles, self.route.vehicle
         stops = list(self.route.stops)
         weight_excess = float(orders.weight_kg[stops].sum() - vehicles.weight_capacity_kg[vehicle])
         volume_excess = float(orders.volume_l[stops].sum() - vehicles.volume_capacity_l[vehicle])
-        if weight_excess > TOLERANCE:
+        if weight_excess > LIMIT_TOLERANCE:
             self._report(RuleId.BR_05, kilograms=weight_excess)
-        if volume_excess > TOLERANCE:
+        if volume_excess > LIMIT_TOLERANCE:
             self._report(RuleId.BR_05, litres=volume_excess)
 
-    def _check_stops_allowed(self) -> None:
+    def _check_pins(self) -> None:
         orders = self.problem.orders
         for order in self.route.stops:
-            if not orders.is_routable(order):
-                self._report(RuleId.BR_14, order=order)
             pinned_vehicle = int(orders.pinned_vehicle[order])
             pinned_driver = int(orders.pinned_driver[order])
             if pinned_vehicle not in (NO_INDEX, self.route.vehicle) or pinned_driver not in (
@@ -335,19 +378,22 @@ class _RouteCheck:
             return _TimingDraft.of(0, legs=0).freeze(math.nan, math.nan)
         problem, route = self.problem, self.route
         draft = _TimingDraft.of(len(stops), legs=len(stops) + 1)
-        leaves_at = earliest_departure(problem, route.vehicle, route.driver)
-        clock, here = leaves_at, route.start
+        leaves_at = earliest_departure(problem, route.vehicle)
+        clock, here, last = leaves_at, route.start, None
         for position, order in enumerate(stops):
             there = int(problem.orders.location[order])
-            base = road(problem, here, there)
+            base = road(problem, here, there) if problem.orders.is_routable(order) else None
             if base is None:
+                self._report(RuleId.BR_14, order=order)
                 continue
             leg = problem.travel.buffered(base, clock)
             draft.legs[position] = (leg, float(problem.distances[here, there]))
             clock = self._serve(draft, position, order, arrival=clock + leg)
-            here = there
+            here, last = there, order
         base = road(problem, here, route.end)
         if base is None:
+            if last is not None:
+                self._report(RuleId.BR_14, order=last)
             return draft.freeze(leaves_at, math.nan)
         leg = problem.travel.buffered(base, clock)
         draft.legs[len(stops)] = (leg, float(problem.distances[here, route.end]))
@@ -368,30 +414,35 @@ class _RouteCheck:
         draft.late[position] = late
         draft.outside[position] = max(late, window_start - start, 0.0)
         if door:
-            outside = door_stop_outside(self.problem, self.route.driver, start)
-            if outside > TOLERANCE:
+            outside = start - door_service_limit(self.problem, self.rostered)
+            if outside > LIMIT_TOLERANCE:
                 self._report(RuleId.BR_119, order=order, seconds=outside)
-        elif late > TOLERANCE:
+        elif late > LIMIT_TOLERANCE:
             self._report(RuleId.BR_03, order=order, seconds=late)
         if self.route.planned_starts is not None:
-            # A claim earlier than the validator's own start leaves out time the vehicle spends,
-            # such as the previous stop's service. A later claim is a planned wait, which the
-            # validator's own times replace (FR-403).
-            ahead = start - self.route.planned_starts[position]
-            if ahead > TOLERANCE:
-                self._report(RuleId.BR_04, order=order, seconds=ahead)
+            self._check_claim(order, self.route.planned_starts[position], start, door=door)
         return departure
 
+    def _check_claim(self, order: int, claimed: float, start: float, *, door: bool) -> None:
+        window_start = float(self.problem.orders.window_start[order])
+        if not door and window_start - claimed > LIMIT_TOLERANCE:
+            self._report(RuleId.BR_03, order=order, seconds=window_start - claimed)
+        elif start - claimed > LIMIT_TOLERANCE:
+            # Earlier than the validator's own start for some other reason: service or travel
+            # left out, or unbuffered or off-peak travel assumed. A later claim is a planned
+            # wait, which the validator's own times replace (FR-403).
+            self._report(RuleId.BR_04, order=order, seconds=start - claimed)
+
     def _check_return(self, returns_at: float) -> None:
-        problem, driver = self.problem, self.route.driver
+        problem, driver = self.problem, self.rostered
         shift_end = float(problem.drivers.shift_end[driver])
-        if returns_at - shift_end > TOLERANCE:
+        if returns_at - shift_end > LIMIT_TOLERANCE:
             self._report(RuleId.BR_06, driver=driver, seconds=returns_at - shift_end)
         limit, rule = shift_return_limit(problem, driver)
-        if rule is RuleId.BR_105 and returns_at - limit > TOLERANCE:
+        if rule is RuleId.BR_105 and returns_at - limit > LIMIT_TOLERANCE:
             self._report(RuleId.BR_105, driver=driver, seconds=returns_at - limit)
         closes = float(problem.vehicles.end_depot_closes[self.route.vehicle])
-        if returns_at - closes > TOLERANCE:
+        if returns_at - closes > LIMIT_TOLERANCE:
             self._report(RuleId.BR_46, seconds=returns_at - closes)
 
 

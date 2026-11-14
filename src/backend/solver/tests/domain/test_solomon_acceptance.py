@@ -20,6 +20,7 @@ from dispatchflow_solver.domain.factory import (
     ProblemFactory,
     VehicleSpec,
 )
+from dispatchflow_solver.domain.penalty import DEFAULT_DOOR_WINDOW_RATE
 from dispatchflow_solver.domain.problem import Problem
 from dispatchflow_solver.domain.rules import RuleId
 from dispatchflow_solver.domain.solution import Route, Solution
@@ -76,6 +77,11 @@ def solomon_problem(instance: dict[str, Any]) -> Problem:
         distances=instance["edge_weight"],
         travel=TravelTimeModel.static(),
         day_length=horizon,
+        # NFR-110: no fixed vehicle cost. The instances carry no door orders or breaks, so the
+        # door rate is the product's and changes nothing.
+        fixed_vehicle_cost=0.0,
+        door_window_rate=DEFAULT_DOOR_WINDOW_RATE,
+        breaks_reserved=False,
     )
 
 
@@ -151,14 +157,17 @@ def test_given_a_solomon_window_closed_a_second_early_when_validated_then_reject
 
 
 def test_given_a_solomon_solution_with_one_customer_moved_when_validated_then_rejected() -> None:
+    # Route 2's first customer, moved to the end of route 1, reaches it after its window closes.
     solution = best_known("c101")
     first, second = solution.routes[0], solution.routes[1]
+    customer = second.stops[0]
     moved = (
-        replace(first, stops=first.stops[1:]),
-        replace(second, stops=(first.stops[0], *second.stops)),
+        replace(first, stops=(*first.stops, customer)),
+        replace(second, stops=second.stops[1:]),
         *solution.routes[2:],
     )
 
     report = solomon_problem(instance("c101")).validate(replace(solution, routes=moved))
 
-    assert not report.accepted
+    assert report.rules() == {RuleId.BR_03}
+    assert [(v.route, v.order) for v in report.violations] == [(0, customer)]

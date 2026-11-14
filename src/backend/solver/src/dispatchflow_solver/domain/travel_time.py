@@ -7,10 +7,18 @@ unrounded Euclidean times (ADR-098, NFR-110, NFR-167).
 """
 
 import math
-from dataclasses import dataclass
+from bisect import bisect_right
+from dataclasses import dataclass, field
 from typing import Final
 
-from dispatchflow_solver.domain.rules import TOLERANCE
+from dispatchflow_solver.domain.errors import InvalidProblemError
+
+CEILING_SLACK: Final = 1e-6
+"""Seconds subtracted before rounding up, so float64 noise never adds a second (ADR-098).
+
+Decimal factors are inexact in float64, so a product meant to be whole can overshoot it by a few
+ulps: 300 x 1.3 x 1.1 gives 429.00000000000006, which a plain ceil would make 430.
+"""
 
 _NEUTRAL_FACTOR: Final = 1.0
 _NO_BUFFER: Final = 0.0
@@ -26,7 +34,8 @@ class TravelBucket:
         factor: What the base duration is multiplied by for a leg departing in the bucket.
 
     Raises:
-        ValueError: If the bucket is empty or the factor is not positive and finite.
+        InvalidProblemError: If the bucket is empty or not finite, or the factor is not positive
+            and finite.
     """
 
     start: float
@@ -34,10 +43,13 @@ class TravelBucket:
     factor: float
 
     def __post_init__(self) -> None:
-        """Refuses an empty bucket or a factor that is not positive and finite."""
+        """Refuses an empty or endless bucket, or a factor that is not positive and finite."""
         if not (math.isfinite(self.start) and math.isfinite(self.end) and self.start < self.end):
-            raise ValueError(f"a bucket must end after it starts: [{self.start}, {self.end})")
-        _require_positive_factor(self.factor)
+            raise InvalidProblemError(
+                f"a bucket must end after it starts, both finite: start={self.start}, "
+                f"end={self.end}"
+            )
+        _require_positive_factor("bucket factor", self.factor)
 
     def contains(self, departure: float) -> bool:
         """Says whether a departure falls in the bucket, start included and end excluded."""
@@ -55,28 +67,39 @@ class TravelTimeModel:
     An arc takes the factor of the bucket it departs in, for its whole length (FR-400).
 
     Attributes:
-        buckets: The day's buckets, which may not overlap; every other time is off-peak.
+        buckets: The day's buckets, held as a tuple sorted by start; they may not overlap, and
+            every other time is off-peak.
         off_peak_factor: The factor outside every bucket.
         buffer: The safety margin, as a fraction of the factored time (FR-227).
 
     Raises:
-        ValueError: If buckets overlap, a factor is not positive and finite, or the buffer is
-            negative or not finite.
+        InvalidProblemError: If a bucket is not a `TravelBucket`, buckets overlap, the off-peak
+            factor is not positive and finite, or the buffer is negative or not finite.
     """
 
     buckets: tuple[TravelBucket, ...]
     off_peak_factor: float
     buffer: float
+    _starts: tuple[float, ...] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
-        """Refuses overlapping buckets, a bad off-peak factor and a bad buffer."""
-        _require_positive_factor(self.off_peak_factor)
-        if not (math.isfinite(self.buffer) and self.buffer >= 0):
-            raise ValueError(f"the buffer must be zero or more: {self.buffer}")
-        ordered = sorted(self.buckets, key=lambda bucket: bucket.start)
+        """Sorts a copy of the buckets and refuses overlaps, a bad factor and a bad buffer."""
+        buckets = tuple(self.buckets)
+        for index, bucket in enumerate(buckets):
+            if not isinstance(bucket, TravelBucket):
+                raise InvalidProblemError(f"buckets[{index}] is not a TravelBucket")
+        ordered = tuple(sorted(buckets, key=lambda bucket: bucket.start))
         for earlier, later in zip(ordered, ordered[1:], strict=False):
             if later.start < earlier.end:
-                raise ValueError(f"buckets overlap: {earlier} and {later}")
+                raise InvalidProblemError(
+                    f"buckets overlap: [{earlier.start}, {earlier.end}) and "
+                    f"[{later.start}, {later.end})"
+                )
+        _require_positive_factor("off_peak_factor", self.off_peak_factor)
+        if not (math.isfinite(self.buffer) and self.buffer >= 0):
+            raise InvalidProblemError(f"buffer must be finite and zero or more: {self.buffer}")
+        object.__setattr__(self, "buckets", ordered)
+        object.__setattr__(self, "_starts", tuple(bucket.start for bucket in ordered))
 
     @classmethod
     def static(cls) -> TravelTimeModel:
@@ -101,9 +124,9 @@ class TravelTimeModel:
         Returns:
             The bucket's factor, or the off-peak factor outside every bucket.
         """
-        for bucket in self.buckets:
-            if bucket.contains(departure):
-                return bucket.factor
+        candidate = bisect_right(self._starts, departure) - 1
+        if candidate >= 0 and self.buckets[candidate].contains(departure):
+            return self.buckets[candidate].factor
         return self.off_peak_factor
 
     def buffered(self, base: float, departure: float) -> float:
@@ -158,12 +181,9 @@ class TravelTimeModel:
 def _scaled(base: float, factor: float, buffer: float) -> float:
     if factor == _NEUTRAL_FACTOR and buffer == _NO_BUFFER:
         return base
-    # Decimal factors are inexact in float64, so a product meant to be whole can overshoot it by a
-    # few ulps (300 x 1.3 x 1.1 gives 429.00000000000006). Without the slack, ceil would add a
-    # second nobody asked for; ADR-098's tolerance absorbs the noise.
-    return float(math.ceil(base * factor * (1 + buffer) - TOLERANCE))
+    return float(math.ceil(base * factor * (1 + buffer) - CEILING_SLACK))
 
 
-def _require_positive_factor(factor: float) -> None:
+def _require_positive_factor(name: str, factor: float) -> None:
     if not (math.isfinite(factor) and factor > 0):
-        raise ValueError(f"a travel-time factor must be positive: {factor}")
+        raise InvalidProblemError(f"{name} must be positive and finite: {factor}")

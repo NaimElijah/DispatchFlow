@@ -1,34 +1,34 @@
 """The problem factory: builds a `Problem` from plain values and decides each convention once.
 
-The HTTP adapter translates the contract into these inputs, so no transport type reaches the
-domain (TS §2.1, rule 4). Each convention is written into the `Problem`, and `validate` checks the
-constraints it carries (ADR-050).
+The HTTP adapter translates the contract into these inputs, and maps its -1 for "no road" to NaN,
+so no transport type or convention reaches the domain (TS §2.1, rule 4; ADR-052). Each convention
+is written into the `Problem`, and `validate` checks the constraints it carries (ADR-050).
 """
 
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Final
 
 import numpy as np
 import numpy.typing as npt
 
-from dispatchflow_solver.domain.penalty import DEFAULT_DOOR_WINDOW_RATE, PenaltyScale
+from dispatchflow_solver.domain.errors import InvalidProblemError
+from dispatchflow_solver.domain.exclusions import OrderExclusion, VehicleExclusion
+from dispatchflow_solver.domain.indices import NO_INDEX
+from dispatchflow_solver.domain.penalty import PenaltyScale
 from dispatchflow_solver.domain.problem import (
-    NO_INDEX,
     Drivers,
-    InvalidProblemError,
-    OrderExclusion,
     Orders,
     Pin,
     Problem,
-    VehicleExclusion,
     Vehicles,
+    converted,
+    depots_unconnected,
+    require_matrix,
+    require_same_roads,
+    unreachable_locations,
 )
 from dispatchflow_solver.domain.travel_time import TravelTimeModel
-
-NO_ROAD: Final = -1.0
-"""A matrix entry for a pair the road network cannot connect, as the contract sends it (ADR-052)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,7 +55,7 @@ class VehicleSpec:
         end_depot: The index of the depot it ends at.
         weight_capacity_kg: Weight capacity in kilograms.
         volume_capacity_l: Volume capacity in litres, or None for no volume limit (FR-390).
-        driver: The index of the driver the roster gives it.
+        driver: The index of the driver the roster gives it (FR-54).
     """
 
     start_depot: int
@@ -67,7 +67,7 @@ class VehicleSpec:
 
 @dataclass(frozen=True, slots=True)
 class DriverSpec:
-    """A driver's shift on the date (BR-06).
+    """A driver's shift on the date (BR-06, FR-190).
 
     Attributes:
         shift_start: When the shift starts.
@@ -119,35 +119,41 @@ class ProblemFactory:
         distances: npt.ArrayLike,
         travel: TravelTimeModel,
         day_length: float,
-        fixed_vehicle_cost: float = 0.0,
-        door_window_rate: float = DEFAULT_DOOR_WINDOW_RATE,
-        breaks_reserved: bool = False,
+        fixed_vehicle_cost: float,
+        door_window_rate: float,
+        breaks_reserved: bool,
         removed_by_dispatcher: frozenset[int] = frozenset(),
     ) -> Problem:
         """Builds the problem of a daily solve.
 
-        - A vehicle whose start or end depot has no coordinates is kept, excluded and named, so
-          it drives no route (FR-197).
-        - An order with no location is excluded as *missing location* (BR-14). One whose location
-          lacks a road route from any usable vehicle's start depot, or to any usable vehicle's end
-          depot, is excluded as *unreachable location* (FR-66). Both stay indexable, so
-          `explain_drop` names them. With no usable vehicle, no order is judged unreachable.
-        - K comes from the longest shift, the largest finite matrix entry at the highest factor,
-          unbuffered and rounded up, and the fixed vehicle cost (BR-126).
+        - A vehicle whose start or end depot has no coordinates is kept, excluded and named
+          (FR-197). So is one whose start depot has no road to its end depot.
+        - An order with no location is excluded as *missing location* (BR-14). One that no
+          usable vehicle can reach by road, from its start depot to the order and on to its end
+          depot, is excluded as *unreachable location* (FR-66). One unreachable depot excludes
+          only its own vehicles, so it never sinks the date (FR-18). With no usable vehicle,
+          nothing is judged unreachable: there is no depot to judge from.
+        - Each order's drop penalty is K x (6 - priority), and K comes from the longest shift, the
+          largest finite matrix entry at the highest factor, unbuffered and rounded up, and the
+          fixed vehicle cost (BR-54, BR-126).
+
+        The scoring inputs have no defaults, so the study and the product cannot score the same
+        routes differently by leaving one out (BR-58).
 
         Args:
             orders: Every order of the date.
             depots: The depots the vehicles start and end at.
             vehicles: The date's vehicles.
             drivers: The date's drivers.
-            durations: Base durations in seconds between distinct locations; -1 for no road.
-            distances: Metres between distinct locations; -1 for no road.
+            durations: Base durations in seconds between distinct locations; NaN for no road.
+            distances: Metres between distinct locations; NaN exactly where durations are.
             travel: The day's buckets, factors and buffer.
             day_length: The date's length in seconds (ADR-088).
             fixed_vehicle_cost: Seconds per vehicle used, 0 when disabled (FR-21).
             door_window_rate: The door-window rate (BR-120).
             breaks_reserved: Whether routes reserve time for breaks (FR-81, BR-105).
-            removed_by_dispatcher: Orders a dispatcher took off their route (FR-146).
+            removed_by_dispatcher: Orders a dispatcher took off the current routes (FR-146), so
+                `explain_drop` gives that reason; a new solve may serve them again (BR-95).
 
         Returns:
             The problem.
@@ -155,14 +161,16 @@ class ProblemFactory:
         Raises:
             InvalidProblemError: If an input is malformed or contradicts another.
         """
-        duration_matrix = _with_no_road_as_nan("durations", durations)
-        distance_matrix = _with_no_road_as_nan("distances", distances)
-        vehicle_struct = _vehicles(vehicles, depots)
+        duration_matrix = require_matrix("durations", durations)
+        distance_matrix = require_matrix("distances", distances)
+        require_same_roads(duration_matrix, distance_matrix)
+        size = duration_matrix.shape[0]
+        vehicle_struct = _vehicles(vehicles, depots, duration_matrix)
         driver_struct = Drivers(
-            shift_start=np.array([driver.shift_start for driver in drivers], dtype=np.float64),
-            shift_end=np.array([driver.shift_end for driver in drivers], dtype=np.float64),
+            shift_start=_floats("drivers.shift_start", [d.shift_start for d in drivers]),
+            shift_end=_floats("drivers.shift_end", [d.shift_end for d in drivers]),
         )
-        order_struct = _orders(orders, vehicle_struct, duration_matrix, distance_matrix)
+        order_struct = _orders(orders, vehicle_struct, duration_matrix, size)
         finite = duration_matrix[~np.isnan(duration_matrix)]
         largest_travel = travel.largest_unbuffered(float(finite.max(initial=0.0)))
         longest_shift = max(
@@ -183,56 +191,86 @@ class ProblemFactory:
             distances=distance_matrix,
             travel=travel,
             penalties=penalties,
+            drop_penalties=_floats(
+                "drop_penalties",
+                [penalties.drop_penalty(int(priority)) for priority in order_struct.priority],
+            ),
             day_length=day_length,
             breaks_reserved=breaks_reserved,
             removed_by_dispatcher=removed_by_dispatcher,
         )
 
 
-def _with_no_road_as_nan(name: str, values: npt.ArrayLike) -> npt.NDArray[np.float64]:
-    # NaN, unlike -1, can never be read as a duration: arithmetic on it stays NaN instead of
-    # producing a plausible time, and np.isnan finds every gap.
-    matrix = np.array(values, dtype=np.float64, copy=True)
-    if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
-        raise InvalidProblemError(f"{name} must be a square matrix: shape {matrix.shape}")
-    no_road = matrix == NO_ROAD
-    if np.any(np.isnan(matrix) | (~no_road & (matrix < 0))):
-        raise InvalidProblemError(f"{name} entries are zero or more, or -1 for no road")
-    matrix[no_road] = np.nan
-    return matrix
-
-
-def _vehicles(vehicles: Sequence[VehicleSpec], depots: Sequence[DepotSpec]) -> Vehicles:
-    for vehicle in vehicles:
-        for depot in (vehicle.start_depot, vehicle.end_depot):
-            if not 0 <= depot < len(depots):
-                raise InvalidProblemError(f"a vehicle names depot {depot} of {len(depots)}")
+def _vehicles(
+    vehicles: Sequence[VehicleSpec],
+    depots: Sequence[DepotSpec],
+    durations: npt.NDArray[np.float64],
+) -> Vehicles:
+    for index, depot in enumerate(depots):
+        _require_depot(index, depot, durations.shape[0])
+    for index, vehicle in enumerate(vehicles):
+        for field_name in ("start_depot", "end_depot"):
+            depot_index = getattr(vehicle, field_name)
+            if not 0 <= depot_index < len(depots):
+                raise InvalidProblemError(
+                    f"vehicles[{index}].{field_name} {depot_index} is not one of "
+                    f"{len(depots)} depots"
+                )
+        volume = vehicle.volume_capacity_l
+        if volume is not None and not math.isfinite(volume):
+            raise InvalidProblemError(
+                f"vehicles.volume_capacity_l[{index}] must be finite; give None for no volume "
+                f"limit: {volume}"
+            )
     starts = [depots[vehicle.start_depot] for vehicle in vehicles]
     ends = [depots[vehicle.end_depot] for vehicle in vehicles]
+    start_location = _ints("vehicles.start_location", [_location(depot) for depot in starts])
+    end_location = _ints("vehicles.end_location", [_location(depot) for depot in ends])
+    unconnected = depots_unconnected(start_location, end_location, durations)
+
+    def exclusion(vehicle: int) -> VehicleExclusion | None:
+        if NO_INDEX in (start_location[vehicle], end_location[vehicle]):
+            return VehicleExclusion.DEPOT_WITHOUT_LOCATION
+        if unconnected[vehicle]:
+            return VehicleExclusion.NO_ROAD_BETWEEN_DEPOTS
+        return None
+
     return Vehicles(
-        weight_capacity_kg=np.array([v.weight_capacity_kg for v in vehicles], dtype=np.float64),
-        volume_capacity_l=np.array(
+        weight_capacity_kg=_floats(
+            "vehicles.weight_capacity_kg", [v.weight_capacity_kg for v in vehicles]
+        ),
+        volume_capacity_l=_floats(
+            "vehicles.volume_capacity_l",
             [math.inf if v.volume_capacity_l is None else v.volume_capacity_l for v in vehicles],
-            dtype=np.float64,
         ),
-        start_location=np.array([_location(depot) for depot in starts], dtype=np.int64),
-        end_location=np.array([_location(depot) for depot in ends], dtype=np.int64),
-        start_depot_opens=np.array(
+        start_location=start_location,
+        end_location=end_location,
+        start_depot_opens=_floats(
+            "vehicles.start_depot_opens",
             [-math.inf if depot.opens is None else depot.opens for depot in starts],
-            dtype=np.float64,
         ),
-        end_depot_closes=np.array(
+        end_depot_closes=_floats(
+            "vehicles.end_depot_closes",
             [math.inf if depot.closes is None else depot.closes for depot in ends],
-            dtype=np.float64,
         ),
-        driver=np.array([vehicle.driver for vehicle in vehicles], dtype=np.int64),
-        exclusion=tuple(
-            VehicleExclusion.DEPOT_WITHOUT_LOCATION
-            if start.location is None or end.location is None
-            else None
-            for start, end in zip(starts, ends, strict=True)
-        ),
+        driver=_ints("vehicles.driver", [vehicle.driver for vehicle in vehicles]),
+        exclusion=tuple(exclusion(vehicle) for vehicle in range(len(vehicles))),
     )
+
+
+def _require_depot(index: int, depot: DepotSpec, size: int) -> None:
+    if depot.location is not None and not 0 <= depot.location < size:
+        raise InvalidProblemError(
+            f"depots[{index}].location {depot.location} is not one of {size} locations"
+        )
+    opens = -math.inf if depot.opens is None else depot.opens
+    closes = math.inf if depot.closes is None else depot.closes
+    if math.isnan(opens) or opens == math.inf:
+        raise InvalidProblemError(f"depots[{index}].opens must be finite or -inf: {opens}")
+    if math.isnan(closes) or closes == -math.inf:
+        raise InvalidProblemError(f"depots[{index}].closes must be finite or +inf: {closes}")
+    if opens > closes:
+        raise InvalidProblemError(f"depots[{index}].opens {opens} is after its closes {closes}")
 
 
 def _location(depot: DepotSpec) -> int:
@@ -243,38 +281,49 @@ def _orders(
     orders: Sequence[OrderSpec],
     vehicles: Vehicles,
     durations: npt.NDArray[np.float64],
-    distances: npt.NDArray[np.float64],
+    size: int,
 ) -> Orders:
-    size = durations.shape[0]
-    for order in orders:
+    for index, order in enumerate(orders):
         if order.location is not None and not 0 <= order.location < size:
-            raise InvalidProblemError(f"an order names location {order.location} of {size}")
-    usable = vehicles.usable()
-    starts = sorted({int(vehicles.start_location[vehicle]) for vehicle in usable})
-    ends = sorted({int(vehicles.end_location[vehicle]) for vehicle in usable})
+            raise InvalidProblemError(
+                f"orders[{index}].location {order.location} is not one of {size} locations"
+            )
+    location = _ints("orders.location", [_order_location(order) for order in orders])
+    usable = np.array(vehicles.usable(), dtype=np.int64)
+    unreachable = unreachable_locations(
+        location, vehicles.start_location[usable], vehicles.end_location[usable], durations
+    )
 
-    def exclusion(order: OrderSpec) -> OrderExclusion | None:
-        if order.location is None:
+    def exclusion(order: int) -> OrderExclusion | None:
+        if location[order] == NO_INDEX:
             return OrderExclusion.MISSING_LOCATION
-        legs = [*((start, order.location) for start in starts)]
-        legs += [(order.location, end) for end in ends]
-        if any(np.isnan(durations[leg]) or np.isnan(distances[leg]) for leg in legs):
+        if unreachable[order]:
             return OrderExclusion.UNREACHABLE_LOCATION
         return None
 
     return Orders(
-        location=np.array([_order_location(order) for order in orders], dtype=np.int64),
-        weight_kg=np.array([order.weight_kg for order in orders], dtype=np.float64),
-        volume_l=np.array([order.volume_l for order in orders], dtype=np.float64),
-        service_s=np.array([order.service_s for order in orders], dtype=np.float64),
-        window_start=np.array([order.window_start for order in orders], dtype=np.float64),
-        window_end=np.array([order.window_end for order in orders], dtype=np.float64),
-        priority=np.array([order.priority for order in orders], dtype=np.int64),
-        leave_at_door=np.array([order.leave_at_door for order in orders], dtype=np.bool_),
-        pinned_vehicle=np.array([_pinned_vehicle(order) for order in orders], dtype=np.int64),
-        pinned_driver=np.array([_pinned_driver(order) for order in orders], dtype=np.int64),
-        exclusion=tuple(exclusion(order) for order in orders),
+        location=location,
+        weight_kg=_floats("orders.weight_kg", [order.weight_kg for order in orders]),
+        volume_l=_floats("orders.volume_l", [order.volume_l for order in orders]),
+        service_s=_floats("orders.service_s", [order.service_s for order in orders]),
+        window_start=_floats("orders.window_start", [order.window_start for order in orders]),
+        window_end=_floats("orders.window_end", [order.window_end for order in orders]),
+        priority=_ints("orders.priority", [order.priority for order in orders]),
+        leave_at_door=converted(
+            "orders.leave_at_door", [order.leave_at_door for order in orders], np.bool_
+        ),
+        pinned_vehicle=_ints("orders.pinned_vehicle", [_pinned_vehicle(o) for o in orders]),
+        pinned_driver=_ints("orders.pinned_driver", [_pinned_driver(o) for o in orders]),
+        exclusion=tuple(exclusion(order) for order in range(len(orders))),
     )
+
+
+def _floats(name: str, values: Sequence[float]) -> npt.NDArray[np.float64]:
+    return converted(name, values, np.float64)
+
+
+def _ints(name: str, values: Sequence[int]) -> npt.NDArray[np.int64]:
+    return converted(name, values, np.int64)
 
 
 def _order_location(order: OrderSpec) -> int:

@@ -7,11 +7,14 @@ the indices against the problem and every rule. A solution carries no drop reaso
 """
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 class InvalidSolutionError(ValueError):
-    """A solution of the wrong shape: a bad type, a negative index or an index past the problem."""
+    """A solution of the wrong shape: a bad type, a negative index or an index past the problem.
+
+    The message names the field and the offending index or value, never a whole route.
+    """
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,12 +23,12 @@ class Route:
 
     Attributes:
         vehicle: The vehicle's index in the problem (BR-39).
-        driver: The driver's index in the problem (BR-39).
+        driver: The driver's index in the problem (BR-20, BR-39).
         start: The location the route starts at (BR-40).
         end: The location the route ends at (BR-40).
         stops: The orders served, in order, by their index in the problem.
         planned_starts: The service starts the solver claims, one per stop, in seconds since the
-            date's local midnight, or None when it claims none (BR-04).
+            date's local midnight, or None when it claims none (BR-03, BR-04).
 
     Raises:
         InvalidSolutionError: If a field has the wrong type, an index is negative, or the claimed
@@ -43,24 +46,25 @@ class Route:
         """Refuses a wrong type, a negative index or a claim that does not match the stops."""
         for name in ("vehicle", "driver", "start", "end"):
             _require_index(name, getattr(self, name))
-        if not isinstance(self.stops, tuple):
-            raise InvalidSolutionError(f"stops must be a tuple: {self.stops!r}")
-        for stop in self.stops:
-            _require_index("stop", stop)
-        if self.planned_starts is not None:
-            if not isinstance(self.planned_starts, tuple):
+        _require_tuple("stops", self.stops)
+        for position, stop in enumerate(self.stops):
+            _require_index(f"stops[{position}]", stop)
+        if self.planned_starts is None:
+            return
+        _require_tuple("planned_starts", self.planned_starts)
+        if len(self.planned_starts) != len(self.stops):
+            raise InvalidSolutionError(
+                f"{len(self.planned_starts)} planned starts for {len(self.stops)} stops"
+            )
+        for position, claimed in enumerate(self.planned_starts):
+            if (
+                isinstance(claimed, bool)
+                or not isinstance(claimed, int | float)
+                or not math.isfinite(claimed)
+            ):
                 raise InvalidSolutionError(
-                    f"planned starts must be a tuple: {self.planned_starts!r}"
+                    f"planned_starts[{position}] must be a finite number: {claimed!r}"
                 )
-            if len(self.planned_starts) != len(self.stops):
-                raise InvalidSolutionError(
-                    f"{len(self.planned_starts)} planned starts for {len(self.stops)} stops"
-                )
-            for claimed in self.planned_starts:
-                if not (isinstance(claimed, int | float) and math.isfinite(claimed)):
-                    raise InvalidSolutionError(
-                        f"a planned start must be a finite number: {claimed!r}"
-                    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,24 +82,36 @@ class Solution:
 
     routes: tuple[Route, ...]
     dropped: frozenset[int]
+    _served: frozenset[int] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
-        """Refuses a wrong type or a negative order index."""
-        if not isinstance(self.routes, tuple) or not all(
-            isinstance(route, Route) for route in self.routes
-        ):
-            raise InvalidSolutionError(f"routes must be a tuple of Route: {self.routes!r}")
+        """Refuses a wrong type or a negative order index, then notes the orders served."""
+        _require_tuple("routes", self.routes)
+        for index, route in enumerate(self.routes):
+            if not isinstance(route, Route):
+                raise InvalidSolutionError(
+                    f"routes[{index}] is a {type(route).__name__}, not Route"
+                )
         if not isinstance(self.dropped, frozenset):
-            raise InvalidSolutionError(f"dropped must be a frozenset: {self.dropped!r}")
+            raise InvalidSolutionError(
+                f"dropped must be a frozenset, not {type(self.dropped).__name__}"
+            )
         for order in self.dropped:
             _require_index("dropped order", order)
+        served = frozenset(order for route in self.routes for order in route.stops)
+        object.__setattr__(self, "_served", served)
 
     def served(self) -> frozenset[int]:
         """The orders that appear on at least one route."""
-        return frozenset(order for route in self.routes for order in route.stops)
+        return self._served
 
 
 def _require_index(name: str, value: object) -> None:
     # bool is an int subclass, but True as an index is a bug, not an index.
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise InvalidSolutionError(f"{name} must be a non-negative int: {value!r}")
+
+
+def _require_tuple(name: str, value: object) -> None:
+    if not isinstance(value, tuple):
+        raise InvalidSolutionError(f"{name} must be a tuple, not {type(value).__name__}")

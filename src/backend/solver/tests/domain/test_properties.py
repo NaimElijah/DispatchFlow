@@ -1,10 +1,13 @@
 """Properties over generated daily problems (NFR-82), from a recorded seed."""
 
-from hypothesis import assume, given, seed
+from dataclasses import replace
+
+from hypothesis import assume, event, given, seed
 from hypothesis import strategies as st
 
-from dispatchflow_solver.domain.drops import DropReason, TimeWindow
+from dispatchflow_solver.domain.drops import Displaced, DropReason, TimeWindow
 from dispatchflow_solver.domain.problem import Pin, Problem
+from dispatchflow_solver.domain.rules import RuleId
 from dispatchflow_solver.domain.solution import Route, Solution
 from dispatchflow_solver.domain.travel_time import TravelBucket, TravelTimeModel
 from tests.domain.builders import DAY, DEPOT_LOCATION, DayBuilder
@@ -12,6 +15,10 @@ from tests.domain.properties import PROPERTY_SEED, PROPERTY_SETTINGS
 
 points = st.floats(min_value=1, max_value=1_000, allow_nan=False)
 priorities = st.integers(min_value=1, max_value=5)
+
+
+def one_in_ten(draw: st.DrawFn) -> bool:
+    return draw(st.integers(min_value=0, max_value=9)) == 0
 
 
 @st.composite
@@ -74,10 +81,14 @@ def test_given_any_one_order_served_alone_when_costed_then_k_exceeds_the_serving
 @st.composite
 def any_day_and_solution(draw: st.DrawFn) -> tuple[Problem, Solution]:
     day = DayBuilder(travel=draw(travel_models()), breaks_reserved=draw(st.booleans()))
+    if draw(st.integers(min_value=0, max_value=9)) < 3:
+        opens = draw(st.floats(min_value=0, max_value=20_000, allow_nan=False))
+        closes = opens + draw(st.floats(min_value=0, max_value=60_000, allow_nan=False))
+        day.depot_hours(opens=opens, closes=closes)
     vehicle_count = draw(st.integers(min_value=0, max_value=3))
     for _ in range(vehicle_count):
         shift_start = draw(st.floats(min_value=0, max_value=40_000, allow_nan=False))
-        shift_length = draw(st.floats(min_value=0, max_value=40_000, allow_nan=False))
+        shift_length = draw(st.floats(min_value=1, max_value=40_000, allow_nan=False))
         day.vehicle(
             weight=draw(st.floats(min_value=1, max_value=50, allow_nan=False)),
             volume=draw(st.floats(min_value=1, max_value=50, allow_nan=False)),
@@ -90,8 +101,8 @@ def any_day_and_solution(draw: st.DrawFn) -> tuple[Problem, Solution]:
         if vehicle_count and draw(st.booleans()):
             target = draw(st.integers(min_value=0, max_value=vehicle_count - 1))
             pin = Pin(vehicle=target) if draw(st.booleans()) else Pin(driver=target)
-        day.order(
-            draw(st.one_of(st.none(), points)),
+        order = day.order(
+            None if one_in_ten(draw) else draw(points),
             weight=draw(st.floats(min_value=0, max_value=60, allow_nan=False)),
             volume=draw(st.floats(min_value=0, max_value=60, allow_nan=False)),
             service=draw(st.floats(min_value=0, max_value=600, allow_nan=False)),
@@ -99,29 +110,47 @@ def any_day_and_solution(draw: st.DrawFn) -> tuple[Problem, Solution]:
             priority=draw(priorities),
             door=draw(st.booleans()),
             pin=pin,
-            reachable=draw(st.booleans()),
+            reachable=not one_in_ten(draw),
         )
-    routable = [order for order, spec in enumerate(day.orders) if spec.location not in day.cut_off]
+        if one_in_ten(draw):
+            day.removed_by_dispatcher.add(order)
+    built = day.build()
+    routable = [order for order in range(len(built.orders)) if built.orders.is_routable(order)]
     served = draw(st.lists(st.sampled_from(routable), unique=True)) if routable else []
-    routes: list[Route] = []
-    if vehicle_count:
-        for vehicle in range(vehicle_count):
-            stops = tuple(order for order in served if order % vehicle_count == vehicle)
-            routes.append(
-                Route(
-                    vehicle=vehicle,
-                    driver=vehicle,
-                    start=DEPOT_LOCATION,
-                    end=DEPOT_LOCATION,
-                    stops=stops,
-                )
-            )
-    day.removed_by_dispatcher = set(
-        draw(st.lists(st.sampled_from(range(len(day.orders))), unique=True))
+    routes = tuple(
+        Route(
+            vehicle=vehicle,
+            driver=vehicle,
+            start=DEPOT_LOCATION,
+            end=DEPOT_LOCATION,
+            stops=tuple(order for order in served if order % vehicle_count == vehicle),
+        )
+        for vehicle in range(vehicle_count)
     )
     on_routes = {order for route in routes for order in route.stops}
-    dropped = frozenset(order for order in range(len(day.orders)) if order not in on_routes)
-    return day.build(), Solution(routes=tuple(routes), dropped=dropped)
+    dropped = frozenset(order for order in range(len(built.orders)) if order not in on_routes)
+    return built, Solution(routes=routes, dropped=dropped)
+
+
+def serves_alone(problem: Problem, order: int) -> bool:
+    """The oracle: some usable vehicle that honours the order's pin serves it alone, validly."""
+    pin = problem.orders.pin(order)
+    vehicles = problem.vehicles
+    everything_else = frozenset(range(len(problem.orders))) - {order}
+    for vehicle in vehicles.usable():
+        driver = int(vehicles.driver[vehicle])
+        if pin is not None and pin not in (Pin(vehicle=vehicle), Pin(driver=driver)):
+            continue
+        route = Route(
+            vehicle=vehicle,
+            driver=driver,
+            start=int(vehicles.start_location[vehicle]),
+            end=int(vehicles.end_location[vehicle]),
+            stops=(order,),
+        )
+        if problem.validate(Solution(routes=(route,), dropped=everything_else)).accepted:
+            return True
+    return False
 
 
 @PROPERTY_SETTINGS
@@ -134,10 +163,13 @@ def test_given_any_solution_when_drops_explained_then_every_dropped_order_has_a_
 
     for order in problem.unserved(solution):
         reason = problem.explain_drop(order, solution)
+        event(type(reason).__name__)
 
         assert isinstance(reason, DropReason.__value__)
         if problem.orders.leave_at_door[order]:
             assert not isinstance(reason, TimeWindow)
+        judged = problem.orders.is_routable(order) and order not in problem.removed_by_dispatcher
+        assert isinstance(reason, Displaced) == (judged and serves_alone(problem, order))
 
 
 @st.composite
@@ -182,3 +214,89 @@ def test_given_a_trivially_feasible_solution_when_validated_then_no_violation(
     problem, solution = case
 
     assert problem.validate(solution).violations == ()
+
+
+@st.composite
+def a_day_with_loaded_routes(draw: st.DrawFn) -> tuple[DayBuilder, Solution]:
+    # Hard windows open at 0 and every load is at least 1 kg and 1 l, so every limit can be set
+    # to what the route reaches and then lowered by 1 without becoming invalid.
+    day = DayBuilder(travel=draw(travel_models()))
+    vehicle_count = draw(st.integers(min_value=1, max_value=3))
+    for _ in range(vehicle_count):
+        day.vehicle(weight=1_000, volume=1_000, shift=(0, DAY))
+    for _ in range(draw(st.integers(min_value=1, max_value=6))):
+        day.order(
+            draw(points),
+            weight=draw(st.floats(min_value=1, max_value=10, allow_nan=False)),
+            volume=draw(st.floats(min_value=1, max_value=10, allow_nan=False)),
+            service=draw(st.floats(min_value=0, max_value=600, allow_nan=False)),
+            door=draw(st.booleans()),
+        )
+    stops: list[list[int]] = [[] for _ in range(vehicle_count)]
+    for order in range(len(day.orders)):
+        stops[draw(st.integers(min_value=0, max_value=vehicle_count - 1))].append(order)
+    routes = tuple(
+        Route(
+            vehicle=vehicle,
+            driver=vehicle,
+            start=DEPOT_LOCATION,
+            end=DEPOT_LOCATION,
+            stops=tuple(stops[vehicle]),
+        )
+        for vehicle in range(vehicle_count)
+    )
+    return day, Solution(routes=routes, dropped=frozenset())
+
+
+def set_every_limit_to_the_route(day: DayBuilder, solution: Solution) -> None:
+    timings = day.build().validate(solution).timings
+    for route, timing in zip(solution.routes, timings, strict=True):
+        if not route.stops:
+            continue
+        vehicle = route.vehicle
+        day.drivers[vehicle] = replace(day.drivers[vehicle], shift_end=timing.returns_at)
+        spec = day.vehicles[vehicle]
+        day.vehicles[vehicle] = replace(
+            spec,
+            weight_capacity_kg=sum(day.orders[order].weight_kg for order in route.stops),
+            volume_capacity_l=sum(day.orders[order].volume_l for order in route.stops),
+        )
+        for position, order in enumerate(route.stops):
+            if not day.orders[order].leave_at_door:
+                end = float(timing.start[position])
+                day.orders[order] = replace(day.orders[order], window_end=end)
+
+
+@PROPERTY_SETTINGS
+@seed(PROPERTY_SEED)
+@given(a_day_with_loaded_routes(), st.data())
+def test_given_limits_at_what_routes_reach_when_validated_then_accepted_and_one_less_breaks(
+    case: tuple[DayBuilder, Solution], data: st.DataObject
+) -> None:
+    day, solution = case
+    set_every_limit_to_the_route(day, solution)
+    assert day.build().validate(solution).violations == ()
+
+    route = data.draw(st.sampled_from([route for route in solution.routes if route.stops]))
+    vehicle = route.vehicle
+    hard = [order for order in route.stops if not day.orders[order].leave_at_door]
+
+    shift = replace(day, drivers=list(day.drivers))
+    shift.drivers[vehicle] = replace(
+        shift.drivers[vehicle], shift_end=shift.drivers[vehicle].shift_end - 1
+    )
+    assert shift.build().validate(solution).rules() == {RuleId.BR_06}
+
+    load = replace(day, vehicles=list(day.vehicles))
+    load.vehicles[vehicle] = replace(
+        load.vehicles[vehicle], weight_capacity_kg=load.vehicles[vehicle].weight_capacity_kg - 1
+    )
+    assert load.build().validate(solution).rules() == {RuleId.BR_05}
+
+    if hard:
+        order = data.draw(st.sampled_from(hard))
+        window = replace(day, orders=list(day.orders))
+        window.orders[order] = replace(
+            window.orders[order], window_end=window.orders[order].window_end - 1
+        )
+        assert window.build().validate(solution).rules() == {RuleId.BR_03}

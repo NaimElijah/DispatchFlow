@@ -30,6 +30,11 @@ dev = [
     "vrplib>=2.2.0",
 ]
 
+[tool.uv]
+# ADR-046: a release is adopted only once it is 3 days old. grimp 3.20 (import-linter's graph
+# library) was published on 2026-11-13, so the lock holds 3.19 until 3.20 has aged.
+exclude-newer-package = { grimp = "2026-11-13T00:00:00Z" }
+
 [tool.ruff]
 line-length = 100
 
@@ -69,10 +74,30 @@ root_packages = ["dispatchflow_solver"]
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
-name = "The domain imports no framework, transport or solver package"
+name = "The domain imports no framework, transport, solver, settings or telemetry package"
 type = "forbidden"
 source_modules = ["dispatchflow_solver.domain"]
-forbidden_modules = ["fastapi", "pydantic", "starlette", "uvicorn", "ortools", "pyvrp", "numba"]
+forbidden_modules = [
+    "alns",
+    "fastapi",
+    "numba",
+    "opentelemetry",
+    "ortools",
+    "pydantic",
+    "pydantic_settings",
+    "pyvrp",
+    "starlette",
+    "structlog",
+    "uvicorn",
+]
+
+# FR-286: PyVRP is the study's reference solver and never enters the product, so no part of the
+# service imports it. tests/test_dependency_boundary.py keeps it out of the environment and lock.
+[[tool.importlinter.contracts]]
+name = "The product imports no PyVRP"
+type = "forbidden"
+source_modules = ["dispatchflow_solver"]
+forbidden_modules = ["pyvrp"]
 
 [[tool.importlinter.contracts]]
 name = "Adapters and solvers sit on the application, which sits on the domain"

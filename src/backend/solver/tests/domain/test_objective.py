@@ -1,5 +1,7 @@
 import math
+from dataclasses import replace
 
+import numpy as np
 import pytest
 
 from dispatchflow_solver.domain.problem import Problem
@@ -116,15 +118,35 @@ def test_given_a_cost_when_totalled_then_the_sum_of_its_terms() -> None:
     assert cost.total == 200 + problem.penalties.drop_unit + 2_000 + 1_000
 
 
-def test_given_an_untimeable_route_when_costed_then_travel_is_nan_not_a_partial_sum() -> None:
-    day = DayBuilder()
+@pytest.mark.parametrize("excluded", ["no location", "unreachable"])
+def test_given_an_excluded_stop_off_peak_at_1_2_when_costed_then_its_legs_are_skipped(
+    excluded: str,
+) -> None:
+    # The validator skips the excluded stop and goes on from order 0, so the travel is 0 to 100
+    # to 200 to 0, each leg at ceil(base x 1.2): 120 + 120 + 240.
+    day = DayBuilder(travel=TravelTimeModel(buckets=(), off_peak_factor=1.2, buffer=0.0))
     day.vehicle()
     day.order(100)
-    hidden = day.order(None)
+    stray = day.order(None) if excluded == "no location" else day.order(5_000, reachable=False)
+    last = day.order(200)
     problem = day.build()
-    solution = Solution(routes=(route(0, 0, hidden),), dropped=frozenset())
+    solution = Solution(routes=(route(0, 0, stray, last),), dropped=frozenset())
 
-    assert math.isnan(costed(problem, solution)[0])
+    travel = costed(problem, solution)[0]
+
+    assert travel == 480
+    assert not math.isnan(travel)
+
+
+def test_given_drop_penalties_in_the_problem_when_costed_then_those_are_charged() -> None:
+    # The objective reads each order's penalty as the factory wrote it, not its priority.
+    day = DayBuilder()
+    day.vehicle()
+    day.order(100, priority=1)
+    day.order(200, priority=1)
+    problem = replace(day.build(), drop_penalties=np.array([7.0, 11.0]))
+
+    assert costed(problem, Solution(routes=(), dropped=frozenset({0, 1})))[1] == 18
 
 
 def test_given_timings_of_another_solution_when_costed_then_refused() -> None:
