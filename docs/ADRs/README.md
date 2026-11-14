@@ -60,7 +60,8 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-083](ADR-083-admins-and-dispatchers-get-alerts-by-stream-and-push-in-the-phone-app.md) | Admins and Dispatchers get alerts in the phone app by event stream while it is open and by push in the background | Accepted |
 | [ADR-084](ADR-084-maplibre-in-both-apps-with-self-hosted-protomaps-tiles.md) | Both apps draw maps with MapLibre, from self-hosted Protomaps tiles | Accepted |
 | [ADR-085](ADR-085-govmap-geocodes-addresses-with-nominatim-as-the-fallback.md) | GovMap geocodes addresses, and self-hosted Nominatim replaces it only if GovMap's terms fail | Accepted |
-| [ADR-086](ADR-086-csv-imports-upload-then-confirm-within-an-hour.md) | An order import is two calls, upload then confirm within an hour, and writes every row or none | Accepted |
+| [ADR-086](ADR-086-csv-imports-upload-then-confirm-within-an-hour.md) | An order import is two calls, upload then confirm within an hour, and writes every row or none | Accepted; extended by ADR-102 |
+| [ADR-102](ADR-102-order-references-are-checked-on-every-move-to-a-date.md) | Order references are checked on every move to a date, and the abbreviation table starts with three | Accepted |
 | [ADR-087](ADR-087-driver-reports-sync-through-an-idempotent-outbox.md) | Driver reports wait in an outbox on the phone and reach the server with a user-scoped idempotency key | Accepted |
 | [ADR-088](ADR-088-israel-local-time-for-every-date-and-schedule.md) | Every date, time window, shift and schedule is Israel local time, held as elapsed seconds in a solve | Accepted |
 | [ADR-089](ADR-089-interface-languages.md) | Both apps are available in Hebrew, right to left, and in English only | Accepted |
@@ -112,7 +113,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-069](ADR-069-sign-in-and-transport-security.md) | Sign-in uses signed access tokens, rotating refresh tokens and Argon2id, over HTTPS through Caddy | Accepted |
 | [ADR-070](ADR-070-security-and-accessibility-standards.md) | We self-check against OWASP ASVS 5.0 Level 1 and build to WCAG 2.2 AA, with no separate target for IS 5568 | Accepted |
 | [ADR-071](ADR-071-api-rate-limits-in-process-with-bucket4j.md) | API rate limits run in the core's process, with Bucket4j | Accepted |
-| [ADR-075](ADR-075-retention-deletes-records-and-anonymizes-people-in-place.md) | Retention deletes positions, proofs and messages, and anonymizes customers and drivers in place | Accepted |
+| [ADR-075](ADR-075-retention-deletes-records-and-anonymizes-people-in-place.md) | Retention deletes positions, proofs and messages, and anonymizes customers and drivers in place | Accepted; amended by ADR-102 |
 | [ADR-076](ADR-076-admin-and-dispatcher-data-stays-in-memory-on-devices.md) | Admin and Dispatcher data stays in memory on devices, and sign-out wipes it | Accepted |
 | [ADR-077](ADR-077-push-builds-and-app-stores-are-accepted-exceptions-to-hosting-in-israel.md) | Push, app builds, the app stores and map-app links are accepted exceptions to hosting in Israel, on conditions | Accepted |
 
