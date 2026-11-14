@@ -1,6 +1,6 @@
 # ADR-008: One repository, with the code under `src/backend`, `src/frontend` and `src/research`
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-037
 - **Date:** 2026-10-30
 
 ## Context

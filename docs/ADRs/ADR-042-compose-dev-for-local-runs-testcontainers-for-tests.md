@@ -1,6 +1,6 @@
 # ADR-042: Local runs start their services from `compose.dev.yaml`; tests keep Testcontainers
 
-- **Status:** Proposed; would supersede ADR-014
+- **Status:** Accepted
 - **Date:** 2026-11-13
 
 ## Context
@@ -50,8 +50,8 @@ We start local services from `deploy/compose.dev.yaml`, and we keep Testcontaine
   ([PL §5], the Windows note).
 - **A long-lived local database has a reset.** The plan lists `just db-reset` and `just demo`,
   which resets the database and seeds the demo day ([PL §5]).
-- **Not decided here:** whether `TestDispatchFlowApplication` and `just core-run` stay once
-  `just dev` exists ([PL §5]). The sources do not say.
+- **Decided in the M0 restructure pull request** (the owner, 2026-11-14): whether
+  `TestDispatchFlowApplication` and `just core-run` stay once `just dev` exists ([PL §5]).
 
 ## Consequences
 
@@ -102,7 +102,7 @@ We start local services from `deploy/compose.dev.yaml`, and we keep Testcontaine
 [NFR-16]: ../requirements/requirements.md#nfr-16
 [NFR-175]: ../requirements/requirements.md#nfr-175
 [NFR-208]: ../requirements/requirements.md#nfr-208
-[PL §5]: ../init_impl_ref/technical_implementation_plan.md#5-repository-and-local-environment
+[PL §5]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#5-repository-and-local-environment
 [TS §1]: ../architecture/tech_stack.md#1-what-decides-close-calls
 [TS §4]: ../architecture/tech_stack.md#4-repository-layout
 [TS §5]: ../architecture/tech_stack.md#5-development-environment-and-workflow

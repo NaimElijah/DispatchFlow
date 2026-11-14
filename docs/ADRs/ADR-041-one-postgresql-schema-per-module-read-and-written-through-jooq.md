@@ -1,6 +1,6 @@
 # ADR-041: Each module owns a PostgreSQL schema, read and written through jOOQ by a role that owns no table
 
-- **Status:** Proposed; would supersede ADR-007
+- **Status:** Accepted
 - **Date:** 2026-11-13
 
 ## Context
@@ -73,21 +73,33 @@ schema.
 - **Two database roles** ([TS §6.3][TS-63]):
   - Flyway runs as `dispatchflow_owner`, which owns every table.
   - The core connects as `app`, which has only the grants it needs: `INSERT` and `SELECT` on
-    `audit_record`, and nothing else on it. The application never owns a table.
+    `audit_record`, `EXECUTE` on the audit purge function (below), and nothing else on audit. The
+    application never owns a table.
 - **Code generation runs the migrations** against a Testcontainers PostgreSQL, through the
   `testcontainers-jooq-codegen-maven-plugin`, so the generated code matches the real schema.
   Docker must be running for `./mvnw verify` ([TS §6.3][TS-63]). It already had to be, for the
-  integration tests ([ADR-013], [ADR-014]; [ADR-042], Proposed, would supersede ADR-014 and keeps
+  integration tests ([ADR-013], [ADR-014]; [ADR-042], which supersedes ADR-014 and keeps
   Testcontainers for tests).
 - **Not repeated here:** the conventions that follow, such as the version check on a root table,
   loading an aggregate whole with `MULTISET`, and the column types. [TS §6.3][TS-63] holds them.
-- **Not decided here: how the migrations get the owner role.** [PL §23][PL-23] has the deploy step
-  "run Flyway through the core's startup". If the core process runs the migrations, it holds the
-  `dispatchflow_owner` credentials at startup, and that weakens the reason for two roles: an owner
-  can re-grant itself, so the core could too. The alternative is a one-shot migration step, in its
-  own container or command, that alone gets the owner credentials, while the core sees only `app`.
-  The team picks one. Either way, an integration test connected as `app` asserts that `UPDATE` and
-  `DELETE` on `audit_record` fail (SQLSTATE 42501).
+- **A one-shot migration step gets the owner role.** A `migrate` container or command runs
+  Flyway with the `dispatchflow_owner` credentials before the core starts, and Compose starts the
+  core only after it exits successfully. The core process sees only `app`, so it can never re-grant
+  itself. [PL §23][PL-23] had Flyway in the core's startup instead; the owner chose the separate
+  step on 2026-11-14. An integration test connected as `app` asserts that `UPDATE` and `DELETE` on
+  `audit_record` fail (SQLSTATE 42501).
+- **The owner credential stays deploy-only.** It is in `migrate`'s own environment only, and
+  `migrate` uses it once per deploy. No other container or job holds it.
+- **A database function owned by `dispatchflow_owner` purges audit records.** It deletes only audit
+  records older than 1 year and computes the cutoff itself, so a caller cannot pass a date. It runs
+  with its owner's rights (`SECURITY DEFINER`, with a fixed `search_path`). Its `EXECUTE` is
+  revoked from `PUBLIC` and granted only to `app` ([ADR-075]). The core's nightly retention job
+  calls it at 03:00 (`Asia/Jerusalem`), and its Healthchecks.io ping, missed when a run fails or
+  doesn't happen, alerts the team ([ADR-066]). There is no separate `retention` step or container
+  (the owner, 2026-11-14).
+  The same integration test, connected as `app`, asserts that the function removes only records
+  older than 1 year. Another test, connected as a role other than `app`, asserts that it cannot run
+  the function.
 
 ## Consequences
 
@@ -98,22 +110,25 @@ schema.
 - **Easy:** Reporting's queries use the same tool, and the owning modules stay free to change their
   tables.
 - **Easy:** the application cannot update or delete an audit record, because its role has no such
-  grant. The database enforces it, not the code ([NFR-23]).
+  grant. Its only way to remove one is the purge function, which deletes nothing younger than 1
+  year. The database enforces it, not the code ([NFR-23]).
 - **Easy:** a module can move to its own database later, as [DL §2.3][DL-23] describes.
 - **Hard:** every aggregate needs a hand-written repository and mappers. A new column touches the
   migration, the regenerated code, the mapper and the aggregate. [ADR-001] noted this shape as a
   cost.
 - **Hard:** optimistic locking and the writes of child rows are written by hand ([TS §6.3][TS-63]).
 - **Hard:** a Maven build that runs code generation needs Docker even when tests are skipped. The
-  bootstrap in [PL §5][PL-5] runs `./mvnw -q verify -DskipTests`, and the core `Dockerfile` builds
-  its image with `./mvnw package -DskipTests`, without Docker. Whether the generated code is committed, or the
-  image is built from a jar built elsewhere, is not stated in the sources.
+  bootstrap in [PL §5][PL-5] runs `./mvnw -q verify -DskipTests`. The generated code stays out of the
+  repository, and CI builds the core jar, which the image only copies in ([ADR-047], decided by the
+  owner on 2026-11-14). Today's core `Dockerfile` builds with `./mvnw package -DskipTests`, without
+  Docker, and changes with it.
 - **Hard:** a role with grants only needs every migration that adds a table to grant `app` what it
-  needs. The sources do not say whether the integration tests connect as `app`. If they connect as
-  the owner, a missing grant shows up only after deployment.
-- **Hard:** how Flyway gets `dispatchflow_owner` while the core runs as `app` is open, between
-  Flyway in the core's startup ([PL §23][PL-23]) and a separate one-shot migration step. See
-  "Not decided here" above.
+  needs. The core sees only `app` (see the one-shot step above), so a missing grant fails wherever the
+  core runs against the migrated schema, tests included, and does not wait for a deployment.
+- **Hard:** a deploy and `compose.dev.yaml` both gain the `migrate` step, which must finish
+  before the core starts.
+- **Hard:** the purge function is code that runs with the owner's rights. A change to it is a
+  migration, reviewed as one, and its cutoff stays inside the function.
 - **Cost:** `spring-boot-starter-data-jpa` and its test starter leave `src/backend/core/pom.xml`,
   with the `spring.jpa.*` settings in `application.properties`. These files still describe JPA as
   today's setup, and change in the same pull request (each checked with a search):
@@ -175,6 +190,9 @@ schema.
 [ADR-014]: ADR-014-real-dependencies-in-containers-for-tests-and-local-runs.md
 [ADR-040]: ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md
 [ADR-042]: ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md
+[ADR-047]: ADR-047-images-pinned-by-digest-and-core-on-temurin-25-jre.md
+[ADR-066]: ADR-066-every-asynchronous-step-has-a-watcher.md
+[ADR-075]: ADR-075-retention-deletes-records-and-anonymizes-people-in-place.md
 [DL-1]: ../architecture/domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts
 [DL-16]: ../architecture/domain_layer/domain_layer_design.md#16-why-it-looks-like-this
 [DL-21]: ../architecture/domain_layer/domain_layer_design.md#21-module-graph
@@ -184,10 +202,10 @@ schema.
 [BR-38]: ../requirements/requirements.md#plan-lifecycle-and-publishing
 [NFR-23]: ../requirements/requirements.md#nfr-23
 [NFR-77]: ../requirements/requirements.md#nfr-77
-[PL-5]: ../init_impl_ref/technical_implementation_plan.md#5-repository-and-local-environment
-[PL-12]: ../init_impl_ref/technical_implementation_plan.md#12-database-schema
-[PL-21]: ../init_impl_ref/technical_implementation_plan.md#21-reporting-and-baseline
-[PL-23]: ../init_impl_ref/technical_implementation_plan.md#23-deployment-and-operations
+[PL-5]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#5-repository-and-local-environment
+[PL-12]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#12-database-schema
+[PL-21]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#21-reporting-and-baseline
+[PL-23]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#23-deployment-and-operations
 [Q-18]: ../requirements/requirements.md#open-questions
 [TS-2-2]: ../architecture/tech_stack.md#22-enforcement
 [TS-6]: ../architecture/tech_stack.md#6-core-service-java

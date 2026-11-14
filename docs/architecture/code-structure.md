@@ -3,12 +3,14 @@
 Where each kind of code and test lives, and which way dependencies point. It describes the
 repository as it is today. What the system must do is in
 [requirements.md](../requirements/requirements.md); why the repository is laid out this way is in
-[ADR-008](../ADRs/ADR-008-monorepo-layout-under-src.md), and why it is built and checked the way
+[ADR-008](../ADRs/ADR-008-monorepo-layout-under-src.md) (superseded by ADR-037, not in the code
+yet), and why it is built and checked the way
 it is in [ADR-009](../ADRs/ADR-009-just-as-the-single-entry-point.md) to
 [ADR-016](../ADRs/ADR-016-dependency-audit-with-osv-scanner.md).
 
-[ADR-037](../ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md) (Proposed) would move
-this tree to a flat layout. The pull request that moves the code rewrites this file.
+[ADR-037](../ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md) (Accepted) moves
+this tree to a flat layout, in the M0 restructure. The pull request that moves the code rewrites
+this file.
 
 > [!NOTE]
 > Most folders below are still empty. A folder listed as a placeholder holds only a `.gitkeep`
@@ -88,19 +90,22 @@ src/backend/core/
     TestcontainersConfiguration.java     the PostgreSQL container
 ```
 
-No bounded context exists yet. The proposed design is in the
+No bounded context exists yet. The decided design is the domain document, the tech stack and the
+ADRs: see the
 [domain layer design](domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts). How a
-context is laid out inside is proposed in [tech stack §4](tech_stack.md#4-repository-layout),
-[implementation plan §11.1](../init_impl_ref/technical_implementation_plan.md#111-module-skeleton)
-and [domain layer design §13](domain_layer/domain_layer_design.md#13-inside-each-module-hexagon)
-(the hexagon). New contexts are written to tech stack §4 and implementation plan §11.1.
+context is laid out inside is in [tech stack §4](tech_stack.md#4-repository-layout) and
+[domain layer design §13](domain_layer/domain_layer_design.md#13-inside-each-module-hexagon)
+(the hexagon). The plan's sketch, in
+[implementation plan §11.1](../init_impl_ref/technical_implementation_plan.md#111-module-skeleton),
+is a Proposed source until a later pull request retires the plan. New contexts are written to tech
+stack §4.
 [ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)
-(Proposed) would make each context a Spring Modulith module, and
+(Accepted) makes each context a Spring Modulith module, and
 [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md)
-(Proposed) would give each module its own schema, accessed through jOOQ.
+(Accepted) gives each module its own schema, accessed through jOOQ. Neither is in the tree yet.
 [ADR-001](../ADRs/ADR-001-domain-driven-design-with-hexagonal-architecture.md)'s layout (one package
-per context, split into `api`, `domain`, `application` and `adapter`) stays the accepted ADR until
-ADR-040 is accepted, under the [precedence rule](../../.claude/CLAUDE.md#documentation).
+per context, split into `api`, `domain`, `application` and `adapter`) is amended by ADR-040, which
+is accepted.
 
 ### `src/backend/solver`
 
@@ -170,7 +175,7 @@ await the owner's review ([ADR-016](../ADRs/ADR-016-dependency-audit-with-osv-sc
 The two apps share no code. `contracts/client-api/v1` declares no operation yet, so neither has an
 API client.
 [ADR-043](../ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md)
-(Proposed) would generate code from the contracts on both sides.
+(Accepted, not in the tree yet) generates code from the contracts on both sides.
 
 ## Where the tests live
 
@@ -187,7 +192,7 @@ API client.
 Unit and integration tests stay inside their component, where each tool looks for them. Root
 `tests/` holds only tests that span components. No end-to-end tool is configured
 ([`src/frontend/CLAUDE.md`](../../src/frontend/CLAUDE.md)), and [NFR-10] calls for k6 for load
-tests. [Tech stack §17](tech_stack.md#17-testing) proposes Playwright for end-to-end tests and k6
+tests. [Tech stack §17](tech_stack.md#17-testing) decides on Playwright for end-to-end tests and k6
 for load tests.
 
 The rule is that each side of a contract is tested against it ([NFR-162]). No test does that
@@ -216,7 +221,7 @@ enforces; no tool such as ArchUnit or import-linter is configured.
 [Tech stack §2.2](tech_stack.md#22-enforcement) plans ArchUnit, Spring Modulith's `verify()` and
 import-linter for the Alpha
 ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md),
-Proposed).
+Accepted).
 
 [NFR-10]: ../requirements/requirements.md#nfr-10
 [NFR-162]: ../requirements/requirements.md#nfr-162

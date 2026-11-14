@@ -12,7 +12,7 @@ Google OR-Tools, our own Clarke-Wright + ALNS solver and the `nearest_neighbour`
 `solver/` with their adapters ([TS §7.1]); Spring Security arrives in `core/` with the Access
 context ([DL §1]).
 
-Proposed by ADRs that the team has not accepted, and not in the tree yet:
+Accepted, and not in the tree yet, among others:
 
 - [ADR-040]: Spring Modulith in `core`, one module per bounded context.
 - [ADR-041]: jOOQ replaces JPA, with one PostgreSQL schema per module.
@@ -22,7 +22,7 @@ Proposed by ADRs that the team has not accepted, and not in the tree yet:
 - `core` serves `contracts/client-api/v1` to both frontends.
 - `solver` serves `contracts/optimization-api/v1`, and `core` is its only client.
 - A change to either contract goes in the same PR as every side it touches, and each side is
-  tested against the contract. See `contracts/CLAUDE.md`. [ADR-043] (Proposed) generates code from
+  tested against the contract. See `contracts/CLAUDE.md`. [ADR-043] (Accepted) generates code from
   both contracts on both sides.
 - Only `core` owns a database. `solver` keeps no business data of its own.
 

@@ -1,6 +1,6 @@
 # ADR-032: A leave-at-door order's time window is a preference, priced into the objective
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-048
 - **Date:** 2026-11-10
 
 ## Context

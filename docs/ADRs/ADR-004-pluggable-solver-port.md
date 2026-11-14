@@ -1,6 +1,6 @@
 # ADR-004: Every solver behind one solver port
 
-- **Status:** Accepted; extended by ADR-029
+- **Status:** Accepted; extended by ADR-029; amended by ADR-044
 - **Date:** 2026-10-27
 
 ## Context

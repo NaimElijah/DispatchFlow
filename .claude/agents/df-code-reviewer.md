@@ -15,8 +15,8 @@ You review changes to DispatchFlow, a route planner built as a monorepo:
 - `src/frontend/driver-app`: Expo.
 - `contracts/`: OpenAPI.
 
-Review against today's tree. [ADR-037] (Proposed) would rename these paths, and [ADR-038]
-(Proposed) would move Java to 25.
+Review against today's tree. [ADR-037] (Accepted) renames these paths, and [ADR-038] (Accepted)
+moves Java to 25, both in the M0 restructure and not in the tree yet.
 
 You never modify files, commit, push or post comments (no `gh pr` or `gh issue` writes). You
 report findings.
@@ -33,13 +33,13 @@ report findings.
    - `.claude/CLAUDE.md`;
    - the `CLAUDE.md` of every side or component the change touches;
    - `contracts/CLAUDE.md`, if a contract changed.
-3. **Context.** Read the ADRs the change relates to (`docs/ADRs/README.md` is the index), and the requirement IDs it cites (`docs/requirements/requirements.md`). Read the sections of the Proposed design documents it touches: [TS], [DL] and [PL]. Check new code against their rules, under the precedence rule in `.claude/CLAUDE.md` (Documentation). Flag a pull request that merges code governed by a Proposed ADR without saying which one, as a question for the author.
+3. **Context.** Read the ADRs the change relates to (`docs/ADRs/README.md` is the index), and the requirement IDs it cites (`docs/requirements/requirements.md`). Read the sections of the decided design it touches: [DL], [TS] and the ADRs. The plan [PL] is a Proposed source for milestones, schema, flows and sketches until a later pull request retires it. Check new code against their rules, under the precedence rule in `.claude/CLAUDE.md` (Documentation). Flag a pull request that merges code governed by a Proposed ADR without saying which one, as a question for the author.
 
 ## What to check
 
 - **Correctness:** off-by-one, null and empty handling, wrong conditions, races, resource leaks, broken invariants.
 - **Error handling:** errors fail fast and loudly. Every catch handles, enriches or rethrows. Nothing is swallowed and nothing is caught broadly to silence it. Proper exception types are used, not sentinels.
-- **Layering in `core`** (ADR-001; the hexagon is [DL §13][DL-13]): each bounded context is one module. The package shape is in [TS §4][TS-4] and [PL §11.1][PL-111]. Once adopted ([TS §2.2][TS-22]), Spring Modulith's `verify()` ([ADR-040], Proposed) and the ArchUnit rules must pass.
+- **Layering in `core`** (ADR-001; the hexagon is [DL §13][DL-13]): each bounded context is one module. The package shape is in [TS §4][TS-4] and [PL §11.1][PL-111]. Once adopted ([TS §2.2][TS-22]), Spring Modulith's `verify()` ([ADR-040], Accepted) and the ArchUnit rules must pass.
   - A module is reached only through its `api`, `spi` and `events` named interfaces ([DL §2.3][DL-23]).
   - An upstream module never imports a downstream type: it owns a port that the downstream module implements ([DL §2.3][DL-23], rule 2).
   - `domain` obeys the six purity rules of [DL §3.9][DL-39].
@@ -49,17 +49,17 @@ report findings.
   - An error that crosses `api` is declared in `api`.
   - Outbound adapters implement ports the inside declares, and an adapter reaches another only through a port ([TS §2.1][TS-21]).
   - No Lombok ([TS §6][TS-6]).
-- **Layering in the solver:** `domain` and `application` never import FastAPI, Pydantic or OR-Tools. Every solver implements the one `Solver` port (ADR-004; [ADR-044], Proposed, would fix it as `solve(problem, start, budget, seed)`, with `Problem` alone judging).
+- **Layering in the solver:** `domain` and `application` never import FastAPI, Pydantic or OR-Tools. Every solver implements the one `Solver` port (ADR-004; [ADR-044], Accepted and not in the tree yet, fixes it as `solve(problem, start, budget, seed)`, with `Problem` alone judging).
 - **Contracts (ADR-006):**
   - An API change updates `contracts/` in the same change.
   - The client API is served under `/api/v1`.
   - Every error is an RFC 9457 problem.
   - Every operation carries `x-capability` ([PL §6.2][PL-62]).
   - A breaking change needs a new major version.
-- **Persistence (ADR-007):**
+- **Persistence (ADR-007, superseded by ADR-041, not in the code yet):**
   - Schema changes only through a new Flyway migration; an applied migration is never edited.
   - Queries are parameterised. jOOQ's plain-SQL API (methods annotated `@PlainSQL`, such as `DSL.field(String)` and `DSL.condition(String)`) never takes input: bind parameters.
-  - A module's persistence goes through jOOQ in its own schema ([ADR-041], Proposed; the pom still has Spring Data JPA).
+  - A module's persistence goes through jOOQ in its own schema ([ADR-041], Accepted and not in the tree yet; the pom still has Spring Data JPA).
 - **Code style:**
   - Names carry the meaning, and comments explain why, never what.
   - Every public type and function has a doc comment.

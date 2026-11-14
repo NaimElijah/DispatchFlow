@@ -5,13 +5,14 @@ The solver service is a skeleton today. `src/backend/solver` serves one operatio
 `.gitkeep` ([code-structure.md](code-structure.md#srcbackendsolver)). No solver, `Solver` port,
 validator or objective exists in code.
 
-The proposed design is in the
-[technical implementation plan](../init_impl_ref/technical_implementation_plan.md): the service in
-[§7](../init_impl_ref/technical_implementation_plan.md#7-optimization-service), the OR-Tools model
+The decided design is the domain document, the tech stack and the ADRs. The tools are in
+[tech stack §7](tech_stack.md#7-optimization-service-python). The plan's sketches, a Proposed source
+until a later pull request retires the
+[technical implementation plan](../init_impl_ref/technical_implementation_plan.md), cover the service
+in [§7](../init_impl_ref/technical_implementation_plan.md#7-optimization-service), the OR-Tools model
 in [§8](../init_impl_ref/technical_implementation_plan.md#8-or-tools-model),
 re-optimization in [§9](../init_impl_ref/technical_implementation_plan.md#9-re-optimization) and
 the DispatchFlow solver in
-[§10](../init_impl_ref/technical_implementation_plan.md#10-dispatchflow-solver-alns). The tools
-are in [tech stack §7](tech_stack.md#7-optimization-service-python). All have status Proposed.
+[§10](../init_impl_ref/technical_implementation_plan.md#10-dispatchflow-solver-alns).
 
 This file will describe the engine as built once solver code exists.

@@ -11,8 +11,8 @@ each contract depend on it, and neither side owns it.
 Both are OpenAPI 3.1. Today `client-api`, served under `/api/v1`, declares no operation yet, and
 `optimization-api` has only `GET /health/liveness`.
 
-[ADR-037] (Proposed) would rename the files to `core-api.v1.yaml` and
-`optimizer-api.v1.yaml` in this folder.
+[ADR-037] (Accepted) renames the files to `core-api.v1.yaml` and
+`optimizer-api.v1.yaml` in this folder, in the M0 restructure. They are not renamed yet.
 
 ## Rules
 
@@ -21,7 +21,7 @@ Both are OpenAPI 3.1. Today `client-api`, served under `/api/v1`, declares no op
 - A breaking change gets a new major version in its own folder (`v2/`), next to `v1/`.
   Breaking changes include removing or renaming an operation or field, changing a type, and
   making an optional field required. Adding an optional field or a new operation is not
-  breaking. [ADR-037] would change this: the new major would be a new file, such as
+  breaking. [ADR-037] changes this with the rename: the new major is a new file, such as
   `core-api.v2.yaml`, next to `core-api.v1.yaml`.
 - `oasdiff` checks every change against `main`, which holds what is released ([NFR-134]), for
   breaking changes, from January ([PL §6.2][PL-62]). Until then, the reviewer catches them.
@@ -29,7 +29,7 @@ Both are OpenAPI 3.1. Today `client-api`, served under `/api/v1`, declares no op
   open.
 - Keep the `info.license` block: proprietary, all rights reserved ([ADR-017]).
 - Code is generated on both sides of every contract, so no hand-written type crosses a boundary
-  ([TS §1][TS-1], rule 5; [ADR-043], Proposed). Neither frontend has a generator yet; they will
+  ([TS §1][TS-1], rule 5; [ADR-043], Accepted). Neither frontend has a generator yet; they will
   generate their client from `client-api` once it has operations. Nobody edits generated code.
 - Every `client-api` operation follows the conventions of [PL §6.2][PL-62]:
   - `x-capability` on every operation;

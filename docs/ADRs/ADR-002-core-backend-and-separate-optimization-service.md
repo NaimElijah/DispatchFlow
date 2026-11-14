@@ -1,6 +1,6 @@
 # ADR-002: A Java core backend and a separate Python optimization service
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-038
 - **Date:** 2026-10-30
 
 ## Context

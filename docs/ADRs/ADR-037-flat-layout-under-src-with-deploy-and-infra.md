@@ -1,6 +1,6 @@
 # ADR-037: The code moves to a flat layout under `src/`, with deployment in `deploy/` and Terraform in `infra/`
 
-- **Status:** Proposed; would supersede ADR-008 and amend ADR-006, ADR-009, ADR-018 and ADR-035
+- **Status:** Accepted
 - **Date:** 2026-11-13
 
 ## Context
@@ -131,7 +131,7 @@ docs/           requirements, architecture, ADRs
     under `src/backend`, `src/research` or `src/frontend`. Renaming a job renames its check. Not
     checked: whether branch protection lists them.
   - `.github/dependabot.yml` has seven component directories, all under the old tree
-    ([ADR-021]). [ADR-046] (Proposed) would replace the file with Renovate's configuration.
+    ([ADR-021]). [ADR-046] replaces the file with Renovate's configuration.
   - The two `osv-scanner.toml` files, in the console and the driver app ([ADR-016], [ADR-023]).
     Their `[[IgnoredVulns]]` entries expire on 2027-01-31 wherever the files live.
   - The `justfile`. Each component recipe sets a `working-directory`, and the names are
@@ -192,8 +192,8 @@ docs/           requirements, architecture, ADRs
 [ADR-039]: ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md
 [NFR-21]: ../requirements/requirements.md#nfr-21
 [NFR-50]: ../requirements/requirements.md#nfr-50
-[PL-3]: ../init_impl_ref/technical_implementation_plan.md#3-build-sequence
-[PL-5]: ../init_impl_ref/technical_implementation_plan.md#5-repository-and-local-environment
+[PL-3]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#3-build-sequence
+[PL-5]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#5-repository-and-local-environment
 [TS-4]: ../architecture/tech_stack.md#4-repository-layout
 [TS-15]: ../architecture/tech_stack.md#15-infrastructure-and-operations
 [TS-17]: ../architecture/tech_stack.md#17-testing

@@ -7,7 +7,7 @@ DispatchFlow plans and re-plans daily delivery routes for one delivery company. 
 `docs/requirements/requirements.md`; how it is built is in `docs/architecture/`; why each
 decision was taken is in `docs/ADRs/`. Read the relevant parts before proposing work.
 
-Three Proposed documents set the direction, and each owns one topic:
+Three documents set the direction, and each owns one topic:
 
 - [`tech_stack.md`][TS] (in `docs/architecture/`): the tools and versions, and when each is adopted.
 - [`domain_layer_design.md`][DL] (in `docs/architecture/domain_layer/`): the domain model.
@@ -30,9 +30,10 @@ Which of them wins, and when their rules bind, is the precedence rule under Docu
 | `infra/` | Road-network data and deployment |
 | `logs/` | Local log output; git ignores its contents |
 
-[ADR-037] (Proposed) would move this tree to `src/core`, `src/optimizer`, `src/web`, `src/mobile`
+[ADR-037] (Accepted) moves this tree to `src/core`, `src/optimizer`, `src/web`, `src/mobile`
 and `src/packages`, with `e2e/` and `deploy/` at the root and Terraform in `infra/`. [ADR-038]
-(Proposed) would move Java to 25. The pull request that moves the code updates this table.
+(Accepted) moves Java to 25. Both are in the M0 restructure, and not in the tree yet. The pull
+request that moves the code updates this table.
 
 This file holds the rules for the whole repository. Narrower rules live next to the code and load
 when you work there ([ADR-018](../docs/ADRs/ADR-018-ai-assistant-context-in-the-repository.md)):
@@ -170,14 +171,15 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 
 - `docs/requirements/requirements.md` states what the system must do, `docs/architecture/`
   how it is built, and `docs/ADRs/` why. Point across; never restate.
-- `docs/architecture/tech_stack.md` and `docs/architecture/domain_layer/` hold the proposed
+- `docs/architecture/tech_stack.md` and `docs/architecture/domain_layer/` hold the decided
   design, and `docs/init_impl_ref/` holds the build plan. The rest of `docs/architecture/`
   describes what is built.
 - `requirements.md` outranks the three design documents, and where the tech stack or the plan
-  disagrees with the domain document, the domain document wins. New code is written to the design
-  documents' rules. Code that a Proposed ADR governs merges only once the team accepts that ADR
-  ([PL §25][PL-25]); until then the accepted ADR it would change still stands, and the pull request
-  says which Proposed ADR it depends on.
+  disagrees with the domain document, the domain document wins. Where the implementation plan
+  disagrees with an ADR, the tech stack or the domain document, those win. New code is written to
+  the design documents' rules. Code that a Proposed ADR governs merges only once the team accepts
+  that ADR ([PL §25][PL-25]); until then the accepted ADR it would change still stands, and the
+  pull request says which Proposed ADR it depends on.
 - An accepted ADR comes before the code it governs merges. [PL §25][PL-25] and [TS §22][TS-22] list
   the decisions that need one.
 - A change that alters behaviour updates the documents it affects in the same pull request.

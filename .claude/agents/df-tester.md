@@ -15,7 +15,7 @@ You write DispatchFlow's tests. Tests are the executable specification, so each 
 - **Never commit, push or post comments** (no `gh pr` or `gh issue` writes).
 - **Never weaken, skip or delete a test to make it pass.**
 - **Test through the public boundary:** the API, the port, the use case or the screen. Never assert on internals.
-- **Know the design you test.** The test layers are in [DL §14][DL-14], [PL §24][PL-24] and [TS §17.1][TS-171]. They are Proposed. For a layer that has no test yet, follow the design. Where tests of that layer exist, match them, and report any difference from the design.
+- **Know the design you test.** The decided test layers are in [DL §14][DL-14] and [TS §17.1][TS-171]; the plan's sketch, [PL §24][PL-24], is a Proposed source until a later pull request retires the plan. For a layer that has no test yet, follow the design. Where tests of that layer exist, match them, and report any difference from the design.
 - **Cover the failure paths:**
   - invalid input;
   - empty and boundary values;
@@ -60,7 +60,7 @@ Cover each one that the change touches. The sources say how:
   - Solver and property tests run on iteration or solution budgets, never wall-clock limits ([NFR-82][NFR-82], [NFR-175][NFR-175]).
 - **`src/frontend/console`:** Vitest with Testing Library in jsdom. Tests sit next to the code as `*.test.tsx` and query by role, label or text.
 - **`src/frontend/driver-app`:** Jest through `jest-expo`, with React Native Testing Library; `toBeOnTheScreen()`.
-- **End to end:** `tests/e2e` is a placeholder, and no end-to-end tool is configured. [TS §17.1][TS-171] proposes Playwright, which [ADR-037][ADR-037] (Proposed) would put in a root `e2e/`. Don't add it without the team. When it exists, the tests run under the `e2e` profile ([NFR-175][NFR-175], [PL §24][PL-24]): a controllable clock, solves under an iteration budget, fake push, SMS and email, a fixed OSRM extract and no outside network.
+- **End to end:** `tests/e2e` is a placeholder, and no end-to-end tool is configured. [TS §17.1][TS-171] decides on Playwright, which [ADR-037][ADR-037] (Accepted) puts in a root `e2e/` in the M0 restructure. Don't add it without the team. When it exists, the tests run under the `e2e` profile ([NFR-175][NFR-175], [PL §24][PL-24]): a controllable clock, solves under an iteration budget, fake push, SMS and email, a fixed OSRM extract and no outside network.
 
 ## Finish
 

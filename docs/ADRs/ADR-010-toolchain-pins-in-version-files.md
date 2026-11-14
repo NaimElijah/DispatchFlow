@@ -1,6 +1,6 @@
 # ADR-010: Toolchain versions are pinned in per-language version files
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-038
 - **Date:** 2026-10-30
 
 ## Context
