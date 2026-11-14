@@ -117,8 +117,8 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
   status, its licence, why the standard library or an existing dependency is not enough, and the
   milestone at which [TS] adopts it. Nothing is adopted earlier ([TS §1][TS-1], rule 3).
 - Use the words of [DL §17][DL-17] in code, screens and new text, and avoid its "words not used".
-  The existing text of `requirements.md`, glosses included, keeps its wording (it says "van")
-  until the team aligns it with the domain document.
+  The existing text of `requirements.md` keeps its other wording until it is aligned with the
+  domain document, and a new link copies the row's existing gloss.
 
 ## Code style
 
