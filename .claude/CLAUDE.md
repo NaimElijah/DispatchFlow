@@ -7,14 +7,13 @@ DispatchFlow plans and re-plans daily delivery routes for one delivery company. 
 `docs/requirements/requirements.md`; how it is built is in `docs/architecture/`; why each
 decision was taken is in `docs/ADRs/`. Read the relevant parts before proposing work.
 
-Three documents set the direction, and each owns one topic:
+Two design documents set the direction, and each owns one topic:
 
-- [`tech_stack.md`][TS] (in `docs/architecture/`): the tools and versions, and when each is adopted.
 - [`domain_layer_design.md`][DL] (in `docs/architecture/domain_layer/`): the domain model.
-- [`technical_implementation_plan.md`][PL] (in `docs/init_impl_ref/`): the milestones, dates,
-  schema, flows and code sketches.
+- [`tech_stack.md`][TS] (in `docs/architecture/`): the tools and versions, and when each is adopted.
 
-Which of them wins, and when their rules bind, is the precedence rule under Documentation.
+[`docs/roadmap.md`][RM] says when each part is built. Which document wins is the precedence rule
+under Documentation.
 
 ## Layout
 
@@ -172,16 +171,20 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 - `docs/requirements/requirements.md` states what the system must do, `docs/architecture/`
   how it is built, and `docs/ADRs/` why. Point across; never restate.
 - `docs/architecture/tech_stack.md` and `docs/architecture/domain_layer/` hold the decided
-  design, and `docs/init_impl_ref/` holds the build plan. The rest of `docs/architecture/`
+  design, and `docs/roadmap.md` the milestones and dates. The rest of `docs/architecture/`
   describes what is built.
-- `requirements.md` outranks the three design documents, and where the tech stack or the plan
-  disagrees with the domain document, the domain document wins. Where the implementation plan
-  disagrees with an ADR, the tech stack or the domain document, those win. New code is written to
-  the design documents' rules. Code that a Proposed ADR governs merges only once the team accepts
-  that ADR ([PL §25][PL-25]); until then the accepted ADR it would change still stands, and the
-  pull request says which Proposed ADR it depends on.
-- An accepted ADR comes before the code it governs merges. [PL §25][PL-25] and [TS §22][TS-22] list
-  the decisions that need one.
+- Precedence: `requirements.md`, then the domain document, then the tech stack. An accepted ADR
+  stands until a new ADR supersedes it: where it and a design document disagree, build from the
+  ADR and correct the document. On when a tool is adopted, [TS §20][TS-20] wins over the roadmap; on
+  milestones and dates, the roadmap wins ([ADR-093]). A change to a decision comes with a new ADR;
+  pointer and wording fixes need none. The retired implementation plan, reached by permalink, is
+  history: it binds only where an accepted ADR or a CLAUDE.md states the rule itself. New code
+  follows the requirements, both design documents and the accepted ADRs.
+- An accepted ADR comes before the code it governs merges. Code that a Proposed ADR governs merges
+  only once that ADR is accepted; until then the accepted ADR it would change still stands, and the
+  pull request says which Proposed ADR it depends on. The [ADR index][ADRS] shows each status,
+  [TS §22][TS-22] lists the decisions still open, and the [roadmap][RM] names the ADRs still to be
+  written before their milestone's code merges.
 - A change that alters behaviour updates the documents it affects in the same pull request.
 - Requirements are intent, not observation. Behaviour found in code is not a requirement until
   the team agrees it is.
@@ -189,10 +192,12 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 
 [TS]: ../docs/architecture/tech_stack.md
 [TS-1]: ../docs/architecture/tech_stack.md#1-what-decides-close-calls
+[TS-20]: ../docs/architecture/tech_stack.md#20-adoption-order
 [TS-22]: ../docs/architecture/tech_stack.md#22-open-decisions
 [DL]: ../docs/architecture/domain_layer/domain_layer_design.md
 [DL-17]: ../docs/architecture/domain_layer/domain_layer_design.md#17-ubiquitous-language
-[PL]: ../docs/init_impl_ref/technical_implementation_plan.md
-[PL-25]: ../docs/init_impl_ref/technical_implementation_plan.md#25-decisions-to-record-as-adrs
+[RM]: ../docs/roadmap.md
+[ADRS]: ../docs/ADRs/README.md
+[ADR-093]: ../docs/ADRs/ADR-093-the-implementation-plan-is-retired-and-a-roadmap-holds-the-dates.md
 [ADR-037]: ../docs/ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md
 [ADR-038]: ../docs/ADRs/ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md

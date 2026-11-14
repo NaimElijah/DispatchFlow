@@ -4,7 +4,7 @@
 
 This is the one place that defines DispatchFlow's bounded contexts, aggregates, value objects, events,
 domain errors and the rules between them. [`tech_stack.md`](../tech_stack.md) names the tools and
-[`technical_implementation_plan.md`](../../init_impl_ref/technical_implementation_plan.md) says how to build this design;
+[`roadmap.md`](../../roadmap.md) says when each part is built;
 neither repeats it. Where they disagree with this file, this file wins. IDs in brackets point to the
 requirements (FR, BR, NFR, UC, Q). `Q-94 #1` means the first numbered sub-question in Q-94's row. Names
 in `code` are the names in the code, and §17 defines every one of them.
@@ -839,7 +839,7 @@ one may call anyway**: a direct call is simpler, unless it must be retried (reas
 - **The events package is published language.** A field is added, never renamed or removed, so a
   listener in another module (or, later, another service) never breaks.
 - **At least once.** Spring Modulith stores each publication in the same transaction as the change and
-  delivers it after commit, again and again until its listener succeeds (plan §11.3, [ADR-064]). So every reaction
+  delivers it after commit, again and again until its listener succeeds ([ADR-064]). So every reaction
   is idempotent: by nature (`applySolveResult` ignores a job it has applied) or by recording
   `(listener, event ID)` first.
 - **Raised by aggregates, not by use cases.** An event says that the aggregate's state changed, so only
@@ -1243,7 +1243,7 @@ Each step that crosses a commit has a watcher, so a lost step can't leave someth
 | A queued or running `SolveJob` | Ends within its limit plus 30 s (BR-32); waits at most 5 minutes (BR-112) | The queue watchdog, every 15 s | `expireIfOverdue(now)` fails it, and `SolveFailed` returns the plan to *draft* or *ready* |
 | A plan still unpublished at the midnight after its date | It is *abandoned*, with no solve job of it queued or running | The midnight job, at 00:00 (BR-102, BR-127, BR-128) | Fails every queued or running solve job of that date with the reason *its date passed*, then calls `Plan.complete(today)` or `Plan.abandon(today)`. A save the version check refuses is reloaded and retried up to three times, then alerts the team (§11) |
 | The nightly retention run: the anonymizations, the deletions and the audit purge | Completes each night | A Healthchecks.io ping at the end of each run, as for backups | A missed ping alerts the team |
-| Any event listener | Completes | Spring Modulith's staleness monitor, a resubmission every minute, and republication at restart (plan §11.3) | Resubmits at most 5 times, then alerts the team with the listener's name |
+| Any event listener | Completes | Spring Modulith's staleness monitor, a resubmission every minute, and republication at restart ([ADR-064]) | Resubmits at most 5 times, then alerts the team with the listener's name |
 | A route handed over or removed while the optimizer was down | Checked when it is back. Meanwhile the hand-over or cancellation completes, the route shows *not yet checked*, and publishing refuses (BR-70) | A job every minute while routes show *not yet checked* (FR-304, FR-315, FR-395, NFR-42, [ADR-058]) | Evaluates them and calls `Plan.recordRouteCheck` |
 | `PlanRevised` → the driver confirms | The driver taps "Seen" (FR-97, FR-250) | `RouteRun`'s confirmed revision, on the live screen | The dispatcher sees who hasn't confirmed |
 | A message | Accepted within 15 minutes of its trigger (NFR-190) | The sender | `dropStale` drops and counts it |

@@ -87,6 +87,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-025](ADR-025-team-skills-in-the-repository.md) | Team skills live in `.claude/skills/`, and only a person can start them | Accepted; extended by ADR-033 and ADR-034 |
 | [ADR-033](ADR-033-sync-with-dev-reviews-the-merge-on-sonnet.md) | `/sync-with-dev` reviews a merge with df-code-reviewer on Sonnet, and fixes what it finds | Accepted |
 | [ADR-034](ADR-034-ask-before-merging-changes-to-the-assistant-setup.md) | Both team skills ask before merging a `dev` change to the assistant's setup | Accepted |
+| [ADR-093](ADR-093-the-implementation-plan-is-retired-and-a-roadmap-holds-the-dates.md) | The implementation plan is retired, and a roadmap holds the dates | Accepted |
 | [ADR-080](ADR-080-team-accounts-stand-in-when-there-is-no-company.md) | The team's own accounts stand in when there is no company | Accepted |
 | **Deployment** | | |
 | [ADR-019](ADR-019-container-images-run-as-non-root.md) | Each service ships as a container image that runs as a non-root user | Accepted; amended by ADR-047 |
@@ -111,6 +112,6 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > [!IMPORTANT]
 > On 2026-11-13 and 2026-11-14 the owner, Naim Elijah, settled every proposed and open item in the
 > requirements and the design documents for the team. ADR-037 to ADR-047 were accepted then, and
-> ADR-048 to ADR-092 record the rest, including every decision the requirements marked
+> ADR-048 to ADR-093 record the rest, including every decision the requirements marked
 > `ADR pending`. The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what
 > is still open.

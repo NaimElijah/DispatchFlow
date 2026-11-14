@@ -30,7 +30,7 @@ this file.
 | `tests/` | Tests that span components: `e2e/` and `load/`. Both are placeholders |
 | `infra/` | `osrm/` and `deploy/`. Both are placeholders |
 | `logs/` | Local log output. Git keeps the folder and ignores everything in it |
-| `docs/` | `requirements/` (with `ARD/`), `architecture/` (with `domain_layer/` and `tech_stack.md`), `ADRs/`, `init_impl_ref/` and `presentations/` |
+| `docs/` | `requirements/` (with `ARD/`), `architecture/` (with `domain_layer/` and `tech_stack.md`), `ADRs/`, `roadmap.md` and `presentations/` |
 | `.github/` | The CI workflow, Dependabot configuration, and issue and pull request templates |
 | `justfile` | Every command. CI runs the same recipes |
 | `.java-version`, `.python-version`, `.nvmrc` | Toolchain pins: Java 21, Python 3.14, Node 24 |
@@ -95,10 +95,7 @@ ADRs: see the
 [domain layer design](domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts). How a
 context is laid out inside is in [tech stack §4](tech_stack.md#4-repository-layout) and
 [domain layer design §13](domain_layer/domain_layer_design.md#13-inside-each-module-hexagon)
-(the hexagon). The plan's sketch, in
-[implementation plan §11.1](../init_impl_ref/technical_implementation_plan.md#111-module-skeleton),
-is a Proposed source until a later pull request retires the plan. New contexts are written to tech
-stack §4.
+(the hexagon). New contexts are written to tech stack §4.
 [ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)
 (Accepted) makes each context a Spring Modulith module, and
 [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md)

@@ -41,7 +41,7 @@ report findings.
   - A driver reaches only their own routes, stops, proofs and positions (BR-02, the permission matrix), acting only as the user in the token, never one named in the request.
   - Roles are checked on the server for every operation (FR-03, NFR-85), never only hidden in the UI.
   - Every contract operation carries `x-capability`, and the server enforces it ([ADR-068][ADR-068], NFR-85). An operation without `x-capability` gets no generated check, so its absence is a finding.
-  - Every event on the stream is checked per receiver: by role, and for a driver by route ownership and published state ([TS §6][TS-6], the Authorization row; [PL §17][PL-17]; NFR-85, BR-41).
+  - Every event on the stream is checked per receiver: by role, and for a driver by route ownership and published state ([TS §6][TS-6], the Authorization row; [ADR-035][ADR-035]; NFR-85, BR-41).
   - IDOR: does an id from the client reach data without an ownership check?
   - The first Admin, and an Admin created by the recovery step, have no default or committed credential (FR-291, FR-292).
   - An access token issued before its user's last revocation is refused (NFR-177). [ADR-045][ADR-045] (Accepted, not in the tree yet) revokes by generation counters. If the change touches them, check that:
@@ -60,7 +60,7 @@ report findings.
   - Check `.gitignore`, `.dockerignore` and `.claude/settings.json`.
   - [TS §18][TS-18] plans Gitleaks over the full history, from the Alpha (NFR-103). Known gap: no CI secret scan runs today, because `.github/workflows/ci.yml` has no such job. Say so whenever you rely on CI for secrets.
 - **Personal data:**
-  - No personal data or tokens in logs or in problem responses. Error details stay generic for anything security-sensitive.
+  - No personal data or tokens in logs or in problem responses; request bodies are never logged ([TS §6][TS-6], the Observability row). Error details stay generic for anything security-sensitive.
   - Every outside service that receives company data is named in the data inventory (NFR-72), with what it receives and whether it keeps it in Israel or is an accepted exception ([NFR-217][NFR-217], [TS §1][TS-1], rule 2). Until `docs/operations/data-inventory.md` exists, [TS §13][TS-13] is its input.
 - **Dependencies:**
   - Run the audit (`just audit`, which uses OSV-Scanner) and read every `osv-scanner.toml` exception. Each needs a reason that holds and an `ignoreUntil` date.
@@ -112,7 +112,7 @@ End with:
 [ADR-068]: ../../docs/ADRs/ADR-068-every-web-handler-is-authorized-by-role-from-the-contract.md
 [NFR-209]: ../../docs/requirements/requirements.md#nfr-209
 [TS-6]: ../../docs/architecture/tech_stack.md#6-core-service-java
-[PL-17]: ../../docs/init_impl_ref/technical_implementation_plan.md#17-live-updates-and-push
+[ADR-035]: ../../docs/ADRs/ADR-035-both-apps-serve-every-role.md
 [NFR-217]: ../../docs/requirements/requirements.md#nfr-217
 [ADR-041]: ../../docs/ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md
 [ADR-045]: ../../docs/ADRs/ADR-045-generation-counters-revoke-tokens.md

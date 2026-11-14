@@ -28,7 +28,7 @@ draws it, where `nearest_neighbour` joins them. Neither is in the tree yet.
   Accepted), and only the HTTP adapter uses them.
 - `Problem` owns `validate`, `cost` and `explain_drop` ([TS §7.1]). `validate` is the one
   definition of feasibility, and `cost` is the one objective.
-- `ProblemFactory` alone applies the re-optimization conventions ([PL §9.2]).
+- `ProblemFactory` alone applies the re-optimization conventions ([ADR-050]).
 - `TravelTimeModel` is the only place the bucket factors and the buffer are applied.
 - Every solver implements the one `Solver` port, `solve(problem, start, budget, seed)`: `start` is
   an optional warm start, and `budget` is a time limit, an iteration budget or a solution limit
@@ -58,9 +58,10 @@ draws it, where `nearest_neighbour` joins them. Neither is in the tree yet.
 - pytest.
 - HTTP tests go through `TestClient(create_app())`, never by calling handlers directly.
 - A test gives a solver an iteration or solution budget, never a wall-clock limit (NFR-82,
-  NFR-175).
-- The violation catalogue has one YAML case per rule, each naming the rule it must trigger
-  ([PL §24]).
+  NFR-175). The OR-Tools findings tested on 9.15 (pins through `VehicleVar`, a single-threaded
+  search, `solution_limit` stopping early) are in [the plan's §8][PL-8].
+- The violation catalogue has one YAML case per rule, each naming the `RuleId` it must trigger
+  ([DL §14], NFR-169).
 - When the validator lands, Hypothesis property tests assert that every generated instance's
   solution passes it. They run from a recorded seed (NFR-82).
 - One test checks that the same input, seed and budget give the same solution in two processes
@@ -84,8 +85,10 @@ Run `just` recipes from the repository root, and `uv` from this folder.
 [ADR-040]: ../../../docs/ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md
 [ADR-043]: ../../../docs/ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md
 [ADR-044]: ../../../docs/ADRs/ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md
-[PL §9.2]: ../../../docs/init_impl_ref/technical_implementation_plan.md#92-what-problemfactoryreoptimization-does
-[PL §24]: ../../../docs/init_impl_ref/technical_implementation_plan.md#24-testing
+[ADR-050]: ../../../docs/ADRs/ADR-050-re-optimization-conventions-live-only-in-the-python-problem-factory.md
+[TS §17.1]: ../../../docs/architecture/tech_stack.md#171-by-layer
 [TS §2.1]: ../../../docs/architecture/tech_stack.md#21-the-dependency-rule
 [TS §4]: ../../../docs/architecture/tech_stack.md#4-repository-layout
 [TS §7.1]: ../../../docs/architecture/tech_stack.md#71-the-hexagon
+[DL §14]: ../../../docs/architecture/domain_layer/domain_layer_design.md#14-testing-the-domain
+[PL-8]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#8-or-tools-model

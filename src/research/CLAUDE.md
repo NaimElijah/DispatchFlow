@@ -3,7 +3,7 @@
 The benchmark harness, the disruption simulation and the order generator. Never deployed. It is
 the only project that installs PyVRP. Python 3.14, uv.
 
-It is a primary adapter over the optimizer's application layer ([TS §8], [PL §22]): it calls the
+It is a primary adapter over the optimizer's application layer ([TS §8]): it calls the
 optimizer's code directly, with no HTTP and no `core`.
 
 ## Layout
@@ -62,7 +62,8 @@ Run `just` recipes from the repository root, and `uv` from this folder.
 | `just research-format` | ruff format and `ruff check --fix` |
 | `uv run --locked pytest tests/test_x.py::test_name` | One test |
 
-`just study` and `just seed` are planned recipes ([PL §5]); the `justfile` does not have them yet.
+`just study` ([TS §5]) and `just seed` ([roadmap §2.2]) are planned recipes; the `justfile` does not
+have them yet.
 
 Tests and docstrings follow the solver's rules: see `src/backend/solver/CLAUDE.md`.
 
@@ -71,7 +72,7 @@ Tests and docstrings follow the solver's rules: see `src/backend/solver/CLAUDE.m
 [ADR-037]: ../../docs/ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md
 [ADR-040]: ../../docs/ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md
 [NFR-115]: ../../docs/requirements/requirements.md#nfr-115
-[PL §5]: ../../docs/init_impl_ref/technical_implementation_plan.md#5-repository-and-local-environment
-[PL §22]: ../../docs/init_impl_ref/technical_implementation_plan.md#22-research-harness-and-disruption-simulation
+[TS §5]: ../../docs/architecture/tech_stack.md#5-development-environment-and-workflow
 [TS §4]: ../../docs/architecture/tech_stack.md#4-repository-layout
 [TS §8]: ../../docs/architecture/tech_stack.md#8-research-harness
+[roadmap §2.2]: ../../docs/roadmap.md#22-alpha-track
