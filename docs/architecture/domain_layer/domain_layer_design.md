@@ -693,18 +693,29 @@ methods are the rules:
   that can't enter it (no location, or no road route), each with its reason. Its methods are the single
   definition of what a solution means (BR-42):
   - `validate(solution) -> ValidationReport`: feasibility, one rule per `RuleId` named after its BR
-    (BR-15, BR-16).
+    (BR-15, BR-16). In a re-optimization a stop served past its window end is a *late stop* the report
+    flags, never a violation (BR-107).
   - `cost(solution, timings)`: the objective (BR-09, BR-56, BR-115, BR-120).
   - `explain_drop(order, solution) -> DropReason`: why an order was dropped, from no location, then
     no vehicle available on the date, to displaced by others (FR-144, FR-223, [ADR-100]).
 - **`ProblemFactory`** builds a `Problem` from a daily request, or from a live state with every
-  re-optimization convention applied (BR-10, BR-23, BR-24, BR-79, BR-80, BR-106 to BR-108, BR-117; [ADR-050]).
+  re-optimization convention applied (BR-10, BR-23, BR-24, BR-51, BR-52, BR-79, BR-80, BR-81, BR-91,
+  BR-106 to BR-108, BR-115, BR-117; [ADR-050]). It writes each convention into the `Problem` once
+  ([ADR-105]):
+  - each vehicle's start and end, and a vehicle that is out as excluded for its state;
+  - a `ReoptContext` with `now`, each vehicle's start time, the locked stops, the vehicle each stop
+    stays on, the orphans, the vehicles with no usable position (`no_usable_position`, BR-81) and the
+    warm start.
+
+  A daily `Problem` has no context. Only a vehicle that is out may have no driver.
 - **`Solution`**, **`TravelTimeModel`** (the only place bucket factors and the buffer are applied:
   FR-227, FR-321, FR-322) and **`PenaltyScale`** (the drop unit and the penalty rates) are values.
 - **The drop unit** is K = 5L + 2T + F + 1, in seconds, where L is the larger of the date's longest
   shift and the longest a leave-at-door stop can spend outside its window during a shift, T the largest
   entry of the date's unbuffered per-bucket matrix at the highest factor, and F the fixed vehicle cost
-  (BR-126). Dropping an order of priority p costs K × (6 − p) (BR-54), so even a priority-5 order costs
+  (BR-126). In a re-optimization L also covers the longest a stop can be late within a shift, the
+  door term starts from each vehicle's start time instead of its shift start, and the 5 is the larger
+  of the door-window and lateness rates ([ADR-105]). Dropping an order of priority p costs K × (6 − p) (BR-54), so even a priority-5 order costs
   at least K, and no solve drops an order to save its detour (BR-55), to avoid a window penalty
   (BR-121) or to save a vehicle (BR-08) ([ADR-049], [ADR-100], Q-93 #1).
 
@@ -1511,4 +1522,5 @@ Nothing. These ADRs record the decisions of this document:
 [ADR-086]: ../../ADRs/ADR-086-csv-imports-upload-then-confirm-within-an-hour.md
 [ADR-097]: ../../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md
 [ADR-100]: ../../ADRs/ADR-100-k-covers-door-windows-outside-a-shift-and-no-vehicle-is-a-drop-reason.md
+[ADR-105]: ../../ADRs/ADR-105-a-re-optimizations-problem-carries-its-conventions-and-only-a-vehicle-that-is-out-has-no-driver.md
 [ADR-106]: ../../ADRs/ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md

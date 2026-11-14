@@ -34,14 +34,14 @@ today.
 | Component | Is | Does today |
 |---|---|---|
 | `core` (`src/backend/core`) | Spring Boot 4.1.2, Java 21 | Starts, connects to PostgreSQL, answers `GET /actuator/health`, and turns an unhandled exception into a 500 problem body |
-| `solver` (`src/backend/solver`) | FastAPI, Python 3.14, NumPy | Answers `GET /health/liveness` with `{"status":"UP"}`, and holds the daily-solve domain (the validator, the objective and the drop reasons), which nothing calls yet |
+| `solver` (`src/backend/solver`) | FastAPI, Python 3.14, NumPy | Answers `GET /health/liveness` with `{"status":"UP"}`, and holds the domain for daily solves and re-optimizations (the validator, the objective and the drop reasons), which nothing calls yet |
 | `console` (`src/frontend/console`) | React, Vite | Renders a heading |
 | `driver-app` (`src/frontend/driver-app`) | React Native, Expo SDK 58 | Renders a heading |
 | `research` (`src/research`) | Python, uv; never deployed | Installs `solver` and PyVRP in one environment, and imports neither yet: `tests/test_environment.py` only checks that both can be found. `benchmark/`, `simulation/`, `generator/`, `instances/` and `results/` hold only `.gitkeep` |
 
 `core` has no controller, entity or Flyway migration: `src/main/resources/db/migration/` holds
 only a `.gitkeep`. `solver`'s `application` and `solvers` folders hold only `.gitkeep`; its `domain`
-holds the daily-solve domain
+holds the domain for daily solves and re-optimizations
 ([ADR-098](../ADRs/ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) fixes its
 numbers).
 `core` holds the shared kernel (`com.dispatchflow.shared`): typed IDs, the shared values and the
