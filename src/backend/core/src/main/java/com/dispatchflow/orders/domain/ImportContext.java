@@ -1,6 +1,7 @@
 package com.dispatchflow.orders.domain;
 
 import com.dispatchflow.shared.DeliveryDate;
+import com.dispatchflow.shared.PersonalData;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -20,7 +21,7 @@ import java.util.stream.Collectors;
  * per row, whatever its length. The indexes are only looked up, never iterated, so their order never
  * shows.
  */
-public final class ImportContext {
+public final class ImportContext implements PersonalData {
 
     /**
      * The match for one normalized address.
@@ -28,12 +29,22 @@ public final class ImportContext {
      * @param address the normalized address
      * @param match the active customers that have it
      */
-    public record AddressMatch(NormalizedAddress address, CustomerMatch match) {
+    public record AddressMatch(NormalizedAddress address, CustomerMatch match) implements PersonalData {
 
         /** Checks both parts are given. */
         public AddressMatch {
             Objects.requireNonNull(address, "address");
             Objects.requireNonNull(match, "match");
+        }
+
+        /**
+         * A form that hides the address, because it holds personal data.
+         *
+         * @return {@code AddressMatch[redacted]}
+         */
+        @Override
+        public String toString() {
+            return "AddressMatch[redacted]";
         }
     }
 
@@ -96,5 +107,15 @@ public final class ImportContext {
     DateCapacity capacityFor(DeliveryDate date) {
         return Optional.ofNullable(capacities.get(date))
                 .orElseThrow(() -> new NoSuchElementException("the use case supplied no capacity for a row's date"));
+    }
+
+    /**
+     * A form that hides the context, because it holds personal data.
+     *
+     * @return {@code ImportContext[redacted]}
+     */
+    @Override
+    public String toString() {
+        return "ImportContext[redacted]";
     }
 }

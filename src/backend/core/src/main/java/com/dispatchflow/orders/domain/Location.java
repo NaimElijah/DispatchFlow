@@ -1,6 +1,7 @@
 package com.dispatchflow.orders.domain;
 
 import com.dispatchflow.shared.GeoPoint;
+import com.dispatchflow.shared.PersonalData;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -9,7 +10,7 @@ import java.util.Optional;
  * hand. A hand-placed location always wins over geocoding (BR-13, FR-215). A customer's coordinates
  * are personal data (BR-98), and {@link GeoPoint} hides them when printed.
  */
-public sealed interface Location {
+public sealed interface Location extends PersonalData {
 
     /**
      * The coordinates, where there are any.
@@ -24,6 +25,16 @@ public sealed interface Location {
         @Override
         public Optional<GeoPoint> point() {
             return Optional.empty();
+        }
+
+        /**
+         * A form that hides the location, because it holds personal data.
+         *
+         * @return {@code Location.Missing[redacted]}
+         */
+        @Override
+        public String toString() {
+            return "Location.Missing[redacted]";
         }
     }
 
@@ -45,6 +56,16 @@ public sealed interface Location {
         public Optional<GeoPoint> point() {
             return Optional.of(at);
         }
+
+        /**
+         * A form that hides the location, because it holds personal data.
+         *
+         * @return {@code Location.Geocoded[redacted]}
+         */
+        @Override
+        public String toString() {
+            return "Location.Geocoded[redacted]";
+        }
     }
 
     /**
@@ -63,6 +84,16 @@ public sealed interface Location {
         @Override
         public Optional<GeoPoint> point() {
             return Optional.of(at);
+        }
+
+        /**
+         * A form that hides the location, because it holds personal data.
+         *
+         * @return {@code Location.HandPlaced[redacted]}
+         */
+        @Override
+        public String toString() {
+            return "Location.HandPlaced[redacted]";
         }
     }
 }

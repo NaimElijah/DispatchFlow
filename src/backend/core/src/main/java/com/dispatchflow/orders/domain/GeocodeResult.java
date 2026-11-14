@@ -1,6 +1,7 @@
 package com.dispatchflow.orders.domain;
 
 import com.dispatchflow.shared.GeoPoint;
+import com.dispatchflow.shared.PersonalData;
 import java.util.Objects;
 
 /**
@@ -10,7 +11,7 @@ import java.util.Objects;
  * retried by the outbox for 24 hours (FR-64); only when the retries stop does it become a result,
  * {@link GaveUp}.
  */
-public sealed interface GeocodeResult {
+public sealed interface GeocodeResult extends PersonalData {
 
     /**
      * The address the lookup was for.
@@ -37,6 +38,16 @@ public sealed interface GeocodeResult {
             Objects.requireNonNull(at, "at");
             Objects.requireNonNull(quality, "quality");
         }
+
+        /**
+         * A form that hides the answer, because it holds personal data.
+         *
+         * @return {@code GeocodeResult.Found[redacted]}
+         */
+        @Override
+        public String toString() {
+            return "GeocodeResult.Found[redacted]";
+        }
     }
 
     /**
@@ -49,6 +60,16 @@ public sealed interface GeocodeResult {
         /** Checks the address is given. */
         public NotFound {
             Objects.requireNonNull(lookedUp, "lookedUp");
+        }
+
+        /**
+         * A form that hides the answer, because it holds personal data.
+         *
+         * @return {@code GeocodeResult.NotFound[redacted]}
+         */
+        @Override
+        public String toString() {
+            return "GeocodeResult.NotFound[redacted]";
         }
     }
 
@@ -63,6 +84,16 @@ public sealed interface GeocodeResult {
         /** Checks the address is given. */
         public GaveUp {
             Objects.requireNonNull(lookedUp, "lookedUp");
+        }
+
+        /**
+         * A form that hides the answer, because it holds personal data.
+         *
+         * @return {@code GeocodeResult.GaveUp[redacted]}
+         */
+        @Override
+        public String toString() {
+            return "GeocodeResult.GaveUp[redacted]";
         }
     }
 }

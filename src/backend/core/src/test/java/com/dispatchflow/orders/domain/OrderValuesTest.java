@@ -18,14 +18,14 @@ import org.junit.jupiter.params.provider.ValueSource;
 class OrderValuesTest {
 
     @ParameterizedTest
-    @ValueSource(strings = {"", " ", "\t\n", "-", "?", "(!)", "\u00a0", "\u00a0\u00a0"})
+    @ValueSource(strings = {"", " ", "\t\n", "-", "?", "(!)", "\u00a0", "\u00a0\u00a0", "\"", "'", "''", "-'-"})
     void GivenNoTextOrOnlyPunctuation_WhenAnAddressIsBuilt_ThenBlankAddress(String text) {
         assertRefused(() -> Address.of(text), new BlankAddress());
     }
 
     @Test
-    void GivenAnAddress_WhenBuilt_ThenItIsKeptAsTyped() {
-        assertThat(Address.of("  הרצל 5 ").text()).isEqualTo("  הרצל 5 ");
+    void GivenAnAddress_WhenBuilt_ThenItIsKeptWithItsEndsTrimmedAndItsInteriorAsTyped() {
+        assertThat(Address.of(" \u00a0הרצל  5, ת\"א ").text()).isEqualTo("הרצל  5, ת\"א");
     }
 
     @ParameterizedTest

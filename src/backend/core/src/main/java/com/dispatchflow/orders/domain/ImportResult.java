@@ -1,5 +1,6 @@
 package com.dispatchflow.orders.domain;
 
+import com.dispatchflow.shared.PersonalData;
 import java.util.List;
 
 /**
@@ -9,11 +10,21 @@ import java.util.List;
  * @param customers the customers the import created, in the order of their first row
  * @param orders one order per row, in row order
  */
-public record ImportResult(List<Customer> customers, List<Order> orders) {
+public record ImportResult(List<Customer> customers, List<Order> orders) implements PersonalData {
 
     /** Copies the lists. */
     public ImportResult {
         customers = List.copyOf(customers);
         orders = List.copyOf(orders);
+    }
+
+    /**
+     * A form that hides the result, because it holds personal data.
+     *
+     * @return {@code ImportResult[redacted]}
+     */
+    @Override
+    public String toString() {
+        return "ImportResult[redacted]";
     }
 }

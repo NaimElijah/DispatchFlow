@@ -10,6 +10,7 @@ import com.dispatchflow.shared.CustomerId;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.GeoPoint;
 import com.dispatchflow.shared.IsraelDateTime;
+import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StoredStateInvalid;
@@ -36,7 +37,7 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>Its name, phone, address, notes and location are personal data.
  */
-public final class Customer extends AggregateRoot {
+public final class Customer extends AggregateRoot implements PersonalData {
 
     /** A geocoded point farther than this from the nearest road is flagged (FR-63); a starting value. */
     public static final double FAR_FROM_ROAD_METRES = 300;
@@ -430,5 +431,15 @@ public final class Customer extends AggregateRoot {
                 state,
                 createdAt,
                 version());
+    }
+
+    /**
+     * A form that hides the customer, because it holds personal data.
+     *
+     * @return {@code Customer[redacted]}
+     */
+    @Override
+    public String toString() {
+        return "Customer[redacted]";
     }
 }

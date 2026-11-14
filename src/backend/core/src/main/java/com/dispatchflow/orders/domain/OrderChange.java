@@ -1,5 +1,6 @@
 package com.dispatchflow.orders.domain;
 
+import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.Priority;
 import com.dispatchflow.shared.TimeWindow;
 import com.dispatchflow.shared.Volume;
@@ -30,7 +31,8 @@ public record OrderChange(
         boolean leaveAtDoor,
         Recipient recipient,
         Optional<DriverNote> note,
-        AccessDetails access) {
+        AccessDetails access)
+        implements PersonalData {
 
     /** Checks every part is given. */
     public OrderChange {
@@ -42,5 +44,15 @@ public record OrderChange(
         Objects.requireNonNull(recipient, "recipient");
         Objects.requireNonNull(note, "note");
         Objects.requireNonNull(access, "access");
+    }
+
+    /**
+     * A form that hides the change, because it holds personal data.
+     *
+     * @return {@code OrderChange[redacted]}
+     */
+    @Override
+    public String toString() {
+        return "OrderChange[redacted]";
     }
 }

@@ -54,7 +54,10 @@ import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.SharedKernelError.Measure;
 import com.dispatchflow.shared.SharedKernelError.NonexistentLocalTime;
 import com.dispatchflow.shared.SharedKernelError.QuantityOutOfRange;
+import com.dispatchflow.shared.SharedKernelError.TextHasForbiddenCharacters;
+import com.dispatchflow.shared.SharedKernelError.TextTooLong;
 import com.dispatchflow.shared.StoredStateInvalid;
+import com.dispatchflow.shared.TextKind;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.Weight;
 import java.math.BigDecimal;
@@ -272,6 +275,36 @@ class ImportBatchTest {
                     () -> batch.confirm(context(), false, ids(4), TODAY, HALF_AN_HOUR_LATER),
                     new ImportHasErrors(1),
                     List.of(new RowRefused(RowNumber.of(3), new QuantityOutOfRange(Measure.WEIGHT))));
+        }
+
+        @Test
+        void GivenARowWhoseNameIsPastTheCap_WhenConfirmed_ThenItsRowRefusedCarriesTextTooLong() {
+            DomainError tooLong = refusalOf(() -> ContactName.of("א".repeat(TextKind.NAME.maxLength() + 1)));
+            ImportBatch batch = anImportBatch()
+                    .withRows(cleanRow(1), new ImportRow.Unreadable(RowNumber.of(2), List.of(tooLong)))
+                    .previewed();
+
+            assertAllRefusedUnchanged(
+                    batch,
+                    () -> batch.confirm(context(), false, ids(3), TODAY, HALF_AN_HOUR_LATER),
+                    new ImportHasErrors(1),
+                    List.of(new RowRefused(RowNumber.of(2), new TextTooLong(TextKind.NAME, 100))));
+        }
+
+        @Test
+        void
+                GivenARowWhoseAddressHoldsABidiOverride_WhenConfirmed_ThenItsRowRefusedCarriesTextHasForbiddenCharacters() {
+            String overridden = "הרצל" + (char) 0x202E + "5";
+            DomainError forbidden = refusalOf(() -> Address.of(overridden));
+            ImportBatch batch = anImportBatch()
+                    .withRows(new ImportRow.Unreadable(RowNumber.of(4), List.of(forbidden)))
+                    .previewed();
+
+            assertAllRefusedUnchanged(
+                    batch,
+                    () -> batch.confirm(context(), false, ids(1), TODAY, HALF_AN_HOUR_LATER),
+                    new ImportHasErrors(1),
+                    List.of(new RowRefused(RowNumber.of(4), new TextHasForbiddenCharacters(TextKind.ADDRESS))));
         }
 
         @Test

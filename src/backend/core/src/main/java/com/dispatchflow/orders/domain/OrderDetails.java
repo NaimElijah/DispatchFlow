@@ -1,5 +1,6 @@
 package com.dispatchflow.orders.domain;
 
+import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.Priority;
 import com.dispatchflow.shared.TimeWindow;
 import com.dispatchflow.shared.Volume;
@@ -33,7 +34,8 @@ public record OrderDetails(
         Optional<ExternalReference> reference,
         Recipient recipient,
         Optional<DriverNote> note,
-        AccessDetails access) {
+        AccessDetails access)
+        implements PersonalData {
 
     /** Checks every part is given. */
     public OrderDetails {
@@ -46,5 +48,15 @@ public record OrderDetails(
         Objects.requireNonNull(recipient, "recipient");
         Objects.requireNonNull(note, "note");
         Objects.requireNonNull(access, "access");
+    }
+
+    /**
+     * A form that hides the details, because it holds personal data.
+     *
+     * @return {@code OrderDetails[redacted]}
+     */
+    @Override
+    public String toString() {
+        return "OrderDetails[redacted]";
     }
 }

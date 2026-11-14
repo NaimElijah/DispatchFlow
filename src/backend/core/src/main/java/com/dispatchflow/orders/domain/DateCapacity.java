@@ -2,6 +2,7 @@ package com.dispatchflow.orders.domain;
 
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.OrderId;
+import com.dispatchflow.shared.PersonalData;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -20,7 +21,7 @@ import java.util.stream.Collectors;
  * on the date (FR-211). A cancelled order is not among them, so its reference no longer counts
  * (ADR-102).
  */
-public final class DateCapacity {
+public final class DateCapacity implements PersonalData {
 
     /** The most uncancelled orders a date holds (BR-101, NFR-05). */
     public static final int LIMIT = 200;
@@ -31,12 +32,22 @@ public final class DateCapacity {
      * @param order the order
      * @param reference its outside reference, if it has one
      */
-    public record DatedOrder(OrderId order, Optional<ExternalReference> reference) {
+    public record DatedOrder(OrderId order, Optional<ExternalReference> reference) implements PersonalData {
 
         /** Checks both parts are given. */
         public DatedOrder {
             Objects.requireNonNull(order, "order");
             Objects.requireNonNull(reference, "reference");
+        }
+
+        /**
+         * A form that hides the reference, because it holds personal data.
+         *
+         * @return {@code DatedOrder[redacted]}
+         */
+        @Override
+        public String toString() {
+            return "DatedOrder[redacted]";
         }
     }
 
@@ -92,5 +103,15 @@ public final class DateCapacity {
         Set<OrderId> holding = holders.getOrDefault(reference, Set.of());
         return self.map(id -> holding.stream().anyMatch(holder -> !holder.equals(id)))
                 .orElse(!holding.isEmpty());
+    }
+
+    /**
+     * A form that hides the date's orders, because it holds personal data.
+     *
+     * @return {@code DateCapacity[redacted]}
+     */
+    @Override
+    public String toString() {
+        return "DateCapacity[redacted]";
     }
 }

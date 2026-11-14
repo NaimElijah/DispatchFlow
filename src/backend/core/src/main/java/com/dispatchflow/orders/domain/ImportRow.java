@@ -1,6 +1,7 @@
 package com.dispatchflow.orders.domain;
 
 import com.dispatchflow.shared.DomainError;
+import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.StoredStateInvalid;
 import java.util.List;
 import java.util.Objects;
@@ -10,7 +11,7 @@ import java.util.Objects;
  * refusal of each field it could not read. The reader is M2's adapter; this context receives its
  * rows and never reads bytes.
  */
-public sealed interface ImportRow {
+public sealed interface ImportRow extends PersonalData {
 
     /**
      * The row's number in the file.
@@ -31,6 +32,16 @@ public sealed interface ImportRow {
         public Parsed {
             Objects.requireNonNull(number, "number");
             Objects.requireNonNull(line, "line");
+        }
+
+        /**
+         * A form that hides the row, because it holds personal data.
+         *
+         * @return {@code ImportRow.Parsed[redacted]}
+         */
+        @Override
+        public String toString() {
+            return "ImportRow.Parsed[redacted]";
         }
     }
 
@@ -55,6 +66,16 @@ public sealed interface ImportRow {
             if (fieldErrors.isEmpty()) {
                 throw new StoredStateInvalid(ImportRow.class, "an unreadable row names no refused field");
             }
+        }
+
+        /**
+         * A form that hides the row, because it holds personal data.
+         *
+         * @return {@code ImportRow.Unreadable[redacted]}
+         */
+        @Override
+        public String toString() {
+            return "ImportRow.Unreadable[redacted]";
         }
     }
 }

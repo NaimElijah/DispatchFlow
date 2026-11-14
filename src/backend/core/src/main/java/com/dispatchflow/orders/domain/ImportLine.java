@@ -1,6 +1,7 @@
 package com.dispatchflow.orders.domain;
 
 import com.dispatchflow.shared.DeliveryDate;
+import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.PhoneNumber;
 import java.util.Objects;
 import java.util.Optional;
@@ -17,11 +18,8 @@ import java.util.Optional;
  * @param order the order's columns
  */
 public record ImportLine(
-        Address address,
-        Optional<ContactName> name,
-        Optional<PhoneNumber> phone,
-        DeliveryDate date,
-        OrderDetails order) {
+        Address address, Optional<ContactName> name, Optional<PhoneNumber> phone, DeliveryDate date, OrderDetails order)
+        implements PersonalData {
 
     /** Checks every part is given. */
     public ImportLine {
@@ -30,5 +28,15 @@ public record ImportLine(
         Objects.requireNonNull(phone, "phone");
         Objects.requireNonNull(date, "date");
         Objects.requireNonNull(order, "order");
+    }
+
+    /**
+     * A form that hides the row, because it holds personal data.
+     *
+     * @return {@code ImportLine[redacted]}
+     */
+    @Override
+    public String toString() {
+        return "ImportLine[redacted]";
     }
 }

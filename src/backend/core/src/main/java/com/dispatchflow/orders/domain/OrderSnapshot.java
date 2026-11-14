@@ -3,6 +3,7 @@ package com.dispatchflow.orders.domain;
 import com.dispatchflow.shared.CustomerId;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.OrderId;
+import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.Priority;
 import com.dispatchflow.shared.TimeWindow;
 import com.dispatchflow.shared.Version;
@@ -53,7 +54,8 @@ public record OrderSnapshot(
         Order.State state,
         boolean anonymized,
         Instant lastChangedAt,
-        Version version) {
+        Version version)
+        implements PersonalData {
 
     /** Checks every part is given. */
     public OrderSnapshot {
@@ -73,5 +75,15 @@ public record OrderSnapshot(
         Objects.requireNonNull(state, "state");
         Objects.requireNonNull(lastChangedAt, "lastChangedAt");
         Objects.requireNonNull(version, "version");
+    }
+
+    /**
+     * A form that hides the order, because it holds personal data.
+     *
+     * @return {@code OrderSnapshot[redacted]}
+     */
+    @Override
+    public String toString() {
+        return "OrderSnapshot[redacted]";
     }
 }

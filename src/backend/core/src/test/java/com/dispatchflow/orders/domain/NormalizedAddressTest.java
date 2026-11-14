@@ -19,7 +19,7 @@ class NormalizedAddressTest {
         return Stream.of(
                 Arguments.of("NFC composes a decomposed letter", "cafe\u0301", "caf\u00e9"),
                 Arguments.of("whitespace is trimmed", "  הרצל 5  ", "הרצל 5"),
-                Arguments.of("whitespace runs collapse to one space", "הרצל \t\n  5", "הרצל 5"),
+                Arguments.of("whitespace runs collapse to one space", "הרצל \u2003  5", "הרצל 5"),
                 Arguments.of("a no-break space is whitespace", "הרצל\u00a0\u00a05", "הרצל 5"),
                 Arguments.of("an apostrophe is the geresh", "רח' הרצל", "רחוב הרצל"),
                 Arguments.of("a left single quote is the geresh", "רח\u2018 הרצל", "רחוב הרצל"),
@@ -29,6 +29,11 @@ class NormalizedAddressTest {
                 Arguments.of("a geresh ends its word", "רח'הרצל 5", "רחוב הרצל 5"),
                 Arguments.of("a double quote is the gershayim", "ת\"א", "תל אביב"),
                 Arguments.of("two apostrophes are the gershayim", "ת''א", "תל אביב"),
+                Arguments.of("two right single quotes are the gershayim", "ת\u2019\u2019א", "תל אביב"),
+                Arguments.of("two gereshes are the gershayim", "ת\u05f3\u05f3א", "תל אביב"),
+                Arguments.of("a zero-width joiner inside a word is dropped", "הר\u200dצל 5", "הרצל 5"),
+                Arguments.of("a right-to-left mark inside a word is dropped", "הר\u200fצל 5", "הרצל 5"),
+                Arguments.of("niqqud is dropped", "ה\u05b6ר\u05b0צ\u05b5ל 5", "הרצל 5"),
                 Arguments.of("a left double quote is the gershayim", "ת\u201cא", "תל אביב"),
                 Arguments.of("a right double quote is the gershayim", "ת\u201dא", "תל אביב"),
                 Arguments.of("the gershayim itself", "ת\u05f4א", "תל אביב"),
@@ -74,6 +79,14 @@ class NormalizedAddressTest {
     @MethodSource("differentAddresses")
     void GivenTwoDifferentAddresses_WhenNormalized_ThenTheyDiffer(String one, String other) {
         assertThat(NormalizedAddress.of(Address.of(one))).isNotEqualTo(NormalizedAddress.of(Address.of(other)));
+    }
+
+    @Test
+    void GivenAnAddressWithInvisibleMarks_WhenKept_ThenTheAddressKeepsThemAndOnlyTheMatchingKeyDropsThem() {
+        Address withJoiner = Address.of("הר\u200dצל 5");
+
+        assertThat(withJoiner.text()).isEqualTo("הר\u200dצל 5");
+        assertThat(NormalizedAddress.of(withJoiner)).isEqualTo(NormalizedAddress.of(Address.of("הרצל 5")));
     }
 
     @Test

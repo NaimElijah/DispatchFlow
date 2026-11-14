@@ -18,6 +18,7 @@ import com.dispatchflow.shared.CustomerId;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.DomainError;
 import com.dispatchflow.shared.OrderId;
+import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.Priority;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.SharedKernelError.NonexistentLocalTime;
@@ -45,11 +46,10 @@ import org.jspecify.annotations.Nullable;
  * <p>Whether it is planned, dropped, delivered or failed is not stored here: {@link
  * OrderStatus#derive} works it out from its three owners (DL §9.6).
  *
- * <p>Its recipient, delivery note, access details and outside reference are personal data, removed 90
- * days after its
- * date (NFR-257).
+ * <p>Its recipient, delivery note, access details and outside reference are personal data, removed
+ * 90 days after its date (NFR-257).
  */
-public final class Order extends AggregateRoot {
+public final class Order extends AggregateRoot implements PersonalData {
 
     /** Days after its date that an order's personal fields are kept (NFR-257). */
     public static final int RETENTION_DAYS = 90;
@@ -518,5 +518,15 @@ public final class Order extends AggregateRoot {
                 anonymized,
                 lastChangedAt,
                 version());
+    }
+
+    /**
+     * A form that hides the order, because it holds personal data.
+     *
+     * @return {@code Order[redacted]}
+     */
+    @Override
+    public String toString() {
+        return "Order[redacted]";
     }
 }

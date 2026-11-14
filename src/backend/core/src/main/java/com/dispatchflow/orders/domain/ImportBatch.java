@@ -18,6 +18,7 @@ import com.dispatchflow.shared.DomainError;
 import com.dispatchflow.shared.FreshIds;
 import com.dispatchflow.shared.ImportBatchId;
 import com.dispatchflow.shared.OrderId;
+import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.RuleViolations;
 import com.dispatchflow.shared.StoredStateInvalid;
@@ -51,7 +52,7 @@ import java.util.Set;
  *
  * <p>Its rows hold names, phones, addresses and entrance codes, which are personal data.
  */
-public final class ImportBatch extends AggregateRoot {
+public final class ImportBatch extends AggregateRoot implements PersonalData {
 
     /** How long a preview may wait for confirmation (FR-399, ADR-086). */
     public static final Duration PREVIEW_LIFETIME = Duration.ofHours(1);
@@ -410,5 +411,15 @@ public final class ImportBatch extends AggregateRoot {
      */
     public ImportBatchSnapshot snapshot() {
         return new ImportBatchSnapshot(id, hash, encoding, rows, previewedAt, state, version());
+    }
+
+    /**
+     * A form that hides the batch, because it holds personal data.
+     *
+     * @return {@code ImportBatch[redacted]}
+     */
+    @Override
+    public String toString() {
+        return "ImportBatch[redacted]";
     }
 }

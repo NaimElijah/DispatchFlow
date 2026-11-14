@@ -1,5 +1,12 @@
 package com.dispatchflow.orders.domain;
 
+import com.dispatchflow.shared.PersonalData;
+import com.dispatchflow.shared.PlainText;
+import com.dispatchflow.shared.RuleViolation;
+import com.dispatchflow.shared.SharedKernelError.TextHasForbiddenCharacters;
+import com.dispatchflow.shared.SharedKernelError.TextTooLong;
+import com.dispatchflow.shared.StoredStateInvalid;
+import com.dispatchflow.shared.TextKind;
 import java.util.Objects;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -10,9 +17,9 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>It is a class with one factory rather than a record, so a blank one can't be built. It is
  * personal data with the order's address: {@link #toString()} hides it. It takes the kernel's
- * shared text rule once that rule exists.
+ * shared text rule, {@code PlainText} with {@code TextKind.NAME} (ADR-106).
  */
-public final class Floor {
+public final class Floor implements PersonalData {
 
     private final String text;
 
@@ -24,17 +31,32 @@ public final class Floor {
      * Reads the floor as typed or imported.
      *
      * @param text the floor
-     * @return the trimmed floor, or empty when the text is empty or only whitespace
+     * @return the floor in the kernel's normal form (ADR-106), or empty when nothing visible is
+     *     left
+     * @throws RuleViolation with {@link TextTooLong} past the {@link TextKind#NAME} cap, or with
+     *     {@link TextHasForbiddenCharacters}
      */
     public static Optional<Floor> of(String text) {
-        String trimmed = Objects.requireNonNull(text, "text").strip();
-        return trimmed.isEmpty() ? Optional.empty() : Optional.of(new Floor(trimmed));
+        PlainText plain = PlainText.of(TextKind.NAME, Objects.requireNonNull(text, "text"));
+        return plain.isEmpty() ? Optional.empty() : Optional.of(new Floor(plain.text()));
+    }
+
+    /**
+     * Rebuilds a stored floor through the same rule.
+     *
+     * @param stored the floor as stored
+     * @return the floor
+     * @throws StoredStateInvalid when the rule refuses it, or nothing visible is left
+     */
+    public static Floor ofStored(String stored) {
+        return StoredStateInvalid.whileRestoring(Floor.class, () -> of(stored))
+                .orElseThrow(() -> new StoredStateInvalid(Floor.class, "a stored floor is blank"));
     }
 
     /**
      * The floor's text.
      *
-     * @return the trimmed, non-empty text
+     * @return the text in the kernel's normal form, never empty
      */
     public String text() {
         return text;

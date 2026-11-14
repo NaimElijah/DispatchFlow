@@ -25,6 +25,10 @@ Several of its rules were not settled by any document:
 
 Where the customer defaults live is decided in [ADR-104]: Access's `CompanyProfile` holds them.
 
+This ADR amends [ADR-075], whose retention period for a customer never retired counted from the
+last order only (decision 6), and extends [ADR-086], with the abbreviation table, the matching
+steps and the rule that a confirmed import keeps no rows (decisions 3, 4 and 8).
+
 ## Decision
 
 On 2026-11-14 the owner, Naim Elijah, decided these for the team:
@@ -38,13 +42,13 @@ On 2026-11-14 the owner, Naim Elijah, decided these for the team:
    `DateCapacity` snapshot as the date's order limit ([BR-101], [BR-113]). A cancelled order is not in
    the snapshot, so its reference no longer counts. An order's own reference never counts against it.
 3. **The abbreviation table starts with [ADR-086]'s three** ([FR-398]): רח׳ for רחוב, שד׳ for שדרות
-   and ת״א for תל אביב. The rest is tracked in an issue with an owner, which the commit that adds this
-   ADR opens.
+   and ת״א for תל אביב. The rest is tracked in issue #69.
 4. **Punctuation becomes a space** ([FR-398], whose row the owner allowed changing to say so). Every
    character other than a letter, a digit, whitespace, the geresh or the gershayim becomes a space,
-   and whitespace then collapses. `''`, `"`, `“` and `”` count as the gershayim; `'`, `‘`, `’` and the
-   backtick as the geresh; and a geresh ends its word, so רח'הרצל reads as רח׳ הרצל. An address that
-   normalizes to nothing is refused with `BlankAddress`.
+   and whitespace then collapses. `'`, `‘`, `’` and the backtick count as the geresh; two gereshes,
+   so `''` and `’’` too, and `"`, `“` and `”` count as the gershayim; and a geresh ends its word, so
+   רח'הרצל reads as רח׳ הרצל. An address whose normalized form holds no letter or digit is refused
+   with `BlankAddress`.
 5. **More than two decimals is refused** ([BR-50]) with `QuantityOutOfRange`, so a weight is never
    changed silently. In an import, the row's field error carries it, listed as a `RowRefused` with the
    row's number under `ImportHasErrors`.
@@ -59,6 +63,10 @@ On 2026-11-14 the owner, Naim Elijah, decided these for the team:
 
 No document said these, and the implementation reads them so:
 
+- [FR-398]'s purpose is that two ways of typing one address match. So the matching key, and only
+  it, also deletes format characters (such as ZWJ, ZWNJ, RLM and LRM) and combining marks (such as
+  niqqud) before the punctuation step: הֶרְצֵל 5, and הרצל 5 with a zero-width joiner inside the
+  word, both match הרצל 5. The stored address keeps them.
 - Rows of one file whose addresses normalize alike, and match no customer, share one new customer,
   made from the first of them. Each such row still needs its own name and phone ([FR-311]).
 - Rescheduling an order onto the date it is already on is refused with `AlreadyOnThatDate`.
@@ -113,6 +121,7 @@ No document said these, and the implementation reads them so:
 - Legal advice on retention arrives ([NFR-257]): change the periods, not the rule's owners.
 
 [ADR-061]: ADR-061-capacity-is-weight-and-volume.md
+[ADR-075]: ADR-075-retention-deletes-records-and-anonymizes-people-in-place.md
 [ADR-086]: ADR-086-csv-imports-upload-then-confirm-within-an-hour.md
 [ADR-097]: ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md
 [ADR-104]: ADR-104-the-company-profile-holds-customer-defaults-and-capabilities-follow-the-role-matrix.md

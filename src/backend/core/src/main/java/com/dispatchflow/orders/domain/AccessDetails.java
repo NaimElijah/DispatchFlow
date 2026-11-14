@@ -1,5 +1,6 @@
 package com.dispatchflow.orders.domain;
 
+import com.dispatchflow.shared.PersonalData;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -12,7 +13,8 @@ import java.util.Optional;
  * @param apartment the apartment, if given
  * @param entranceCode the entrance code, if given
  */
-public record AccessDetails(Optional<Floor> floor, Optional<Apartment> apartment, Optional<EntranceCode> entranceCode) {
+public record AccessDetails(Optional<Floor> floor, Optional<Apartment> apartment, Optional<EntranceCode> entranceCode)
+        implements PersonalData {
 
     /** No floor, apartment or entrance code. */
     public static final AccessDetails NONE = new AccessDetails(Optional.empty(), Optional.empty(), Optional.empty());
@@ -43,5 +45,15 @@ public record AccessDetails(Optional<Floor> floor, Optional<Apartment> apartment
      */
     public boolean isGiven() {
         return floor.isPresent() || apartment.isPresent() || entranceCode.isPresent();
+    }
+
+    /**
+     * A form that hides the details, because it holds personal data.
+     *
+     * @return {@code AccessDetails[redacted]}
+     */
+    @Override
+    public String toString() {
+        return "AccessDetails[redacted]";
     }
 }

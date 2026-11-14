@@ -1,6 +1,7 @@
 package com.dispatchflow.orders.domain;
 
 import com.dispatchflow.shared.CustomerId;
+import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.Version;
 import java.time.Instant;
@@ -38,7 +39,8 @@ public record CustomerSnapshot(
         OrderDefaults defaults,
         Customer.State state,
         Instant createdAt,
-        Version version) {
+        Version version)
+        implements PersonalData {
 
     /** Checks every part is given, and copies the flags in their declared order. */
     public CustomerSnapshot {
@@ -55,5 +57,15 @@ public record CustomerSnapshot(
         EnumSet<AddressFlag> copied = EnumSet.noneOf(AddressFlag.class);
         copied.addAll(flags);
         flags = Collections.unmodifiableSet(copied);
+    }
+
+    /**
+     * A form that hides the customer, because it holds personal data.
+     *
+     * @return {@code CustomerSnapshot[redacted]}
+     */
+    @Override
+    public String toString() {
+        return "CustomerSnapshot[redacted]";
     }
 }

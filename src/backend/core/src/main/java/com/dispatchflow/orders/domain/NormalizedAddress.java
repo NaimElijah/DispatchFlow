@@ -1,5 +1,6 @@
 package com.dispatchflow.orders.domain;
 
+import com.dispatchflow.shared.PersonalData;
 import java.text.Normalizer;
 import java.util.List;
 import java.util.Objects;
@@ -13,10 +14,13 @@ import org.jspecify.annotations.Nullable;
  *
  * <ol>
  *   <li>Unicode NFC;
- *   <li>one gershayim: {@code ''} (two apostrophes), {@code "}, {@code “} and {@code ”} become {@code
- *       ״};
- *   <li>one geresh: {@code '}, {@code ‘}, {@code ’} and the backtick become {@code ׳}, and a geresh
- *       ends its word, so {@code רח'הרצל} reads as {@code רח׳ הרצל};
+ *   <li>format characters (such as ZWJ, ZWNJ, RLM and LRM) and combining marks (such as niqqud)
+ *       deleted, so two ways of typing one address match: {@code הֶרְצֵל} matches {@code הרצל}
+ *       (ADR-102). Only the matching key drops them; the {@link Address} keeps them;
+ *   <li>one geresh: {@code '}, {@code ‘}, {@code ’} and the backtick become {@code ׳};
+ *   <li>one gershayim: two gereshes, {@code "}, {@code “} and {@code ”} become {@code ״}, so
+ *       {@code ''} and {@code ’’} count as it too;
+ *   <li>a geresh ends its word, so {@code רח'הרצל} reads as {@code רח׳ הרצל};
  *   <li>every character other than a letter, a digit, whitespace, the geresh or the gershayim
  *       becomes a space, so {@code הרצל 5/3} stays apart from {@code הרצל 53};
  *   <li>whitespace trimmed, and each run of it, no-break spaces included, collapsed to one space;
@@ -31,12 +35,13 @@ import org.jspecify.annotations.Nullable;
  * <p>It is a class with one factory, so a normalized address is always computed from an {@link
  * Address} and never typed. It is personal data: {@link #toString()} hides it.
  */
-public final class NormalizedAddress {
+public final class NormalizedAddress implements PersonalData {
 
     private static final String GERESH = "\u05f3";
     private static final String GERSHAYIM = "\u05f4";
-    private static final Pattern GERSHAYIM_VARIANTS = Pattern.compile("''|[\"\u201c\u201d]");
+    private static final Pattern INVISIBLE_MARKS = Pattern.compile("[\\p{Cf}\\p{Mn}]");
     private static final Pattern GERESH_VARIANTS = Pattern.compile("['\u2018\u2019`]");
+    private static final Pattern GERSHAYIM_VARIANTS = Pattern.compile(GERESH + GERESH + "|[\"\u201c\u201d]");
     private static final Pattern GERESH_BEFORE_A_LETTER =
             Pattern.compile(GERESH + "(?=\\p{L})", Pattern.UNICODE_CHARACTER_CLASS);
     private static final Pattern PUNCTUATION =
@@ -68,8 +73,8 @@ public final class NormalizedAddress {
      * Normalizes an address.
      *
      * @param address the address as typed
-     * @return its normalized form, never empty, because {@link Address} refuses an address that
-     *     normalizes to nothing
+     * @return its normalized form, which holds a letter or a digit, because {@link Address} refuses
+     *     an address whose form holds neither
      */
     public static NormalizedAddress of(Address address) {
         return new NormalizedAddress(normalize(address.text()));
@@ -78,9 +83,10 @@ public final class NormalizedAddress {
     /** FR-398's steps, for {@link Address} to check that something is left. */
     static String normalize(String typed) {
         String composed = Normalizer.normalize(typed, Normalizer.Form.NFC);
-        String gershayim = GERSHAYIM_VARIANTS.matcher(composed).replaceAll(GERSHAYIM);
-        String geresh = GERESH_VARIANTS.matcher(gershayim).replaceAll(GERESH);
-        String wordEnds = GERESH_BEFORE_A_LETTER.matcher(geresh).replaceAll(GERESH + SPACE);
+        String visible = INVISIBLE_MARKS.matcher(composed).replaceAll("");
+        String geresh = GERESH_VARIANTS.matcher(visible).replaceAll(GERESH);
+        String gershayim = GERSHAYIM_VARIANTS.matcher(geresh).replaceAll(GERSHAYIM);
+        String wordEnds = GERESH_BEFORE_A_LETTER.matcher(gershayim).replaceAll(GERESH + SPACE);
         String spaced = PUNCTUATION.matcher(wordEnds).replaceAll(SPACE);
         String expanded = WHITESPACE.matcher(spaced).replaceAll(SPACE).strip();
         for (Abbreviation abbreviation : ABBREVIATIONS) {

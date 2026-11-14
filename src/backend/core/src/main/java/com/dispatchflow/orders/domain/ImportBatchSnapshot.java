@@ -1,6 +1,7 @@
 package com.dispatchflow.orders.domain;
 
 import com.dispatchflow.shared.ImportBatchId;
+import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.Version;
 import java.time.Instant;
 import java.util.List;
@@ -25,7 +26,8 @@ public record ImportBatchSnapshot(
         List<PreviewRow> rows,
         Instant previewedAt,
         ImportBatch.State state,
-        Version version) {
+        Version version)
+        implements PersonalData {
 
     /** Checks every part is given, and copies the rows. */
     public ImportBatchSnapshot {
@@ -36,5 +38,15 @@ public record ImportBatchSnapshot(
         Objects.requireNonNull(previewedAt, "previewedAt");
         Objects.requireNonNull(state, "state");
         Objects.requireNonNull(version, "version");
+    }
+
+    /**
+     * A form that hides the batch, because it holds personal data.
+     *
+     * @return {@code ImportBatchSnapshot[redacted]}
+     */
+    @Override
+    public String toString() {
+        return "ImportBatchSnapshot[redacted]";
     }
 }

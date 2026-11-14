@@ -1,5 +1,12 @@
 package com.dispatchflow.orders.domain;
 
+import com.dispatchflow.shared.PersonalData;
+import com.dispatchflow.shared.PlainText;
+import com.dispatchflow.shared.RuleViolation;
+import com.dispatchflow.shared.SharedKernelError.TextHasForbiddenCharacters;
+import com.dispatchflow.shared.SharedKernelError.TextTooLong;
+import com.dispatchflow.shared.StoredStateInvalid;
+import com.dispatchflow.shared.TextKind;
 import java.util.Objects;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -11,7 +18,7 @@ import org.jspecify.annotations.Nullable;
  * <p>A note can say anything about a person, so it is personal data: {@link #toString()} hides it,
  * and no error or event carries it.
  */
-public final class DriverNote {
+public final class DriverNote implements PersonalData {
 
     private final String text;
 
@@ -23,17 +30,32 @@ public final class DriverNote {
      * Reads a note as typed or imported.
      *
      * @param text the note
-     * @return the trimmed note, or empty when the text is empty or only whitespace
+     * @return the note in the kernel's normal form (ADR-106), or empty when nothing visible is
+     *     left
+     * @throws RuleViolation with {@link TextTooLong} past the {@link TextKind#NOTE} cap, or with
+     *     {@link TextHasForbiddenCharacters}
      */
     public static Optional<DriverNote> of(String text) {
-        String trimmed = Objects.requireNonNull(text, "text").strip();
-        return trimmed.isEmpty() ? Optional.empty() : Optional.of(new DriverNote(trimmed));
+        PlainText plain = PlainText.of(TextKind.NOTE, Objects.requireNonNull(text, "text"));
+        return plain.isEmpty() ? Optional.empty() : Optional.of(new DriverNote(plain.text()));
+    }
+
+    /**
+     * Rebuilds a stored note through the same rule.
+     *
+     * @param stored the note as stored
+     * @return the note
+     * @throws StoredStateInvalid when the rule refuses it, or nothing visible is left
+     */
+    public static DriverNote ofStored(String stored) {
+        return StoredStateInvalid.whileRestoring(DriverNote.class, () -> of(stored))
+                .orElseThrow(() -> new StoredStateInvalid(DriverNote.class, "a stored note is blank"));
     }
 
     /**
      * The note's text.
      *
-     * @return the trimmed, non-empty text
+     * @return the text in the kernel's normal form, never empty
      */
     public String text() {
         return text;
