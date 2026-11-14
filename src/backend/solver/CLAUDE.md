@@ -7,7 +7,7 @@ and it hosts every solver behind one port ([ADR-004]). Python 3.14, FastAPI, Uvi
 
 | Package under `src/dispatchflow_solver/` | Holds |
 |---|---|
-| `domain/` | `Problem` (`validate`, `cost`, `explain_drop`), `ProblemFactory`, `Solution`, `TravelTimeModel`, `PenaltyScale` and `RuleId`: the problem, the solution, the shared objective, the feasibility validator and the drop reasons |
+| `domain/` | `Problem` (`validate`, `cost`, `explain_drop`), `ProblemFactory` (`daily`, `reoptimization`), `Solution`, `TravelTimeModel`, `PenaltyScale` and `RuleId`: the problem, the solution, the shared objective, the feasibility validator and the drop reasons, for daily solves and re-optimizations |
 | `application/` | The solve use cases, the `Solver` port and the solver registry |
 | `solvers/ortools/`, `solvers/alns/` | One adapter per solver: OR-Tools, and ours. Ours runs the `alns` package (MIT) as its outer loop, and the Clarke-Wright construction, the operators, the route state and the Numba kernels are ours ([ADR-092]) |
 | `adapters/inbound/http/` | `create_app()`: the FastAPI app and its request and response models |
@@ -30,7 +30,12 @@ draws it, where `nearest_neighbour` joins them. Neither is in the tree yet.
 - `Problem` owns `validate`, `cost` and `explain_drop` ([TS §7.1]). `validate` is the one
   definition of feasibility, and `cost` is the one objective. `Problem` and `Solution` are frozen
   dataclasses over NumPy arrays ([TS §7.1]).
-- `ProblemFactory` alone applies the re-optimization conventions ([ADR-050]).
+- `ProblemFactory` alone applies the re-optimization conventions ([ADR-050]). It writes each one
+  into the `Problem` once ([ADR-105]): a vehicle's start and end into `Vehicles`, a vehicle that is
+  out as an exclusion for its state, and the rest into the `ReoptContext`. A daily `Problem` has no
+  context, and every check that reads one is skipped, so a daily solve behaves as before.
+- A vehicle's driver is -1 only on a vehicle out of a re-optimization, so every vehicle that can
+  take a stop has a driver ([ADR-105]).
 - `TravelTimeModel` is the only place the bucket factors and the buffer are applied.
 - Numbers follow [ADR-098]:
   - `Problem` holds times and distances as float64, and every limit is inclusive within
@@ -46,11 +51,6 @@ draws it, where `nearest_neighbour` joins them. Neither is in the tree yet.
   claim ([ADR-099]).
 - The domain caps no counts, because research instances are exempt from the plan limits (BR-101,
   FR-390).
-- **Open points waiting on the owner,** each noted where the code depends on it:
-  - K's bound fails for a door order whose window lies wholly outside its driver's shift
-    (BR-121, [ADR-049]; `penalty.py`).
-  - FR-223 names no drop reason for a date with no usable vehicle, so such drops report *capacity*
-    against 0 kg (`drops.py`).
 - Travel time comes in three kinds. The validator and the ETAs use buffered times. The objective's
   travel cost uses per-bucket times without the buffer. The search's upper bound is the highest
   factor × (1 + buffer). An arc takes the factor of the bucket it departs in ([DL §10.2],
@@ -90,7 +90,8 @@ draws it, where `nearest_neighbour` joins them. Neither is in the tree yet.
   search, `solution_limit` stopping early) are in [the plan's §8][PL-8].
 - The violation catalogue (`tests/domain/test_violation_catalogue.py`) is Python test builders:
   one case per way each rule breaks, each asserting the exact set of `RuleId`s reported ([DL §14],
-  NFR-169).
+  NFR-169). The re-optimization rules have their cases there too, built with `LiveDay`
+  (`tests/domain/builders.py`). A new `RuleId` needs a case, or the coverage test fails.
 - Hypothesis property tests run from a recorded seed with `deadline=None` and no example database
   (NFR-82, `tests/domain/properties.py`).
 - `tests/domain/data/solomon/` holds six Solomon instances and their published best-known
@@ -118,12 +119,12 @@ Run `just` recipes from the repository root, and `uv` from this folder.
 [ADR-043]: ../../../docs/ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md
 [ADR-044]: ../../../docs/ADRs/ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md
 [ADR-048]: ../../../docs/ADRs/ADR-048-travel-times-from-buckets-and-a-buffer-with-no-live-traffic.md
-[ADR-049]: ../../../docs/ADRs/ADR-049-drop-penalty-unit-k-scaled-by-priority.md
 [ADR-050]: ../../../docs/ADRs/ADR-050-re-optimization-conventions-live-only-in-the-python-problem-factory.md
 [ADR-051]: ../../../docs/ADRs/ADR-051-one-solver-worker-per-lane-killed-30-seconds-past-its-limit.md
 [ADR-092]: ../../../docs/ADRs/ADR-092-the-alns-package-runs-our-solvers-outer-loop.md
 [ADR-098]: ../../../docs/ADRs/ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md
 [ADR-099]: ../../../docs/ADRs/ADR-099-a-route-may-carry-the-starts-its-solver-claims.md
+[ADR-105]: ../../../docs/ADRs/ADR-105-a-re-optimizations-problem-carries-its-conventions-and-only-a-vehicle-that-is-out-has-no-driver.md
 [TS §2.1]: ../../../docs/architecture/tech_stack.md#21-the-dependency-rule
 [TS §4]: ../../../docs/architecture/tech_stack.md#4-repository-layout
 [TS §7]: ../../../docs/architecture/tech_stack.md#7-optimization-service-python

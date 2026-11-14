@@ -29,6 +29,8 @@ class SharedKernelErrorTest {
                         "NON_POSITIVE_QUANTITY",
                         "OUTSIDE_THE_DAY",
                         "PRIORITY_OUT_OF_RANGE",
-                        "QUANTITY_OUT_OF_RANGE");
+                        "QUANTITY_OUT_OF_RANGE",
+                        "TEXT_HAS_FORBIDDEN_CHARACTERS",
+                        "TEXT_TOO_LONG");
     }
 }

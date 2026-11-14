@@ -9,7 +9,7 @@ import com.dispatchflow.shared.SharedKernelError.InvalidCoordinates;
  * @param latitude degrees north of the equator
  * @param longitude degrees east of Greenwich
  */
-public record GeoPoint(double latitude, double longitude) {
+public record GeoPoint(double latitude, double longitude) implements PersonalData {
 
     private static final double MAX_LATITUDE = 90;
     private static final double MAX_LONGITUDE = 180;

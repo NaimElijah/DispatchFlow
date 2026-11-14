@@ -4,6 +4,10 @@ Each case starts from one feasible day and breaks one rule one way, then names t
 rules the validator must report. The day: a depot at point 0, a vehicle carrying 10 kg and 10 l
 with a driver on shift 0 to 1,000, and two orders at points 100 and 200 with 10 s of service.
 Served in order, the route arrives at 100 and 210 and returns at 420.
+
+The re-optimization cases start from one live day instead: at 150, the vehicle has delivered the
+order at 100 and has the order at 200 left, so it is placed at the first order at 150, arrives at
+the second at 250 and returns at 460.
 """
 
 from collections.abc import Callable
@@ -11,10 +15,11 @@ from dataclasses import replace
 
 import pytest
 
+from dispatchflow_solver.domain.factory import VehicleState
 from dispatchflow_solver.domain.problem import Pin, Problem
 from dispatchflow_solver.domain.rules import RuleId
 from dispatchflow_solver.domain.solution import InvalidSolutionError, Route, Solution
-from tests.domain.builders import DEPOT_LOCATION, DayBuilder
+from tests.domain.builders import DEPOT_LOCATION, DayBuilder, LiveDay, delivered
 
 SHIFT = (0.0, 1_000.0)
 RETURN = 420.0
@@ -236,6 +241,110 @@ def pinned_to_another_driver() -> tuple[Problem, Solution]:
     return day.build(), served_in_order(0, 1)
 
 
+# --- re-optimization (ADR-050, ADR-105) ---
+
+NOW = 150.0
+
+
+def a_live_day(*, second_vehicle: VehicleState | None = None) -> LiveDay:
+    # Vehicle 0 delivered order 0 at 100 and has order 1 left. A second vehicle, when asked for,
+    # has driver 1, and order 2 at 300 is new to the date.
+    day = DayBuilder()
+    day.vehicle(weight=10, volume=10, shift=SHIFT)
+    day.order(100, service=10)
+    day.order(200, service=10)
+    live = LiveDay(day, now=NOW)
+    live.route(0, delivered(0, 100), 1)
+    if second_vehicle is not None:
+        day.vehicle(weight=10, volume=10, shift=SHIFT)
+        day.order(300, service=10)
+        live.states[1] = second_vehicle
+    return live
+
+
+def a_withdrawn_second_vehicle() -> tuple[LiveDay, int]:
+    # Vehicle 1 delivered order 2 and still had order 3 when it was marked unavailable, so it is
+    # withdrawn, ends where it served order 2, and order 3 is an orphan.
+    live = a_live_day(second_vehicle=VehicleState.UNAVAILABLE)
+    live.day.order(400, service=10)
+    live.route(1, delivered(2, 120), 3)
+    return live, live.day.location_of(2)
+
+
+def remaining_route(live: LiveDay, *stops: int) -> Route:
+    return route_of(0, 0, *stops, start=live.day.location_of(0))
+
+
+def reoptimized_feasibly() -> tuple[Problem, Solution]:
+    live = a_live_day()
+    return live.build(), solution_of(remaining_route(live, 1))
+
+
+def locked_stop_served_again() -> tuple[Problem, Solution]:
+    live = a_live_day()
+    return live.build(), solution_of(remaining_route(live, 0, 1))
+
+
+def heavy_locked_stop_served_again() -> tuple[Problem, Solution]:
+    # Its 50 kg left the vehicle with its delivery, so only BR-10 is broken, never BR-05.
+    live = a_live_day()
+    live.day.orders[0] = replace(live.day.orders[0], weight_kg=50)
+    return live.build(), solution_of(remaining_route(live, 0, 1))
+
+
+def late_stop_returning_past_the_shift() -> tuple[Problem, Solution]:
+    # BR-107 keeps order 1 50 s past its window end, within its shift; the return at 460 is not.
+    live = a_live_day()
+    live.day.orders[1] = replace(live.day.orders[1], window_end=200)
+    live.day.drivers[0] = replace(live.day.drivers[0], shift_end=400)
+    return live.build(), solution_of(remaining_route(live, 1))
+
+
+def locked_stop_dropped() -> tuple[Problem, Solution]:
+    live = a_live_day()
+    return live.build(), solution_of(remaining_route(live, 1), dropped=frozenset({0}))
+
+
+def starts_at_the_depot_not_where_the_vehicle_is() -> tuple[Problem, Solution]:
+    return a_live_day().build(), solution_of(route_of(0, 0, 1))
+
+
+def withdrawn_route_ends_at_its_depot() -> tuple[Problem, Solution]:
+    live, last = a_withdrawn_second_vehicle()
+    withdrawn = route_of(1, 1, start=last, end=DEPOT_LOCATION)
+    return live.build(), solution_of(remaining_route(live, 1), withdrawn, dropped=frozenset({3}))
+
+
+def stop_moved_off_its_vehicle() -> tuple[Problem, Solution]:
+    live = a_live_day(second_vehicle=VehicleState.ACTIVE)
+    return live.build(), solution_of(
+        remaining_route(live), route_of(1, 1, 1, 2), dropped=frozenset()
+    )
+
+
+def stop_on_an_unavailable_vehicle() -> tuple[Problem, Solution]:
+    live = a_live_day(second_vehicle=VehicleState.UNAVAILABLE)
+    return live.build(), solution_of(remaining_route(live, 1), route_of(1, 1, 2))
+
+
+def stop_on_a_vehicle_without_a_driver() -> tuple[Problem, Solution]:
+    # Driver 1 is on the date, but the vehicle has none, so the route breaks BR-20 as well.
+    live = a_live_day(second_vehicle=VehicleState.NO_DRIVER)
+    live.without_driver.add(1)
+    return live.build(), solution_of(remaining_route(live, 1), route_of(1, 1, 2))
+
+
+def stop_added_to_a_finished_route() -> tuple[Problem, Solution]:
+    live = a_live_day(second_vehicle=VehicleState.FINISHED)
+    return live.build(), solution_of(remaining_route(live, 1), route_of(1, 1, 2))
+
+
+def stop_added_to_a_withdrawn_route() -> tuple[Problem, Solution]:
+    live, last = a_withdrawn_second_vehicle()
+    withdrawn = route_of(1, 1, 3, start=last, end=last)
+    return live.build(), solution_of(remaining_route(live, 1), withdrawn)
+
+
 R = RuleId
 CATALOGUE: dict[str, tuple[Case, frozenset[RuleId]]] = {
     "BR-03 window missed": (window_missed, frozenset({R.BR_03})),
@@ -272,6 +381,41 @@ CATALOGUE: dict[str, tuple[Case, frozenset[RuleId]]] = {
     "BR-119 door stop after date": (door_stop_after_date, frozenset({R.BR_119, R.BR_06})),
     "FR-91 pinned to another vehicle": (pinned_to_another_vehicle, frozenset({R.FR_91})),
     "FR-91 pinned to another driver": (pinned_to_another_driver, frozenset({R.FR_91})),
+    "BR-10 locked stop served again": (locked_stop_served_again, frozenset({R.BR_10})),
+    "BR-10 locked stop dropped": (locked_stop_dropped, frozenset({R.BR_10})),
+    "BR-10 heavy locked stop served again": (
+        heavy_locked_stop_served_again,
+        frozenset({R.BR_10}),
+    ),
+    "BR-107 late stop returning past the shift": (
+        late_stop_returning_past_the_shift,
+        frozenset({R.BR_06}),
+    ),
+    "BR-51 starts at the depot, not where the vehicle is": (
+        starts_at_the_depot_not_where_the_vehicle_is,
+        frozenset({R.BR_51}),
+    ),
+    "BR-52 withdrawn route ends at its depot": (
+        withdrawn_route_ends_at_its_depot,
+        frozenset({R.BR_52}),
+    ),
+    "BR-106 stop moved off its vehicle": (stop_moved_off_its_vehicle, frozenset({R.BR_106})),
+    "BR-106 stop on an unavailable vehicle": (
+        stop_on_an_unavailable_vehicle,
+        frozenset({R.BR_106}),
+    ),
+    "BR-106 and BR-20 stop on a vehicle without a driver": (
+        stop_on_a_vehicle_without_a_driver,
+        frozenset({R.BR_106, R.BR_20}),
+    ),
+    "BR-108 stop added to a finished route": (
+        stop_added_to_a_finished_route,
+        frozenset({R.BR_108}),
+    ),
+    "BR-108 stop added to a withdrawn route": (
+        stop_added_to_a_withdrawn_route,
+        frozenset({R.BR_108}),
+    ),
 }
 
 
@@ -282,6 +426,16 @@ def test_given_the_baseline_day_when_validated_then_accepted() -> None:
 
     assert report.violations == ()
     assert report.accepted
+
+
+def test_given_the_live_baseline_day_when_validated_then_accepted() -> None:
+    problem, solution = reoptimized_feasibly()
+
+    report = problem.validate(solution)
+
+    assert report.violations == ()
+    assert report.timings[0].leaves_at == NOW
+    assert report.timings[0].returns_at == 460
 
 
 @pytest.mark.parametrize("name", sorted(CATALOGUE))

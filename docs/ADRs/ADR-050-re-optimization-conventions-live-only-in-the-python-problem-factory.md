@@ -1,6 +1,6 @@
 # ADR-050: Re-optimization conventions live only in the Python problem factory
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-105
 - **Date:** 2026-11-13
 
 ## Context

@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 
 /**
  * The refusals of the shared kernel's values (DL §3.3). Their fields carry no personal data:
- * neither a refused phone number nor refused coordinates appear in them.
+ * neither a refused phone number, refused coordinates nor refused free text appear in them.
  */
 public sealed interface SharedKernelError extends DomainError {
 
@@ -83,4 +83,26 @@ public sealed interface SharedKernelError extends DomainError {
      * @param date the refused date
      */
     record DateOutOfRange(LocalDate date) implements SharedKernelError {}
+
+    /**
+     * Free text longer than its kind's cap, counted in code points after normalization, or raw
+     * input more than eight UTF-16 units per code point of the cap, which is refused before it is
+     * normalized (ADR-106). It names no text, because a name, an address or a note is personal
+     * data.
+     *
+     * @param kind the kind of text refused
+     * @param maxLength the most code points that kind holds
+     */
+    record TextTooLong(TextKind kind, int maxLength) implements SharedKernelError {}
+
+    /**
+     * Free text holding a character its kind refuses (ADR-106): a control character other than a
+     * line feed in a note; a line or paragraph separator outside a note; an interior format
+     * character in a name or an address, other than U+061C and U+200C to U+200F; a bidi
+     * embedding, override or isolate control; an unpaired surrogate; or a private-use or unassigned code point. It
+     * names no text or character, because the text is personal data.
+     *
+     * @param kind the kind of text refused
+     */
+    record TextHasForbiddenCharacters(TextKind kind) implements SharedKernelError {}
 }

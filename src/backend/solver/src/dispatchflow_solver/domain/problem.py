@@ -14,6 +14,7 @@ time this module imports them, and they never import it.
 """
 
 import math
+import numbers
 from collections.abc import Callable, Sized
 from dataclasses import dataclass
 from typing import Any, Final
@@ -24,16 +25,21 @@ import numpy.typing as npt
 from dispatchflow_solver.domain import drops, feasibility, objective
 from dispatchflow_solver.domain.drops import DropReason
 from dispatchflow_solver.domain.errors import InvalidProblemError
-from dispatchflow_solver.domain.exclusions import OrderExclusion, VehicleExclusion
-from dispatchflow_solver.domain.feasibility import Timings, ValidationReport
-from dispatchflow_solver.domain.indices import NO_INDEX
+from dispatchflow_solver.domain.exclusions import (
+    REOPTIMIZATION_EXCLUSIONS,
+    OrderExclusion,
+    VehicleExclusion,
+)
+from dispatchflow_solver.domain.feasibility import Timings, ValidationReport, require_inside
+from dispatchflow_solver.domain.indices import NO_INDEX, in_int64, require_float, require_int
 from dispatchflow_solver.domain.objective import Cost
 from dispatchflow_solver.domain.penalty import HIGHEST_PRIORITY, LOWEST_PRIORITY, PenaltyScale
-from dispatchflow_solver.domain.solution import Solution
+from dispatchflow_solver.domain.solution import InvalidSolutionError, Solution
 from dispatchflow_solver.domain.travel_time import TravelTimeModel
 
 MATRIX_ENTRY_MAX: Final = 2_147_483_647
-"""The largest matrix entry: the contract carries the matrices as int32 (ADR-052)."""
+"""The largest matrix entry: the contract carries the matrices as int32 (ADR-052). A window time is
+held to the same magnitude in seconds (ADR-100)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,14 +51,25 @@ class Pin:
         driver: The pinned driver's index, or None for a vehicle pin.
 
     Raises:
-        InvalidProblemError: Unless exactly one of the two is a non-negative index.
+        InvalidProblemError: Unless exactly one of the two is a non-negative index, if one is no
+            number, or if a whole number lies outside int64.
     """
 
     vehicle: int | None = None
     driver: int | None = None
 
     def __post_init__(self) -> None:
-        """Refuses a pin to neither, to both, or to a negative index."""
+        """Refuses a pin to neither, to both, to a negative index, or past int64."""
+        for name in ("vehicle", "driver"):
+            target = getattr(self, name)
+            # The comparison below needs a number, so anything else is refused here. A number that
+            # is not a whole one, such as 0.0, passes on to the factory, whose message names the
+            # order the pin belongs to. The range comes first, so no message formats a
+            # 4,300-digit int.
+            if target is not None and not isinstance(target, numbers.Real):
+                raise InvalidProblemError(f"a pin's {name} must be a number: {target!r}")
+            if isinstance(target, numbers.Integral) and not in_int64(int(target)):
+                raise InvalidProblemError(f"a pin's {name} is outside the int64 range")
         targets = [target for target in (self.vehicle, self.driver) if target is not None]
         if len(targets) != 1 or targets[0] < 0:
             raise InvalidProblemError(
@@ -129,6 +146,23 @@ class Orders:
                 f"later than the end: [{self.window_start[i]}, {self.window_end[i]}]"
             ),
         )
+        # A window may lie off the date, but one door window sets K for the whole date (ADR-100),
+        # so a magnitude past the matrices' int32 range of seconds (ADR-052) is refused before it
+        # can drown the travel terms or overflow K.
+        _refuse_first(
+            np.abs(self.window_start) > MATRIX_ENTRY_MAX,
+            lambda i: (
+                f"orders.window_start[{i}] must lie within {MATRIX_ENTRY_MAX} seconds of the "
+                f"date's start: {self.window_start[i]}"
+            ),
+        )
+        _refuse_first(
+            np.abs(self.window_end) > MATRIX_ENTRY_MAX,
+            lambda i: (
+                f"orders.window_end[{i}] must lie within {MATRIX_ENTRY_MAX} seconds of the "
+                f"date's start: {self.window_end[i]}"
+            ),
+        )
         _refuse_first(
             (self.priority < HIGHEST_PRIORITY) | (self.priority > LOWEST_PRIORITY),
             lambda i: f"orders.priority[{i}] runs from 1 to 5 (BR-53): {self.priority[i]}",
@@ -166,25 +200,35 @@ class Orders:
 
 @dataclass(frozen=True, slots=True, eq=False)
 class Vehicles:
-    """The date's vehicles, each with its depots and its rostered driver, indexed by vehicle.
+    """The date's vehicles, each with where it starts and ends and its driver, indexed by vehicle.
 
     The roster pairs each vehicle with one driver, and no driver drives two vehicles on a date
     (FR-54, BR-20). Depot hours are folded in: a vehicle leaves no earlier than its start depot
     opens and returns no later than its end depot closes (BR-46).
 
+    In a re-optimization the factory writes each convention here once (ADR-050, ADR-105): a
+    vehicle starts where it is placed (BR-51), a withdrawn vehicle ends at its last reported stop
+    (BR-52), and a vehicle that is out is excluded for its state. Only such a vehicle may have no
+    driver, so a vehicle that can take a stop always has one. A vehicle that is out keeps the
+    driver it last had, who may drive another vehicle now, so FR-54 counts only the others.
+
     Attributes:
         weight_capacity_kg: Weight capacity in kilograms (BR-05).
         volume_capacity_l: Volume capacity in litres; +inf for no volume limit (FR-390).
-        start_location: The start depot's location, or -1 when the depot has none (FR-197).
-        end_location: The end depot's location, or -1 when the depot has none (FR-197).
+        start_location: Where its route starts: its start depot's location, or in a
+            re-optimization where it is placed; -1 when that place has none (FR-197).
+        end_location: Where its route ends: its end depot's location, or a withdrawn vehicle's
+            last reported stop; -1 when the depot has none (FR-197).
         start_depot_opens: When the start depot opens; -inf when it has no hours (FR-129).
-        end_depot_closes: When the end depot closes; +inf when it has no hours (FR-129).
-        driver: The driver the roster gives the vehicle on the date.
+        end_depot_closes: When the end depot closes; +inf when it has no hours (FR-129), and for
+            a withdrawn vehicle, whose route ends at a stop.
+        driver: The driver the roster gives the vehicle on the date, or -1 for none, which only a
+            vehicle excluded for a re-optimization state may have.
         exclusion: Why each vehicle can drive no route, or None for a usable vehicle.
 
     Raises:
-        InvalidProblemError: If the arrays differ in length, hold a value no vehicle can have, or
-            roster one driver to two vehicles.
+        InvalidProblemError: If the arrays differ in length, hold a value no vehicle can have,
+            roster one driver to two vehicles, or leave a vehicle without a driver that is not out.
     """
 
     weight_capacity_kg: npt.NDArray[np.float64]
@@ -247,17 +291,13 @@ class Vehicles:
                 f"vehicles.end_depot_closes[{i}] must be finite or +inf: {self.end_depot_closes[i]}"
             ),
         )
-        rostered: dict[int, int] = {}
-        for vehicle, driver in enumerate(int(driver) for driver in self.driver):
-            if driver in rostered:
-                raise InvalidProblemError(
-                    f"driver {driver} is rostered to vehicles {rostered[driver]} and {vehicle}; "
-                    "a driver drives one vehicle on a date (FR-54)"
-                )
-            rostered[driver] = vehicle
+        self._require_drivers()
         for vehicle, exclusion in enumerate(self.exclusion):
             no_depot = NO_INDEX in (self.start_location[vehicle], self.end_location[vehicle])
-            if no_depot != (exclusion is VehicleExclusion.DEPOT_WITHOUT_LOCATION):
+            for_depot = exclusion is VehicleExclusion.DEPOT_WITHOUT_LOCATION
+            # A vehicle that is out may lack a place too: its state is why it drives no route.
+            out = exclusion in REOPTIMIZATION_EXCLUSIONS
+            if (for_depot and not no_depot) or (no_depot and not (for_depot or out)):
                 raise InvalidProblemError(
                     f"vehicles.exclusion[{vehicle}] is {exclusion}: a vehicle lacks a depot "
                     "location exactly when excluded for it"
@@ -274,6 +314,32 @@ class Vehicles:
     def usable(self) -> tuple[int, ...]:
         """The vehicles that can drive a route, in index order."""
         return tuple(vehicle for vehicle in range(len(self)) if self.is_usable(vehicle))
+
+    def has_driver(self, vehicle: int) -> bool:
+        """Says whether the roster gives a vehicle a driver; every usable vehicle has one."""
+        return int(self.driver[vehicle]) != NO_INDEX
+
+    def _require_drivers(self) -> None:
+        rostered: dict[int, int] = {}
+        for vehicle, driver in enumerate(int(driver) for driver in self.driver):
+            exclusion = self.exclusion[vehicle]
+            if driver == NO_INDEX and exclusion not in REOPTIMIZATION_EXCLUSIONS:
+                raise InvalidProblemError(
+                    f"vehicles.driver[{vehicle}] is none, but its exclusion is {exclusion}: only a "
+                    "vehicle out of a re-optimization may have no driver (ADR-050)"
+                )
+            if exclusion is VehicleExclusion.NO_DRIVER and driver != NO_INDEX:
+                raise InvalidProblemError(
+                    f"vehicles.exclusion[{vehicle}] is no_driver, but its driver is {driver}"
+                )
+            if driver == NO_INDEX or exclusion in REOPTIMIZATION_EXCLUSIONS:
+                continue
+            if driver in rostered:
+                raise InvalidProblemError(
+                    f"driver {driver} is rostered to vehicles {rostered[driver]} and {vehicle}; "
+                    "a driver drives one vehicle on a date (FR-54)"
+                )
+            rostered[driver] = vehicle
 
 
 @dataclass(frozen=True, slots=True, eq=False)
@@ -319,14 +385,95 @@ class Drivers:
 
 
 @dataclass(frozen=True, slots=True, eq=False)
+class ReoptContext:
+    """What a re-optimization's problem holds beyond a daily one, decided once by the factory.
+
+    The rest of ADR-050's conventions are written into `Vehicles`: where each vehicle starts
+    (BR-51) and ends (BR-52), and the state that keeps a vehicle out (BR-106, BR-108). The
+    validator checks only what follows `now`, so a fact never fails a solution (BR-23).
+
+    Attributes:
+        now: When the facts were gathered, in seconds since the date's local midnight.
+        start_time: When each vehicle's remaining route may leave its start, indexed by vehicle;
+            never before `now` (BR-23, BR-51).
+        locked: Per order, whether its stop is reported delivered, failed or arrived, so the
+            report serves it and nothing moves it (BR-10, BR-91).
+        stays_on: Per order, the vehicle its stop must stay on, or -1 when it may go to any active
+            vehicle (BR-106, BR-117).
+        orphaned: Per order, whether its stop was on a vehicle that is out, so it leaves that
+            vehicle whatever the solution does (BR-106, BR-115).
+        no_usable_position: The vehicles with no usable position, for the preview (BR-80, BR-81).
+        warm_start: The current remaining sequences with the orphans left out, for a solver to
+            start from (ADR-044, FR-280).
+
+    Raises:
+        InvalidProblemError: If `now` is no number, a time is not finite, a vehicle in
+            `no_usable_position` is not an int, the warm start is not a `Solution`, the per-order
+            arrays differ in length, a locked stop may still move or stay, or an orphan also stays
+            on a vehicle.
+    """
+
+    now: float
+    start_time: npt.NDArray[np.float64]
+    locked: npt.NDArray[np.bool_]
+    stays_on: npt.NDArray[np.int64]
+    orphaned: npt.NDArray[np.bool_]
+    no_usable_position: frozenset[int]
+    warm_start: Solution
+
+    def __post_init__(self) -> None:
+        """Copies every array read-only and refuses a context that contradicts itself."""
+        _set_column(self, "reoptimization", "start_time", np.float64)
+        _set_column(self, "reoptimization", "locked", np.bool_)
+        _set_column(self, "reoptimization", "stays_on", np.int64)
+        _set_column(self, "reoptimization", "orphaned", np.bool_)
+        object.__setattr__(
+            self,
+            "no_usable_position",
+            frozenset(
+                require_int("reoptimization.no_usable_position[]", vehicle)
+                for vehicle in self.no_usable_position
+            ),
+        )
+        if not isinstance(self.warm_start, Solution):
+            raise InvalidProblemError(
+                f"reoptimization.warm_start is a {type(self.warm_start).__name__}, not Solution"
+            )
+        now = require_float("reoptimization.now", self.now)
+        if not math.isfinite(now):
+            raise InvalidProblemError(f"reoptimization.now must be finite: {now}")
+        object.__setattr__(self, "now", now)
+        _refuse_first(
+            ~np.isfinite(self.start_time),
+            lambda i: f"reoptimization.start_time[{i}] must be finite: {self.start_time[i]}",
+        )
+        _require_lengths(
+            "reoptimization",
+            len(self.locked),
+            stays_on=self.stays_on,
+            orphaned=self.orphaned,
+        )
+        _refuse_first(
+            self.locked & ((self.stays_on != NO_INDEX) | self.orphaned),
+            lambda i: f"reoptimization.locked[{i}] is set, but the stop may still move or stay",
+        )
+        _refuse_first(
+            self.orphaned & (self.stays_on != NO_INDEX),
+            lambda i: f"reoptimization.orphaned[{i}] is set, but the stop stays on a vehicle",
+        )
+
+
+@dataclass(frozen=True, slots=True, eq=False)
 class Problem:
-    """Everything one daily solve needs, and the rules that judge a solution (DL §4.9).
+    """Everything one solve needs, and the rules that judge a solution (DL §4.9).
 
     Build it with `ProblemFactory`, which decides each convention once and writes it here
-    (ADR-050). The re-optimization context joins as a further field.
+    (ADR-050). A daily problem has no re-optimization context and behaves as it always has; a
+    re-optimization's context makes `validate`, `cost` and `explain_drop` apply its conventions
+    (ADR-105).
 
-    A date with no usable vehicle drops every order, and FR-223 names no reason for that; until the
-    owner decides one, `explain_drop` reports *capacity* with a largest capacity of 0.
+    A date with no usable vehicle drops every order, and `explain_drop` reports *no vehicle
+    available* for each one that has a location (ADR-100).
 
     Attributes:
         orders: Every order of the date, excluded ones included.
@@ -343,10 +490,12 @@ class Problem:
         removed_by_dispatcher: Orders a dispatcher took off the current routes (FR-146), so
             `explain_drop` can give that reason. The validator does not enforce it: a new solve
             may serve them again (BR-95).
+        reoptimization: The re-optimization's context, or None for a daily solve.
 
     Raises:
         InvalidProblemError: If the parts contradict each other, an index points past its array,
-            a shift lies outside the date, or an exclusion disagrees with the matrices.
+            a shift lies outside the date, an exclusion disagrees with the matrices, or a
+            re-optimization's state appears without its context.
     """
 
     orders: Orders
@@ -360,6 +509,7 @@ class Problem:
     day_length: float
     breaks_reserved: bool
     removed_by_dispatcher: frozenset[int] = frozenset()
+    reoptimization: ReoptContext | None = None
 
     def __post_init__(self) -> None:
         """Copies every input read-only and refuses a problem that contradicts itself."""
@@ -370,22 +520,28 @@ class Problem:
         object.__setattr__(self, "distances", distances)
         _set_column(self, "problem", "drop_penalties", np.float64)
         object.__setattr__(self, "removed_by_dispatcher", frozenset(self.removed_by_dispatcher))
-        if not (math.isfinite(self.day_length) and self.day_length > 0):
-            raise InvalidProblemError(f"day_length must be positive and finite: {self.day_length}")
+        day_length = require_float("day_length", self.day_length)
+        if not (math.isfinite(day_length) and day_length > 0):
+            raise InvalidProblemError(f"day_length must be positive and finite: {day_length}")
+        object.__setattr__(self, "day_length", day_length)
         size = durations.shape[0]
         _require_indices("orders.location", self.orders.location, size, allow_none=True)
         _require_indices(
             "vehicles.start_location", self.vehicles.start_location, size, allow_none=True
         )
         _require_indices("vehicles.end_location", self.vehicles.end_location, size, allow_none=True)
-        _require_indices("vehicles.driver", self.vehicles.driver, len(self.drivers))
+        _require_indices(
+            "vehicles.driver", self.vehicles.driver, len(self.drivers), allow_none=True
+        )
         _require_indices(
             "orders.pinned_vehicle", self.orders.pinned_vehicle, len(self.vehicles), allow_none=True
         )
         _require_indices(
             "orders.pinned_driver", self.orders.pinned_driver, len(self.drivers), allow_none=True
         )
-        for order in sorted(self.removed_by_dispatcher):
+        for order in sorted(
+            require_int("removed_by_dispatcher[]", order) for order in self.removed_by_dispatcher
+        ):
             if not 0 <= order < len(self.orders):
                 raise InvalidProblemError(
                     f"removed_by_dispatcher holds order {order}, not one of {len(self.orders)}"
@@ -393,15 +549,20 @@ class Problem:
         self._require_drop_penalties()
         self._require_shifts_on_the_date()
         self._require_exclusions_match_the_roads()
+        self._require_reoptimization()
 
     def validate(self, solution: Solution) -> ValidationReport:
-        """Judges a solution against every daily rule and times every route (BR-15, BR-42).
+        """Judges a solution against every rule the problem carries, and times every route.
+
+        A daily problem's rules are the daily ones; a re-optimization's add its conventions
+        (BR-15, BR-42, ADR-050).
 
         Args:
             solution: Any solution whose indices fall inside this problem.
 
         Returns:
-            Every violation, never only the first, and the validator's own timings.
+            Every violation, never only the first, the validator's own timings, and in a
+            re-optimization the late stops it flags (`late_stops`, BR-107).
 
         Raises:
             InvalidSolutionError: If an index in the solution points past this problem.
@@ -434,14 +595,72 @@ class Problem:
             The first reason in ADR-053's order that applies.
 
         Raises:
-            ValueError: If the solution serves the order, or the index is past the problem.
+            ValueError: If the solution serves the order, the index is past the problem, or a
+                re-optimization holds the order's stop as locked, so its report serves it (BR-10).
         """
         return drops.explain_drop(self, order, solution)
 
     def unserved(self, solution: Solution) -> tuple[int, ...]:
-        """Every order a solution leaves on no route, excluded ones included, in index order."""
+        """Every order a solution leaves on no route, excluded ones included, in index order.
+
+        A locked order is served by its report, so it is never among them (BR-10).
+        """
         served = solution.served()
-        return tuple(order for order in range(len(self.orders)) if order not in served)
+        return tuple(
+            order
+            for order in range(len(self.orders))
+            if order not in served and not self.is_locked(order)
+        )
+
+    def is_locked(self, order: int) -> bool:
+        """Says whether a re-optimization holds an order's stop as reported, done or in progress.
+
+        Such a stop is a fact: its report serves the order, and no solution moves it (BR-10).
+        """
+        return self.reoptimization is not None and bool(self.reoptimization.locked[order])
+
+    def _require_reoptimization(self) -> None:
+        context, vehicles = self.reoptimization, self.vehicles
+        if context is None:
+            for vehicle, exclusion in enumerate(vehicles.exclusion):
+                if exclusion in REOPTIMIZATION_EXCLUSIONS:
+                    raise InvalidProblemError(
+                        f"vehicles.exclusion[{vehicle}] is {exclusion}, which only a "
+                        "re-optimization's vehicle state gives"
+                    )
+            return
+        if not 0 <= context.now <= self.day_length:
+            raise InvalidProblemError(
+                f"reoptimization.now must lie on the date, 0 to {self.day_length}: {context.now}"
+            )
+        _require_lengths("reoptimization", len(vehicles), start_time=context.start_time)
+        _require_lengths("reoptimization", len(self.orders), locked=context.locked)
+        _refuse_first(
+            context.start_time < context.now,
+            lambda i: (
+                f"reoptimization.start_time[{i}] is before now, {context.now}: "
+                f"{context.start_time[i]}"
+            ),
+        )
+        _require_indices(
+            "reoptimization.stays_on", context.stays_on, len(vehicles), allow_none=True
+        )
+        for order, vehicle in enumerate(int(vehicle) for vehicle in context.stays_on):
+            if vehicle != NO_INDEX and not vehicles.is_usable(vehicle):
+                raise InvalidProblemError(
+                    f"reoptimization.stays_on[{order}] is vehicle {vehicle}, which can drive no "
+                    "route: a stop stays only on an active vehicle (BR-106)"
+                )
+        for vehicle in sorted(context.no_usable_position):
+            if not 0 <= vehicle < len(vehicles):
+                raise InvalidProblemError(
+                    f"reoptimization.no_usable_position holds vehicle {vehicle}, not one of "
+                    f"{len(vehicles)}"
+                )
+        try:
+            require_inside(self, context.warm_start)
+        except InvalidSolutionError as error:
+            raise InvalidProblemError(f"reoptimization.warm_start: {error}") from error
 
     def _require_drop_penalties(self) -> None:
         penalties = self.drop_penalties
@@ -477,12 +696,16 @@ class Problem:
             vehicles.start_location, vehicles.end_location, self.durations
         )
         for vehicle, exclusion in enumerate(vehicles.exclusion):
-            if exclusion is VehicleExclusion.DEPOT_WITHOUT_LOCATION:
+            # A vehicle out of a re-optimization is out whatever its roads, so they are not judged.
+            if (
+                exclusion is VehicleExclusion.DEPOT_WITHOUT_LOCATION
+                or exclusion in REOPTIMIZATION_EXCLUSIONS
+            ):
                 continue
             if unconnected[vehicle] != (exclusion is VehicleExclusion.NO_ROAD_BETWEEN_DEPOTS):
                 raise InvalidProblemError(
                     f"vehicles.exclusion[{vehicle}] is {exclusion}, but the road from its start "
-                    f"depot to its end depot {'is missing' if unconnected[vehicle] else 'exists'}"
+                    f"to its end depot {'is missing' if unconnected[vehicle] else 'exists'}"
                 )
         usable = np.array(vehicles.usable(), dtype=np.int64)
         unreachable = unreachable_locations(
@@ -560,15 +783,18 @@ def depots_unconnected(
     end_location: npt.NDArray[np.int64],
     durations: npt.NDArray[np.float64],
 ) -> npt.NDArray[np.bool_]:
-    """Finds the vehicles whose start depot has no road to their end depot.
+    """Finds the vehicles whose start has no road to their end.
+
+    A start is the start depot, or in a re-optimization where the vehicle is placed (BR-51); an
+    end is the end depot, or a withdrawn vehicle's last reported stop (BR-52).
 
     Args:
-        start_location: Each vehicle's start depot location, or -1.
-        end_location: Each vehicle's end depot location, or -1.
+        start_location: Each vehicle's start location, or -1.
+        end_location: Each vehicle's end location, or -1.
         durations: The base durations, NaN for no road.
 
     Returns:
-        True for a vehicle with both depot locations and no road from start to end.
+        True for a vehicle with both locations and no road from its start to its end.
     """
     located = (start_location != NO_INDEX) & (end_location != NO_INDEX)
     result = np.zeros(len(start_location), dtype=np.bool_)
@@ -584,14 +810,15 @@ def unreachable_locations(
 ) -> npt.NDArray[np.bool_]:
     """Finds the locations no usable vehicle can serve by road (FR-66).
 
-    A location is reachable when some usable vehicle has a road from its start depot to it and
-    from it to its end depot. With no usable vehicle, nothing is judged unreachable: there is no
-    depot to judge from.
+    A location is reachable when some usable vehicle has a road from its start to it and from it
+    to its end. A start is the start depot, or in a re-optimization where the vehicle is placed
+    (BR-51). With no usable vehicle, nothing is judged unreachable: there is no start to judge
+    from.
 
     Args:
         locations: The locations to judge, or -1 for none, which is never unreachable.
-        start_locations: Each usable vehicle's start depot location.
-        end_locations: The same vehicles' end depot locations, in the same order.
+        start_locations: Each usable vehicle's start location.
+        end_locations: The same vehicles' end locations, in the same order.
         durations: The base durations, NaN for no road.
 
     Returns:
