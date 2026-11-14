@@ -175,8 +175,9 @@ one belongs to an aggregate that is not the record: whether a position is kept i
 
 ### 3.3 Value objects
 
-A value object is an immutable Java record (a frozen dataclass in Python) that checks itself in its
-constructor, so an invalid one can't exist. Equality is by value. No signature in the domain takes a raw
+A value object is an immutable Java record, a final class with a private constructor where only one
+caller may build it, or a frozen dataclass in Python. It checks itself in its constructor or factory,
+so an invalid one can't exist. Equality is by value. No signature in the domain takes a raw
 `String`, `int`, `UUID` or `Instant` for a business concept.
 
 | Value | Context | What it holds and checks | Error |
@@ -189,7 +190,7 @@ constructor, so an invalid one can't exist. Equality is by value. No signature i
 | `GeoPoint` | Shared | Latitude and longitude in range | `InvalidCoordinates` |
 | `Weight`, `Volume` | Shared | Kilograms and litres, present and positive (BR-50), with at most two decimals and the digits their columns hold ([ADR-061]) | `NonPositiveQuantity`, `QuantityOutOfRange` |
 | `Priority` | Shared | 1 to 5, default 3 (BR-53) | `PriorityOutOfRange` |
-| `PhoneNumber` | Shared | E.164, parsed with region IL from digits only; knows whether it is an Israeli mobile (FR-377, FR-378). A stored number is checked as E.164 only, so a newer phone-number library never refuses it | `InvalidPhoneNumber` |
+| `PhoneNumber` | Shared | E.164, parsed with region IL, refusing letters and extensions; knows whether it is an Israeli mobile (FR-377, FR-378). A stored number is checked as E.164 only, so a newer phone-number library never refuses it | `InvalidPhoneNumber` |
 | `EmailAddress` | Access | The canonical form one account is keyed by (BR-45) | `InvalidEmail` |
 | `RoleSet` | Access | A set of Admin, Dispatcher and Driver; `can(capability)` is the permission matrix (NFR-85) | — |
 | `NewPassword` | Access | At least 8 characters and not on the bundled list of the 3,000 most common (NFR-95) | `PasswordTooShort`, `PasswordTooCommon` |
