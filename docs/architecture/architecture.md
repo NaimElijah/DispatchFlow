@@ -77,7 +77,7 @@ calls exist.
 
 | Dependency | Used by | For |
 |---|---|---|
-| PostgreSQL 18.6 | `core` | The database. In a Testcontainers container for `*IT` tests and `just core-run`, which need Docker ([ADR-014](../ADRs/ADR-014-real-dependencies-in-containers-for-tests-and-local-runs.md), superseded by ADR-042, not in the code yet). Elsewhere `core` reads `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` from the environment |
+| PostgreSQL 18.6 | `core` | The database. In a Testcontainers container for `*IT` tests and `just core-run`, which need Docker ([ADR-014](../ADRs/ADR-014-real-dependencies-in-containers-for-tests-and-local-runs.md), superseded by [ADR-042](../ADRs/ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md): local runs start their services from `compose.dev.yaml`, the tests keep Testcontainers, and the M0 restructure decides whether `just core-run` stays. Not in the code yet). Elsewhere `core` reads `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` from the environment |
 | PyVRP | `research` | A reference solver for benchmarks. Never installed in `solver` |
 
 No other outside service is called. The repository has no Compose file; `core` and `solver` each
@@ -90,11 +90,16 @@ have a `Dockerfile`, and neither runs as root
   adapters depend on the domain ([ADR-001](../ADRs/ADR-001-domain-driven-design-with-hexagonal-architecture.md)).
   There is no domain code yet, so nothing but review enforces this.
 - **Every solver sits behind one `Solver` port** and is chosen by name
-  ([ADR-004](../ADRs/ADR-004-pluggable-solver-port.md)). The port does not exist yet.
-- **PyVRP stays out of `solver`.** `src/backend/solver/tests/test_dependency_boundary.py` fails if
-  it can be imported there. It is the only architecture rule a test checks today.
+  ([ADR-004](../ADRs/ADR-004-pluggable-solver-port.md), amended by
+  [ADR-044](../ADRs/ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md), which
+  fixes its call as `solve(problem, start, budget, seed)`). The port does not exist yet.
+- **PyVRP stays out of `solver`.** `src/backend/solver/tests/test_dependency_boundary.py` holds two
+  tests. One fails if PyVRP is installed there, and the other if PyVRP is locked in its `uv.lock`.
+  They are the only architecture rule a test checks today.
 - **Flyway owns the schema.** `core` sets `spring.jpa.hibernate.ddl-auto=validate`, so Hibernate
-  never changes it ([ADR-007](../ADRs/ADR-007-postgresql-with-flyway-migrations.md), superseded by ADR-041, not in the code yet).
+  never changes it ([ADR-007](../ADRs/ADR-007-postgresql-with-flyway-migrations.md), superseded by
+  [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md),
+  which keeps Flyway and replaces JPA with jOOQ; not in the code yet).
 - **Every error body is an RFC 9457 problem.** `UnexpectedErrorHandler` runs last, after Spring
   MVC's own problem handling, so a response never names the cause.
 
@@ -107,8 +112,16 @@ the ADRs:
   and [§2](domain_layer/domain_layer_design.md#2-context-map): the bounded contexts and the
   module graph.
 - [Tech stack](tech_stack.md): the tools, and what each beat.
-- [ADR index](../ADRs/README.md): ADR-037 to ADR-047 record the layout, tooling and module
-  decisions, and ADR-048 to ADR-093 the rest.
+- [ADR index](../ADRs/README.md):
+  [ADR-037](../ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md) (the layout),
+  [ADR-038](../ADRs/ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md) (`mise`, and
+  Java 25),
+  [ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md) (a
+  Spring Modulith monolith, one module per context) and
+  [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md) (a
+  schema per module, read and written through jOOQ) give the target shape. None of them is in the
+  tree yet. ADR-039 and ADR-042 to ADR-047 record the other tooling, contract, solver-port, token
+  and image decisions, and ADR-048 to ADR-096 the rest.
 - [Roadmap](../roadmap.md#2-milestones): the milestones and dates.
 
 The hosting is in [ADR-078](../ADRs/ADR-078-hosting-on-one-aws-vm-in-tel-aviv-built-with-terraform.md)
