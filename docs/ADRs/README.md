@@ -49,6 +49,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-060](ADR-060-hard-limits-on-fleet-and-plan-size.md) | The system refuses a sixteenth vehicle and a date's 201st order | Accepted |
 | [ADR-061](ADR-061-capacity-is-weight-and-volume.md) | A vehicle's capacity is a weight in kilograms and a volume in litres, both required and positive | Accepted |
 | [ADR-062](ADR-062-fleet-checks-the-driver-role-when-it-reads.md) | Fleet asks Access for the Driver role each time it reads a driver, and keeps no copy | Accepted |
+| [ADR-103](ADR-103-fleet-normalizes-plates-keeps-one-pair-of-depot-hours-holds-no-vehicle-in-weekly-shifts-and-retires-and-anonymizes-drivers-through-events.md) | Fleet normalizes plates, keeps one pair of depot hours, holds no vehicle in weekly shifts, and retires and anonymizes drivers through events | Accepted |
 | [ADR-063](ADR-063-a-transaction-changes-one-aggregate-and-every-rule-has-one-owner.md) | A transaction changes one existing aggregate, and every business rule has exactly one owner | Accepted |
 | [ADR-064](ADR-064-events-only-where-they-earn-their-place-through-the-modulith-registry.md) | Events exist only where they earn their place, and Spring Modulith's registry delivers them | Accepted |
 | [ADR-065](ADR-065-facts-outrank-intent.md) | Facts outrank intent: an accepted report stands, the plan is corrected, and a person is told | Accepted |
@@ -59,7 +60,8 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-083](ADR-083-admins-and-dispatchers-get-alerts-by-stream-and-push-in-the-phone-app.md) | Admins and Dispatchers get alerts in the phone app by event stream while it is open and by push in the background | Accepted |
 | [ADR-084](ADR-084-maplibre-in-both-apps-with-self-hosted-protomaps-tiles.md) | Both apps draw maps with MapLibre, from self-hosted Protomaps tiles | Accepted |
 | [ADR-085](ADR-085-govmap-geocodes-addresses-with-nominatim-as-the-fallback.md) | GovMap geocodes addresses, and self-hosted Nominatim replaces it only if GovMap's terms fail | Accepted |
-| [ADR-086](ADR-086-csv-imports-upload-then-confirm-within-an-hour.md) | An order import is two calls, upload then confirm within an hour, and writes every row or none | Accepted |
+| [ADR-086](ADR-086-csv-imports-upload-then-confirm-within-an-hour.md) | An order import is two calls, upload then confirm within an hour, and writes every row or none | Accepted; extended by ADR-102 |
+| [ADR-102](ADR-102-order-references-are-checked-on-every-move-to-a-date.md) | Order references are checked on every move to a date, and the abbreviation table starts with three | Accepted |
 | [ADR-087](ADR-087-driver-reports-sync-through-an-idempotent-outbox.md) | Driver reports wait in an outbox on the phone and reach the server with a user-scoped idempotency key | Accepted |
 | [ADR-088](ADR-088-israel-local-time-for-every-date-and-schedule.md) | Every date, time window, shift and schedule is Israel local time, held as elapsed seconds in a solve | Accepted |
 | [ADR-089](ADR-089-interface-languages.md) | Both apps are available in Hebrew, right to left, and in English only | Accepted |
@@ -106,11 +108,12 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-078](ADR-078-hosting-on-one-aws-vm-in-tel-aviv-built-with-terraform.md) | DispatchFlow runs on one AWS VM in Tel Aviv, built with Terraform and capped at ₪550 a month | Accepted |
 | [ADR-079](ADR-079-client-errors-and-crashes-go-to-self-hosted-glitchtip.md) | Client errors and crashes go to GlitchTip on the VM, through the Sentry SDKs | Accepted |
 | **Security and personal data** | | |
-| [ADR-068](ADR-068-every-web-handler-is-authorized-by-role-from-the-contract.md) | Every web handler is authorized by role, from the `x-capability` of its contract operation | Accepted |
+| [ADR-068](ADR-068-every-web-handler-is-authorized-by-role-from-the-contract.md) | Every web handler is authorized by role, from the `x-capability` of its contract operation | Accepted; amended by ADR-104 |
+| [ADR-104](ADR-104-the-company-profile-holds-customer-defaults-and-capabilities-follow-the-role-matrix.md) | The company profile holds a new customer's defaults, and capabilities follow the role matrix | Accepted |
 | [ADR-069](ADR-069-sign-in-and-transport-security.md) | Sign-in uses signed access tokens, rotating refresh tokens and Argon2id, over HTTPS through Caddy | Accepted |
 | [ADR-070](ADR-070-security-and-accessibility-standards.md) | We self-check against OWASP ASVS 5.0 Level 1 and build to WCAG 2.2 AA, with no separate target for IS 5568 | Accepted |
 | [ADR-071](ADR-071-api-rate-limits-in-process-with-bucket4j.md) | API rate limits run in the core's process, with Bucket4j | Accepted |
-| [ADR-075](ADR-075-retention-deletes-records-and-anonymizes-people-in-place.md) | Retention deletes positions, proofs and messages, and anonymizes customers and drivers in place | Accepted |
+| [ADR-075](ADR-075-retention-deletes-records-and-anonymizes-people-in-place.md) | Retention deletes positions, proofs and messages, and anonymizes customers and drivers in place | Accepted; amended by ADR-102 |
 | [ADR-076](ADR-076-admin-and-dispatcher-data-stays-in-memory-on-devices.md) | Admin and Dispatcher data stays in memory on devices, and sign-out wipes it | Accepted |
 | [ADR-077](ADR-077-push-builds-and-app-stores-are-accepted-exceptions-to-hosting-in-israel.md) | Push, app builds, the app stores and map-app links are accepted exceptions to hosting in Israel, on conditions | Accepted |
 

@@ -100,7 +100,7 @@ Audit without a cycle ([ADR-040]).
 |---|---|---|---|
 | Access | Every core module | Open host for identity; the others conform to its account IDs and roles | The `Actor` value; Access's `Accounts` query; for Live Operations also the `SessionContacts` query, which answers whether any session of an account made contact within a window (BR-132) |
 | Audit | Every core module | Open host | `AuditLog.record`, in the same transaction as the change (NFR-23) |
-| Access | Fleet | Customer and supplier; shared identity: a `Driver` has the ID of the driver's account | Fleet asks `Accounts` whether an account is active and holds the Driver role |
+| Access | Fleet | Customer and supplier; shared identity: a `Driver` has the ID of the driver's account | Fleet asks `Accounts` whether an account is active and holds the Driver role; Fleet's `DriverRetired` listener calls Access's API to remove the Driver role (FR-307, [ADR-103]); Fleet's `AccountAnonymized` listener anonymizes the driver record (NFR-258, [ADR-103]) |
 | Fleet | Planning | Customer and supplier | Planning reads the roster and the fleet register through Fleet's API, translating them into its own values; calls `MoveVehicleWithRoute`; implements Fleet's `RecordUsage` |
 | Customers & Orders | Planning | Customer and supplier | Planning reads `OrdersForDate`; hears `OrderCancelled` and `OrderRescheduled`; implements `OrderPlacement` and `RecordUsage` |
 | Planning | Live Operations | Customer and supplier | Live Operations hears `PlanPublished` and `PlanRevised`; asks `RouteMembership` and `PublishedRoutes`; calls `ReconcileLateOutcome`; implements `ExecutionFacts` |
@@ -195,17 +195,23 @@ kernel's `PersonalData` marker ([ADR-106]).
 | `PhoneNumber` | Shared | E.164, parsed with region IL, refusing letters and extensions; knows whether it is an Israeli mobile (FR-377, FR-378). A stored number is checked as E.164 only, so a newer phone-number library never refuses it | `InvalidPhoneNumber` |
 | `PlainText` | Shared | A name, an address or a note: NFC, with whitespace, space separators and format characters trimmed from the ends, and at most its `TextKind`'s cap in code points; raw input over 8 UTF-16 units per code point of the cap is refused before NFC. In a `NOTE`, CR and CRLF become a line feed. Refuses control characters, except a line feed in a `NOTE` (a CR in a `NAME` or an `ADDRESS` is refused); U+2028 and U+2029 outside a `NOTE`; interior format characters in a `NAME` or an `ADDRESS` other than U+061C and U+200C to U+200F; bidi embedding, override and isolate controls; unpaired surrogates; and private-use and unassigned code points. Text that renders as nothing counts as empty ([ADR-106]) | `TextTooLong`, `TextHasForbiddenCharacters` |
 | `EmailAddress` | Access | The canonical form one account is keyed by (BR-45) | `InvalidEmail` |
-| `RoleSet` | Access | A set of Admin, Dispatcher and Driver; `can(capability)` is the permission matrix (NFR-85) | — |
-| `NewPassword` | Access | At least 8 characters and not on the bundled list of the 3,000 most common (NFR-95) | `PasswordTooShort`, `PasswordTooCommon` |
-| `Generation` | Access | A counter that only grows; tokens issued under an older one are refused (NFR-177) | — |
-| `ActiveAdmins` | Access | The active Admin accounts, read under row locks; refuses a change that leaves fewer than two (BR-19) | `TooFewAdmins` |
-| `Capacity`, `Plate`, `Shift`, `DepotHours`, `WeeklyShifts` | Fleet | A vehicle's weight and volume limits; a normalized plate; a start before an end | `InvalidPlate`, `InvalidShift` |
-| `Address`, `NormalizedAddress` | Customers & Orders | The address as typed, and the form addresses are matched by (FR-310, Q-94 #4) | `BlankAddress` |
+| `RoleSet`, `Capability` | Access | A set of Admin, Dispatcher and Driver; `can(capability)` is the permission matrix (NFR-85). `Capability` has one constant per row of the matrix under FR-03, and a cell that starts "Only" is a limited grant whose limit the use case checks ([ADR-104], [ADR-068]) | — |
+| `NewPassword` | Access | At least 8 characters and not on the bundled list of the 3,000 most common, which arrives as a `CommonPasswords` value (NFR-95) | `PasswordTooShort`, `PasswordTooCommon` |
+| `AccountGeneration`, `SessionGeneration` | Access | Counters that only grow, one on the account and one on the session, of distinct types so neither is passed for the other; tokens issued under an older one are refused (NFR-177, NFR-227) | — |
+| `ActiveAdmins` | Access | The active Admin accounts, read under row locks; refuses a change that leaves fewer than two (BR-19), and the first Admin while one exists (FR-291) | `TooFewAdmins`, `ActiveAdminExists` |
+| `PasswordHash`, `TokenHash` | Access | Opaque results of the hashing adapter, printed redacted (NFR-36, NFR-91, NFR-211) | — |
+| `CompanyName`, `DefaultWindow`, `DefaultServiceTime` | Access | The company's name, at most 19 characters (FR-382); the window a new customer starts with, opening before it closes, on no date (FR-125); the service duration a new customer starts with, positive (FR-184) ([ADR-104]) | `BlankCompanyName`, `CompanyNameTooLong`, `InvalidDefaultWindow`, `NonPositiveDefaultServiceTime` |
+| `Capacity`, `Plate`, `ShiftHours`, `Shift`, `DepotHours`, `WeeklyShifts` | Fleet | A vehicle's weight and volume limits; a normalized plate ([ADR-103]); a shift's hours, with the end after the start; those hours placed on a date, where both must exist (FR-190, BR-111); one opening and closing time for every date (FR-129); per weekday an optional shift and no vehicle (FR-79) | `InvalidPlate`, `InvalidShift`, `InvalidDepotHours` |
+| `VehicleName`, `DepotName`, `DriverName` | Fleet | Names read as `PlainText` `NAME` ([ADR-106]) and non-blank; a driver's is personal data | `BlankVehicleName`, `BlankDepotName`, `BlankDriverName`, `TextTooLong`, `TextHasForbiddenCharacters` |
+| `PlanUses`, `Standing`, `RosterDefault`, `Assignability`, `RosterVehicle`, `RosterFill` | Fleet | The facts Fleet's methods judge: the plans that use a record (FR-305); Access's and the register's answer on whether a driver or vehicle is active; a driver's default for a date (FR-189); the roster's answer to a hand-over (FR-302). A roster entry's vehicle: not set, none, or a vehicle (FR-79); and what a fill filled and skipped ([ADR-103]) | — |
+| `Address`, `NormalizedAddress` | Customers & Orders | The address as typed, whose normalized form holds a letter or a digit, and the form addresses are matched by (FR-310, FR-398, Q-94 #4); its abbreviation table starts with ADR-086's three ([ADR-102]) | `BlankAddress` |
+| `ContactName`, `DriverNote`, `AccessDetails`, `Floor`, `Apartment`, `EntranceCode`, `Recipient` | Customers & Orders | A trimmed, non-blank name (FR-59, FR-87); a note the driver sees, a customer's (FR-08) or an order's (FR-135); an order's floor, apartment and entrance code, each a trimmed, non-blank text (FR-86); an order's own recipient (FR-87) | `BlankContactName` |
+| `DailyWindow`, `OrderDefaults` | Customers & Orders | A customer's default window as times of day; the window and service time an order takes when given none, where the service time may be absent (BR-49, BR-124, [ADR-102]) | `InvalidDailyWindow` |
 | `CustomerMatch` | Customers & Orders | None, one, or several active customers for a normalized address; several can't be used (FR-310 to FR-312) | `AmbiguousAddress` |
 | `Location` | Customers & Orders | None, geocoded (with its quality), or placed by hand; a hand-placed location always wins (BR-13, FR-215) | — |
 | `ServiceArea` | Customers & Orders | The company's area, from the road-data build; `contains(point)` (FR-320) | — |
 | `ServiceTime`, `Attempt`, `ExternalReference` | Customers & Orders | Positive seconds (BR-124); 1 or more (FR-258); a non-blank reference | `NonPositiveServiceTime` |
-| `DateCapacity` | Customers & Orders | A date's uncancelled orders, read under the date's lock, and the limit (BR-101, BR-113) | `DateFull` |
+| `DateCapacity` | Customers & Orders | A date's uncancelled orders with their references, read under the date's lock, and the limit (BR-101, BR-113, FR-211, [ADR-102]) | `DateFull`, `DuplicateOrderReference` |
 | `StopState` | Customers & Orders | What has happened at an order's stop: nothing, arrived, or an outcome (BR-92) | — |
 | `OrderStatus` | Customers & Orders | Derived from three owners (§9.6) | — |
 | `SolveBasis`, `ProposalBasis` | Planning | What a result was computed from (§17, *basis*) | — |
@@ -327,25 +333,35 @@ and every aggregate that holds one inherits them.
 
 | Aggregate | Holds | Operations | Size and writers |
 |---|---|---|---|
-| `CompanyProfile` | The company's name and language (FR-125) | `rename`, `changeLanguage` | One; Admins |
-| `UserAccount` | `EmailAddress`, `RoleSet`, `PasswordHash`, state (*active*, *deactivated* or *anonymized*), language, token `Generation`, and its credential links (entities: kind, token hash, expiry, *open*, *spent* or *voided*) | `open`, `changeRoles`, `deactivate`, `reactivate`, `changePassword`, `changeEmail`, `issueLink`, `spendLink`, `anonymize` | One per person; the person and Admins, rarely |
-| `Session` | Its account, the account generation it began under, its own `Generation`, state (*live* or *revoked*), the last step-up, its contact times (kept 14 days, at most one a minute; NFR-280), and its chain of refresh tokens (entities: hash, issue time, exchange time, successor) | `open`, `exchange`, `confirmPassword`, `recordContact`, `revoke` | One per signed-in device; that device |
+| `CompanyProfile` | The company's name, language, default window and default service time: the last two are what a new customer starts with (FR-125, FR-184, [ADR-104]) | `create`, `rename`, `changeLanguage`, `changeDefaultWindow`, `changeDefaultServiceTime` | One; Admins |
+| `UserAccount` | `EmailAddress`, `RoleSet`, `PasswordHash`, state (*active*, *deactivated* or *anonymized*), language, its `AccountGeneration`, when it accepted the terms (FR-77), and its credential links (entities: purpose, token hash, expiry, *open*, *spent* or *voided*; an email-change link holds the new address) | `open`, `openFirstAdmin`, `checkSignInAllowed`, `changeRoles`, `removeDriverRole`, `deactivate`, `deactivateOnWrittenRequest`, `reactivate`, `endEverySession`, `changePassword`, `issueLink`, `setPasswordByLink`, `confirmEmailByLink`, `changeLanguage`, `acceptTerms`, `anonymize` | One per person; the person and Admins, rarely. It keeps its open links and those sent in the last 72 hours: `issueLink` drops older links that no longer work ([ADR-104]) |
+| `Session` | Its account, the `AccountGeneration` it began under, its own `SessionGeneration`, state (*live* or *revoked*), when it last gave the password, its contact times (kept 14 days, at most one a minute; NFR-280), and its chain of refresh tokens (entities: hash, issue time, and *current*, *exchanged* with its successor, *replaced* or *superseded*) | `open`, `exchange`, `confirmPassword`, `requireFreshStepUp`, `recordContact`, `dropOldContacts`, `revoke`, `endedAt` | One per signed-in device; that device, and its user from another device (FR-127). It keeps its current token, those issued in the last 14 days and 30 s, and any successor a kept token names: `exchange` and `confirmPassword` drop the rest ([ADR-104]) |
 
 | Invariant | Owner | Error |
 |---|---|---|
 | At least two active Admins (BR-19) | `UserAccount.changeRoles` and `deactivate`, which require `ActiveAdmins` | `TooFewAdmins` |
-| One account per email (BR-45) | `UserAccount.open`, backed by a unique index (§5) | `EmailInUse` |
+| The first Admin is created only when no active Admin exists (FR-291) | `UserAccount.openFirstAdmin`, which requires `ActiveAdmins` | `ActiveAdminExists` |
+| The written-request step deactivates an Admin account without the minimum of BR-19 (FR-346) | `UserAccount.deactivateOnWrittenRequest` | `NotAnAdmin` |
+| An Admin gives a user at least one role (FR-02) | `UserAccount.open`, `changeRoles` | `NoRoleGiven` |
+| Retiring a driver removes only the Driver role, in any state; a repeat changes nothing (FR-307) | `UserAccount.removeDriverRole`, which Fleet's listener calls on `DriverRetired` ([ADR-104]) | — |
+| One account per email (BR-45) | `UserAccount.open`, given the `EmailHolder`, backed by a unique index (§5) | `EmailInUse` |
+| A new email takes effect only when the link sent to it is used, and an address another account holds is refused only then (FR-388, FR-392) | `UserAccount.confirmEmailByLink`, given the `EmailHolder` | `EmailInUse` |
 | A password is at least 8 characters and not a common one (NFR-95) | `NewPassword` | `PasswordTooShort`, `PasswordTooCommon` |
-| A role, password or email change, a deactivation, or losing the last role revokes every token and session at once (NFR-89, NFR-90, NFR-177, BR-123) | `UserAccount`: each of those methods increments its `Generation` | — |
-| A deactivated account, or one with no role, can't sign in | `UserAccount.allowsSignIn` | `AccountDeactivated`, `AccountHasNoRole` |
-| Every deactivated account, whatever its roles, is anonymized a year after deactivation. The record stays, because plans and audit records refer to it (NFR-258, NFR-260, [ADR-075]) | `UserAccount.anonymize(now)` | `RetentionNotOver` |
-| A newer link voids older links of its kind; a password change voids all of them (NFR-224) | `UserAccount.issueLink`, `changePassword` | — |
-| A link is spent once, before it expires (NFR-211) | `UserAccount.spendLink` | `LinkExpired`, `LinkAlreadyUsed`, `LinkVoided` |
-| A refresh token is exchanged once; a second exchange within 30 s gets the same successor; any later reuse revokes the session (NFR-88, NFR-178) | `Session.exchange` | `RefreshRefused` (the same answer for every refusal, NFR-92) |
-| A session ends 14 days after it opened (NFR-87) | `Session.exchange` | `RefreshRefused` |
-| Confirming the password refuses the session's older tokens (NFR-214) | `Session.confirmPassword`: its `Generation` + 1 | — |
-| Admin-only operations need the password confirmed in the last 5 minutes (NFR-214, NFR-227) | `Session.requireFreshStepUp` | `StepUpRequired` |
-| A session keeps its contact times for 14 days, as long as a late report can arrive (NFR-235, NFR-280): every request from it other than a token refresh or an outbox send, at most one a minute, and only for a session of an account with the Driver role. One time is not enough, because a later request would hide an earlier one inside the window. The endpoint decides which requests count, never a header the client sets (BR-132). The data inventory lists them (NFR-72, NFR-280) | `Session.recordContact(now)`, called only for an account with the Driver role. It appends a time unless the last one is under a minute old, and never moves the `Version` or the `Generation`, so it can't make a refresh fail `STALE_VERSION`. Times older than 14 days are dropped | — |
+| A role, password or email change, a deactivation, an Admin ending every session (FR-187), or losing the last role revokes every token and session at once (NFR-89, NFR-90, NFR-177, BR-123) | `UserAccount`: each of those methods increments its `AccountGeneration` and raises `SessionsRevoked` with the new generation | — |
+| A deactivated account, or one with no role, can't sign in | `UserAccount.checkSignInAllowed` | `AccountDeactivated`, `AccountAnonymized`, `AccountHasNoRole` |
+| Only an active account changes; a deactivated one is only reactivated, anonymized or loses its Driver role (FR-53, FR-297, FR-307) | `UserAccount` | `AccountDeactivated`, `AccountAnonymized`, `AccountNotDeactivated` |
+| Every deactivated account, whatever its roles, is anonymized a year after deactivation: its email, password hash and links go. The record stays, because plans and audit records refer to it (NFR-258, NFR-260, [ADR-075]) | `UserAccount.anonymize(now)`, which raises `AccountAnonymized` so Fleet anonymizes the driver record ([ADR-104]) | `RetentionNotOver` |
+| Acceptance of the terms and privacy notice is recorded (FR-77) | `UserAccount.acceptTerms` | — |
+| A newer link voids older links of its kind; a change of password or email, a deactivation, or an Admin ending every session voids every unspent link (NFR-224) | `UserAccount.issueLink`, `changePassword`, `setPasswordByLink`, `confirmEmailByLink`, `deactivate`, `deactivateOnWrittenRequest`, `endEverySession` | — |
+| A set-password link is sent only to an account with no password yet; a reset is a recovery link (FR-294, FR-345, [ADR-104]) | `UserAccount.issueLink` | `PasswordAlreadySet` |
+| A link is spent once, before it expires, and only for what it allows (NFR-211, FR-294) | `UserAccount.setPasswordByLink`, `confirmEmailByLink` | `UnknownLink`, `LinkExpired`, `LinkAlreadyUsed`, `LinkVoided` |
+| A refresh token is exchanged once. Presented again within 30 s of its exchange, while its successor is current, it gets a new token that replaces that successor and revokes nothing; once a step-up superseded the successor, it is refused and revokes nothing. A replaced token, or any later reuse, revokes the session (NFR-88, NFR-178), except a token the chain no longer keeps, which is refused as unknown ([ADR-104]) | `Session.exchange`, which answers with a `RefreshOutcome` instead of throwing, so the revocation is saved | `RefreshRefused` (the same answer for every refusal, NFR-92) |
+| A refresh token lasts 14 days from its issue, with no cap on the session (NFR-87) | `Session.exchange` | `RefreshRefused` |
+| Confirming the password refuses the session's older tokens (NFR-214, NFR-227) | `Session.confirmPassword`: its `SessionGeneration` + 1, and its current refresh token is superseded. A revoked session, or one whose account was revoked since, is refused (NFR-177) | `SessionRevoked` |
+| Admin-only operations need the password confirmed in the last 5 minutes: the Admin-only rows, plus the limited rows used beyond their limit, such as changing another user's email; `Capability.requiresStepUp` names them (NFR-214, NFR-227, [ADR-104]) | `Session.requireFreshStepUp` | `StepUpRequired`, `SessionRevoked` |
+| A session keeps its contact times for 14 days, as long as a late report can arrive (NFR-235, NFR-280): every request from it other than a token refresh or an outbox send, at most one a minute, and only for a session of an account with the Driver role. One time is not enough, because a later request would hide an earlier one inside the window. The endpoint decides which requests count, never a header the client sets (BR-132). The data inventory lists them (NFR-72, NFR-280) | `Session.recordContact(now)`, called only for an account with the Driver role. It appends a time unless the last one is under a minute old, and never moves the `Version` or the `SessionGeneration`, so it can't make a refresh fail `STALE_VERSION`. Times older than 14 days are dropped, here and by `Session.dropOldContacts`, which the retention job calls without waiting for a new contact | `SessionRevoked` |
+| The company's name is at most 19 characters, so every message fits one SMS (FR-382) | `CompanyName` | `BlankCompanyName`, `CompanyNameTooLong` |
+| A new customer's default window opens before it closes, and its default service duration is positive (FR-125, FR-184) | `DefaultWindow`, `DefaultServiceTime` | `InvalidDefaultWindow`, `NonPositiveDefaultServiceTime` |
 
 **In the Alpha:** seeded accounts, sign-in and `RoleSet.can`. Sessions in full, links and step-up come
 in Semester B.
@@ -354,22 +370,34 @@ in Semester B.
 
 | Aggregate | Holds | Operations | Size and writers |
 |---|---|---|---|
-| `FleetRegister` | The company's depots (entities: name, `GeoPoint`, `DepotHours`, retirement) and vehicles (entities: name, `Plate`, `Capacity`, start and end depot, retirement) | `addDepot`, `changeDepotHours`, `retireDepot`, `addVehicle`, `changeVehicle`, `retireVehicle`, `reactivateVehicle` | One; at most 15 active vehicles plus retired ones; Admins, rarely |
-| `Driver` | The person's ID (the account's), name, phone, `WeeklyShifts`, retirement | `register`, `changeWeeklyShifts`, `retire`, `anonymize` | One per driver; Admins and dispatchers, rarely |
-| `DayRoster` | For one delivery date: each driver's `Shift` and availability, the vehicle each drives, and vehicles marked unavailable | `open`, `assign`, `unassign`, `markDriverUnavailable`, `markVehicleUnavailable`, `changeShift`, `moveVehicleWithRoute`, and the query `checkAssignable` | One per date, 15 entries; dispatchers and the hand-over listener |
+| `FleetRegister` | The company's depots (entities: name, a `GeoPoint` if known (FR-197), `DepotHours` if any, retirement) and vehicles (entities: name, `Plate`, `Capacity`, start and end depot, retirement) | `addDepot`, `changeDepot`, `changeDepotHours`, `retireDepot`, `addVehicle`, `changeVehicle`, `retireVehicle`, `reactivateVehicle`, and the queries `standingOf` and `activeVehicles` | One; at most 15 active vehicles plus retired ones; Admins, rarely |
+| `Driver` | The person's ID (the account's), name and phone, default shift and vehicle (FR-06, FR-189), `WeeklyShifts`, and state (*active*, *retired* or *anonymized*) | `register`, `changeDetails`, `changeWeeklyShifts`, `retire`, `anonymize`, `anonymizeWithAccount`, and the query `rosterDefaultOn` | One per driver; Admins and dispatchers, rarely |
+| `DayRoster` | For one delivery date: each driver's `Shift` and availability, the vehicle each drives, and vehicles marked unavailable | `open`, `fill`, `assign`, `unassign`, `markDriverUnavailable`, `markDriverAvailable`, `markVehicleUnavailable`, `markVehicleAvailable`, `changeShift`, `moveVehicleWithRoute`, and the query `checkAssignable` | One per date, 15 entries; dispatchers and the hand-over listener |
 
 | Invariant | Owner | Error |
 |---|---|---|
 | At most 15 active vehicles (BR-36) | `FleetRegister.addVehicle`, `reactivateVehicle` | `FleetFull` |
 | Active vehicles have unique names and plates (BR-48) | `FleetRegister` | `DuplicateVehicleName`, `DuplicatePlate` |
-| A vehicle starts and ends at active depots (BR-40) | `FleetRegister.addVehicle`, `changeVehicle`, `retireDepot` | `UnknownDepot`, `DepotInUse` |
+| A vehicle starts and ends at active depots (BR-40) | `FleetRegister.addVehicle`, `changeVehicle`, `reactivateVehicle`, `retireDepot` | `UnknownDepot`, `DepotHasActiveVehicles` |
+| A depot may have no coordinates; such a depot starts and ends no route (FR-197) | `FleetRegister.addDepot`, `changeDepot` | — |
+| Only a vehicle in the register is changed, retired or reactivated, and only an active one is changed or retired | `FleetRegister` | `UnknownVehicle`, `VehicleNotActive` |
 | Records are retired, never deleted (BR-43) | Every removal is a `retire` method | — |
-| A vehicle, depot or driver that a plan not yet completed uses can't be retired | `FleetRegister.retire…` and `Driver.retire`, which require the `InUse` answer read through `RecordUsage` | `VehicleInUse`, `DepotInUse`, `DriverInUse` |
+| A vehicle, depot or driver that an uncancelled plan for today or a later date uses can't be retired, and the refusal names the plan (FR-305) | `FleetRegister.retire…` and `Driver.retire`, which require `today` and the `PlanUses` answer read through `RecordUsage` | `VehicleInUse`, `DepotInUse`, `DriverInUse` |
+| Retiring a driver removes the Driver role from their account, which keeps its other roles (FR-307) | `Driver.retire` raises `DriverRetired`; Fleet's listener calls Access's API ([ADR-103]) | — |
 | A driver is registered only for an active account with the Driver role | `Driver.register`, which requires the account's standing | `NotAnActiveDriver` |
-| A retired driver is anonymized a year after retirement (BR-98, NFR-152) | `Driver.anonymize(now)` | `RetentionNotOver` |
+| A retired driver is anonymized a year after retirement, in Israel time (BR-98, NFR-152, NFR-184); a driver of any state is anonymized when Access anonymizes their account, a year after its deactivation (NFR-258, [ADR-103]) | `Driver.anonymize(now)`; `Driver.anonymizeWithAccount(now)`, from Fleet's listener on `AccountAnonymized` | `RetentionNotOver`; — |
+| A driver has a default shift and vehicle; weekly shifts, when there are any, give each weekday its shift or none, with the default vehicle. A fill sets only the values nobody set: a new driver's shift and vehicle, or an existing driver's vehicle when it is not set; a dispatcher's "no vehicle" stays. A driver whose default can't be used is skipped, every other driver is filled, and the fill reports each skip with its reason (FR-06, FR-79, FR-189, [ADR-103]) | `Driver.rosterDefaultOn`, `DayRoster.fill`, which returns a `RosterFill` | — (reported, not thrown: `NotAnActiveDriver`, `VehicleNotActive`, `VehicleAlreadyAssigned`, `NonexistentLocalTime`) |
 | On a date, a driver drives at most one vehicle and a vehicle has at most one driver (FR-54, FR-190) | `DayRoster.assign`, `moveVehicleWithRoute` | `VehicleAlreadyAssigned`, `DriverAlreadyHasVehicle` |
-| Only active vehicles and active drivers are rostered | `DayRoster.assign`, which requires their standing | `VehicleNotActive`, `NotAnActiveDriver` |
-| A shift ends after it starts | `Shift` | `InvalidShift` |
+| Only active vehicles and active drivers are rostered | `DayRoster.assign`, `changeShift` and `markVehicleUnavailable`, which require their standing; `fill`, which skips non-active drivers and unusable defaults and reports them | `VehicleNotActive`, `NotAnActiveDriver` |
+| A vehicle or a driver marked unavailable can be marked available again (FR-300) | `DayRoster.markVehicleAvailable`, `markDriverAvailable` | `DriverNotRostered` |
+| A route is handed over only to an active driver on the date's roster who is available and drives no other vehicle (FR-302) | `DayRoster.checkAssignable`, given the driver's standing, before the hand-over; `moveVehicleWithRoute` after it (FR-191) | `NotAnActiveDriver`, `DriverNotRostered`, `DriverMarkedUnavailable`, `DriverAlreadyHasVehicle` |
+| A shift ends after it starts and lies on its date (FR-190), and neither end falls in the hour the clock skips (BR-111) | `ShiftHours`; `Shift` | `InvalidShift`; `NonexistentLocalTime` |
+| Depot hours are one opening and one closing time for every date, and close after they open (FR-129, BR-46, [ADR-103]) | `DepotHours` | `InvalidDepotHours` |
+| A plate is trimmed, loses its spaces and hyphens, has its Latin letters upper-cased, and is then 1 to 10 ASCII letters or digits ([ADR-103]) | `Plate` | `InvalidPlate` |
+| A vehicle's, depot's or driver's name is read as `PlainText` `NAME` ([ADR-106]) and is not blank | `VehicleName`, `DepotName`, `DriverName` | `BlankVehicleName`, `BlankDepotName`, `BlankDriverName`, `TextTooLong`, `TextHasForbiddenCharacters` |
+
+A roster read that feeds a solve keeps only drivers whose standing is active, asked of Access each time
+([ADR-062], FR-193): a driver on a filled roster may since have retired or lost the Driver role.
 
 `FleetRegister` holds the set because the set is small by rule (BR-36), changes rarely, and two of its
 rules are about the whole set. That replaces a set-wide check and an advisory lock with an ordinary
@@ -381,33 +409,43 @@ version check.
 
 | Aggregate | Holds | Operations | Size and writers |
 |---|---|---|---|
-| `Customer` | Name, `PhoneNumber`, `Address` and its `NormalizedAddress`, `Location`, address flags (FR-63), default window and service time, state (*active*, *retired* or *anonymized*) | `register`, `changeAddress`, `recordGeocode`, `placeLocation`, `retire`, `anonymize` | One per address; dispatchers, imports, geocoding results |
-| `Order` | Customer, `DeliveryDate`, `TimeWindow`, `Weight`, `Volume`, `ServiceTime`, `Priority`, leave-at-door, `ExternalReference`, recipient, notes, `Attempt`, state (*active* or *cancelled*), last change time | `place`, `change`, `reschedule`, `cancel`, `putBack` | One per order; dispatchers and imports |
-| `ImportBatch` | One uploaded file: its hash and encoding, every row with its errors, state (*previewed*, *confirmed*, *discarded* or *expired*) | `preview`, `confirm`, `discard`, `expire` | One per upload; the dispatcher who uploaded it |
+| `Customer` | Name, `PhoneNumber`, `Address` and its `NormalizedAddress`, notes for drivers (FR-08), `Location`, address flags (FR-63), default window and service time, creation time, state (*active*, *retired* or *anonymized*). The defaults start as the company's, which Access's `CompanyProfile` holds and the application layer passes in; the service time may be absent ([ADR-104]) | `register`, `changeAddress`, `recordGeocode`, `placeLocation`, `retire`, `anonymize` | One per address; dispatchers, imports, geocoding results |
+| `Order` | Customer, `DeliveryDate`, `TimeWindow`, `Weight`, `Volume`, `ServiceTime`, `Priority`, leave-at-door, `ExternalReference`, recipient, delivery note, floor, apartment and entrance code (FR-86), `Attempt`, state (*active* or *cancelled*), whether its personal fields were removed, last change time | `place`, `change`, `reschedule`, `cancel`, `putBack`, `anonymize` | One per order; dispatchers and imports |
+| `ImportBatch` | One uploaded file: its hash and encoding, every row with its errors while previewed, state (*previewed*, *confirmed*, *discarded* or *expired*) | `preview`, `confirm`, `discard`, `expire` | One per upload; the dispatcher who uploaded it |
 
 | Invariant | Owner | Error |
 |---|---|---|
 | An order's date isn't in the past (BR-116) | `Order.place`, `reschedule`, `putBack` | `DateInPast` |
 | An order's window is valid and on its date (BR-35) | `TimeWindow`; `Order.place`, `change` | `InvalidTimeWindow`, `WindowNotOnDate` |
-| Weight and volume are present and positive (BR-50); priority is 1 to 5, blank meaning 3 (BR-53); service time is positive, or the customer's default (BR-124) | `Weight`, `Volume`, `Priority`, `ServiceTime`; `Order.place` | `NonPositiveQuantity`, `PriorityOutOfRange`, `NonPositiveServiceTime` |
-| A reference is unique on its date (FR-211) | `Order.place`; `ImportBatch` within the file; a unique index (§5) | `DuplicateOrderReference` |
-| A date holds at most 200 uncancelled orders (BR-101, BR-113) | `Order.place`, `reschedule`, `putBack` and `ImportBatch.confirm`, which require a `DateCapacity` with room | `DateFull` |
+| Weight and volume are present and positive (BR-50); priority is 1 to 5, blank meaning 3 (BR-53); service time is positive, or the customer's default, and an order with neither is refused (BR-124) | `Weight`, `Volume`, `Priority`, `ServiceTime`; `Order.place` | `NonPositiveQuantity`, `PriorityOutOfRange`, `NonPositiveServiceTime`, `NoServiceTime` |
+| A reference is unique among its date's uncancelled orders (FR-211); a reschedule or a put-back is checked as a new order on its date, and a cancelled order's reference no longer counts ([ADR-102]) | `Order.place`, `reschedule`, `putBack`, through the `DateCapacity`; `ImportBatch` within the file; a unique index (§5) | `DuplicateOrderReference` |
+| A date holds at most 200 uncancelled orders, and a put-back on its own date doesn't count again (BR-101, BR-113) | `Order.place`, `reschedule`, `putBack` and `ImportBatch.confirm`, which require a `DateCapacity` with room | `DateFull` |
 | An order can't be changed, rescheduled or cancelled once its stop has a fact (BR-92) | `Order`, given the `StopState` read through `StopProgress` | `StopAlreadyHasFact` |
 | A cancelled order stays cancelled | `Order` | `OrderAlreadyCancelled` |
-| Only a failed attempt is put back, and putting it back starts the next attempt (FR-258) | `Order.putBack`, given its `OrderStatus` | `OnlyFailedOrdersArePutBack` |
+| A reschedule moves an order to another date (FR-315) | `Order.reschedule` | `AlreadyOnThatDate` |
+| An anonymized order takes no further command (NFR-257) | `Order` | `OrderAnonymized` |
+| Only a failed or dropped order is put back, and putting it back starts the next attempt (FR-75, FR-258, BR-95) | `Order.putBack`, given its placement and stop state, from which it derives its `OrderStatus` | `OnlyFailedOrDroppedOrdersArePutBack` |
 | A hand-placed location always wins over geocoding (BR-13, FR-215) | `Customer.recordGeocode` ignores a result once a location was placed by hand | — |
 | A hand-placed location is inside the service area (FR-320) | `Customer.placeLocation`, given the `ServiceArea` | `OutsideServiceArea` |
+| A hand-placed location clears every address flag (FR-217) | `Customer.placeLocation` | — |
+| A changed address clears the location, hand-placed or not, and its flags, and is geocoded again (BR-104) | `Customer.changeAddress` | — |
 | An address matching several active customers can't be used (FR-310 to FR-312) | `CustomerMatch` | `AmbiguousAddress` |
 | A customer that a plan not yet completed uses can't be retired (BR-43) | `Customer.retire`, given `InUse` | `CustomerInUse` |
-| A customer is anonymized a year after retirement, or a year after the last order if never retired (BR-98, NFR-257, [ADR-075]) | `Customer.anonymize(now)` | `RetentionNotOver` |
-| An import writes every row or none, and lists every error at once | `ImportBatch.preview` and `confirm`, which run every row through the `Customer` and `Order` factories | `ImportHasErrors(rows)` |
+| A retired customer's address and location don't change, and it isn't retired again (BR-43); an anonymized customer takes no command (BR-98) | `Customer` | `CustomerRetired`, `CustomerAnonymized` |
+| A customer is anonymized a year after retirement, or, if never retired, a year after the later of its creation and its last order, in Israel's calendar (BR-98, NFR-257, [ADR-075], [ADR-102]) | `Customer.anonymize(now)`, given the date of its last order | `RetentionNotOver` |
+| An order's personal fields are removed 90 days after its date (NFR-257) | `Order.anonymize(today)` | `RetentionNotOver` |
+| An import writes every row or none, and lists every error at once | `ImportBatch.preview` and `confirm`, which run every row through the `Customer` and `Order` rules | `ImportHasErrors`, with a `RowRefused` per error naming its row |
+| A row matching no customer creates one from its name and phone, and is refused without them (FR-311) | `ImportBatch` | `NewCustomerNeedsNameAndPhone` |
 | A file read as Windows-1255 is confirmed only with explicit confirmation (FR-313) | `ImportBatch.confirm` | `EncodingNotConfirmed` |
-| A preview is confirmed once, before it expires | `ImportBatch.confirm` | `ImportAlreadyConfirmed`, `ImportExpired` |
-| A discarded or expired preview keeps none of its rows | `ImportBatch.discard`, `expire` | — |
+| A preview is confirmed once, before it expires, and a discarded one never | `ImportBatch.confirm` | `ImportAlreadyConfirmed`, `ImportExpired`, `ImportDiscarded` |
+| A preview expires only once its hour has passed (FR-399) | `ImportBatch.expire` | `ImportNotYetExpired` |
+| A confirmed, discarded or expired batch keeps none of its rows (NFR-31, [ADR-086]) | `ImportBatch.confirm`, `discard`, `expire` | — |
 
 `ImportBatch.confirm` checks every row again against the current data (customers, references and date
 capacity may have changed since the preview) and returns the new customers and orders, which the use case
-saves with the batch in one transaction (§6.1).
+saves with the batch in one transaction (§6.1). The batch then keeps no rows. Rows arrive parsed from the
+file reader, each read whole or with its fields' refusals. Rows whose addresses normalize alike, and match
+no customer, share one new customer, made from the first of them ([ADR-102]).
 
 **In the Alpha:** UTF-8 CSV imports matched to the seeded customers, which already have coordinates
 (FR-310). A new address has no coordinates until geocoding arrives, so its order drops as *missing
@@ -572,18 +610,20 @@ classDiagram
     DeliveryDate date
     Attempt attempt
     State state
-    change(details, StopState, now)
-    reschedule(date, StopState, DateCapacity, today, now)
-    cancel(StopState, by, now)
-    putBack(date, OrderStatus, DateCapacity, today, now)
+    change(OrderChange, StopState, now)
+    reschedule(TimeWindow, DateCapacity, StopState, today, now)
+    cancel(StopState, now)
+    putBack(Placement, StopState, TimeWindow, DateCapacity, today, now)
+    anonymize(today)
   }
   class DayRoster {
     <<AggregateRoot>>
     DeliveryDate date
     List~RosterEntry~ entries
-    assign(driver, vehicle, standing)
+    fill(defaults, activeVehicles) RosterFill
+    assign(driver, vehicle, driverStanding, vehicleStanding)
     moveVehicleWithRoute(vehicle, from, to)
-    checkAssignable(vehicle, driver) Assignability
+    checkAssignable(vehicle, driver, standing) Assignability
   }
 
   class Solving {
@@ -755,9 +795,10 @@ code path can break it.
 |---|---|---|---|---|
 | One plan per date (BR-34) | Plans of one date are one plan plus cancelled ones | `Plan.open` | Partial unique index on the date, excluding cancelled plans | `PlanAlreadyExists` |
 | At least two active Admins (BR-19) | Roles live on each account, because changing them must revoke that account's tokens in the same transaction (NFR-177) | `ActiveAdmins`, which `changeRoles` and `deactivate` require | `ActiveAdmins` is read with `FOR UPDATE` on the active Admin accounts | `TooFewAdmins` |
-| One account per email (BR-45) | Accounts are independent | `UserAccount.open` | Unique index on the canonical email | `EmailInUse` |
+| One account per email (BR-45) | Accounts are independent | `UserAccount.open`, `openFirstAdmin` and `confirmEmailByLink`, given the `EmailHolder` | Unique index on the canonical email | `EmailInUse` |
+| The first Admin only while no active Admin exists (FR-291) | Accounts are independent, and with no active Admin there is no row for `FOR UPDATE` to lock | `ActiveAdmins`, which `UserAccount.openFirstAdmin` requires | A transaction-scoped advisory lock, taken before `ActiveAdmins` is read | `ActiveAdminExists` |
 | At most 200 uncancelled orders a date (BR-101, BR-113) | Orders move between dates (FR-258, FR-315), so a per-date aggregate would change two aggregates per move | `DateCapacity`, which every method that adds an order to a date requires | `DateCapacity` is read under a transaction-scoped advisory lock on the date | `DateFull` |
-| A reference is unique on its date (FR-211) | Same | `Order.place`, `ImportBatch` | Partial unique index on (date, reference) | `DuplicateOrderReference` |
+| A reference is unique on its date (FR-211) | Same | `Order.place`, `reschedule` and `putBack`, through the `DateCapacity`; `ImportBatch` | Partial unique index on (date, reference), excluding cancelled orders ([ADR-102]) | `DuplicateOrderReference` |
 | One running re-optimization per plan (BR-38) | Jobs end independently, and the plan must not be written for every job's phase | `SolveJob.queue` | Partial unique index on running re-optimization jobs per plan | `ReoptimizationAlreadyRunning` |
 | At most 5 jobs queued in a lane (BR-112) | Same | `LaneCapacity`, which `SolveJob.queue` requires | `LaneCapacity` is read under an advisory lock on the lane | `SolveQueueFull` |
 | An alert per dedupe key (FR-157) | Alerts are independent | `Alert.raise` | Unique dedupe key | — |
@@ -803,7 +844,7 @@ call, never in the same transaction.
 | Place or change an order | `Order`, or creates it | — | — |
 | Cancel an order | `Order` → *cancelled* | — | `OrderCancelled` → `Plan.removeStopOf` (FR-207, FR-316) |
 | Reschedule an order | `Order` | — | `OrderRescheduled` → `Plan.removeStopOf` (FR-315) |
-| Put back a failed order | `Order` → the next attempt (FR-258) | — | — |
+| Put back a failed or dropped order | `Order` → the next attempt (FR-75, FR-258) | — | — |
 | Upload a file | — | `ImportBatch` (*previewed*) | — |
 | Confirm an import | `ImportBatch` → *confirmed* | Its `Customer`s and `Order`s; geocoding requests | — |
 | A driver reports a stop | `Delivery`, or creates it. A report that BR-132 holds is stored as *held* and records no outcome | The `RouteRun`, on the route's first report (FR-327); a held report doesn't count until confirmed. An `Alert` for the dispatcher, when the report is held | `OutcomeRecorded` for an outcome; `RouteStarted` when the run was created. Nothing for a held report: the phone's outbox gets an acknowledgement (§8) |
@@ -813,9 +854,11 @@ call, never in the same transaction.
 | The driver starts the route | — | `RouteRun` | `RouteStarted` |
 | The driver finishes the route | `RouteRun` → *finished* | An `Alert` when stops are pending (FR-329) | — |
 | A phone sends positions | — | Position records | — |
-| Mark a vehicle or a driver unavailable | `DayRoster` | — | — (only a person starts a re-optimization, FR-332) |
-| Change roles, password or email; deactivate | `UserAccount`, `Generation` + 1 | — | `SessionsRevoked` |
-| Confirm the password (step-up) | `Session`, `Generation` + 1 | — | — |
+| Mark a vehicle or a driver unavailable, or available again (FR-300) | `DayRoster` | — | — (only a person starts a re-optimization, FR-332) |
+| Retire a driver | `Driver` → *retired* | — | `DriverRetired` → Fleet's listener calls Access's API to remove the Driver role (FR-307) |
+| Change roles, password or email; remove the Driver role (FR-307); deactivate; end every session (FR-187) | `UserAccount`, `AccountGeneration` + 1 | — | `SessionsRevoked` |
+| Anonymize an account, a year after its deactivation (NFR-258) | `UserAccount` → *anonymized* | — | `AccountAnonymized` → Fleet anonymizes the driver record |
+| Confirm the password (step-up) | `Session`, `SessionGeneration` + 1 | — | — |
 | Sign out | `Session` → *revoked* | — | — |
 | A message trigger | `StopMessages`, or creates it | — | — |
 | The sender sends a message | `StopMessages` | A `RatingRequest`, when a *delivered* message with the rating question is accepted | — |
@@ -865,7 +908,9 @@ one may call anyway**: a direct call is simpler, unless it must be retried (reas
 | `OutcomeRecorded` | A stop was delivered or failed (the first outcome) | `Delivery` | Live Operations' own listener → late-outcome reconciliation through Planning (§8); Messaging → "delivered" or "missed you" (FR-355, FR-356, FR-374) | Planning is upstream, so the call must come from a retried listener (reason 2); Messaging is downstream (reason 1) |
 | `OutcomeCorrected` | A dispatcher changed a stop's outcome | `Delivery` | Messaging → the message follows the effective outcome (FR-333) | Downstream (reason 1) |
 | `RatingReceived` | A recipient rated a delivery | `RatingRequest` | Messaging's own listener → a 1 to 4 rating raises a Live Operations alert (FR-361) | The alert must follow reliably (reason 2) |
-| `SessionsRevoked` | Every token and session of an account stopped being valid | `UserAccount` | The live-updates adapter → closes that account's open streams (NFR-188) | Six commands revoke (reason 3); the revocation cache itself is evicted at once, in the same thread, so "refused at once" doesn't wait for an event (NFR-177) |
+| `DriverRetired` | A driver was retired | `Driver` | Fleet's own listener → calls Access's API to remove the Driver role, keeping the account's other roles (FR-307, [ADR-103]) | Fleet is downstream of Access, so the call must come from a retried listener (reason 2; §2.3, rule 2) |
+| `SessionsRevoked` | Every token and session of an account stopped being valid | `UserAccount` | The live-updates adapter → closes that account's streams opened under an older generation, which the event carries (NFR-188) | Several commands revoke (reason 3); the revocation cache itself is evicted at once, in the same thread, so "refused at once" doesn't wait for an event (NFR-177) |
+| `AccountAnonymized` | An account's personal data was removed, a year after its deactivation (NFR-258) | `UserAccount` | Fleet → anonymizes the driver record keyed by the account ([ADR-104]) | Fleet depends on Access, so Access can't call it (reason 1) |
 
 ### 7.3 Shape and delivery
 
@@ -1099,7 +1144,8 @@ stateDiagram-v2
   expired --> [*]
 ```
 
-The hour is decided ([ADR-086]). The rows of an expired or discarded preview are deleted.
+The hour is decided ([ADR-086]). The rows of an expired or discarded preview are deleted, and so are a
+confirmed batch's, whose orders and customers now hold them ([ADR-102]).
 
 ### 9.5 A message to a recipient
 
@@ -1125,9 +1171,10 @@ returns the first match:
 1. **delivered / failed**: the effective outcome of the current attempt's `Delivery`. This is a fact. A
    held report (§9.3) is not an outcome, so it changes nothing here until a dispatcher confirms it.
 2. **cancelled**: the `Order` is cancelled.
-3. **planned / dropped**: where the `Plan` holds the current attempt, unless that plan is *abandoned*.
+3. **planned / dropped**: where the `Plan` holds the current attempt, unless that plan is *abandoned* or
+   *cancelled*.
 4. **unplanned**: anything else, including a put-back that starts a new attempt (FR-258) and an order
-   on an abandoned plan (BR-131).
+   on an abandoned or cancelled plan (BR-131, FR-337, BR-96).
 
 The outcome comes before *cancelled*: the other way round would show *cancelled* for an order a driver
 delivered, which hides a fact. The cancellation still shows beside the outcome. BR-33 states this
@@ -1159,7 +1206,8 @@ Nothing the business keeps history about is deleted. It ends in a named state, a
 | Customer, driver | *retired*, then *anonymized* a year later; a customer never retired is anonymized a year after the last order (BR-98, NFR-152) | The figures, without personal data |
 | Vehicle, depot | *retired* (BR-43) | The record |
 | Account, of any role | *deactivated*, then *anonymized* a year later (NFR-258, NFR-260) | The record, without personal data: plans and audit records refer to it |
-| Session, credential link | *revoked* or expired; *spent*, *voided* or expired | The record, until retention |
+| Session | *revoked*, or its current token expired: `Session.endedAt` is the earlier | The record, until retention |
+| Credential link | *spent*, *voided* or expired | The record, until a later link drops it 72 hours after it was sent ([ADR-104]) |
 | Alert | *acknowledged* | The alert |
 | Message | *accepted* or *dropped* | The message, until retention |
 | Rating request | *rated*, or closed after 48 hours | The rating |
@@ -1170,7 +1218,7 @@ A row that other records refer to is anonymized in place instead.
 
 - **Deleted:** positions after 7 days; proofs, messages and replies after 90 days; audit records after
   1 year, by the purge function that `dispatchflow_owner` owns and the core's nightly retention job calls
-  (§4.8); sessions 30 days after they end; contact times 14 days after they are made (NFR-280); geocode cache
+  (§4.8); sessions 30 days after `Session.endedAt`; contact times 14 days after they are made, by `Session.dropOldContacts` (NFR-280); geocode cache
   entries unused for 1 year; research instances 1 year after the project ends; backups, which age out of the bucket after 35 days.
 - **Anonymized:** an order's personal fields 90 days after its date; a customer 1 year after retirement,
   or after the last order if never retired; a driver 1 year after retirement; every account, whatever its
@@ -1232,12 +1280,12 @@ routes, and the plan stores them, so the core never applies a factor. The rules 
 | A message is dropped 15 minutes after its trigger (NFR-190) | `StopMessages.dropStale` | The sender, every 5 s |
 | A rating counts only within 48 hours of the question (FR-357, FR-371) | `RatingRequest.answer` | Each reply |
 | A password confirmation lasts 5 minutes for Admin-only operations (NFR-214) | `Session` | Each Admin-only call |
-| Access tokens last 15 minutes, sessions 14 days, and a reused refresh token has 30 s of grace (NFR-86, NFR-87, NFR-178) | The token check; `Session.exchange` | Each request and each refresh |
+| Access tokens last 15 minutes, refresh tokens 14 days from their issue with no cap on the session, and a reused refresh token has 30 s of grace (NFR-86, NFR-87, NFR-178) | The token check; `Session.exchange` | Each request and each refresh |
 | Credential links expire (NFR-211, NFR-224) | `UserAccount`'s links | When spent |
 | An import preview expires after an hour, and its rows are deleted | `ImportBatch.confirm` and `expire` | On confirmation, and an hourly sweep |
 | A published plan completes at midnight, and a plan still unpublished is abandoned (BR-102, BR-127). Before either, every queued or running solve job of the date fails (BR-128) | `Plan.complete(today)` and `Plan.abandon(today)`, after `SolveJob.fail` for every queued or running job of that date | A job at 00:00 |
 | A geocoding lookup is retried for 24 hours (FR-64) | The geocoding request (outbox row) | Every 15 minutes |
-| Positions are kept 7 days; proofs, messages and replies 90 days. An order's personal fields are removed 90 days after its date. A customer is anonymized 1 year after retirement or after their last order, a driver 1 year after retirement, every account, whatever its roles, 1 year after deactivation. Sessions are deleted 30 days after they end, contact times after 14 days (NFR-280), geocode cache entries unused for 1 year, research instances 1 year after the project ends (NFR-31, NFR-184, NFR-257 to NFR-260, BR-98, [ADR-075]). Backups age out of the bucket after 35 days | `RetentionPeriods`; `Customer.anonymize(now)`, `Driver.anonymize(now)`, `UserAccount.anonymize(now)` | A job at 03:00 |
+| Positions are kept 7 days; proofs, messages and replies 90 days. An order's personal fields are removed 90 days after its date. A customer is anonymized 1 year after retirement, or after the later of creation and the last order, a driver 1 year after retirement, every account, whatever its roles, 1 year after deactivation. Sessions are deleted 30 days after they end, contact times after 14 days (NFR-280), geocode cache entries unused for 1 year, research instances 1 year after the project ends (NFR-31, NFR-184, NFR-257 to NFR-260, BR-98, [ADR-075]). Backups age out of the bucket after 35 days | `RetentionPeriods`; `Order.anonymize(today)`, `Customer.anonymize(now)`, `Driver.anonymize(now)`, `UserAccount.anonymize(now)` | A job at 03:00 |
 | Audit records are deleted after 1 year (NFR-258, [ADR-075]) | A database function owned by `dispatchflow_owner`, which deletes only records older than 1 year and computes the cutoff itself. The application's role (`app`) may only execute it, because it can only insert and read audit records ([ADR-041]) | The same retention job, at 03:00 in `Asia/Jerusalem` |
 
 ### 10.4 Projected arrivals
@@ -1274,7 +1322,7 @@ than one writer may change at once.
 | `Delivery` | The driver, a dispatcher correcting, reporting on behalf, or confirming or refusing a held report, and the phone's own retries | A retry carries the same idempotency key and gets the stored answer (NFR-65, NFR-130); otherwise the version decides, and the first outcome wins. A dispatcher who confirms a held report that an outcome on the stop's current route has overtaken meanwhile is refused, because the report is no longer held (`ReportNotHeld`) |
 | `RouteRun` | Two first reports from one route at once | The second insert fails on the key, and the report is retried as a change |
 | `StopMessages` | Message triggers and the sender | The sender retries its claim |
-| `Session` | Two tabs refreshing at once | The version decides; the 30 s grace gives both the same successor (NFR-178) |
+| `Session` | Two tabs refreshing at once | The version decides; within the 30 s grace the second gets a new token that replaces the first one's successor (NFR-178) |
 | `UserAccount` | The person and an Admin | The version decides; `ActiveAdmins` is read under row locks |
 | `Order`, `Customer` | Dispatchers, imports, geocoding results | The version decides; a geocoding result that arrives after a hand-placed location is ignored |
 | `ImportBatch` | A double-clicked confirm | The second gets `ImportAlreadyConfirmed` |
@@ -1413,7 +1461,7 @@ The most likely changes, and whether each fits by adding code or needs existing 
 | `FleetRegister` holds every depot and vehicle | The set is small by rule (BR-36) and two of its rules are about the whole set (BR-36, BR-48). One version check replaces a set-wide check and a lock |
 | `StopMessages` holds every message about a stop | The frequency rules are about the messages of one stop (NFR-191, FR-353, FR-384). One message per aggregate would split them |
 | Positions, audit records, replies and opt-outs are records | They have no rule between entries. As aggregates they would be the busiest write path in the system, versioned for nothing |
-| Settings split by context (`CompanyProfile`, `PlanningSettings`, `MessagingSettings`) | Each setting belongs with the rules that use it. One settings aggregate in Access would couple every context to it |
+| Settings split by context (`CompanyProfile`, `PlanningSettings`, `MessagingSettings`) | Each setting belongs with the rules that use it. One settings aggregate in Access would couple every context to it. The one exception is a new customer's defaults, on `CompanyProfile` because FR-125 puts them on the company's settings page; Customers & Orders reads them through Access's API ([ADR-104]) |
 | Events only where they beat a direct call or doing nothing (§7) | Each event is a contract another module depends on. Seven candidates did no better than a call or nothing |
 | Facts outrank intent, and a person is told | An offline phone can't be prevented from delivering a stop that was moved or cancelled meanwhile. One reconciliation path handles every case, online or offline |
 | Hand-over is a `Plan` revision | Late reports are judged by route history (BR-110), and published route changes are audited (BR-77). Both break if the driver changes outside the plan |
@@ -1449,7 +1497,8 @@ where the company's own word differs. "—" in the Hebrew column marks a design 
 | Admin | All | Manages accounts and settings | מנהל מערכת | `Role.ADMIN` |
 | Dispatcher | All | Plans and runs the day | סדרן | `Role.DISPATCHER` |
 | Session | Access | One signed-in device | התחברות | `Session` |
-| Step-up | Access | Confirming the password before an Admin-only operation | אימות סיסמה חוזר | `StepUp` |
+| Step-up | Access | Confirming the password before an Admin-only operation | אימות סיסמה חוזר | `Session.confirmPassword` |
+| Capability | Access | One row of the permission matrix: what a role may do (FR-03) | — | `Capability` |
 | Credential link | Access | A one-time emailed link to set a password or confirm an email | קישור לאימות | `CredentialLink` |
 | Fleet register | Fleet | The company's depots and vehicles | מאגר רכבים | `FleetRegister` |
 | Depot | Fleet, Planning | Where vehicles start and end | מרכז הפצה | `Depot` |
@@ -1462,7 +1511,7 @@ where the company's own word differs. "—" in the Hebrew column marks a design 
 | Address flag | Customers & Orders | A doubt about a customer's location (FR-63) | סימון כתובת | `AddressFlag` |
 | Order | Customers & Orders, Planning, Optimization | Goods to deliver to a customer on a date | הזמנה | `Order` |
 | Attempt | Customers & Orders, Live Operations | Which try at delivering an order this is; a put-back starts the next one | ניסיון מסירה | `Attempt` |
-| Put back | Customers & Orders | Returning a failed order for a new attempt (FR-258) | החזרה לתכנון | `Order.putBack` |
+| Put back | Customers & Orders | Returning a failed or dropped order for a new attempt (FR-75, FR-258) | החזרה לתכנון | `Order.putBack` |
 | Reschedule | Customers & Orders | Moving an order to another date (FR-315) | שינוי תאריך | `Order.reschedule` |
 | Leave-at-door order | Customers & Orders | An order the recipient allows to be left at the door; its window is a preference (BR-119) | השארה ליד הדלת | `leaveAtDoor` |
 | Recipient | Customers & Orders, Messaging | The person who receives an order and its messages; may differ from the customer | נמען | `Recipient` |
@@ -1547,16 +1596,21 @@ Nothing. These ADRs record the decisions of this document:
 [ADR-058]: ../../ADRs/ADR-058-routes-changed-while-the-optimizer-is-down-are-checked-when-it-returns.md
 [ADR-059]: ../../ADRs/ADR-059-plan-revisions-are-stored-as-rows.md
 [ADR-061]: ../../ADRs/ADR-061-capacity-is-weight-and-volume.md
+[ADR-062]: ../../ADRs/ADR-062-fleet-checks-the-driver-role-when-it-reads.md
 [ADR-063]: ../../ADRs/ADR-063-a-transaction-changes-one-aggregate-and-every-rule-has-one-owner.md
 [ADR-064]: ../../ADRs/ADR-064-events-only-where-they-earn-their-place-through-the-modulith-registry.md
 [ADR-065]: ../../ADRs/ADR-065-facts-outrank-intent.md
 [ADR-066]: ../../ADRs/ADR-066-every-asynchronous-step-has-a-watcher.md
 [ADR-067]: ../../ADRs/ADR-067-live-arrivals-propagate-delay-along-stored-legs-when-asked.md
+[ADR-068]: ../../ADRs/ADR-068-every-web-handler-is-authorized-by-role-from-the-contract.md
 [ADR-075]: ../../ADRs/ADR-075-retention-deletes-records-and-anonymizes-people-in-place.md
 [ADR-083]: ../../ADRs/ADR-083-admins-and-dispatchers-get-alerts-by-stream-and-push-in-the-phone-app.md
 [ADR-086]: ../../ADRs/ADR-086-csv-imports-upload-then-confirm-within-an-hour.md
 [ADR-097]: ../../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md
 [ADR-100]: ../../ADRs/ADR-100-k-covers-door-windows-outside-a-shift-and-no-vehicle-is-a-drop-reason.md
 [ADR-101]: ../../ADRs/ADR-101-completed-plans-take-late-outcomes-as-revisions-and-routes-keep-an-index.md
+[ADR-102]: ../../ADRs/ADR-102-order-references-are-checked-on-every-move-to-a-date.md
+[ADR-103]: ../../ADRs/ADR-103-fleet-normalizes-plates-keeps-one-pair-of-depot-hours-holds-no-vehicle-in-weekly-shifts-and-retires-and-anonymizes-drivers-through-events.md
+[ADR-104]: ../../ADRs/ADR-104-the-company-profile-holds-customer-defaults-and-capabilities-follow-the-role-matrix.md
 [ADR-105]: ../../ADRs/ADR-105-a-re-optimizations-problem-carries-its-conventions-and-only-a-vehicle-that-is-out-has-no-driver.md
 [ADR-106]: ../../ADRs/ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md
