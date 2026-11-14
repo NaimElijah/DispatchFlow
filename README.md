@@ -138,13 +138,13 @@ progress to the web app over server-sent events
 
 | Layer | Technology | Version | Why |
 |---|---|---|---|
-| Core backend | Java, Spring Boot, Spring Data JPA | 21, 4.1.2 | The team's strongest stack; mature ecosystem for the adapters |
+| Core backend | Java, Spring Boot, Spring Data JPA; libphonenumber | 21, 4.1.2; 9.0.43 | The team's strongest stack; mature ecosystem for the adapters. libphonenumber parses phone numbers in the pure domain |
 | Database | PostgreSQL 18.6; Flyway (version from the Spring Boot parent) | 18.6 | Relational data with real constraints; versioned SQL migrations |
 | Solver | Python, FastAPI | 3.14, 0.162 | OR-Tools' richest bindings; algorithm work iterates apart from the backend |
 | Web app | React, TypeScript, Vite | 19.3, 6.0, 8.3 | Web app for every role; its driver screens also work in a phone's browser |
 | Phone app | React Native, Expo | 0.88, SDK 58 | One codebase for iOS and Android, for every role |
 | Contracts | OpenAPI, Redocly CLI | 3.1, 2.72 | Each side is built against the contract, not against the other side |
-| Tests | JUnit + Testcontainers, pytest, Vitest, Jest | | Real PostgreSQL in tests, never an in-memory stand-in |
+| Tests | JUnit + Testcontainers, ArchUnit, pytest, Vitest, Jest | ArchUnit 1.5.1 | Real PostgreSQL in tests, never an in-memory stand-in; ArchUnit keeps the domain pure |
 | Tooling | just, uv, npm, OSV-Scanner | 1.59, 0.12, 11, 2.7 | One command set locally and in CI; one audit across every ecosystem |
 
 TypeScript is held at 6.0 because typescript-eslint does not support 7 yet
@@ -214,7 +214,7 @@ comments. The rules apply to people and to coding assistants alike.
 
 | Layer | Covers | Command |
 |---|---|---|
-| Core unit (`*Test`) | Domain and use cases, no I/O; today only the web error handler (`UnexpectedErrorHandlerTest`), as no bounded context exists yet | `just core-check` |
+| Core unit (`*Test`) | Domain and use cases, no I/O. Today: the shared kernel's values, the domain purity rules (ArchUnit) and the web error handler; no bounded context exists yet | `just core-check` |
 | Core integration (`*IT`) | Against a real PostgreSQL in a container | `just core-check` |
 | Solver | HTTP adapter, dependency boundary | `just solver-check` |
 | Research | Its environment: the solver and PyVRP are installed | `just research-check` |

@@ -40,7 +40,7 @@ report findings.
 
 - **Correctness:** off-by-one, null and empty handling, wrong conditions, races, resource leaks, broken invariants.
 - **Error handling:** errors fail fast and loudly. Every catch handles, enriches or rethrows. Nothing is swallowed and nothing is caught broadly to silence it. Proper exception types are used, not sentinels.
-- **Layering in `core`** (ADR-001; the hexagon is [DL §13][DL-13]): each bounded context is one module. The package shape is in [TS §4][TS-4] and [ADR-040]. Once adopted ([TS §2.2][TS-22]), Spring Modulith's `verify()` ([ADR-040], Accepted) and the ArchUnit rules must pass.
+- **Layering in `core`** (ADR-001; the hexagon is [DL §13][DL-13]): each bounded context is one module. The package shape is in [TS §4][TS-4] and [ADR-040]. The ArchUnit purity rules run in `just core-check` and must pass. Once adopted ([TS §2.2][TS-22]), Spring Modulith's `verify()` ([ADR-040], Accepted) must pass too.
   - A module is reached only through its `api`, `spi` and `events` named interfaces ([DL §2.3][DL-23]).
   - An upstream module never imports a downstream type: it owns a port that the downstream module implements ([DL §2.3][DL-23], rule 2).
   - `domain` obeys the six purity rules of [DL §3.9][DL-39].
