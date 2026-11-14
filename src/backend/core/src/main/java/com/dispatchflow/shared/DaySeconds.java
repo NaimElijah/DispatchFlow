@@ -63,9 +63,12 @@ public record DaySeconds(DeliveryDate date, long seconds) {
      * #at(IsraelDateTime)}, it keeps the second occurrence of a repeated hour apart from the first,
      * so a fact's real time on a fall-back day counts right.
      *
+     * <p>A fraction of a second is dropped, so the next midnight plus half a second reads as the
+     * date's length, which is still within the day.
+     *
      * @param date the date to count from
      * @param instant the instant, on that date
-     * @return the seconds since the date's local midnight, a fraction of a second dropped
+     * @return the whole seconds since the date's local midnight
      * @throws RuleViolation with {@link OutsideTheDay} when the instant is not on the date
      */
     public static DaySeconds at(DeliveryDate date, Instant instant) {

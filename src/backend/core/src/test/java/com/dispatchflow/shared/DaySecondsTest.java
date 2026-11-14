@@ -98,4 +98,11 @@ class DaySecondsTest {
                 () -> DaySeconds.at(ORDINARY, Instant.parse("2027-06-15T21:00:01Z")),
                 new OutsideTheDay(ORDINARY, 86_401));
     }
+
+    @Test
+    void GivenHalfASecondPastTheNextMidnight_WhenCountedFromItsInstant_ThenItReadsAsTheDaysLength() {
+        DaySeconds end = DaySeconds.at(ORDINARY, Instant.parse("2027-06-15T21:00:00.5Z"));
+
+        assertThat(end.seconds()).isEqualTo(ORDINARY.lengthInSeconds());
+    }
 }

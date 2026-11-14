@@ -18,8 +18,9 @@ public record DeliveryDate(LocalDate value) implements Comparable<DeliveryDate> 
     private static final int LAST_YEAR = 9999;
 
     /**
-     * Checks the day lies in the years 1 to 9999, so its length and the next day's midnight can
-     * always be computed.
+     * Checks the day lies in the years 1 to 9999. The bound is chosen, not where date arithmetic
+     * fails: four-digit years are all a delivery date needs, and the bound keeps the next day's
+     * midnight well inside what {@code LocalDate} can hold.
      *
      * @throws RuleViolation with {@link DateOutOfRange} for a year outside 1 to 9999
      */

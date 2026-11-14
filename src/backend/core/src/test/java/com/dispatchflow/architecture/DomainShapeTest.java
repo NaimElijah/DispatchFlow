@@ -28,6 +28,11 @@ class DomainShapeTest {
     }
 
     @Test
+    void GivenTheProductionClasses_WhenErrorInterfacesAreChecked_ThenEachIsSealed() {
+        DomainShapeRules.errorInterfacesAreSealed(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
     void GivenTheProductionClasses_WhenErrorCodesAreChecked_ThenNoneIsDeclaredByHand() {
         DomainShapeRules.errorCodesAreDerived(ROOT).check(ProductionClasses.ALL);
     }

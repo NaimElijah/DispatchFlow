@@ -40,8 +40,8 @@ public final class PhoneNumber {
      *
      * @param text the number, in national or international form
      * @return the number, normalized to E.164
-     * @throws RuleViolation with {@link InvalidPhoneNumber} when the text holds a letter or is not
-     *     a valid number
+     * @throws RuleViolation with {@link InvalidPhoneNumber} when the text holds a letter or an
+     *     extension, or is not a valid number
      */
     public static PhoneNumber parse(String text) {
         Objects.requireNonNull(text, "text");
@@ -57,7 +57,8 @@ public final class PhoneNumber {
             // data.
             throw new RuleViolation(new InvalidPhoneNumber());
         }
-        if (!PHONE_NUMBERS.isValidNumber(number)) {
+        // An extension would be dropped from the E.164 form, so a number that has one is refused.
+        if (!PHONE_NUMBERS.isValidNumber(number) || number.hasExtension()) {
             throw new RuleViolation(new InvalidPhoneNumber());
         }
         return new PhoneNumber(PHONE_NUMBERS.format(number, PhoneNumberFormat.E164));

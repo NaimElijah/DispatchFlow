@@ -12,6 +12,7 @@ import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -78,7 +79,6 @@ final class DomainPurityRules {
 
     private static final String PERSISTENCE_ADAPTER = "..adapter.out.persistence..";
     private static final String OPTIMIZER_ADAPTER = "..planning.adapter.out.optimizer..";
-    private static final Set<String> OPTIMIZER_RESULTS = Set.of("ValidationReport", "Evaluation");
 
     private DomainPurityRules() {}
 
@@ -271,7 +271,8 @@ final class DomainPurityRules {
                 || (owner.equals("java.time.Clock") && name.startsWith("system"))
                 || (owner.equals("java.time.InstantSource") && name.equals("system"))
                 || (owner.equals("java.lang.System") && (name.equals("currentTimeMillis") || name.equals("nanoTime")))
-                || (owner.equals("java.time.ZoneId") && name.equals("systemDefault"))
+                || (owner.startsWith("java.time.") && name.equals("dateNow"))
+                || (target.getOwner().isAssignableTo(ZoneId.class) && name.equals("systemDefault"))
                 || (owner.equals("java.util.TimeZone") && name.equals("getDefault"));
     }
 
@@ -324,23 +325,25 @@ final class DomainPurityRules {
      */
     private static boolean rebuildsStoredState(JavaAccess<?> access) {
         AccessTarget target = access.getTarget();
-        boolean restoresAnAggregate = target.getName().equals("restore")
+        boolean restoresAnAggregate = target.getName().equals(RestrictedTypes.RESTORE)
                 && target.getOwner().isAssignableTo(AggregateRoot.class)
                 && isStatic(target);
-        return (restoresAnAggregate || target.getName().equals("readUnderLock")) && !isSelfAccess(access);
+        return (restoresAnAggregate || target.getName().equals(RestrictedTypes.READ_UNDER_LOCK))
+                && !RestrictedTypes.isWithin(access.getOriginOwner(), access.getTargetOwner());
     }
 
     /**
-     * A constructor or a static factory, called or referenced. A record-shaped or package-private
-     * constructor is caught here too; {@link DomainShapeRules} also requires the constructors to be
-     * private.
+     * A constructor or a static method, called or referenced, of an optimizer result or of a type
+     * nested in one, from outside that result. A record-shaped or package-private constructor is
+     * caught here too; {@link DomainShapeRules} also requires the constructors to be private.
      */
     private static boolean buildsAnOptimizerResult(JavaAccess<?> access) {
         AccessTarget target = access.getTarget();
+        Optional<JavaClass> result = RestrictedTypes.optimizerResultOf(target.getOwner());
         return access instanceof JavaCodeUnitAccess<?>
-                && OPTIMIZER_RESULTS.contains(target.getOwner().getSimpleName())
+                && result.isPresent()
                 && (target.getName().equals(CONSTRUCTOR) || isStatic(target))
-                && !isSelfAccess(access);
+                && !RestrictedTypes.isWithin(access.getOriginOwner(), result.get());
     }
 
     private static boolean isStatic(AccessTarget target) {
@@ -348,19 +351,6 @@ final class DomainPurityRules {
         return target.resolveMember()
                 .map(member -> member.getModifiers().contains(JavaModifier.STATIC))
                 .orElse(true);
-    }
-
-    /** An access from the target type itself, or from a type nested in it at any depth. */
-    private static boolean isSelfAccess(JavaAccess<?> access) {
-        JavaClass target = access.getTargetOwner();
-        Optional<JavaClass> origin = Optional.of(access.getOriginOwner());
-        while (origin.isPresent()) {
-            if (origin.get().equals(target)) {
-                return true;
-            }
-            origin = origin.get().getEnclosingClass();
-        }
-        return false;
     }
 
     private static JavaClass baseType(JavaClass type) {

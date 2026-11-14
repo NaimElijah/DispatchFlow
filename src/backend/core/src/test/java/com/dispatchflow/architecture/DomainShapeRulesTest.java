@@ -5,23 +5,38 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.dispatchflow.archfixture.alpha.domain.AggregateWithAPublicConstructor;
 import com.dispatchflow.archfixture.alpha.domain.AlphaAggregate;
 import com.dispatchflow.archfixture.alpha.domain.AlphaCapacity;
+import com.dispatchflow.archfixture.alpha.domain.AlphaError;
 import com.dispatchflow.archfixture.alpha.domain.AlphaRecord;
 import com.dispatchflow.archfixture.alpha.domain.CleanError;
+import com.dispatchflow.archfixture.alpha.domain.ErrorInheritingAText;
 import com.dispatchflow.archfixture.alpha.domain.ErrorWithAListOfText;
 import com.dispatchflow.archfixture.alpha.domain.ErrorWithALocation;
+import com.dispatchflow.archfixture.alpha.domain.ErrorWithANormalizedAddress;
 import com.dispatchflow.archfixture.alpha.domain.ErrorWithAPhone;
+import com.dispatchflow.archfixture.alpha.domain.ErrorWithARuleCode;
+import com.dispatchflow.archfixture.alpha.domain.ErrorWithAStringBuilder;
 import com.dispatchflow.archfixture.alpha.domain.ErrorWithAText;
+import com.dispatchflow.archfixture.alpha.domain.ErrorWithAnArray;
+import com.dispatchflow.archfixture.alpha.domain.ErrorWithAnEmailAddress;
+import com.dispatchflow.archfixture.alpha.domain.ErrorWithAnObject;
 import com.dispatchflow.archfixture.alpha.domain.ErrorWithItsOwnCode;
 import com.dispatchflow.archfixture.alpha.domain.EventOutsideEvents;
+import com.dispatchflow.archfixture.alpha.domain.OpenError;
 import com.dispatchflow.archfixture.alpha.domain.SnapshotRecordWithReadUnderLock;
 import com.dispatchflow.archfixture.alpha.events.CleanEvent;
+import com.dispatchflow.archfixture.alpha.events.EventInheritingAText;
 import com.dispatchflow.archfixture.alpha.events.EventWithAListOfText;
 import com.dispatchflow.archfixture.alpha.events.EventWithALocation;
 import com.dispatchflow.archfixture.alpha.events.EventWithAPhone;
+import com.dispatchflow.archfixture.alpha.events.EventWithAPhoneArray;
+import com.dispatchflow.archfixture.alpha.events.EventWithARuleViolation;
 import com.dispatchflow.archfixture.alpha.events.EventWithAText;
+import com.dispatchflow.archfixture.alpha.events.EventWithAnIdArray;
 import com.dispatchflow.archfixture.alpha.events.EventWithAnotherPackagesEnum;
+import com.dispatchflow.archfixture.alpha.events.EventWithFreshIds;
 import com.dispatchflow.archfixture.alpha.events.Reported;
 import com.dispatchflow.archfixture.planning.domain.Evaluation;
+import com.dispatchflow.archfixture.planning.domain.ValidatedSolution;
 import com.dispatchflow.archfixture.planning.domain.ValidationReport;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
@@ -44,8 +59,10 @@ class DomainShapeRulesTest {
             classes = {
                 SnapshotRecordWithReadUnderLock.class,
                 AggregateWithAPublicConstructor.class,
-                com.dispatchflow.archfixture.beta.domain.Evaluation.class,
-                ValidationReport.class
+                com.dispatchflow.archfixture.planning.domain.shaped.Evaluation.class,
+                ValidationReport.class,
+                Evaluation.Builder.class,
+                ValidatedSolution.class
             })
     void GivenARestrictedTypeWithAVisibleConstructor_WhenEvaluated_ThenItIsFlagged(Class<?> fixture) {
         assertThat(flags(DomainShapeRules.restrictedConstructorsArePrivate(FIXTURE_ROOT), fixture))
@@ -53,7 +70,14 @@ class DomainShapeRulesTest {
     }
 
     @ParameterizedTest
-    @ValueSource(classes = {AlphaAggregate.class, AlphaCapacity.class, Evaluation.class, AlphaRecord.class})
+    @ValueSource(
+            classes = {
+                AlphaAggregate.class,
+                AlphaCapacity.class,
+                Evaluation.class,
+                AlphaRecord.class,
+                com.dispatchflow.archfixture.beta.domain.Evaluation.class
+            })
     void GivenPrivateConstructorsOrAnUnrestrictedType_WhenEvaluated_ThenNothingIsFlagged(Class<?> fixture) {
         assertThat(flags(DomainShapeRules.restrictedConstructorsArePrivate(FIXTURE_ROOT), fixture))
                 .isFalse();
@@ -80,7 +104,12 @@ class DomainShapeRulesTest {
                 EventWithAPhone.class,
                 EventWithALocation.class,
                 EventWithAListOfText.class,
-                EventWithAnotherPackagesEnum.class
+                EventWithAnotherPackagesEnum.class,
+                EventWithAPhoneArray.class,
+                EventWithAnIdArray.class,
+                EventWithFreshIds.class,
+                EventWithARuleViolation.class,
+                EventInheritingAText.class
             })
     void GivenAnEventFieldOfAForbiddenType_WhenEvaluated_ThenItIsFlagged(Class<?> fixture) {
         assertThat(flags(DomainShapeRules.eventFieldsAreClosed(FIXTURE_ROOT), fixture))
@@ -96,7 +125,17 @@ class DomainShapeRulesTest {
 
     @ParameterizedTest
     @ValueSource(
-            classes = {ErrorWithAText.class, ErrorWithAPhone.class, ErrorWithALocation.class, ErrorWithAListOfText.class
+            classes = {
+                ErrorWithAText.class,
+                ErrorWithAPhone.class,
+                ErrorWithALocation.class,
+                ErrorWithAListOfText.class,
+                ErrorWithAStringBuilder.class,
+                ErrorWithAnObject.class,
+                ErrorWithAnArray.class,
+                ErrorWithAnEmailAddress.class,
+                ErrorWithANormalizedAddress.class,
+                ErrorInheritingAText.class
             })
     void GivenAnErrorParameterThatCouldCarryPersonalData_WhenEvaluated_ThenItIsFlagged(Class<?> fixture) {
         assertThat(flags(DomainShapeRules.errorParametersCarryNoPersonalData(FIXTURE_ROOT), fixture))
@@ -104,9 +143,23 @@ class DomainShapeRulesTest {
     }
 
     @ParameterizedTest
-    @ValueSource(classes = {CleanError.class, CleanEvent.class})
+    @ValueSource(classes = {CleanError.class, CleanEvent.class, ErrorWithARuleCode.class})
     void GivenAnErrorWithAllowedParametersOrNoError_WhenEvaluated_ThenNothingIsFlagged(Class<?> fixture) {
         assertThat(flags(DomainShapeRules.errorParametersCarryNoPersonalData(FIXTURE_ROOT), fixture))
+                .isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(classes = {OpenError.class})
+    void GivenAnErrorInterfaceThatIsNotSealed_WhenEvaluated_ThenItIsFlagged(Class<?> fixture) {
+        assertThat(flags(DomainShapeRules.errorInterfacesAreSealed(FIXTURE_ROOT), fixture))
+                .isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(classes = {AlphaError.class, CleanError.class})
+    void GivenASealedErrorInterfaceOrARecord_WhenEvaluated_ThenNothingIsFlagged(Class<?> fixture) {
+        assertThat(flags(DomainShapeRules.errorInterfacesAreSealed(FIXTURE_ROOT), fixture))
                 .isFalse();
     }
 

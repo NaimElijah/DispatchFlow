@@ -36,8 +36,10 @@ import com.dispatchflow.archfixture.alpha.domain.ReadsCurrentTimeMillis;
 import com.dispatchflow.archfixture.alpha.domain.ReadsInstantNow;
 import com.dispatchflow.archfixture.alpha.domain.ReadsInstantNowByReference;
 import com.dispatchflow.archfixture.alpha.domain.ReadsLocalDateNow;
+import com.dispatchflow.archfixture.alpha.domain.ReadsTheDateFromAChronology;
 import com.dispatchflow.archfixture.alpha.domain.ReadsTheDefaultTimeZone;
 import com.dispatchflow.archfixture.alpha.domain.ReadsTheDefaultZone;
+import com.dispatchflow.archfixture.alpha.domain.ReadsTheDefaultZoneThroughZoneOffset;
 import com.dispatchflow.archfixture.alpha.domain.ReadsTheEnvironment;
 import com.dispatchflow.archfixture.alpha.domain.ReadsTheSystemClock;
 import com.dispatchflow.archfixture.alpha.domain.ShufflesAList;
@@ -57,8 +59,11 @@ import com.dispatchflow.archfixture.alpha.events.EventDependsOnLibphonenumber;
 import com.dispatchflow.archfixture.beta.application.BuildsARecordEvaluation;
 import com.dispatchflow.archfixture.modulith.NamedInterface;
 import com.dispatchflow.archfixture.planning.adapter.out.optimizer.OptimizerAdapter;
+import com.dispatchflow.archfixture.planning.application.BuildsAShapedEvaluation;
 import com.dispatchflow.archfixture.planning.application.BuildsAValidationReport;
 import com.dispatchflow.archfixture.planning.application.BuildsAnEvaluation;
+import com.dispatchflow.archfixture.planning.application.BuildsThroughTheNestedBuilder;
+import com.dispatchflow.archfixture.planning.application.WrapsAValidationReport;
 import com.dispatchflow.archfixture.planning.domain.BuildsAReportInTheDomain;
 import com.dispatchflow.archfixture.planning.domain.Evaluation;
 import com.dispatchflow.archfixture.planning.domain.ValidationReport;
@@ -124,6 +129,14 @@ class DomainPurityRulesTest {
         assertThat(rule1().evaluate(gamma).hasViolation()).isFalse();
     }
 
+    @Test
+    void GivenAnotherFrameworksAnnotationOnADomainPackageInfo_WhenRule1Evaluates_ThenItIsFlagged() {
+        JavaClasses delta = new ClassFileImporter().importPackages(FIXTURE_ROOT + ".delta");
+
+        assertThat(delta.stream().map(type -> type.getSimpleName())).containsExactly("package-info");
+        assertThat(rule1().evaluate(delta).hasViolation()).isTrue();
+    }
+
     @ParameterizedTest
     @ValueSource(
             classes = {
@@ -136,6 +149,8 @@ class DomainPurityRulesTest {
                 UsesACalendar.class,
                 ReadsTheDefaultZone.class,
                 ReadsTheDefaultTimeZone.class,
+                ReadsTheDefaultZoneThroughZoneOffset.class,
+                ReadsTheDateFromAChronology.class,
                 HoldsAClock.class
             })
     void GivenAClockRead_WhenRule2Evaluates_ThenItIsFlagged(Class<?> fixture) {
@@ -248,8 +263,9 @@ class DomainPurityRulesTest {
             classes = {
                 BuildsAValidationReport.class,
                 BuildsAnEvaluation.class,
-                BuildsARecordEvaluation.class,
-                BuildsAReportInTheDomain.class
+                BuildsAShapedEvaluation.class,
+                BuildsAReportInTheDomain.class,
+                BuildsThroughTheNestedBuilder.class
             })
     void GivenAnOptimizerResultBuiltOutsideTheOptimizerAdapter_WhenEvaluated_ThenItIsFlagged(Class<?> fixture) {
         assertThat(flags(DomainPurityRules.optimizerResultsOnlyFromOptimizerAdapter(FIXTURE_ROOT), fixture))
@@ -257,8 +273,17 @@ class DomainPurityRulesTest {
     }
 
     @ParameterizedTest
-    @ValueSource(classes = {OptimizerAdapter.class, ValidationReport.class, Evaluation.class, Evaluation.Builder.class})
-    void GivenTheOptimizerAdapterOrTheTypeItself_WhenEvaluated_ThenNothingIsFlagged(Class<?> fixture) {
+    @ValueSource(
+            classes = {
+                OptimizerAdapter.class,
+                ValidationReport.class,
+                Evaluation.class,
+                Evaluation.Builder.class,
+                BuildsARecordEvaluation.class,
+                WrapsAValidationReport.class
+            })
+    void GivenTheOptimizerAdapterTheTypeItselfOrAnotherModulesType_WhenEvaluated_ThenNothingIsFlagged(
+            Class<?> fixture) {
         assertThat(flags(
                         DomainPurityRules.optimizerResultsOnlyFromOptimizerAdapter(FIXTURE_ROOT),
                         fixture,

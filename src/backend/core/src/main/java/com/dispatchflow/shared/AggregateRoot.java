@@ -47,17 +47,21 @@ public abstract class AggregateRoot {
      * its position among this change's events, from 0. A call that throws records nothing, so a
      * later call on the same instance still numbers from where the recorded events end.
      *
-     * @param type the event's record type
+     * @param type the event's own record type, never a supertype
      * @param aggregateId this aggregate's UUID
      * @param build builds the event around the ID it is given
      * @param <E> the event type
      * @return the event recorded
-     * @throws AssertionError when the built event does not carry the ID it was given: a bug in the
-     *     raising method, not a refusal
+     * @throws AssertionError when the built event is not exactly of {@code type}, or does not carry
+     *     the ID it was given: a bug in the raising method, not a refusal
      */
     protected final <E extends DomainEvent> E raise(Class<E> type, UUID aggregateId, Function<EventId, E> build) {
         EventId id = new EventId(type.getSimpleName(), aggregateId, version.next(), pendingEvents.size());
         E event = Objects.requireNonNull(build.apply(id), "event");
+        // The ID names the type given, so a supertype such as a sealed event interface is refused.
+        if (event.getClass() != type) {
+            throw new AssertionError("an event must be raised under its own record type");
+        }
         if (!event.eventId().equals(id)) {
             throw new AssertionError("a raised event must carry the EventId it was built with");
         }

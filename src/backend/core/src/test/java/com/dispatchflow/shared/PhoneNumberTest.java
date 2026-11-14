@@ -52,7 +52,10 @@ class PhoneNumberTest {
                 "+972 52-345-6789-89012",
                 "052-FLOWERS",
                 "052-345-678O",
-                "052-345-6789 ext. 12"
+                "052-345-6789 ext. 12",
+                "052-345-6789#123",
+                "0523456789;123",
+                "03-123-4567#12"
             })
     void GivenTextThatIsNotAValidNumber_WhenParsed_ThenInvalidPhoneNumber(String text) {
         assertRefused(() -> PhoneNumber.parse(text), new InvalidPhoneNumber());
@@ -66,6 +69,11 @@ class PhoneNumberTest {
 
         assertThat(refusal.getMessage()).isEqualTo("INVALID_PHONE_NUMBER");
         assertThat(refusal.getCause()).isNull();
+    }
+
+    @Test
+    void GivenTheLandlineWithoutItsExtension_WhenParsed_ThenItIsValid() {
+        assertThat(PhoneNumber.parse("03-123-4567").e164()).isEqualTo("+97231234567");
     }
 
     @Test

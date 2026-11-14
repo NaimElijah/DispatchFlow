@@ -77,8 +77,8 @@ public sealed interface SharedKernelError extends DomainError {
     record InvalidPhoneNumber() implements SharedKernelError {}
 
     /**
-     * A delivery date outside the years 1 to 9999. It is a technical bound, not a business rule:
-     * the date arithmetic past it would fail.
+     * A delivery date outside the years 1 to 9999. The bound is a chosen technical one, not a
+     * business rule and not where date arithmetic fails.
      *
      * @param date the refused date
      */

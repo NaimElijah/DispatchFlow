@@ -18,7 +18,16 @@ import org.junit.jupiter.params.provider.ValueSource;
 class QuantityTest {
 
     @ParameterizedTest
-    @ValueSource(strings = {"0.01", "1", "12.3", "999999.99", "999999.990000"})
+    @ValueSource(
+            strings = {
+                "0.01",
+                "1",
+                "12.3",
+                "999999.99",
+                "999999.990000",
+                "1.0000000000000000000000",
+                "000000000000000000000000000001.5"
+            })
     void GivenAWeightTheColumnHolds_WhenBuilt_ThenItIsKeptExactly(String kilograms) {
         assertThat(Weight.kilograms(new BigDecimal(kilograms)).kilograms()).isEqualByComparingTo(kilograms);
     }
@@ -64,6 +73,27 @@ class QuantityTest {
     @ValueSource(strings = {"0.001", "10000000", "1E+7", "1E+1000000000", "1E-1000000000"})
     void GivenAVolumeTheColumnCannotHold_WhenBuilt_ThenQuantityOutOfRange(String litres) {
         assertRefused(() -> Volume.litres(new BigDecimal(litres)), new QuantityOutOfRange(Measure.VOLUME));
+    }
+
+    @Test
+    void GivenAWeightWithNinetyEightZerosAfterThePoint_WhenBuilt_ThenItIsKeptAsItsValue() {
+        BigDecimal one = new BigDecimal("1." + "0".repeat(98));
+
+        assertThat(Weight.kilograms(one)).isEqualTo(Weight.kilograms(BigDecimal.ONE));
+    }
+
+    @Test
+    void GivenADecimalOfTenThousandDigits_WhenBuilt_ThenQuantityOutOfRange() {
+        BigDecimal tenThousandDigits = new BigDecimal("0." + "1".repeat(10_000));
+
+        assertRefused(() -> Weight.kilograms(tenThousandDigits), new QuantityOutOfRange(Measure.WEIGHT));
+    }
+
+    @Test
+    void GivenAnIntegerOfTenThousandDigits_WhenBuilt_ThenQuantityOutOfRange() {
+        BigDecimal huge = new BigDecimal("1".repeat(10_000));
+
+        assertRefused(() -> Volume.litres(huge), new QuantityOutOfRange(Measure.VOLUME));
     }
 
     @Test

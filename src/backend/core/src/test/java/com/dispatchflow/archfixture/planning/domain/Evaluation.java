@@ -1,6 +1,6 @@
 package com.dispatchflow.archfixture.planning.domain;
 
-/** An Evaluation only the optimizer adapter may build; its own code and nested types may. */
+/** An Evaluation only the optimizer adapter may build; it and its nested types may use each other. */
 public final class Evaluation {
 
     private Evaluation() {}
@@ -13,10 +13,14 @@ public final class Evaluation {
         return of();
     }
 
-    /** A nested type builds through its enclosing type's factory and constructor. */
+    static Evaluation throughTheBuilder() {
+        return Builder.build();
+    }
+
+    /** A nested type with a visible constructor and a public factory: both are holes. */
     public static final class Builder {
 
-        private Builder() {}
+        public Builder() {}
 
         public static Evaluation build() {
             return Evaluation.of();

@@ -16,7 +16,9 @@ class AggregateRootTest {
 
     record Opened(EventId eventId, Instant occurredAt) implements DomainEvent {}
 
-    record Renamed(EventId eventId, Instant occurredAt) implements DomainEvent {}
+    sealed interface CounterEvent extends DomainEvent permits Renamed {}
+
+    record Renamed(EventId eventId, Instant occurredAt) implements CounterEvent {}
 
     /** The smallest aggregate: methods that raise events, refuse, or raise a mislabelled event. */
     static final class Counter extends AggregateRoot {
@@ -45,6 +47,10 @@ class AggregateRootTest {
             raise(Renamed.class, ID, id -> {
                 throw new RuleViolation(new PriorityOutOfRange(0));
             });
+        }
+
+        void renameUnderItsInterface(Instant now) {
+            raise(CounterEvent.class, ID, id -> new Renamed(id, now));
         }
 
         void renameWithAForeignId(Instant now) {
@@ -93,6 +99,14 @@ class AggregateRootTest {
         Counter counter = Counter.loadedAt(Version.of(4));
 
         assertThatThrownBy(() -> counter.renameWithAForeignId(NOW)).isInstanceOf(AssertionError.class);
+        assertThat(counter.pendingEvents()).isEmpty();
+    }
+
+    @Test
+    void GivenTheEventsSupertype_WhenRaised_ThenItFailsAsAProgrammingErrorAndIsNotRecorded() {
+        Counter counter = Counter.loadedAt(Version.of(4));
+
+        assertThatThrownBy(() -> counter.renameUnderItsInterface(NOW)).isInstanceOf(AssertionError.class);
         assertThat(counter.pendingEvents()).isEmpty();
     }
 

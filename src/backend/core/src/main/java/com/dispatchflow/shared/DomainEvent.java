@@ -10,7 +10,7 @@ import java.time.Instant;
 public interface DomainEvent {
 
     /**
-     * The event's ID, from {@link AggregateRoot#nextEventId}.
+     * The event's ID, which {@link AggregateRoot}'s {@code raise} builds.
      *
      * @return the ID, unique per aggregate, version and ordinal
      */

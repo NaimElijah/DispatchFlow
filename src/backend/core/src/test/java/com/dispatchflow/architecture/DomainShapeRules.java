@@ -2,11 +2,34 @@ package com.dispatchflow.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 
+import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.AggregateRoot;
+import com.dispatchflow.shared.AlertId;
+import com.dispatchflow.shared.CustomerId;
+import com.dispatchflow.shared.DaySeconds;
+import com.dispatchflow.shared.DeliveryDate;
+import com.dispatchflow.shared.DepotId;
 import com.dispatchflow.shared.DomainError;
 import com.dispatchflow.shared.DomainEvent;
+import com.dispatchflow.shared.EventId;
 import com.dispatchflow.shared.GeoPoint;
+import com.dispatchflow.shared.ImportBatchId;
+import com.dispatchflow.shared.IsraelDateTime;
+import com.dispatchflow.shared.JobId;
+import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PhoneNumber;
+import com.dispatchflow.shared.PlanId;
+import com.dispatchflow.shared.Priority;
+import com.dispatchflow.shared.ProposalId;
+import com.dispatchflow.shared.RatingRequestId;
+import com.dispatchflow.shared.RouteId;
+import com.dispatchflow.shared.SessionId;
+import com.dispatchflow.shared.StopId;
+import com.dispatchflow.shared.TimeWindow;
+import com.dispatchflow.shared.VehicleId;
+import com.dispatchflow.shared.Version;
+import com.dispatchflow.shared.Volume;
+import com.dispatchflow.shared.Weight;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaField;
 import com.tngtech.archunit.core.domain.JavaModifier;
@@ -19,6 +42,7 @@ import com.tngtech.archunit.lang.SimpleConditionEvent;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -29,24 +53,60 @@ import java.util.stream.Stream;
  */
 final class DomainShapeRules {
 
-    private static final String KERNEL = DomainEvent.class.getPackageName();
     private static final String EVENTS = "events";
-    private static final Set<String> PERSONAL_KERNEL_VALUES =
-            Set.of(PhoneNumber.class.getName(), GeoPoint.class.getName());
+    private static final String CODE = "code";
+
+    /**
+     * The kernel types an event may carry: the typed IDs, the shared values other than {@link
+     * PhoneNumber} and {@link GeoPoint}, {@link EventId} and {@link Version}. Never a building
+     * block such as {@code FreshIds} or {@code RuleViolation}.
+     */
+    private static final Set<String> EVENT_KERNEL_TYPES = Stream.of(
+                    AccountId.class,
+                    SessionId.class,
+                    DepotId.class,
+                    VehicleId.class,
+                    CustomerId.class,
+                    OrderId.class,
+                    ImportBatchId.class,
+                    PlanId.class,
+                    RouteId.class,
+                    StopId.class,
+                    JobId.class,
+                    ProposalId.class,
+                    AlertId.class,
+                    RatingRequestId.class,
+                    DeliveryDate.class,
+                    IsraelDateTime.class,
+                    DaySeconds.class,
+                    TimeWindow.class,
+                    Weight.class,
+                    Volume.class,
+                    Priority.class,
+                    EventId.class,
+                    Version.class)
+            .map(Class::getName)
+            .collect(Collectors.toUnmodifiableSet());
+
     private static final Set<String> EVENT_NUMBERS_AND_FLAGS =
             Set.of("int", "long", "boolean", "java.lang.Integer", "java.lang.Long", "java.lang.Boolean");
-    private static final Set<String> FORBIDDEN_ERROR_PARAMETERS =
-            Set.of(String.class.getName(), PhoneNumber.class.getName(), GeoPoint.class.getName());
-    private static final Set<String> OPTIMIZER_RESULTS = Set.of("ValidationReport", "Evaluation");
-    private static final String READ_UNDER_LOCK = "readUnderLock";
-    private static final String CODE = "code";
+
+    private static final Set<String> PERSONAL_KERNEL_VALUES =
+            Set.of(PhoneNumber.class.getName(), GeoPoint.class.getName());
+
+    /** DL §3.3's personal values that later modules declare, matched by simple name. */
+    private static final Set<String> PERSONAL_MODULE_VALUES = Set.of("EmailAddress", "Address", "NormalizedAddress");
+
+    // An enum's own name and ordinal fields are not parameters the enum's code chose.
+    private static final String ENUM = "java.lang.Enum";
 
     private DomainShapeRules() {}
 
     /**
-     * DL §3.5 and §13: aggregates, lock-read snapshots and optimizer results are built only by
-     * their factories, so their constructors are private. A record can't qualify: its canonical
-     * constructor is as visible as the record.
+     * DL §3.5 and §13: aggregates, lock-read snapshots and Planning's optimizer results, with every
+     * type nested in an optimizer result, are built only by their factories, so their constructors
+     * are private. So is {@code ValidatedSolution}'s, whose factory anyone may call. A record can't
+     * qualify: its canonical constructor is as visible as the record.
      */
     static ArchRule restrictedConstructorsArePrivate(String root) {
         return classes()
@@ -86,9 +146,10 @@ final class DomainShapeRules {
     }
 
     /**
-     * DL §7.3: an event carries kernel types other than {@link PhoneNumber} and {@link GeoPoint},
-     * enums of its own events package, {@code Instant}, {@code int}, {@code long}, {@code boolean}
-     * and their boxes, and lists of these. Never free text and never personal data.
+     * DL §7.3: an event carries the kernel types in {@link #EVENT_KERNEL_TYPES}, enums of its own
+     * events package, {@code Instant}, {@code int}, {@code long}, {@code boolean} and their boxes,
+     * and lists of these; never an array, free text or personal data. Fields inherited from a
+     * supertype count too.
      */
     static ArchRule eventFieldsAreClosed(String root) {
         return classes()
@@ -111,27 +172,52 @@ final class DomainShapeRules {
     }
 
     /**
-     * ADR-043 and NFR-19: an error's fields become the response's {@code params}, so none is free
-     * text, a phone number or a location, even inside a list.
+     * ADR-043 and NFR-19: an error's fields become the response's {@code params}, so none is text
+     * (any {@link CharSequence}), an {@code Object}, an array, or a personal value, at any depth of
+     * its type arguments; fields inherited from a supertype count too. A value type that wraps a
+     * String is not looked into: its own type decides what it may hold.
      */
     static ArchRule errorParametersCarryNoPersonalData(String root) {
         return classes()
                 .that()
                 .resideInAPackage(root + "..")
-                .should(new ArchCondition<JavaClass>("carry no String, PhoneNumber or GeoPoint when a DomainError") {
+                .should(
+                        new ArchCondition<JavaClass>(
+                                "carry no text, Object, array or personal value when a DomainError") {
+                            @Override
+                            public void check(JavaClass item, ConditionEvents events) {
+                                if (!isConcrete(item, DomainError.class)) {
+                                    return;
+                                }
+                                instanceFields(item)
+                                        .filter(field -> erasuresIn(field.getType())
+                                                .anyMatch(DomainShapeRules::isForbiddenParameter))
+                                        .forEach(field -> events.add(SimpleConditionEvent.violated(
+                                                field,
+                                                field.getFullName() + " could carry personal data into params")));
+                            }
+                        })
+                .because("ADR-043: params carry no personal data, so an error field is never free text");
+    }
+
+    /** DL §3.8: every error interface is sealed, so its permitted errors are the complete list. */
+    static ArchRule errorInterfacesAreSealed(String root) {
+        return classes()
+                .that()
+                .resideInAPackage(root + "..")
+                .should(new ArchCondition<JavaClass>("be sealed when an interface extending DomainError") {
                     @Override
                     public void check(JavaClass item, ConditionEvents events) {
-                        if (!isConcrete(item, DomainError.class)) {
-                            return;
+                        if (item.isInterface()
+                                && item.isAssignableTo(DomainError.class)
+                                && !item.isEquivalentTo(DomainError.class)
+                                && !item.reflect().isSealed()) {
+                            events.add(SimpleConditionEvent.violated(item, item.getName() + " is not sealed"));
                         }
-                        instanceFields(item)
-                                .filter(field -> erasuresIn(field.getType())
-                                        .anyMatch(type -> FORBIDDEN_ERROR_PARAMETERS.contains(type.getName())))
-                                .forEach(field -> events.add(SimpleConditionEvent.violated(
-                                        field, field.getFullName() + " could carry personal data into params")));
                     }
                 })
-                .because("ADR-043: params carry no personal data, so an error field is never free text");
+                .because("DL §3.8: one sealed error type per module, so the code list and the tests see every"
+                        + " error");
     }
 
     /**
@@ -161,9 +247,12 @@ final class DomainShapeRules {
     private static boolean isRestricted(JavaClass type) {
         boolean aggregate = type.isAssignableTo(AggregateRoot.class) && !type.isEquivalentTo(AggregateRoot.class);
         boolean readUnderLock = type.getMethods().stream()
-                .anyMatch(method -> method.getName().equals(READ_UNDER_LOCK)
+                .anyMatch(method -> method.getName().equals(RestrictedTypes.READ_UNDER_LOCK)
                         && method.getModifiers().contains(JavaModifier.STATIC));
-        return aggregate || readUnderLock || OPTIMIZER_RESULTS.contains(type.getSimpleName());
+        return aggregate
+                || readUnderLock
+                || RestrictedTypes.optimizerResultOf(type).isPresent()
+                || RestrictedTypes.isValidatedSolution(type);
     }
 
     private static boolean isConcrete(JavaClass type, Class<?> supertype) {
@@ -181,12 +270,18 @@ final class DomainShapeRules {
         return segments.length > 1 && segments[1].equals(EVENTS);
     }
 
+    /** The instance fields a type declares or inherits. */
     private static Stream<JavaField> instanceFields(JavaClass type) {
-        return type.getFields().stream().filter(field -> !field.getModifiers().contains(JavaModifier.STATIC));
+        return type.getAllFields().stream()
+                .filter(field -> !field.getModifiers().contains(JavaModifier.STATIC))
+                .filter(field -> !field.getOwner().getName().equals(ENUM));
     }
 
     private static boolean isAllowedEventType(JavaType type, JavaClass event, boolean listAllowed) {
         JavaClass raw = type.toErasure();
+        if (raw.isArray()) {
+            return false;
+        }
         if (raw.isEquivalentTo(List.class)) {
             return listAllowed
                     && type instanceof JavaParameterizedType parameterized
@@ -196,13 +291,20 @@ final class DomainShapeRules {
         return EVENT_NUMBERS_AND_FLAGS.contains(raw.getName())
                 || raw.isEquivalentTo(Instant.class)
                 || (raw.isEnum() && raw.getPackageName().equals(event.getPackageName()))
-                || (raw.getPackageName().equals(KERNEL) && !PERSONAL_KERNEL_VALUES.contains(raw.getName()));
+                || EVENT_KERNEL_TYPES.contains(raw.getName());
+    }
+
+    private static boolean isForbiddenParameter(JavaClass type) {
+        return type.isArray()
+                || type.isEquivalentTo(Object.class)
+                || type.isAssignableTo(CharSequence.class)
+                || PERSONAL_KERNEL_VALUES.contains(type.getName())
+                || PERSONAL_MODULE_VALUES.contains(type.getSimpleName());
     }
 
     /** The erasure of a type and of every type argument inside it, at any depth. */
     private static Stream<JavaClass> erasuresIn(JavaType type) {
-        JavaClass raw = type.toErasure();
-        Stream<JavaClass> self = Stream.of(raw.isArray() ? raw.getBaseComponentType() : raw);
+        Stream<JavaClass> self = Stream.of(type.toErasure());
         if (type instanceof JavaParameterizedType parameterized) {
             return Stream.concat(
                     self, parameterized.getActualTypeArguments().stream().flatMap(DomainShapeRules::erasuresIn));

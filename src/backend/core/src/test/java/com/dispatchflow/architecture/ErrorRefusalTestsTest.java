@@ -6,52 +6,43 @@ import com.dispatchflow.shared.DomainError;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaMethod;
+import com.tngtech.archunit.core.domain.JavaModifier;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
-import java.util.Arrays;
 import java.util.List;
 import java.util.SortedSet;
 import java.util.TreeSet;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * Every named error has a refusal test (DL §14): for each sealed error type, a test class in its
- * package has a method ending in {@code _Then<ErrorName>}. One test covers every module, so a
- * module's error added later is checked without a test of its own.
+ * Every named error has a refusal test (DL §14): for each concrete error, a test class in its
+ * package has a method ending in {@code _Then<ErrorName>}. It looks at every class assignable to
+ * {@link DomainError}, not only those under a sealed interface, so a module's error added later is
+ * checked without a test of its own.
  */
 class ErrorRefusalTestsTest {
 
     private static final String FIXTURE_ROOT = "com.dispatchflow.archfixture";
     private static final String REFUSAL_SUFFIX = "_Then";
 
-    /** The errors, by binary name, that have no refusal test in their sealed type's package. */
+    /** The concrete errors, by binary name, that have no refusal test in their package. */
     private static SortedSet<String> untestedErrors(JavaClasses errorTypes, JavaClasses tests) {
         SortedSet<String> untested = new TreeSet<>();
         errorTypes.stream()
-                .filter(type -> type.isInterface()
-                        && type.isAssignableTo(DomainError.class)
-                        && !type.isEquivalentTo(DomainError.class)
-                        && type.reflect().isSealed())
-                .forEach(sealedType -> {
-                    List<String> testNames = tests.stream()
-                            .filter(test -> test.getPackageName().equals(sealedType.getPackageName()))
-                            .flatMap(test -> test.getMethods().stream().map(JavaMethod::getName))
-                            .toList();
-                    leaves(sealedType.reflect())
-                            .filter(error -> testNames.stream()
-                                    .noneMatch(name -> name.endsWith(REFUSAL_SUFFIX + error.getSimpleName())))
-                            .forEach(error -> untested.add(error.getName()));
-                });
+                .filter(type -> type.isAssignableTo(DomainError.class)
+                        && !type.isInterface()
+                        && !type.getModifiers().contains(JavaModifier.ABSTRACT))
+                .filter(error -> testMethodNames(tests, error.getPackageName()).stream()
+                        .noneMatch(name -> name.endsWith(REFUSAL_SUFFIX + error.getSimpleName())))
+                .forEach(error -> untested.add(error.getName()));
         return untested;
     }
 
-    /** The concrete errors under a sealed type, through any nested sealed group. */
-    private static Stream<Class<?>> leaves(Class<?> type) {
-        if (!type.isSealed()) {
-            return Stream.of(type);
-        }
-        return Arrays.stream(type.getPermittedSubclasses()).flatMap(ErrorRefusalTestsTest::leaves);
+    private static List<String> testMethodNames(JavaClasses tests, String packageName) {
+        return tests.stream()
+                .filter(test -> test.getPackageName().equals(packageName))
+                .flatMap(test -> test.getMethods().stream().map(JavaMethod::getName))
+                .toList();
     }
 
     @Test
@@ -64,22 +55,27 @@ class ErrorRefusalTestsTest {
     }
 
     @Test
-    void GivenTheProductionClasses_WhenSealedErrorsAreListed_ThenTheKernelErrorIsAmongThem() {
+    void GivenTheProductionClasses_WhenErrorsAreListed_ThenTheKernelErrorsAreAmongThem() {
         assertThat(ProductionClasses.ALL.stream()
-                        .filter(type -> type.isInterface() && type.isAssignableTo(DomainError.class))
+                        .filter(type -> type.isAssignableTo(DomainError.class) && !type.isInterface())
                         .map(JavaClass::getSimpleName))
-                .contains("SharedKernelError");
+                .contains("NonexistentLocalTime", "QuantityOutOfRange");
     }
 
     @Test
-    void GivenFixtureErrorsWithSomeRefusalTests_WhenLookedUp_ThenTheUntestedOnesAreReportedThroughNestedGroups() {
+    void GivenFixtureErrorsWithSomeRefusalTests_WhenLookedUp_ThenTheUntestedOnesAreReportedWhereverTheyAre() {
         JavaClasses fixtures = new ClassFileImporter().importPackages(FIXTURE_ROOT);
 
         assertThat(untestedErrors(fixtures, fixtures))
-                .containsExactly(
+                .contains(
                         "com.dispatchflow.archfixture.alpha.domain.AlphaError$DateFull",
-                        "com.dispatchflow.archfixture.alpha.domain.AlphaError$DateInPast",
                         "com.dispatchflow.archfixture.beta.domain.BetaError$BetaOnly",
-                        "com.dispatchflow.archfixture.beta.domain.BetaError$Scheduling$SlotGone");
+                        "com.dispatchflow.archfixture.beta.domain.BetaError$Scheduling$SlotGone",
+                        "com.dispatchflow.archfixture.alpha.domain.ErrorWithAText",
+                        "com.dispatchflow.archfixture.alpha.domain.ErrorInheritingAText")
+                .doesNotContain(
+                        "com.dispatchflow.archfixture.beta.domain.BetaError$DateFull",
+                        "com.dispatchflow.archfixture.beta.domain.BetaError$DateInPast",
+                        "com.dispatchflow.archfixture.beta.domain.BetaError$Scheduling$SlotTaken");
     }
 }

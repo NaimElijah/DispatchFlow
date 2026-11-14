@@ -1,4 +1,4 @@
 package com.dispatchflow.archfixture.beta.domain;
 
-/** An Evaluation shaped as a record, so its canonical constructor is public. */
+/** Another module's Evaluation: not Planning's optimizer result, so not restricted. */
 public record Evaluation(int planVersion) {}
