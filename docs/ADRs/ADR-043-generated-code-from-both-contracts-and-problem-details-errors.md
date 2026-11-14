@@ -1,6 +1,6 @@
 # ADR-043: Code is generated from both contracts on both sides, and errors are RFC 9457 Problem Details
 
-- **Status:** Accepted; extended by ADR-068
+- **Status:** Accepted; extended by ADR-068, ADR-073 and ADR-087
 - **Date:** 2026-11-13
 
 ## Context

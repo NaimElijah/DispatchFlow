@@ -41,15 +41,20 @@ A nightly job applies the periods below ([PL §16.4][PL-164]). A row that other 
 | Admin and Dispatcher accounts | 1 year after deactivation | Anonymized in place: audit records and plans refer to them |
 | Audit records | 1 year | Deleted |
 | Sessions | 30 days after they end | Deleted |
+| GlitchTip events | 7 days | Deleted ([ADR-079]) |
 | Geocode cache | An entry unused for 1 year | Deleted |
 | Research instances | The end of the project plus 1 year | Deleted |
 | Backups | 35 days | Age out of the bucket |
 
 The sources are [NFR-184] for the first four rows and for retired customers and drivers, and the
-owner's defaults for [Q-14] for the rest. Logs, traces and metrics are kept 7 days ([NFR-76]).
+owner's defaults for [Q-14] for the rest. Logs, traces and metrics are kept 7 days ([NFR-76]),
+and the owner set GlitchTip's event lifetime to 7 days to match.
 
 - **Anonymized in place** means the personal columns are blanked and the row stays: names, phones,
   addresses, coordinates and notes are replaced, and the figures stay ([BR-98], [NFR-152]).
+- **Audit records are deleted by a separate step.** The `app` role has only INSERT and SELECT on
+  audit ([ADR-041]), so the core cannot delete them. A nightly one-shot `retention` step runs as the
+  owner role, like `migrate`, and deletes the audit records past 1 year (the owner, 2026-11-14).
 - **Deleted** applies to positions, proofs, messages and replies. Each day's average rating and share
   answered stay ([NFR-193]).
 - **One check against the inventory.** A test compares the data inventory with an annotation,
@@ -72,10 +77,12 @@ owner's defaults for [Q-14] for the rest. Logs, traces and metrics are kept 7 da
 - **Hard:** "anonymized" must hold. Names, phones, addresses and coordinates are blanked, and so must
   anything else that identifies a person, such as free-text notes. The test finds only columns the
   team annotates.
-- **Hard:** the last five rows apply this ADR's rule (anonymize what other records refer to, delete
-  the rest) to the owner's Q-14 defaults. The data inventory confirms each before the pilot handles
-  real data.
-- **Cost:** a nightly job, the annotation and its test, and the inventory file
+- **Hard:** the rows after the fourth are the owner's Q-14 defaults. Two of them, a customer never
+  retired and the Admin and Dispatcher accounts, apply this ADR's rule (anonymize what other records
+  refer to, delete the rest) to those defaults. The data inventory confirms each row before the pilot
+  handles real data.
+- **Cost:** a nightly job, the `retention` step as a second container with the owner's credentials,
+  the annotation and its test, and the inventory file
   (`docs/operations/data-inventory.md`).
 - **Risk:** a restore brings back rows that retention had already removed. The runbook step in
   [Q-92] re-applies data requests and opt-outs made since the snapshot. It does not name retention.
@@ -103,6 +110,8 @@ owner's defaults for [Q-14] for the rest. Logs, traces and metrics are kept 7 da
   pilot. Tighten how personal columns are marked.
 - The pilot company asks for a different period.
 
+[ADR-041]: ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md
+[ADR-079]: ADR-079-client-errors-and-crashes-go-to-self-hosted-glitchtip.md
 [BR-37]: ../requirements/requirements.md#orders-records-and-history
 [BR-43]: ../requirements/requirements.md#orders-records-and-history
 [BR-98]: ../requirements/requirements.md#orders-records-and-history

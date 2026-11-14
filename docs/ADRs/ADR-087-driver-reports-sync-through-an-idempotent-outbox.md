@@ -21,7 +21,8 @@ twice and a late one can arrive after the stop has left the driver's route. The 
 These rows carried the marker "ADR pending: driver report sync and idempotency". On 2026-11-13
 the owner, Naim Elijah, decided for the team to adopt the design of [PL §13.3] and [PL §19]:
 user-scoped keys, a `request_key` store on the server, and a per-route order in the phone's outbox
-([PL §25]).
+([PL §25]). This extends [ADR-043], which left idempotency keys on driver reports to an ADR of their
+own.
 
 ## Decision
 
@@ -66,8 +67,14 @@ user-scoped keys, a `request_key` store on the server, and a per-route order in 
   driver's route in the revision in force at the corrected time ([BR-110]), and passes the answer to
   `Delivery`. So a late report on a stop that has since moved is still accepted ([BR-27]). Revisions
   are stored as rows for this reason ([ADR-059]).
-- **The first outcome wins.** A report that contradicts a recorded outcome, or arrives for a
-  cancelled order or plan, is refused and shown to the dispatcher ([BR-88], [BR-90]).
+- **The first outcome wins.** A report that contradicts a recorded outcome, or is timed *after* its
+  order or plan was cancelled, is refused and shown to the dispatcher ([BR-88], [BR-90]). A report
+  timed *before* the cancellation is served after cancellation: it is accepted and the dispatcher is
+  alerted ([BR-130], [ADR-065]).
+- **A backdated report can be held.** A late report that would move a stop off another driver's
+  route, or override a cancellation, waits for the dispatcher's confirmation if its session
+  contacted the server after the report's corrected time, with 2 minutes' grace ([BR-132]). The
+  owner decided this on 2026-11-14.
 - **Reconciliation.** When the current plan disagrees, because the stop moved, was dropped or its
   order was cancelled, a listener on `OutcomeRecorded` reconciles the plan, and the dispatcher is
   alerted ([BR-89], [ADR-065]).
@@ -111,6 +118,7 @@ user-scoped keys, a `request_key` store on the server, and a per-route order in 
   returning ([FR-246], [NFR-140]).
 - Drivers share a phone in the pilot. Reconsider keeping an outbox across sign-out.
 
+[ADR-043]: ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md
 [ADR-059]: ADR-059-plan-revisions-are-stored-as-rows.md
 [ADR-065]: ADR-065-facts-outrank-intent.md
 [ADR-082]: ADR-082-supported-phone-app-versions.md
@@ -127,6 +135,8 @@ user-scoped keys, a `request_key` store on the server, and a per-route order in 
 [BR-90]: ../requirements/requirements.md#driver-reports-and-outcomes
 [BR-110]: ../requirements/requirements.md#driver-reports-and-outcomes
 [BR-114]: ../requirements/requirements.md#driver-reports-and-outcomes
+[BR-130]: ../requirements/requirements.md#driver-reports-and-outcomes
+[BR-132]: ../requirements/requirements.md#driver-reports-and-outcomes
 [FR-70]: ../requirements/requirements.md#publishing-and-the-phone-app
 [FR-246]: ../requirements/requirements.md#publishing-and-the-phone-app
 [FR-247]: ../requirements/requirements.md#publishing-and-the-phone-app

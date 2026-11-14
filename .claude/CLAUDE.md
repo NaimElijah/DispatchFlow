@@ -175,10 +175,11 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
   design, and `docs/init_impl_ref/` holds the build plan. The rest of `docs/architecture/`
   describes what is built.
 - `requirements.md` outranks the three design documents, and where the tech stack or the plan
-  disagrees with the domain document, the domain document wins. New code is written to the design
-  documents' rules. Code that a Proposed ADR governs merges only once the team accepts that ADR
-  ([PL §25][PL-25]); until then the accepted ADR it would change still stands, and the pull request
-  says which Proposed ADR it depends on.
+  disagrees with the domain document, the domain document wins. Where the implementation plan
+  disagrees with an ADR, the tech stack or the domain document, those win. New code is written to
+  the design documents' rules. Code that a Proposed ADR governs merges only once the team accepts
+  that ADR ([PL §25][PL-25]); until then the accepted ADR it would change still stands, and the
+  pull request says which Proposed ADR it depends on.
 - An accepted ADR comes before the code it governs merges. [PL §25][PL-25] and [TS §22][TS-22] list
   the decisions that need one.
 - A change that alters behaviour updates the documents it affects in the same pull request.

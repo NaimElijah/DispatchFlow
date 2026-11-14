@@ -23,10 +23,9 @@ The system must also keep the server and its data in Israel ([NFR-209], [ADR-078
 GovMap as holding the data it receives, customer and depot addresses, in Israel.
 
 On 2026-11-13 the owner, Naim Elijah, decided for the team: GovMap, through the `Geocoder` port.
-The decision log records the choice and not the owner's reason for preferring GovMap to Nominatim.
-Three facts about GovMap have not been checked: its price, its request limits and its coordinate
-system. The owner believes it answers in the Israeli grid (ITM), which the adapter would convert to
-WGS84. That is unverified.
+The owner gave no reason for preferring GovMap to Nominatim. Three facts about GovMap have not been
+checked: its price, its request limits and its coordinate system. It may answer in the Israeli grid
+(ITM), which the adapter would convert to WGS84. Unverified.
 
 ## Decision
 
@@ -36,29 +35,30 @@ WGS84. That is unverified.
   and gets its API token. The same check records GovMap's price, request limits and coordinate
   system.
 - **If the terms forbid keeping GovMap's coordinates on customers and depots, or showing them on our
-  map, self-hosted Nominatim replaces GovMap behind the same port.** The decision log estimates it at
-  about 2 GB of the VM's 16 GB ([ADR-078]). Without that failure, no Nominatim container runs.
+  map, self-hosted Nominatim replaces GovMap behind the same port.** It takes about 2 GB of the
+  VM's 16 GB (estimate, not measured; [ADR-078]). Without that failure, no Nominatim container runs.
 - **[NFR-148] is reworded:** "The geocoding provider's terms allow keeping its coordinates on
   customers and depots and showing them on our own map; this is checked before the pilot handles
   real data."
 - **The accuracy test runs when geocoding is built (M7),** over one address list through GovMap
-  alone: Hebrew, Arabic and transliterated addresses, each with a known pin. Its results:
+  alone: Hebrew, Arabic and transliterated addresses, each with a known location. Its results:
   - set what [FR-63] counts as a partial or ambiguous answer;
   - show whether [FR-140]'s normalization is needed;
-  - leave [Q-83]'s answer as it is: a miss is flagged for a hand-placed pin, and normalization stays
+  - leave [Q-83]'s answer as it is: a miss is flagged for a hand-placed location, and normalization stays
     Hebrew only.
-- **Suggestions while typing ([FR-139])** use GovMap's if its terms allow them, and Photon if not.
+- **Suggestions while typing ([FR-139])** use GovMap's if its terms allow them. If they do not, and [FR-139] still needs suggestions, Photon
+  runs self-hosted on the VM, like Nominatim.
 - **Address flags** ([FR-63]) are: no match, a partial match (the provider's quality is below
   street level), an ambiguous match, an address outside the service area, and a snap distance over
   300 m. OSRM reports the snap distance as `waypoints[].distance` ([PL §14]).
   - The 300 m limit was decided on 2026-11-14 as a starting value. The accuracy test tunes it.
   - A flag shows before a solve and never blocks it ([FR-216]).
 - **The cache** ([FR-13]) is `geocode_cache(address_norm, provider, lat, lon, quality,
-  fetched_at)`. Customers copy the coordinates. A pin placed by hand wins over any lookup ([BR-13],
+  fetched_at)`. Customers copy the coordinates. A location placed by hand wins over any lookup ([BR-13],
   [FR-215]). An entry unused for 1 year is deleted, as [Q-14]'s retention defaults set.
 - **When GovMap cannot be reached,** the customer is saved without coordinates and the lookup is
   retried every 15 minutes for 24 hours, then stays flagged ([FR-64]). The dispatcher can place the
-  pin by hand if the provider cannot be reached or finds no match: [FR-218] is a Must and reads
+  location by hand if the provider cannot be reached or finds no match: [FR-218] is a Must and reads
   that way. A counter row holds lookups to 1,000 a day ([NFR-135]).
 - **New customers are geocoded after an import commits,** from an outbox row, so a slow geocoder
   never holds up the import ([ADR-086]).
@@ -76,7 +76,7 @@ WGS84. That is unverified.
   with Nominatim or Photon unless the fallback fires.
 - **Cost:** GovMap's price is unknown. If Nominatim runs, it is a GPL service run unmodified
   ([TS §18]) and about 2 GB of the VM (an estimate).
-- **Risk:** poor Hebrew accuracy would show as many flags and hand-placed pins ([FR-14], [FR-218]).
+- **Risk:** poor Hebrew accuracy would show as many flags and hand-placed locations ([FR-14], [FR-218]).
   The M7 test is the first measurement.
 - **Risk:** a terms failure found after the adapter is built wastes that adapter. The terms check
   comes first to avoid it.

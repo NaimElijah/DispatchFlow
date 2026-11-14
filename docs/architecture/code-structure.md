@@ -3,7 +3,8 @@
 Where each kind of code and test lives, and which way dependencies point. It describes the
 repository as it is today. What the system must do is in
 [requirements.md](../requirements/requirements.md); why the repository is laid out this way is in
-[ADR-008](../ADRs/ADR-008-monorepo-layout-under-src.md), and why it is built and checked the way
+[ADR-008](../ADRs/ADR-008-monorepo-layout-under-src.md) (superseded by ADR-037, not in the code
+yet), and why it is built and checked the way
 it is in [ADR-009](../ADRs/ADR-009-just-as-the-single-entry-point.md) to
 [ADR-016](../ADRs/ADR-016-dependency-audit-with-osv-scanner.md).
 
@@ -89,12 +90,15 @@ src/backend/core/
     TestcontainersConfiguration.java     the PostgreSQL container
 ```
 
-No bounded context exists yet. The decided design is in the
+No bounded context exists yet. The decided design is the domain document, the tech stack and the
+ADRs: see the
 [domain layer design](domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts). How a
-context is laid out inside is in [tech stack §4](tech_stack.md#4-repository-layout),
-[implementation plan §11.1](../init_impl_ref/technical_implementation_plan.md#111-module-skeleton)
-and [domain layer design §13](domain_layer/domain_layer_design.md#13-inside-each-module-hexagon)
-(the hexagon). New contexts are written to tech stack §4 and implementation plan §11.1.
+context is laid out inside is in [tech stack §4](tech_stack.md#4-repository-layout) and
+[domain layer design §13](domain_layer/domain_layer_design.md#13-inside-each-module-hexagon)
+(the hexagon). The plan's sketch, in
+[implementation plan §11.1](../init_impl_ref/technical_implementation_plan.md#111-module-skeleton),
+is a Proposed source until a later pull request retires the plan. New contexts are written to tech
+stack §4.
 [ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)
 (Accepted) makes each context a Spring Modulith module, and
 [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md)

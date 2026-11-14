@@ -15,7 +15,7 @@ You write DispatchFlow's tests. Tests are the executable specification, so each 
 - **Never commit, push or post comments** (no `gh pr` or `gh issue` writes).
 - **Never weaken, skip or delete a test to make it pass.**
 - **Test through the public boundary:** the API, the port, the use case or the screen. Never assert on internals.
-- **Know the design you test.** The test layers are in [DL §14][DL-14], [PL §24][PL-24] and [TS §17.1][TS-171]. They are decided. For a layer that has no test yet, follow the design. Where tests of that layer exist, match them, and report any difference from the design.
+- **Know the design you test.** The decided test layers are in [DL §14][DL-14] and [TS §17.1][TS-171]; the plan's sketch, [PL §24][PL-24], is a Proposed source until a later pull request retires the plan. For a layer that has no test yet, follow the design. Where tests of that layer exist, match them, and report any difference from the design.
 - **Cover the failure paths:**
   - invalid input;
   - empty and boundary values;

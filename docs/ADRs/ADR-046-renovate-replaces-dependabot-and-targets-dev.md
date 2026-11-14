@@ -60,8 +60,8 @@ We replace Dependabot with Renovate, grouped weekly, and Renovate targets `dev`.
   - no update is auto-merged: each one is a pull request that a person reviews;
   - a digest or SHA change with no version change needs the upstream release checked before
     merge, because a moved tag, the March 2026 `trivy-action` case, arrives that way ([TS §18]);
-  - third-party actions and images wait a minimum release age before Renovate proposes them. The
-    sources give no number, so the team sets it.
+  - third-party actions and images wait a minimum release age of 3 days before Renovate proposes
+    them. The owner set it on 2026-11-14 to match npm's 72-hour unpublish window.
 - **Branch:** every update opens against `dev`, like any other pull request, as [ADR-021] decided.
   This differs from [TS §5]'s *Branching* row, which the team did not adopt.
 - **Skipped versions:** it keeps ADR-021's rule of skipping the versions other ADRs pin. The rules
@@ -75,7 +75,8 @@ We replace Dependabot with Renovate, grouped weekly, and Renovate targets `dev`.
   read-only token. Only its Dependabot bullet, which says Dependabot runs weekly, is replaced.
 - **Renovate runs as Mend's hosted Renovate app,** decided by the owner on 2026-11-14. It is free,
   holds its own credentials, and uses no GitHub Actions minutes. It gets write access to the
-  repository, which holds code only, never company data ([NFR-50]).
+  repository, which holds code only, never company data ([NFR-50]). Mend's app requires MFA on its
+  accounts ([NFR-265]).
 - **Digest pins start in January,** with Renovate ([TS §5]; decided on 2026-11-14). From then,
   `Dockerfile` base images and the images in `compose.dev.yaml` are pinned by digest ([ADR-047]),
   and Renovate opens the bumps, grouped weekly. Until then they stay on tags ([ADR-019]).
@@ -92,9 +93,10 @@ We replace Dependabot with Renovate, grouped weekly, and Renovate targets `dev`.
 - **Hard:** the ignores repeat decisions held elsewhere. When one of those decisions changes, its
   ignore changes in the same pull request. The move to Java 25 ([ADR-038]) changes ADR-021's Java
   ignore.
-- **Hard:** how Renovate runs is open: a hosted app has write access to the repository, and a
-  workflow would add one more third-party action to pin.
-- **Hard:** the digest date is open between January and the pilot, and `Dockerfile` pins follow it.
+- **Hard:** a hosted app has write access to the repository, so Mend's account is one more
+  credential to protect. A workflow would have added one more third-party action to pin instead.
+- **Hard:** until January, `Dockerfile` and `compose.dev.yaml` images stay on tags ([ADR-019]), so a
+  moved tag can still reach a build.
 - **Cost:** a second tool's configuration to learn and own, and a window in which pins differ
   between Dependabot's and Renovate's reading of them.
 - **Cost:** Renovate is a new tool. Record its licence and maintenance status before adopting it,
@@ -134,3 +136,4 @@ We replace Dependabot with Renovate, grouped weekly, and Renovate targets `dev`.
 [TS §20]: ../architecture/tech_stack.md#20-adoption-order
 [TS §21]: ../architecture/tech_stack.md#21-version-baseline
 [NFR-50]: ../requirements/requirements.md#nfr-50
+[NFR-265]: ../requirements/requirements.md#nfr-265

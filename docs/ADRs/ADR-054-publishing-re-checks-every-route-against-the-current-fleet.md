@@ -70,8 +70,8 @@ On 2026-11-13 the owner, Naim Elijah, decided for the team to record it. This AD
 
 ## Revisit when
 
-- Dispatchers in the pilot are refused repeatedly for fleet changes that an edit would have fixed
-  without a new solve. Offer the fix in the refusal.
+- Dispatchers in the pilot are refused on two or more pilot days for fleet changes that an edit would
+  have fixed without a new solve. Offer the fix in the refusal.
 - The re-check slows publishing past [NFR-34]'s 15 minutes, or the optimizer is down when a pilot
   plan must go out ([NFR-29]).
 - Per-vehicle route limits ([FR-133]) are built, so [BR-66] takes effect.

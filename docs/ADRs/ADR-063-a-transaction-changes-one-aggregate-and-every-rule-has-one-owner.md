@@ -8,8 +8,7 @@
 On 2026-11-14 the owner, Naim Elijah, decided for the team that the domain layer design (DL) is
 settled, and that its transaction rule and its rule owners each get an ADR. No "ADR pending" marker
 in requirements.md covers this decision. The implementation plan lists it among the decisions that
-need an ADR before the code they govern merges ([PL §25][PL-25]), and [ADR-040] names it under "Not
-decided here".
+need an ADR before the code they govern merges ([PL §25][PL-25]), and [ADR-040] deferred it.
 
 The forces are these:
 
@@ -113,8 +112,8 @@ no lock.
   [DL §3.7][DL-37] names that as the case for a domain service.
 - The fleet or plan limit rises past ten times today's ([BR-36], [BR-101]), which is 150 vehicles or
   2,000 orders. [DL §15][DL-15] says `Plan` and `FleetRegister` still load whole at ten times the size.
-- A load test ([NFR-10]) shows requests waiting on the date, lane or Admin locks, or `STALE_VERSION`
-  refusals on `Plan` that dispatchers meet as routine.
+- A load test ([NFR-10]) shows requests waiting on the date, lane or Admin locks, or dispatchers meet
+  `STALE_VERSION` refusals on `Plan` on two or more saves a day.
 - Pickups or a second company are added. [DL §15][DL-15] marks both as not additive.
 
 [ADR-040]: ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md

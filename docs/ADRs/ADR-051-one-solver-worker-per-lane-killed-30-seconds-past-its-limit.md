@@ -38,6 +38,11 @@ marker "ADR pending: solve job timeout". It follows [PL §7.6] and [TS §7.2].
   - its client timeout for the optimizer call is the limit plus 30 seconds;
   - a queue watchdog runs every 15 seconds and fails any job queued more than 5 minutes or running
     more than 30 seconds past its limit.
+- **The 30-second grace and the client timeout come from configuration,** and tests set them to
+  milliseconds, so no test waits 30 seconds. Two tests cover the backstops: an optimizer integration
+  test with a fake worker that hangs, which checks that the HTTP process kills it, starts a new one
+  and answers 504 `SOLVE_TIMEOUT`; and a core adapter test with a WireMock delay, which checks that
+  the client times out and fails the job.
 - **All three timers end the job through the same method.** The first to fire fails the job. The
   others find it ended and stop ([DL §11]). A restart fails running jobs, keeps queued daily solves
   and fails queued re-optimizations ([BR-74], [BR-85], [NFR-12]).

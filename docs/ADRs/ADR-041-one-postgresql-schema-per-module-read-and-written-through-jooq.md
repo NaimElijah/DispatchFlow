@@ -87,6 +87,9 @@ schema.
   itself. [PL §23][PL-23] had Flyway in the core's startup instead; the owner chose the separate
   step on 2026-11-14. An integration test connected as `app` asserts that `UPDATE` and `DELETE` on
   `audit_record` fail (SQLSTATE 42501).
+- **A second one-shot step, `retention`, also gets the owner role.** It runs nightly and deletes
+  audit records past 1 year, because `app` has no `DELETE` on `audit_record` ([ADR-075]). Like
+  `migrate`, it is a container the core never reaches, and the owner decided it on 2026-11-14.
 
 ## Consequences
 
@@ -104,14 +107,15 @@ schema.
   cost.
 - **Hard:** optimistic locking and the writes of child rows are written by hand ([TS §6.3][TS-63]).
 - **Hard:** a Maven build that runs code generation needs Docker even when tests are skipped. The
-  bootstrap in [PL §5][PL-5] runs `./mvnw -q verify -DskipTests`, and the core `Dockerfile` builds
-  its image with `./mvnw package -DskipTests`, without Docker. Whether the generated code is committed, or the
-  image is built from a jar built elsewhere, is not stated in the sources.
+  bootstrap in [PL §5][PL-5] runs `./mvnw -q verify -DskipTests`. The generated code stays out of the
+  repository, and CI builds the core jar, which the image only copies in ([ADR-047], decided by the
+  owner on 2026-11-14). Today's core `Dockerfile` builds with `./mvnw package -DskipTests`, without
+  Docker, and changes with it.
 - **Hard:** a role with grants only needs every migration that adds a table to grant `app` what it
-  needs. The sources do not say whether the integration tests connect as `app`. If they connect as
-  the owner, a missing grant shows up only after deployment.
+  needs. The core sees only `app` (see the one-shot step above), so a missing grant fails wherever the
+  core runs against the migrated schema, tests included, and does not wait for a deployment.
 - **Hard:** a deploy and `compose.dev.yaml` both gain the `migrate` step, which must finish
-  before the core starts.
+  before the core starts. A deploy also gains the nightly `retention` step.
 - **Cost:** `spring-boot-starter-data-jpa` and its test starter leave `src/backend/core/pom.xml`,
   with the `spring.jpa.*` settings in `application.properties`. These files still describe JPA as
   today's setup, and change in the same pull request (each checked with a search):
@@ -173,6 +177,8 @@ schema.
 [ADR-014]: ADR-014-real-dependencies-in-containers-for-tests-and-local-runs.md
 [ADR-040]: ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md
 [ADR-042]: ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md
+[ADR-047]: ADR-047-images-pinned-by-digest-and-core-on-temurin-25-jre.md
+[ADR-075]: ADR-075-retention-deletes-records-and-anonymizes-people-in-place.md
 [DL-1]: ../architecture/domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts
 [DL-16]: ../architecture/domain_layer/domain_layer_design.md#16-why-it-looks-like-this
 [DL-21]: ../architecture/domain_layer/domain_layer_design.md#21-module-graph

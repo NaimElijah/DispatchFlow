@@ -7,8 +7,8 @@
 
 On 2026-11-14 the owner, Naim Elijah, decided for the team that the domain layer design (DL) is
 settled, and that its event rules get their own ADR. No "ADR pending" marker covers this decision.
-[ADR-040] lists it under "Not decided here" and defers two points to it: when an event earns its
-place, and the event publication registry. Two of its rejections lean on this ADR. It turned down a
+[ADR-040] deferred it, with two points: when an event earns its place, and the event publication
+registry. Two of its rejections lean on this ADR. It turned down a
 Maven multi-module build and ArchUnit alone because neither has an event registry. Both reasons stand
 only if the registry is kept, and this ADR keeps it.
 
@@ -68,8 +68,8 @@ live view to mark the stop "changed since publishing", so nothing needs an event
   commit, at least once.
 - Modulith 2.x does not retry a failed publication unless it is configured to. DispatchFlow turns on
   republication at restart, a 2-minute staleness limit, and a job that resubmits failed publications
-  every minute, at most 5 times each. The sixth failure alerts the team with the listener's name
-  ([PL §11.3][PL-113]).
+  every minute, at most 5 times each. A publication still failing after 5 resubmissions alerts the
+  team with the listener's name ([PL §11.3][PL-113], [TS §16][TS-16]).
 - Every reaction is idempotent, by nature or by recording `(listener, event ID)` first. Each
   reaction's test publishes its event twice ([PL §11.2][PL-112]).
 - A listener that loses a version race retries three times, then the registry resubmits it.
@@ -131,4 +131,5 @@ live view to mark the stop "changed since publishing", so nothing needs an event
 [PL-113]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#113-event-publication-making-retries-happen
 [TS-1]: ../architecture/tech_stack.md#1-what-decides-close-calls
 [TS-6]: ../architecture/tech_stack.md#6-core-service-java
+[TS-16]: ../architecture/tech_stack.md#16-observability-and-alerting
 [TS-23]: ../architecture/tech_stack.md#23-alternatives-rejected-across-the-stack

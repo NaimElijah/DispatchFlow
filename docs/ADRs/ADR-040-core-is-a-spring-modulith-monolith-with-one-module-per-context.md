@@ -108,7 +108,8 @@ The context map and the enforcement it left open are settled here.
 | Optimizer, research | import-linter: layers, and no `fastapi`, `pydantic`, `ortools`, `pyvrp` or `numba` in the domain | Alpha |
 
 - **Spring Modulith 2.1,** the line that matches Spring Boot 4.1 ([TS §6][TS-6], Modules row). The
-  pom's parent is Spring Boot 4.1.2.
+  pom's parent is Spring Boot 4.1.2. The 2.2 line follows with Spring Boot 4.2 in January
+  ([TS §21][TS-21]).
 - **Recorded in their own ADRs:**
   - the transaction rule ([DL §6.1][DL-61]) and the owner of every rule ([DL §3.7][DL-37]):
     [ADR-063];
@@ -204,5 +205,6 @@ The context map and the enforcement it left open are settled here.
 [TS-6]: ../architecture/tech_stack.md#6-core-service-java
 [TS-62]: ../architecture/tech_stack.md#62-application-layer
 [TS-17]: ../architecture/tech_stack.md#17-testing
+[TS-21]: ../architecture/tech_stack.md#21-version-baseline
 [TS-2-1]: ../architecture/tech_stack.md#21-the-dependency-rule
 [TS-2-2]: ../architecture/tech_stack.md#22-enforcement

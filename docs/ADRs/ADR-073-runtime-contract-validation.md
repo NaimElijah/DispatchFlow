@@ -10,8 +10,8 @@ request that breaks its OpenAPI contract is refused with the reason before anyth
 ADR settles the marker "ADR pending: runtime contract validation".
 
 [ADR-043] chose the generators for both sides of both contracts, and left three decisions to ADRs of
-their own. One was "runtime validation of requests against the contract". [ADR-068] settled another,
-authorization from the contract.
+their own. One was "runtime validation of requests against the contract". This extends [ADR-043] by
+settling it. [ADR-068] settled another, authorization from the contract.
 
 The forces:
 

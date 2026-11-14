@@ -39,7 +39,8 @@ pending: no live traffic". It extends [ADR-029] and [ADR-032].
   calibrated together from pilot arrivals. A research script fits the factors and the buffer from
   planned against actual leg times and proposes a settings change for review ([PL §14]).
 - **An arc takes the factor of its departure bucket,** for its whole length, even when it ends in the
-  next bucket.
+  next bucket. A bucket's hours are start-inclusive and end-exclusive, so 07:00–09:30 means
+  [07:00, 09:30), and a departure's bucket is read from its local wall-clock time.
 - **Solvers search on the upper bound,** `d × highest factor × (1 + buffer)`, which is 1.43 times the
   base duration at the starting values. So a solved plan stays feasible all day ([FR-322]).
 - **The validator and the ETAs use buffered times.** The validator re-times each route with the real

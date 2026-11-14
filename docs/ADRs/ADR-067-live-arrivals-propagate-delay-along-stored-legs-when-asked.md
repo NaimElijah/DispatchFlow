@@ -13,7 +13,8 @@ Three requirements need a projected arrival time while a route is in progress:
 
 - a stop is at risk when its projected arrival is later than its window end minus 15 minutes
   ([FR-253]);
-- a stop's projected arrival is its planned arrival plus the route's observed delay ([FR-254]);
+- a stop's projected arrival: [FR-254] said it was its planned arrival plus the route's observed
+  delay;
 - a route's observed delay is the actual time of its latest event, its start or a stop's arrival or
   outcome, minus that event's planned time ([FR-383]).
 
@@ -42,6 +43,10 @@ back with the routes, and the plan stores them ([DL §10.2][DL-102]).
 3. **Every stop after that:** `start = max(arrival, window start)` for a stop with a hard window, so
    waiting absorbs delay. For a leave-at-door stop, `start = arrival`, because the vehicle never
    waits there ([BR-122], [ADR-032]). Then `next arrival = start + service + leg`.
+
+**[FR-254] states this method.** It said "planned arrival plus the route's observed delay", which
+differs when waiting absorbs the delay or `now` binds. The owner chose this ADR's method on
+2026-11-14, and FR-254 was reworded to match.
 
 **A delay that pushes a departure into another bucket keeps the planned bucket.** Exact re-timing
 happens whenever the optimizer produces a new revision.
@@ -73,9 +78,6 @@ happens whenever the optimizer produces a new revision.
 - **Risk:** keeping the planned bucket understates a delay that carries a vehicle into the evening
   peak, and an at-risk alert can come late. The peak hours are an estimate to calibrate
   ([ADR-048]).
-- **[FR-254] states this method.** It said "planned arrival plus the route's observed delay", which
-  differs when waiting absorbs the delay or `now` binds. The owner chose this ADR's method on
-  2026-11-14, and FR-254 was reworded to match.
 
 ## Alternatives considered
 

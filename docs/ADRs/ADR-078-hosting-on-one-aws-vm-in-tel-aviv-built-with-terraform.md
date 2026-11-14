@@ -34,7 +34,7 @@ VAT. He had first set the cap at ₪450 and raised it once VAT was counted.
 - **Size:** 4 vCPU and 16 GB (`t3a.xlarge`), a burstable instance in unlimited-credit mode, so
   solves are never throttled. M3 measures OSRM's memory and checks the choice.
 - **Built with Terraform,** state in S3, in `infra/`. It holds the VM, disk, Elastic IP, security
-  group, S3 buckets, IAM role, SES identity, Route 53 zone, budget alerts and EBS snapshot policy.
+  group, S3 buckets, IAM roles, KMS key, SES identity, Route 53 zone, budget alerts and EBS snapshot policy.
   cloud-init installs Docker and starts the stack on a fresh VM ([TS §15], [PL §23]). A lost VM is
   rebuilt by `terraform apply`, the restore script and a DNS check, and the restore does not count as
   downtime ([NFR-183]).
@@ -48,6 +48,25 @@ VAT. He had first set the cap at ₪450 and raised it once VAT was counted.
   team member through SNS, all in Terraform. It probes every 30 seconds, more often than [NFR-128]'s
   once a minute, so two failures in a row alert well inside its 10 minutes. Healthchecks.io's backup
   pings, sent from outside AWS, are a second and slower warning ([NFR-164]).
+- **Alerts:** Alertmanager emails named team members through SNS in `il-central-1`. Alert text carries
+  no personal data ([NFR-268]). The team names its chat service before the pilot, and the same
+  rule holds for it.
+
+### Deploy, update and backup bundle
+
+The owner adopted this bundle on 2026-11-14. Each part has a requirement behind it.
+
+- **CI reaches AWS through OIDC,** with no stored access key. The deploy role trusts only a protected
+  `production` environment of the repository, and it runs one SSM document on one instance.
+- **Session Manager is limited to named team members.** SSM records who opened each session and when,
+  and records no session stream ([NFR-229]).
+- **Every human account that can deploy or publish requires a second factor:** AWS, GitHub, Expo,
+  Apple, Google and Mend ([NFR-265]).
+- **The backup secrets sit under a customer-managed KMS key** whose policy names the VM's role and
+  the two named members ([NFR-251]).
+- **The VM cannot delete backups.** The bucket is versioned, with a 35-day Object Lock, and pruning
+  uses a credential that a team member holds ([NFR-266]). The disk and its snapshots are encrypted.
+- **EAS Update's code signing is used if Expo's plan offers it** ([ADR-081]). Not verified.
 
 ### Cost estimate
 
@@ -56,15 +75,15 @@ Every figure is an estimate. The team has not yet seen an AWS bill.
 | Line | Estimate | Basis |
 |---|---|---|
 | VM, `t3a.xlarge` | about ₪400 a month | [TS §15] gives about $0.17 an hour, around $125 a month on demand |
-| Route 53 health check | about $1.60 a month, about ₪6 with VAT | The owner's estimate |
+| Route 53 health check | about $1.60 a month, about ₪6 with VAT | Estimate, not measured |
 | Disk, snapshots, S3, SES, the Route 53 zone | not itemised | Part of the total below |
-| Hosting total before VAT | about ₪440–450 a month | The owner's estimate |
-| Hosting total with 18% VAT | about ₪520–530 a month | The owner's estimate; AWS charges Israeli accounts VAT |
+| Hosting total before VAT | about ₪440–450 a month | Estimate, not measured |
+| Hosting total with 18% VAT | about ₪520–530 a month | Estimate, not measured; AWS charges Israeli accounts VAT |
 | Cap | ₪550 a month, VAT included | The owner's decision |
 | Budgets alert | at 90%, about ₪495 | The owner's decision |
 
-SMS is outside this table. The owner's estimate is about ₪550–850 a month with VAT at 150 deliveries
-a day ([Q-62]).
+SMS is outside this table. Its cost is an estimate, not measured: about ₪550–850 a month with VAT at
+150 deliveries a day ([Q-62]).
 
 ## Consequences
 
@@ -75,7 +94,7 @@ a day ([Q-62]).
   for GlitchTip and the operating system. Nominatim as GovMap's fallback needs about 2 GB more
   ([ADR-085]), so M3's measurement decides whether everything fits.
 - **Cost:** about ₪520–530 a month with VAT against a ₪550 cap, a margin of about ₪20–30. The
-  owner's estimate gives no itemised line for the disk, snapshots, backups and email.
+  estimate, not measured, gives no itemised line for the disk, snapshots, backups, email and KMS key.
 - **Risk:** whether `t3a` is offered in `il-central-1` is not checked. `t3` costs about 10% more
   and still fits the cap.
 - **Risk:** the estimate does not say whether it allows for surplus CPU-credit charges in
@@ -113,6 +132,7 @@ a day ([Q-62]).
 
 [ADR-079]: ADR-079-client-errors-and-crashes-go-to-self-hosted-glitchtip.md
 [ADR-080]: ADR-080-team-accounts-stand-in-when-there-is-no-company.md
+[ADR-081]: ADR-081-eas-update-for-javascript-only-fixes-during-the-pilot.md
 [ADR-085]: ADR-085-govmap-geocodes-addresses-with-nominatim-as-the-fallback.md
 [FR-350]: ../requirements/requirements.md#messages-to-recipients
 [NFR-14]: ../requirements/requirements.md#nfr-14
@@ -123,6 +143,11 @@ a day ([Q-62]).
 [NFR-128]: ../requirements/requirements.md#nfr-128
 [NFR-164]: ../requirements/requirements.md#nfr-164
 [NFR-183]: ../requirements/requirements.md#nfr-183
+[NFR-229]: ../requirements/requirements.md#nfr-229
+[NFR-251]: ../requirements/requirements.md#nfr-251
+[NFR-265]: ../requirements/requirements.md#nfr-265
+[NFR-266]: ../requirements/requirements.md#nfr-266
+[NFR-268]: ../requirements/requirements.md#nfr-268
 [NFR-209]: ../requirements/requirements.md#nfr-209
 [Q-62]: ../requirements/requirements.md#open-questions
 [TS §15]: ../architecture/tech_stack.md#15-infrastructure-and-operations

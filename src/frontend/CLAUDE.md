@@ -29,10 +29,10 @@ Accepted, and not in the tree yet: [ADR-039] replaces npm with a pnpm workspace 
 - Nothing secret goes into either app: whatever ships to a browser or a phone is public.
 - Maps built on OpenStreetMap data show the attribution its licence requires.
 - The two apps share no code yet. Add a shared package once hand-written code, not generated
-  code, would otherwise be copied between them ([ADR-008]). [ADR-039] (Accepted) sets those packages
-  up at the Alpha.
+  code, would otherwise be copied between them ([ADR-008], superseded by ADR-037, not in the code yet).
+  [ADR-039] (Accepted) sets those packages up at the Alpha.
 - TypeScript is held at 6.0 in both apps, because typescript-eslint does not support 7 yet
-  ([ADR-012]).
+  ([ADR-012], superseded by ADR-039, not in the code yet).
 
 ## Tests
 
@@ -46,7 +46,7 @@ Accepted, and not in the tree yet: [ADR-039] replaces npm with a pnpm workspace 
 
 ESLint and Prettier in both apps, with the same Prettier style: no semicolons, single quotes,
 100 columns. The web app uses ESLint 10 and the phone app ESLint 9, the version Expo SDK 58
-installs ([ADR-012]).
+installs ([ADR-012], superseded by ADR-039, not in the code yet).
 
 [ADR-035]: ../../docs/ADRs/ADR-035-both-apps-serve-every-role.md
 [ADR-008]: ../../docs/ADRs/ADR-008-monorepo-layout-under-src.md

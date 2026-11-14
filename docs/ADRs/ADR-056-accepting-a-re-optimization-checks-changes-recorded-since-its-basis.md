@@ -46,8 +46,10 @@ facts it started from ([DL §4.4][DL-44]). Accepting it is one `Plan` method tha
 - **Easy:** no listener has to keep proposals up to date, so the event catalogue stays smaller
   ([DL §7.4][DL-74]).
 - **Hard:** `AcceptProposal` reads five kinds of change from several modules (Live Operations,
-  Customers & Orders, Fleet and Planning, per [DL §2.2][DL-22]) and passes them in as values. Each
-  kind needs a read by time, so each module must record when something changed.
+  Customers & Orders, Fleet and Planning, per [DL §2.2][DL-22]) and passes them in as values.
+  Deliveries reach Planning through the `ExecutionFacts` port, which Planning owns and Live
+  Operations implements ([DL §2.1][DL-21]). Each kind needs a read by time, so each module must
+  record when something changed.
 - **Hard:** deciding which changes touch the proposal (a moved or dropped stop, a relied-on order,
   vehicle or driver) is the rule's logic. It needs its own tests for each kind of change.
 - **Cost:** one more read across modules on every acceptance, before the transaction.
@@ -97,6 +99,7 @@ facts it started from ([DL §4.4][DL-44]). Accepting it is one `Plan` method tha
 [NFR-10]: ../requirements/requirements.md#nfr-10
 [DL-103]: ../architecture/domain_layer/domain_layer_design.md#103-every-rule-that-depends-on-time
 [DL-16]: ../architecture/domain_layer/domain_layer_design.md#16-why-it-looks-like-this
+[DL-21]: ../architecture/domain_layer/domain_layer_design.md#21-module-graph
 [DL-22]: ../architecture/domain_layer/domain_layer_design.md#22-relationships
 [DL-44]: ../architecture/domain_layer/domain_layer_design.md#44-planning
 [DL-62]: ../architecture/domain_layer/domain_layer_design.md#62-commands

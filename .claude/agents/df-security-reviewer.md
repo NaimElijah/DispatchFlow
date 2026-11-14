@@ -23,7 +23,8 @@ report findings.
      - client ↔ Caddy ↔ core; core ↔ optimizer (`solver` today); core ↔ PostgreSQL;
      - core → geocoder, SMS provider (and its callbacks, inbound), Amazon SES and Expo push;
      - web and phone apps → GlitchTip; EAS Update → phones; backup job → S3;
-     - CI ↔ third-party code; CI → registry → VM (deploy, from the pilot).
+     - CI ↔ third-party code, and Mend's app (repository write); CI → AWS deploy role → registry → VM (deploy, from the pilot);
+     - member → SSM → VM; EAS Build (signing credentials); the Navigate map apps (Waze, Google Maps).
 
      OSRM runs on the VM, so it is not an outside service ([TS §13][TS-13]).
 3. **Rules.**
@@ -31,7 +32,7 @@ report findings.
    - Read the requirements that apply:
      - FR-03 and its permission matrix (under "Company, users and roles");
      - BR-02, driver scope (under "Business rules and invariants");
-     - the NFR rows under "Security and access" and "Compliance and personal data", including [NFR-209][NFR-209] (the server and its data, backups included, are hosted in Israel).
+     - the NFR rows under "Security and access" and "Compliance and personal data", including [NFR-209][NFR-209] (the server and its data, backups included, are hosted in Israel; NFR-262 lists four exceptions: push, builds and updates, the app stores, and Navigate's map apps, which get coordinates only, on the driver's tap; their conditions are NFR-218, NFR-263 and NFR-264).
    - Read the ADRs the change touches.
 
 ## What to check
@@ -39,7 +40,7 @@ report findings.
 - **Authorization:**
   - A driver reaches only their own routes, stops, proofs and positions (BR-02, the permission matrix), acting only as the user in the token, never one named in the request.
   - Roles are checked on the server for every operation (FR-03, NFR-85), never only hidden in the UI.
-  - Every contract operation carries `x-capability`, and the server enforces it ([PL §6.2][PL-62], NFR-85). An operation without `x-capability` gets no generated check, so its absence is a finding.
+  - Every contract operation carries `x-capability`, and the server enforces it ([ADR-068][ADR-068], NFR-85). An operation without `x-capability` gets no generated check, so its absence is a finding.
   - Every event on the stream is checked per receiver: by role, and for a driver by route ownership and published state ([TS §6][TS-6], the Authorization row; [PL §17][PL-17]; NFR-85, BR-41).
   - IDOR: does an id from the client reach data without an ownership check?
   - The first Admin, and an Admin created by the recovery step, have no default or committed credential (FR-291, FR-292).
@@ -78,7 +79,14 @@ report findings.
   - actuator endpoints;
   - the solver's port and API docs;
   - CORS, security headers and cookies, once they exist;
-  - the Caddyfile (headers, CSP, frame-ancestors), once it exists.
+  - the Caddyfile (headers, CSP, frame-ancestors), once it exists;
+  - the decided CSP and headers ([ADR-069][ADR-069]).
+- **Decided rules, when the change touches them:**
+  - `app`'s grants, and the `migrate` and `retention` steps that run as the owner role ([ADR-041][ADR-041]);
+  - FR-393: a non-echoing prompt for every admin step that takes a person's identifier, and exports to an encrypted file, never to the terminal;
+  - NFR-230 to NFR-236 and NFR-269: Admin and Dispatcher data stays in memory, and sign-out and revocation wipe it, with `Clear-Site-Data` on the web;
+  - NFR-260 and NFR-261: retention blanks personal columns, and the personal-column test lists every one;
+  - NFR-265 to NFR-268 and BR-132: MFA on publishing accounts, backups the VM cannot delete, streams that re-check their session, no personal data in alert text, and a backdated report held for confirmation.
 
 Cite OWASP ASVS 5.0 requirement numbers or CWE IDs where they fit. Verify a claim by running something when you can: the audit, a test, or a request against a local instance you start and then stop.
 
@@ -100,11 +108,13 @@ End with:
 [TS-1]: ../../docs/architecture/tech_stack.md#1-what-decides-close-calls
 [TS-13]: ../../docs/architecture/tech_stack.md#13-outside-services-and-where-data-goes
 [TS-18]: ../../docs/architecture/tech_stack.md#18-cicd-and-supply-chain
-[PL-62]: ../../docs/init_impl_ref/technical_implementation_plan.md#62-core-api-conventions
+[ADR-068]: ../../docs/ADRs/ADR-068-every-web-handler-is-authorized-by-role-from-the-contract.md
 [NFR-209]: ../../docs/requirements/requirements.md#nfr-209
 [TS-6]: ../../docs/architecture/tech_stack.md#6-core-service-java
 [PL-17]: ../../docs/init_impl_ref/technical_implementation_plan.md#17-live-updates-and-push
 [NFR-217]: ../../docs/requirements/requirements.md#nfr-217
+[ADR-041]: ../../docs/ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md
 [ADR-045]: ../../docs/ADRs/ADR-045-generation-counters-revoke-tokens.md
+[ADR-069]: ../../docs/ADRs/ADR-069-sign-in-and-transport-security.md
 [ADR-047]: ../../docs/ADRs/ADR-047-images-pinned-by-digest-and-core-on-temurin-25-jre.md
 [ADR-072]: ../../docs/ADRs/ADR-072-images-scanned-by-pinned-trivy-and-secrets-by-gitleaks.md

@@ -22,7 +22,7 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
   modules: access fleet orders planning liveops messaging reporting audit
   ```
 
-- `src/main/resources/db/migration/` holds the Flyway migrations ([ADR-007]).
+- `src/main/resources/db/migration/` holds the Flyway migrations ([ADR-007], superseded by ADR-041, not in the code yet).
 - `src/test/java/com/dispatchflow/` holds the tests, `TestcontainersConfiguration` (PostgreSQL
   18.6 in a container) and `TestDispatchFlowApplication`, which `just core-run` starts.
 
@@ -66,7 +66,7 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
 
 - `*Test` classes are unit tests, run by Surefire. `*IT` classes are integration tests, run by
   Failsafe against a real PostgreSQL: annotate them with `@IntegrationTest`, so they all share one
-  Spring context and one container. They need Docker ([ADR-014]).
+  Spring context and one container. They need Docker ([ADR-014], superseded by ADR-042, not in the code yet).
 - Once a module exists, test it in layers ([DL §14], [PL §24]):
   - Domain tests use no Spring and no mocks. Aggregates take values, `now` and new IDs as
     parameters. Every invariant in [DL §4] has a test that breaks it and asserts the module's named

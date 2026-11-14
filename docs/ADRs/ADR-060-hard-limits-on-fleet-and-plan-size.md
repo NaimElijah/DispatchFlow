@@ -17,7 +17,7 @@ scale:
 - a re-optimization preview within 30 seconds at the 95th percentile ([NFR-07]);
 - the travel-time matrix built within 5 seconds ([NFR-57]);
 - an incremental re-optimization with a 5-second limit ([NFR-25]);
-- the web app's map at 30 frames a second on 200 stops and 15 routes ([NFR-109]);
+- both apps' maps at 30 frames a second on 200 stops and 15 routes ([NFR-109]);
 - the API load test with 15 phones on a plan of 200 stops ([NFR-10]).
 
 What counts toward the order limit was settled in [Q-70] and [BR-113]. Orders move between dates

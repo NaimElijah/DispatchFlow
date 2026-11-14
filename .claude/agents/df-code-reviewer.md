@@ -33,7 +33,7 @@ report findings.
    - `.claude/CLAUDE.md`;
    - the `CLAUDE.md` of every side or component the change touches;
    - `contracts/CLAUDE.md`, if a contract changed.
-3. **Context.** Read the ADRs the change relates to (`docs/ADRs/README.md` is the index), and the requirement IDs it cites (`docs/requirements/requirements.md`). Read the sections of the decided design documents it touches: [TS], [DL] and [PL]. Check new code against their rules, under the precedence rule in `.claude/CLAUDE.md` (Documentation). Flag a pull request that merges code governed by a Proposed ADR without saying which one, as a question for the author.
+3. **Context.** Read the ADRs the change relates to (`docs/ADRs/README.md` is the index), and the requirement IDs it cites (`docs/requirements/requirements.md`). Read the sections of the decided design it touches: [DL], [TS] and the ADRs. The plan [PL] is a Proposed source for milestones, schema, flows and sketches until a later pull request retires it. Check new code against their rules, under the precedence rule in `.claude/CLAUDE.md` (Documentation). Flag a pull request that merges code governed by a Proposed ADR without saying which one, as a question for the author.
 
 ## What to check
 
@@ -56,7 +56,7 @@ report findings.
   - Every error is an RFC 9457 problem.
   - Every operation carries `x-capability` ([PL §6.2][PL-62]).
   - A breaking change needs a new major version.
-- **Persistence (ADR-007):**
+- **Persistence (ADR-007, superseded by ADR-041, not in the code yet):**
   - Schema changes only through a new Flyway migration; an applied migration is never edited.
   - Queries are parameterised. jOOQ's plain-SQL API (methods annotated `@PlainSQL`, such as `DSL.field(String)` and `DSL.condition(String)`) never takes input: bind parameters.
   - A module's persistence goes through jOOQ in its own schema ([ADR-041], Accepted and not in the tree yet; the pom still has Spring Data JPA).

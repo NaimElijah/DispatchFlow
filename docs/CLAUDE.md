@@ -78,11 +78,11 @@ and never restates them.
 
 - Plain English and short sentences. Back every claim with a number, a file or a link; avoid
   words like "robust", "seamless" and "powerful".
-- One topic, one document for the decided design ([TS §19][TS-19]). The decided domain model
-  lives only in `architecture/domain_layer/`, the decided tools and versions only in
-  `architecture/tech_stack.md`, and the proposed milestones, dates, schema, flows and code sketches
-  only in `init_impl_ref/`. The others link; they never copy. A description of today's tree names
-  today's versions.
+- One topic, one document for the decided design. The decided domain model lives only in
+  `architecture/domain_layer/` and the decided tools and versions only in
+  `architecture/tech_stack.md` ([TS §19][TS-19]). The proposed milestones, dates, schema, flows and
+  code sketches live only in `init_impl_ref/`. The others link; they never copy. A description of
+  today's tree names today's versions.
 - Mermaid diagrams use no colours, so they read in light and dark themes.
 - Before naming a version, a flag or a file, check it in the repository.
 

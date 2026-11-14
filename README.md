@@ -117,20 +117,21 @@ probe, the core its health probe, and the two apps render a heading.
 [architecture.md](docs/architecture/architecture.md) describes that system as it is, and
 [code-structure.md](docs/architecture/code-structure.md) the repository layout.
 
-The decided design is in three documents, which the team builds from:
+The decided design is the domain document, the tech stack and the ADRs, which the team builds
+from:
 
 - [domain_layer_design.md](docs/architecture/domain_layer/domain_layer_design.md): the bounded
-  contexts, aggregates, events and the rules between them. Where the other two disagree with it,
-  it wins.
+  contexts, aggregates, events and the rules between them. Where the tech stack disagrees with
+  it, it wins.
 - [tech_stack.md](docs/architecture/tech_stack.md): every tool and version, why it won, and the
   milestone it is adopted at.
-- [technical_implementation_plan.md](docs/init_impl_ref/technical_implementation_plan.md): the
-  milestones, the one-VM deployment, the contracts, the schema and the key flows. Its main path:
-  a dispatcher requests a solve, the core queues a solve job, sends the whole problem with its
-  travel-time matrix to the optimizer, keeps only a validated result, and pushes progress to the
-  web app over server-sent events.
+- [docs/ADRs/](docs/ADRs/README.md): each decision and its reasons.
 
-Decisions and their reasons: [docs/ADRs/](docs/ADRs/README.md).
+The [implementation plan](docs/init_impl_ref/technical_implementation_plan.md) is, until a later
+pull request retires it, a Proposed source for the milestones, the one-VM deployment, the
+contracts, the schema and the key flows. Its main path: a dispatcher requests a solve, the core
+queues a solve job, sends the whole problem with its travel-time matrix to the optimizer, keeps
+only a validated result, and pushes progress to the web app over server-sent events.
 
 ## Tech stack
 
@@ -146,7 +147,8 @@ Decisions and their reasons: [docs/ADRs/](docs/ADRs/README.md).
 | Tooling | just, uv, npm, OSV-Scanner | 1.59, 0.12, 11, 2.7 | One command set locally and in CI; one audit across every ecosystem |
 
 TypeScript is held at 6.0 because typescript-eslint does not support 7 yet
-([ADR-012](docs/ADRs/ADR-012-javascript-tooling-npm-eslint-prettier.md)).
+([ADR-012](docs/ADRs/ADR-012-javascript-tooling-npm-eslint-prettier.md), superseded by ADR-039,
+not in the code yet).
 
 This table is what the code uses today. [tech_stack.md](docs/architecture/tech_stack.md) decides
 the stack for the Alpha and after, and ADR-037 to ADR-047 (Accepted, in the
@@ -271,9 +273,10 @@ recipes developers run, and jobs are never skipped by path filters, so a require
 hangs. Cost: every contributor installs `just`, and CI builds every component on every push.
 
 The other decisions, including the repository layout, the two clients and the tooling, are in
-the [ADR index](docs/ADRs/README.md). It also lists ADR-037 to ADR-047, accepted on 2026-11-14,
-and ADR-048 to ADR-092, which record the rest of the decisions. Each supersedes, amends or extends
-the ADRs its status names, to match the design documents. The code does not follow them yet.
+the [ADR index](docs/ADRs/README.md). It also lists ADR-037 to ADR-047, accepted in this round, on
+2026-11-13 and 2026-11-14, and ADR-048 to ADR-092, which record the rest of the decisions. Each
+supersedes, amends or extends the ADRs its status names, to match the design documents. The code
+does not follow them yet.
 
 ## Status and limitations
 

@@ -36,9 +36,8 @@ The forces:
 - **Images: Trivy, pinned.**
   - Trivy is pinned to a release verified clean after the March 2026 compromise. Its GitHub action is
     pinned to a commit SHA, never a tag.
-  - Renovate waits a minimum release age before it proposes a new Trivy release or action SHA
-    ([ADR-046]). The sources give no number, so the team sets it with the rest of Renovate's
-    configuration.
+  - Renovate waits a minimum release age of 3 days before it proposes a new Trivy release or action
+    SHA ([ADR-046]; the owner, 2026-11-14).
   - The release's number is not named here. It is read from Trivy's release page when the tech
     stack's version baseline gets its row ([TS §21]).
 - **Terraform: `trivy config` on `infra/`, from the pilot.** A CI step runs it once the Terraform

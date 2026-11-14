@@ -72,8 +72,8 @@ save ([DL §3.1][DL-31], [DL §3.6][DL-36]). This ADR records it and the rule fo
 
 ## Revisit when
 
-- Dispatchers on pilot days see `STALE_VERSION` on ordinary edits, not only around a hand-over or
-  an accepted re-optimization. Then consider smaller aggregates for routes, which [DL §16][DL-16]
+- Dispatchers on pilot days see `STALE_VERSION` on two or more saves a day that do not follow a
+  hand-over or an accepted re-optimization. Then consider smaller aggregates for routes, which [DL §16][DL-16]
   weighed and rejected for the rules that span the date.
 - The measured writes to `Plan` at peak exceed the few a minute that [DL §11][DL-11] assumes, or a
   listener's retries run out in the logs more than once on a pilot day. The figure is a proposal.

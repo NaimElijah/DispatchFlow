@@ -1,6 +1,6 @@
 # ADR-028: The driver app ships through test tracks, and real phones are checked by hand
 
-- **Status:** Accepted; extended by ADR-035, ADR-080 and ADR-081
+- **Status:** Accepted; extended by ADR-035 and ADR-081; amended by ADR-080
 - **Date:** 2026-11-04
 
 ## Context

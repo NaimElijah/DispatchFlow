@@ -32,8 +32,11 @@ to GlitchTip on the VM ([ADR-078]).
   host ([ADR-069]).
 - **Checked at Pilot:** the source-map upload from CI and from EAS is tested against GlitchTip's
   version. This is the one point the sources leave unverified.
-- **Not decided here:** how long GlitchTip keeps reports. [NFR-76] sets 7 days for logs, traces and
-  metrics and names nothing for client reports.
+- **Scrubbing:** in both apps, `beforeSend` and `beforeBreadcrumb` remove URL fragments and query
+  strings from every event and breadcrumb, because a link can carry a token ([NFR-163]).
+- **Exposure:** Caddy exposes only GlitchTip's ingest paths, rate-limited. The GlitchTip UI is
+  reached through SSM port forwarding, and not from the internet ([TS §15]).
+- **Retention:** GlitchTip keeps events 7 days, like logs, traces and metrics ([NFR-76], [ADR-075]).
 
 ## Consequences
 
@@ -49,7 +52,7 @@ to GlitchTip on the VM ([ADR-078]).
   time.
 - **Risk:** [NFR-163] depends on SDK settings in two apps. A missing "personal data off" setting
   sends names or addresses into a database. The sources do not route client reports through the
-  collector's redaction processor ([NFR-19]), so the SDK setting is the only control.
+  collector's redaction processor ([NFR-19]), so the SDK settings and the scrubbing hooks are the only controls.
 
 ## Alternatives considered
 
@@ -61,11 +64,12 @@ to GlitchTip on the VM ([ADR-078]).
 
 - The source-map upload fails against GlitchTip at the Pilot check.
 - M3's memory measurement shows the 16 GB VM cannot carry GlitchTip with the rest of the stack.
-- The team cannot keep GlitchTip patched and backed up during the pilot.
+- A GlitchTip security release goes unapplied for more than 14 days, or a backup of it is missed.
 - GlitchTip stops accepting the Sentry SDKs' events after an SDK upgrade.
 - A hosted Sentry region in Israel is confirmed, and the team no longer wants to run the service.
 
 [ADR-069]: ADR-069-sign-in-and-transport-security.md
+[ADR-075]: ADR-075-retention-deletes-records-and-anonymizes-people-in-place.md
 [ADR-077]: ADR-077-push-builds-and-app-stores-are-accepted-exceptions-to-hosting-in-israel.md
 [ADR-078]: ADR-078-hosting-on-one-aws-vm-in-tel-aviv-built-with-terraform.md
 [NFR-14]: ../requirements/requirements.md#nfr-14

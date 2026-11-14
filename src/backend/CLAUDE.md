@@ -12,7 +12,7 @@ Google OR-Tools, our own Clarke-Wright + ALNS solver and the `nearest_neighbour`
 `solver/` with their adapters ([TS §7.1]); Spring Security arrives in `core/` with the Access
 context ([DL §1]).
 
-Accepted, and not in the tree yet:
+Accepted, and not in the tree yet, among others:
 
 - [ADR-040]: Spring Modulith in `core`, one module per bounded context.
 - [ADR-041]: jOOQ replaces JPA, with one PostgreSQL schema per module.

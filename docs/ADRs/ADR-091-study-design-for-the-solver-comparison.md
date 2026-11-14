@@ -24,7 +24,9 @@ a value, this ADR is amended.
    [NFR-110]). [ADR-049] records the formula and its derivation.
 2. **The 30 plans are solved by OR-Tools at 60 seconds, on seeded synthetic days** ([NFR-182]).
    OR-Tools is the solver the product runs on ([ADR-005]), and 60 seconds is also the static
-   study's limit ([NFR-24]).
+   study's limit ([NFR-24]). The 30 solved plans are stored with the study's inputs, their hash goes
+   in the run manifest, and a resumed or rerun study reads them and does not solve them again
+   ([NFR-244]).
 3. **Each insertion's time is drawn from the seed, across the plan's driving hours.**
 4. **Each insertion is separate, from the same plan.** Insertions do not accumulate.
 5. **Research instances are exempt from [BR-101],** as [FR-390] exempts them from [BR-50]. A plan at
@@ -32,9 +34,12 @@ a value, this ADR is amended.
 6. **[NFR-118]'s exclusions are counted and reported.** The study states how many insertions
    OR-Tools could not serve from scratch and so were left out.
 7. **The tests are paired and one-sided.** [NFR-24] is tested on (gap - 0.05) and [NFR-117] on
-   (ours - OR-Tools). The primary limit is 5 seconds ([NFR-25]). The test stays the Wilcoxon
-   signed-rank test with the rank-biserial effect size at level 0.05 ([FR-288], [TS §8][TS-8]). This
-   replaces [Q-84]'s plain test, and [FR-165]'s wording is updated to say so.
+   (ours - OR-Tools - margin), the margin being 1% of OR-Tools' mean objective, proposed to the
+   advisor (the owner, 2026-11-14). A one-sided test with no margin would ask whether ours is lower,
+   which is stronger than "no worse". The advisor confirms the margin with the other values. The
+   primary limit is 5 seconds ([NFR-25]). The test stays the Wilcoxon signed-rank test with the
+   rank-biserial effect size at level 0.05 ([FR-288], [TS §8][TS-8]). This replaces [Q-84]'s plain
+   test, and [FR-165]'s wording is updated to say so.
 8. **60 seconds and 10 runs also bind Gehring-Homberger and PyVRP** ([NFR-24], [NFR-111], [FR-275],
    [FR-51]). The scaling study ([FR-44]) runs 3 times per size.
 9. **[NFR-120] adds the product's 20-second limit** ([BR-84]) to its 1, 2, 10 and 30 seconds.
@@ -44,7 +49,7 @@ a value, this ADR is amended.
     on their vehicle, so stability varies only through drops ([ADR-029]). If [ADR-005]'s trigger fires,
     the ADR that answers it uses this edge. The owner records it in [Q-93]'s resolution.
 12. **mutmut runs once over `Problem.validate` before the first measured run,** and every surviving
-    mutant becomes a test. The validator judges both solvers ([BR-42], [ADR-004]), so a rule it fails
+    mutant becomes a test or is recorded as equivalent, with its reason. The validator judges both solvers ([BR-42], [ADR-004]), so a rule it fails
     to enforce bends every result. PIT for Java stays optional ([TS §17.1][TS-171]).
 
 ## Consequences
@@ -62,12 +67,9 @@ a value, this ADR is amended.
 - **Hard:** exempting research instances from [BR-101] means the research harness and the product
   enforce different limits. A research result at 201 stops says nothing about a refused order in the
   product.
-- **Cost:** a mutmut run over `Problem.validate`, and a test for each survivor. It is free software.
+- **Cost:** a mutmut run over `Problem.validate`, and a test or a recorded reason for each survivor. It is free software.
 - **Cost:** the study's text changes: [FR-165], [NFR-24], [NFR-117] and the Statistics and "Within 5%"
   rows of [TS §8][TS-8].
-- **NFR-117's margin is 1%** of OR-Tools' mean objective, proposed to the advisor (the owner,
-  2026-11-14). A one-sided test with no margin would ask whether ours is lower, which is stronger
-  than "no worse". The advisor confirms the margin with the other values.
 - **Risk:** the advisor may change any value, and the targets would move with it.
 - **Risk:** some mutants survive because they change nothing the validator can observe. Each needs a
   judgment that it is equivalent and not a missing test.
@@ -84,7 +86,7 @@ a value, this ADR is amended.
   plan only.
 - **Cumulative insertions on one plan.** Not chosen: each repair would start from a plan that the
   earlier insertions changed, so the 300 would not be comparable.
-- **Keep [BR-101] binding in the study.** Rejected: a plan at the scale of [NFR-25] plus one order
+- **Keep [BR-101] binding in the study.** Rejected: a plan at the scale of [NFR-05] plus one order
   has 201 stops, which the limit refuses.
 - **Different limits and run counts for Gehring-Homberger and PyVRP.** Rejected: unequal terms break
   the fairness [ADR-005] requires.
@@ -134,6 +136,7 @@ a value, this ADR is amended.
 [NFR-120]: ../requirements/requirements.md#nfr-120
 [NFR-121]: ../requirements/requirements.md#nfr-121
 [NFR-182]: ../requirements/requirements.md#nfr-182
+[NFR-244]: ../requirements/requirements.md#nfr-244
 [PL-22]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#22-research-harness-and-disruption-simulation
 [Q-29]: ../requirements/requirements.md#open-questions
 [Q-30]: ../requirements/requirements.md#open-questions

@@ -91,7 +91,8 @@ per service and its non-root user stand.
 - **Risk:** [TS §15] asks for a non-root user in every container. The sources do not say how the
   official `postgres`, OSRM and `caddy` images do it. Not verified.
 - **Risk:** [TS §18] says every image gets a digest, while [PL §5] lists the `compose.dev.yaml`
-  images by tag ([ADR-042]). Whether the development file pins digests is open.
+  images by tag ([ADR-042]). The owner decided on 2026-11-14 that digest pins start in January and
+  cover every image, the development file included. Until then those images run by tag.
 
 ## Alternatives considered
 
@@ -109,9 +110,11 @@ per service and its non-root user stand.
 
 - The pilot is over. Weigh a native image if startup time or memory matters, and distroless if the
   shell is no longer needed or base-image vulnerabilities become the problem.
-- The image scanning ADR ([NFR-54]) is accepted. Decide how a scan reads a pinned digest.
-- The hosting decision ([NFR-209]) picks an instance that is not `linux/amd64`, or a registry or
-  pull mechanism other than the one proposed. The platform and the pull change with it.
+- [ADR-072]'s Trivy scan, which starts in January with the digest pins, fails on a pinned digest or
+  skips it ([NFR-54]).
+- The hosting ([ADR-078], [NFR-209]) moves to an instance that is not `linux/amd64`, or to a
+  registry or pull mechanism other than the one in the *Deployment* row. The platform and the pull
+  change with it.
 - The core is killed for memory at its limit. Re-measure the heap share on the VM.
 
 [ADR-014]: ADR-014-real-dependencies-in-containers-for-tests-and-local-runs.md

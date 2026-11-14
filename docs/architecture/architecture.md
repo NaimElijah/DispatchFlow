@@ -77,7 +77,7 @@ calls exist.
 
 | Dependency | Used by | For |
 |---|---|---|
-| PostgreSQL 18.6 | `core` | The database. In a Testcontainers container for `*IT` tests and `just core-run`, which need Docker ([ADR-014](../ADRs/ADR-014-real-dependencies-in-containers-for-tests-and-local-runs.md)). Elsewhere `core` reads `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` from the environment |
+| PostgreSQL 18.6 | `core` | The database. In a Testcontainers container for `*IT` tests and `just core-run`, which need Docker ([ADR-014](../ADRs/ADR-014-real-dependencies-in-containers-for-tests-and-local-runs.md), superseded by ADR-042, not in the code yet). Elsewhere `core` reads `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` from the environment |
 | PyVRP | `research` | A reference solver for benchmarks. Never installed in `solver` |
 
 No other outside service is called. The repository has no Compose file; `core` and `solver` each
@@ -94,22 +94,26 @@ have a `Dockerfile`, and neither runs as root
 - **PyVRP stays out of `solver`.** `src/backend/solver/tests/test_dependency_boundary.py` fails if
   it can be imported there. It is the only architecture rule a test checks today.
 - **Flyway owns the schema.** `core` sets `spring.jpa.hibernate.ddl-auto=validate`, so Hibernate
-  never changes it ([ADR-007](../ADRs/ADR-007-postgresql-with-flyway-migrations.md)).
+  never changes it ([ADR-007](../ADRs/ADR-007-postgresql-with-flyway-migrations.md), superseded by ADR-041, not in the code yet).
 - **Every error body is an RFC 9457 problem.** `UnexpectedErrorHandler` runs last, after Spring
   MVC's own problem handling, so a response never names the cause.
 
 ## Target design
 
-The code does not follow this yet. The decided design:
+The code does not follow this yet. The decided design is the domain document, the tech stack and
+the ADRs:
 
-- [Technical implementation plan §2](../init_impl_ref/technical_implementation_plan.md#2-architecture-at-a-glance):
-  the one-VM diagram, and [§3](../init_impl_ref/technical_implementation_plan.md#3-build-sequence)
-  for the milestones.
 - [Domain layer design §1](domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts)
   and [§2](domain_layer/domain_layer_design.md#2-context-map): the bounded contexts and the
   module graph.
 - [Tech stack](tech_stack.md): the tools, and what each beat.
 - [ADR index](../ADRs/README.md): ADR-037 to ADR-047 record the layout, tooling and module
   decisions, and ADR-048 to ADR-092 the rest.
+
+Until a later pull request retires it, the implementation plan is a Proposed source for the
+milestones, schema, flows and sketches: the plan's sketch of the
+[one-VM diagram](../init_impl_ref/technical_implementation_plan.md#2-architecture-at-a-glance), and
+its [build sequence](../init_impl_ref/technical_implementation_plan.md#3-build-sequence) for the
+milestones.
 
 This file is rewritten as each milestone of the plan lands.

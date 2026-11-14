@@ -22,7 +22,8 @@ because the plan that holds it will be deleted.
 
 - **The drop unit is K = 5L + 2T + F + 1.** All terms are in seconds, the objective's scale ([PL §8]):
   - `L` is the longest shift on the order's date;
-  - `T` is the largest entry of the date's travel-time matrix;
+  - `T` is the largest entry of the date's unbuffered per-bucket matrix at the highest factor
+    ([BR-126], [ADR-048]);
   - `F` is the fixed vehicle cost ([FR-21]).
 - **An order of priority p, from 1 to 5, drops for K × (6 − p).** Priority 5 pays K and priority 1
   pays 5K.
@@ -91,6 +92,7 @@ and has no simple bound.
 
 [ADR-029]: ADR-029-solver-objective-and-re-optimization-rules.md
 [ADR-032]: ADR-032-leave-at-door-windows-are-preferences.md
+[ADR-048]: ADR-048-travel-times-from-buckets-and-a-buffer-with-no-live-traffic.md
 [BR-08]: ../requirements/requirements.md#solving-dropping-and-validation
 [BR-42]: ../requirements/requirements.md#solving-dropping-and-validation
 [BR-54]: ../requirements/requirements.md#solving-dropping-and-validation
@@ -98,6 +100,7 @@ and has no simple bound.
 [BR-115]: ../requirements/requirements.md#solving-dropping-and-validation
 [BR-120]: ../requirements/requirements.md#solving-dropping-and-validation
 [BR-121]: ../requirements/requirements.md#solving-dropping-and-validation
+[BR-126]: ../requirements/requirements.md#solving-dropping-and-validation
 [DL §4.9]: ../architecture/domain_layer/domain_layer_design.md#49-optimization-python
 [FR-21]: ../requirements/requirements.md#daily-planning
 [FR-111]: ../requirements/requirements.md#daily-planning

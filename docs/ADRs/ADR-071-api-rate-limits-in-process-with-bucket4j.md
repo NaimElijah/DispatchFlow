@@ -36,6 +36,13 @@ The core counts every limit above with **Bucket4j, in process** ([TS §6], *Rate
 
 - **One library, every limit.** Each row of the table is a bucket keyed as the table says. A success
   resets the sign-in counts ([PL §16.3][PL-163]).
+- **The buckets take the injected `Clock`,** so a test moves time and never sleeps. Bucket4j's
+  time-meter support is checked when the library is adopted.
+- **The source address comes from `X-Forwarded-For`, which Caddy overwrites.** The core trusts the
+  header only from Caddy's network, so a caller cannot choose its own address.
+- **The buckets live in a Caffeine cache** that expires an entry after the longest window and has a
+  maximum size, so keys made at will cannot grow it without bound. Caffeine is already the core's
+  cache ([TS §6], *Caching* row).
 - **The answer is `429` with `Retry-After`** ([PL §16.3][PL-163]). The phone app waits that long
   without counting an attempt ([PL §19][PL-19]).
 - **Calls without a token** are sign-in, refresh, sign-out, health checks, and the calls of
@@ -53,15 +60,15 @@ Nothing is built.
 - **Hard:** counters live in the core's memory, so they reset when the core restarts. This follows from
   "in process". The sources do not mention it.
 - **Hard:** behind Caddy, the core sees the proxy's address unless it reads the client's address from
-  what Caddy forwards. The sources do not say how it does. A wrong answer would put every client in
-  one bucket.
+  `X-Forwarded-For`. If the core trusted the header from any network, a caller could pick its own
+  address. If it trusted none, every client would share one bucket. A test covers both cases.
 - **Cost:** a library to add. The sources give no licence or maintenance status for it. Record both
   against the licence allow-list ([ADR-074]) before adding it, as `.claude/CLAUDE.md` requires.
 - **Risk:** [NFR-102] counts refresh and sign-in by source address. Drivers who start together behind
   one depot address could come near 20 calls a minute. [NFR-10]'s load mix has 15 phones and 5 web
   sessions. The pilot's sign-in behaviour is not measured.
-- **Risk:** buckets keyed by typed email can be created at will by a caller. The sources do not say
-  how an entry ages out. Unbounded growth is possible until that is decided.
+- **Risk:** when the cache is full it evicts an entry, and that counter starts again. A caller who
+  creates many typed emails could push out another caller's count. The maximum size is not set yet.
 - **Risk:** the per-address slowdown does not stop credential stuffing, as [ADR-036] found.
 
 ## Alternatives considered

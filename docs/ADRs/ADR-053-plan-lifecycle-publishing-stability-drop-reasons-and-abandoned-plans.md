@@ -57,9 +57,10 @@ drop-penalty scale.
 - **At midnight after its date, an unpublished plan becomes *abandoned*.** The job that completes
   published plans does it. An abandoned plan is terminal and read-only.
 - **Every queued or running solve job of that date fails with the reason "its date passed",**
-  whether its plan is published or not (the owner, 2026-11-14). A failed solve returns a plan to
-  `draft` or `ready` first ([BR-59]), and the plan then becomes *abandoned*. A re-optimization of a
-  finished day could never be accepted.
+  whether its plan is published or not (the owner, 2026-11-14). The midnight job then completes the
+  plan if it was published, or abandons it if not, including a plan in `solving`. A `SolveFailed`
+  that reaches an abandoned plan changes nothing ([DL §4.4]). The jobs fail because a
+  re-optimization of a finished day could never be accepted.
 - **A plan that was already published becomes *completed*,** as before ([BR-102]).
 - **Orders on an abandoned plan show *unplanned*** ([BR-33]; the owner, 2026-11-14). The plan never
   reached a driver, so *planned* would claim something that did not happen.
@@ -105,9 +106,10 @@ drop-penalty scale.
   with a Hebrew term for *abandoned* in the language of [DL §17]. Every screen that lists plans
   handles it.
 - **Hard:** the midnight job now does three things: complete, fail jobs and abandon. [DL §6.1] lets a
-  transaction change one existing aggregate, and `SolveJob` and `Plan` are two. So failing the job and
-  abandoning the plan are two steps, with the failure event between them, as in a failed solve
-  ([PL §13.1]).
+  transaction change one existing aggregate, and `SolveJob` and `Plan` are two. So failing the jobs and
+  completing or abandoning the plan are separate steps, as in a failed solve ([PL §13.1]). The
+  version check refuses a late writer, and a `SolveFailed` that reaches an abandoned plan changes
+  nothing.
 - **Cost:** one state, its transitions and tests. The midnight job already exists.
 - **Risk:** the drop reasons are tested in a fixed order, so an order that fails two tests shows the
   first. *Displaced* is the last test, so it names no single cause when several orders compete.

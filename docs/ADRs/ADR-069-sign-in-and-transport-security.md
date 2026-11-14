@@ -41,8 +41,9 @@ The forces:
   ([NFR-87], [NFR-91]). Each is exchanged once, with a 30-second grace for a repeat ([NFR-22],
   [NFR-178]).
 - **Where tokens live.** In the web app the access token is held in memory, and the refresh token is a
-  `__Host-` cookie that is Secure, HttpOnly and SameSite=Strict, scoped to `/api/v1/auth`, with a
-  double-submit CSRF header on refresh ([NFR-106], [NFR-107]). In the phone app both tokens are in
+  `__Secure-` cookie that is Secure, HttpOnly and SameSite=Strict, with the path `/api/v1/auth`
+  and a double-submit CSRF header on refresh ([NFR-106], [NFR-107]). It is `__Secure-` and not
+  `__Host-` because a `__Host-` cookie cannot carry a path. In the phone app both tokens are in
   `expo-secure-store` ([PL §16.1][PL-161]).
 - **Passwords:** Argon2id through Spring Security's encoder with Bouncy Castle, at OWASP's minimum
   (19 MiB, 2 iterations, parallelism 1) or above, "measured on the VM" ([PL §16.2][PL-162]). The
@@ -52,6 +53,9 @@ The forces:
   a secret key for opt-out hashes ([NFR-202]) and research pseudonyms ([NFR-153]).
   `MessageDigest.isEqual` for constant-time secret checks ([NFR-192]). The JDK covers all of it, so no
   library is added ([TS §6], *Link tokens and hashes* row).
+- **The keyed-hash keys rotate by version.** The keys for opt-out hashes and research pseudonyms each
+  have a version. Every hash records the version of the key that made it, new hashes use the new
+  key, and a lookup tries both keys and re-hashes a match under the new one.
 - **No second factor for the pilot.** TOTP stays Optional, following [FR-128] (a Could) and [Q-81].
 
 ### Transport and headers
@@ -62,7 +66,9 @@ The forces:
   no SSH port: SSM Session Manager replaces it ([TS §15], *Network*, *Domain and TLS* and *Reverse
   proxy* rows).
 - **Headers:** HSTS (`max-age=31536000; includeSubDomains` in the plan's Caddyfile sketch), a Content
-  Security Policy and `frame-ancestors 'none'` ([NFR-55], [PL §23][PL-23]).
+  Security Policy and `frame-ancestors 'none'` ([NFR-55], [PL §23][PL-23]). Caddy also sends
+  `X-Content-Type-Options: nosniff` and a site-wide `Referrer-Policy` ([TS §15], *Reverse proxy*
+  row).
 - **The Content Security Policy gains three directives** on 2026-11-14: `base-uri 'none'`,
   `form-action 'self'` and `object-src 'none'`. Its `connect-src` names GlitchTip, replacing the
   hosted Sentry host in the plan's sketch ([ADR-079]). With the plan's other directives, the policy
@@ -84,14 +90,18 @@ The forces:
 
 The step that creates the first Admin, or replaces a lost one, is an audited server step behind a
 profile, run through SSM ([FR-291], [FR-292], [FR-346], [PL §16.2][PL-162]). On 2026-11-14 the owner
-decided that it **reads the email at a prompt that does not echo.** The email never enters a command
-line, the shell history, SSM's history or a session log. The audit record holds the account ID. This
-replaces the plan's sketch, which passed `--email=` on the command line. The decision goes into
-[FR-291]'s note and the runbook row ([TS §15]).
+decided that **every admin step that takes a person's identifier reads it at a prompt that does not
+echo** ([FR-393]): the first-Admin and lost-Admin steps, the account list ([FR-346]) and the data
+requests ([NFR-49], [NFR-185]). The identifier never enters a command line, the shell history or
+SSM's history. SSM records who opened each session on the VM and when (CloudTrail), and records no
+session stream ([NFR-229]), so nothing typed or printed in a session is kept. An export goes to an
+encrypted file that is deleted on a set date, never to the terminal. The audit record holds the
+account ID. This replaces the plan's sketch, which passed `--email=` on the command line. The
+decision goes into [FR-291]'s note and the runbook row ([TS §15]).
 
 ## Consequences
 
-- **Easy:** the JDK, Spring Security and Nimbus cover every mechanism. There is no identity service to
+- **Easy:** the JDK, Spring Security, Nimbus and Bouncy Castle (for Argon2id) cover every mechanism. There is no identity service to
   run on a single VM ([ADR-024]).
 - **Easy:** a verifier can check an ES256 token without being able to sign one.
 - **Easy:** Caddy renews certificates with no cron job ([TS §15], *Reverse proxy*).
@@ -99,8 +109,10 @@ replaces the plan's sketch, which passed `--email=` on the command line. The dec
   the pilot ([TS §15]).
 - **Hard:** a Content Security Policy this strict can break a framework that injects styles. M0 tests
   it so that the answer arrives before any screen depends on it.
-- **Hard:** a non-echoing prompt inside an SSM session is a runbook step. How it is done there is not
-  verified here.
+- **Hard:** a non-echoing prompt inside an SSM session is a runbook step, and so is the encrypted
+  export with its deletion date. How the prompt is done there is not verified here.
+- **Hard:** a keyed-hash key rotation is a version bump with a period in which two keys are tried on
+  every lookup, until the old hashes are re-hashed on use.
 - **Cost:** key rotation is a runbook step with two accepted keys, and every secret has a rotation
   step ([TS §15], *Runbook* and *Secrets* rows).
 - **Risk:** what Caddy does with a plain request on port 80 is its default, which the sources do not
@@ -147,11 +159,13 @@ replaces the plan's sketch, which passed `--email=` on the command line. The dec
 [FR-291]: ../requirements/requirements.md#company-users-and-roles
 [FR-292]: ../requirements/requirements.md#company-users-and-roles
 [FR-346]: ../requirements/requirements.md#company-users-and-roles
+[FR-393]: ../requirements/requirements.md#company-users-and-roles
 [NFR-22]: ../requirements/requirements.md#nfr-22
 [NFR-26]: ../requirements/requirements.md#nfr-26
 [NFR-36]: ../requirements/requirements.md#nfr-36
 [NFR-39]: ../requirements/requirements.md#nfr-39
 [NFR-40]: ../requirements/requirements.md#nfr-40
+[NFR-49]: ../requirements/requirements.md#nfr-49
 [NFR-55]: ../requirements/requirements.md#nfr-55
 [NFR-59]: ../requirements/requirements.md#nfr-59
 [NFR-86]: ../requirements/requirements.md#nfr-86
@@ -162,9 +176,11 @@ replaces the plan's sketch, which passed `--email=` on the command line. The dec
 [NFR-107]: ../requirements/requirements.md#nfr-107
 [NFR-153]: ../requirements/requirements.md#nfr-153
 [NFR-178]: ../requirements/requirements.md#nfr-178
+[NFR-185]: ../requirements/requirements.md#nfr-185
 [NFR-192]: ../requirements/requirements.md#nfr-192
 [NFR-202]: ../requirements/requirements.md#nfr-202
 [NFR-223]: ../requirements/requirements.md#nfr-223
+[NFR-229]: ../requirements/requirements.md#nfr-229
 [PL-161]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#161-tokens
 [PL-162]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#162-passwords-and-links
 [PL-23]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#23-deployment-and-operations

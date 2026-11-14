@@ -51,17 +51,27 @@ corrected and a person is told.
 | Dropped by a later re-optimization | Moves it from *dropped* to *served late* on the reporting driver's route | The dispatcher |
 | Gone because its order was cancelled | Keeps the cancellation and records *served after cancellation* on the reporting driver's route | The dispatcher |
 
+   **The fourth row is the rule.** A report whose corrected time is before the cancellation is
+   accepted as *served after cancellation* ([BR-130]), and the dispatcher is alerted; one timed after
+   it is refused and shown ([BR-88], [BR-90]). The owner chose this on 2026-11-14, and [BR-88] and
+   [BR-90] were reworded to say it ([PL §24][PL-24] tests it).
 4. **No lock.** The cancel-versus-report race is the same path. `Order.cancel` refuses when the
    `StopState` it was given already shows a fact ([BR-92]). When the fact lands after that read, the
    table above settles it.
 5. **A corrected time later than the server's receipt time is cut to the receipt time** ([BR-110]).
    The owner decided this on 2026-11-13 ([Q-92], answer 8).
-6. **An order's status is derived, never stored,** and facts come first. `OrderStatus.derive` takes
+6. **A backdated report is held.** A late report that would move a stop off another driver's route,
+   or override a cancellation, waits for the dispatcher's confirmation if its session contacted the
+   server after the report's corrected time, with 2 minutes' grace ([BR-132]). The owner decided this
+   on 2026-11-14. Once the dispatcher confirms it, the report follows items 2 and 3.
+7. **An order's status is derived, never stored,** and facts come first. `OrderStatus.derive` takes
    one value from each of its three owners and returns the first match ([DL §9.6][DL-96]):
    1. *delivered* or *failed*, the effective outcome of the current attempt;
    2. *cancelled*;
-   3. *planned* or *dropped*, where the plan holds the current attempt;
-   4. *unplanned*, including a put-back that starts a new attempt ([FR-258]).
+   3. *planned* or *dropped*, where the plan holds the current attempt, unless that plan is
+      *abandoned* ([BR-131], [ADR-053]);
+   4. *unplanned*, including a put-back that starts a new attempt ([FR-258]) and an order on an
+      abandoned plan.
 
    A cancellation still shows beside an outcome. The owner decided this precedence on 2026-11-14 and
    it is added to [BR-33]. The `OrderStatuses` query reads a whole date at once, so a screen of 200
@@ -84,12 +94,12 @@ corrected and a person is told.
 - **Cost:** `Plan.reconcileLateOutcome`, a table of cases to test, an alert kind with a dedupe key,
   and a test that makes the reconcile call fail once and checks the stop still ends up on the
   serving route ([PL §24][PL-24]).
-- **The fourth row is the rule.** A report whose corrected time is before the cancellation is
-  accepted as *served after cancellation*, and the dispatcher is alerted; one timed after it is
-  refused and shown. The owner chose this on 2026-11-14, and [BR-88] and [BR-90] were reworded to
-  say it ([PL §24][PL-24] tests it).
 - **Risk:** the judgment depends on the device's clock offset ([BR-114]). A wrong offset can pick the
   wrong revision. The cap of item 5 limits only a corrected time that lands after the receipt.
+- **Risk:** the hold of item 6 compares the report's corrected time with the session's last contact,
+  with 2 minutes' grace. A report backdated by less than the grace is not held, and a phone whose
+  offset is wrong by more than the grace can be held when it should not be. The pilot's alert log
+  shows how often.
 
 ## Alternatives considered
 
@@ -113,6 +123,7 @@ corrected and a person is told.
   Review the precedence of [BR-33] with the company's own terms ([DL §17][DL-17]).
 
 [BR-18]: ../requirements/requirements.md#driver-reports-and-outcomes
+[ADR-053]: ADR-053-plan-lifecycle-publishing-stability-drop-reasons-and-abandoned-plans.md
 [BR-22]: ../requirements/requirements.md#plan-lifecycle-and-publishing
 [BR-27]: ../requirements/requirements.md#driver-reports-and-outcomes
 [BR-33]: ../requirements/requirements.md#orders-records-and-history
@@ -125,6 +136,9 @@ corrected and a person is told.
 [BR-96]: ../requirements/requirements.md#orders-records-and-history
 [BR-110]: ../requirements/requirements.md#driver-reports-and-outcomes
 [BR-114]: ../requirements/requirements.md#driver-reports-and-outcomes
+[BR-130]: ../requirements/requirements.md#driver-reports-and-outcomes
+[BR-131]: ../requirements/requirements.md#orders-records-and-history
+[BR-132]: ../requirements/requirements.md#driver-reports-and-outcomes
 [DL-8]: ../architecture/domain_layer/domain_layer_design.md#8-when-a-fact-contradicts-the-plan
 [DL-11]: ../architecture/domain_layer/domain_layer_design.md#11-concurrency
 [DL-16]: ../architecture/domain_layer/domain_layer_design.md#16-why-it-looks-like-this
