@@ -11,6 +11,7 @@ authors = [
 requires-python = ">=3.14,<3.15"
 dependencies = [
     "fastapi>=0.162.0",
+    "numpy>=2.5.4",
     "uvicorn>=0.54.0",
 ]
 
@@ -21,9 +22,12 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "httpx2>=2.16.0",
+    "hypothesis>=6.170.15",
+    "import-linter>=2.16",
     "mypy>=2.4.1",
     "pytest>=9.2.0",
     "ruff>=0.17.3",
+    "vrplib>=2.2.0",
 ]
 
 [tool.ruff]
@@ -41,7 +45,38 @@ convention = "google"
 
 [tool.mypy]
 strict = true
+# tests/ has no __init__.py, so mypy names its modules from the project root (tests.domain...),
+# the names the tests import each other by.
+explicit_package_bases = true
+mypy_path = ["src"]
+
+# vrplib ships no type information (no py.typed), and only the tests read instances with it.
+[[tool.mypy.overrides]]
+module = ["vrplib", "vrplib.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The project root on the path lets tests import shared builders as `tests.domain...`, which
+# importlib mode does not otherwise allow.
+pythonpath = ["."]
 addopts = ["--import-mode=importlib", "--strict-markers", "--strict-config"]
+
+# TS §2.1 and §2.2, ADR-040: the domain stays free of frameworks, transport and solver packages,
+# and dependencies point inward only.
+[tool.importlinter]
+root_packages = ["dispatchflow_solver"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "The domain imports no framework, transport or solver package"
+type = "forbidden"
+source_modules = ["dispatchflow_solver.domain"]
+forbidden_modules = ["fastapi", "pydantic", "starlette", "uvicorn", "ortools", "pyvrp", "numba"]
+
+[[tool.importlinter.contracts]]
+name = "Adapters and solvers sit on the application, which sits on the domain"
+type = "layers"
+containers = ["dispatchflow_solver"]
+# Parentheses mark a layer that may not exist yet: application and solvers are placeholders.
+layers = ["adapters | (solvers)", "(application)", "domain"]

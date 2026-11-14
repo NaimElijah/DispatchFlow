@@ -53,6 +53,7 @@ solver-check:
     uv run --locked ruff format --check .
     uv run --locked ruff check .
     uv run --locked mypy src tests
+    uv run --locked lint-imports
     uv run --locked pytest
 
 [working-directory('src/backend/solver')]
