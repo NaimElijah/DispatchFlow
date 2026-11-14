@@ -66,7 +66,7 @@ Cover each one that the change touches. The sources say how:
 - **`src/backend/solver` and `src/research`:**
   - pytest; names `test_given_x_when_y_then_z`; tests mirror the package path.
   - HTTP through `TestClient(create_app())`, which needs `httpx2`.
-  - When the validator exists, use Hypothesis property tests: every generated instance's solution passes it. They run from a recorded seed ([NFR-82][NFR-82]).
+  - Use Hypothesis property tests (`tests/domain/properties.py`): every generated instance's solution passes the validator. They run from a recorded seed ([NFR-82][NFR-82]).
   - One test checks that the same input, seed and budget give the same solution in two processes ([NFR-174][NFR-174]).
   - Solver and property tests run on iteration or solution budgets, never wall-clock limits ([NFR-82][NFR-82], [NFR-175][NFR-175]). The Solvers row of [TS §17.1][TS-171] cites NFR-170 to NFR-174: cover each one the change touches.
 - **`src/frontend/console`:** Vitest with Testing Library in jsdom. Tests sit next to the code as `*.test.tsx` and query by role, label or text. From the Alpha, MSW answers API calls ([TS §17.1][TS-171]).

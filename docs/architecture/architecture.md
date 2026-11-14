@@ -103,8 +103,8 @@ have a `Dockerfile`, and neither runs as root
   fixes its call as `solve(problem, start, budget, seed)`). The port does not exist yet.
 - **PyVRP stays out of `solver`.** `src/backend/solver/tests/test_dependency_boundary.py` holds two
   tests. One fails if PyVRP is installed there, and the other if PyVRP is locked in its `uv.lock`.
-  With `core`'s purity and shape rules and `solver`'s import-linter contracts, they are the only
-  architecture rules a test checks today.
+  With `core`'s purity and shape rules and `solver`'s import-linter contracts (a lint step in
+  `just solver-check`), they are the only architecture rules checked automatically today.
 - **Flyway owns the schema.** `core` sets `spring.jpa.hibernate.ddl-auto=validate`, so Hibernate
   never changes it ([ADR-007](../ADRs/ADR-007-postgresql-with-flyway-migrations.md), superseded by
   [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md),
@@ -130,7 +130,7 @@ the ADRs:
   [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md) (a
   schema per module, read and written through jOOQ) give the target shape. None of them is in the
   tree yet. ADR-039 and ADR-042 to ADR-047 record the other tooling, contract, solver-port, token
-  and image decisions, and ADR-048 to ADR-096 the rest.
+  and image decisions, and ADR-048 to ADR-099 the rest.
 - [Roadmap](../roadmap.md#2-milestones): the milestones and dates.
 
 The hosting is in [ADR-078](../ADRs/ADR-078-hosting-on-one-aws-vm-in-tel-aviv-built-with-terraform.md)

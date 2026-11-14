@@ -9,7 +9,7 @@ daily-solve domain ([code-structure.md](code-structure.md#srcbackendsolver)):
 Nothing calls it yet. No solver, no `Solver` port and no use case exists; the `application` and
 `solvers` folders hold only a `.gitkeep`. The re-optimization conventions are not built yet.
 [ADR-098](../ADRs/ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) fixes the
-validator's numbers: double precision, limits within 1e-6, and rounding only for product times.
+validator's numbers.
 
 The decided design is in
 [domain layer design §4.9](domain_layer/domain_layer_design.md#49-optimization-python) (`Problem`,
@@ -38,6 +38,5 @@ the hexagon and the process model). The ADRs cover:
   [ADR-092](../ADRs/ADR-092-the-alns-package-runs-our-solvers-outer-loop.md)) and the comparison
   study ([ADR-091](../ADRs/ADR-091-study-design-for-the-solver-comparison.md)).
 
-The detail is written by the code that builds it.
-
-This file will describe the engine as built once solver code exists.
+Only the daily-solve domain is described above. The solvers, the port and the re-optimization
+conventions arrive with their code.

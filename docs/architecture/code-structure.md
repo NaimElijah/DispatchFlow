@@ -33,7 +33,7 @@ are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 | Path | Holds |
 |---|---|
 | `src/backend/core/` | The REST API and system of record: Java 21, Spring Boot 4.1.2, Maven |
-| `src/backend/solver/` | The optimization service: Python 3.14, FastAPI, uv |
+| `src/backend/solver/` | The optimization service: Python 3.14, FastAPI, NumPy, uv |
 | `src/frontend/console/` | The web app, for every role: React, TypeScript, Vite |
 | `src/frontend/driver-app/` | The phone app, for every role: React Native, Expo SDK 58, TypeScript |
 | `src/research/` | Benchmarks, simulation and the order generator: Python, uv. Never deployed |
@@ -253,7 +253,7 @@ These follow from
 - **PyVRP is never a dependency of `solver`.** Only `src/research` installs it.
 - **The frontends talk only to `core`.** The API client is generated and never edited.
 
-Three sets of rules are checked by tests today:
+Three sets of rules are checked automatically today:
 - the PyVRP rule;
 - in `core`, the domain's purity rules;
 - in `solver`, the import-linter contracts in `pyproject.toml`: the domain imports no framework or

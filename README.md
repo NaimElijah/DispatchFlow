@@ -278,13 +278,16 @@ the [ADR index](docs/ADRs/README.md). It also lists ADR-037 to ADR-047, accepted
 2026-11-13 and 2026-11-14, and ADR-048 to ADR-093, which record the rest of the decisions. Each
 supersedes, amends or extends the ADRs its status names, to match the design documents. The code
 does not follow them yet. ADR-094 to ADR-096 settle three points found open afterwards: the
-contract check's base branch, the zod and deepmerge advisories, and the root `CLAUDE.md`.
+contract check's base branch, the zod and deepmerge advisories, and the root `CLAUDE.md`. ADR-097
+to ADR-099 record decisions taken while the domain layer is built.
 
 ## Status and limitations
 
 **Pre-alpha.** Shipped: a skeleton for each of the five components, with its build, formatter,
 linter, tests and CI job; the two contracts; and the solver's and the core backend's health
-probes.
+probes. The domain layer is being built ahead of its milestones: the core's shared kernel with its
+purity rules, and the solver's daily-solve domain (the validator, the objective and the drop
+reasons). Nothing calls either yet.
 
 Planned: the [roadmap](docs/roadmap.md) has the course calendar, the milestones M0 to M13, and the
 definition and demo script of the Alpha (M0 to M5).

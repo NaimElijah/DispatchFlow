@@ -47,7 +47,7 @@ core-run:
 solver-setup:
     uv sync --locked
 
-# Format check, lint, strict type check and tests.
+# Format check, lint, strict type check, import-linter and tests.
 [working-directory('src/backend/solver')]
 solver-check:
     uv run --locked ruff format --check .
