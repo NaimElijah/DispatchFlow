@@ -688,7 +688,7 @@ Rules are grouped by subject.
 | BR-133 | **Contact window.** Contact is any request from any session of the reporting account other than a token refresh or an outbox send, made from 2 minutes after the report's corrected time to 2 minutes before the report arrived. |  |  |
 | BR-134 | **Held report overtaken.** While a report is held, an outcome recorded on the stop's current route wins over it. |  |  |
 | BR-135 | **Held report refused.** A held report that the dispatcher refuses is treated as [BR-90] (contradicting reports are refused) treats a contradicting report: refused and shown to the dispatcher. |  |  |
-| BR-136 | **Further late report held.** A further late report for a stop that already has a held report is held too ([BR-132]: backdated report held). |  |  |
+| BR-136 | **Further late report held.** A further late report for a stop that already has a held report is held too ([BR-132]: backdated report held), except one from the same driver and route, which is refused: silently when identical, as a contradiction otherwise. |  |  |
 | BR-29 | **Stops may be done out of order.** A driver can report a route's stops in a different order from the plan, and the system records the actual order. |  |  |
 | BR-91 | **Out-of-order stops in re-optimization.** Re-optimization treats stops reported out of order as done in that order. The start point stays as [BR-79] (re-optimization starts from current locations) and [BR-24] (fallback start without a usable position) set it. |  |  |
 | BR-44 | **Two times on every report.** Every driver report keeps the time the device recorded and the time the server received it. Priority: Must. |  |  |
