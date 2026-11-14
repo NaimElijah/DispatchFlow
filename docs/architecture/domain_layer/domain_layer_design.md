@@ -226,7 +226,9 @@ kernel's `PersonalData` marker ([ADR-106]).
 | `Proof`, `FailureReason`, `Outcome` | Live Operations | A signature or a photo (FR-367); a reason from the company's list; delivered or failed with its details | — |
 | `ArrivalProjection`, `StartDeadline`, `TrackingWindow` | Live Operations | Projected arrivals (§10.4); shift start plus allowance plus 15 minutes (FR-101); start to 1 hour after shift end (FR-328) | — |
 | `MessageText`, `Reply`, `Rating`, `PhoneHash`, `DailySendCap` | Messaging | A text starting with the company name, within 70 characters (FR-382); a parsed reply (FR-363, FR-376); 1 to 10; a keyed hash (NFR-202); the day's accepted messages and the cap (NFR-196) | `RatingOutOfRange` |
-| `OnTimeRate` | Reporting | Delivered stops reached by their window's end over delivered stops; *unavailable* when there are none (FR-264, FR-265, FR-340, FR-370) | — |
+| `OnTimeRate` | Reporting | Delivered stops reached on time over delivered stops, as an exact share of two counts: by the window's end, or inside the window for a leave-at-door stop; reached at the arrival, or at the delivery when no arrival was reported; from the effective outcome after any correction, leaving out cancelled orders; *unavailable* when none is delivered (FR-264, FR-265, FR-333, FR-340, FR-370, BR-30, [ADR-109]) | `InvalidOnTimeCounts`, `StopCountedTwice` |
+| `PlannedOnTimeRate` | Reporting | Orders a plan serves inside their windows over every order of the day, as an exact share of two counts: a dropped order counts as not on time and a cancelled one is left out; *unavailable* with no order (FR-266, FR-370, BR-30, [ADR-109]) | `InvalidOnTimeCounts` |
+| `Distance`, `DriverHours`, `PlannedFigures`, `PlannedOrders`, `StopResult`, `CancelledOrders`, `PlanStanding`, `BaselineComparison` | Reporting | A plan's metres and driver-hours, never negative; a plan's figures, with each order of the day once; the facts the rates and the comparison judge, from other modules' views; a comparison on every measure, on kilometres and on-time only after a withdrawal, or none for a cancelled plan (FR-39, FR-269, FR-338, [ADR-109]) | `NegativeDistance`, `NegativeDriverHours`, `OrderCountedTwice` |
 | `Problem`, `Solution`, `TravelTimeModel`, `PenaltyScale`, `ValidationReport` | Optimization | Everything one solve needs, and what comes back (§4.9) | — |
 
 DispatchFlow has no money in its domain: the objective's terms are in seconds, not shekels.
@@ -722,15 +724,21 @@ Opt-outs and inbound replies are records (§3.2).
 
 | Aggregate | Holds | Operations | Size and writers |
 |---|---|---|---|
-| `Baseline` | Its plan, the nearest-neighbour result, its cause (*published* or *vehicle withdrawn*), when it was computed | `compute`, `recompute` | One per published plan; Reporting's listeners |
+| `Baseline` | Its plan, the nearest-neighbour result (distance, driver-hours, and each order's planned service or drop), its cause (*published*, or *recomputed* with every vehicle withdrawn and every order added so far), when it was computed | `compute`, `recompute`, and the query `compareWith` | One per published plan; Reporting's listeners |
 
 | Invariant | Owner | Error |
 |---|---|---|
 | A plan has one baseline, computed when it is published (FR-39, FR-342) | `Baseline.compute`, keyed by plan | — |
-| The baseline is recomputed only when a re-optimization withdraws a vehicle, and the comparison then uses kilometres and on-time only (FR-267 to FR-271) | `Baseline.recompute` | — |
+| The baseline is recomputed only when a revision withdraws a vehicle or adds orders, so both sides cover the same orders and fleet (FR-39, [ADR-109]); once a vehicle is withdrawn, the comparison uses kilometres and on-time only and names every vehicle withdrawn so far (FR-267 to FR-271). A cancellation only leaves the order out (BR-30) | `Baseline.recompute`, `compareWith` | — (a revision that did neither changes nothing) |
+| A cancelled plan has no baseline comparison (FR-338) | `Baseline.compareWith`, given the plan's standing | — (the answer is *not compared*) |
 | An on-time rate with no delivered stops is *unavailable*, never 0 (FR-265) | `OnTimeRate` | — |
+| A stop is on time when it is reached by its window's end, or inside its window for a leave-at-door stop; the delivery time stands in for a missing arrival; the effective outcome counts, and a cancelled order doesn't (FR-264, FR-370, FR-340, FR-333, BR-30) | `OnTimeRate` | — |
+| Planned on-time is the orders served inside their windows over every uncancelled order of the day, so a dropped order counts as not on time, on the plan's side and the baseline's (FR-266, FR-370, BR-30) | `PlannedOnTimeRate` | — |
+| A rate is an exact share of two counts, and only a screen rounds it ([ADR-109]) | `OnTimeRate.Measured`, `PlannedOnTimeRate.Measured` | `InvalidOnTimeCounts` |
 
-Everything else in Reporting is read models over the views other modules publish.
+Everything else in Reporting is read models over the views other modules publish. Reporting holds no
+personal data, so it has no retention period of its own: a baseline stays with its plan (NFR-152,
+[ADR-109]).
 
 **In the Alpha:** the daily summary and the baseline comparison.
 
@@ -1554,7 +1562,8 @@ where the company's own word differs. "—" in the Hebrew column marks a design 
 | Opt-out | Messaging | A recipient's choice to get no more messages | הסרה | `OptOut` |
 | Rating | Messaging, Reporting | A recipient's answer, 1 to 10, to the rating question | דירוג | `Rating` |
 | Baseline | Reporting | The nearest-neighbour plan for the same day, which the plan is compared with (FR-39) | קו בסיס | `Baseline` |
-| On-time rate | Reporting | Delivered stops reached by their window's end, over delivered stops (FR-264, FR-265) | אחוז מסירות בזמן | `OnTimeRate` |
+| On-time rate | Reporting | Delivered stops reached on time, by their window's end or, for a leave-at-door stop, inside it, over delivered stops; cancelled orders are left out (FR-264, FR-265, FR-370, BR-30) | אחוז מסירות בזמן | `OnTimeRate` |
+| Planned on-time rate | Reporting | Orders a plan serves inside their windows, over every order of the day; a dropped order counts as not on time (FR-266); cancelled orders are left out (BR-30) | אחוז בזמן מתוכנן | `PlannedOnTimeRate` |
 | Problem | Optimization | Everything one solve needs | — | `Problem` |
 | Solution | Optimization | The routes and drops a solver proposes | — | `Solution` |
 | Validator | Optimization | The single definition of feasibility (BR-42) | — | `Problem.validate` |
@@ -1614,3 +1623,4 @@ Nothing. These ADRs record the decisions of this document:
 [ADR-104]: ../../ADRs/ADR-104-the-company-profile-holds-customer-defaults-and-capabilities-follow-the-role-matrix.md
 [ADR-105]: ../../ADRs/ADR-105-a-re-optimizations-problem-carries-its-conventions-and-only-a-vehicle-that-is-out-has-no-driver.md
 [ADR-106]: ../../ADRs/ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md
+[ADR-109]: ../../ADRs/ADR-109-reporting-computes-exact-on-time-shares-from-current-facts-and-keeps-no-personal-data.md
