@@ -41,6 +41,17 @@ optimizer's code directly, with no HTTP and no `core`.
 - The CI regression gate uses fixed seeds and a fixed search budget, never a wall-clock limit.
   The equal-time study runs offline.
 - Results are reported whether or not our solver wins.
+- The solver comparison follows [ADR-091]. Its tests are paired, one-sided Wilcoxon tests. In the
+  static study every solver gets 60 seconds and 10 runs per instance, PyVRP and the
+  Gehring-Homberger instances included (item 8). The re-optimization study's primary limit is 5
+  seconds (item 7), and the scaling study runs 3 times per size. The 30 plans the re-optimization
+  study starts from are solved once, by OR-Tools at 60 seconds, and stored (item 2).
+- Research instances are exempt from BR-101's plan size ([ADR-091], item 5), as FR-390 exempts them
+  from BR-50.
+- A crashed study resumes, because the runner skips the results it already holds ([ADR-091], item
+  10).
+- mutmut runs once over `Problem.validate` before the first measured run. Every surviving mutant
+  becomes a test, or is recorded as equivalent with its reason ([ADR-091], item 12).
 
 ## Data and provenance
 
@@ -48,8 +59,11 @@ Rules for the harness as it lands; nothing here exists yet.
 
 - Data and results derived from pilot data never enter the repository. Only their hash and their
   configuration do (NFR-50, [TS §8]).
-- Every run has a manifest, written first: the commit, the configuration hash, the seeds, the CPU
-  model, the instance type and the package versions ([TS §8], Provenance).
+- Every run writes its manifest first, so a crashed run still leaves its provenance. It holds the
+  commit, the configuration hash, the seeds, the CPU model, the instance type, the `uv` lock hash and
+  the package versions ([TS §8], Provenance; [TS §7], Packaging). For the re-optimization study it
+  also holds the hash of the 30 solved plans ([ADR-091]). "First" comes from the
+  [retired plan's §22][PL-22].
 - Final figures come from scripts, never from a notebook.
 
 ## Commands
@@ -65,14 +79,18 @@ Run `just` recipes from the repository root, and `uv` from this folder.
 `just study` ([TS §5]) and `just seed` ([roadmap §2.2]) are planned recipes; the `justfile` does not
 have them yet.
 
-Tests and docstrings follow the solver's rules: see `src/backend/solver/CLAUDE.md`.
+Tests are named `test_given_x_when_y_then_z`. Every public module, class and function has a
+Google-style docstring, which ruff enforces; tests are exempt.
 
 [ADR-004]: ../../docs/ADRs/ADR-004-pluggable-solver-port.md
 [ADR-005]: ../../docs/ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md
 [ADR-037]: ../../docs/ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md
 [ADR-040]: ../../docs/ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md
+[ADR-091]: ../../docs/ADRs/ADR-091-study-design-for-the-solver-comparison.md
 [NFR-115]: ../../docs/requirements/requirements.md#nfr-115
 [TS §5]: ../../docs/architecture/tech_stack.md#5-development-environment-and-workflow
 [TS §4]: ../../docs/architecture/tech_stack.md#4-repository-layout
+[TS §7]: ../../docs/architecture/tech_stack.md#7-optimization-service-python
 [TS §8]: ../../docs/architecture/tech_stack.md#8-research-harness
+[PL-22]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#22-research-harness-and-disruption-simulation
 [roadmap §2.2]: ../../docs/roadmap.md#22-alpha-track

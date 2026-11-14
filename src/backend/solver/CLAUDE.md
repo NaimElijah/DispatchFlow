@@ -9,7 +9,7 @@ and it hosts every solver behind one port ([ADR-004]). Python 3.14, FastAPI, Uvi
 |---|---|
 | `domain/` | The problem, the solution, the shared objective and the feasibility validator |
 | `application/` | The solve use cases, the `Solver` port and the solver registry |
-| `solvers/ortools/`, `solvers/alns/` | One adapter per solver: OR-Tools, and our Clarke-Wright + ALNS |
+| `solvers/ortools/`, `solvers/alns/` | One adapter per solver: OR-Tools, and ours. Ours runs the `alns` package (MIT) as its outer loop, and the Clarke-Wright construction, the operators, the route state and the Numba kernels are ours ([ADR-092]) |
 | `adapters/inbound/http/` | `create_app()`: the FastAPI app and its request and response models |
 
 Everything except `adapters/inbound/http` is a placeholder today. `tests/` mirrors the package
@@ -27,17 +27,26 @@ draws it, where `nearest_neighbour` joins them. Neither is in the tree yet.
 - Pydantic models are generated from the contract by datamodel-code-generator ([ADR-043],
   Accepted), and only the HTTP adapter uses them.
 - `Problem` owns `validate`, `cost` and `explain_drop` ([TS §7.1]). `validate` is the one
-  definition of feasibility, and `cost` is the one objective.
+  definition of feasibility, and `cost` is the one objective. `Problem` and `Solution` are frozen
+  dataclasses over NumPy arrays ([TS §7.1]).
 - `ProblemFactory` alone applies the re-optimization conventions ([ADR-050]).
 - `TravelTimeModel` is the only place the bucket factors and the buffer are applied.
+- Travel time comes in three kinds. The validator and the ETAs use buffered times. The objective's
+  travel cost uses per-bucket times without the buffer. The search's upper bound is the highest
+  factor × (1 + buffer). An arc takes the factor of the bucket it departs in ([DL §10.2],
+  [ADR-048]).
 - Every solver implements the one `Solver` port, `solve(problem, start, budget, seed)`: `start` is
   an optional warm start, and `budget` is a time limit, an iteration budget or a solution limit
   ([ADR-044], Accepted). A solver is chosen by name for each solve. The registry has no default,
-  and a name it does not hold is rejected.
+  and a name it does not hold is rejected ([ADR-004]).
 - Every solution passes `Problem.validate` and is scored by `Problem.cost` before it leaves the
   service, whichever solver produced it. A solver's own objective value is never reported.
 - A solve takes a seed, and nothing draws unseeded randomness, so a run can be replayed
   ([ADR-005]).
+- One HTTP process, and one solver worker process per lane, started with `spawn`. A solve that
+  overruns its limit by 30 seconds is killed, and validation runs inside the limit ([TS §7.2],
+  [ADR-051], NFR-119).
+- Settings come from environment variables only, through pydantic-settings ([TS §7], NFR-03).
 - PyVRP never enters the product (FR-286): only `src/research` installs it.
   `tests/test_dependency_boundary.py` fails if it is installed or locked here. [ADR-040] (Accepted)
   adds import-linter, which checks imports only, so that test keeps its environment and lockfile
@@ -85,10 +94,15 @@ Run `just` recipes from the repository root, and `uv` from this folder.
 [ADR-040]: ../../../docs/ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md
 [ADR-043]: ../../../docs/ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md
 [ADR-044]: ../../../docs/ADRs/ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md
+[ADR-048]: ../../../docs/ADRs/ADR-048-travel-times-from-buckets-and-a-buffer-with-no-live-traffic.md
 [ADR-050]: ../../../docs/ADRs/ADR-050-re-optimization-conventions-live-only-in-the-python-problem-factory.md
-[TS §17.1]: ../../../docs/architecture/tech_stack.md#171-by-layer
+[ADR-051]: ../../../docs/ADRs/ADR-051-one-solver-worker-per-lane-killed-30-seconds-past-its-limit.md
+[ADR-092]: ../../../docs/ADRs/ADR-092-the-alns-package-runs-our-solvers-outer-loop.md
 [TS §2.1]: ../../../docs/architecture/tech_stack.md#21-the-dependency-rule
 [TS §4]: ../../../docs/architecture/tech_stack.md#4-repository-layout
+[TS §7]: ../../../docs/architecture/tech_stack.md#7-optimization-service-python
 [TS §7.1]: ../../../docs/architecture/tech_stack.md#71-the-hexagon
+[TS §7.2]: ../../../docs/architecture/tech_stack.md#72-process-model
+[DL §10.2]: ../../../docs/architecture/domain_layer/domain_layer_design.md#102-one-travel-time-model-in-python
 [DL §14]: ../../../docs/architecture/domain_layer/domain_layer_design.md#14-testing-the-domain
 [PL-8]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#8-or-tools-model
