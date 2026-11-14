@@ -1,6 +1,6 @@
 # ADR-007: PostgreSQL is the system of record, and Flyway migrations own its schema
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-041
 - **Date:** 2026-10-30
 
 ## Context

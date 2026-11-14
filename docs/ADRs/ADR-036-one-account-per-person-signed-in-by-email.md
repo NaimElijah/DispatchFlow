@@ -1,6 +1,6 @@
 # ADR-036: Each person has one account, signed in with their email, holding one or more roles
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-069; amended by ADR-045
 - **Date:** 2026-11-11
 
 ## Context

@@ -1,6 +1,6 @@
 # ADR-039: Both apps and the shared TypeScript packages live in one pnpm workspace
 
-- **Status:** Proposed; would supersede ADR-012 and amend ADR-035
+- **Status:** Accepted
 - **Date:** 2026-11-13
 
 ## Context
@@ -71,12 +71,12 @@ We put both apps and the shared packages in one pnpm workspace.
     ([TS §10][TS-10]).
   - **In the phone app, a dependency is added with `npx expo install`,** so its version matches the
     Expo SDK. Not checked under pnpm.
-- **Not decided here:**
+- **Decided in the M0 restructure pull request** (the owner, 2026-11-14), against the real tree:
   - whether the workspace keeps two ESLint majors, as [ADR-012] records (10 in the console, 9 in
     the driver app), and how `@dispatchflow/eslint-config` then loads under both;
   - where Prettier's settings live: they are not among the packages;
   - how Renovate keeps the pins [ADR-021] kept: TypeScript majors, and the versions the Expo SDK
-    fixes. [ADR-046] (Proposed) covers Renovate.
+    fixes. [ADR-046] covers Renovate.
 
 ## Consequences
 
@@ -144,7 +144,7 @@ We put both apps and the shared packages in one pnpm workspace.
 [ADR-037]: ADR-037-flat-layout-under-src-with-deploy-and-infra.md
 [ADR-038]: ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md
 [NFR-21]: ../requirements/requirements.md#nfr-21
-[PL-5]: ../init_impl_ref/technical_implementation_plan.md#5-repository-and-local-environment
+[PL-5]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#5-repository-and-local-environment
 [TS-10]: ../architecture/tech_stack.md#10-web-app
 [TS-12]: ../architecture/tech_stack.md#12-shared-typescript-packages
 [ADR-046]: ADR-046-renovate-replaces-dependabot-and-targets-dev.md

@@ -1,6 +1,6 @@
 # ADR-026: Live updates use server-sent events and push, and clients act through HTTP POST
 
-- **Status:** Accepted; extended by ADR-035
+- **Status:** Accepted; extended by ADR-035 and ADR-083
 - **Date:** 2026-11-04
 
 ## Context

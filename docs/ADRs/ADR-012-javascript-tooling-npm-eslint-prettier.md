@@ -1,6 +1,6 @@
 # ADR-012: Both frontend apps use npm, ESLint and Prettier, with TypeScript held at 6.0
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-039
 - **Date:** 2026-10-30
 
 ## Context

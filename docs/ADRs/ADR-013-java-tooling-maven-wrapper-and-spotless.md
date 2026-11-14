@@ -1,6 +1,6 @@
 # ADR-013: The core backend builds with the Maven wrapper and formats with Spotless and palantir-java-format
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-038
 - **Date:** 2026-10-30
 
 ## Context

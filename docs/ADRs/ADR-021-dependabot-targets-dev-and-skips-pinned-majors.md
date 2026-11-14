@@ -1,6 +1,6 @@
 # ADR-021: Dependabot opens its updates against `dev`, and skips the versions other ADRs pin
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-046
 - **Date:** 2026-10-30
 
 ## Context

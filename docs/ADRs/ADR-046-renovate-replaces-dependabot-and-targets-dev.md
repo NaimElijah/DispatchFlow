@@ -1,6 +1,6 @@
 # ADR-046: Renovate replaces Dependabot and keeps opening updates against `dev`
 
-- **Status:** Proposed; would supersede ADR-021 and amend ADR-015
+- **Status:** Accepted
 - **Date:** 2026-11-13
 
 ## Context
@@ -73,12 +73,12 @@ We replace Dependabot with Renovate, grouped weekly, and Renovate targets `dev`.
   a Conventional Commit (`.claude/CLAUDE.md`, Git).
 - **ADR-015 otherwise stands:** one workflow, one job per component, actions pinned to SHAs, a
   read-only token. Only its Dependabot bullet, which says Dependabot runs weekly, is replaced.
-- **Not decided here:** how Renovate runs, as a hosted app with write access to the repository, or
-  as a pinned workflow. The sources do not say. The choice sets what Renovate can write and who
-  holds its credentials.
-- **Open: the date digests start.** [TS §5] has Renovate turn tags into digests from the January
-  break, while [ADR-047] adopts digest pins at the pilot. The team picks one date. Until then
-  `Dockerfile` base images stay on tags ([ADR-019]), and Renovate keeps them current as tags.
+- **Renovate runs as Mend's hosted Renovate app,** decided by the owner on 2026-11-14. It is free,
+  holds its own credentials, and uses no GitHub Actions minutes. It gets write access to the
+  repository, which holds code only, never company data ([NFR-50]).
+- **Digest pins start in January,** with Renovate ([TS §5]; decided on 2026-11-14). From then,
+  `Dockerfile` base images and the images in `compose.dev.yaml` are pinned by digest ([ADR-047]),
+  and Renovate opens the bumps, grouped weekly. Until then they stay on tags ([ADR-019]).
 - **The configuration** is `renovate.json` at the repository root ([TS §4]).
 - **Adoption is the January break** ([TS §20]). Until then `.github/dependabot.yml` and ADR-021
   stand unchanged. The pull request that adds Renovate removes `.github/dependabot.yml`.
@@ -120,6 +120,8 @@ We replace Dependabot with Renovate, grouped weekly, and Renovate targets `dev`.
 - A skipped version moves on: the Expo SDK, a Java LTS, a Python line, TypeScript 7. Change the
   ignore in the same pull request as the pin, and check for new Expo SDKs each month ([ADR-021]).
 - The uv pins move together in one place Renovate reads. Drop the `uv-build` ignore.
+- Mend's hosted app changes its terms, its access or its price, or the repository comes to hold
+  company data. Move Renovate to a pinned workflow with our own token.
 
 [ADR-015]: ADR-015-ci-one-workflow-one-job-per-component.md
 [ADR-019]: ADR-019-container-images-run-as-non-root.md
@@ -131,3 +133,4 @@ We replace Dependabot with Renovate, grouped weekly, and Renovate targets `dev`.
 [TS §18]: ../architecture/tech_stack.md#18-cicd-and-supply-chain
 [TS §20]: ../architecture/tech_stack.md#20-adoption-order
 [TS §21]: ../architecture/tech_stack.md#21-version-baseline
+[NFR-50]: ../requirements/requirements.md#nfr-50

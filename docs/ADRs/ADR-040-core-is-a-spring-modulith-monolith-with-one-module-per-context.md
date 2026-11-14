@@ -1,6 +1,6 @@
 # ADR-040: The core is a Spring Modulith monolith with one module per bounded context, checked in CI
 
-- **Status:** Proposed; would amend ADR-001
+- **Status:** Accepted
 - **Date:** 2026-11-13
 
 ## Context
@@ -59,7 +59,8 @@ The context map and the enforcement it left open are settled here.
     and Audit, so each would depend on the other, and DL §2.1 requires that "no arrow points
     back". We read it this way: Audit depends only on the shared kernel, and `AuditLog` takes
     shared-kernel IDs (the account ID and the session ID), never an `Actor`. Access can then depend
-    on Audit, and the graph stays acyclic. To confirm with DL's owner.
+    on Audit, and the graph stays acyclic. The owner confirmed this reading on 2026-11-14, and
+    [DL §2.1][DL-21] states it.
   - Planning and Reporting reach the Python service over HTTP, through ports.
 - **A module's contract is three packages,** each marked `@NamedInterface`: `api` (what other
   modules call), `events` (what they hear) and `spi` (the ports it owns for others to implement).
@@ -78,12 +79,12 @@ The context map and the enforcement it left open are settled here.
 - **The dependency rule** is in [TS §2.1][TS-2-1]. In short:
   - the domain depends on the JDK, JSpecify annotations, the shared kernel and pure libraries;
   - the application layer depends on the domain, other modules' `api`, `spi` and `events`, and on
-    `@Transactional` and `@Retryable` from Spring, and on nothing else from it;
+    `@Transactional` from Spring, and on nothing else from it;
   - adapters depend on the application layer and frameworks, never on each other.
-  - **Open conflict in the sources.** TS §2.1 allows `@Transactional` and `@Retryable` in the
-    application layer, while [TS §6.2][TS-62] says `@Transactional` "is the only Spring annotation
-    allowed in this layer". The ArchUnit rule for the layer needs one of them. This ADR leaves it
-    for the team.
+  - **Only `@Transactional` in the application layer.** TS §2.1 also allowed `@Retryable` there,
+    while [TS §6.2][TS-62] allowed only `@Transactional`. On 2026-11-13 the owner settled it:
+    `@Retryable` and `@ConcurrencyLimit` sit on the adapter that makes the outside call, and an
+    ArchUnit rule checks that the application layer uses no other Spring annotation.
 - **Six purity rules,** from [DL §3.9][DL-39], each an ArchUnit test:
   1. the domain imports only the JDK, the shared kernel, its own domain, its own module's `events`
      package, JSpecify and pure libraries (libphonenumber, JTS). DL §3.9 does not list `events`, but
@@ -108,15 +109,19 @@ The context map and the enforcement it left open are settled here.
 
 - **Spring Modulith 2.1,** the line that matches Spring Boot 4.1 ([TS §6][TS-6], Modules row). The
   pom's parent is Spring Boot 4.1.2.
-- **Not decided here.** The implementation plan lists each of these as needing its own ADR
-  ([PL §25][PL-25]):
-  - the transaction rule ([DL §6.1][DL-61]) and the owner of every rule ([DL §3.7][DL-37]);
-  - when an event earns its place, and the event publication registry ([PL §11.3][PL-113]).
-- **Open points not yet on [PL §25][PL-25]'s list.** The plan does not list these two, and they
-  need a decision of their own:
-  - where the optimizer's solver adapters sit. [ADR-001] has a `solvers` package, and TS §4 puts
-    them under `adapters/outbound/solvers`;
-  - where the app-wide `web` package goes. The shared kernel's list has no place for it.
+- **Recorded in their own ADRs:**
+  - the transaction rule ([DL §6.1][DL-61]) and the owner of every rule ([DL §3.7][DL-37]):
+    [ADR-063];
+  - when an event earns its place, and the event publication registry: [ADR-064];
+  - facts outrank intent: [ADR-065]; the watchers: [ADR-066]; live arrival times: [ADR-067].
+- **The optimizer's solver adapters** sit under `adapters/outbound/solvers/`, as [TS §4][TS-4] draws
+  them, in place of [ADR-001]'s `solvers` package. The owner settled this on 2026-11-13.
+- **Not decided here: where the app-wide `web` package goes.** It holds what belongs to no module:
+  the security filter chain, the Problem Details handler and the code generated from the contract.
+  The shared kernel's list has no place for it. Its own ADR decides it before the first web adapter
+  merges (M0 to M1), once the generator's package layout is visible. The leaning to record there is
+  a `web` module that depends on no other module, with stable error codes ([ADR-043]) so its handler
+  imports no module.
 
 ## Consequences
 
@@ -145,12 +150,10 @@ The context map and the enforcement it left open are settled here.
 ## Alternatives considered
 
 - **A Maven multi-module build,** one Maven module per context. Rejected: it gives compile-time
-  boundaries, but nine modules of build configuration, and no event registry ([TS §6][TS-6]). The
-  event-registry reason depends on the pending events ADR ([PL §25][PL-25]), which this ADR does
-  not settle: if that ADR drops the registry, this reason falls with it.
+  boundaries, but nine modules of build configuration, and no event registry ([TS §6][TS-6]).
+  [ADR-064] keeps the registry, so this reason stands.
 - **ArchUnit alone.** Rejected: it checks packages, but has no event registry or module tests. It is
-  still used, for the purity rules. The same dependency on the pending events ADR applies to the
-  registry reason.
+  still used, for the purity rules.
 - **jMolecules' hexagonal rules.** Rejected: they check the same layering, at the price of
   annotating every type, and the package names already say it ([TS §2.2][TS-2-2]).
 - **One service per context.** Rejected: nine services on one VM, and distributed transactions
@@ -178,6 +181,12 @@ The context map and the enforcement it left open are settled here.
 [ADR-002]: ADR-002-core-backend-and-separate-optimization-service.md
 [ADR-004]: ADR-004-pluggable-solver-port.md
 [ADR-041]: ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md
+[ADR-043]: ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md
+[ADR-063]: ADR-063-a-transaction-changes-one-aggregate-and-every-rule-has-one-owner.md
+[ADR-064]: ADR-064-events-only-where-they-earn-their-place-through-the-modulith-registry.md
+[ADR-065]: ADR-065-facts-outrank-intent.md
+[ADR-066]: ADR-066-every-asynchronous-step-has-a-watcher.md
+[ADR-067]: ADR-067-live-arrivals-propagate-delay-along-stored-legs-when-asked.md
 [DL-1]: ../architecture/domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts
 [DL-13]: ../architecture/domain_layer/domain_layer_design.md#13-inside-each-module-hexagon
 [DL-21]: ../architecture/domain_layer/domain_layer_design.md#21-module-graph
@@ -188,9 +197,7 @@ The context map and the enforcement it left open are settled here.
 [DL-73]: ../architecture/domain_layer/domain_layer_design.md#73-shape-and-delivery
 [NFR-14]: ../requirements/requirements.md#nfr-14
 [NFR-133]: ../requirements/requirements.md#nfr-133
-[PL-25]: ../init_impl_ref/technical_implementation_plan.md#25-decisions-to-record-as-adrs
-[PL-111]: ../init_impl_ref/technical_implementation_plan.md#111-module-skeleton
-[PL-113]: ../init_impl_ref/technical_implementation_plan.md#113-event-publication-making-retries-happen
+[PL-111]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#111-module-skeleton
 [TS-1]: ../architecture/tech_stack.md#1-what-decides-close-calls
 [TS-2]: ../architecture/tech_stack.md#2-architecture-style
 [TS-4]: ../architecture/tech_stack.md#4-repository-layout

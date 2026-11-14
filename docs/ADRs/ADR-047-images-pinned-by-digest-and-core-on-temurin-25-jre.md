@@ -1,6 +1,6 @@
 # ADR-047: Images are pinned by digest, and the core runs on the Temurin 25 JRE
 
-- **Status:** Proposed; would amend ADR-019
+- **Status:** Accepted
 - **Date:** 2026-11-13
 
 ## Context
@@ -54,21 +54,22 @@ per service and its non-root user stand.
 - **Platform:** `linux/amd64`. GitHub Actions builds the images ([PL §23]). They start with one
   command and pass their health checks on Linux in CI, and on Windows and macOS through Docker
   Desktop, checked by hand before each pilot build ([NFR-208]).
-- **Not decided here: the registry and the pull.** The sources propose pushing to GHCR and
-  pulling by digest with an SSM command ([TS §15], the *Deployment* row; [PL §23]), but they leave
-  hosting on AWS as "ADR pending" ([TS §15], the *Hosting* row; [TS §22]; [NFR-209]). Where the
-  images are stored and how the VM pulls them are settled with the hosting ADR.
-- **Not decided here: how the core image gets the jOOQ code.** The core `Dockerfile` builds with
-  `./mvnw -B -ntp package -DskipTests` and has no Docker daemon, while jOOQ code generation
-  ([ADR-041]) needs Docker. Either the generated sources are committed, or the jar is built in CI
-  and copied into the image. This ADR leaves the choice open.
-- **Open: the date digests start.** [TS §5] has Renovate turn tags into digests ([ADR-046])
-  from the January break, while this ADR adopts digest pins at the pilot. The team picks one date.
+- **The registry and the pull:** CI pushes the images to GHCR, and an SSM command pulls them by
+  digest onto the VM ([TS §15], the *Deployment* row; [PL §23]). The owner confirmed that row on
+  2026-11-14, with hosting on AWS ([ADR-078], [NFR-209]).
+- **CI builds the core jar, and the image only copies it in** (decided by the owner on
+  2026-11-14). jOOQ code generation ([ADR-041]) needs Docker, which CI has for Testcontainers and the
+  image build does not. The generated code stays out of the repository, and the core `Dockerfile`
+  becomes a runtime-only image.
+- **Digest pins start in January,** when Renovate arrives ([ADR-046], [TS §5]), not at the pilot.
+  The owner chose this on 2026-11-14, because `compose.dev.yaml`'s images run on every laptop from
+  M0.
 - **Not adopted for now:** a GraalVM native image, and distroless images. Both are reconsidered
   after the pilot ([TS §6]).
-- **Adoption is the pilot** ([TS §15], [TS §20]). Until then ADR-019's tags stand.
-- **Not decided here:** image scanning. Its marker in [NFR-54] stays with its pending ADR. The
-  sources cite NFR-54 for the digest rule, and its text covers scanning only.
+- **Adoption:** digest pins from January; the runtime image settings from the pilot ([TS §15],
+  [TS §20]). Until then ADR-019's tags stand.
+- **Image scanning** is [ADR-072]'s: a pinned Trivy ([NFR-54]). The sources cite NFR-54 for the
+  digest rule, and its text covers scanning only.
 
 ## Consequences
 
@@ -80,8 +81,8 @@ per service and its non-root user stand.
 - **Hard:** a digest tells a reader nothing, so a bump is a Renovate pull request to review
   ([ADR-046]). Renovate arrives in January, before any image is deployed.
 - **Hard:** a pinned base image does not pick up the publisher's rebuilt security fixes until its
-  digest moves. ADR-019 noted that the audit does not scan base images ([ADR-016]), and image
-  scanning is still pending ([NFR-54], [TS §18]). Until both exist, nothing reports a vulnerable
+  digest moves. ADR-019 noted that the audit does not scan base images ([ADR-016]). [ADR-072]'s
+  Trivy scans them from January ([NFR-54], [TS §18]); until it runs, nothing reports a vulnerable
   pinned base.
 - **Hard:** with `MaxRAMPercentage` at 75, a quarter of the 3 GB is left for memory outside the
   heap. The memory limits are to be measured on the VM, not guessed ([TS §15], the *VM size* row).
@@ -120,11 +121,13 @@ per service and its non-root user stand.
 [ADR-041]: ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md
 [ADR-042]: ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md
 [ADR-046]: ADR-046-renovate-replaces-dependabot-and-targets-dev.md
+[ADR-072]: ADR-072-images-scanned-by-pinned-trivy-and-secrets-by-gitleaks.md
+[ADR-078]: ADR-078-hosting-on-one-aws-vm-in-tel-aviv-built-with-terraform.md
 [NFR-54]: ../requirements/requirements.md#nfr-54
 [NFR-208]: ../requirements/requirements.md#nfr-208
 [NFR-209]: ../requirements/requirements.md#nfr-209
-[PL §5]: ../init_impl_ref/technical_implementation_plan.md#5-repository-and-local-environment
-[PL §23]: ../init_impl_ref/technical_implementation_plan.md#23-deployment-and-operations
+[PL §5]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#5-repository-and-local-environment
+[PL §23]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#23-deployment-and-operations
 [TS §1]: ../architecture/tech_stack.md#1-what-decides-close-calls
 [TS §5]: ../architecture/tech_stack.md#5-development-environment-and-workflow
 [TS §6]: ../architecture/tech_stack.md#6-core-service-java
@@ -132,4 +135,3 @@ per service and its non-root user stand.
 [TS §15]: ../architecture/tech_stack.md#15-infrastructure-and-operations
 [TS §18]: ../architecture/tech_stack.md#18-cicd-and-supply-chain
 [TS §20]: ../architecture/tech_stack.md#20-adoption-order
-[TS §22]: ../architecture/tech_stack.md#22-open-decisions

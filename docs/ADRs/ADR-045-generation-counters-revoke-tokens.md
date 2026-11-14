@@ -1,6 +1,6 @@
 # ADR-045: Generation counters on the user and the session revoke tokens
 
-- **Status:** Proposed; would amend ADR-036
+- **Status:** Accepted
 - **Date:** 2026-11-13
 
 ## Context
@@ -61,7 +61,7 @@ older tokens. Everything else in ADR-036 stands.
     without deactivating them; [FR-188]: an access token issued before a session is ended is
     refused at once). [PL §16.1] cites FR-187 among the revocation triggers without naming the
     counter. This ADR reads it as one increment of the user counter, which ends that user's open
-    streams through the event ([NFR-188]). To confirm with the plan's owner.
+    streams through the event ([NFR-188]). The owner confirmed this reading on 2026-11-14.
 - **The session counter** goes up when the session confirms its password ([NFR-214], [NFR-227]).
   That refuses the session's older tokens and leaves the user's other sessions alone.
 - **A sign-out** revokes its own session ([NFR-89]), which the check above reads from the session's
@@ -142,8 +142,8 @@ older tokens. Everything else in ADR-036 stands.
 [NFR-188]: ../requirements/requirements.md#nfr-188
 [NFR-214]: ../requirements/requirements.md#nfr-214
 [NFR-227]: ../requirements/requirements.md#nfr-227
-[PL §3.3]: ../init_impl_ref/technical_implementation_plan.md#33-semester-b-track
-[PL §16]: ../init_impl_ref/technical_implementation_plan.md#16-access-and-security
-[PL §16.1]: ../init_impl_ref/technical_implementation_plan.md#161-tokens
-[PL §24]: ../init_impl_ref/technical_implementation_plan.md#24-testing
+[PL §3.3]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#33-semester-b-track
+[PL §16]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#16-access-and-security
+[PL §16.1]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#161-tokens
+[PL §24]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#24-testing
 [TS §6]: ../architecture/tech_stack.md#6-core-service-java
