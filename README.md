@@ -284,9 +284,9 @@ onward record decisions taken while the domain layer is built.
 ## Status and limitations
 
 **Pre-alpha.** Shipped: a skeleton for each of the five components, with its build, formatter,
-linter, tests and CI job; the two contracts; and the solver's and the core backend's health
-probes. The domain layer is being built ahead of its milestones: the core's shared kernel with its
-purity rules, the domains of `access`, `fleet`, `orders` and `planning`, and the solver's domain
+linter, tests and CI job; the two contracts; and the solver's and the core backend's health probes.
+The domain layer is being built ahead of its milestones: the core's shared kernel with its purity
+rules, the domains of `access`, `audit`, `fleet`, `orders` and `planning`, and the solver's domain
 for daily solves and re-optimizations (the validator, the objective and the drop reasons). Nothing
 calls them yet.
 
