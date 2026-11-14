@@ -1,9 +1,15 @@
-"""The rules the feasibility validator checks in a daily solve, and how it compares limits.
+"""The rules the feasibility validator checks, and how it compares limits.
 
-Each `RuleId` is named after the requirement row it enforces (BR-15, BR-16, NFR-169). The
-re-optimization rules (BR-10, BR-23, BR-51, BR-52, BR-106 to BR-108) join with ADR-050's
-conventions. BR-122 has no member: a door stop is always re-timed to be served on arrival, and
-a wait a solver plans there is replaced, never rejected (FR-403).
+Each `RuleId` is named after the requirement row it enforces (BR-15, BR-16, NFR-169). BR-10, BR-51,
+BR-52, BR-106 and BR-108 can break only in a re-optimization, whose conventions the problem carries
+(ADR-050, ADR-105). Some rows have no member:
+
+- BR-122: a door stop is always re-timed to be served on arrival, and a wait a solver plans there
+  is replaced, never rejected (FR-403).
+- BR-23, BR-24, BR-79, BR-80, BR-91 and BR-117: conventions the factory applies, which the
+  validator then checks as BR-10, BR-51 and BR-106.
+- BR-107: a late stop in a re-optimization is flagged, never refused, so it is a finding of the
+  report, not a violation.
 """
 
 from enum import StrEnum
@@ -31,7 +37,11 @@ class RuleId(StrEnum):
     BR_06 = "BR-06"
     """A route returns to its end depot no later than its driver's shift end."""
     BR_07 = "BR-07"
-    """Every order is served by exactly one stop or dropped, never both and never twice."""
+    """Every order is served by exactly one stop or dropped, never both and never twice. A locked
+    order is served by its report, so BR-10 judges it instead."""
+    BR_10 = "BR-10"
+    """A re-optimization never moves a locked stop: one reported done or in progress appears on no
+    route and is not dropped."""
     BR_14 = "BR-14"
     """A stop is an order with a location, reached and left by road (BR-14, FR-66)."""
     BR_20 = "BR-20"
@@ -40,11 +50,24 @@ class RuleId(StrEnum):
     """A vehicle drives at most one route, and so does a driver."""
     BR_40 = "BR-40"
     """A route starts at its vehicle's start depot and ends at its end depot, on a vehicle that can
-    drive a route (FR-197)."""
+    drive a route (FR-197). In a re-optimization BR-51 judges the start, and BR-52 a withdrawn
+    route's end."""
+    BR_51 = "BR-51"
+    """In a re-optimization, a route starts where its vehicle is placed: its stop in progress, its
+    usable position, its last reported stop or its start depot (BR-24, BR-79, BR-80)."""
+    BR_52 = "BR-52"
+    """A withdrawn route ends at its last reported stop."""
     BR_46 = "BR-46"
     """A route returns no later than its end depot closes."""
     BR_105 = "BR-105"
     """Where breaks are reserved, a route on a shift of 6 hours or more returns 45 minutes early."""
+    BR_106 = "BR-106"
+    """In a re-optimization, a stop stays on its vehicle, and a stop that may move goes only to an
+    active vehicle; it never goes to one that is unavailable, without a driver or out of shift
+    (BR-117)."""
+    BR_108 = "BR-108"
+    """A re-optimization adds no stop to a finished route, and a withdrawn route counts as
+    finished."""
     BR_119 = "BR-119"
     """A leave-at-door stop is served within its driver's shift and on its date."""
     FR_91 = "FR-91"

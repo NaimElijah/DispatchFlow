@@ -1,6 +1,6 @@
 # ADR-100: K's L covers door windows outside a shift, and *no vehicle available* is a drop reason
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-105
 - **Date:** 2026-11-14
 
 ## Context

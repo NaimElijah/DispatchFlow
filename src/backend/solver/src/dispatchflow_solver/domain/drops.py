@@ -6,6 +6,10 @@ the core turns into a sentence. It times an order alone through the validator's 
 `check_route`, never a copy of it, so a drop reason cannot disagree with what `validate` would say
 (BR-42).
 
+In a re-optimization a stop that stays on its vehicle is judged on that vehicle alone, as an order
+is judged only on the vehicles allowed to serve it (ADR-053, BR-106). A stop with a hard window
+may be served late there (BR-107), so *time window* is never a re-optimization's reason.
+
 `Problem` and `Pin` appear here in annotations only, under `TYPE_CHECKING`: `problem` imports
 this module at run time, and this module never imports it.
 """
@@ -20,6 +24,7 @@ from dispatchflow_solver.domain.feasibility import (
     check_route,
     shift_return_limit,
 )
+from dispatchflow_solver.domain.indices import NO_INDEX
 from dispatchflow_solver.domain.rules import RuleId
 from dispatchflow_solver.domain.solution import Route, Solution
 
@@ -43,7 +48,10 @@ class NoVehicleAvailable:
 
 @dataclass(frozen=True, slots=True)
 class UnreachableLocation:
-    """No usable vehicle can reach the order by road and return to its end depot (FR-66)."""
+    """No usable vehicle can reach the order by road and return to its end depot (FR-66).
+
+    In a re-optimization, also given when the one vehicle its stop stays on cannot (BR-106).
+    """
 
 
 @dataclass(frozen=True, slots=True)
@@ -171,7 +179,8 @@ def explain_drop(problem: Problem, order: int, solution: Solution) -> DropReason
     8. displaced: it would fit alone.
 
     "Alone" is a one-stop route on a usable vehicle with its rostered driver, judged by
-    `check_route`.
+    `check_route`. In a re-optimization a stop that stays on its vehicle is tried on that vehicle
+    only, and when it cannot reach the stop by road the reason is *unreachable location*.
 
     Args:
         problem: The problem.
@@ -182,13 +191,16 @@ def explain_drop(problem: Problem, order: int, solution: Solution) -> DropReason
         The reason, with its fact.
 
     Raises:
-        ValueError: If the order is past the problem or the solution serves it.
+        ValueError: If the order is past the problem, the solution serves it, or its stop is
+            locked, so its report serves it (BR-10).
     """
     orders = problem.orders
     if not 0 <= order < len(orders):
         raise ValueError(f"order {order} is not one of {len(orders)}")
     if order in solution.served():
         raise ValueError(f"order {order} is served, not dropped")
+    if problem.is_locked(order):
+        raise ValueError(f"order {order} is locked by its report, not dropped")
     exclusion = orders.exclusion[order]
     if exclusion is OrderExclusion.MISSING_LOCATION:
         return MissingLocation()
@@ -204,6 +216,10 @@ def explain_drop(problem: Problem, order: int, solution: Solution) -> DropReason
             assert_never(exclusion)
     if order in problem.removed_by_dispatcher:
         return RemovedByDispatcher()
+    context = problem.reoptimization
+    if context is not None and context.stays_on[order] != NO_INDEX:
+        # The problem holds only an active vehicle here, so the candidate is usable.
+        candidates = (int(context.stays_on[order]),)
     pin = orders.pin(order)
     if pin is not None:
         candidates = tuple(vehicle for vehicle in candidates if _honours(problem, vehicle, pin))
@@ -268,6 +284,10 @@ def _alone(problem: Problem, order: int, vehicle: int) -> _Alone:
 
 def _first_failing_limit(problem: Problem, order: int, trials: list[_Alone]) -> DropReason:
     reachable = [trial for trial in trials if RuleId.BR_14 not in trial.rules]
+    if not reachable:
+        # Only a stop that stays on its vehicle gets here: a routable order is reached by some
+        # usable vehicle (FR-66), and a pin's failure is decided before this.
+        return UnreachableLocation()
     carrying = [trial for trial in reachable if RuleId.BR_05 not in trial.rules]
     if not carrying:
         return _capacity(problem, order, [trial.vehicle for trial in reachable])
@@ -310,8 +330,8 @@ def _honours(problem: Problem, vehicle: int, pin: Pin) -> bool:
 
 
 def _capacity(problem: Problem, order: int, vehicles: list[int]) -> Capacity:
-    # Never empty: the date has a usable vehicle, and a routable order is reached by one of them
-    # (FR-66), so max() needs no default.
+    # Never empty: the caller returns before it when no trial reaches the order, so max() needs no
+    # default.
     capacities = problem.vehicles
     return Capacity(
         weight_kg=float(problem.orders.weight_kg[order]),
