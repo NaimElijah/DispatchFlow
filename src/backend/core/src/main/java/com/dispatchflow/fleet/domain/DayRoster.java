@@ -114,8 +114,10 @@ public final class DayRoster extends AggregateRoot {
      * Fills the values of this date that nobody has set from each driver's default (FR-79, FR-189,
      * ADR-103). A driver not yet on the roster gets their default shift and vehicle. A driver
      * already on it keeps their shift and availability, and gets their default vehicle only if
-     * their vehicle is not set; a vehicle or "no vehicle" a dispatcher chose stays. Filling again
-     * changes nothing, and a later default for a driver already in the list is ignored.
+     * their vehicle is not set, on a day off too; a vehicle or "no vehicle" a dispatcher chose
+     * stays. A default with no hours, for a weekday the driver's weekly shifts leave off, adds no
+     * entry and is not reported. Filling again changes nothing, and a later default for a driver
+     * already in the list is ignored.
      *
      * <p>A driver whose default can't be used is skipped and reported, and every other driver is
      * still filled: the driver is not active, the default vehicle is retired or unknown or another
@@ -137,7 +139,9 @@ public final class DayRoster extends AggregateRoot {
             AccountId driver = fallback.driver();
             RosterEntry current = entries.get(driver);
             boolean nothingToFill = current != null && !(current.vehicle() instanceof RosterVehicle.NotSet);
-            if (!seen.add(driver) || nothingToFill) {
+            // On a day off a driver not yet on the roster isn't rostered, so there is nothing to report.
+            boolean dayOffAndNotRostered = current == null && fallback.hours().isEmpty();
+            if (!seen.add(driver) || nothingToFill || dayOffAndNotRostered) {
                 continue;
             }
             Optional<DomainError> refusal = refusalOf(fallback, current, active);
@@ -149,7 +153,11 @@ public final class DayRoster extends AggregateRoot {
             entries.put(
                     driver,
                     current == null
-                            ? new RosterEntry(driver, Shift.on(date, fallback.hours()), vehicle, Availability.AVAILABLE)
+                            ? new RosterEntry(
+                                    driver,
+                                    Shift.on(date, fallback.hours().orElseThrow()),
+                                    vehicle,
+                                    Availability.AVAILABLE)
                             : current.withVehicle(vehicle));
             filled.add(driver);
         }
@@ -164,7 +172,7 @@ public final class DayRoster extends AggregateRoot {
         }
         if (current == null) {
             try {
-                Shift.on(date, fallback.hours());
+                Shift.on(date, fallback.hours().orElseThrow());
             } catch (RuleViolation skippedHour) {
                 // The shift's refusal is the reason this driver is skipped, so it is reported, not thrown.
                 return Optional.of(skippedHour.error());
@@ -189,6 +197,9 @@ public final class DayRoster extends AggregateRoot {
      *     date (BR-111)
      */
     public void changeShift(AccountId driver, ShiftHours hours, Standing standing) {
+        Objects.requireNonNull(driver, "driver");
+        Objects.requireNonNull(hours, "hours");
+        Objects.requireNonNull(standing, "standing");
         requireActiveDriver(driver, standing);
         Shift shift = Shift.on(date, hours);
         RosterEntry current = entries.get(driver);
@@ -213,6 +224,10 @@ public final class DayRoster extends AggregateRoot {
      *     drives another vehicle
      */
     public void assign(AccountId driver, VehicleId vehicle, Standing driverStanding, Standing vehicleStanding) {
+        Objects.requireNonNull(driver, "driver");
+        Objects.requireNonNull(vehicle, "vehicle");
+        Objects.requireNonNull(driverStanding, "driverStanding");
+        Objects.requireNonNull(vehicleStanding, "vehicleStanding");
         requireActiveDriver(driver, driverStanding);
         requireActiveVehicle(vehicle, vehicleStanding);
         RosterEntry entry = rostered(driver);
@@ -273,6 +288,8 @@ public final class DayRoster extends AggregateRoot {
      *     register doesn't hold it
      */
     public void markVehicleUnavailable(VehicleId vehicle, Standing standing) {
+        Objects.requireNonNull(vehicle, "vehicle");
+        Objects.requireNonNull(standing, "standing");
         requireActiveVehicle(vehicle, standing);
         unavailableVehicles.add(vehicle);
     }
@@ -340,6 +357,9 @@ public final class DayRoster extends AggregateRoot {
      *     {@link DriverMarkedUnavailable} or {@link DriverAlreadyHasVehicle}
      */
     public Assignability checkAssignable(VehicleId vehicle, AccountId driver, Standing standing) {
+        Objects.requireNonNull(vehicle, "vehicle");
+        Objects.requireNonNull(driver, "driver");
+        Objects.requireNonNull(standing, "standing");
         if (standing != Standing.ACTIVE) {
             return new Assignability.NotAssignable(new NotAnActiveDriver(driver));
         }
@@ -375,7 +395,7 @@ public final class DayRoster extends AggregateRoot {
     }
 
     private RosterEntry rostered(AccountId driver) {
-        RosterEntry entry = entries.get(driver);
+        RosterEntry entry = entries.get(Objects.requireNonNull(driver, "driver"));
         if (entry == null) {
             throw new RuleViolation(new DriverNotRostered(driver));
         }

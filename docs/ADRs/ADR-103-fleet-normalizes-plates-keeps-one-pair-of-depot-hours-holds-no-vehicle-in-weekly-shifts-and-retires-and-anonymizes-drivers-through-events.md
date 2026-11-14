@@ -57,7 +57,7 @@ On 2026-11-14 the owner, Naim Elijah, decided the six rules:
    weekday order. The driver's default vehicle ([FR-06]) fills the vehicle. The template fills only
    the per-date values a dispatcher has not set ([FR-79]).
 5. **A driver record is anonymized with its account.** When Access anonymizes an account under
-   [NFR-258], it raises `AccountAnonymized`, which Access's own decision records. A Fleet listener,
+   [NFR-258], it raises Access's `AccountAnonymized` event ([ADR-104]). A Fleet listener,
    added in a later milestone, calls `Driver.anonymizeWithAccount`, which removes the driver's name
    and phone whatever the record's state, active or retired. An active driver anonymized this way is
    no longer active. The path from [NFR-184], a year after retirement, stays as it is.
@@ -140,6 +140,7 @@ still gets the default vehicle, and filling again changes nothing. Shift hours b
 [ADR-062]: ADR-062-fleet-checks-the-driver-role-when-it-reads.md
 [ADR-064]: ADR-064-events-only-where-they-earn-their-place-through-the-modulith-registry.md
 [ADR-088]: ADR-088-israel-local-time-for-every-date-and-schedule.md
+[ADR-104]: ADR-104-the-company-profile-holds-customer-defaults-and-capabilities-follow-the-role-matrix.md
 [BR-46]: ../requirements/requirements.md#routing-constraints
 [BR-48]: ../requirements/requirements.md#access
 [BR-111]: ../requirements/requirements.md#time-and-limits

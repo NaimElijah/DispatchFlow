@@ -6,7 +6,9 @@ import java.util.Objects;
 
 /**
  * The fleet register's stored state: what {@link FleetRegister#snapshot()} returns and {@link
- * FleetRegister#restore} rebuilds from.
+ * FleetRegister#restore} rebuilds from. The persistence adapter rebuilds its names with {@link
+ * VehicleName#ofStored} and {@link DepotName#ofStored}, so a stored name the text rule refuses is
+ * an incident (ADR-106).
  *
  * @param version the version it was loaded at
  * @param depots every depot, active and retired, in the order they were added

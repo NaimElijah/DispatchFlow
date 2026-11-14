@@ -289,6 +289,37 @@ class FleetRegisterTest {
     }
 
     @Test
+    void GivenAnActiveVehicleNamedVan1_WhenAnotherIsAddedAsVan1WithANoBreakSpace_ThenDuplicateVehicleName() {
+        FleetRegister register = aRegister()
+                .withVehicle(new VehicleSnapshot(
+                        vehicleId(1),
+                        new VehicleDetails(VehicleName.of("Van 1"), Plate.of("P1"), VAN_CAPACITY, NORTH, NORTH),
+                        Optional.empty()))
+                .build();
+        VehicleDetails sameName =
+                new VehicleDetails(VehicleName.of("Van 1\u00a0"), Plate.of("P2"), VAN_CAPACITY, NORTH, NORTH);
+
+        assertRefusedUnchanged(
+                register, () -> register.addVehicle(NEW_VEHICLE, sameName), new DuplicateVehicleName(vehicleId(1)));
+    }
+
+    @Test
+    void
+            GivenAnActiveVehicleNamedVan1_WhenAnotherIsAddedAsLowerCaseVan1_ThenItIsAcceptedBecauseNamesAreCaseSensitive() {
+        FleetRegister register = aRegister()
+                .withVehicle(new VehicleSnapshot(
+                        vehicleId(1),
+                        new VehicleDetails(VehicleName.of("Van 1"), Plate.of("P1"), VAN_CAPACITY, NORTH, NORTH),
+                        Optional.empty()))
+                .build();
+
+        register.addVehicle(
+                NEW_VEHICLE, new VehicleDetails(VehicleName.of("van 1"), Plate.of("P2"), VAN_CAPACITY, NORTH, NORTH));
+
+        assertThat(register.standingOf(NEW_VEHICLE)).isEqualTo(Standing.ACTIVE);
+    }
+
+    @Test
     void GivenARetiredVehicleWithAName_WhenAnotherIsAddedWithThatNameAndPlate_ThenItIsAccepted() {
         FleetRegister register = aRegister().withVehicle(retiredVehicle(1)).build();
 

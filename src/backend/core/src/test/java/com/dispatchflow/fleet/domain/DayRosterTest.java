@@ -28,8 +28,10 @@ import com.dispatchflow.shared.SharedKernelError.NonexistentLocalTime;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.VehicleId;
 import com.dispatchflow.shared.Version;
+import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -66,7 +68,7 @@ class DayRosterTest {
     }
 
     private static RosterDefault activeDefault(AccountId driver, ShiftHours hours, VehicleId vehicle) {
-        return new RosterDefault(driver, hours, vehicle, Standing.ACTIVE);
+        return RosterDefault.working(driver, hours, vehicle, Standing.ACTIVE);
     }
 
     private static RosterVehicle drives(VehicleId vehicle) {
@@ -112,6 +114,36 @@ class DayRosterTest {
 
         assertThat(roster.entryOf(DANA)).contains(entry(DANA, LATE, drives(V1), Availability.AVAILABLE));
         assertThat(fill.filled()).containsExactly(DANA);
+    }
+
+    @Test
+    void GivenAMondayOnlyTemplateAndATuesdayShiftSetByHand_WhenTheRosterIsFilled_ThenTheDriverGetsTheDefaultVehicle() {
+        Driver dana = DriverBuilder.aDriver()
+                .withWeeklyShifts(WeeklyShifts.of(Map.of(DayOfWeek.MONDAY, EARLY)))
+                .build();
+        DayRoster tuesday = DayRoster.open(ORDINARY_DAY);
+        tuesday.changeShift(DANA, LATE, Standing.ACTIVE);
+
+        RosterFill fill = tuesday.fill(
+                dana.rosterDefaultOn(ORDINARY_DAY, Standing.ACTIVE).stream().toList(), ALL_ACTIVE);
+
+        assertThat(tuesday.entryOf(DANA))
+                .contains(entry(DANA, LATE, drives(DriverBuilder.DEFAULT_VEHICLE), Availability.AVAILABLE));
+        assertThat(fill).isEqualTo(new RosterFill(List.of(DANA), List.of()));
+    }
+
+    @Test
+    void GivenADayOffDefaultForADriverNotOnTheRoster_WhenTheRosterIsFilled_ThenTheyAreNotAddedAndNothingIsReported() {
+        DayRoster roster = aRoster().build();
+
+        RosterFill fill = roster.fill(
+                List.of(
+                        RosterDefault.dayOff(DANA, V1, Standing.ACTIVE),
+                        RosterDefault.dayOff(OMER, V2, Standing.NOT_ACTIVE)),
+                ALL_ACTIVE);
+
+        assertThat(roster.snapshot().entries()).isEmpty();
+        assertThat(fill).isEqualTo(new RosterFill(List.of(), List.of()));
     }
 
     @Test
@@ -241,8 +273,8 @@ class DayRosterTest {
     void GivenADriverWhoseAccountIsNotAnActiveDriver_WhenTheRosterIsFilled_ThenTheyAreSkippedWithNotAnActiveDriver() {
         DayRoster roster = aRoster().withDriver(DANA).build();
         List<RosterDefault> defaults = List.of(
-                new RosterDefault(DANA, DAY_SHIFT, V1, Standing.NOT_ACTIVE),
-                new RosterDefault(OMER, EARLY, V2, Standing.NOT_ACTIVE),
+                RosterDefault.working(DANA, DAY_SHIFT, V1, Standing.NOT_ACTIVE),
+                RosterDefault.working(OMER, EARLY, V2, Standing.NOT_ACTIVE),
                 activeDefault(NOA, EARLY, V3));
 
         RosterFill fill = roster.fill(defaults, ALL_ACTIVE);

@@ -200,7 +200,7 @@ kernel's `PersonalData` marker ([ADR-106]).
 | `Generation` | Access | A counter that only grows; tokens issued under an older one are refused (NFR-177) | — |
 | `ActiveAdmins` | Access | The active Admin accounts, read under row locks; refuses a change that leaves fewer than two (BR-19) | `TooFewAdmins` |
 | `Capacity`, `Plate`, `ShiftHours`, `Shift`, `DepotHours`, `WeeklyShifts` | Fleet | A vehicle's weight and volume limits; a normalized plate ([ADR-103]); a shift's hours, with the end after the start; those hours placed on a date, where both must exist (FR-190, BR-111); one opening and closing time for every date (FR-129); per weekday an optional shift and no vehicle (FR-79) | `InvalidPlate`, `InvalidShift`, `InvalidDepotHours` |
-| `VehicleName`, `DepotName`, `DriverName` | Fleet | Trimmed, non-blank names; a driver's is personal data | `BlankVehicleName`, `BlankDepotName`, `BlankDriverName` |
+| `VehicleName`, `DepotName`, `DriverName` | Fleet | Names read as `PlainText` `NAME` ([ADR-106]) and non-blank; a driver's is personal data | `BlankVehicleName`, `BlankDepotName`, `BlankDriverName`, `TextTooLong`, `TextHasForbiddenCharacters` |
 | `PlanUses`, `Standing`, `RosterDefault`, `Assignability`, `RosterVehicle`, `RosterFill` | Fleet | The facts Fleet's methods judge: the plans that use a record (FR-305); Access's and the register's answer on whether a driver or vehicle is active; a driver's default for a date (FR-189); the roster's answer to a hand-over (FR-302). A roster entry's vehicle: not set, none, or a vehicle (FR-79); and what a fill filled and skipped ([ADR-103]) | — |
 | `Address`, `NormalizedAddress` | Customers & Orders | The address as typed, and the form addresses are matched by (FR-310, Q-94 #4) | `BlankAddress` |
 | `CustomerMatch` | Customers & Orders | None, one, or several active customers for a normalized address; several can't be used (FR-310 to FR-312) | `AmbiguousAddress` |
@@ -379,7 +379,7 @@ in Semester B.
 | A shift ends after it starts and lies on its date (FR-190), and neither end falls in the hour the clock skips (BR-111) | `ShiftHours`; `Shift` | `InvalidShift`; `NonexistentLocalTime` |
 | Depot hours are one opening and one closing time for every date, and close after they open (FR-129, BR-46, [ADR-103]) | `DepotHours` | `InvalidDepotHours` |
 | A plate is trimmed, loses its spaces and hyphens, has its Latin letters upper-cased, and is then 1 to 10 ASCII letters or digits ([ADR-103]) | `Plate` | `InvalidPlate` |
-| A vehicle's, depot's or driver's name is not blank | `VehicleName`, `DepotName`, `DriverName` | `BlankVehicleName`, `BlankDepotName`, `BlankDriverName` |
+| A vehicle's, depot's or driver's name is read as `PlainText` `NAME` ([ADR-106]) and is not blank | `VehicleName`, `DepotName`, `DriverName` | `BlankVehicleName`, `BlankDepotName`, `BlankDriverName`, `TextTooLong`, `TextHasForbiddenCharacters` |
 
 A roster read that feeds a solve keeps only drivers whose standing is active, asked of Access each time
 ([ADR-062], FR-193): a driver on a filled roster may since have retired or lost the Driver role.

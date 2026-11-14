@@ -68,6 +68,8 @@ public final class Driver extends AggregateRoot {
      */
     public static Driver register(
             AccountId id, DriverContact contact, ShiftHours defaultShift, VehicleId defaultVehicle, Standing account) {
+        Objects.requireNonNull(id, "id");
+        Objects.requireNonNull(account, "account");
         if (account != Standing.ACTIVE) {
             throw new RuleViolation(new NotAnActiveDriver(id));
         }
@@ -224,13 +226,14 @@ public final class Driver extends AggregateRoot {
     /**
      * What this driver's records give a date by default (FR-189, FR-79, ADR-103). With no weekly
      * shifts, every date gets the default shift. With weekly shifts, the date's weekday decides: a
-     * day with a shift gets it, and a day without one gets nothing. The vehicle is always the
-     * default vehicle, because weekly shifts hold none.
+     * day with a shift gets it, and a day without one gets no hours. The vehicle is always the
+     * default vehicle, because weekly shifts hold none, so a day off still gives it to an entry a
+     * dispatcher made by hand.
      *
      * @param date the delivery date
      * @param account Access's answer on whether the account is active and holds the Driver role
      *     (ADR-062); the default carries it, so a fill skips a driver whose account is not
-     * @return the default, or empty for a day off or a driver record that is retired or anonymized
+     * @return the default, or empty for a driver record that is retired or anonymized
      */
     public Optional<RosterDefault> rosterDefaultOn(DeliveryDate date, Standing account) {
         Objects.requireNonNull(account, "account");
@@ -240,7 +243,7 @@ public final class Driver extends AggregateRoot {
         Optional<ShiftHours> hours = weeklyShifts.isEmpty()
                 ? Optional.of(defaultShift)
                 : weeklyShifts.shiftOn(date.value().getDayOfWeek());
-        return hours.map(shift -> new RosterDefault(id, shift, defaultVehicle, account));
+        return Optional.of(new RosterDefault(id, hours, defaultVehicle, account));
     }
 
     private void requireActive() {

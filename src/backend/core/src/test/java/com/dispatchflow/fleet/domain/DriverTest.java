@@ -129,9 +129,9 @@ class DriverTest {
         Driver driver = aDriver().build();
 
         assertThat(driver.rosterDefaultOn(SUNDAY, Standing.ACTIVE))
-                .contains(new RosterDefault(DANA, DEFAULT_SHIFT, DEFAULT_VEHICLE, Standing.ACTIVE));
+                .contains(RosterDefault.working(DANA, DEFAULT_SHIFT, DEFAULT_VEHICLE, Standing.ACTIVE));
         assertThat(driver.rosterDefaultOn(MONDAY, Standing.ACTIVE))
-                .contains(new RosterDefault(DANA, DEFAULT_SHIFT, DEFAULT_VEHICLE, Standing.ACTIVE));
+                .contains(RosterDefault.working(DANA, DEFAULT_SHIFT, DEFAULT_VEHICLE, Standing.ACTIVE));
     }
 
     @Test
@@ -141,16 +141,17 @@ class DriverTest {
                 .build();
 
         assertThat(driver.rosterDefaultOn(SUNDAY, Standing.ACTIVE))
-                .contains(new RosterDefault(DANA, MORNING, DEFAULT_VEHICLE, Standing.ACTIVE));
+                .contains(RosterDefault.working(DANA, MORNING, DEFAULT_VEHICLE, Standing.ACTIVE));
     }
 
     @Test
-    void GivenWeeklyShifts_WhenADayWithoutAShiftIsAsked_ThenThereIsNoDefault() {
+    void GivenWeeklyShifts_WhenADayWithoutAShiftIsAsked_ThenTheDefaultHasNoHoursButTheDefaultVehicle() {
         Driver driver = aDriver()
                 .withWeeklyShifts(WeeklyShifts.of(Map.of(DayOfWeek.SUNDAY, MORNING)))
                 .build();
 
-        assertThat(driver.rosterDefaultOn(MONDAY, Standing.ACTIVE)).isEmpty();
+        assertThat(driver.rosterDefaultOn(MONDAY, Standing.ACTIVE))
+                .contains(RosterDefault.dayOff(DANA, DEFAULT_VEHICLE, Standing.ACTIVE));
     }
 
     @Test
@@ -158,7 +159,7 @@ class DriverTest {
         Driver driver = aDriver().build();
 
         assertThat(driver.rosterDefaultOn(SUNDAY, Standing.NOT_ACTIVE))
-                .contains(new RosterDefault(DANA, DEFAULT_SHIFT, DEFAULT_VEHICLE, Standing.NOT_ACTIVE));
+                .contains(RosterDefault.working(DANA, DEFAULT_SHIFT, DEFAULT_VEHICLE, Standing.NOT_ACTIVE));
     }
 
     @Test

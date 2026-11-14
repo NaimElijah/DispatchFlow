@@ -1,6 +1,7 @@
 package com.dispatchflow.fleet.domain;
 
 import com.dispatchflow.shared.AccountId;
+import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.VehicleId;
 import com.dispatchflow.shared.Version;
 import java.util.Objects;
@@ -8,7 +9,9 @@ import java.util.Optional;
 
 /**
  * A driver's stored state: what {@link Driver#snapshot()} returns and {@link Driver#restore}
- * rebuilds from.
+ * rebuilds from. It holds the driver's name and phone until they are anonymized, so it is personal
+ * data (ADR-106), and {@link #toString()} leaves the contact out. The persistence adapter rebuilds
+ * the name with {@link DriverName#ofStored} and the phone with {@code PhoneNumber.ofStored}.
  *
  * @param id the driver's account, which keys the driver
  * @param version the version it was loaded at
@@ -25,7 +28,8 @@ public record DriverSnapshot(
         Optional<DriverContact> contact,
         ShiftHours defaultShift,
         VehicleId defaultVehicle,
-        WeeklyShifts weeklyShifts) {
+        WeeklyShifts weeklyShifts)
+        implements PersonalData {
 
     /** Checks every field is present. */
     public DriverSnapshot {
@@ -36,5 +40,17 @@ public record DriverSnapshot(
         Objects.requireNonNull(defaultShift, "defaultShift");
         Objects.requireNonNull(defaultVehicle, "defaultVehicle");
         Objects.requireNonNull(weeklyShifts, "weeklyShifts");
+    }
+
+    /**
+     * A form that names the driver by account and state and leaves their name and phone out.
+     *
+     * @return the snapshot without its contact
+     */
+    @Override
+    public String toString() {
+        return "DriverSnapshot[id=" + id + ", version=" + version + ", status=" + status + ", contact="
+                + (contact.isPresent() ? "redacted" : "none") + ", defaultShift=" + defaultShift
+                + ", defaultVehicle=" + defaultVehicle + ", weeklyShifts=" + weeklyShifts + "]";
     }
 }
