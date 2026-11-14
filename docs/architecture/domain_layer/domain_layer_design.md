@@ -131,8 +131,10 @@ Fleet and Customers & Orders have no relationship. Neither does any pair not in 
 5. **The shared kernel is tiny.** It holds the typed IDs (UUIDv7) of every aggregate and every entity
    another context names (§3.1), and nine values that mean the same everywhere: `DeliveryDate`,
    `IsraelDateTime`, `DaySeconds`, `TimeWindow`, `GeoPoint`, `Weight`, `Volume`, `Priority` and
-   `PhoneNumber`. Nothing with behaviour specific to one context goes there, and a change to it needs the
-   agreement of every module's owner.
+   `PhoneNumber`. It also holds the building blocks every module's domain uses: `DomainError`,
+   `RuleViolation(s)`, `StoredStateInvalid`, `Version`, `AggregateRoot`, `DomainEvent`, `EventId` and
+   `FreshIds` ([ADR-097]). Nothing with behaviour specific to one context goes there, and a change to it
+   needs the agreement of every module's owner.
 
 **Splitting a module into a service later** changes adapters only: its API calls become HTTP clients
 generated from a new contract, its events go through a message broker (Spring Modulith can externalize
@@ -1501,3 +1503,4 @@ Nothing. These ADRs record the decisions of this document:
 [ADR-075]: ../../ADRs/ADR-075-retention-deletes-records-and-anonymizes-people-in-place.md
 [ADR-083]: ../../ADRs/ADR-083-admins-and-dispatchers-get-alerts-by-stream-and-push-in-the-phone-app.md
 [ADR-086]: ../../ADRs/ADR-086-csv-imports-upload-then-confirm-within-an-hour.md
+[ADR-097]: ../../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md

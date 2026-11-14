@@ -214,7 +214,7 @@ comments. The rules apply to people and to coding assistants alike.
 
 | Layer | Covers | Command |
 |---|---|---|
-| Core unit (`*Test`) | Domain and use cases, no I/O; today only the web error handler (`UnexpectedErrorHandlerTest`), as no bounded context exists yet | `just core-check` |
+| Core unit (`*Test`) | Domain and use cases, no I/O. Today: the shared kernel's values, the domain purity rules (ArchUnit) and the web error handler; no bounded context exists yet | `just core-check` |
 | Core integration (`*IT`) | Against a real PostgreSQL in a container | `just core-check` |
 | Solver | HTTP adapter, dependency boundary | `just solver-check` |
 | Research | Its environment: the solver and PyVRP are installed | `just research-check` |

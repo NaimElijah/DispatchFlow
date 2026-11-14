@@ -41,7 +41,10 @@ today.
 
 `core` has no controller, entity or Flyway migration: `src/main/resources/db/migration/` holds
 only a `.gitkeep`. `solver`'s `domain`, `application` and `solvers` folders hold only `.gitkeep`.
-There is no bounded context yet.
+`core` holds the shared kernel (`com.dispatchflow.shared`): typed IDs, the nine shared values and
+the domain's building blocks
+([ADR-097](../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md)). Nothing calls
+it yet, and no bounded context exists in code.
 
 ## Communication
 
