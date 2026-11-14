@@ -756,7 +756,7 @@ Rules are grouped by subject.
 | <a id="nfr-212"></a>NFR-212 | The token travels in the link's fragment; the page posts it, sends no referrer, caches nothing, and removes the token from the address bar and history as it loads. Priority: Must. |  |  |
 | <a id="nfr-213"></a>NFR-213 | A recovery, set-password or email-change link opens the web app over HTTPS, or the phone app only through verified app links: Universal Links on iOS, App Links on Android. Priority: Must. |  |  |
 | <a id="nfr-223"></a>NFR-223 | Emails that carry a link token have link and open tracking turned off. Priority: Must. |  |  |
-| <a id="nfr-224"></a>NFR-224 | Only setting the password, or confirming the email, spends a token; a newer link of a kind voids older ones of that kind, and a change of email or password voids every unspent link. Priority: Must. |  |  |
+| <a id="nfr-224"></a>NFR-224 | Only setting the password, or confirming the email, spends a token; a newer link of a kind voids older ones of that kind, and an email or password change, a deactivation or ending a user's sessions voids every unspent link. Priority: Must. |  |  |
 | <a id="nfr-92"></a>NFR-92 | Every refusal of a refresh token looks the same. |  |  |
 | <a id="nfr-23"></a>NFR-23 | Every API call that changes something, and every sign-in, refresh and sign-out, leaves one audit record. Reads are not audited. |  |  |
 | <a id="nfr-229"></a>NFR-229 | AWS Systems Manager (SSM) records who opened each session on the VM and when (CloudTrail), and records no session stream, so the reads made inside a session are not audited. |  |  |
