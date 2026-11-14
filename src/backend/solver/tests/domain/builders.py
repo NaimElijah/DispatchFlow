@@ -1,4 +1,4 @@
-"""Test builders for small daily problems on a line.
+"""Test builders for small daily problems and re-optimizations on a line.
 
 Every location sits at a point on a line, and a leg's base duration is the distance between its
 two points, in seconds; its metres are ten times that. With the static travel model, every time in
@@ -6,7 +6,7 @@ a test is plain arithmetic.
 """
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Final
 
 import numpy as np
@@ -15,11 +15,20 @@ import numpy.typing as npt
 from dispatchflow_solver.domain.factory import (
     DepotSpec,
     DriverSpec,
+    LiveVehicleSpec,
     OrderSpec,
     ProblemFactory,
+    Report,
+    StopFact,
+    VehiclePosition,
     VehicleSpec,
+    VehicleState,
 )
-from dispatchflow_solver.domain.penalty import DEFAULT_DOOR_WINDOW_RATE
+from dispatchflow_solver.domain.penalty import (
+    DEFAULT_DOOR_WINDOW_RATE,
+    DEFAULT_LATENESS_RATE,
+    DEFAULT_MOVED_STOP_COST,
+)
 from dispatchflow_solver.domain.problem import Pin, Problem
 from dispatchflow_solver.domain.travel_time import TravelTimeModel
 
@@ -157,4 +166,94 @@ class DayBuilder:
             door_window_rate=self.door_window_rate,
             breaks_reserved=self.breaks_reserved,
             removed_by_dispatcher=frozenset(self.removed_by_dispatcher),
+        )
+
+
+def delivered(order: int, at: float) -> StopFact:
+    return StopFact(order, Report.DELIVERED, at)
+
+
+def failed(order: int, at: float) -> StopFact:
+    return StopFact(order, Report.FAILED, at)
+
+
+def arrived(order: int, at: float) -> StopFact:
+    return StopFact(order, Report.ARRIVED, at)
+
+
+def position(
+    received_at: float, *, latitude: float = 32.0, longitude: float = 34.8, in_area: bool = True
+) -> VehiclePosition:
+    return VehiclePosition(
+        latitude=latitude, longitude=longitude, received_at=received_at, in_service_area=in_area
+    )
+
+
+@dataclass
+class LiveDay:
+    """A re-optimization of a `DayBuilder` date: each vehicle is active, with no route and no
+    position, until a test says otherwise."""
+
+    day: DayBuilder
+    now: float = 0.0
+    states: dict[int, VehicleState] = field(default_factory=dict)
+    stops: dict[int, list[StopFact]] = field(default_factory=dict)
+    positions: dict[int, tuple[VehiclePosition, int, VehiclePosition | None]] = field(
+        default_factory=dict
+    )
+    without_driver: set[int] = field(default_factory=set)
+    put_back: set[int] = field(default_factory=set)
+    lateness_rate: float = DEFAULT_LATENESS_RATE
+    moved_stop_cost: float = DEFAULT_MOVED_STOP_COST
+
+    def route(self, vehicle: int, *stops: StopFact | int) -> None:
+        """Sets a vehicle's current route; a bare order is a stop with nothing reported."""
+        self.stops[vehicle] = [
+            stop if isinstance(stop, StopFact) else StopFact(stop) for stop in stops
+        ]
+
+    def position_at(
+        self,
+        vehicle: int,
+        at: float,
+        latest: VehiclePosition,
+        previous: VehiclePosition | None = None,
+    ) -> int:
+        """Gives a vehicle its latest position, at a point on the line with roads both ways."""
+        location = self.day.location(at)
+        self.positions[vehicle] = (latest, location, previous)
+        return location
+
+    def build(self) -> Problem:
+        day = self.day
+        durations = day.durations()
+        vehicles = []
+        for index, spec in enumerate(day.vehicles):
+            latest, location, previous = self.positions.get(index, (None, None, None))
+            vehicles.append(
+                LiveVehicleSpec(
+                    vehicle=replace(spec, driver=None) if index in self.without_driver else spec,
+                    state=self.states.get(index, VehicleState.ACTIVE),
+                    stops=tuple(self.stops.get(index, [])),
+                    latest_position=latest,
+                    previous_position=previous,
+                    position_location=location,
+                )
+            )
+        return ProblemFactory.reoptimization(
+            now=self.now,
+            orders=day.orders,
+            depots=day.depots,
+            vehicles=vehicles,
+            drivers=day.drivers,
+            put_back=frozenset(self.put_back),
+            durations=durations,
+            distances=durations * METRES_PER_SECOND,
+            travel=day.travel,
+            day_length=day.day_length,
+            fixed_vehicle_cost=day.fixed_vehicle_cost,
+            door_window_rate=day.door_window_rate,
+            lateness_rate=self.lateness_rate,
+            moved_stop_cost=self.moved_stop_cost,
+            breaks_reserved=day.breaks_reserved,
         )

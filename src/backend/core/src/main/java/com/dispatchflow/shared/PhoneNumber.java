@@ -23,7 +23,7 @@ import org.jspecify.annotations.Nullable;
  * <p>A phone number is personal data: {@link #toString()} hides it, and a refusal names no number,
  * so neither can carry it into a log.
  */
-public final class PhoneNumber {
+public final class PhoneNumber implements PersonalData {
 
     private static final String ISRAEL = "IL";
     private static final PhoneNumberUtil PHONE_NUMBERS = PhoneNumberUtil.getInstance();

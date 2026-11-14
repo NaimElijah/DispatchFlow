@@ -9,6 +9,7 @@ from dispatchflow_solver.domain.penalty import DEFAULT_DOOR_WINDOW_RATE, Penalty
 def a_scale(**terms: float) -> PenaltyScale:
     values = {
         "longest_shift": 100.0,
+        "longest_door_outside_window": 0.0,
         "largest_travel": 10.0,
         "fixed_vehicle_cost": 0.0,
         "door_window_rate": DEFAULT_DOOR_WINDOW_RATE,
@@ -42,10 +43,33 @@ def test_given_a_tuned_door_rate_when_scale_built_then_k_follows_it() -> None:
     assert a_scale(door_window_rate=3).drop_unit == 3 * 100 + 2 * 10 + 1
 
 
+def test_given_door_time_outside_longer_than_the_shift_when_scale_built_then_l_is_that_time() -> (
+    None
+):
+    # ADR-100: L is the larger of the longest shift and the longest door time outside a window.
+    assert a_scale(longest_door_outside_window=250).drop_unit == 5 * 250 + 2 * 10 + 1
+
+
+def test_given_door_time_outside_shorter_than_the_shift_when_scale_built_then_l_is_the_shift() -> (
+    None
+):
+    assert a_scale(longest_door_outside_window=60).drop_unit == 5 * 100 + 2 * 10 + 1
+
+
 @pytest.mark.parametrize(
     ("terms", "match"),
     [
         pytest.param({"longest_shift": -1}, "longest_shift", id="negative shift"),
+        pytest.param(
+            {"longest_door_outside_window": -1},
+            "longest_door_outside_window",
+            id="negative door time outside",
+        ),
+        pytest.param(
+            {"longest_door_outside_window": math.inf},
+            "longest_door_outside_window",
+            id="infinite door time outside",
+        ),
         pytest.param({"largest_travel": -1}, "largest_travel", id="negative travel"),
         pytest.param({"largest_travel": math.inf}, "largest_travel", id="infinite travel"),
         pytest.param({"fixed_vehicle_cost": -1}, "fixed_vehicle_cost", id="negative fixed cost"),

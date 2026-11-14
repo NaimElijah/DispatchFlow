@@ -1,6 +1,6 @@
 # ADR-049: An order's drop penalty is K times 6 minus its priority, with K = 5L + 2T + F + 1
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-100 and ADR-105
 - **Date:** 2026-11-13
 
 ## Context
