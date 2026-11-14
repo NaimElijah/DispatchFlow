@@ -33,7 +33,8 @@ from dispatchflow_solver.domain.solution import Solution
 from dispatchflow_solver.domain.travel_time import TravelTimeModel
 
 MATRIX_ENTRY_MAX: Final = 2_147_483_647
-"""The largest matrix entry: the contract carries the matrices as int32 (ADR-052)."""
+"""The largest matrix entry: the contract carries the matrices as int32 (ADR-052). A window time is
+held to the same magnitude in seconds (ADR-100)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,6 +128,23 @@ class Orders:
             lambda i: (
                 f"orders.window_start[{i}] and window_end[{i}] must be finite, the start no "
                 f"later than the end: [{self.window_start[i]}, {self.window_end[i]}]"
+            ),
+        )
+        # A window may lie off the date, but one door window sets K for the whole date (ADR-100),
+        # so a magnitude past the matrices' int32 range of seconds (ADR-052) is refused before it
+        # can drown the travel terms or overflow K.
+        _refuse_first(
+            np.abs(self.window_start) > MATRIX_ENTRY_MAX,
+            lambda i: (
+                f"orders.window_start[{i}] must lie within {MATRIX_ENTRY_MAX} seconds of the "
+                f"date's start: {self.window_start[i]}"
+            ),
+        )
+        _refuse_first(
+            np.abs(self.window_end) > MATRIX_ENTRY_MAX,
+            lambda i: (
+                f"orders.window_end[{i}] must lie within {MATRIX_ENTRY_MAX} seconds of the "
+                f"date's start: {self.window_end[i]}"
             ),
         )
         _refuse_first(
@@ -325,8 +343,8 @@ class Problem:
     Build it with `ProblemFactory`, which decides each convention once and writes it here
     (ADR-050). The re-optimization context joins as a further field.
 
-    A date with no usable vehicle drops every order, and FR-223 names no reason for that; until the
-    owner decides one, `explain_drop` reports *capacity* with a largest capacity of 0.
+    A date with no usable vehicle drops every order, and `explain_drop` reports *no vehicle
+    available* for each one that has a location (ADR-100).
 
     Attributes:
         orders: Every order of the date, excluded ones included.

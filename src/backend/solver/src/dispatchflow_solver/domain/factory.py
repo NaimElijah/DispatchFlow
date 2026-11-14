@@ -9,6 +9,7 @@ import math
 import numbers
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Final
 
 import numpy as np
 import numpy.typing as npt
@@ -30,6 +31,9 @@ from dispatchflow_solver.domain.problem import (
     unreachable_locations,
 )
 from dispatchflow_solver.domain.travel_time import TravelTimeModel
+
+_INT64: Final = np.iinfo(np.int64)
+"""Every index and priority is held as int64, so a whole number outside it is refused."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,9 +138,11 @@ class ProblemFactory:
           depot, is excluded as *unreachable location* (FR-66). One unreachable depot excludes
           only its own vehicles, so it never sinks the date (FR-18). With no usable vehicle,
           nothing is judged unreachable: there is no depot to judge from.
-        - Each order's drop penalty is K x (6 - priority), and K comes from the longest shift, the
-          largest finite matrix entry at the highest factor, unbuffered and rounded up, and the
-          fixed vehicle cost (BR-54, BR-126).
+        - Each order's drop penalty is K x (6 - priority), and K comes from L, from T (the largest
+          finite matrix entry at the highest factor, unbuffered and rounded up) and from the fixed
+          vehicle cost F (BR-54, BR-126). L is the larger of the longest shift and the longest a
+          door stop can be served outside its window within a usable vehicle's rostered shift
+          (ADR-100).
 
         The scoring inputs have no defaults, so the study and the product cannot score the same
         routes differently by leaving one out (BR-58).
@@ -166,7 +172,7 @@ class ProblemFactory:
         distance_matrix = require_matrix("distances", distances)
         require_same_roads(duration_matrix, distance_matrix)
         size = duration_matrix.shape[0]
-        vehicle_struct = _vehicles(vehicles, depots, duration_matrix)
+        vehicle_struct = _vehicles(vehicles, depots, len(drivers), duration_matrix)
         driver_struct = Drivers(
             shift_start=_floats("drivers.shift_start", [d.shift_start for d in drivers]),
             shift_end=_floats("drivers.shift_end", [d.shift_end for d in drivers]),
@@ -180,6 +186,9 @@ class ProblemFactory:
         )
         penalties = PenaltyScale.for_date(
             longest_shift=longest_shift,
+            longest_door_outside_window=_longest_door_outside_window(
+                order_struct, vehicle_struct, driver_struct
+            ),
             largest_travel=largest_travel,
             fixed_vehicle_cost=fixed_vehicle_cost,
             door_window_rate=door_window_rate,
@@ -205,6 +214,7 @@ class ProblemFactory:
 def _vehicles(
     vehicles: Sequence[VehicleSpec],
     depots: Sequence[DepotSpec],
+    driver_count: int,
     durations: npt.NDArray[np.float64],
 ) -> Vehicles:
     for index, depot in enumerate(depots):
@@ -217,6 +227,12 @@ def _vehicles(
                     f"vehicles[{index}].{field_name} {depot_index} is not one of "
                     f"{len(depots)} depots"
                 )
+        # Checked here as well as in Problem, because K reads each rostered driver's shift first.
+        driver = _require_int(f"vehicles.driver[{index}]", vehicle.driver)
+        if not 0 <= driver < driver_count:
+            raise InvalidProblemError(
+                f"vehicles.driver[{index}] is {driver}, not one of {driver_count}"
+            )
         volume = vehicle.volume_capacity_l
         if volume is not None and not math.isfinite(volume):
             raise InvalidProblemError(
@@ -321,6 +337,23 @@ def _orders(
     )
 
 
+def _longest_door_outside_window(orders: Orders, vehicles: Vehicles, drivers: Drivers) -> float:
+    # A door stop is served on arrival, no earlier than its rostered driver's shift start, and
+    # BR-119 refuses a start after the shift end. So over every door order and usable vehicle,
+    # max(0, w0 - s0, s1 - w1) bounds the time outside the window. Each term depends on the order
+    # alone and the shift alone, so the largest over all pairs is taken from the extremes, in one
+    # pass over each. It is not capped at the day's length: with every window on the date it is at
+    # most that already, because every shift lies on the date (FR-190), and a cap would understate
+    # it for a window the problem holds off the date (ADR-100).
+    door = orders.leave_at_door
+    rostered = vehicles.driver[np.array(vehicles.usable(), dtype=np.int64)]
+    if not door.any() or rostered.size == 0:
+        return 0.0
+    early = orders.window_start[door].max() - drivers.shift_start[rostered].min()
+    late = drivers.shift_end[rostered].max() - orders.window_end[door].min()
+    return float(max(early, late, 0.0))
+
+
 def _floats(name: str, values: Sequence[float]) -> npt.NDArray[np.float64]:
     return converted(name, values, np.float64)
 
@@ -336,7 +369,12 @@ def _require_int(name: str, value: object) -> int:
     # priority or an index is a bug. Only whole numbers of an integer type pass.
     if isinstance(value, bool | np.bool_) or not isinstance(value, numbers.Integral):
         raise InvalidProblemError(f"{name} must be an int: {value!r}")
-    return int(value)
+    whole = int(value)
+    # Checked before any message formats the value: CPython refuses to print an int of more than
+    # 4,300 digits, which would raise a bare ValueError instead.
+    if not _INT64.min <= whole <= _INT64.max:
+        raise InvalidProblemError(f"{name} is outside the int64 range")
+    return whole
 
 
 def _order_location(order: OrderSpec) -> int:

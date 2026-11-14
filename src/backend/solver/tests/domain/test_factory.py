@@ -15,7 +15,7 @@ from dispatchflow_solver.domain.factory import (
 )
 from dispatchflow_solver.domain.penalty import DEFAULT_DOOR_WINDOW_RATE
 from dispatchflow_solver.domain.problem import Pin
-from dispatchflow_solver.domain.solution import Solution
+from dispatchflow_solver.domain.solution import Route, Solution
 from dispatchflow_solver.domain.travel_time import TravelBucket, TravelTimeModel
 from tests.domain.builders import DAY, DayBuilder
 
@@ -128,8 +128,8 @@ def test_given_an_order_reachable_only_from_the_second_depot_when_built_then_rou
 
 
 def test_given_no_usable_vehicle_when_built_then_no_order_is_judged_unreachable() -> None:
-    # With no depot to judge from, reachability is not decided. FR-223 has no reason for such a
-    # date's drops; that waits on the owner.
+    # With no depot to judge from, reachability is not decided: such a date's drops are *no
+    # vehicle available* (ADR-100).
     day = DayBuilder()
     nowhere = day.depot(None)
     day.vehicle(start_depot=nowhere, end_depot=nowhere)
@@ -175,6 +175,103 @@ def test_given_a_day_when_built_then_k_is_five_l_plus_two_t_plus_f_plus_one() ->
     problem = day.build()
 
     assert problem.penalties.drop_unit == 5 * 500 + 2 * 450 + 7 + 1
+
+
+HOUR = 3_600
+NOON_TO_EIGHT = (12 * HOUR, 20 * HOUR)
+
+
+@pytest.mark.parametrize(
+    ("window", "outside", "at"),
+    [
+        # 06:00-07:00: served at 20:00 at the latest, 13 hours after the window ends.
+        pytest.param((6 * HOUR, 7 * HOUR), 13 * HOUR, 14_000, id="window before the shift"),
+        # 21:00-22:00: served at 12:00 at the earliest, 9 hours before the window opens.
+        pytest.param((21 * HOUR, 22 * HOUR), 9 * HOUR, 500, id="window after the shift"),
+    ],
+)
+def test_given_a_door_window_wholly_outside_the_shift_when_built_then_k_exceeds_serving_it(
+    window: tuple[float, float], outside: float, at: float
+) -> None:
+    # BR-121, ADR-100: the 8-hour shift's L would give 5 x 28,800 + 2T + 1, and serving the order
+    # alone costs more than that. L is the longest door time outside the window instead.
+    day = DayBuilder()
+    day.vehicle(shift=NOON_TO_EIGHT)
+    day.order(at, window=window, door=True, priority=5)
+    problem = day.build()
+    serve = Solution(
+        routes=(Route(vehicle=0, driver=0, start=0, end=0, stops=(0,)),), dropped=frozenset()
+    )
+    report = problem.validate(serve)
+
+    cost = problem.cost(serve, report.timings)
+
+    assert report.accepted
+    assert cost.travel + cost.door_window > 5 * 8 * HOUR + 2 * at + 1
+    assert problem.penalties.drop_unit == 5 * outside + 2 * at + 1
+    assert cost.travel + cost.door_window < problem.penalties.drop_unit
+
+
+def test_given_door_windows_meeting_their_shifts_when_built_then_l_is_the_longest_shift() -> None:
+    day = DayBuilder()
+    day.vehicle(shift=NOON_TO_EIGHT)
+    day.order(100, window=(13 * HOUR, 14 * HOUR), door=True)
+
+    assert day.build().penalties.drop_unit == 5 * 8 * HOUR + 2 * 100 + 1
+
+
+def test_given_hard_windows_outside_the_shift_when_built_then_they_do_not_widen_l() -> None:
+    # A hard window outside the shift cannot be served at all, so it charges no window penalty.
+    day = DayBuilder()
+    day.vehicle(shift=NOON_TO_EIGHT)
+    day.order(100, window=(0, HOUR))
+
+    assert day.build().penalties.drop_unit == 5 * 8 * HOUR + 2 * 100 + 1
+
+
+def test_given_door_windows_and_several_shifts_when_built_then_the_largest_pair_sets_l() -> None:
+    # Order 0's window opens 18 h after vehicle 0's shift starts, the largest pair. An idle driver
+    # and a vehicle that cannot drive, both on 23:00-24:00, would give order 1 23 h: they drive no
+    # route, so they are left out.
+    day = DayBuilder()
+    day.vehicle(shift=(2 * HOUR, 4 * HOUR))
+    day.vehicle(shift=(6 * HOUR, 8 * HOUR))
+    day.driver((23 * HOUR, 24 * HOUR))
+    nowhere = day.depot(None)
+    day.vehicle(start_depot=nowhere, end_depot=nowhere, shift=(23 * HOUR, 24 * HOUR))
+    day.order(100, window=(20 * HOUR, 21 * HOUR), door=True)
+    day.order(100, window=(0, HOUR), door=True)
+
+    assert day.build().penalties.drop_unit == 5 * 18 * HOUR + 2 * 100 + 1
+
+
+def test_given_door_orders_and_no_usable_vehicle_when_built_then_l_is_the_longest_shift() -> None:
+    # The excluded vehicle's 2-hour shift still counts as a shift on the date, but no route can
+    # serve the door order, so its window 18 h after that shift starts adds nothing: D is 0.
+    day = DayBuilder()
+    nowhere = day.depot(None)
+    day.vehicle(start_depot=nowhere, end_depot=nowhere, shift=(0, 2 * HOUR))
+    day.order(100, window=(20 * HOUR, 21 * HOUR), door=True)
+
+    assert day.build().penalties.drop_unit == 5 * 2 * HOUR + 2 * 100 + 1
+
+
+@pytest.mark.parametrize(
+    ("window", "outside"),
+    [
+        pytest.param((INT32_MAX, INT32_MAX), INT32_MAX, id="latest window"),
+        pytest.param((-INT32_MAX, -INT32_MAX), DAY + INT32_MAX, id="earliest window"),
+    ],
+)
+def test_given_a_door_window_at_the_int32_bound_when_built_then_accepted_and_k_covers_it(
+    window: tuple[float, float], outside: float
+) -> None:
+    # ADR-100: a window off the date stays legal up to the matrices' int32 range (ADR-052).
+    day = DayBuilder()
+    day.vehicle()
+    day.order(100, window=window, door=True)
+
+    assert day.build().penalties.drop_unit == 5 * outside + 2 * 100 + 1
 
 
 def test_given_priorities_when_built_then_each_order_carries_its_drop_penalty() -> None:
@@ -333,6 +430,38 @@ REFUSED = [
     ),
     pytest.param({"vehicles": [a_vehicle(start_depot=4)]}, r"vehicles\[0\].*4", id="depot index"),
     pytest.param({"vehicles": [a_vehicle(driver=2)]}, r"driver\[0\]", id="driver index"),
+    pytest.param(
+        # K reads the rostered driver's shift for a door order before Problem checks the index.
+        {"orders": [an_order(leave_at_door=True)], "vehicles": [a_vehicle(driver=2)]},
+        r"vehicles\.driver\[0\] is 2, not one of 1",
+        id="driver index with a door order",
+    ),
+    pytest.param(
+        {"vehicles": [a_vehicle(driver=10**5000)]},
+        r"vehicles\.driver\[0\] is outside the int64 range",
+        id="driver index of 5,001 digits",
+    ),
+    pytest.param(
+        {"orders": [an_order(priority=10**5000)]},
+        r"orders\.priority\[0\] is outside the int64 range",
+        id="priority of 5,001 digits",
+    ),
+    pytest.param(
+        {"orders": [an_order(window_end=INT32_MAX + 1)]},
+        r"orders\.window_end\[0\]",
+        id="window end past int32",
+    ),
+    pytest.param(
+        {"orders": [an_order(window_start=-(INT32_MAX + 1))]},
+        r"orders\.window_start\[0\]",
+        id="window start before -int32",
+    ),
+    pytest.param(
+        # Even an order kept out of the search: its window would still set K.
+        {"orders": [an_order(location=None, leave_at_door=True, window_end=1e18)]},
+        r"orders\.window_end\[0\]",
+        id="excluded door window at 1e18",
+    ),
     pytest.param(
         {"vehicles": [a_vehicle(weight_capacity_kg=-1)]},
         r"weight_capacity_kg\[0\]",

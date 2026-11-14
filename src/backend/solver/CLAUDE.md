@@ -46,11 +46,6 @@ draws it, where `nearest_neighbour` joins them. Neither is in the tree yet.
   claim ([ADR-099]).
 - The domain caps no counts, because research instances are exempt from the plan limits (BR-101,
   FR-390).
-- **Open points waiting on the owner,** each noted where the code depends on it:
-  - K's bound fails for a door order whose window lies wholly outside its driver's shift
-    (BR-121, [ADR-049]; `penalty.py`).
-  - FR-223 names no drop reason for a date with no usable vehicle, so such drops report *capacity*
-    against 0 kg (`drops.py`).
 - Travel time comes in three kinds. The validator and the ETAs use buffered times. The objective's
   travel cost uses per-bucket times without the buffer. The search's upper bound is the highest
   factor × (1 + buffer). An arc takes the factor of the bucket it departs in ([DL §10.2],
@@ -118,7 +113,6 @@ Run `just` recipes from the repository root, and `uv` from this folder.
 [ADR-043]: ../../../docs/ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md
 [ADR-044]: ../../../docs/ADRs/ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md
 [ADR-048]: ../../../docs/ADRs/ADR-048-travel-times-from-buckets-and-a-buffer-with-no-live-traffic.md
-[ADR-049]: ../../../docs/ADRs/ADR-049-drop-penalty-unit-k-scaled-by-priority.md
 [ADR-050]: ../../../docs/ADRs/ADR-050-re-optimization-conventions-live-only-in-the-python-problem-factory.md
 [ADR-051]: ../../../docs/ADRs/ADR-051-one-solver-worker-per-lane-killed-30-seconds-past-its-limit.md
 [ADR-092]: ../../../docs/ADRs/ADR-092-the-alns-package-runs-our-solvers-outer-loop.md

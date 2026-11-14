@@ -24,7 +24,8 @@ the hexagon and the process model). The ADRs cover:
 - the objective and re-optimization rules
   ([ADR-029](../ADRs/ADR-029-solver-objective-and-re-optimization-rules.md),
   [ADR-048](../ADRs/ADR-048-travel-times-from-buckets-and-a-buffer-with-no-live-traffic.md),
-  [ADR-049](../ADRs/ADR-049-drop-penalty-unit-k-scaled-by-priority.md));
+  [ADR-049](../ADRs/ADR-049-drop-penalty-unit-k-scaled-by-priority.md),
+  [ADR-100](../ADRs/ADR-100-k-covers-door-windows-outside-a-shift-and-no-vehicle-is-a-drop-reason.md));
 - capacity ([ADR-061](../ADRs/ADR-061-capacity-is-weight-and-volume.md)) and the re-optimization
   conventions
   ([ADR-050](../ADRs/ADR-050-re-optimization-conventions-live-only-in-the-python-problem-factory.md));

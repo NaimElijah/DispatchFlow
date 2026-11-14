@@ -692,17 +692,18 @@ methods are the rules:
   - `validate(solution) -> ValidationReport`: feasibility, one rule per `RuleId` named after its BR
     (BR-15, BR-16).
   - `cost(solution, timings)`: the objective (BR-09, BR-56, BR-115, BR-120).
-  - `explain_drop(order, solution) -> DropReason`: why an order was dropped, from no location to
-    displaced by others (FR-144).
+  - `explain_drop(order, solution) -> DropReason`: why an order was dropped, from no location, then
+    no vehicle available on the date, to displaced by others (FR-144, FR-223, [ADR-100]).
 - **`ProblemFactory`** builds a `Problem` from a daily request, or from a live state with every
   re-optimization convention applied (BR-10, BR-23, BR-24, BR-79, BR-80, BR-106 to BR-108, BR-117; [ADR-050]).
 - **`Solution`**, **`TravelTimeModel`** (the only place bucket factors and the buffer are applied:
   FR-227, FR-321, FR-322) and **`PenaltyScale`** (the drop unit and the penalty rates) are values.
-- **The drop unit** is K = 5L + 2T + F + 1, in seconds, where L is the longest shift on the date, T the
-  largest entry of the date's unbuffered per-bucket matrix at the highest factor, and F the fixed vehicle
-  cost (BR-126). Dropping an order of priority p costs K × (6 − p) (BR-54), so even a priority-5 order
-  costs at least K, and no solve drops an order to save its detour (BR-55), to avoid a window penalty
-  (BR-121) or to save a vehicle (BR-08) ([ADR-049], Q-93 #1).
+- **The drop unit** is K = 5L + 2T + F + 1, in seconds, where L is the larger of the date's longest
+  shift and the longest a leave-at-door stop can spend outside its window during a shift, T the largest
+  entry of the date's unbuffered per-bucket matrix at the highest factor, and F the fixed vehicle cost
+  (BR-126). Dropping an order of priority p costs K × (6 − p) (BR-54), so even a priority-5 order costs
+  at least K, and no solve drops an order to save its detour (BR-55), to avoid a window penalty
+  (BR-121) or to save a vehicle (BR-08) ([ADR-049], [ADR-100], Q-93 #1).
 
 The modules are split by size (`feasibility.py`, `objective.py`, `drops.py`), and `Problem`'s methods
 delegate to them. Every solver, edit check, publishing re-check and research score goes through them.
@@ -1484,7 +1485,7 @@ Nothing. These ADRs record the decisions of this document:
 - [ADR-067]: live arrivals propagate delay along stored legs when asked (§10.4).
 - [ADR-040]: the core is a Spring Modulith monolith with one module per context (§2, §3.9, §13).
 - [ADR-041]: one PostgreSQL schema per module (§2.3).
-- [ADR-048], [ADR-049]: travel times from buckets and a buffer, and the drop-penalty unit (§4.9, §10.2).
+- [ADR-048], [ADR-049], [ADR-100]: travel times from buckets and a buffer, and the drop-penalty unit (§4.9, §10.2).
 - [ADR-053]: the plan lifecycle, with the *abandoned* state (§9.1).
 
 [ADR-040]: ../../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md
@@ -1506,3 +1507,4 @@ Nothing. These ADRs record the decisions of this document:
 [ADR-083]: ../../ADRs/ADR-083-admins-and-dispatchers-get-alerts-by-stream-and-push-in-the-phone-app.md
 [ADR-086]: ../../ADRs/ADR-086-csv-imports-upload-then-confirm-within-an-hour.md
 [ADR-097]: ../../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md
+[ADR-100]: ../../ADRs/ADR-100-k-covers-door-windows-outside-a-shift-and-no-vehicle-is-a-drop-reason.md

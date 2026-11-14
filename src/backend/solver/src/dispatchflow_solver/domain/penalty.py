@@ -1,13 +1,10 @@
 """The penalty scale: the drop unit K and the rates the objective charges, in seconds.
 
-K = 5L + 2T + F + 1 is meant to exceed the most that serving one order can cost directly, so no
-order is dropped to save its detour, its window penalty or a vehicle (BR-08, BR-55, BR-121,
-BR-126, ADR-049).
-
-The guarantee holds only when every door order's window meets its driver's shift. A door order
-whose window lies wholly outside its driver's shift is served outside its window for longer than
-the shift lasts, so its window penalty can pass 5L, and serving it alone can cost more than K.
-That case waits on the owner's decision (ADR-049's bound; BR-121).
+K = 5L + 2T + F + 1 exceeds the most that serving one order can cost directly, so no order is
+dropped to save its detour, its window penalty or a vehicle (BR-08, BR-55, BR-121, BR-126,
+ADR-049). L is the larger of the date's longest shift and the longest a door stop can be served
+outside its window within a shift, so a door window wholly outside its driver's shift is covered
+too (ADR-100).
 """
 
 import math
@@ -53,31 +50,38 @@ class PenaltyScale:
         cls,
         *,
         longest_shift: float,
+        longest_door_outside_window: float,
         largest_travel: float,
         fixed_vehicle_cost: float,
         door_window_rate: float,
     ) -> PenaltyScale:
-        """Computes K for one delivery date (BR-126, ADR-049).
+        """Computes K for one delivery date (BR-126, ADR-049, ADR-100).
 
         The 5 in 5L is the door-window rate, so K follows the rate when it is tuned (ADR-049).
 
         Args:
-            longest_shift: L, the longest shift on the date, in seconds.
+            longest_shift: The longest shift on the date, in seconds.
+            longest_door_outside_window: The longest a leave-at-door stop can be served outside
+                its window within a shift on the date, in seconds; 0 with no door order or no
+                usable vehicle.
             largest_travel: T, the largest unbuffered travel time at the highest factor.
             fixed_vehicle_cost: F, the fixed cost per vehicle used, 0 when disabled.
             door_window_rate: The door-window rate (BR-120).
 
         Returns:
-            The scale with K = rate x L + 2T + F + 1.
+            The scale with K = rate x L + 2T + F + 1, L being the larger of the longest shift
+            and the longest door time outside a window.
 
         Raises:
             InvalidProblemError: If a term is negative or not finite.
         """
         _require_non_negative("longest_shift", longest_shift)
+        _require_non_negative("longest_door_outside_window", longest_door_outside_window)
         _require_non_negative("largest_travel", largest_travel)
         _require_non_negative("fixed_vehicle_cost", fixed_vehicle_cost)
         _require_non_negative("door_window_rate", door_window_rate)
-        drop_unit = door_window_rate * longest_shift + 2 * largest_travel + fixed_vehicle_cost + 1
+        longest = max(longest_shift, longest_door_outside_window)
+        drop_unit = door_window_rate * longest + 2 * largest_travel + fixed_vehicle_cost + 1
         return cls(
             drop_unit=drop_unit,
             door_window_rate=door_window_rate,
