@@ -50,9 +50,12 @@ On 2026-11-14 the owner, Naim Elijah, decided these:
      `LIMITED`, and an empty cell is `NONE`. `RoleSet.can` is true when any role's grant is not
      `NONE`, and `RoleSet.grant` gives the widest, so a combination of roles gets the union of what
      each allows ([FR-293]). The use case checks a limited grant's limit ([ADR-068]).
-   - `Capability.isAdminOnly()` is true when the Admin cell is not empty and the other two are.
-     These are the operations [NFR-214] gives only to Admins, so the step-up check runs on exactly
-     them.
+   - [NFR-214]'s step-up set is the Admin-only rows, plus the limited rows used beyond their
+     limit. `Capability.isAdminOnly()` is true when the Admin cell is not empty and the other two
+     are. `Capability.requiresStepUp(actingOnOwnAccount)` adds the rows whose every non-Admin cell
+     is empty or "Only their own", when the call acts on another account: today
+     `CHANGE_USER_EMAIL`. Changing another user's email is an Admin-only act, and a path to taking
+     over that account, a second Admin's included, through recovery ([FR-387], [FR-386]).
    - `CapabilityMatrixTest` reads the matrix from `requirements.md`. It fails when a row has no
      constant, a constant has no row, or a cell disagrees with a constant, for every role and every
      combination of roles ([NFR-210]).
@@ -69,8 +72,8 @@ On 2026-11-14 the owner, Naim Elijah, decided these:
 4. **Tokens and links are pruned.**
    - On `exchange` and `confirmPassword`, a session drops each token that is not current and was
      issued more than 14 days and 30 seconds ago, the token lifetime plus the grace ([NFR-87],
-     [NFR-178]). A token is issued no earlier than the token it succeeds, so every kept token's
-     successor is kept too.
+     [NFR-178]). A successor that a kept token names is kept too, even when a clock that stepped
+     back issued it earlier, so `restore` can always read the saved chain.
    - **This narrows [NFR-88]:** replaying a token the chain no longer keeps is refused as unknown,
      and no longer revokes the session.
    - On `issueLink`, an account drops each link that no longer works (spent, voided or expired) and
@@ -153,6 +156,8 @@ the kernel `TimeWindow` on each order's date, where the date's skipped hour is c
 [FR-307]: ../requirements/requirements.md#fleet-depots-and-shifts
 [FR-345]: ../requirements/requirements.md#company-users-and-roles
 [FR-382]: ../requirements/requirements.md#messages-to-recipients
+[FR-386]: ../requirements/requirements.md#company-users-and-roles
+[FR-387]: ../requirements/requirements.md#company-users-and-roles
 [NFR-85]: ../requirements/requirements.md#nfr-85
 [NFR-87]: ../requirements/requirements.md#nfr-87
 [NFR-88]: ../requirements/requirements.md#nfr-88

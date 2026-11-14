@@ -1,6 +1,7 @@
 package com.dispatchflow.access.domain;
 
 import com.dispatchflow.shared.AccountId;
+import com.dispatchflow.shared.PersonalData;
 import java.util.Objects;
 
 /**
@@ -9,9 +10,9 @@ import java.util.Objects;
  * FR-392, DL §5). The index backs the rule when two requests race.
  *
  * <p>It names the address it was read for, so the account can check it was given the answer for
- * the right address.
+ * the right address. That makes it {@link PersonalData}, and it prints redacted (ADR-106).
  */
-public sealed interface EmailHolder {
+public sealed interface EmailHolder extends PersonalData {
 
     /**
      * No account holds the address.
@@ -77,6 +78,16 @@ public sealed interface EmailHolder {
         public boolean isHeldByAnotherThan(AccountId account) {
             return false;
         }
+
+        /**
+         * A form that hides the address.
+         *
+         * @return {@code EmailHolder.Nobody[redacted]}
+         */
+        @Override
+        public String toString() {
+            return "EmailHolder.Nobody[redacted]";
+        }
     }
 
     /**
@@ -96,6 +107,16 @@ public sealed interface EmailHolder {
         @Override
         public boolean isHeldByAnotherThan(AccountId other) {
             return !account.equals(other);
+        }
+
+        /**
+         * A form that hides the address.
+         *
+         * @return {@code EmailHolder.HeldBy[redacted]}
+         */
+        @Override
+        public String toString() {
+            return "EmailHolder.HeldBy[redacted]";
         }
     }
 }

@@ -30,9 +30,9 @@ import java.util.stream.Stream;
  * tokens too old to matter. So {@link #exchange} answers with a {@link RefreshOutcome} instead of
  * throwing, and the caller saves the session either way.
  *
- * <p>The chain keeps only the current token and the tokens issued in the last {@link
- * #TOKEN_KEPT_FOR}. A replayed token older than that is unknown, and refused without revoking the
- * session: the one narrowing of NFR-88 (ADR-104).
+ * <p>The chain keeps only the current token, the tokens issued in the last {@link
+ * #TOKEN_KEPT_FOR}, and any successor a kept token names. A replayed token older than that is
+ * unknown, and refused without revoking the session: the one narrowing of NFR-88 (ADR-104).
  */
 public final class Session extends AggregateRoot {
 
@@ -288,14 +288,31 @@ public final class Session extends AggregateRoot {
     }
 
     /**
-     * Drops the tokens that are not current and were issued more than {@link #TOKEN_KEPT_FOR} ago.
-     * Each token is issued no earlier than the token whose successor it is, so a kept exchanged
-     * token's successor is always kept too.
+     * Drops the tokens that are not current and were issued more than {@link #TOKEN_KEPT_FOR} ago,
+     * except a successor that a kept token names. A clock that steps back can issue a successor
+     * before the token it succeeds, and dropping it would leave a saved chain that {@link #restore}
+     * refuses.
      */
     private void dropOldTokens(Instant now) {
         Instant keptSince = now.minus(TOKEN_KEPT_FOR);
-        tokens.removeIf(token -> !(token.state() instanceof TokenState.Current)
-                && token.issuedAt().isBefore(keptSince));
+        Set<RefreshTokenId> kept = new HashSet<>();
+        for (RefreshToken token : tokens) {
+            if (token.state() instanceof TokenState.Current || !token.issuedAt().isBefore(keptSince)) {
+                kept.add(token.id());
+            }
+        }
+        boolean grew = true;
+        while (grew) {
+            grew = false;
+            for (RefreshToken token : tokens) {
+                if (kept.contains(token.id())
+                        && token.state() instanceof TokenState.Exchanged exchanged
+                        && kept.add(exchanged.successor())) {
+                    grew = true;
+                }
+            }
+        }
+        tokens.removeIf(token -> !kept.contains(token.id()));
     }
 
     /**
@@ -331,7 +348,8 @@ public final class Session extends AggregateRoot {
 
     /**
      * Checks the session gave its password in the last 5 minutes, before an operation the
-     * permission matrix gives only to Admins ({@link Capability#isAdminOnly()}; NFR-214, NFR-227).
+     * permission matrix gives only to Admins, which {@link Capability#requiresStepUp} names
+     * (NFR-214, NFR-227).
      *
      * @param currentAccountGeneration the account's generation now
      * @param now when the operation is asked for

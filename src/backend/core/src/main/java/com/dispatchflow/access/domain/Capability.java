@@ -50,7 +50,7 @@ public enum Capability {
     SEND_SET_PASSWORD_LINK(Grant.FULL, Grant.NONE, Grant.NONE),
 
     /** "Change a user's email" (FR-387). A Dispatcher and a Driver: "Only their own." */
-    CHANGE_USER_EMAIL(Grant.FULL, Grant.LIMITED, Grant.LIMITED),
+    CHANGE_USER_EMAIL(Grant.FULL, Grant.LIMITED, Grant.LIMITED, Limit.OWN_ACCOUNT),
 
     /** "Retire a driver, which removes only the account's Driver role" (FR-56, FR-307). */
     RETIRE_DRIVER(Grant.FULL, Grant.FULL, Grant.NONE),
@@ -83,25 +83,53 @@ public enum Capability {
      */
     CHANGE_COMPANY_SETTINGS(Grant.FULL, Grant.NONE, Grant.NONE);
 
+    /** What the "Only …" cells of a row limit the other roles to, where the step-up depends on it. */
+    private enum Limit {
+        /** The cells name no limit, or one the step-up doesn't depend on. */
+        NOT_THE_ACCOUNT,
+        /** Every non-Admin cell is empty or "Only their own": used on another account, the row is Admin-only. */
+        OWN_ACCOUNT
+    }
+
     private final Grant admin;
     private final Grant dispatcher;
     private final Grant driver;
+    private final Limit limit;
 
     Capability(Grant admin, Grant dispatcher, Grant driver) {
+        this(admin, dispatcher, driver, Limit.NOT_THE_ACCOUNT);
+    }
+
+    Capability(Grant admin, Grant dispatcher, Grant driver, Limit limit) {
         this.admin = admin;
         this.dispatcher = dispatcher;
         this.driver = driver;
+        this.limit = limit;
     }
 
     /**
      * Whether the matrix gives this capability to Admins only: the Admin cell is not empty and the
-     * other two are. These are the operations that need the password given in the last 5 minutes
+     * other two are. Each of these needs the password given in the last 5 minutes, and so does a
+     * row limited to the caller's own account used on another one: see {@link #requiresStepUp}
      * (NFR-214; ADR-104).
      *
      * @return {@code true} for an Admin-only row
      */
     public boolean isAdminOnly() {
         return admin != Grant.NONE && dispatcher == Grant.NONE && driver == Grant.NONE;
+    }
+
+    /**
+     * Whether a use of this capability needs the password given in the last 5 minutes (NFR-214).
+     * That set is the Admin-only rows, and the rows whose other roles may act only on their own
+     * account when used on another one: today {@link #CHANGE_USER_EMAIL}, where changing another
+     * user's email is Admin-only and leads to taking the account over by recovery (ADR-104).
+     *
+     * @param actingOnOwnAccount whether the call acts on the caller's own account
+     * @return {@code true} when the session must have given its password recently
+     */
+    public boolean requiresStepUp(boolean actingOnOwnAccount) {
+        return isAdminOnly() || (limit == Limit.OWN_ACCOUNT && !actingOnOwnAccount);
     }
 
     /**

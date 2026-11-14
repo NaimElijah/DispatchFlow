@@ -2,10 +2,12 @@ package com.dispatchflow.access.domain;
 
 import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 import com.dispatchflow.access.domain.AccessError.InvalidEmail;
 import com.dispatchflow.shared.RuleViolation;
+import com.dispatchflow.shared.StoredStateInvalid;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -91,6 +93,27 @@ class EmailAddressTest {
     }
 
     @Test
+    void GivenAKoreanLocalPartPrecomposedOrInConjoiningJamo_WhenParsed_ThenBothGiveTheSameAddress() {
+        EmailAddress precomposed = EmailAddress.parse("\uD55C@example.com");
+        EmailAddress jamo = EmailAddress.parse("\u1112\u1161\u11AB@example.com");
+
+        assertThat(jamo).isEqualTo(precomposed);
+        assertThat(jamo.value()).isEqualTo("\uD55C@example.com");
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "dana\u3164@example.com",
+                "\u115Fdana@example.com",
+                "da\u200Bna@example.com",
+                "dana\uFFA0@example.com"
+            })
+    void GivenALocalPartWithAFillerOrAnInvisibleCharacter_WhenParsed_ThenInvalidEmail(String text) {
+        assertRefused(() -> EmailAddress.parse(text), new InvalidEmail());
+    }
+
+    @Test
     void GivenAHebrewLocalPart_WhenParsed_ThenItIsAccepted() {
         assertThat(EmailAddress.parse("דנה@example.com").value()).isEqualTo("דנה@example.com");
     }
@@ -141,6 +164,12 @@ class EmailAddressTest {
 
         assertThat(refusal.getMessage()).isEqualTo("INVALID_EMAIL");
         assertThat(refusal.getCause()).isNull();
+    }
+
+    @Test
+    void GivenAStoredAddressTheRulesNowRefuse_WhenRebuilt_ThenStoredStateInvalid() {
+        assertThat(EmailAddress.ofStored("dana@example.com")).isEqualTo(EmailAddress.parse("dana@example.com"));
+        assertThatThrownBy(() -> EmailAddress.ofStored("dana@localhost")).isInstanceOf(StoredStateInvalid.class);
     }
 
     @Test

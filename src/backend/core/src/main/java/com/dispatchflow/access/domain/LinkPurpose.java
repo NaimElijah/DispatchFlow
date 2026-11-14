@@ -1,5 +1,6 @@
 package com.dispatchflow.access.domain;
 
+import com.dispatchflow.shared.PersonalData;
 import java.util.Objects;
 
 /**
@@ -32,11 +33,12 @@ public sealed interface LinkPurpose {
     }
 
     /**
-     * Confirms a new email address, which takes effect only when the link is used (FR-388).
+     * Confirms a new email address, which takes effect only when the link is used (FR-388). It holds
+     * a person's address, so it is {@link PersonalData} and prints redacted (ADR-106).
      *
      * @param newEmail the address the link was sent to
      */
-    record EmailChange(EmailAddress newEmail) implements LinkPurpose {
+    record EmailChange(EmailAddress newEmail) implements LinkPurpose, PersonalData {
 
         /** Checks the address is present. */
         public EmailChange {
@@ -46,6 +48,16 @@ public sealed interface LinkPurpose {
         @Override
         public LinkKind kind() {
             return LinkKind.EMAIL_CHANGE;
+        }
+
+        /**
+         * A form that hides the address.
+         *
+         * @return {@code EmailChange[redacted]}
+         */
+        @Override
+        public String toString() {
+            return "EmailChange[redacted]";
         }
     }
 }

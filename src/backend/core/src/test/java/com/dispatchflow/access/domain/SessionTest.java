@@ -342,6 +342,29 @@ class SessionTest {
     }
 
     @Test
+    void GivenAClockThatSteppedBackBetweenTwoTokens_WhenTheCutOffFallsBetweenThem_ThenTheNamedSuccessorIsKept() {
+        // A was issued at T, then the clock stepped back: its exchange issued B at T - 8 s.
+        Instant t = OPENED.plus(Duration.ofDays(1));
+        Instant steppedBack = t.minusSeconds(8);
+        Instant dayLater = t.plus(Duration.ofDays(1));
+        Session session = aSession()
+                .withTokens(
+                        token("1", "first", t, new TokenState.Exchanged(steppedBack, SECOND)),
+                        token("2", "second", steppedBack, new TokenState.Exchanged(dayLater, THIRD)),
+                        token("3", "third", dayLater, new TokenState.Current()))
+                .build();
+        Instant now = steppedBack.plus(Session.TOKEN_KEPT_FOR).plusSeconds(4);
+
+        RefreshOutcome outcome = session.exchange(THIRD_HASH, ACCOUNT_GENERATION, FOURTH, FOURTH_HASH, now);
+
+        assertThat(outcome).isEqualTo(new RefreshOutcome.Issued(FOURTH));
+        assertThat(session.snapshot().tokens())
+                .extracting(RefreshTokenSnapshot::id)
+                .containsExactly(FIRST, SECOND, THIRD, FOURTH);
+        assertThat(Session.restore(session.snapshot()).snapshot()).isEqualTo(session.snapshot());
+    }
+
+    @Test
     void GivenATokenTheChainNoLongerKeeps_WhenReplayed_ThenRefreshRefusedWithoutRevokingTheSession() {
         Instant monthLater = OPENED.plus(Duration.ofDays(30));
         Session session = aSession()

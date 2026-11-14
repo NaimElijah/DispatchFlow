@@ -31,6 +31,7 @@ class CapabilityMatrixTest {
     private static final String HEADER = "| Capability | Admin | Dispatcher | Driver |";
     private static final String TICK = "✓";
     private static final String LIMITED_PREFIX = "Only ";
+    private static final String OWN_ACCOUNT_ONLY = "Only their own";
     private static final int CELLS = 4;
 
     /** Each constant's row, by its capability text, which the matrix states exactly once. */
@@ -78,7 +79,7 @@ class CapabilityMatrixTest {
                             + " (FR-125, FR-126, FR-128, FR-187, FR-350, FR-375)")));
 
     /** The matrix's rows as the file states them: the capability text, then one cell per role. */
-    private record MatrixRow(String capability, Map<Role, Grant> cells) {}
+    private record MatrixRow(String capability, Map<Role, Grant> cells, Map<Role, String> texts) {}
 
     private static List<MatrixRow> matrix;
 
@@ -116,7 +117,11 @@ class CapabilityMatrixTest {
             grants.put(Role.ADMIN, grantOf(cells.get(1)));
             grants.put(Role.DISPATCHER, grantOf(cells.get(2)));
             grants.put(Role.DRIVER, grantOf(cells.get(3)));
-            rows.add(new MatrixRow(cells.get(0), grants));
+            Map<Role, String> texts = new EnumMap<>(Role.class);
+            texts.put(Role.ADMIN, cells.get(1));
+            texts.put(Role.DISPATCHER, cells.get(2));
+            texts.put(Role.DRIVER, cells.get(3));
+            rows.add(new MatrixRow(cells.get(0), grants, texts));
         }
         return rows;
     }
@@ -215,6 +220,43 @@ class CapabilityMatrixTest {
                         Capability.DEACTIVATE_OR_REACTIVATE_USER,
                         Capability.SEND_SET_PASSWORD_LINK,
                         Capability.CHANGE_COMPANY_SETTINGS);
+    }
+
+    /**
+     * NFR-214's step-up set: the Admin-only rows, and the rows whose every non-Admin cell is empty or
+     * "Only their own", when used on another account. Read from the cells' text alone.
+     */
+    @Test
+    void GivenTheMatrix_WhenStepUpIsAskedFor_ThenItIsTheAdminOnlyRowsAndTheOwnAccountRowsUsedOnAnother() {
+        Map<String, Capability> byRow = capabilitiesByRow();
+        Set<Capability> ownAccountOnly = EnumSet.noneOf(Capability.class);
+        for (MatrixRow row : matrix) {
+            List<String> others =
+                    List.of(row.texts().get(Role.DISPATCHER), row.texts().get(Role.DRIVER));
+            boolean onlyOwn = row.cells().get(Role.ADMIN) == Grant.FULL
+                    && others.stream().allMatch(cell -> cell.isEmpty() || cell.equals(OWN_ACCOUNT_ONLY))
+                    && others.contains(OWN_ACCOUNT_ONLY);
+            if (onlyOwn) {
+                ownAccountOnly.add(byRow.get(row.capability()));
+            }
+        }
+        assertThat(ownAccountOnly).containsExactly(Capability.CHANGE_USER_EMAIL);
+
+        for (Capability capability : Capability.values()) {
+            assertThat(capability.requiresStepUp(true))
+                    .as(capability + " on the caller's own account")
+                    .isEqualTo(capability.isAdminOnly());
+            assertThat(capability.requiresStepUp(false))
+                    .as(capability + " on another account")
+                    .isEqualTo(capability.isAdminOnly() || ownAccountOnly.contains(capability));
+        }
+    }
+
+    @Test
+    void GivenAnAdminChangingAnotherUsersEmail_WhenStepUpIsAskedFor_ThenItIsRequiredButNotForTheirOwn() {
+        assertThat(Capability.CHANGE_USER_EMAIL.requiresStepUp(false)).isTrue();
+        assertThat(Capability.CHANGE_USER_EMAIL.requiresStepUp(true)).isFalse();
+        assertThat(Capability.READ_COMPANY_AND_USERS.requiresStepUp(false)).isFalse();
     }
 
     private static Map<String, Capability> capabilitiesByRow() {

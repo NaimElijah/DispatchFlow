@@ -2,6 +2,7 @@ package com.dispatchflow.access.domain;
 
 import com.dispatchflow.access.domain.AccessError.PasswordTooCommon;
 import com.dispatchflow.access.domain.AccessError.PasswordTooShort;
+import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.RuleViolation;
 import java.util.Objects;
 
@@ -12,8 +13,11 @@ import java.util.Objects;
  *
  * <p>Characters are counted as Unicode code points, so a letter outside the basic plane counts
  * once. {@link #toString()} hides the password, and a refusal never quotes it (NFR-03).
+ *
+ * <p>It is a credential, not personal data, but it is marked {@link PersonalData} so the shape
+ * rules keep it out of every error and event field, as they do personal values (ADR-106).
  */
-public final class NewPassword {
+public final class NewPassword implements PersonalData {
 
     /** The fewest characters a password may have (NFR-95). */
     public static final int MINIMUM_LENGTH = 8;

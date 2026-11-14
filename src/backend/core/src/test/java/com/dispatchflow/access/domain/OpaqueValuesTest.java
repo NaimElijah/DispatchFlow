@@ -3,10 +3,32 @@ package com.dispatchflow.access.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.shared.AccountId;
+import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.StoredStateInvalid;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class OpaqueValuesTest {
+
+    @Test
+    void GivenEveryValueHoldingAnAddressOrACredential_WhenChecked_ThenItIsMarkedPersonalDataAndPrintsRedacted() {
+        EmailAddress email = EmailAddress.parse("dana@example.com");
+        List<Object> values = List.of(
+                email,
+                NewPassword.of("tz7!kw0q", CommonPasswords.of(List.of())),
+                new PasswordHash("stored-hash"),
+                new TokenHash("token-hash"),
+                new LinkPurpose.EmailChange(email),
+                EmailHolder.nobody(email),
+                EmailHolder.account(email, AccountId.of(UUID.fromString("0190a5e2-7c3b-7def-8a12-000000000001"))));
+
+        for (Object value : values) {
+            assertThat(value).isInstanceOf(PersonalData.class);
+            assertThat(value.toString()).contains("redacted").doesNotContain("dana", "hash", "tz7");
+        }
+    }
 
     @Test
     void GivenAPasswordHash_WhenPrinted_ThenItIsHidden() {

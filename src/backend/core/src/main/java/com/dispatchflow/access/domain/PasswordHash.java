@@ -1,5 +1,6 @@
 package com.dispatchflow.access.domain;
 
+import com.dispatchflow.shared.PersonalData;
 import java.util.Objects;
 
 /**
@@ -8,9 +9,12 @@ import java.util.Objects;
  *
  * <p>{@link #toString()} hides it, so it can't reach a log (NFR-03).
  *
+ * <p>It is a credential, not personal data, but it is marked {@link PersonalData} so the shape
+ * rules keep it out of every error and event field, as they do personal values (ADR-106).
+ *
  * @param value the encoded hash, in the adapter's own format
  */
-public record PasswordHash(String value) {
+public record PasswordHash(String value) implements PersonalData {
 
     /** Checks the hash is present. */
     public PasswordHash {

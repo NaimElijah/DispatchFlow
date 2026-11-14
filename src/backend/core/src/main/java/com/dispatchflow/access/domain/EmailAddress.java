@@ -1,8 +1,11 @@
 package com.dispatchflow.access.domain;
 
 import com.dispatchflow.access.domain.AccessError.InvalidEmail;
+import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.RuleViolation;
+import com.dispatchflow.shared.StoredStateInvalid;
 import java.net.IDN;
+import java.text.Normalizer;
 import java.util.Objects;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
@@ -18,10 +21,11 @@ import org.jspecify.annotations.Nullable;
  * one address onto another's mailbox.
  *
  * <p>It is a class rather than a record so the only way in is {@link #parse}, which builds the
- * canonical form. An address is personal data: {@link #toString()} hides it, and a refusal names
- * no address, so neither can carry it into a log (NFR-94).
+ * canonical form. An address is personal data, so it is marked {@link PersonalData}: {@link
+ * #toString()} hides it, and a refusal names no address, so neither can carry it into a log
+ * (NFR-94, ADR-106).
  */
-public final class EmailAddress {
+public final class EmailAddress implements PersonalData {
 
     private static final char AT = '@';
     // RFC 5321 §4.5.3.1.1 and §4.5.3.1.3: the longest local part, and the longest path less its
@@ -34,6 +38,8 @@ public final class EmailAddress {
     private static final String ATEXT_SYMBOLS = "!#$%&'*+-/=?^_`{|}~";
     // ß, final sigma, zero-width non-joiner and zero-width joiner (UTS #46 "deviation" characters).
     private static final Set<Integer> IDNA_DEVIATIONS = Set.of(0x00DF, 0x03C2, 0x200C, 0x200D);
+    // Hangul fillers: letters to Unicode, yet they render as nothing, so two addresses would look alike.
+    private static final Set<Integer> FILLERS = Set.of(0x115F, 0x1160, 0x3164, 0xFFA0);
     private static final String LABEL_SEPARATOR = "\\.";
 
     private final String value;
@@ -58,7 +64,8 @@ public final class EmailAddress {
         if (at <= 0 || at != trimmed.lastIndexOf(AT) || at == trimmed.length() - 1) {
             throw invalid();
         }
-        String localPart = trimmed.substring(0, at);
+        // NFC, so a precomposed letter and its decomposed or conjoining form are one address.
+        String localPart = Normalizer.normalize(trimmed.substring(0, at), Normalizer.Form.NFC);
         if (localPart.length() > MAX_LOCAL_PART || !isDotAtom(localPart)) {
             throw invalid();
         }
@@ -71,6 +78,18 @@ public final class EmailAddress {
             throw invalid();
         }
         return new EmailAddress(canonical);
+    }
+
+    /**
+     * Rebuilds a stored address through {@link #parse}, so an address the rules now refuse is
+     * damaged state, not a user's mistake.
+     *
+     * @param stored the address as stored
+     * @return the address
+     * @throws StoredStateInvalid when {@link #parse} refuses the stored text
+     */
+    public static EmailAddress ofStored(String stored) {
+        return StoredStateInvalid.whileRestoring(EmailAddress.class, () -> parse(stored));
     }
 
     private static String asciiDomain(String domain) {
@@ -105,7 +124,7 @@ public final class EmailAddress {
     /** RFC 5322 atext, widened to non-ASCII letters for internationalized local parts (RFC 6531). */
     private static boolean isAtext(int point) {
         if (point >= ASCII_LIMIT) {
-            return Character.isLetter(point);
+            return Character.isLetter(point) && !FILLERS.contains(point);
         }
         return (point >= 'a' && point <= 'z')
                 || (point >= 'A' && point <= 'Z')
