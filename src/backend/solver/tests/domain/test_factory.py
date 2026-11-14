@@ -261,6 +261,44 @@ REFUSED = [
         {"distances": [[0, 100, 1], [100, 0, 1], [1, 1, 0]]}, "distances", id="sizes differ"
     ),
     pytest.param({"durations": [[0, NAN], [100, 0]]}, r"no road.*\[0, 1\]", id="roads disagree"),
+    pytest.param(
+        {"orders": [an_order(priority=2.7)]}, r"priority\[0\].*int.*2\.7", id="priority 2.7"
+    ),
+    pytest.param(
+        {"orders": [an_order(priority="3")]}, r"priority\[0\].*int.*'3'", id="priority '3'"
+    ),
+    pytest.param(
+        {"orders": [an_order(priority=True)]}, r"priority\[0\].*int.*True", id="priority bool"
+    ),
+    pytest.param(
+        {"orders": [an_order(location=1.9)]}, r"orders\[0\]\.location.*int", id="location 1.9"
+    ),
+    pytest.param(
+        {"orders": [an_order(location=True)]}, r"orders\[0\]\.location.*int", id="location bool"
+    ),
+    pytest.param(
+        {"depots": [DepotSpec(location=0.0)]},  # type: ignore[arg-type]
+        r"depots\[0\]\.location.*int",
+        id="depot location float",
+    ),
+    pytest.param(
+        {"vehicles": [a_vehicle(start_depot=0.0)]},
+        r"vehicles\[0\]\.start_depot.*int",
+        id="depot index float",
+    ),
+    pytest.param(
+        {"vehicles": [a_vehicle(end_depot=False)]},
+        r"vehicles\[0\]\.end_depot.*int",
+        id="depot index bool",
+    ),
+    pytest.param(
+        {"vehicles": [a_vehicle(driver=0.0)]}, r"driver\[0\].*int", id="driver index float"
+    ),
+    pytest.param(
+        {"orders": [an_order(pin=Pin(vehicle=0.0))]},  # type: ignore[arg-type]
+        r"pinned_vehicle\[0\].*int",
+        id="pin index float",
+    ),
     pytest.param({"orders": [an_order(priority=0)]}, r"priority\[0\]", id="priority 0"),
     pytest.param({"orders": [an_order(priority=6)]}, r"priority\[0\]", id="priority 6"),
     pytest.param({"orders": [an_order(priority=2**64)]}, "priority", id="priority overflow"),

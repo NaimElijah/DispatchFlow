@@ -32,7 +32,8 @@ dev = [
 
 [tool.uv]
 # ADR-046: a release is adopted only once it is 3 days old. grimp 3.20 (import-linter's graph
-# library) was published on 2026-11-13, so the lock holds 3.19 until 3.20 has aged.
+# library) was published on 2026-11-13 at 20:25Z, so the lock holds 3.19 until 3.20 has aged.
+# Remove this hold after 2026-11-16T20:25Z, and run `uv lock` here and in src/research (PR 11).
 exclude-newer-package = { grimp = "2026-11-13T00:00:00Z" }
 
 [tool.ruff]

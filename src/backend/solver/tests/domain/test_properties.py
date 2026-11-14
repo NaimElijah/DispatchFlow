@@ -2,12 +2,13 @@
 
 from dataclasses import replace
 
+import numpy as np
 from hypothesis import assume, event, given, seed
 from hypothesis import strategies as st
 
-from dispatchflow_solver.domain.drops import Displaced, DropReason, TimeWindow
+from dispatchflow_solver.domain.drops import Capacity, Displaced, DropReason, TimeWindow
 from dispatchflow_solver.domain.problem import Pin, Problem
-from dispatchflow_solver.domain.rules import RuleId
+from dispatchflow_solver.domain.rules import LIMIT_TOLERANCE, RuleId
 from dispatchflow_solver.domain.solution import Route, Solution
 from dispatchflow_solver.domain.travel_time import TravelBucket, TravelTimeModel
 from tests.domain.builders import DAY, DEPOT_LOCATION, DayBuilder
@@ -85,7 +86,8 @@ def any_day_and_solution(draw: st.DrawFn) -> tuple[Problem, Solution]:
         opens = draw(st.floats(min_value=0, max_value=20_000, allow_nan=False))
         closes = opens + draw(st.floats(min_value=0, max_value=60_000, allow_nan=False))
         day.depot_hours(opens=opens, closes=closes)
-    vehicle_count = draw(st.integers(min_value=0, max_value=3))
+    # Most dates have a vehicle; a few have none, which FR-223 leaves to the owner.
+    vehicle_count = 0 if one_in_ten(draw) else draw(st.integers(min_value=1, max_value=3))
     for _ in range(vehicle_count):
         shift_start = draw(st.floats(min_value=0, max_value=40_000, allow_nan=False))
         shift_length = draw(st.floats(min_value=1, max_value=40_000, allow_nan=False))
@@ -95,16 +97,24 @@ def any_day_and_solution(draw: st.DrawFn) -> tuple[Problem, Solution]:
             shift=(shift_start, shift_start + shift_length),
         )
     for _ in range(draw(st.integers(min_value=1, max_value=6))):
-        window_start = draw(st.floats(min_value=0, max_value=DAY, allow_nan=False))
-        window_end = draw(st.floats(min_value=window_start, max_value=DAY, allow_nan=False))
-        pin = None
         if vehicle_count and draw(st.booleans()):
+            # A window that closes soon after the first shift starts, so every vehicle can miss it.
+            shift_start = min(driver.shift_start for driver in day.drivers)
+            window_end = draw(
+                st.floats(min_value=shift_start, max_value=shift_start + 500, allow_nan=False)
+            )
+            window_start = draw(st.floats(min_value=0, max_value=window_end, allow_nan=False))
+        else:
+            window_start = draw(st.floats(min_value=0, max_value=DAY, allow_nan=False))
+            window_end = draw(st.floats(min_value=window_start, max_value=DAY, allow_nan=False))
+        pin = None
+        if vehicle_count and draw(st.integers(min_value=0, max_value=9)) < 2:
             target = draw(st.integers(min_value=0, max_value=vehicle_count - 1))
             pin = Pin(vehicle=target) if draw(st.booleans()) else Pin(driver=target)
         order = day.order(
             None if one_in_ten(draw) else draw(points),
-            weight=draw(st.floats(min_value=0, max_value=60, allow_nan=False)),
-            volume=draw(st.floats(min_value=0, max_value=60, allow_nan=False)),
+            weight=draw(st.floats(min_value=0, max_value=40, allow_nan=False)),
+            volume=draw(st.floats(min_value=0, max_value=40, allow_nan=False)),
             service=draw(st.floats(min_value=0, max_value=600, allow_nan=False)),
             window=(window_start, window_end),
             priority=draw(priorities),
@@ -170,6 +180,39 @@ def test_given_any_solution_when_drops_explained_then_every_dropped_order_has_a_
             assert not isinstance(reason, TimeWindow)
         judged = problem.orders.is_routable(order) and order not in problem.removed_by_dispatcher
         assert isinstance(reason, Displaced) == (judged and serves_alone(problem, order))
+        if judged and problem.orders.pin(order) is None:
+            assert reason_is_capacity_by_arithmetic(problem, order, reason)
+
+
+def reason_is_capacity_by_arithmetic(problem: Problem, order: int, reason: DropReason) -> bool:
+    """The capacity oracle, by plain arithmetic: no vehicle that can reach the order by road
+    carries it alone, and the facts are the largest capacities among those vehicles."""
+    vehicles, orders, durations = problem.vehicles, problem.orders, problem.durations
+    location = int(orders.location[order])
+    reaching = [
+        vehicle
+        for vehicle in vehicles.usable()
+        if not np.isnan(durations[vehicles.start_location[vehicle], location])
+        and not np.isnan(durations[location, vehicles.end_location[vehicle]])
+    ]
+    weight, volume = float(orders.weight_kg[order]), float(orders.volume_l[order])
+    carried = any(
+        weight <= vehicles.weight_capacity_kg[vehicle] + LIMIT_TOLERANCE
+        and volume <= vehicles.volume_capacity_l[vehicle] + LIMIT_TOLERANCE
+        for vehicle in reaching
+    )
+    if carried:
+        return not isinstance(reason, Capacity)
+    return reason == Capacity(
+        weight_kg=weight,
+        volume_l=volume,
+        largest_weight_capacity_kg=max(
+            (float(vehicles.weight_capacity_kg[v]) for v in reaching), default=0.0
+        ),
+        largest_volume_capacity_l=max(
+            (float(vehicles.volume_capacity_l[v]) for v in reaching), default=0.0
+        ),
+    )
 
 
 @st.composite

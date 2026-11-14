@@ -64,7 +64,9 @@ class TravelTimeModel:
     - *Unbuffered* per-bucket times, for the objective's travel cost (FR-402).
     - The *upper bound*, the highest factor times (1 + buffer), for the search (FR-322).
 
-    An arc takes the factor of the bucket it departs in, for its whole length (FR-400).
+    An arc takes the factor of the bucket it departs in, for its whole length (FR-400). Every
+    method takes a finite base time: a pair with no road (NaN in the matrices) is never timed, and
+    each method raises `InvalidProblemError` if handed one.
 
     Attributes:
         buckets: The day's buckets, held as a tuple sorted by start; they may not overlap, and
@@ -179,6 +181,10 @@ class TravelTimeModel:
 
 
 def _scaled(base: float, factor: float, buffer: float) -> float:
+    # Checked in every model, the static one included, which would otherwise hand a NaN back
+    # unchanged and let it reach a comparison that silently passes.
+    if not math.isfinite(base):
+        raise InvalidProblemError(f"a base time must be finite; the road check comes first: {base}")
     if factor == _NEUTRAL_FACTOR and buffer == _NO_BUFFER:
         return base
     return float(math.ceil(base * factor * (1 + buffer) - CEILING_SLACK))

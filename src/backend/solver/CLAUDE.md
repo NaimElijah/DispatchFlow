@@ -7,13 +7,12 @@ and it hosts every solver behind one port ([ADR-004]). Python 3.14, FastAPI, Uvi
 
 | Package under `src/dispatchflow_solver/` | Holds |
 |---|---|
-| `domain/` | The problem, the solution, the shared objective and the feasibility validator |
+| `domain/` | `Problem` (`validate`, `cost`, `explain_drop`), `ProblemFactory`, `Solution`, `TravelTimeModel`, `PenaltyScale` and `RuleId`: the problem, the solution, the shared objective, the feasibility validator and the drop reasons |
 | `application/` | The solve use cases, the `Solver` port and the solver registry |
 | `solvers/ortools/`, `solvers/alns/` | One adapter per solver: OR-Tools, and ours. Ours runs the `alns` package (MIT) as its outer loop, and the Clarke-Wright construction, the operators, the route state and the Numba kernels are ours ([ADR-092]) |
 | `adapters/inbound/http/` | `create_app()`: the FastAPI app and its request and response models |
 
-Everything except `adapters/inbound/http` is a placeholder today. `tests/` mirrors the package
-path.
+`application/` and `solvers/` are placeholders today. `tests/` mirrors the package path.
 
 [ADR-037] (Accepted) renames the service to `src/optimizer` with the package `dispatchflow_opt`,
 in the M0 restructure. [ADR-040] puts the solvers under `adapters/outbound/solvers/`, as [TS §4]
@@ -23,7 +22,8 @@ draws it, where `nearest_neighbour` joins them. Neither is in the tree yet.
 
 - `domain` imports no `fastapi`, `pydantic`, `ortools`, `pyvrp` or `numba`. NumPy is allowed
   ([TS §2.1]). `application` imports nothing from FastAPI, Pydantic or OR-Tools. OR-Tools types
-  live in `solvers/ortools` ([ADR-001]).
+  live in `solvers/ortools` ([ADR-001]). import-linter checks the domain's imports, the layers
+  and that the product never imports PyVRP (`pyproject.toml`, run by `just solver-check`).
 - Pydantic models are generated from the contract by datamodel-code-generator ([ADR-043],
   Accepted), and only the HTTP adapter uses them.
 - `Problem` owns `validate`, `cost` and `explain_drop` ([TS §7.1]). `validate` is the one
@@ -31,6 +31,17 @@ draws it, where `nearest_neighbour` joins them. Neither is in the tree yet.
   dataclasses over NumPy arrays ([TS §7.1]).
 - `ProblemFactory` alone applies the re-optimization conventions ([ADR-050]).
 - `TravelTimeModel` is the only place the bucket factors and the buffer are applied.
+- Numbers follow [ADR-098]:
+  - `Problem` holds times and distances as float64, and every limit is inclusive within
+    `LIMIT_TOLERANCE` (1e-6).
+  - Product times are rounded up with `CEILING_SLACK`. Research times, at factor 1 and buffer 0,
+    are never rounded.
+  - No road is `NaN` in the domain; the HTTP adapter maps the contract's −1 to it.
+- The roster pairs each vehicle with its driver. A route on another driver breaks BR-20. Every
+  malformed input raises `InvalidProblemError`, never a bare Python error.
+- The HTTP adapter caps the counts it accepts (vehicles, orders, locations, buckets) at NFR-04 and
+  NFR-05 ([ADR-060]), and builds the `Problem` inside the solver worker, under its kill timer. The
+  domain has no caps of its own, because research instances are exempt (BR-101).
 - Travel time comes in three kinds. The validator and the ETAs use buffered times. The objective's
   travel cost uses per-bucket times without the buffer. The search's upper bound is the highest
   factor × (1 + buffer). An arc takes the factor of the bucket it departs in ([DL §10.2],
@@ -69,10 +80,13 @@ draws it, where `nearest_neighbour` joins them. Neither is in the tree yet.
 - A test gives a solver an iteration or solution budget, never a wall-clock limit (NFR-82,
   NFR-175). The OR-Tools findings tested on 9.15 (pins through `VehicleVar`, a single-threaded
   search, `solution_limit` stopping early) are in [the plan's §8][PL-8].
-- The violation catalogue has one YAML case per rule, each naming the `RuleId` it must trigger
-  ([DL §14], NFR-169).
-- When the validator lands, Hypothesis property tests assert that every generated instance's
-  solution passes it. They run from a recorded seed (NFR-82).
+- The violation catalogue (`tests/domain/test_violation_catalogue.py`) is Python test builders:
+  one case per way each rule breaks, each asserting the exact set of `RuleId`s reported ([DL §14],
+  NFR-169).
+- Hypothesis property tests run from a recorded seed with `deadline=None` and no example database
+  (NFR-82, `tests/domain/properties.py`).
+- `tests/domain/data/solomon/` holds six Solomon instances and their published best-known solutions,
+  which `validate` accepts at their published totals (NFR-167). Its `README.md` names the source.
 - One test checks that the same input, seed and budget give the same solution in two processes
   (NFR-174).
 
@@ -82,7 +96,7 @@ Run `just` recipes from the repository root, and `uv` from this folder.
 
 | Command | What it does |
 |---|---|
-| `just solver-check` | ruff format check, ruff lint, mypy strict, pytest |
+| `just solver-check` | ruff format check, ruff lint, mypy strict, import-linter, pytest |
 | `just solver-format` | ruff format and `ruff check --fix` |
 | `just solver-run` | Starts the service on port 8000, reloading on change |
 | `uv run --locked pytest tests/path/test_x.py::test_name` | One test |
@@ -97,6 +111,8 @@ Run `just` recipes from the repository root, and `uv` from this folder.
 [ADR-048]: ../../../docs/ADRs/ADR-048-travel-times-from-buckets-and-a-buffer-with-no-live-traffic.md
 [ADR-050]: ../../../docs/ADRs/ADR-050-re-optimization-conventions-live-only-in-the-python-problem-factory.md
 [ADR-051]: ../../../docs/ADRs/ADR-051-one-solver-worker-per-lane-killed-30-seconds-past-its-limit.md
+[ADR-060]: ../../../docs/ADRs/ADR-060-hard-limits-on-fleet-and-plan-size.md
+[ADR-098]: ../../../docs/ADRs/ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md
 [ADR-092]: ../../../docs/ADRs/ADR-092-the-alns-package-runs-our-solvers-outer-loop.md
 [TS §2.1]: ../../../docs/architecture/tech_stack.md#21-the-dependency-rule
 [TS §4]: ../../../docs/architecture/tech_stack.md#4-repository-layout

@@ -6,6 +6,7 @@ is written into the `Problem`, and `validate` checks the constraints it carries 
 """
 
 import math
+import numbers
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -211,7 +212,7 @@ def _vehicles(
     for index, vehicle in enumerate(vehicles):
         for field_name in ("start_depot", "end_depot"):
             depot_index = getattr(vehicle, field_name)
-            if not 0 <= depot_index < len(depots):
+            if not 0 <= _require_int(f"vehicles[{index}].{field_name}", depot_index) < len(depots):
                 raise InvalidProblemError(
                     f"vehicles[{index}].{field_name} {depot_index} is not one of "
                     f"{len(depots)} depots"
@@ -259,7 +260,8 @@ def _vehicles(
 
 
 def _require_depot(index: int, depot: DepotSpec, size: int) -> None:
-    if depot.location is not None and not 0 <= depot.location < size:
+    location = depot.location
+    if location is not None and not 0 <= _require_int(f"depots[{index}].location", location) < size:
         raise InvalidProblemError(
             f"depots[{index}].location {depot.location} is not one of {size} locations"
         )
@@ -284,7 +286,8 @@ def _orders(
     size: int,
 ) -> Orders:
     for index, order in enumerate(orders):
-        if order.location is not None and not 0 <= order.location < size:
+        given = order.location
+        if given is not None and not 0 <= _require_int(f"orders[{index}].location", given) < size:
             raise InvalidProblemError(
                 f"orders[{index}].location {order.location} is not one of {size} locations"
             )
@@ -323,7 +326,17 @@ def _floats(name: str, values: Sequence[float]) -> npt.NDArray[np.float64]:
 
 
 def _ints(name: str, values: Sequence[int]) -> npt.NDArray[np.int64]:
+    for index, value in enumerate(values):
+        _require_int(f"{name}[{index}]", value)
     return converted(name, values, np.int64)
+
+
+def _require_int(name: str, value: object) -> int:
+    # NumPy would truncate 2.7 to 2 and parse "3"; bool is an int subclass, but True as a
+    # priority or an index is a bug. Only whole numbers of an integer type pass.
+    if isinstance(value, bool | np.bool_) or not isinstance(value, numbers.Integral):
+        raise InvalidProblemError(f"{name} must be an int: {value!r}")
+    return int(value)
 
 
 def _order_location(order: OrderSpec) -> int:

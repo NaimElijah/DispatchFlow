@@ -64,6 +64,21 @@ def test_given_the_largest_entry_when_largest_unbuffered_then_highest_factor_rou
     assert starting_values().largest_unbuffered(101.0) == math.ceil(101 * 1.3)
 
 
+@pytest.mark.parametrize(
+    "model", [TravelTimeModel.static(), starting_values()], ids=["static", "peak"]
+)
+@pytest.mark.parametrize("base", [math.nan, math.inf, -math.inf])
+@pytest.mark.parametrize("kind", ["buffered", "unbuffered", "upper_bound", "largest_unbuffered"])
+def test_given_a_base_time_that_is_not_finite_when_timed_then_refused(
+    model: TravelTimeModel, base: float, kind: str
+) -> None:
+    timed = getattr(model, kind)
+    arguments = (base, 8 * 3600) if kind in ("buffered", "unbuffered") else (base,)
+
+    with pytest.raises(InvalidProblemError, match="base time must be finite"):
+        timed(*arguments)
+
+
 def test_given_buckets_out_of_order_in_a_list_when_built_then_held_sorted_in_a_tuple() -> None:
     model = TravelTimeModel(
         buckets=[EVENING_PEAK, MORNING_PEAK],  # type: ignore[arg-type]

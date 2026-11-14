@@ -17,7 +17,6 @@ from dispatchflow_solver.domain.feasibility import (
     RouteTiming,
     Violation,
     check_route,
-    door_service_limit,
     shift_return_limit,
 )
 from dispatchflow_solver.domain.rules import RuleId
@@ -94,7 +93,8 @@ class Shift:
 
     Attributes:
         latest_return: The binding limit: the shift end, less the break reserve where one applies
-            (BR-105), or for a door stop min(shift end, date end).
+            (BR-105). A door stop served after its shift end is followed by a return after it, so
+            the return is the fact for door orders too.
         earliest_return: The earliest return, serving the order alone.
     """
 
@@ -220,11 +220,21 @@ class _Alone:
         return float(self.timing.arrival[0])
 
     def binding(self) -> Violation:
-        # The time limit passed by the most seconds; a tie goes to the higher-ranked limit.
-        return max(
-            (violation for violation in self.violations if violation.rule in _TIME_LIMITS),
-            key=lambda violation: (violation.seconds or 0.0, _TIME_LIMITS[violation.rule]),
-        )
+        """The time limit passed by the most seconds; a tie goes to the higher-ranked limit.
+
+        Raises:
+            RuntimeError: If the trial breaks no time limit, so it is rejected for a rule
+                `explain_drop` does not classify; a new rule must be given its reason first.
+        """
+        blocking = [violation for violation in self.violations if violation.rule in _TIME_LIMITS]
+        if not blocking:
+            rules = ", ".join(sorted(rule.value for rule in self.rules))
+            raise RuntimeError(f"a lone route breaks {rules}, which no drop reason classifies")
+        return max(blocking, key=_severity)
+
+
+def _severity(violation: Violation) -> tuple[float, int]:
+    return (violation.seconds or 0.0, _TIME_LIMITS[violation.rule])
 
 
 def _alone(problem: Problem, order: int, vehicle: int) -> _Alone:
@@ -255,20 +265,25 @@ def _first_failing_limit(problem: Problem, order: int, trials: list[_Alone]) -> 
             )
     if any(trial.accepted for trial in on_time):
         return Displaced()
-    closest = min(on_time, key=lambda trial: trial.binding().seconds or 0.0)
+    closest = min(on_time, key=_closeness)
     return _time_reason(problem, closest)
 
 
+def _closeness(trial: _Alone) -> tuple[float, int, float]:
+    # Fewest seconds over first; on a tie the higher-ranked limit, then the earlier return, so
+    # the reason never depends on the order the vehicles are listed in.
+    seconds, rank = _severity(trial.binding())
+    return (seconds, -rank, float(trial.timing.returns_at))
+
+
 def _time_reason(problem: Problem, trial: _Alone) -> Shift | DepotHours:
-    rule = trial.binding().rule
     returns_at = float(trial.timing.returns_at)
-    driver = int(problem.vehicles.driver[trial.vehicle])
-    if rule is RuleId.BR_46:
+    if trial.binding().rule is RuleId.BR_46:
         closes = float(problem.vehicles.end_depot_closes[trial.vehicle])
         return DepotHours(depot_closes=closes, earliest_return=returns_at)
-    if rule is RuleId.BR_119:
-        return Shift(latest_return=door_service_limit(problem, driver), earliest_return=returns_at)
-    latest, _ = shift_return_limit(problem, driver)
+    # BR-06, BR-105, or BR-119, which never binds alone: a door stop served after its shift end
+    # is followed by a return after it, and BR-06 passes the shift by at least as many seconds.
+    latest, _ = shift_return_limit(problem, int(problem.vehicles.driver[trial.vehicle]))
     return Shift(latest_return=latest, earliest_return=returns_at)
 
 

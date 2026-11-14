@@ -338,6 +338,26 @@ def test_given_a_driver_not_rostered_when_validated_then_timed_on_the_rostered_s
     assert report.rules() == {RuleId.BR_20}
 
 
+@pytest.mark.parametrize(
+    ("pinned_driver", "expected"),
+    [
+        pytest.param(0, {RuleId.BR_20}, id="pinned to the rostered driver"),
+        pytest.param(1, {RuleId.BR_20, RuleId.FR_91}, id="pinned to the driver the route names"),
+    ],
+)
+def test_given_a_driver_pin_on_a_mismatched_route_when_validated_then_judged_by_the_roster(
+    pinned_driver: int, expected: set[RuleId]
+) -> None:
+    # The route names driver 1 on vehicle 0, whose rostered driver is 0: the pin is judged by
+    # who the roster says drives the vehicle, as every other check is.
+    day = a_day(first={"pin": Pin(driver=pinned_driver)})
+    day.vehicle(weight=10, volume=10, shift=SHIFT)
+
+    report = day.build().validate(solution_of(route_of(0, 1, 0, 1)))
+
+    assert report.rules() == expected
+
+
 # --- NFR-168: a solution exactly on a limit is accepted, and ADR-098's tolerance ---
 
 

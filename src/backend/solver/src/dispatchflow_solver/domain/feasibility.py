@@ -215,19 +215,6 @@ def shift_return_limit(problem: Problem, driver: int) -> tuple[float, RuleId]:
     return shift_end, RuleId.BR_06
 
 
-def door_service_limit(problem: Problem, driver: int) -> float:
-    """The latest a door stop may be served: its driver's shift end or the date's end (BR-119).
-
-    Args:
-        problem: The problem.
-        driver: The driver serving the stop.
-
-    Returns:
-        min(shift end, day length).
-    """
-    return min(float(problem.drivers.shift_end[driver]), problem.day_length)
-
-
 def road(problem: Problem, origin: int, destination: int) -> float | None:
     """A leg's base duration, or None when there is no road route or no location.
 
@@ -366,9 +353,11 @@ class _RouteCheck:
         for order in self.route.stops:
             pinned_vehicle = int(orders.pinned_vehicle[order])
             pinned_driver = int(orders.pinned_driver[order])
+            # A driver pin is judged by the vehicle's rostered driver, as every other check is; a
+            # route naming someone else already breaks BR-20.
             if pinned_vehicle not in (NO_INDEX, self.route.vehicle) or pinned_driver not in (
                 NO_INDEX,
-                self.route.driver,
+                self.rostered,
             ):
                 self._report(RuleId.FR_91, order=order)
 
@@ -414,7 +403,10 @@ class _RouteCheck:
         draft.late[position] = late
         draft.outside[position] = max(late, window_start - start, 0.0)
         if door:
-            outside = start - door_service_limit(self.problem, self.rostered)
+            # BR-119 asks for the shift and the date. A shift lies on its date (FR-190, which
+            # Problem enforces), and service never starts before the route leaves, so the shift
+            # end is the only limit that can bind.
+            outside = start - float(self.problem.drivers.shift_end[self.rostered])
             if outside > LIMIT_TOLERANCE:
                 self._report(RuleId.BR_119, order=order, seconds=outside)
         elif late > LIMIT_TOLERANCE:

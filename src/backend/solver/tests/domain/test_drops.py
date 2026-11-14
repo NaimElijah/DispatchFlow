@@ -284,6 +284,30 @@ def test_given_depot_closing_equal_to_the_shift_end_when_explained_then_shift() 
     )
 
 
+@pytest.mark.parametrize("depot_first", [True, False], ids=["depot vehicle first", "shift first"])
+def test_given_two_vehicles_missing_by_equal_seconds_when_explained_then_shift_in_either_order(
+    depot_first: bool,
+) -> None:
+    # One vehicle's end depot closes at 199, the other's driver's shift ends at 199; both return
+    # at 200. The reason must not depend on which vehicle comes first.
+    day = DayBuilder()
+    closing = day.depot(0, closes=199)
+
+    def depot_vehicle() -> None:
+        day.vehicle(end_depot=closing)
+
+    def shift_vehicle() -> None:
+        day.vehicle(shift=(0, 199))
+
+    for add in (depot_vehicle, shift_vehicle) if depot_first else (shift_vehicle, depot_vehicle):
+        add()
+    day.order(100)
+
+    assert day.build().explain_drop(0, NOTHING_SERVED) == Shift(
+        latest_return=199, earliest_return=200
+    )
+
+
 def test_given_a_depot_opening_late_when_explained_then_the_route_leaves_at_opening() -> None:
     # The shared route check leaves at 900, when the depot opens, so the round trip ends at 1,100.
     day = a_day()
@@ -295,8 +319,11 @@ def test_given_a_depot_opening_late_when_explained_then_the_route_leaves_at_open
     )
 
 
-def test_given_a_door_order_past_the_dates_end_when_explained_then_shift_at_the_date_end() -> None:
-    # The shift ends with the date at 150 (FR-190), the binding limit min(shift end, date end).
+def test_given_a_door_order_after_a_shift_ending_the_date_when_explained_then_shift_on_return() -> (
+    None
+):
+    # The shift ends with the date at 150 (FR-190), so missing the date is missing the shift, and
+    # the fact is the return to the depot.
     day = DayBuilder(day_length=150)
     day.vehicle(shift=(0, 150))
     day.order(200, door=True)
