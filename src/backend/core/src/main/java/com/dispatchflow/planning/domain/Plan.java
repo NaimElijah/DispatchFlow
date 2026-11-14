@@ -623,9 +623,12 @@ public final class Plan extends AggregateRoot {
      * PlanRevised}.
      *
      * <p>A vehicle keeps its route's ID and index, and its confirmed return when it keeps its driver;
-     * an order and attempt keeps its stop's ID; a withdrawn vehicle's route is marked with its cause
-     * (FR-271), and keeps the stops the proposal doesn't serve or drop when the proposal gives it no
-     * route; a route withdrawn earlier stays as it is (FR-268).
+     * an order and attempt keeps its stop's ID, from any route, withdrawn ones included. A withdrawn
+     * vehicle's route is marked with its cause (FR-271), and keeps the stops the proposal doesn't
+     * serve or drop when the proposal gives it no route. A vehicle withdrawn earlier that the proposal
+     * withdraws again keeps that route's ID and index, and takes the proposal's cause and stops. Any
+     * other route withdrawn earlier stays as it is (FR-268), and an order it holds that the proposal
+     * serves or drops elsewhere refuses the acceptance (BR-07, ADR-101).
      *
      * @param proposal the proposal
      * @param changes what was recorded since its basis

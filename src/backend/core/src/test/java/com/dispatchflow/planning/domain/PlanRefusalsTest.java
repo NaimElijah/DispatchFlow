@@ -334,22 +334,6 @@ class PlanRefusalsTest {
     // ---- accept ---------------------------------------------------------------------------------
 
     @Test
-    void GivenAProposalGivingADriverTwoRoutes_WhenAccepted_ThenDriverAlreadyHasRoute() {
-        Plan plan = aPlan().published();
-
-        assertPlanRefused(
-                plan,
-                () -> plan.accept(
-                        proposalOf(List.of(solved(V1, D1, O1), solved(V2, D1, O3))),
-                        noChanges(V1, V2),
-                        freshIds(700),
-                        DISPATCHER,
-                        TODAY,
-                        LATER),
-                new DriverAlreadyHasRoute(D1, routeId(plan, V1)));
-    }
-
-    @Test
     void GivenAProposalServingAnOrderTwice_WhenAccepted_ThenOrderAlreadyInPlan() {
         Plan plan = aPlan().published();
 

@@ -59,7 +59,7 @@ class ReoptimizationProposalTest {
 
     @Test
     void GivenAStoredProposalServingAnOrderTwice_WhenRestored_ThenStoredStateInvalid() {
-        ReoptimizationProposalSnapshot twice = proposalOf(List.of(solved(V1, D1, O1), solved(V2, D2, O1)), List.of());
+        ReoptimizationProposalSnapshot twice = stored(List.of(solved(V1, D1, O1), solved(V2, D2, O1)), List.of());
 
         assertThatThrownBy(() -> ReoptimizationProposal.restore(twice))
                 .isInstanceOfSatisfying(
@@ -70,7 +70,7 @@ class ReoptimizationProposalTest {
     @Test
     void GivenAStoredProposalServingAndDroppingAnOrder_WhenRestored_ThenStoredStateInvalid() {
         ReoptimizationProposalSnapshot both =
-                proposalOf(List.of(solved(V1, D1, O1)), List.of(dropped(O1, new DropReason.Displaced())));
+                stored(List.of(solved(V1, D1, O1)), List.of(dropped(O1, new DropReason.Displaced())));
 
         assertThatThrownBy(() -> ReoptimizationProposal.restore(both))
                 .isInstanceOfSatisfying(
@@ -172,6 +172,89 @@ class ReoptimizationProposalTest {
     private static ReoptimizationProposal ready() {
         return ReoptimizationProposal.restore(
                 proposalOf(standardSolution().routes(), standardSolution().dropped()));
+    }
+
+    @Test
+    void GivenAStoredProposalPuttingADriverOnTwoRoutes_WhenRestored_ThenStoredStateInvalid() {
+        ReoptimizationProposalSnapshot twice = stored(List.of(solved(V1, D1, O1), solved(V2, D1, O2)), List.of());
+
+        assertThatThrownBy(() -> ReoptimizationProposal.restore(twice))
+                .isInstanceOfSatisfying(
+                        StoredStateInvalid.class,
+                        invalid -> assertThat(invalid.detail()).contains("at most one route"));
+    }
+
+    @Test
+    void GivenASolutionServingAnOrderTwice_WhenItBecomesAProposal_ThenOrderAlreadyInPlan() {
+        SolveJob job = aJob().reoptimizing().running();
+        ReoptimizationResult result = resultOf(List.of(solved(V1, D1, O1), solved(V2, D2, O1)), List.of());
+
+        PlanAssertions.assertJobRefused(
+                job,
+                () -> job.succeed(PROPOSAL, result, LATER),
+                new PlanningError.OrderAlreadyInPlan(O1, Attempt.FIRST));
+    }
+
+    @Test
+    void GivenASolutionServingAndDroppingAnOrder_WhenItBecomesAProposal_ThenOrderAlreadyInPlan() {
+        SolveJob job = aJob().reoptimizing().running();
+        ReoptimizationResult result =
+                resultOf(List.of(solved(V1, D1, O1)), List.of(dropped(O1, new DropReason.Displaced())));
+
+        PlanAssertions.assertJobRefused(
+                job,
+                () -> job.succeed(PROPOSAL, result, LATER),
+                new PlanningError.OrderAlreadyInPlan(O1, Attempt.FIRST));
+    }
+
+    @Test
+    void GivenASolutionPuttingADriverOnTwoRoutes_WhenItBecomesAProposal_ThenDriverRoutedTwice() {
+        SolveJob job = aJob().reoptimizing().running();
+        ReoptimizationResult result = resultOf(List.of(solved(V1, D1, O1), solved(V2, D1, O2)), List.of());
+
+        PlanAssertions.assertJobRefused(
+                job, () -> job.succeed(PROPOSAL, result, LATER), new PlanningError.DriverRoutedTwice(D1));
+    }
+
+    @Test
+    void GivenADriverOnAWithdrawnRouteAndOnANewOne_WhenItBecomesAProposal_ThenItIsReady() {
+        SolveJob job = aJob().reoptimizing().running();
+        ValidatedSolution solution = ValidatedSolution.of(
+                ValidationReport.of(List.of(), List.of(solved(V1, D1, O1), solved(V2, D1, O2)), List.of()));
+
+        ReoptimizationProposal proposal = job.succeed(
+                PROPOSAL,
+                reoptimizationResult(solution, new VehicleWithdrawal(V1, WithdrawalCause.VEHICLE_UNAVAILABLE)),
+                LATER);
+
+        assertThat(proposal.snapshot().state()).isEqualTo(new ReoptimizationProposal.State.Ready());
+        assertThat(ReoptimizationProposal.restore(proposal.snapshot()).snapshot())
+                .isEqualTo(proposal.snapshot());
+    }
+
+    private static ReoptimizationResult resultOf(List<SolvedRoute> routes, List<DroppedOrder> drops) {
+        return reoptimizationResult(ValidatedSolution.of(ValidationReport.of(List.of(), routes, drops)));
+    }
+
+    /** A stored proposal with these routes and drops, as persistence would hand it to restore. */
+    private static ReoptimizationProposalSnapshot stored(List<SolvedRoute> routes, List<DroppedOrder> drops) {
+        ReoptimizationProposalSnapshot s = ready().snapshot();
+        return new ReoptimizationProposalSnapshot(
+                s.id(),
+                s.version(),
+                s.plan(),
+                s.job(),
+                s.basis(),
+                routes,
+                drops,
+                s.withdrawn(),
+                s.objective(),
+                s.lateStops(),
+                s.withoutUsablePosition(),
+                s.driverChanges(),
+                s.needsGoodsHandOver(),
+                s.createdAt(),
+                s.state());
     }
 
     private static ReoptimizationProposalSnapshot proposalOf(List<SolvedRoute> routes, List<DroppedOrder> drops) {

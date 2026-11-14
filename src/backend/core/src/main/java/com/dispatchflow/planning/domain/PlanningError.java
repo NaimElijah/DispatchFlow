@@ -276,6 +276,14 @@ public sealed interface PlanningError extends DomainError {
      */
     record VehicleRoutedTwice(VehicleId vehicle) implements PlanningError {}
 
+    /**
+     * A re-optimization's solution puts one driver on two routes it doesn't withdraw, so it can't
+     * become a proposal (BR-39, ADR-101).
+     *
+     * @param driver the driver's account
+     */
+    record DriverRoutedTwice(AccountId driver) implements PlanningError {}
+
     /** Every route index from 1 to 30 is taken (ADR-101). */
     record RouteIndexesUsedUp() implements PlanningError {}
 

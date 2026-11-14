@@ -107,7 +107,7 @@ reading of the requirements.
       retries and alerts the team.
 19. **Drop reasons are [FR-223]'s full list,** in the optimizer's order. That list includes *vehicle
     limit* ([FR-201]), which the optimizer doesn't produce yet, and *no vehicle available*, second in
-    the order (ADR-100). Each reason carries its fact ([FR-144]). A fact time is a time of the
+    the order ([ADR-100]). Each reason carries its fact ([FR-144]). A fact time is a time of the
     date, whose length is the planning horizon ([ADR-088]).
 20. **Listeners and jobs take no `today`.** These are `applySolveResult`, `solveFailed`,
     `removeStopOf`, `reconcileLateOutcome` and `recordRouteCheck`. A `DateInPast` refusal would only
@@ -181,8 +181,11 @@ reading of the requirements.
       and stops. Stop IDs come from every route, withdrawn ones included.
     - **An order held by a withdrawn route** that the proposal serves elsewhere refuses with
       `OrderAlreadyInPlan`: BR-07 is checked over the whole plan the acceptance would leave.
-    - **A solution that gives one vehicle two routes,** withdrawn or not, never becomes a proposal:
-      creating one refuses with `VehicleRoutedTwice`, and a stored one doesn't load.
+    - **A proposal holds what a plan could hold.** One check runs both when a proposal is created and
+      when it is restored: an order and attempt once (`OrderAlreadyInPlan`), a vehicle on one route,
+      withdrawn or not (`VehicleRoutedTwice`), and a driver on one route that isn't withdrawn
+      (`DriverRoutedTwice`). Creating one refuses with the error; a stored one that breaks it doesn't
+      load.
 31. **How a route gets its index:** a vehicle keeps its route's index, and a new route takes the
     lowest free one. A vehicle withdrawn more than once can use up all 30, which refuses with
     `RouteIndexesUsedUp`. An index isn't kept across a solve that leaves the vehicle out, because the
@@ -287,6 +290,7 @@ reading of the requirements.
 [ADR-065]: ADR-065-facts-outrank-intent.md
 [ADR-084]: ADR-084-maplibre-in-both-apps-with-self-hosted-protomaps-tiles.md
 [ADR-088]: ADR-088-israel-local-time-for-every-date-and-schedule.md
+[ADR-100]: ADR-100-k-covers-door-windows-outside-a-shift-and-no-vehicle-is-a-drop-reason.md
 [BR-06]: ../requirements/requirements.md#routing-constraints
 [BR-105]: ../requirements/requirements.md#routing-constraints
 [BR-15]: ../requirements/requirements.md#solving-dropping-and-validation

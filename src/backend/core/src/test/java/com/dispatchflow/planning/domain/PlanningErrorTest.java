@@ -28,6 +28,7 @@ class PlanningErrorTest {
                         "DATE_NOT_OVER",
                         "DRIVER_ALREADY_HAS_ROUTE",
                         "DRIVER_NOT_AVAILABLE",
+                        "DRIVER_ROUTED_TWICE",
                         "INVALID_ATTEMPT",
                         "INVALID_SOLVER_NAME",
                         "INVALID_STOP_TIMES",

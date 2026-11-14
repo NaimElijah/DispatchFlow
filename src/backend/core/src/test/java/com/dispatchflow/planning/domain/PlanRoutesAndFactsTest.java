@@ -322,25 +322,6 @@ class PlanRoutesAndFactsTest {
                 new PlanningError.RouteLocked(v2));
     }
 
-    @Test
-    void
-            GivenEveryIndexTakenAndAProposalGivingADriverTwoRoutes_WhenAccepted_ThenBr39IsRefusedFirstAsDriverAlreadyHasRoute() {
-        List<PlanSnapshot.RouteSnapshot> routes = new ArrayList<>();
-        for (int n = 1; n <= 30; n++) {
-            int owner = n <= 15 ? n : n - 15;
-            routes.add(route(n, vehicle(owner), driver(owner), n <= 15));
-        }
-        Plan plan = Plan.restore(
-                withRoutes(aPlan().published().snapshot(), routes.toArray(PlanSnapshot.RouteSnapshot[]::new)));
-        ReoptimizationProposal twice =
-                proposal(RevisionNo.FIRST, List.of(solved(vehicle(16), driver(16)), solved(vehicle(17), driver(16))));
-
-        PlanAssertions.assertPlanRefused(
-                plan,
-                () -> plan.accept(twice, noChanges(vehicle(16), vehicle(17)), freshIds(700), DISPATCHER, TODAY, LATER),
-                new PlanningError.DriverAlreadyHasRoute(driver(16), RouteId.of(uuid(10_000 + 700))));
-    }
-
     // ---- helpers --------------------------------------------------------------------------------
 
     /** A published plan whose V1 was withdrawn after serving O1, with O2 moved to V2: revision 2. */

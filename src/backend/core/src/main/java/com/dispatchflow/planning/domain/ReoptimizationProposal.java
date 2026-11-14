@@ -1,5 +1,7 @@
 package com.dispatchflow.planning.domain;
 
+import com.dispatchflow.planning.domain.PlanningError.DriverRoutedTwice;
+import com.dispatchflow.planning.domain.PlanningError.OrderAlreadyInPlan;
 import com.dispatchflow.planning.domain.PlanningError.ProposalAlreadyDeclined;
 import com.dispatchflow.planning.domain.PlanningError.VehicleRoutedTwice;
 import com.dispatchflow.shared.AccountId;
@@ -12,8 +14,11 @@ import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.VehicleId;
 import com.dispatchflow.shared.Version;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -66,16 +71,17 @@ public final class ReoptimizationProposal extends AggregateRoot {
      * @param result the validated solution and the preview's facts
      * @param now when it was created
      * @return the proposal, ready
-     * @throws RuleViolation with {@link VehicleRoutedTwice} when the solution gives a vehicle two
-     *     routes, withdrawn or not (BR-39, ADR-101)
+     * @throws RuleViolation with what {@code restore} would refuse, so no stored proposal fails to
+     *     load: {@link OrderAlreadyInPlan} for an order and attempt served or dropped twice (BR-07),
+     *     {@link VehicleRoutedTwice} for a vehicle with two routes, withdrawn or not, or {@link
+     *     DriverRoutedTwice} for a driver on two routes it doesn't withdraw (BR-39, ADR-101)
      */
     static ReoptimizationProposal create(
             ProposalId id, PlanId plan, JobId job, ProposalBasis basis, ReoptimizationResult result, Instant now) {
-        Set<VehicleId> routed = new HashSet<>();
-        for (SolvedRoute route : result.solution().routes()) {
-            if (!routed.add(route.vehicle())) {
-                throw new RuleViolation(new VehicleRoutedTwice(route.vehicle()));
-            }
+        Optional<PlanningError> broken =
+                brokenBy(result.solution().routes(), result.solution().dropped(), result.withdrawn());
+        if (broken.isPresent()) {
+            throw new RuleViolation(broken.get());
         }
         return new ReoptimizationProposal(new ReoptimizationProposalSnapshot(
                 id,
@@ -105,23 +111,13 @@ public final class ReoptimizationProposal extends AggregateRoot {
      *     declined before it was created
      */
     public static ReoptimizationProposal restore(ReoptimizationProposalSnapshot snapshot) {
-        Set<StopKey> seen = new HashSet<>();
-        for (SolvedRoute route : snapshot.routes()) {
-            for (SolvedStop stop : route.stops()) {
-                requireFirst(seen, new StopKey(stop.order(), stop.attempt()));
-            }
-        }
-        for (DroppedOrder dropped : snapshot.dropped()) {
-            requireFirst(seen, new StopKey(dropped.order(), dropped.attempt()));
-        }
-        Set<VehicleId> vehicles = new HashSet<>();
-        Set<AccountId> drivers = new HashSet<>();
-        for (SolvedRoute route : snapshot.routes()) {
-            boolean driverTwice = !snapshot.withdraws(route.vehicle()) && !drivers.add(route.driver());
-            if (!vehicles.add(route.vehicle()) || driverTwice) {
-                throw new StoredStateInvalid(
-                        ReoptimizationProposal.class, "a vehicle or driver drives at most one route");
-            }
+        Optional<PlanningError> broken = brokenBy(snapshot.routes(), snapshot.dropped(), snapshot.withdrawn());
+        if (broken.isPresent()) {
+            throw new StoredStateInvalid(
+                    ReoptimizationProposal.class,
+                    broken.get() instanceof OrderAlreadyInPlan
+                            ? "an order and attempt is served or dropped at most once"
+                            : "a vehicle or driver drives at most one route");
         }
         if (snapshot.state() instanceof State.Declined declined && declined.at().isBefore(snapshot.createdAt())) {
             throw new StoredStateInvalid(
@@ -179,10 +175,34 @@ public final class ReoptimizationProposal extends AggregateRoot {
                 state);
     }
 
-    private static void requireFirst(Set<StopKey> seen, StopKey key) {
-        if (!seen.add(key)) {
-            throw new StoredStateInvalid(
-                    ReoptimizationProposal.class, "an order and attempt is served or dropped at most once");
+    /**
+     * The first rule a proposal's routes and drops break, which both {@link #create} and {@link
+     * #restore} check: an order and attempt once (BR-07), a vehicle on one route, and a driver on one
+     * route it isn't withdrawn from (BR-39).
+     */
+    private static Optional<PlanningError> brokenBy(
+            List<SolvedRoute> routes, List<DroppedOrder> dropped, List<VehicleWithdrawal> withdrawn) {
+        Set<StopKey> seen = new HashSet<>();
+        List<StopKey> keys = new ArrayList<>();
+        routes.forEach(route -> route.stops().forEach(stop -> keys.add(new StopKey(stop.order(), stop.attempt()))));
+        dropped.forEach(drop -> keys.add(new StopKey(drop.order(), drop.attempt())));
+        for (StopKey key : keys) {
+            if (!seen.add(key)) {
+                return Optional.of(new OrderAlreadyInPlan(key.order(), key.attempt()));
+            }
         }
+        Set<VehicleId> withdrawnVehicles = new HashSet<>();
+        withdrawn.forEach(withdrawal -> withdrawnVehicles.add(withdrawal.vehicle()));
+        Set<VehicleId> vehicles = new HashSet<>();
+        Set<AccountId> drivers = new HashSet<>();
+        for (SolvedRoute route : routes) {
+            if (!vehicles.add(route.vehicle())) {
+                return Optional.of(new VehicleRoutedTwice(route.vehicle()));
+            }
+            if (!withdrawnVehicles.contains(route.vehicle()) && !drivers.add(route.driver())) {
+                return Optional.of(new DriverRoutedTwice(route.driver()));
+            }
+        }
+        return Optional.empty();
     }
 }
