@@ -18,10 +18,10 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
     `StoredStateInvalid`, `Version`, `AggregateRoot`, `DomainEvent`, `EventId`, `FreshIds`,
     `PlainText` with its `TextKind`, and the `PersonalData` marker.
     Never add a type that holds one context's rule.
-- Built so far: the `domain` and `events` packages of `access`, `fleet`, `orders` and
-  `planning`. The contexts are decided ([DL §1]), and each is one module, laid out as in [TS §4]
-  and [ADR-040]. Each module's domain is built ahead of its milestone, and M0 adds the first
-  application layer and adapters ([roadmap §2.2]).
+- Built so far: the `domain` and `events` packages of `access`, `audit`, `fleet` and `orders` and
+  `planning`. The contexts are decided ([DL §1]), and each is one module, laid out as in [TS §4] and
+  [ADR-040]. Each module's domain is built ahead of its milestone, and M0 adds the first application
+  layer and adapters ([roadmap §2.2]).
 
   ```text
   <module>/domain/, events/

@@ -227,6 +227,8 @@ kernel's `PersonalData` marker ([ADR-106]).
 | `ArrivalProjection`, `StartDeadline`, `TrackingWindow` | Live Operations | Projected arrivals (§10.4); shift start plus allowance plus 15 minutes (FR-101); start to 1 hour after shift end (FR-328) | — |
 | `MessageText`, `Reply`, `Rating`, `PhoneHash`, `DailySendCap` | Messaging | A text starting with the company name, within 70 characters (FR-382); a parsed reply (FR-363, FR-376); 1 to 10; a keyed hash (NFR-202); the day's accepted messages and the cap (NFR-196) | `RatingOutOfRange` |
 | `OnTimeRate` | Reporting | Delivered stops reached by their window's end over delivered stops; *unavailable* when there are none (FR-264, FR-265, FR-340, FR-370) | — |
+| `AuditRecord`, `AuditOutcome`, `ErrorCode` | Audit | NFR-93's fields, each an ID, a code, an enum, a number or an instant (NFR-94), and its year of retention (NFR-258); succeeded, or refused with the refusal's upper snake case error code, so refusals are audited too (NFR-23) ([ADR-110]) | `MalformedErrorCode` |
+| `OperationName`, `NamedRecord`, `DeclaredApp`, `AppVersion`, `TraceId` | Audit | The `client-api` operation ID or a server step's name, an ASCII identifier of at most 100 characters; a kernel ID with its kind; the app (web or phone) and its version as the client declares them, as three numbers ([ADR-082]); a W3C trace-id (NFR-20) ([ADR-110]) | `MalformedOperationName`, `InvalidAppVersion`, `InvalidTraceId` |
 | `Problem`, `Solution`, `TravelTimeModel`, `PenaltyScale`, `ValidationReport` | Optimization | Everything one solve needs, and what comes back (§4.9) | — |
 
 DispatchFlow has no money in its domain: the objective's terms are in seconds, not shekels.
@@ -737,8 +739,14 @@ Everything else in Reporting is read models over the views other modules publish
 ### 4.8 Audit
 
 Audit records are records (§3.2), written through `AuditLog` in the transaction of the change they
-describe (NFR-23). They never carry personal data (NFR-94). The application's database role (`app`) can
-only insert and read them, and may execute one database function, owned by `dispatchflow_owner`, that
+describe (NFR-23). They never carry personal data (NFR-94). An `AuditRecord` holds NFR-93's fields and
+nothing else: when, the acting user and session when known, the app and its version as the client
+declares them, the operation, the records it names, its outcome and its trace ID. Each is an ID, a
+code, an enum, a number or an instant, never free text. The outcome is *succeeded* or *refused* with
+the refusal's error code, so a refused attempt, such as a failed sign-in, is audited too; writing it so
+that the refusal's rollback doesn't lose it is the application layer's job ([ADR-110]). The record
+owns its retention, `AuditRecord.RETENTION`, a year on Israel's calendar. The application's database
+role (`app`) can only insert and read them, and may execute one database function, owned by `dispatchflow_owner`, that
 deletes only audit records older than 1 year and computes the cutoff itself. The core's nightly retention
 job calls it (§10.3), so no separate step runs and the owner credential stays deploy-only (NFR-258,
 [ADR-075], [ADR-041]).
@@ -1286,7 +1294,7 @@ routes, and the plan stores them, so the core never applies a factor. The rules 
 | A published plan completes at midnight, and a plan still unpublished is abandoned (BR-102, BR-127). Before either, every queued or running solve job of the date fails (BR-128) | `Plan.complete(today)` and `Plan.abandon(today)`, after `SolveJob.fail` for every queued or running job of that date | A job at 00:00 |
 | A geocoding lookup is retried for 24 hours (FR-64) | The geocoding request (outbox row) | Every 15 minutes |
 | Positions are kept 7 days; proofs, messages and replies 90 days. An order's personal fields are removed 90 days after its date. A customer is anonymized 1 year after retirement, or after the later of creation and the last order, a driver 1 year after retirement, every account, whatever its roles, 1 year after deactivation. Sessions are deleted 30 days after they end, contact times after 14 days (NFR-280), geocode cache entries unused for 1 year, research instances 1 year after the project ends (NFR-31, NFR-184, NFR-257 to NFR-260, BR-98, [ADR-075]). Backups age out of the bucket after 35 days | `RetentionPeriods`; `Order.anonymize(today)`, `Customer.anonymize(now)`, `Driver.anonymize(now)`, `UserAccount.anonymize(now)` | A job at 03:00 |
-| Audit records are deleted after 1 year (NFR-258, [ADR-075]) | A database function owned by `dispatchflow_owner`, which deletes only records older than 1 year and computes the cutoff itself. The application's role (`app`) may only execute it, because it can only insert and read audit records ([ADR-041]) | The same retention job, at 03:00 in `Asia/Jerusalem` |
+| Audit records are deleted after 1 year (NFR-258, [ADR-075]) | `AuditRecord.RETENTION`, the period, and `AuditRecord.isPastRetention(now)` ([ADR-110]); a database function owned by `dispatchflow_owner`, which deletes only records older than 1 year and computes the cutoff itself. The application's role (`app`) may only execute it, because it can only insert and read audit records ([ADR-041]) | The same retention job, at 03:00 in `Asia/Jerusalem` |
 
 ### 10.4 Projected arrivals
 
@@ -1604,6 +1612,7 @@ Nothing. These ADRs record the decisions of this document:
 [ADR-067]: ../../ADRs/ADR-067-live-arrivals-propagate-delay-along-stored-legs-when-asked.md
 [ADR-068]: ../../ADRs/ADR-068-every-web-handler-is-authorized-by-role-from-the-contract.md
 [ADR-075]: ../../ADRs/ADR-075-retention-deletes-records-and-anonymizes-people-in-place.md
+[ADR-082]: ../../ADRs/ADR-082-supported-phone-app-versions.md
 [ADR-083]: ../../ADRs/ADR-083-admins-and-dispatchers-get-alerts-by-stream-and-push-in-the-phone-app.md
 [ADR-086]: ../../ADRs/ADR-086-csv-imports-upload-then-confirm-within-an-hour.md
 [ADR-097]: ../../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md
@@ -1614,3 +1623,4 @@ Nothing. These ADRs record the decisions of this document:
 [ADR-104]: ../../ADRs/ADR-104-the-company-profile-holds-customer-defaults-and-capabilities-follow-the-role-matrix.md
 [ADR-105]: ../../ADRs/ADR-105-a-re-optimizations-problem-carries-its-conventions-and-only-a-vehicle-that-is-out-has-no-driver.md
 [ADR-106]: ../../ADRs/ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md
+[ADR-110]: ../../ADRs/ADR-110-audit-records-hold-only-ids-codes-enums-numbers-and-instants-record-refusals-and-are-kept-a-year.md
