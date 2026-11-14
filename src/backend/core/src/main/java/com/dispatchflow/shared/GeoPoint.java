@@ -4,7 +4,7 @@ import com.dispatchflow.shared.SharedKernelError.InvalidCoordinates;
 
 /**
  * A point on the earth, in WGS 84 degrees (DL §3.3): a latitude from -90 to 90 and a longitude from
- * -180 to 180, both inclusive.
+ * -180 to 180, both inclusive. {@link #toString()} hides them.
  *
  * @param latitude degrees north of the equator
  * @param longitude degrees east of Greenwich
@@ -38,5 +38,15 @@ public record GeoPoint(double latitude, double longitude) {
      */
     public static GeoPoint of(double latitude, double longitude) {
         return new GeoPoint(latitude, longitude);
+    }
+
+    /**
+     * A form that hides the coordinates, because a customer's location is personal data (NFR-19).
+     *
+     * @return {@code GeoPoint[redacted]}
+     */
+    @Override
+    public String toString() {
+        return "GeoPoint[redacted]";
     }
 }

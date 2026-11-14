@@ -2,6 +2,11 @@ package com.dispatchflow.shared;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.tngtech.archunit.core.domain.JavaClass;
+import com.tngtech.archunit.core.domain.JavaField;
+import com.tngtech.archunit.core.domain.JavaModifier;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.core.importer.ImportOption;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Function;
@@ -33,9 +38,28 @@ class TypedIdsTest {
                 RatingRequestId::of);
     }
 
+    /** A typed ID is a production record in the kernel whose one component is a UUID. */
     @Test
-    void GivenTheKernel_WhenItsIdsAreCounted_ThenThereAreFourteen() {
-        assertThat(ids().map(id -> id.apply(UUID_V7).getClass()).distinct()).hasSize(14);
+    void GivenTheKernel_WhenItsIdsAreCounted_ThenThereAreFourteenAndThisTestCoversEach() {
+        List<String> productionIds = new ClassFileImporter()
+                        .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+                        .importPackages(PlanId.class.getPackageName())
+                        .stream()
+                        .filter(JavaClass::isRecord)
+                        .filter(type -> {
+                            List<JavaField> components = type.getFields().stream()
+                                    .filter(field -> !field.getModifiers().contains(JavaModifier.STATIC))
+                                    .toList();
+                            return components.size() == 1
+                                    && components.get(0).getRawType().isEquivalentTo(UUID.class);
+                        })
+                        .map(JavaClass::getName)
+                        .sorted()
+                        .toList();
+        List<String> testedIds =
+                ids().map(id -> id.apply(UUID_V7).getClass().getName()).sorted().toList();
+
+        assertThat(productionIds).hasSize(14).isEqualTo(testedIds);
     }
 
     @ParameterizedTest

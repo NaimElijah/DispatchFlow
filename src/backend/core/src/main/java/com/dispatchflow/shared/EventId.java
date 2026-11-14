@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
  * <p>Its canonical text form is {@code <eventType>:<aggregateId>:<version>:<ordinal>}, for example
  * {@code PlanPublished:0190a5e2-…:4:0}.
  *
- * @param eventType the event record's simple name
+ * @param eventType the event record's simple name, at most 100 characters
  * @param aggregateId the raising aggregate's UUID
  * @param version the version the raising change is saved at, at least 1
  * @param ordinal the event's position among the change's events, from 0
@@ -23,14 +23,15 @@ public record EventId(String eventType, UUID aggregateId, Version version, int o
     private static final String SEPARATOR = ":";
     private static final int PARTS = 4;
     private static final long FIRST_SAVED_VERSION = 1;
-    private static final Pattern TYPE_NAME = Pattern.compile("[A-Z][A-Za-z0-9]*");
+    private static final Pattern TYPE_NAME = Pattern.compile("[A-Z][A-Za-z0-9]{0,99}");
+    private static final Pattern COUNT = Pattern.compile("0|[1-9][0-9]*");
 
     /**
      * Checks the parts.
      *
-     * @throws StoredStateInvalid when the type is not a simple type name, the version is below 1 or
-     *     the ordinal is negative; outside {@link #parse} these only come from aggregate code, so
-     *     the only way to meet them is a damaged stored ID
+     * @throws StoredStateInvalid when the type is not a simple type name of at most 100 characters,
+     *     the version is below 1 or the ordinal is negative; outside {@link #parse} these only come
+     *     from aggregate code, so the only way to meet them is a damaged stored ID
      */
     public EventId {
         Objects.requireNonNull(eventType, "eventType");
@@ -56,19 +57,27 @@ public record EventId(String eventType, UUID aggregateId, Version version, int o
      */
     public static EventId parse(String text) {
         String[] parts = text.split(SEPARATOR, -1);
-        if (parts.length != PARTS) {
-            throw new StoredStateInvalid(EventId.class, "the text does not have four parts");
+        if (parts.length != PARTS
+                || !COUNT.matcher(parts[2]).matches()
+                || !COUNT.matcher(parts[3]).matches()) {
+            throw new StoredStateInvalid(EventId.class, "the text is not type:uuid:version:ordinal");
         }
+        EventId parsed;
         try {
-            UUID aggregateId = UUID.fromString(parts[1]);
-            // UUID.fromString also accepts shortened groups; only the canonical form round-trips.
-            if (!aggregateId.toString().equals(parts[1])) {
-                throw new StoredStateInvalid(EventId.class, "the aggregate ID is not a canonical UUID");
-            }
-            return new EventId(parts[0], aggregateId, Version.of(Long.parseLong(parts[2])), Integer.parseInt(parts[3]));
+            parsed = new EventId(
+                    parts[0],
+                    UUID.fromString(parts[1]),
+                    Version.of(Long.parseLong(parts[2])),
+                    Integer.parseInt(parts[3]));
         } catch (IllegalArgumentException malformed) {
-            throw new StoredStateInvalid(EventId.class, "the aggregate ID, version or ordinal is malformed", malformed);
+            // The cause is dropped: its message quotes the stored text.
+            throw new StoredStateInvalid(EventId.class, "the aggregate ID, version or ordinal is malformed");
         }
+        // UUID.fromString takes short groups and capitals; only canonical text round-trips.
+        if (!parsed.toText().equals(text)) {
+            throw new StoredStateInvalid(EventId.class, "the text is not in canonical form");
+        }
+        return parsed;
     }
 
     /**

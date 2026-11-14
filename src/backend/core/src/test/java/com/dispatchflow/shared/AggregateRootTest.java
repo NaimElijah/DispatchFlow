@@ -1,7 +1,10 @@
 package com.dispatchflow.shared;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.shared.SharedKernelError.PriorityOutOfRange;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -15,7 +18,7 @@ class AggregateRootTest {
 
     record Renamed(EventId eventId, Instant occurredAt) implements DomainEvent {}
 
-    /** The smallest aggregate: one method that raises two events in one change. */
+    /** The smallest aggregate: methods that raise events, refuse, or raise a mislabelled event. */
     static final class Counter extends AggregateRoot {
 
         private Counter(Version version) {
@@ -24,7 +27,7 @@ class AggregateRootTest {
 
         static Counter open(Instant now) {
             Counter counter = new Counter(Version.NEW);
-            counter.raise(new Opened(counter.nextEventId(Opened.class, ID), now));
+            counter.raise(Opened.class, ID, id -> new Opened(id, now));
             return counter;
         }
 
@@ -33,8 +36,19 @@ class AggregateRootTest {
         }
 
         void renameTwice(Instant now) {
-            raise(new Renamed(nextEventId(Renamed.class, ID), now));
-            raise(new Renamed(nextEventId(Renamed.class, ID), now));
+            raise(Renamed.class, ID, id -> new Renamed(id, now));
+            raise(Renamed.class, ID, id -> new Renamed(id, now));
+        }
+
+        /** Refuses while building its event, as a method that checks a value too late would. */
+        void renameRefused(Instant now) {
+            raise(Renamed.class, ID, id -> {
+                throw new RuleViolation(new PriorityOutOfRange(0));
+            });
+        }
+
+        void renameWithAForeignId(Instant now) {
+            raise(Renamed.class, ID, id -> new Renamed(new EventId("Renamed", ID, Version.of(99), 0), now));
         }
     }
 
@@ -61,6 +75,28 @@ class AggregateRootTest {
     }
 
     @Test
+    void GivenARefusedCall_WhenAnotherCallRaisesAnEvent_ThenNothingWasLeftBehindAndItsOrdinalIsZero() {
+        Counter counter = Counter.loadedAt(Version.of(4));
+
+        assertThatExceptionOfType(RuleViolation.class).isThrownBy(() -> counter.renameRefused(NOW));
+        assertThat(counter.pendingEvents()).isEmpty();
+
+        counter.renameTwice(NOW);
+
+        assertThat(counter.pendingEvents())
+                .extracting(event -> event.eventId().ordinal())
+                .containsExactly(0, 1);
+    }
+
+    @Test
+    void GivenAnEventBuiltWithAnotherId_WhenRaised_ThenItFailsAsAProgrammingErrorAndIsNotRecorded() {
+        Counter counter = Counter.loadedAt(Version.of(4));
+
+        assertThatThrownBy(() -> counter.renameWithAForeignId(NOW)).isInstanceOf(AssertionError.class);
+        assertThat(counter.pendingEvents()).isEmpty();
+    }
+
+    @Test
     void GivenRecordedEvents_WhenPulled_ThenTheyAreReturnedOnceAndCleared() {
         Counter counter = Counter.open(NOW);
 
@@ -74,6 +110,15 @@ class AggregateRootTest {
         Counter counter = Counter.open(NOW);
 
         assertThat(counter.pendingEvents()).hasSize(1);
+        assertThat(counter.pendingEvents()).hasSize(1);
+    }
+
+    @Test
+    void GivenTheListOfPendingEvents_WhenTheCallerTriesToChangeIt_ThenTheAggregateIsUnchanged() {
+        Counter counter = Counter.open(NOW);
+
+        assertThatExceptionOfType(UnsupportedOperationException.class)
+                .isThrownBy(() -> counter.pendingEvents().clear());
         assertThat(counter.pendingEvents()).hasSize(1);
     }
 }

@@ -58,9 +58,9 @@ public record IsraelDateTime(LocalDateTime localDateTime) implements Comparable<
     }
 
     /**
-     * The wall-clock time in Israel at an instant. An instant in the second occurrence of a repeated
-     * hour reads as that hour's wall-clock time, and so converts back to its first occurrence
-     * (BR-111).
+     * The wall-clock time in Israel at an instant. An instant in the second occurrence of a
+     * repeated hour reads as that hour's wall-clock time, and so converts back to its first
+     * occurrence (BR-111).
      *
      * @param instant the instant
      * @return its Israel wall-clock time
@@ -73,6 +73,8 @@ public record IsraelDateTime(LocalDateTime localDateTime) implements Comparable<
      * The calendar date of this time.
      *
      * @return the delivery date it falls on
+     * @throws RuleViolation with {@link SharedKernelError.DateOutOfRange} for a year outside 1 to
+     *     9999
      */
     public DeliveryDate date() {
         return DeliveryDate.of(localDateTime.toLocalDate());

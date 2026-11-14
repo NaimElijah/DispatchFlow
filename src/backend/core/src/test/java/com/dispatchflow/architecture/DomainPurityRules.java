@@ -6,6 +6,7 @@ import com.dispatchflow.shared.AggregateRoot;
 import com.tngtech.archunit.core.domain.AccessTarget;
 import com.tngtech.archunit.core.domain.JavaAccess;
 import com.tngtech.archunit.core.domain.JavaClass;
+import com.tngtech.archunit.core.domain.JavaCodeUnitAccess;
 import com.tngtech.archunit.core.domain.JavaModifier;
 import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
@@ -13,6 +14,7 @@ import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -30,8 +32,17 @@ final class DomainPurityRules {
     private static final String KERNEL = "shared";
     private static final String DOMAIN = "domain";
     private static final String EVENTS = "events";
-    private static final List<String> PURE_LIBRARIES = List.of("com.google.i18n.phonenumbers", "org.locationtech.jts");
+    private static final String PACKAGE_INFO = "package-info";
+    private static final List<String> KERNEL_LIBRARIES = List.of("com.google.i18n.phonenumbers");
+    private static final List<String> DOMAIN_LIBRARIES =
+            List.of("com.google.i18n.phonenumbers", "org.locationtech.jts");
     private static final List<String> ALWAYS_ALLOWED = List.of("java", "org.jspecify");
+    // M0 puts @ApplicationModule and @NamedInterface on these packages' package-info (ADR-040).
+    private static final String MODULITH = "org.springframework.modulith";
+
+    // A legacy date type or a Clock is a way to read the time inside the domain.
+    private static final List<String> CLOCK_TYPES = List.of(
+            "java.util.Date", "java.util.Calendar", "java.util.TimeZone", "java.time.Clock", "java.time.InstantSource");
 
     private static final List<String> IO_PACKAGES = List.of(
             "java.io",
@@ -42,7 +53,8 @@ final class DomainPurityRules {
             "javax.sql",
             "java.rmi",
             "javax.net");
-    // Not I/O: java.net.IDN converts email domains to ASCII (BR-45); Serializable and Serial only mark types.
+    // Not I/O: java.net.IDN converts email domains to ASCII (BR-45); Serializable and Serial only
+    // mark types.
     private static final Set<String> IO_EXCEPTIONS = Set.of("java.net.IDN", "java.io.Serializable", "java.io.Serial");
     private static final List<String> IO_CLASSES =
             List.of("java.lang.ProcessBuilder", "java.lang.Process", "java.lang.ProcessHandle", "java.lang.Runtime");
@@ -70,15 +82,27 @@ final class DomainPurityRules {
 
     private DomainPurityRules() {}
 
-    /** Rule 1: the kernel, each domain and each events package depend only on what DL §3.9 and §7.3 allow. */
+    /**
+     * Rule 1: the kernel, each domain and each events package depend only on what DL §3.9 and §7.3
+     * allow, with Spring Modulith's annotations allowed on their {@code package-info} only.
+     */
     static ArchRule onlyAllowedDependencies(String root) {
+        return onlyAllowedDependencies(root, MODULITH);
+    }
+
+    /**
+     * Rule 1, with the package whose annotations a {@code package-info} may carry given: Spring
+     * Modulith's for production, a stand-in for the fixtures, because Modulith is not on the
+     * classpath before M0.
+     */
+    static ArchRule onlyAllowedDependencies(String root, String moduleAnnotations) {
         return classes()
                 .that()
                 .resideInAnyPackage(pureLayers(root))
-                .should(dependOnlyOnAllowedPackages(root))
-                .because("DL §3.9 rule 1 and §7.3: the domain imports only the JDK, JSpecify, the shared kernel,"
-                        + " its own domain and events, libphonenumber and JTS; events only the JDK, JSpecify,"
-                        + " the kernel and their own package");
+                .should(dependOnlyOnAllowedPackages(root, moduleAnnotations))
+                .because("DL §3.9 rule 1 and §7.3: the kernel imports only the JDK, JSpecify and libphonenumber;"
+                        + " a domain also its own domain and events, the kernel and JTS; events only the JDK,"
+                        + " JSpecify, the kernel and their own package");
     }
 
     /** Rule 2: no clock. */
@@ -86,7 +110,8 @@ final class DomainPurityRules {
         return classes()
                 .that()
                 .resideInAnyPackage(pureLayers(root))
-                .should(notAccess("read the system clock", DomainPurityRules::readsTheClock))
+                .should(notAccess("read the system clock", DomainPurityRules::readsTheClock)
+                        .and(notDependOn("a legacy date type or a clock", DomainPurityRules::isAClock)))
                 .because("DL §3.9 rule 2: now and today are parameters (NFR-13, NFR-175)");
     }
 
@@ -169,11 +194,11 @@ final class DomainPurityRules {
         return new String[] {root + "." + KERNEL + "..", root + ".*." + DOMAIN + "..", root + ".*." + EVENTS + ".."};
     }
 
-    private static ArchCondition<JavaClass> dependOnlyOnAllowedPackages(String root) {
+    private static ArchCondition<JavaClass> dependOnlyOnAllowedPackages(String root, String moduleAnnotations) {
         return new ArchCondition<>("depend only on the packages DL §3.9 allows") {
             @Override
             public void check(JavaClass item, ConditionEvents events) {
-                List<String> allowed = allowedPackages(root, item);
+                List<String> allowed = allowedPackages(root, moduleAnnotations, item);
                 item.getDirectDependenciesFromSelf().stream()
                         .filter(dependency -> {
                             JavaClass target = baseType(dependency.getTargetClass());
@@ -187,21 +212,30 @@ final class DomainPurityRules {
 
     /**
      * The packages one class may depend on, from where it lives: {@code <root>.shared...}, {@code
-     * <root>.<module>.domain...} or {@code <root>.<module>.events...}.
+     * <root>.<module>.domain...} or {@code <root>.<module>.events...}. A {@code package-info} of a
+     * domain or events package, or of the kernel's own package (a module root), may also carry the
+     * module annotations.
      */
-    private static List<String> allowedPackages(String root, JavaClass item) {
+    private static List<String> allowedPackages(String root, String moduleAnnotations, JavaClass item) {
         String[] segments = item.getPackageName().substring(root.length() + 1).split("\\.");
         List<String> allowed = new ArrayList<>(ALWAYS_ALLOWED);
         allowed.add(root + "." + KERNEL);
+        boolean packageInfo = item.getSimpleName().equals(PACKAGE_INFO);
         if (segments[0].equals(KERNEL)) {
-            allowed.addAll(PURE_LIBRARIES);
+            allowed.addAll(KERNEL_LIBRARIES);
+            if (packageInfo && segments.length == 1) {
+                allowed.add(moduleAnnotations);
+            }
             return allowed;
         }
         String module = root + "." + segments[0];
         allowed.add(module + "." + EVENTS);
         if (segments[1].equals(DOMAIN)) {
             allowed.add(module + "." + DOMAIN);
-            allowed.addAll(PURE_LIBRARIES);
+            allowed.addAll(DOMAIN_LIBRARIES);
+        }
+        if (packageInfo) {
+            allowed.add(moduleAnnotations);
         }
         return allowed;
     }
@@ -236,7 +270,13 @@ final class DomainPurityRules {
         return (owner.startsWith("java.time.") && name.equals("now"))
                 || (owner.equals("java.time.Clock") && name.startsWith("system"))
                 || (owner.equals("java.time.InstantSource") && name.equals("system"))
-                || (owner.equals("java.lang.System") && (name.equals("currentTimeMillis") || name.equals("nanoTime")));
+                || (owner.equals("java.lang.System") && (name.equals("currentTimeMillis") || name.equals("nanoTime")))
+                || (owner.equals("java.time.ZoneId") && name.equals("systemDefault"))
+                || (owner.equals("java.util.TimeZone") && name.equals("getDefault"));
+    }
+
+    private static boolean isAClock(JavaClass type) {
+        return CLOCK_TYPES.stream().anyMatch(type::isAssignableTo);
     }
 
     private static boolean generatesAnId(JavaAccess<?> access) {
@@ -271,9 +311,11 @@ final class DomainPurityRules {
         return isInAny(type.getPackageName(), LOGGING_PACKAGES) || isAnyOf(type, List.of(SYSTEM_LOGGER));
     }
 
+    /** Subclasses count too: a NumberFormatException is an IllegalArgumentException. */
     private static boolean createsAGenericException(JavaAccess<?> access) {
+        JavaClass owner = access.getTarget().getOwner();
         return access.getTarget().getName().equals(CONSTRUCTOR)
-                && GENERIC_EXCEPTIONS.contains(access.getTarget().getOwner().getName());
+                && GENERIC_EXCEPTIONS.stream().anyMatch(owner::isAssignableTo);
     }
 
     /**
@@ -288,11 +330,16 @@ final class DomainPurityRules {
         return (restoresAnAggregate || target.getName().equals("readUnderLock")) && !isSelfAccess(access);
     }
 
+    /**
+     * A constructor or a static factory, called or referenced. A record-shaped or package-private
+     * constructor is caught here too; {@link DomainShapeRules} also requires the constructors to be
+     * private.
+     */
     private static boolean buildsAnOptimizerResult(JavaAccess<?> access) {
         AccessTarget target = access.getTarget();
-        return OPTIMIZER_RESULTS.contains(target.getOwner().getSimpleName())
-                && !target.getName().equals(CONSTRUCTOR)
-                && isStatic(target)
+        return access instanceof JavaCodeUnitAccess<?>
+                && OPTIMIZER_RESULTS.contains(target.getOwner().getSimpleName())
+                && (target.getName().equals(CONSTRUCTOR) || isStatic(target))
                 && !isSelfAccess(access);
     }
 
@@ -303,8 +350,17 @@ final class DomainPurityRules {
                 .orElse(true);
     }
 
+    /** An access from the target type itself, or from a type nested in it at any depth. */
     private static boolean isSelfAccess(JavaAccess<?> access) {
-        return access.getOriginOwner().equals(access.getTargetOwner());
+        JavaClass target = access.getTargetOwner();
+        Optional<JavaClass> origin = Optional.of(access.getOriginOwner());
+        while (origin.isPresent()) {
+            if (origin.get().equals(target)) {
+                return true;
+            }
+            origin = origin.get().getEnclosingClass();
+        }
+        return false;
     }
 
     private static JavaClass baseType(JavaClass type) {

@@ -75,4 +75,27 @@ class DaySecondsTest {
         assertThat(seconds.toInstant()).isEqualTo(time.toInstant());
         assertThat(seconds.toInstant()).isEqualTo(Instant.parse("2027-06-15T11:25:10Z"));
     }
+
+    @Test
+    void GivenTheSecondOccurrenceOfTheRepeatedHour_WhenCountedFromItsInstant_ThenItIsKeptApartFromTheFirst() {
+        assertThat(DaySeconds.at(FALL_BACK, Instant.parse("2027-10-30T23:30:00Z"))
+                        .seconds())
+                .isEqualTo(9_000);
+        assertThat(DaySeconds.at(FALL_BACK, Instant.parse("2027-10-30T22:30:00Z"))
+                        .seconds())
+                .isEqualTo(5_400);
+    }
+
+    @Test
+    void GivenAnInstantBeforeTheDate_WhenCountedFromItsInstant_ThenOutsideTheDay() {
+        assertRefused(
+                () -> DaySeconds.at(ORDINARY, Instant.parse("2027-06-14T20:59:59Z")), new OutsideTheDay(ORDINARY, -1));
+    }
+
+    @Test
+    void GivenAnInstantAfterTheDate_WhenCountedFromItsInstant_ThenOutsideTheDay() {
+        assertRefused(
+                () -> DaySeconds.at(ORDINARY, Instant.parse("2027-06-15T21:00:01Z")),
+                new OutsideTheDay(ORDINARY, 86_401));
+    }
 }

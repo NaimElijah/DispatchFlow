@@ -59,6 +59,21 @@ public record DaySeconds(DeliveryDate date, long seconds) {
     }
 
     /**
+     * The elapsed seconds from a date's local midnight to an instant. Unlike {@link
+     * #at(IsraelDateTime)}, it keeps the second occurrence of a repeated hour apart from the first,
+     * so a fact's real time on a fall-back day counts right.
+     *
+     * @param date the date to count from
+     * @param instant the instant, on that date
+     * @return the seconds since the date's local midnight, a fraction of a second dropped
+     * @throws RuleViolation with {@link OutsideTheDay} when the instant is not on the date
+     */
+    public static DaySeconds at(DeliveryDate date, Instant instant) {
+        return new DaySeconds(
+                date, Duration.between(date.startInstant(), instant).toSeconds());
+    }
+
+    /**
      * The instant these seconds name.
      *
      * @return the date's local midnight plus the elapsed seconds

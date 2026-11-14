@@ -35,7 +35,7 @@ public final class FreshIds {
     /**
      * Draws the next UUID; the caller wraps it in its typed ID.
      *
-     * @return a UUID not drawn before
+     * @return the next UUID supplied
      * @throws NoSuchElementException when the supply is used up: the use case filled too few, a
      *     programming error rather than a refusal, so no {@link DomainError} describes it
      */

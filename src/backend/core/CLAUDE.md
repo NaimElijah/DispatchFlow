@@ -36,13 +36,13 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
 
 ## Rules
 
-- `domain`, `events` and `shared` stay pure ([DL §3.9]). There are six rules, each an ArchUnit test
+- `domain`, `events` and `shared` stay pure ([DL §3.9], [ADR-097]). There are six rules, each an ArchUnit test
   in `src/test/java/com/dispatchflow/architecture/`:
   1. A module's domain imports only the JDK, the shared kernel, its own domain, its own module's
      `events` package, JSpecify, libphonenumber and JTS ([DL §7.3] for `events`). An `events`
      package imports only the JDK, JSpecify, the kernel and itself.
-  2. It never reads the clock: no `now()` on a `java.time` type, no `Clock.system…()`, no
-     `System.currentTimeMillis()` or `nanoTime()`.
+  2. It never reads the clock: no `now()` on a `java.time` type, no `Clock.system…()` or
+     `InstantSource.system()`, no `System.currentTimeMillis()` or `nanoTime()`.
   3. It never calls `UUID.randomUUID()`. Factories take the new ID, and a method that creates many
      children takes a `FreshIds`.
   4. It uses no randomness, I/O or logging. `java.net.IDN` is the one allowed `java.net` class.
@@ -52,9 +52,22 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
      snapshot read under a lock (`ActiveAdmins`, `DateCapacity`, `LaneCapacity`).
 
   [DL §13] adds a seventh: only the optimizer adapter builds a `ValidationReport` or an
-  `Evaluation`. Each rule has a deliberately impure fixture under `archfixture/` that it must flag,
-  so a mistyped package pattern can't make it pass on nothing. A new module is covered without
-  editing the test.
+  `Evaluation`. Shape rules (`DomainShapeRules`) also hold:
+  - Constructors of an aggregate, of a snapshot read under a lock and of those two types are
+    private.
+  - Events live in an `events` package. Their fields are kernel types other than `PhoneNumber` and
+    `GeoPoint`, the package's own enums, `Instant`, `int`, `long`, `boolean`, or lists of these.
+  - Error records carry no `String`, `PhoneNumber` or `GeoPoint`, because their fields become a
+    response's `params`.
+  - No error declares its own `code()`.
+  - Error codes and event names are unique across modules, and every error has a refusal test.
+
+  Each rule has a deliberately impure fixture under `archfixture/` that it must flag, so a mistyped
+  package pattern can't make it pass on nothing. A new module is covered without editing the test.
+  - Spring Modulith annotations are allowed on `package-info` only.
+  - A value rebuilt from storage goes through `StoredStateInvalid.whileRestoring`, and a stored
+    phone number through `PhoneNumber.ofStored`. So a damaged or since-refused value is an incident,
+    never a user-facing refusal.
 - Web and persistence types live in `adapter` and are mapped to domain objects.
 - Another module is reached only through its `api`, `spi` and `events` packages ([DL §2.3]).
   Spring Modulith's `verify()` fails the build on any other use ([ADR-040], Accepted).
@@ -103,8 +116,8 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
     error. Every transition has one test that takes it, plus one per other state that must refuse
     it.
   - A refusal test asserts through `DomainAssertions.assertRefused` (or `assertAllRefused` for a
-    `RuleViolations`). Its name ends in `_Then<ErrorName>`, and each module's error test fails
-    when an error has no such test. `ErrorCodeUniquenessTest` fails on a code two modules share,
+    `RuleViolations`). Its name ends in `_Then<ErrorName>`. The kernel's `SharedKernelErrorTest`
+    fails when an error has no such test, and each module's error test must do the same. `ErrorCodeUniquenessTest` fails on a code two modules share,
     except the allow-listed ones that mean the same thing.
   - Application tests run each use case against in-memory fakes of its ports.
   - Module and event tests (`@ApplicationModuleTest` boots one module alone; `Scenario` tests an

@@ -10,4 +10,12 @@ public sealed interface BetaError extends DomainError {
     record DateInPast() implements BetaError {}
 
     record BetaOnly() implements BetaError {}
+
+    /** A nested sealed group, whose errors must be found by walking the permitted subtypes. */
+    sealed interface Scheduling extends BetaError {
+
+        record SlotTaken() implements Scheduling {}
+
+        record SlotGone() implements Scheduling {}
+    }
 }

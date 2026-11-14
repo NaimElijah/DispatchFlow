@@ -1,5 +1,6 @@
 package com.dispatchflow.shared;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -38,21 +39,29 @@ public sealed interface SharedKernelError extends DomainError {
      */
     record InvalidCoordinates() implements SharedKernelError {}
 
+    /** The quantity a {@link NonPositiveQuantity} or a {@link QuantityOutOfRange} refers to. */
+    enum Measure {
+        /** A {@link Weight}, in kilograms. */
+        WEIGHT,
+        /** A {@link Volume}, in litres. */
+        VOLUME
+    }
+
     /**
      * A weight or a volume that is zero or negative (BR-50).
      *
      * @param measure which quantity was refused
      */
-    record NonPositiveQuantity(Measure measure) implements SharedKernelError {
+    record NonPositiveQuantity(Measure measure) implements SharedKernelError {}
 
-        /** The quantity a {@link NonPositiveQuantity} refers to. */
-        public enum Measure {
-            /** A {@link Weight}, in kilograms. */
-            WEIGHT,
-            /** A {@link Volume}, in litres. */
-            VOLUME
-        }
-    }
+    /**
+     * A weight or a volume with more than two decimals, or more integer digits than its column
+     * holds: 6 for a weight and 7 for a volume (ADR-061, {@code numeric(8,2)} and {@code
+     * numeric(9,2)}).
+     *
+     * @param measure which quantity was refused
+     */
+    record QuantityOutOfRange(Measure measure) implements SharedKernelError {}
 
     /**
      * A priority outside 1 to 5 (BR-53).
@@ -66,4 +75,12 @@ public sealed interface SharedKernelError extends DomainError {
      * is personal data.
      */
     record InvalidPhoneNumber() implements SharedKernelError {}
+
+    /**
+     * A delivery date outside the years 1 to 9999. It is a technical bound, not a business rule:
+     * the date arithmetic past it would fail.
+     *
+     * @param date the refused date
+     */
+    record DateOutOfRange(LocalDate date) implements SharedKernelError {}
 }

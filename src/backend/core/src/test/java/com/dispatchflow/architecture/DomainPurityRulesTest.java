@@ -9,8 +9,12 @@ import com.dispatchflow.archfixture.alpha.application.RestoresANonAggregate;
 import com.dispatchflow.archfixture.alpha.application.RestoresByReferenceOutsidePersistence;
 import com.dispatchflow.archfixture.alpha.application.RestoresOutsidePersistence;
 import com.dispatchflow.archfixture.alpha.domain.AlphaAggregate;
+import com.dispatchflow.archfixture.alpha.domain.AlphaCapacity;
 import com.dispatchflow.archfixture.alpha.domain.AlphaValue;
+import com.dispatchflow.archfixture.alpha.domain.AnnotatedWithModulith;
 import com.dispatchflow.archfixture.alpha.domain.CallsOverHttp;
+import com.dispatchflow.archfixture.alpha.domain.CatchesAnIllegalArgument;
+import com.dispatchflow.archfixture.alpha.domain.CreatesANumberFormatException;
 import com.dispatchflow.archfixture.alpha.domain.CreatesAnIllegalArgument;
 import com.dispatchflow.archfixture.alpha.domain.CreatesAnIllegalState;
 import com.dispatchflow.archfixture.alpha.domain.CreatesAnIllegalStateByReference;
@@ -20,6 +24,7 @@ import com.dispatchflow.archfixture.alpha.domain.DependsOnAnotherModulesEvents;
 import com.dispatchflow.archfixture.alpha.domain.DependsOnItsApplication;
 import com.dispatchflow.archfixture.alpha.domain.GeneratesARandomUuid;
 import com.dispatchflow.archfixture.alpha.domain.GeneratesARandomUuidByReference;
+import com.dispatchflow.archfixture.alpha.domain.HoldsAClock;
 import com.dispatchflow.archfixture.alpha.domain.LogsWithJul;
 import com.dispatchflow.archfixture.alpha.domain.LogsWithSlf4j;
 import com.dispatchflow.archfixture.alpha.domain.LogsWithTheSystemLogger;
@@ -31,10 +36,14 @@ import com.dispatchflow.archfixture.alpha.domain.ReadsCurrentTimeMillis;
 import com.dispatchflow.archfixture.alpha.domain.ReadsInstantNow;
 import com.dispatchflow.archfixture.alpha.domain.ReadsInstantNowByReference;
 import com.dispatchflow.archfixture.alpha.domain.ReadsLocalDateNow;
+import com.dispatchflow.archfixture.alpha.domain.ReadsTheDefaultTimeZone;
+import com.dispatchflow.archfixture.alpha.domain.ReadsTheDefaultZone;
 import com.dispatchflow.archfixture.alpha.domain.ReadsTheEnvironment;
 import com.dispatchflow.archfixture.alpha.domain.ReadsTheSystemClock;
 import com.dispatchflow.archfixture.alpha.domain.ShufflesAList;
 import com.dispatchflow.archfixture.alpha.domain.StartsAProcess;
+import com.dispatchflow.archfixture.alpha.domain.UsesACalendar;
+import com.dispatchflow.archfixture.alpha.domain.UsesALegacyDate;
 import com.dispatchflow.archfixture.alpha.domain.UsesARandomGenerator;
 import com.dispatchflow.archfixture.alpha.domain.UsesMathRandom;
 import com.dispatchflow.archfixture.alpha.domain.UsesRandom;
@@ -42,10 +51,15 @@ import com.dispatchflow.archfixture.alpha.domain.UsesThreadLocalRandom;
 import com.dispatchflow.archfixture.alpha.events.AlphaEventKind;
 import com.dispatchflow.archfixture.alpha.events.AlphaHappened;
 import com.dispatchflow.archfixture.alpha.events.EventCreatesAnIllegalState;
+import com.dispatchflow.archfixture.alpha.events.EventDependsOnAnotherModulesEvents;
 import com.dispatchflow.archfixture.alpha.events.EventDependsOnItsDomain;
+import com.dispatchflow.archfixture.alpha.events.EventDependsOnLibphonenumber;
+import com.dispatchflow.archfixture.beta.application.BuildsARecordEvaluation;
+import com.dispatchflow.archfixture.modulith.NamedInterface;
 import com.dispatchflow.archfixture.planning.adapter.out.optimizer.OptimizerAdapter;
 import com.dispatchflow.archfixture.planning.application.BuildsAValidationReport;
 import com.dispatchflow.archfixture.planning.application.BuildsAnEvaluation;
+import com.dispatchflow.archfixture.planning.domain.BuildsAReportInTheDomain;
 import com.dispatchflow.archfixture.planning.domain.Evaluation;
 import com.dispatchflow.archfixture.planning.domain.ValidationReport;
 import com.dispatchflow.archfixture.shared.KernelCreatesAnIllegalArgument;
@@ -54,6 +68,7 @@ import com.dispatchflow.archfixture.shared.KernelValue;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.lang.ArchRule;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -67,10 +82,15 @@ import org.junit.jupiter.params.provider.ValueSource;
 class DomainPurityRulesTest {
 
     private static final String FIXTURE_ROOT = "com.dispatchflow.archfixture";
+    private static final String FIXTURE_MODULE_ANNOTATIONS = NamedInterface.class.getPackageName();
 
     private static boolean flags(ArchRule rule, Class<?>... fixtures) {
         JavaClasses imported = new ClassFileImporter().importClasses(fixtures);
         return rule.evaluate(imported).hasViolation();
+    }
+
+    private static ArchRule rule1() {
+        return DomainPurityRules.onlyAllowedDependencies(FIXTURE_ROOT, FIXTURE_MODULE_ANNOTATIONS);
     }
 
     @ParameterizedTest
@@ -81,18 +101,27 @@ class DomainPurityRulesTest {
                 DependsOnItsApplication.class,
                 DependsOnAFramework.class,
                 EventDependsOnItsDomain.class,
-                KernelDependsOnAModule.class
+                EventDependsOnAnotherModulesEvents.class,
+                EventDependsOnLibphonenumber.class,
+                KernelDependsOnAModule.class,
+                AnnotatedWithModulith.class
             })
     void GivenAForbiddenDependency_WhenRule1Evaluates_ThenItIsFlagged(Class<?> fixture) {
-        assertThat(flags(DomainPurityRules.onlyAllowedDependencies(FIXTURE_ROOT), fixture))
-                .isTrue();
+        assertThat(flags(rule1(), fixture)).isTrue();
     }
 
     @ParameterizedTest
     @ValueSource(classes = {AlphaValue.class, AlphaEventKind.class, AlphaHappened.class, KernelValue.class})
     void GivenOnlyAllowedDependencies_WhenRule1Evaluates_ThenNothingIsFlagged(Class<?> fixture) {
-        assertThat(flags(DomainPurityRules.onlyAllowedDependencies(FIXTURE_ROOT), fixture))
-                .isFalse();
+        assertThat(flags(rule1(), fixture)).isFalse();
+    }
+
+    @Test
+    void GivenModuleAnnotationsOnPackageInfos_WhenRule1Evaluates_ThenNothingIsFlagged() {
+        JavaClasses gamma = new ClassFileImporter().importPackages(FIXTURE_ROOT + ".gamma");
+
+        assertThat(gamma.stream().map(type -> type.getSimpleName())).contains("package-info");
+        assertThat(rule1().evaluate(gamma).hasViolation()).isFalse();
     }
 
     @ParameterizedTest
@@ -102,11 +131,23 @@ class DomainPurityRulesTest {
                 ReadsInstantNowByReference.class,
                 ReadsLocalDateNow.class,
                 ReadsTheSystemClock.class,
-                ReadsCurrentTimeMillis.class
+                ReadsCurrentTimeMillis.class,
+                UsesALegacyDate.class,
+                UsesACalendar.class,
+                ReadsTheDefaultZone.class,
+                ReadsTheDefaultTimeZone.class,
+                HoldsAClock.class
             })
     void GivenAClockRead_WhenRule2Evaluates_ThenItIsFlagged(Class<?> fixture) {
         assertThat(flags(DomainPurityRules.noSystemClock(FIXTURE_ROOT), fixture))
                 .isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(classes = {AlphaValue.class, AlphaAggregate.class})
+    void GivenNoClock_WhenRule2Evaluates_ThenNothingIsFlagged(Class<?> fixture) {
+        assertThat(flags(DomainPurityRules.noSystemClock(FIXTURE_ROOT), fixture))
+                .isFalse();
     }
 
     @ParameterizedTest
@@ -162,12 +203,19 @@ class DomainPurityRulesTest {
                 CreatesAnIllegalArgument.class,
                 CreatesAnIllegalState.class,
                 CreatesAnIllegalStateByReference.class,
+                CreatesANumberFormatException.class,
                 KernelCreatesAnIllegalArgument.class,
                 EventCreatesAnIllegalState.class
             })
     void GivenAGenericException_WhenRule5Evaluates_ThenItIsFlagged(Class<?> fixture) {
         assertThat(flags(DomainPurityRules.noGenericExceptions(FIXTURE_ROOT), fixture))
                 .isTrue();
+    }
+
+    @Test
+    void GivenAGenericExceptionCaughtButNotCreated_WhenRule5Evaluates_ThenNothingIsFlagged() {
+        assertThat(flags(DomainPurityRules.noGenericExceptions(FIXTURE_ROOT), CatchesAnIllegalArgument.class))
+                .isFalse();
     }
 
     @ParameterizedTest
@@ -183,21 +231,33 @@ class DomainPurityRulesTest {
     }
 
     @ParameterizedTest
-    @ValueSource(classes = {RestoresInPersistence.class, RestoresANonAggregate.class})
-    void GivenARestoreInPersistenceOrOfANonAggregate_WhenRule6Evaluates_ThenNothingIsFlagged(Class<?> fixture) {
+    @ValueSource(
+            classes = {
+                RestoresInPersistence.class,
+                RestoresANonAggregate.class,
+                AlphaAggregate.class,
+                AlphaCapacity.class
+            })
+    void GivenARestoreInPersistenceOrByTheTypeItself_WhenRule6Evaluates_ThenNothingIsFlagged(Class<?> fixture) {
         assertThat(flags(DomainPurityRules.restoreOnlyFromPersistence(FIXTURE_ROOT), fixture, AlphaUseCase.class))
                 .isFalse();
     }
 
     @ParameterizedTest
-    @ValueSource(classes = {BuildsAValidationReport.class, BuildsAnEvaluation.class})
+    @ValueSource(
+            classes = {
+                BuildsAValidationReport.class,
+                BuildsAnEvaluation.class,
+                BuildsARecordEvaluation.class,
+                BuildsAReportInTheDomain.class
+            })
     void GivenAnOptimizerResultBuiltOutsideTheOptimizerAdapter_WhenEvaluated_ThenItIsFlagged(Class<?> fixture) {
         assertThat(flags(DomainPurityRules.optimizerResultsOnlyFromOptimizerAdapter(FIXTURE_ROOT), fixture))
                 .isTrue();
     }
 
     @ParameterizedTest
-    @ValueSource(classes = {OptimizerAdapter.class, ValidationReport.class, Evaluation.class})
+    @ValueSource(classes = {OptimizerAdapter.class, ValidationReport.class, Evaluation.class, Evaluation.Builder.class})
     void GivenTheOptimizerAdapterOrTheTypeItself_WhenEvaluated_ThenNothingIsFlagged(Class<?> fixture) {
         assertThat(flags(
                         DomainPurityRules.optimizerResultsOnlyFromOptimizerAdapter(FIXTURE_ROOT),

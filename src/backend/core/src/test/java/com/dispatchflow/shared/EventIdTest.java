@@ -36,12 +36,34 @@ class EventIdTest {
                 "PlanPublished:0190a5e2-7c3b-7def-8a12-3456789abcde:4:-1",
                 "PlanPublished:0190a5e2-7c3b-7def-8a12-3456789abcde:0:0",
                 ":0190a5e2-7c3b-7def-8a12-3456789abcde:4:1",
-                "plan published:0190a5e2-7c3b-7def-8a12-3456789abcde:4:1"
+                "plan published:0190a5e2-7c3b-7def-8a12-3456789abcde:4:1",
+                "PlanPublished:0190A5E2-7C3B-7DEF-8A12-3456789ABCDE:4:1",
+                "PlanPublished:0190a5e2-7c3b-7def-8a12-3456789abcde:+4:1",
+                "PlanPublished:0190a5e2-7c3b-7def-8a12-3456789abcde:04:1",
+                "PlanPublished:0190a5e2-7c3b-7def-8a12-3456789abcde:4:01",
+                "PlanPublished:0190a5e2-7c3b-7def-8a12-3456789abcde:\u0664:1",
+                "PlanPublished:0190a5e2-7c3b-7def-8a12-3456789abcde:4:\u0661",
+                "PlanPublished:0190a5e2-7c3b-7def-8a12-3456789abcde:123456789012345678901234567890:1",
+                "PlanPublished:0190a5e2-7c3b-7def-8a12-3456789abcde:4:99999999999"
             })
     void GivenMalformedText_WhenParsed_ThenStoredStateInvalid(String text) {
-        assertThatThrownBy(() -> EventId.parse(text))
-                .isInstanceOfSatisfying(
-                        StoredStateInvalid.class,
-                        invalid -> assertThat(invalid.subject()).isEqualTo("EventId"));
+        assertThatThrownBy(() -> EventId.parse(text)).isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
+            assertThat(invalid.subject()).isEqualTo("EventId");
+            assertThat(invalid.getCause()).isNull();
+        });
+    }
+
+    @Test
+    void GivenATypeNameOfAHundredCharacters_WhenBuilt_ThenItIsKept() {
+        String longest = "E" + "x".repeat(99);
+
+        assertThat(new EventId(longest, ID, Version.of(1), 0).eventType()).hasSize(100);
+    }
+
+    @Test
+    void GivenATypeNameLongerThanAHundredCharacters_WhenParsed_ThenStoredStateInvalid() {
+        String tooLong = "E" + "x".repeat(100) + ":" + ID + ":4:1";
+
+        assertThatThrownBy(() -> EventId.parse(tooLong)).isInstanceOf(StoredStateInvalid.class);
     }
 }

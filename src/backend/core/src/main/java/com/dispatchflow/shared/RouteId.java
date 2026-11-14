@@ -4,7 +4,8 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Names a route of a plan: one vehicle's and driver's ordered stops (DL §4.4). A route run is keyed by it.
+ * Names a route of a plan: one vehicle's and driver's ordered stops (DL §4.4). A route run is keyed
+ * by it.
  *
  * <p>A typed ID, so one kind of ID can't be passed for another (DL §3.3). The UUID's version is not
  * checked: {@code IdGenerator} makes version 7, and the domain only carries it.

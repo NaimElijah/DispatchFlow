@@ -1,5 +1,6 @@
 package com.dispatchflow.shared;
 
+import com.dispatchflow.shared.SharedKernelError.DateOutOfRange;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -13,9 +14,20 @@ import java.util.Objects;
  */
 public record DeliveryDate(LocalDate value) implements Comparable<DeliveryDate> {
 
-    /** Checks the day is present. */
+    private static final int FIRST_YEAR = 1;
+    private static final int LAST_YEAR = 9999;
+
+    /**
+     * Checks the day lies in the years 1 to 9999, so its length and the next day's midnight can
+     * always be computed.
+     *
+     * @throws RuleViolation with {@link DateOutOfRange} for a year outside 1 to 9999
+     */
     public DeliveryDate {
         Objects.requireNonNull(value, "value");
+        if (value.getYear() < FIRST_YEAR || value.getYear() > LAST_YEAR) {
+            throw new RuleViolation(new DateOutOfRange(value));
+        }
     }
 
     /**
@@ -23,6 +35,7 @@ public record DeliveryDate(LocalDate value) implements Comparable<DeliveryDate> 
      *
      * @param value the calendar day
      * @return the delivery date
+     * @throws RuleViolation with {@link DateOutOfRange} for a year outside 1 to 9999
      */
     public static DeliveryDate of(LocalDate value) {
         return new DeliveryDate(value);
@@ -54,9 +67,10 @@ public record DeliveryDate(LocalDate value) implements Comparable<DeliveryDate> 
      * @return the elapsed seconds from this date's local midnight to the next one
      */
     public long lengthInSeconds() {
-        return Duration.between(
-                        startInstant(), DeliveryDate.of(value.plusDays(1)).startInstant())
-                .toSeconds();
+        // A LocalDate, not a DeliveryDate, so 31 December 9999 still has a length.
+        Instant nextMidnight =
+                value.plusDays(1).atStartOfDay(IsraelDateTime.ZONE).toInstant();
+        return Duration.between(startInstant(), nextMidnight).toSeconds();
     }
 
     Instant startInstant() {

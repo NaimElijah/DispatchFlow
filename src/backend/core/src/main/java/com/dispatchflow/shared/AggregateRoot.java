@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Function;
 
 /**
  * The base of every aggregate root (DL §3.1, §3.6): it holds the {@link Version} the aggregate was
@@ -11,13 +12,13 @@ import java.util.UUID;
  * keyed differently: most by a typed ID, some by another ID or a date, and singletons by nothing.
  *
  * <p>An instance is saved once: the repository saves it at {@code version().next()} and publishes
- * {@link #pullEvents()} in the same transaction. To change it again, reload it.
+ * {@link #pullEvents()} in the same transaction. To change it again, reload it. The one save that
+ * doesn't move the version is {@code Session.recordContact}, which raises no event (DL §4.1).
  */
 public abstract class AggregateRoot {
 
     private final Version version;
     private final List<DomainEvent> pendingEvents = new ArrayList<>();
-    private int eventIdsIssued;
 
     /**
      * Sets the version: {@link Version#NEW} from a creation factory, the stored one from {@code
@@ -39,25 +40,29 @@ public abstract class AggregateRoot {
     }
 
     /**
-     * Builds the ID of an event this change will raise. Ordinals count up from 0 in the order IDs
-     * are built, so two events of one change never share an ID.
-     *
-     * @param eventType the event's record type
-     * @param aggregateId this aggregate's UUID
-     * @return an ID carrying {@code version().next()}, the version this change is saved at
-     */
-    protected final EventId nextEventId(Class<? extends DomainEvent> eventType, UUID aggregateId) {
-        return new EventId(eventType.getSimpleName(), aggregateId, version.next(), eventIdsIssued++);
-    }
-
-    /**
      * Records an event, to be published when this change is saved. Call it only after every rule
      * of the method has been checked, so a refused call records nothing (DL §3.10).
      *
-     * @param event the fact this method's change produced
+     * <p>The event's ID carries {@code version().next()}, the version this change is saved at, and
+     * its position among this change's events, from 0. A call that throws records nothing, so a
+     * later call on the same instance still numbers from where the recorded events end.
+     *
+     * @param type the event's record type
+     * @param aggregateId this aggregate's UUID
+     * @param build builds the event around the ID it is given
+     * @param <E> the event type
+     * @return the event recorded
+     * @throws AssertionError when the built event does not carry the ID it was given: a bug in the
+     *     raising method, not a refusal
      */
-    protected final void raise(DomainEvent event) {
-        pendingEvents.add(Objects.requireNonNull(event, "event"));
+    protected final <E extends DomainEvent> E raise(Class<E> type, UUID aggregateId, Function<EventId, E> build) {
+        EventId id = new EventId(type.getSimpleName(), aggregateId, version.next(), pendingEvents.size());
+        E event = Objects.requireNonNull(build.apply(id), "event");
+        if (!event.eventId().equals(id)) {
+            throw new AssertionError("a raised event must carry the EventId it was built with");
+        }
+        pendingEvents.add(event);
+        return event;
     }
 
     /**

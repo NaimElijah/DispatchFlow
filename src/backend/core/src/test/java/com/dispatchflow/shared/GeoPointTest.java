@@ -4,6 +4,7 @@ import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dispatchflow.shared.SharedKernelError.InvalidCoordinates;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
@@ -31,5 +32,13 @@ class GeoPointTest {
     })
     void GivenCoordinatesOutOfRange_WhenBuilt_ThenInvalidCoordinates(double latitude, double longitude) {
         assertRefused(() -> GeoPoint.of(latitude, longitude), new InvalidCoordinates());
+    }
+
+    @Test
+    void GivenAPoint_WhenPrinted_ThenTheCoordinatesAreHidden() {
+        assertThat(GeoPoint.of(32.0853, 34.7818).toString())
+                .doesNotContain("32.0853")
+                .doesNotContain("34.7818")
+                .isEqualTo("GeoPoint[redacted]");
     }
 }

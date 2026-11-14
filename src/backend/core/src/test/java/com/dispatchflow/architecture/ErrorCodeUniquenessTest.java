@@ -25,7 +25,9 @@ class ErrorCodeUniquenessTest {
     private static final Set<String> SAME_MEANING_IN_SEVERAL_MODULES =
             Set.of("DATE_IN_PAST", "RETENTION_NOT_OVER", "NOT_AN_ACTIVE_DRIVER");
 
-    /** Every code declared by more than one error type, outside the allow-list, with those types. */
+    /**
+     * Every code declared by more than one error type, outside the allow-list, with those types.
+     */
     private static SortedMap<String, List<String>> duplicatedCodes(JavaClasses classes) {
         Map<String, List<String>> typesByCode = classes.stream()
                 .filter(type -> type.isAssignableTo(DomainError.class))

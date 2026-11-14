@@ -36,7 +36,8 @@ public record TimeWindow(IsraelDateTime start, IsraelDateTime end) {
      * @param end the closing time
      * @return the window
      * @throws RuleViolation with {@link SharedKernelError.NonexistentLocalTime} when either time is
-     *     in the skipped hour, or with {@link InvalidTimeWindow} when the start is not before the end
+     *     in the skipped hour, or with {@link InvalidTimeWindow} when the start is not before the
+     * end
      */
     public static TimeWindow on(DeliveryDate date, LocalTime start, LocalTime end) {
         return new TimeWindow(IsraelDateTime.of(date, start), IsraelDateTime.of(date, end));
