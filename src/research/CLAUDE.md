@@ -20,13 +20,12 @@ optimizer's code directly, with no HTTP and no `core`.
 ## How it uses the solver
 
 - It depends on `src/backend/solver` as an editable path dependency, so it always runs the
-  solver's current code. [ADR-037] (Proposed) moves that project to `src/optimizer`, package
-  `dispatchflow_opt`.
+  solver's current code. [ADR-037] (Accepted) moves that project to `src/optimizer`, package
+  `dispatchflow_opt`, in the M0 restructure.
 - It uses the solver's `domain`, `application` and solver adapter packages, the last to build its
   own registry. It never imports the solver's HTTP adapter, `adapters/inbound/http`. Today the
-  solver adapters sit in `solvers/`. [TS §4] draws them under
-  `adapters/outbound/solvers/`; no ADR has decided that ([ADR-040] leaves it open), and this rule
-  holds either way.
+  solver adapters sit in `solvers/`. [ADR-040] puts them under
+  `adapters/outbound/solvers/`, as [TS §4] draws it, and this rule holds either way.
 - The harness builds its own solver registry, which adds a PyVRP adapter. PyVRP and its adapter
   stay in this project ([ADR-004]).
 - After any change to the solver's `pyproject.toml`, run `uv lock` here.

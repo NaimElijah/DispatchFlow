@@ -100,7 +100,7 @@ have a `Dockerfile`, and neither runs as root
 
 ## Target design
 
-The code does not follow this yet. The proposed design, all with status Proposed:
+The code does not follow this yet. The decided design:
 
 - [Technical implementation plan §2](../init_impl_ref/technical_implementation_plan.md#2-architecture-at-a-glance):
   the one-VM diagram, and [§3](../init_impl_ref/technical_implementation_plan.md#3-build-sequence)
@@ -109,7 +109,7 @@ The code does not follow this yet. The proposed design, all with status Proposed
   and [§2](domain_layer/domain_layer_design.md#2-context-map): the bounded contexts and the
   module graph.
 - [Tech stack](tech_stack.md): the tools, and what each beat.
-- [ADR index](../ADRs/README.md): ADR-037 to ADR-047 propose the layout, tooling and module
-  decisions.
+- [ADR index](../ADRs/README.md): ADR-037 to ADR-047 record the layout, tooling and module
+  decisions, and ADR-048 to ADR-092 the rest.
 
 This file is rewritten as each milestone of the plan lands.

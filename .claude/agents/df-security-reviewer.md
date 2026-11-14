@@ -22,7 +22,7 @@ report findings.
    - the trust boundaries:
      - client ↔ Caddy ↔ core; core ↔ optimizer (`solver` today); core ↔ PostgreSQL;
      - core → geocoder, SMS provider (and its callbacks, inbound), Amazon SES and Expo push;
-     - web and phone apps → Sentry; EAS Update → phones; backup job → S3;
+     - web and phone apps → GlitchTip; EAS Update → phones; backup job → S3;
      - CI ↔ third-party code; CI → registry → VM (deploy, from the pilot).
 
      OSRM runs on the VM, so it is not an outside service ([TS §13][TS-13]).
@@ -43,7 +43,7 @@ report findings.
   - Every event on the stream is checked per receiver: by role, and for a driver by route ownership and published state ([TS §6][TS-6], the Authorization row; [PL §17][PL-17]; NFR-85, BR-41).
   - IDOR: does an id from the client reach data without an ownership check?
   - The first Admin, and an Admin created by the recovery step, have no default or committed credential (FR-291, FR-292).
-  - An access token issued before its user's last revocation is refused (NFR-177). [ADR-045][ADR-045] (Proposed) would revoke by generation counters. If the change touches them, check that:
+  - An access token issued before its user's last revocation is refused (NFR-177). [ADR-045][ADR-045] (Accepted, not in the tree yet) revokes by generation counters. If the change touches them, check that:
     - every use case that changes `token_generation`, `session.generation` or a session's state evicts the cache entry after its commit;
     - step-up holds: Admin-only operations are refused unless the session gave the password in the last 5 minutes (NFR-214), and giving it issues new tokens and refuses the old (NFR-227);
     - an Admin ending every session of a user refuses their older access tokens at once (FR-187, FR-188).
@@ -72,8 +72,8 @@ report findings.
   - checkouts with `persist-credentials: false`.
 - **Containers:** non-root user, minimal runtime image, explicit `COPY` lists, no secrets in layers
   (ADR-019). Known gap: no scan covers the base images (ADR-016, ADR-019). [TS §18][TS-18] plans
-  Grype, or a pinned and verified Trivy, for images in January; [ADR-047][ADR-047] (Proposed) would
-  pin images by digest.
+  a pinned and verified Trivy ([ADR-072][ADR-072]) for images in January; [ADR-047][ADR-047]
+  (Accepted, not in the tree yet) pins images by digest.
 - **Exposure:**
   - actuator endpoints;
   - the solver's port and API docs;
@@ -107,3 +107,4 @@ End with:
 [NFR-217]: ../../docs/requirements/requirements.md#nfr-217
 [ADR-045]: ../../docs/ADRs/ADR-045-generation-counters-revoke-tokens.md
 [ADR-047]: ../../docs/ADRs/ADR-047-images-pinned-by-digest-and-core-on-temurin-25-jre.md
+[ADR-072]: ../../docs/ADRs/ADR-072-images-scanned-by-pinned-trivy-and-secrets-by-gitleaks.md

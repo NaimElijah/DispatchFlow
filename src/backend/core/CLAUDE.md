@@ -4,8 +4,8 @@ The REST API that both clients call (`contracts/client-api/v1`) and DispatchFlow
 record. It is the only client of the solver (`contracts/optimization-api/v1`). Java 21, Spring
 Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
 
-Proposed changes, not in the tree yet: Spring Modulith ([ADR-040], Proposed) and jOOQ in place of
-JPA ([ADR-041], Proposed). The layout, jOOQ and module rules below are the design's: see
+Accepted changes, not in the tree yet: Spring Modulith ([ADR-040], Accepted) and jOOQ in place of
+JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the design's: see
 `.claude/CLAUDE.md` (Documentation) for when they bind.
 
 ## Layout
@@ -42,7 +42,7 @@ JPA ([ADR-041], Proposed). The layout, jOOQ and module rules below are the desig
      (`ActiveAdmins`, `DateCapacity`, `LaneCapacity`), call `restore`.
 - Web and persistence types live in `adapter` and are mapped to domain objects.
 - Another module is reached only through its `api`, `spi` and `events` packages ([DL §2.3]).
-  Spring Modulith's `verify()` fails the build on any other use ([ADR-040], Proposed).
+  Spring Modulith's `verify()` fails the build on any other use ([ADR-040], Accepted).
 - Each module owns its tables, in its own PostgreSQL schema. No SQL reads another module's schema
   ([DL §2.3], rule 3).
 - A use case follows [PL §11.2]:
@@ -56,7 +56,7 @@ JPA ([ADR-041], Proposed). The layout, jOOQ and module rules below are the desig
   migration that has been applied anywhere; add the next one.
 - Configuration comes from environment variables. A new key goes into `.env.example` with no
   value.
-- Persistence is jOOQ through hand-written mappers ([ADR-041], Proposed; [TS §6.3]). The pom keeps
+- Persistence is jOOQ through hand-written mappers ([ADR-041], Accepted; [TS §6.3]). The pom keeps
   Spring Data JPA until M0 replaces it. Never concatenate input into a query: bind parameters.
   jOOQ's plain-SQL API (methods annotated `@PlainSQL`, such as `DSL.field(String)` and
   `DSL.condition(String)`) never takes input.
@@ -102,7 +102,7 @@ Windows).
   `just core-format` first.
 - `mvnw` must stay executable in git. When adding it again, use
   `git add --chmod=+x src/backend/core/mvnw`, or CI fails with "permission denied".
-- Coming with jOOQ ([ADR-041], Proposed): code generation runs the migrations in a Testcontainers
+- Coming with jOOQ ([ADR-041], Accepted): code generation runs the migrations in a Testcontainers
   PostgreSQL, so Docker must run for `./mvnw verify`.
 
 [ADR-007]: ../../../docs/ADRs/ADR-007-postgresql-with-flyway-migrations.md

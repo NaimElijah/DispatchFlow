@@ -6,9 +6,9 @@ and never restates them.
 | Path | States | Rule |
 |---|---|---|
 | `requirements/requirements.md` | What the system must do | Intent, not observation |
-| `architecture/` | How it is built, as it is today | Descriptive, never aspirational; the two proposed designs below are the exception |
-| `architecture/tech_stack.md` | The proposed tools and versions, and when each is adopted | Tools and versions only |
-| `architecture/domain_layer/` | The proposed domain model: contexts, aggregates, events, language | The one home of the model |
+| `architecture/` | How it is built, as it is today | Descriptive, never aspirational; the two decided designs below are the exception |
+| `architecture/tech_stack.md` | The decided tools and versions, and when each is adopted | Tools and versions only |
+| `architecture/domain_layer/` | The decided domain model: contexts, aggregates, events, language | The one home of the model |
 | `init_impl_ref/` | The build plan: milestones, dates, schema, flows, code sketches | Milestones, dates, schema, flows and code sketches only |
 | `ADRs/` | Why each decision was taken | Append-only |
 | `requirements/ARD/` | The Application Requirements Document (ARD), as a PDF | Built outside the repository; the PDF is the only file here |
@@ -78,8 +78,8 @@ and never restates them.
 
 - Plain English and short sentences. Back every claim with a number, a file or a link; avoid
   words like "robust", "seamless" and "powerful".
-- One topic, one document for the proposed design ([TS §19][TS-19]). The proposed domain model
-  lives only in `architecture/domain_layer/`, the proposed tools and versions only in
+- One topic, one document for the decided design ([TS §19][TS-19]). The decided domain model
+  lives only in `architecture/domain_layer/`, the decided tools and versions only in
   `architecture/tech_stack.md`, and the proposed milestones, dates, schema, flows and code sketches
   only in `init_impl_ref/`. The others link; they never copy. A description of today's tree names
   today's versions.

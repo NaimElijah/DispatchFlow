@@ -9,9 +9,9 @@ with its layout, rules and commands.
 | `console/`, the web app | Admins, dispatchers and drivers (drivers online only) | Desktop browsers; its driver screens also phone browsers | React, TypeScript, Vite, npm |
 | `driver-app/`, the phone app | Admins, dispatchers and drivers, with every capability | iOS and Android, from one codebase; its web build is a development aid and a test target | React Native, Expo SDK 58, TypeScript, npm |
 
-Proposed, and not in the tree yet: [ADR-039] (Proposed) replaces npm with a pnpm workspace and
-shared `@dispatchflow/*` packages, from the Alpha; [ADR-037] (Proposed) renames `console/` to
-`src/web` and `driver-app/` to `src/mobile`, and adds `src/packages`.
+Accepted, and not in the tree yet: [ADR-039] replaces npm with a pnpm workspace and shared
+`@dispatchflow/*` packages, from the Alpha; [ADR-037] renames `console/` to `src/web` and
+`driver-app/` to `src/mobile`, and adds `src/packages`, in the M0 restructure.
 
 ## Rules
 
@@ -29,7 +29,7 @@ shared `@dispatchflow/*` packages, from the Alpha; [ADR-037] (Proposed) renames 
 - Nothing secret goes into either app: whatever ships to a browser or a phone is public.
 - Maps built on OpenStreetMap data show the attribution its licence requires.
 - The two apps share no code yet. Add a shared package once hand-written code, not generated
-  code, would otherwise be copied between them ([ADR-008]). [ADR-039] (Proposed) sets those packages
+  code, would otherwise be copied between them ([ADR-008]). [ADR-039] (Accepted) sets those packages
   up at the Alpha.
 - TypeScript is held at 6.0 in both apps, because typescript-eslint does not support 7 yet
   ([ADR-012]).
@@ -38,8 +38,8 @@ shared `@dispatchflow/*` packages, from the Alpha; [ADR-037] (Proposed) renames 
 
 - Unit tests sit next to the code they test, named Given/When/Then.
 - Browser end-to-end tests for both apps will live in `/tests/e2e`, run on the web app and on
-  the phone app's web build (NFR-83). No end-to-end tool exists yet; [ADR-037] (Proposed) would put
-  the end-to-end tests in a root `e2e/`. Native builds get no automated UI tests: they are checked
+  the phone app's web build (NFR-83). No end-to-end tool exists yet; [ADR-037] (Accepted) puts
+  the end-to-end tests in a root `e2e/`, in the M0 restructure. Native builds get no automated UI tests: they are checked
   by hand on real phones (ADR-028, NFR-140).
 
 ## Format and lint

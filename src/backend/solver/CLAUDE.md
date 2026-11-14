@@ -15,9 +15,9 @@ and it hosts every solver behind one port ([ADR-004]). Python 3.14, FastAPI, Uvi
 Everything except `adapters/inbound/http` is a placeholder today. `tests/` mirrors the package
 path.
 
-[ADR-037] (Proposed) renames the service to `src/optimizer` with the package `dispatchflow_opt`.
-[TS §4] draws the solvers under `adapters/outbound/solvers/`, where `nearest_neighbour` joins them;
-no ADR has decided that ([ADR-040] leaves it open).
+[ADR-037] (Accepted) renames the service to `src/optimizer` with the package `dispatchflow_opt`,
+in the M0 restructure. [ADR-040] puts the solvers under `adapters/outbound/solvers/`, as [TS §4]
+draws it, where `nearest_neighbour` joins them. Neither is in the tree yet.
 
 ## Rules
 
@@ -25,21 +25,21 @@ no ADR has decided that ([ADR-040] leaves it open).
   ([TS §2.1]). `application` imports nothing from FastAPI, Pydantic or OR-Tools. OR-Tools types
   live in `solvers/ortools` ([ADR-001]).
 - Pydantic models are generated from the contract by datamodel-code-generator ([ADR-043],
-  Proposed), and only the HTTP adapter uses them.
+  Accepted), and only the HTTP adapter uses them.
 - `Problem` owns `validate`, `cost` and `explain_drop` ([TS §7.1]). `validate` is the one
   definition of feasibility, and `cost` is the one objective.
 - `ProblemFactory` alone applies the re-optimization conventions ([PL §9.2]).
 - `TravelTimeModel` is the only place the bucket factors and the buffer are applied.
 - Every solver implements the one `Solver` port, `solve(problem, start, budget, seed)`: `start` is
   an optional warm start, and `budget` is a time limit, an iteration budget or a solution limit
-  ([ADR-044], Proposed). A solver is chosen by name for each solve. The registry has no default,
+  ([ADR-044], Accepted). A solver is chosen by name for each solve. The registry has no default,
   and a name it does not hold is rejected.
 - Every solution passes `Problem.validate` and is scored by `Problem.cost` before it leaves the
   service, whichever solver produced it. A solver's own objective value is never reported.
 - A solve takes a seed, and nothing draws unseeded randomness, so a run can be replayed
   ([ADR-005]).
 - PyVRP never enters the product (FR-286): only `src/research` installs it.
-  `tests/test_dependency_boundary.py` fails if it is installed or locked here. [ADR-040] (Proposed)
+  `tests/test_dependency_boundary.py` fails if it is installed or locked here. [ADR-040] (Accepted)
   adds import-linter, which checks imports only, so that test keeps its environment and lockfile
   checks.
 - Every public module, class and function has a Google-style docstring; ruff enforces it.

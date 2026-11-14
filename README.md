@@ -117,7 +117,7 @@ probe, the core its health probe, and the two apps render a heading.
 [architecture.md](docs/architecture/architecture.md) describes that system as it is, and
 [code-structure.md](docs/architecture/code-structure.md) the repository layout.
 
-The target design is proposed in three documents, which the team builds from:
+The decided design is in three documents, which the team builds from:
 
 - [domain_layer_design.md](docs/architecture/domain_layer/domain_layer_design.md): the bounded
   contexts, aggregates, events and the rules between them. Where the other two disagree with it,
@@ -148,11 +148,11 @@ Decisions and their reasons: [docs/ADRs/](docs/ADRs/README.md).
 TypeScript is held at 6.0 because typescript-eslint does not support 7 yet
 ([ADR-012](docs/ADRs/ADR-012-javascript-tooling-npm-eslint-prettier.md)).
 
-This table is what the code uses today. [tech_stack.md](docs/architecture/tech_stack.md) proposes
-the stack for the Alpha and after, and ADR-037 to ADR-047 (Proposed, in the
+This table is what the code uses today. [tech_stack.md](docs/architecture/tech_stack.md) decides
+the stack for the Alpha and after, and ADR-037 to ADR-047 (Accepted, in the
 [ADR index](docs/ADRs/README.md)) record where it departs from today's: Java 25, jOOQ in place of
-Spring Data JPA, Spring Modulith, pnpm, mise, and a flatter layout. Each change lands with the
-milestone that needs it.
+Spring Data JPA, Spring Modulith, pnpm, mise, and a flatter layout. None of it is in the tree yet.
+Each change lands with the milestone that needs it.
 
 ## Configuration
 
@@ -241,9 +241,9 @@ docs/                  requirements, architecture and design, ADRs, the plan (in
 justfile               every command, the same locally and in CI
 ```
 
-ADR-037 (Proposed) would flatten this tree to `src/core`, `src/optimizer`, `src/web`, `src/mobile`
-and `src/packages`, with `deploy/` and `e2e/` at the root. The pull request that moves the code
-updates this section.
+ADR-037 (Accepted) flattens this tree to `src/core`, `src/optimizer`, `src/web`, `src/mobile`
+and `src/packages`, with `deploy/` and `e2e/` at the root, in the M0 restructure. The pull request
+that moves the code updates this section.
 
 ## Design decisions
 
@@ -271,9 +271,9 @@ recipes developers run, and jobs are never skipped by path filters, so a require
 hangs. Cost: every contributor installs `just`, and CI builds every component on every push.
 
 The other decisions, including the repository layout, the two clients and the tooling, are in
-the [ADR index](docs/ADRs/README.md). It also lists ADR-037 to ADR-047, which the team has yet to
-accept: each would supersede, amend or extend the accepted ADRs its status names, to match the
-design documents.
+the [ADR index](docs/ADRs/README.md). It also lists ADR-037 to ADR-047, accepted on 2026-11-14,
+and ADR-048 to ADR-092, which record the rest of the decisions. Each supersedes, amends or extends
+the ADRs its status names, to match the design documents. The code does not follow them yet.
 
 ## Status and limitations
 
@@ -304,7 +304,7 @@ Known limitations:
 
 - Nothing is deployed; there is no staging or production environment yet.
 - `docker compose` is not set up; each component runs on its own. `compose.dev.yaml` is part of
-  the M0 walking skeleton (ADR-042, Proposed).
+  the M0 walking skeleton (ADR-042, Accepted).
 - Four vulnerabilities in the frontends' build, lint and test tooling are ignored by the audit
   until 2027-01-31. The zod and deepmerge entries still await the owner's review. The reasons are
   in `src/frontend/console/osv-scanner.toml` and `src/frontend/driver-app/osv-scanner.toml`

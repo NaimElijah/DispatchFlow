@@ -23,7 +23,7 @@ React 19, TypeScript 6.0, Vite 8, npm.
 
 ## Tests
 
-- Vitest with Testing Library, in jsdom. From the Alpha ([TS §10], Proposed), MSW answers API calls
+- Vitest with Testing Library, in jsdom. From the Alpha ([TS §10], Decided), MSW answers API calls
   in tests.
 - Query the page the way a user finds things: by role, label or text. Never assert on component
   internals or state.
