@@ -72,11 +72,14 @@ own.
   timed *before* the cancellation is served after cancellation: it is accepted and the dispatcher is
   alerted ([BR-130], [ADR-065]).
 - **A backdated report can be held.** A late report that would move a stop off another driver's
-  route, or override a cancellation, waits for the dispatcher's confirmation if its session made
-  contact with the server between 2 minutes after the report's corrected time and 2 minutes before
-  the report arrived ([BR-132]). The owner decided this on 2026-11-14.
-  - Contact is any request from the session other than a token refresh or an outbox send, and the
-    server keeps each session's contact times for the day ([BR-133]).
+  route, or override a cancellation, waits for the dispatcher's confirmation if a session of the
+  reporting account made contact with the server between 2 minutes after the report's corrected time
+  and 2 minutes before the report arrived ([BR-132]). The owner decided this on 2026-11-14.
+  - Contact is any request from any session of the reporting account, not only the session that sent
+    the report, other than a token refresh or an outbox send. The server keeps contact times for 14
+    days, as long as a late report can arrive ([NFR-235]), only for sessions of accounts with the
+    Driver role and at most one per minute. The data inventory lists them ([NFR-72], [BR-133]).
+  - A further late report for a stop that already has a held report is held too.
   - While the report is held, an outcome recorded on the stop's current route wins.
   - The dispatcher confirms or refuses it. A refused held report is treated as [BR-90]: refused
     and shown to the dispatcher.
@@ -158,3 +161,5 @@ own.
 [NFR-204]: ../requirements/requirements.md#nfr-204
 [Q-92]: ../requirements/requirements.md#open-questions
 [BR-133]: ../requirements/requirements.md#driver-reports-and-outcomes
+[NFR-72]: ../requirements/requirements.md#nfr-72
+[NFR-235]: ../requirements/requirements.md#nfr-235

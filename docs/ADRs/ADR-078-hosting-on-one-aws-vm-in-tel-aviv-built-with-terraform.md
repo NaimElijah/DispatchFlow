@@ -67,26 +67,27 @@ The owner adopted this bundle on 2026-11-14. Each part has a requirement behind 
   and records no session stream ([NFR-229]).
 - **Every human account that can deploy or release the app requires a second factor:** AWS, GitHub,
   Expo, Apple, Google, Mend and the domain's registrar ([NFR-265]).
-- **The backup secrets sit under a customer-managed KMS key** whose policy names the VM's role and
-  the two named members ([NFR-273]). The key policy has no account-root statement beyond key
+- **The backup secrets sit under a customer-managed KMS key** whose policy names the identities that may
+  read them: the two named members, and the roles that write and prune backups ([NFR-273]). The key policy has no account-root statement beyond key
   administration.
-- **The instance metadata service is IMDSv2 only, with a hop limit of 1.** Terraform requires it, so
-  a container on the VM cannot take the instance's role.
-- **The VM cannot delete backups** ([NFR-266]). The owner decided this on 2026-11-14.
-  - **The bucket** is versioned, with an Object Lock in governance mode for 35 days. No everyday
-    role has `s3:BypassGovernanceRetention`. Only a break-glass role has it, and a team member
-    assumes that role with MFA.
-  - **The VM's role** may `s3:DeleteObject` only under `locks/*`. It has no `DeleteObjectVersion`,
-    `PutLifecycleConfiguration`, `PutBucketVersioning`, `PutObjectRetention`,
-    `PutBucketObjectLockConfiguration`, `BypassGovernanceRetention` or `PutBucketPolicy`.
-  - **The lifecycle rule** has only `NoncurrentVersionExpiration` and expired-delete-marker
-    clean-up. It never expires current versions.
-  - **Pruning runs from outside the VM.** `restic forget --keep-within 35d --prune` runs on a
-    schedule from CI, through OIDC, as a prune role. Whether the pinned restic works with an Object
-    Lock bucket is unverified.
-  - **EBS snapshots** are kept 35 days. The disk and its snapshots are encrypted.
-  - **Erased data lingers.** Data erased from the database can remain in noncurrent versions for up
-    to the lock period after pruning. The data inventory states the total ([NFR-72]).
+- **Goals for the VM's AWS access and the backups.** The owner decided these on 2026-11-14. The M13
+  Terraform pull request designs the mechanisms against these goals, and gets an infrastructure
+  review and a security review before it merges.
+  1. **No container can use the VM's full AWS role.** Each container that calls AWS gets only what it
+     needs: send email, publish alerts, write backups.
+  2. **The VM cannot delete or corrupt backups,** including old versions and restic's key and config
+     objects ([NFR-266]). The bucket is versioned, with Object Lock in governance mode for 35 days.
+  3. **Pruning runs inside `il-central-1` under its own role,** never on runners outside Israel. The
+     KMS key policy names the identities that may read the backup secrets.
+  4. **Old versions are kept at least as long as the lock.**
+  5. **Only the break-glass role can bypass the lock or change the bucket's lock, lifecycle or
+     policy.** A team member assumes it with MFA, and assuming it raises an alert.
+  6. **Erased personal data leaves the backups within a total the data inventory states**
+     ([NFR-72]).
+  7. **GlitchTip's containers get CPU and memory limits,** and its ingest gets its own host name,
+     never a path of the app's host ([ADR-079]).
+  8. **A scheduled check of the backup repository alerts when it fails.**
+- **EBS snapshots are kept 35 days.** The disk and its snapshots are encrypted.
 - **EAS Update's code signing is used if Expo's plan offers it** ([ADR-081]). Not verified.
 
 ### Cost estimate
@@ -111,16 +112,16 @@ SMS is outside this table. Its cost is an estimate, not measured: about ₪550�
 - **Easy:** account emails stay in Israel with one provider. Production is rebuilt the same way each
   time, which the restore drill needs. One Compose file describes production and the laptops
   ([TS §15]).
-- **Hard:** the backup bucket cannot be cleaned by the VM, so pruning is a CI job with its own OIDC
-  role, and the break-glass role needs a member with MFA. A failed prune job grows the bucket and
-  the bill until someone notices.
+- **Hard:** the VM cannot clean the backup bucket, so pruning is a separate job under its own role in
+  `il-central-1`, and the break-glass role needs a member with MFA. A failed prune job grows the
+  bucket and the bill until a check alerts.
 - **Hard:** one VM has no redundancy ([NFR-14]). The memory limits leave about 2 GB of the 16 GB
   for GlitchTip and the operating system. Nominatim as GovMap's fallback needs about 2 GB more
   ([ADR-085]), so M3's measurement decides whether everything fits.
 - **Cost:** about ₪520–530 a month with VAT against a ₪550 cap, a margin of about ₪20–30. The
   estimate, not measured, gives no itemised line for the disk, snapshots, backups, email and KMS key.
-- **Risk:** whether the pinned restic works with an Object Lock bucket is not checked. If it does
-  not, backups need another tool or another lock arrangement.
+- **Risk:** whether the pinned restic works with an Object Lock bucket is not checked. M13 checks
+  it. If it does not, backups need another tool or another lock arrangement.
 - **Risk:** whether `t3a` is offered in `il-central-1` is not checked. `t3` costs about 10% more
   and still fits the cap.
 - **Risk:** the estimate does not say whether it allows for surplus CPU-credit charges in

@@ -61,12 +61,16 @@ corrected and a person is told.
 5. **A corrected time later than the server's receipt time is cut to the receipt time** ([BR-110]).
    The owner decided this on 2026-11-13 ([Q-92], answer 8).
 6. **A backdated report is held.** A late report that would move a stop off another driver's route,
-   or override a cancellation, waits for the dispatcher's confirmation if its session made contact
-   with the server between 2 minutes after the report's corrected time and 2 minutes before the
-   report arrived ([BR-132]). The owner decided this on 2026-11-14.
-   - **Contact** is any request from the session other than a token refresh or an outbox send. The
-     server keeps each session's contact times for the day ([BR-133]), because a single "last contact"
-     would let a later request hide an earlier one inside the window.
+   or override a cancellation, waits for the dispatcher's confirmation if a session of the reporting
+   account made contact with the server between 2 minutes after the report's corrected time and 2
+   minutes before the report arrived ([BR-132]). The owner decided this on 2026-11-14.
+   - **Contact** is any request from any session of the reporting account, not only the session that
+     sent the report, other than a token refresh or an outbox send. The server keeps contact times
+     for 14 days, as long as a late report can arrive ([NFR-235]), only for sessions of accounts
+     with the Driver role and at most one per minute. The data inventory lists them ([NFR-72],
+     [BR-133]). A single "last contact" would let a later request hide an earlier one inside the
+     window.
+   - **A further late report for a stop that already has a held report is held too.**
    - **While the report is held,** an outcome recorded on the stop's current route wins.
    - **The dispatcher confirms or refuses it.** A confirmed report follows items 2 and 3. A refused
      one is treated as [BR-90]: refused and shown to the dispatcher.
@@ -102,7 +106,7 @@ corrected and a person is told.
   serving route ([PL §24][PL-24]).
 - **Risk:** the judgment depends on the device's clock offset ([BR-114]). A wrong offset can pick the
   wrong revision. The cap of item 5 limits only a corrected time that lands after the receipt.
-- **Risk:** the hold of item 6 compares the report's corrected time with the session's contact times,
+- **Risk:** the hold of item 6 compares the report's corrected time with the account's contact times,
   with 2 minutes' grace at each end of the window. A report backdated by less than the grace is not
   held, and a phone whose offset is wrong by more than the grace can be held when it should not be,
   or escape the hold. Token refreshes and outbox sends do not count as contact, so a phone that only
@@ -157,3 +161,5 @@ corrected and a person is told.
 [Q-92]: ../requirements/requirements.md#open-questions
 [PL-24]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#24-testing
 [BR-133]: ../requirements/requirements.md#driver-reports-and-outcomes
+[NFR-72]: ../requirements/requirements.md#nfr-72
+[NFR-235]: ../requirements/requirements.md#nfr-235

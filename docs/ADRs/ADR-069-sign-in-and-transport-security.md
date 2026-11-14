@@ -42,10 +42,12 @@ The forces:
   [NFR-178]).
 - **Where tokens live.** In the web app the access token is held in memory, and the refresh token is a
   `__Host-` cookie with `Path=/` that is Secure, HttpOnly and SameSite=Strict, with a double-submit
-  CSRF header on refresh ([NFR-106], [NFR-107]). It is `__Host-` and not `__Secure-` because a
+  CSRF cookie that also takes the `__Host-` prefix, and a CSRF header on refresh ([NFR-106],
+  [NFR-107]). It is `__Host-` and not `__Secure-` because a
   sibling host, such as GlitchTip's, could plant a `__Secure-` cookie; a `__Host-` cookie cannot
   be set by another host. A `__Host-` cookie cannot carry a narrower path, so the browser sends it
-  on every request to the host. In the phone app both tokens are in `expo-secure-store`
+  on every request to the host. Only the refresh and sign-out endpoints read it, and a test checks
+  that a request elsewhere that carries only the cookie gets 401. In the phone app both tokens are in `expo-secure-store`
   ([PL §16.1][PL-161]).
 - **Passwords:** Argon2id through Spring Security's encoder with Bouncy Castle, at OWASP's minimum
   (19 MiB, 2 iterations, parallelism 1) or above, "measured on the VM" ([PL §16.2][PL-162]). The
@@ -59,8 +61,8 @@ The forces:
   have a version. Every hash records the version of the key that made it, and new hashes use the new
   key. A rotation ends like this:
   - every opt-out whose phone is still stored is re-hashed under the new key at the rotation;
-  - the hashes still under an old version are counted, and the old key is retired when the count
-    reaches zero, or the residual is recorded as an accepted risk;
+  - while any opt-out remains under an old key version, that key is kept for lookups only. The
+    accepted risk is the key's continued existence, never a lost opt-out ([NFR-202]);
   - research pseudonyms simply start anew under the new key.
 - **No second factor for the pilot.** TOTP stays Optional, following [FR-128] (a Could) and [Q-81].
 
@@ -102,8 +104,7 @@ names ([FR-346]) and the data requests ([NFR-49], [NFR-185]). The identifier nev
 SSM's history. SSM records who opened each session on the VM and when (CloudTrail), and records no
 session stream ([NFR-229]), so nothing typed or printed in a session is kept. An export goes to an
 encrypted file that is deleted on a set date, never to the terminal ([FR-409]). The file is
-encrypted to the requesting member's public key, so no decryption key is on the VM, and it is
-written outside the paths that EBS snapshots cover. The audit record holds the account ID. This replaces the plan's sketch, which passed `--email=` on the command line. The
+encrypted to the requesting member's public key, so no decryption key is on the VM. The audit record holds the account ID. This replaces the plan's sketch, which passed `--email=` on the command line. The
 decision goes into [FR-291]'s note and the runbook row ([TS §15]).
 
 ## Consequences
@@ -117,11 +118,10 @@ decision goes into [FR-291]'s note and the runbook row ([TS §15]).
 - **Hard:** a Content Security Policy this strict can break a framework that injects styles. M0 tests
   it so that the answer arrives before any screen depends on it.
 - **Hard:** a non-echoing prompt inside an SSM session is a runbook step, and so is the encrypted
-  export with its deletion date and its path outside the snapshots. How the prompt is done there is
+  export with its deletion date. How the prompt is done there is
   not verified here.
-- **Hard:** a keyed-hash key rotation is a version bump, a re-hash of the stored opt-outs and a
-  count of the old-version hashes that remain. Until the count is zero, or the residual is accepted,
-  the old key stays.
+- **Hard:** a keyed-hash key rotation is a version bump and a re-hash of the stored opt-outs. While
+  any opt-out remains under an old version, the old key stays, for lookups only.
 - **Cost:** key rotation is a runbook step with two accepted keys, and every secret has a rotation
   step ([TS §15], *Runbook* and *Secrets* rows).
 - **Risk:** what Caddy does with a plain request on port 80 is its default, which the sources do not

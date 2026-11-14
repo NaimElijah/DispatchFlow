@@ -62,7 +62,8 @@ We replace Dependabot with Renovate, grouped weekly, and Renovate targets `dev`.
     merge, because a moved tag, the March 2026 `trivy-action` case, arrives that way ([TS §18]);
   - every update Renovate proposes (Maven, uv, pnpm, Compose and `Dockerfile` images, actions,
     mise) waits a minimum release age of 3 days (the owner, 2026-11-14). That also covers npm's
-    72-hour unpublish window.
+    72-hour unpublish window. Whether every update type, digest pins included, carries a release
+    timestamp for the 3-day age is unverified. It is checked when Renovate is set up.
 - **Branch:** every update opens against `dev`, like any other pull request, as [ADR-021] decided.
   This differs from [TS §5]'s *Branching* row, which the team did not adopt.
 - **Skipped versions:** it keeps ADR-021's rule of skipping the versions other ADRs pin. The rules

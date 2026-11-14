@@ -88,17 +88,18 @@ schema.
   itself. [PL §23][PL-23] had Flyway in the core's startup instead; the owner chose the separate
   step on 2026-11-14. An integration test connected as `app` asserts that `UPDATE` and `DELETE` on
   `audit_record` fail (SQLSTATE 42501).
-- **The owner credential stays deploy-only.** Only `migrate` uses it, once per deploy. No other
-  container or job holds it.
+- **The owner credential stays deploy-only.** It is in `migrate`'s own environment only, and
+  `migrate` uses it once per deploy. No other container or job holds it.
 - **A database function owned by `dispatchflow_owner` purges audit records.** It deletes only audit
   records older than 1 year and computes the cutoff itself, so a caller cannot pass a date. It runs
-  with its owner's rights (`SECURITY DEFINER`, with a fixed `search_path`), and `app` may only
-  `EXECUTE` it ([ADR-075]). The core's nightly retention job calls it at 03:00 (`Asia/Jerusalem`),
-  and its Healthchecks.io ping, missed when a run fails or doesn't happen, alerts the team
-  ([ADR-066]). There is no separate `retention` step or container
+  with its owner's rights (`SECURITY DEFINER`, with a fixed `search_path`). Its `EXECUTE` is
+  revoked from `PUBLIC` and granted only to `app` ([ADR-075]). The core's nightly retention job
+  calls it at 03:00 (`Asia/Jerusalem`), and its Healthchecks.io ping, missed when a run fails or
+  doesn't happen, alerts the team ([ADR-066]). There is no separate `retention` step or container
   (the owner, 2026-11-14).
   The same integration test, connected as `app`, asserts that the function removes only records
-  older than 1 year.
+  older than 1 year. Another test, connected as a role other than `app`, asserts that it cannot run
+  the function.
 
 ## Consequences
 

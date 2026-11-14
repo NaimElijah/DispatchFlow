@@ -80,11 +80,15 @@ older tokens. Everything else in ADR-036 stands.
   database holds the counters of its snapshot, so a token issued after the snapshot, or one revoked
   after it, could read as valid. The new key refuses every older access token, and the restore
   revokes every session ([NFR-252]). No counter is moved: the key and the revoked sessions already
-  cover it.
+  cover it. The old signing key leaves the accepted set at once, with no two-key overlap
+  ([ADR-069] allows the overlap only for an ordinary rotation).
   - **Changed credentials are treated as well** ([NFR-253]). For each account whose password or
     email changed since the snapshot, found in the logs by account ID, the restore blanks the
-    password and voids the account's links. An Admin then issues a set-password link to the
-    confirmed address.
+    password and voids the account's links. The records that re-apply these changes hold only IDs and
+    are kept off the VM as each change happens. The mechanism is M13's.
+  - **The restore step itself issues set-password links to the Admin accounts,** at addresses the
+    company confirms, as an audited [FR-393] step. The Admins then confirm each account's state and
+    roles with the company before any other set-password link goes out.
   - **Every open credential link is voided.** If the snapshot is older than the logs reach, every
     account gets the treatment above.
 - **A test pins the same-second case:** change a user's role and sign in again within the same
@@ -165,3 +169,5 @@ older tokens. Everything else in ADR-036 stands.
 [PL §16.1]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#161-tokens
 [PL §24]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#24-testing
 [TS §6]: ../architecture/tech_stack.md#6-core-service-java
+[FR-393]: ../requirements/requirements.md#company-users-and-roles
+[ADR-069]: ADR-069-sign-in-and-transport-security.md

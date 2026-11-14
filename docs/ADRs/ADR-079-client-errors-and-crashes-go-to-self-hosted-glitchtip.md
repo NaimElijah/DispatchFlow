@@ -34,8 +34,12 @@ to GlitchTip on the VM ([ADR-078]).
   version. This is the one point the sources leave unverified.
 - **Scrubbing:** in both apps, `beforeSend` and `beforeBreadcrumb` remove URL fragments and query
   strings from every event and breadcrumb, because a link can carry a token ([NFR-163]).
-- **Exposure:** Caddy exposes only GlitchTip's ingest paths. The GlitchTip UI is reached through SSM
-  port forwarding, and not from the internet ([TS §15]).
+- **Exposure:** GlitchTip's ingest gets its own host name, never a path of the app's host. Caddy
+  exposes only GlitchTip's ingest paths there. The GlitchTip UI is reached through SSM port
+  forwarding, and not from the internet ([TS §15]).
+- **Limits:** GlitchTip's containers get CPU and memory limits, so a flood of events cannot starve
+  the core or the optimizer ([ADR-078]). The Compose file sets the values, and M3's measurement
+  checks them.
 - **Ingest protection:** Caddy caps the size of a request body on the ingest paths, and the volume
   GlitchTip stores is capped. Caddy's official image has no rate limiter, so the ingest is not
   rate-limited there. GlitchTip's own event throttling is used if the pinned version has it. That is

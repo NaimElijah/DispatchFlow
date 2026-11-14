@@ -86,7 +86,7 @@ report findings.
   - FR-393: a non-echoing prompt for every admin step that takes a person's identifier, and exports encrypted to the requesting member's public key, outside the paths EBS snapshots cover, never to the terminal (FR-409);
   - NFR-230 to NFR-236 and NFR-269: Admin and Dispatcher data stays in memory, and sign-out and revocation wipe it, with `Clear-Site-Data` on the web;
   - NFR-260 and NFR-261: retention blanks personal columns, and the personal-column test lists every one;
-  - NFR-272 and NFR-273: a restore rotates the signing key and voids links, and the backup KMS key names only the VM role and two members;
+  - NFR-272 and NFR-273: a restore rotates the signing key and voids links, and the backup KMS key's policy names every identity that may read the backup secrets;
   - NFR-265 to NFR-268 and BR-132: MFA on accounts that deploy or release the app, backups the VM cannot delete, streams that re-check their session, no personal data in alert text, and a backdated report held for confirmation.
 
 Cite OWASP ASVS 5.0 requirement numbers or CWE IDs where they fit. Verify a claim by running something when you can: the audit, a test, or a request against a local instance you start and then stop.

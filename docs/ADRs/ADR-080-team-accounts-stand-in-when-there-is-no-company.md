@@ -48,7 +48,8 @@ is no company. With a company, [NFR-186] stands and the company's accounts are u
   company.
 - **In a staged pilot, the research and usability roles get no access** to the pilot VM's role,
   its secrets, its KMS key or its backup bucket ([FR-410]). They share the team's AWS account with
-  the VM, so the separation is by role permissions.
+  the VM, so the separation is by role permissions. They also get no `iam:PassRole` on the VM's
+  role, and no IAM write.
 
 [Q-48] stays open for the rest of store distribution: review time, Apple's rules on background
 location and tester accounts.

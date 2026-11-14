@@ -98,7 +98,7 @@ Audit without a cycle ([ADR-040]).
 
 | Upstream | Downstream | Relationship | How they talk |
 |---|---|---|---|
-| Access | Every core module | Open host for identity; the others conform to its account IDs and roles | The `Actor` value; Access's `Accounts` query; for Live Operations also the `SessionContacts` query, which answers whether a session made contact within a window (BR-132) |
+| Access | Every core module | Open host for identity; the others conform to its account IDs and roles | The `Actor` value; Access's `Accounts` query; for Live Operations also the `SessionContacts` query, which answers whether any session of an account made contact within a window (BR-132) |
 | Audit | Every core module | Open host | `AuditLog.record`, in the same transaction as the change (NFR-23) |
 | Access | Fleet | Customer and supplier; shared identity: a `Driver` has the ID of the driver's account | Fleet asks `Accounts` whether an account is active and holds the Driver role |
 | Fleet | Planning | Customer and supplier | Planning reads the roster and the fleet register through Fleet's API, translating them into its own values; calls `MoveVehicleWithRoute`; implements Fleet's `RecordUsage` |
@@ -209,7 +209,7 @@ constructor, so an invalid one can't exist. Equality is by value. No signature i
 | `PublishingChecks`, `DriverStanding`, `ChangesSinceBasis`, `StartedRoutes` | Planning | The facts from other modules that `Plan`'s methods judge (§4.4) | — |
 | `CorrectedTime` | Live Operations | A report's device time moved by the phone's clock offset, and cut to the server's receipt time if it would be later (BR-44, BR-110, BR-114) | — |
 | `Entitlement` | Live Operations | Planning's answer that a stop was on a driver's route in the revision in force at a time (BR-110) | — |
-| `HoldCheck` | Live Operations | Where the stop is now (on the reporting driver's route, on another's, or its order cancelled), from Planning's `RouteMembership`, and whether the report's session made contact between 2 minutes after the corrected time and 2 minutes before the report arrived, from Access's `SessionContacts`. `holds(correctedTime, receivedAt)` is true when the report would move the stop or override a cancellation and such a contact exists (BR-132) | — |
+| `HoldCheck` | Live Operations | Where the stop is now (on the reporting driver's route, on another's, or its order cancelled), from Planning's `RouteMembership`, and whether any session of the reporting account made contact between 2 minutes after the corrected time and 2 minutes before the report arrived, from Access's `SessionContacts`. `holds(correctedTime, receivedAt)` is true when the report would move the stop or override a cancellation and such a contact exists (BR-132). It doesn't cover a stop that already has a held report: `Delivery` holds a further report for it without asking (BR-136) | — |
 | `Proof`, `FailureReason`, `Outcome` | Live Operations | A signature or a photo (FR-367); a reason from the company's list; delivered or failed with its details | — |
 | `ArrivalProjection`, `StartDeadline`, `TrackingWindow` | Live Operations | Projected arrivals (§10.4); shift start plus allowance plus 15 minutes (FR-101); start to 1 hour after shift end (FR-328) | — |
 | `MessageText`, `Reply`, `Rating`, `PhoneHash`, `DailySendCap` | Messaging | A text starting with the company name, within 70 characters (FR-382); a parsed reply (FR-363, FR-376); 1 to 10; a keyed hash (NFR-202); the day's accepted messages and the cap (NFR-196) | `RatingOutOfRange` |
@@ -322,7 +322,7 @@ and every aggregate that holds one inherits them.
 |---|---|---|---|
 | `CompanyProfile` | The company's name and language (FR-125) | `rename`, `changeLanguage` | One; Admins |
 | `UserAccount` | `EmailAddress`, `RoleSet`, `PasswordHash`, state (*active*, *deactivated* or *anonymized*), language, token `Generation`, and its credential links (entities: kind, token hash, expiry, *open*, *spent* or *voided*) | `open`, `changeRoles`, `deactivate`, `reactivate`, `changePassword`, `changeEmail`, `issueLink`, `spendLink`, `anonymize` | One per person; the person and Admins, rarely |
-| `Session` | Its account, the account generation it began under, its own `Generation`, state (*live* or *revoked*), the last step-up, its contact times for the day, and its chain of refresh tokens (entities: hash, issue time, exchange time, successor) | `open`, `exchange`, `confirmPassword`, `recordContact`, `revoke` | One per signed-in device; that device |
+| `Session` | Its account, the account generation it began under, its own `Generation`, state (*live* or *revoked*), the last step-up, its contact times (kept 14 days, at most one a minute; NFR-280), and its chain of refresh tokens (entities: hash, issue time, exchange time, successor) | `open`, `exchange`, `confirmPassword`, `recordContact`, `revoke` | One per signed-in device; that device |
 
 | Invariant | Owner | Error |
 |---|---|---|
@@ -338,7 +338,7 @@ and every aggregate that holds one inherits them.
 | A session ends 14 days after it opened (NFR-87) | `Session.exchange` | `RefreshRefused` |
 | Confirming the password refuses the session's older tokens (NFR-214) | `Session.confirmPassword`: its `Generation` + 1 | — |
 | Admin-only operations need the password confirmed in the last 5 minutes (NFR-214, NFR-227) | `Session.requireFreshStepUp` | `StepUpRequired` |
-| A session keeps its contact times for the day: every request from it other than a token refresh or an outbox send. One time is not enough, because a later request would hide an earlier one inside the window. The endpoint decides which requests count, never a header the client sets (BR-132) | `Session.recordContact(now)`. It appends a time and never moves the `Version` or the `Generation`, so it can't make a refresh fail `STALE_VERSION`. Times older than the day are dropped | — |
+| A session keeps its contact times for 14 days, as long as a late report can arrive (NFR-235, NFR-280): every request from it other than a token refresh or an outbox send, at most one a minute, and only for a session of an account with the Driver role. One time is not enough, because a later request would hide an earlier one inside the window. The endpoint decides which requests count, never a header the client sets (BR-132). The data inventory lists them (NFR-72, NFR-280) | `Session.recordContact(now)`, called only for an account with the Driver role. It appends a time unless the last one is under a minute old, and never moves the `Version` or the `Generation`, so it can't make a refresh fail `STALE_VERSION`. Times older than 14 days are dropped | — |
 
 **In the Alpha:** seeded accounts, sign-in and `RoleSet.can`. Sessions in full, links and step-up come
 in Semester B.
@@ -614,7 +614,8 @@ fetches the details (Q-97, [ADR-083]).
 |---|---|---|
 | A driver reports only a stop that was on their route in the revision in force at the report's corrected time (BR-02, BR-110, BR-114) | `Delivery`, which requires an `Entitlement` for a driver's report | `StopNotOnYourRoute` |
 | The first outcome wins; a report that contradicts it is refused, and the dispatcher is alerted (BR-18, BR-88, BR-90) | `Delivery` | `OutcomeAlreadyRecorded` |
-| A late outcome that would take a stop off another driver's route, or override a cancellation, is held, not recorded, when its session was in contact between 2 minutes after the report's corrected time and 2 minutes before the report arrived. A held report changes no route and raises no `OutcomeRecorded`. The dispatcher is alerted, and the phone's outbox is told it was received (BR-132, §8) | `Delivery.deliver`, `fail`, given a `HoldCheck`, whose `holds(correctedTime, receivedAt)` makes the decision | — (the answer is *held*) |
+| A late outcome that would take a stop off another driver's route, or override a cancellation, is held, not recorded, when any session of the reporting account was in contact between 2 minutes after the report's corrected time and 2 minutes before the report arrived. A held report changes no route and raises no `OutcomeRecorded`. The dispatcher is alerted, and the phone's outbox is told it was received (BR-132, §8) | `Delivery.deliver`, `fail`, given a `HoldCheck`, whose `holds(correctedTime, receivedAt)` makes the decision | — (the answer is *held*) |
+| A further late report for a stop that already has a held report is held too, with no contact check (BR-136) | `Delivery.deliver`, `fail` | — (the answer is *held*) |
 | While a report is held, an outcome recorded for the stop on its current route wins: the held report is refused, as BR-90 says, and shown to the dispatcher (BR-132, BR-90) | `Delivery.deliver`, `fail`, `recordOnBehalf` | — |
 | A dispatcher confirms or refuses a held report, once. Confirming records the outcome it states; refusing is a BR-90 refusal, shown to the dispatcher (BR-132, BR-90) | `Delivery.confirmHeld`, `refuseHeld` | `ReportNotHeld` |
 | A driver's *delivered* needs a proof (FR-367) | `Delivery.deliver` | `ProofRequired` |
@@ -870,12 +871,13 @@ delivery has already happened on the street. The design accepts the fact and cor
    `Entitlement`. A report that contradicts an outcome already recorded is refused, and the dispatcher is
    alerted (BR-18, BR-88, BR-90). One timed before the order or plan was cancelled is not refused (BR-130).
    A report that would move a stop off another driver's route, or override a cancellation, is *held*
-   for the dispatcher's confirmation if its session was in contact with the server between 2 minutes
-   after the report's corrected time and 2 minutes before the report arrived (BR-132). A phone that was
+   for the dispatcher's confirmation if any session of the reporting account was in contact with the
+   server between 2 minutes after the report's corrected time and 2 minutes before the report arrived
+   (BR-132). A further late report for a stop that already has a held report is held too (BR-136). A phone that was
    in contact after the time it claims was not offline, so its corrected time is in doubt. A token
    refresh and an outbox send are not contact, because the phone makes them while it empties its queue.
-   The use case builds a `HoldCheck` from `RouteMembership` and Access's `SessionContacts`, and
-   `Delivery` decides.
+   The use case builds a `HoldCheck` from `RouteMembership` and Access's `SessionContacts`, which looks
+   across every session of the account, and `Delivery` decides.
    - **What the outbox gets back:** the report is acknowledged, so the phone stops resending it
      (FR-248). The dispatcher is alerted, and the report waits as *held*. It records no outcome, raises
      no `OutcomeRecorded` and changes no route.
@@ -1007,6 +1009,7 @@ stateDiagram-v2
   pending --> delivered : deliver
   pending --> failed : fail
   pending --> held : deliver or fail, held under BR-132
+  held --> held : a further late report, held too (BR-136)
   held --> delivered : confirmed as delivered
   held --> failed : confirmed as failed
   held --> delivered : overtaken by a delivered outcome on the stop's current route
@@ -1018,12 +1021,13 @@ stateDiagram-v2
 ```
 
 A report is held only when it would move a stop off another driver's route or override a cancellation,
-and only an outcome (*delivered* or *failed*) can be held, never an arrival. A held report is one of
-three things in the end. **Confirmed** by a dispatcher: it becomes the stop's outcome. **Refused** by a
+or when the stop already has a held report (BR-136), and only an outcome (*delivered* or *failed*) can
+be held, never an arrival. Each held report is one of three things in the end. **Confirmed** by a dispatcher: it becomes the stop's outcome. **Refused** by a
 dispatcher: it is a BR-90 refusal, shown to the dispatcher. **Overtaken**: an outcome recorded for the
 stop on its current route becomes the stop's outcome, and the held report is refused as BR-90 says. In
 the last two cases the held report stays on record, marked *refused*. An arrival recorded while a
-report is held doesn't change the state (BR-132).
+report is held doesn't change the state (BR-132). Once one held report is confirmed, the stop has its
+outcome, and every other report held for it is refused as BR-90 says (BR-18).
 
 A dispatcher may correct a failed stop to delivered after a put-back (FR-258) while the new attempt's
 stop has no outcome. The new stop then leaves its route, and the change is audited. Once the new stop has
@@ -1113,8 +1117,8 @@ A row that other records refer to is anonymized in place instead.
 
 - **Deleted:** positions after 7 days; proofs, messages and replies after 90 days; audit records after
   1 year, by the purge function that `dispatchflow_owner` owns and the core's nightly retention job calls
-  (§4.8); sessions 30 days after they end; geocode cache entries unused for 1 year; research instances
-  1 year after the project ends; backups, which age out of the bucket after 35 days.
+  (§4.8); sessions 30 days after they end; contact times 14 days after they are made (NFR-280); geocode cache
+  entries unused for 1 year; research instances 1 year after the project ends; backups, which age out of the bucket after 35 days.
 - **Anonymized:** an order's personal fields 90 days after its date; a customer 1 year after retirement,
   or after the last order if never retired; a driver 1 year after retirement; every account, whatever its
   roles, 1 year after deactivation.
@@ -1180,7 +1184,7 @@ routes, and the plan stores them, so the core never applies a factor. The rules 
 | An import preview expires after an hour, and its rows are deleted | `ImportBatch.confirm` and `expire` | On confirmation, and an hourly sweep |
 | A published plan completes at midnight, and a plan still unpublished is abandoned (BR-102, BR-127). Before either, every queued or running solve job of the date fails (BR-128) | `Plan.complete(today)` and `Plan.abandon(today)`, after `SolveJob.fail` for every queued or running job of that date | A job at 00:00 |
 | A geocoding lookup is retried for 24 hours (FR-64) | The geocoding request (outbox row) | Every 15 minutes |
-| Positions are kept 7 days; proofs, messages and replies 90 days. An order's personal fields are removed 90 days after its date. A customer is anonymized 1 year after retirement or after their last order, a driver 1 year after retirement, every account, whatever its roles, 1 year after deactivation. Sessions are deleted 30 days after they end, geocode cache entries unused for 1 year, research instances 1 year after the project ends (NFR-31, NFR-184, NFR-257 to NFR-260, BR-98, [ADR-075]). Backups age out of the bucket after 35 days | `RetentionPeriods`; `Customer.anonymize(now)`, `Driver.anonymize(now)`, `UserAccount.anonymize(now)` | A job at 03:00 |
+| Positions are kept 7 days; proofs, messages and replies 90 days. An order's personal fields are removed 90 days after its date. A customer is anonymized 1 year after retirement or after their last order, a driver 1 year after retirement, every account, whatever its roles, 1 year after deactivation. Sessions are deleted 30 days after they end, contact times after 14 days (NFR-280), geocode cache entries unused for 1 year, research instances 1 year after the project ends (NFR-31, NFR-184, NFR-257 to NFR-260, BR-98, [ADR-075]). Backups age out of the bucket after 35 days | `RetentionPeriods`; `Customer.anonymize(now)`, `Driver.anonymize(now)`, `UserAccount.anonymize(now)` | A job at 03:00 |
 | Audit records are deleted after 1 year (NFR-258, [ADR-075]) | A database function owned by `dispatchflow_owner`, which deletes only records older than 1 year and computes the cutoff itself. The application's role (`app`) may only execute it, because it can only insert and read audit records ([ADR-041]) | The same retention job, at 03:00 in `Asia/Jerusalem` |
 
 ### 10.4 Projected arrivals
