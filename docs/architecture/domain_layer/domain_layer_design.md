@@ -204,12 +204,14 @@ kernel's `PersonalData` marker ([ADR-106]).
 | `Capacity`, `Plate`, `ShiftHours`, `Shift`, `DepotHours`, `WeeklyShifts` | Fleet | A vehicle's weight and volume limits; a normalized plate ([ADR-103]); a shift's hours, with the end after the start; those hours placed on a date, where both must exist (FR-190, BR-111); one opening and closing time for every date (FR-129); per weekday an optional shift and no vehicle (FR-79) | `InvalidPlate`, `InvalidShift`, `InvalidDepotHours` |
 | `VehicleName`, `DepotName`, `DriverName` | Fleet | Names read as `PlainText` `NAME` ([ADR-106]) and non-blank; a driver's is personal data | `BlankVehicleName`, `BlankDepotName`, `BlankDriverName`, `TextTooLong`, `TextHasForbiddenCharacters` |
 | `PlanUses`, `Standing`, `RosterDefault`, `Assignability`, `RosterVehicle`, `RosterFill` | Fleet | The facts Fleet's methods judge: the plans that use a record (FR-305); Access's and the register's answer on whether a driver or vehicle is active; a driver's default for a date (FR-189); the roster's answer to a hand-over (FR-302). A roster entry's vehicle: not set, none, or a vehicle (FR-79); and what a fill filled and skipped ([ADR-103]) | — |
-| `Address`, `NormalizedAddress` | Customers & Orders | The address as typed, and the form addresses are matched by (FR-310, Q-94 #4) | `BlankAddress` |
+| `Address`, `NormalizedAddress` | Customers & Orders | The address as typed, whose normalized form holds a letter or a digit, and the form addresses are matched by (FR-310, FR-398, Q-94 #4); its abbreviation table starts with ADR-086's three ([ADR-102]) | `BlankAddress` |
+| `ContactName`, `DriverNote`, `AccessDetails`, `Floor`, `Apartment`, `EntranceCode`, `Recipient` | Customers & Orders | A trimmed, non-blank name (FR-59, FR-87); a note the driver sees, a customer's (FR-08) or an order's (FR-135); an order's floor, apartment and entrance code, each a trimmed, non-blank text (FR-86); an order's own recipient (FR-87) | `BlankContactName` |
+| `DailyWindow`, `OrderDefaults` | Customers & Orders | A customer's default window as times of day; the window and service time an order takes when given none, where the service time may be absent (BR-49, BR-124, [ADR-102]) | `InvalidDailyWindow` |
 | `CustomerMatch` | Customers & Orders | None, one, or several active customers for a normalized address; several can't be used (FR-310 to FR-312) | `AmbiguousAddress` |
 | `Location` | Customers & Orders | None, geocoded (with its quality), or placed by hand; a hand-placed location always wins (BR-13, FR-215) | — |
 | `ServiceArea` | Customers & Orders | The company's area, from the road-data build; `contains(point)` (FR-320) | — |
 | `ServiceTime`, `Attempt`, `ExternalReference` | Customers & Orders | Positive seconds (BR-124); 1 or more (FR-258); a non-blank reference | `NonPositiveServiceTime` |
-| `DateCapacity` | Customers & Orders | A date's uncancelled orders, read under the date's lock, and the limit (BR-101, BR-113) | `DateFull` |
+| `DateCapacity` | Customers & Orders | A date's uncancelled orders with their references, read under the date's lock, and the limit (BR-101, BR-113, FR-211, [ADR-102]) | `DateFull`, `DuplicateOrderReference` |
 | `StopState` | Customers & Orders | What has happened at an order's stop: nothing, arrived, or an outcome (BR-92) | — |
 | `OrderStatus` | Customers & Orders | Derived from three owners (§9.6) | — |
 | `SolveBasis`, `ProposalBasis` | Planning | What a result was computed from (§17, *basis*) | — |
@@ -406,33 +408,43 @@ version check.
 
 | Aggregate | Holds | Operations | Size and writers |
 |---|---|---|---|
-| `Customer` | Name, `PhoneNumber`, `Address` and its `NormalizedAddress`, `Location`, address flags (FR-63), default window and service time, state (*active*, *retired* or *anonymized*) | `register`, `changeAddress`, `recordGeocode`, `placeLocation`, `retire`, `anonymize` | One per address; dispatchers, imports, geocoding results |
-| `Order` | Customer, `DeliveryDate`, `TimeWindow`, `Weight`, `Volume`, `ServiceTime`, `Priority`, leave-at-door, `ExternalReference`, recipient, notes, `Attempt`, state (*active* or *cancelled*), last change time | `place`, `change`, `reschedule`, `cancel`, `putBack` | One per order; dispatchers and imports |
-| `ImportBatch` | One uploaded file: its hash and encoding, every row with its errors, state (*previewed*, *confirmed*, *discarded* or *expired*) | `preview`, `confirm`, `discard`, `expire` | One per upload; the dispatcher who uploaded it |
+| `Customer` | Name, `PhoneNumber`, `Address` and its `NormalizedAddress`, notes for drivers (FR-08), `Location`, address flags (FR-63), default window and service time, creation time, state (*active*, *retired* or *anonymized*). The defaults start as the company's, which Access's `CompanyProfile` holds and the application layer passes in; the service time may be absent ([ADR-104]) | `register`, `changeAddress`, `recordGeocode`, `placeLocation`, `retire`, `anonymize` | One per address; dispatchers, imports, geocoding results |
+| `Order` | Customer, `DeliveryDate`, `TimeWindow`, `Weight`, `Volume`, `ServiceTime`, `Priority`, leave-at-door, `ExternalReference`, recipient, delivery note, floor, apartment and entrance code (FR-86), `Attempt`, state (*active* or *cancelled*), whether its personal fields were removed, last change time | `place`, `change`, `reschedule`, `cancel`, `putBack`, `anonymize` | One per order; dispatchers and imports |
+| `ImportBatch` | One uploaded file: its hash and encoding, every row with its errors while previewed, state (*previewed*, *confirmed*, *discarded* or *expired*) | `preview`, `confirm`, `discard`, `expire` | One per upload; the dispatcher who uploaded it |
 
 | Invariant | Owner | Error |
 |---|---|---|
 | An order's date isn't in the past (BR-116) | `Order.place`, `reschedule`, `putBack` | `DateInPast` |
 | An order's window is valid and on its date (BR-35) | `TimeWindow`; `Order.place`, `change` | `InvalidTimeWindow`, `WindowNotOnDate` |
-| Weight and volume are present and positive (BR-50); priority is 1 to 5, blank meaning 3 (BR-53); service time is positive, or the customer's default (BR-124) | `Weight`, `Volume`, `Priority`, `ServiceTime`; `Order.place` | `NonPositiveQuantity`, `PriorityOutOfRange`, `NonPositiveServiceTime` |
-| A reference is unique on its date (FR-211) | `Order.place`; `ImportBatch` within the file; a unique index (§5) | `DuplicateOrderReference` |
-| A date holds at most 200 uncancelled orders (BR-101, BR-113) | `Order.place`, `reschedule`, `putBack` and `ImportBatch.confirm`, which require a `DateCapacity` with room | `DateFull` |
+| Weight and volume are present and positive (BR-50); priority is 1 to 5, blank meaning 3 (BR-53); service time is positive, or the customer's default, and an order with neither is refused (BR-124) | `Weight`, `Volume`, `Priority`, `ServiceTime`; `Order.place` | `NonPositiveQuantity`, `PriorityOutOfRange`, `NonPositiveServiceTime`, `NoServiceTime` |
+| A reference is unique among its date's uncancelled orders (FR-211); a reschedule or a put-back is checked as a new order on its date, and a cancelled order's reference no longer counts ([ADR-102]) | `Order.place`, `reschedule`, `putBack`, through the `DateCapacity`; `ImportBatch` within the file; a unique index (§5) | `DuplicateOrderReference` |
+| A date holds at most 200 uncancelled orders, and a put-back on its own date doesn't count again (BR-101, BR-113) | `Order.place`, `reschedule`, `putBack` and `ImportBatch.confirm`, which require a `DateCapacity` with room | `DateFull` |
 | An order can't be changed, rescheduled or cancelled once its stop has a fact (BR-92) | `Order`, given the `StopState` read through `StopProgress` | `StopAlreadyHasFact` |
 | A cancelled order stays cancelled | `Order` | `OrderAlreadyCancelled` |
-| Only a failed attempt is put back, and putting it back starts the next attempt (FR-258) | `Order.putBack`, given its `OrderStatus` | `OnlyFailedOrdersArePutBack` |
+| A reschedule moves an order to another date (FR-315) | `Order.reschedule` | `AlreadyOnThatDate` |
+| An anonymized order takes no further command (NFR-257) | `Order` | `OrderAnonymized` |
+| Only a failed or dropped order is put back, and putting it back starts the next attempt (FR-75, FR-258, BR-95) | `Order.putBack`, given its placement and stop state, from which it derives its `OrderStatus` | `OnlyFailedOrDroppedOrdersArePutBack` |
 | A hand-placed location always wins over geocoding (BR-13, FR-215) | `Customer.recordGeocode` ignores a result once a location was placed by hand | — |
 | A hand-placed location is inside the service area (FR-320) | `Customer.placeLocation`, given the `ServiceArea` | `OutsideServiceArea` |
+| A hand-placed location clears every address flag (FR-217) | `Customer.placeLocation` | — |
+| A changed address clears the location, hand-placed or not, and its flags, and is geocoded again (BR-104) | `Customer.changeAddress` | — |
 | An address matching several active customers can't be used (FR-310 to FR-312) | `CustomerMatch` | `AmbiguousAddress` |
 | A customer that a plan not yet completed uses can't be retired (BR-43) | `Customer.retire`, given `InUse` | `CustomerInUse` |
-| A customer is anonymized a year after retirement, or a year after the last order if never retired (BR-98, NFR-257, [ADR-075]) | `Customer.anonymize(now)` | `RetentionNotOver` |
-| An import writes every row or none, and lists every error at once | `ImportBatch.preview` and `confirm`, which run every row through the `Customer` and `Order` factories | `ImportHasErrors(rows)` |
+| A retired customer's address and location don't change, and it isn't retired again (BR-43); an anonymized customer takes no command (BR-98) | `Customer` | `CustomerRetired`, `CustomerAnonymized` |
+| A customer is anonymized a year after retirement, or, if never retired, a year after the later of its creation and its last order, in Israel's calendar (BR-98, NFR-257, [ADR-075], [ADR-102]) | `Customer.anonymize(now)`, given the date of its last order | `RetentionNotOver` |
+| An order's personal fields are removed 90 days after its date (NFR-257) | `Order.anonymize(today)` | `RetentionNotOver` |
+| An import writes every row or none, and lists every error at once | `ImportBatch.preview` and `confirm`, which run every row through the `Customer` and `Order` rules | `ImportHasErrors`, with a `RowRefused` per error naming its row |
+| A row matching no customer creates one from its name and phone, and is refused without them (FR-311) | `ImportBatch` | `NewCustomerNeedsNameAndPhone` |
 | A file read as Windows-1255 is confirmed only with explicit confirmation (FR-313) | `ImportBatch.confirm` | `EncodingNotConfirmed` |
-| A preview is confirmed once, before it expires | `ImportBatch.confirm` | `ImportAlreadyConfirmed`, `ImportExpired` |
-| A discarded or expired preview keeps none of its rows | `ImportBatch.discard`, `expire` | — |
+| A preview is confirmed once, before it expires, and a discarded one never | `ImportBatch.confirm` | `ImportAlreadyConfirmed`, `ImportExpired`, `ImportDiscarded` |
+| A preview expires only once its hour has passed (FR-399) | `ImportBatch.expire` | `ImportNotYetExpired` |
+| A confirmed, discarded or expired batch keeps none of its rows (NFR-31, [ADR-086]) | `ImportBatch.confirm`, `discard`, `expire` | — |
 
 `ImportBatch.confirm` checks every row again against the current data (customers, references and date
 capacity may have changed since the preview) and returns the new customers and orders, which the use case
-saves with the batch in one transaction (§6.1).
+saves with the batch in one transaction (§6.1). The batch then keeps no rows. Rows arrive parsed from the
+file reader, each read whole or with its fields' refusals. Rows whose addresses normalize alike, and match
+no customer, share one new customer, made from the first of them ([ADR-102]).
 
 **In the Alpha:** UTF-8 CSV imports matched to the seeded customers, which already have coordinates
 (FR-310). A new address has no coordinates until geocoding arrives, so its order drops as *missing
@@ -588,10 +600,11 @@ classDiagram
     DeliveryDate date
     Attempt attempt
     State state
-    change(details, StopState, now)
-    reschedule(date, StopState, DateCapacity, today, now)
-    cancel(StopState, by, now)
-    putBack(date, OrderStatus, DateCapacity, today, now)
+    change(OrderChange, StopState, now)
+    reschedule(TimeWindow, DateCapacity, StopState, today, now)
+    cancel(StopState, now)
+    putBack(Placement, StopState, TimeWindow, DateCapacity, today, now)
+    anonymize(today)
   }
   class DayRoster {
     <<AggregateRoot>>
@@ -766,7 +779,7 @@ code path can break it.
 | One account per email (BR-45) | Accounts are independent | `UserAccount.open`, `openFirstAdmin` and `confirmEmailByLink`, given the `EmailHolder` | Unique index on the canonical email | `EmailInUse` |
 | The first Admin only while no active Admin exists (FR-291) | Accounts are independent, and with no active Admin there is no row for `FOR UPDATE` to lock | `ActiveAdmins`, which `UserAccount.openFirstAdmin` requires | A transaction-scoped advisory lock, taken before `ActiveAdmins` is read | `ActiveAdminExists` |
 | At most 200 uncancelled orders a date (BR-101, BR-113) | Orders move between dates (FR-258, FR-315), so a per-date aggregate would change two aggregates per move | `DateCapacity`, which every method that adds an order to a date requires | `DateCapacity` is read under a transaction-scoped advisory lock on the date | `DateFull` |
-| A reference is unique on its date (FR-211) | Same | `Order.place`, `ImportBatch` | Partial unique index on (date, reference) | `DuplicateOrderReference` |
+| A reference is unique on its date (FR-211) | Same | `Order.place`, `reschedule` and `putBack`, through the `DateCapacity`; `ImportBatch` | Partial unique index on (date, reference), excluding cancelled orders ([ADR-102]) | `DuplicateOrderReference` |
 | One running re-optimization per plan (BR-38) | Jobs end independently, and the plan must not be written for every job's phase | `SolveJob.queue` | Partial unique index on running re-optimization jobs per plan | `ReoptimizationAlreadyRunning` |
 | At most 5 jobs queued in a lane (BR-112) | Same | `LaneCapacity`, which `SolveJob.queue` requires | `LaneCapacity` is read under an advisory lock on the lane | `SolveQueueFull` |
 | An alert per dedupe key (FR-157) | Alerts are independent | `Alert.raise` | Unique dedupe key | — |
@@ -811,7 +824,7 @@ call, never in the same transaction.
 | Place or change an order | `Order`, or creates it | — | — |
 | Cancel an order | `Order` → *cancelled* | — | `OrderCancelled` → `Plan.removeStopOf` (FR-207, FR-316) |
 | Reschedule an order | `Order` | — | `OrderRescheduled` → `Plan.removeStopOf` (FR-315) |
-| Put back a failed order | `Order` → the next attempt (FR-258) | — | — |
+| Put back a failed or dropped order | `Order` → the next attempt (FR-75, FR-258) | — | — |
 | Upload a file | — | `ImportBatch` (*previewed*) | — |
 | Confirm an import | `ImportBatch` → *confirmed* | Its `Customer`s and `Order`s; geocoding requests | — |
 | A driver reports a stop | `Delivery`, or creates it. A report that BR-132 holds is stored as *held* and records no outcome | The `RouteRun`, on the route's first report (FR-327); a held report doesn't count until confirmed. An `Alert` for the dispatcher, when the report is held | `OutcomeRecorded` for an outcome; `RouteStarted` when the run was created. Nothing for a held report: the phone's outbox gets an acknowledgement (§8) |
@@ -1096,7 +1109,8 @@ stateDiagram-v2
   expired --> [*]
 ```
 
-The hour is decided ([ADR-086]). The rows of an expired or discarded preview are deleted.
+The hour is decided ([ADR-086]). The rows of an expired or discarded preview are deleted, and so are a
+confirmed batch's, whose orders and customers now hold them ([ADR-102]).
 
 ### 9.5 A message to a recipient
 
@@ -1122,9 +1136,10 @@ returns the first match:
 1. **delivered / failed**: the effective outcome of the current attempt's `Delivery`. This is a fact. A
    held report (§9.3) is not an outcome, so it changes nothing here until a dispatcher confirms it.
 2. **cancelled**: the `Order` is cancelled.
-3. **planned / dropped**: where the `Plan` holds the current attempt, unless that plan is *abandoned*.
+3. **planned / dropped**: where the `Plan` holds the current attempt, unless that plan is *abandoned* or
+   *cancelled*.
 4. **unplanned**: anything else, including a put-back that starts a new attempt (FR-258) and an order
-   on an abandoned plan (BR-131).
+   on an abandoned or cancelled plan (BR-131, FR-337, BR-96).
 
 The outcome comes before *cancelled*: the other way round would show *cancelled* for an order a driver
 delivered, which hides a fact. The cancellation still shows beside the outcome. BR-33 states this
@@ -1235,7 +1250,7 @@ routes, and the plan stores them, so the core never applies a factor. The rules 
 | An import preview expires after an hour, and its rows are deleted | `ImportBatch.confirm` and `expire` | On confirmation, and an hourly sweep |
 | A published plan completes at midnight, and a plan still unpublished is abandoned (BR-102, BR-127). Before either, every queued or running solve job of the date fails (BR-128) | `Plan.complete(today)` and `Plan.abandon(today)`, after `SolveJob.fail` for every queued or running job of that date | A job at 00:00 |
 | A geocoding lookup is retried for 24 hours (FR-64) | The geocoding request (outbox row) | Every 15 minutes |
-| Positions are kept 7 days; proofs, messages and replies 90 days. An order's personal fields are removed 90 days after its date. A customer is anonymized 1 year after retirement or after their last order, a driver 1 year after retirement, every account, whatever its roles, 1 year after deactivation. Sessions are deleted 30 days after they end, contact times after 14 days (NFR-280), geocode cache entries unused for 1 year, research instances 1 year after the project ends (NFR-31, NFR-184, NFR-257 to NFR-260, BR-98, [ADR-075]). Backups age out of the bucket after 35 days | `RetentionPeriods`; `Customer.anonymize(now)`, `Driver.anonymize(now)`, `UserAccount.anonymize(now)` | A job at 03:00 |
+| Positions are kept 7 days; proofs, messages and replies 90 days. An order's personal fields are removed 90 days after its date. A customer is anonymized 1 year after retirement, or after the later of creation and the last order, a driver 1 year after retirement, every account, whatever its roles, 1 year after deactivation. Sessions are deleted 30 days after they end, contact times after 14 days (NFR-280), geocode cache entries unused for 1 year, research instances 1 year after the project ends (NFR-31, NFR-184, NFR-257 to NFR-260, BR-98, [ADR-075]). Backups age out of the bucket after 35 days | `RetentionPeriods`; `Order.anonymize(today)`, `Customer.anonymize(now)`, `Driver.anonymize(now)`, `UserAccount.anonymize(now)` | A job at 03:00 |
 | Audit records are deleted after 1 year (NFR-258, [ADR-075]) | A database function owned by `dispatchflow_owner`, which deletes only records older than 1 year and computes the cutoff itself. The application's role (`app`) may only execute it, because it can only insert and read audit records ([ADR-041]) | The same retention job, at 03:00 in `Asia/Jerusalem` |
 
 ### 10.4 Projected arrivals
@@ -1461,7 +1476,7 @@ where the company's own word differs. "—" in the Hebrew column marks a design 
 | Address flag | Customers & Orders | A doubt about a customer's location (FR-63) | סימון כתובת | `AddressFlag` |
 | Order | Customers & Orders, Planning, Optimization | Goods to deliver to a customer on a date | הזמנה | `Order` |
 | Attempt | Customers & Orders, Live Operations | Which try at delivering an order this is; a put-back starts the next one | ניסיון מסירה | `Attempt` |
-| Put back | Customers & Orders | Returning a failed order for a new attempt (FR-258) | החזרה לתכנון | `Order.putBack` |
+| Put back | Customers & Orders | Returning a failed or dropped order for a new attempt (FR-75, FR-258) | החזרה לתכנון | `Order.putBack` |
 | Reschedule | Customers & Orders | Moving an order to another date (FR-315) | שינוי תאריך | `Order.reschedule` |
 | Leave-at-door order | Customers & Orders | An order the recipient allows to be left at the door; its window is a preference (BR-119) | השארה ליד הדלת | `leaveAtDoor` |
 | Recipient | Customers & Orders, Messaging | The person who receives an order and its messages; may differ from the customer | נמען | `Recipient` |
@@ -1558,6 +1573,7 @@ Nothing. These ADRs record the decisions of this document:
 [ADR-086]: ../../ADRs/ADR-086-csv-imports-upload-then-confirm-within-an-hour.md
 [ADR-097]: ../../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md
 [ADR-100]: ../../ADRs/ADR-100-k-covers-door-windows-outside-a-shift-and-no-vehicle-is-a-drop-reason.md
+[ADR-102]: ../../ADRs/ADR-102-order-references-are-checked-on-every-move-to-a-date.md
 [ADR-103]: ../../ADRs/ADR-103-fleet-normalizes-plates-keeps-one-pair-of-depot-hours-holds-no-vehicle-in-weekly-shifts-and-retires-and-anonymizes-drivers-through-events.md
 [ADR-104]: ../../ADRs/ADR-104-the-company-profile-holds-customer-defaults-and-capabilities-follow-the-role-matrix.md
 [ADR-105]: ../../ADRs/ADR-105-a-re-optimizations-problem-carries-its-conventions-and-only-a-vehicle-that-is-out-has-no-driver.md

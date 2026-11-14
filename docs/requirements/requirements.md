@@ -209,7 +209,7 @@ route included.
 | FR-208 | A driver can call a customer's contact phone from a stop. | Must |  |  |
 | FR-60 | An import resolves each row to exactly one customer. | Must |  |  |
 | FR-310 | A row matches a customer on normalized address text ([FR-398]: normalized address text for matching). | Must |  |  |
-| FR-398 | Normalized address text is Unicode NFC, with whitespace trimmed and collapsed, a single geresh and a single gershayim character, abbreviations expanded from a fixed table, punctuation other than letters and digits dropped, and Latin letters in lower case. | Must |  |  |
+| FR-398 | Normalized address text is Unicode NFC, with whitespace trimmed and collapsed, a single geresh and a single gershayim character, abbreviations expanded from a fixed table, punctuation other than letters, digits, geresh and gershayim replaced by a space, and Latin letters in lower case. | Must |  |  |
 | FR-311 | A row matching no customer creates one from the row's name and phone, flagged for a pin check; a row without them is rejected. | Must |  |  |
 | FR-312 | A row matching several customers is rejected and lists them. | Must |  |  |
 | FR-61 | The import reads Hebrew text in UTF-8, with or without a byte order mark, and in Windows-1255. | Must |  |  |
