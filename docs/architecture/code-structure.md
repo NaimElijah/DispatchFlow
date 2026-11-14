@@ -12,6 +12,17 @@ it is in [ADR-009](../ADRs/ADR-009-just-as-the-single-entry-point.md) to
 this tree to a flat layout, in the M0 restructure. The pull request that moves the code rewrites
 this file.
 
+Also Accepted and not in the tree yet:
+[ADR-038](../ADRs/ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md) (`mise` pins every
+toolchain, and the core moves to Java 25),
+[ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md) (one pnpm
+workspace for both apps),
+[ADR-042](../ADRs/ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md) (`compose.dev.yaml`
+for local runs) and
+[ADR-046](../ADRs/ADR-046-renovate-replaces-dependabot-and-targets-dev.md) (Renovate replaces
+Dependabot). They supersede or amend some of ADR-009 to ADR-016 above: ADR-010, ADR-012 and ADR-014
+are superseded; ADR-009, ADR-013 and ADR-015 are amended.
+
 > [!NOTE]
 > Most folders below are still empty. A folder listed as a placeholder holds only a `.gitkeep`
 > file. What is real today is the skeleton: each component builds, passes its own checks and
@@ -30,13 +41,19 @@ this file.
 | `tests/` | Tests that span components: `e2e/` and `load/`. Both are placeholders |
 | `infra/` | `osrm/` and `deploy/`. Both are placeholders |
 | `logs/` | Local log output. Git keeps the folder and ignores everything in it |
-| `docs/` | `requirements/` (with `ARD/`), `architecture/` (with `domain_layer/` and `tech_stack.md`), `ADRs/`, `roadmap.md` and `presentations/` |
+| `docs/` | `CLAUDE.md`, `requirements/` (with `ARD/`), `architecture/` (with `domain_layer/` and `tech_stack.md`), `ADRs/`, `roadmap.md` and `presentations/` |
+| `.claude/` | Claude Code's context: the root `CLAUDE.md`, the team agents (`agents/`), the team skills (`skills/`), `settings.json`, and an empty `rules/` folder ([ADR-018](../ADRs/ADR-018-ai-assistant-context-in-the-repository.md), [ADR-020](../ADRs/ADR-020-team-subagents-in-the-repository.md), [ADR-025](../ADRs/ADR-025-team-skills-in-the-repository.md)) |
 | `.github/` | The CI workflow, Dependabot configuration, and issue and pull request templates |
 | `justfile` | Every command. CI runs the same recipes |
+| `README.md`, `.editorconfig`, `.gitattributes`, `.gitignore` | The readme, and the editor, line-ending and ignore settings |
 | `.java-version`, `.python-version`, `.nvmrc` | Toolchain pins: Java 21, Python 3.14, Node 24 |
 | `LICENSE` | Proprietary, all rights reserved ([ADR-017](../ADRs/ADR-017-proprietary-licence.md)) |
 
-Each component has its own manifest and lockfile, and nothing is shared at build time.
+Each component has its own manifest, and each except `core` (Maven) has a lockfile. The one link
+at build time is `research`'s path dependency on `solver`, below.
+
+`src/backend`, `src/frontend`, each component, `contracts/` and `docs/` also hold a `CLAUDE.md` with
+the rules for that folder.
 
 ## How the components depend on each other
 
@@ -61,8 +78,8 @@ build dependency that exists today.
   the optimization API yet.
 - `research` installs `solver` from `../backend/solver` as an editable path dependency, and adds
   PyVRP. The solver's environment never contains PyVRP:
-  `src/backend/solver/tests/test_dependency_boundary.py` fails if it can be imported there
-  ([ADR-004](../ADRs/ADR-004-pluggable-solver-port.md)).
+  `src/backend/solver/tests/test_dependency_boundary.py` fails if PyVRP is installed there or locked
+  in its `uv.lock` ([ADR-004](../ADRs/ADR-004-pluggable-solver-port.md)).
 - A change to `src/backend/solver/pyproject.toml` also needs `uv lock` in `src/research`.
 
 ## Inside each component
@@ -72,6 +89,7 @@ build dependency that exists today.
 ```text
 src/backend/core/
   pom.xml, mvnw, mvnw.cmd, .mvn/   Maven and its wrapper
+  CLAUDE.md                        the rules for this folder
   Dockerfile, .dockerignore
   .env.example                     the database connection keys, with no values
   src/main/java/com/dispatchflow/
@@ -109,7 +127,10 @@ is accepted.
 ```text
 src/backend/solver/
   pyproject.toml, uv.lock, Dockerfile, .dockerignore
+  CLAUDE.md                        the rules for this folder
   src/dispatchflow_solver/
+    __init__.py                    the package marker; one also in adapters/, inbound/ and http/
+    py.typed                       marks the package as typed
     domain/                        problem, solution, objective, validator (placeholder)
     application/                   use cases, the Solver port, the registry (placeholder)
     solvers/
@@ -122,7 +143,12 @@ src/backend/solver/
 ```
 
 The roles follow [ADR-004](../ADRs/ADR-004-pluggable-solver-port.md): every solver sits behind
-one `Solver` port and is chosen by name.
+one `Solver` port and is chosen by name. The port's call is `solve(problem, start, budget, seed)`
+([ADR-044](../ADRs/ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md),
+Accepted).
+[ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)
+(Accepted) moves the solvers under `adapters/outbound/solvers/`, where `nearest_neighbour` joins
+them. Neither is in the tree yet.
 
 ```mermaid
 flowchart TD
@@ -141,7 +167,9 @@ process's entry point, fills it with the solvers. `application` therefore never 
 ```text
 src/research/
   pyproject.toml, uv.lock
+  CLAUDE.md       the rules for this folder
   src/dispatchflow_research/
+    __init__.py   the package marker
     benchmark/    the benchmark harness (placeholder)
     simulation/   the disruption simulation (placeholder)
     generator/    the order generator (placeholder)
@@ -165,9 +193,10 @@ vulnerability the audit ignores there, with its reason and an expiry date
 
 An Expo project. `index.ts` registers `App.tsx`, which renders a heading. `app.json`
 and `assets/` hold the Expo configuration and icons. `osv-scanner.toml` lists the vulnerabilities
-the audit ignores, each with a reason and an expiry date. The zod and deepmerge entries still
-await the owner's review ([ADR-016](../ADRs/ADR-016-dependency-audit-with-osv-scanner.md),
-[ADR-023](../ADRs/ADR-023-accept-minimatch-and-glob-advisories.md)).
+the audit ignores, each with a reason and an expiry date. The owner accepted the minimatch and glob
+entries in [ADR-023](../ADRs/ADR-023-accept-minimatch-and-glob-advisories.md), and the zod and
+deepmerge entries in
+[ADR-095](../ADRs/ADR-095-accept-the-zod-and-deepmerge-advisories-until-2027-01-31.md).
 
 The two apps share no code. `contracts/client-api/v1` declares no operation yet, so neither has an
 API client.
@@ -196,7 +225,8 @@ The rule is that each side of a contract is tested against it ([NFR-162]). No te
 yet.
 
 `just <component>-check` runs a component's tests with its format and lint checks, and
-`just check` runs every component's. See the [`justfile`](../../justfile).
+`just check` runs every component's, plus the contract lint and the dependency audit.
+See the [`justfile`](../../justfile).
 
 ## Dependency rules
 

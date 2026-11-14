@@ -1,8 +1,5 @@
 # DispatchFlow — Project Instructions
 
-> Draft for the team to agree on (#1). Until then, raise anything you disagree with at the team
-> meeting rather than working around it.
-
 DispatchFlow plans and re-plans daily delivery routes for one delivery company. What it must do is in
 `docs/requirements/requirements.md`; how it is built is in `docs/architecture/`; why each
 decision was taken is in `docs/ADRs/`. Read the relevant parts before proposing work.
@@ -25,6 +22,7 @@ under Documentation.
 | `src/frontend/driver-app` | Phone app, for every role (React Native, Expo) |
 | `src/research` | Benchmarks, simulation, order generator; never deployed |
 | `contracts/` | Versioned OpenAPI contracts between the components |
+| `docs/` | Requirements, the decided design, the ADRs and the roadmap |
 | `tests/` | Tests that span components: `e2e/`, `load/` |
 | `infra/` | Road-network data and deployment |
 | `logs/` | Local log output; git ignores its contents |
@@ -92,7 +90,9 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 - `just setup`: install every component's dependencies.
 - `just check`: everything CI checks. Run it before every push.
 - `just format`: reformat every component.
-- `just <component>-check`, `just <component>-run`: one component at a time.
+- `just <component>-check`: one component's checks (`core`, `solver`, `research`, `console`,
+  `driver-app`, `contracts`).
+- `just <component>-run`: start `core`, `solver`, `console` or `driver-app`.
 
 ## How we work
 
@@ -109,6 +109,10 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 
 - Build the simplest thing that satisfies the actual requirement. Complexity must be pulled by a
   real constraint, never added in anticipation of one.
+- DispatchFlow serves one delivery company, with no multi-tenancy ([ADR-024]). The capabilities that
+  [ADR-090] cuts are not built: building one reopens that ADR first.
+- Every date, time window, shift and schedule is Israel local time, `Asia/Jerusalem`. No person or
+  device has a zone of its own ([ADR-088]).
 - Record every architectural decision, including a decision not to adopt something, as an ADR in
   `docs/ADRs/`, with the trigger that would make us revisit it.
 - Dependencies point one way: domain logic never imports frameworks, I/O or transport types.
@@ -148,6 +152,10 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 - Secrets never enter the repo, logs, error messages or shell history. They live in `.env`
   files, which git ignores; commit a `.env.example` with the keys and no values.
 - Never log credentials, tokens or personal data.
+- Company and personal data stay in Israel ([NFR-209]). Code sends them to no outside service
+  hosted elsewhere unless [NFR-262] lists it as an accepted exception, and every outside service
+  that receives company data is named in the data inventory (NFR-217). Fonts and map tiles load
+  from our own host, and error reports go to our own GlitchTip.
 - Parameterised queries only. Never build a query, command or path by concatenating input.
 - Pin dependencies and commit the lockfiles. `just audit` scans them, and CI fails on a known
   vulnerability; an accepted one goes into that folder's `osv-scanner.toml` with its reason and
@@ -164,7 +172,9 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
   Commit. Fill in the template, and link the issue with `Closes #N`.
 - One logical change per commit. Never mix a refactor with a behaviour change, or formatting
   with logic.
-- Never commit a broken build: `just check` passes first. Never force-push a shared branch.
+- Never commit a broken build: `just check` passes first. The one exception: the team skills that
+  push may commit first, and gate the push on `just check` ([ADR-025]). Never force-push a shared
+  branch.
 
 ## Documentation
 
@@ -199,5 +209,11 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 [RM]: ../docs/roadmap.md
 [ADRS]: ../docs/ADRs/README.md
 [ADR-093]: ../docs/ADRs/ADR-093-the-implementation-plan-is-retired-and-a-roadmap-holds-the-dates.md
+[ADR-024]: ../docs/ADRs/ADR-024-one-delivery-company-no-multi-tenancy.md
+[ADR-025]: ../docs/ADRs/ADR-025-team-skills-in-the-repository.md
 [ADR-037]: ../docs/ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md
 [ADR-038]: ../docs/ADRs/ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md
+[ADR-088]: ../docs/ADRs/ADR-088-israel-local-time-for-every-date-and-schedule.md
+[ADR-090]: ../docs/ADRs/ADR-090-scope-cuts-for-the-first-release.md
+[NFR-209]: ../docs/requirements/requirements.md#nfr-209
+[NFR-262]: ../docs/requirements/requirements.md#nfr-262

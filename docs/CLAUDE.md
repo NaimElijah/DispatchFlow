@@ -72,7 +72,9 @@ and never restates them.
   `Superseded by ADR-NNN`), the `ADR pending` markers the new ADR settles, and the `ADRs/README.md`
   rows.
 - Links to other ADRs and to requirements go at the bottom, reference-style. Requirement links
-  use the requirements' anchors, for example `../requirements/requirements.md#nfr-21`.
+  copy the row's definition at the bottom of `requirements.md`. An NFR has its own anchor
+  (`../requirements/requirements.md#nfr-21`). An FR, BR, Q or UC row links to the section that
+  holds it (`../requirements/requirements.md#plan-lifecycle-and-publishing`).
 
 ## Writing
 

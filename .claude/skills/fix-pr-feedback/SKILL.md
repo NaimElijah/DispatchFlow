@@ -22,8 +22,9 @@ The pull request, if the developer named one: $ARGUMENTS. If not, use the curren
 If a check fails, say which one and stop, changing nothing.
 
 - The pull request, if the developer named one, is digits only.
-- `gh pr view [<n>] --json number,url,state,headRefName,isCrossRepository,mergeable,author,reviews,comments`
+- `gh pr view [<n>] --json number,url,state,headRefName,baseRefName,isCrossRepository,mergeable,author,reviews,comments`
   finds the pull request, and its `state` is `OPEN`.
+- `baseRefName` is `dev`: step 3's `origin/dev..HEAD` list assumes it.
 - `author.login` equals `gh api user --jq .login`. This skill runs a branch's code on the developer's
   machine, so it works only on their own pull requests.
 - `isCrossRepository` is false.

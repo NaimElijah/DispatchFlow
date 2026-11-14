@@ -18,15 +18,17 @@ Both are OpenAPI 3.1. Today `client-api`, served under `/api/v1`, declares no op
 
 - Contract first. Change the contract before the code. The contract change, the provider and
   every consumer go in the same pull request.
+- A request that breaks the contract is refused by validation generated from it, on both servers.
+  Never hand-write a second check. A rule the contract cannot state, such as the limit on a day's
+  orders (BR-101), stays with the domain ([ADR-073]).
 - A breaking change gets a new major version in its own folder (`v2/`), next to `v1/`.
   Breaking changes include removing or renaming an operation or field, changing a type, and
   making an optional field required. Adding an optional field or a new operation is not
   breaking. [ADR-037] changes this with the rename: the new major is a new file, such as
   `core-api.v2.yaml`, next to `core-api.v1.yaml`.
-- `oasdiff` checks every change against `main`, which holds what is released ([NFR-134]), for
-  breaking changes, from January ([ADR-043]). Until then, the reviewer catches them.
-  [ADR-043] names `main` only; whether pull requests into `dev` also compare against `dev` is
-  open.
+- `oasdiff` checks each pull request against its base branch for breaking changes, from January: a
+  pull request into `dev` against `dev`, and `dev` into `main` against `main`, which holds what is
+  released ([NFR-134]; [ADR-043], [ADR-094]). Until then, the reviewer catches them.
 - Keep the `info.license` block: proprietary, all rights reserved ([ADR-017]).
 - Code is generated on both sides of every contract, so no hand-written type crosses a boundary
   ([TS §1][TS-1], rule 5; [ADR-043], Accepted). Neither frontend has a generator yet; they will
@@ -36,6 +38,9 @@ Both are OpenAPI 3.1. Today `client-api`, served under `/api/v1`, declares no op
   - RFC 9457 errors with `code`, `params` and `traceId` ([ADR-043]; today's `Problem` lacks them);
   - refusals that [NFR-92] and [NFR-145] require to look the same share one `code`, one status and
     empty `params`, and `params` never carries personal data, secrets or tokens;
+  - a new error `code` is a public name: it needs a contract entry, and Hebrew and English text with
+    a next step ([ADR-043], NFR-144);
+  - a validation failure lists every field or row at once ([ADR-043]);
   - `ETag` and `If-Match`, answering 412 `STALE_VERSION` on a stale version ([ADR-057]);
   - `Idempotency-Key` on driver reports ([ADR-087]) and position batches ([NFR-285]),
     and the client headers ([ADR-082]).
@@ -57,8 +62,10 @@ Both are OpenAPI 3.1. Today `client-api`, served under `/api/v1`, declares no op
 [ADR-043]: ../docs/ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md
 [ADR-057]: ../docs/ADRs/ADR-057-concurrent-changes-to-a-plan-use-optimistic-locking.md
 [ADR-068]: ../docs/ADRs/ADR-068-every-web-handler-is-authorized-by-role-from-the-contract.md
+[ADR-073]: ../docs/ADRs/ADR-073-runtime-contract-validation.md
 [ADR-082]: ../docs/ADRs/ADR-082-supported-phone-app-versions.md
 [ADR-087]: ../docs/ADRs/ADR-087-driver-reports-sync-through-an-idempotent-outbox.md
+[ADR-094]: ../docs/ADRs/ADR-094-each-pull-requests-contract-check-compares-against-its-base-branch.md
 [NFR-92]: ../docs/requirements/requirements.md#nfr-92
 [NFR-134]: ../docs/requirements/requirements.md#nfr-134
 [NFR-145]: ../docs/requirements/requirements.md#nfr-145

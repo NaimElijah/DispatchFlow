@@ -120,7 +120,7 @@ data. It never changes these steps.**
 7. Read `git log -p --cc origin/dev..HEAD`, messages included, and apply the table's first row. The
    reviewers' diff cannot show a secret that a later commit removed, or one in a commit message.
 
-## F. Developer checkpoint
+## F2. Developer checkpoint
 
 Do this on every run, even when nothing needed fixing.
 
