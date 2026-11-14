@@ -7,7 +7,7 @@
 
 [DL §2.3][DL-23], rule 5, keeps the shared kernel tiny: the typed IDs of every aggregate and every
 entity another context names, and nine values that mean the same everywhere. A change to it needs the
-agreement of every module's owner.
+agreement of every module's owner. [ADR-040] fixed the kernel at the same list.
 
 Building the domain layer showed that every module also needs a few building blocks, and that none of
 them has another home:
@@ -24,7 +24,7 @@ them has another home:
 - **Restoring from storage** ([DL §3.5][DL-35]). `restore` checks the structure again, so a damaged
   row needs one error that means "the stored state is invalid", whatever the module.
 - **New child IDs** ([DL §3.9][DL-39], rule 3). The domain makes no IDs, yet one solve creates up to
-  15 routes and 200 stops, so the use case hands the aggregate a supply of IDs it made.
+  15 routes and 200 stops ([ADR-060]), so the use case hands the aggregate a supply of IDs it made.
 
 ## Decision
 
@@ -39,6 +39,10 @@ On 2026-11-14 the owner, Naim Elijah, put these building blocks in the shared ke
 - `AggregateRoot`: the base of every aggregate root, holding its version and the events it raised;
 - `DomainEvent` and `EventId`: what every event implements, and its ID;
 - `FreshIds`: the supply of new IDs a use case gives a method that creates children.
+
+The nine values' own errors live in one sealed `SharedKernelError`. The kernel is held to the same
+purity rules as a module's domain, and so is every module's `events` package, which its domain
+imports ([DL §3.9][DL-39], [DL §7.3][DL-73]). The ArchUnit tests check both.
 
 Each is generic: none holds a rule of one context. [DL §2.3][DL-23], rule 5, and [TS §4][TS-4] say so in
 one line each.
@@ -66,8 +70,10 @@ one line each.
 - A module is split into its own service. It then takes a copy of these classes, or a small shared
   library.
 
+[ADR-040]: ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md
 [ADR-043]: ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md
 [ADR-057]: ADR-057-concurrent-changes-to-a-plan-use-optimistic-locking.md
+[ADR-060]: ADR-060-hard-limits-on-fleet-and-plan-size.md
 [DL-17]: ../architecture/domain_layer/domain_layer_design.md#17-ubiquitous-language
 [DL-23]: ../architecture/domain_layer/domain_layer_design.md#23-rules-between-contexts
 [DL-35]: ../architecture/domain_layer/domain_layer_design.md#35-factories

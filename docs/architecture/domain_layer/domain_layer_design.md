@@ -182,14 +182,14 @@ constructor, so an invalid one can't exist. Equality is by value. No signature i
 | Value | Context | What it holds and checks | Error |
 |---|---|---|---|
 | Typed IDs (`PlanId`, `StopId`, `OrderId`, …) | Shared | A UUIDv7 that names one kind of thing; one can't be passed for another | — |
-| `DeliveryDate` | Shared | The calendar day a plan, its orders and its roster are for; knows whether it is before a given day | — |
+| `DeliveryDate` | Shared | The calendar day a plan, its orders and its roster are for, in years 1 to 9999; knows whether it is before a given day | `DateOutOfRange` |
 | `IsraelDateTime` | Shared | A local time in `Asia/Jerusalem`; refuses a time in the skipped hour, reads a repeated hour as its first occurrence (BR-31, BR-111) | `NonexistentLocalTime` |
 | `DaySeconds` | Shared | Elapsed seconds since the date's local midnight, within that day's 23, 24 or 25 hours (§10) | `OutsideTheDay` |
 | `TimeWindow` | Shared | A start before an end, both on one date (BR-35) | `InvalidTimeWindow` |
 | `GeoPoint` | Shared | Latitude and longitude in range | `InvalidCoordinates` |
-| `Weight`, `Volume` | Shared | Kilograms and litres, present and positive (BR-50) | `NonPositiveQuantity` |
+| `Weight`, `Volume` | Shared | Kilograms and litres, present and positive (BR-50), with at most two decimals and the digits their columns hold ([ADR-061]) | `NonPositiveQuantity`, `QuantityOutOfRange` |
 | `Priority` | Shared | 1 to 5, default 3 (BR-53) | `PriorityOutOfRange` |
-| `PhoneNumber` | Shared | E.164, parsed with region IL; knows whether it is an Israeli mobile (FR-377, FR-378) | `InvalidPhoneNumber` |
+| `PhoneNumber` | Shared | E.164, parsed with region IL from digits only; knows whether it is an Israeli mobile (FR-377, FR-378). A stored number is checked as E.164 only, so a newer phone-number library never refuses it | `InvalidPhoneNumber` |
 | `EmailAddress` | Access | The canonical form one account is keyed by (BR-45) | `InvalidEmail` |
 | `RoleSet` | Access | A set of Admin, Dispatcher and Driver; `can(capability)` is the permission matrix (NFR-85) | — |
 | `NewPassword` | Access | At least 8 characters and not on the bundled list of the 3,000 most common (NFR-95) | `PasswordTooShort`, `PasswordTooCommon` |
@@ -1495,6 +1495,7 @@ Nothing. These ADRs record the decisions of this document:
 [ADR-057]: ../../ADRs/ADR-057-concurrent-changes-to-a-plan-use-optimistic-locking.md
 [ADR-058]: ../../ADRs/ADR-058-routes-changed-while-the-optimizer-is-down-are-checked-when-it-returns.md
 [ADR-059]: ../../ADRs/ADR-059-plan-revisions-are-stored-as-rows.md
+[ADR-061]: ../../ADRs/ADR-061-capacity-is-weight-and-volume.md
 [ADR-063]: ../../ADRs/ADR-063-a-transaction-changes-one-aggregate-and-every-rule-has-one-owner.md
 [ADR-064]: ../../ADRs/ADR-064-events-only-where-they-earn-their-place-through-the-modulith-registry.md
 [ADR-065]: ../../ADRs/ADR-065-facts-outrank-intent.md
