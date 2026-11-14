@@ -1,4 +1,6 @@
 package com.dispatchflow.archfixture.alpha.domain;
 
-/** Stands in for Orders' NormalizedAddress. */
-public record NormalizedAddress(String value) {}
+import com.dispatchflow.shared.PersonalData;
+
+/** Stands in for Orders' NormalizedAddress, which is marked as personal data. */
+public record NormalizedAddress(String value) implements PersonalData {}

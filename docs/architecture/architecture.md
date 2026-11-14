@@ -44,9 +44,10 @@ only a `.gitkeep`. `solver`'s `application` and `solvers` folders hold only `.gi
 holds the domain for daily solves and re-optimizations
 ([ADR-098](../ADRs/ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) fixes its
 numbers).
-`core` holds the shared kernel (`com.dispatchflow.shared`): typed IDs, the nine shared values and
-the domain's building blocks
-([ADR-097](../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md)). Nothing calls
+`core` holds the shared kernel (`com.dispatchflow.shared`): typed IDs, the shared values and the
+domain's building blocks
+([ADR-097](../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md),
+[ADR-106](../ADRs/ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md)). Nothing calls
 it yet, and no bounded context exists in code.
 
 ## Communication
@@ -130,7 +131,7 @@ the ADRs:
   [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md) (a
   schema per module, read and written through jOOQ) give the target shape. None of them is in the
   tree yet. ADR-039 and ADR-042 to ADR-047 record the other tooling, contract, solver-port, token
-  and image decisions, and ADR-048 to ADR-100 the rest.
+  and image decisions, and ADR-048 onward the rest.
 - [Roadmap](../roadmap.md#2-milestones): the milestones and dates.
 
 The hosting is in [ADR-078](../ADRs/ADR-078-hosting-on-one-aws-vm-in-tel-aviv-built-with-terraform.md)
