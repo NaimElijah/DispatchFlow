@@ -1,6 +1,6 @@
 # ADR-023: Accept the minimatch and glob advisories in the frontends' tooling until 2027-01-31
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-095
 - **Date:** 2026-11-03
 
 ## Context

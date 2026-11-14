@@ -10,9 +10,9 @@ Each service has its own `CLAUDE.md` with its layout, rules and commands.
 
 Google OR-Tools, our own Clarke-Wright + ALNS solver and the `nearest_neighbour` baseline arrive in
 `solver/` with their adapters ([TS §7.1]); Spring Security arrives in `core/` with the Access
-context ([DL §1]).
+context ([TS §6]).
 
-Proposed by ADRs that the team has not accepted, and not in the tree yet:
+Accepted, and not in the tree yet, among others:
 
 - [ADR-040]: Spring Modulith in `core`, one module per bounded context.
 - [ADR-041]: jOOQ replaces JPA, with one PostgreSQL schema per module.
@@ -22,7 +22,7 @@ Proposed by ADRs that the team has not accepted, and not in the tree yet:
 - `core` serves `contracts/client-api/v1` to both frontends.
 - `solver` serves `contracts/optimization-api/v1`, and `core` is its only client.
 - A change to either contract goes in the same PR as every side it touches, and each side is
-  tested against the contract. See `contracts/CLAUDE.md`. [ADR-043] (Proposed) generates code from
+  tested against the contract. See `contracts/CLAUDE.md`. [ADR-043] (Accepted) generates code from
   both contracts on both sides.
 - Only `core` owns a database. `solver` keeps no business data of its own.
 
@@ -37,7 +37,14 @@ service's `CLAUDE.md` names its packages and what may import what.
   domain never reads the clock ([TS §2.1], rule 3).
 - The validator, the objective, the travel-time factors and the re-optimization conventions exist
   once, in the solver's Python domain. `core` calls them through the contract and never applies
-  a bucket factor: OSRM gives it base durations only ([DL], design line 6; [TS §6.4]).
+  a bucket factor: OSRM gives it base durations only ([DL §10.2], [TS §6.4]).
+- A solve works in seconds of the day in `Asia/Jerusalem`. The core converts with `ZonedDateTime`,
+  and the database keeps instants as `timestamptz` and local values as `date` and `time`
+  ([ADR-088], [TS §6.3]).
+- Logs are structured JSON carrying the trace ID, and request bodies are never logged (NFR-19,
+  NFR-20; the Observability rows of [TS §6] and [TS §7]).
+- The core calls the optimizer over plain synchronous HTTP, with a client timeout of the solve limit
+  plus 30 seconds ([TS §6.5], [ADR-051]).
 
 ## Test names
 
@@ -48,8 +55,13 @@ service's `CLAUDE.md` names its packages and what may import what.
 [ADR-040]: ../../docs/ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md
 [ADR-041]: ../../docs/ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md
 [ADR-043]: ../../docs/ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md
-[DL]: ../../docs/architecture/domain_layer/domain_layer_design.md
-[DL §1]: ../../docs/architecture/domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts
+[ADR-051]: ../../docs/ADRs/ADR-051-one-solver-worker-per-lane-killed-30-seconds-past-its-limit.md
+[ADR-088]: ../../docs/ADRs/ADR-088-israel-local-time-for-every-date-and-schedule.md
+[DL §10.2]: ../../docs/architecture/domain_layer/domain_layer_design.md#102-one-travel-time-model-in-python
 [TS §2.1]: ../../docs/architecture/tech_stack.md#21-the-dependency-rule
+[TS §6]: ../../docs/architecture/tech_stack.md#6-core-service-java
+[TS §6.3]: ../../docs/architecture/tech_stack.md#63-persistence
 [TS §6.4]: ../../docs/architecture/tech_stack.md#64-ports-and-adapters
+[TS §6.5]: ../../docs/architecture/tech_stack.md#65-core--optimizer-calls
+[TS §7]: ../../docs/architecture/tech_stack.md#7-optimization-service-python
 [TS §7.1]: ../../docs/architecture/tech_stack.md#71-the-hexagon

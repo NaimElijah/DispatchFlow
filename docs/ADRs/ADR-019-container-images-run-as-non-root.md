@@ -1,6 +1,6 @@
 # ADR-019: Each service ships as a container image that runs as a non-root user
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-047
 - **Date:** 2026-10-30
 
 ## Context

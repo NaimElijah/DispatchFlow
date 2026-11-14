@@ -68,7 +68,8 @@ Keep a list of each conflicted file and how it was resolved. Whoever called thes
 
 ## After the merge
 
-If step 4 counted any commits, run `git diff --name-only ORIG_HEAD HEAD -- .claude .github justfile` and
-tell the developer what it lists. Those files change what these skills and `just check` do.
+If step 4 counted any commits, run
+`git diff --name-only ORIG_HEAD HEAD -- .claude .github justfile ':(glob)**/CLAUDE.md'` and tell the
+developer what it lists. Those files change what these skills and `just check` do.
 
 [ADR-034]: ../../../docs/ADRs/ADR-034-ask-before-merging-changes-to-the-assistant-setup.md

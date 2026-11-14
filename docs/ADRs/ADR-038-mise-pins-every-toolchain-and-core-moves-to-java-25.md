@@ -1,6 +1,6 @@
 # ADR-038: mise pins every toolchain, and the core moves to Java 25
 
-- **Status:** Proposed; would supersede ADR-010 and amend ADR-002, ADR-009 and ADR-013
+- **Status:** Accepted
 - **Date:** 2026-11-13
 
 ## Context
@@ -49,14 +49,15 @@ We pin every toolchain in one root file, `mise.toml`, and move the core to Java 
   - Python 3.14, unchanged ([TS §7][TS-7]). `requires-python` stays in both `pyproject.toml`
     files, because uv reads it ([ADR-010]).
   - Node.js: the current LTS ([TS §21][TS-21]). The sources do not name the major. [ADR-010]'s
-    open question about Expo and Node 26 carries over.
+    open question about Expo and Node 26 carries over, and the M0 restructure pull request
+    settles it when it writes `mise.toml` (decided by the owner on 2026-11-14).
   - uv, pnpm, just and Terraform: exact versions, chosen when `mise.toml` is written.
 - **`mise.toml` replaces `.java-version`, `.python-version` and `.nvmrc`.** The root files in
   [TS §4][TS-4] list `mise.toml` and none of the three.
 - **`just` comes from mise,** not from uv through `rust-just` ([ADR-009]'s install method). The
   `justfile` stays the single entry point.
 - **Java 25 replaces Java 21** in `<java.version>` and in the core `Dockerfile`. [ADR-047]
-  (Proposed) covers the runtime image.
+  covers the runtime image.
 - **What changes in the accepted ADRs.** [ADR-010] is replaced whole. Three others change in one
   part each, and the rest of each stands:
   - [ADR-002]: the Java 21 it states for `core`. Its split into a Java core and a Python service
@@ -103,7 +104,7 @@ it open.
   - The version files: `.github/workflows/ci.yml` (`java-version-file: .java-version`),
     `.claude/agents/df-debugger.md` (line 28), `docs/architecture/code-structure.md` and
     `README.md`.
-  - [ADR-046] (Proposed) would have Renovate keep `mise.toml` current ([TS §5][TS-5]).
+  - [ADR-046] has Renovate keep `mise.toml` current ([TS §5][TS-5]).
 - **Cost:** mise is a new tool. Record its licence and maintenance status before adopting it, as
   `.claude/CLAUDE.md` requires of every new dependency. The sources give neither.
 - **Risk:** the Node major is open. If Expo does not support the LTS that mise installs, the phone
@@ -139,7 +140,7 @@ it open.
 [ADR-039]: ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md
 [NFR-62]: ../requirements/requirements.md#nfr-62
 [NFR-115]: ../requirements/requirements.md#nfr-115
-[PL-5]: ../init_impl_ref/technical_implementation_plan.md#5-repository-and-local-environment
+[PL-5]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#5-repository-and-local-environment
 [TS-1]: ../architecture/tech_stack.md#1-what-decides-close-calls
 [TS-4]: ../architecture/tech_stack.md#4-repository-layout
 [TS-5]: ../architecture/tech_stack.md#5-development-environment-and-workflow

@@ -1,6 +1,6 @@
 # ADR-043: Code is generated from both contracts on both sides, and errors are RFC 9457 Problem Details
 
-- **Status:** Proposed; would extend ADR-006
+- **Status:** Accepted; extended by ADR-068, ADR-073, ADR-087 and ADR-094
 - **Date:** 2026-11-13
 
 ## Context
@@ -73,9 +73,9 @@ Contract-first stands ([ADR-006]). Both contracts stay OpenAPI 3.1 files, and th
   ([TS §17.1], [TS §18]). Redocly lint stays.
 - **Pact is not used.** Consumer-driven contracts suit teams that do not own both sides. We do, so
   the OpenAPI file already is the contract ([TS §17.1]).
-- **Not decided here.** Three decisions that touch the contracts have their own pending ADRs, and
-  this one does not settle them: authorizing handlers from the contract, idempotency keys on
-  driver reports, and runtime validation of requests against the contract ([NFR-56]).
+- **Recorded in their own ADRs.** Three decisions that touch the contracts are settled elsewhere:
+  authorizing handlers from the contract ([ADR-068]), idempotency keys on driver reports
+  ([ADR-087]), and runtime validation of requests against the contract ([ADR-073], [NFR-56]).
 
 ## Consequences
 
@@ -126,6 +126,9 @@ Contract-first stands ([ADR-006]). Both contracts stay OpenAPI 3.1 files, and th
 
 [ADR-006]: ADR-006-versioned-openapi-contracts.md
 [ADR-037]: ADR-037-flat-layout-under-src-with-deploy-and-infra.md
+[ADR-068]: ADR-068-every-web-handler-is-authorized-by-role-from-the-contract.md
+[ADR-073]: ADR-073-runtime-contract-validation.md
+[ADR-087]: ADR-087-driver-reports-sync-through-an-idempotent-outbox.md
 [NFR-44]: ../requirements/requirements.md#nfr-44
 [NFR-56]: ../requirements/requirements.md#nfr-56
 [NFR-69]: ../requirements/requirements.md#nfr-69
@@ -137,10 +140,10 @@ Contract-first stands ([ADR-006]). Both contracts stay OpenAPI 3.1 files, and th
 [NFR-145]: ../requirements/requirements.md#nfr-145
 [NFR-162]: ../requirements/requirements.md#nfr-162
 [NFR-163]: ../requirements/requirements.md#nfr-163
-[PL §3.3]: ../init_impl_ref/technical_implementation_plan.md#33-semester-b-track
-[PL §5]: ../init_impl_ref/technical_implementation_plan.md#5-repository-and-local-environment
-[PL §6.1]: ../init_impl_ref/technical_implementation_plan.md#61-optimizer-api-v1
-[PL §6.2]: ../init_impl_ref/technical_implementation_plan.md#62-core-api-conventions
+[PL §3.3]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#33-semester-b-track
+[PL §5]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#5-repository-and-local-environment
+[PL §6.1]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#61-optimizer-api-v1
+[PL §6.2]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#62-core-api-conventions
 [TS §1]: ../architecture/tech_stack.md#1-what-decides-close-calls
 [TS §2.1]: ../architecture/tech_stack.md#21-the-dependency-rule
 [TS §4]: ../architecture/tech_stack.md#4-repository-layout

@@ -11,36 +11,41 @@ each contract depend on it, and neither side owns it.
 Both are OpenAPI 3.1. Today `client-api`, served under `/api/v1`, declares no operation yet, and
 `optimization-api` has only `GET /health/liveness`.
 
-[ADR-037] (Proposed) would rename the files to `core-api.v1.yaml` and
-`optimizer-api.v1.yaml` in this folder.
+[ADR-037] (Accepted) renames the files to `core-api.v1.yaml` and
+`optimizer-api.v1.yaml` in this folder, in the M0 restructure. They are not renamed yet.
 
 ## Rules
 
 - Contract first. Change the contract before the code. The contract change, the provider and
   every consumer go in the same pull request.
+- A request that breaks the contract is refused by validation generated from it, on both servers.
+  Never hand-write a second check. A rule the contract cannot state, such as the limit on a day's
+  orders (BR-101), stays with the domain ([ADR-073]).
 - A breaking change gets a new major version in its own folder (`v2/`), next to `v1/`.
   Breaking changes include removing or renaming an operation or field, changing a type, and
   making an optional field required. Adding an optional field or a new operation is not
-  breaking. [ADR-037] would change this: the new major would be a new file, such as
+  breaking. [ADR-037] changes this with the rename: the new major is a new file, such as
   `core-api.v2.yaml`, next to `core-api.v1.yaml`.
-- `oasdiff` checks every change against `main`, which holds what is released ([NFR-134]), for
-  breaking changes, from January ([PL §6.2][PL-62]). Until then, the reviewer catches them.
-  [ADR-043] names `main` only; whether pull requests into `dev` also compare against `dev` is
-  open.
+- `oasdiff` checks each pull request against its base branch for breaking changes, from January: a
+  pull request into `dev` against `dev`, and `dev` into `main` against `main`, which holds what is
+  released ([NFR-134]; [ADR-043], [ADR-094]). Until then, the reviewer catches them.
 - Keep the `info.license` block: proprietary, all rights reserved ([ADR-017]).
 - Code is generated on both sides of every contract, so no hand-written type crosses a boundary
-  ([TS §1][TS-1], rule 5; [ADR-043], Proposed). Neither frontend has a generator yet; they will
+  ([TS §1][TS-1], rule 5; [ADR-043], Accepted). Neither frontend has a generator yet; they will
   generate their client from `client-api` once it has operations. Nobody edits generated code.
-- Every `client-api` operation follows the conventions of [PL §6.2][PL-62]:
-  - `x-capability` on every operation;
-  - RFC 9457 errors with `code`, `params` and `traceId` (today's `Problem` lacks these three);
+- Every `client-api` operation follows these conventions:
+  - `x-capability` on every operation ([ADR-068]);
+  - RFC 9457 errors with `code`, `params` and `traceId` ([ADR-043]; today's `Problem` lacks them);
   - refusals that [NFR-92] and [NFR-145] require to look the same share one `code`, one status and
     empty `params`, and `params` never carries personal data, secrets or tokens;
-  - `ETag` and `If-Match`, answering 412 `STALE_VERSION` on a stale version;
-  - `Idempotency-Key` where the section names it;
-  - the client headers.
+  - a new error `code` is a public name: it needs a contract entry, and Hebrew and English text with
+    a next step ([ADR-043], NFR-144);
+  - a validation failure lists every field or row at once ([ADR-043]);
+  - `ETag` and `If-Match`, answering 412 `STALE_VERSION` on a stale version ([ADR-057]);
+  - `Idempotency-Key` on driver reports ([ADR-087]) and position batches ([NFR-285]),
+    and the client headers ([ADR-082]).
 - The optimizer API is stateless: each call carries the whole problem. The travel-time matrix is
-  base64 little-endian `int32` over distinct locations ([PL §6][PL-6], [PL §6.1][PL-61]).
+  base64 little-endian `int32` over distinct locations ([ADR-052](../docs/ADRs/ADR-052-each-plan-stores-the-matrix-and-values-it-was-solved-with.md)).
 - Lint findings are fixed, not ignored. If a rule does not apply, add the exception to
   `.redocly.lint-ignore.yaml`, and say why in the pull request.
 
@@ -55,10 +60,14 @@ Both are OpenAPI 3.1. Today `client-api`, served under `/api/v1`, declares no op
 [ADR-017]: ../docs/ADRs/ADR-017-proprietary-licence.md
 [ADR-037]: ../docs/ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md
 [ADR-043]: ../docs/ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md
+[ADR-057]: ../docs/ADRs/ADR-057-concurrent-changes-to-a-plan-use-optimistic-locking.md
+[ADR-068]: ../docs/ADRs/ADR-068-every-web-handler-is-authorized-by-role-from-the-contract.md
+[ADR-073]: ../docs/ADRs/ADR-073-runtime-contract-validation.md
+[ADR-082]: ../docs/ADRs/ADR-082-supported-phone-app-versions.md
+[ADR-087]: ../docs/ADRs/ADR-087-driver-reports-sync-through-an-idempotent-outbox.md
+[ADR-094]: ../docs/ADRs/ADR-094-each-pull-requests-contract-check-compares-against-its-base-branch.md
 [NFR-92]: ../docs/requirements/requirements.md#nfr-92
 [NFR-134]: ../docs/requirements/requirements.md#nfr-134
 [NFR-145]: ../docs/requirements/requirements.md#nfr-145
 [TS-1]: ../docs/architecture/tech_stack.md#1-what-decides-close-calls
-[PL-6]: ../docs/init_impl_ref/technical_implementation_plan.md#6-contracts
-[PL-61]: ../docs/init_impl_ref/technical_implementation_plan.md#61-optimizer-api-v1
-[PL-62]: ../docs/init_impl_ref/technical_implementation_plan.md#62-core-api-conventions
+[NFR-285]: ../docs/requirements/requirements.md#nfr-285

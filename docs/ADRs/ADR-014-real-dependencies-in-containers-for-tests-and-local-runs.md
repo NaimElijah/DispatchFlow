@@ -1,6 +1,6 @@
 # ADR-014: Integration tests and local runs use a real PostgreSQL in a container
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-042
 - **Date:** 2026-10-30
 
 ## Context

@@ -9,7 +9,6 @@ Expo SDK 58, React Native 0.88, React 19, TypeScript 6.0, npm.
 - `index.ts` registers `App.tsx`, which today renders only a heading.
 - `app.json` holds the Expo configuration (name "DispatchFlow Driver", slug
   `dispatchflow-driver`). `assets/` holds the icons and the splash image.
-- Tests sit next to the code they test, as `*.test.tsx`.
 
 ## Rules
 
@@ -18,25 +17,39 @@ Expo SDK 58, React Native 0.88, React 19, TypeScript 6.0, npm.
 - The web build (`expo export --platform web`) is a development aid and an end-to-end test target,
   not a client for users: drivers in a browser use the web app ([ADR-035]). The use cases of NFR-83
   must run in it online, and it reads its route every 30 seconds while open ([ADR-026]).
-- Admin and Dispatcher screens exist here too (FR-120). Driver-only rules, such as no action while
-  moving (NFR-45) and no prompt hiding the route (NFR-139), bind the driver screens only.
-  [TS §22] leaves open whether those screens run as the web app in a web view. [ADR-035] is still
-  accepted, and this rule stands until the team decides otherwise.
+- Admin and Dispatcher screens are native here too, not a web view ([ADR-035], FR-120; the web view
+  is rejected in [TS §23]). The driver-screen rules of `src/frontend/CLAUDE.md` bind only the driver
+  screens.
+- Data received through the Admin or Dispatcher role stays in memory only and is wiped at sign-out, at
+  revocation and on a refused refresh ([ADR-076]).
 - Never use AsyncStorage or a persisted query cache. The route cache and the report outbox live in
   the encrypted SQLCipher database (NFR-39, [TS §11]).
 - The report outbox is a `ReportQueue` port over a SQLCipher adapter. Each report carries an
   idempotency key scoped to the signed-in user and a per-route sequence number, and stays queued
   until the server acknowledges it ([TS §11]).
+- Proof photos come only from `expo-camera`. The bytes move into the encrypted database and the
+  temporary file is deleted at once, and nothing comes from or reaches the gallery (NFR-204,
+  [TS §11]).
+- Background location uses `expo-location` with `expo-task-manager`, one position every 30 seconds
+  while a route is in progress. It stops at sign-out, at a hand-over, when the driver is marked
+  unavailable, and 1 hour after shift end on a route nobody finished (FR-31, NFR-30, FR-328,
+  [TS §11]).
+- A refused refresh wipes the route data and keeps the outbox. 14 days offline wipes the route data
+  and the queued reports and proofs (NFR-234, NFR-235).
+- A push carries no personal data, only that something changed. Push tokens are removed at sign-out,
+  at revocation and when Expo reports the device gone (NFR-218, NFR-263).
+- MapLibre needs a development build (`expo-dev-client`): Expo Go cannot load it ([TS §11]).
 - `tsconfig.json` sets `"types": ["jest"]`, because TypeScript 6 no longer loads every
   installed `@types` package by default. A new global type package goes into that list.
 - `osv-scanner.toml` lists the vulnerabilities the audit ignores, each with a reason and an
-  `ignoreUntil` date ([ADR-016], [ADR-023]). The zod and deepmerge entries await the owner's
-  review. Add an entry only with both, and fix or re-justify an entry when it expires.
+  `ignoreUntil` date ([ADR-016], [ADR-023]). The owner accepted the zod and deepmerge entries in
+  [ADR-095]. Add an entry only with both, and fix or re-justify an entry when it expires.
 
 ## Tests
 
 - Jest through `jest-expo`, with React Native Testing Library.
-- Query the screen by role, label or text, never by component internals.
+- In React Native Testing Library 14, `render`, `rerender`, `unmount`, `renderHook`, `act` and
+  every `fireEvent` call return a promise: `await` each, as `App.test.tsx` does with `render`.
 - End-to-end tests will run the same use cases on this app's web build as on the web app (NFR-83).
   Native behaviour is checked by hand on real phones ([ADR-028], NFR-140).
 
@@ -56,5 +69,7 @@ Run `just` recipes from the repository root, and `npm` or `npx` from this folder
 [ADR-023]: ../../../docs/ADRs/ADR-023-accept-minimatch-and-glob-advisories.md
 [ADR-028]: ../../../docs/ADRs/ADR-028-driver-app-through-test-tracks-with-a-device-checklist.md
 [ADR-035]: ../../../docs/ADRs/ADR-035-both-apps-serve-every-role.md
+[ADR-076]: ../../../docs/ADRs/ADR-076-admin-and-dispatcher-data-stays-in-memory-on-devices.md
+[ADR-095]: ../../../docs/ADRs/ADR-095-accept-the-zod-and-deepmerge-advisories-until-2027-01-31.md
 [TS §11]: ../../../docs/architecture/tech_stack.md#11-phone-app
-[TS §22]: ../../../docs/architecture/tech_stack.md#22-open-decisions
+[TS §23]: ../../../docs/architecture/tech_stack.md#23-alternatives-rejected-across-the-stack

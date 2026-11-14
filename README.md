@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/NaimElijah/DispatchFlow/actions/workflows/ci.yml/badge.svg)](https://github.com/NaimElijah/DispatchFlow/actions/workflows/ci.yml)
 
-[Requirements](docs/requirements/requirements.md) · [Architecture](docs/architecture/architecture.md) · [Domain design](docs/architecture/domain_layer/domain_layer_design.md) · [Tech stack](docs/architecture/tech_stack.md) · [Plan](docs/init_impl_ref/technical_implementation_plan.md) · [ADRs](docs/ADRs/README.md) · [Board](https://github.com/users/NaimElijah/projects/9)
+[Requirements](docs/requirements/requirements.md) · [Architecture](docs/architecture/architecture.md) · [Domain design](docs/architecture/domain_layer/domain_layer_design.md) · [Tech stack](docs/architecture/tech_stack.md) · [Roadmap](docs/roadmap.md) · [ADRs](docs/ADRs/README.md) · [Board](https://github.com/users/NaimElijah/projects/9)
 
 </div>
 
@@ -117,20 +117,22 @@ probe, the core its health probe, and the two apps render a heading.
 [architecture.md](docs/architecture/architecture.md) describes that system as it is, and
 [code-structure.md](docs/architecture/code-structure.md) the repository layout.
 
-The target design is proposed in three documents, which the team builds from:
+The decided design is the domain document, the tech stack and the ADRs, which the team builds
+from, with the [roadmap](docs/roadmap.md) for dates:
 
 - [domain_layer_design.md](docs/architecture/domain_layer/domain_layer_design.md): the bounded
-  contexts, aggregates, events and the rules between them. Where the other two disagree with it,
-  it wins.
+  contexts, aggregates, events and the rules between them. Where the tech stack disagrees with
+  it, it wins.
 - [tech_stack.md](docs/architecture/tech_stack.md): every tool and version, why it won, and the
   milestone it is adopted at.
-- [technical_implementation_plan.md](docs/init_impl_ref/technical_implementation_plan.md): the
-  milestones, the one-VM deployment, the contracts, the schema and the key flows. Its main path:
-  a dispatcher requests a solve, the core queues a solve job, sends the whole problem with its
-  travel-time matrix to the optimizer, keeps only a validated result, and pushes progress to the
-  web app over server-sent events.
+- [docs/ADRs/](docs/ADRs/README.md): each decision and its reasons.
 
-Decisions and their reasons: [docs/ADRs/](docs/ADRs/README.md).
+The main path: a dispatcher requests a solve, the core queues a solve job, sends the whole
+problem with its travel-time matrix to the optimizer, keeps only a validated result, and pushes
+progress to the web app over server-sent events
+([ADR-052](docs/ADRs/ADR-052-each-plan-stores-the-matrix-and-values-it-was-solved-with.md),
+[ADR-044](docs/ADRs/ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md),
+[ADR-026](docs/ADRs/ADR-026-server-sent-events-and-push-for-live-updates.md)).
 
 ## Tech stack
 
@@ -146,13 +148,14 @@ Decisions and their reasons: [docs/ADRs/](docs/ADRs/README.md).
 | Tooling | just, uv, npm, OSV-Scanner | 1.59, 0.12, 11, 2.7 | One command set locally and in CI; one audit across every ecosystem |
 
 TypeScript is held at 6.0 because typescript-eslint does not support 7 yet
-([ADR-012](docs/ADRs/ADR-012-javascript-tooling-npm-eslint-prettier.md)).
+([ADR-012](docs/ADRs/ADR-012-javascript-tooling-npm-eslint-prettier.md), superseded by ADR-039,
+not in the code yet).
 
-This table is what the code uses today. [tech_stack.md](docs/architecture/tech_stack.md) proposes
-the stack for the Alpha and after, and ADR-037 to ADR-047 (Proposed, in the
+This table is what the code uses today. [tech_stack.md](docs/architecture/tech_stack.md) decides
+the stack for the Alpha and after, and ADR-037 to ADR-047 (Accepted, in the
 [ADR index](docs/ADRs/README.md)) record where it departs from today's: Java 25, jOOQ in place of
-Spring Data JPA, Spring Modulith, pnpm, mise, and a flatter layout. Each change lands with the
-milestone that needs it.
+Spring Data JPA, Spring Modulith, pnpm, mise, and a flatter layout. None of it is in the tree yet.
+Each change lands with the milestone that needs it.
 
 ## Configuration
 
@@ -194,7 +197,7 @@ recipe; `just check` and `just format` run them all.
 [requirements.md](docs/requirements/requirements.md), the aggregate that owns its rule in the
 [domain design](docs/architecture/domain_layer/domain_layer_design.md#4-aggregates-context-by-context),
 and the milestone it belongs to in the
-[plan](docs/init_impl_ref/technical_implementation_plan.md#3-build-sequence);
+[roadmap](docs/roadmap.md#2-milestones);
 change the contract in `contracts/` first;
 implement the domain, then the use case, then the adapter in `src/backend/core` (and in the solver
 if it needs new solving behaviour); then the client screens; tests at each layer; and update the
@@ -237,13 +240,13 @@ contracts/             versioned OpenAPI contracts between the components
 tests/                 cross-component tests only: e2e/, load/
 infra/                 road-network data (osrm/) and deployment (deploy/)
 logs/                  local log output; git ignores its contents
-docs/                  requirements, architecture and design, ADRs, the plan (init_impl_ref/), presentations
+docs/                  requirements, architecture and design, ADRs, the roadmap, presentations
 justfile               every command, the same locally and in CI
 ```
 
-ADR-037 (Proposed) would flatten this tree to `src/core`, `src/optimizer`, `src/web`, `src/mobile`
-and `src/packages`, with `deploy/` and `e2e/` at the root. The pull request that moves the code
-updates this section.
+ADR-037 (Accepted) flattens this tree to `src/core`, `src/optimizer`, `src/web`, `src/mobile`
+and `src/packages`, with `deploy/` and `e2e/` at the root, in the M0 restructure. The pull request
+that moves the code updates this section.
 
 ## Design decisions
 
@@ -271,9 +274,11 @@ recipes developers run, and jobs are never skipped by path filters, so a require
 hangs. Cost: every contributor installs `just`, and CI builds every component on every push.
 
 The other decisions, including the repository layout, the two clients and the tooling, are in
-the [ADR index](docs/ADRs/README.md). It also lists ADR-037 to ADR-047, which the team has yet to
-accept: each would supersede, amend or extend the accepted ADRs its status names, to match the
-design documents.
+the [ADR index](docs/ADRs/README.md). It also lists ADR-037 to ADR-047, accepted in this round, on
+2026-11-13 and 2026-11-14, and ADR-048 to ADR-093, which record the rest of the decisions. Each
+supersedes, amends or extends the ADRs its status names, to match the design documents. The code
+does not follow them yet. ADR-094 to ADR-096 settle three points found open afterwards: the
+contract check's base branch, the zod and deepmerge advisories, and the root `CLAUDE.md`.
 
 ## Status and limitations
 
@@ -281,35 +286,21 @@ design documents.
 linter, tests and CI job; the two contracts; and the solver's and the core backend's health
 probes.
 
-Planned, in the milestones of the
-[implementation plan](docs/init_impl_ref/technical_implementation_plan.md#3-build-sequence):
-
-- **The Alpha** (M0 to M5, 12 November to 29 December 2026) is local, web-only and runs on
-  synthetic data. A dispatcher imports a day's orders from CSV, solves it with OR-Tools, sees the
-  routes on a map, a timeline and a table, and publishes. A driver, in the browser, reports each
-  stop and signs for each delivery. The day ends with a summary compared against a
-  nearest-neighbour baseline. The
-  [Alpha definition](docs/init_impl_ref/technical_implementation_plan.md#42-alpha-definition-for-1-december)
-  and its demo script are in the plan.
-- **Semester B** (M6 to M13) brings:
-  - access in full;
-  - Excel imports and geocoding;
-  - live operations and re-optimization;
-  - the phone app;
-  - our own solver and its study;
-  - SMS messages to recipients;
-  - production on one VM, and the pilot.
+Planned: the [roadmap](docs/roadmap.md) has the course calendar, the milestones M0 to M13, and the
+definition and demo script of the Alpha (M0 to M5).
 
 Known limitations:
 
 - Nothing is deployed; there is no staging or production environment yet.
 - `docker compose` is not set up; each component runs on its own. `compose.dev.yaml` is part of
-  the M0 walking skeleton (ADR-042, Proposed).
+  the M0 walking skeleton (ADR-042, Accepted).
 - Four vulnerabilities in the frontends' build, lint and test tooling are ignored by the audit
-  until 2027-01-31. The zod and deepmerge entries still await the owner's review. The reasons are
-  in `src/frontend/console/osv-scanner.toml` and `src/frontend/driver-app/osv-scanner.toml`
+  until 2027-01-31. The owner accepted all four: minimatch and glob in ADR-023, zod and deepmerge
+  in ADR-095. The reasons are in `src/frontend/console/osv-scanner.toml` and
+  `src/frontend/driver-app/osv-scanner.toml`
   ([ADR-016](docs/ADRs/ADR-016-dependency-audit-with-osv-scanner.md),
-  [ADR-023](docs/ADRs/ADR-023-accept-minimatch-and-glob-advisories.md)).
+  [ADR-023](docs/ADRs/ADR-023-accept-minimatch-and-glob-advisories.md),
+  [ADR-095](docs/ADRs/ADR-095-accept-the-zod-and-deepmerge-advisories-until-2027-01-31.md)).
 
 ## Contributing
 

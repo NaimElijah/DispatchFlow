@@ -1,20 +1,16 @@
 # DispatchFlow — Project Instructions
 
-> Draft for the team to agree on (#1). Until then, raise anything you disagree with at the team
-> meeting rather than working around it.
-
 DispatchFlow plans and re-plans daily delivery routes for one delivery company. What it must do is in
 `docs/requirements/requirements.md`; how it is built is in `docs/architecture/`; why each
 decision was taken is in `docs/ADRs/`. Read the relevant parts before proposing work.
 
-Three Proposed documents set the direction, and each owns one topic:
+Two design documents set the direction, and each owns one topic:
 
-- [`tech_stack.md`][TS] (in `docs/architecture/`): the tools and versions, and when each is adopted.
 - [`domain_layer_design.md`][DL] (in `docs/architecture/domain_layer/`): the domain model.
-- [`technical_implementation_plan.md`][PL] (in `docs/init_impl_ref/`): the milestones, dates,
-  schema, flows and code sketches.
+- [`tech_stack.md`][TS] (in `docs/architecture/`): the tools and versions, and when each is adopted.
 
-Which of them wins, and when their rules bind, is the precedence rule under Documentation.
+[`docs/roadmap.md`][RM] says when each part is built. Which document wins is the precedence rule
+under Documentation.
 
 ## Layout
 
@@ -26,13 +22,15 @@ Which of them wins, and when their rules bind, is the precedence rule under Docu
 | `src/frontend/driver-app` | Phone app, for every role (React Native, Expo) |
 | `src/research` | Benchmarks, simulation, order generator; never deployed |
 | `contracts/` | Versioned OpenAPI contracts between the components |
+| `docs/` | Requirements, the decided design, the ADRs and the roadmap |
 | `tests/` | Tests that span components: `e2e/`, `load/` |
 | `infra/` | Road-network data and deployment |
 | `logs/` | Local log output; git ignores its contents |
 
-[ADR-037] (Proposed) would move this tree to `src/core`, `src/optimizer`, `src/web`, `src/mobile`
+[ADR-037] (Accepted) moves this tree to `src/core`, `src/optimizer`, `src/web`, `src/mobile`
 and `src/packages`, with `e2e/` and `deploy/` at the root and Terraform in `infra/`. [ADR-038]
-(Proposed) would move Java to 25. The pull request that moves the code updates this table.
+(Accepted) moves Java to 25. Both are in the M0 restructure, and not in the tree yet. The pull
+request that moves the code updates this table.
 
 This file holds the rules for the whole repository. Narrower rules live next to the code and load
 when you work there ([ADR-018](../docs/ADRs/ADR-018-ai-assistant-context-in-the-repository.md)):
@@ -92,7 +90,9 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 - `just setup`: install every component's dependencies.
 - `just check`: everything CI checks. Run it before every push.
 - `just format`: reformat every component.
-- `just <component>-check`, `just <component>-run`: one component at a time.
+- `just <component>-check`: one component's checks (`core`, `solver`, `research`, `console`,
+  `driver-app`, `contracts`).
+- `just <component>-run`: start `core`, `solver`, `console` or `driver-app`.
 
 ## How we work
 
@@ -109,6 +109,10 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 
 - Build the simplest thing that satisfies the actual requirement. Complexity must be pulled by a
   real constraint, never added in anticipation of one.
+- DispatchFlow serves one delivery company, with no multi-tenancy ([ADR-024]). The capabilities that
+  [ADR-090] cuts are not built: building one reopens that ADR first.
+- Every date, time window, shift and schedule is Israel local time, `Asia/Jerusalem`. No person or
+  device has a zone of its own ([ADR-088]).
 - Record every architectural decision, including a decision not to adopt something, as an ADR in
   `docs/ADRs/`, with the trigger that would make us revisit it.
 - Dependencies point one way: domain logic never imports frameworks, I/O or transport types.
@@ -117,8 +121,8 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
   status, its licence, why the standard library or an existing dependency is not enough, and the
   milestone at which [TS] adopts it. Nothing is adopted earlier ([TS §1][TS-1], rule 3).
 - Use the words of [DL §17][DL-17] in code, screens and new text, and avoid its "words not used".
-  The existing text of `requirements.md`, glosses included, keeps its wording (it says "van")
-  until the team aligns it with the domain document.
+  The existing text of `requirements.md` keeps its other wording until it is aligned with the
+  domain document, and a new link copies the row's existing gloss.
 
 ## Code style
 
@@ -148,6 +152,10 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 - Secrets never enter the repo, logs, error messages or shell history. They live in `.env`
   files, which git ignores; commit a `.env.example` with the keys and no values.
 - Never log credentials, tokens or personal data.
+- Company and personal data stay in Israel ([NFR-209]). Code sends them to no outside service
+  hosted elsewhere unless [NFR-262] lists it as an accepted exception, and every outside service
+  that receives company data is named in the data inventory (NFR-217). Fonts and map tiles load
+  from our own host, and error reports go to our own GlitchTip.
 - Parameterised queries only. Never build a query, command or path by concatenating input.
 - Pin dependencies and commit the lockfiles. `just audit` scans them, and CI fails on a known
   vulnerability; an accepted one goes into that folder's `osv-scanner.toml` with its reason and
@@ -164,22 +172,29 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
   Commit. Fill in the template, and link the issue with `Closes #N`.
 - One logical change per commit. Never mix a refactor with a behaviour change, or formatting
   with logic.
-- Never commit a broken build: `just check` passes first. Never force-push a shared branch.
+- Never commit a broken build: `just check` passes first. The one exception: the team skills that
+  push may commit first, and gate the push on `just check` ([ADR-025]). Never force-push a shared
+  branch.
 
 ## Documentation
 
 - `docs/requirements/requirements.md` states what the system must do, `docs/architecture/`
   how it is built, and `docs/ADRs/` why. Point across; never restate.
-- `docs/architecture/tech_stack.md` and `docs/architecture/domain_layer/` hold the proposed
-  design, and `docs/init_impl_ref/` holds the build plan. The rest of `docs/architecture/`
+- `docs/architecture/tech_stack.md` and `docs/architecture/domain_layer/` hold the decided
+  design, and `docs/roadmap.md` the milestones and dates. The rest of `docs/architecture/`
   describes what is built.
-- `requirements.md` outranks the three design documents, and where the tech stack or the plan
-  disagrees with the domain document, the domain document wins. New code is written to the design
-  documents' rules. Code that a Proposed ADR governs merges only once the team accepts that ADR
-  ([PL §25][PL-25]); until then the accepted ADR it would change still stands, and the pull request
-  says which Proposed ADR it depends on.
-- An accepted ADR comes before the code it governs merges. [PL §25][PL-25] and [TS §22][TS-22] list
-  the decisions that need one.
+- Precedence: `requirements.md`, then the domain document, then the tech stack. An accepted ADR
+  stands until a new ADR supersedes it: where it and a design document disagree, build from the
+  ADR and correct the document. On when a tool is adopted, [TS §20][TS-20] wins over the roadmap; on
+  milestones and dates, the roadmap wins ([ADR-093]). A change to a decision comes with a new ADR;
+  pointer and wording fixes need none. The retired implementation plan, reached by permalink, is
+  history: it binds only where an accepted ADR or a CLAUDE.md states the rule itself. New code
+  follows the requirements, both design documents and the accepted ADRs.
+- An accepted ADR comes before the code it governs merges. Code that a Proposed ADR governs merges
+  only once that ADR is accepted; until then the accepted ADR it would change still stands, and the
+  pull request says which Proposed ADR it depends on. The [ADR index][ADRS] shows each status,
+  [TS §22][TS-22] lists the decisions still open, and the [roadmap][RM] names the ADRs still to be
+  written before their milestone's code merges.
 - A change that alters behaviour updates the documents it affects in the same pull request.
 - Requirements are intent, not observation. Behaviour found in code is not a requirement until
   the team agrees it is.
@@ -187,10 +202,18 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 
 [TS]: ../docs/architecture/tech_stack.md
 [TS-1]: ../docs/architecture/tech_stack.md#1-what-decides-close-calls
+[TS-20]: ../docs/architecture/tech_stack.md#20-adoption-order
 [TS-22]: ../docs/architecture/tech_stack.md#22-open-decisions
 [DL]: ../docs/architecture/domain_layer/domain_layer_design.md
 [DL-17]: ../docs/architecture/domain_layer/domain_layer_design.md#17-ubiquitous-language
-[PL]: ../docs/init_impl_ref/technical_implementation_plan.md
-[PL-25]: ../docs/init_impl_ref/technical_implementation_plan.md#25-decisions-to-record-as-adrs
+[RM]: ../docs/roadmap.md
+[ADRS]: ../docs/ADRs/README.md
+[ADR-093]: ../docs/ADRs/ADR-093-the-implementation-plan-is-retired-and-a-roadmap-holds-the-dates.md
+[ADR-024]: ../docs/ADRs/ADR-024-one-delivery-company-no-multi-tenancy.md
+[ADR-025]: ../docs/ADRs/ADR-025-team-skills-in-the-repository.md
 [ADR-037]: ../docs/ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md
 [ADR-038]: ../docs/ADRs/ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md
+[ADR-088]: ../docs/ADRs/ADR-088-israel-local-time-for-every-date-and-schedule.md
+[ADR-090]: ../docs/ADRs/ADR-090-scope-cuts-for-the-first-release.md
+[NFR-209]: ../docs/requirements/requirements.md#nfr-209
+[NFR-262]: ../docs/requirements/requirements.md#nfr-262

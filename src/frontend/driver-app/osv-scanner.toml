@@ -5,15 +5,18 @@
 id = "GHSA-mrhx-c7xc-m3w5"
 ignoreUntil = 2027-01-31
 reason = """zod 3.25.76 reaches us only through build tooling (@expo/cli, and
-eslint-plugin-react-hooks via eslint-config-expo), never the app bundle, and validates only our
-own config files, not attacker input. The only fix is zod 4, which @expo/cli does not accept."""
+eslint-plugin-react-hooks via eslint-config-expo), never the app bundle. At expo start it checks
+installed dev-tools plugins (none are installed) and an MCP tool schema of scalars, used only if
+EXPO_UNSTABLE_MCP_SERVER is set (it is not). The first fixed version is zod 4.6.6, and @expo/cli
+declares ^3.25.76. This entry matches the ID for every zod in the lockfile, so any zod the app
+uses must be declared and 4.6.6 or later (ADR-095)."""
 
 [[IgnoredVulns]]
 id = "GHSA-gcqx-w48m-w2h4"
 ignoreUntil = 2027-01-31
 reason = """deepmerge 4.3.1 reaches us only through build and test tooling (@expo/config,
 jest-config), never the app bundle, and merges only our own config objects. No fixed version
-exists."""
+exists (ADR-095)."""
 
 [[IgnoredVulns]]
 id = "GHSA-g3hv-75wg-m249"

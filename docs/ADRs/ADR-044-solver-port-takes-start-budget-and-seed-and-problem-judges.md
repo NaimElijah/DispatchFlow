@@ -1,6 +1,6 @@
 # ADR-044: The solver port takes a start, a budget and a seed, and `Problem` alone judges a solution
 
-- **Status:** Proposed; would amend ADR-004
+- **Status:** Accepted; extended by ADR-050
 - **Date:** 2026-11-13
 
 ## Context
@@ -82,8 +82,7 @@ port, the choice by name, the optional search budget, and keeping PyVRP out of t
 | A shared validator and objective, applied by the solve use case | `Problem.validate` and `Problem.cost`, called by every solver, edit check, re-check and research score |
 | OR-Tools and the DispatchFlow solver in the service; PyVRP in the harness | Also `nearest_neighbour` as a solver. `pyvrp` stays harness-only, and import-linter guards it |
 
-The re-optimization conventions that `ProblemFactory` applies are left to their own pending ADR
-([PL §25]).
+The re-optimization conventions that `ProblemFactory` applies are recorded in [ADR-050].
 
 ## Consequences
 
@@ -131,6 +130,7 @@ The re-optimization conventions that `ProblemFactory` applies are left to their 
 
 [ADR-004]: ADR-004-pluggable-solver-port.md
 [ADR-005]: ADR-005-or-tools-first-research-solver-for-re-optimization.md
+[ADR-050]: ADR-050-re-optimization-conventions-live-only-in-the-python-problem-factory.md
 [BR-09]: ../requirements/requirements.md#solving-dropping-and-validation
 [BR-15]: ../requirements/requirements.md#solving-dropping-and-validation
 [BR-42]: ../requirements/requirements.md#solving-dropping-and-validation
@@ -145,13 +145,12 @@ The re-optimization conventions that `ProblemFactory` applies are left to their 
 [NFR-13]: ../requirements/requirements.md#nfr-13
 [NFR-82]: ../requirements/requirements.md#nfr-82
 [NFR-175]: ../requirements/requirements.md#nfr-175
-[PL §6.1]: ../init_impl_ref/technical_implementation_plan.md#61-optimizer-api-v1
-[PL §7]: ../init_impl_ref/technical_implementation_plan.md#7-optimization-service
-[PL §7.2]: ../init_impl_ref/technical_implementation_plan.md#72-problem-and-solution
-[PL §7.3]: ../init_impl_ref/technical_implementation_plan.md#73-the-validator
-[PL §7.5]: ../init_impl_ref/technical_implementation_plan.md#75-drop-reasons
-[PL §24]: ../init_impl_ref/technical_implementation_plan.md#24-testing
-[PL §25]: ../init_impl_ref/technical_implementation_plan.md#25-decisions-to-record-as-adrs
+[PL §6.1]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#61-optimizer-api-v1
+[PL §7]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#7-optimization-service
+[PL §7.2]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#72-problem-and-solution
+[PL §7.3]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#73-the-validator
+[PL §7.5]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#75-drop-reasons
+[PL §24]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#24-testing
 [TS §2]: ../architecture/tech_stack.md#2-architecture-style
 [TS §2.2]: ../architecture/tech_stack.md#22-enforcement
 [TS §7.1]: ../architecture/tech_stack.md#71-the-hexagon

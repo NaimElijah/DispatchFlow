@@ -6,10 +6,10 @@ and never restates them.
 | Path | States | Rule |
 |---|---|---|
 | `requirements/requirements.md` | What the system must do | Intent, not observation |
-| `architecture/` | How it is built, as it is today | Descriptive, never aspirational; the two proposed designs below are the exception |
-| `architecture/tech_stack.md` | The proposed tools and versions, and when each is adopted | Tools and versions only |
-| `architecture/domain_layer/` | The proposed domain model: contexts, aggregates, events, language | The one home of the model |
-| `init_impl_ref/` | The build plan: milestones, dates, schema, flows, code sketches | Milestones, dates, schema, flows and code sketches only |
+| `architecture/` | How it is built, as it is today | Descriptive, never aspirational; the two decided designs below are the exception |
+| `architecture/tech_stack.md` | The decided tools and versions, and when each is adopted | Tools and versions only |
+| `architecture/domain_layer/` | The decided domain model: contexts, aggregates, events, language | The one home of the model |
+| `roadmap.md` | When each part is built: the course calendar, the milestones, the Alpha and its demo script, and who the team waits on | Dates and schedule only; it names the rows and ADRs it schedules and copies none of them |
 | `ADRs/` | Why each decision was taken | Append-only |
 | `requirements/ARD/` | The Application Requirements Document (ARD), as a PDF | Built outside the repository; the PDF is the only file here |
 | `presentations/` | The proposal and ARD presentations | The planning material the requirements started from |
@@ -31,7 +31,7 @@ and never restates them.
   file. A new link needs a definition, and a moved row needs its definition changed.
 - In `requirements.md`, every link to a row or an ADR is followed by a gloss, a few words naming
   what it is, so the text reads without following the link: `[BR-20] (routes publish only with
-  their solved van and driver)`, or `([FR-294]: set-password link)` when the link already sits
+  their solved vehicle and driver)`, or `([FR-294]: set-password link)` when the link already sits
   in parentheses. An ID has one gloss, worded the same wherever it is linked, and a range takes
   one. A gloss copies no value, so it stays true when a number changes; when a row's subject
   changes, search for its ID and update its glosses.
@@ -72,17 +72,20 @@ and never restates them.
   `Superseded by ADR-NNN`), the `ADR pending` markers the new ADR settles, and the `ADRs/README.md`
   rows.
 - Links to other ADRs and to requirements go at the bottom, reference-style. Requirement links
-  use the requirements' anchors, for example `../requirements/requirements.md#nfr-21`.
+  copy the row's definition at the bottom of `requirements.md`. An NFR has its own anchor
+  (`../requirements/requirements.md#nfr-21`). An FR, BR, Q or UC row links to the section that
+  holds it (`../requirements/requirements.md#plan-lifecycle-and-publishing`).
 
 ## Writing
 
 - Plain English and short sentences. Back every claim with a number, a file or a link; avoid
   words like "robust", "seamless" and "powerful".
-- One topic, one document for the proposed design ([TS §19][TS-19]). The proposed domain model
-  lives only in `architecture/domain_layer/`, the proposed tools and versions only in
-  `architecture/tech_stack.md`, and the proposed milestones, dates, schema, flows and code sketches
-  only in `init_impl_ref/`. The others link; they never copy. A description of today's tree names
-  today's versions.
+- One topic, one document for the decided design. The decided domain model lives only in
+  `architecture/domain_layer/` and the decided tools and versions only in
+  `architecture/tech_stack.md` ([TS §19][TS-19]), and the milestones and dates only in
+  `roadmap.md`. The others link; they never copy. Beyond what the domain document and the ADRs
+  decide, a table layout or a step-by-step flow is written down by the migration or the code that
+  builds it, not ahead of it. A description of today's tree names today's versions.
 - Mermaid diagrams use no colours, so they read in light and dark themes.
 - Before naming a version, a flag or a file, check it in the repository.
 
