@@ -131,8 +131,10 @@ Fleet and Customers & Orders have no relationship. Neither does any pair not in 
 5. **The shared kernel is tiny.** It holds the typed IDs (UUIDv7) of every aggregate and every entity
    another context names (§3.1), and nine values that mean the same everywhere: `DeliveryDate`,
    `IsraelDateTime`, `DaySeconds`, `TimeWindow`, `GeoPoint`, `Weight`, `Volume`, `Priority` and
-   `PhoneNumber`. Nothing with behaviour specific to one context goes there, and a change to it needs the
-   agreement of every module's owner.
+   `PhoneNumber`. It also holds the building blocks every module's domain uses: `DomainError`,
+   `RuleViolation(s)`, `StoredStateInvalid`, `Version`, `AggregateRoot`, `DomainEvent`, `EventId` and
+   `FreshIds` ([ADR-097]). Nothing with behaviour specific to one context goes there, and a change to it
+   needs the agreement of every module's owner.
 
 **Splitting a module into a service later** changes adapters only: its API calls become HTTP clients
 generated from a new contract, its events go through a message broker (Spring Modulith can externalize
@@ -173,21 +175,22 @@ one belongs to an aggregate that is not the record: whether a position is kept i
 
 ### 3.3 Value objects
 
-A value object is an immutable Java record (a frozen dataclass in Python) that checks itself in its
-constructor, so an invalid one can't exist. Equality is by value. No signature in the domain takes a raw
+A value object is an immutable Java record, a final class with a private constructor where only one
+caller may build it, or a frozen dataclass in Python. It checks itself in its constructor or factory,
+so an invalid one can't exist. Equality is by value. No signature in the domain takes a raw
 `String`, `int`, `UUID` or `Instant` for a business concept.
 
 | Value | Context | What it holds and checks | Error |
 |---|---|---|---|
 | Typed IDs (`PlanId`, `StopId`, `OrderId`, …) | Shared | A UUIDv7 that names one kind of thing; one can't be passed for another | — |
-| `DeliveryDate` | Shared | The calendar day a plan, its orders and its roster are for; knows whether it is before a given day | — |
+| `DeliveryDate` | Shared | The calendar day a plan, its orders and its roster are for, in years 1 to 9999; knows whether it is before a given day | `DateOutOfRange` |
 | `IsraelDateTime` | Shared | A local time in `Asia/Jerusalem`; refuses a time in the skipped hour, reads a repeated hour as its first occurrence (BR-31, BR-111) | `NonexistentLocalTime` |
 | `DaySeconds` | Shared | Elapsed seconds since the date's local midnight, within that day's 23, 24 or 25 hours (§10) | `OutsideTheDay` |
 | `TimeWindow` | Shared | A start before an end, both on one date (BR-35) | `InvalidTimeWindow` |
 | `GeoPoint` | Shared | Latitude and longitude in range | `InvalidCoordinates` |
-| `Weight`, `Volume` | Shared | Kilograms and litres, present and positive (BR-50) | `NonPositiveQuantity` |
+| `Weight`, `Volume` | Shared | Kilograms and litres, present and positive (BR-50), with at most two decimals and the digits their columns hold ([ADR-061]) | `NonPositiveQuantity`, `QuantityOutOfRange` |
 | `Priority` | Shared | 1 to 5, default 3 (BR-53) | `PriorityOutOfRange` |
-| `PhoneNumber` | Shared | E.164, parsed with region IL; knows whether it is an Israeli mobile (FR-377, FR-378) | `InvalidPhoneNumber` |
+| `PhoneNumber` | Shared | E.164, parsed with region IL, refusing letters and extensions; knows whether it is an Israeli mobile (FR-377, FR-378). A stored number is checked as E.164 only, so a newer phone-number library never refuses it | `InvalidPhoneNumber` |
 | `EmailAddress` | Access | The canonical form one account is keyed by (BR-45) | `InvalidEmail` |
 | `RoleSet` | Access | A set of Admin, Dispatcher and Driver; `can(capability)` is the permission matrix (NFR-85) | — |
 | `NewPassword` | Access | At least 8 characters and not on the bundled list of the 3,000 most common (NFR-95) | `PasswordTooShort`, `PasswordTooCommon` |
@@ -1493,6 +1496,7 @@ Nothing. These ADRs record the decisions of this document:
 [ADR-057]: ../../ADRs/ADR-057-concurrent-changes-to-a-plan-use-optimistic-locking.md
 [ADR-058]: ../../ADRs/ADR-058-routes-changed-while-the-optimizer-is-down-are-checked-when-it-returns.md
 [ADR-059]: ../../ADRs/ADR-059-plan-revisions-are-stored-as-rows.md
+[ADR-061]: ../../ADRs/ADR-061-capacity-is-weight-and-volume.md
 [ADR-063]: ../../ADRs/ADR-063-a-transaction-changes-one-aggregate-and-every-rule-has-one-owner.md
 [ADR-064]: ../../ADRs/ADR-064-events-only-where-they-earn-their-place-through-the-modulith-registry.md
 [ADR-065]: ../../ADRs/ADR-065-facts-outrank-intent.md
@@ -1501,3 +1505,4 @@ Nothing. These ADRs record the decisions of this document:
 [ADR-075]: ../../ADRs/ADR-075-retention-deletes-records-and-anonymizes-people-in-place.md
 [ADR-083]: ../../ADRs/ADR-083-admins-and-dispatchers-get-alerts-by-stream-and-push-in-the-phone-app.md
 [ADR-086]: ../../ADRs/ADR-086-csv-imports-upload-then-confirm-within-an-hour.md
+[ADR-097]: ../../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md

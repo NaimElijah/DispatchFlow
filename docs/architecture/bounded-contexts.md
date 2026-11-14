@@ -1,8 +1,9 @@
 # DispatchFlow — Bounded contexts
 
 No bounded context exists in code today. `src/backend/core/src/main/java/com/dispatchflow/` holds
-the application entry point and a `web` package for application-wide web concerns, and nothing
-else ([code-structure.md](code-structure.md#srcbackendcore)).
+the application entry point, a `web` package for application-wide web concerns, and the shared
+kernel `shared`, which every context will use
+([code-structure.md](code-structure.md#srcbackendcore)).
 
 The decided design is in the
 [domain layer design](domain_layer/domain_layer_design.md): the contexts in

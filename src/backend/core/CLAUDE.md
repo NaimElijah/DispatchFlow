@@ -10,10 +10,16 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
 
 ## Layout
 
-- `src/main/java/com/dispatchflow/` holds `DispatchFlowApplication` and `web/`, the error handler
-  that belongs to no context. No bounded context exists in code yet. The contexts are decided
-  ([DL §1]), and M0 builds the first, a Planning module ([roadmap §2.2]). Each will be one module,
-  laid out as in [TS §4] and [ADR-040]:
+- `src/main/java/com/dispatchflow/` holds:
+  - `DispatchFlowApplication`;
+  - `web/`, the error handler that belongs to no context;
+  - `shared/`, the shared kernel: the typed IDs, the nine shared values with their errors, and
+    the building blocks ([ADR-097]). These are `DomainError`, `RuleViolation(s)`,
+    `StoredStateInvalid`, `Version`, `AggregateRoot`, `DomainEvent`, `EventId` and `FreshIds`.
+    Never add a type that holds one context's rule.
+- No bounded context exists in code yet. The contexts are decided ([DL §1]), and each will be one
+  module, laid out as in [TS §4] and [ADR-040]. Each module's domain is built ahead of its
+  milestone, and M0 adds the first application layer and adapters ([roadmap §2.2]).
 
   ```text
   <module>/domain/, events/
@@ -30,17 +36,47 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
 
 ## Rules
 
-- `domain` stays pure ([DL §3.9]). Six rules, each an ArchUnit test once [ADR-040] lands:
-  1. It imports only the JDK, the shared kernel, its own domain, its own module's `events`
-     package, JSpecify, libphonenumber and JTS ([DL §7.3] for `events`).
-  2. It never calls `Instant.now()`, `LocalDate.now()`, `Clock.system…()` or
-     `System.currentTimeMillis()`.
-  3. It never calls `UUID.randomUUID()`; factories take the new ID.
-  4. It uses no randomness, I/O or logging.
-  5. It never creates an `IllegalArgumentException` or an `IllegalStateException`; it throws the
-     module's named error.
-  6. Only persistence adapters, and the factories of the snapshots read under a lock
-     (`ActiveAdmins`, `DateCapacity`, `LaneCapacity`), call `restore`.
+- `domain`, `events` and `shared` stay pure ([DL §3.9], [ADR-097]). Six rules, each an ArchUnit
+  test in `src/test/java/com/dispatchflow/architecture/`:
+  1. A module's domain imports only the JDK, the shared kernel, its own domain, its own module's
+     `events` package, JSpecify, libphonenumber and JTS ([DL §7.3] for `events`). An `events`
+     package imports only the JDK, JSpecify, the kernel and itself. Spring Modulith annotations
+     are allowed on a `package-info` only.
+  2. It never reads the clock:
+     - no `now()` or `dateNow()`;
+     - no `Clock`, `InstantSource`, `Date`, `Calendar` or `TimeZone`, and no default zone;
+     - no `System.currentTimeMillis()` or `nanoTime()`.
+  3. It never calls `UUID.randomUUID()`. Factories take the new ID, and a method that creates many
+     children takes a `FreshIds`.
+  4. It uses no randomness, I/O or logging. `java.net.IDN` is the one allowed `java.net` class.
+  5. It never creates an `IllegalArgumentException` or an `IllegalStateException`, or a subclass of
+     either. It throws the module's named error in a `RuleViolation`, or a `StoredStateInvalid`
+     from `restore`.
+  6. Only persistence adapters call an aggregate's `restore`, or the `readUnderLock` factory of a
+     snapshot read under a lock (`ActiveAdmins`, `DateCapacity`, `LaneCapacity`).
+
+  [DL §13] adds a seventh: only the optimizer adapter builds Planning's `ValidationReport` or
+  `Evaluation`, by any factory, constructor or nested type.
+- Shape rules (`DomainShapeRules`):
+  - These constructors are private:
+    - an aggregate root's;
+    - a snapshot's that is read under a lock;
+    - those of `ValidationReport`, `Evaluation` and `ValidatedSolution`.
+  - Every interface that extends `DomainError` is sealed, and no error declares its own `code()`.
+  - Error fields become a response's `params` ([ADR-043]), so they never hold text
+    (`CharSequence`), an `Object` or an array. Nor do they hold `PhoneNumber`, `GeoPoint`,
+    `EmailAddress`, `Address` or `NormalizedAddress`.
+  - Events live in an `events` package. Their fields are typed IDs, the shared values other than
+    `PhoneNumber` and `GeoPoint`, `EventId`, `Version`, the package's own enums, `Instant`, `int`,
+    `long`, `boolean`, or lists of these.
+- `ErrorCodeUniquenessTest`, `EventNameUniquenessTest` and `ErrorRefusalTestsTest` check three
+  things: error codes and event names are unique across modules, and every error has a refusal
+  test. Each rule has a deliberately impure fixture under `archfixture/` that it must flag, so a
+  mistyped package pattern can't make it pass on nothing. A new module is covered without editing
+  any of these tests.
+- A value rebuilt from storage goes through `StoredStateInvalid.whileRestoring`, and a stored phone
+  number through `PhoneNumber.ofStored`. So a damaged or since-refused value is an incident, never a
+  user-facing refusal. No test checks this; review does.
 - Web and persistence types live in `adapter` and are mapped to domain objects.
 - Another module is reached only through its `api`, `spi` and `events` packages ([DL §2.3]).
   Spring Modulith's `verify()` fails the build on any other use ([ADR-040], Accepted).
@@ -88,6 +124,10 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
     parameters. Every invariant in [DL §4] has a test that breaks it and asserts the module's named
     error. Every transition has one test that takes it, plus one per other state that must refuse
     it.
+  - A refusal test asserts through `DomainAssertions.assertRefused` (or `assertAllRefused` for a
+    `RuleViolations`). Its name ends in `_Then<ErrorName>`, and `ErrorRefusalTestsTest` fails when
+    any module's error has no such test. `ErrorCodeUniquenessTest` fails on a code two modules
+    share, except the allow-listed ones that mean the same thing.
   - Application tests run each use case against in-memory fakes of its ports.
   - Module and event tests (`@ApplicationModuleTest` boots one module alone; `Scenario` tests an
     event reaction) boot Spring, so they are not Surefire unit tests. The suffix and the container
@@ -125,14 +165,17 @@ Windows).
 [ADR-040]: ../../../docs/ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md
 [ADR-041]: ../../../docs/ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md
 [ADR-042]: ../../../docs/ADRs/ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md
+[ADR-043]: ../../../docs/ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md
 [ADR-057]: ../../../docs/ADRs/ADR-057-concurrent-changes-to-a-plan-use-optimistic-locking.md
 [ADR-068]: ../../../docs/ADRs/ADR-068-every-web-handler-is-authorized-by-role-from-the-contract.md
+[ADR-097]: ../../../docs/ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md
 [NFR-176]: ../../../docs/requirements/requirements.md#nfr-176
 [DL §1]: ../../../docs/architecture/domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts
 [DL §2.3]: ../../../docs/architecture/domain_layer/domain_layer_design.md#23-rules-between-contexts
 [DL §3.9]: ../../../docs/architecture/domain_layer/domain_layer_design.md#39-purity
 [DL §4]: ../../../docs/architecture/domain_layer/domain_layer_design.md#4-aggregates-context-by-context
 [DL §7.3]: ../../../docs/architecture/domain_layer/domain_layer_design.md#73-shape-and-delivery
+[DL §13]: ../../../docs/architecture/domain_layer/domain_layer_design.md#13-inside-each-module-hexagon
 [DL §14]: ../../../docs/architecture/domain_layer/domain_layer_design.md#14-testing-the-domain
 [ADR-063]: ../../../docs/ADRs/ADR-063-a-transaction-changes-one-aggregate-and-every-rule-has-one-owner.md
 [ADR-064]: ../../../docs/ADRs/ADR-064-events-only-where-they-earn-their-place-through-the-modulith-registry.md

@@ -1,0 +1,84 @@
+package com.dispatchflow.shared;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.tngtech.archunit.core.domain.JavaClass;
+import com.tngtech.archunit.core.domain.JavaField;
+import com.tngtech.archunit.core.domain.JavaModifier;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.core.importer.ImportOption;
+import java.util.List;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+
+class TypedIdsTest {
+
+    private static final UUID UUID_V7 = UUID.fromString("0190a5e2-7c3b-7def-8a12-3456789abcde");
+    private static final UUID UUID_V4 = UUID.fromString("3f2b8c1e-9d4a-4b6f-8e2d-1a5c7b9e0f3d");
+
+    static Stream<Function<UUID, Record>> ids() {
+        return Stream.of(
+                AccountId::of,
+                SessionId::of,
+                DepotId::of,
+                VehicleId::of,
+                CustomerId::of,
+                OrderId::of,
+                ImportBatchId::of,
+                PlanId::of,
+                RouteId::of,
+                StopId::of,
+                JobId::of,
+                ProposalId::of,
+                AlertId::of,
+                RatingRequestId::of);
+    }
+
+    /** A typed ID is a production record in the kernel whose one component is a UUID. */
+    @Test
+    void GivenTheKernel_WhenItsIdsAreCounted_ThenThereAreFourteenAndThisTestCoversEach() {
+        List<String> productionIds = new ClassFileImporter()
+                        .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+                        .importPackages(PlanId.class.getPackageName())
+                        .stream()
+                        .filter(JavaClass::isRecord)
+                        .filter(type -> {
+                            List<JavaField> components = type.getFields().stream()
+                                    .filter(field -> !field.getModifiers().contains(JavaModifier.STATIC))
+                                    .toList();
+                            return components.size() == 1
+                                    && components.get(0).getRawType().isEquivalentTo(UUID.class);
+                        })
+                        .map(JavaClass::getName)
+                        .sorted()
+                        .toList();
+        List<String> testedIds =
+                ids().map(id -> id.apply(UUID_V7).getClass().getName()).sorted().toList();
+
+        assertThat(productionIds).hasSize(14).isEqualTo(testedIds);
+    }
+
+    @ParameterizedTest
+    @MethodSource("ids")
+    void GivenAUuid_WhenWrapped_ThenTheIdHoldsItAndEqualsAnotherWrappingOfIt(Function<UUID, Record> id) {
+        assertThat(id.apply(UUID_V7))
+                .hasFieldOrPropertyWithValue("value", UUID_V7)
+                .isEqualTo(id.apply(UUID_V7))
+                .isNotEqualTo(id.apply(UUID_V4));
+    }
+
+    @ParameterizedTest
+    @MethodSource("ids")
+    void GivenAUuidOfAnotherVersion_WhenWrapped_ThenItIsAccepted(Function<UUID, Record> id) {
+        assertThat(id.apply(UUID_V4)).hasFieldOrPropertyWithValue("value", UUID_V4);
+    }
+
+    @Test
+    void GivenTwoKindsOfIdOverOneUuid_WhenCompared_ThenTheyDiffer() {
+        assertThat(List.<Record>of(PlanId.of(UUID_V7))).doesNotContain(RouteId.of(UUID_V7));
+    }
+}

@@ -94,6 +94,8 @@ src/backend/core/
   .env.example                     the database connection keys, with no values
   src/main/java/com/dispatchflow/
     DispatchFlowApplication.java   the Spring Boot entry point
+    shared/                        the shared kernel: the typed IDs, the nine shared values, their
+                                   errors, and the building blocks every module's domain uses
     web/                           application-wide web concerns: the fallback for unexpected errors
       UnexpectedErrorHandler.java  answers an unhandled exception with a 500 problem body
       package-info.java
@@ -101,6 +103,10 @@ src/backend/core/
     application.properties
     db/migration/                  Flyway migrations: none yet
   src/test/java/com/dispatchflow/
+    shared/                        the kernel's tests, and DomainAssertions, the refusal helper
+                                   every module's domain tests use
+    architecture/                  the domain purity rules (ArchUnit) and the error-code check
+    archfixture/                   deliberately impure classes that each purity rule must flag
     web/UnexpectedErrorHandlerTest.java  the 500 problem body keeps the cause out
     IntegrationTest.java                 the one annotation every *IT uses: the whole app and PostgreSQL
     DispatchFlowApplicationIT.java       the health probe answers UP against PostgreSQL
@@ -108,8 +114,10 @@ src/backend/core/
     TestcontainersConfiguration.java     the PostgreSQL container
 ```
 
-No bounded context exists yet. The decided design is the domain document, the tech stack and the
-ADRs: see the
+The shared kernel exists
+([ADR-097](../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md)), and no
+bounded context exists in code yet. The decided design is the domain document, the tech stack and
+the ADRs: see the
 [domain layer design](domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts). How a
 context is laid out inside is in [tech stack §4](tech_stack.md#4-repository-layout) and
 [domain layer design §13](domain_layer/domain_layer_design.md#13-inside-each-module-hexagon)
@@ -245,9 +253,15 @@ These follow from
 - **PyVRP is never a dependency of `solver`.** Only `src/research` installs it.
 - **The frontends talk only to `core`.** The API client is generated and never edited.
 
-Only the PyVRP rule is checked by a test today. The others are conventions that review
-enforces; no tool such as ArchUnit or import-linter is configured.
-[Tech stack §2.2](tech_stack.md#22-enforcement) plans ArchUnit, Spring Modulith's `verify()` and
+Two rules are checked by tests today:
+- the PyVRP rule;
+- in `core`, the domain's purity rules.
+
+The purity rules are ArchUnit tests in `src/test/java/com/dispatchflow/architecture/`, over
+`shared` and every module's `domain` and `events` packages
+([domain layer design §3.9](domain_layer/domain_layer_design.md#39-purity)). The rest are
+conventions that review enforces.
+[Tech stack §2.2](tech_stack.md#22-enforcement) also plans Spring Modulith's `verify()` and
 import-linter for the Alpha
 ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md),
 Accepted).

@@ -41,7 +41,10 @@ today.
 
 `core` has no controller, entity or Flyway migration: `src/main/resources/db/migration/` holds
 only a `.gitkeep`. `solver`'s `domain`, `application` and `solvers` folders hold only `.gitkeep`.
-There is no bounded context yet.
+`core` holds the shared kernel (`com.dispatchflow.shared`): typed IDs, the nine shared values and
+the domain's building blocks
+([ADR-097](../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md)). Nothing calls
+it yet, and no bounded context exists in code.
 
 ## Communication
 
@@ -88,14 +91,16 @@ have a `Dockerfile`, and neither runs as root
 
 - **Dependencies point one way.** Domain code imports no framework, I/O or transport type, and
   adapters depend on the domain ([ADR-001](../ADRs/ADR-001-domain-driven-design-with-hexagonal-architecture.md)).
-  There is no domain code yet, so nothing but review enforces this.
+  In `core`, ArchUnit tests check the domain's purity rules over the shared kernel and every
+  module's `domain` and `events` packages (`src/test/java/com/dispatchflow/architecture/`). The
+  other dependency rules are enforced by review.
 - **Every solver sits behind one `Solver` port** and is chosen by name
   ([ADR-004](../ADRs/ADR-004-pluggable-solver-port.md), amended by
   [ADR-044](../ADRs/ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md), which
   fixes its call as `solve(problem, start, budget, seed)`). The port does not exist yet.
 - **PyVRP stays out of `solver`.** `src/backend/solver/tests/test_dependency_boundary.py` holds two
   tests. One fails if PyVRP is installed there, and the other if PyVRP is locked in its `uv.lock`.
-  They are the only architecture rule a test checks today.
+  With `core`'s purity and shape rules, they are the only architecture rules a test checks today.
 - **Flyway owns the schema.** `core` sets `spring.jpa.hibernate.ddl-auto=validate`, so Hibernate
   never changes it ([ADR-007](../ADRs/ADR-007-postgresql-with-flyway-migrations.md), superseded by
   [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md),

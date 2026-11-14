@@ -46,6 +46,9 @@ mandatory, and missing them costs points.
 Each milestone ends with something that runs, and a check that proves it. M0 to M5 make the **Alpha**.
 M6 to M13 make the **pilot**, in Semester B.
 
+The domain layer of every context, Java and Python, is built ahead of its milestone, from November
+2026. Each milestone then builds its context's application layer and adapters on that domain.
+
 ### 2.1 Lanes
 
 Four people, four lanes. A lane has one owner, and the others help. The team fills in the names.
