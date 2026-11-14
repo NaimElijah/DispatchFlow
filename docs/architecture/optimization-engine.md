@@ -1,13 +1,20 @@
 # DispatchFlow — Optimization engine
 
 `src/backend/solver` serves one operation, `GET /health/liveness`. Its `domain` package holds the
-daily-solve domain ([code-structure.md](code-structure.md#srcbackendsolver)):
+domain for daily solves and re-optimizations ([code-structure.md](code-structure.md#srcbackendsolver)):
 - `Problem`, with `validate` (the feasibility validator), `cost` (the objective) and
   `explain_drop` (the drop reasons);
-- `ProblemFactory.daily`, `Solution`, `TravelTimeModel` and `PenaltyScale`.
+- `ProblemFactory.daily` and `ProblemFactory.reoptimization`, `Solution`, `TravelTimeModel` and
+  `PenaltyScale`.
+
+`ProblemFactory.reoptimization` takes a live day's facts and applies
+[ADR-050](../ADRs/ADR-050-re-optimization-conventions-live-only-in-the-python-problem-factory.md)'s
+six conventions. It writes them into the `Problem`'s vehicles and into an optional `ReoptContext`,
+which a daily `Problem` lacks
+([ADR-105](../ADRs/ADR-105-a-re-optimizations-problem-carries-its-conventions-and-only-a-vehicle-that-is-out-has-no-driver.md)).
 
 Nothing calls it yet. No solver, no `Solver` port and no use case exists; the `application` and
-`solvers` folders hold only a `.gitkeep`. The re-optimization conventions are not built yet.
+`solvers` folders hold only a `.gitkeep`.
 [ADR-098](../ADRs/ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) fixes the
 validator's numbers.
 
@@ -39,5 +46,5 @@ the hexagon and the process model). The ADRs cover:
   [ADR-092](../ADRs/ADR-092-the-alns-package-runs-our-solvers-outer-loop.md)) and the comparison
   study ([ADR-091](../ADRs/ADR-091-study-design-for-the-solver-comparison.md)).
 
-Only the daily-solve domain is described above. The solvers, the port and the re-optimization
-conventions arrive with their code.
+Only the domain is described above. The solvers, the port and the contract's operations arrive
+with their code.
