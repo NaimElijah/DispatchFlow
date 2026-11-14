@@ -1,6 +1,6 @@
 # ADR-064: Events exist only where they earn their place, and Spring Modulith's registry delivers them
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-107
 - **Date:** 2026-11-14
 
 ## Context
