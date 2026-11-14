@@ -28,7 +28,8 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-094](ADR-094-each-pull-requests-contract-check-compares-against-its-base-branch.md) | Each pull request's contract check compares against its base branch | Accepted |
 | [ADR-044](ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md) | The solver port takes a start, a budget and a seed, and `Problem` alone judges a solution | Accepted; extended by ADR-050 |
 | [ADR-045](ADR-045-generation-counters-revoke-tokens.md) | Generation counters on the user and the session revoke tokens | Accepted |
-| [ADR-048](ADR-048-travel-times-from-buckets-and-a-buffer-with-no-live-traffic.md) | Travel times come from time-of-day buckets and a buffer, with no live traffic | Accepted |
+| [ADR-048](ADR-048-travel-times-from-buckets-and-a-buffer-with-no-live-traffic.md) | Travel times come from time-of-day buckets and a buffer, with no live traffic | Accepted; amended by ADR-098 |
+| [ADR-098](ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) | The validator works in double precision, compares limits within 1e-6, and rounds only product travel times | Accepted |
 | [ADR-049](ADR-049-drop-penalty-unit-k-scaled-by-priority.md) | An order's drop penalty is K times 6 minus its priority, with K = 5L + 2T + F + 1 | Accepted |
 | [ADR-050](ADR-050-re-optimization-conventions-live-only-in-the-python-problem-factory.md) | Re-optimization conventions live only in the Python problem factory | Accepted |
 | [ADR-051](ADR-051-one-solver-worker-per-lane-killed-30-seconds-past-its-limit.md) | Each lane has one solver worker process, killed 30 seconds past its limit | Accepted |

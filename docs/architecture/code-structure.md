@@ -131,13 +131,15 @@ src/backend/solver/
   src/dispatchflow_solver/
     __init__.py                    the package marker; one also in adapters/, inbound/ and http/
     py.typed                       marks the package as typed
-    domain/                        problem, solution, objective, validator (placeholder)
+    domain/                        Problem (validate, cost, explain_drop), ProblemFactory, Solution,
+                                   TravelTimeModel, PenaltyScale, RuleId
     application/                   use cases, the Solver port, the registry (placeholder)
     solvers/
       ortools/                     the OR-Tools adapter (placeholder)
       alns/                        the DispatchFlow solver (placeholder)
     adapters/inbound/http/app.py   create_app(): the FastAPI app, with GET /health/liveness
   tests/                           mirrors the package path
+    domain/                        the catalogue, properties, Solomon acceptance (data/solomon/)
     adapters/inbound/http/test_app.py
     test_dependency_boundary.py
 ```

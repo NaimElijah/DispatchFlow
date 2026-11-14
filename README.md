@@ -216,7 +216,7 @@ comments. The rules apply to people and to coding assistants alike.
 |---|---|---|
 | Core unit (`*Test`) | Domain and use cases, no I/O; today only the web error handler (`UnexpectedErrorHandlerTest`), as no bounded context exists yet | `just core-check` |
 | Core integration (`*IT`) | Against a real PostgreSQL in a container | `just core-check` |
-| Solver | HTTP adapter, dependency boundary | `just solver-check` |
+| Solver | The domain (the validator's crafted-violation catalogue, Hypothesis properties, Solomon best-known solutions accepted), the HTTP adapter, the dependency boundary and import-linter | `just solver-check` |
 | Research | Its environment: the solver and PyVRP are installed | `just research-check` |
 | Web app | Components in jsdom (Vitest + Testing Library) | `just console-check` |
 | Phone app | Components (Jest + React Native Testing Library) | `just driver-app-check` |

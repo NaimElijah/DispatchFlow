@@ -1,9 +1,15 @@
 # DispatchFlow — Optimization engine
 
-The solver service is a skeleton today. `src/backend/solver` serves one operation,
-`GET /health/liveness`, and its `domain`, `application` and `solvers` folders hold only a
-`.gitkeep` ([code-structure.md](code-structure.md#srcbackendsolver)). No solver, `Solver` port,
-validator or objective exists in code.
+`src/backend/solver` serves one operation, `GET /health/liveness`. Its `domain` package holds the
+daily-solve domain ([code-structure.md](code-structure.md#srcbackendsolver)):
+- `Problem`, with `validate` (the feasibility validator), `cost` (the objective) and
+  `explain_drop` (the drop reasons);
+- `ProblemFactory.daily`, `Solution`, `TravelTimeModel` and `PenaltyScale`.
+
+Nothing calls it yet. No solver, no `Solver` port and no use case exists; the `application` and
+`solvers` folders hold only a `.gitkeep`. The re-optimization conventions are not built yet.
+[ADR-098](../ADRs/ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) fixes the
+validator's numbers: double precision, limits within 1e-6, and rounding only for product times.
 
 The decided design is in
 [domain layer design §4.9](domain_layer/domain_layer_design.md#49-optimization-python) (`Problem`,
