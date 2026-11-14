@@ -227,8 +227,13 @@ kernel's `PersonalData` marker ([ADR-106]).
 | `Attempt`, `RevisionNo`, `HeldReportId`, `ProofId`, `LaterAttempt`, `LeaveAtDoor`, `TrackingStanding` | Live Operations | Its own copies of an order's attempt and a plan's revision; the local IDs of a held report and of an uploaded proof; whether the order was put back after a stop, and the new stop's outcome and date (FR-404); Customers & Orders' answer on leaving at the door (FR-366); whether a position's sender drives the route now and is available, and their shift end or confirmed return time (NFR-30, FR-394) ([ADR-107]) | `InvalidRevision` |
 | `ArrivalProjection`, `StartDeadline`, `ConfirmationDeadline`, `TrackingWindow` | Live Operations | Projected arrivals from the route's latest event, the start included, never before now (§10.4, FR-254, FR-383); shift start plus allowance plus 15 minutes (FR-101); 10 minutes after a revision, a starting value (FR-97, [ADR-107]); start to 1 hour after the current driver's shift end, or the finish, built at each check (FR-328, FR-394) | — |
 | `AlertSubject`, `AlertKind`, `DedupeKey`, `DriverProblem` | Live Operations | What an alert is about, one kind per item of FR-157's list plus held reports; the kind plus the IDs the kind names, so it is raised once (FR-157, [ADR-107]); breakdown, running late or vehicle full (FR-95) | — |
-| `MessageText`, `Reply`, `Rating`, `PhoneHash`, `DailySendCap` | Messaging | A text starting with the company name, within 70 characters (FR-382); a parsed reply (FR-363, FR-376); 1 to 10; a keyed hash (NFR-202); the day's accepted messages and the cap (NFR-196) | `RatingOutOfRange` |
-| `OnTimeRate` | Reporting | Delivered stops reached by their window's end over delivered stops; *unavailable* when there are none (FR-264, FR-265, FR-340, FR-370) | — |
+| `MessageText`, `Wording`, `Reply`, `Rating`, `Comment`, `PhoneHash`, `DailySendCap` | Messaging | A text starting with the company name, within 70 characters (FR-382), in its type's fixed wording (FR-349, [ADR-108]); a parsed reply (FR-363, FR-376); 1 to 10; a reply kept as a comment, cut to 500 characters (NFR-203, [ADR-108]); a keyed hash (NFR-202); the day's accepted messages and the cap (NFR-196) | `RatingOutOfRange`, `BlankComment` |
+| `CompanyName`, `DispatchPhone`, `RecipientPhone`, `QuarterHour`, `OptOutRecord`, `OptOutStatus` | Messaging | The company name a message starts with, at most 19 characters (FR-382); the dispatch phone, at most 11 characters in national form (FR-382); the order's recipient phone, otherwise the customer's (FR-348); a projected arrival rounded half up to the quarter hour (FR-351); an opt-out or opt-in entry, and a phone's standing by its latest entry (FR-363, FR-380, [ADR-108]) | `UnusableCompanyName`, `DispatchPhoneTooLong` |
+| `OnTimeRate` | Reporting | Delivered stops reached on time over delivered stops, as an exact share of two counts: by the window's end, or inside the window for a leave-at-door stop; reached at the arrival, or at the delivery when no arrival was reported; from the effective outcome after any correction, leaving out cancelled orders; *unavailable* when none is delivered (FR-264, FR-265, FR-333, FR-340, FR-370, BR-30, [ADR-109]) | `InvalidOnTimeCounts`, `StopCountedTwice` |
+| `PlannedOnTimeRate` | Reporting | Orders a plan serves inside their windows over every order of the day, as an exact share of two counts: a dropped order counts as not on time and a cancelled one is left out; *unavailable* with no order (FR-266, FR-370, BR-30, [ADR-109]) | `InvalidOnTimeCounts` |
+| `Distance`, `DriverHours`, `PlannedFigures`, `PlannedOrders`, `StopResult`, `CancelledOrders`, `PlanStanding`, `BaselineComparison` | Reporting | A plan's metres and driver-hours, never negative; a plan's figures, with each order of the day once; the facts the rates and the comparison judge, from other modules' views; a comparison on every measure, on kilometres and on-time only after a withdrawal, or none for a cancelled plan (FR-39, FR-269, FR-338, [ADR-109]) | `NegativeDistance`, `NegativeDriverHours`, `OrderCountedTwice` |
+| `AuditRecord`, `AuditOutcome`, `ErrorCode` | Audit | NFR-93's fields, each an ID, a code, an enum, a number or an instant (NFR-94), and its year of retention (NFR-258); succeeded, or refused with the refusal's upper snake case error code, so refusals are audited too (NFR-23) ([ADR-110]) | `MalformedErrorCode` |
+| `OperationName`, `NamedRecord`, `DeclaredApp`, `AppVersion`, `TraceId` | Audit | The `client-api` operation ID or a server step's name, an ASCII identifier of at most 100 characters; a kernel ID with its kind; the app (web or phone) and its version as the client declares them, as three numbers ([ADR-082]); a W3C trace-id (NFR-20) ([ADR-110]) | `MalformedOperationName`, `InvalidAppVersion`, `InvalidTraceId` |
 | `Problem`, `Solution`, `TravelTimeModel`, `PenaltyScale`, `ValidationReport` | Optimization | Everything one solve needs, and what comes back (§4.9) | — |
 
 DispatchFlow has no money in its domain: the objective's terms are in seconds, not shekels.
@@ -714,22 +719,22 @@ positions and alerts come later.
 
 | Aggregate | Holds | Operations | Size and writers |
 |---|---|---|---|
-| `StopMessages` | For one stop: the recipient's phone, and every message to it (entities: type, sequence, `MessageText`, trigger time, state, provider reference) | Triggers: `onRouteStarted`, `onJoinedStartedRoute`, `onArrivalProjected`, `onDeliveryChanged`, `onOutcome`. Sender: `claim`, `accepted`, `refused`, `outcomeUnknown`, `dropStale` | One per stop, a handful of messages; triggers and the sender |
-| `RatingRequest` | The stop, the phone, when the question was accepted, state (*open*, *rated* or *closed*), comments, whether a reminder and a thank-you were sent | `open`, `answer` | One per *delivered* message carrying the rating question; replies |
+| `StopMessages` | For one stop: the recipient's phone, and every message to it (entities: type, sequence, `MessageText`, the arrival it gave, trigger time, state, provider reference) | Triggers: `onRouteStarted`, `onJoinedStartedRoute`, `onArrivalProjected`, `onDeliveryChanged`, `onOutcome`. Sender: `claim`, `accepted`, `refused`, `outcomeUnknown`, `dropStale` | One per stop, a handful of messages; triggers and the sender |
+| `RatingRequest` | The stop, the phone, when the question was accepted, state (*open*, *rated* or *closed*), comments, whether a reminder and a thank-you were sent | `open`, `answer`, `removePersonalData` ([ADR-108]) | One per *delivered* message carrying the rating question; replies |
 | `MessagingSettings` | Messages on or off (FR-350), the rating question on or off, the dispatch phone | `change…` | One; Admins |
 
 Opt-outs and inbound replies are records (§3.2).
 
 | Invariant | Owner | Error |
 |---|---|---|
-| A message goes only while messages are on (FR-350), to an Israeli mobile (FR-378), never to a phone that opted out (FR-363, NFR-202) | `StopMessages`, given the messaging settings and the opt-out answer | — (no message) |
-| Each type is sent at most once per stop, except *time changed*: at most twice, 30 minutes apart (NFR-191, FR-353, FR-384) | `StopMessages`, backed by unique (stop, type, sequence) | — |
-| *Out for delivery* only for a stop not yet arrived (FR-351, FR-373); *arriving soon* only when it is 15 minutes away or less on a started route and the stop before it has an outcome (FR-352); *delivered* or *missed you* only for the first outcome (FR-374) | `StopMessages` | — |
-| A message not accepted within 15 minutes of its trigger is dropped (NFR-190) | `StopMessages.dropStale(now)` | — |
+| A message is added only while messages are on when it is triggered (FR-350), to the order's recipient phone, otherwise the customer's (FR-348), when that is an Israeli mobile (FR-378), and never to a phone that opted out (FR-363, NFR-202) | `StopMessages`, given the messaging settings and the opt-out answer | — (no message) |
+| Each type is sent at most once per stop, except *time changed*: at most twice, each when the projection is 30 or more minutes from the arrival last sent (NFR-191, FR-353, FR-384) | `StopMessages`, backed by unique (stop, type, sequence) | — |
+| No *out for delivery*, *arriving soon*, *time changed* or *your delivery changed* for a stop arrived at or with an outcome (FR-373); *time changed* and *your delivery changed* only once the route has started (FR-353, FR-354); *arriving soon* only when it is 15 minutes away or less on a route in progress and the stop before it has an outcome (FR-352); *delivered* or *missed you* only for the first outcome, and a correction sends none (FR-374) | `StopMessages` | — |
+| Any message not accepted within 15 minutes of its trigger, whether pending, sending or of unknown outcome, is dropped (NFR-190) | `StopMessages.dropStale(now)` and `claim` | — |
 | A send whose outcome is unknown is retried only if the provider drops repeats by DispatchFlow's reference (NFR-198) | `StopMessages.outcomeUnknown` | — |
 | At most 1,000 messages accepted a day (NFR-196) | `DailySendCap`, which the sender reads before each claim | — (sending waits for midnight) |
-| A reply counts as a rating only within 48 hours of the question, and only once; other text is kept as a comment of at most 500 characters; the first comment before a rating gets one format reminder (FR-357 to FR-360, FR-371) | `RatingRequest.answer` | — (a reply with no open request is discarded, FR-379) |
-| An opt-out word opts the phone out at once, confirmed once if the phone was messaged in the last 48 hours (FR-363) | `Reply` and the opt-out records | — |
+| A reply counts as a rating only within 48 hours of the question, and only once; within those 48 hours every reply but a bare rating or an opt-out is kept as a comment, after the rating too, cut to 500 characters (NFR-203), up to 20 comments per request ([ADR-108]); the first reply that is not a rating, before the rating, gets one format reminder (FR-357 to FR-360, FR-371) | `RatingRequest.answer` | — (a reply with no request in the last 48 hours is discarded, FR-379) |
+| An opt-out word opts the phone out at once, confirmed once if the phone was messaged in the last 48 hours (FR-363); a dispatcher records an opt-out, or removes one by appending an opt-in, and the latest entry wins (FR-380, [ADR-108]) | `Reply` and `OptOutStatus`, over the opt-out records | — |
 
 **In the Alpha:** none of it.
 
@@ -737,23 +742,35 @@ Opt-outs and inbound replies are records (§3.2).
 
 | Aggregate | Holds | Operations | Size and writers |
 |---|---|---|---|
-| `Baseline` | Its plan, the nearest-neighbour result, its cause (*published* or *vehicle withdrawn*), when it was computed | `compute`, `recompute` | One per published plan; Reporting's listeners |
+| `Baseline` | Its plan, the nearest-neighbour result (distance, driver-hours, and each order's planned service or drop), its cause (*published*, or *recomputed* with every vehicle withdrawn and every order added so far), when it was computed | `compute`, `recompute`, and the query `compareWith` | One per published plan; Reporting's listeners |
 
 | Invariant | Owner | Error |
 |---|---|---|
 | A plan has one baseline, computed when it is published (FR-39, FR-342) | `Baseline.compute`, keyed by plan | — |
-| The baseline is recomputed only when a re-optimization withdraws a vehicle, and the comparison then uses kilometres and on-time only (FR-267 to FR-271) | `Baseline.recompute` | — |
+| The baseline is recomputed only when a revision withdraws a vehicle or adds orders, so both sides cover the same orders and fleet (FR-39, [ADR-109]); once a vehicle is withdrawn, the comparison uses kilometres and on-time only and names every vehicle withdrawn so far (FR-267 to FR-271). A cancellation only leaves the order out (BR-30) | `Baseline.recompute`, `compareWith` | — (a revision that did neither changes nothing) |
+| A cancelled plan has no baseline comparison (FR-338) | `Baseline.compareWith`, given the plan's standing | — (the answer is *not compared*) |
 | An on-time rate with no delivered stops is *unavailable*, never 0 (FR-265) | `OnTimeRate` | — |
+| A stop is on time when it is reached by its window's end, or inside its window for a leave-at-door stop; the delivery time stands in for a missing arrival; the effective outcome counts, and a cancelled order doesn't (FR-264, FR-370, FR-340, FR-333, BR-30) | `OnTimeRate` | — |
+| Planned on-time is the orders served inside their windows over every uncancelled order of the day, so a dropped order counts as not on time, on the plan's side and the baseline's (FR-266, FR-370, BR-30) | `PlannedOnTimeRate` | — |
+| A rate is an exact share of two counts, and only a screen rounds it ([ADR-109]) | `OnTimeRate.Measured`, `PlannedOnTimeRate.Measured` | `InvalidOnTimeCounts` |
 
-Everything else in Reporting is read models over the views other modules publish.
+Everything else in Reporting is read models over the views other modules publish. Reporting holds no
+personal data, so it has no retention period of its own: a baseline stays with its plan (NFR-152,
+[ADR-109]).
 
 **In the Alpha:** the daily summary and the baseline comparison.
 
 ### 4.8 Audit
 
 Audit records are records (§3.2), written through `AuditLog` in the transaction of the change they
-describe (NFR-23). They never carry personal data (NFR-94). The application's database role (`app`) can
-only insert and read them, and may execute one database function, owned by `dispatchflow_owner`, that
+describe (NFR-23). They never carry personal data (NFR-94). An `AuditRecord` holds NFR-93's fields and
+nothing else: when, the acting user and session when known, the app and its version as the client
+declares them, the operation, the records it names, its outcome and its trace ID. Each is an ID, a
+code, an enum, a number or an instant, never free text. The outcome is *succeeded* or *refused* with
+the refusal's error code, so a refused attempt, such as a failed sign-in, is audited too; writing it so
+that the refusal's rollback doesn't lose it is the application layer's job ([ADR-110]). The record
+owns its retention, `AuditRecord.RETENTION`, a year on Israel's calendar. The application's database
+role (`app`) can only insert and read them, and may execute one database function, owned by `dispatchflow_owner`, that
 deletes only audit records older than 1 year and computes the cutoff itself. The core's nightly retention
 job calls it (§10.3), so no separate step runs and the owner credential stays deploy-only (NFR-258,
 [ADR-075], [ADR-041]).
@@ -882,6 +899,7 @@ call, never in the same transaction.
 | A message trigger | `StopMessages`, or creates it | — | — |
 | The sender sends a message | `StopMessages` | A `RatingRequest`, when a *delivered* message with the rating question is accepted | — |
 | A reply arrives | `RatingRequest`, if one is open | The reply record; an opt-out record for an opt-out word | `RatingReceived` for a rating |
+| A dispatcher records or removes an opt-out (FR-380) | — | An opt-out record, or an opt-in record that removes it ([ADR-108]) | — |
 
 ### 6.3 Outside calls happen before the transaction
 
@@ -1185,12 +1203,12 @@ confirmed batch's, whose orders and customers now hold them ([ADR-102]).
 stateDiagram-v2
   [*] --> pending : trigger
   pending --> sending : sender claims it
-  pending --> dropped : 15 minutes after its trigger
+  pending --> dropped : 15 minutes after its trigger, or its phone opted out
   sending --> accepted : provider accepts
-  sending --> dropped : provider refuses
+  sending --> dropped : provider refuses, or 15 minutes after its trigger
   sending --> unknown : timeout or crash
   unknown --> sending : retried, only if the provider drops repeats
-  unknown --> dropped : otherwise
+  unknown --> dropped : otherwise, or 15 minutes after its trigger
   accepted --> [*]
   dropped --> [*]
 ```
@@ -1242,7 +1260,7 @@ Nothing the business keeps history about is deleted. It ends in a named state, a
 | Credential link | *spent*, *voided* or expired | The record, until a later link drops it 72 hours after it was sent ([ADR-104]) |
 | Alert | *acknowledged* | The alert |
 | Message | *accepted* or *dropped* | The message, until retention |
-| Rating request | *rated*, or closed after 48 hours | The rating |
+| Rating request | *rated*, or closed after 48 hours | The rating; its phone and comments go 90 days after its last reply ([ADR-108]) |
 | Import | *confirmed*, *discarded* or *expired* | The batch; a discarded or expired one without its rows |
 
 Deletion happens only where retention requires it (NFR-31, NFR-184, NFR-257 to NFR-260, [ADR-075]).
@@ -1319,7 +1337,7 @@ routes, and the plan stores them, so the core never applies a factor. The rules 
 | A published plan completes at midnight, and a plan still unpublished is abandoned (BR-102, BR-127). Before either, every queued or running solve job of the date fails (BR-128) | `Plan.complete(today)` and `Plan.abandon(today)`, after `SolveJob.fail` for every queued or running job of that date | A job at 00:00 |
 | A geocoding lookup is retried for 24 hours (FR-64) | The geocoding request (outbox row) | Every 15 minutes |
 | Positions are kept 7 days; proofs, messages and replies 90 days. An order's personal fields are removed 90 days after its date. A customer is anonymized 1 year after retirement, or after the later of creation and the last order, a driver 1 year after retirement, every account, whatever its roles, 1 year after deactivation. Sessions are deleted 30 days after they end, contact times after 14 days (NFR-280), geocode cache entries unused for 1 year, research instances 1 year after the project ends (NFR-31, NFR-184, NFR-257 to NFR-260, BR-98, [ADR-075]). Backups age out of the bucket after 35 days | `RetentionPeriods`, which Live Operations owns, with `Delivery.eraseExpired(now)` for proofs and the texts of reasons (90 days, [ADR-107]); `Order.anonymize(today)`, `Customer.anonymize(now)`, `Driver.anonymize(now)`, `UserAccount.anonymize(now)` | A job at 03:00 |
-| Audit records are deleted after 1 year (NFR-258, [ADR-075]) | A database function owned by `dispatchflow_owner`, which deletes only records older than 1 year and computes the cutoff itself. The application's role (`app`) may only execute it, because it can only insert and read audit records ([ADR-041]) | The same retention job, at 03:00 in `Asia/Jerusalem` |
+| Audit records are deleted after 1 year (NFR-258, [ADR-075]) | `AuditRecord.RETENTION`, the period, and `AuditRecord.isPastRetention(now)` ([ADR-110]); a database function owned by `dispatchflow_owner`, which deletes only records older than 1 year and computes the cutoff itself. The application's role (`app`) may only execute it, because it can only insert and read audit records ([ADR-041]) | The same retention job, at 03:00 in `Asia/Jerusalem` |
 
 ### 10.4 Projected arrivals
 
@@ -1593,10 +1611,11 @@ where the company's own word differs. "—" in the Hebrew column marks a design 
 | Alert | Live Operations | Something a dispatcher must look at | התראה | `Alert` |
 | Message | Messaging | An SMS to a recipient about a stop | הודעה | `OutgoingMessage` |
 | Reply | Messaging | An SMS from a recipient | תשובה | `Reply` |
-| Opt-out | Messaging | A recipient's choice to get no more messages | הסרה | `OptOut` |
+| Opt-out | Messaging | A recipient's choice to get no more messages, kept as entries in the phone's history; a dispatcher's opt-in removes it, and the latest entry wins ([ADR-108]) | הסרה | `OptOutRecord`, `OptOutStatus` |
 | Rating | Messaging, Reporting | A recipient's answer, 1 to 10, to the rating question | דירוג | `Rating` |
 | Baseline | Reporting | The nearest-neighbour plan for the same day, which the plan is compared with (FR-39) | קו בסיס | `Baseline` |
-| On-time rate | Reporting | Delivered stops reached by their window's end, over delivered stops (FR-264, FR-265) | אחוז מסירות בזמן | `OnTimeRate` |
+| On-time rate | Reporting | Delivered stops reached on time, by their window's end or, for a leave-at-door stop, inside it, over delivered stops; cancelled orders are left out (FR-264, FR-265, FR-370, BR-30) | אחוז מסירות בזמן | `OnTimeRate` |
+| Planned on-time rate | Reporting | Orders a plan serves inside their windows, over every order of the day; a dropped order counts as not on time (FR-266); cancelled orders are left out (BR-30) | אחוז בזמן מתוכנן | `PlannedOnTimeRate` |
 | Problem | Optimization | Everything one solve needs | — | `Problem` |
 | Solution | Optimization | The routes and drops a solver proposes | — | `Solution` |
 | Validator | Optimization | The single definition of feasibility (BR-42) | — | `Problem.validate` |
@@ -1646,6 +1665,7 @@ Nothing. These ADRs record the decisions of this document:
 [ADR-067]: ../../ADRs/ADR-067-live-arrivals-propagate-delay-along-stored-legs-when-asked.md
 [ADR-068]: ../../ADRs/ADR-068-every-web-handler-is-authorized-by-role-from-the-contract.md
 [ADR-075]: ../../ADRs/ADR-075-retention-deletes-records-and-anonymizes-people-in-place.md
+[ADR-082]: ../../ADRs/ADR-082-supported-phone-app-versions.md
 [ADR-083]: ../../ADRs/ADR-083-admins-and-dispatchers-get-alerts-by-stream-and-push-in-the-phone-app.md
 [ADR-086]: ../../ADRs/ADR-086-csv-imports-upload-then-confirm-within-an-hour.md
 [ADR-097]: ../../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md
@@ -1657,3 +1677,6 @@ Nothing. These ADRs record the decisions of this document:
 [ADR-105]: ../../ADRs/ADR-105-a-re-optimizations-problem-carries-its-conventions-and-only-a-vehicle-that-is-out-has-no-driver.md
 [ADR-106]: ../../ADRs/ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md
 [ADR-107]: ../../ADRs/ADR-107-live-operations-alerts-once-per-key-corrects-a-put-back-by-event-and-treats-a-reschedule-as-a-cancellation.md
+[ADR-108]: ../../ADRs/ADR-108-messaging-appends-opt-ins-holds-its-fixed-wording-and-cuts-comments-to-500-characters.md
+[ADR-109]: ../../ADRs/ADR-109-reporting-computes-exact-on-time-shares-from-current-facts-and-keeps-no-personal-data.md
+[ADR-110]: ../../ADRs/ADR-110-audit-records-hold-only-ids-codes-enums-numbers-and-instants-record-refusals-and-are-kept-a-year.md

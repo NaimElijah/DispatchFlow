@@ -100,6 +100,9 @@ src/backend/core/
     fleet/                         a bounded context's module: its domain/ and events/ packages so far
     orders/                        a bounded context's module: its domain/ and events/ packages so far
     planning/                      a bounded context's module: its domain/ and events/ packages so far
+    audit/                         a bounded context's module: its domain/ and events/ packages so far
+    reporting/                     a bounded context's module: its domain/ and events/ packages so far
+    messaging/                     a bounded context's module: its domain/ and events/ packages so far
     web/                           application-wide web concerns: the fallback for unexpected errors
       UnexpectedErrorHandler.java  answers an unhandled exception with a 500 problem body
       package-info.java
@@ -115,6 +118,9 @@ src/backend/core/
     fleet/                         that module's domain tests
     orders/                        that module's domain tests
     planning/                      that module's domain tests
+    audit/                         that module's domain tests
+    reporting/                     that module's domain tests
+    messaging/                     that module's domain tests
     web/UnexpectedErrorHandlerTest.java  the 500 problem body keeps the cause out
     IntegrationTest.java                 the one annotation every *IT uses: the whole app and PostgreSQL
     DispatchFlowApplicationIT.java       the health probe answers UP against PostgreSQL
@@ -123,13 +129,13 @@ src/backend/core/
 ```
 
 The shared kernel exists
-([ADR-097](../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md)), and so do
-the `domain` and `events` packages of `access`, `fleet`, `orders` and `planning`. The decided
-design is the domain document, the tech stack and the ADRs: see the
-[domain layer design](domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts). How a
-context is laid out inside is in [tech stack §4](tech_stack.md#4-repository-layout) and
-[domain layer design §13](domain_layer/domain_layer_design.md#13-inside-each-module-hexagon)
-(the hexagon). New contexts are written to tech stack §4.
+([ADR-097](../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md)), and so do the
+`domain` and `events` packages of `access`, `audit`, `fleet`, `messaging`, `orders`, `planning` and
+`reporting`. The decided design is the domain document, the tech stack and the ADRs: see the [domain
+layer design](domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts). How a context
+is laid out inside is in [tech stack §4](tech_stack.md#4-repository-layout) and [domain layer design
+§13](domain_layer/domain_layer_design.md#13-inside-each-module-hexagon) (the hexagon). New contexts
+are written to tech stack §4.
 [ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)
 (Accepted) makes each context a Spring Modulith module, and
 [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md)
