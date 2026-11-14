@@ -41,10 +41,12 @@ The forces:
   ([NFR-87], [NFR-91]). Each is exchanged once, with a 30-second grace for a repeat ([NFR-22],
   [NFR-178]).
 - **Where tokens live.** In the web app the access token is held in memory, and the refresh token is a
-  `__Secure-` cookie that is Secure, HttpOnly and SameSite=Strict, with the path `/api/v1/auth`
-  and a double-submit CSRF header on refresh ([NFR-106], [NFR-107]). It is `__Secure-` and not
-  `__Host-` because a `__Host-` cookie cannot carry a path. In the phone app both tokens are in
-  `expo-secure-store` ([PL §16.1][PL-161]).
+  `__Host-` cookie with `Path=/` that is Secure, HttpOnly and SameSite=Strict, with a double-submit
+  CSRF header on refresh ([NFR-106], [NFR-107]). It is `__Host-` and not `__Secure-` because a
+  sibling host, such as GlitchTip's, could plant a `__Secure-` cookie; a `__Host-` cookie cannot
+  be set by another host. A `__Host-` cookie cannot carry a narrower path, so the browser sends it
+  on every request to the host. In the phone app both tokens are in `expo-secure-store`
+  ([PL §16.1][PL-161]).
 - **Passwords:** Argon2id through Spring Security's encoder with Bouncy Castle, at OWASP's minimum
   (19 MiB, 2 iterations, parallelism 1) or above, "measured on the VM" ([PL §16.2][PL-162]). The
   policy is at least 8 characters, a bundled list of the 3,000 most common passwords refused, and no
@@ -54,8 +56,12 @@ The forces:
   `MessageDigest.isEqual` for constant-time secret checks ([NFR-192]). The JDK covers all of it, so no
   library is added ([TS §6], *Link tokens and hashes* row).
 - **The keyed-hash keys rotate by version.** The keys for opt-out hashes and research pseudonyms each
-  have a version. Every hash records the version of the key that made it, new hashes use the new
-  key, and a lookup tries both keys and re-hashes a match under the new one.
+  have a version. Every hash records the version of the key that made it, and new hashes use the new
+  key. A rotation ends like this:
+  - every opt-out whose phone is still stored is re-hashed under the new key at the rotation;
+  - the hashes still under an old version are counted, and the old key is retired when the count
+    reaches zero, or the residual is recorded as an accepted risk;
+  - research pseudonyms simply start anew under the new key.
 - **No second factor for the pilot.** TOTP stays Optional, following [FR-128] (a Could) and [Q-81].
 
 ### Transport and headers
@@ -67,8 +73,8 @@ The forces:
   proxy* rows).
 - **Headers:** HSTS (`max-age=31536000; includeSubDomains` in the plan's Caddyfile sketch), a Content
   Security Policy and `frame-ancestors 'none'` ([NFR-55], [PL §23][PL-23]). Caddy also sends
-  `X-Content-Type-Options: nosniff` and a site-wide `Referrer-Policy` ([TS §15], *Reverse proxy*
-  row).
+  `X-Content-Type-Options: nosniff` and a site-wide `Referrer-Policy: no-referrer` ([TS §15],
+  *Reverse proxy* row).
 - **The Content Security Policy gains three directives** on 2026-11-14: `base-uri 'none'`,
   `form-action 'self'` and `object-src 'none'`. Its `connect-src` names GlitchTip, replacing the
   hosted Sentry host in the plan's sketch ([ADR-079]). With the plan's other directives, the policy
@@ -91,12 +97,13 @@ The forces:
 The step that creates the first Admin, or replaces a lost one, is an audited server step behind a
 profile, run through SSM ([FR-291], [FR-292], [FR-346], [PL §16.2][PL-162]). On 2026-11-14 the owner
 decided that **every admin step that takes a person's identifier reads it at a prompt that does not
-echo** ([FR-393]): the first-Admin and lost-Admin steps, the account list ([FR-346]) and the data
-requests ([NFR-49], [NFR-185]). The identifier never enters a command line, the shell history or
+echo** ([FR-393]): the first-Admin and lost-Admin steps, the deactivation of the Admins a request
+names ([FR-346]) and the data requests ([NFR-49], [NFR-185]). The identifier never enters a command line, the shell history or
 SSM's history. SSM records who opened each session on the VM and when (CloudTrail), and records no
 session stream ([NFR-229]), so nothing typed or printed in a session is kept. An export goes to an
-encrypted file that is deleted on a set date, never to the terminal. The audit record holds the
-account ID. This replaces the plan's sketch, which passed `--email=` on the command line. The
+encrypted file that is deleted on a set date, never to the terminal ([FR-409]). The file is
+encrypted to the requesting member's public key, so no decryption key is on the VM, and it is
+written outside the paths that EBS snapshots cover. The audit record holds the account ID. This replaces the plan's sketch, which passed `--email=` on the command line. The
 decision goes into [FR-291]'s note and the runbook row ([TS §15]).
 
 ## Consequences
@@ -110,9 +117,11 @@ decision goes into [FR-291]'s note and the runbook row ([TS §15]).
 - **Hard:** a Content Security Policy this strict can break a framework that injects styles. M0 tests
   it so that the answer arrives before any screen depends on it.
 - **Hard:** a non-echoing prompt inside an SSM session is a runbook step, and so is the encrypted
-  export with its deletion date. How the prompt is done there is not verified here.
-- **Hard:** a keyed-hash key rotation is a version bump with a period in which two keys are tried on
-  every lookup, until the old hashes are re-hashed on use.
+  export with its deletion date and its path outside the snapshots. How the prompt is done there is
+  not verified here.
+- **Hard:** a keyed-hash key rotation is a version bump, a re-hash of the stored opt-outs and a
+  count of the old-version hashes that remain. Until the count is zero, or the residual is accepted,
+  the old key stays.
 - **Cost:** key rotation is a runbook step with two accepted keys, and every secret has a rotation
   step ([TS §15], *Runbook* and *Secrets* rows).
 - **Risk:** what Caddy does with a plain request on port 80 is its default, which the sources do not
@@ -160,6 +169,7 @@ decision goes into [FR-291]'s note and the runbook row ([TS §15]).
 [FR-292]: ../requirements/requirements.md#company-users-and-roles
 [FR-346]: ../requirements/requirements.md#company-users-and-roles
 [FR-393]: ../requirements/requirements.md#company-users-and-roles
+[FR-409]: ../requirements/requirements.md#company-users-and-roles
 [NFR-22]: ../requirements/requirements.md#nfr-22
 [NFR-26]: ../requirements/requirements.md#nfr-26
 [NFR-36]: ../requirements/requirements.md#nfr-36

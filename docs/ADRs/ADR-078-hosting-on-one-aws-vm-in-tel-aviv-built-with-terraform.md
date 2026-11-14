@@ -57,15 +57,36 @@ VAT. He had first set the cap at ₪450 and raised it once VAT was counted.
 The owner adopted this bundle on 2026-11-14. Each part has a requirement behind it.
 
 - **CI reaches AWS through OIDC,** with no stored access key. The deploy role trusts only a protected
-  `production` environment of the repository, and it runs one SSM document on one instance.
+  `production` environment of the repository: its trust policy pins both `aud` and `sub`, and `sub`
+  is the `production` environment (`…:environment:production`).
+  - The deploy role runs one custom SSM document on one instance. The document takes the image
+    digest as a parameter with an `allowedPattern`, so only a digest passes. The team never uses
+    `AWS-RunShellScript`, and the deploy role has no `ssm:UpdateDocument`.
+  - CI pushes to GHCR, and the VM pulls from GHCR.
 - **Session Manager is limited to named team members.** SSM records who opened each session and when,
   and records no session stream ([NFR-229]).
-- **Every human account that can deploy or publish requires a second factor:** AWS, GitHub, Expo,
-  Apple, Google and Mend ([NFR-265]).
+- **Every human account that can deploy or release the app requires a second factor:** AWS, GitHub,
+  Expo, Apple, Google, Mend and the domain's registrar ([NFR-265]).
 - **The backup secrets sit under a customer-managed KMS key** whose policy names the VM's role and
-  the two named members ([NFR-251]).
-- **The VM cannot delete backups.** The bucket is versioned, with a 35-day Object Lock, and pruning
-  uses a credential that a team member holds ([NFR-266]). The disk and its snapshots are encrypted.
+  the two named members ([NFR-273]). The key policy has no account-root statement beyond key
+  administration.
+- **The instance metadata service is IMDSv2 only, with a hop limit of 1.** Terraform requires it, so
+  a container on the VM cannot take the instance's role.
+- **The VM cannot delete backups** ([NFR-266]). The owner decided this on 2026-11-14.
+  - **The bucket** is versioned, with an Object Lock in governance mode for 35 days. No everyday
+    role has `s3:BypassGovernanceRetention`. Only a break-glass role has it, and a team member
+    assumes that role with MFA.
+  - **The VM's role** may `s3:DeleteObject` only under `locks/*`. It has no `DeleteObjectVersion`,
+    `PutLifecycleConfiguration`, `PutBucketVersioning`, `PutObjectRetention`,
+    `PutBucketObjectLockConfiguration`, `BypassGovernanceRetention` or `PutBucketPolicy`.
+  - **The lifecycle rule** has only `NoncurrentVersionExpiration` and expired-delete-marker
+    clean-up. It never expires current versions.
+  - **Pruning runs from outside the VM.** `restic forget --keep-within 35d --prune` runs on a
+    schedule from CI, through OIDC, as a prune role. Whether the pinned restic works with an Object
+    Lock bucket is unverified.
+  - **EBS snapshots** are kept 35 days. The disk and its snapshots are encrypted.
+  - **Erased data lingers.** Data erased from the database can remain in noncurrent versions for up
+    to the lock period after pruning. The data inventory states the total ([NFR-72]).
 - **EAS Update's code signing is used if Expo's plan offers it** ([ADR-081]). Not verified.
 
 ### Cost estimate
@@ -90,11 +111,16 @@ SMS is outside this table. Its cost is an estimate, not measured: about ₪550�
 - **Easy:** account emails stay in Israel with one provider. Production is rebuilt the same way each
   time, which the restore drill needs. One Compose file describes production and the laptops
   ([TS §15]).
+- **Hard:** the backup bucket cannot be cleaned by the VM, so pruning is a CI job with its own OIDC
+  role, and the break-glass role needs a member with MFA. A failed prune job grows the bucket and
+  the bill until someone notices.
 - **Hard:** one VM has no redundancy ([NFR-14]). The memory limits leave about 2 GB of the 16 GB
   for GlitchTip and the operating system. Nominatim as GovMap's fallback needs about 2 GB more
   ([ADR-085]), so M3's measurement decides whether everything fits.
 - **Cost:** about ₪520–530 a month with VAT against a ₪550 cap, a margin of about ₪20–30. The
   estimate, not measured, gives no itemised line for the disk, snapshots, backups, email and KMS key.
+- **Risk:** whether the pinned restic works with an Object Lock bucket is not checked. If it does
+  not, backups need another tool or another lock arrangement.
 - **Risk:** whether `t3a` is offered in `il-central-1` is not checked. `t3` costs about 10% more
   and still fits the cap.
 - **Risk:** the estimate does not say whether it allows for surplus CPU-credit charges in
@@ -137,6 +163,7 @@ SMS is outside this table. Its cost is an estimate, not measured: about ₪550�
 [FR-350]: ../requirements/requirements.md#messages-to-recipients
 [NFR-14]: ../requirements/requirements.md#nfr-14
 [NFR-52]: ../requirements/requirements.md#nfr-52
+[NFR-72]: ../requirements/requirements.md#nfr-72
 [NFR-76]: ../requirements/requirements.md#nfr-76
 [NFR-125]: ../requirements/requirements.md#nfr-125
 [NFR-126]: ../requirements/requirements.md#nfr-126
@@ -144,10 +171,10 @@ SMS is outside this table. Its cost is an estimate, not measured: about ₪550�
 [NFR-164]: ../requirements/requirements.md#nfr-164
 [NFR-183]: ../requirements/requirements.md#nfr-183
 [NFR-229]: ../requirements/requirements.md#nfr-229
-[NFR-251]: ../requirements/requirements.md#nfr-251
 [NFR-265]: ../requirements/requirements.md#nfr-265
 [NFR-266]: ../requirements/requirements.md#nfr-266
 [NFR-268]: ../requirements/requirements.md#nfr-268
+[NFR-273]: ../requirements/requirements.md#nfr-273
 [NFR-209]: ../requirements/requirements.md#nfr-209
 [Q-62]: ../requirements/requirements.md#open-questions
 [TS §15]: ../architecture/tech_stack.md#15-infrastructure-and-operations

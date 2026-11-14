@@ -31,6 +31,7 @@ owner's method with `now`. The rule itself lives in the owner and is tested with
 |---|---|---|---|
 | A queued or running `SolveJob` | Ends within its limit plus 30 s ([BR-32]); waits at most 5 minutes ([BR-112]) | The queue watchdog, every 15 s | `expireIfOverdue(now)` fails it, and `SolveFailed` returns the plan to *draft* or *ready* |
 | A plan still unpublished at the midnight after its date | It is *abandoned*, with no solve job of it queued or running | The midnight job, at 00:00 ([BR-102]) | Fails every queued or running solve job of that date with the reason *its date passed* ([BR-128]), then calls `Plan.complete(today)` or `Plan.abandon(today)` ([ADR-053]) |
+| The nightly retention run: the anonymizations, the deletions and the audit purge ([ADR-075]) | Completes each night | A Healthchecks.io ping at the end of each run, as for backups | A missed ping alerts the team |
 | Any event listener | Completes | Spring Modulith's staleness monitor, a resubmission every minute, and republication at restart | Resubmits at most 5 times, then alerts the team with the listener's name |
 | A route handed over or removed while the optimizer was down | Checked when it is back | A job every minute while routes show *not yet checked* ([FR-304], [FR-315], [NFR-42]) | Evaluates them and calls `Plan.recordRouteCheck` |
 | A `PlanRevised` the driver must confirm | The driver taps "Seen" ([FR-97], [FR-250]) | `RouteRun`'s confirmed revision, on the live screen | The dispatcher sees who has not confirmed |
@@ -112,3 +113,4 @@ fixes the registry behind the listener watcher.
 [PL-113]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#113-event-publication-making-retries-happen
 [PL-114]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#114-scheduled-jobs-and-watchers
 [TS-23]: ../architecture/tech_stack.md#23-alternatives-rejected-across-the-stack
+[ADR-075]: ADR-075-retention-deletes-records-and-anonymizes-people-in-place.md

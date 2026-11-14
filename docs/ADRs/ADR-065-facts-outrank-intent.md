@@ -61,9 +61,15 @@ corrected and a person is told.
 5. **A corrected time later than the server's receipt time is cut to the receipt time** ([BR-110]).
    The owner decided this on 2026-11-13 ([Q-92], answer 8).
 6. **A backdated report is held.** A late report that would move a stop off another driver's route,
-   or override a cancellation, waits for the dispatcher's confirmation if its session contacted the
-   server after the report's corrected time, with 2 minutes' grace ([BR-132]). The owner decided this
-   on 2026-11-14. Once the dispatcher confirms it, the report follows items 2 and 3.
+   or override a cancellation, waits for the dispatcher's confirmation if its session made contact
+   with the server between 2 minutes after the report's corrected time and 2 minutes before the
+   report arrived ([BR-132]). The owner decided this on 2026-11-14.
+   - **Contact** is any request from the session other than a token refresh or an outbox send. The
+     server keeps each session's contact times for the day ([BR-133]), because a single "last contact"
+     would let a later request hide an earlier one inside the window.
+   - **While the report is held,** an outcome recorded on the stop's current route wins.
+   - **The dispatcher confirms or refuses it.** A confirmed report follows items 2 and 3. A refused
+     one is treated as [BR-90]: refused and shown to the dispatcher.
 7. **An order's status is derived, never stored,** and facts come first. `OrderStatus.derive` takes
    one value from each of its three owners and returns the first match ([DL §9.6][DL-96]):
    1. *delivered* or *failed*, the effective outcome of the current attempt;
@@ -96,10 +102,11 @@ corrected and a person is told.
   serving route ([PL §24][PL-24]).
 - **Risk:** the judgment depends on the device's clock offset ([BR-114]). A wrong offset can pick the
   wrong revision. The cap of item 5 limits only a corrected time that lands after the receipt.
-- **Risk:** the hold of item 6 compares the report's corrected time with the session's last contact,
-  with 2 minutes' grace. A report backdated by less than the grace is not held, and a phone whose
-  offset is wrong by more than the grace can be held when it should not be. The pilot's alert log
-  shows how often.
+- **Risk:** the hold of item 6 compares the report's corrected time with the session's contact times,
+  with 2 minutes' grace at each end of the window. A report backdated by less than the grace is not
+  held, and a phone whose offset is wrong by more than the grace can be held when it should not be,
+  or escape the hold. Token refreshes and outbox sends do not count as contact, so a phone that only
+  syncs its outbox is never held. The pilot's alert log shows how often.
 
 ## Alternatives considered
 
@@ -149,3 +156,4 @@ corrected and a person is told.
 [FR-258]: ../requirements/requirements.md#live-operations-and-re-optimization
 [Q-92]: ../requirements/requirements.md#open-questions
 [PL-24]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#24-testing
+[BR-133]: ../requirements/requirements.md#driver-reports-and-outcomes

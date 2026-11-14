@@ -23,7 +23,7 @@ report findings.
      - client ↔ Caddy ↔ core; core ↔ optimizer (`solver` today); core ↔ PostgreSQL;
      - core → geocoder, SMS provider (and its callbacks, inbound), Amazon SES and Expo push;
      - web and phone apps → GlitchTip; EAS Update → phones; backup job → S3;
-     - CI ↔ third-party code, and Mend's app (repository write); CI → AWS deploy role → registry → VM (deploy, from the pilot);
+     - CI ↔ third-party code, and Mend's app (repository write); CI → GHCR; CI → OIDC deploy role → custom SSM document → the VM pulls from GHCR (deploy, from the pilot);
      - member → SSM → VM; EAS Build (signing credentials); the Navigate map apps (Waze, Google Maps).
 
      OSRM runs on the VM, so it is not an outside service ([TS §13][TS-13]).
@@ -32,7 +32,7 @@ report findings.
    - Read the requirements that apply:
      - FR-03 and its permission matrix (under "Company, users and roles");
      - BR-02, driver scope (under "Business rules and invariants");
-     - the NFR rows under "Security and access" and "Compliance and personal data", including [NFR-209][NFR-209] (the server and its data, backups included, are hosted in Israel; NFR-262 lists four exceptions: push, builds and updates, the app stores, and Navigate's map apps, which get coordinates only, on the driver's tap; their conditions are NFR-218, NFR-263 and NFR-264).
+     - the NFR rows under "Security and access" and "Compliance and personal data", including [NFR-209][NFR-209] (the server and its data, backups included, are hosted in Israel; NFR-262 lists four exceptions: push, builds and updates, the app stores, and Navigate's map apps, which get coordinates only, on the driver's tap; their conditions are NFR-218, NFR-263, NFR-264 and NFR-271).
    - Read the ADRs the change touches.
 
 ## What to check
@@ -82,11 +82,12 @@ report findings.
   - the Caddyfile (headers, CSP, frame-ancestors), once it exists;
   - the decided CSP and headers ([ADR-069][ADR-069]).
 - **Decided rules, when the change touches them:**
-  - `app`'s grants, and the `migrate` and `retention` steps that run as the owner role ([ADR-041][ADR-041]);
-  - FR-393: a non-echoing prompt for every admin step that takes a person's identifier, and exports to an encrypted file, never to the terminal;
+  - `app`'s grants, the `migrate` step (the only use of the owner credential), and the owner-owned audit purge function that `app` may only `EXECUTE` ([ADR-041][ADR-041]);
+  - FR-393: a non-echoing prompt for every admin step that takes a person's identifier, and exports encrypted to the requesting member's public key, outside the paths EBS snapshots cover, never to the terminal (FR-409);
   - NFR-230 to NFR-236 and NFR-269: Admin and Dispatcher data stays in memory, and sign-out and revocation wipe it, with `Clear-Site-Data` on the web;
   - NFR-260 and NFR-261: retention blanks personal columns, and the personal-column test lists every one;
-  - NFR-265 to NFR-268 and BR-132: MFA on publishing accounts, backups the VM cannot delete, streams that re-check their session, no personal data in alert text, and a backdated report held for confirmation.
+  - NFR-272 and NFR-273: a restore rotates the signing key and voids links, and the backup KMS key names only the VM role and two members;
+  - NFR-265 to NFR-268 and BR-132: MFA on accounts that deploy or release the app, backups the VM cannot delete, streams that re-check their session, no personal data in alert text, and a backdated report held for confirmation.
 
 Cite OWASP ASVS 5.0 requirement numbers or CWE IDs where they fit. Verify a claim by running something when you can: the audit, a test, or a request against a local instance you start and then stop.
 

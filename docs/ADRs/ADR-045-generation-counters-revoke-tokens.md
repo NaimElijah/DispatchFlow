@@ -66,20 +66,27 @@ older tokens. Everything else in ADR-036 stands.
   That refuses the session's older tokens and leaves the user's other sessions alone.
 - **A sign-out** revokes its own session ([NFR-89]), which the check above reads from the session's
   state. Per [DL §4.1] it raises no event.
-  - **An open event stream re-checks its session at each heartbeat and closes once the session is
-    revoked** ([NFR-267]). The owner decided this on 2026-11-14. So the streams of a signed-out
-    session end at the next heartbeat, though a sign-out raises no event and only `SessionsRevoked`
-    closes streams at once ([NFR-188]).
+  - **An open event stream re-checks its session at each heartbeat, every 15 seconds, and closes
+    once the session is revoked** ([NFR-267]). The owner decided this on 2026-11-14. So the streams
+    of a signed-out session end at the next heartbeat, though a sign-out raises no event and only
+    `SessionsRevoked` closes streams at once ([NFR-188]).
 - **Refresh tokens** are opaque, rotating and stored as hashes ([TS §6]): 256 random bits, hashed
   with SHA-256, valid 14 days ([PL §16.1]). A session is live if it is not revoked and its
   `user_generation` equals the user's `token_generation`. A user's increment therefore ends every
   session without writing each one.
 - **Unchanged from ADR-036:** the 30-second refresh grace and reuse revocation ([NFR-178],
   [NFR-88]), the 5-minute step-up window, and the rate limits.
-- **A restore rotates the signing key and moves every counter past its highest issued value**
-  ([NFR-252], [NFR-253]; the owner, 2026-11-14). A restored database holds the counters of its
-  snapshot, so a token issued after the snapshot, or one revoked after it, could read as valid. A new
-  signing key refuses every older access token, and the moved counters refuse every older session.
+- **A restore rotates the access-token signing key** ([NFR-272]; the owner, 2026-11-14). A restored
+  database holds the counters of its snapshot, so a token issued after the snapshot, or one revoked
+  after it, could read as valid. The new key refuses every older access token, and the restore
+  revokes every session ([NFR-252]). No counter is moved: the key and the revoked sessions already
+  cover it.
+  - **Changed credentials are treated as well** ([NFR-253]). For each account whose password or
+    email changed since the snapshot, found in the logs by account ID, the restore blanks the
+    password and voids the account's links. An Admin then issues a set-password link to the
+    confirmed address.
+  - **Every open credential link is voided.** If the snapshot is older than the logs reach, every
+    account gets the treatment above.
 - **A test pins the same-second case:** change a user's role and sign in again within the same
   second. The new token works and the old one does not ([PL §24]).
 - **Adoption is M6, in Semester B**, with sessions in full ([PL §3.3], [DL §4.1]).
@@ -95,8 +102,8 @@ older tokens. Everything else in ADR-036 stands.
 - **Hard:** [NFR-177] is worded in time ("issued before its user's last revocation"). Under
   counters it means "issued under an older generation". This ADR leaves the row's wording to the
   team.
-- **Hard:** a restore has two more steps in the runbook: rotate the key, and move the counters.
-  Skipping either leaves older tokens or sessions valid.
+- **Hard:** a restore has more steps in the runbook: rotate the key, and treat the accounts changed
+  since the snapshot. Skipping either leaves older tokens, or a password an attacker set, valid.
 - **Cost:** two more claims in every access token, and a cache of generations in the core's
   process. ADR-036's per-call lookup becomes a cache read.
 - **Cost:** Caffeine is new to the build if the pom does not have it. `src/backend/core/pom.xml`
@@ -147,6 +154,7 @@ older tokens. Everything else in ADR-036 stands.
 [NFR-177]: ../requirements/requirements.md#nfr-177
 [NFR-252]: ../requirements/requirements.md#nfr-252
 [NFR-253]: ../requirements/requirements.md#nfr-253
+[NFR-272]: ../requirements/requirements.md#nfr-272
 [NFR-267]: ../requirements/requirements.md#nfr-267
 [NFR-178]: ../requirements/requirements.md#nfr-178
 [NFR-188]: ../requirements/requirements.md#nfr-188

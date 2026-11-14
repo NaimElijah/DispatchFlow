@@ -38,7 +38,7 @@ A nightly job applies the periods below ([PL §16.4][PL-164]). A row that other 
 | An order's personal fields | 90 days after the order's date | Personal fields removed, figures stay |
 | A retired customer or driver | 1 year after retirement | Anonymized in place |
 | A customer never retired | 1 year after their last order | Anonymized in place |
-| Admin and Dispatcher accounts | 1 year after deactivation | Anonymized in place: audit records and plans refer to them |
+| Every account, whatever its roles | 1 year after deactivation | Anonymized in place: audit records and plans refer to them |
 | Audit records | 1 year | Deleted |
 | Sessions | 30 days after they end | Deleted |
 | GlitchTip events | 7 days | Deleted ([ADR-079]) |
@@ -46,15 +46,19 @@ A nightly job applies the periods below ([PL §16.4][PL-164]). A row that other 
 | Research instances | The end of the project plus 1 year | Deleted |
 | Backups | 35 days | Age out of the bucket |
 
-The sources are [NFR-184] for the first four rows and for retired customers and drivers, and the
-owner's defaults for [Q-14] for the rest. Logs, traces and metrics are kept 7 days ([NFR-76]),
-and the owner set GlitchTip's event lifetime to 7 days to match.
+The sources are [NFR-184] for the first, second and fourth rows, and [NFR-257] for the third. The
+rows after the fourth, except GlitchTip's, are the owner's defaults for [Q-14]. Logs, traces and
+metrics are kept 7 days ([NFR-76]), and GlitchTip's event lifetime is set to 7 days to match
+[NFR-76].
 
 - **Anonymized in place** means the personal columns are blanked and the row stays: names, phones,
   addresses, coordinates and notes are replaced, and the figures stay ([BR-98], [NFR-152]).
-- **Audit records are deleted by a separate step.** The `app` role has only INSERT and SELECT on
-  audit ([ADR-041]), so the core cannot delete them. A nightly one-shot `retention` step runs as the
-  owner role, like `migrate`, and deletes the audit records past 1 year (the owner, 2026-11-14).
+- **Audit records are deleted by a database function.** The `app` role has only INSERT and SELECT
+  on audit, and `EXECUTE` on one function ([ADR-041]). That function is owned by
+  `dispatchflow_owner`, deletes only audit records older than 1 year, and computes the cutoff
+  itself. The core's nightly retention job calls it at 03:00 (`Asia/Jerusalem`), and its
+  Healthchecks.io ping alerts the team when a run fails or doesn't happen ([ADR-066]). The owner credential stays deploy-only, used once by `migrate` (the owner,
+  2026-11-14).
 - **Deleted** applies to positions, proofs, messages and replies. Each day's average rating and share
   answered stay ([NFR-193]).
 - **One check against the inventory.** A test compares the data inventory with an annotation,
@@ -77,13 +81,12 @@ and the owner set GlitchTip's event lifetime to 7 days to match.
 - **Hard:** "anonymized" must hold. Names, phones, addresses and coordinates are blanked, and so must
   anything else that identifies a person, such as free-text notes. The test finds only columns the
   team annotates.
-- **Hard:** the rows after the fourth are the owner's Q-14 defaults. Two of them, a customer never
-  retired and the Admin and Dispatcher accounts, apply this ADR's rule (anonymize what other records
-  refer to, delete the rest) to those defaults. The data inventory confirms each row before the pilot
-  handles real data.
-- **Cost:** a nightly job, the `retention` step as a second container with the owner's credentials,
-  the annotation and its test, and the inventory file
-  (`docs/operations/data-inventory.md`).
+- **Hard:** the rows after the fourth, except GlitchTip's, are the owner's Q-14 defaults. Two of
+  them, a customer never retired and every account, apply this ADR's rule (anonymize what other
+  records refer to, delete the rest) to those defaults. The data inventory confirms each row before
+  the pilot handles real data.
+- **Cost:** a nightly job, one database function owned by the owner role, the annotation and its
+  test, and the inventory file (`docs/operations/data-inventory.md`).
 - **Risk:** a restore brings back rows that retention had already removed. The runbook step in
   [Q-92] re-applies data requests and opt-outs made since the snapshot. It does not name retention.
   The nightly job should remove them again; no source says so.
@@ -111,6 +114,7 @@ and the owner set GlitchTip's event lifetime to 7 days to match.
 - The pilot company asks for a different period.
 
 [ADR-041]: ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md
+[ADR-066]: ADR-066-every-asynchronous-step-has-a-watcher.md
 [ADR-079]: ADR-079-client-errors-and-crashes-go-to-self-hosted-glitchtip.md
 [BR-37]: ../requirements/requirements.md#orders-records-and-history
 [BR-43]: ../requirements/requirements.md#orders-records-and-history
@@ -128,6 +132,7 @@ and the owner set GlitchTip's event lifetime to 7 days to match.
 [NFR-185]: ../requirements/requirements.md#nfr-185
 [NFR-193]: ../requirements/requirements.md#nfr-193
 [NFR-202]: ../requirements/requirements.md#nfr-202
+[NFR-257]: ../requirements/requirements.md#nfr-257
 [PL-164]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#164-personal-data
 [Q-14]: ../requirements/requirements.md#open-questions
 [Q-42]: ../requirements/requirements.md#open-questions

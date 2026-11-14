@@ -42,9 +42,13 @@ is no company. With a company, [NFR-186] stands and the company's accounts are u
   prices; the `il-central-1` price is checked when the study starts ([TS §8]).
 - **With a real company, production stays on its AWS account.** Production's account holds only the
   product. The team's account keeps the research machines.
-- **A staged pilot counts as real personal data** for [NFR-40], [Q-42] and [NFR-72]. The classmates'
-  accounts and their location traces are real, even though the orders are synthetic. The staged
-  pilot meets the same self-check, legal advice and data inventory as a pilot with a company.
+- **A staged pilot counts as real personal data** for [NFR-40], [Q-42] and [NFR-72] ([FR-410]). The
+  classmates' accounts and their location traces are real, even though the orders are synthetic.
+  The staged pilot meets the same self-check, legal advice and data inventory as a pilot with a
+  company.
+- **In a staged pilot, the research and usability roles get no access** to the pilot VM's role,
+  its secrets, its KMS key or its backup bucket ([FR-410]). They share the team's AWS account with
+  the VM, so the separation is by role permissions.
 
 [Q-48] stays open for the rest of store distribution: review time, Apple's rules on background
 location and tester accounts.
@@ -88,6 +92,7 @@ location and tester accounts.
 [ADR-078]: ADR-078-hosting-on-one-aws-vm-in-tel-aviv-built-with-terraform.md
 [FR-45]: ../requirements/requirements.md#research-and-evaluation
 [FR-344]: ../requirements/requirements.md#research-and-evaluation
+[FR-410]: ../requirements/requirements.md#research-and-evaluation
 [NFR-32]: ../requirements/requirements.md#nfr-32
 [NFR-40]: ../requirements/requirements.md#nfr-40
 [NFR-72]: ../requirements/requirements.md#nfr-72

@@ -21,8 +21,8 @@ Expo SDK 58, React Native 0.88, React 19, TypeScript 6.0, npm.
 - Admin and Dispatcher screens are native here too, not a web view ([ADR-035], FR-120; the web view
   is rejected in [TS §23]). Driver-only rules, such as no action while moving (NFR-45) and no prompt
   hiding the route (NFR-139), bind the driver screens only.
-- Data received through the Admin or Dispatcher role stays in memory only and is wiped at sign-out
-  ([ADR-076]).
+- Data received through the Admin or Dispatcher role stays in memory only and is wiped at sign-out, at
+  revocation and on a refused refresh ([ADR-076]).
 - Never use AsyncStorage or a persisted query cache. The route cache and the report outbox live in
   the encrypted SQLCipher database (NFR-39, [TS §11]).
 - The report outbox is a `ReportQueue` port over a SQLCipher adapter. Each report carries an

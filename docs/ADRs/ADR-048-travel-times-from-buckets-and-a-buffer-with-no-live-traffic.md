@@ -40,7 +40,7 @@ pending: no live traffic". It extends [ADR-029] and [ADR-032].
   planned against actual leg times and proposes a settings change for review ([PL §14]).
 - **An arc takes the factor of its departure bucket,** for its whole length, even when it ends in the
   next bucket. A bucket's hours are start-inclusive and end-exclusive, so 07:00–09:30 means
-  [07:00, 09:30), and a departure's bucket is read from its local wall-clock time.
+  [07:00, 09:30), and a departure's bucket is read from its local wall-clock time ([FR-408]).
 - **Solvers search on the upper bound,** `d × highest factor × (1 + buffer)`, which is 1.43 times the
   base duration at the starting values. So a solved plan stays feasible all day ([FR-322]).
 - **The validator and the ETAs use buffered times.** The validator re-times each route with the real
@@ -133,6 +133,7 @@ anything. A test scheduled the stop at 08:00 with no penalty, though the vehicle
 [FR-227]: ../requirements/requirements.md#daily-planning
 [FR-321]: ../requirements/requirements.md#daily-planning
 [FR-322]: ../requirements/requirements.md#daily-planning
+[FR-408]: ../requirements/requirements.md#daily-planning
 [NFR-33]: ../requirements/requirements.md#nfr-33
 [NFR-110]: ../requirements/requirements.md#nfr-110
 [PL §7.1]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#71-time-model

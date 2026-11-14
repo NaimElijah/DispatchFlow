@@ -12,9 +12,10 @@ need an ADR before the code they govern merges ([PL §25][PL-25]), and [ADR-040]
 
 The forces are these:
 
-- **Several writers share one aggregate.** `Plan` is changed by dispatchers and by five automatic
+- **Several writers share one aggregate.** `Plan` is changed by dispatchers and by six automatic
   writers: the solve-result listener, the listeners for cancelled and rescheduled orders, Live
-  Operations' late-outcome call and the route re-check job ([DL §11][DL-11]). Two of them must never
+  Operations' late-outcome call, the route re-check job and the midnight job (`complete`,
+  `abandon`) ([DL §11][DL-11]). Two of them must never
   overwrite each other silently ([BR-76]).
 - **Some rules cover a set of aggregates.** At least two active Admins ([BR-19]), at most 200
   uncancelled orders a date ([BR-101], [BR-113]), at most 5 queued jobs in a lane ([BR-112]), one
@@ -43,6 +44,9 @@ call, never in the same transaction.
 geocoder before it opens its transaction, then loads, changes and saves the aggregate with the
 version it read. If the version moved, the save fails with `STALE_VERSION` and only the call is
 lost. No database transaction waits on HTTP.
+
+**A refused midnight job reloads and retries,** up to three times like a listener, then alerts the
+team.
 
 **Every rule has one owner** ([DL §3.7][DL-37]), and DispatchFlow has no domain services:
 
@@ -89,7 +93,9 @@ no lock.
 - **Risk:** `Plan` is the only aggregate with several writers in a normal day. DL expects a few writes
   a minute at peak and locks held for milliseconds ([DL §11][DL-11]). Neither figure is measured.
 - **Risk:** a listener that loses a version race retries up to three times, then the event registry
-  resubmits it. A busy day could show repeated retries before the pilot's load is known.
+  resubmits it. A busy day could show repeated retries before the pilot's load is known. The
+  midnight job retries three times too, and then alerts, so a plan left uncompleted at midnight
+  reaches a person.
 
 ## Alternatives considered
 

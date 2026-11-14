@@ -24,7 +24,8 @@ The forces:
 - **The phone app ships through TestFlight and Google Play internal testing** ([NFR-186], [ADR-028]).
   Their accounts belong to Apple and Google.
 - **Navigate hands a stop to Waze or Google Maps** ([FR-28]). The stop's coordinates identify a
-  customer's address, and the map apps run outside Israel's hosting.
+  customer's address, and the map apps run outside Israel's hosting. While the driver navigates, the
+  map app also receives the driver's live position.
 - **EAS builds and updates the app** ([TS §11]). Local builds would need "a Mac for every iOS
   build".
 - **A push says only that something changed.** No push carries personal data, for any role; the app
@@ -41,7 +42,7 @@ Four things leave Israel, and each is accepted.
 | Phone alerts | Expo's push service, through APNs and FCM | Push tokens, and the message that something changed |
 | Builds and updates | EAS Build and EAS Update | The app's code |
 | Distribution | TestFlight and Google Play | The testers' store accounts; through TestFlight, testers' feedback screenshots and crash logs go to Apple |
-| Navigate | Waze or Google Maps, opened on the driver's tap | The stop's coordinates |
+| Navigate | Waze or Google Maps, opened on the driver's tap | The stop's coordinates, and the driver's live position while navigating |
 
 The conditions hold for all four:
 
@@ -49,7 +50,9 @@ The conditions hold for all four:
 - **Push tokens are removed** at sign-out, at revocation, and when Expo reports the device gone
   ([Q-92] #6). Expo's push access-token security is on ([TS §11], *Alerts* row).
 - **Navigate carries coordinates only.** The link holds the stop's coordinates, never a name, a phone
-  or address text, and it opens only when the driver taps Navigate ([FR-28], [FR-325]).
+  or address text, and it opens only when the driver taps Navigate ([NFR-271], [FR-28], [FR-325]).
+  Once the map app is open, it receives the driver's live position while the driver navigates; that
+  is the map app's own use of the phone's location, and it is part of this exception.
 - **All of it goes into the data inventory** ([NFR-72], [NFR-217]).
 - **The legal advice of [Q-42] checks it,** Navigate included, before the pilot handles real data.
 
@@ -116,6 +119,7 @@ only, [ADR-046]) and the uptime and backup pings ([TS §13]).
 [NFR-209]: ../requirements/requirements.md#nfr-209
 [NFR-217]: ../requirements/requirements.md#nfr-217
 [NFR-218]: ../requirements/requirements.md#nfr-218
+[NFR-271]: ../requirements/requirements.md#nfr-271
 [Q-42]: ../requirements/requirements.md#open-questions
 [Q-92]: ../requirements/requirements.md#open-questions
 [TS §1]: ../architecture/tech_stack.md#1-what-decides-close-calls

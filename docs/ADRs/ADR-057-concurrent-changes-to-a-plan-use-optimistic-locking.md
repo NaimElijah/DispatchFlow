@@ -11,8 +11,9 @@ re-optimization running at a time ([BR-38]). Two dispatchers cannot silently ove
 changes to a plan: an out-of-date change is refused with its reason ([BR-76]).
 
 `Plan` is the only aggregate with several writers on a normal day: dispatchers (edit, publish,
-accept, hand over) and five automatic writers. They are the solve-result listener, the listeners for
-cancelled and for rescheduled orders, Live Operations' late-outcome call and the route re-check job.
+accept, hand over) and six automatic writers. They are the solve-result listener, the listeners for
+cancelled and for rescheduled orders, Live Operations' late-outcome call, the route re-check job and
+the midnight job, which completes or abandons a plan (`complete`, `abandon`).
 It sees a few writes a minute at its peak ([DL §11][DL-11]). The 15 phones' positions are records
 with no version, and their reports go to 200 separate `Delivery` aggregates, never to `Plan`.
 
@@ -30,6 +31,10 @@ save ([DL §3.1][DL-31], [DL §3.6][DL-36]). This ADR records it and the rule fo
 - **A listener that loses the race retries at once, up to three times.** It then fails the
   event publication, and Spring Modulith's registry resubmits it, at most five times, before the team
   is alerted ([PL §11.2][PL-112], [PL §11.3][PL-113]).
+- **The midnight job retries the same way.** When the version check refuses its `complete` or
+  `abandon`, the job reloads the plan and retries, up to three times like a listener, then alerts the
+  team. A dispatcher's save that beat it, or the other way round, ends in the same refusal as for any
+  other writer.
 - **One running re-optimization per plan is a rule over a set of jobs,** so a version check does not
   hold it. Its owner is `SolveJob.queue`, backed by a partial unique index on running
   re-optimization jobs per plan. A second request fails with `ReoptimizationAlreadyRunning` and the

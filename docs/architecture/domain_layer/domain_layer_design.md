@@ -98,7 +98,7 @@ Audit without a cycle ([ADR-040]).
 
 | Upstream | Downstream | Relationship | How they talk |
 |---|---|---|---|
-| Access | Every core module | Open host for identity; the others conform to its account IDs and roles | The `Actor` value; Access's `Accounts` query |
+| Access | Every core module | Open host for identity; the others conform to its account IDs and roles | The `Actor` value; Access's `Accounts` query; for Live Operations also the `SessionContacts` query, which answers whether a session made contact within a window (BR-132) |
 | Audit | Every core module | Open host | `AuditLog.record`, in the same transaction as the change (NFR-23) |
 | Access | Fleet | Customer and supplier; shared identity: a `Driver` has the ID of the driver's account | Fleet asks `Accounts` whether an account is active and holds the Driver role |
 | Fleet | Planning | Customer and supplier | Planning reads the roster and the fleet register through Fleet's API, translating them into its own values; calls `MoveVehicleWithRoute`; implements Fleet's `RecordUsage` |
@@ -209,6 +209,7 @@ constructor, so an invalid one can't exist. Equality is by value. No signature i
 | `PublishingChecks`, `DriverStanding`, `ChangesSinceBasis`, `StartedRoutes` | Planning | The facts from other modules that `Plan`'s methods judge (§4.4) | — |
 | `CorrectedTime` | Live Operations | A report's device time moved by the phone's clock offset, and cut to the server's receipt time if it would be later (BR-44, BR-110, BR-114) | — |
 | `Entitlement` | Live Operations | Planning's answer that a stop was on a driver's route in the revision in force at a time (BR-110) | — |
+| `HoldCheck` | Live Operations | Where the stop is now (on the reporting driver's route, on another's, or its order cancelled), from Planning's `RouteMembership`, and whether the report's session made contact between 2 minutes after the corrected time and 2 minutes before the report arrived, from Access's `SessionContacts`. `holds(correctedTime, receivedAt)` is true when the report would move the stop or override a cancellation and such a contact exists (BR-132) | — |
 | `Proof`, `FailureReason`, `Outcome` | Live Operations | A signature or a photo (FR-367); a reason from the company's list; delivered or failed with its details | — |
 | `ArrivalProjection`, `StartDeadline`, `TrackingWindow` | Live Operations | Projected arrivals (§10.4); shift start plus allowance plus 15 minutes (FR-101); start to 1 hour after shift end (FR-328) | — |
 | `MessageText`, `Reply`, `Rating`, `PhoneHash`, `DailySendCap` | Messaging | A text starting with the company name, within 70 characters (FR-382); a parsed reply (FR-363, FR-376); 1 to 10; a keyed hash (NFR-202); the day's accepted messages and the cap (NFR-196) | `RatingOutOfRange` |
@@ -321,7 +322,7 @@ and every aggregate that holds one inherits them.
 |---|---|---|---|
 | `CompanyProfile` | The company's name and language (FR-125) | `rename`, `changeLanguage` | One; Admins |
 | `UserAccount` | `EmailAddress`, `RoleSet`, `PasswordHash`, state (*active*, *deactivated* or *anonymized*), language, token `Generation`, and its credential links (entities: kind, token hash, expiry, *open*, *spent* or *voided*) | `open`, `changeRoles`, `deactivate`, `reactivate`, `changePassword`, `changeEmail`, `issueLink`, `spendLink`, `anonymize` | One per person; the person and Admins, rarely |
-| `Session` | Its account, the account generation it began under, its own `Generation`, state (*live* or *revoked*), the last step-up, and its chain of refresh tokens (entities: hash, issue time, exchange time, successor) | `open`, `exchange`, `confirmPassword`, `revoke` | One per signed-in device; that device |
+| `Session` | Its account, the account generation it began under, its own `Generation`, state (*live* or *revoked*), the last step-up, its contact times for the day, and its chain of refresh tokens (entities: hash, issue time, exchange time, successor) | `open`, `exchange`, `confirmPassword`, `recordContact`, `revoke` | One per signed-in device; that device |
 
 | Invariant | Owner | Error |
 |---|---|---|
@@ -330,13 +331,14 @@ and every aggregate that holds one inherits them.
 | A password is at least 8 characters and not a common one (NFR-95) | `NewPassword` | `PasswordTooShort`, `PasswordTooCommon` |
 | A role, password or email change, a deactivation, or losing the last role revokes every token and session at once (NFR-89, NFR-90, NFR-177, BR-123) | `UserAccount`: each of those methods increments its `Generation` | — |
 | A deactivated account, or one with no role, can't sign in | `UserAccount.allowsSignIn` | `AccountDeactivated`, `AccountHasNoRole` |
-| A deactivated account is anonymized a year after deactivation. The record stays, because plans and audit records refer to it (NFR-258, NFR-260, [ADR-075]) | `UserAccount.anonymize(now)` | `RetentionNotOver` |
+| Every deactivated account, whatever its roles, is anonymized a year after deactivation. The record stays, because plans and audit records refer to it (NFR-258, NFR-260, [ADR-075]) | `UserAccount.anonymize(now)` | `RetentionNotOver` |
 | A newer link voids older links of its kind; a password change voids all of them (NFR-224) | `UserAccount.issueLink`, `changePassword` | — |
 | A link is spent once, before it expires (NFR-211) | `UserAccount.spendLink` | `LinkExpired`, `LinkAlreadyUsed`, `LinkVoided` |
 | A refresh token is exchanged once; a second exchange within 30 s gets the same successor; any later reuse revokes the session (NFR-88, NFR-178) | `Session.exchange` | `RefreshRefused` (the same answer for every refusal, NFR-92) |
 | A session ends 14 days after it opened (NFR-87) | `Session.exchange` | `RefreshRefused` |
 | Confirming the password refuses the session's older tokens (NFR-214) | `Session.confirmPassword`: its `Generation` + 1 | — |
 | Admin-only operations need the password confirmed in the last 5 minutes (NFR-214, NFR-227) | `Session.requireFreshStepUp` | `StepUpRequired` |
+| A session keeps its contact times for the day: every request from it other than a token refresh or an outbox send. One time is not enough, because a later request would hide an earlier one inside the window. The endpoint decides which requests count, never a header the client sets (BR-132) | `Session.recordContact(now)`. It appends a time and never moves the `Version` or the `Generation`, so it can't make a refresh fail `STALE_VERSION`. Times older than the day are dropped | — |
 
 **In the Alpha:** seeded accounts, sign-in and `RoleSet.can`. Sessions in full, links and step-up come
 in Semester B.
@@ -532,9 +534,11 @@ classDiagram
     Status status
     List~OutcomeRecord~ records
     arrive(report, Entitlement)
-    deliver(report, Proof, Entitlement)
-    fail(report, FailureReason, Entitlement)
+    deliver(report, Proof, Entitlement, HoldCheck)
+    fail(report, FailureReason, Entitlement, HoldCheck)
     correct(Outcome, reason, by)
+    confirmHeld(reportId, by, now)
+    refuseHeld(reportId, by, now)
   }
   class RouteRun {
     <<AggregateRoot>>
@@ -596,7 +600,7 @@ and manual edits come later; edits are in if M4 finishes early.
 
 | Aggregate | Holds | Operations | Size and writers |
 |---|---|---|---|
-| `Delivery` | Its stop's ID, order and attempt; state (*arrived*, *delivered* or *failed*, from the effective outcome); every outcome record (entities: kind, reason, `Proof`, left at the door, by whom, on behalf or not, `CorrectedTime`, the revision that entitled it, what it corrects) | `firstFact`, `arrive`, `deliver`, `fail`, `recordOnBehalf`, `correct` | One per stop, created by its first fact; the driver's phone and dispatchers |
+| `Delivery` | Its stop's ID, order and attempt; state (*held*, *arrived*, *delivered* or *failed*, from the effective outcome); every outcome record (entities: kind, reason, `Proof`, left at the door, by whom, on behalf or not, `CorrectedTime`, the revision that entitled it, what it corrects, and for a held report its state: *held*, *confirmed* or *refused*) | `firstFact`, `arrive`, `deliver`, `fail`, `recordOnBehalf`, `correct`, `confirmHeld`, `refuseHeld` | One per stop, created by its first fact; the driver's phone and dispatchers |
 | `RouteRun` | Its route's ID, state (*started* or *finished*, with pending stops), `TrackingWindow`, the last revision the driver confirmed | `start`, `finish`, `acknowledge`, and the query `acceptsPositionAt` | One per route, created by its first fact; the driver and the first report |
 | `Alert` | Kind, references, dedupe key, raise time, state (*open* or *acknowledged*) | `raise`, `acknowledge` | One per alert; any module through `RaiseAlert`, dispatchers |
 
@@ -610,6 +614,9 @@ fetches the details (Q-97, [ADR-083]).
 |---|---|---|
 | A driver reports only a stop that was on their route in the revision in force at the report's corrected time (BR-02, BR-110, BR-114) | `Delivery`, which requires an `Entitlement` for a driver's report | `StopNotOnYourRoute` |
 | The first outcome wins; a report that contradicts it is refused, and the dispatcher is alerted (BR-18, BR-88, BR-90) | `Delivery` | `OutcomeAlreadyRecorded` |
+| A late outcome that would take a stop off another driver's route, or override a cancellation, is held, not recorded, when its session was in contact between 2 minutes after the report's corrected time and 2 minutes before the report arrived. A held report changes no route and raises no `OutcomeRecorded`. The dispatcher is alerted, and the phone's outbox is told it was received (BR-132, §8) | `Delivery.deliver`, `fail`, given a `HoldCheck`, whose `holds(correctedTime, receivedAt)` makes the decision | — (the answer is *held*) |
+| While a report is held, an outcome recorded for the stop on its current route wins: the held report is refused, as BR-90 says, and shown to the dispatcher (BR-132, BR-90) | `Delivery.deliver`, `fail`, `recordOnBehalf` | — |
+| A dispatcher confirms or refuses a held report, once. Confirming records the outcome it states; refusing is a BR-90 refusal, shown to the dispatcher (BR-132, BR-90) | `Delivery.confirmHeld`, `refuseHeld` | `ReportNotHeld` |
 | A driver's *delivered* needs a proof (FR-367) | `Delivery.deliver` | `ProofRequired` |
 | A *failed* report needs a reason | `Delivery.fail` | `FailureReasonRequired` |
 | *Left at the door* is recorded only for a leave-at-door order (FR-366) | `Delivery.deliver`, given whether the order may be left at the door | `NotALeaveAtDoorOrder` |
@@ -664,9 +671,11 @@ Everything else in Reporting is read models over the views other modules publish
 ### 4.8 Audit
 
 Audit records are records (§3.2), written through `AuditLog` in the transaction of the change they
-describe (NFR-23). They never carry personal data (NFR-94). The application's database role can only
-insert and read them, so a nightly one-shot `retention` step, run as the owner role and not in the core,
-deletes them after 1 year (NFR-258, [ADR-075], [ADR-041]).
+describe (NFR-23). They never carry personal data (NFR-94). The application's database role (`app`) can
+only insert and read them, and may execute one database function, owned by `dispatchflow_owner`, that
+deletes only audit records older than 1 year and computes the cutoff itself. The core's nightly retention
+job calls it (§10.3), so no separate step runs and the owner credential stays deploy-only (NFR-258,
+[ADR-075], [ADR-041]).
 
 ### 4.9 Optimization (Python)
 
@@ -758,7 +767,9 @@ call, never in the same transaction.
 | Put back a failed order | `Order` → the next attempt (FR-258) | — | — |
 | Upload a file | — | `ImportBatch` (*previewed*) | — |
 | Confirm an import | `ImportBatch` → *confirmed* | Its `Customer`s and `Order`s; geocoding requests | — |
-| A driver reports a stop | `Delivery`, or creates it | The `RouteRun`, on the route's first report (FR-327) | `OutcomeRecorded` for an outcome; `RouteStarted` when the run was created |
+| A driver reports a stop | `Delivery`, or creates it. A report that BR-132 holds is stored as *held* and records no outcome | The `RouteRun`, on the route's first report (FR-327); a held report doesn't count until confirmed. An `Alert` for the dispatcher, when the report is held | `OutcomeRecorded` for an outcome; `RouteStarted` when the run was created. Nothing for a held report: the phone's outbox gets an acknowledgement (§8) |
+| A dispatcher confirms a held report | `Delivery` → the outcome the report states | The `RouteRun`, if this is the reporting route's first report | `OutcomeRecorded` → reconciliation through Planning (§8) |
+| A dispatcher refuses a held report | `Delivery` → the report *refused* (BR-90) | — | — |
 | A dispatcher corrects an outcome | `Delivery` | — | `OutcomeCorrected` |
 | The driver starts the route | — | `RouteRun` | `RouteStarted` |
 | The driver finishes the route | `RouteRun` → *finished* | An `Alert` when stops are pending (FR-329) | — |
@@ -858,10 +869,22 @@ delivery has already happened on the street. The design accepts the fact and cor
    the use case asks Planning's `RouteMembership` and passes the answer to `Delivery` as an
    `Entitlement`. A report that contradicts an outcome already recorded is refused, and the dispatcher is
    alerted (BR-18, BR-88, BR-90). One timed before the order or plan was cancelled is not refused (BR-130).
-   A report that would move a stop off another driver's route, or override a cancellation, is held for
-   the dispatcher's confirmation if its session contacted the server after the report's corrected time,
-   with 2 minutes' grace (BR-132). A phone that was in contact after the time it claims was not offline,
-   so its corrected time is in doubt.
+   A report that would move a stop off another driver's route, or override a cancellation, is *held*
+   for the dispatcher's confirmation if its session was in contact with the server between 2 minutes
+   after the report's corrected time and 2 minutes before the report arrived (BR-132). A phone that was
+   in contact after the time it claims was not offline, so its corrected time is in doubt. A token
+   refresh and an outbox send are not contact, because the phone makes them while it empties its queue.
+   The use case builds a `HoldCheck` from `RouteMembership` and Access's `SessionContacts`, and
+   `Delivery` decides.
+   - **What the outbox gets back:** the report is acknowledged, so the phone stops resending it
+     (FR-248). The dispatcher is alerted, and the report waits as *held*. It records no outcome, raises
+     no `OutcomeRecorded` and changes no route.
+   - **The dispatcher decides:** confirming records the outcome the report states, and step 2 follows
+     as for any accepted fact. Refusing is a BR-90 refusal: the report is refused and shown to the
+     dispatcher.
+   - **An outcome on the stop's current route wins:** while a report is held, an outcome recorded for
+     the stop on its current route (the driver's, or a dispatcher's on their behalf) stands, and the
+     held report is refused as BR-90 says. The first outcome wins (BR-18) in both orders.
 2. **An accepted fact stands.** `Delivery` records it and raises `OutcomeRecorded`. Live Operations'
    listener compares it with the current revision, through `RouteMembership`. If the two disagree, it
    calls `ReconcileLateOutcome`, which changes `Plan` and returns what it changed; the listener then
@@ -968,18 +991,39 @@ plan whose date is over (§9.1).
 
 ### 9.3 Delivery (BR-87)
 
-A `Delivery` is created by the first fact, so *pending* means no `Delivery` exists yet.
+A `Delivery` is created by the first fact, so *pending* means no fact stands: no `Delivery` exists yet,
+or its only report was refused.
 
 ```mermaid
 stateDiagram-v2
   [*] --> arrived : arrive
   [*] --> delivered : deliver, with proof if a driver's
   [*] --> failed : fail, with a reason
+  [*] --> held : deliver or fail, held under BR-132
   arrived --> delivered : deliver
   arrived --> failed : fail
+  arrived --> held : deliver or fail, held under BR-132
+  pending --> arrived : arrive
+  pending --> delivered : deliver
+  pending --> failed : fail
+  pending --> held : deliver or fail, held under BR-132
+  held --> delivered : confirmed as delivered
+  held --> failed : confirmed as failed
+  held --> delivered : overtaken by a delivered outcome on the stop's current route
+  held --> failed : overtaken by a failed outcome on the stop's current route
+  held --> arrived : refused, an arrival was recorded
+  held --> pending : refused, no arrival was recorded
   delivered --> failed : dispatcher's correction
   failed --> delivered : dispatcher's correction
 ```
+
+A report is held only when it would move a stop off another driver's route or override a cancellation,
+and only an outcome (*delivered* or *failed*) can be held, never an arrival. A held report is one of
+three things in the end. **Confirmed** by a dispatcher: it becomes the stop's outcome. **Refused** by a
+dispatcher: it is a BR-90 refusal, shown to the dispatcher. **Overtaken**: an outcome recorded for the
+stop on its current route becomes the stop's outcome, and the held report is refused as BR-90 says. In
+the last two cases the held report stays on record, marked *refused*. An arrival recorded while a
+report is held doesn't change the state (BR-132).
 
 A dispatcher may correct a failed stop to delivered after a put-back (FR-258) while the new attempt's
 stop has no outcome. The new stop then leaves its route, and the change is audited. Once the new stop has
@@ -1021,7 +1065,8 @@ stateDiagram-v2
 `OrderStatus.derive(order, placement, progress)` takes one value from each of its three owners and
 returns the first match:
 
-1. **delivered / failed**: the effective outcome of the current attempt's `Delivery`. This is a fact.
+1. **delivered / failed**: the effective outcome of the current attempt's `Delivery`. This is a fact. A
+   held report (§9.3) is not an outcome, so it changes nothing here until a dispatcher confirms it.
 2. **cancelled**: the `Order` is cancelled.
 3. **planned / dropped**: where the `Plan` holds the current attempt, unless that plan is *abandoned*.
 4. **unplanned**: anything else, including a put-back that starts a new attempt (FR-258) and an order
@@ -1050,12 +1095,13 @@ Nothing the business keeps history about is deleted. It ends in a named state, a
 | Proposal | *declined*; accepted (a revision cites it); or refused as outdated when someone tries to accept it | The proposal |
 | Order | *cancelled*; or put back, starting a new attempt | The order and every attempt's facts |
 | Delivery | Corrected | The original outcome, beside the correction (FR-333) |
+| Held report | *confirmed*, or *refused* by a dispatcher or by an outcome on the stop's current route (BR-132, BR-90) | The report, with who decided |
 | Stop with no report at midnight | Its order stays *planned*; a late report or a dispatcher's record settles it (BR-129, Q-94 #1) | The stop, shown as *not reported* in the summary |
 | Route | *withdrawn* by a re-optimization, or handed over | The revision history |
 | Route run | *finished* | The run |
 | Customer, driver | *retired*, then *anonymized* a year later; a customer never retired is anonymized a year after the last order (BR-98, NFR-152) | The figures, without personal data |
 | Vehicle, depot | *retired* (BR-43) | The record |
-| Account | *deactivated*, then *anonymized* a year later (NFR-258) | The record, without personal data: plans and audit records refer to it |
+| Account, of any role | *deactivated*, then *anonymized* a year later (NFR-258, NFR-260) | The record, without personal data: plans and audit records refer to it |
 | Session, credential link | *revoked* or expired; *spent*, *voided* or expired | The record, until retention |
 | Alert | *acknowledged* | The alert |
 | Message | *accepted* or *dropped* | The message, until retention |
@@ -1066,11 +1112,12 @@ Deletion happens only where retention requires it (NFR-31, NFR-184, NFR-257 to N
 A row that other records refer to is anonymized in place instead.
 
 - **Deleted:** positions after 7 days; proofs, messages and replies after 90 days; audit records after
-  1 year; sessions 30 days after they end; geocode cache entries unused for 1 year; research instances
+  1 year, by the purge function that `dispatchflow_owner` owns and the core's nightly retention job calls
+  (§4.8); sessions 30 days after they end; geocode cache entries unused for 1 year; research instances
   1 year after the project ends; backups, which age out of the bucket after 35 days.
 - **Anonymized:** an order's personal fields 90 days after its date; a customer 1 year after retirement,
-  or after the last order if never retired; a driver 1 year after retirement; an Admin or Dispatcher
-  account 1 year after deactivation.
+  or after the last order if never retired; a driver 1 year after retirement; every account, whatever its
+  roles, 1 year after deactivation.
 
 The rows of a discarded or expired import preview are also deleted (§9.4).
 
@@ -1133,8 +1180,8 @@ routes, and the plan stores them, so the core never applies a factor. The rules 
 | An import preview expires after an hour, and its rows are deleted | `ImportBatch.confirm` and `expire` | On confirmation, and an hourly sweep |
 | A published plan completes at midnight, and a plan still unpublished is abandoned (BR-102, BR-127). Before either, every queued or running solve job of the date fails (BR-128) | `Plan.complete(today)` and `Plan.abandon(today)`, after `SolveJob.fail` for every queued or running job of that date | A job at 00:00 |
 | A geocoding lookup is retried for 24 hours (FR-64) | The geocoding request (outbox row) | Every 15 minutes |
-| Positions are kept 7 days; proofs, messages and replies 90 days. An order's personal fields are removed 90 days after its date. A customer is anonymized 1 year after retirement or after their last order, a driver 1 year after retirement, an Admin or Dispatcher account 1 year after deactivation. Sessions are deleted 30 days after they end, geocode cache entries unused for 1 year, research instances 1 year after the project ends (NFR-31, NFR-184, NFR-257 to NFR-260, BR-98, [ADR-075]). Backups age out of the bucket after 35 days | `RetentionPeriods`; `Customer.anonymize(now)`, `Driver.anonymize(now)`, `UserAccount.anonymize(now)` | A job at 03:00 |
-| Audit records are deleted after 1 year (NFR-258, [ADR-075]) | A nightly one-shot `retention` step, run as the owner role like `migrate`, because the application's role can only insert and read audit records ([ADR-041]). The core doesn't run it | Nightly |
+| Positions are kept 7 days; proofs, messages and replies 90 days. An order's personal fields are removed 90 days after its date. A customer is anonymized 1 year after retirement or after their last order, a driver 1 year after retirement, every account, whatever its roles, 1 year after deactivation. Sessions are deleted 30 days after they end, geocode cache entries unused for 1 year, research instances 1 year after the project ends (NFR-31, NFR-184, NFR-257 to NFR-260, BR-98, [ADR-075]). Backups age out of the bucket after 35 days | `RetentionPeriods`; `Customer.anonymize(now)`, `Driver.anonymize(now)`, `UserAccount.anonymize(now)` | A job at 03:00 |
+| Audit records are deleted after 1 year (NFR-258, [ADR-075]) | A database function owned by `dispatchflow_owner`, which deletes only records older than 1 year and computes the cutoff itself. The application's role (`app`) may only execute it, because it can only insert and read audit records ([ADR-041]) | The same retention job, at 03:00 in `Asia/Jerusalem` |
 
 ### 10.4 Projected arrivals
 
@@ -1164,10 +1211,10 @@ than one writer may change at once.
 
 | Aggregate | Who may change it at the same moment | How a conflict ends |
 |---|---|---|
-| `Plan` | Dispatchers (edit, publish, accept, hand over), and six automatic writers: the solve-result listener, the listeners for cancelled and for rescheduled orders, Live Operations' late-outcome call, the route re-check job, and the midnight job (`complete`, `abandon`) | A dispatcher gets `STALE_VERSION` (412) and refetches. A listener retries at once, up to three times, then the event registry resubmits it. The version check refuses whichever of a dispatcher and the midnight job saves second, as it does for the other writers; a refused dispatcher then reads a completed or abandoned plan, which no longer changes (BR-118) |
+| `Plan` | Dispatchers (edit, publish, accept, hand over), and six automatic writers: the solve-result listener, the listeners for cancelled and for rescheduled orders, Live Operations' late-outcome call, the route re-check job, and the midnight job (`complete`, `abandon`) | A dispatcher gets `STALE_VERSION` (412) and refetches. A listener retries at once, up to three times, then the event registry resubmits it. The version check refuses whichever of a dispatcher and the midnight job saves second, as it does for the other writers; a refused dispatcher then reads a completed or abandoned plan, which no longer changes (BR-118). When the version check refuses the midnight job, it reloads the plan and retries, up to three times like a listener, then alerts the team |
 | `DayRoster` | Dispatchers, and the hand-over listener | The same |
 | `SolveJob` | Its worker, the watchdog, startup recovery and the midnight job | The version check refuses the loser, which finds the job ended (`JobAlreadyEnded`) and stops |
-| `Delivery` | The driver, a dispatcher correcting or reporting on behalf, and the phone's own retries | A retry carries the same idempotency key and gets the stored answer (NFR-65, NFR-130); otherwise the version decides, and the first outcome wins |
+| `Delivery` | The driver, a dispatcher correcting, reporting on behalf, or confirming or refusing a held report, and the phone's own retries | A retry carries the same idempotency key and gets the stored answer (NFR-65, NFR-130); otherwise the version decides, and the first outcome wins. A dispatcher who confirms a held report that an outcome on the stop's current route has overtaken meanwhile is refused, because the report is no longer held (`ReportNotHeld`) |
 | `RouteRun` | Two first reports from one route at once | The second insert fails on the key, and the report is retried as a change |
 | `StopMessages` | Message triggers and the sender | The sender retries its claim |
 | `Session` | Two tabs refreshing at once | The version decides; the 30 s grace gives both the same successor (NFR-178) |
@@ -1190,7 +1237,8 @@ Each step that crosses a commit has a watcher, so a lost step can't leave someth
 | Step | Expected outcome | Watcher | What the watcher does |
 |---|---|---|---|
 | A queued or running `SolveJob` | Ends within its limit plus 30 s (BR-32); waits at most 5 minutes (BR-112) | The queue watchdog, every 15 s | `expireIfOverdue(now)` fails it, and `SolveFailed` returns the plan to *draft* or *ready* |
-| A plan still unpublished at the midnight after its date | It is *abandoned*, with no solve job of it queued or running | The midnight job, at 00:00 (BR-102, BR-127, BR-128) | Fails every queued or running solve job of that date with the reason *its date passed*, then calls `Plan.complete(today)` or `Plan.abandon(today)` |
+| A plan still unpublished at the midnight after its date | It is *abandoned*, with no solve job of it queued or running | The midnight job, at 00:00 (BR-102, BR-127, BR-128) | Fails every queued or running solve job of that date with the reason *its date passed*, then calls `Plan.complete(today)` or `Plan.abandon(today)`. A save the version check refuses is reloaded and retried up to three times, then alerts the team (§11) |
+| The nightly retention run: the anonymizations, the deletions and the audit purge | Completes each night | A Healthchecks.io ping at the end of each run, as for backups | A missed ping alerts the team |
 | Any event listener | Completes | Spring Modulith's staleness monitor, a resubmission every minute, and republication at restart (plan §11.3) | Resubmits at most 5 times, then alerts the team with the listener's name |
 | A route handed over or removed while the optimizer was down | Checked when it is back. Meanwhile the hand-over or cancellation completes, the route shows *not yet checked*, and publishing refuses (BR-70) | A job every minute while routes show *not yet checked* (FR-304, FR-315, FR-395, NFR-42, [ADR-058]) | Evaluates them and calls `Plan.recordRouteCheck` |
 | `PlanRevised` → the driver confirms | The driver taps "Seen" (FR-97, FR-250) | `RouteRun`'s confirmed revision, on the live screen | The dispatcher sees who hasn't confirmed |

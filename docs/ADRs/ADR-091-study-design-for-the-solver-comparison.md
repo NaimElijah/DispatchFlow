@@ -26,7 +26,7 @@ a value, this ADR is amended.
    OR-Tools is the solver the product runs on ([ADR-005]), and 60 seconds is also the static
    study's limit ([NFR-24]). The 30 solved plans are stored with the study's inputs, their hash goes
    in the run manifest, and a resumed or rerun study reads them and does not solve them again
-   ([NFR-244]).
+   ([NFR-244], [NFR-270]).
 3. **Each insertion's time is drawn from the seed, across the plan's driving hours.**
 4. **Each insertion is separate, from the same plan.** Insertions do not accumulate.
 5. **Research instances are exempt from [BR-101],** as [FR-390] exempts them from [BR-50]. A plan at
@@ -137,6 +137,7 @@ a value, this ADR is amended.
 [NFR-121]: ../requirements/requirements.md#nfr-121
 [NFR-182]: ../requirements/requirements.md#nfr-182
 [NFR-244]: ../requirements/requirements.md#nfr-244
+[NFR-270]: ../requirements/requirements.md#nfr-270
 [PL-22]: https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#22-research-harness-and-disruption-simulation
 [Q-29]: ../requirements/requirements.md#open-questions
 [Q-30]: ../requirements/requirements.md#open-questions
