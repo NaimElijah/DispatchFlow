@@ -131,10 +131,11 @@ Fleet and Customers & Orders have no relationship. Neither does any pair not in 
 5. **The shared kernel is tiny.** It holds the typed IDs (UUIDv7) of every aggregate and every entity
    another context names (§3.1), and nine values that mean the same everywhere: `DeliveryDate`,
    `IsraelDateTime`, `DaySeconds`, `TimeWindow`, `GeoPoint`, `Weight`, `Volume`, `Priority` and
-   `PhoneNumber`. It also holds the building blocks every module's domain uses: `DomainError`,
-   `RuleViolation(s)`, `StoredStateInvalid`, `Version`, `AggregateRoot`, `DomainEvent`, `EventId` and
-   `FreshIds` ([ADR-097]). Nothing with behaviour specific to one context goes there, and a change to it
-   needs the agreement of every module's owner.
+   `PhoneNumber`, plus the free-text rule `PlainText` ([ADR-106]). It also holds the building blocks
+   every module's domain uses: `DomainError`, `RuleViolation(s)`, `StoredStateInvalid`, `Version`,
+   `AggregateRoot`, `DomainEvent`, `EventId` and `FreshIds` ([ADR-097]), and the `PersonalData` marker
+   ([ADR-106]). Nothing with behaviour specific to one context goes there, and a change to it needs the
+   agreement of every module's owner.
 
 **Splitting a module into a service later** changes adapters only: its API calls become HTTP clients
 generated from a new contract, its events go through a message broker (Spring Modulith can externalize
@@ -178,7 +179,8 @@ one belongs to an aggregate that is not the record: whether a position is kept i
 A value object is an immutable Java record, a final class with a private constructor where only one
 caller may build it, or a frozen dataclass in Python. It checks itself in its constructor or factory,
 so an invalid one can't exist. Equality is by value. No signature in the domain takes a raw
-`String`, `int`, `UUID` or `Instant` for a business concept.
+`String`, `int`, `UUID` or `Instant` for a business concept. Every personal value implements the
+kernel's `PersonalData` marker ([ADR-106]).
 
 | Value | Context | What it holds and checks | Error |
 |---|---|---|---|
@@ -191,6 +193,7 @@ so an invalid one can't exist. Equality is by value. No signature in the domain 
 | `Weight`, `Volume` | Shared | Kilograms and litres, present and positive (BR-50), with at most two decimals and the digits their columns hold ([ADR-061]) | `NonPositiveQuantity`, `QuantityOutOfRange` |
 | `Priority` | Shared | 1 to 5, default 3 (BR-53) | `PriorityOutOfRange` |
 | `PhoneNumber` | Shared | E.164, parsed with region IL, refusing letters and extensions; knows whether it is an Israeli mobile (FR-377, FR-378). A stored number is checked as E.164 only, so a newer phone-number library never refuses it | `InvalidPhoneNumber` |
+| `PlainText` | Shared | A name, an address or a note: NFC, with whitespace, space separators and format characters trimmed from the ends, and at most its `TextKind`'s cap in code points; raw input over 8 UTF-16 units per code point of the cap is refused before NFC. In a `NOTE`, CR and CRLF become a line feed. Refuses control characters, except a line feed in a `NOTE` (a CR in a `NAME` or an `ADDRESS` is refused); U+2028 and U+2029 outside a `NOTE`; interior format characters in a `NAME` or an `ADDRESS` other than U+061C and U+200C to U+200F; bidi embedding, override and isolate controls; unpaired surrogates; and private-use and unassigned code points. Text that renders as nothing counts as empty ([ADR-106]) | `TextTooLong`, `TextHasForbiddenCharacters` |
 | `EmailAddress` | Access | The canonical form one account is keyed by (BR-45) | `InvalidEmail` |
 | `RoleSet` | Access | A set of Admin, Dispatcher and Driver; `can(capability)` is the permission matrix (NFR-85) | — |
 | `NewPassword` | Access | At least 8 characters and not on the bundled list of the 3,000 most common (NFR-95) | `PasswordTooShort`, `PasswordTooCommon` |
@@ -1508,3 +1511,4 @@ Nothing. These ADRs record the decisions of this document:
 [ADR-086]: ../../ADRs/ADR-086-csv-imports-upload-then-confirm-within-an-hour.md
 [ADR-097]: ../../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md
 [ADR-100]: ../../ADRs/ADR-100-k-covers-door-windows-outside-a-shift-and-no-vehicle-is-a-drop-reason.md
+[ADR-106]: ../../ADRs/ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md
