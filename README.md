@@ -140,11 +140,11 @@ progress to the web app over server-sent events
 |---|---|---|---|
 | Core backend | Java, Spring Boot, Spring Data JPA; libphonenumber | 21, 4.1.2; 9.0.43 | The team's strongest stack; mature ecosystem for the adapters. libphonenumber parses phone numbers in the pure domain |
 | Database | PostgreSQL 18.6; Flyway (version from the Spring Boot parent) | 18.6 | Relational data with real constraints; versioned SQL migrations |
-| Solver | Python, FastAPI | 3.14, 0.162 | OR-Tools' richest bindings; algorithm work iterates apart from the backend |
+| Solver | Python, FastAPI, NumPy | 3.14, 0.162, 2.5.4 | OR-Tools' richest bindings; algorithm work iterates apart from the backend; NumPy holds the validator's arrays |
 | Web app | React, TypeScript, Vite | 19.3, 6.0, 8.3 | Web app for every role; its driver screens also work in a phone's browser |
 | Phone app | React Native, Expo | 0.88, SDK 58 | One codebase for iOS and Android, for every role |
 | Contracts | OpenAPI, Redocly CLI | 3.1, 2.72 | Each side is built against the contract, not against the other side |
-| Tests | JUnit + Testcontainers, ArchUnit, pytest, Vitest, Jest | ArchUnit 1.5.1 | Real PostgreSQL in tests, never an in-memory stand-in; ArchUnit keeps the domain pure |
+| Tests | JUnit + Testcontainers, ArchUnit, pytest + Hypothesis, import-linter, Vitest, Jest | ArchUnit 1.5.1, Hypothesis 6.170, import-linter 2.16 | Real PostgreSQL in tests, never an in-memory stand-in; ArchUnit and import-linter keep each domain pure |
 | Tooling | just, uv, npm, OSV-Scanner | 1.59, 0.12, 11, 2.7 | One command set locally and in CI; one audit across every ecosystem |
 
 TypeScript is held at 6.0 because typescript-eslint does not support 7 yet
@@ -216,7 +216,7 @@ comments. The rules apply to people and to coding assistants alike.
 |---|---|---|
 | Core unit (`*Test`) | Domain and use cases, no I/O. Today: the shared kernel's values, the domain purity rules (ArchUnit) and the web error handler; no bounded context exists yet | `just core-check` |
 | Core integration (`*IT`) | Against a real PostgreSQL in a container | `just core-check` |
-| Solver | HTTP adapter, dependency boundary | `just solver-check` |
+| Solver | The domain (the validator's crafted-violation catalogue, Hypothesis properties, Solomon best-known solutions accepted), the HTTP adapter, the dependency boundary and import-linter | `just solver-check` |
 | Research | Its environment: the solver and PyVRP are installed | `just research-check` |
 | Web app | Components in jsdom (Vitest + Testing Library) | `just console-check` |
 | Phone app | Components (Jest + React Native Testing Library) | `just driver-app-check` |
@@ -278,13 +278,16 @@ the [ADR index](docs/ADRs/README.md). It also lists ADR-037 to ADR-047, accepted
 2026-11-13 and 2026-11-14, and ADR-048 to ADR-093, which record the rest of the decisions. Each
 supersedes, amends or extends the ADRs its status names, to match the design documents. The code
 does not follow them yet. ADR-094 to ADR-096 settle three points found open afterwards: the
-contract check's base branch, the zod and deepmerge advisories, and the root `CLAUDE.md`.
+contract check's base branch, the zod and deepmerge advisories, and the root `CLAUDE.md`. ADR-097
+to ADR-099 record decisions taken while the domain layer is built.
 
 ## Status and limitations
 
 **Pre-alpha.** Shipped: a skeleton for each of the five components, with its build, formatter,
 linter, tests and CI job; the two contracts; and the solver's and the core backend's health
-probes.
+probes. The domain layer is being built ahead of its milestones: the core's shared kernel with its
+purity rules, and the solver's daily-solve domain (the validator, the objective and the drop
+reasons). Nothing calls either yet.
 
 Planned: the [roadmap](docs/roadmap.md) has the course calendar, the milestones M0 to M13, and the
 definition and demo script of the Alpha (M0 to M5).

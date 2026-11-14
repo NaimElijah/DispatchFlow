@@ -51,7 +51,7 @@ report findings.
   - An error that crosses `api` is an `api` type, since no domain object crosses a boundary ([DL §2.3][DL-23], rule 1). Inside a module, every refusal is a named error of the module's sealed type, with a stable code that the web adapter puts in the problem response ([DL §3.8][DL-38]).
   - Outbound adapters implement ports the inside declares, and an adapter reaches another only through a port ([TS §2.1][TS-21]).
   - No Lombok ([TS §6][TS-6]).
-- **Layering in the solver:** `domain` imports no `fastapi`, `pydantic`, `ortools`, `pyvrp` or `numba`, and `application` nothing from FastAPI, Pydantic or OR-Tools. Nothing in the product imports `pyvrp` (FR-286). Every solver implements the one `Solver` port (ADR-004; [ADR-044], Accepted and not in the tree yet, fixes it as `solve(problem, start, budget, seed)`, with `Problem` alone judging).
+- **Layering in the solver:** `domain` imports no `fastapi`, `pydantic`, `ortools`, `pyvrp` or `numba`, and `application` nothing from FastAPI, Pydantic or OR-Tools. Nothing in the product imports `pyvrp` (FR-286). Every solver implements the one `Solver` port (ADR-004; [ADR-044], Accepted, fixes it as `solve(problem, start, budget, seed)`, with `Problem` alone judging; `Problem` with `validate`, `cost` and `explain_drop` is in the tree, and the `Solver` port is not).
 - **Contracts (ADR-006):**
   - An API change updates `contracts/` in the same change.
   - The client API is served under `/api/v1`.

@@ -33,7 +33,7 @@ are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 | Path | Holds |
 |---|---|
 | `src/backend/core/` | The REST API and system of record: Java 21, Spring Boot 4.1.2, Maven |
-| `src/backend/solver/` | The optimization service: Python 3.14, FastAPI, uv |
+| `src/backend/solver/` | The optimization service: Python 3.14, FastAPI, NumPy, uv |
 | `src/frontend/console/` | The web app, for every role: React, TypeScript, Vite |
 | `src/frontend/driver-app/` | The phone app, for every role: React Native, Expo SDK 58, TypeScript |
 | `src/research/` | Benchmarks, simulation and the order generator: Python, uv. Never deployed |
@@ -139,13 +139,15 @@ src/backend/solver/
   src/dispatchflow_solver/
     __init__.py                    the package marker; one also in adapters/, inbound/ and http/
     py.typed                       marks the package as typed
-    domain/                        problem, solution, objective, validator (placeholder)
+    domain/                        Problem (validate, cost, explain_drop), ProblemFactory, Solution,
+                                   TravelTimeModel, PenaltyScale, RuleId
     application/                   use cases, the Solver port, the registry (placeholder)
     solvers/
       ortools/                     the OR-Tools adapter (placeholder)
       alns/                        the DispatchFlow solver (placeholder)
     adapters/inbound/http/app.py   create_app(): the FastAPI app, with GET /health/liveness
   tests/                           mirrors the package path
+    domain/                        the catalogue, properties, Solomon acceptance (data/solomon/)
     adapters/inbound/http/test_app.py
     test_dependency_boundary.py
 ```
@@ -251,16 +253,18 @@ These follow from
 - **PyVRP is never a dependency of `solver`.** Only `src/research` installs it.
 - **The frontends talk only to `core`.** The API client is generated and never edited.
 
-Two rules are checked by tests today:
+Three sets of rules are checked automatically today:
 - the PyVRP rule;
-- in `core`, the domain's purity rules.
+- in `core`, the domain's purity rules;
+- in `solver`, the import-linter contracts in `pyproject.toml`: the domain imports no framework or
+  solver, the layers point one way, and the product never imports PyVRP.
 
 The purity rules are ArchUnit tests in `src/test/java/com/dispatchflow/architecture/`, over
 `shared` and every module's `domain` and `events` packages
 ([domain layer design §3.9](domain_layer/domain_layer_design.md#39-purity)). The rest are
 conventions that review enforces.
-[Tech stack §2.2](tech_stack.md#22-enforcement) also plans Spring Modulith's `verify()` and
-import-linter for the Alpha
+[Tech stack §2.2](tech_stack.md#22-enforcement) also plans Spring Modulith's `verify()` for the
+Alpha
 ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md),
 Accepted).
 
