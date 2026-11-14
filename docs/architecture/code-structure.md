@@ -253,16 +253,18 @@ These follow from
 - **PyVRP is never a dependency of `solver`.** Only `src/research` installs it.
 - **The frontends talk only to `core`.** The API client is generated and never edited.
 
-Two rules are checked by tests today:
+Three sets of rules are checked by tests today:
 - the PyVRP rule;
-- in `core`, the domain's purity rules.
+- in `core`, the domain's purity rules;
+- in `solver`, the import-linter contracts in `pyproject.toml`: the domain imports no framework or
+  solver, the layers point one way, and the product never imports PyVRP.
 
 The purity rules are ArchUnit tests in `src/test/java/com/dispatchflow/architecture/`, over
 `shared` and every module's `domain` and `events` packages
 ([domain layer design §3.9](domain_layer/domain_layer_design.md#39-purity)). The rest are
 conventions that review enforces.
-[Tech stack §2.2](tech_stack.md#22-enforcement) also plans Spring Modulith's `verify()` and
-import-linter for the Alpha
+[Tech stack §2.2](tech_stack.md#22-enforcement) also plans Spring Modulith's `verify()` for the
+Alpha
 ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md),
 Accepted).
 

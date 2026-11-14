@@ -119,6 +119,6 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > requirements and the design documents for the team. ADR-037 to ADR-047 were accepted then, and
 > ADR-048 to ADR-093 record the rest, including every decision the requirements marked
 > `ADR pending`. ADR-094 to ADR-096, on 2026-11-14, settle three points that were found still open
-> afterwards. ADR-097, on 2026-11-14, records a decision taken while the domain layer was being
-> built. The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what
+> afterwards. ADR-097 and ADR-098, on 2026-11-14, record decisions taken while the domain layer was
+> being built. The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what
 > is still open.

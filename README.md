@@ -140,11 +140,11 @@ progress to the web app over server-sent events
 |---|---|---|---|
 | Core backend | Java, Spring Boot, Spring Data JPA; libphonenumber | 21, 4.1.2; 9.0.43 | The team's strongest stack; mature ecosystem for the adapters. libphonenumber parses phone numbers in the pure domain |
 | Database | PostgreSQL 18.6; Flyway (version from the Spring Boot parent) | 18.6 | Relational data with real constraints; versioned SQL migrations |
-| Solver | Python, FastAPI | 3.14, 0.162 | OR-Tools' richest bindings; algorithm work iterates apart from the backend |
+| Solver | Python, FastAPI, NumPy | 3.14, 0.162, 2.5.4 | OR-Tools' richest bindings; algorithm work iterates apart from the backend; NumPy holds the validator's arrays |
 | Web app | React, TypeScript, Vite | 19.3, 6.0, 8.3 | Web app for every role; its driver screens also work in a phone's browser |
 | Phone app | React Native, Expo | 0.88, SDK 58 | One codebase for iOS and Android, for every role |
 | Contracts | OpenAPI, Redocly CLI | 3.1, 2.72 | Each side is built against the contract, not against the other side |
-| Tests | JUnit + Testcontainers, ArchUnit, pytest, Vitest, Jest | ArchUnit 1.5.1 | Real PostgreSQL in tests, never an in-memory stand-in; ArchUnit keeps the domain pure |
+| Tests | JUnit + Testcontainers, ArchUnit, pytest + Hypothesis, import-linter, Vitest, Jest | ArchUnit 1.5.1, Hypothesis 6.170, import-linter 2.16 | Real PostgreSQL in tests, never an in-memory stand-in; ArchUnit and import-linter keep each domain pure |
 | Tooling | just, uv, npm, OSV-Scanner | 1.59, 0.12, 11, 2.7 | One command set locally and in CI; one audit across every ecosystem |
 
 TypeScript is held at 6.0 because typescript-eslint does not support 7 yet

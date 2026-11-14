@@ -34,13 +34,16 @@ today.
 | Component | Is | Does today |
 |---|---|---|
 | `core` (`src/backend/core`) | Spring Boot 4.1.2, Java 21 | Starts, connects to PostgreSQL, answers `GET /actuator/health`, and turns an unhandled exception into a 500 problem body |
-| `solver` (`src/backend/solver`) | FastAPI, Python 3.14 | Answers `GET /health/liveness` with `{"status":"UP"}` |
+| `solver` (`src/backend/solver`) | FastAPI, Python 3.14, NumPy | Answers `GET /health/liveness` with `{"status":"UP"}`, and holds the daily-solve domain (the validator, the objective and the drop reasons), which nothing calls yet |
 | `console` (`src/frontend/console`) | React, Vite | Renders a heading |
 | `driver-app` (`src/frontend/driver-app`) | React Native, Expo SDK 58 | Renders a heading |
 | `research` (`src/research`) | Python, uv; never deployed | Installs `solver` and PyVRP in one environment, and imports neither yet: `tests/test_environment.py` only checks that both can be found. `benchmark/`, `simulation/`, `generator/`, `instances/` and `results/` hold only `.gitkeep` |
 
 `core` has no controller, entity or Flyway migration: `src/main/resources/db/migration/` holds
-only a `.gitkeep`. `solver`'s `domain`, `application` and `solvers` folders hold only `.gitkeep`.
+only a `.gitkeep`. `solver`'s `application` and `solvers` folders hold only `.gitkeep`; its `domain`
+holds the daily-solve domain
+([ADR-098](../ADRs/ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) fixes its
+numbers).
 `core` holds the shared kernel (`com.dispatchflow.shared`): typed IDs, the nine shared values and
 the domain's building blocks
 ([ADR-097](../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md)). Nothing calls
@@ -100,7 +103,8 @@ have a `Dockerfile`, and neither runs as root
   fixes its call as `solve(problem, start, budget, seed)`). The port does not exist yet.
 - **PyVRP stays out of `solver`.** `src/backend/solver/tests/test_dependency_boundary.py` holds two
   tests. One fails if PyVRP is installed there, and the other if PyVRP is locked in its `uv.lock`.
-  With `core`'s purity and shape rules, they are the only architecture rules a test checks today.
+  With `core`'s purity and shape rules and `solver`'s import-linter contracts, they are the only
+  architecture rules a test checks today.
 - **Flyway owns the schema.** `core` sets `spring.jpa.hibernate.ddl-auto=validate`, so Hibernate
   never changes it ([ADR-007](../ADRs/ADR-007-postgresql-with-flyway-migrations.md), superseded by
   [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md),
