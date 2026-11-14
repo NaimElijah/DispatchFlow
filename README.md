@@ -277,7 +277,8 @@ The other decisions, including the repository layout, the two clients and the to
 the [ADR index](docs/ADRs/README.md). It also lists ADR-037 to ADR-047, accepted in this round, on
 2026-11-13 and 2026-11-14, and ADR-048 to ADR-093, which record the rest of the decisions. Each
 supersedes, amends or extends the ADRs its status names, to match the design documents. The code
-does not follow them yet.
+does not follow them yet. ADR-094 to ADR-096 settle three points found open afterwards: the
+contract check's base branch, the zod and deepmerge advisories, and the root `CLAUDE.md`.
 
 ## Status and limitations
 
@@ -294,10 +295,12 @@ Known limitations:
 - `docker compose` is not set up; each component runs on its own. `compose.dev.yaml` is part of
   the M0 walking skeleton (ADR-042, Accepted).
 - Four vulnerabilities in the frontends' build, lint and test tooling are ignored by the audit
-  until 2027-01-31. The zod and deepmerge entries still await the owner's review. The reasons are
-  in `src/frontend/console/osv-scanner.toml` and `src/frontend/driver-app/osv-scanner.toml`
+  until 2027-01-31. The owner accepted all four: minimatch and glob in ADR-023, zod and deepmerge
+  in ADR-095. The reasons are in `src/frontend/console/osv-scanner.toml` and
+  `src/frontend/driver-app/osv-scanner.toml`
   ([ADR-016](docs/ADRs/ADR-016-dependency-audit-with-osv-scanner.md),
-  [ADR-023](docs/ADRs/ADR-023-accept-minimatch-and-glob-advisories.md)).
+  [ADR-023](docs/ADRs/ADR-023-accept-minimatch-and-glob-advisories.md),
+  [ADR-095](docs/ADRs/ADR-095-accept-the-zod-and-deepmerge-advisories-until-2027-01-31.md)).
 
 ## Contributing
 
