@@ -1,0 +1,29 @@
+package com.dispatchflow.fleet.domain;
+
+import com.dispatchflow.shared.DeliveryDate;
+import com.dispatchflow.shared.VehicleId;
+import com.dispatchflow.shared.Version;
+import java.util.List;
+import java.util.Objects;
+
+/**
+ * One date's roster as stored: what {@link DayRoster#snapshot()} returns and {@link
+ * DayRoster#restore} rebuilds from.
+ *
+ * @param date the delivery date, which keys the roster
+ * @param version the version it was loaded at
+ * @param entries one per rostered driver, in the order they were rostered
+ * @param unavailableVehicles the vehicles marked unavailable that date, in the order they were
+ *     marked (FR-07, FR-301)
+ */
+public record DayRosterSnapshot(
+        DeliveryDate date, Version version, List<RosterEntry> entries, List<VehicleId> unavailableVehicles) {
+
+    /** Copies the lists. */
+    public DayRosterSnapshot {
+        Objects.requireNonNull(date, "date");
+        Objects.requireNonNull(version, "version");
+        entries = List.copyOf(entries);
+        unavailableVehicles = List.copyOf(unavailableVehicles);
+    }
+}
