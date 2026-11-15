@@ -419,6 +419,16 @@ REFUSED = [
     ),
     pytest.param({"orders": [an_order(weight_kg=-1)]}, r"weight_kg\[0\]", id="negative weight"),
     pytest.param({"orders": [an_order(weight_kg=10**400)]}, "weight_kg", id="weight overflow"),
+    pytest.param(
+        {"orders": [an_order(weight_kg=True), an_order(weight_kg=2.5)]},
+        r"^orders\.weight_kg\[0\] must be a number: True$",
+        id="a bool among weights",
+    ),
+    pytest.param(
+        {"orders": [an_order(), an_order(service_s=np.True_)]},
+        r"^orders\.service_s\[1\] must be a number: np\.True_$",
+        id="a NumPy bool among service times",
+    ),
     pytest.param({"orders": [an_order(service_s=-5)]}, r"service_s\[0\]", id="negative service"),
     pytest.param({"orders": [an_order(location=7)]}, r"location.*7", id="order location"),
     pytest.param({"orders": [an_order(location=2**64)]}, "location", id="location overflow"),

@@ -81,10 +81,11 @@ class TravelTimeModel:
         buffer: The safety margin, as a fraction of the factored time (FR-227).
 
     Raises:
-        InvalidProblemError: If a bucket is not a `TravelBucket`, buckets overlap, the off-peak
-            factor or the buffer is no number, the off-peak factor is not positive and finite, or
-            the buffer is negative or not finite. A method that times a leg raises it too when
-            the leg's time is past a float, which only a factor of about 1e308 can make.
+        InvalidProblemError: If the buckets are not iterable, a bucket is not a `TravelBucket`,
+            buckets overlap, the off-peak factor or the buffer is no number, the off-peak factor
+            is not positive and finite, or the buffer is negative or not finite. A method that
+            times a leg raises it too when the leg's time is past a float, which only a factor of
+            about 1e308 can make.
     """
 
     buckets: tuple[TravelBucket, ...]
@@ -94,7 +95,13 @@ class TravelTimeModel:
 
     def __post_init__(self) -> None:
         """Sorts a copy of the buckets and refuses overlaps, a bad factor and a bad buffer."""
-        buckets = tuple(self.buckets)
+        try:
+            buckets = tuple(self.buckets)
+        except TypeError as error:
+            # The type, not the value: an int of more than 4,300 digits refuses to be printed.
+            raise InvalidProblemError(
+                f"buckets must be a sequence of TravelBucket, not {type(self.buckets).__name__}"
+            ) from error
         for index, bucket in enumerate(buckets):
             if not isinstance(bucket, TravelBucket):
                 raise InvalidProblemError(f"buckets[{index}] is not a TravelBucket")

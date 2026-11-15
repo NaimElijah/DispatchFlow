@@ -45,11 +45,16 @@ On 2026-11-15 the owner, Naim Elijah, decided:
    - `moved_stops`: the moved-stop cost times the stops that stay on their vehicle and are
      dropped. A stop that stays on its vehicle but can't be routed there pays nothing for leaving,
      as ADR-105 decision 7 decided, so it is not counted.
-   - Together they are the route-stability cost of [FR-256] and [BR-115], and no stop is counted in
-     both. A daily solve has neither, so both are 0.
+   - Together they are the route-stability cost the objective charges ([BR-115]), and no stop is
+     counted in both. This differs from [FR-256]'s count of the stops that leave their vehicle by
+     the stops that stay on it but can't be routed there: FR-256 counts such a stop, and ADR-105
+     decision 7 charges it nothing. The owner accepted the difference knowingly. A daily solve has
+     neither term, so both are 0.
 
-   `total` doesn't change. The drop penalty a solver reads, `Problem.drop_penalties`, still holds
-   the moved-stop cost of a stop that pays to leave, so the search is steered exactly as before.
+   `total` holds the same terms as before, so a solution's score is unchanged but for the order of
+   the sum, which can move it by an ulp (see the Risk below). The drop penalty a solver reads,
+   `Problem.drop_penalties`, still holds the moved-stop cost of a stop that pays to leave, so the
+   search is steered exactly as before.
    The factory's per-order flag is kept in the problem as `ReoptContext.pays_to_leave`, and
    `Problem` refuses a flag that disagrees with the roads, or a flagged stop whose drop penalty is
    below the moved-stop cost. This amends ADR-105 decision 3: a re-optimization adds three terms,
@@ -61,6 +66,22 @@ On 2026-11-15 the owner, Naim Elijah, decided:
    (`Orders`, `Vehicles`, `Drivers`, `Pin` and `ReoptContext`) move to `problem_parts`, so the
    protocol can name their types, and `problem` re-exports them. An import-linter contract fails
    if any of the three modules imports `problem` again, directly or through another module.
+
+   No test plants a forbidden import to show that this contract, or the domain's contract against
+   the clock, randomness and I/O ([TS §2.1], rule 3), fires: import-linter's one public Python
+   function, `importlinter.api.read_configuration`, reads the configuration and checks nothing.
+   Both were proved by hand on 2026-11-15, on a copy of the solver run with `lint-imports
+   --no-cache`:
+   - a line in `objective` importing `problem` broke the first contract, naming that import;
+   - a domain module importing `asyncio`, `concurrent.futures`, `ctypes`, `glob`, `http.client`,
+     `locale`, `mmap`, `multiprocessing`, `os.path`, `select`, `selectors`, `shutil`, `signal`,
+     `sqlite3`, `ssl`, `sys`, `tempfile` and `zoneinfo` broke the second, once for each module;
+   - import-linter can't see `numpy.random` or `np.datetime64` through `import numpy as np`, so
+     ruff's TID251 bans `numpy.random`, `numpy.datetime64` and `numpy.timedelta64` in the domain
+     only. A domain module using `np.random.default_rng()`, `from numpy.random import ...`,
+     `np.datetime64("now")` and `np.timedelta64(1, "s")` was flagged at each, and the same file
+     under `solvers/` and `tests/` was not. A dtype string, as in `np.array("now",
+     "datetime64[s]")`, passes both tools, and review catches it.
 3. **The validator's untimed and past-the-day outputs are part of its contract** ([ADR-098],
    [ADR-101] point 19). Python's behaviour stays, and the docstrings of `RouteTiming` and the drop
    facts say it:
@@ -81,19 +102,25 @@ On 2026-11-15 the owner, Naim Elijah, decided:
 - **Easy:** the preview and the study read route stability from two named terms, and the Java
   `ObjectiveTerms` mirrors the Python ones one to one.
 - **Easy:** a solver still reads one drop penalty per order, so no search changes, and every
-  existing score keeps its total.
+  existing score keeps its total, to within the ulp of the Risk below.
 - **Easy:** no module of the domain imports `problem` but the factory, and import-linter keeps it
   so.
-- **Easy:** the core knows, from the contract's documentation, which times may be missing and
-  which may pass the day.
+- **Easy:** the core knows, from the validator's docstrings, which times may be missing and which
+  may pass the day.
 - **Hard:** `Cost.drops` no longer equals the sum of `Problem.drop_penalties` over the unserved
   orders in a re-optimization; a reader that wants that sum adds `moved_stops`.
 - **Hard:** the problem's parts live in a module of their own, so a reader looks in
   `problem_parts` for `Orders` and `Vehicles`, though `problem` still exports them.
+- **Hard:** a reader that compares the stability terms with [FR-256]'s count finds them apart by
+  the stops that stay but can't be routed, which the terms leave out.
+- **Hard:** each contract's proof is by hand, so a change to import-linter or ruff that stops a
+  contract firing is caught only when the proof is run again.
 - **Cost:** one more check when a re-optimization's problem is built: each stop that stays is
   tested for a road on its vehicle, which the factory already does once.
 - **Risk:** `drops` is the problem's drop penalties less the moved-stop cost, so in floating point
   it can differ from K x (6 − p) by an ulp when K is not a whole number, as in a research instance.
+  For the same reason `total`, which now adds `drops` and `moved_stops` where it added one drop
+  penalty, can differ from the score the same solution had before by an ulp.
 
 ## Alternatives considered
 
@@ -106,6 +133,9 @@ On 2026-11-15 the owner, Naim Elijah, decided:
 - **One stability term, the orphans and the dropped stops together.** Not chosen: the orphans are
   a constant no solution can change, and the preview and the study can tell the two apart only if
   they are reported apart.
+- **A test that runs import-linter on a planted import.** Not chosen: it would drive import-linter
+  through its command-line module, which it doesn't offer as an API, and so break on any release
+  that changes it.
 - **The cycle left under `TYPE_CHECKING`.** Rejected: import-linter sees it as a cycle, and nothing
   stops a run-time import from closing it.
 - **Protocols for each part as well, with the parts left in `problem`.** Not chosen: five more
@@ -122,6 +152,9 @@ On 2026-11-15 the owner, Naim Elijah, decided:
   leave ([FR-281]).
 - A solver adapter needs the drop penalty without the moved-stop cost.
 - A pilot shows a dispatcher misreads a time past the day's end.
+- The preview or the study must show [FR-256]'s count, the stops that stay but can't be routed
+  included.
+- import-linter offers a public API that checks contracts, so a fixture test can prove they fire.
 
 [ADR-044]: ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md
 [ADR-098]: ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md
@@ -138,4 +171,5 @@ On 2026-11-15 the owner, Naim Elijah, decided:
 [FR-190]: ../requirements/requirements.md#fleet-depots-and-shifts
 [FR-256]: ../requirements/requirements.md#live-operations-and-re-optimization
 [FR-281]: ../requirements/requirements.md#research-and-evaluation
+[TS §2.1]: ../architecture/tech_stack.md#21-the-dependency-rule
 [TS §7.1]: ../architecture/tech_stack.md#71-the-hexagon

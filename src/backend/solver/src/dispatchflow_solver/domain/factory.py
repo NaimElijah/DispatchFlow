@@ -11,7 +11,7 @@ conventions, so the product and the disruption simulation build the same problem
 
 import math
 from collections.abc import Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from typing import Final
 
@@ -176,6 +176,8 @@ class StopFact:
 class VehiclePosition:
     """A position a vehicle reported (FR-31), with what BR-80 needs to judge it.
 
+    A driver's position is personal data (NFR-19), so the repr leaves out the coordinates.
+
     Attributes:
         latitude: Degrees north, from -90 to 90.
         longitude: Degrees east, from -180 to 180.
@@ -184,8 +186,8 @@ class VehiclePosition:
             computes the flag (ADR-050).
     """
 
-    latitude: float
-    longitude: float
+    latitude: float = field(repr=False)
+    longitude: float = field(repr=False)
     received_at: float
     in_service_area: bool
 
@@ -785,9 +787,7 @@ def _require_position(name: str, position: VehiclePosition, now: float) -> None:
     if not (math.isfinite(received_at) and received_at <= now):
         raise InvalidProblemError(f"{name}.received_at must be finite and no later than now")
     if not isinstance(position.in_service_area, bool):
-        raise InvalidProblemError(
-            f"{name}.in_service_area must be a bool: {position.in_service_area!r}"
-        )
+        raise InvalidProblemError(f"{name}.in_service_area must be a bool")
 
 
 def _require_one_stop_each(vehicles: Sequence[LiveVehicleSpec]) -> None:
@@ -1032,6 +1032,8 @@ def _longest_late(
 
 
 def _floats(name: str, values: Sequence[float]) -> npt.NDArray[np.float64]:
+    for index, value in enumerate(values):
+        require_float(f"{name}[{index}]", value)
     return converted(name, values, np.float64)
 
 

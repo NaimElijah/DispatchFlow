@@ -40,14 +40,24 @@ exclude-newer-package = { grimp = "2026-11-13T00:00:00Z" }
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "W", "F", "I", "B", "UP", "N", "SIM", "D"]
+select = ["E", "W", "F", "I", "B", "UP", "N", "SIM", "D", "TID251"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
+# TS §2.1, rule 3: NumPy is allowed in the domain, but not its randomness or its clock
+# (np.datetime64("now")). import-linter can't forbid a submodule or attribute of an external
+# package the domain may import, so ruff bans the names, in the domain only (per-file-ignores).
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"numpy.random".msg = "The domain draws no randomness; a seeded generator comes in through a port."
+"numpy.datetime64".msg = "The domain reads no clock; times come in as seconds of the day."
+"numpy.timedelta64".msg = "The domain counts time in float seconds of the day (ADR-098)."
+
 [tool.ruff.lint.per-file-ignores]
 # Test names state their purpose; docstrings on them would repeat it.
 "tests/**" = ["D"]
+# The NumPy bans hold the domain only: the solvers and the tests may draw seeded randomness.
+"!src/dispatchflow_solver/domain/**" = ["TID251"]
 
 [tool.mypy]
 strict = true
@@ -94,26 +104,47 @@ forbidden_modules = [
 
 # TS §2.1, rule 3: the domain reads no clock, draws no randomness and does no I/O; time and seeds
 # come in through ports. grimp records standard-library imports as external packages, so each
-# module here is caught. The domain's own imports are math, numbers, dataclasses, typing, enum,
-# collections, bisect and NumPy.
+# module here is caught, a submodule such as os.path or concurrent.futures included. The domain's
+# own imports are math, numbers, dataclasses, typing, enum, collections, bisect and NumPy.
+# import-linter sees modules only, so it can't catch numpy.random or np.datetime64 through
+# `import numpy as np`, nor a builtin such as open() or print(). Ruff's TID251 bans those NumPy
+# names in the domain. Neither tool sees a dtype string, as in np.array("now", "datetime64[s]"),
+# or a builtin, so review catches those. ADR-113 records how both contracts were proved to fire.
 [[tool.importlinter.contracts]]
 name = "The domain reads no clock, draws no randomness and does no I/O"
 type = "forbidden"
 source_modules = ["dispatchflow_solver.domain"]
 forbidden_modules = [
+    "asyncio",
+    "concurrent",
+    "ctypes",
     "datetime",
+    "glob",
+    "http",
     "io",
+    "locale",
     "logging",
+    "mmap",
+    "multiprocessing",
     "os",
     "pathlib",
     "random",
     "secrets",
+    "select",
+    "selectors",
+    "shutil",
+    "signal",
     "socket",
+    "sqlite3",
+    "ssl",
     "subprocess",
+    "sys",
+    "tempfile",
     "threading",
     "time",
     "urllib",
     "uuid",
+    "zoneinfo",
 ]
 
 # ADR-113: Problem's methods delegate to these modules, which read a problem through the

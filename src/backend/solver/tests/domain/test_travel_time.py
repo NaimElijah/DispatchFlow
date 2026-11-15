@@ -111,6 +111,20 @@ def test_given_buckets_out_of_order_in_a_list_when_built_then_held_sorted_in_a_t
         pytest.param((), 1.0, "0.1", r"^buffer must be a number: '0.1'$", id="text buffer"),
         pytest.param((), 1.0, math.inf, "buffer", id="infinite buffer"),
         pytest.param(("bucket",), 1.0, 0.0, "buckets", id="not a bucket"),
+        pytest.param(
+            None,
+            1.0,
+            0.0,
+            r"^buckets must be a sequence of TravelBucket, not NoneType$",
+            id="no buckets",
+        ),
+        pytest.param(
+            5,
+            1.0,
+            0.0,
+            r"^buckets must be a sequence of TravelBucket, not int$",
+            id="a number as buckets",
+        ),
     ],
 )
 def test_given_overlapping_buckets_or_bad_values_when_model_built_then_refused(

@@ -250,6 +250,13 @@ def test_given_a_position_outside_the_service_area_when_built_then_the_last_stop
     assert context_of(problem).no_usable_position == frozenset({0})
 
 
+def test_given_a_position_when_printed_then_its_coordinates_are_left_out() -> None:
+    # NFR-19: a driver's position is personal data, and a repr reaches logs and tracebacks.
+    reported = position(NOW, latitude=31.7683, longitude=35.2137)
+
+    assert repr(reported) == "VehiclePosition(received_at=150.0, in_service_area=True)"
+
+
 KILOMETRE_NORTH = math.degrees(1_000 / EARTH_RADIUS_M)
 """Degrees of latitude that make 1 km along a meridian, which 200 km/h covers in 18 s."""
 
@@ -778,18 +785,24 @@ def test_given_a_stop_that_pays_to_leave_below_the_moved_stop_cost_when_built_th
 
 
 def test_given_a_reoptimization_cost_when_totalled_then_the_sum_of_every_term() -> None:
+    # Order 1 is orphaned on the unavailable vehicle, and order 2 stays on vehicle 0 and is
+    # dropped, so every one of the seven terms but door_window and fixed_vehicles is non-zero.
     live = late_day()
     live.day.order(300, service=SERVICE)
+    live.day.order(200, service=SERVICE)
+    live.route(0, 0, 2)
     second_vehicle(live, VehicleState.UNAVAILABLE, 1)
     problem = live.build()
-    solution = served_from_the_depot(0, 1)
+    solution = Solution(routes=served_from_the_depot(0, 1).routes, dropped=frozenset({2}))
 
     cost = problem.cost(solution, problem.validate(solution).timings)
 
     assert cost.orphaned_stops == 300
+    assert cost.moved_stops == 300
     assert cost.lateness == 5 * 130
-    assert (
-        cost.total == cost.travel + cost.drops + cost.door_window + cost.fixed_vehicles + 300 + 650
+    assert cost.drops == problem.penalties.drop_unit * 3
+    assert cost.total == (
+        cost.travel + cost.drops + cost.door_window + cost.fixed_vehicles + 650 + 300 + 300
     )
 
 

@@ -21,6 +21,10 @@ _ACCEPTED_KINDS: Final[dict[type[np.generic], str]] = {
 """The NumPy kinds each element type is converted from: bools only from bools, and numbers only
 from numbers, never from text or bools, which NumPy would otherwise parse or count as 0 and 1."""
 
+_BOOL_TYPES: Final = frozenset({bool, np.bool_})
+_type_of: Final = np.frompyfunc(type, 1, 1)
+_is_bool_type: Final = np.frompyfunc(_BOOL_TYPES.__contains__, 1, 1)
+
 _INT64_MAX: Final = np.iinfo(np.int64).max
 _INT64_FLOAT_BOUND: Final = 2.0**63
 """Floats from -2**63 up to, and not including, 2**63 are whole numbers int64 can hold."""
@@ -43,9 +47,11 @@ def frozen_floats(values: npt.ArrayLike) -> npt.NDArray[np.float64]:
 def converted(name: str, values: npt.ArrayLike, dtype: type[np.generic]) -> npt.NDArray[Any]:
     """Copies values into a NumPy array of one type, refusing what does not convert exactly.
 
-    NumPy alone would truncate 2.7 to the int 2, parse "3" as a number and "no" as True, and turn
-    None into NaN, which the domain reads as "no road". So a bool column takes only bools, a number
-    column takes only numbers, and an int column takes a float only when it is whole and fits.
+    NumPy alone would truncate 2.7 to the int 2, parse "3" as a number and "no" as True, turn None
+    into NaN, which the domain reads as "no road", and read True among numbers as 1. So a bool
+    column takes only bools, a number column takes only numbers, and an int column takes a float
+    only when it is whole and fits. A NumPy array's elements all share its dtype, so a number array
+    holds no bool; any other input is checked entry by entry for one.
 
     Args:
         name: The input's name, for the error.
@@ -57,8 +63,8 @@ def converted(name: str, values: npt.ArrayLike, dtype: type[np.generic]) -> npt.
 
     Raises:
         InvalidProblemError: If the values do not form an array, are of the wrong kind, such as
-            text or bools for numbers, or a value is not a number of that type or overflows it,
-            such as 2.7 or 2**64 as an int64.
+            text for numbers, an entry is a bool among numbers, or a value is not a number of that
+            type or overflows it, such as 2.7 or 2**64 as an int64.
     """
     try:
         raw = np.asarray(values)
@@ -66,10 +72,13 @@ def converted(name: str, values: npt.ArrayLike, dtype: type[np.generic]) -> npt.
         raise InvalidProblemError(f"{name} must hold {dtype.__name__} values: {error}") from error
     if raw.size == 0:
         return np.zeros(raw.shape, dtype=dtype)
-    if raw.dtype.kind == "O" and dtype is not np.bool_:
+    of_objects = raw.dtype.kind == "O"
+    if of_objects and dtype is not np.bool_:
         raw = _numbers_from_objects(name, raw, dtype)
     if raw.dtype.kind not in _ACCEPTED_KINDS[dtype]:
         raise InvalidProblemError(f"{name} must hold {dtype.__name__} values, not {raw.dtype}")
+    if dtype is not np.bool_ and not of_objects and not isinstance(values, np.ndarray):
+        _refuse_bools(name, np.asarray(values, dtype=object))
     if dtype is np.int64:
         _require_int64(name, raw)
     return raw.astype(dtype)
@@ -155,6 +164,17 @@ def _numbers_from_objects(
     require = require_int if dtype is np.int64 else require_float
     checked = [require(_entry(name, index), value) for index, value in np.ndenumerate(raw)]
     return np.array(checked, dtype=dtype).reshape(raw.shape)
+
+
+def _refuse_bools(name: str, entries: npt.NDArray[np.object_]) -> None:
+    # Builtins mapped over the array, not a Python predicate per entry, keep a million-entry
+    # matrix to a fraction of a second. Neither bool nor np.bool_ can be subclassed, so comparing
+    # types is exact.
+    types = np.asarray(_type_of(entries), dtype=object)
+    bools = np.asarray(_is_bool_type(types), dtype=np.bool_)
+    if np.any(bools):
+        index = tuple(int(i) for i in np.argwhere(bools)[0])
+        raise InvalidProblemError(f"{_entry(name, index)} must be a number, not a bool")
 
 
 def _require_int64(name: str, raw: npt.NDArray[Any]) -> None:

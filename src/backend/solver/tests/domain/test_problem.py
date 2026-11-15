@@ -157,6 +157,31 @@ WRONG_PARTS: list[object] = [
         id="priorities as bools",
     ),
     pytest.param(
+        lambda p: replace(p, orders=replace(p.orders, priority=[True, 3])),
+        r"^orders\.priority\[0\] must be a number, not a bool$",
+        id="a bool among int priorities",
+    ),
+    pytest.param(
+        lambda p: replace(p, orders=replace(p.orders, priority=[1.0, True])),
+        r"^orders\.priority\[1\] must be a number, not a bool$",
+        id="a bool among whole-float priorities",
+    ),
+    pytest.param(
+        lambda p: replace(p, orders=replace(p.orders, weight_kg=[True, 2.5])),
+        r"^orders\.weight_kg\[0\] must be a number, not a bool$",
+        id="a bool among float weights",
+    ),
+    pytest.param(
+        lambda p: replace(p, orders=replace(p.orders, weight_kg=[2.5, np.True_])),
+        r"^orders\.weight_kg\[1\] must be a number, not a bool$",
+        id="a NumPy bool among float weights",
+    ),
+    pytest.param(
+        lambda p: replace(p, durations=[[0, True], [True, 0]]),
+        r"^durations\[0, 1\] must be a number, not a bool$",
+        id="a bool in a matrix",
+    ),
+    pytest.param(
         lambda p: replace(p, orders=replace(p.orders, priority=[3, None])),
         r"^orders\.priority\[1\] must be an int: None$",
         id="a priority of None",

@@ -30,9 +30,11 @@ from dispatchflow_solver.domain.solution import Route, Solution
 class Cost:
     """The objective's terms, in seconds; each is 0 or more, and `total` is their sum.
 
-    `orphaned_stops` and `moved_stops` together are the route-stability cost: the moved-stop cost
-    times the stops that leave their vehicle, dropped stops included (FR-256, BR-115). No stop is
-    counted in both, and neither counts a stop a locked report serves (BR-10).
+    `orphaned_stops` and `moved_stops` together are the route-stability cost the objective charges:
+    the moved-stop cost times the stops that leave their vehicle, dropped stops included (BR-115).
+    That leaves out a stop that stays on its vehicle but cannot be routed there, which FR-256
+    counts as leaving and ADR-105 charges nothing (ADR-113). No stop is counted in both, and
+    neither counts a stop a locked report serves (BR-10).
 
     Attributes:
         travel: Unbuffered per-bucket travel of every leg the validator timed (FR-402). A stop it
