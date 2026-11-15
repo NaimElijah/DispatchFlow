@@ -4,8 +4,9 @@ import java.util.Objects;
 
 /**
  * What a message trigger or a reply is judged by and written with: the messaging settings at that
- * moment ({@link MessagingSettings#conditions}), the company's name and language from Access, and
- * the phone's standing from its opt-out history (DL §4.6).
+ * moment ({@link com.dispatchflow.messaging.domain.settings.MessagingSettings#conditions}), the
+ * company's name and language from Access, and the phone's standing from its opt-out history (DL
+ * §4.6).
  *
  * @param messages whether messages are on (FR-350)
  * @param ratingQuestion whether the delivered message asks for a rating (FR-375)
