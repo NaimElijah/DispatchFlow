@@ -17,11 +17,13 @@ import com.dispatchflow.shared.application.Clock;
  *
  * <p>The use case hashes the presented token through {@code SecretTokens.hashOf} and finds the
  * session through {@code SessionRepository.withRefreshToken}, which answers for any token the chain
- * keeps, current or not. It revokes that session through {@code SessionRepository.writeRevocation},
- * whatever the token's place in the chain: a session only ever moves from live to revoked, so the
- * write needs no version check, and no concurrent change can make a sign-out fail. It removes the session's push address (NFR-263), evicts the session
- * from the revocation cache after its commit (ADR-045), and writes the audit record every sign-out
- * leaves (NFR-23), with the call's context completed by the account and the session it found.
+ * keeps, current or not. It revokes that session through {@code Session.revoke}, whatever the
+ * token's place in the chain, and stores it through {@code SessionRepository.saveRevocation}: a
+ * session only ever moves from live to revoked, so the save needs no version check, and no
+ * concurrent change can make a sign-out fail. It removes the session's push address (NFR-263),
+ * evicts the session from the revocation cache after its commit (ADR-045), and writes the audit
+ * record every sign-out leaves (NFR-23), with the call's context completed by the account and the
+ * session it found.
  *
  * <p>Signing out again changes nothing. A token no chain keeps gets the same answer, and its audit
  * record names no user or session, so the caller learns nothing about the token.
@@ -31,7 +33,8 @@ import com.dispatchflow.shared.application.Clock;
  *
  * <p>In M5 it finds and revokes the session and writes the audit record. The eviction from {@code
  * RevocationCache} joins in M6, and the removal through {@code PushTokens} in M10, the milestones
- * that build those ports.
+ * that build those ports. Until M6 builds {@code SessionValidity}, nothing checks an access token's
+ * session, so an access token the signed-out session issued still works until it expires.
  *
  * <p>Built in M5.
  */

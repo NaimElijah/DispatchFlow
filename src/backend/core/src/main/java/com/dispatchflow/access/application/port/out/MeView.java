@@ -24,8 +24,9 @@ import java.util.Objects;
  *     active Admins; {@code false} for any other user (FR-299, BR-19)
  * @param termsAccepted whether the user has accepted the terms and the privacy notice, so the apps
  *     ask for it only while it is {@code false}, and never during a route (FR-77)
- * @param version the account's version, which a change of the account sends back as {@code
- *     If-Match} (BR-76)
+ * @param version the account's version, which {@code RequestEmailChange} alone sends back as
+ *     {@code If-Match} when the user changes their own email (BR-76); the user's other changes of
+ *     their own account, such as their language or the terms, send none
  */
 public record MeView(
         AccountId account,

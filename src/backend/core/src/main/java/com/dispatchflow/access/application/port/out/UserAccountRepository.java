@@ -125,6 +125,19 @@ public interface UserAccountRepository {
     List<AccountId> withOpenLinks();
 
     /**
+     * The accounts holding a credential link sent before an instant, of any kind or status, whose
+     * old links the retention job drops (ADR-104). A link sent more than {@code
+     * UserAccount.LINK_KEPT_FOR} ago no longer works, so the job's cutoff finds none that does. It
+     * answers IDs, so each account is loaded, changed and saved in its own transaction.
+     *
+     * <p>Built in M13.
+     *
+     * @param cutoff the latest sending that is due
+     * @return their IDs, in any order
+     */
+    List<AccountId> withLinksSentBefore(Instant cutoff);
+
+    /**
      * Stores a new account and publishes the events it raised (DL §3.6).
      *
      * <p>Built in M6.

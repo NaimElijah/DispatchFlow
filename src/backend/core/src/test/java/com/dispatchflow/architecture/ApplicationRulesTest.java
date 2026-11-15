@@ -14,6 +14,7 @@ import com.dispatchflow.archfixture.zeta.lower.application.api.LowerFactLeaksThe
 import com.dispatchflow.archfixture.zeta.lower.application.api.LowerFacts;
 import com.dispatchflow.archfixture.zeta.lower.application.api.LowerFactsLeakThroughAList;
 import com.dispatchflow.archfixture.zeta.lower.application.api.LowerOutcome;
+import com.dispatchflow.archfixture.zeta.lower.application.api.LowerVerdict;
 import com.dispatchflow.archfixture.zeta.lower.application.api.SealedOverAClass;
 import com.dispatchflow.archfixture.zeta.lower.application.api.Unimplemented;
 import com.dispatchflow.archfixture.zeta.lower.application.service.ImplementedUnderAnotherNameHandler;
@@ -32,7 +33,9 @@ import com.dispatchflow.archfixture.zeta.peer.application.service.CallsAnSpiInte
 import com.dispatchflow.archfixture.zeta.peer.application.service.PeerUsageService;
 import com.dispatchflow.archfixture.zeta.report.adapter.out.ReportAdapterReadsTheDomain;
 import com.dispatchflow.archfixture.zeta.report.application.service.ReportHearsTheEvent;
+import com.dispatchflow.archfixture.zeta.report.application.service.ReportReadsAnAccount;
 import com.dispatchflow.archfixture.zeta.report.application.service.ReportReadsTheApi;
+import com.dispatchflow.archfixture.zeta.report.application.service.ReportTakesTheActor;
 import com.dispatchflow.archfixture.zeta.shared.KernelRootUsesTheClock;
 import com.dispatchflow.archfixture.zeta.shared.application.SharedPortUsesSpring;
 import com.dispatchflow.archfixture.zeta.side.application.service.CallsAnSpiItDoesNotImplement;
@@ -69,12 +72,13 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Proves each application rule fires on the fixtures under {@code archfixture.zeta}, which is the
- * rules' root here: its {@code lower}, {@code upper}, {@code side}, {@code peer} and {@code report} are modules,
- * {@code report} reading {@code lower} as Reporting reads its sources, {@code stray} is a
- * top-level package missing from the fixture graph, and {@code shared} and {@code web} are no
- * modules. Every test names the exact classes a rule flags, by their fully qualified names, so a rule
- * that flags too much fails as surely as one that flags nothing, and two fixtures of one simple name
- * can't stand in for each other.
+ * rules' root here: its {@code lower}, {@code upper}, {@code side}, {@code peer}, {@code report}
+ * and {@code gate} are modules, {@code report} reading {@code lower} as Reporting reads its sources
+ * and taking only {@code gate}'s actor as Reporting takes Access's, {@code stray} is a top-level
+ * package missing from the fixture graph, and {@code shared} and {@code web} are no modules. Every
+ * test names the exact classes a rule flags, by their fully qualified names, so a rule that flags
+ * too much fails as surely as one that flags nothing, and two fixtures of one simple name can't
+ * stand in for each other.
  */
 class ApplicationRulesTest {
 
@@ -84,19 +88,22 @@ class ApplicationRulesTest {
     private static final String PACKAGE_INFO = ".package-info";
     private static final String LOOPED_USE_CASES = ROOT + ".upper.application.service.looped";
     private static final String LOOPED_PORTS = ROOT + ".upper.application.port.out.looped";
-    // One line of a cycle's header: "Cycle detected: Slice a -> ", then "  Slice b -> ", then "  Slice a".
+    // One line of a cycle's header: "Cycle detected: Slice a -> ", then " Slice b -> ", then "
+    // Slice a".
     private static final Pattern CYCLE_STEP = Pattern.compile("^(?:Cycle detected: |\\s*)Slice (\\S+)(?: -> )?\\s*$");
     // Two slices and the first again, which closes the loop.
     private static final int CLOSED_LOOP_OF_TWO = 3;
-    // upper, side, peer and report may depend on lower; lower on nothing. stray is left out on purpose.
+    // upper, side, peer and report may depend on lower, and report on gate too; lower and gate on
+    // nothing. stray is left out on purpose.
     private static final Map<String, Set<String>> GRAPH = Map.of(
             "lower", Set.of(),
+            "gate", Set.of(),
             "upper", Set.of("lower"),
             "side", Set.of("lower"),
             "peer", Set.of("lower"),
-            "report", Set.of("lower"));
-    // Every arrow but PeerUsage's points at upper. UsageImplementedByTheWrongModule is implemented in
-    // side instead, and UsageMissingFromTheMap is left out on purpose.
+            "report", Set.of("lower", "gate"));
+    // Every arrow but PeerUsage's points at upper. UsageImplementedByTheWrongModule is implemented
+    // in side instead, and UsageMissingFromTheMap is left out on purpose.
     private static final Map<String, String> SPI_IMPLEMENTERS = Map.of(
             "lower.application.spi.LowerUsage", "upper",
             "lower.application.spi.UsageImplementedAtHome", "upper",
@@ -107,6 +114,9 @@ class ApplicationRulesTest {
     private static final Map<String, String> NO_RENAMED_PORTS = Map.of();
     private static final String READER = "report";
     private static final Set<String> READERS_SOURCES = Set.of("lower");
+    // Of gate's api the reader may take the actor alone, as Reporting takes only Access's Actor.
+    private static final Map<String, Set<String>> READERS_NARROWED_APIS =
+            Map.of("gate", Set.of("gate.application.api.GateActor"));
 
     private static ArchRule rule1() {
         return ApplicationRules.onlyAllowedDependencies(ROOT, FIXTURE_MODULE_ANNOTATIONS, SPI_IMPLEMENTERS);
@@ -117,7 +127,7 @@ class ApplicationRulesTest {
     }
 
     private static ArchRule rule8() {
-        return ApplicationRules.readsOnlyTheEventsOf(ROOT, READER, READERS_SOURCES);
+        return ApplicationRules.readsOnlyTheEventsOf(ROOT, READER, READERS_SOURCES, READERS_NARROWED_APIS);
     }
 
     private static JavaClasses zeta() {
@@ -142,8 +152,8 @@ class ApplicationRulesTest {
     }
 
     /**
-     * The cycle's header walks the two looped slices and closes on the first. Which of the two comes
-     * first is ArchUnit's choice, so it is left open.
+     * The cycle's header walks the two looped slices and closes on the first. Which of the two
+     * comes first is ArchUnit's choice, so it is left open.
      */
     private static void isTheLoopedCycle(String detail) {
         List<String> walked = detail.lines()
@@ -176,7 +186,8 @@ class ApplicationRulesTest {
                         AnnotatedAsANamedInterface.class.getName(),
                         CallsAnSpiItDoesNotImplement.class.getName(),
                         CallsAnSpiInterfaceNamedForAnotherModule.class.getName(),
-                        // No arrow names side for lower's spi, so rule 1 refuses its implementation too.
+                        // No arrow names side for lower's spi, so rule 1 refuses its implementation
+                        // too.
                         UsageImplementedByTheWrongModuleService.class.getName(),
                         ROOT + ".upper.application.configured" + PACKAGE_INFO);
     }
@@ -382,7 +393,7 @@ class ApplicationRulesTest {
     void GivenAnApiWithOneImplementationBesideAnAbstractBaseAndASealedFact_WhenRule4Evaluates_ThenNothingIsFlagged() {
         assertThat(violators(
                         ApplicationRules.eachApiHasOneImplementationInItsModule(ROOT),
-                        FixtureClasses.only(LowerFacts.class, LowerOutcome.class)))
+                        FixtureClasses.only(LowerFacts.class, LowerOutcome.class, LowerVerdict.class)))
                 .isEmpty();
     }
 
@@ -454,6 +465,7 @@ class ApplicationRulesTest {
     void GivenTheZetaFixtures_WhenNullMarkedSubjectsAreListed_ThenEveryApplicationPackageAndNoOtherIsAmongThem() {
         assertThat(ApplicationRules.nullMarkedSubjects(ROOT, zeta()))
                 .containsExactly(
+                        ROOT + ".gate.application.api",
                         ROOT + ".lower.application.api",
                         ROOT + ".lower.application.service",
                         ROOT + ".lower.application.spi",
@@ -493,7 +505,8 @@ class ApplicationRulesTest {
                 "third", Set.of("first"),
                 "above", Set.of("first"),
                 "self", Set.of("self"),
-                "below", Set.of());
+                "below", Set.of(),
+                "dangling", Set.of("absent"));
 
         assertThat(ApplicationRules.modulesOnACycle(looped)).containsExactly("first", "second", "self", "third");
     }
@@ -539,7 +552,8 @@ class ApplicationRulesTest {
     @Test
     void GivenTheZetaFixtures_WhenRule8Evaluates_ThenExactlyTheReadersClassesUsingMoreThanTheSourcesEventsAreFlagged() {
         assertThat(violators(rule8(), zeta()))
-                .containsExactlyInAnyOrder(namesOf(ReportReadsTheApi.class, ReportAdapterReadsTheDomain.class));
+                .containsExactlyInAnyOrder(namesOf(
+                        ReportReadsTheApi.class, ReportAdapterReadsTheDomain.class, ReportReadsAnAccount.class));
     }
 
     @Test
@@ -556,6 +570,22 @@ class ApplicationRulesTest {
     void GivenAReadersAdapterUsingASourcesDomain_WhenRule8Evaluates_ThenItIsFlagged() {
         assertThat(violators(rule8(), FixtureClasses.only(ReportAdapterReadsTheDomain.class)))
                 .containsExactly(ReportAdapterReadsTheDomain.class.getName());
+    }
+
+    @Test
+    void GivenAReaderUsingAnotherApiTypeOfTheActorsModule_WhenRule8Evaluates_ThenItIsFlaggedThoughRules1And2AllowIt() {
+        JavaClasses reader = FixtureClasses.only(ReportReadsAnAccount.class);
+
+        assertThat(violators(rule1(), reader)).isEmpty();
+        assertThat(violators(ApplicationRules.modulesDependAlongTheGraph(ROOT, GRAPH), reader))
+                .isEmpty();
+        assertThat(violators(rule8(), reader)).containsExactly(ReportReadsAnAccount.class.getName());
+    }
+
+    @Test
+    void GivenAReaderTakingTheActor_WhenRule8Evaluates_ThenNothingIsFlagged() {
+        assertThat(violators(rule8(), FixtureClasses.only(ReportTakesTheActor.class)))
+                .isEmpty();
     }
 
     @Test

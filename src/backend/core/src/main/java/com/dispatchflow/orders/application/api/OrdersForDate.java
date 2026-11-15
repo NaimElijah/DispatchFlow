@@ -13,8 +13,9 @@ import java.util.List;
 public interface OrdersForDate {
 
     /**
-     * Every uncancelled order of a date: what a solve and a publication read, and Live Operations'
-     * live map for locations and last changes (FR-15, FR-397, BR-22, BR-71). Each order's {@code
+     * Every uncancelled order of a date: what a solve and a publication read, and what Live
+     * Operations takes for its live map and for Navigate, the orders' locations and last change
+     * times alone (FR-15, FR-325, FR-397, BR-22, BR-71). Each order's {@code
      * placedAt} has no source yet: M2 adds the time the order joined its date, set by {@code
      * place}, {@code reschedule} and a put-back to another date (BR-71).
      *

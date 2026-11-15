@@ -23,11 +23,11 @@ import com.dispatchflow.shared.application.IdGenerator;
  * last revocation (NFR-177). Every refresh leaves an audit record (NFR-23).
  *
  * <p><b>A refusal that revoked the session</b> (NFR-88). When the exchange moved the session from
- * live to revoked, the use case writes the revocation through {@code
- * SessionRepository.writeRevocation}, which takes no version, so no conflict can lose it. After the
- * commit it evicts the session from the revocation cache, in the same thread, so the next request
- * sees it (ADR-045), and removes the session's push address through {@code PushTokens.removeFor}
- * (NFR-263).
+ * live to revoked, the use case stores the session through {@code
+ * SessionRepository.saveRevocation}, which takes no version, so no conflict can lose the
+ * revocation: the domain revoked it, and the save only writes it. After the commit it evicts the
+ * session from the revocation cache, in the same thread, so the next request sees it (ADR-045), and
+ * removes the session's push address through {@code PushTokens.removeFor} (NFR-263).
  *
  * <p><b>A version conflict.</b> A grant, or a refusal that revoked nothing, is saved with the
  * version check. Two refreshes of one session can race, as when a device retries on weak signal.

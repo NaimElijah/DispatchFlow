@@ -117,12 +117,14 @@ public interface SessionRepository {
     void save(Session session);
 
     /**
-     * Writes a revocation with no version check, so a version conflict never loses it: the one
-     * {@code Session.exchange} makes on a reused token (NFR-88), and a sign-out's (NFR-89). It moves a live session to revoked at {@code at}, as {@code
-     * Session.revoke} does, and moves its version, so a concurrent save of a copy read before fails
-     * its own check rather than writing the session live again. A session already revoked keeps its
-     * revocation. It writes nothing else: the rest of a refused exchange, the old tokens it
-     * dropped, is housekeeping a revoked session never needs.
+     * Stores a session the domain revoked, with no version check, so a version conflict never loses
+     * the revocation: the one {@code Session.exchange} makes on a reused token (NFR-88), and a
+     * sign-out's through {@code Session.revoke} (NFR-89). The domain decides the revocation and its
+     * instant; the adapter applies no rule of its own. It writes the session's revoked state only
+     * over a stored row that is still live, so a revocation already stored is kept, and moves the
+     * version, so a concurrent save of a copy read before fails its own check rather than writing
+     * the session live again. It writes nothing else: the rest of a refused exchange, the old
+     * tokens it dropped, is housekeeping a revoked session never needs.
      *
      * <p>No version check is needed because a session only ever moves from live to revoked, and
      * nothing un-revokes one, so the write can't overwrite a change it should have seen. A retry of
@@ -130,10 +132,11 @@ public interface SessionRepository {
      *
      * <p>Built in M5, for sign-out; refresh uses it from M6.
      *
-     * @param session the session revoked
-     * @param at when it was revoked
+     * @param session the session, revoked by {@code Session.revoke} or {@code Session.exchange}
+     * @throws IllegalArgumentException when the session is live: the use case saves a live session
+     *     through {@link #save}, so this is a programming error rather than a refusal
      */
-    void writeRevocation(SessionId session, Instant at);
+    void saveRevocation(Session session);
 
     /**
      * Deletes every session that ended before an instant, by {@code Session.endedAt}: sessions are

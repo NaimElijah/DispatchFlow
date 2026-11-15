@@ -13,17 +13,17 @@ import com.dispatchflow.shared.application.Clock;
 
 /**
  * The geocoding job, which works the outbox (FR-12, FR-13, FR-63, FR-64, NFR-135, DL §12): it
- * claims the due requests, at most what is left of the day's {@value GeocodeRequests#DAILY_LOOKUPS}
- * lookups (NFR-135), and calls the {@link Geocoder} for each outside any transaction (DL §6.3). For
- * a point found, it then asks {@link RoadSnap} how far the point lies from the nearest road, still
- * before any transaction (ADR-085), and builds {@code GeocodeResult.Found} from both answers; no
- * match becomes {@code GeocodeResult.NotFound}. Then, one customer per transaction, {@code
- * Customer.recordGeocode} records the answer with the service area and flags the doubtful ones
- * (FR-63), and the request is done. A {@link GeocoderUnavailable} or a {@link RoadSnapUnavailable}
- * leaves the request for the next try, 15 minutes later; after 24 hours the job records {@code
- * GeocodeResult.GaveUp}, which leaves the customer flagged for a hand-placed pin (FR-64). Past the
- * day's cap the requests wait for the next day, and the dispatcher is told through {@link
- * CustomerQueries#geocodingBacklog} (NFR-135).
+ * claims the due requests, at most what is left of the day's {@value
+ * GeocodeRequests#DAILY_LOOKUPS} lookups (NFR-135), and calls the {@link Geocoder} for each outside
+ * any transaction (DL §6.3). For a point found, it then asks {@link RoadSnap} how far the point
+ * lies from the nearest road, still before any transaction (ADR-085), and builds {@code
+ * GeocodeResult.Found} from both answers; no match becomes {@code GeocodeResult.NotFound}. Then,
+ * one customer per transaction, {@code Customer.recordGeocode} records the answer with the service
+ * area and flags the doubtful ones (FR-63), and the request is done. A {@link GeocoderUnavailable}
+ * or a {@link RoadSnapUnavailable} leaves the request for the next try, 15 minutes later; after 24
+ * hours the job records {@code GeocodeResult.GaveUp}, which leaves the customer flagged for a
+ * dispatcher to place its location by hand (FR-64). Past the day's cap the requests wait for the
+ * next day, and the dispatcher is told through {@link CustomerQueries#geocodingBacklog} (NFR-135).
  *
  * <p>Built in M7.
  */

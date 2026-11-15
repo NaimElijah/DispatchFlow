@@ -51,7 +51,10 @@ public final class CustomerQueries {
      * @param text what the dispatcher typed
      * @param limit the most customers to answer, from 1 to {@value #MAX_SEARCH_RESULTS}; the web
      *     adapter refuses any other value at the boundary
-     * @return the first {@code limit} customers found, retired ones included, ordered by name
+     * @return the first {@code limit} customers found, retired ones included, ordered by name, with
+     *     {@code more} set when the search was cut at {@code limit}: the use case asks {@code
+     *     OrdersViews.customersMatching} for one more than {@code limit}, and an extra one found
+     *     sets it
      */
     public CustomerList search(Actor actor, String text, int limit) {
         throw new UnsupportedOperationException("Built in M2");
@@ -82,7 +85,7 @@ public final class CustomerQueries {
      * @param phone the phone being saved
      * @param address the address being saved, matched by its normalized text (FR-398)
      * @param except the customer being changed, which is not its own duplicate; empty for a new one
-     * @return the likely duplicates, possibly none
+     * @return the likely duplicates, possibly none, never cut, so {@code more} is {@code false}
      */
     public CustomerList likelyDuplicates(Actor actor, PhoneNumber phone, Address address, Optional<CustomerId> except) {
         throw new UnsupportedOperationException("Built in an unscheduled milestone");

@@ -9,6 +9,11 @@ import com.dispatchflow.access.domain.account.LinkKind;
  * development and tests (TS §6.4). No answer waits for an email to be sent (NFR-225); whether
  * emails get an outbox is decided in M6.
  *
+ * <p><b>Only after the commit.</b> A use case hands every email over only after its transaction
+ * commits, never inside it. So a change that rolls back sends nothing, and the web adapter's retry
+ * of a call that met a write conflict (ADR-121) never sends an email twice: a retried attempt
+ * rolled back before any email went out.
+ *
  * <p>Where each email goes:
  *
  * <ul>
@@ -26,9 +31,10 @@ import com.dispatchflow.access.domain.account.LinkKind;
 public interface EmailSender {
 
     /**
-     * Sends a set-password, recovery or email-change link (FR-294, FR-386, FR-388). A recovery
-     * link reaches this port only once FR-172's limit, the web adapter's Bucket4j limit (ADR-071),
-     * let the request through, and the use case took it from NFR-215's {@link RecoveryEmailCap}.
+     * Sends a set-password, recovery or email-change link (FR-294, FR-386, FR-388), after the
+     * commit that issued it. A recovery link reaches this port only once FR-172's limit, the web
+     * adapter's Bucket4j limit (ADR-071), let the request through, and the use case took it from
+     * NFR-215's {@link RecoveryEmailCap} in the transaction that saved the account.
      *
      * <p>Built in M6.
      *

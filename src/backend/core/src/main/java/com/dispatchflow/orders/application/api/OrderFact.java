@@ -15,9 +15,11 @@ import java.util.Optional;
 
 /**
  * One uncancelled order of a date, as Customers &amp; Orders answers (DL §2.2, BR-22). Planning
- * builds its {@code PublishingChecks.DateOrder} from it and the optimizer's order inputs; Live
- * Operations takes its locations and last change times for the live map (FR-397). Its location is
- * a kernel {@link GeoPoint}, so it prints redacted.
+ * builds its {@code PublishingChecks.DateOrder} from it and the optimizer's order inputs. Live
+ * Operations takes only its location and its last change time: for the live map (FR-397), and the
+ * stored coordinates that Navigate sends (FR-325). A stop's window and door flag come to Live
+ * Operations from Planning's {@code PublishedRoutes}, as its revision took them. Its location is a
+ * kernel {@link GeoPoint}, so it prints redacted.
  *
  * <p>{@code Order} holds only its last change time, so {@code placedAt} has no source yet: M2 adds
  * the time the order joined its date, set by {@code place}, {@code reschedule} and a put-back to
@@ -31,7 +33,7 @@ import java.util.Optional;
  *     drops as missing location (BR-14)
  * @param outsideServiceArea whether its customer's location was geocoded outside the service area
  *     and carries that flag, so the order drops as an unreachable location (FR-320); never for a
- *     hand-placed location, whose pin is fixed, or a missing one
+ *     location placed by hand, which lies inside the service area, or a missing one
  * @param window its time window on the date, its own or its customer's default (BR-49)
  * @param weight its weight demand (BR-50)
  * @param volume its volume demand (BR-50)

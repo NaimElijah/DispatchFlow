@@ -26,11 +26,13 @@ class ActorTest {
 
     @Test
     void GivenTheAccountsOwnSessionInTheCall_WhenAnActorIsBuilt_ThenItIsKept() {
-        Actor actor =
-                new Actor(ACCOUNT, Set.of(ActorRole.DISPATCHER), call(Optional.of(ACCOUNT), Optional.of(SESSION)));
+        CallContext own = call(Optional.of(ACCOUNT), Optional.of(SESSION));
+
+        Actor actor = new Actor(ACCOUNT, Set.of(ActorRole.DISPATCHER), own);
 
         assertThat(actor.account()).isEqualTo(ACCOUNT);
         assertThat(actor.roles()).containsExactly(ActorRole.DISPATCHER);
+        assertThat(actor.call()).isEqualTo(own);
     }
 
     @Test

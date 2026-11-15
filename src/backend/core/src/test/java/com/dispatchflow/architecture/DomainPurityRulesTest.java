@@ -133,6 +133,9 @@ class DomainPurityRulesTest {
 
     private static final String FIXTURE_ROOT = FixtureClasses.ROOT;
     private static final String FIXTURE_MODULE_ANNOTATIONS = NamedInterface.class.getPackageName();
+    // A root of its own, so its kernel application package-info can carry another module annotation
+    // beside the one archfixture.shared.application carries.
+    private static final String ETA = "eta";
 
     private static boolean flags(ArchRule rule, Class<?>... fixtures) {
         return rule.evaluate(FixtureClasses.only(fixtures)).hasViolation();
@@ -182,6 +185,27 @@ class DomainPurityRulesTest {
 
         assertThat(packageInfo).hasSize(1);
         assertThat(rule1().evaluate(packageInfo).hasViolation()).isFalse();
+    }
+
+    @Test
+    void GivenAModuleAnnotationOnAnotherKernelPackageInfo_WhenRule1Evaluates_ThenItIsFlagged() {
+        JavaClasses packageInfo =
+                FixtureClasses.inPackage("shared.other").that(JavaClass.Predicates.simpleName("package-info"));
+
+        assertThat(packageInfo).hasSize(1);
+        assertThat(rule1().evaluate(packageInfo).hasViolation()).isTrue();
+    }
+
+    @Test
+    void GivenAnotherModuleAnnotationOnTheKernelsApplicationPackageInfo_WhenRule1Evaluates_ThenItIsFlagged() {
+        JavaClasses packageInfo = FixtureClasses.inPackage(ETA + ".shared.application")
+                .that(JavaClass.Predicates.simpleName("package-info"));
+
+        assertThat(packageInfo).hasSize(1);
+        assertThat(DomainPurityRules.onlyAllowedDependencies(FIXTURE_ROOT + "." + ETA, FIXTURE_MODULE_ANNOTATIONS)
+                        .evaluate(packageInfo)
+                        .hasViolation())
+                .isTrue();
     }
 
     @Test

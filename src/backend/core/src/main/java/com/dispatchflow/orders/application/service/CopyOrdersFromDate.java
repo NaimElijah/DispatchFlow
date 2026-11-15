@@ -14,8 +14,8 @@ import com.dispatchflow.shared.application.IdGenerator;
  * (FR-62, a Should row). Each copy is a new order placed on the new date's capacity, read under its
  * lock, with its window moved to the new date, so the limit counts it (BR-113) and its reference
  * is checked there (FR-211, ADR-102). The new orders are created together in one transaction (DL
- * §6.1 point 1). An order of a customer retired or anonymized since gets no copy, so the copy is
- * refused (FR-193).
+ * §6.1 point 1). An order whose customer was retired or anonymized since refuses the whole copy,
+ * so nothing is copied (FR-193).
  *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).

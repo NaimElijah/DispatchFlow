@@ -10,8 +10,11 @@ import java.util.List;
  * <p>Built in M2.
  *
  * @param customers the customers, each once, ordered by name
+ * @param more whether more customers matched than the list holds, so a search was cut at its
+ *     limit and the dispatcher types more to narrow it; {@code false} for the likely duplicates,
+ *     which are never cut
  */
-public record CustomerList(List<CustomerSummary> customers) implements PersonalData {
+public record CustomerList(List<CustomerSummary> customers, boolean more) implements PersonalData {
 
     /** Copies the customers. */
     public CustomerList {

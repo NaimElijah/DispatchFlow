@@ -12,13 +12,15 @@ import org.junit.jupiter.api.Test;
 class SolveConfigurationTest {
 
     private static final Factor FIVE = new Factor(new BigDecimal("5"));
+    private static final Factor TEN = new Factor(new BigDecimal("10"));
     private static final Duration FIVE_MINUTES = Duration.ofMinutes(5);
 
     @Test
     void GivenTheStartingValues_WhenTheyAreBuilt_ThenTheyAreKept() {
-        Values values = new Values(FIVE, FIVE, FIVE_MINUTES, true);
+        Values values = new Values(FIVE, TEN, FIVE_MINUTES, true);
 
         assertThat(values.doorWindowRate()).isEqualTo(FIVE);
+        assertThat(values.latenessRate()).isEqualTo(TEN);
         assertThat(values.movedStopCost()).isEqualTo(FIVE_MINUTES);
         assertThat(values.breaksReserved()).isTrue();
     }

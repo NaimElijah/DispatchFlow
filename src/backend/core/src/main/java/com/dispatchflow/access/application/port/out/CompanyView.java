@@ -14,8 +14,9 @@ import java.util.Optional;
  * (placement P7).
  *
  * <p>A view exists only once the profile does. Before an Admin first saves the settings there is no
- * view, and that first save sends {@code Version.NEW} as its {@code If-Match}, which {@code
- * ChangeCompanyProfile} reads as "no profile yet".
+ * view, so there is no version to send: that first save sends {@code If-None-Match: *}, which the
+ * web adapter passes to {@code ChangeCompanyProfile} as {@code Version.NEW}, "no profile yet".
+ * Every later save sends {@code If-Match} with this view's version.
  *
  * <p>Built in M2.
  *
@@ -24,8 +25,8 @@ import java.util.Optional;
  * @param defaultWindow the time window a new customer starts with (FR-125)
  * @param defaultServiceTime the service duration a new customer starts with; empty until an Admin
  *     sets one (FR-184)
- * @param version the profile's version, never {@code Version.NEW}, which the next change sends
- *     back as {@code If-Match} (BR-76)
+ * @param version the profile's version, never {@code Version.NEW}, which every save after the
+ *     first sends back as {@code If-Match} (BR-76)
  */
 public record CompanyView(
         CompanyName name,

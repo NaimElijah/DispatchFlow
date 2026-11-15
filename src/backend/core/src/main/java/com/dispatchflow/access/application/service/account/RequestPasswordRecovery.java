@@ -20,7 +20,9 @@ import com.dispatchflow.shared.application.IdGenerator;
  * whether the address has an account or why nothing was sent:
  *
  * <ul>
- *   <li>an address no account holds;
+ *   <li>an address no account holds, for which the use case writes {@code AuditLog.refused} naming
+ *       no account, in its own transaction (ADR-110), with the code M5 adds to {@code AccessError}
+ *       for an address no account holds ({@code SignIn}'s domain gap);
  *   <li>a refusal of {@code UserAccount.issueLink} for a recovery link: {@code AccountDeactivated},
  *       {@code AccountAnonymized} or {@code AccountHasNoRole} (BR-123). The use case catches the
  *       {@code RuleViolation} itself, and writes {@code AuditLog.refused} with the domain's
@@ -44,10 +46,12 @@ import com.dispatchflow.shared.application.IdGenerator;
  * day's cap within an hour; ADR-036 revisits the limits on a day the cap is reached.
  *
  * <p><b>The order.</b> The use case calls {@code UserAccount.issueLink} first, then {@link
- * RecoveryEmailCap#take}, and saves the account and sends the link only when the take succeeds. On a
- * refused take the account isn't saved, so the link issued in memory is dropped and the account's
- * earlier open link, if it has one, stays valid. The take is in the same transaction as the save, so
- * a version conflict on the save rolls the take back and a lost race spends none of the cap.
+ * RecoveryEmailCap#take}, and saves the account only when the take succeeds. On a refused take the
+ * account isn't saved, so the link issued in memory is dropped and the account's earlier open link,
+ * if it has one, stays valid. The take is in the same transaction as the save, so a version
+ * conflict on the save rolls the take back and a lost race spends none of the cap. The email goes
+ * to {@code EmailSender.sendLink} only after that transaction commits, as every Access email does,
+ * so a rolled-back save sends nothing.
  *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).

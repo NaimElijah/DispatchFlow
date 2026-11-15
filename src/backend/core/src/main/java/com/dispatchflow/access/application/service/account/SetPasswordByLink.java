@@ -28,6 +28,14 @@ import com.dispatchflow.shared.application.StaleVersion;
  * account holds no such link for, so the page learns nothing more. Like every changing call it
  * writes its audit record, a refused attempt's in its own transaction (NFR-23, ADR-110).
  *
+ * <p><b>Refusals answered as a voided link</b> (NFR-145, NFR-224), as {@code ConfirmEmailByLink}
+ * answers them. The holder of the link must learn nothing about the account's state, so the use
+ * case catches {@code UserAccount.setPasswordByLink}'s {@code AccountDeactivated} and {@code
+ * AccountAnonymized}, writes {@code AuditLog.refused} with the domain's specific code in its own
+ * transaction (ADR-110), and then throws a {@code RuleViolation} with Access's {@code LinkVoided}
+ * in its place. A deactivation voids every unspent link (NFR-224), so {@code LinkVoided} is what
+ * happened to the link.
+ *
  * <p>Built in M6.
  */
 public final class SetPasswordByLink {
@@ -82,10 +90,10 @@ public final class SetPasswordByLink {
      * @param call the call's context: no user or session, the client and the trace (ADR-110)
      * @throws RuleViolation with Access's {@code UnknownLink} when no set-password or recovery link
      *     has the token; {@code LinkAlreadyUsed}, {@code LinkVoided} or {@code LinkExpired} when
-     *     the link no longer works (NFR-211, NFR-224); {@code AccountDeactivated} or {@code
-     *     AccountAnonymized} when the account is not active; {@code PasswordHasUnpairedSurrogate},
-     *     {@code PasswordTooShort} or {@code PasswordTooCommon} for a password the policy refuses
-     *     (NFR-95)
+     *     the link no longer works (NFR-211, NFR-224); {@code LinkVoided} also in place of {@code
+     *     AccountDeactivated} or {@code AccountAnonymized}, when the account is not active, as
+     *     above (NFR-145); {@code PasswordHasUnpairedSurrogate}, {@code PasswordTooShort} or {@code
+     *     PasswordTooCommon} for a password the policy refuses (NFR-95)
      * @throws StaleVersion when the account changed between its read and its save (BR-76); the web
      *     adapter retries the call at once, up to three times, then answers 503 with {@code
      *     Retry-After} (ADR-121)
