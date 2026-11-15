@@ -3,6 +3,7 @@ package com.dispatchflow.orders.application.service;
 import com.dispatchflow.access.application.api.Actor;
 import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.orders.application.port.out.CustomerRepository;
+import com.dispatchflow.orders.application.port.out.OrderRepository;
 import com.dispatchflow.orders.application.spi.RecordUsage;
 import com.dispatchflow.shared.CustomerId;
 import com.dispatchflow.shared.RuleViolation;
@@ -12,16 +13,18 @@ import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 
 /**
- * A dispatcher retires a customer, which is never deleted (FR-56, BR-43): the use case asks
- * Planning, through the {@link RecordUsage} port it implements, which plans not yet completed use
- * the customer, translates the answer into the domain's {@code InUse}, and calls {@code
- * Customer.retire}. A retired customer is no longer matched by imports.
+ * A dispatcher retires a customer, which is never deleted (FR-56, BR-43): the use case reads the
+ * customer's uncancelled orders dated today or later, asks Planning, through the {@link
+ * RecordUsage} port it implements, which plans not yet completed use them, translates the answer
+ * into the domain's {@code InUse}, and calls {@code Customer.retire}. A retired customer is no
+ * longer matched by imports.
  *
  * <p>Built in M2.
  */
 public final class RetireCustomer {
 
     private final CustomerRepository customers;
+    private final OrderRepository orders;
     private final RecordUsage recordUsage;
     private final Clock clock;
     private final AuditLog auditLog;
@@ -30,12 +33,19 @@ public final class RetireCustomer {
      * Creates the use case.
      *
      * @param customers where customers are kept
+     * @param orders where the customer's orders are read
      * @param recordUsage which plans use the customer, as Planning answers
      * @param clock the time of retiring
      * @param auditLog the audit trail
      */
-    public RetireCustomer(CustomerRepository customers, RecordUsage recordUsage, Clock clock, AuditLog auditLog) {
+    public RetireCustomer(
+            CustomerRepository customers,
+            OrderRepository orders,
+            RecordUsage recordUsage,
+            Clock clock,
+            AuditLog auditLog) {
         this.customers = customers;
+        this.orders = orders;
         this.recordUsage = recordUsage;
         this.clock = clock;
         this.auditLog = auditLog;

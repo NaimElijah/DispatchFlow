@@ -2,6 +2,7 @@ package com.dispatchflow.orders.application.port.out;
 
 import com.dispatchflow.orders.domain.DateCapacity;
 import com.dispatchflow.orders.domain.Order;
+import com.dispatchflow.shared.CustomerId;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.application.StaleVersion;
@@ -82,4 +83,16 @@ public interface OrderRepository {
      * @return the orders, each once; empty for a date with none
      */
     List<Order> uncancelledOn(DeliveryDate date);
+
+    /**
+     * A customer's uncancelled orders dated on or after a day, which retiring the customer asks
+     * Planning about (BR-43).
+     *
+     * <p>Built in M2.
+     *
+     * @param customer the customer
+     * @param from the first date to include, today when retiring
+     * @return the orders' IDs, each once; empty when the customer has none
+     */
+    List<OrderId> uncancelledOfCustomerFrom(CustomerId customer, LocalDate from);
 }

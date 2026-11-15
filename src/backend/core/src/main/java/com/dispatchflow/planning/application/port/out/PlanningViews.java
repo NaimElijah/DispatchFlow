@@ -12,7 +12,6 @@ import com.dispatchflow.planning.application.api.PublishedRouteFact;
 import com.dispatchflow.planning.application.api.RouteDriversFact;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.Attempt;
-import com.dispatchflow.shared.CustomerId;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.DepotId;
 import com.dispatchflow.shared.JobId;
@@ -250,16 +249,14 @@ public interface PlanningViews {
     List<OrderPlacementFact> placementsOn(DeliveryDate date);
 
     /**
-     * The plans not yet completed that serve or drop an order of a customer (BR-43). Planning keeps
-     * no customer of its own, so this needs each stop's customer from the solve's input, which
-     * Customers &amp; Orders' {@code OrderFact} doesn't carry yet.
+     * The plans not yet completed that serve or drop any of the given orders (BR-43).
      *
      * <p>Built in M2.
      *
-     * @param customer the customer
+     * @param orders the orders, a customer's as Customers &amp; Orders names them
      * @return the plans, each once
      */
-    List<PlanId> unfinishedPlansUsing(CustomerId customer);
+    List<PlanId> unfinishedPlansUsing(List<OrderId> orders);
 
     /**
      * The plans dated on or after a day whose routes use a vehicle (FR-305).

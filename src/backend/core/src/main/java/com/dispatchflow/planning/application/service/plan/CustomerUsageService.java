@@ -2,7 +2,7 @@ package com.dispatchflow.planning.application.service.plan;
 
 import com.dispatchflow.orders.application.spi.RecordUsage;
 import com.dispatchflow.planning.application.port.out.PlanningViews;
-import com.dispatchflow.shared.CustomerId;
+import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PlanId;
 import java.util.List;
 
@@ -11,9 +11,8 @@ import java.util.List;
  * Orders asks before it retires a customer (BR-43, DL §2.1's dashed arrow, placement P9). It reads
  * the plans through {@link PlanningViews}.
  *
- * <p>Planning keeps no customer of its own: a plan holds orders, and {@code OrderFact} doesn't name
- * the order's customer yet. So this answer needs each stop's customer kept from the solve's input,
- * which waits for {@code OrderFact} to carry it.
+ * <p>Customers &amp; Orders names the customer's orders, so Planning answers from the orders its
+ * plans hold and keeps no customer of its own.
  *
  * <p>Built in M2.
  */
@@ -36,7 +35,7 @@ public final class CustomerUsageService implements RecordUsage {
      * <p>Built in M2.
      */
     @Override
-    public List<PlanId> plansUsing(CustomerId customer) {
+    public List<PlanId> plansUsing(List<OrderId> orders) {
         throw new UnsupportedOperationException("Built in M2");
     }
 }
