@@ -12,6 +12,7 @@ import com.dispatchflow.orders.domain.OrdersError.RetentionNotOver;
 import com.dispatchflow.orders.domain.OrdersError.StopAlreadyHasFact;
 import com.dispatchflow.orders.domain.OrdersError.WindowNotOnDate;
 import com.dispatchflow.orders.events.OrderCancelled;
+import com.dispatchflow.orders.events.OrderPutBack;
 import com.dispatchflow.orders.events.OrderRescheduled;
 import com.dispatchflow.shared.AggregateRoot;
 import com.dispatchflow.shared.Attempt;
@@ -40,7 +41,8 @@ import org.jspecify.annotations.Nullable;
  * Goods to deliver to a customer on a date (DL §4.3, §17). It owns the rules about one order: its
  * date isn't past (BR-116), its window lies on its date (BR-35), it has a service time (BR-124), it
  * can't change once its stop has a fact (BR-92), a cancelled order stays cancelled, and only a failed
- * or dropped order is put back, starting the next attempt (FR-75, FR-258). With a {@link
+ * or dropped order is put back, starting the next attempt (FR-75, FR-258). It tells the other
+ * contexts when it is cancelled, moved to another date, or put back onto one. With a {@link
  * DateCapacity} it also keeps a date's orders under the limit (BR-101, BR-113) and their references
  * unique (FR-211, ADR-102).
  *
@@ -336,8 +338,9 @@ public final class Order extends AggregateRoot implements PersonalData {
     /**
      * Puts a failed or dropped order back, for today's re-optimization or on another date, as its
      * next attempt (FR-75, FR-258, BR-94, BR-95). The earlier attempt's outcome stays as recorded.
-     * On its own date it doesn't count again toward the limit (BR-113); on another date its
-     * reference is checked as a new order's (ADR-102).
+     * On its own date it doesn't count again toward the limit (BR-113) and raises no event; on
+     * another date its reference is checked as a new order's (ADR-102), and it raises {@link
+     * OrderPutBack}, so Planning takes the old attempt's drop off the old date's plan (ADR-115).
      *
      * @param placement where Planning holds the current attempt
      * @param progress what has happened at its stop, from Live Operations
@@ -363,10 +366,21 @@ public final class Order extends AggregateRoot implements PersonalData {
             throw new RuleViolation(new OnlyFailedOrDroppedOrdersArePutBack(status));
         }
         refuseJoining(window, target, today);
-        date = target.date();
+        DeliveryDate from = date;
+        DeliveryDate to = target.date();
+        Attempt ended = attempt;
+        date = to;
         this.window = window;
         attempt = attempt.next();
         lastChangedAt = now;
+        // On its own date the next solve or re-optimization replaces the old attempt's drop, so only
+        // a move leaves another date's plan holding it (ADR-115).
+        if (!to.equals(from)) {
+            raise(
+                    OrderPutBack.class,
+                    id.value(),
+                    eventId -> new OrderPutBack(eventId, now, id, from, to, ended.number()));
+        }
     }
 
     /**

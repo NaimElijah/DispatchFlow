@@ -314,6 +314,27 @@ class CustomerTest {
         }
 
         @Test
+        void GivenAClockSteppedBackBeforeItsCreation_WhenRetired_ThenItIsRetiredAtItsCreationAndStillRestores() {
+            Customer customer =
+                    aCustomer().createdAt(Instant.parse("2027-06-15T06:00:00Z")).restored();
+
+            customer.retire(InUse.NONE, Instant.parse("2027-06-15T05:59:59Z"));
+
+            assertThat(customer.state()).isEqualTo(new Customer.State.Retired(Instant.parse("2027-06-15T06:00:00Z")));
+            assertThat(Customer.restore(customer.snapshot()).snapshot()).isEqualTo(customer.snapshot());
+        }
+
+        @Test
+        void GivenTheTimeOfItsCreation_WhenRetired_ThenItIsRetiredAtThatTime() {
+            Customer customer =
+                    aCustomer().createdAt(Instant.parse("2027-06-15T06:00:00Z")).restored();
+
+            customer.retire(InUse.NONE, Instant.parse("2027-06-15T06:00:00Z"));
+
+            assertThat(customer.state()).isEqualTo(new Customer.State.Retired(Instant.parse("2027-06-15T06:00:00Z")));
+        }
+
+        @Test
         void GivenPlansNotYetCompletedUseIt_WhenRetired_ThenCustomerInUse() {
             Customer customer = aCustomer().restored();
             PlanId later = PlanId.of(UUID.fromString("0190a5e2-0000-7000-8000-0000000000b2"));

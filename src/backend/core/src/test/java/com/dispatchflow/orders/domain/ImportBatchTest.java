@@ -50,6 +50,7 @@ import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.DomainError;
 import com.dispatchflow.shared.FreshIds;
 import com.dispatchflow.shared.OrderId;
+import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.SharedKernelError.Measure;
 import com.dispatchflow.shared.SharedKernelError.NonexistentLocalTime;
@@ -207,7 +208,10 @@ class ImportBatchTest {
         void GivenAKnownCustomerWithItsOwnDefaultWindow_WhenARowGivesNone_ThenTheOrderTakesThatWindow() {
             DailyWindow early = DailyWindow.of(LocalTime.of(7, 0), LocalTime.of(8, 0));
             CustomerMatch.Candidate earlyBird = new CustomerMatch.Candidate(
-                    customerId(7), new OrderDefaults(early, Optional.of(OrdersTestData.FIVE_MINUTES)));
+                    customerId(7),
+                    ImportBatchBuilder.NAME,
+                    ImportBatchBuilder.PHONE,
+                    new OrderDefaults(early, Optional.of(OrdersTestData.FIVE_MINUTES)));
             ImportContext context = ImportContext.of(
                     List.of(new ImportContext.AddressMatch(
                             NormalizedAddress.of(KNOWN_ADDRESS), new CustomerMatch.OneCustomer(earlyBird))),
@@ -260,6 +264,149 @@ class ImportBatchTest {
             assertThat(result.orders())
                     .extracting(Order::customer)
                     .containsOnly(result.customers().get(0).id());
+        }
+
+        @Test
+        void GivenTwoRowsForOneNewAddressNamingDifferentPeople_WhenConfirmed_ThenTheSecondOrderKeepsItsPhone() {
+            ImportRow neighbour = new ImportRow.Parsed(
+                    RowNumber.of(2),
+                    new ImportLine(
+                            NEW_ADDRESS,
+                            Optional.of(ContactName.of("Avi Cohen")),
+                            Optional.of(PhoneNumber.parse("054-2222222")),
+                            TOMORROW,
+                            bareDetails()));
+
+            ImportResult result = anImportBatch()
+                    .withRows(cleanRow(1), neighbour)
+                    .previewed()
+                    .confirm(context(), false, ids(3), TODAY, HALF_AN_HOUR_LATER);
+
+            assertThat(result.customers()).hasSize(1);
+            assertThat(result.orders()).extracting(Order::customer).containsOnly(CustomerId.of(fresh(1)));
+            assertThat(result.orders().get(0).snapshot().recipient()).isEqualTo(Recipient.NONE);
+            assertThat(result.orders().get(1).snapshot().recipient())
+                    .isEqualTo(new Recipient(
+                            Optional.of(ContactName.of("Avi Cohen")), Optional.of(PhoneNumber.parse("054-2222222"))));
+        }
+
+        @Test
+        void GivenARowForAKnownCustomerUnderAnotherName_WhenConfirmed_ThenTheRowsNameAndPhoneAreTheRecipient() {
+            ImportRow otherName = new ImportRow.Parsed(
+                    RowNumber.of(1),
+                    new ImportLine(
+                            KNOWN_ADDRESS,
+                            Optional.of(ContactName.of("אבי כהן")),
+                            Optional.of(ImportBatchBuilder.PHONE),
+                            TOMORROW,
+                            details(TOMORROW).withRecipient(Recipient.NONE)));
+
+            ImportResult result = anImportBatch()
+                    .withRows(otherName)
+                    .previewed()
+                    .confirm(context(), false, ids(1), TODAY, HALF_AN_HOUR_LATER);
+
+            assertThat(result.customers()).isEmpty();
+            assertThat(result.orders().get(0).customer()).isEqualTo(KNOWN_CUSTOMER.id());
+            assertThat(result.orders().get(0).snapshot().recipient())
+                    .isEqualTo(new Recipient(
+                            Optional.of(ContactName.of("אבי כהן")), Optional.of(PhoneNumber.parse("052-345-6780"))));
+        }
+
+        @Test
+        void GivenARowForAKnownCustomerWithOnlyAnotherPhone_WhenConfirmed_ThenTheRowsNameAndPhoneAreTheRecipient() {
+            ImportRow otherPhone = new ImportRow.Parsed(
+                    RowNumber.of(1),
+                    new ImportLine(
+                            KNOWN_ADDRESS,
+                            Optional.of(ImportBatchBuilder.NAME),
+                            Optional.of(PhoneNumber.parse("054-222-2222")),
+                            TOMORROW,
+                            details(TOMORROW).withRecipient(Recipient.NONE)));
+
+            ImportResult result = anImportBatch()
+                    .withRows(otherPhone)
+                    .previewed()
+                    .confirm(context(), false, ids(1), TODAY, HALF_AN_HOUR_LATER);
+
+            assertThat(result.orders().get(0).snapshot().recipient())
+                    .isEqualTo(new Recipient(
+                            Optional.of(ContactName.of("רות ישראלי")), Optional.of(PhoneNumber.parse("054-222-2222"))));
+        }
+
+        @Test
+        void GivenARowForAKnownCustomerUnderAnotherNameAndNoPhone_WhenConfirmed_ThenOnlyTheNameIsTheRecipient() {
+            ImportRow nameOnly = new ImportRow.Parsed(
+                    RowNumber.of(1),
+                    new ImportLine(
+                            KNOWN_ADDRESS,
+                            Optional.of(ContactName.of("אבי כהן")),
+                            Optional.empty(),
+                            TOMORROW,
+                            details(TOMORROW).withRecipient(Recipient.NONE)));
+
+            ImportResult result = anImportBatch()
+                    .withRows(nameOnly)
+                    .previewed()
+                    .confirm(context(), false, ids(1), TODAY, HALF_AN_HOUR_LATER);
+
+            assertThat(result.orders().get(0).snapshot().recipient())
+                    .isEqualTo(new Recipient(Optional.of(ContactName.of("אבי כהן")), Optional.empty()));
+        }
+
+        @Test
+        void GivenARowNamingAnotherPersonWithItsRecipientColumnsFilled_WhenConfirmed_ThenItsRecipientIsKeptAsGiven() {
+            ImportRow ownRecipient = new ImportRow.Parsed(
+                    RowNumber.of(1),
+                    new ImportLine(
+                            KNOWN_ADDRESS,
+                            Optional.of(ContactName.of("אבי כהן")),
+                            Optional.of(PhoneNumber.parse("054-222-2222")),
+                            TOMORROW,
+                            details(TOMORROW)));
+
+            ImportResult result = anImportBatch()
+                    .withRows(ownRecipient)
+                    .previewed()
+                    .confirm(context(), false, ids(1), TODAY, HALF_AN_HOUR_LATER);
+
+            assertThat(result.orders().get(0).snapshot().recipient())
+                    .isEqualTo(new Recipient(
+                            Optional.of(ContactName.of("דנה לוי")), Optional.of(PhoneNumber.parse("052-345-6789"))));
+        }
+
+        static Stream<Arguments> rowsNamingTheCustomer() {
+            return Stream.of(
+                    Arguments.of(
+                            "its own name and phone",
+                            Optional.of(ImportBatchBuilder.NAME),
+                            Optional.of(ImportBatchBuilder.PHONE)),
+                    Arguments.of(
+                            "its phone typed otherwise",
+                            Optional.of(ImportBatchBuilder.NAME),
+                            Optional.of(PhoneNumber.parse("+972523456780"))),
+                    Arguments.of("no name and no phone", Optional.empty(), Optional.empty()));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("rowsNamingTheCustomer")
+        void GivenARowForAKnownCustomerNamingNoOneElse_WhenConfirmed_ThenTheOrderHasNoRecipientOfItsOwn(
+                String given, Optional<ContactName> name, Optional<PhoneNumber> phone) {
+            ImportRow sameContact = new ImportRow.Parsed(
+                    RowNumber.of(1),
+                    new ImportLine(
+                            KNOWN_ADDRESS,
+                            name,
+                            phone,
+                            TOMORROW,
+                            details(TOMORROW).withRecipient(Recipient.NONE)));
+
+            ImportResult result = anImportBatch()
+                    .withRows(sameContact)
+                    .previewed()
+                    .confirm(context(), false, ids(1), TODAY, HALF_AN_HOUR_LATER);
+
+            assertThat(result.orders().get(0).snapshot().recipient()).isEqualTo(Recipient.NONE);
         }
 
         @Test
@@ -421,6 +568,17 @@ class ImportBatchTest {
         }
 
         @Test
+        void GivenAClockSteppedBackBeforeThePreview_WhenConfirmed_ThenItIsConfirmedAtThePreviewAndStillRestores() {
+            ImportBatch batch = anImportBatch().previewed();
+
+            ImportResult result = batch.confirm(context(), false, ids(2), TODAY, Instant.parse("2027-06-15T05:59:59Z"));
+
+            assertThat(batch.state()).isEqualTo(new ImportBatch.State.Confirmed(Instant.parse("2027-06-15T06:00:00Z")));
+            assertThat(ImportBatch.restore(batch.snapshot()).snapshot()).isEqualTo(batch.snapshot());
+            assertThat(result.orders()).hasSize(1);
+        }
+
+        @Test
         void GivenAPreviewJustUnderAnHourOld_WhenConfirmed_ThenItIsConfirmed() {
             ImportBatch batch = anImportBatch().previewed();
             Instant justInTime = inMinutes(60).minusMillis(1);
@@ -488,6 +646,33 @@ class ImportBatchTest {
 
             assertThat(batch.state()).isEqualTo(new ImportBatch.State.Discarded(HALF_AN_HOUR_LATER));
             assertThat(batch.rows()).isEmpty();
+        }
+
+        @Test
+        void GivenAClockSteppedBackBeforeThePreview_WhenDiscarded_ThenItIsDiscardedAtThePreviewAndStillRestores() {
+            ImportBatch batch = anImportBatch().previewed();
+
+            batch.discard(Instant.parse("2027-06-15T05:59:59Z"));
+
+            assertThat(batch.state()).isEqualTo(new ImportBatch.State.Discarded(Instant.parse("2027-06-15T06:00:00Z")));
+            assertThat(ImportBatch.restore(batch.snapshot()).snapshot()).isEqualTo(batch.snapshot());
+        }
+
+        @Test
+        void GivenTheTimeOfThePreview_WhenDiscarded_ThenItIsDiscardedAtThatTime() {
+            ImportBatch batch = anImportBatch().previewed();
+
+            batch.discard(Instant.parse("2027-06-15T06:00:00Z"));
+
+            assertThat(batch.state()).isEqualTo(new ImportBatch.State.Discarded(Instant.parse("2027-06-15T06:00:00Z")));
+        }
+
+        @Test
+        void GivenAClockSteppedBackBeforeThePreview_WhenExpired_ThenImportNotYetExpired() {
+            ImportBatch batch = anImportBatch().previewed();
+
+            assertRefusedUnchanged(
+                    batch, () -> batch.expire(Instant.parse("2027-06-15T05:59:59Z")), new ImportNotYetExpired());
         }
 
         @Test

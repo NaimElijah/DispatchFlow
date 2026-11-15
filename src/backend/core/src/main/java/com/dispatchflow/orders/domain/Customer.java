@@ -294,7 +294,9 @@ public final class Customer extends AggregateRoot implements PersonalData {
      * Retires the customer (BR-43, FR-56). It is no longer matched by imports, and its record stays.
      *
      * @param usage the plans not yet completed that use it, from Planning
-     * @param now the time of retiring, from which its retention counts
+     * @param now the time of retiring, from which its retention counts; a time before its creation,
+     *     from a clock that stepped back, is recorded as its creation's, so the customer still
+     *     restores (ADR-115)
      * @throws RuleViolation with {@link CustomerAnonymized}, {@link CustomerRetired} or {@link
      *     CustomerInUse}, in that order
      */
@@ -303,7 +305,7 @@ public final class Customer extends AggregateRoot implements PersonalData {
         if (usage.isInUse()) {
             throw new RuleViolation(new CustomerInUse(id, usage.plans()));
         }
-        state = new State.Retired(now);
+        state = new State.Retired(now.isBefore(createdAt) ? createdAt : now);
     }
 
     /**
