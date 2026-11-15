@@ -5,11 +5,17 @@ has no default (ADR-004). A `Budget` ends the search: a time limit, an iteration
 solution limit, so a test never runs on the wall clock (NFR-82, NFR-175). The `Stopwatch` times
 the search for the response's stats, so the use cases read no clock of their own.
 
+A request the service cannot run, because it names an unknown solver or a budget its solver cannot
+honour, raises `UnknownSolverError` or `UnsupportedBudgetError`, which propagate out of the use
+case. A search that ran and returned no solution raises `SearchFailedError` with its
+`SearchFailure`, which the use case answers as `Failed` (ADR-004).
+
 Built in M0.
 """
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Protocol
 
 from dispatchflow_solver.domain.problem import Problem
@@ -53,14 +59,53 @@ type Budget = TimeLimit | IterationLimit | SolutionLimit
 """What ends a search: a time limit, an iteration budget or a solution limit (ADR-044)."""
 
 
-class SolverError(Exception):
-    """A solve that cannot run or found nothing (ADR-004).
+class UnknownSolverError(LookupError):
+    """A request names a solver the registry does not hold (ADR-004, FR-20).
 
-    A solver name the registry does not hold, a solver that failed, or one that found no solution
-    within its budget.
+    It is a refused request, not a failed search: it propagates out of the use case, and no other
+    solver is tried in its place. The message names the solver, never the problem's contents.
+    """
+
+
+class UnsupportedBudgetError(ValueError):
+    """A request gives a budget of a kind its solver cannot honour (ADR-044).
+
+    It is a refused request, not a failed search: it propagates out of the use case. The message
+    names the solver and the budget's kind, never the problem's contents.
+    """
+
+
+class SearchFailure(StrEnum):
+    """Why a search returned no solution: the closed kind a `Failed` outcome carries (ADR-004).
+
+    Each value is the code the contract sends for it, so the core maps the kind without reading
+    the message.
+    """
+
+    SOLVER_FAILED = "SOLVER_FAILED"
+    """The solver failed while it searched."""
+    NO_SOLUTION_WITHIN_BUDGET = "NO_SOLUTION_WITHIN_BUDGET"
+    """The solver found no solution before its budget ended the search."""
+
+
+class SearchFailedError(Exception):
+    """A search that ran and returned no solution, which the use case answers as `Failed` (ADR-004).
 
     The message names the solver, never the problem's contents.
+
+    Attributes:
+        kind: Why the search returned no solution.
     """
+
+    def __init__(self, kind: SearchFailure, message: str) -> None:
+        """Holds the failure's kind and message.
+
+        Args:
+            kind: Why the search returned no solution.
+            message: What failed, naming the solver and never the problem's contents.
+        """
+        super().__init__(message)
+        self.kind = kind
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,8 +154,8 @@ class Solver(Protocol):
             replays the search: the iterations or the solutions it reached.
 
         Raises:
-            SolverError: If the solver fails, cannot honour the budget's kind, or finds no solution
-                within its budget.
+            UnsupportedBudgetError: If it cannot honour the budget's kind, before it searches.
+            SearchFailedError: If it fails, or finds no solution within its budget, with the kind.
         """
 
 
@@ -124,7 +169,7 @@ class SolverRegistry:
         """Holds the given solvers.
 
         Args:
-            solvers: Every solver the service runs, each under its own name.
+            solvers: Every solver a request may choose, each under its own name.
         """
         self._solvers = tuple(solvers)
 
@@ -138,8 +183,8 @@ class SolverRegistry:
             The solver.
 
         Raises:
-            SolverError: If the registry holds no solver of that name; it never falls back to
-                another.
+            UnknownSolverError: If the registry holds no solver of that name; it never falls back
+                to another.
             NotImplementedError: Until M0 builds it.
         """
         raise NotImplementedError("Built in M0")

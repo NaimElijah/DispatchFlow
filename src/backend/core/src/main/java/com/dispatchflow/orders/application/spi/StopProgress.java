@@ -10,14 +10,14 @@ import java.util.List;
  * reschedules or cancels an order (BR-92), and to derive each order's status (BR-33, DL §9.6).
  * Live Operations implements it as its {@code StopProgressService} (DL §2.1's dashed arrow).
  *
- * <p>Built in M5.
+ * <p>Built in M2, answering no fact for every stop; in full in M5 (ADR-121).
  */
 public interface StopProgress {
 
     /**
      * What has happened at one attempt's stop.
      *
-     * <p>Built in M5.
+     * <p>Built in M2, answering no fact for every stop; in full in M5 (ADR-121).
      *
      * @param order the order
      * @param attempt the attempt whose stop is asked about, usually the order's current one
@@ -29,7 +29,7 @@ public interface StopProgress {
     /**
      * What has happened at the stops of a date, for the order list's statuses (FR-76, BR-33).
      *
-     * <p>Built in M5.
+     * <p>Built in M2, answering no fact for every stop; in full in M5 (ADR-121).
      *
      * @param date the date
      * @return one entry per order with a stop on that date's plan; an order left out has no fact

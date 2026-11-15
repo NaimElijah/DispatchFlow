@@ -1,6 +1,6 @@
 # ADR-108: Messaging appends opt-ins to the opt-out history, holds its fixed wording, and cuts comments to 500 characters
 
-- **Status:** Accepted; amended by ADR-117
+- **Status:** Accepted; extended by ADR-121; amended by ADR-117
 - **Date:** 2026-11-14
 
 ## Context

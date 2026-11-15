@@ -40,7 +40,8 @@ public final class RouteQueries {
      * @param views Planning's read side
      * @param routeShapes the road network's line through a route's points
      * @param ordersForDate the date's orders, for each stop's location, weight and volume
-     * @param stopOrders each stop's address, phones and notes, as a driver sees them (FR-86, FR-87)
+     * @param stopOrders each stop's address, phones and notes, as a driver sees them, read for all
+     *     the route's orders in one call (FR-86, FR-87)
      * @param fleetFacts Fleet's register, for the depots' locations
      */
     public RouteQueries(
@@ -66,14 +67,17 @@ public final class RouteQueries {
      * @param route the route
      * @return the line, with the route's index for its colour and label (FR-148)
      * @throws NotFound when no plan holds the route, or the actor may not see it
-     * @throws java.io.UncheckedIOException when the road network can't be reached
+     * @throws com.dispatchflow.planning.application.port.out.RoadNetworkUnavailable when the road
+     *     network can't be reached
      */
     public RouteShapeView shape(Actor actor, RouteId route) {
         throw new UnsupportedOperationException("Built in M3");
     }
 
     /**
-     * The route to print or export (FR-72).
+     * The route to print or export (FR-72). It reads every stop's details with one {@code
+     * StopOrders.of} call, which takes the route's orders as a list, each once, and answers them in
+     * the order asked, so the printout keeps the route's order.
      *
      * <p>Built in an unscheduled milestone.
      *

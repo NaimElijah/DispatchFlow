@@ -14,9 +14,13 @@ import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * A dispatcher moves an order to another date (FR-57, FR-315): {@code Order.reschedule} on the new
- * date's capacity, read under its lock, the new date being the one the new window carries, after Live Operations' {@link StopProgress} says nothing
- * happened at its stop (BR-92). The order raises {@code OrderRescheduled}, which leaves with the
- * save, so Planning takes its stop off the old date's plan at once (FR-315, DL §6.2).
+ * date's capacity, read under its lock, the new date being the one the new window carries, after
+ * Live Operations' {@link StopProgress} says nothing happened at its stop (BR-92). The order raises
+ * {@code OrderRescheduled}, which leaves with the save, so Planning takes its stop off the old
+ * date's plan at once (FR-315, DL §6.2).
+ *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
  *
  * <p>Built in M9.
  */

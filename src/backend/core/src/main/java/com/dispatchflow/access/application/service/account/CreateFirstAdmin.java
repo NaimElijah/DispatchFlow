@@ -20,7 +20,8 @@ import com.dispatchflow.shared.application.IdGenerator;
  * <p>The step reads the address at a prompt that does not echo it, so it never enters a command
  * line or shell history (FR-393), and its audit record holds the account ID only (FR-409). It
  * creates no company profile: the Admin's first save of the settings does, through {@code
- * ChangeCompanyProfile}.
+ * ChangeCompanyProfile}. So it takes the first Admin's language as given, where every later account
+ * starts in the profile's default (FR-182).
  *
  * <p>Built in M6.
  */

@@ -14,7 +14,7 @@ import java.util.Optional;
  * its customer and, when it was on a route, its driver. The customer's name is personal data, so
  * it prints redacted; which of these fields the screen may show waits on legal advice (Q-42).
  *
- * <p>Built in M5.
+ * <p>Built in an unscheduled milestone: FR-161, a Should, is in no milestone of the roadmap.
  *
  * @param kind whether a stop failed or an order was dropped
  * @param reason the reason's stable code, as its owner names it: a failure reason from Live
@@ -38,7 +38,7 @@ public record FailureOrDrop(
     /**
      * Whether a stop failed or an order was dropped.
      *
-     * <p>Built in M5.
+     * <p>Built in an unscheduled milestone.
      */
     public enum Kind {
         /** A stop on a route failed (FR-242). */

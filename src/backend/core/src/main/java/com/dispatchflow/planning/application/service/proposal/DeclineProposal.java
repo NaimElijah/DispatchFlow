@@ -14,6 +14,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  * Declines a re-optimization's proposal; the plan stays published and every route as it was (FR-255,
  * BR-26, DL §6.2).
  *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
+ *
  * <p>Built in M9.
  */
 public final class DeclineProposal {
@@ -45,7 +48,8 @@ public final class DeclineProposal {
      *
      * @param actor the dispatcher, recorded as who declined it
      * @param proposal the proposal
-     * @param expected the proposal's version the dispatcher saw (BR-76)
+     * @param expected the proposal's version the dispatcher saw, from the preview's {@code version}
+     *     (BR-76)
      * @throws NotFound when no proposal has the ID
      * @throws StaleVersion when the proposal changed since {@code expected}
      * @throws com.dispatchflow.shared.RuleViolation with Planning's {@code ProposalAlreadyDeclined}

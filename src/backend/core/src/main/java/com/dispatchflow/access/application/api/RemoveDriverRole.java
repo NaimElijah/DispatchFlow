@@ -22,9 +22,9 @@ public interface RemoveDriverRole {
      * @param driver the retired driver's account
      * @param call the listener's server step
      * @throws NotFound when no account has the ID
-     * @throws com.dispatchflow.shared.application.StaleVersion when the account changed between its read
-     *     and its save (BR-76); the caller's listener or job adapter retries at once, up to three
-     *     times (DL §11)
+     * @throws com.dispatchflow.shared.application.StaleVersion when the account changed between its
+     *     read and its save (BR-76); the caller's listener or job adapter retries at once, up to
+     *     three times (DL §11)
      */
     void remove(AccountId driver, CallContext call);
 }

@@ -6,6 +6,7 @@ import com.dispatchflow.access.domain.account.EmailAddress;
 import com.dispatchflow.access.domain.account.RoleSet;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.PersonalData;
+import com.dispatchflow.shared.Version;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -23,6 +24,8 @@ import java.util.Optional;
  * @param language its interface language (FR-124)
  * @param passwordSet whether its password is set, so an Admin sees who still needs a set-password
  *     link (FR-294)
+ * @param version the account's version, which an Admin's change of the account sends back as
+ *     {@code If-Match} (BR-76)
  */
 public record AccountView(
         AccountId account,
@@ -30,7 +33,8 @@ public record AccountView(
         RoleSet roles,
         AccountState state,
         Language language,
-        boolean passwordSet)
+        boolean passwordSet,
+        Version version)
         implements PersonalData {
 
     /** Checks every part is present, possibly empty. */
@@ -40,6 +44,7 @@ public record AccountView(
         Objects.requireNonNull(roles, "roles");
         Objects.requireNonNull(state, "state");
         Objects.requireNonNull(language, "language");
+        Objects.requireNonNull(version, "version");
     }
 
     /**

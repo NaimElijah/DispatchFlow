@@ -17,6 +17,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  * OrderCancelled}, which leaves with the save, so Planning takes its stop off the published route
  * at once, with no optimization (FR-207, DL §6.2). The order is never deleted (BR-43).
  *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
+ *
  * <p>Built in M9.
  */
 public final class CancelOrder {

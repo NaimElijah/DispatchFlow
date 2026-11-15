@@ -19,6 +19,10 @@ import java.util.Optional;
  * PlanningViews}, never by loading a plan, because a plan doesn't load its past revisions (DL §4.4,
  * ADR-059, ADR-114).
  *
+ * <p>{@code membershipAt} fills {@code EntitlementFact.OnRoute}'s order and attempt from the stop in
+ * the revision in force at the corrected time, not from the plan as it is now, so a late report on a
+ * stop the plan no longer holds still names the order and attempt it served (BR-110, FR-258).
+ *
  * <p>Built in M5, M8 and M12, method by method.
  */
 public final class RouteMembershipService implements RouteMembership {

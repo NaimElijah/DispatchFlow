@@ -13,7 +13,8 @@ import com.dispatchflow.shared.application.StaleVersion;
 /**
  * A dispatcher acknowledges an alert, which records who did it and when; its key stays used, so the
  * same alert is never raised again (FR-260, ADR-107). One transaction calls {@code
- * Alert.acknowledge} with the audit record.
+ * Alert.acknowledge} with the audit record. Like every changing call it writes its audit record, a
+ * refused attempt's in its own transaction (NFR-23, ADR-110).
  *
  * <p>Built in M8. Rows: FR-260.
  */

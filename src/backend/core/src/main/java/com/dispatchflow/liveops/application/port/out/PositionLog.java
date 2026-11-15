@@ -8,7 +8,7 @@ import java.util.List;
  * The positions routes kept: records appended and never changed, deleted 7 days after receipt (DL
  * §3.2, §4.5, FR-31, NFR-31). It is the one high-volume stream, so it has no version (DL §11).
  *
- * <p>Built in M8.
+ * <p>Built in M8 and M13, method by method.
  */
 public interface PositionLog {
 
@@ -35,7 +35,7 @@ public interface PositionLog {
     /**
      * Deletes every position received before a cutoff (NFR-31, ADR-075).
      *
-     * <p>Built in M8.
+     * <p>Built in M13.
      *
      * @param cutoff the cutoff, from {@code RetentionPeriods.positionCutoff}
      * @return how many positions were deleted

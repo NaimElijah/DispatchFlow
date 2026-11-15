@@ -30,6 +30,18 @@ public interface PublishedRoutes {
     List<PublishedRouteFact> inForceOn(DeliveryDate date);
 
     /**
+     * Every route of every plan in force from a date on, so a driver's later routes are listed with
+     * their dates (FR-324). Live Operations picks a driver's own routes from it.
+     *
+     * <p>Built in M5.
+     *
+     * @param from the first date, usually today
+     * @return the routes, by date and then in each plan's order; empty when no plan in force is that
+     *     late
+     */
+    List<PublishedRouteFact> inForceFrom(DeliveryDate from);
+
+    /**
      * One route of a plan in force.
      *
      * <p>Built in M5.

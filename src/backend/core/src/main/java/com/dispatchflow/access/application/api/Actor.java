@@ -14,6 +14,12 @@ import java.util.Set;
  * x-capability}; a check that depends on the data, such as a driver's own route, is the use
  * case's (ADR-068).
  *
+ * <p>M5 builds sign-in. Until then the web adapter builds the actor from a stand-in session of a
+ * seeded account (ADR-121). The stand-in fails closed: it exists only when {@code dev} or {@code
+ * test} is the only active profile, and the core refuses to boot with the stand-in and any other
+ * profile active, which a test proves. M5 deletes the stand-in. So the calls that M0 to M4 build,
+ * which take an actor, run before sign-in exists.
+ *
  * <p>Built in M0.
  *
  * @param account the acting user's account

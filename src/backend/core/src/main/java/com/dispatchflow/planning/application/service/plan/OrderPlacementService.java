@@ -15,7 +15,10 @@ import java.util.List;
  * An abandoned or cancelled plan's orders count as unplanned (BR-131, FR-337), which the answer's
  * standing tells.
  *
- * <p>Built in M2 and M9, method by method.
+ * <p>{@link #placementOf} reads only the plans of the date the caller names, so an order's old date
+ * never answers for it after a reschedule.
+ *
+ * <p>Built in M2 (ADR-121).
  */
 public final class OrderPlacementService implements OrderPlacement {
 
@@ -33,11 +36,11 @@ public final class OrderPlacementService implements OrderPlacement {
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M9.
+     * <p>Built in M2.
      */
     @Override
-    public PlacementFact placementOf(OrderId order, Attempt attempt) {
-        throw new UnsupportedOperationException("Built in M9");
+    public PlacementFact placementOf(OrderId order, DeliveryDate date, Attempt attempt) {
+        throw new UnsupportedOperationException("Built in M2");
     }
 
     /**

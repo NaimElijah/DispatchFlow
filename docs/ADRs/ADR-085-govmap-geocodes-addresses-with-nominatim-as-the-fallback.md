@@ -1,6 +1,6 @@
 # ADR-085: GovMap geocodes addresses, and self-hosted Nominatim replaces it only if GovMap's terms fail
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-121
 - **Date:** 2026-11-13
 
 ## Context

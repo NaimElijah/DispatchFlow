@@ -2,7 +2,11 @@ package com.dispatchflow.access.application.port.out;
 
 /**
  * Signs access tokens as ES256 JWTs with Nimbus JOSE + JWT (ADR-045, ADR-069, TS §6.4). The signing
- * key is a secret and stays in the adapter.
+ * key is a secret and stays in the adapter. It signs whatever {@link AccessClaims#expiresAt()} the
+ * use case set: until M6 builds refresh, the {@code dev} profile alone may set a longer
+ * access-token lifetime (ADR-121). Unless {@code dev} is the only active profile, the core refuses
+ * to boot with a lifetime other than NFR-86's 15 minutes, which M5 tests. M6 deletes the dev
+ * allowance, so from then on every profile refuses any other lifetime.
  *
  * <p>Built in M5 and M13, method by method.
  */

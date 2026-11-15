@@ -2,23 +2,24 @@ package com.dispatchflow.orders.application.api;
 
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.application.NotFound;
+import java.util.List;
 
 /**
- * The phones a stop's recipient can be messaged at, which Messaging asks before it sends (DL §2.2,
- * FR-348).
+ * The phones stops' recipients can be messaged at, which Messaging asks before it sends (DL §2.2,
+ * FR-348). It answers many orders in one read, so a route's or a day's stops cost one call.
  *
  * <p>Built in M12.
  */
 public interface RecipientContacts {
 
     /**
-     * An order's recipient phone and its customer's contact phone.
+     * Each order's recipient phone and its customer's contact phone.
      *
      * <p>Built in M12.
      *
-     * @param order the order
-     * @return both phones, each if it exists
-     * @throws NotFound when no order has the ID
+     * @param orders the orders, each once; one order for a single stop
+     * @return one answer per order, in the order asked, each with both phones where they exist
+     * @throws NotFound when any of the IDs names no order
      */
-    RecipientContactFact of(OrderId order);
+    List<RecipientContactFact> of(List<OrderId> orders);
 }

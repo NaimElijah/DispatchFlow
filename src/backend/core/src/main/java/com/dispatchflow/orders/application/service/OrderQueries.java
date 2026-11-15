@@ -14,7 +14,8 @@ import com.dispatchflow.shared.application.NotFound;
  * The order screens' reads (FR-76, BR-33): a date's orders and one order, each with its status. The
  * status is derived, never stored (DL §9.6): for a date, the queries read the orders, Planning's
  * {@link OrderPlacement} and Live Operations' {@link StopProgress} once each, translate the
- * answers, and call {@code OrderStatus.derive} per order, so 200 orders cost three reads. Every
+ * answers, and call {@code OrderStatus.derive} per order, so 200 orders cost three reads; for one
+ * order, they ask {@link OrderPlacement#placementOf} with its date and current attempt. Every
  * read is the dispatcher's, authorized by role from its operation (ADR-068); no driver scope
  * applies.
  *
@@ -43,8 +44,9 @@ public final class OrderQueries {
     }
 
     /**
-     * Every order of a date with its status (FR-76, BR-33). Until Live Operations implements {@link
-     * StopProgress} (M5), no order is delivered or failed.
+     * Every order of a date with its status (FR-76, BR-33). Live Operations' {@link StopProgress}
+     * answers no report for every stop in M2, and in full from M5 (ADR-121), so until M5 no order
+     * is delivered or failed.
      *
      * <p>Built in M2.
      *

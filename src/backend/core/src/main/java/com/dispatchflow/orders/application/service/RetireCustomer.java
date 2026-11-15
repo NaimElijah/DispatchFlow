@@ -19,6 +19,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  * into the domain's {@code InUse}, and calls {@code Customer.retire}. A retired customer is no
  * longer matched by imports.
  *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
+ *
  * <p>Built in M2.
  */
 public final class RetireCustomer {

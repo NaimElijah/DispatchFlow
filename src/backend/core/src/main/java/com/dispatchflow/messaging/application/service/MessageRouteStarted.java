@@ -21,8 +21,10 @@ import com.dispatchflow.shared.application.StaleVersion;
  * arrived at gets <em>out for delivery</em>, with its projected arrival rounded to the nearest
  * quarter hour (FR-351, FR-373). The route's stops and orders come from Planning's {@link
  * PublishedRoutes}, each stop's arrival and progress from Live Operations' {@link
- * ArrivalProjections}, its phone from Customers &amp; Orders' {@link RecipientContacts}, and the
- * conditions from Access's {@link Company}, the settings and the phone's opt-out history. Each stop's
+ * ArrivalProjections#of}, the phones from Customers &amp; Orders' {@link RecipientContacts} in one
+ * call for the route's orders, and the conditions from Access's {@link Company}, the settings and
+ * the phone's opt-out history. A stop the plan took off meanwhile has no projection, and gets no
+ * message. Each stop's
  * {@code StopMessages.onRouteStarted} runs in a transaction of its own, with the audit record.
  *
  * <p>Delivery is at least once (ADR-064); a stop gets each message at most once (NFR-191), so a

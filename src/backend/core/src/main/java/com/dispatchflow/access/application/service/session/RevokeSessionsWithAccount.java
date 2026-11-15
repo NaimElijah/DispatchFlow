@@ -9,11 +9,13 @@ import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.StaleVersion;
 
 /**
- * Access's listener on its own {@code SessionsRevoked}: it ends each live session of the account
- * begun under an older generation, through {@code Session.revokeWithAccount}, dated by the
- * revocation, so the retention job deletes it 30 days later (NFR-258, ADR-116). It removes the push
- * address of each session it ends, through {@code PushTokens.removeFor}, and no other: a session
- * begun after the revocation keeps its address (NFR-263).
+ * Access's listener on its own {@code SessionsRevoked}: it dates each session of the account begun
+ * under an older generation by the revocation, through {@code Session.revokeWithAccount}, so the
+ * retention job deletes it 30 days later (NFR-258, ADR-116). It reads them through {@code
+ * SessionRepository.endedByRevocation}: the live ones, which it ends, and the ones signed out after
+ * the revocation but before this ran, which keep the earlier time, the revocation's. It removes the
+ * push address of each, through {@code PushTokens.removeFor}, and no other: a session begun after
+ * the revocation keeps its address (NFR-263).
  *
  * <p>The token check refuses those sessions from the revocation on, whether or not this has run
  * (NFR-177). Delivery is at least once, and a redelivered event changes nothing, so the reaction is
@@ -46,7 +48,7 @@ public final class RevokeSessionsWithAccount {
     }
 
     /**
-     * Ends the account's older sessions.
+     * Ends the account's older sessions, and dates each by the revocation.
      *
      * <p>Built in M6.
      *

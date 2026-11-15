@@ -28,8 +28,10 @@ import java.util.Optional;
  *
  * <p><b>The first save creates the profile.</b> While no profile exists, the use case creates it
  * with {@code CompanyProfile.create} from the command's name, language and window, sets the
- * service time when one is given, and adds it; the caller, having read none, passes {@code
- * Version.NEW}. From then on it changes the stored profile.
+ * service time when one is given, and adds it. The caller, having read no profile and so no
+ * version, sends {@code If-None-Match: *}, which the web adapter passes as {@code Version.NEW}.
+ * From then on it changes the stored profile, and each save sends {@code If-Match} with the version
+ * it read.
  *
  * <p>{@code CompanyProfile} can't clear the default service time yet, so an empty one leaves the
  * current value; M2 adds the clearing method.
@@ -73,8 +75,8 @@ public final class ChangeCompanyProfile {
      *
      * @param actor the signed-in user acting
      * @param command the settings
-     * @param expected the version of the profile the caller last read, or {@code Version.NEW} when
-     *     it read none (BR-76)
+     * @param expected the version of the profile the caller last read, from {@code If-Match}; or
+     *     {@code Version.NEW} when it read none and sent {@code If-None-Match: *} (BR-76)
      * @throws RuleViolation from M6, with {@code StepUpRequired} when the acting session gave its
      *     password more than 5 minutes ago, or {@code SessionRevoked} when it is revoked (NFR-214)
      * @throws StaleVersion when the profile is no longer at {@code expected}, a profile exists and

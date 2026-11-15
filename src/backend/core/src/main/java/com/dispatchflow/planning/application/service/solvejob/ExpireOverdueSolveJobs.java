@@ -11,7 +11,10 @@ import com.dispatchflow.shared.application.Clock;
  * 2 minutes building its matrix, or its limit plus 30 seconds of search, so no plan stays solving
  * (BR-32, BR-84, BR-112, DL §12, ADR-101). {@code SolveJob.expireIfOverdue} decides, and changes
  * nothing for a job within its deadline. Each job changes in a transaction of its own; one that ended
- * meanwhile refuses with {@code JobAlreadyEnded}, and the watchdog moves on (DL §11).
+ * meanwhile refuses with {@code JobAlreadyEnded}, and the watchdog moves on (DL §11). A lost version
+ * race on {@code SolveJobRepository.save} is no error of the watchdog either: it reloads the job,
+ * finds it ended ({@code JobAlreadyEnded}), and moves on to the next job, never retrying its change
+ * (DL §11).
  *
  * <p>Built in M4.
  */

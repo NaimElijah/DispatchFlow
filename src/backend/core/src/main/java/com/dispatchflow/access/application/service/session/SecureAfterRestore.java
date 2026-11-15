@@ -11,15 +11,19 @@ import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.StaleVersion;
 
 /**
- * The server step a restore runs before the core serves again (ADR-045): it revokes every session
- * (NFR-252), voids every open credential link (NFR-275), rotates the access-token signing key, and
- * removes the old key from the accepted set at once, with no overlap (NFR-272). A restored database
- * holds its snapshot's generations and links, so without this a token issued or revoked after the
- * snapshot could read as valid, and a link sent before the snapshot could still be used.
+ * The server step a restore runs before the core serves again (ADR-045): it rotates the
+ * access-token signing key and removes the old key from the accepted set at once, with no overlap
+ * (NFR-272), revokes every session (NFR-252), and voids every open credential link (NFR-275). A
+ * restored database holds its snapshot's generations and links, so without this a token issued or
+ * revoked after the snapshot could read as valid, and a link sent before the snapshot could still
+ * be used.
  *
- * <p>It revokes each session {@code SessionRepository.allLive} names, and voids the links of each
- * account {@code UserAccountRepository.withOpenLinks} names, each in its own transaction, and
- * rotates the key through {@code TokenSigner.rotateKey}.
+ * <p><b>The order.</b> It rotates the key through {@code TokenSigner.rotateKey} first: it is one
+ * step, and it refuses every access token signed before the restore, whereas the revocations are
+ * one transaction each. So a step that stops part way has already closed the widest gap, and
+ * running it again finishes the rest. Then it revokes each session {@code
+ * SessionRepository.allLive} names, and voids the links of each account {@code
+ * UserAccountRepository.withOpenLinks} names, each in its own transaction.
  *
  * <p>The restore runbook's other steps are not declared yet: re-applying the changes made since the
  * backup (NFR-253), blanking the passwords and voiding the links of the accounts whose password or
@@ -69,7 +73,7 @@ public final class SecureAfterRestore {
     }
 
     /**
-     * Revokes every session, voids every open credential link and rotates the signing key.
+     * Rotates the signing key, then revokes every session and voids every open credential link.
      *
      * <p>Built in M13.
      *

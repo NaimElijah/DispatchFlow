@@ -1,4 +1,4 @@
-package com.dispatchflow.liveops.application.port.out;
+package com.dispatchflow.liveops.application.port.out.proof;
 
 /**
  * An uploaded proof's header gives pixel dimensions above the store's cap, so it is refused before

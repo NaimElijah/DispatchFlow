@@ -47,7 +47,7 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
   the kernel's domain types and every `events/`. Planning's packages are `plan`, `solution`,
   `basis`, `revision`, `reconciliation` and `settings`. The threshold applies to every source
   folder, so an application package above 30 files splits by aggregate too: Planning's `service` and
-  `port/out`, Access's `service` and Live Operations' `service` are split.
+  `port/out`, Access's `service`, and Live Operations' `service` and `port/out` are split.
 - `src/main/resources/db/migration/` holds the Flyway migrations, which [ADR-041] keeps from
   ADR-007.
 - `src/test/java/com/dispatchflow/` holds the tests, `TestcontainersConfiguration` (PostgreSQL
@@ -112,20 +112,29 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
      own module's `domain`, `events` and `application`, and other modules' `api` and `events`.
      Another module's `spi` interface is allowed only to the module that owns it and to the
      implementer that `SPI_IMPLEMENTERS` names, and the records beside it to any module that implements
-     one of that owner's interfaces. They import no `adapter`, their own module's included, and no libphonenumber or JTS. From
-     Spring they take only `@Transactional` and its enums ([TS §2.2]); Spring Modulith's
-     annotations sit on a `package-info` only. `shared/application/` also falls under the kernel's
-     purity rules, so it takes no `@Transactional`.
+     one of that owner's interfaces. They import no `adapter`, their own module's included, and no
+     libphonenumber or JTS. From Spring they take only `@Transactional` and its enums ([TS §2.2]);
+     Spring Modulith's annotations sit on a `package-info` only. `shared/application/` also falls
+     under the kernel's purity rules, so it takes no `@Transactional`, and its `package-info` may
+     carry `@NamedInterface` and no other Modulith annotation ([ADR-121]).
   2. Modules depend on each other along [DL §2.1]'s arrows and no others.
   3. No `api` or `spi` type uses a domain type.
-  4. Each `api` interface has exactly one implementation, in its own module. Each `spi` interface has
-     exactly one, in the module that DL §2.1's dashed arrow names (`SPI_IMPLEMENTERS`). Sealed
-     interfaces are skipped.
+  4. Each `api` interface `X` has exactly one implementation, `XService`, under its own module's
+     `application.service`. Each `spi` interface has exactly one, under the `application.service` of
+     the module that DL §2.1's dashed arrow names (`SPI_IMPLEMENTERS`): `XService`, or
+     `FleetUsageService` and `CustomerUsageService` for the two `RecordUsage` ports
+     (`SPI_IMPLEMENTATION_NAMES`, [ADR-120] decision 5). A sealed interface whose permitted
+     subclasses are all records or enums is a fact's variants, and is skipped.
   5. Every application package is `@NullMarked`.
   6. No class in a `domain` or `events` package, or in the kernel root, imports
      `shared.application`, so a domain can't reach the `Clock` port.
   7. No cycle between a module's application packages, and the `service` and `port/out` roots import
-     none of their own subpackages ([ADR-118]'s rules, carried to the application).
+     none of their own subpackages ([ADR-118]'s rules, carried to the application). A test checks
+     that `MODULE_GRAPH` has no cycle.
+  8. No class of `reporting`, its adapters included, uses a class of `liveops`, `planning` or
+     `orders` outside their `events`, or any of Access's `api` but `Actor` and `ActorRole`
+     (`REPORTING_NARROWED_APIS`; [ADR-120] P5: Reporting reads them through the views they publish;
+     [ADR-121]).
 - Package rules (`DomainPackageRules`, [ADR-118]): no cycle between a module's domain packages, a
   domain root that imports none of its own subpackages, and every kernel, domain and `events`
   package is `@NullMarked`. A module's domain never gets a subpackage to dodge a rule: nothing is
@@ -164,10 +173,15 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
   table ([ADR-041], [TS §6.3]). Not in the tree yet: today Spring Boot runs Flyway when the core
   starts.
 - Optimistic locking is `UPDATE … WHERE id = ? AND version = ?` on the root table. Zero rows updated
-  answers 412 `STALE_VERSION`, through `ETag` and `If-Match`. Child tables carry no version
-  ([ADR-057], [TS §6.3]).
+  answers 412 `STALE_VERSION`, through `ETag` and `If-Match`, on a call that sent a version. A call
+  that sent none is retried at once, up to three times, then answered 503 with `Retry-After`
+  ([ADR-121]). Child tables carry no version ([ADR-057], [TS §6.3]).
 - The `e2e` profile's test-only endpoints exist only in that profile, and the profile refuses to
   boot when the SMS credential is present, with a test for each (NFR-206, [TS §17.1]).
+- Until M5's sign-in, the stand-in session exists only when `dev` or `test` is the only active
+  profile, and the core refuses to boot with the stand-in and any other profile active. Unless `dev`
+  is the only active profile, the core refuses to boot with an access-token lifetime other than 15
+  minutes. Each refusal has a test. M5 deletes the stand-in, and M6 the dev allowance ([ADR-121]).
 - No Lombok: records and plain classes ([TS §6]).
 - The schema changes only through a new migration, `V<n>__<what_it_does>.sql`. Never edit a
   migration that has been applied anywhere; add the next one.
@@ -242,6 +256,7 @@ Windows).
 [ADR-118]: ../../../docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md
 [ADR-119]: ../../../docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md
 [ADR-120]: ../../../docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md
+[ADR-121]: ../../../docs/ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md
 [NFR-176]: ../../../docs/requirements/requirements.md#nfr-176
 [DL §1]: ../../../docs/architecture/domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts
 [DL §2.1]: ../../../docs/architecture/domain_layer/domain_layer_design.md#21-module-graph

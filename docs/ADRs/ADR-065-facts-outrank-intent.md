@@ -1,6 +1,6 @@
 # ADR-065: Facts outrank intent: an accepted report stands, the plan is corrected, and a person is told
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-121
 - **Date:** 2026-11-14
 
 ## Context

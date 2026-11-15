@@ -1,6 +1,6 @@
 # ADR-119: The application layer is declared ahead of its milestones, as signatures whose bodies throw
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-121
 - **Date:** 2026-11-15
 
 ## Context

@@ -17,10 +17,10 @@ import org.junit.jupiter.params.ParameterizedTest;
 
 /**
  * Every named error has a refusal test (DL §14): for each concrete error, a test class in its
- * package, or in a package under it (ADR-118), has a {@code @Test} or {@code @ParameterizedTest} method ending in {@code
- * _Then<ErrorName>}. A helper with such a name runs nothing, so it doesn't count. It looks at every class assignable to
- * {@link DomainError}, not only those under a sealed interface, so a module's error added later is
- * checked without a test of its own.
+ * package, or in a package under it (ADR-118), has a {@code @Test} or {@code @ParameterizedTest}
+ * method ending in {@code _Then<ErrorName>}. A helper with such a name runs nothing, so it doesn't
+ * count. It looks at every class assignable to {@link DomainError}, not only those under a sealed
+ * interface, so a module's error added later is checked without a test of its own.
  */
 class ErrorRefusalTestsTest {
 

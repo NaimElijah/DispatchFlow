@@ -149,16 +149,17 @@ and so are the kernel's domain types and every `events` package. `shared/applica
 of its own, beside them
 ([ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
 The 30-file threshold applies to every source folder, so an application package above it splits by
-aggregate too: Planning's `service` and `port/out`, Access's `service` and Live Operations'
-`service` are split. A test sits in the package of the type it tests, and a refusal test may sit
+aggregate too: Planning's `service` and `port/out`, Access's `service`, and Live Operations'
+`service` and `port/out` are split. A test sits in the package of the type it tests, and a refusal test may sit
 anywhere under its error's package.
 
 Each module also has an `application` package, declared ahead of its milestone and not built
 ([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)).
-It holds whichever of `api`, `spi`, `port/out` and `service` the module has something for: `messaging`
-and `reporting` have no `api` or `spi`, and `audit` has no `spi`. Every body that would do work throws
-`UnsupportedOperationException("Built in M<n>")`. Nothing is wired: no Spring annotation, no bean and
-no adapter, so no `adapter/` package exists yet. The ports every module uses sit in
+It holds whichever of `api`, `spi`, `port/out` and `service` the module has something for: `access`,
+`audit` and `liveops` have no `spi`, and `messaging` and `reporting` have neither `api` nor `spi`.
+Every body that would do work throws `UnsupportedOperationException("Built in M<n>")`. Nothing is
+wired: the application layer carries no Spring annotation and registers no bean, and no adapter
+calls it, so no `adapter/` package exists yet. The ports every module uses sit in
 `shared/application`, and the caller is an `Actor` and a `CallContext`
 ([ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
 
@@ -309,7 +310,8 @@ Three sets of rules are checked automatically today:
 - in `solver`, the import-linter contracts in `pyproject.toml`: the domain imports no framework,
   solver or standard-library module that reads a clock, draws randomness or does I/O; the validator,
   the objective and the drop reasons never import `problem`; `application` imports no FastAPI,
-  Pydantic, OR-Tools, Numba, `alns`, `concurrent`, `multiprocessing` or `subprocess`; the layers
+  Starlette, Uvicorn, Pydantic, OR-Tools, Numba, `alns`, `concurrent`, `multiprocessing` or
+  `subprocess`; the layers
   point one way; and the product never imports PyVRP. In the
   domain, ruff's `TID251` also bans `numpy.random`, `datetime64`, `timedelta64`, `numpy.load`,
   `fromfile`, `loadtxt` and `importlib.import_module`, and `PTH123`, `T20`, `S102` and `S307` ban
@@ -325,16 +327,10 @@ subpackages, and `@NullMarked` on the kernel and on every domain and events pack
 ([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)). The rest are
 conventions that review enforces.
 
-The application rules are ArchUnit tests too, in `ApplicationRules`
-([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md),
-[ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
-They cover the application's allowed imports (another module's `spi` only for the module that owns
-it and the implementer its dashed arrow names), the module graph of [domain layer design
-§2.1](domain_layer/domain_layer_design.md#21-module-graph), the domain types an `api` or `spi` may
-not use, one implementation per `api` in its module and per `spi` in the module its dashed arrow names,
-`@NullMarked` application packages, and no domain, `events` or kernel-root class importing
-`shared.application`. A last rule forbids a cycle between a module's application packages, and a
-`service` or `port/out` root importing its own subpackages.
+The application rules are ArchUnit tests too, in `ApplicationRules`, listed in
+[`core/CLAUDE.md`](../../src/backend/core/CLAUDE.md#rules); rules 1 to 7 are
+[ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)'s
+decision 10, with rule 4 extended and rule 8 added by [ADR-121](../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md).
 
 [Tech stack §2.2](tech_stack.md#22-enforcement) also plans Spring Modulith's `verify()` for the
 Alpha

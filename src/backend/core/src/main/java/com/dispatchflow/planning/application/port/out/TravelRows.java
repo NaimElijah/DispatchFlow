@@ -7,9 +7,9 @@ import java.util.List;
 /**
  * Base road travel times and distances from some points to others, as one OSRM {@code table} call
  * with sources and destinations answers them (DL §10.2, TS §6.4, ADR-052). A re-optimization asks for
- * them from the vehicles' latest positions to the stops, and adds them to the plan's stored matrix as
- * rows only (ADR-050, ADR-052). They are base durations only, as in {@link TravelMatrix}: the
- * optimizer applies the bucket factors and the buffer (FR-321, FR-322).
+ * them from each vehicle's latest position to every location of its matrix, depots included, and adds
+ * them to that matrix as rows (ADR-050, ADR-052, ADR-121). They are base durations only, as in {@link
+ * TravelMatrix}: the optimizer applies the bucket factors and the buffer (FR-321, FR-322).
  *
  * <p>Both lists are row-major over {@code sources × targets}: the entry for the pair {@code (source,
  * target)} is at {@code source * targets.size() + target}. A pair with no road route holds {@link

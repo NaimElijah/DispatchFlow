@@ -18,13 +18,16 @@ public interface RaiseAlert {
      * its {@code AlertSubject.LowRating} from it. The alert is raised once per rating request, so a
      * retried listener is safe (ADR-107 point 4).
      *
+     * <p>It takes no rating: the caller has already judged it low ({@code Rating.isLow()}, FR-361),
+     * and {@code AlertSubject.LowRating} names only the plan, the stop and the request. The rating
+     * itself stays Messaging's, on its ratings screen (FR-360).
+     *
      * <p>Built in M12.
      *
      * @param stop the rated stop
-     * @param request the rating request that was answered
-     * @param rating the rating given, from 1 to 4, which counts as low (FR-361)
+     * @param request the rating request that was answered with a low rating
      * @param call the listener's server step
      * @throws NotFound when no plan holds the stop
      */
-    void lowRating(StopId stop, RatingRequestId request, int rating, CallContext call);
+    void lowRating(StopId stop, RatingRequestId request, CallContext call);
 }

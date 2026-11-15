@@ -21,8 +21,15 @@ import com.dispatchflow.shared.application.StaleVersion;
  * that joined a route in progress gets <em>out for delivery</em> through {@code
  * StopMessages.onJoinedStartedRoute} (FR-372), and a stop the revision dropped from a started route
  * gets <em>your delivery changed</em> through {@code onDeliveryChanged} (FR-354). The current routes
- * come from Planning's {@link PublishedRoutes}, and the arrivals and progress from Live Operations'
- * {@link ArrivalProjections}; each stop changes in a transaction of its own, with the audit record.
+ * come from Planning's {@link PublishedRoutes}, and the phones from Customers &amp; Orders' {@link
+ * RecipientContacts} in one call for the stops' orders; each stop changes in a transaction of its
+ * own, with the audit record.
+ *
+ * <p>A joined stop's arrival and progress come from Live Operations' {@link ArrivalProjections#of};
+ * an empty answer means a later revision already took the stop off, and it gets no message. A
+ * dropped stop is no longer on any route in force, so its progress comes from {@link
+ * ArrivalProjections#progressOf}, with the route that held it, which reads Live Operations' own
+ * run and delivery.
  *
  * <p>The stops the revision added, moved or took off come from {@code PublishedRoutes.changesIn}.
  *
@@ -58,7 +65,8 @@ public final class MessagePlanRevised {
      * @param company Access's company profile, for the name and language
      * @param recipientContacts Customers &amp; Orders' recipient phones
      * @param publishedRoutes Planning's routes in force, for the changed routes' stops and orders
-     * @param arrivalProjections Live Operations' projected arrivals and progress
+     * @param arrivalProjections Live Operations' projected arrivals, and the progress of stops the
+     *     revision dropped
      * @param clock the server's time
      * @param ids new IDs, for the messages
      * @param auditLog the audit trail

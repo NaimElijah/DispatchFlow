@@ -23,6 +23,20 @@ import com.dispatchflow.shared.application.StaleVersion;
  * current version (BR-21). {@code Plan.publish} then runs BR-72's four steps in order. It raises
  * {@code PlanPublished}.
  *
+ * <p>The roster check runs here, not in the evaluation: each route's {@code RouteStaffing} answer
+ * in {@code PublishingChecks}, built from Fleet's {@code FleetFacts.rosterOn} and Access's Driver
+ * role, is BR-72's first step (BR-20, BR-63). The re-check's request sends every routed vehicle
+ * with the route's driver, whatever their availability, so the evaluation never refuses a problem
+ * for it.
+ *
+ * <p>When the road network can't be reached for the re-check's matrix, the assembler throws {@code
+ * RoadNetworkUnavailable}, and the use case asks {@code FeasibilityChecker.unavailableFor} for the
+ * plan's version. Publishing then refuses with {@code RecheckUnavailable}, as for an unreachable
+ * optimizer (BR-70).
+ *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
+ *
  * <p>Built in M5.
  */
 public final class PublishPlan {
@@ -82,12 +96,16 @@ public final class PublishPlan {
      * @throws NotFound when no plan has the ID
      * @throws StaleVersion when the plan changed since {@code expected}
      * @throws com.dispatchflow.shared.RuleViolation with Planning's {@code PlanNotReady}, {@code
-     *     DateInPast} (BR-118), or {@code StaleEvaluation} for a re-check of another version or layout
-     * @throws com.dispatchflow.shared.RuleViolations with Planning's {@code PublishingRefused} and the
-     *     first refusing step's refusals: {@code RouteNotStaffed} (BR-20, BR-63); every {@code
-     *     OrderNotAccounted}, then every {@code OrderChangedSinceSolve} (BR-22, BR-71, FR-317); {@code
-     *     OpenViolation} (BR-17); {@code RecheckUnavailable} or {@code RecheckFailed} (BR-21, BR-67,
-     *     BR-70)
+     *     DateInPast} (BR-118), or {@code StaleEvaluation} for a re-check of another version or
+     *     layout
+     * @throws com.dispatchflow.shared.RuleViolations with Planning's {@code PublishingRefused} and
+     *     the first refusing step's refusals: {@code RouteNotStaffed} (BR-20, BR-63); every {@code
+     *     OrderNotAccounted}, then every {@code OrderChangedSinceSolve} (BR-22, BR-71, FR-317);
+     *     {@code OpenViolation} (BR-17); {@code RecheckUnavailable} or {@code RecheckFailed}
+     *     (BR-21, BR-67, BR-70)
+     * @throws com.dispatchflow.planning.application.port.out.OptimizerRefusedRequest when the
+     *     optimizer refused the re-check's request as invalid, a defect of the request the core
+     *     built, which fails the call
      */
     public void publish(Actor actor, PlanId plan, Version expected) {
         throw new UnsupportedOperationException("Built in M5");

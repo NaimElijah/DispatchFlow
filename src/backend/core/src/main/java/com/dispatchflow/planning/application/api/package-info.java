@@ -13,8 +13,9 @@
  * and Audit's {@code CallContext}, never a domain type (DL §2.3 rule 1). A revision travels as its
  * number, an {@code int} from 1, which Live Operations keeps as its own {@code RevisionNo}. A
  * planned time travels as an {@link java.time.Instant}, because a route that breaks a time rule may
- * be planned past its date's end (ADR-112). Planning holds no order's window or door flag, so
- * those come from Customers &amp; Orders' {@code OrdersForDate}.
+ * be planned past its date's end (ADR-112). A stop of a route in force carries the window, service
+ * time and door flag its revision took it with, so Live Operations builds every leg from Planning's
+ * answer alone, the stops of orders no longer on the date included.
  */
 @NullMarked
 package com.dispatchflow.planning.application.api;

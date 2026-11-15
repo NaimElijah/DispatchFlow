@@ -58,6 +58,18 @@ class ApplicationTest {
     }
 
     @Test
+    void GivenTheModuleGraph_WhenItsCyclesAreSought_ThenNoModuleReachesItself() {
+        assertThat(ApplicationRules.modulesOnACycle(ApplicationRules.MODULE_GRAPH))
+                .isEmpty();
+    }
+
+    @Test
+    void GivenTheRenamedSpiImplementations_WhenTheirPortsAreLookedUp_ThenEachHasADashedArrow() {
+        assertThat(ApplicationRules.SPI_IMPLEMENTERS)
+                .containsKeys(ApplicationRules.SPI_IMPLEMENTATION_NAMES.keySet().toArray(String[]::new));
+    }
+
+    @Test
     void GivenTheDashedArrows_WhenTheirInterfacesAreLookedUp_ThenEachIsAProductionSpiInterface() {
         assertThat(ApplicationRules.SPI_IMPLEMENTERS.keySet()).allSatisfy(name -> {
             assertThat(ProductionClasses.ALL.contain(ROOT + "." + name))
@@ -138,5 +150,10 @@ class ApplicationTest {
     @Test
     void GivenTheProductionClasses_WhenRule7ChecksTheRoots_ThenNoServiceOrPortRootUsesItsSubpackages() {
         ApplicationRules.serviceAndPortRootsUseNoSubpackage(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenRule8IsChecked_ThenReportingUsesOnlyTheEventsOfTheModulesItReports() {
+        ApplicationRules.reportingHearsOnlyTheEventsOfItsSources(ROOT).check(ProductionClasses.ALL);
     }
 }

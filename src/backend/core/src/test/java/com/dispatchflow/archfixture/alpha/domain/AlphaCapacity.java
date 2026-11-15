@@ -1,6 +1,9 @@
 package com.dispatchflow.archfixture.alpha.domain;
 
-/** A snapshot read under a lock, whose factory only persistence may call; again() shows it may call its own. */
+/**
+ * A snapshot read under a lock, whose factory only persistence may call; again() shows it may call
+ * its own.
+ */
 public final class AlphaCapacity {
 
     private AlphaCapacity() {}

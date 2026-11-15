@@ -4,7 +4,8 @@ package com.dispatchflow.access.application.api;
  * A use case needs the company profile, and no Admin has set one up yet. It is not a domain
  * refusal and not a missing record of the caller's own, so it is no {@code DomainError} and no
  * {@code NotFound}: the web adapter answers it with 409 and {@link #code()}. A caller that reads
- * {@link Company#profile()} and finds it empty throws it.
+ * {@link Company#profile()} and finds it empty throws it, and so do Access's own use cases that
+ * read the profile for a new user's language (FR-182).
  *
  * <p>Built in M2.
  */

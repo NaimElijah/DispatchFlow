@@ -12,7 +12,7 @@ import java.util.Optional;
  * Where rating requests are kept (DL §3.6, §4.6). Saving a request publishes its {@code
  * RatingReceived}, in the caller's transaction (ADR-064).
  *
- * <p>Built in M12.
+ * <p>Built in M12 and M13, method by method.
  */
 public interface RatingRequestRepository {
 
@@ -64,7 +64,7 @@ public interface RatingRequestRepository {
      * The requests holding personal data whose retention has ended: a phone 90 days after its
      * question was accepted, or a comment 90 days after its reply (NFR-184, NFR-193).
      *
-     * <p>Built in M12.
+     * <p>Built in M13.
      *
      * @param now when the retention job runs
      * @return the requests, each once, for the job to clear one at a time

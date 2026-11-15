@@ -4,11 +4,13 @@ import com.dispatchflow.orders.application.api.RecipientContactFact;
 import com.dispatchflow.orders.application.api.RecipientContacts;
 import com.dispatchflow.orders.application.port.out.OrdersViews;
 import com.dispatchflow.shared.OrderId;
+import java.util.List;
 
 /**
- * Customers &amp; Orders' implementation of {@link RecipientContacts}: it reads an order's
- * recipient phone and its customer's contact phone from its own read port, for Messaging to choose
- * from (DL §2.2, FR-348).
+ * Customers &amp; Orders' implementation of {@link RecipientContacts}: it reads the orders'
+ * recipient phones and their customers' contact phones from its own read port in one read, for
+ * Messaging to choose from, and refuses the request when any order is missing from the answer (DL
+ * §2.2, FR-348).
  *
  * <p>Built in M12.
  */
@@ -31,7 +33,7 @@ public final class RecipientContactsService implements RecipientContacts {
      * <p>Built in M12.
      */
     @Override
-    public RecipientContactFact of(OrderId order) {
+    public List<RecipientContactFact> of(List<OrderId> orders) {
         throw new UnsupportedOperationException("Built in M12");
     }
 }

@@ -8,10 +8,11 @@ import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.application.Clock;
 
 /**
- * A dispatcher records a phone's opt-out at the person's own request by phone, noting who did it and
- * when (FR-380, NFR-202). The phone's keyed hash from {@link PhoneHasher} finds its history, {@code
- * OptOutStatus.recordByDispatcher} decides the entry, and one transaction appends it with the audit
- * record. A phone already opted out gets no second entry.
+ * A dispatcher records a phone's opt-out at the person's own request by phone, noting who did it
+ * and when (FR-380, NFR-202). The phone's keyed hash from {@link PhoneHasher} finds its history,
+ * {@code OptOutStatus.recordByDispatcher} decides the entry, and one transaction appends it with
+ * the audit record. A phone already opted out gets no second entry. Like every changing call it
+ * writes its audit record, a refused attempt's in its own transaction (NFR-23, ADR-110).
  *
  * <p>Built in M12. Rows: FR-380, NFR-202.
  */

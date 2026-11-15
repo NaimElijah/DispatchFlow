@@ -21,7 +21,10 @@ import java.util.Objects;
  * @param sessionGeneration the session's generation, the token's {@code sgen}
  * @param roles the roles the account holds now
  * @param issuedAt when the token is issued
- * @param expiresAt when it stops being accepted, 15 minutes later by default (NFR-86)
+ * @param expiresAt when it stops being accepted, 15 minutes later by default (NFR-86); until M6
+ *     builds refresh, the {@code dev} profile alone may set a longer lifetime (ADR-121), and
+ *     unless {@code dev} is the only active profile the core refuses to boot with a lifetime other
+ *     than 15 minutes, which M5 tests. M6 deletes the dev allowance
  */
 public record AccessClaims(
         AccountId account,

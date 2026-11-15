@@ -95,6 +95,7 @@ usability study) and the end-to-end tests ([NFR-83]: end-to-end tests).
 | FR-180 | An access token issued before a password change is refused at once ([NFR-177]: revoked tokens refused at once). | Must |  |  |
 | FR-387 | An Admin can change a user's email, except another Admin's, which only that Admin can change ([ADR-116]: only an Admin changes their own email), and a user can change their own by giving their current password. | Must |  |  |
 | FR-388 | A new email takes effect only once a link sent to it is used, within 1 hour of sending; the old address is told, without naming the new one. | Must |  |  |
+| FR-411 | Requests for an email-change link are limited to 5 an hour per account that requests them. | Must |  |  |
 | FR-392 | Sessions end ([NFR-90]: role, password or email change revokes sessions) when the new email takes effect, and an address another account holds is refused only then, the request being answered the same either way. | Must |  |  |
 | FR-124 | A user can choose their interface language, Hebrew or English ([NFR-27]: Hebrew and English interface). | Should |  |  |
 | FR-181 | A user's language choice follows them to every device they sign in on. | Should |  |  |
@@ -276,7 +277,7 @@ route included.
 | FR-20 | A solve or a re-optimization can be run with either solver: OR-Tools, the default, or the DispatchFlow solver (Clarke-Wright + ALNS). | Must |  |  |
 | FR-224 | Outside the optimization service, a solver is known only by its name, and choosing one changes nothing else. | Must |  |  |
 | FR-21 | The company can enable a fixed cost per vehicle used, so the solver also reduces the number of vehicles on the road. | Must |  |  |
-| FR-65 | When a solve fails, the dispatcher is told without reloading and sees the reason: service unavailable, timed out or interrupted ([BR-32]: a solve that overruns its limit fails, [BR-74]: a restart fails a running solve, [BR-112]: solve queue limits), no uncancelled orders on that date, or validator rejection. | Must |  |  |
+| FR-65 | When a solve fails, the dispatcher is told without reloading and sees the reason: service unavailable, timed out or interrupted ([BR-32]: a solve that overruns its limit fails, [BR-74]: a restart fails a running solve, [BR-112]: solve queue limits), no uncancelled orders on that date, validator rejection, search failed, no solution within the limit, or request refused. | Must |  |  |
 | FR-225 | After a failed solve, the dispatcher can request it again. | Must |  |  |
 | FR-66 | If the road network cannot reach a customer's location, the solve still returns a plan and drops that order with the reason *unreachable location*. | Must |  |  |
 | FR-67 | The company can set a departure allowance, the minutes between shift start and leaving the depot for loading. | Should |  |  |

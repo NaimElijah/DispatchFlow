@@ -152,9 +152,8 @@ final class DomainShapeRules {
      * DL §7.3: an event carries the kernel types in {@link #EVENT_KERNEL_TYPES}, enums of its own
      * events package, {@code Instant}, {@code int}, {@code long} and {@code boolean}, and lists of
      * these, whose numbers and flags are boxed; never a boxed field, which could be null, an array,
-     * free text or personal data. A type marked {@link
-     * PersonalData} is refused even where the list would allow it (ADR-106). Fields inherited from a
-     * supertype count too.
+     * free text or personal data. A type marked {@link PersonalData} is refused even where the list
+     * would allow it (ADR-106). Fields inherited from a supertype count too.
      */
     static ArchRule eventFieldsAreClosed(String root) {
         return classes()
@@ -178,8 +177,8 @@ final class DomainShapeRules {
 
     /**
      * ADR-043 and NFR-19: an error's fields become the response's {@code params}, so none is text
-     * (any {@link CharSequence}, or the kernel's {@link PlainText}), an {@code Object}, an array, or
-     * a value marked {@link PersonalData} (ADR-106), at any depth of its type arguments; fields
+     * (any {@link CharSequence}, or the kernel's {@link PlainText}), an {@code Object}, an array,
+     * or a value marked {@link PersonalData} (ADR-106), at any depth of its type arguments; fields
      * inherited from a supertype count too. A DispatchFlow type is looked into, at any depth, for a
      * field that holds a marked value, so an unmarked wrapper can't hide one (ADR-106). Inside it,
      * a String is allowed: its own type decides what it may hold.
@@ -341,12 +340,13 @@ final class DomainShapeRules {
     }
 
     /**
-     * Whether a type, once arrays are unwrapped, is marked {@link PersonalData}, or is a DispatchFlow
-     * type with a field, at any depth of fields and type arguments, that is. An interface or an
-     * abstract class is also searched through its subclasses, so a sealed type is personal when one
-     * variant holds a personal value. {@code visited} holds the types already looked into, so a type
-     * that refers to itself ends the search. It sees a nested type's fields and subclasses only when
-     * they are imported, as the production check's whole-root import guarantees.
+     * Whether a type, once arrays are unwrapped, is marked {@link PersonalData}, or is a
+     * DispatchFlow type with a field, at any depth of fields and type arguments, that is. An
+     * interface or an abstract class is also searched through its subclasses, so a sealed type is
+     * personal when one variant holds a personal value. {@code visited} holds the types already
+     * looked into, so a type that refers to itself ends the search. It sees a nested type's fields
+     * and subclasses only when they are imported, as the production check's whole-root import
+     * guarantees.
      */
     private static boolean holdsPersonalData(JavaClass type, Set<String> visited) {
         JavaClass owner = type.isArray() ? type.getBaseComponentType() : type;

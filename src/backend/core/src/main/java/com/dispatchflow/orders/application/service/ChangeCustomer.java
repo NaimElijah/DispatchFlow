@@ -24,6 +24,9 @@ import java.util.Optional;
  * <p>Domain gap: {@code Customer} has no method that changes these fields yet; M2 adds it, refusing
  * a retired or anonymized customer as its other commands do.
  *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
+ *
  * <p>Built in M2.
  */
 public final class ChangeCustomer {

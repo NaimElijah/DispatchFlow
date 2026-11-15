@@ -16,7 +16,8 @@ import java.util.Optional;
  * leave with its save, in the same transaction (DL §3.6). It has no query for screens: {@link
  * OrdersViews} serves those.
  *
- * <p>Built in M2, and in an unscheduled milestone for the retention and copy lookups.
+ * <p>Built in M2, in M13 for the retention lookup, and in an unscheduled milestone for the copy
+ * lookup, method by method.
  */
 public interface OrderRepository {
 
@@ -67,7 +68,7 @@ public interface OrderRepository {
      * The orders whose personal fields are due for removal on a day: dated at least 90 days before
      * it and not yet anonymized (NFR-257, ADR-075). {@link Order#anonymize} decides each one.
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>Built in M13.
      *
      * @param today today in {@code Asia/Jerusalem}
      * @return the orders to anonymize, each once

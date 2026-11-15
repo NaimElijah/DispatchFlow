@@ -20,7 +20,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  * can, which clears that record (ADR-116). Giving the roles it holds changes nothing. The change
  * moves the account's generation and raises {@code SessionsRevoked}, so every token issued before
  * is refused at once (NFR-90, NFR-177); the use case evicts the account from the revocation cache
- * after its commit (ADR-045). Every active Admin is emailed when it gains the Admin role (FR-389).
+ * after its commit (ADR-045). Every active Admin is emailed when it gains the Admin role (FR-389):
+ * the use case reads them through {@code UserAccountRepository.activeAdminRecipients} and sends
+ * {@code EmailSender.sendAdminNotice}.
  *
  * <p>The operation is Admin-only in the permission matrix, so the acting session must have given
  * its password in the last 5 minutes, which {@code Session.requireFreshStepUp} checks (NFR-214,

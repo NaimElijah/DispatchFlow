@@ -18,6 +18,10 @@ import com.dispatchflow.shared.application.StaleVersion;
  * evicts the account from the revocation cache after its commit (ADR-045). It writes its audit
  * record with the listener's server step (NFR-23, ADR-110).
  *
+ * <p>In M2 it changes the account and writes the audit record. The eviction from {@link
+ * RevocationCache} joins in M6, which builds the cache; until then the token check has no cache to
+ * evict.
+ *
  * <p>Built in M2.
  */
 public final class RemoveDriverRoleService implements RemoveDriverRole {

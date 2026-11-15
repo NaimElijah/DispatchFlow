@@ -31,6 +31,9 @@ public interface BaselineRepository {
      * <p>Built in M5.
      *
      * @param baseline the baseline, at {@code Version.NEW}
+     * @throws StaleVersion when the plan already has a baseline or a recorded refusal, as when a
+     *     concurrent delivery of the same publication stored one first; the listener retries, and the
+     *     retry finds the plan settled
      */
     void add(Baseline baseline);
 
@@ -55,6 +58,9 @@ public interface BaselineRepository {
      *
      * @param plan the plan
      * @param cause why the optimizer found no baseline
+     * @throws StaleVersion when the plan already has a baseline or a recorded refusal, as when a
+     *     concurrent delivery of the same publication stored one first; the listener retries, and the
+     *     retry finds the plan settled
      */
     void recordRefusal(PlanId plan, RefusalCause cause);
 
