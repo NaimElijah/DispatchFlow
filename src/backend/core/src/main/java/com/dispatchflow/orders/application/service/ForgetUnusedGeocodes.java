@@ -12,7 +12,7 @@ import java.time.Period;
  * they copied. Like Audit's own purge, it writes no audit record: NFR-23 audits API calls, and a
  * cache entry has no ID an audit record could name, only an address (ADR-110).
  *
- * <p>Built in an unscheduled milestone.
+ * <p>Built in M13, with the whole nightly retention run (ADR-121).
  */
 public final class ForgetUnusedGeocodes {
 
@@ -36,12 +36,12 @@ public final class ForgetUnusedGeocodes {
     /**
      * Deletes the cache entries unused for {@link #UNUSED_FOR}.
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>Built in M13.
      *
      * @param call the job's server step
      * @return how many entries were deleted
      */
     public int forgetDue(CallContext call) {
-        throw new UnsupportedOperationException("Built in an unscheduled milestone");
+        throw new UnsupportedOperationException("Built in M13");
     }
 }

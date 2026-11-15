@@ -88,7 +88,9 @@ public final class ConfirmEmailByLink {
      *     account holds the Admin role and another account asked; FR-387, ADR-116), {@code
      *     AccountDeactivated} or {@code AccountAnonymized}, as above; {@code EmailInUse} when
      *     another account holds the address (FR-392)
-     * @throws StaleVersion when the account changed between its read and its save (BR-76)
+     * @throws StaleVersion when the account changed between its read and its save (BR-76); the web
+     *     adapter retries the call at once, up to three times, then answers 503 with {@code
+     *     Retry-After} (ADR-121)
      */
     public void confirm(PresentedToken token, CallContext call) {
         throw new UnsupportedOperationException("Built in M6");

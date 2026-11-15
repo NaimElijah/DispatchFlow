@@ -25,7 +25,7 @@ import java.util.Optional;
  * report still finds its upload. The window and the cap are the adapter's named settings, whose
  * values M5 fixes.
  *
- * <p>Built in M5 and M8, method by method.
+ * <p>Built in M5 and M13, method by method.
  */
 public interface ProofStore {
 
@@ -91,7 +91,7 @@ public interface ProofStore {
      * binding to its uploader and kind, as a tombstone: {@link #store} refuses the ID from then on,
      * and {@link #find} and {@link #open} answer empty for it.
      *
-     * <p>Built in M8.
+     * <p>Built in M13.
      *
      * @param cutoff the cutoff, from {@code RetentionPeriods.proofCutoff}
      * @return how many files were deleted

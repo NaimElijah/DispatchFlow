@@ -8,7 +8,7 @@ import java.time.Instant;
  * in the last 48 hours is not kept, except an opt-out (FR-379). Replies are deleted 90 days after
  * they were received (NFR-184).
  *
- * <p>Built in M12.
+ * <p>Built in M12 and M13, method by method.
  */
 public interface ReplyLog {
 
@@ -25,7 +25,7 @@ public interface ReplyLog {
     /**
      * Deletes every reply received before a cutoff (NFR-184, ADR-075).
      *
-     * <p>Built in M12.
+     * <p>Built in M13.
      *
      * @param cutoff the cutoff, 90 days before the retention job runs
      * @return how many replies were deleted

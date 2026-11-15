@@ -87,7 +87,9 @@ public final class StartRoute {
      * @throws NotFound when no plan in force holds the route
      * @throws IdempotencyKeyReused when the key was used before with another body (NFR-130)
      * @throws StaleVersion when another start or first report created the run meanwhile, or a
-     *     concurrent send recorded the key first; the outbox retries with the same key
+     *     concurrent send recorded the key first; the web adapter retries the call at once, up to
+     *     three times, then answers 503 with {@code Retry-After} (ADR-121), and the phone's outbox
+     *     backs off and resends it with the same key (ADR-087)
      */
     public void start(Actor actor, RouteId route, DeviceClock time, IdempotencyKey key, RequestDigest digest) {
         throw new UnsupportedOperationException("Built in M5");

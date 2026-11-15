@@ -86,7 +86,9 @@ public final class ConfirmPassword {
      *     its account's sessions were revoked after it began (NFR-177); or with the wrong-password
      *     refusal M5 adds
      * @throws NotFound when the actor's session or account no longer exists
-     * @throws StaleVersion when the session changed between its read and its save (BR-76)
+     * @throws StaleVersion when the session changed between its read and its save (BR-76); the web
+     *     adapter retries the call at once, up to three times, then answers 503 with {@code
+     *     Retry-After} (ADR-121)
      */
     public SignedIn confirm(Actor actor, PresentedPassword password) {
         throw new UnsupportedOperationException("Built in M6");

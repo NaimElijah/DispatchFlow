@@ -94,8 +94,10 @@ public final class ReportProblem {
      *     the acting driver does not drive the route now (BR-02)
      * @throws NotFound when no plan in force holds the route
      * @throws IdempotencyKeyReused when the key was used before with another body (NFR-130)
-     * @throws StaleVersion when a concurrent send recorded the key first; the outbox retries with
-     *     the same key and gets the stored answer
+     * @throws StaleVersion when a concurrent send recorded the key first; the web adapter retries
+     *     the call at once, up to three times, then answers 503 with {@code Retry-After} (ADR-121),
+     *     and the phone's outbox backs off and resends it with the same key (ADR-087). A retry or a
+     *     resend gets the stored answer
      */
     public void report(Actor actor, RouteId route, DriverProblem problem, IdempotencyKey key, RequestDigest digest) {
         throw new UnsupportedOperationException("Built in M8");

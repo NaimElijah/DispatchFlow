@@ -81,7 +81,9 @@ public final class ChangeOwnPassword {
      *     (NFR-95); {@code AccountDeactivated} or {@code AccountAnonymized} when the account is not
      *     active; the wrong-password refusal M5 adds
      * @throws NotFound when the actor's account no longer exists
-     * @throws StaleVersion when the account changed between its read and its save (BR-76)
+     * @throws StaleVersion when the account changed between its read and its save (BR-76); the web
+     *     adapter retries the call at once, up to three times, then answers 503 with {@code
+     *     Retry-After} (ADR-121)
      */
     public void change(Actor actor, PresentedPassword current, PresentedPassword next) {
         throw new UnsupportedOperationException("Built in M6");

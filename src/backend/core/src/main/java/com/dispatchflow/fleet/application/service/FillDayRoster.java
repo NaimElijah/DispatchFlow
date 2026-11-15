@@ -71,7 +71,9 @@ public final class FillDayRoster {
      * @param date the date to fill
      * @return the drivers filled, and the drivers skipped with their reasons
      * @throws NotFound when an account of a driver record no longer exists
-     * @throws StaleVersion when the roster changed between its read and its save (BR-76)
+     * @throws StaleVersion when the roster changed between its read and its save (BR-76); the web
+     *     adapter retries the call at once, up to three times, then answers 503 with {@code
+     *     Retry-After} (ADR-121)
      */
     public RosterFill fill(Actor actor, DeliveryDate date) {
         throw new UnsupportedOperationException("Built in M2");

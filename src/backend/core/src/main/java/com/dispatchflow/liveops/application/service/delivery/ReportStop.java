@@ -154,8 +154,9 @@ public final class ReportStop {
      *     StopNotOnYourRoute}, {@code SameOutcomeAlreadyRecorded} or {@code OutcomeAlreadyRecorded}
      * @throws NotFound when no plan holds the stop or the route
      * @throws IdempotencyKeyReused when the key was used before with another body (NFR-130)
-     * @throws StaleVersion when another writer saved the stop's delivery meanwhile; the outbox
-     *     retries with the same key
+     * @throws StaleVersion when another writer saved the stop's delivery meanwhile; the web adapter
+     *     retries the call at once, up to three times, then answers 503 with {@code Retry-After}
+     *     (ADR-121), and the phone's outbox backs off and resends it with the same key (ADR-087)
      */
     public ReportReceipt report(
             Actor actor, StopReport report, DeviceClock time, IdempotencyKey key, RequestDigest digest) {

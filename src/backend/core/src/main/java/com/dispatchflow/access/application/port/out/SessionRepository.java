@@ -15,7 +15,7 @@ import java.util.Optional;
  * Where sessions are kept, whole, with their contact times and refresh-token chains (DL §3.6,
  * §4.1).
  *
- * <p>Built in M5, M6, M8, M13 and an unscheduled milestone, method by method.
+ * <p>Built in M5, M6, M8 and M13, method by method.
  */
 public interface SessionRepository {
 
@@ -141,7 +141,7 @@ public interface SessionRepository {
      * never revoked, so it may still hold a push address, which the caller removes by the IDs
      * answered.
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>Built in M13.
      *
      * @param cutoff the latest end that is due
      * @return the IDs of the sessions deleted, each once, in any order
@@ -152,7 +152,7 @@ public interface SessionRepository {
      * The sessions holding a contact time older than an instant, whose old times the retention job
      * drops through {@code Session.dropOldContacts} (NFR-280).
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>Built in M13.
      *
      * @param cutoff the oldest contact time kept
      * @return their IDs, in any order

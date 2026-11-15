@@ -15,7 +15,7 @@ import java.util.Optional;
  * Where each stop's {@link StopMessages} is kept, keyed by its stop, each message unique by its
  * stop, type and sequence (DL §3.6, §4.6, NFR-191).
  *
- * <p>Built in M12.
+ * <p>Built in M12 and M13, method by method.
  */
 public interface StopMessagesRepository {
 
@@ -102,7 +102,7 @@ public interface StopMessagesRepository {
      * Deletes every stop's messages whose retention has ended: 90 days after the last of them
      * reached its state (NFR-184, ADR-108).
      *
-     * <p>Built in M12.
+     * <p>Built in M13.
      *
      * @param now when the retention job runs
      * @return how many stops' messages were deleted

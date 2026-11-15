@@ -14,7 +14,7 @@ import java.util.Optional;
  * It answers the point and the match's quality only; the distance to the nearest road is {@link
  * RoadSnap}'s.
  *
- * <p>Built in M7, and in an unscheduled milestone for the cache's retention.
+ * <p>Built in M7, and in M13 for the cache's retention.
  */
 public interface Geocoder {
 
@@ -35,7 +35,7 @@ public interface Geocoder {
      * Deletes every cache entry that no lookup has used since an instant (NFR-259, ADR-075). The
      * customers keep the coordinates they copied (ADR-085).
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>Built in M13.
      *
      * @param cutoff the instant an entry's last use must predate to be deleted
      * @return how many entries were deleted, 0 or more

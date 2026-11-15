@@ -17,13 +17,20 @@ import com.dispatchflow.shared.application.StaleVersion;
 /**
  * Live Operations' own listener on {@code OutcomeRecorded}: an accepted fact stands, so the plan
  * follows it (DL §8 step 2, BR-89, BR-130, ADR-101). It asks Planning's {@link RouteMembership}
- * where the stop is now; when the current revision disagrees with the route that served it, it calls
- * Planning's {@link ReconcileLateOutcome}, then raises the dispatcher's <em>late report</em> alert
- * from the answer, in a transaction of its own, stored with its plan's date from {@link
- * PublishedRoutes}.
+ * where the stop is now. When the current revision disagrees with the route that served it, it
+ * raises the dispatcher's <em>late report</em> alert first, from the {@code WhereaboutsFact}, in a
+ * transaction of its own, stored with its plan's date from {@link PublishedRoutes}: an {@code
+ * OnAnotherRoute} names the route the stop leaves, and a dropped or cancelled stop names none. Then
+ * it calls Planning's {@link ReconcileLateOutcome} (ADR-121).
  *
- * <p>Delivery is at least once (ADR-064). Both steps are idempotent: reconciling a stop already
- * where the fact puts it changes nothing, and the alert's dedupe key stores it once (ADR-107), so it
+ * <p>The alert comes first so that a failure between the two steps can't lose it (BR-89). Raised
+ * after Planning's commit, a failure before the alert's own commit would leave the plan reconciled,
+ * and the retried event would find the stop where the fact puts it and raise nothing. Raised first,
+ * a retry finds the plan still disagreeing and reconciles it, and the alert's dedupe key, one per
+ * stop, makes the repeated alert harmless.
+ *
+ * <p>Delivery is at least once (ADR-064). Both steps are idempotent: the alert's dedupe key stores
+ * it once (ADR-107), and reconciling a stop already where the fact puts it changes nothing, so it
  * records no {@code ProcessedEvents} pair.
  *
  * <p>For each alert it raises, it calls {@link PushNotifier#alertStaff} after the commit, so a
@@ -78,7 +85,8 @@ public final class ReconcileOutcome {
     }
 
     /**
-     * Reconciles the plan with an accepted outcome, and alerts the dispatcher when it moved a stop.
+     * Alerts the dispatcher when the current plan disagrees with an accepted outcome, and then
+     * reconciles the plan with it.
      *
      * <p>Built in M8; the push in M10.
      *

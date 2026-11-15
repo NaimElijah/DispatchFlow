@@ -27,8 +27,9 @@ import java.util.Optional;
  * domain's {@code LaterAttempt} (FR-258, FR-404, ADR-107); and Customers &amp; Orders' {@link
  * StopOrders} for the door flag. Then one transaction calls {@code Delivery.correct} with the audit
  * record. Correcting a failed stop to delivered after a put-back raises {@code PutBackSuperseded},
- * which takes the put-back's stop off its plan (FR-404, ADR-114). Like every changing call it writes
- * its audit record, a refused attempt's in its own transaction (NFR-23, ADR-110).
+ * which takes the put-back's stop off its plan and returns the order to its earlier attempt (FR-404,
+ * ADR-114, ADR-121). Like every changing call it writes its audit record, a refused attempt's in its
+ * own transaction (NFR-23, ADR-110).
  *
  * <p>Built in M8. Rows: FR-333, FR-374, FR-404.
  */

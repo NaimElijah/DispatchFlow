@@ -36,6 +36,10 @@ import java.util.Optional;
  * adds the wrong-password one, with {@code SignIn}, and M6 the missing one. Like every changing
  * call it writes its audit record, a refused attempt's in its own transaction (NFR-23, ADR-110).
  *
+ * <p>The web adapter limits requests for an email-change link to 5 an hour per account, with
+ * Bucket4j, and answers a request over the limit 429 before it reaches this use case (FR-411,
+ * ADR-071, ADR-121).
+ *
  * <p>Built in M6.
  */
 public final class RequestEmailChange {

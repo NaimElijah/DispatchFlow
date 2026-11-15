@@ -21,7 +21,9 @@ import java.util.Objects;
  * @param sessionGeneration the session's generation, the token's {@code sgen}
  * @param roles the roles the account holds now
  * @param issuedAt when the token is issued
- * @param expiresAt when it stops being accepted, 15 minutes later by default (NFR-86)
+ * @param expiresAt when it stops being accepted, 15 minutes later by default (NFR-86); until M6
+ *     builds refresh, the dev profile alone sets a longer lifetime, and every other profile keeps
+ *     NFR-86's 15 minutes (ADR-121)
  */
 public record AccessClaims(
         AccountId account,

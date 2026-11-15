@@ -12,7 +12,7 @@ import com.dispatchflow.shared.application.Clock;
  * hold back the rest; the next night retries it. A driver whose retention isn't over refuses with
  * {@code RetentionNotOver}, and the job moves on.
  *
- * <p>Built in an unscheduled milestone.
+ * <p>Built in M13, with the whole nightly retention run (ADR-121).
  */
 public final class AnonymizeRetiredDrivers {
 
@@ -36,12 +36,12 @@ public final class AnonymizeRetiredDrivers {
     /**
      * Anonymizes the drivers whose retention is over.
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>Built in M13.
      *
      * @param call the job's server step
      * @return how many drivers were anonymized
      */
     public int anonymizeDue(CallContext call) {
-        throw new UnsupportedOperationException("Built in an unscheduled milestone");
+        throw new UnsupportedOperationException("Built in M13");
     }
 }

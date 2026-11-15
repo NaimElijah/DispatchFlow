@@ -14,7 +14,7 @@ import com.dispatchflow.shared.application.Clock;
  * <p>Each account is anonymized in its own transaction, so one stale save doesn't hold back the
  * rest; the next night retries it.
  *
- * <p>Built in an unscheduled milestone.
+ * <p>Built in M13, with the whole nightly retention run (ADR-121).
  */
 public final class AnonymizeDeactivatedAccounts {
 
@@ -38,12 +38,12 @@ public final class AnonymizeDeactivatedAccounts {
     /**
      * Anonymizes the accounts whose retention is over.
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>Built in M13.
      *
      * @param call the job's server step
      * @return how many accounts were anonymized
      */
     public int anonymizeDue(CallContext call) {
-        throw new UnsupportedOperationException("Built in an unscheduled milestone");
+        throw new UnsupportedOperationException("Built in M13");
     }
 }

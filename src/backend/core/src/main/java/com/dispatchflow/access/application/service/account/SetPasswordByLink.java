@@ -86,7 +86,9 @@ public final class SetPasswordByLink {
      *     AccountAnonymized} when the account is not active; {@code PasswordHasUnpairedSurrogate},
      *     {@code PasswordTooShort} or {@code PasswordTooCommon} for a password the policy refuses
      *     (NFR-95)
-     * @throws StaleVersion when the account changed between its read and its save (BR-76)
+     * @throws StaleVersion when the account changed between its read and its save (BR-76); the web
+     *     adapter retries the call at once, up to three times, then answers 503 with {@code
+     *     Retry-After} (ADR-121)
      */
     public void set(PresentedToken token, PresentedPassword password, CallContext call) {
         throw new UnsupportedOperationException("Built in M6");

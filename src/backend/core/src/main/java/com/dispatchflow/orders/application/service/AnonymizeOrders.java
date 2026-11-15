@@ -11,7 +11,7 @@ import com.dispatchflow.shared.application.Clock;
  * transaction; the order and its figures stay (NFR-152). The scheduler runs it at 03:00 {@code
  * Asia/Jerusalem} (TS §6.3).
  *
- * <p>Built in an unscheduled milestone.
+ * <p>Built in M13, with the whole nightly retention run (ADR-121).
  */
 public final class AnonymizeOrders {
 
@@ -35,12 +35,12 @@ public final class AnonymizeOrders {
     /**
      * Anonymizes every order due.
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>Built in M13.
      *
      * @param call the job's server step
      * @return how many orders were anonymized
      */
     public int anonymizeDue(CallContext call) {
-        throw new UnsupportedOperationException("Built in an unscheduled milestone");
+        throw new UnsupportedOperationException("Built in M13");
     }
 }

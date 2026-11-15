@@ -12,7 +12,7 @@ import com.dispatchflow.shared.application.Clock;
  * its last order, one customer per transaction. A customer whose retention a new order extended
  * refuses with {@code RetentionNotOver}, and the job moves on.
  *
- * <p>Built in an unscheduled milestone.
+ * <p>Built in M13, with the whole nightly retention run (ADR-121).
  */
 public final class AnonymizeCustomers {
 
@@ -36,12 +36,12 @@ public final class AnonymizeCustomers {
     /**
      * Anonymizes every customer due.
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>Built in M13.
      *
      * @param call the job's server step
      * @return how many customers were anonymized
      */
     public int anonymizeDue(CallContext call) {
-        throw new UnsupportedOperationException("Built in an unscheduled milestone");
+        throw new UnsupportedOperationException("Built in M13");
     }
 }

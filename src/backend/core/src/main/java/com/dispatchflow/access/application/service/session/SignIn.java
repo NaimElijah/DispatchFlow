@@ -35,6 +35,10 @@ import com.dispatchflow.shared.application.IdGenerator;
  * which counts typed addresses whether or not an account holds them (NFR-225). FR-299's warning is
  * read from {@code AccountQueries.me} after sign-in.
  *
+ * <p>The access token's lifetime is configuration: NFR-86's 15 minutes. Until M6 builds refresh,
+ * the dev profile alone sets a longer lifetime, so an Alpha session outlasts 15 minutes, and every
+ * other profile keeps NFR-86's 15 minutes (ADR-121).
+ *
  * <p>Built in M5.
  */
 public final class SignIn {

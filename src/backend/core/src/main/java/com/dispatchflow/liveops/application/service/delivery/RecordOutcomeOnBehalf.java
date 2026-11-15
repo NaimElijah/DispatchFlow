@@ -92,7 +92,9 @@ public final class RecordOutcomeOnBehalf {
      *     NotALeaveAtDoorOrder}, then {@code SameOutcomeAlreadyRecorded} or {@code
      *     OutcomeAlreadyRecorded} (BR-18)
      * @throws NotFound when no plan in force holds the route, or the route doesn't hold the stop
-     * @throws StaleVersion when another writer saved the stop's delivery meanwhile
+     * @throws StaleVersion when another writer saved the stop's delivery meanwhile; the web adapter
+     *     retries the call at once, up to three times, then answers 503 with {@code Retry-After}
+     *     (ADR-121)
      */
     public void record(Actor actor, StopId stop, RouteId route, DispatcherOutcome outcome) {
         throw new UnsupportedOperationException("Built in M8");

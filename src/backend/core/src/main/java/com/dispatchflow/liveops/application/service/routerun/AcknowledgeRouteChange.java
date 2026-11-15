@@ -62,7 +62,8 @@ public final class AcknowledgeRouteChange {
      *     the driver no longer drives the route (ADR-114), else {@code UnknownRevision} when {@code
      *     seen} is past the plan's current revision (ADR-107)
      * @throws NotFound when no plan in force holds the route
-     * @throws StaleVersion when another writer saved the run meanwhile
+     * @throws StaleVersion when another writer saved the run meanwhile; the web adapter retries the
+     *     call at once, up to three times, then answers 503 with {@code Retry-After} (ADR-121)
      */
     public void acknowledge(Actor actor, RouteId route, RevisionNo seen) {
         throw new UnsupportedOperationException("Built in M8");

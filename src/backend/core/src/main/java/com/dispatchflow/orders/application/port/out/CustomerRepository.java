@@ -14,7 +14,7 @@ import java.util.Optional;
  * Where customers are kept, as whole {@link Customer} aggregates (DL §3.6, §4.3), with the lookups
  * the use cases need. It has no query for screens: {@link OrdersViews} serves those.
  *
- * <p>Built in M2, and in an unscheduled milestone for the retention lookups.
+ * <p>Built in M2, and in M13 for the retention lookups.
  */
 public interface CustomerRepository {
 
@@ -63,7 +63,7 @@ public interface CustomerRepository {
      * A customer's last delivery date: the latest delivery date of any of its orders, from which a
      * customer never retired counts its retention (BR-98, NFR-257, ADR-102).
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>Built in M13.
      *
      * @param customer the customer
      * @return the latest delivery date of any of its orders, cancelled ones included, or empty when
@@ -76,7 +76,7 @@ public interface CustomerRepository {
      * retired, with neither a creation nor an order within the year before it (BR-98, NFR-257,
      * ADR-075). {@link Customer#anonymize} decides each one, in Israel's calendar.
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>Built in M13.
      *
      * @param now the time of the retention job
      * @return the customers to try, each once; an anonymized one is never among them

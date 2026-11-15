@@ -11,7 +11,7 @@ import java.util.Optional;
  * Where the driver records are kept, each keyed by its account's ID (DL §3.6, §4.2), and published
  * with their {@code DriverRetired} events.
  *
- * <p>Built in M2.
+ * <p>Built in M2 and M13, method by method.
  */
 public interface DriverRepository {
 
@@ -41,7 +41,7 @@ public interface DriverRepository {
      * one, in Israel's calendar. It answers IDs, so each record is loaded, changed and saved in its
      * own transaction.
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>Built in M13.
      *
      * @param now the time of the retention job
      * @return their IDs, in any order; an anonymized driver is never among them
