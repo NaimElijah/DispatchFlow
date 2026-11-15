@@ -34,12 +34,14 @@ final class DomainPurityRules {
     private static final String KERNEL = "shared";
     private static final String DOMAIN = "domain";
     private static final String EVENTS = "events";
+    private static final String APPLICATION = "application";
     private static final String PACKAGE_INFO = "package-info";
     private static final List<String> KERNEL_LIBRARIES = List.of("com.google.i18n.phonenumbers");
     private static final List<String> DOMAIN_LIBRARIES =
             List.of("com.google.i18n.phonenumbers", "org.locationtech.jts");
     private static final List<String> ALWAYS_ALLOWED = List.of("java", "org.jspecify");
-    // M0 puts @ApplicationModule and @NamedInterface on these packages' package-info (ADR-040).
+    // M0 puts @ApplicationModule and @NamedInterface on these packages' package-info (ADR-040), and
+    // @NamedInterface on shared.application's (ADR-120 decision 2).
     private static final String MODULITH = "org.springframework.modulith";
 
     // A legacy date type or a Clock is a way to read the time inside the domain.
@@ -306,8 +308,9 @@ final class DomainPurityRules {
     /**
      * The packages one class may depend on, from where it lives: {@code <root>.shared...}, {@code
      * <root>.<module>.domain...} or {@code <root>.<module>.events...}. A {@code package-info} of a
-     * domain or events package, or of the kernel's own package (a module root), may also carry the
-     * module annotations.
+     * domain or events package, of the kernel's own package (a module root), or of the kernel's
+     * application package (a named interface, ADR-120 decision 2) may also carry the module
+     * annotations.
      */
     private static List<String> allowedPackages(String root, String moduleAnnotations, JavaClass item) {
         String[] segments = item.getPackageName().substring(root.length() + 1).split("\\.");
@@ -316,7 +319,9 @@ final class DomainPurityRules {
         boolean packageInfo = item.getSimpleName().equals(PACKAGE_INFO);
         if (segments[0].equals(KERNEL)) {
             allowed.addAll(KERNEL_LIBRARIES);
-            if (packageInfo && segments.length == 1) {
+            boolean kernelRoot = segments.length == 1;
+            boolean kernelApplication = segments.length == 2 && segments[1].equals(APPLICATION);
+            if (packageInfo && (kernelRoot || kernelApplication)) {
                 allowed.add(moduleAnnotations);
             }
             return allowed;

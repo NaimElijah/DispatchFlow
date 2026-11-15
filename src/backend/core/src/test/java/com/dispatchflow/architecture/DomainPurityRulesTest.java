@@ -114,6 +114,8 @@ import com.dispatchflow.archfixture.shared.KernelCreatesAnIllegalArgument;
 import com.dispatchflow.archfixture.shared.KernelDependsOnAModule;
 import com.dispatchflow.archfixture.shared.KernelDependsOnJts;
 import com.dispatchflow.archfixture.shared.KernelValue;
+import com.dispatchflow.archfixture.shared.application.SharedPortIsTransactional;
+import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.lang.ArchRule;
 import org.junit.jupiter.api.Test;
@@ -152,7 +154,8 @@ class DomainPurityRulesTest {
                 EventDependsOnLibphonenumber.class,
                 KernelDependsOnAModule.class,
                 KernelDependsOnJts.class,
-                AnnotatedWithModulith.class
+                AnnotatedWithModulith.class,
+                SharedPortIsTransactional.class
             })
     void GivenAForbiddenDependency_WhenRule1Evaluates_ThenItIsFlagged(Class<?> fixture) {
         assertThat(flags(rule1(), fixture)).isTrue();
@@ -170,6 +173,15 @@ class DomainPurityRulesTest {
 
         assertThat(gamma.stream().map(type -> type.getSimpleName())).contains("package-info");
         assertThat(rule1().evaluate(gamma).hasViolation()).isFalse();
+    }
+
+    @Test
+    void GivenAModuleAnnotationOnTheKernelsApplicationPackageInfo_WhenRule1Evaluates_ThenNothingIsFlagged() {
+        JavaClasses packageInfo =
+                FixtureClasses.inPackage("shared.application").that(JavaClass.Predicates.simpleName("package-info"));
+
+        assertThat(packageInfo).hasSize(1);
+        assertThat(rule1().evaluate(packageInfo).hasViolation()).isFalse();
     }
 
     @Test

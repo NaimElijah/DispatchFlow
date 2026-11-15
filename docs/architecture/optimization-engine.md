@@ -22,9 +22,12 @@ the `ProblemView` protocol and never import `problem`; the parts a problem holds
 
 Nothing calls it yet. The `application` package is declared ahead of its milestones and not built
 ([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)):
-the `Solver` protocol, `SolverRegistry`, `Budget` (the alias over `TimeLimit | IterationLimit |
-SolutionLimit`) and the `Stopwatch` protocol in `ports.py`, the requests and outcomes, and five use
-cases, `Solve`, `Reoptimize`, `Evaluate`, `Baseline` and `ListSolvers`.
+the `Solver` protocol and its `SearchResult`, `SolverRegistry`, `Budget` (the alias over `TimeLimit |
+IterationLimit | SolutionLimit`), the `Stopwatch` protocol and the errors in `ports.py`, the requests
+and outcomes, and five use cases, `Solve`, `Reoptimize`, `Evaluate`, `Baseline` and `ListSolvers`.
+A request the service can't run raises `UnknownSolverError` or `UnsupportedBudgetError`, and a search
+that returns no solution raises `SearchFailedError` with its `SearchFailure`, which the use case
+answers as `Failed`.
 Every body that would do work raises `NotImplementedError("Built in M<n>")`. No solver implements
 the port, and each `solvers` folder holds only a `.gitkeep`.
 [ADR-098](../ADRs/ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) fixes the

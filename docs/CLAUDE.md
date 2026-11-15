@@ -16,7 +16,8 @@ and never restates them.
 
 `architecture/architecture.md` describes today's system. `bounded-contexts.md` and
 `optimization-engine.md` describe the domain layers that are built and point to the design sections
-that define their topics. `data-model.md` points to them until a migration exists.
+that define their topics. They also say that each application layer is declared, not built
+([ADR-119]). `data-model.md` points to them until a migration exists.
 `code-structure.md` describes the repository layout.
 
 ## Requirements
@@ -91,3 +92,4 @@ that define their topics. `data-model.md` points to them until a migration exist
 - Before naming a version, a flag or a file, check it in the repository.
 
 [TS-19]: architecture/tech_stack.md#19-documentation-and-diagrams
+[ADR-119]: ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md

@@ -14,6 +14,9 @@ import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
 import com.tngtech.archunit.library.dependencies.SliceAssignment;
 import com.tngtech.archunit.library.dependencies.SliceIdentifier;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -26,7 +29,7 @@ import java.util.stream.Stream;
 import org.jspecify.annotations.NullMarked;
 
 /**
- * The application layer's rules (TS §2.2, TS §4, DL §2.1, DL §2.3), built for a root package as
+ * The application layer's rules (TS §2.2, TS §4, DL §2.1, DL §2.3, ADR-120), built for a root package as
  * {@link DomainPurityRules} is. {@code com.dispatchflow} checks production code; {@code
  * com.dispatchflow.archfixture.zeta} checks the fixtures that prove each rule fires.
  *
@@ -44,6 +47,7 @@ final class ApplicationRules {
     private static final String SPI = "spi";
     private static final String SERVICE = "service";
     private static final String PORT_OUT = "port.out";
+    private static final String SERVICE_SUFFIX = "Service";
     private static final String PACKAGE_INFO = "package-info";
     private static final List<String> ALWAYS_ALLOWED = List.of("java", "org.jspecify");
     // TS §2.2: the one Spring annotation the application may carry, so a use case can mark its
@@ -83,6 +87,26 @@ final class ApplicationRules {
             "orders.application.spi.OrderPlacement", "planning",
             "orders.application.spi.RecordUsage", "planning",
             "fleet.application.spi.RecordUsage", "planning");
+
+    /**
+     * ADR-120 decision 5's renamed implementations: each {@code spi} interface, by its name below the
+     * root, whose implementation is not its {@code XService}, and that implementation's simple name.
+     * Both ports are named {@code RecordUsage} (P9), so one implementing module can't name both
+     * {@code RecordUsageService}.
+     */
+    static final Map<String, String> SPI_IMPLEMENTATION_NAMES = Map.of(
+            "fleet.application.spi.RecordUsage", "FleetUsageService",
+            "orders.application.spi.RecordUsage", "CustomerUsageService");
+
+    /** ADR-120 P5: the module that reads the others only through the views they publish. */
+    static final String REPORTING = "reporting";
+
+    /**
+     * The modules Reporting reports on, whose {@code events} alone it may use (ADR-120 P5). Access and
+     * Audit are not among them: Reporting takes the {@code Actor} and writes its {@code AuditLog}
+     * records as every module does.
+     */
+    static final Set<String> REPORTING_SOURCES = Set.of("liveops", "planning", "orders");
 
     /** The top-level packages under the root that are no module: the kernel and the web concerns. */
     static final Set<String> NOT_MODULES = Set.of(KERNEL, WEB);
@@ -185,42 +209,92 @@ final class ApplicationRules {
     }
 
     /**
-     * Rule 4, for {@code api}: every non-sealed interface in a module's {@code application.api} has
-     * exactly one concrete implementation, in its own module. A sealed interface models the
-     * variants of a fact, which its records implement, and is skipped.
+     * Rule 4, for {@code api}: every interface in a module's {@code application.api} has exactly
+     * one concrete implementation, {@code XService} for an interface {@code X}, under its own
+     * module's {@code application.service}. A sealed interface whose permitted subclasses are all
+     * records or enums models the variants of a fact, not a port, and is skipped.
      */
     static ArchRule eachApiHasOneImplementationInItsModule(String root) {
         return classes()
                 .that()
                 .resideInAPackage(root + ".*." + APPLICATION + "." + API + "..")
-                .should(haveOneImplementation(root, "in its own module", item -> topLevelPackage(root, item)))
-                .because("TS §4: an api interface X is implemented once, by its own module's XService");
-    }
-
-    /** Rule 4, for {@code spi}, with production's dashed arrows, {@link #SPI_IMPLEMENTERS}. */
-    static ArchRule eachSpiHasOneImplementationInItsArrowsModule(String root) {
-        return eachSpiHasOneImplementationInItsArrowsModule(root, SPI_IMPLEMENTERS);
+                .should(haveOneImplementation(
+                        root, "its own module", item -> topLevelPackage(root, item), ApplicationRules::serviceNameOf))
+                .because("ADR-120 decision 5: an api interface X is implemented by XService in its own module");
     }
 
     /**
-     * Rule 4, for {@code spi}, with the dashed arrows given, as rule 2 takes its graph: every
-     * non-sealed interface in a module's {@code application.spi} has exactly one concrete
-     * implementation, in the module its arrow names. An interface with no arrow fails. Sealed
-     * interfaces are skipped.
+     * Rule 4, for {@code spi}, with production's dashed arrows, {@link #SPI_IMPLEMENTERS}, and
+     * production's renamed implementations, {@link #SPI_IMPLEMENTATION_NAMES}.
+     */
+    static ArchRule eachSpiHasOneImplementationInItsArrowsModule(String root) {
+        return eachSpiHasOneImplementationInItsArrowsModule(root, SPI_IMPLEMENTERS, SPI_IMPLEMENTATION_NAMES);
+    }
+
+    /**
+     * Rule 4, for {@code spi}, with the dashed arrows and the renamed implementations given, as rule
+     * 2 takes its graph: every interface in a module's {@code application.spi} has exactly one
+     * concrete implementation, under the {@code application.service} of the module its arrow names.
+     * It is named {@code XService} for an interface {@code X}, or the name {@code names} gives it. An
+     * interface with no arrow fails. A sealed interface over records and enums only is skipped, as
+     * for {@code api}.
      *
      * @param implementers each {@code spi} interface, by its name below the root, and the module that
      *     implements it
+     * @param names each {@code spi} interface, by its name below the root, whose implementation is not
+     *     its {@code XService}, and that implementation's simple name
      */
-    static ArchRule eachSpiHasOneImplementationInItsArrowsModule(String root, Map<String, String> implementers) {
+    static ArchRule eachSpiHasOneImplementationInItsArrowsModule(
+            String root, Map<String, String> implementers, Map<String, String> names) {
         return classes()
                 .that()
                 .resideInAPackage(root + ".*." + APPLICATION + "." + SPI + "..")
                 .should(haveOneImplementation(
                         root,
-                        "in the module its dashed arrow names",
-                        item -> Optional.ofNullable(implementers.get(nameBelow(root, item)))))
-                .because("DL §2.1 and DL §2.3: a module owns an spi for exactly the one module its dashed"
-                        + " arrow names to implement");
+                        "the module its dashed arrow names",
+                        item -> Optional.ofNullable(implementers.get(nameBelow(root, item))),
+                        item -> names.getOrDefault(nameBelow(root, item), serviceNameOf(item))))
+                .because("DL §2.1, DL §2.3 and ADR-120 decision 5: a module owns an spi for exactly the one"
+                        + " module its dashed arrow names to implement, by XService, or by FleetUsageService and"
+                        + " CustomerUsageService for the two RecordUsage ports");
+    }
+
+    /** Rule 8, for production: Reporting uses only the {@code events} of the modules it reports on. */
+    static ArchRule reportingHearsOnlyTheEventsOfItsSources(String root) {
+        return readsOnlyTheEventsOf(root, REPORTING, REPORTING_SOURCES);
+    }
+
+    /**
+     * Rule 8, with the reader and its sources given: no class of the reader module, its adapters
+     * included, uses a class of a source module other than one in, or below, that module's {@code
+     * events}. Rules 1 and 2 allow a source's {@code api}; this rule is narrower, because the reader
+     * reads its sources through the views they publish, which no Java dependency shows.
+     *
+     * @param reader the module bound by the rule, such as {@code reporting}
+     * @param sources the modules whose events alone it may use
+     */
+    static ArchRule readsOnlyTheEventsOf(String root, String reader, Set<String> sources) {
+        return classes()
+                .that()
+                .resideInAPackage(root + "." + reader + "..")
+                .should(dependOnlyOn(
+                        "the events of " + new TreeSet<>(sources) + " among those modules' classes",
+                        (item, target) -> isNoSourceOrItsEvents(root, sources, target)))
+                .because("ADR-120 P5: Reporting reads the other modules only through the views they publish,"
+                        + " and hears their events; it calls no other module's Java API");
+    }
+
+    /**
+     * The modules of a graph that reach themselves through its arrows, in name order; empty when the
+     * graph is acyclic, which rule 7's Javadoc relies on. An arrow to a module the graph does not
+     * hold leads nowhere.
+     *
+     * @param graph each module, and the modules it may depend on
+     */
+    static SortedSet<String> modulesOnACycle(Map<String, Set<String>> graph) {
+        return graph.keySet().stream()
+                .filter(module -> reachesItself(graph, module))
+                .collect(Collectors.toCollection(TreeSet::new));
     }
 
     /**
@@ -284,7 +358,8 @@ final class ApplicationRules {
 
     /**
      * Rule 7, for cycles: no cycle between application packages. Each package is a slice of its own,
-     * so a cycle across modules would show too, which rule 2's acyclic graph already forbids.
+     * so a cycle across modules would show too, which rule 2's graph already forbids, because {@link
+     * #modulesOnACycle} finds no cycle in it.
      */
     static ArchRule applicationPackagesAreFreeOfCycles(String root) {
         return slices().assignedFrom(applicationPackageSlices(root))
@@ -395,26 +470,34 @@ final class ApplicationRules {
     }
 
     /**
-     * Exactly one concrete implementation of each non-sealed interface, in the module {@code
-     * expectedModule} names for it; an interface it names no module for fails.
+     * Exactly one concrete implementation of each interface that is no fact's variants, named {@code
+     * expectedName} and under the {@code application.service} of the module {@code expectedModule}
+     * names for it; an interface it names no module for fails.
      */
     private static ArchCondition<JavaClass> haveOneImplementation(
-            String root, String where, Function<JavaClass, Optional<String>> expectedModule) {
+            String root,
+            String where,
+            Function<JavaClass, Optional<String>> expectedModule,
+            Function<JavaClass, String> expectedName) {
         return new ArchCondition<>(
-                "have exactly one concrete implementation " + where + " when a non-sealed interface") {
+                "have exactly one concrete implementation, named for the interface, under the application.service of "
+                        + where + ", when an interface that is no fact's variants") {
             @Override
             public void check(JavaClass item, ConditionEvents events) {
                 // A package-info compiles to a synthetic interface, which no class implements.
                 if (!item.isInterface()
                         || item.isAnnotation()
-                        || item.isSealed()
+                        || modelsAFactsVariants(item)
                         || item.getSimpleName().equals(PACKAGE_INFO)) {
                     return;
                 }
                 Optional<String> expected = expectedModule.apply(item);
                 if (expected.isEmpty()) {
                     events.add(SimpleConditionEvent.violated(
-                            item, item.getName() + " names no module to implement it, so none is " + where));
+                            item,
+                            item.getName()
+                                    + " names no module to implement it, so none is under the application.service of "
+                                    + where));
                     return;
                 }
                 List<JavaClass> implementations = item.getAllSubclasses().stream()
@@ -432,14 +515,62 @@ final class ApplicationRules {
                     return;
                 }
                 JavaClass implementation = implementations.get(0);
-                if (!topLevelPackage(root, implementation).equals(expected)) {
+                String service = root + "." + expected.get() + "." + APPLICATION + "." + SERVICE;
+                if (!isIn(implementation.getPackageName(), service)) {
                     events.add(SimpleConditionEvent.violated(
                             item,
-                            item.getName() + " is implemented by " + implementation.getName() + ", not in module "
-                                    + expected.get()));
+                            item.getName() + " is implemented by " + implementation.getName() + ", not under "
+                                    + service));
+                }
+                String name = expectedName.apply(item);
+                if (!implementation.getSimpleName().equals(name)) {
+                    events.add(SimpleConditionEvent.violated(
+                            item,
+                            item.getName() + " is implemented by " + implementation.getName() + ", not by " + name));
                 }
             }
         };
+    }
+
+    /**
+     * A sealed interface whose permitted subclasses are all records or enums: the variants of a
+     * fact, which no service implements. One that permits a plain class is a port like any other.
+     */
+    private static boolean modelsAFactsVariants(JavaClass type) {
+        return type.isSealed()
+                && type.getPermittedSubclasses()
+                        .map(permitted ->
+                                permitted.stream().allMatch(variant -> variant.isRecord() || variant.isEnum()))
+                        .orElse(false);
+    }
+
+    /** The {@code XService} name ADR-120 decision 5 gives the implementation of an interface {@code X}. */
+    private static String serviceNameOf(JavaClass type) {
+        return type.getSimpleName() + SERVICE_SUFFIX;
+    }
+
+    /** Whether a target is outside every source module, or in, or below, a source module's {@code events}. */
+    private static boolean isNoSourceOrItsEvents(String root, Set<String> sources, JavaClass target) {
+        String[] segments = segmentsBelow(root, target.getPackageName());
+        return segments.length == 0
+                || !sources.contains(segments[0])
+                || (segments.length >= 2 && segments[1].equals(EVENTS));
+    }
+
+    /** Whether a module of the graph reaches itself by following its arrows. */
+    private static boolean reachesItself(Map<String, Set<String>> graph, String module) {
+        Set<String> visited = new HashSet<>();
+        Deque<String> toVisit = new ArrayDeque<>(graph.getOrDefault(module, Set.of()));
+        while (!toVisit.isEmpty()) {
+            String next = toVisit.pop();
+            if (next.equals(module)) {
+                return true;
+            }
+            if (visited.add(next)) {
+                toVisit.addAll(graph.getOrDefault(next, Set.of()));
+            }
+        }
+        return false;
     }
 
     /** A condition that reports, against the class, each dependency whose target {@code allowed} refuses. */

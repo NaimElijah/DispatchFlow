@@ -118,14 +118,21 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
      purity rules, so it takes no `@Transactional`.
   2. Modules depend on each other along [DL §2.1]'s arrows and no others.
   3. No `api` or `spi` type uses a domain type.
-  4. Each `api` interface has exactly one implementation, in its own module. Each `spi` interface has
-     exactly one, in the module that DL §2.1's dashed arrow names (`SPI_IMPLEMENTERS`). Sealed
-     interfaces are skipped.
+  4. Each `api` interface `X` has exactly one implementation, `XService`, under its own module's
+     `application.service`. Each `spi` interface has exactly one, under the `application.service` of
+     the module that DL §2.1's dashed arrow names (`SPI_IMPLEMENTERS`): `XService`, or
+     `FleetUsageService` and `CustomerUsageService` for the two `RecordUsage` ports
+     (`SPI_IMPLEMENTATION_NAMES`, [ADR-120] decision 5). A sealed interface whose permitted
+     subclasses are all records or enums is a fact's variants, and is skipped.
   5. Every application package is `@NullMarked`.
   6. No class in a `domain` or `events` package, or in the kernel root, imports
      `shared.application`, so a domain can't reach the `Clock` port.
   7. No cycle between a module's application packages, and the `service` and `port/out` roots import
-     none of their own subpackages ([ADR-118]'s rules, carried to the application).
+     none of their own subpackages ([ADR-118]'s rules, carried to the application). A test checks
+     that `MODULE_GRAPH` has no cycle.
+  8. No class of `reporting`, its adapters included, uses a class of `liveops`, `planning` or
+     `orders` outside their `events` ([ADR-120] P5: Reporting reads them through the views they
+     publish).
 - Package rules (`DomainPackageRules`, [ADR-118]): no cycle between a module's domain packages, a
   domain root that imports none of its own subpackages, and every kernel, domain and `events`
   package is `@NullMarked`. A module's domain never gets a subpackage to dodge a rule: nothing is

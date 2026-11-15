@@ -34,7 +34,8 @@ service's `CLAUDE.md` names its packages and what may import what.
 ## Rules for both services
 
 - Time, IDs and randomness come in through ports (`Clock`, `IdGenerator`, seeded generators). The
-  domain never reads the clock ([TS §2.1], rule 3).
+  domain never reads the clock ([TS §2.1], rule 3). In `core`, `Clock` and `IdGenerator` live in
+  `shared/application`, which no domain may import ([ADR-120]).
 - The validator, the objective, the travel-time factors and the re-optimization conventions exist
   once, in the solver's Python domain. `core` calls them through the contract and never applies
   a bucket factor: OSRM gives it base durations only ([DL §10.2], [TS §6.4]).
@@ -57,6 +58,7 @@ service's `CLAUDE.md` names its packages and what may import what.
 [ADR-043]: ../../docs/ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md
 [ADR-051]: ../../docs/ADRs/ADR-051-one-solver-worker-per-lane-killed-30-seconds-past-its-limit.md
 [ADR-088]: ../../docs/ADRs/ADR-088-israel-local-time-for-every-date-and-schedule.md
+[ADR-120]: ../../docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md
 [DL §10.2]: ../../docs/architecture/domain_layer/domain_layer_design.md#102-one-travel-time-model-in-python
 [TS §2.1]: ../../docs/architecture/tech_stack.md#21-the-dependency-rule
 [TS §6]: ../../docs/architecture/tech_stack.md#6-core-service-java

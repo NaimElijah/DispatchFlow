@@ -171,9 +171,9 @@ forbidden_modules = ["dispatchflow_solver.domain.problem"]
 
 # ADR-001: the use cases and the Solver port know no transport, no Pydantic and no OR-Tools.
 # ADR-092: Numba and the alns package belong to our solver's adapter. ADR-051 keeps the process
-# model in the adapter too, and this contract bans the application three of its modules:
-# `multiprocessing`, `concurrent` and `subprocess`. grimp records the standard library as external
-# packages, so `concurrent` catches concurrent.futures.
+# model in the adapter too, so this contract bans three process-model modules from the
+# application: `multiprocessing`, `concurrent` and `subprocess`. grimp records the standard
+# library as external packages, so `concurrent` catches concurrent.futures.
 [[tool.importlinter.contracts]]
 name = "The application imports no FastAPI, Pydantic, solver library or process model"
 type = "forbidden"
@@ -189,6 +189,7 @@ forbidden_modules = [
     "pydantic_settings",
     "starlette",
     "subprocess",
+    "uvicorn",
 ]
 
 # FR-286: PyVRP is the study's reference solver and never enters the product, so no part of the
@@ -203,6 +204,6 @@ forbidden_modules = ["pyvrp"]
 name = "Adapters and solvers sit on the application, which sits on the domain"
 type = "layers"
 containers = ["dispatchflow_solver"]
-# Parentheses mark a layer that may not exist yet. The application now exists, declared ahead
-# (ADR-119), and keeps its parentheses; the solvers are still placeholders.
-layers = ["adapters | (solvers)", "(application)", "domain"]
+# Parentheses mark a layer that may not exist yet: the solvers are still placeholders. The
+# application exists, declared ahead (ADR-119), so it has none, and the contract fails if it goes.
+layers = ["adapters | (solvers)", "application", "domain"]
