@@ -1,6 +1,6 @@
 # ADR-044: The solver port takes a start, a budget and a seed, and `Problem` alone judges a solution
 
-- **Status:** Accepted; extended by ADR-050 and ADR-099; amended by ADR-105
+- **Status:** Accepted; extended by ADR-050 and ADR-099; amended by ADR-105 and ADR-120
 - **Date:** 2026-11-13
 
 ## Context

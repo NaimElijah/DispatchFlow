@@ -20,8 +20,13 @@ the `ProblemView` protocol and never import `problem`; the parts a problem holds
 `problem_parts`
 ([ADR-113](../ADRs/ADR-113-route-stability-is-its-own-cost-the-rules-read-a-problem-through-a-protocol-and-untimed-outputs-are-documented.md)).
 
-Nothing calls it yet. No solver, no `Solver` port and no use case exists; the `application` package
-holds only an empty `__init__.py`, and each `solvers` folder only a `.gitkeep`.
+Nothing calls it yet. The `application` package is declared ahead of its milestones and not built
+([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)):
+the `Solver` protocol, `SolverRegistry`, `Budget` (the alias over `TimeLimit | IterationLimit |
+SolutionLimit`) and the `Stopwatch` protocol in `ports.py`, the requests and outcomes, and five use
+cases, `Solve`, `Reoptimize`, `Evaluate`, `Baseline` and `ListSolvers`.
+Every body that would do work raises `NotImplementedError("Built in M<n>")`. No solver implements
+the port, and each `solvers` folder holds only a `.gitkeep`.
 [ADR-098](../ADRs/ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) fixes the
 validator's numbers.
 
@@ -54,5 +59,5 @@ the hexagon and the process model). The ADRs cover:
   [ADR-092](../ADRs/ADR-092-the-alns-package-runs-our-solvers-outer-loop.md)) and the comparison
   study ([ADR-091](../ADRs/ADR-091-study-design-for-the-solver-comparison.md)).
 
-Only the domain is described above. The solvers, the port and the contract's operations arrive
-with their code.
+Only the domain is described as built. The application's bodies, the solvers and the contract's
+operations arrive with their milestones.

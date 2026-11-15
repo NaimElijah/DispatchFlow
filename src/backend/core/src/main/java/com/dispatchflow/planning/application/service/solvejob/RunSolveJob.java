@@ -1,0 +1,96 @@
+package com.dispatchflow.planning.application.service.solvejob;
+
+import com.dispatchflow.audit.application.api.AuditLog;
+import com.dispatchflow.audit.application.api.CallContext;
+import com.dispatchflow.planning.application.port.out.LiveUpdates;
+import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
+import com.dispatchflow.planning.application.port.out.proposal.ProposalRepository;
+import com.dispatchflow.planning.application.port.out.solvejob.RouteOptimizer;
+import com.dispatchflow.planning.application.port.out.solvejob.SolveJobRepository;
+import com.dispatchflow.planning.application.service.SolveRequestAssembler;
+import com.dispatchflow.planning.events.Lane;
+import com.dispatchflow.shared.application.Clock;
+import com.dispatchflow.shared.application.IdGenerator;
+
+/**
+ * A lane's worker step: it claims the lane's oldest queued job, builds its request and matrix, starts
+ * the search, calls the optimizer, and ends the job (FR-16, FR-65, FR-142, FR-238, BR-32, BR-75,
+ * NFR-11, DL §6.2, §9.2, ADR-051). One worker per lane runs it, one job at a time, on a virtual
+ * thread; each phase change is a transaction of its own, and the optimizer call runs outside any.
+ *
+ * <ul>
+ *   <li>A daily job's validated solution is checked against the plan's locks first ({@code
+ *       Plan.locksBrokenBy}): a broken lock fails the job with {@code SolveFailure.lockNotHonoured}
+ *       (FR-238). Otherwise {@code SolveJob.succeed} keeps it, and a result no plan could hold
+ *       ({@code OrderAlreadyInPlan}, {@code VehicleRoutedTwice}, {@code DriverRoutedTwice}) fails
+ *       the job with {@code SolveFailure.rejected} instead (ADR-112).
+ *   <li>A re-optimization's result becomes a proposal, created in the job's transaction (DL §6.1).
+ *   <li>An optimizer answer of failure, an unreachable road network or a date with no orders fails
+ *       the job with its reason (FR-65).
+ *   <li>A job the watchdog or the midnight job ended meanwhile refuses with {@code JobAlreadyEnded},
+ *       and the worker drops its answer (DL §11).
+ * </ul>
+ *
+ * <p>The job's events, {@code SolveSucceeded} or {@code SolveFailed}, then end the plan's solve (BR-59).
+ *
+ * <p>Built in M0.
+ */
+public final class RunSolveJob {
+
+    private final SolveJobRepository jobs;
+    private final PlanRepository plans;
+    private final ProposalRepository proposals;
+    private final SolveRequestAssembler assembler;
+    private final RouteOptimizer optimizer;
+    private final Clock clock;
+    private final IdGenerator ids;
+    private final LiveUpdates liveUpdates;
+    private final AuditLog auditLog;
+
+    /**
+     * Creates the worker step.
+     *
+     * @param jobs where solve jobs are kept, and the lane's queue
+     * @param plans where plans are kept, for a daily job's locks
+     * @param proposals where a re-optimization's proposal is added
+     * @param assembler builds the job's request and matrix
+     * @param optimizer the optimization service
+     * @param clock the time of each phase change
+     * @param ids the new proposal's ID
+     * @param liveUpdates the dispatchers' open screens (FR-142, FR-222)
+     * @param auditLog the audit trail, written in each change's transaction (TS §6.2, ADR-110)
+     */
+    public RunSolveJob(
+            SolveJobRepository jobs,
+            PlanRepository plans,
+            ProposalRepository proposals,
+            SolveRequestAssembler assembler,
+            RouteOptimizer optimizer,
+            Clock clock,
+            IdGenerator ids,
+            LiveUpdates liveUpdates,
+            AuditLog auditLog) {
+        this.jobs = jobs;
+        this.plans = plans;
+        this.proposals = proposals;
+        this.assembler = assembler;
+        this.optimizer = optimizer;
+        this.clock = clock;
+        this.ids = ids;
+        this.liveUpdates = liveUpdates;
+        this.auditLog = auditLog;
+    }
+
+    /**
+     * Runs the lane's next queued job to its end.
+     *
+     * <p>Built in M0.
+     *
+     * @param lane the worker's lane
+     * @param call the worker's server step, which the audit records name (ADR-110)
+     * @return {@code true} when it ran a job, {@code false} when the lane had none queued
+     */
+    public boolean runNext(Lane lane, CallContext call) {
+        throw new UnsupportedOperationException("Built in M0");
+    }
+}

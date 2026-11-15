@@ -51,7 +51,7 @@ report findings.
   - An error that crosses `api` is an `api` type, since no domain object crosses a boundary ([DL §2.3][DL-23], rule 1). Inside a module, every refusal is a named error of the module's sealed type, with a stable code that the web adapter puts in the problem response ([DL §3.8][DL-38]).
   - Outbound adapters implement ports the inside declares, and an adapter reaches another only through a port ([TS §2.1][TS-21]).
   - No Lombok ([TS §6][TS-6]).
-- **Layering in the solver:** `domain` imports no `fastapi`, `pydantic`, `ortools`, `pyvrp` or `numba`, and `application` nothing from FastAPI, Pydantic or OR-Tools. Nothing in the product imports `pyvrp` (FR-286). Every solver implements the one `Solver` port (ADR-004; [ADR-044], Accepted, fixes it as `solve(problem, start, budget, seed)`, with `Problem` alone judging; `Problem` with `validate`, `cost` and `explain_drop` is in the tree, and the `Solver` port is not).
+- **Layering in the solver:** `domain` imports no `fastapi`, `pydantic`, `ortools`, `pyvrp` or `numba`, and `application` nothing from FastAPI, Pydantic, OR-Tools, Numba, `alns`, `concurrent`, `multiprocessing` or `subprocess`. Nothing in the product imports `pyvrp` (FR-286). Every solver implements the one `Solver` port (ADR-004; [ADR-044], Accepted, fixes it as `solve(problem, start, budget, seed)`, with `Problem` alone judging; `Problem` with `validate`, `cost` and `explain_drop` is in the tree, and the `Solver` port is declared, with no implementation; [ADR-120] makes `solve` return a `SearchResult`, which amends ADR-044).
 - **Contracts (ADR-006):**
   - An API change updates `contracts/` in the same change.
   - The client API is served under `/api/v1`.
@@ -102,6 +102,7 @@ No praise, and no restating what the code does. End with:
 [ADR-064]: ../../docs/ADRs/ADR-064-events-only-where-they-earn-their-place-through-the-modulith-registry.md
 [ADR-068]: ../../docs/ADRs/ADR-068-every-web-handler-is-authorized-by-role-from-the-contract.md
 [ADR-118]: ../../docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md
+[ADR-120]: ../../docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md
 [TS]: ../../docs/architecture/tech_stack.md
 [TS-21]: ../../docs/architecture/tech_stack.md#21-the-dependency-rule
 [TS-22]: ../../docs/architecture/tech_stack.md#22-enforcement

@@ -1,0 +1,70 @@
+package com.dispatchflow.planning.application.port.out.solvejob;
+
+import com.dispatchflow.planning.application.port.out.ProblemFacts;
+import com.dispatchflow.planning.domain.SolveLimit;
+import com.dispatchflow.planning.domain.plan.Pin;
+import com.dispatchflow.planning.domain.plan.PlanLayout;
+import com.dispatchflow.planning.domain.plan.RouteLock;
+import com.dispatchflow.planning.domain.plan.Seed;
+import com.dispatchflow.planning.domain.plan.SolverName;
+import com.dispatchflow.shared.JobId;
+import com.dispatchflow.shared.PlanId;
+import java.util.List;
+import java.util.Objects;
+
+/**
+ * A daily solve, as the optimizer is asked for it (FR-15, FR-17, FR-19, FR-20, FR-91, FR-147,
+ * NFR-13, ADR-044): the job's solver, limit and seed, the date's facts, the plan's pins, and the
+ * routes a lock keeps. {@code SolveRequestAssembler.daily} builds it.
+ *
+ * <p>Built in M0; its locked routes in M4.
+ *
+ * @param job the job
+ * @param plan the plan it solves
+ * @param solver the solver (FR-20)
+ * @param limit the search limit, which runs from the start of the search (FR-19, BR-75)
+ * @param seed the seed (NFR-13)
+ * @param facts the date's orders, fleet, roster, settings and matrix
+ * @param pins the plan's pins (FR-91)
+ * @param locks the plan's locked routes, which the solve must keep (FR-147, FR-238)
+ */
+public record SolveRequest(
+        JobId job,
+        PlanId plan,
+        SolverName solver,
+        SolveLimit limit,
+        Seed seed,
+        ProblemFacts facts,
+        List<Pin> pins,
+        List<LockedRoute> locks) {
+
+    /** Checks every part is present, and copies the lists. */
+    public SolveRequest {
+        Objects.requireNonNull(job, "job");
+        Objects.requireNonNull(plan, "plan");
+        Objects.requireNonNull(solver, "solver");
+        Objects.requireNonNull(limit, "limit");
+        Objects.requireNonNull(seed, "seed");
+        Objects.requireNonNull(facts, "facts");
+        pins = List.copyOf(pins);
+        locks = List.copyOf(locks);
+    }
+
+    /**
+     * One locked route and what its lock keeps: the whole route, or the sequence of its stops
+     * (FR-147, ADR-101).
+     *
+     * <p>Built in M4.
+     *
+     * @param route the route as the plan holds it
+     * @param lock the kind of lock
+     */
+    public record LockedRoute(PlanLayout.LaidOutRoute route, RouteLock lock) {
+
+        /** Checks both parts are present. */
+        public LockedRoute {
+            Objects.requireNonNull(route, "route");
+            Objects.requireNonNull(lock, "lock");
+        }
+    }
+}

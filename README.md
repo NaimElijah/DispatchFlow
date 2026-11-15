@@ -26,10 +26,11 @@ It deliberately does not use live traffic data, handle payments, provide turn-by
 enterprise-scale fleets.
 
 > [!IMPORTANT]
-> **Pre-alpha: the repository holds working skeletons and the domain layer, not features yet.**
+> **Pre-alpha: the repository holds working skeletons, the domain layer and a declared application
+> layer, not features yet.**
 > Every component builds and passes its tests with `just check`, and CI runs the same recipes on
-> every push and on every pull request into `dev` or `main`. The domain layer has no application
-> layer or adapters yet, so none of the planning capabilities can be used.
+> every push and on every pull request into `dev` or `main`. The application layer is declared but
+> not built, and no adapter exists yet, so none of the planning capabilities can be used.
 > What the system must do is in [requirements.md](docs/requirements/requirements.md); what exists
 > today and what comes next are under [Status and limitations](#status-and-limitations).
 
@@ -99,7 +100,9 @@ flowchart LR
   call. It holds one module per bounded context: Access, Fleet, Customers & Orders, Planning,
   Live Operations, Recipient Messaging, Reporting and Audit
   ([domain design](docs/architecture/domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts)).
-  Each module's domain is built; its application layer and adapters are not. A domain that passes
+  Each module's domain is built. Its application layer is declared, with bodies that throw
+  ([ADR-119](docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md); the conventions are in
+  [ADR-120](docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)), and its adapters do not exist. A domain that passes
   30 files splits into one package per aggregate
   ([ADR-118](docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)).
 - **Solver** (`src/backend/solver`) turns a routing problem into routes. Every solver sits behind
@@ -118,7 +121,8 @@ adapters depend on the domain.
 
 None of the calls between components exists in code yet. Today the solver answers its liveness
 probe, the core its health probe, and the two apps render a heading; the domain layers, in the core
-and in the solver, are built and tested but nothing calls them.
+and in the solver, are built and tested, and their application layers are declared but not built.
+Nothing calls any of them.
 [architecture.md](docs/architecture/architecture.md) describes that system as it is, and
 [code-structure.md](docs/architecture/code-structure.md) the repository layout.
 
@@ -219,7 +223,7 @@ comments. The rules apply to people and to coding assistants alike.
 
 | Layer | Covers | Command |
 |---|---|---|
-| Core unit (`*Test`) | Domain and use cases, no I/O. Today: the shared kernel's values, the eight modules' domains, the ArchUnit rules (purity, shape and package structure) and the web error handler; no use case exists yet | `just core-check` |
+| Core unit (`*Test`) | Domain and use cases, no I/O. Today: the shared kernel's values, the eight modules' domains, the ArchUnit rules (purity, shape, package structure and the application layer's shape) and the web error handler; every use case is declared and none is built, so none has a behaviour test yet | `just core-check` |
 | Core integration (`*IT`) | Against a real PostgreSQL in a container | `just core-check` |
 | Solver | The domain (the validator's crafted-violation catalogue, Hypothesis properties, Solomon best-known solutions accepted), the HTTP adapter, the dependency boundary and import-linter | `just solver-check` |
 | Research | Its environment: the solver and PyVRP are installed | `just research-check` |
@@ -284,7 +288,8 @@ the [ADR index](docs/ADRs/README.md). It also lists ADR-037 to ADR-047, accepted
 supersedes, amends or extends the ADRs its status names, to match the design documents. The code
 does not follow them yet. ADR-094 to ADR-096 settle three points found open afterwards: the
 contract check's base branch, the zod and deepmerge advisories, and the root `CLAUDE.md`. ADR-097
-to ADR-118 record decisions taken while the domain layer was built, reviewed and split into packages.
+to ADR-118 record decisions taken while the domain layer was built, reviewed and split into packages,
+and ADR-119 and ADR-120 the declaration of the application layer.
 
 ## Status and limitations
 
@@ -293,7 +298,9 @@ linter, tests and CI job; the two contracts; and the solver's and the core backe
 The domain layer is being built ahead of its milestones: the core's shared kernel with its purity
 rules, the domains of `access`, `audit`, `fleet`, `liveops`, `messaging`, `orders`, `planning` and
 `reporting`, and the solver's domain for daily solves and re-optimizations (the validator, the
-objective and the drop reasons). Nothing calls them yet.
+objective and the drop reasons). The application layer is declared ahead too, in the core and in
+the solver: every use case, query, port and module API has its signature, and every body that would
+do work throws "Built in M<n>" ([ADR-119](docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)). Nothing calls any of it yet.
 
 Planned: the [roadmap](docs/roadmap.md) has the course calendar, the milestones M0 to M13, and the
 definition and demo script of the Alpha (M0 to M5).
