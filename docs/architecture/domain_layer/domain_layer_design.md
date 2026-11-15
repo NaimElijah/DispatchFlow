@@ -305,21 +305,28 @@ none of them. None exists in the current requirements.
 ### 3.9 Purity
 
 Six ArchUnit tests keep the Java domain pure ([ADR-040]). In Python, import-linter does the same, and
-ruff's `TID251` keeps NumPy's randomness and clock out ([ADR-113]).
+ruff keeps NumPy's randomness, clock and file readers, imports by name, `open`, `print`, `exec` and
+`eval` out ([ADR-113]).
 
 1. A module's domain imports only the JDK, the shared kernel, its own domain, its own module's `events`
    package (§7.3), JSpecify annotations and pure libraries (libphonenumber, JTS). Not Spring, jOOQ, Jackson, Jakarta or `java.net.http`, not any
    `application` or `adapter` package, and not another module.
 2. No clock: domain code never calls `Instant.now()`, `LocalDate.now()`, `Clock.system…()`,
-   `System.currentTimeMillis()` or `System.nanoTime()`, and never `Thread.sleep`. `now` and `today` are
-   parameters.
+   `System.currentTimeMillis()` or `System.nanoTime()`, and never `Thread.sleep` or `TimeUnit.sleep`.
+   `now` and `today` are parameters.
 3. No ID generation: never `UUID.randomUUID()`. Factories take the new ID.
 4. No randomness, I/O or logging. These read the process's environment, so they count as I/O: the
    default locale, named (`Locale.getDefault` and `setDefault`) or implicit (a case change,
-   `String.format` or `formatted`, `DateTimeFormatter.ofPattern`, each without a `Locale`),
-   `java.util.prefs`, `java.lang.management`, `ResourceBundle`, `ServiceLoader`, and `getResource*`
-   on a class, a class loader or a module. Starting a thread (`new Thread`, `Thread.ofPlatform` or
-   `ofVirtual`, `Executors`) counts as I/O too.
+   `String.format` or `formatted`, `DateTimeFormatter.ofPattern`,
+   `DateTimeFormatterBuilder.toFormatter`, and `java.text`'s `NumberFormat`, `DecimalFormat`,
+   `MessageFormat` and `DateFormat`, each without a `Locale`, and `DateTimeFormatter.ofLocalized…`),
+   the system properties (`System.getProperty`, `Integer.getInteger`, `Long.getLong`,
+   `Boolean.getBoolean`), `java.util.prefs`, `java.lang.management`, `ResourceBundle`,
+   `ServiceLoader`, `Class.forName`, and `getResource*` on a class, a class loader or a module.
+   Reflection (`java.lang.reflect`, `MethodHandles`) counts too, as it reaches past every rule here.
+   So does starting a thread: `new Thread` or a subclass, `Thread.ofPlatform`, `ofVirtual` or
+   `startVirtualThread`, `Executors`, `ForkJoinPool`, `ThreadPoolExecutor`, `Timer`,
+   `Cleaner.create`, a `CompletableFuture`'s `…Async` methods, and a parallel stream.
 5. No `new IllegalArgumentException` or `new IllegalStateException` (§3.8).
 6. Only persistence adapters call `restore` (§3.5), and the factories of the snapshots read under a
    lock (`ActiveAdmins`, `DateCapacity`, `LaneCapacity`, §5).

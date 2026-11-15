@@ -22,8 +22,9 @@ import org.jspecify.annotations.NullMarked;
 /**
  * The package rules of ADR-118, built for a root package as {@link DomainPurityRules} is: no cycle
  * between a module's domain packages, a domain root that uses none of its subpackages, and
- * {@code @NullMarked} on the kernel and on every domain and events package. {@code com.dispatchflow} checks production code; {@code
- * com.dispatchflow.archfixture} checks the fixtures that prove each rule fires.
+ * {@code @NullMarked} on the kernel and on every domain and events package. {@code
+ * com.dispatchflow} checks production code; {@code com.dispatchflow.archfixture} checks the
+ * fixtures that prove each rule fires.
  */
 final class DomainPackageRules {
 

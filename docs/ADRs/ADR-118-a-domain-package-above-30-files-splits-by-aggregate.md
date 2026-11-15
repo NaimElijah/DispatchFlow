@@ -6,7 +6,7 @@
 ## Context
 
 The domain layer gave each module's domain one flat package. After the review fixes (#78), seven
-packages held more than 30 Java files:
+packages held more than 30 Java files. The counts are as of the commit before each package's split:
 
 | Package | Java files |
 |---|---|
@@ -121,7 +121,7 @@ Customers & Orders stays flat until its cycle is broken. So do Reporting, Audit,
 - **Cost:**
   - Most of five modules' files move, and each new package gets a `package-info.java`.
   - Six test helpers become public.
-  - Two ArchUnit rules and one guard are added.
+  - Three ArchUnit rules and one guard are added.
   - No production visibility changes.
 - **Risk:** a branch open during a module's move conflicts on imports, and a file it adds lands in
   the old package. Each module moves in its own commit, with nothing in it but the move.
@@ -147,8 +147,9 @@ Customers & Orders stays flat until its cycle is broken. So do Reporting, Audit,
     on a kernel subpackage's `package-info`;
   - [ADR-097] already declined a second kernel package;
   - every module would change its imports.
-- **A threshold of 20 or 40.** Rejected: 20 would split Reporting, which has 18 files and one
-  aggregate, for no gain; 40 would leave Fleet and Access, with three aggregates each, flat.
+- **A threshold of 20 or 40.** Rejected: 20 would split Reporting, which has one aggregate and held
+  18 files before the split, for no gain; 40 would leave Fleet and Access, with three aggregates
+  each, flat.
 
 ## Revisit when
 

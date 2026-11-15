@@ -23,6 +23,7 @@ import com.dispatchflow.archfixture.alpha.domain.clock.ReadsTheDefaultZone;
 import com.dispatchflow.archfixture.alpha.domain.clock.ReadsTheDefaultZoneThroughZoneOffset;
 import com.dispatchflow.archfixture.alpha.domain.clock.ReadsTheSystemClock;
 import com.dispatchflow.archfixture.alpha.domain.clock.SleepsTheThread;
+import com.dispatchflow.archfixture.alpha.domain.clock.SleepsThroughATimeUnit;
 import com.dispatchflow.archfixture.alpha.domain.clock.UsesACalendar;
 import com.dispatchflow.archfixture.alpha.domain.clock.UsesALegacyDate;
 import com.dispatchflow.archfixture.alpha.domain.dependency.AnnotatedWithModulith;
@@ -38,30 +39,52 @@ import com.dispatchflow.archfixture.alpha.domain.exception.CreatesAnIllegalState
 import com.dispatchflow.archfixture.alpha.domain.id.GeneratesARandomUuid;
 import com.dispatchflow.archfixture.alpha.domain.id.GeneratesARandomUuidByReference;
 import com.dispatchflow.archfixture.alpha.domain.io.BuildsADatePatternWithTheDefaultLocale;
+import com.dispatchflow.archfixture.alpha.domain.io.BuildsADecimalFormatWithTheDefaultLocale;
+import com.dispatchflow.archfixture.alpha.domain.io.BuildsAFormatterWithTheDefaultLocale;
+import com.dispatchflow.archfixture.alpha.domain.io.BuildsALocalizedDateFormatter;
+import com.dispatchflow.archfixture.alpha.domain.io.BuildsAThreadPoolExecutor;
+import com.dispatchflow.archfixture.alpha.domain.io.CallsAMethodByReflection;
 import com.dispatchflow.archfixture.alpha.domain.io.CallsOverHttp;
+import com.dispatchflow.archfixture.alpha.domain.io.ContinuesAsyncOnACompletionStage;
+import com.dispatchflow.archfixture.alpha.domain.io.FormatsADateWithTheDefaultLocale;
+import com.dispatchflow.archfixture.alpha.domain.io.FormatsAMessageWithTheDefaultLocale;
+import com.dispatchflow.archfixture.alpha.domain.io.FormatsANumberWithTheDefaultLocale;
 import com.dispatchflow.archfixture.alpha.domain.io.FormatsATemplateWithTheDefaultLocale;
 import com.dispatchflow.archfixture.alpha.domain.io.FormatsWithTheDefaultLocale;
+import com.dispatchflow.archfixture.alpha.domain.io.LoadsAClassByName;
 import com.dispatchflow.archfixture.alpha.domain.io.LoadsAResourceBundle;
 import com.dispatchflow.archfixture.alpha.domain.io.LoadsAService;
+import com.dispatchflow.archfixture.alpha.domain.io.LooksUpAMethodHandle;
 import com.dispatchflow.archfixture.alpha.domain.io.LowerCasesWithTheDefaultLocaleByReference;
+import com.dispatchflow.archfixture.alpha.domain.io.MakesAStreamParallel;
 import com.dispatchflow.archfixture.alpha.domain.io.OpensASocket;
 import com.dispatchflow.archfixture.alpha.domain.io.PrintsToStandardOut;
+import com.dispatchflow.archfixture.alpha.domain.io.ReadsABooleanProperty;
 import com.dispatchflow.archfixture.alpha.domain.io.ReadsAFile;
+import com.dispatchflow.archfixture.alpha.domain.io.ReadsALongProperty;
 import com.dispatchflow.archfixture.alpha.domain.io.ReadsAPath;
+import com.dispatchflow.archfixture.alpha.domain.io.ReadsAResourceAsAStream;
 import com.dispatchflow.archfixture.alpha.domain.io.ReadsAResourceThroughAClassLoader;
 import com.dispatchflow.archfixture.alpha.domain.io.ReadsAResourceThroughItsClass;
+import com.dispatchflow.archfixture.alpha.domain.io.ReadsAnIntegerProperty;
 import com.dispatchflow.archfixture.alpha.domain.io.ReadsTheDefaultLocale;
 import com.dispatchflow.archfixture.alpha.domain.io.ReadsTheDefaultLocaleOfACategory;
 import com.dispatchflow.archfixture.alpha.domain.io.ReadsTheEnvironment;
 import com.dispatchflow.archfixture.alpha.domain.io.ReadsTheJvmsManagement;
+import com.dispatchflow.archfixture.alpha.domain.io.RegistersWithACleaner;
+import com.dispatchflow.archfixture.alpha.domain.io.RunsAsyncOnACompletableFuture;
+import com.dispatchflow.archfixture.alpha.domain.io.RunsInItsOwnThread;
+import com.dispatchflow.archfixture.alpha.domain.io.SchedulesOnATimer;
 import com.dispatchflow.archfixture.alpha.domain.io.SetsTheDefaultLocale;
 import com.dispatchflow.archfixture.alpha.domain.io.StartsAPlatformThread;
 import com.dispatchflow.archfixture.alpha.domain.io.StartsAProcess;
 import com.dispatchflow.archfixture.alpha.domain.io.StartsAThread;
 import com.dispatchflow.archfixture.alpha.domain.io.StartsAVirtualThread;
+import com.dispatchflow.archfixture.alpha.domain.io.StreamsInParallel;
 import com.dispatchflow.archfixture.alpha.domain.io.UpperCasesWithTheDefaultLocale;
 import com.dispatchflow.archfixture.alpha.domain.io.UsesAnExecutor;
 import com.dispatchflow.archfixture.alpha.domain.io.UsesPreferences;
+import com.dispatchflow.archfixture.alpha.domain.io.UsesTheCommonPool;
 import com.dispatchflow.archfixture.alpha.domain.logging.LogsWithJul;
 import com.dispatchflow.archfixture.alpha.domain.logging.LogsWithSlf4j;
 import com.dispatchflow.archfixture.alpha.domain.logging.LogsWithTheSystemLogger;
@@ -167,6 +190,7 @@ class DomainPurityRulesTest {
                 ReadsCurrentTimeMillis.class,
                 ReadsNanoTime.class,
                 SleepsTheThread.class,
+                SleepsThroughATimeUnit.class,
                 UsesALegacyDate.class,
                 UsesACalendar.class,
                 ReadsTheDefaultZone.class,
@@ -234,7 +258,29 @@ class DomainPurityRulesTest {
                 StartsAThread.class,
                 StartsAPlatformThread.class,
                 StartsAVirtualThread.class,
-                UsesAnExecutor.class
+                UsesAnExecutor.class,
+                ReadsAnIntegerProperty.class,
+                ReadsALongProperty.class,
+                ReadsABooleanProperty.class,
+                CallsAMethodByReflection.class,
+                LoadsAClassByName.class,
+                LooksUpAMethodHandle.class,
+                ReadsAResourceAsAStream.class,
+                FormatsANumberWithTheDefaultLocale.class,
+                BuildsADecimalFormatWithTheDefaultLocale.class,
+                FormatsAMessageWithTheDefaultLocale.class,
+                FormatsADateWithTheDefaultLocale.class,
+                BuildsAFormatterWithTheDefaultLocale.class,
+                BuildsALocalizedDateFormatter.class,
+                RunsInItsOwnThread.class,
+                RunsAsyncOnACompletableFuture.class,
+                ContinuesAsyncOnACompletionStage.class,
+                UsesTheCommonPool.class,
+                StreamsInParallel.class,
+                MakesAStreamParallel.class,
+                SchedulesOnATimer.class,
+                RegistersWithACleaner.class,
+                BuildsAThreadPoolExecutor.class
             })
     void GivenIo_WhenRule4Evaluates_ThenItIsFlagged(Class<?> fixture) {
         assertThat(flags(DomainPurityRules.noIo(FIXTURE_ROOT), fixture)).isTrue();

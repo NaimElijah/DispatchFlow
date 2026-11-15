@@ -25,10 +25,12 @@ draws it, where `nearest_neighbour` joins them. Neither is in the tree yet.
   `uvicorn`, `pydantic_settings`, `structlog` or `opentelemetry`, and no standard-library module
   that reads a clock, draws randomness or does I/O (`datetime`, `time`, `random`, `os`, `io` and the
   like, listed in `pyproject.toml`). NumPy is allowed ([TS §2.1]), but not `numpy.random`,
-  `datetime64` or `timedelta64`: ruff's `TID251` bans them in the domain ([ADR-113]). `application`
+  `datetime64`, `timedelta64`, `numpy.load`, `fromfile` or `loadtxt`, and neither is
+  `importlib.import_module`: ruff's `TID251` bans them in the domain. So do `PTH123`, `T20`, `S102`
+  and `S307` for `open()`, `print()`, `exec()` and `eval()` ([ADR-113]). `application`
   imports nothing from FastAPI, Pydantic or OR-Tools. OR-Tools types live in `solvers/ortools`
   ([ADR-001]). `feasibility`, `objective` and `drops` never import `problem`: they read it through
-  `ProblemView` ([ADR-113]). import-linter, and ruff for the NumPy bans, check all of this, the
+  `ProblemView` ([ADR-113]). import-linter, and ruff for the bans above, check all of this, the
   layers, and that the product never imports PyVRP (`pyproject.toml`, run by `just solver-check`).
 - Pydantic models are generated from the contract by datamodel-code-generator ([ADR-043],
   Accepted), and only the HTTP adapter uses them.

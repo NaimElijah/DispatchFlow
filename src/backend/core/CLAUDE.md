@@ -53,16 +53,24 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
   2. It never reads the clock:
      - no `now()` or `dateNow()`;
      - no `Clock`, `InstantSource`, `Date`, `Calendar` or `TimeZone`, and no default zone;
-     - no `System.currentTimeMillis()` or `nanoTime()`, and no `Thread.sleep`.
+     - no `System.currentTimeMillis()` or `nanoTime()`, and no `Thread.sleep` or `TimeUnit.sleep`.
   3. It never calls `UUID.randomUUID()`. Factories take the new ID, and a method that creates many
      children takes a `FreshIds`.
   4. It uses no randomness, I/O or logging. `java.net.IDN` is the one allowed `java.net` class.
      These count as I/O:
-     - the default locale, named or implicit: a case change with no `Locale`, `String.format` or
-       `formatted` with no `Locale`, and `DateTimeFormatter.ofPattern` with no `Locale`;
+     - the default locale, named or implicit: a case change, `String.format` or `formatted`,
+       `DateTimeFormatter.ofPattern`, `DateTimeFormatterBuilder.toFormatter`, and a `NumberFormat`,
+       `DecimalFormat`, `MessageFormat` or `DateFormat` built, each with no `Locale`; and
+       `DateTimeFormatter.ofLocalized*`;
+     - system properties: `System.getProperty`, `Integer.getInteger`, `Long.getLong` and
+       `Boolean.getBoolean`;
      - `java.util.prefs`, `java.lang.management`, `ResourceBundle` and `ServiceLoader`;
-     - `getResource*` on a class, a class loader or a module;
-     - starting a thread: `new Thread`, `Thread.ofPlatform` or `ofVirtual`, and `Executors`.
+     - `getResource*` on a class, a class loader or a module, and `Class.forName`;
+     - reflection: `java.lang.reflect` and `MethodHandles`;
+     - starting a thread: `new Thread` or a subclass, `Thread.ofPlatform`, `ofVirtual` or
+       `startVirtualThread`, `Executors`, `ForkJoinPool`, `ThreadPoolExecutor`, `Timer`,
+       `Cleaner.create`, a `CompletableFuture`'s `*Async` methods, and `parallelStream` or
+       `parallel()`.
   5. It never creates an `IllegalArgumentException` or an `IllegalStateException`, or a subclass of
      either. It throws the module's named error in a `RuleViolation`, or a `StoredStateInvalid`
      from `restore`.

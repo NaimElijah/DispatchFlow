@@ -273,7 +273,7 @@ class SolveJobTest {
         SolveJob job = aJob().running();
         ValidatedSolution twice = ValidatedSolution.of(
                 ValidationReport.of(List.of(), List.of(solved(V1, D1, O1), solved(V2, D2, O1)), List.of(), List.of()));
-        assertThatThrownBy(() -> job.succeed(twice, SEARCH.plusSeconds(1))).isInstanceOf(RuleViolation.class);
+        assertJobRefused(job, () -> job.succeed(twice, SEARCH.plusSeconds(1)), new OrderAlreadyInPlan(O1, FIRST));
         Violation servedTwice = new Violation(
                 RuleCode.of("BR-07"),
                 Optional.empty(),

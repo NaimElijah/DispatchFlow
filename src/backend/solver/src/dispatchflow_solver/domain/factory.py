@@ -176,7 +176,8 @@ class StopFact:
 class VehiclePosition:
     """A position a vehicle reported (FR-31), with what BR-80 needs to judge it.
 
-    A driver's position is personal data (NFR-19), so the repr leaves out the coordinates.
+    A driver's position is personal data (NFR-19), and so is when it was taken, so the repr leaves
+    out the coordinates and the time.
 
     Attributes:
         latitude: Degrees north, from -90 to 90.
@@ -188,7 +189,7 @@ class VehiclePosition:
 
     latitude: float = field(repr=False)
     longitude: float = field(repr=False)
-    received_at: float
+    received_at: float = field(repr=False)
     in_service_area: bool
 
 

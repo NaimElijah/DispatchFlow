@@ -104,8 +104,8 @@ have a `Dockerfile`, and neither runs as root
   adapters depend on the domain ([ADR-001](../ADRs/ADR-001-domain-driven-design-with-hexagonal-architecture.md)).
   In `core`, ArchUnit tests check the domain's purity rules over the shared kernel and every
   module's `domain` and `events` packages, the shape rules for restricted types, errors and events,
-  and the package rules: no cycle between a module's domain packages, and `@NullMarked` on the kernel
-  and on every domain and events package
+  and the package rules: no cycle between a module's domain packages, a domain root that imports
+  none of its own subpackages, and `@NullMarked` on the kernel and on every domain and events package
   (`src/test/java/com/dispatchflow/architecture/`, [ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)).
   The other dependency rules are enforced by review.
 - **Every solver sits behind one `Solver` port** and is chosen by name
@@ -115,8 +115,8 @@ have a `Dockerfile`, and neither runs as root
 - **PyVRP stays out of `solver`.** `src/backend/solver/tests/test_dependency_boundary.py` holds two
   tests. One fails if PyVRP is installed there, and the other if PyVRP is locked in its `uv.lock`.
   With `core`'s purity, shape and package rules, and `solver`'s import-linter contracts and the ruff
-  ban on NumPy's randomness and clock in its domain (lint steps in `just solver-check`), they are
-  the only architecture rules checked automatically today.
+  bans in its domain (lint steps in `just solver-check`), they are the only architecture rules
+  checked automatically today.
 - **Flyway owns the schema.** `core` sets `spring.jpa.hibernate.ddl-auto=validate`, so Hibernate
   never changes it ([ADR-007](../ADRs/ADR-007-postgresql-with-flyway-migrations.md), superseded by
   [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md),

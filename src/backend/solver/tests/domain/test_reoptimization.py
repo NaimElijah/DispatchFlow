@@ -250,11 +250,12 @@ def test_given_a_position_outside_the_service_area_when_built_then_the_last_stop
     assert context_of(problem).no_usable_position == frozenset({0})
 
 
-def test_given_a_position_when_printed_then_its_coordinates_are_left_out() -> None:
-    # NFR-19: a driver's position is personal data, and a repr reaches logs and tracebacks.
+def test_given_a_position_when_printed_then_its_coordinates_and_time_are_left_out() -> None:
+    # NFR-19: a driver's position, and when it was taken, are personal data, and a repr reaches
+    # logs and tracebacks.
     reported = position(NOW, latitude=31.7683, longitude=35.2137)
 
-    assert repr(reported) == "VehiclePosition(received_at=150.0, in_service_area=True)"
+    assert repr(reported) == "VehiclePosition(in_service_area=True)"
 
 
 KILOMETRE_NORTH = math.degrees(1_000 / EARTH_RADIUS_M)

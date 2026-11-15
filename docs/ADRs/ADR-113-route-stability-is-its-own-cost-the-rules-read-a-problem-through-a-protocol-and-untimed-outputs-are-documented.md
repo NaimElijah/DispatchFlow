@@ -81,7 +81,12 @@ On 2026-11-15 the owner, Naim Elijah, decided:
      only. A domain module using `np.random.default_rng()`, `from numpy.random import ...`,
      `np.datetime64("now")` and `np.timedelta64(1, "s")` was flagged at each, and the same file
      under `solvers/` and `tests/` was not. A dtype string, as in `np.array("now",
-     "datetime64[s]")`, passes both tools, and review catches it.
+     "datetime64[s]")`, passes both tools, and review catches it;
+   - ruff also bans, in the domain only, `numpy.load`, `numpy.fromfile`, `numpy.loadtxt` and
+     `importlib.import_module` through TID251, and `open()`, `print()`, `exec()` and `eval()`
+     through PTH123, T20, S102 and S307. A domain module calling each was flagged once for each,
+     the same file under `adapters/` was not, and the domain was clean. Another builtin, such as
+     `__import__()`, passes, and review catches it.
 3. **The validator's untimed and past-the-day outputs are part of its contract** ([ADR-098],
    [ADR-101] point 19). Python's behaviour stays, and the docstrings of `RouteTiming` and the drop
    facts say it:

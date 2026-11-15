@@ -289,16 +289,18 @@ Three sets of rules are checked automatically today:
 - in `solver`, the import-linter contracts in `pyproject.toml`: the domain imports no framework,
   solver or standard-library module that reads a clock, draws randomness or does I/O; the validator,
   the objective and the drop reasons never import `problem`; `application` imports no FastAPI,
-  Pydantic or OR-Tools; the layers point one way; and the product never imports PyVRP. Ruff's
-  `TID251` also bans `numpy.random`, `datetime64` and `timedelta64` in the domain
+  Pydantic or OR-Tools; the layers point one way; and the product never imports PyVRP. In the
+  domain, ruff's `TID251` also bans `numpy.random`, `datetime64`, `timedelta64`, `numpy.load`,
+  `fromfile`, `loadtxt` and `importlib.import_module`, and `PTH123`, `T20`, `S102` and `S307` ban
+  `open()`, `print()`, `exec()` and `eval()`
   ([ADR-113](../ADRs/ADR-113-route-stability-is-its-own-cost-the-rules-read-a-problem-through-a-protocol-and-untimed-outputs-are-documented.md)).
 
 The purity rules are ArchUnit tests in `src/test/java/com/dispatchflow/architecture/`, over
 `shared` and every module's `domain` and `events` packages
 ([domain layer design §3.9](domain_layer/domain_layer_design.md#39-purity)). The shape rules cover
 who may construct a restricted type and what an error or an event may carry. The package rules are
-two: no cycle between a module's domain packages, and `@NullMarked` on the kernel and on every
-domain and events package
+three: no cycle between a module's domain packages, a domain root that imports none of its own
+subpackages, and `@NullMarked` on the kernel and on every domain and events package
 ([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)). The rest are
 conventions that review enforces.
 [Tech stack §2.2](tech_stack.md#22-enforcement) also plans Spring Modulith's `verify()` for the
