@@ -9,8 +9,8 @@ import java.util.Objects;
 
 /**
  * A password a user chose, checked against the policy before the hashing adapter turns it into a
- * {@link PasswordHash} (NFR-95, FR-179): at least 8 characters, with no composition rules, and not
- * on the list of the most common passwords.
+ * {@link com.dispatchflow.access.domain.account.PasswordHash} (NFR-95, FR-179): at least 8
+ * characters, with no composition rules, and not on the list of the most common passwords.
  *
  * <p>Characters are counted as Unicode code points, so a letter outside the basic plane counts
  * once. Half of a surrogate pair on its own is refused, because no encoding carries it reliably to

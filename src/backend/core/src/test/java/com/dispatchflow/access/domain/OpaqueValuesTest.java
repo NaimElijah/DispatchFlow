@@ -1,9 +1,14 @@
 package com.dispatchflow.access.domain;
 
-import static com.dispatchflow.access.domain.AccountBuilder.ACCOUNT;
+import static com.dispatchflow.access.domain.account.AccountBuilder.ACCOUNT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.access.domain.account.EmailAddress;
+import com.dispatchflow.access.domain.account.EmailHolder;
+import com.dispatchflow.access.domain.account.LinkPurpose;
+import com.dispatchflow.access.domain.account.PasswordHash;
+import com.dispatchflow.access.domain.session.SessionGeneration;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.StoredStateInvalid;

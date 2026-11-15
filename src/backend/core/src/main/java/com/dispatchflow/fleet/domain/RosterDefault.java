@@ -8,8 +8,9 @@ import java.util.Optional;
 /**
  * What one driver's records give a date by default: their shift hours, if the date has any, and
  * their default vehicle (FR-06, FR-79, FR-189, ADR-103), with whether the driver may be rostered.
- * {@link Driver#rosterDefaultOn} builds it, and {@link DayRoster#fill} uses it for the values a
- * dispatcher has not set.
+ * {@link com.dispatchflow.fleet.domain.driver.Driver#rosterDefaultOn} builds it, and {@link
+ * com.dispatchflow.fleet.domain.roster.DayRoster#fill} uses it for the values a dispatcher has not
+ * set.
  *
  * @param driver the driver
  * @param hours the shift hours for that date's weekday, or the default shift; empty on a weekday the

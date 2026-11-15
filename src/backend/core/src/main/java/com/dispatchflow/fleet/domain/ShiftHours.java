@@ -8,7 +8,8 @@ import java.util.Objects;
 /**
  * A shift's wall-clock hours in Israel, not yet placed on a date: a driver's default shift (FR-06,
  * FR-189), one day of their weekly shifts (FR-79), or what a dispatcher types for a date (FR-54).
- * {@link Shift#on} places them on a date, where a clock change can refuse them.
+ * {@link com.dispatchflow.fleet.domain.roster.Shift#on} places them on a date, where a clock change
+ * can refuse them.
  *
  * <p>A shift that crosses midnight would need FR-114, which is not built, so the end is a time of
  * the same day.
