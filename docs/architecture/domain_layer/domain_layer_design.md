@@ -926,7 +926,7 @@ call, never in the same transaction.
 | A dispatcher records an outcome on a driver's behalf (FR-73) | `Delivery`, or creates it; held reports are overtaken (BR-134) | No `RouteRun` ([ADR-107]) | `OutcomeRecorded` → reconciliation through Planning (§8) |
 | A dispatcher confirms a held report | `Delivery` → the outcome the report states | The `RouteRun`, if this is the reporting route's first report and the reporting driver still drives the route ([ADR-114]) | `OutcomeRecorded` → reconciliation through Planning (§8) |
 | A dispatcher refuses a held report | `Delivery` → the report *refused* (BR-90) | — | — |
-| A dispatcher corrects an outcome | `Delivery` | — | Nothing, except after a put-back whose stop has no outcome: `PutBackSuperseded` → Live Operations' own listener calls Planning's API, which calls `Plan.removeStopOf` on the put-back's date, with the FR-404 cause ([ADR-114]) |
+| A dispatcher corrects an outcome | `Delivery` | — | Nothing, except after a put-back whose stop has no outcome: `PutBackSuperseded` → Live Operations' own listener calls Planning's API, which calls `Plan.removeStopOf` on the put-back's date, with the FR-404 cause ([ADR-114]), then Customers & Orders' API, which returns the order to its earlier attempt ([ADR-121]) |
 | The driver starts the route | — | `RouteRun` | `RouteStarted` |
 | The driver finishes the route | `RouteRun` → *finished* | An `Alert` when stops are pending (FR-329) | — |
 | The driver confirms a route change: *Seen* (FR-97) | `RouteRun`; with no run, nothing is stored ([ADR-107]) | — | — |
@@ -1061,9 +1061,11 @@ delivery has already happened on the street. The design accepts the fact and cor
      held report is refused as BR-90 says. The first outcome wins (BR-18) in both orders.
 2. **An accepted fact stands.** `Delivery` records it and raises `OutcomeRecorded`. Live Operations'
    listener compares it with the current revision, through `RouteMembership`. If the two disagree, it
-   calls `ReconcileLateOutcome`, which changes `Plan` and returns what it changed; the listener then
-   raises the dispatcher's alert with a dedupe key, so a retry raises it once. Both steps are idempotent:
-   `Plan.reconcileLateOutcome` does nothing if the stop is already where the fact puts it.
+   first raises the dispatcher's alert from where the stop is now, with a dedupe key, so a retry raises
+   it once. Then it calls `ReconcileLateOutcome`, which changes `Plan` and returns what it changed. Both
+   steps are idempotent: the key refuses a second alert, and `Plan.reconcileLateOutcome` does nothing if
+   the stop is already where the fact puts it. The alert comes first so that a failure between the two
+   steps can't lose it: a retry after the move would find nothing to reconcile ([ADR-121]).
 
 The table is keyed on the route that held the stop at the report's corrected time, the one the
 `Entitlement` names: after a hand-over that route has another driver, but it is still the route that
@@ -1099,10 +1101,10 @@ sequenceDiagram
   P->>LO: queued report: stop S delivered at 10:05 device time
   Note over LO: tx 1 writes Delivery(S) only.<br/>Corrected time 10:05 (BR-114).<br/>The revision in force at 10:05 had S on A's route (BR-110).<br/>First outcome wins (BR-18, BR-88).
   LO-->>P: acknowledged (FR-248)
-  LO->>PL: ReconcileLateOutcome(S, A's route), from LO's listener after commit
-  Note over PL: tx 2 writes Plan only.<br/>S leaves B's route: a new revision (BR-89).
+  Note over LO: tx 2, from LO's listener after commit,<br/>raises the dispatcher's alert:<br/>S is on B's route now
+  LO->>PL: ReconcileLateOutcome(S, A's route)
+  Note over PL: tx 3 writes Plan only.<br/>S leaves B's route: a new revision (BR-89).
   PL-->>LO: what changed
-  Note over LO: tx 3 raises the dispatcher's alert
   PL--)LO: PlanRevised → change notice to driver B
   LO--)MS: OutcomeRecorded → "delivered" SMS (FR-356)
 ```
@@ -1276,6 +1278,11 @@ returns the first match:
 4. **unplanned**: anything else, including a put-back that starts a new attempt (FR-258) and an order
    on an abandoned or cancelled plan (BR-131, FR-337, BR-96).
 
+A put-back whose earlier stop is corrected to *delivered* (FR-404) ends: after Planning removes the
+later stop, Live Operations asks Customers & Orders to return the order to its earlier attempt, so
+the order derives *delivered* from that attempt's `Delivery`, and no solve plans it again
+([ADR-121]).
+
 The outcome comes before *cancelled*: the other way round would show *cancelled* for an order a driver
 delivered, which hides a fact. The cancellation still shows beside the outcome. BR-33 states this
 precedence ([ADR-065]). Customers & Orders' `OrderStatuses` query reads its own orders, `OrderPlacement` and
@@ -1293,11 +1300,11 @@ Nothing the business keeps history about is deleted. It ends in a named state, a
 
 | Thing | How it ends | What stays |
 |---|---|---|
-| Plan | *completed*, or *cancelled* | Every revision (BR-37) |
+| Plan | *completed*, or *cancelled* | Every revision (BR-37), and its matrix's numbers with its location list's hash; the location list itself is dropped 90 days after the plan's date (NFR-257, [ADR-121]) |
 | Plan never published | *abandoned*, at the midnight after its date (BR-12, BR-102, BR-127) | The plan as it was, read-only; its orders show *unplanned* (BR-131) |
-| Solve job | *succeeded* or *failed* | Its input, result and failure code |
+| Solve job | *succeeded* or *failed* | Its input, result and failure code. The customers' coordinates in its input are blanked 90 days after the plan's date, and a re-optimization's vehicle positions after 7 days (NFR-257, NFR-184, [ADR-121]) |
 | Proposal | *declined*; accepted (a revision cites it); or refused as outdated when someone tries to accept it | The proposal |
-| Order | *cancelled*; or put back, starting a new attempt | The order and every attempt's facts |
+| Order | *cancelled*; or put back, starting a new attempt, which ends if the earlier stop is corrected to *delivered* (FR-404, [ADR-121]) | The order and every attempt's facts |
 | Delivery | Corrected | The original outcome, beside the correction (FR-333) |
 | Held report | *confirmed*, or *refused* by a dispatcher or by an outcome on the stop's current route (BR-132, BR-90) | The report, with who decided |
 | Stop with no report at midnight | Its order stays *planned*; a late report or a dispatcher's record settles it (BR-129, Q-94 #1) | The stop, shown as *not reported* in the summary |
@@ -1749,3 +1756,4 @@ Nothing. These ADRs record the decisions of this document:
 [ADR-116]: ../../ADRs/ADR-116-only-an-admin-changes-their-own-email.md
 [ADR-117]: ../../ADRs/ADR-117-each-outgoing-message-keeps-the-phone-it-goes-to.md
 [ADR-118]: ../../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md
+[ADR-121]: ../../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md
