@@ -12,6 +12,7 @@ import static com.dispatchflow.messaging.domain.MessagingFixtures.conditions;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.freshIds;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.messageId;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.on;
+import static com.dispatchflow.messaging.domain.MessagingFixtures.planned;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.projected;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.quarter;
 import static com.dispatchflow.messaging.domain.message.StopMessagesBuilder.aStopMessages;
@@ -91,6 +92,12 @@ class StopMessagesTriggersTest {
 
     private static ArrivalFacts inProgress(Instant arrival) {
         return facts(RouteProgress.IN_PROGRESS, PreviousStop.HAS_OUTCOME, StopProgress.NOT_REACHED, arrival);
+    }
+
+    /** The first stop of a route in progress, skipped: its planned arrival, which only follows now. */
+    private static ArrivalFacts skipped(Instant arrival) {
+        return new ArrivalFacts(
+                RouteProgress.IN_PROGRESS, PreviousStop.NONE, StopProgress.NOT_REACHED, planned(arrival));
     }
 
     // --- out for delivery (FR-351, FR-372, FR-373)
@@ -252,6 +259,12 @@ class StopMessagesTriggersTest {
                                 on(),
                                 inProgress(at(15).plusSeconds(1))),
                         Arguments.of(
+                                "a skipped stop's planned arrival (ADR-114)",
+                                aStopMessages(),
+                                TO_MOBILE,
+                                on(),
+                                skipped(soon)),
+                        Arguments.of(
                                 "route not started",
                                 aStopMessages(),
                                 TO_MOBILE,
@@ -319,6 +332,40 @@ class StopMessagesTriggersTest {
 
         assertNothingAdded(
                 messages, m -> m.onArrivalProjected(freshIds(2), TO_MOBILE, on(), inProgress(at(10)), at(1)));
+    }
+
+    // --- a skipped stop's planned arrival (ADR-114)
+
+    @Test
+    void
+            GivenASkippedStopWhosePlannedArrivalHasPassed_WhenTheMinuteJobProjectsItEachHalfHour_ThenOnlyOutForDeliveryIsAdded() {
+        StopMessages messages = StopMessages.open(STOP);
+        messages.onRouteStarted(messageId(1), TO_MOBILE, on(), StopProgress.NOT_REACHED, planned(TEN), TEN);
+
+        messages.onArrivalProjected(freshIds(2, 3), TO_MOBILE, on(), skipped(at(1)), at(1));
+        messages.onArrivalProjected(freshIds(4, 5), TO_MOBILE, on(), skipped(at(31)), at(31));
+        messages.onArrivalProjected(freshIds(6, 7), TO_MOBILE, on(), skipped(at(61)), at(61));
+        messages.onArrivalProjected(freshIds(8, 9), TO_MOBILE, on(), skipped(at(91)), at(91));
+
+        assertThat(messages.snapshot().messages())
+                .extracting(OutgoingMessage::id, OutgoingMessage::type, OutgoingMessage::arrivalSent)
+                .containsExactly(tuple(messageId(1), MessageType.OUT_FOR_DELIVERY, Optional.of(quarter(0))));
+    }
+
+    @Test
+    void GivenASkippedStop_WhenAnArrivalCarriedForwardReachesIt_ThenArrivingSoonAndTimeChangedAreAddedAgain() {
+        StopMessages messages = StopMessages.open(STOP);
+        messages.onRouteStarted(messageId(1), TO_MOBILE, on(), StopProgress.NOT_REACHED, planned(TEN), TEN);
+        messages.onArrivalProjected(freshIds(2, 3), TO_MOBILE, on(), skipped(at(31)), at(31));
+
+        messages.onArrivalProjected(freshIds(4, 5), TO_MOBILE, on(), inProgress(at(40)), at(31));
+
+        assertThat(messages.snapshot().messages())
+                .extracting(OutgoingMessage::id, OutgoingMessage::type)
+                .containsExactly(
+                        tuple(messageId(1), MessageType.OUT_FOR_DELIVERY),
+                        tuple(messageId(4), MessageType.ARRIVING_SOON),
+                        tuple(messageId(5), MessageType.TIME_CHANGED));
     }
 
     // --- time changed (FR-353, FR-384)
@@ -432,6 +479,12 @@ class StopMessagesTriggersTest {
                                         PreviousStop.HAS_OUTCOME,
                                         StopProgress.ARRIVED,
                                         moved)),
+                        Arguments.of(
+                                "a skipped stop's planned arrival (ADR-114)",
+                                aStopMessages().with(outForDelivery(1, ACCEPTED)),
+                                TO_MOBILE,
+                                on(),
+                                skipped(moved)),
                         Arguments.of("no arrival ever sent", aStopMessages(), TO_MOBILE, on(), inProgress(moved)),
                         Arguments.of(
                                 "the only arrival was dropped",

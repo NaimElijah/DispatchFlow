@@ -3,6 +3,8 @@ package com.dispatchflow.liveops.domain.delivery;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.ABSENT;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.DATE;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.DISPATCHER;
+import static com.dispatchflow.liveops.domain.LiveOpsFixtures.DRIVER_A;
+import static com.dispatchflow.liveops.domain.LiveOpsFixtures.DRIVER_B;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.LATER_STOP;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.NOW;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.PHOTO;
@@ -28,6 +30,8 @@ import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.HeldReport;
 import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.HeldState;
 import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.OutcomeRecord;
 import com.dispatchflow.liveops.events.OutcomeKind;
+import com.dispatchflow.liveops.events.PutBackSuperseded;
+import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.DomainEvent;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.RuleViolation;
@@ -36,26 +40,34 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
+import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Seeded sequences of commands on deliveries (DL §14), with random facts weighted towards late,
- * moved and in-contact reports so held reports occur. A fresh delivery starts every {@link
+ * moved, in-contact and handed-over reports so held reports occur. A fresh delivery starts every {@link
  * #FRESH_EVERY} steps, and after an outcome followed by {@link #REFUSALS_BEFORE_FRESH} refusals.
  * After every step the invariants are recomputed from the snapshot in test code: the first outcome
  * never changes once recorded (BR-18), no report stays held beside an outcome, at most one held
  * report is confirmed, the state follows its precedence, and {@code restore} takes the snapshot
  * back. An accepted step raises exactly the events its states before and after call for. A refused
  * step leaves the snapshot and the events as they were. Each seed must reach a held
- * report, and have one confirmation and one refusal accepted. The message names the seed and the
+ * report and have one confirmation and one refusal accepted, and the seeds together must supersede
+ * a put-back. The message names the seed and the
  * step, so a failure replays.
  */
 class DeliverySequenceTest {
 
+    private static final List<Long> SEEDS = List.of(1L, 7L, 42L, 2027L, 31_337L, 99_991L);
     private static final int STEPS = 200;
     private static final int FRESH_EVERY = 15;
     private static final int REFUSALS_BEFORE_FRESH = 3;
+
+    /** A correction flips the effective outcome in all but one draw of this many, so it mostly changes something. */
+    private static final int CORRECTION_FLIP_ODDS = 4;
+
     private static final List<String> COMMANDS = List.of(
             "arrive",
             "deliver",
@@ -76,11 +88,43 @@ class DeliverySequenceTest {
         private boolean reachedHeld;
         private int confirmed;
         private int refused;
+        private int putBacksSuperseded;
+    }
+
+    static Stream<Long> seeds() {
+        return SEEDS.stream();
     }
 
     @ParameterizedTest(name = "seed {0}")
-    @ValueSource(longs = {1, 7, 42, 2027, 31_337, 99_991})
+    @MethodSource("seeds")
     void GivenASeededSequenceOfCommands_WhenEachStepRuns_ThenTheInvariantsHoldAfterEveryStep(long seed) {
+        Counts counts = runSequence(seed);
+
+        assertThat(counts.reachedHeld)
+                .as("seed " + seed + " reached a held report")
+                .isTrue();
+        assertThat(counts.confirmed)
+                .as("seed " + seed + " confirmed a held report")
+                .isPositive();
+        assertThat(counts.refused).as("seed " + seed + " refused a held report").isPositive();
+    }
+
+    /**
+     * A superseded put-back needs a failed stop corrected to delivered while the put-back's stop has
+     * no outcome (FR-404), which a short seed may never draw; across the seeds it must occur, so the
+     * event check above is exercised.
+     */
+    @Test
+    void GivenEverySeed_WhenItsSequenceRuns_ThenTheSeedsTogetherSupersedeAPutBack() {
+        int superseded = SEEDS.stream()
+                .mapToInt(seed -> runSequence(seed).putBacksSuperseded)
+                .sum();
+
+        assertThat(superseded).isPositive();
+    }
+
+    /** Runs one seed's sequence, checking every step, and counts what it reached. */
+    private static Counts runSequence(long seed) {
         Random random = new Random(seed);
         Counts counts = new Counts();
         Delivery delivery = aDelivery().fresh();
@@ -103,6 +147,9 @@ class DeliverySequenceTest {
                                 .toList())
                         .as(where + ": events")
                         .isEqualTo(expectedEvents(before, delivery.snapshot(), putBackWithoutOutcome));
+                if (delivery.pendingEvents().stream().anyMatch(PutBackSuperseded.class::isInstance)) {
+                    counts.putBacksSuperseded++;
+                }
                 delivery = reload(delivery);
             } catch (RuleViolation refused) {
                 assertThat(delivery.snapshot()).as(where).isEqualTo(before);
@@ -127,13 +174,7 @@ class DeliverySequenceTest {
             counts.reachedHeld |= delivery.status() == DeliveryStatus.HELD;
             checkInvariants(delivery, s, where);
         }
-        assertThat(counts.reachedHeld)
-                .as("seed " + seed + " reached a held report")
-                .isTrue();
-        assertThat(counts.confirmed)
-                .as("seed " + seed + " confirmed a held report")
-                .isPositive();
-        assertThat(counts.refused).as("seed " + seed + " refused a held report").isPositive();
+        return counts;
     }
 
     /**
@@ -180,8 +221,9 @@ class DeliverySequenceTest {
         };
         Entitlement entitlement = switch (entitled) {
             case 0 -> new Entitlement.NotOnRoute();
-            case 1 -> new Entitlement.OnRoute(REV_1, DISPATCHER);
-            default -> new Entitlement.OnRoute(REV_1, report.driver());
+            case 1 -> new Entitlement.OnRoute(REV_1, DISPATCHER, DISPATCHER);
+            case 2 -> new Entitlement.OnRoute(REV_1, report.driver(), handedTo(report));
+            default -> new Entitlement.OnRoute(REV_1, report.driver(), report.driver());
         };
         int place = random.nextInt(10);
         StopWhereabouts where;
@@ -221,10 +263,14 @@ class DeliverySequenceTest {
                         LeaveAtDoor.ALLOWED,
                         now);
             case "correct" -> {
-                DispatcherOutcome corrected = random.nextBoolean()
+                boolean wasFailed = delivery.effectiveOutcome()
+                        .filter(Outcome.Failed.class::isInstance)
+                        .isPresent();
+                boolean toDelivered = wasFailed == (random.nextInt(CORRECTION_FLIP_ODDS) > 0);
+                DispatcherOutcome corrected = toDelivered
                         ? new DispatcherOutcome.Delivered(false)
                         : new DispatcherOutcome.Failed(FailureReason.of(FailureReasonKind.DAMAGED));
-                LaterAttempt later = switch (random.nextInt(3)) {
+                LaterAttempt later = switch (random.nextInt(4)) {
                     case 0 -> new LaterAttempt.None();
                     case 1 -> new LaterAttempt.WithOutcome(LATER_STOP, SECOND, OutcomeKind.FAILED);
                     default -> new LaterAttempt.WithoutOutcome(LATER_STOP, SECOND, DATE);
@@ -244,6 +290,11 @@ class DeliverySequenceTest {
             default -> throw new AssertionError("unknown command " + command);
         }
         return false;
+    }
+
+    /** Another driver, to whom the report's route was handed after the report's time (ADR-114). */
+    private static AccountId handedTo(DriverReport report) {
+        return report.driver().equals(DRIVER_A) ? DRIVER_B : DRIVER_A;
     }
 
     /** Mostly a held report the delivery has, sometimes one it doesn't, so both answers occur. */

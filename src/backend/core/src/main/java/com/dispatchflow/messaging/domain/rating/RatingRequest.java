@@ -34,9 +34,9 @@ import org.jspecify.annotations.Nullable;
  * (ADR-108).
  *
  * <p>It is <em>closed</em> from 48 hours after the question was accepted, which is a matter of time
- * and is not stored ({@link #statusAt}). Its phone is removed 90 days after the question was sent,
- * and each comment 90 days after its own reply was received; its rating stays (NFR-184, NFR-193).
- * Every method checks all its rules before it changes anything.
+ * and is not stored ({@link #statusAt}). Its phone is removed 90 days after the question was
+ * accepted, and each comment 90 days after its own reply was received; its rating stays (NFR-184,
+ * NFR-193). Every method checks all its rules before it changes anything.
  */
 public final class RatingRequest extends AggregateRoot implements PersonalData {
 
@@ -195,8 +195,8 @@ public final class RatingRequest extends AggregateRoot implements PersonalData {
 
     /**
      * Removes the request's personal data as each piece's retention ends (NFR-184, NFR-193): the
-     * phone 90 days after the question was sent, and each comment 90 days after its own reply was
-     * received. The rating stays, for the day's figures (FR-362). With nothing left to remove it
+     * phone 90 days after the question was accepted, and each comment 90 days after its own reply
+     * was received. The rating stays, for the day's figures (FR-362). With nothing left to remove it
      * changes nothing, so the nightly retention job may call it again.
      *
      * @param now when the retention job runs

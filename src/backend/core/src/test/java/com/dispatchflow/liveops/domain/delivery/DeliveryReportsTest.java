@@ -3,6 +3,7 @@ package com.dispatchflow.liveops.domain.delivery;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.ABSENT;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.DISPATCHER;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.DRIVER_A;
+import static com.dispatchflow.liveops.domain.LiveOpsFixtures.DRIVER_B;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.DRIVER_C;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.HELD_1;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.HELD_2;
@@ -30,8 +31,10 @@ import static com.dispatchflow.liveops.domain.LiveOpsFixtures.byA;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.byC;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.reload;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.groups.Tuple.tuple;
 
 import com.dispatchflow.liveops.domain.CancellationKind;
+import com.dispatchflow.liveops.domain.DriverReport;
 import com.dispatchflow.liveops.domain.LiveOpsFixtures;
 import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.HeldState;
 import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.Origin;
@@ -56,6 +59,12 @@ class DeliveryReportsTest {
 
     private static final HoldCheck NOW_ON_A_NO_CONTACT =
             HoldCheck.of(new StopWhereabouts.OnAnotherRoute(ROUTE_A), List.of());
+
+    /** Route A held the stop in revision 1, with A driving it; it is B's route now. */
+    private static final Entitlement HANDED_FROM_A_TO_B = new Entitlement.OnRoute(REV_1, DRIVER_A, DRIVER_B);
+
+    /** Route A held the stop in revision 2, once it was handed to B, and B drives it now. */
+    private static final Entitlement DRIVEN_BY_B = new Entitlement.OnRoute(LiveOpsFixtures.REV_2, DRIVER_B, DRIVER_B);
 
     @Test
     void GivenANewStop_WhenADriverDelivers_ThenOutcomeRecordedNamesTheStopRouteAndCorrectedTime() {
@@ -100,8 +109,14 @@ class DeliveryReportsTest {
     void GivenALeftAtTheDoorStop_WhenCorrectedToFailed_ThenTheFirstOutcomesEventStillSaysLeftAtTheDoor() {
         Delivery delivery = aDelivery().fresh();
         delivery.deliver(byA(ONLINE), Optional.of(PHOTO), true, LeaveAtDoor.ALLOWED, ON_ROUTE, NO_HOLD, HELD_1, NOW);
+        assertThat(delivery.pendingEvents())
+                .singleElement()
+                .isInstanceOfSatisfying(
+                        OutcomeRecorded.class,
+                        recorded -> assertThat(recorded.leftAtDoor()).isTrue());
+        Delivery reloaded = reload(delivery);
 
-        delivery.correct(
+        reloaded.correct(
                 new DispatcherOutcome.Failed(ABSENT),
                 LiveOpsFixtures.TYPO,
                 Optional.empty(),
@@ -110,12 +125,8 @@ class DeliveryReportsTest {
                 LeaveAtDoor.ALLOWED,
                 LATER);
 
-        assertThat(delivery.effectiveOutcome()).contains(new Outcome.Failed(ABSENT));
-        assertThat(delivery.pendingEvents())
-                .singleElement()
-                .isInstanceOfSatisfying(
-                        OutcomeRecorded.class,
-                        recorded -> assertThat(recorded.leftAtDoor()).isTrue());
+        assertThat(reloaded.effectiveOutcome()).contains(new Outcome.Failed(ABSENT));
+        assertThat(reloaded.pendingEvents()).isEmpty();
     }
 
     @Test
@@ -326,6 +337,74 @@ class DeliveryReportsTest {
 
         assertThat(answer).isEqualTo(new ReportAnswer.Recorded(List.of(HELD_1)));
         assertThat(delivery.status()).isEqualTo(DeliveryStatus.FAILED);
+    }
+
+    // --- a driver the route was handed away from (BR-02, BR-132, ADR-114)
+
+    @Test
+    void GivenARouteHandedFromAToB_WhenAsDeliveredTimedBeforeTheHandOverArrives_ThenItIsHeldEvenWithNoContact() {
+        Delivery delivery = aDelivery().fresh();
+
+        ReportAnswer answer = delivery.deliver(
+                byA(LATE),
+                Optional.of(SIGNATURE),
+                false,
+                LeaveAtDoor.NOT_ALLOWED,
+                HANDED_FROM_A_TO_B,
+                NO_HOLD,
+                HELD_1,
+                NOW);
+
+        assertThat(answer).isEqualTo(new ReportAnswer.Held(HELD_1));
+        assertThat(delivery.status()).isEqualTo(DeliveryStatus.HELD);
+        assertThat(delivery.snapshot().heldReports())
+                .extracting(DeliverySnapshot.HeldReport::driver, DeliverySnapshot.HeldReport::route)
+                .containsExactly(tuple(DRIVER_A, ROUTE_A));
+        assertThat(delivery.pendingEvents()).isEmpty();
+    }
+
+    @Test
+    void GivenARouteHandedFromAToB_WhenAsFailedSentOnlineArrives_ThenItIsHeldNotRecorded() {
+        Delivery delivery = aDelivery().fresh();
+
+        ReportAnswer answer = delivery.fail(byA(ONLINE), ABSENT, HANDED_FROM_A_TO_B, NO_HOLD, HELD_1, NOW);
+
+        assertThat(answer).isEqualTo(new ReportAnswer.Held(HELD_1));
+        assertThat(delivery.effectiveOutcome()).isEmpty();
+        assertThat(delivery.pendingEvents()).isEmpty();
+    }
+
+    @Test
+    void GivenAsReportHeldAfterTheHandOver_WhenBDeliversOnTheRoute_ThenBsOutcomeOvertakesIt() {
+        Delivery delivery = aDelivery().fresh();
+        delivery.fail(byA(LATE), ABSENT, HANDED_FROM_A_TO_B, NO_HOLD, HELD_1, NOW);
+        Delivery reloaded = reload(delivery);
+
+        ReportAnswer answer = reloaded.deliver(
+                new DriverReport(DRIVER_B, ROUTE_A, LiveOpsFixtures.ONLINE),
+                Optional.of(SIGNATURE),
+                false,
+                LeaveAtDoor.NOT_ALLOWED,
+                DRIVEN_BY_B,
+                NO_HOLD,
+                HELD_2,
+                LATER);
+
+        assertThat(answer).isEqualTo(new ReportAnswer.Recorded(List.of(HELD_1)));
+        assertThat(reloaded.status()).isEqualTo(DeliveryStatus.DELIVERED);
+        assertThat(reloaded.snapshot().outcomes().get(0).by()).isEqualTo(DRIVER_B);
+    }
+
+    @Test
+    void GivenAsReportHeldAfterTheHandOver_WhenTheDispatcherConfirmsIt_ThenItIsTheOutcome() {
+        Delivery delivery = aDelivery().fresh();
+        delivery.fail(byA(LATE), ABSENT, HANDED_FROM_A_TO_B, NO_HOLD, HELD_1, NOW);
+        Delivery reloaded = reload(delivery);
+
+        reloaded.confirmHeld(HELD_1, DISPATCHER, LATER);
+
+        assertThat(reloaded.status()).isEqualTo(DeliveryStatus.FAILED);
+        assertThat(reloaded.snapshot().outcomes().get(0).by()).isEqualTo(DRIVER_A);
     }
 
     @Test

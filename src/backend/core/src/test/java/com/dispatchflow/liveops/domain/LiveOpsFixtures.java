@@ -82,10 +82,10 @@ public final class LiveOpsFixtures {
     public static final Proof PHOTO = Proof.of(ProofKind.PHOTO, PHOTO_FILE, ProofNote.of("by the blue door"));
     public static final FailureReason ABSENT = FailureReason.of(FailureReasonKind.CUSTOMER_ABSENT);
     /** Driver A's route held the stop in revision 1, with A driving it. */
-    public static final Entitlement ON_ROUTE = new Entitlement.OnRoute(REV_1, DRIVER_A);
+    public static final Entitlement ON_ROUTE = new Entitlement.OnRoute(REV_1, DRIVER_A, DRIVER_A);
 
-    public static final Entitlement ON_ROUTE_B = new Entitlement.OnRoute(REV_1, DRIVER_B);
-    public static final Entitlement ON_ROUTE_C = new Entitlement.OnRoute(REV_1, DRIVER_C);
+    public static final Entitlement ON_ROUTE_B = new Entitlement.OnRoute(REV_1, DRIVER_B, DRIVER_B);
+    public static final Entitlement ON_ROUTE_C = new Entitlement.OnRoute(REV_1, DRIVER_C, DRIVER_C);
     public static final Entitlement NOT_ON_ROUTE = new Entitlement.NotOnRoute();
     public static final StopWhereabouts SERVING = new StopWhereabouts.OnServingRoute();
     public static final StopWhereabouts ON_B = new StopWhereabouts.OnAnotherRoute(ROUTE_B);

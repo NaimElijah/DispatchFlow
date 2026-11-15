@@ -19,7 +19,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 class ReplyTest {
 
     /** U+1FFFE, a noncharacter: unassigned (Cn) in every Unicode version, so on every JDK. */
-    private static final String NEVER_ASSIGNED = "🿾";
+    private static final String NEVER_ASSIGNED = "\uD83F\uDFFE";
 
     // --- ratings (FR-376)
 

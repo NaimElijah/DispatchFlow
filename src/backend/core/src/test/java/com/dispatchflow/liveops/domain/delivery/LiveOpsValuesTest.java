@@ -17,7 +17,7 @@ import com.dispatchflow.liveops.domain.LiveOpsError.FailureReasonRequired;
 import com.dispatchflow.liveops.domain.LiveOpsError.InvalidRevision;
 import com.dispatchflow.liveops.domain.LiveOpsFixtures;
 import com.dispatchflow.liveops.domain.RevisionNo;
-import com.dispatchflow.liveops.domain.StartDeadline;
+import com.dispatchflow.liveops.domain.alert.StartDeadline;
 import com.dispatchflow.liveops.domain.routerun.ConfirmationDeadline;
 import com.dispatchflow.liveops.events.OutcomeKind;
 import com.dispatchflow.liveops.events.OutcomeRecorded;
@@ -129,6 +129,32 @@ class LiveOpsValuesTest {
                 .isInstanceOf(NullPointerException.class);
         assertThatThrownBy(() ->
                         new RouteStarted(id, NOW, null, LiveOpsFixtures.DRIVER_A, T_0800, RunStartCause.FIRST_REPORT))
+                .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void GivenAFailedOutcome_WhenAnOutcomeRecordedSaysLeftAtTheDoor_ThenItFailsAsABug() {
+        EventId id = new EventId("OutcomeRecorded", LiveOpsFixtures.STOP.value(), Version.of(1), 0);
+
+        assertThatThrownBy(() -> new OutcomeRecorded(
+                        id,
+                        NOW,
+                        LiveOpsFixtures.STOP,
+                        LiveOpsFixtures.ORDER,
+                        1,
+                        LiveOpsFixtures.ROUTE_A,
+                        OutcomeKind.FAILED,
+                        true,
+                        T_0800,
+                        false,
+                        LiveOpsFixtures.DRIVER_A))
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("only a delivered outcome is left at the door (FR-366)");
+    }
+
+    @Test
+    void GivenAnEntitlementWithNoCurrentDriver_WhenBuilt_ThenItFailsLoudly() {
+        assertThatThrownBy(() -> new Entitlement.OnRoute(LiveOpsFixtures.REV_1, LiveOpsFixtures.DRIVER_A, null))
                 .isInstanceOf(NullPointerException.class);
     }
 

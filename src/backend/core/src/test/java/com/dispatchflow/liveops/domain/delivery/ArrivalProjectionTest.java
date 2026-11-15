@@ -145,9 +145,35 @@ class ArrivalProjectionTest {
     void GivenASkippedStopWhoseArrivalIsNowPastItsRiskMargin_WhenJudged_ThenItIsNotAtRiskOnThatBasisAlone() {
         ArrivalProjection projection = ArrivalProjection.of(
                 ROUTE, List.of(outcome(S2, "09:45:00")), Optional.of(at("06:00:00")), at("09:50:00"));
+        ArrivalProjection notSkipped =
+                ArrivalProjection.of(ROUTE, List.of(), Optional.of(at("06:00:00")), at("09:50:00"));
 
         assertThat(projection.arrivalOf(S1)).contains(at("09:50:00"));
         assertThat(projection.isAtRisk(S1)).isFalse();
+        assertThat(notSkipped.arrivalOf(S1)).contains(at("09:50:00"));
+        assertThat(notSkipped.isAtRisk(S1)).isTrue();
+    }
+
+    @Test
+    void GivenAStopSkippedBeforeTheLatestEvent_WhenProjected_ThenOnlyTheStopsAfterTheEventAreCarriedForward() {
+        ArrivalProjection projection = ArrivalProjection.of(
+                ROUTE, List.of(outcome(S2, "07:00:00")), Optional.of(at("06:00:00")), at("07:01:00"));
+
+        assertThat(projection.arrivalOf(S1)).contains(at("07:01:00"));
+        assertThat(projection.isCarriedForward(S1)).isFalse();
+        assertThat(projection.isCarriedForward(S2)).isFalse();
+        assertThat(projection.arrivalOf(S3)).contains(at("07:15:00"));
+        assertThat(projection.isCarriedForward(S3)).isTrue();
+        assertThat(projection.isCarriedForward(LiveOpsFixtures.STOP)).isFalse();
+    }
+
+    @Test
+    void GivenNoEvent_WhenProjected_ThenEveryStopIsCarriedForwardFromThePlannedDeparture() {
+        ArrivalProjection projection = ArrivalProjection.of(ROUTE, List.of(), Optional.empty(), at("05:00:00"));
+
+        assertThat(projection.isCarriedForward(S1)).isTrue();
+        assertThat(projection.isCarriedForward(S2)).isTrue();
+        assertThat(projection.isCarriedForward(S3)).isTrue();
     }
 
     @Test

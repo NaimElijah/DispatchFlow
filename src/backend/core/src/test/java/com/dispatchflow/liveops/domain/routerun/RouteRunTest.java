@@ -69,7 +69,7 @@ class RouteRunTest {
 
     private static RouteRun finished() {
         RouteRun run = started();
-        run.finish(byA(FINISH_1300), DRIVER_A, List.of(STOP));
+        run.finish(byA(FINISH_1300), DRIVER_A, DRIVER_A, List.of(STOP));
         return reload(run);
     }
 
@@ -100,7 +100,7 @@ class RouteRunTest {
 
     enum Command {
         START(run -> run.start(byA(ONLINE), DRIVER_A, NOW)),
-        FINISH(run -> run.finish(byA(FINISH_1300), DRIVER_A, List.of()));
+        FINISH(run -> run.finish(byA(FINISH_1300), DRIVER_A, DRIVER_A, List.of()));
 
         private final Consumer<RouteRun> call;
 
@@ -143,21 +143,74 @@ class RouteRunTest {
     void GivenARunHandedToB_WhenAFinishesIt_ThenNotYourRoute() {
         RouteRun run = started();
 
-        assertRefusedUnchanged(run, () -> run.finish(byA(FINISH_1300), DRIVER_B, List.of()), new NotYourRoute(ROUTE_A));
+        assertRefusedUnchanged(
+                run, () -> run.finish(byA(FINISH_1300), DRIVER_B, DRIVER_B, List.of()), new NotYourRoute(ROUTE_A));
     }
 
     @Test
     void GivenAFinishedRunHandedToB_WhenAFinishesItAgain_ThenNotYourRouteComesBeforeRouteAlreadyFinished() {
         RouteRun run = finished();
 
-        assertRefusedUnchanged(run, () -> run.finish(byA(FINISH_1300), DRIVER_B, List.of()), new NotYourRoute(ROUTE_A));
+        assertRefusedUnchanged(
+                run, () -> run.finish(byA(FINISH_1300), DRIVER_B, DRIVER_B, List.of()), new NotYourRoute(ROUTE_A));
+    }
+
+    @Test
+    void GivenARunHandedToBAt0900_WhenAsOfflineFinishTimedAt0850Arrives_ThenNotYourRouteAndBStillFinishesIt() {
+        RouteRun run = started();
+        CorrectedTime beforeTheHandOver = CorrectedTime.of(
+                Instant.parse("2027-03-01T08:50:00Z"),
+                Instant.parse("2027-03-01T09:30:00Z"),
+                Instant.parse("2027-03-01T09:30:00Z"));
+
+        assertRefusedUnchanged(
+                run,
+                () -> run.finish(byA(beforeTheHandOver), DRIVER_A, DRIVER_B, List.of(STOP)),
+                new NotYourRoute(ROUTE_A));
+        run.finish(new DriverReport(DRIVER_B, ROUTE_A, FINISH_1300), DRIVER_B, DRIVER_B, List.of());
+
+        assertThat(run.snapshot().status())
+                .isEqualTo(new RunStatus.Finished(Instant.parse("2027-03-01T13:00:00Z"), DRIVER_B, List.of()));
+    }
+
+    @Test
+    void GivenARunHandedToBAndBackToA_WhenAFinishesWithATimeInBsTurn_ThenNotYourRoute() {
+        RouteRun run = started();
+
+        assertRefusedUnchanged(
+                run, () -> run.finish(byA(FINISH_1300), DRIVER_B, DRIVER_A, List.of()), new NotYourRoute(ROUTE_A));
+    }
+
+    @Test
+    void GivenARunHandedToB_WhenASeesARouteChange_ThenNotYourRouteAndBsChangeStaysUnconfirmed() {
+        RouteRun run = started();
+
+        assertRefusedUnchanged(run, () -> run.acknowledge(DRIVER_A, DRIVER_B, REV_2, REV_2), new NotYourRoute(ROUTE_A));
+        assertThat(run.isConfirmationOverdue(REV_2, Instant.parse("2027-03-01T09:00:00Z"), NOW))
+                .isTrue();
+    }
+
+    @Test
+    void GivenARunHandedToB_WhenASeesARevisionPastTheCurrentOne_ThenNotYourRouteComesBeforeUnknownRevision() {
+        RouteRun run = started();
+
+        assertRefusedUnchanged(run, () -> run.acknowledge(DRIVER_A, DRIVER_B, REV_2, REV_1), new NotYourRoute(ROUTE_A));
+    }
+
+    @Test
+    void GivenARunHandedToB_WhenBSeesTheRouteChange_ThenItIsStored() {
+        RouteRun run = started();
+
+        run.acknowledge(DRIVER_B, DRIVER_B, REV_2, REV_2);
+
+        assertThat(run.confirmed()).contains(REV_2);
     }
 
     @Test
     void GivenARunHandedToB_WhenBFinishesIt_ThenItIsFinishedByB() {
         RouteRun run = started();
 
-        run.finish(new DriverReport(DRIVER_B, ROUTE_A, FINISH_1300), DRIVER_B, List.of());
+        run.finish(new DriverReport(DRIVER_B, ROUTE_A, FINISH_1300), DRIVER_B, DRIVER_B, List.of());
 
         assertThat(run.snapshot().status())
                 .isEqualTo(new RunStatus.Finished(Instant.parse("2027-03-01T13:00:00Z"), DRIVER_B, List.of()));
@@ -167,7 +220,7 @@ class RouteRunTest {
     void GivenAStartedRun_WhenFinishedWithAStopPending_ThenItIsFinishedWithThatStop() {
         RouteRun run = started();
 
-        run.finish(byA(FINISH_1300), DRIVER_A, List.of(STOP));
+        run.finish(byA(FINISH_1300), DRIVER_A, DRIVER_A, List.of(STOP));
 
         assertThat(run.isFinished()).isTrue();
         assertThat(run.snapshot().status())
@@ -180,7 +233,7 @@ class RouteRunTest {
     void GivenARun_WhenTheDriverConfirmsTheCurrentRevision_ThenItIsStored(String state) {
         RouteRun run = state.equals("started") ? started() : finished();
 
-        run.acknowledge(REV_2, REV_2);
+        run.acknowledge(DRIVER_A, DRIVER_A, REV_2, REV_2);
 
         assertThat(run.confirmed()).contains(REV_2);
     }
@@ -188,10 +241,10 @@ class RouteRunTest {
     @Test
     void GivenRev1Confirmed_WhenRev2Seen_ThenRev2Stored() {
         RouteRun run = started();
-        run.acknowledge(REV_1, REV_1);
+        run.acknowledge(DRIVER_A, DRIVER_A, REV_1, REV_1);
         RouteRun reloaded = reload(run);
 
-        reloaded.acknowledge(REV_2, REV_2);
+        reloaded.acknowledge(DRIVER_A, DRIVER_A, REV_2, REV_2);
 
         assertThat(reloaded.confirmed()).contains(REV_2);
     }
@@ -208,18 +261,20 @@ class RouteRunTest {
         RouteRun run = finished();
 
         assertRefusedUnchanged(
-                run, () -> run.finish(byA(FINISH_1300), DRIVER_A, List.of()), new RouteAlreadyFinished(ROUTE_A));
+                run,
+                () -> run.finish(byA(FINISH_1300), DRIVER_A, DRIVER_A, List.of()),
+                new RouteAlreadyFinished(ROUTE_A));
     }
 
     @Test
     void GivenARevisionTheDriverConfirmed_WhenAnOlderOrTheSameOneArrives_ThenItIsIgnored() {
         RouteRun run = started();
-        run.acknowledge(REV_2, REV_2);
+        run.acknowledge(DRIVER_A, DRIVER_A, REV_2, REV_2);
         RouteRun reloaded = reload(run);
         RouteRunSnapshot before = reloaded.snapshot();
 
-        reloaded.acknowledge(REV_1, REV_2);
-        reloaded.acknowledge(REV_2, REV_2);
+        reloaded.acknowledge(DRIVER_A, DRIVER_A, REV_1, REV_2);
+        reloaded.acknowledge(DRIVER_A, DRIVER_A, REV_2, REV_2);
 
         assertThat(reloaded.confirmed()).contains(REV_2);
         assertThat(reloaded.snapshot()).isEqualTo(before);
@@ -229,7 +284,10 @@ class RouteRunTest {
     void GivenTheCurrentRevision_WhenTheDriverConfirmsALaterOne_ThenUnknownRevision() {
         RouteRun run = started();
 
-        assertRefusedUnchanged(run, () -> run.acknowledge(REV_2, REV_1), new UnknownRevision(ROUTE_A, REV_2, REV_1));
+        assertRefusedUnchanged(
+                run,
+                () -> run.acknowledge(DRIVER_A, DRIVER_A, REV_2, REV_1),
+                new UnknownRevision(ROUTE_A, REV_2, REV_1));
     }
 
     @ParameterizedTest(name = "{0}: {1}")
@@ -309,7 +367,7 @@ class RouteRunTest {
     @Test
     void GivenRev1Confirmed_WhenRev2UnconfirmedTenMinutes_ThenOverdue() {
         RouteRun run = started();
-        run.acknowledge(REV_1, REV_1);
+        run.acknowledge(DRIVER_A, DRIVER_A, REV_1, REV_1);
 
         assertThat(run.isConfirmationOverdue(
                         REV_2, Instant.parse("2027-03-01T09:00:00Z"), Instant.parse("2027-03-01T09:10:00Z")))
@@ -335,7 +393,7 @@ class RouteRunTest {
     @Test
     void GivenAConfirmedRevision_WhenJudged_ThenItIsNotOverdue() {
         RouteRun run = started();
-        run.acknowledge(REV_2, REV_2);
+        run.acknowledge(DRIVER_A, DRIVER_A, REV_2, REV_2);
 
         assertThat(run.isConfirmationOverdue(REV_2, Instant.parse("2027-03-01T09:00:00Z"), NOW))
                 .isFalse();
@@ -380,10 +438,18 @@ class RouteRunTest {
     void GivenAMissingParameter_WhenEachCommandRuns_ThenItFailsLoudly() {
         RouteRun run = started();
 
-        assertThatThrownBy(() -> run.finish(byA(FINISH_1300), DRIVER_A, null)).isInstanceOf(NullPointerException.class);
-        assertThatThrownBy(() -> run.finish(byA(FINISH_1300), null, List.of()))
+        assertThatThrownBy(() -> run.finish(byA(FINISH_1300), DRIVER_A, DRIVER_A, null))
                 .isInstanceOf(NullPointerException.class);
-        assertThatThrownBy(() -> run.acknowledge(REV_1, null)).isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> run.finish(byA(FINISH_1300), null, DRIVER_A, List.of()))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> run.finish(byA(FINISH_1300), DRIVER_A, null, List.of()))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> run.acknowledge(DRIVER_A, DRIVER_A, REV_1, null))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> run.acknowledge(null, DRIVER_A, REV_1, REV_1))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> run.acknowledge(DRIVER_A, null, REV_1, REV_1))
+                .isInstanceOf(NullPointerException.class);
         assertThatThrownBy(() -> run.checkPositionAt(NOW, null)).isInstanceOf(NullPointerException.class);
         assertThatThrownBy(() -> new TrackingStanding(true, true, null)).isInstanceOf(NullPointerException.class);
         assertThatThrownBy(() -> RouteRun.start(ROUTE_A, byA(ONLINE), DRIVER_A, null, NOW))

@@ -44,7 +44,12 @@ public record OutcomeRecorded(
         AccountId by)
         implements DomainEvent {
 
-    /** Checks the parts are given. */
+    /**
+     * Checks the parts are given, and that only a delivered outcome says it was left at the door.
+     *
+     * @throws AssertionError when a failed outcome says it was left at the door: only {@code
+     *     Delivery} raises this event, so that is a bug in it, never a refusal
+     */
     public OutcomeRecorded {
         Objects.requireNonNull(eventId, "eventId");
         Objects.requireNonNull(occurredAt, "occurredAt");
@@ -54,5 +59,8 @@ public record OutcomeRecorded(
         Objects.requireNonNull(outcome, "outcome");
         Objects.requireNonNull(factTime, "factTime");
         Objects.requireNonNull(by, "by");
+        if (leftAtDoor && outcome != OutcomeKind.DELIVERED) {
+            throw new AssertionError("only a delivered outcome is left at the door (FR-366)");
+        }
     }
 }

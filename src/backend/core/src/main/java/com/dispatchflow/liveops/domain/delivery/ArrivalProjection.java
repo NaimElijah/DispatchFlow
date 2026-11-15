@@ -28,7 +28,9 @@ import java.util.Optional;
  *   <li>A stop before the latest event in planned order with no fact, skipped (BR-29), has no leg
  *       from where the vehicle is. It gets its planned arrival, timed from the planned departure
  *       along the legs as if nothing had happened, and never earlier than now (FR-254), so its
- *       recipient still hears when to expect it (FR-351 to FR-353, ADR-114).
+ *       recipient still hears when to expect it in "out for delivery" (FR-351, ADR-114). It is not
+ *       carried forward ({@link #isCarriedForward}), so it never sends "arriving soon" or "time
+ *       changed".
  * </ol>
  *
  * <p>A stop is at risk when its projected arrival is later than its window's end less 15 minutes,
@@ -117,6 +119,20 @@ public final class ArrivalProjection {
      */
     public Optional<Instant> arrivalOf(StopId stop) {
         return Optional.ofNullable(arrivals.get(Objects.requireNonNull(stop, "stop")));
+    }
+
+    /**
+     * Whether a stop's arrival is carried forward along the legs from the route's start or its
+     * latest event, rather than a skipped stop's planned arrival (ADR-114). Messaging sends
+     * "arriving soon" and "time changed" only on a carried-forward arrival, because a planned one
+     * held at now moves with the clock alone (FR-352, FR-353).
+     *
+     * @param stop the stop
+     * @return {@code true} for a projection carried forward; {@code false} for a skipped stop's
+     *     planned arrival, a stop with a fact, or one not on the route
+     */
+    public boolean isCarriedForward(StopId stop) {
+        return propagated.containsKey(Objects.requireNonNull(stop, "stop"));
     }
 
     /**

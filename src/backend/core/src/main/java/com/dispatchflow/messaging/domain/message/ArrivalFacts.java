@@ -10,7 +10,8 @@ import java.util.Objects;
  * @param route how far the stop's route has come
  * @param previousStop the stop before it in plan order
  * @param stop how far the stop itself has come
- * @param arrival the stop's projected arrival
+ * @param arrival the stop's projected arrival; "arriving soon" and "time changed" need one carried
+ *     forward (ADR-114)
  */
 public record ArrivalFacts(
         RouteProgress route, PreviousStop previousStop, StopProgress stop, ProjectedArrival arrival) {

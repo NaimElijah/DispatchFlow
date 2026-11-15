@@ -157,34 +157,49 @@ public final class RouteRun extends AggregateRoot {
 
     /**
      * Finishes the route, perhaps with stops pending, which the use case alerts on (FR-68, FR-329).
+     * Only the route's driver at the report's time who still drives it may finish it, so a driver
+     * the route was handed away from can't end the new driver's run with a finish timed before the
+     * hand-over (FR-328, ADR-114).
      *
      * @param report the driver's finish, whose corrected time is the finish
      * @param routeDriver the route's driver in the revision in force at the report's corrected time
+     * @param currentDriver the route's driver in the current revision
      * @param pending the stops with no outcome, in the route's order
-     * @throws RuleViolation with {@link NotYourRoute} when the report's driver is not {@code
-     *     routeDriver} (BR-02, ADR-114), else {@link RouteAlreadyFinished} when the run has finished
+     * @throws RuleViolation with {@link NotYourRoute} when the report's driver is not both {@code
+     *     routeDriver} and {@code currentDriver} (BR-02, ADR-114), else {@link RouteAlreadyFinished}
+     *     when the run has finished
      */
-    public void finish(DriverReport report, AccountId routeDriver, List<StopId> pending) {
+    public void finish(DriverReport report, AccountId routeDriver, AccountId currentDriver, List<StopId> pending) {
         Objects.requireNonNull(report, "report");
         Objects.requireNonNull(routeDriver, "routeDriver");
+        Objects.requireNonNull(currentDriver, "currentDriver");
         Objects.requireNonNull(pending, "pending");
         refuseIfNotTheDriver(route, report, routeDriver);
+        refuseIfNotTheDriver(route, report.driver(), currentDriver);
         refuseIfFinished();
         commit(new RunStatus.Finished(report.time().corrected(), report.driver(), pending), confirmed);
     }
 
     /**
      * Records that the driver saw a route change: *Seen* (FR-97). The confirmed revision never goes
-     * back (FR-250): an older or equal one is ignored. A finished run takes it too.
+     * back (FR-250): an older or equal one is ignored. A finished run takes it too. Only the route's
+     * current driver confirms, so a driver the route was handed away from can't hide the new
+     * driver's unconfirmed change (FR-250, ADR-114).
      *
+     * @param driver the account that sent *Seen*
+     * @param currentDriver the route's driver in the current revision
      * @param seen the revision the phone showed
      * @param current the plan's current revision
-     * @throws RuleViolation with {@link UnknownRevision} when {@code seen} is past {@code current}
-     *     (ADR-107)
+     * @throws RuleViolation with {@link NotYourRoute} when {@code driver} is not {@code
+     *     currentDriver} (BR-02, ADR-114), else {@link UnknownRevision} when {@code seen} is past
+     *     {@code current} (ADR-107)
      */
-    public void acknowledge(RevisionNo seen, RevisionNo current) {
+    public void acknowledge(AccountId driver, AccountId currentDriver, RevisionNo seen, RevisionNo current) {
+        Objects.requireNonNull(driver, "driver");
+        Objects.requireNonNull(currentDriver, "currentDriver");
         Objects.requireNonNull(seen, "seen");
         Objects.requireNonNull(current, "current");
+        refuseIfNotTheDriver(route, driver, currentDriver);
         if (seen.isAfter(current)) {
             throw new RuleViolation(new UnknownRevision(route, seen, current));
         }
@@ -263,12 +278,16 @@ public final class RouteRun extends AggregateRoot {
     }
 
     /**
-     * Only the driver who drove the route at the report's time may start or finish it, so a driver
-     * the route was handed away from can't (BR-02, ADR-114). It comes first, so such a report learns
-     * nothing of the run's state.
+     * Only the driver who drove the route at the report's time may start it, and only one who also
+     * drives it now may finish it or confirm a change, so a driver the route was handed away from
+     * can't (BR-02, ADR-114). It comes first, so such a report learns nothing of the run's state.
      */
     private static void refuseIfNotTheDriver(RouteId route, DriverReport report, AccountId routeDriver) {
-        if (!report.driver().equals(routeDriver)) {
+        refuseIfNotTheDriver(route, report.driver(), routeDriver);
+    }
+
+    private static void refuseIfNotTheDriver(RouteId route, AccountId sender, AccountId routeDriver) {
+        if (!sender.equals(routeDriver)) {
             throw new RuleViolation(new NotYourRoute(route));
         }
     }

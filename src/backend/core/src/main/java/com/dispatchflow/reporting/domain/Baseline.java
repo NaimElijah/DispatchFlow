@@ -76,21 +76,18 @@ public final class Baseline extends AggregateRoot {
     /**
      * Takes a new solve after a revision withdrew vehicles mid-route, added orders, or both (FR-39,
      * FR-267, FR-270, ADR-109). The listener on {@code PlanRevised} calls it with what the revision
-     * changed, and a solve on the plan's orders that leaves out a vehicle marked unavailable or left
-     * without a driver, and gives a vehicle whose shift ran out its whole shift (FR-271).
-     *
-     * <p>The baseline needs only the vehicles and the orders. Why each vehicle was withdrawn shapes
-     * the solve the listener asks for (FR-271), so the listener reads it from the event and the
-     * baseline never sees it.
+     * changed, and a solve on the plan's orders that treats the withdrawn vehicles as {@link
+     * #withdrawnFleetAfter} splits them (FR-271).
      *
      * <p>What changed adds to what was named before, in the order first named, because a withdrawn
      * route never returns (FR-268) and an added order stays in the comparison; something named again
-     * is named once. A revision that neither withdrew a vehicle nor added an order changes nothing, so
-     * a recompute asked for without either is ignored. A cancellation is neither: it only leaves the
-     * order out of both planned on-time rates (BR-30, ADR-109).
+     * is named once, a vehicle with the cause it was first named with. A revision that neither
+     * withdrew a vehicle nor added an order changes nothing, so a recompute asked for without either
+     * is ignored. A cancellation is neither: it only leaves the order out of both planned on-time
+     * rates (BR-30, ADR-109).
      *
-     * @param withdrawn every vehicle this revision withdrew mid-route, whatever the cause (FR-267), in
-     *     the event's order; empty when it withdrew none
+     * @param withdrawn every vehicle this revision withdrew mid-route, with its cause (FR-267,
+     *     FR-271), in the event's order; empty when it withdrew none
      * @param added every order this revision brought into the plan that the plan didn't hold before,
      *     in the event's order; empty when it added none. An order that moved between the plan's
      *     routes, or came back from *dropped*, was already the plan's, so it is not added
@@ -98,7 +95,7 @@ public final class Baseline extends AggregateRoot {
      *     included
      * @param now when it was computed
      */
-    public void recompute(List<VehicleId> withdrawn, List<OrderId> added, PlannedFigures newResult, Instant now) {
+    public void recompute(List<Withdrawal> withdrawn, List<OrderId> added, PlannedFigures newResult, Instant now) {
         Objects.requireNonNull(withdrawn, "withdrawn");
         Objects.requireNonNull(added, "added");
         Objects.requireNonNull(newResult, "newResult");
@@ -109,7 +106,8 @@ public final class Baseline extends AggregateRoot {
         BaselineCause.Recomputed before = recomputedSoFar();
         commit(
                 newResult,
-                new BaselineCause.Recomputed(union(before.withdrawn(), withdrawn), union(before.added(), added)),
+                new BaselineCause.Recomputed(
+                        withdrawalsWith(before.withdrawn(), withdrawn), union(before.added(), added)),
                 now);
     }
 
@@ -135,7 +133,8 @@ public final class Baseline extends AggregateRoot {
         }
         PlannedOnTimeRate planOnTime = planFigures.plannedOnTime(cancelled);
         PlannedOnTimeRate baselineOnTime = result.plannedOnTime(cancelled);
-        List<VehicleId> withdrawn = recomputedSoFar().withdrawn();
+        List<VehicleId> withdrawn =
+                recomputedSoFar().withdrawn().stream().map(Withdrawal::vehicle).toList();
         if (withdrawn.isEmpty()) {
             return new BaselineComparison.AllMeasures(
                     planFigures.distance(),
@@ -147,6 +146,21 @@ public final class Baseline extends AggregateRoot {
         }
         return new BaselineComparison.KilometresAndOnTime(
                 planFigures.distance(), result.distance(), planOnTime, baselineOnTime, withdrawn);
+    }
+
+    /**
+     * The withdrawn vehicles the solve for the next {@link #recompute} treats, split as FR-271 says:
+     * every vehicle withdrawn so far and the ones a revision withdraws now, because each withdrawn
+     * route stays withdrawn (FR-268). The listener asks for that solve before it recomputes. Nothing
+     * changes.
+     *
+     * @param withdrawn the vehicles the revision withdrew, with their causes; empty when it withdrew
+     *     none
+     * @return the vehicles to leave out and those to give their whole shift
+     */
+    public WithdrawnFleet withdrawnFleetAfter(List<Withdrawal> withdrawn) {
+        Objects.requireNonNull(withdrawn, "withdrawn");
+        return WithdrawnFleet.of(withdrawalsWith(recomputedSoFar().withdrawn(), withdrawn));
     }
 
     /**
@@ -174,6 +188,17 @@ public final class Baseline extends AggregateRoot {
         };
     }
 
+    /** The withdrawals named so far and the new ones, each vehicle once, with its first cause. */
+    private static List<Withdrawal> withdrawalsWith(List<Withdrawal> named, List<Withdrawal> more) {
+        List<Withdrawal> all = new ArrayList<>(named);
+        for (Withdrawal withdrawal : more) {
+            if (all.stream().noneMatch(each -> each.vehicle().equals(withdrawal.vehicle()))) {
+                all.add(withdrawal);
+            }
+        }
+        return all;
+    }
+
     private static <T> List<T> union(List<T> named, List<T> more) {
         List<T> all = new ArrayList<>(named);
         more.stream().filter(item -> !all.contains(item)).forEach(all::add);
@@ -198,11 +223,13 @@ public final class Baseline extends AggregateRoot {
 
     /** The invariant a baseline holds at rest, which {@link #restore} and {@link #commit} check. */
     private static Optional<String> brokenBy(BaselineSnapshot state) {
-        if (state.cause() instanceof BaselineCause.Recomputed(List<VehicleId> withdrawn, List<OrderId> added)) {
+        if (state.cause() instanceof BaselineCause.Recomputed(List<Withdrawal> withdrawn, List<OrderId> added)) {
             if (withdrawn.isEmpty() && added.isEmpty()) {
                 return Optional.of("a recomputed baseline names a withdrawn vehicle or an added order");
             }
-            if (new HashSet<>(withdrawn).size() != withdrawn.size() || new HashSet<>(added).size() != added.size()) {
+            long vehicles =
+                    withdrawn.stream().map(Withdrawal::vehicle).distinct().count();
+            if (vehicles != withdrawn.size() || new HashSet<>(added).size() != added.size()) {
                 return Optional.of("a baseline names each withdrawn vehicle and added order once");
             }
         }

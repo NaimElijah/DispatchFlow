@@ -123,7 +123,8 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
      * @param to the stop's phone, chosen by FR-348
      * @param conditions the settings, company and phone standing now
      * @param progress how far the stop has come
-     * @param arrival the stop's projected arrival
+     * @param arrival the stop's projected arrival, carried forward or, for a stop the route's first
+     *     report skipped, planned (ADR-114)
      * @param now when the trigger is recorded
      */
     public void onRouteStarted(
@@ -171,7 +172,10 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
      *       dropped (ADR-108).
      * </ul>
      *
-     * Neither goes once the stop is arrived at or has an outcome (FR-373).
+     * Neither goes once the stop is arrived at or has an outcome (FR-373), and neither goes on a
+     * skipped stop's planned arrival: held at now, it moves with the clock alone, so it would say
+     * "arriving soon" at once and "time changed" every half hour (ADR-114). "Out for delivery" may
+     * use one.
      *
      * @param ids new message IDs, one drawn per message added, "arriving soon" first
      * @param to the stop's phone, chosen by FR-348
@@ -187,7 +191,9 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
         Objects.requireNonNull(facts, "facts");
         Objects.requireNonNull(now, "now");
         Optional<PhoneNumber> phone = phoneToMessage(to, conditions);
-        if (phone.isEmpty() || !facts.stop().awaitsDelivery()) {
+        if (phone.isEmpty()
+                || !facts.stop().awaitsDelivery()
+                || !facts.arrival().isCarriedForward()) {
             return;
         }
         List<OutgoingMessage> next = new ArrayList<>(messages);
@@ -318,7 +324,8 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
      *
      * @param id the message
      * @param cap the day's claimed messages that count toward the cap
-     * @param consent the phone's standing now
+     * @param consent the standing now of the message's own phone, the one it was triggered for
+     *     (ADR-117)
      * @param now when the sender claims it
      * @return what the claim did
      * @throws RuleViolation with {@link UnknownMessage} for a message the stop doesn't have, or

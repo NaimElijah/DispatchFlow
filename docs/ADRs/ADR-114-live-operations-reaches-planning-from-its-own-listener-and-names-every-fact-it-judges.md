@@ -30,6 +30,20 @@ need a decision, and a few smaller readings in Live Operations and Audit that no
   reporting driver with the route's driver then, so a driver the route was handed away from could
   report on it, and start or finish it, after the hand-over ([BR-02], [BR-110]).
 
+A second review, of the fixes on this branch, found three gaps they left:
+
+- **A skipped stop's planned arrival moves with the clock.** Once its planned arrival has passed,
+  the projection is held at now, so it is always zero minutes away and always later than the
+  arrival last sent. Its recipient got *arriving soon* a minute after the start, and *time changed*
+  twice in the hour after ([FR-352], [FR-353], [FR-384]).
+- **A former driver can still act on the route by backdating.** A report or a finish timed before
+  the hand-over was judged by the revision in force then, which names the former driver. So an
+  offline phone's late finish ended the new driver's run, its *Seen* hid the new driver's
+  unconfirmed change, and its late outcome was recorded on the new driver's route ([FR-68],
+  [FR-97], [FR-250], [FR-328], [FR-329]).
+- **A refused arrival can't alert.** The refused-report key needed an outcome kind, and an arrival
+  refused for a cancellation has none ([BR-90], [FR-157]).
+
 ## Decision
 
 On 2026-11-15 the owner, Naim Elijah, decided:
@@ -48,7 +62,12 @@ On 2026-11-15 the owner, Naim Elijah, decided:
    stop's service as planned and no fact applied, and never earlier than now ([FR-254],
    [ADR-067]). A skipped stop is never *at risk* on that basis alone, because nothing observed
    carries delay to it ([FR-253]). This amends [ADR-107]'s reading that such a stop "gets no
-   projection and is never at risk": the second half stands.
+   projection and is never at risk": the second half stands. The projection says which arrivals it
+   carried forward along the legs, from the route's start or its latest event, and which are such
+   a planned arrival (`ArrivalProjection.isCarriedForward`), and Messaging's `ProjectedArrival`
+   carries that basis. *Out for delivery* may give a planned arrival ([FR-351]); *arriving soon* and
+   *time changed* go only on one carried forward ([FR-352], [FR-353]), because a planned arrival held
+   at now moves with the clock alone and says nothing new about the stop.
 3. **A correction may change only the door flag, or only an *other* reason's text.**
    `Delivery.correct` refuses `CorrectionChangesNothing` only when the corrected outcome states
    exactly the effective one: the same kind, the same *left at the door*, and for a failure the
@@ -56,19 +75,25 @@ On 2026-11-15 the owner, Naim Elijah, decided:
    carries one ([FR-333], [FR-366], [FR-367]). Repeated driver reports keep [ADR-107]'s looser
    comparison ([BR-88]). This amends [ADR-107]'s reading "A correction may also change just a
    failure's reason".
-4. **The refused-report alert key adds the reporting driver and the refused outcome kind.**
-   `AlertSubject.ReportRefused` names the plan, the route, the stop, the reporting driver and the
-   outcome the report stated, and its key is the stop, the route, the driver and the outcome kind.
-   A retried identical refusal still alerts once; another driver's refusal, or another outcome's,
-   alerts again ([BR-90], [BR-135], [FR-157]). This amends [ADR-107], point 4.
-5. **An entitlement names the route's driver, and a report from anyone else is refused.**
-   `Entitlement.OnRoute` carries the revision in force at the report's corrected time and that
-   revision's driver of the route. `Delivery` refuses a driver's arrival, *delivered* or *failed*
-   from any other account with `StopNotOnYourRoute`, in the entitlement's place in [ADR-107]'s
-   order of refusals. `RouteRun.start` and `finish` take the route's driver at the report's
-   corrected time, and refuse any other with `NotYourRoute`, before any other rule. A former driver's
-   report timed before the hand-over is still accepted, because that revision names them
-   ([BR-02], [BR-110], [BR-27]). This amends [ADR-107]'s reading of the order of refusals.
+4. **The refused-report alert key adds the reporting driver and the refused fact.**
+   `AlertSubject.ReportRefused` names the plan, the route, the stop, the reporting driver and what
+   the report stated, as a `RefusedFact`: *arrived*, *delivered* or *failed*. Its key is the stop,
+   the route, the driver and that fact. A retried identical refusal still alerts once; another
+   driver's refusal, or another fact's, alerts again, and an arrival refused for a cancellation
+   alerts as an outcome does ([BR-90], [BR-135], [FR-157]). This amends [ADR-107], point 4.
+5. **An entitlement names the route's driver then and now, and only the current driver acts
+   directly.** `Entitlement.OnRoute` carries the revision in force at the report's corrected time,
+   that revision's driver of the route, and the route's driver now. `Delivery` refuses a driver's
+   arrival, *delivered* or *failed* from any account other than the driver then with
+   `StopNotOnYourRoute`, in the entitlement's place in [ADR-107]'s order of refusals. A report from
+   the driver then who no longer drives the route, as after a hand-over, is never recorded
+   directly: its *delivered* or *failed* is held for the dispatcher, whatever the account's
+   contacts ([BR-132], [BR-133], [BR-27]), and its arrival, which can't be held, is refused with
+   `StopNotOnYourRoute`. `RouteRun.start` takes the route's driver at the report's corrected time.
+   `RouteRun.finish` takes that driver and the route's current one, and `RouteRun.acknowledge` the
+   sender and the current driver; each refuses any other with `NotYourRoute`, before any other rule
+   ([BR-02], [BR-110], [FR-68], [FR-97], [FR-250], [FR-328], [FR-329]). This amends [ADR-107]'s
+   reading of the order of refusals.
 
 ### Readings this ADR settles
 
@@ -77,12 +102,16 @@ No document said these, and the implementation reads them so:
 - **`StopNotOnYourRoute` covers the handed-over driver too.** Its meaning, that the stop was not on
   the reporting driver's route at the report's time, already holds when the route had another
   driver, so no new code for `Delivery`. `RouteRun` has no stop to name, so it gets `NotYourRoute`.
-- **`RouteRun` takes the route's driver, not an `Entitlement`.** Starting or finishing a route is
+- **`RouteRun` takes the route's drivers, not an `Entitlement`.** Starting or finishing a route is
   about the route, not a stop. For a first stop report, the use case passes the driver the stop's
   `Entitlement` names.
-- **The refused-report alert names an outcome.** [BR-90] and [BR-135] show the dispatcher a
-  refused outcome. An arrival refused for a cancellation carries no outcome kind, so it has no
-  `ReportRefused` key. Whether such an arrival alerts at all is open: see Revisit when.
+- **A held former driver's report starts no run.** A run starts on a recorded first report, and a
+  held one is recorded only when the dispatcher confirms it ([DL §6.2][DL-62]). A driver's explicit
+  start, timed before the hand-over, is still judged by the driver then alone: only `finish` and
+  `acknowledge` ask for the current driver.
+- **The refused-report alert names a refused fact.** [BR-90] and [BR-135] show the dispatcher a
+  refused report. Live Operations' own `RefusedFact` names it, rather than the events package's
+  `OutcomeKind`, because an arrival is not an outcome.
 - **An erased reason states nothing exact.** Retention erases the text of *other* after 90 days
   ([ADR-107], point 5). A failure whose text was erased matches no reason in the correction's
   comparison, so a correction from one *other* text to another stays valid at rest once both texts
@@ -108,18 +137,25 @@ No document said these, and the implementation reads them so:
 - **Easy:** no module cycle. Planning keeps the call where its owner is, and the call is retried
   with the event, as for `OutcomeRecorded` ([ADR-064]).
 - **Easy:** every pending stop of a started route has a projected arrival, so its recipient gets
-  the three messages.
+  *out for delivery*; a skipped stop's recipient gets *arriving soon* and *time changed* once an
+  arrival is carried forward to it.
 - **Easy:** a dispatcher can fix a door flag or a typo in a reason, and each fix keeps the
   original beside it.
 - **Easy:** a dispatcher who acknowledged one refusal still sees another driver's.
-- **Easy:** after a hand-over, only the new driver reports on, starts and finishes the route.
+- **Easy:** after a hand-over, only the new driver's reports are recorded directly, and only the
+  new driver finishes the route or confirms its changes. A former driver's late outcome reaches the
+  dispatcher, who decides.
 - **Hard:** a skipped stop's projection ignores the delay the route has built up, so its message
   can be early. It is never earlier than now, and it moves once the stop has a fact or a later one
   anchors.
 - **Hard:** a refusal that a driver retries with another outcome alerts again.
+- **Hard:** a skipped stop's recipient hears no *arriving soon* until the driver's next report
+  carries an arrival to the stop, and may get none if the driver serves it next.
+- **Hard:** every late outcome a former driver sends after a hand-over waits for the dispatcher,
+  even one with no contact in [BR-133]'s window.
 - **Cost:** Planning's API for the superseded put-back, and Live Operations' listener that calls it,
   arrive with their milestones. The use cases must ask Planning for the route's driver at the
-  report's corrected time.
+  report's corrected time and for its driver now.
 - **Risk:** an operation that names more than 500 records fails its audit write, and with it the
   change. None does today.
 
@@ -138,14 +174,25 @@ No document said these, and the implementation reads them so:
   retries a refused report would alert on every retry.
 - **A separate `Delivery` error for a handed-over driver.** Not chosen: `StopNotOnYourRoute` already
   means it, and both apps translate one code.
+- **Send *arriving soon* and *time changed* on a planned arrival too.** Rejected: held at now, it is
+  always due and always moving, which is what sent both messages too early.
+- **Record a former driver's outcome timed before the hand-over, as [BR-27] reads alone.** Rejected:
+  the phone's clock is the report's only evidence of its time, so a backdated report would take a
+  stop off the new driver's route without anyone deciding.
+- **Hold a former driver's outcome only with a contact in [BR-133]'s window.** Not chosen: without
+  contact, the report would be recorded straight onto the new driver's route.
+- **Key a refused arrival on `OutcomeKind`, with a new constant.** Rejected: `OutcomeKind` is the
+  events' outcome, which an arrival is not, and `OutcomeRecorded` would then admit an arrival.
 - **Cut a device time to a bound instead of refusing it.** Not chosen: the corrected time would be
   a made-up instant that the dispatcher sees as a fact.
 
 ## Revisit when
 
 - Planning's API for the superseded put-back is built, and it needs a fact the event doesn't name.
-- Recipients of skipped stops complain that *out for delivery* came too early.
-- A dispatcher must be alerted to a refused arrival, which carries no outcome kind.
+- Recipients of skipped stops complain that *out for delivery* came too early, or that *arriving
+  soon* never came.
+- Dispatchers find most held reports after hand-overs are routine, and ask for some to be recorded
+  without them.
 - An operation must name more than 500 records, such as a bulk change across dates.
 
 [ADR-040]: ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md
@@ -161,22 +208,32 @@ No document said these, and the implementation reads them so:
 [BR-92]: ../requirements/requirements.md#orders-records-and-history
 [BR-110]: ../requirements/requirements.md#driver-reports-and-outcomes
 [BR-114]: ../requirements/requirements.md#driver-reports-and-outcomes
+[BR-132]: ../requirements/requirements.md#driver-reports-and-outcomes
+[BR-133]: ../requirements/requirements.md#driver-reports-and-outcomes
 [BR-135]: ../requirements/requirements.md#driver-reports-and-outcomes
 [DL-21]: ../architecture/domain_layer/domain_layer_design.md#21-module-graph
 [DL-23]: ../architecture/domain_layer/domain_layer_design.md#23-rules-between-contexts
+[DL-62]: ../architecture/domain_layer/domain_layer_design.md#62-commands
+[FR-68]: ../requirements/requirements.md#publishing-and-the-phone-app
+[FR-97]: ../requirements/requirements.md#publishing-and-the-phone-app
 [FR-157]: ../requirements/requirements.md#live-operations-and-re-optimization
+[FR-250]: ../requirements/requirements.md#publishing-and-the-phone-app
 [FR-253]: ../requirements/requirements.md#live-operations-and-re-optimization
 [FR-254]: ../requirements/requirements.md#live-operations-and-re-optimization
 [FR-258]: ../requirements/requirements.md#live-operations-and-re-optimization
 [FR-327]: ../requirements/requirements.md#publishing-and-the-phone-app
+[FR-328]: ../requirements/requirements.md#publishing-and-the-phone-app
+[FR-329]: ../requirements/requirements.md#publishing-and-the-phone-app
 [FR-333]: ../requirements/requirements.md#live-operations-and-re-optimization
 [FR-351]: ../requirements/requirements.md#messages-to-recipients
+[FR-352]: ../requirements/requirements.md#messages-to-recipients
 [FR-353]: ../requirements/requirements.md#messages-to-recipients
 [FR-356]: ../requirements/requirements.md#messages-to-recipients
 [FR-366]: ../requirements/requirements.md#publishing-and-the-phone-app
 [FR-367]: ../requirements/requirements.md#publishing-and-the-phone-app
 [FR-373]: ../requirements/requirements.md#messages-to-recipients
 [FR-374]: ../requirements/requirements.md#messages-to-recipients
+[FR-384]: ../requirements/requirements.md#messages-to-recipients
 [FR-404]: ../requirements/requirements.md#live-operations-and-re-optimization
 [NFR-04]: ../requirements/requirements.md#nfr-04
 [NFR-05]: ../requirements/requirements.md#nfr-05

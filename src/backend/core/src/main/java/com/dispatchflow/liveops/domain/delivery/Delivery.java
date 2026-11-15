@@ -196,13 +196,16 @@ public final class Delivery extends AggregateRoot implements PersonalData {
     /**
      * Records the driver's arrival (FR-29, BR-87). An arrival is never held (DL §9.3), and nothing
      * reacts to it alone (DL §7.4), so it raises no event. While a report is held it is recorded and
-     * the state stays *held* (BR-132).
+     * the state stays *held* (BR-132). An arrival from a driver the route was handed away from since
+     * is refused, even for a time before the hand-over, because an arrival can't be held and it
+     * would end the recipient's messages (FR-373, ADR-114).
      *
      * @param report who sent it, for which route, and when
      * @param entitlement Planning's answer for the report's route at its corrected time
      * @param where where the stop is now
      * @throws RuleViolation with {@link ReportAfterCancellation} when the report is timed at or after
-     *     a cancellation (BR-90), {@link StopNotOnYourRoute} (BR-02, BR-110, ADR-114), {@link
+     *     a cancellation (BR-90), {@link StopNotOnYourRoute} when the report's driver did not drive
+     *     the route then or does not drive it now (BR-02, BR-110, ADR-114), {@link
      *     ArrivalAfterOutcome} when an outcome stands, or {@link ArrivalAlreadyRecorded}, in that
      *     order
      */
@@ -211,7 +214,9 @@ public final class Delivery extends AggregateRoot implements PersonalData {
         Objects.requireNonNull(entitlement, "entitlement");
         Objects.requireNonNull(where, "where");
         refuseIfAfterCancellation(where, report.time());
-        requireEntitled(entitlement, report);
+        if (requireEntitled(entitlement, report).isHandedOverSince()) {
+            throw new RuleViolation(new StopNotOnYourRoute(stop, report.route()));
+        }
         if (!outcomes.isEmpty()) {
             throw new RuleViolation(new ArrivalAfterOutcome(stop));
         }
@@ -222,7 +227,9 @@ public final class Delivery extends AggregateRoot implements PersonalData {
     }
 
     /**
-     * Records a driver's *delivered* report, or holds it for a dispatcher (FR-29, BR-132).
+     * Records a driver's *delivered* report, or holds it for a dispatcher (FR-29, BR-132). A report
+     * from a driver the route was handed away from since is always held, whatever the contacts
+     * (ADR-114).
      *
      * @param report who sent it, for which route, and when
      * @param proof the proof sent with it (FR-30)
@@ -267,7 +274,9 @@ public final class Delivery extends AggregateRoot implements PersonalData {
     }
 
     /**
-     * Records a driver's *failed* report, or holds it for a dispatcher (FR-29, FR-242, BR-132).
+     * Records a driver's *failed* report, or holds it for a dispatcher (FR-29, FR-242, BR-132). A
+     * report from a driver the route was handed away from since is always held, whatever the
+     * contacts (ADR-114).
      *
      * @param report who sent it, for which route, and when
      * @param reason why it failed (BR-109)
@@ -515,12 +524,14 @@ public final class Delivery extends AggregateRoot implements PersonalData {
             Instant now) {
         CorrectedTime time = report.time();
         refuseIfAfterCancellation(check.where(), time);
-        RevisionNo revision = requireEntitled(entitlement, report);
+        Entitlement.OnRoute entitled = requireEntitled(entitlement, report);
+        RevisionNo revision = entitled.revision();
         refuseIfOutcomeStands(outcome);
         refuseIfOwnReportHeld(report, outcome);
         Optional<CancellationKind> overridden = check.where().cancelledAfter(time);
         boolean anyHeld = heldReports.stream().anyMatch(HeldReport::isOpen);
-        boolean hold = anyHeld ? !(check.where() instanceof StopWhereabouts.OnServingRoute) : check.holds(time);
+        boolean hold = entitled.isHandedOverSince()
+                || (anyHeld ? !(check.where() instanceof StopWhereabouts.OnServingRoute) : check.holds(time));
         if (hold) {
             List<HeldReport> next = new ArrayList<>(heldReports);
             next.add(new HeldReport(
@@ -597,10 +608,10 @@ public final class Delivery extends AggregateRoot implements PersonalData {
      * the revision in force at its corrected time, so a driver the route was handed away from can't
      * report on it past the hand-over (BR-02, BR-110, ADR-114).
      */
-    private RevisionNo requireEntitled(Entitlement entitlement, DriverReport report) {
+    private Entitlement.OnRoute requireEntitled(Entitlement entitlement, DriverReport report) {
         if (entitlement instanceof Entitlement.OnRoute onRoute
                 && onRoute.driver().equals(report.driver())) {
-            return onRoute.revision();
+            return onRoute;
         }
         throw new RuleViolation(new StopNotOnYourRoute(stop, report.route()));
     }

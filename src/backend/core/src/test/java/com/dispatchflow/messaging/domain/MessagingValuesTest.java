@@ -82,20 +82,21 @@ class MessagingValuesTest {
     void GivenAProjectionJustBelowHalfAQuarter_WhenRounded_ThenItGoesDown() {
         Instant projected = Instant.parse("2027-06-15T07:07:29.999Z");
 
-        assertThat(QuarterHour.nearest(new ProjectedArrival(projected)).at()).isEqualTo(TEN);
+        assertThat(QuarterHour.nearest(MessagingFixtures.projected(projected)).at())
+                .isEqualTo(TEN);
     }
 
     @Test
     void GivenAProjectionAtHalfAQuarter_WhenRounded_ThenItGoesUp() {
         Instant projected = Instant.parse("2027-06-15T07:07:30Z");
 
-        assertThat(QuarterHour.nearest(new ProjectedArrival(projected)).at())
+        assertThat(QuarterHour.nearest(MessagingFixtures.projected(projected)).at())
                 .isEqualTo(Instant.parse("2027-06-15T07:15:00Z"));
     }
 
     @Test
     void GivenAProjectionOnAQuarter_WhenRounded_ThenItStays() {
-        assertThat(QuarterHour.nearest(new ProjectedArrival(TEN)).at()).isEqualTo(TEN);
+        assertThat(QuarterHour.nearest(MessagingFixtures.projected(TEN)).at()).isEqualTo(TEN);
     }
 
     @Test
@@ -104,7 +105,7 @@ class MessagingValuesTest {
 
         assertThat(ten.windowStart()).isEqualTo(LocalTime.of(9, 30));
         assertThat(ten.windowEnd()).isEqualTo(LocalTime.of(10, 30));
-        assertThat(ten.distanceTo(new ProjectedArrival(TEN.minusSeconds(1_800))))
+        assertThat(ten.distanceTo(MessagingFixtures.projected(TEN.minusSeconds(1_800))))
                 .isEqualTo(Duration.ofMinutes(30));
     }
 
@@ -120,7 +121,7 @@ class MessagingValuesTest {
     @Test
     void GivenAProjectionOnTheDayTheClockMovesBack_WhenRoundedAndItsWindowRead_ThenItIsInWinterTime() {
         // Sunday 31 October 2027: the clock moved back from 02:00 to 01:00, so the day is UTC+2.
-        QuarterHour arrival = QuarterHour.nearest(new ProjectedArrival(Instant.parse("2027-10-31T08:07:30Z")));
+        QuarterHour arrival = QuarterHour.nearest(MessagingFixtures.projected(Instant.parse("2027-10-31T08:07:30Z")));
 
         assertThat(arrival.at()).isEqualTo(Instant.parse("2027-10-31T08:15:00Z"));
         assertThat(arrival.windowStart()).isEqualTo(LocalTime.of(9, 45));

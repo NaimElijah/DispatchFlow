@@ -205,7 +205,7 @@ class DeliveryRestoreTest {
                 Optional.of(PHOTO),
                 true,
                 LeaveAtDoor.ALLOWED,
-                new Entitlement.OnRoute(REV_1, DRIVER_A),
+                new Entitlement.OnRoute(REV_1, DRIVER_A, DRIVER_A),
                 LiveOpsFixtures.NO_HOLD,
                 HELD_1,
                 NOW);
@@ -227,7 +227,7 @@ class DeliveryRestoreTest {
                 Optional.of(PHOTO),
                 true,
                 LeaveAtDoor.ALLOWED,
-                new Entitlement.OnRoute(REV_1, DRIVER_A),
+                new Entitlement.OnRoute(REV_1, DRIVER_A, DRIVER_A),
                 LiveOpsFixtures.NO_HOLD,
                 HELD_1,
                 NOW);
@@ -243,7 +243,7 @@ class DeliveryRestoreTest {
         delivery.fail(
                 byA(ONLINE),
                 FailureReason.other("gate locked"),
-                new Entitlement.OnRoute(REV_1, DRIVER_A),
+                new Entitlement.OnRoute(REV_1, DRIVER_A, DRIVER_A),
                 LiveOpsFixtures.NO_HOLD,
                 HELD_1,
                 NOW);
@@ -273,7 +273,7 @@ class DeliveryRestoreTest {
         delivery.fail(
                 byA(ONLINE),
                 FailureReason.other("gate locked"),
-                new Entitlement.OnRoute(REV_1, DRIVER_A),
+                new Entitlement.OnRoute(REV_1, DRIVER_A, DRIVER_A),
                 LiveOpsFixtures.NO_HOLD,
                 HELD_1,
                 NOW);
@@ -289,7 +289,7 @@ class DeliveryRestoreTest {
         delivery.fail(
                 byA(ONLINE),
                 FailureReason.other("gate locked"),
-                new Entitlement.OnRoute(REV_1, DRIVER_A),
+                new Entitlement.OnRoute(REV_1, DRIVER_A, DRIVER_A),
                 LiveOpsFixtures.NO_HOLD,
                 HELD_1,
                 NOW);

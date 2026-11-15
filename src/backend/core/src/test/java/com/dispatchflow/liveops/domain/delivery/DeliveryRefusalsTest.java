@@ -69,7 +69,11 @@ class DeliveryRefusalsTest {
     private static final StopWhereabouts CANCELLED_AT_0800 =
             new StopWhereabouts.Cancelled(CancellationKind.ORDER_CANCELLED, T_0800);
     /** Route A held the stop at the report's time, but B drove it then: A had handed it over. */
-    private static final Entitlement HANDED_TO_B = new Entitlement.OnRoute(LiveOpsFixtures.REV_2, DRIVER_B);
+    private static final Entitlement HANDED_TO_B = new Entitlement.OnRoute(LiveOpsFixtures.REV_2, DRIVER_B, DRIVER_B);
+
+    /** Route A held the stop at the report's time with A driving it, but it is B's route now. */
+    private static final Entitlement HANDED_FROM_A_TO_B =
+            new Entitlement.OnRoute(LiveOpsFixtures.REV_1, LiveOpsFixtures.DRIVER_A, DRIVER_B);
 
     private static final StopWhereabouts RESCHEDULED_AT_0759 =
             new StopWhereabouts.Cancelled(CancellationKind.ORDER_RESCHEDULED, Instant.parse("2027-03-01T07:59:59Z"));
@@ -275,6 +279,11 @@ class DeliveryRefusalsTest {
                                 HELD_2,
                                 LATER),
                         new ReportAfterCancellation(STOP, CancellationKind.ORDER_CANCELLED)),
+                arguments(
+                        "arrive, from the driver the route was handed away from since, timed before the hand-over",
+                        fresh,
+                        (Consumer<Delivery>) d -> d.arrive(byA(LATE), HANDED_FROM_A_TO_B, SERVING),
+                        new StopNotOnYourRoute(STOP, ROUTE_A)),
                 arguments(
                         "arrive, after an outcome",
                         delivered,

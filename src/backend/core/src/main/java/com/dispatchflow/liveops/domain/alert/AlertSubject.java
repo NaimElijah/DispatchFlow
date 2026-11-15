@@ -2,8 +2,6 @@ package com.dispatchflow.liveops.domain.alert;
 
 import com.dispatchflow.liveops.domain.HeldReportId;
 import com.dispatchflow.liveops.domain.RevisionNo;
-import com.dispatchflow.liveops.domain.StartDeadline;
-import com.dispatchflow.liveops.events.OutcomeKind;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.AlertId;
 import com.dispatchflow.shared.PlanId;
@@ -245,16 +243,17 @@ public sealed interface AlertSubject {
 
     /**
      * A report refused and shown to the dispatcher (BR-90, BR-134, BR-135): one per stop, reporting
-     * route, reporting driver and refused outcome, so a retried refusal alerts once and a different
-     * driver's or a different outcome's refusal alerts again (ADR-107, ADR-114).
+     * route, reporting driver and refused fact, so a retried refusal alerts once and a different
+     * driver's or a different fact's refusal alerts again. An arrival refused for a cancellation
+     * alerts too (ADR-107, ADR-114).
      *
      * @param plan the plan
      * @param route the route the report came from
      * @param stop the stop
      * @param driver the driver who sent the report
-     * @param refused the outcome the report stated
+     * @param refused what the report stated: an arrival or an outcome
      */
-    record ReportRefused(PlanId plan, RouteId route, StopId stop, AccountId driver, OutcomeKind refused)
+    record ReportRefused(PlanId plan, RouteId route, StopId stop, AccountId driver, RefusedFact refused)
             implements AlertSubject {
 
         /** Checks every part is present. */

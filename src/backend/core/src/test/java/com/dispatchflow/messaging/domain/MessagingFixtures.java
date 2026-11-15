@@ -41,8 +41,14 @@ public final class MessagingFixtures {
         return TEN.plusSeconds(60L * minutesAfterTen);
     }
 
+    /** An arrival carried forward from what happened on the route. */
     public static ProjectedArrival projected(Instant at) {
-        return new ProjectedArrival(at);
+        return new ProjectedArrival(at, ProjectedArrival.Basis.CARRIED_FORWARD);
+    }
+
+    /** A skipped stop's planned arrival, which only follows the clock (ADR-114). */
+    public static ProjectedArrival planned(Instant at) {
+        return new ProjectedArrival(at, ProjectedArrival.Basis.PLANNED);
     }
 
     public static QuarterHour quarter(int minutesAfterTen) {

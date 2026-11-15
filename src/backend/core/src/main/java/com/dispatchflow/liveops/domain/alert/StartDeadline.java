@@ -1,4 +1,4 @@
-package com.dispatchflow.liveops.domain;
+package com.dispatchflow.liveops.domain.alert;
 
 import com.dispatchflow.shared.IsraelDateTime;
 import java.time.Duration;
