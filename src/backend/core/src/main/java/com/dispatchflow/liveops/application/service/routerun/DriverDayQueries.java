@@ -21,9 +21,8 @@ import com.dispatchflow.shared.application.Clock;
  * (FR-249) stays Planning's. A stop whose order was cancelled after it was served is not among the
  * uncancelled orders, so it has no coordinates; it has an outcome, so it needs no Navigate.
  *
- * <p>It also lists the driver's routes from today on, each with its date (FR-324). Planning's {@link
- * PublishedRoutes} reads one date at a time, so that read needs a new method of it: M5 adds {@code
- * PublishedRoutes.inForceFrom(DeliveryDate)}, the routes of every plan in force from a date on.
+ * <p>It also lists the driver's routes from today on, each with its date (FR-324), through
+ * Planning's {@code PublishedRoutes.inForceFrom}.
  *
  * <p>A driver sees only their own routes (BR-02, BR-41): the routes are those whose current driver
  * is the acting account, whatever the request names.

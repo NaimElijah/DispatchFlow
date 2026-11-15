@@ -117,20 +117,20 @@ public interface SessionRepository {
     void save(Session session);
 
     /**
-     * Writes a revocation that {@code Session.exchange} made, with no version check, so a version
-     * conflict never loses it (NFR-88). It moves a live session to revoked at {@code at}, as {@code
+     * Writes a revocation with no version check, so a version conflict never loses it: the one
+     * {@code Session.exchange} makes on a reused token (NFR-88), and a sign-out's (NFR-89). It moves a live session to revoked at {@code at}, as {@code
      * Session.revoke} does, and moves its version, so a concurrent save of a copy read before fails
      * its own check rather than writing the session live again. A session already revoked keeps its
-     * revocation. It writes nothing else: the rest of the refused exchange, the old tokens it
+     * revocation. It writes nothing else: the rest of a refused exchange, the old tokens it
      * dropped, is housekeeping a revoked session never needs.
      *
      * <p>No version check is needed because a session only ever moves from live to revoked, and
      * nothing un-revokes one, so the write can't overwrite a change it should have seen. A retry of
      * the whole exchange could meet a conflict each time, and lose the revocation in the end.
      *
-     * <p>Built in M6.
+     * <p>Built in M5, for sign-out; refresh uses it from M6.
      *
-     * @param session the session the exchange revoked
+     * @param session the session revoked
      * @param at when it was revoked
      */
     void writeRevocation(SessionId session, Instant at);

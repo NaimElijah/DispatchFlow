@@ -47,7 +47,7 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
   the kernel's domain types and every `events/`. Planning's packages are `plan`, `solution`,
   `basis`, `revision`, `reconciliation` and `settings`. The threshold applies to every source
   folder, so an application package above 30 files splits by aggregate too: Planning's `service` and
-  `port/out`, Access's `service` and Live Operations' `service` are split.
+  `port/out`, Access's `service`, and Live Operations' `service` and `port/out` are split.
 - `src/main/resources/db/migration/` holds the Flyway migrations, which [ADR-041] keeps from
   ADR-007.
 - `src/test/java/com/dispatchflow/` holds the tests, `TestcontainersConfiguration` (PostgreSQL

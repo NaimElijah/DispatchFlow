@@ -156,9 +156,10 @@ anywhere under its error's package.
 Each module also has an `application` package, declared ahead of its milestone and not built
 ([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)).
 It holds whichever of `api`, `spi`, `port/out` and `service` the module has something for: `access`,
-`audit` and `liveops` have no `spi`, and `messaging` and `reporting` have neither `api` nor `spi`. Every body that would do work throws
-`UnsupportedOperationException("Built in M<n>")`. Nothing is wired: no Spring annotation, no bean and
-no adapter, so no `adapter/` package exists yet. The ports every module uses sit in
+`audit` and `liveops` have no `spi`, and `messaging` and `reporting` have neither `api` nor `spi`.
+Every body that would do work throws `UnsupportedOperationException("Built in M<n>")`. Nothing is
+wired: the application layer carries no Spring annotation and registers no bean, and no adapter
+calls it, so no `adapter/` package exists yet. The ports every module uses sit in
 `shared/application`, and the caller is an `Actor` and a `CallContext`
 ([ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
 

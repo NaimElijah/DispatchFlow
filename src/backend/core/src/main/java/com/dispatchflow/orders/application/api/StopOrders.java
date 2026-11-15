@@ -7,7 +7,7 @@ import java.util.List;
 /**
  * The order details at stops (DL §2.2): Live Operations judges a stop's report by them and shows
  * them to the driver (FR-27, FR-86, FR-87, FR-135, FR-366), and Planning's {@code RouteQueries}
- * prints them on the printable route and the loading list (FR-72, FR-153). It answers many orders
+ * prints them on the printable route (FR-72). It answers many orders
  * in one read, so a driver's day costs one call.
  *
  * <p>Built in M5.

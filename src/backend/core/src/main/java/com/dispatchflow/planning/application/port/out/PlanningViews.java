@@ -130,6 +130,18 @@ public interface PlanningViews {
     List<PublishedRouteFact> routesInForceOn(DeliveryDate date);
 
     /**
+     * Every route of every plan in force from a date on, from each plan's current revision (FR-324,
+     * ADR-059).
+     *
+     * <p>Built in M5.
+     *
+     * @param from the first date
+     * @return the routes, by date and then in each plan's order; empty when no plan in force is that
+     *     late
+     */
+    List<PublishedRouteFact> routesInForceFrom(DeliveryDate from);
+
+    /**
      * One route of a plan in force, from its current revision.
      *
      * <p>Built in M5.

@@ -314,19 +314,19 @@ public final class Customer extends AggregateRoot implements PersonalData {
      * of its creation and its last order, counted in Israel's calendar (ADR-102). The defaults stay,
      * because they are not personal.
      *
-     * @param lastOrderDate the date of its last order, if it has any
+     * @param lastDeliveryDate the delivery date of its last order, if it has any
      * @param now the time of the retention job
      * @throws RuleViolation with {@link CustomerAnonymized} when already done, or with {@link
      *     RetentionNotOver}
      */
-    public void anonymize(Optional<DeliveryDate> lastOrderDate, Instant now) {
+    public void anonymize(Optional<DeliveryDate> lastDeliveryDate, Instant now) {
         boolean over = switch (state) {
             case State.Anonymized anonymized -> throw new RuleViolation(new CustomerAnonymized(id));
             case State.Retired retired ->
                 !now.isBefore(
                         retired.at().atZone(IsraelDateTime.ZONE).plus(RETENTION).toInstant());
             case State.Active active ->
-                !today(now).isBefore(lastActivity(lastOrderDate).plus(RETENTION));
+                !today(now).isBefore(lastActivity(lastDeliveryDate).plus(RETENTION));
         };
         if (!over) {
             throw new RuleViolation(new RetentionNotOver());
@@ -344,10 +344,10 @@ public final class Customer extends AggregateRoot implements PersonalData {
         return IsraelDateTime.at(now).date().value();
     }
 
-    /** The later of the day it was created and the date of its last order, in Israel. */
-    private LocalDate lastActivity(Optional<DeliveryDate> lastOrderDate) {
+    /** The later of the day it was created and its last order's delivery date, in Israel. */
+    private LocalDate lastActivity(Optional<DeliveryDate> lastDeliveryDate) {
         LocalDate created = today(createdAt);
-        return lastOrderDate
+        return lastDeliveryDate
                 .map(DeliveryDate::value)
                 .filter(last -> last.isAfter(created))
                 .orElse(created);

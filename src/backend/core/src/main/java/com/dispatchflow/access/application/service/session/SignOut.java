@@ -8,7 +8,6 @@ import com.dispatchflow.access.application.port.out.SessionRepository;
 import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.shared.application.Clock;
-import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * Signs a session out by its refresh token, which revokes it (NFR-89, FR-127): its tokens are
@@ -18,8 +17,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>The use case hashes the presented token through {@code SecretTokens.hashOf} and finds the
  * session through {@code SessionRepository.withRefreshToken}, which answers for any token the chain
- * keeps, current or not. It revokes that session through {@code Session.revoke}, whatever the
- * token's place in the chain. It removes the session's push address (NFR-263), evicts the session
+ * keeps, current or not. It revokes that session through {@code SessionRepository.writeRevocation},
+ * whatever the token's place in the chain: a session only ever moves from live to revoked, so the
+ * write needs no version check, and no concurrent change can make a sign-out fail. It removes the session's push address (NFR-263), evicts the session
  * from the revocation cache after its commit (ADR-045), and writes the audit record every sign-out
  * leaves (NFR-23), with the call's context completed by the account and the session it found.
  *
@@ -77,7 +77,6 @@ public final class SignOut {
      * @param refreshToken the refresh token the device presented
      * @param call the call's context: the client and the trace, and no user or session, since the
      *     call carries no access token (ADR-110)
-     * @throws StaleVersion when the session changed between its read and its save (BR-76)
      */
     public void signOut(PresentedToken refreshToken, CallContext call) {
         throw new UnsupportedOperationException("Built in M5");
