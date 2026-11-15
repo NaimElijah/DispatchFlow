@@ -360,7 +360,7 @@ class PlanPublishingTest {
     @Test
     void GivenAPlanWithoutRoutes_WhenPublishedWhileTheOptimizerIsDown_ThenItPublishesWithoutARecheck() {
         Plan plan = aPlan().solvedAs(ValidatedSolution.of(ValidationReport.of(
-                        List.of(), List.of(), List.of(dropped(O4, new DropReason.NoVehicleAvailable())))))
+                        List.of(), List.of(), List.of(dropped(O4, new DropReason.NoVehicleAvailable())), List.of())))
                 .ready();
         PublishingChecks checks = checksFor(plan);
 

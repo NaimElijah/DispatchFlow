@@ -8,6 +8,7 @@ import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.VehicleId;
 import java.time.Instant;
+import java.util.Objects;
 
 /**
  * A route moved to another driver (DL §7.2, FR-55). Planning's own listener moves the date's vehicle
@@ -31,4 +32,17 @@ public record RouteHandedOver(
         VehicleId vehicle,
         AccountId fromDriver,
         AccountId toDriver)
-        implements DomainEvent {}
+        implements DomainEvent {
+
+    /** Checks every part is present. */
+    public RouteHandedOver {
+        Objects.requireNonNull(eventId, "eventId");
+        Objects.requireNonNull(occurredAt, "occurredAt");
+        Objects.requireNonNull(plan, "plan");
+        Objects.requireNonNull(date, "date");
+        Objects.requireNonNull(route, "route");
+        Objects.requireNonNull(vehicle, "vehicle");
+        Objects.requireNonNull(fromDriver, "fromDriver");
+        Objects.requireNonNull(toDriver, "toDriver");
+    }
+}

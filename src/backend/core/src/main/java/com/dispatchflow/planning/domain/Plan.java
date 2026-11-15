@@ -48,10 +48,10 @@ import com.dispatchflow.planning.events.PlanPublished;
 import com.dispatchflow.planning.events.PlanRevised;
 import com.dispatchflow.planning.events.RevisionCause;
 import com.dispatchflow.planning.events.RouteHandedOver;
+import com.dispatchflow.planning.events.WithdrawalCause;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.AggregateRoot;
 import com.dispatchflow.shared.Attempt;
-import com.dispatchflow.shared.DaySeconds;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.FreshIds;
 import com.dispatchflow.shared.JobId;
@@ -176,6 +176,7 @@ public final class Plan extends AggregateRoot {
     private Status status;
     private @Nullable AppliedSolve applied;
     private Layout layout;
+    private List<ExcludedVehicle> excluded;
     private List<Violation> violations;
     private List<Edit> undo;
     private List<Edit> redo;
@@ -189,6 +190,7 @@ public final class Plan extends AggregateRoot {
         this.status = state.status();
         this.applied = state.applied().orElse(null);
         this.layout = new Layout(state.routes().stream().map(Route::from).toList(), state.dropped(), state.pins());
+        this.excluded = state.excluded();
         this.violations = state.violations();
         this.undo = state.undo();
         this.redo = state.redo();
@@ -223,6 +225,7 @@ public final class Plan extends AggregateRoot {
                 now,
                 new Status.Draft(),
                 Optional.empty(),
+                List.of(),
                 List.of(),
                 List.of(),
                 List.of(),
@@ -315,10 +318,10 @@ public final class Plan extends AggregateRoot {
     }
 
     /**
-     * Applies the result of the job the plan is solving for: its routes and drops replace the plan's,
-     * and the plan becomes ready (BR-15, BR-59). A result from any other job, or in any other state,
-     * changes nothing, so the listener's repeats are harmless; that includes an abandoned plan
-     * (ADR-101).
+     * Applies the result of the job the plan is solving for: its routes, drops and excluded vehicles
+     * replace the plan's, and the plan becomes ready (BR-15, BR-59, FR-197). A result from any other
+     * job, or in any other state, changes nothing, so the listener's repeats are harmless; that
+     * includes an abandoned plan (ADR-101).
      *
      * <p>A vehicle keeps its route's ID and index, an order and attempt keeps its stop's ID, and a
      * new vehicle takes the lowest free index (ADR-101). A locked route must come back as locked
@@ -327,7 +330,8 @@ public final class Plan extends AggregateRoot {
      * request counts as the request's time (ADR-112).
      *
      * @param job the ended job, whose result the plan applies
-     * @param ids new IDs for new routes and stops
+     * @param ids new IDs for new routes and stops: it draws at most one per route of the result and one
+     *     per stop of the result, so the use case supplies that many (ADR-112)
      * @param now when the plan applies it
      * @throws RuleViolation with {@link RouteLocked} when the result changes a locked route, {@link
      *     OrderAlreadyInPlan} (BR-07), or {@link VehicleAlreadyHasRoute} or {@link
@@ -358,6 +362,7 @@ public final class Plan extends AggregateRoot {
         commit(next().status(new Status.Ready())
                 .applied(new AppliedSolve(solving.pending(), appliedAt))
                 .layout(new Layout(carryLocks(placed), result.dropped(), layout.pins()))
+                .excluded(result.excluded())
                 .violations(List.of())
                 .clearingJournal());
     }
@@ -393,18 +398,7 @@ public final class Plan extends AggregateRoot {
         requireReady();
         requireNotPast(today);
         requireCurrentAndAvailable(evaluation);
-        Located from = locate(stop);
-        Route target = route(toRoute);
-        int last = from.route().id().equals(toRoute)
-                ? target.stops().size() - 1
-                : target.stops().size();
-        requirePosition(toRoute, position, last);
-        requireUnlocked(from.route());
-        requireUnlocked(target);
-        commitEdit(
-                layout.moving(from.stop(), toRoute, position),
-                evaluation,
-                new Edit.MovedStop(stop, from.route().id(), from.position(), toRoute, position));
+        commitEdit(moving(stop, toRoute, position), evaluation);
     }
 
     /**
@@ -420,14 +414,7 @@ public final class Plan extends AggregateRoot {
         requireReady();
         requireNotPast(today);
         requireCurrentAndAvailable(evaluation);
-        Located at = locate(stop);
-        requireUnlocked(at.route());
-        PlannedStop taken = at.stop();
-        commitEdit(
-                takingOff(layout, taken),
-                evaluation,
-                new Edit.TookOff(
-                        stop, taken.order(), taken.attempt(), at.route().id(), at.position(), taken.plan()));
+        commitEdit(takingOff(stop), evaluation);
     }
 
     /**
@@ -456,20 +443,7 @@ public final class Plan extends AggregateRoot {
         requireReady();
         requireNotPast(today);
         requireCurrentAndAvailable(evaluation);
-        StopKey key = new StopKey(order, attempt);
-        DroppedOrder drop = layout.drop(key).orElseThrow(() -> new RuleViolation(new OrderNotDropped(order, attempt)));
-        if (drop.reason().isAboutLocation()) {
-            throw new RuleViolation(new OrderNotRoutable(order));
-        }
-        Route target = route(toRoute);
-        requirePosition(toRoute, position, target.stops().size());
-        requireUnlocked(target);
-        Layout after = layout.without(key)
-                .inserting(
-                        toRoute,
-                        position,
-                        new PlannedStop(newStop, order, attempt, Optional.empty(), Optional.empty()));
-        commitEdit(after, evaluation, new Edit.Placed(order, attempt, newStop, toRoute, position, drop.reason()));
+        commitEdit(placing(order, attempt, toRoute, position, newStop), evaluation);
     }
 
     /**
@@ -557,12 +531,10 @@ public final class Plan extends AggregateRoot {
     public void undo(Evaluation evaluation, LocalDate today) {
         requireReady();
         requireNotPast(today);
-        if (undo.isEmpty()) {
-            throw new RuleViolation(new NothingToUndo());
-        }
+        Layout undone = undone();
         requireCurrentAndAvailable(evaluation);
         Edit last = undo.get(undo.size() - 1);
-        Layout judged = reverted(last).judgedBy(evaluation, version(), true);
+        Layout judged = undone.judgedBy(evaluation, version(), true);
         commit(next().layout(judged)
                 .violations(evaluation.violations())
                 .undo(undo.subList(0, undo.size() - 1))
@@ -580,12 +552,10 @@ public final class Plan extends AggregateRoot {
     public void redo(Evaluation evaluation, LocalDate today) {
         requireReady();
         requireNotPast(today);
-        if (redo.isEmpty()) {
-            throw new RuleViolation(new NothingToRedo());
-        }
+        Layout redone = redone();
         requireCurrentAndAvailable(evaluation);
         Edit last = redo.get(redo.size() - 1);
-        Layout judged = reapplied(last).judgedBy(evaluation, version(), true);
+        Layout judged = redone.judgedBy(evaluation, version(), true);
         commit(next().layout(judged)
                 .violations(evaluation.violations())
                 .redo(redo.subList(0, redo.size() - 1))
@@ -641,10 +611,10 @@ public final class Plan extends AggregateRoot {
     }
 
     /**
-     * Accepts a re-optimization: its routes and drops replace the plan's, as a new revision that cites
-     * it (FR-36, BR-62, ADR-056). It takes the proposal itself, which only a succeeded job or
-     * persistence builds, so only a validated solution reaches the plan (BR-15). Raises {@link
-     * PlanRevised}.
+     * Accepts a re-optimization: its routes, drops and excluded vehicles replace the plan's, as a new
+     * revision that cites it (FR-36, BR-62, ADR-056, FR-197). It takes the proposal itself, which only
+     * a succeeded job or persistence builds, so only a validated solution reaches the plan (BR-15).
+     * Raises {@link PlanRevised}.
      *
      * <p>A proposal holds no stop already reported done or in progress (BR-10, BR-108), so every route
      * of the plan in force stays, and keeps the stops the proposal neither serves nor drops ahead of
@@ -665,11 +635,13 @@ public final class Plan extends AggregateRoot {
      * </ul>
      *
      * <p>A stop reported since the basis stands when the route as accepted keeps it on its vehicle
-     * after the same stops (BR-83, ADR-101).
+     * after the same stops (BR-83, ADR-101). {@link PlanRevised} names each vehicle newly withdrawn
+     * with its cause, and the orders the plan held under no attempt before (FR-39, FR-271, ADR-112).
      *
      * @param proposal the proposal
      * @param changes what was recorded since its basis
-     * @param ids new IDs for new routes and stops
+     * @param ids new IDs for new routes and stops: it draws at most one per route of the proposal and
+     *     one per stop of the proposal, so the use case supplies that many (ADR-112)
      * @param by who accepts it
      * @param today the current date in {@code Asia/Jerusalem}
      * @param now the time of acceptance
@@ -738,20 +710,21 @@ public final class Plan extends AggregateRoot {
         Layout after = new Layout(next, offer.dropped(), layout.pins());
         requireEachOrderOnce(after);
         requireNothingLost(offer.id(), after);
-        List<VehicleId> newlyWithdrawn = next.stream()
-                .filter(route -> route.withdrawn()
-                        && before.stream().noneMatch(old -> old.id().equals(route.id()) && old.withdrawn()))
-                .map(Route::vehicle)
+        List<VehicleWithdrawal> newlyWithdrawn = next.stream()
+                .filter(route -> before.stream().noneMatch(old -> old.id().equals(route.id()) && old.withdrawn()))
+                .flatMap(route -> route.withdrawal().stream()
+                        .map(withdrawal -> new VehicleWithdrawal(route.vehicle(), withdrawal.cause())))
                 .toList();
         List<RouteId> changed = changedRoutes(before, next);
         revise(
-                next().layout(after).violations(List.of()),
+                next().layout(after).excluded(offer.excluded()).violations(List.of()),
                 RevisionCause.REOPTIMIZATION_ACCEPTED,
                 Optional.of(offer.id()),
                 Optional.of(by),
                 now,
                 changed,
-                newlyWithdrawn);
+                newlyWithdrawn,
+                addedOrders(after));
     }
 
     /**
@@ -789,26 +762,15 @@ public final class Plan extends AggregateRoot {
         requirePublished();
         requireNotPast(today);
         Route current = route(route);
-        if (current.withdrawn()) {
-            throw new RuleViolation(new RouteWithdrawn(route));
-        }
-        evaluation.ifPresent(this::requireCurrent);
         AccountId driver = standing.driver();
+        Layout after = handingOver(route, driver);
+        evaluation.ifPresent(this::requireCurrent);
         if (!standing.activeDriver()) {
             throw new RuleViolation(new NotAnActiveDriver(driver));
         }
         if (!standing.available()) {
             throw new RuleViolation(new DriverNotAvailable(driver));
         }
-        Optional<Route> driving = layout.routes().stream()
-                .filter(candidate ->
-                        !candidate.withdrawn() && candidate.driver().equals(driver))
-                .findFirst();
-        if (driving.isPresent()) {
-            throw new RuleViolation(
-                    new DriverAlreadyHasRoute(driver, driving.get().id()));
-        }
-        Layout after = layout.changing(route, handed -> handed.withDriver(driver));
         List<Violation> nextViolations = violations;
         Optional<Evaluation> judging = evaluation.filter(Evaluation::available);
         if (judging.isPresent()) {
@@ -818,7 +780,7 @@ public final class Plan extends AggregateRoot {
             if (breaks && !breakConfirmed) {
                 throw new RuleViolation(new BreakNotConfirmed(route, driver));
             }
-            Optional<DaySeconds> confirmed = breaks ? judged.returnOf(route) : Optional.empty();
+            Optional<SolveTime> confirmed = breaks ? judged.returnOf(route) : Optional.empty();
             after = after.changing(route, handed -> handed.withConfirmedReturn(confirmed));
             nextViolations = judged.violations().stream()
                     .filter(violation -> !(breaks
@@ -837,6 +799,7 @@ public final class Plan extends AggregateRoot {
                 Optional.of(by),
                 now,
                 List.of(route),
+                List.of(),
                 List.of());
         AccountId from = current.driver();
         raise(
@@ -877,6 +840,7 @@ public final class Plan extends AggregateRoot {
                     Optional.empty(),
                     now,
                     removal.get().changed(),
+                    List.of(),
                     List.of());
         }
     }
@@ -959,6 +923,7 @@ public final class Plan extends AggregateRoot {
                 Optional.empty(),
                 now,
                 changedInOrder,
+                List.of(),
                 List.of());
         return reconciliation;
     }
@@ -1058,6 +1023,105 @@ public final class Plan extends AggregateRoot {
     }
 
     /**
+     * The plan's routes, drops and pins as they are, which an evaluation for the publishing re-check
+     * or the route check must describe (FR-395, BR-21).
+     *
+     * @return the layout, without times
+     */
+    public PlanLayout layout() {
+        return layout.view();
+    }
+
+    /**
+     * The plan as {@link #moveStop} would leave it, for the evaluation that command takes (ADR-101
+     * point 15, DL §6.3). It changes nothing, and the command leaves exactly this layout (ADR-112).
+     *
+     * @param stop the stop
+     * @param toRoute the route it goes to
+     * @param position its position there, from 0, counted in the route without it
+     * @return the layout after the move
+     * @throws RuleViolation with {@link PlanNotReady}, {@link StopNotInPlan}, {@link RouteNotInPlan},
+     *     {@link PositionOutOfRange}, or {@link RouteLocked} for either route, as the command would
+     */
+    public PlanLayout afterMove(StopId stop, RouteId toRoute, int position) {
+        requireReady();
+        return moving(stop, toRoute, position).after().view();
+    }
+
+    /**
+     * The plan as {@link #takeOffRoute} would leave it, for the evaluation that command takes. It
+     * changes nothing, and the command leaves exactly this layout (ADR-112).
+     *
+     * @param stop the stop
+     * @return the layout with the stop dropped, as removed by the dispatcher
+     * @throws RuleViolation with {@link PlanNotReady}, {@link StopNotInPlan}, or {@link RouteLocked},
+     *     as the command would
+     */
+    public PlanLayout afterTakeOff(StopId stop) {
+        requireReady();
+        return takingOff(stop).after().view();
+    }
+
+    /**
+     * The plan as {@link #placeDropped} would leave it, for the evaluation that command takes. It
+     * changes nothing, and the command leaves exactly this layout (ADR-112).
+     *
+     * @param order the order
+     * @param attempt its attempt
+     * @param toRoute the route
+     * @param position its position there, from 0
+     * @param newStop the new stop's ID, which the command must then be given
+     * @return the layout with the order on the route
+     * @throws RuleViolation with {@link PlanNotReady}, {@link OrderNotDropped}, {@link
+     *     OrderNotRoutable}, {@link RouteNotInPlan}, {@link PositionOutOfRange}, or {@link
+     *     RouteLocked}, as the command would
+     */
+    public PlanLayout afterPlacing(OrderId order, Attempt attempt, RouteId toRoute, int position, StopId newStop) {
+        requireReady();
+        return placing(order, attempt, toRoute, position, newStop).after().view();
+    }
+
+    /**
+     * The plan as {@link #undo} would leave it, for the evaluation that command takes. It changes
+     * nothing, and the command leaves exactly this layout (ADR-112).
+     *
+     * @return the layout with the last edit undone
+     * @throws RuleViolation with {@link PlanNotReady} or {@link NothingToUndo}, as the command would
+     */
+    public PlanLayout afterUndo() {
+        requireReady();
+        return undone().view();
+    }
+
+    /**
+     * The plan as {@link #redo} would leave it, for the evaluation that command takes. It changes
+     * nothing, and the command leaves exactly this layout (ADR-112).
+     *
+     * @return the layout with the last undone edit made again
+     * @throws RuleViolation with {@link PlanNotReady} or {@link NothingToRedo}, as the command would
+     */
+    public PlanLayout afterRedo() {
+        requireReady();
+        return redone().view();
+    }
+
+    /**
+     * The plan as {@link #handOver} would leave it, for the evaluation that command takes; the
+     * validator judges it with the vehicle rostered to the new driver (ADR-112). It changes nothing,
+     * and the command leaves exactly this layout.
+     *
+     * @param route the route
+     * @param driver the new driver
+     * @return the layout with the route handed to the driver
+     * @throws RuleViolation with {@link PlanNotPublished}, {@link RouteNotInPlan}, {@link
+     *     RouteWithdrawn}, or {@link DriverAlreadyHasRoute} (FR-302), as the command would
+     */
+    public PlanLayout afterHandOver(RouteId route, AccountId driver) {
+        requirePublished();
+        return handingOver(route, driver).view();
+    }
+
+    /**
      * The plan's ID.
      *
      * @return the ID
@@ -1090,7 +1154,7 @@ public final class Plan extends AggregateRoot {
      * @return a snapshot that {@link #restore} rebuilds
      */
     public PlanSnapshot snapshot() {
-        return snapshotOf(status, applied, layout, violations, undo, redo);
+        return snapshotOf(status, applied, layout, excluded, violations, undo, redo);
     }
 
     // ---- The one commit point ------------------------------------------------------------------
@@ -1101,6 +1165,7 @@ public final class Plan extends AggregateRoot {
         private Status status = Plan.this.status;
         private @Nullable AppliedSolve applied = Plan.this.applied;
         private Layout layout = Plan.this.layout;
+        private List<ExcludedVehicle> excluded = Plan.this.excluded;
         private List<Violation> violations = Plan.this.violations;
         private List<Edit> undo = Plan.this.undo;
         private List<Edit> redo = Plan.this.redo;
@@ -1117,6 +1182,11 @@ public final class Plan extends AggregateRoot {
 
         Next layout(Layout next) {
             this.layout = next;
+            return this;
+        }
+
+        Next excluded(List<ExcludedVehicle> next) {
+            this.excluded = List.copyOf(next);
             return this;
         }
 
@@ -1157,8 +1227,8 @@ public final class Plan extends AggregateRoot {
      * here is a bug in the command, not a refusal.
      */
     private void commit(Next next) {
-        PlanSnapshot candidate =
-                snapshotOf(next.status, next.applied, next.layout, next.violations, next.undo, next.redo);
+        PlanSnapshot candidate = snapshotOf(
+                next.status, next.applied, next.layout, next.excluded, next.violations, next.undo, next.redo);
         Optional<String> broken = PlanInvariants.brokenBy(candidate);
         if (broken.isPresent()) {
             throw new AssertionError("a plan command would leave a state that breaks: " + broken.get());
@@ -1166,6 +1236,7 @@ public final class Plan extends AggregateRoot {
         status = next.status;
         applied = next.applied;
         layout = next.layout;
+        excluded = next.excluded;
         violations = next.violations;
         undo = next.undo;
         redo = next.redo;
@@ -1175,6 +1246,7 @@ public final class Plan extends AggregateRoot {
             Status state,
             @Nullable AppliedSolve solve,
             Layout routes,
+            List<ExcludedVehicle> leftOut,
             List<Violation> open,
             List<Edit> undone,
             List<Edit> redone) {
@@ -1187,6 +1259,7 @@ public final class Plan extends AggregateRoot {
                 Optional.ofNullable(solve),
                 routes.routes().stream().map(Route::snapshot).toList(),
                 routes.dropped(),
+                leftOut,
                 routes.pins(),
                 open,
                 undone,
@@ -1309,10 +1382,89 @@ public final class Plan extends AggregateRoot {
 
     // ---- Edits ---------------------------------------------------------------------------------
 
-    private void commitEdit(Layout after, Evaluation evaluation, Edit edit) {
-        commit(next().layout(after.judgedBy(evaluation, version(), true))
+    /** The layout an edit leaves, and the journal entry that undoes it. */
+    private record EditedLayout(Layout after, Edit edit) {}
+
+    private void commitEdit(EditedLayout edited, Evaluation evaluation) {
+        commit(next().layout(edited.after().judgedBy(evaluation, version(), true))
                 .violations(evaluation.violations())
-                .journaling(edit));
+                .journaling(edited.edit()));
+    }
+
+    /** {@link #moveStop}'s change, which {@link #afterMove} also returns, so the two can't differ. */
+    private EditedLayout moving(StopId stop, RouteId toRoute, int position) {
+        Located from = locate(stop);
+        Route target = route(toRoute);
+        int last = from.route().id().equals(toRoute)
+                ? target.stops().size() - 1
+                : target.stops().size();
+        requirePosition(toRoute, position, last);
+        requireUnlocked(from.route());
+        requireUnlocked(target);
+        return new EditedLayout(
+                layout.moving(from.stop(), toRoute, position),
+                new Edit.MovedStop(stop, from.route().id(), from.position(), toRoute, position));
+    }
+
+    /** {@link #takeOffRoute}'s change, which {@link #afterTakeOff} also returns. */
+    private EditedLayout takingOff(StopId stop) {
+        Located at = locate(stop);
+        requireUnlocked(at.route());
+        PlannedStop taken = at.stop();
+        return new EditedLayout(
+                takingOff(layout, taken),
+                new Edit.TookOff(
+                        stop, taken.order(), taken.attempt(), at.route().id(), at.position(), taken.plan()));
+    }
+
+    /** {@link #placeDropped}'s change, which {@link #afterPlacing} also returns. */
+    private EditedLayout placing(OrderId order, Attempt attempt, RouteId toRoute, int position, StopId newStop) {
+        StopKey key = new StopKey(order, attempt);
+        DroppedOrder drop = layout.drop(key).orElseThrow(() -> new RuleViolation(new OrderNotDropped(order, attempt)));
+        if (drop.reason().isAboutLocation()) {
+            throw new RuleViolation(new OrderNotRoutable(order));
+        }
+        Route target = route(toRoute);
+        requirePosition(toRoute, position, target.stops().size());
+        requireUnlocked(target);
+        Layout after = layout.without(key)
+                .inserting(
+                        toRoute,
+                        position,
+                        new PlannedStop(newStop, order, attempt, Optional.empty(), Optional.empty()));
+        return new EditedLayout(after, new Edit.Placed(order, attempt, newStop, toRoute, position, drop.reason()));
+    }
+
+    /** {@link #undo}'s layout, which {@link #afterUndo} also returns. */
+    private Layout undone() {
+        if (undo.isEmpty()) {
+            throw new RuleViolation(new NothingToUndo());
+        }
+        return reverted(undo.get(undo.size() - 1));
+    }
+
+    /** {@link #redo}'s layout, which {@link #afterRedo} also returns. */
+    private Layout redone() {
+        if (redo.isEmpty()) {
+            throw new RuleViolation(new NothingToRedo());
+        }
+        return reapplied(redo.get(redo.size() - 1));
+    }
+
+    /** {@link #handOver}'s layout before it is judged, which {@link #afterHandOver} also returns. */
+    private Layout handingOver(RouteId route, AccountId driver) {
+        if (route(route).withdrawn()) {
+            throw new RuleViolation(new RouteWithdrawn(route));
+        }
+        Optional<Route> driving = layout.routes().stream()
+                .filter(candidate ->
+                        !candidate.withdrawn() && candidate.driver().equals(driver))
+                .findFirst();
+        if (driving.isPresent()) {
+            throw new RuleViolation(
+                    new DriverAlreadyHasRoute(driver, driving.get().id()));
+        }
+        return layout.changing(route, handed -> handed.withDriver(driver));
     }
 
     private void commitPinEdit(Layout after, Evaluation evaluation, Edit edit) {
@@ -1391,7 +1543,8 @@ public final class Plan extends AggregateRoot {
             Optional<AccountId> by,
             Instant now,
             List<RouteId> changed,
-            List<VehicleId> withdrawn) {
+            List<VehicleWithdrawal> withdrawn,
+            List<OrderId> added) {
         RevisionNo number;
         if (status instanceof Status.Published published) {
             number = published.revision().next();
@@ -1405,10 +1558,14 @@ public final class Plan extends AggregateRoot {
         commit(change);
         pendingRevision = revisionOf(number, cause, proposal, by, now);
         int revision = number.value();
+        List<VehicleId> vehicles =
+                withdrawn.stream().map(VehicleWithdrawal::vehicle).toList();
+        List<WithdrawalCause> causes =
+                withdrawn.stream().map(VehicleWithdrawal::cause).toList();
         raise(
                 PlanRevised.class,
                 id.value(),
-                eventId -> new PlanRevised(eventId, now, id, date, revision, cause, changed, withdrawn));
+                eventId -> new PlanRevised(eventId, now, id, date, revision, cause, changed, vehicles, causes, added));
     }
 
     private PlanRevision revisionOf(
@@ -1472,7 +1629,7 @@ public final class Plan extends AggregateRoot {
             List<PlannedStop> allStops = new ArrayList<>(kept.map(keptOf).orElse(List.of()));
             allStops.addAll(stops);
             RouteId routeId = kept.map(Route::id).orElseGet(() -> RouteId.of(ids.next()));
-            Optional<DaySeconds> confirmed =
+            Optional<SolveTime> confirmed =
                     kept.filter(old -> old.driver().equals(route.driver())).flatMap(Route::confirmedReturn);
             provisional.add(new Route(
                     routeId,
@@ -1626,6 +1783,21 @@ public final class Plan extends AggregateRoot {
                 throw new RuleViolation(new ProposalLosesOrder(proposal, key.order(), key.attempt()));
             }
         }
+    }
+
+    /**
+     * The orders an acceptance puts into the plan that it held under no attempt before, in plan order
+     * (FR-39, ADR-112). A later attempt of an order the plan held is not an added order.
+     */
+    private List<OrderId> addedOrders(Layout after) {
+        Set<OrderId> held = new HashSet<>();
+        layout.keys().forEach(key -> held.add(key.order()));
+        Set<OrderId> added = new LinkedHashSet<>();
+        after.keys().stream()
+                .map(StopKey::order)
+                .filter(order -> !held.contains(order))
+                .forEach(added::add);
+        return List.copyOf(added);
     }
 
     /**

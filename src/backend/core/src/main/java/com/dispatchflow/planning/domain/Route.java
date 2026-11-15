@@ -1,7 +1,6 @@
 package com.dispatchflow.planning.domain;
 
 import com.dispatchflow.shared.AccountId;
-import com.dispatchflow.shared.DaySeconds;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.VehicleId;
@@ -20,8 +19,8 @@ record Route(
         Optional<RouteLock> lock,
         CheckState check,
         Optional<Withdrawal> withdrawal,
-        Optional<DaySeconds> confirmedReturn,
-        RoutePlan plan,
+        Optional<SolveTime> confirmedReturn,
+        Optional<RoutePlan> plan,
         List<PlannedStop> stops) {
 
     Route {
@@ -70,7 +69,7 @@ record Route(
         return new Route(id, index, vehicle, driver, lock, newCheck, withdrawal, confirmedReturn, plan, stops);
     }
 
-    Route withConfirmedReturn(Optional<DaySeconds> newReturn) {
+    Route withConfirmedReturn(Optional<SolveTime> newReturn) {
         return new Route(id, index, vehicle, driver, lock, check, withdrawal, newReturn, plan, stops);
     }
 
@@ -82,7 +81,7 @@ record Route(
         return new Route(id, newIndex, vehicle, driver, lock, check, withdrawal, confirmedReturn, plan, stops);
     }
 
-    Route withPlan(RoutePlan newPlan) {
+    Route withPlan(Optional<RoutePlan> newPlan) {
         return new Route(id, index, vehicle, driver, lock, check, withdrawal, confirmedReturn, newPlan, stops);
     }
 

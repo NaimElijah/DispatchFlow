@@ -8,7 +8,8 @@ import java.util.Objects;
 /**
  * Why an order is unserved, with the fact that caused it (FR-18, FR-144). It is FR-223's full list,
  * in the order the optimizer tests it (ADR-053, as ADR-100 amends it), and it mirrors the Python
- * {@code drops.py}, which alone decides the reason (BR-42).
+ * {@code drops.py}, which alone decides the reason (BR-42). A fact's limit lies in the day, but the
+ * time compared with it is never capped, so it may pass the date's end (ADR-112, ADR-113).
  */
 public sealed interface DropReason {
 
@@ -27,7 +28,9 @@ public sealed interface DropReason {
 
     /**
      * No vehicle can drive a route on the date at all, for example because every depot lacks
-     * coordinates (FR-197, ADR-100). It comes before every per-vehicle test.
+     * coordinates (FR-197, ADR-100). It comes before every per-vehicle test. Its fact is the date's
+     * vehicle exclusions, which the solve's result and the plan hold, so it carries no field
+     * (ADR-112).
      */
     record NoVehicleAvailable() implements DropReason {}
 
@@ -77,9 +80,9 @@ public sealed interface DropReason {
      * reason for a leave-at-door order (BR-121).
      *
      * @param windowEnd when the order's window ends
-     * @param earliestArrival the earliest such arrival
+     * @param earliestArrival the earliest such arrival, possibly past the date's end
      */
-    record TimeWindow(DaySeconds windowEnd, DaySeconds earliestArrival) implements DropReason {
+    record TimeWindow(DaySeconds windowEnd, SolveTime earliestArrival) implements DropReason {
 
         /** Checks both times are present. */
         public TimeWindow {
@@ -92,9 +95,10 @@ public sealed interface DropReason {
      * Depot to order to depot fits no vehicle's driver's shift (BR-06, BR-105, BR-119).
      *
      * @param latestReturn the binding limit: the shift end, less the break reserve where one applies
-     * @param earliestReturn the earliest return, serving the order alone
+     * @param earliestReturn the earliest return, serving the order alone, possibly past the date's
+     *     end
      */
-    record Shift(DaySeconds latestReturn, DaySeconds earliestReturn) implements DropReason {
+    record Shift(DaySeconds latestReturn, SolveTime earliestReturn) implements DropReason {
 
         /** Checks both times are present. */
         public Shift {
@@ -107,9 +111,10 @@ public sealed interface DropReason {
      * Depot to order to depot doesn't fit before the end depot closes (FR-195, BR-46).
      *
      * @param depotCloses when the end depot closes
-     * @param earliestReturn the earliest return, serving the order alone
+     * @param earliestReturn the earliest return, serving the order alone, possibly past the date's
+     *     end
      */
-    record DepotHours(DaySeconds depotCloses, DaySeconds earliestReturn) implements DropReason {
+    record DepotHours(DaySeconds depotCloses, SolveTime earliestReturn) implements DropReason {
 
         /** Checks both times are present. */
         public DepotHours {

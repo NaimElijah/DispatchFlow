@@ -249,7 +249,10 @@ class SolveJobTest {
     void GivenADailySolutionServingAnOrderTwice_WhenTheJobSucceeds_ThenOrderAlreadyInPlan() {
         SolveJob job = aJob().running();
         ValidatedSolution twice = ValidatedSolution.of(ValidationReport.of(
-                List.of(), List.of(solved(V1, D1, O1), solved(V2, D2, O2)), List.of(dropped(O1, DISPLACED))));
+                List.of(),
+                List.of(solved(V1, D1, O1), solved(V2, D2, O2)),
+                List.of(dropped(O1, DISPLACED)),
+                List.of()));
 
         assertJobRefused(job, () -> job.succeed(twice, SEARCH.plusSeconds(1)), new OrderAlreadyInPlan(O1, FIRST));
     }
@@ -258,7 +261,7 @@ class SolveJobTest {
     void GivenADailySolutionGivingAVehicleTwoRoutes_WhenTheJobSucceeds_ThenVehicleRoutedTwice() {
         SolveJob job = aJob().running();
         ValidatedSolution twice = ValidatedSolution.of(
-                ValidationReport.of(List.of(), List.of(solved(V1, D1, O1), solved(V1, D2, O2)), List.of()));
+                ValidationReport.of(List.of(), List.of(solved(V1, D1, O1), solved(V1, D2, O2)), List.of(), List.of()));
 
         assertJobRefused(job, () -> job.succeed(twice, SEARCH.plusSeconds(1)), new VehicleRoutedTwice(V1));
     }
@@ -267,7 +270,7 @@ class SolveJobTest {
     void GivenADailySolutionPuttingADriverOnTwoRoutes_WhenTheJobSucceeds_ThenDriverRoutedTwice() {
         SolveJob job = aJob().running();
         ValidatedSolution twice = ValidatedSolution.of(
-                ValidationReport.of(List.of(), List.of(solved(V1, D1, O1), solved(V2, D1, O2)), List.of()));
+                ValidationReport.of(List.of(), List.of(solved(V1, D1, O1), solved(V2, D1, O2)), List.of(), List.of()));
 
         assertJobRefused(job, () -> job.succeed(twice, SEARCH.plusSeconds(1)), new DriverRoutedTwice(D1));
     }

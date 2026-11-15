@@ -40,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dispatchflow.planning.events.Lane;
+import com.dispatchflow.planning.events.WithdrawalCause;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.JobId;
 import com.dispatchflow.shared.ProposalId;
@@ -196,7 +197,8 @@ class PlanRestoreTest {
         ValidatedSolution solution = ValidatedSolution.of(ValidationReport.of(
                 List.of(),
                 List.of(solved(V1, D1), solved(V2, D2, O3, O2)),
-                List.of(dropped(O4, new DropReason.Displaced()), dropped(O5, new DropReason.MissingLocation()))));
+                List.of(dropped(O4, new DropReason.Displaced()), dropped(O5, new DropReason.MissingLocation())),
+                List.of()));
         ReoptimizationProposal proposal = job.succeed(
                 ProposalId.of(uuid(61)),
                 reoptimizationResult(solution, new VehicleWithdrawal(V1, WithdrawalCause.VEHICLE_UNAVAILABLE)),
@@ -579,6 +581,7 @@ class PlanRestoreTest {
                     s.applied(),
                     s.routes(),
                     s.dropped(),
+                    s.excluded(),
                     s.pins(),
                     s.violations(),
                     s.undo(),
@@ -596,6 +599,7 @@ class PlanRestoreTest {
                     applied,
                     s.routes(),
                     s.dropped(),
+                    s.excluded(),
                     s.pins(),
                     s.violations(),
                     s.undo(),
@@ -613,6 +617,7 @@ class PlanRestoreTest {
                     s.applied(),
                     routes,
                     s.dropped(),
+                    s.excluded(),
                     s.pins(),
                     s.violations(),
                     s.undo(),
@@ -634,6 +639,7 @@ class PlanRestoreTest {
                     s.applied(),
                     s.routes(),
                     dropped,
+                    s.excluded(),
                     s.pins(),
                     s.violations(),
                     s.undo(),
@@ -657,6 +663,7 @@ class PlanRestoreTest {
                     s.applied(),
                     s.routes(),
                     s.dropped(),
+                    s.excluded(),
                     pins,
                     s.violations(),
                     s.undo(),
@@ -674,6 +681,7 @@ class PlanRestoreTest {
                     s.applied(),
                     s.routes(),
                     s.dropped(),
+                    s.excluded(),
                     s.pins(),
                     violations,
                     s.undo(),
@@ -691,6 +699,7 @@ class PlanRestoreTest {
                     s.applied(),
                     s.routes(),
                     s.dropped(),
+                    s.excluded(),
                     s.pins(),
                     s.violations(),
                     undo,
@@ -708,6 +717,7 @@ class PlanRestoreTest {
                     s.applied(),
                     s.routes(),
                     s.dropped(),
+                    s.excluded(),
                     s.pins(),
                     s.violations(),
                     s.undo(),

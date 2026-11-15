@@ -1,19 +1,19 @@
 package com.dispatchflow.planning.domain;
 
 import com.dispatchflow.planning.domain.PlanningError.InvalidStopTimes;
-import com.dispatchflow.shared.DaySeconds;
 import com.dispatchflow.shared.RuleViolation;
 import java.util.Objects;
 
 /**
  * When a vehicle reaches a stop, starts serving it and leaves it, as the validator timed it (FR-17,
- * FR-23, DL §10.2). The times are whole seconds of one date (ADR-048, ADR-098).
+ * FR-23, DL §10.2). The times are whole seconds from one date's start (ADR-048, ADR-098), and may
+ * pass its end on a route that breaks a time rule (ADR-112, ADR-113).
  *
  * @param arrival when the vehicle reaches the stop
  * @param start when service starts; later than the arrival only after a wait (BR-03)
  * @param departure when the vehicle leaves (BR-04)
  */
-public record StopTimes(DaySeconds arrival, DaySeconds start, DaySeconds departure) {
+public record StopTimes(SolveTime arrival, SolveTime start, SolveTime departure) {
 
     /**
      * Checks the times.
@@ -41,7 +41,7 @@ public record StopTimes(DaySeconds arrival, DaySeconds start, DaySeconds departu
      * @throws RuleViolation with {@link InvalidStopTimes} when they are out of order or on different
      *     dates
      */
-    public static StopTimes of(DaySeconds arrival, DaySeconds start, DaySeconds departure) {
+    public static StopTimes of(SolveTime arrival, SolveTime start, SolveTime departure) {
         return new StopTimes(arrival, start, departure);
     }
 }

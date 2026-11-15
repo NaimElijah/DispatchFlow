@@ -19,10 +19,12 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
@@ -76,7 +78,13 @@ final class PlanningFixtures {
                 .toList());
     }
 
-    static DaySeconds at(long seconds) {
+    /** A solve's time on {@link #DATE}, which may pass its end. */
+    static SolveTime at(long seconds) {
+        return SolveTime.of(DATE, seconds);
+    }
+
+    /** A time that must lie in {@link #DATE}, such as a drop fact's limit. */
+    static DaySeconds dayAt(long seconds) {
         return DaySeconds.of(DATE, seconds);
     }
 
@@ -86,16 +94,17 @@ final class PlanningFixtures {
                 TravelLeg.of(Duration.ofSeconds(600), 5_000));
     }
 
-    static RoutePlan routePlan(long returnsAt) {
-        return new RoutePlan(at(25_200), at(returnsAt), TravelLeg.of(Duration.ofSeconds(600), 5_000));
+    static Optional<RoutePlan> routePlan(long returnsAt) {
+        return Optional.of(new RoutePlan(at(25_200), at(returnsAt), TravelLeg.of(Duration.ofSeconds(600), 5_000)));
     }
 
+    /** A solved route; one with no stops is not driven, so the validator gives it no times. */
     static SolvedRoute solved(VehicleId vehicle, AccountId driver, OrderId... orders) {
         List<SolvedStop> stops = new ArrayList<>();
         for (int i = 0; i < orders.length; i++) {
             stops.add(new SolvedStop(orders[i], FIRST, stopPlan(28_800 + 1_200L * i)));
         }
-        return new SolvedRoute(vehicle, driver, routePlan(50_000), stops);
+        return new SolvedRoute(vehicle, driver, orders.length == 0 ? Optional.empty() : routePlan(50_000), stops);
     }
 
     static DroppedOrder dropped(OrderId order, DropReason reason) {
@@ -107,7 +116,8 @@ final class PlanningFixtures {
         return ValidatedSolution.of(ValidationReport.of(
                 List.of(),
                 List.of(solved(V1, D1, O1, O2), solved(V2, D2, O3)),
-                List.of(dropped(O4, new DropReason.Displaced()), dropped(O5, new DropReason.MissingLocation()))));
+                List.of(dropped(O4, new DropReason.Displaced()), dropped(O5, new DropReason.MissingLocation())),
+                List.of()));
     }
 
     static LaneCapacity roomIn(Lane lane) {
@@ -130,6 +140,7 @@ final class PlanningFixtures {
                 s.applied(),
                 s.routes(),
                 s.dropped(),
+                s.excluded(),
                 s.pins(),
                 s.violations(),
                 s.undo(),
@@ -188,7 +199,12 @@ final class PlanningFixtures {
     }
 
     static EvaluationBuilder evaluationOf(Plan plan) {
-        return new EvaluationBuilder(plan);
+        return new EvaluationBuilder(plan.version(), plan.layout());
+    }
+
+    /** An evaluation of the layout one of the plan's queries returned, as the use case asks for it. */
+    static EvaluationBuilder evaluationOf(Plan plan, PlanLayout after) {
+        return new EvaluationBuilder(plan.version(), after);
     }
 
     /** Builds a plan in a named state, through its own commands. */
@@ -291,7 +307,7 @@ final class PlanningFixtures {
                 Optional.empty(),
                 NOW,
                 new SolveJob.Phase.Succeeded(NOW, NOW, NOW),
-                Optional.of(new SolveResult(routes, dropped))));
+                Optional.of(new SolveResult(routes, dropped, List.of()))));
     }
 
     /** The checks under which a ready plan publishes: every route staffed, every order accounted for. */
@@ -363,7 +379,7 @@ final class PlanningFixtures {
                 solution,
                 LATER,
                 List.of(withdrawn),
-                new ObjectiveTerms(none, none, none, none, none, none),
+                new ObjectiveTerms(none, none, none, none, none, none, none),
                 List.of(),
                 List.of(),
                 List.of(),
@@ -383,8 +399,9 @@ final class PlanningFixtures {
     }
 
     /**
-     * Builds an {@link Evaluation} that describes a plan as a change would leave it: starts from the
-     * plan's routes and stops, and takes the same edit the plan will.
+     * Builds an {@link Evaluation} that describes a plan as a change would leave it: starts from a
+     * layout, the plan's or one its queries returned, and takes the same edit the plan will. Like the
+     * validator, it gives a route with no stops no times (ADR-113).
      */
     static final class EvaluationBuilder {
 
@@ -393,18 +410,19 @@ final class PlanningFixtures {
         private final Map<RouteId, VehicleId> vehicles = new LinkedHashMap<>();
         private final Map<RouteId, AccountId> drivers = new LinkedHashMap<>();
         private final List<Violation> violations = new ArrayList<>();
+        private final Set<StopId> untimed = new HashSet<>();
         private long returnsAt = 50_000;
 
-        EvaluationBuilder(Plan plan) {
-            this.version = plan.version();
-            plan.snapshot().routes().forEach(route -> {
+        EvaluationBuilder(Version version, PlanLayout layout) {
+            this.version = version;
+            layout.routes().forEach(route -> {
                 routes.put(
-                        route.id(),
+                        route.route(),
                         new ArrayList<>(route.stops().stream()
-                                .map(PlanSnapshot.StopSnapshot::id)
+                                .map(PlanLayout.LaidOutStop::stop)
                                 .toList()));
-                vehicles.put(route.id(), route.vehicle());
-                drivers.put(route.id(), route.driver());
+                vehicles.put(route.route(), route.vehicle());
+                drivers.put(route.route(), route.driver());
             });
         }
 
@@ -440,15 +458,24 @@ final class PlanningFixtures {
             return this;
         }
 
+        /** The stop as the validator gives one it can't reach (BR-14): no times. */
+        EvaluationBuilder untimed(StopId stop) {
+            untimed.add(stop);
+            return this;
+        }
+
         Evaluation build() {
             List<RouteTimes> times = new ArrayList<>();
             routes.forEach((route, stops) -> {
                 List<StopTiming> timings = new ArrayList<>();
                 for (int i = 0; i < stops.size(); i++) {
-                    timings.add(new StopTiming(stops.get(i), stopPlan(30_000 + 900L * i)));
+                    StopId stop = stops.get(i);
+                    Optional<StopPlan> plan =
+                            untimed.contains(stop) ? Optional.empty() : Optional.of(stopPlan(30_000 + 900L * i));
+                    timings.add(new StopTiming(stop, plan));
                 }
-                times.add(
-                        new RouteTimes(route, vehicles.get(route), drivers.get(route), routePlan(returnsAt), timings));
+                Optional<RoutePlan> plan = stops.isEmpty() ? Optional.empty() : routePlan(returnsAt);
+                times.add(new RouteTimes(route, vehicles.get(route), drivers.get(route), plan, timings));
             });
             return Evaluation.checked(version, violations, times);
         }

@@ -75,6 +75,24 @@ record Layout(List<Route> routes, List<DroppedOrder> dropped, List<Pin> pins) {
                 .findFirst();
     }
 
+    /** The layout as the read-only view {@link Plan}'s queries return. */
+    PlanLayout view() {
+        return new PlanLayout(
+                routes.stream()
+                        .map(route -> new PlanLayout.LaidOutRoute(
+                                route.id(),
+                                route.vehicle(),
+                                route.driver(),
+                                route.withdrawn(),
+                                route.stops().stream()
+                                        .map(stop ->
+                                                new PlanLayout.LaidOutStop(stop.id(), stop.order(), stop.attempt()))
+                                        .toList()))
+                        .toList(),
+                dropped,
+                pins);
+    }
+
     /** Every order and attempt the layout serves or drops, routes first, in order. */
     List<StopKey> keys() {
         List<StopKey> keys = new ArrayList<>();
@@ -159,7 +177,7 @@ record Layout(List<Route> routes, List<DroppedOrder> dropped, List<Pin> pins) {
      * Checks that an evaluation describes this layout, and marks every route checked: its routes are
      * exactly these routes, each with its vehicle, its driver and these stops in this order, and its violations name only these
      * routes (ADR-101). With {@code applyTimes}, the routes and stops also take its times (FR-23,
-     * BR-68).
+     * BR-68), and a route or stop it couldn't time keeps none (ADR-112).
      *
      * @throws RuleViolation with {@link StaleEvaluation} when it describes another layout
      */
@@ -185,8 +203,7 @@ record Layout(List<Route> routes, List<DroppedOrder> dropped, List<Pin> pins) {
                     for (int position = 0; position < route.stops().size(); position++) {
                         stops.add(route.stops()
                                 .get(position)
-                                .withPlan(
-                                        Optional.of(timed.stops().get(position).plan())));
+                                .withPlan(timed.stops().get(position).plan()));
                     }
                     return checked.withPlan(timed.plan()).withStops(stops);
                 })

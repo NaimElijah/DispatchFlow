@@ -1,6 +1,5 @@
 package com.dispatchflow.planning.domain;
 
-import com.dispatchflow.shared.DaySeconds;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.Version;
 import java.util.List;
@@ -10,9 +9,10 @@ import java.util.Optional;
 /**
  * The validator's judgement of a plan as a change would leave it, read for one version of the plan
  * (FR-23, FR-233, BR-21, DL §4.4). It carries every violation and the times of every route and stop,
- * or says the optimizer could not be reached (BR-70, ADR-058). {@link Plan} refuses one read for
- * another version, or one whose routes and stops differ from the plan's after the change
- * ({@code StaleEvaluation}, ADR-101).
+ * where the validator could time them, or says the optimizer could not be reached (BR-70, ADR-058).
+ * {@link Plan} refuses one read for another version, or one whose routes and stops differ from the
+ * plan's after the change ({@code StaleEvaluation}, ADR-101); its queries give that layout
+ * (ADR-112).
  *
  * <p>The validator judges a route's shift by its vehicle's rostered driver, and reports BR-20 when
  * the route names anyone else. So an evaluation of a hand-over must be read with the vehicle
@@ -108,15 +108,16 @@ public final class Evaluation {
     }
 
     /**
-     * When the route returns, as judged (FR-394).
+     * When the route returns, as judged (FR-394); it may pass the date's end (ADR-112).
      *
      * @param route the route
-     * @return its return time, or empty when it judged no such route
+     * @return its return time, or empty when it judged no such route or couldn't time its return
      */
-    public Optional<DaySeconds> returnOf(RouteId route) {
+    public Optional<SolveTime> returnOf(RouteId route) {
         return routes.stream()
                 .filter(times -> times.route().equals(route))
-                .map(times -> times.plan().returnsAt())
-                .findFirst();
+                .findFirst()
+                .flatMap(RouteTimes::plan)
+                .map(RoutePlan::returnsAt);
     }
 }

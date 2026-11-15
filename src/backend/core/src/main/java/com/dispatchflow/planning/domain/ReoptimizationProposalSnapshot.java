@@ -21,6 +21,7 @@ import java.util.Objects;
  * @param basis the revision and fact time it was computed from
  * @param routes its routes, keyed by vehicle and order, not yet by the plan's IDs
  * @param dropped its drops
+ * @param excluded the vehicles it left out, each with its cause (FR-197, ADR-112)
  * @param withdrawn the vehicles it withdraws mid-route
  * @param objective its objective by term
  * @param lateStops the stops it keeps past their window end
@@ -38,6 +39,7 @@ public record ReoptimizationProposalSnapshot(
         ProposalBasis basis,
         List<SolvedRoute> routes,
         List<DroppedOrder> dropped,
+        List<ExcludedVehicle> excluded,
         List<VehicleWithdrawal> withdrawn,
         ObjectiveTerms objective,
         List<LateStop> lateStops,
@@ -56,6 +58,7 @@ public record ReoptimizationProposalSnapshot(
         Objects.requireNonNull(basis, "basis");
         routes = List.copyOf(routes);
         dropped = List.copyOf(dropped);
+        excluded = List.copyOf(excluded);
         withdrawn = List.copyOf(withdrawn);
         Objects.requireNonNull(objective, "objective");
         lateStops = List.copyOf(lateStops);

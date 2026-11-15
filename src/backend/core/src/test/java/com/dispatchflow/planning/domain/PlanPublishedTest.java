@@ -65,6 +65,7 @@ import com.dispatchflow.planning.events.PlanCancelled;
 import com.dispatchflow.planning.events.PlanRevised;
 import com.dispatchflow.planning.events.RevisionCause;
 import com.dispatchflow.planning.events.RouteHandedOver;
+import com.dispatchflow.planning.events.WithdrawalCause;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.EventId;
 import com.dispatchflow.shared.JobId;
@@ -112,6 +113,8 @@ class PlanPublishedTest {
                         2,
                         RevisionCause.REOPTIMIZATION_ACCEPTED,
                         List.of(v1, v2, v3),
+                        List.of(),
+                        List.of(),
                         List.of()));
         PlanRevision revision = plan.pendingRevision().orElseThrow();
         assertThat(revision.proposal()).contains(PROPOSAL);
@@ -310,6 +313,8 @@ class PlanPublishedTest {
                                 2,
                                 RevisionCause.HANDED_OVER,
                                 List.of(v1),
+                                List.of(),
+                                List.of(),
                                 List.of()),
                         new RouteHandedOver(
                                 new EventId("RouteHandedOver", PLAN.value(), saved, 1),
@@ -849,7 +854,7 @@ class PlanPublishedTest {
     private static ReoptimizationProposal proposal(
             List<SolvedRoute> routes, List<DroppedOrder> drops, VehicleWithdrawal... withdrawn) {
         SolveJob job = aJob().reoptimizing().running();
-        ValidatedSolution solution = ValidatedSolution.of(ValidationReport.of(List.of(), routes, drops));
+        ValidatedSolution solution = ValidatedSolution.of(ValidationReport.of(List.of(), routes, drops, List.of()));
         return job.succeed(PROPOSAL, reoptimizationResult(solution, withdrawn), LATER);
     }
 
@@ -890,6 +895,7 @@ class PlanPublishedTest {
                 published.status(),
                 published.applied(),
                 routes,
+                List.of(),
                 List.of(),
                 List.of(),
                 List.of(),

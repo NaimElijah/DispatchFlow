@@ -13,10 +13,12 @@ public final class ValidatedSolution {
 
     private final List<SolvedRoute> routes;
     private final List<DroppedOrder> dropped;
+    private final List<ExcludedVehicle> excluded;
 
-    private ValidatedSolution(List<SolvedRoute> routes, List<DroppedOrder> dropped) {
+    private ValidatedSolution(List<SolvedRoute> routes, List<DroppedOrder> dropped, List<ExcludedVehicle> excluded) {
         this.routes = routes;
         this.dropped = dropped;
+        this.excluded = excluded;
     }
 
     /**
@@ -30,7 +32,7 @@ public final class ValidatedSolution {
         if (!report.accepted()) {
             throw new RuleViolation(new SolutionRejected(report.violations().size()));
         }
-        return new ValidatedSolution(report.routes(), report.dropped());
+        return new ValidatedSolution(report.routes(), report.dropped(), report.excluded());
     }
 
     /**
@@ -49,5 +51,14 @@ public final class ValidatedSolution {
      */
     public List<DroppedOrder> dropped() {
         return dropped;
+    }
+
+    /**
+     * The vehicles the solve left out (FR-197).
+     *
+     * @return an unmodifiable list
+     */
+    public List<ExcludedVehicle> excluded() {
+        return excluded;
     }
 }

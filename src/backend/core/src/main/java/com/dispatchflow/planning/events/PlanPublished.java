@@ -7,6 +7,7 @@ import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.RouteId;
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A plan became the drivers' plan, as revision 1 (DL §7.2, FR-26, FR-152).
@@ -22,8 +23,12 @@ public record PlanPublished(
         EventId eventId, Instant occurredAt, PlanId plan, DeliveryDate date, int revision, List<RouteId> routes)
         implements DomainEvent {
 
-    /** Copies the routes. */
+    /** Checks every part is present, and copies the routes. */
     public PlanPublished {
+        Objects.requireNonNull(eventId, "eventId");
+        Objects.requireNonNull(occurredAt, "occurredAt");
+        Objects.requireNonNull(plan, "plan");
+        Objects.requireNonNull(date, "date");
         routes = List.copyOf(routes);
     }
 }

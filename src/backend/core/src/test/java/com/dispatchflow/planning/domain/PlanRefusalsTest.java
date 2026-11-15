@@ -355,7 +355,7 @@ class PlanRefusalsTest {
 
     private static ReoptimizationProposal proposalOf(List<SolvedRoute> routes) {
         SolveJob job = aJob().reoptimizing().running();
-        ValidatedSolution solution = ValidatedSolution.of(ValidationReport.of(List.of(), routes, List.of()));
+        ValidatedSolution solution = ValidatedSolution.of(ValidationReport.of(List.of(), routes, List.of(), List.of()));
         return job.succeed(PROPOSAL, reoptimizationResult(solution), LATER);
     }
 

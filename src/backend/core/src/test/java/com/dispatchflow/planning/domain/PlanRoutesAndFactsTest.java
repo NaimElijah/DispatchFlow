@@ -39,6 +39,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
 import com.dispatchflow.planning.events.Lane;
+import com.dispatchflow.planning.events.WithdrawalCause;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.JobId;
 import com.dispatchflow.shared.RouteId;
@@ -451,8 +452,8 @@ class PlanRoutesAndFactsTest {
                 TODAY,
                 LATER);
         Plan plan = reload(locked);
-        ValidatedSolution honoured = ValidatedSolution.of(
-                ValidationReport.of(List.of(), List.of(solved(V1, D1, O2, O1, O4), solved(V2, D2, O3)), List.of()));
+        ValidatedSolution honoured = ValidatedSolution.of(ValidationReport.of(
+                List.of(), List.of(solved(V1, D1, O2, O1, O4), solved(V2, D2, O3)), List.of(), List.of()));
 
         plan.applySolveResult(succeededJob(SECOND_JOB, honoured), freshIds(500), LATER);
 
@@ -541,7 +542,7 @@ class PlanRoutesAndFactsTest {
                 NOW);
         job.claim(NOW);
         job.searchStarted(NOW);
-        ValidatedSolution solution = ValidatedSolution.of(ValidationReport.of(List.of(), routes, drops));
+        ValidatedSolution solution = ValidatedSolution.of(ValidationReport.of(List.of(), routes, drops, List.of()));
         return job.succeed(PROPOSAL, reoptimizationResult(solution, withdrawn), LATER);
     }
 
@@ -581,6 +582,7 @@ class PlanRoutesAndFactsTest {
                 published.status(),
                 published.applied(),
                 List.of(routes),
+                List.of(),
                 List.of(),
                 List.of(),
                 List.of(),

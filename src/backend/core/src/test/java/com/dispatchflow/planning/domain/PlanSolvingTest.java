@@ -282,7 +282,8 @@ class PlanSolvingTest {
         ValidatedSolution resolved = ValidatedSolution.of(ValidationReport.of(
                 List.of(),
                 List.of(solved(V3, PlanningFixtures.D3, O4), solved(V2, D2, O3), solved(V1, D1, O2, O1)),
-                List.of(dropped(O5, new DropReason.MissingLocation()))));
+                List.of(dropped(O5, new DropReason.MissingLocation())),
+                List.of()));
 
         plan.applySolveResult(succeededJob(SECOND_JOB, resolved), freshIds(500), LATER);
 
@@ -296,7 +297,7 @@ class PlanSolvingTest {
     /** V1/D1 serves O1, O2; V2/D2 serves O3; V3/D3 drives an empty route; O4 and O5 are dropped. */
     private static ValidatedSolution threeRoutesWithV3Empty() {
         return ValidatedSolution.of(ValidationReport.of(
-                List.of(), List.of(solved(V1, D1, O1, O2), solved(V2, D2, O3), solved(V3, D3)), BOTH_DROPS));
+                List.of(), List.of(solved(V1, D1, O1, O2), solved(V2, D2, O3), solved(V3, D3)), BOTH_DROPS, List.of()));
     }
 
     /** A plan solved as {@code solution}, one vehicle's route locked, solving again for the second job. */
@@ -385,8 +386,8 @@ class PlanSolvingTest {
                 TODAY,
                 LATER);
         Plan plan = reload(relocked);
-        ValidatedSolution changed = ValidatedSolution.of(
-                ValidationReport.of(List.of(), List.of(solved(V1, D1, O1, O2), solved(V2, D2, O3, O4)), List.of()));
+        ValidatedSolution changed = ValidatedSolution.of(ValidationReport.of(
+                List.of(), List.of(solved(V1, D1, O1, O2), solved(V2, D2, O3, O4)), List.of(), List.of()));
 
         assertPlanRefused(
                 plan,
@@ -409,7 +410,7 @@ class PlanSolvingTest {
                 LATER);
         Plan plan = reload(relocked);
         ValidatedSolution moved = ValidatedSolution.of(ValidationReport.of(
-                List.of(), List.of(solved(V1, D1, O1, O2), solved(V3, PlanningFixtures.D3, O3)), List.of()));
+                List.of(), List.of(solved(V1, D1, O1, O2), solved(V3, PlanningFixtures.D3, O3)), List.of(), List.of()));
 
         plan.applySolveResult(succeededJob(SECOND_JOB, moved), freshIds(500), LATER);
 
@@ -431,7 +432,7 @@ class PlanSolvingTest {
     void GivenASequenceLockOnAnEmptyRoute_WhenANewResultLeavesTwoRoutesEmpty_ThenOnlyThatVehiclesRouteKeepsTheLock() {
         Plan plan = solvingAgainWithLock(V3, RouteLock.STOP_SEQUENCE, threeRoutesWithV3Empty());
         ValidatedSolution twoEmpty = ValidatedSolution.of(ValidationReport.of(
-                List.of(), List.of(solved(V1, D1, O1, O2, O3), solved(V2, D2), solved(V3, D3)), BOTH_DROPS));
+                List.of(), List.of(solved(V1, D1, O1, O2, O3), solved(V2, D2), solved(V3, D3)), BOTH_DROPS, List.of()));
 
         plan.applySolveResult(succeededJob(SECOND_JOB, twoEmpty), freshIds(500), LATER);
 
@@ -445,7 +446,7 @@ class PlanSolvingTest {
         Plan plan = solvingAgainWithLock(V3, RouteLock.STOP_SEQUENCE, threeRoutesWithV3Empty());
         RouteId v3 = routeId(plan, V3);
         ValidatedSolution filled = ValidatedSolution.of(ValidationReport.of(
-                List.of(), List.of(solved(V1, D1, O1, O2), solved(V2, D2), solved(V3, D3, O3)), BOTH_DROPS));
+                List.of(), List.of(solved(V1, D1, O1, O2), solved(V2, D2), solved(V3, D3, O3)), BOTH_DROPS, List.of()));
 
         assertPlanRefused(
                 plan,
@@ -470,7 +471,10 @@ class PlanSolvingTest {
         locked.lockRoute(v2, RouteLock.STOP_SEQUENCE, TODAY);
         Plan plan = reload(locked);
         ValidatedSolution breaksBoth = ValidatedSolution.of(ValidationReport.of(
-                List.of(), List.of(solved(V1, D1, O2, O1), solved(V2, D2, O3, O4)), List.of(BOTH_DROPS.get(1))));
+                List.of(),
+                List.of(solved(V1, D1, O2, O1), solved(V2, D2, O3, O4)),
+                List.of(BOTH_DROPS.get(1)),
+                List.of()));
 
         assertThat(plan.locksBrokenBy(breaksBoth))
                 .containsExactly(Violation.onRoute(RuleCode.LOCKS, v1), Violation.onRoute(RuleCode.LOCKS, v2));

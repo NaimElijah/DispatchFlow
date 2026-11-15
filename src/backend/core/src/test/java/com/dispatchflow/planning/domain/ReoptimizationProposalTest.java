@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dispatchflow.planning.domain.PlanningError.ProposalAlreadyDeclined;
+import com.dispatchflow.planning.events.WithdrawalCause;
 import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.StoredStateInvalid;
 import java.time.Instant;
@@ -105,6 +106,7 @@ class ReoptimizationProposalTest {
                 s.basis(),
                 List.of(solved(V1, D1, O1), solved(V1, D2, O2)),
                 List.of(),
+                List.of(),
                 s.withdrawn(),
                 s.objective(),
                 s.lateStops(),
@@ -131,6 +133,7 @@ class ReoptimizationProposalTest {
                 s.basis(),
                 s.routes(),
                 s.dropped(),
+                s.excluded(),
                 s.withdrawn(),
                 s.objective(),
                 s.lateStops(),
@@ -151,7 +154,7 @@ class ReoptimizationProposalTest {
     void GivenASolutionGivingAWithdrawnVehicleTwoRoutes_WhenItBecomesAProposal_ThenVehicleRoutedTwice() {
         SolveJob job = aJob().reoptimizing().running();
         ValidatedSolution twice = ValidatedSolution.of(
-                ValidationReport.of(List.of(), List.of(solved(V1, D1, O1), solved(V1, D1, O2)), List.of()));
+                ValidationReport.of(List.of(), List.of(solved(V1, D1, O1), solved(V1, D1, O2)), List.of(), List.of()));
         ReoptimizationResult result =
                 reoptimizationResult(twice, new VehicleWithdrawal(V1, WithdrawalCause.VEHICLE_UNAVAILABLE));
 
@@ -169,6 +172,7 @@ class ReoptimizationProposalTest {
                 s.job(),
                 s.basis(),
                 List.of(solved(V1, D1, O1), solved(V1, D2, O2)),
+                List.of(),
                 List.of(),
                 List.of(new VehicleWithdrawal(V1, WithdrawalCause.NO_DRIVER)),
                 s.objective(),
@@ -236,7 +240,7 @@ class ReoptimizationProposalTest {
     void GivenADriverOnAWithdrawnRouteAndOnANewOne_WhenItBecomesAProposal_ThenItIsReady() {
         SolveJob job = aJob().reoptimizing().running();
         ValidatedSolution solution = ValidatedSolution.of(
-                ValidationReport.of(List.of(), List.of(solved(V1, D1, O1), solved(V2, D1, O2)), List.of()));
+                ValidationReport.of(List.of(), List.of(solved(V1, D1, O1), solved(V2, D1, O2)), List.of(), List.of()));
 
         ReoptimizationProposal proposal = job.succeed(
                 PROPOSAL,
@@ -249,7 +253,7 @@ class ReoptimizationProposalTest {
     }
 
     private static ReoptimizationResult resultOf(List<SolvedRoute> routes, List<DroppedOrder> drops) {
-        return reoptimizationResult(ValidatedSolution.of(ValidationReport.of(List.of(), routes, drops)));
+        return reoptimizationResult(ValidatedSolution.of(ValidationReport.of(List.of(), routes, drops, List.of())));
     }
 
     /** A stored proposal with these routes and drops, as persistence would hand it to restore. */
@@ -263,6 +267,7 @@ class ReoptimizationProposalTest {
                 s.basis(),
                 routes,
                 drops,
+                List.of(),
                 s.withdrawn(),
                 s.objective(),
                 s.lateStops(),
@@ -275,7 +280,7 @@ class ReoptimizationProposalTest {
 
     private static ReoptimizationProposalSnapshot proposalOf(List<SolvedRoute> routes, List<DroppedOrder> drops) {
         SolveJob job = aJob().reoptimizing().running();
-        ValidatedSolution solution = ValidatedSolution.of(ValidationReport.of(List.of(), routes, drops));
+        ValidatedSolution solution = ValidatedSolution.of(ValidationReport.of(List.of(), routes, drops, List.of()));
         return job.succeed(PROPOSAL, reoptimizationResult(solution), LATER).snapshot();
     }
 }

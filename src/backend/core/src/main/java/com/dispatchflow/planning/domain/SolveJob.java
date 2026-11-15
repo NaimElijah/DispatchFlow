@@ -257,8 +257,9 @@ public final class SolveJob extends AggregateRoot {
 
     /**
      * A daily solve returned a validated solution, which the job keeps for its plan (BR-15). Raises
-     * {@link SolveSucceeded}. Its routes and drops are checked as a proposal's are, so a result its
-     * plan could never hold fails the job instead of leaving the plan solving (ADR-112). The worker
+     * {@link SolveSucceeded}. It keeps the solution's routes, drops and excluded vehicles (FR-197).
+     * Its routes and drops are checked as a proposal's are, so a result its plan could never hold
+     * fails the job instead of leaving the plan solving (ADR-112). The worker
      * asks {@code Plan.locksBrokenBy} first, and fails the job with {@code
      * SolveFailure.lockNotHonoured} when a lock isn't kept (FR-238).
      *
@@ -277,7 +278,7 @@ public final class SolveJob extends AggregateRoot {
         if (broken.isPresent()) {
             throw new RuleViolation(broken.get());
         }
-        result = new SolveResult(solution.routes(), solution.dropped());
+        result = new SolveResult(solution.routes(), solution.dropped(), solution.excluded());
         endSucceeded(running, atOrAfterLatest(now));
     }
 

@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
 import com.dispatchflow.planning.events.Lane;
+import com.dispatchflow.planning.events.WithdrawalCause;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.JobId;
@@ -84,7 +85,8 @@ class PlanSequenceTest {
                         solved(V3, D3, ORDERS.get(5))),
                 List.of(
                         dropped(ORDERS.get(6), new DropReason.Displaced()),
-                        dropped(ORDERS.get(7), new DropReason.MissingLocation()))));
+                        dropped(ORDERS.get(7), new DropReason.MissingLocation())),
+                List.of()));
     }
 
     // ---- a ready plan's edits -------------------------------------------------------------------
@@ -378,7 +380,7 @@ class PlanSequenceTest {
                 LATER);
         job.claim(LATER);
         job.searchStarted(LATER);
-        ValidatedSolution solution = ValidatedSolution.of(ValidationReport.of(List.of(), routes, drops));
+        ValidatedSolution solution = ValidatedSolution.of(ValidationReport.of(List.of(), routes, drops, List.of()));
         return job.succeed(ProposalId.of(uuid(50_000 + step)), reoptimizationResult(solution, withdrawals), LATER);
     }
 

@@ -442,6 +442,18 @@ public sealed interface PlanningError extends DomainError {
     /** A stop's times out of order, or on different dates (ADR-101). */
     record InvalidStopTimes() implements PlanningError {}
 
+    /** A route's return before its departure, or on another date (ADR-101, ADR-112). */
+    record InvalidRouteTimes() implements PlanningError {}
+
+    /**
+     * A solve's time before its date's local midnight; a time past the date's end is allowed
+     * (ADR-112, ADR-113).
+     *
+     * @param date the date it counts from
+     * @param seconds the refused seconds, below zero
+     */
+    record TimeBeforeTheDay(DeliveryDate date, long seconds) implements PlanningError {}
+
     /** A travel leg with negative seconds or metres (ADR-101). */
     record InvalidTravelLeg() implements PlanningError {}
 

@@ -546,7 +546,8 @@ class PlanLifecycleTest {
         ValidatedSolution solution = ValidatedSolution.of(ValidationReport.of(
                 List.of(),
                 List.of(solved(V1, D1, O1, O2), solved(V2, D2, O3)),
-                List.of(dropped(O4, new DropReason.Displaced()), dropped(O5, new DropReason.MissingLocation()))));
+                List.of(dropped(O4, new DropReason.Displaced()), dropped(O5, new DropReason.MissingLocation())),
+                List.of()));
         return job.succeed(PROPOSAL, reoptimizationResult(solution), LATER);
     }
 }

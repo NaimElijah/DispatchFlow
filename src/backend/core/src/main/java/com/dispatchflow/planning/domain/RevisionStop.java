@@ -1,7 +1,6 @@
 package com.dispatchflow.planning.domain;
 
 import com.dispatchflow.shared.Attempt;
-import com.dispatchflow.shared.DaySeconds;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.StopId;
 import java.util.Objects;
@@ -13,9 +12,10 @@ import java.util.Optional;
  * @param stop the stop
  * @param order its order
  * @param attempt its attempt
- * @param plannedArrival its planned arrival, if it has planned times
+ * @param plannedArrival its planned arrival, if it has planned times; it may pass the date's end
+ *     (ADR-112)
  */
-public record RevisionStop(StopId stop, OrderId order, Attempt attempt, Optional<DaySeconds> plannedArrival) {
+public record RevisionStop(StopId stop, OrderId order, Attempt attempt, Optional<SolveTime> plannedArrival) {
 
     /** Checks every part is present, possibly empty. */
     public RevisionStop {

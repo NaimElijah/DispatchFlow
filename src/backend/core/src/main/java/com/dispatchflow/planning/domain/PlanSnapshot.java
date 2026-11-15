@@ -2,7 +2,6 @@ package com.dispatchflow.planning.domain;
 
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.Attempt;
-import com.dispatchflow.shared.DaySeconds;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PlanId;
@@ -27,6 +26,8 @@ import java.util.Optional;
  * @param applied the solve its routes came from
  * @param routes its routes, in the plan's order
  * @param dropped its dropped orders, ordered by order ID and attempt
+ * @param excluded the vehicles its last applied solve or accepted re-optimization left out, each with
+ *     its cause (FR-197, ADR-112)
  * @param pins its pins, ordered by order ID
  * @param violations its open violations
  * @param undo the edits since the last solve, oldest first
@@ -41,6 +42,7 @@ public record PlanSnapshot(
         Optional<AppliedSolve> applied,
         List<RouteSnapshot> routes,
         List<DroppedOrder> dropped,
+        List<ExcludedVehicle> excluded,
         List<Pin> pins,
         List<Violation> violations,
         List<Edit> undo,
@@ -56,6 +58,7 @@ public record PlanSnapshot(
         Objects.requireNonNull(applied, "applied");
         routes = List.copyOf(routes);
         dropped = List.copyOf(dropped);
+        excluded = List.copyOf(excluded);
         pins = List.copyOf(pins);
         violations = List.copyOf(violations);
         undo = List.copyOf(undo);
@@ -72,8 +75,10 @@ public record PlanSnapshot(
      * @param lock its lock, if locked (FR-147)
      * @param check whether the validator judged it since it changed (FR-395)
      * @param withdrawal its withdrawal, if withdrawn mid-route (FR-267)
-     * @param confirmedReturn the return time a confirmed hand-over set, if one did (FR-394)
-     * @param plan its departure, return and last leg
+     * @param confirmedReturn the return time a confirmed hand-over set, if one did and the
+     *     validator timed the return (FR-394); it may pass the date's end (ADR-112)
+     * @param plan its departure, return and last leg, or empty when the validator couldn't time it
+     *     (ADR-112)
      * @param stops its stops, in order
      */
     public record RouteSnapshot(
@@ -84,11 +89,11 @@ public record PlanSnapshot(
             Optional<RouteLock> lock,
             CheckState check,
             Optional<Withdrawal> withdrawal,
-            Optional<DaySeconds> confirmedReturn,
-            RoutePlan plan,
+            Optional<SolveTime> confirmedReturn,
+            Optional<RoutePlan> plan,
             List<StopSnapshot> stops) {
 
-        /** Checks every part is present, and copies the stops. */
+        /** Checks every part is present, possibly empty, and copies the stops. */
         public RouteSnapshot {
             Objects.requireNonNull(id, "id");
             Objects.requireNonNull(index, "index");
@@ -109,7 +114,8 @@ public record PlanSnapshot(
      * @param id the stop
      * @param order its order
      * @param attempt its attempt
-     * @param plan its planned times, if it has them
+     * @param plan its planned times, if it has them: a stop that joined through a late fact, or that
+     *     the validator couldn't time, has none (DL §8, ADR-112)
      * @param late how it joined the route after a late fact, if it did (DL §8)
      */
     public record StopSnapshot(

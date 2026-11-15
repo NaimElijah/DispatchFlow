@@ -70,7 +70,9 @@ final class PlanInvariants {
     }
 
     private static Optional<String> stateFields(PlanSnapshot snapshot) {
-        boolean hasLayout = !snapshot.routes().isEmpty() || !snapshot.dropped().isEmpty();
+        boolean hasLayout = !snapshot.routes().isEmpty()
+                || !snapshot.dropped().isEmpty()
+                || !snapshot.excluded().isEmpty();
         boolean hasJournal = !snapshot.undo().isEmpty() || !snapshot.redo().isEmpty();
         boolean applied = snapshot.applied().isPresent();
         Plan.Status status = snapshot.status();
@@ -80,7 +82,8 @@ final class PlanInvariants {
         switch (status) {
             case Plan.Status.Draft draft -> {
                 if (hasLayout || applied || hasJournal || !snapshot.violations().isEmpty()) {
-                    return Optional.of("a draft plan has no routes, drops, solve, violations or journal");
+                    return Optional.of(
+                            "a draft plan has no routes, drops, excluded vehicles, solve, violations or journal");
                 }
             }
             case Plan.Status.Solving solving -> {

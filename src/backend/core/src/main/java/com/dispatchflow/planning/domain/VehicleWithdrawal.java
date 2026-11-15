@@ -1,5 +1,6 @@
 package com.dispatchflow.planning.domain;
 
+import com.dispatchflow.planning.events.WithdrawalCause;
 import com.dispatchflow.shared.VehicleId;
 import java.util.Objects;
 

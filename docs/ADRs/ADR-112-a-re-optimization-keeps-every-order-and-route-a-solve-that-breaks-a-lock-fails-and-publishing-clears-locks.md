@@ -28,12 +28,35 @@ locks could lose orders or trap a plan, and that a few smaller rules were left o
 - **A dropped order put back onto another date trapped the old date's plan.** The old date's ready
   plan kept the drop, and publishing then refused the order as changed since the solve ([FR-75],
   [BR-71]). No edit removes a drop.
+- **The core couldn't hold what the validator returns.** The validator gives no times to a route
+  with no stops, to a stop it can't reach ([BR-14]) and to a return with no road to the end, and
+  caps no time at the date's end ([ADR-113] point 3). Planning required every route and stop to be
+  timed, and held every time as the kernel's `DaySeconds`, which refuses a time past the date's
+  end. So a dispatcher who moved the last stop off a route made every later evaluation fail, and a
+  drop whose earliest return fell after midnight failed the solve, though [FR-23] and [FR-233]
+  want such a plan shown with its violations. A route's return was not checked against its
+  departure, as a stop's times are ([ADR-101] point 39).
+- **No type named the vehicles a solve left out** ([FR-197]). [ADR-100] decision 2 makes the
+  date's vehicle exclusions the fact of a *no vehicle available* drop, and the optimizer reports
+  each with its cause, but the report, the result and the plan had no place for them.
+- **An edit's evaluation had to be built from a copy of the edit.** Each edit takes the
+  validator's judgement of the plan after the change ([ADR-101] point 15), and the use case asks
+  for it before the transaction ([DL §6.3][DL-6.3]). Only `Plan` knew that layout, so the use
+  case would have had to repeat each move, take-off, placement, undo, redo and hand-over.
+- **`PlanRevised` didn't say what Reporting needs.** The baseline is recomputed for added orders
+  as well as withdrawn vehicles ([FR-39], [ADR-109]), and it leaves out a vehicle marked
+  unavailable or left without a driver but gives one whose shift ran out its whole shift
+  ([FR-271]). The event named only the withdrawn vehicles.
+- **`ObjectiveTerms` no longer matched the optimizer's terms.** [ADR-113] point 1 splits route
+  stability into `orphaned_stops` and `moved_stops`, and Java's one `stability` term matched
+  neither.
 
 The domain also left three smaller rules to its implementer: what a command does with a `now` that a
 clock stepped back puts before an earlier recorded time, which `restore` then refuses; how many
 edits the undo journal keeps ([FR-145]); and what a sequence lock on an empty route keeps.
 
-This ADR amends [ADR-101] points 18, 28, 30 and 37, and [ADR-105] point 8. The rest of each stands.
+This ADR amends [ADR-101] points 15, 18, 19, 28, 30, 37 and 39, and [ADR-105] point 8. The rest of
+each stands.
 
 ## Decision
 
@@ -92,10 +115,62 @@ On 2026-11-15 the owner, Naim Elijah, decided:
      cancelled plan keeps the drop as the day's history, and a solving plan waits for its new
      solve's result.
 
-<!-- Part B's decisions follow here, numbered from 6: untimed and past-the-day times, vehicle
-     exclusions, the post-edit queries, and the PlanRevised fields with the objective terms. -->
+6. **A route or stop the validator couldn't time has no times, and a time may pass the date's
+   end** ([FR-23], [FR-233], [BR-14], [ADR-113] point 3).
+   - A route's plan is optional in `RouteTimes`, in `SolvedRoute` and on the plan's route, and a
+     stop's plan is optional in `StopTiming`, as it already is on the plan's stop. A route has none
+     when the validator gives it no departure or no return: it has no stops, or no road to its end.
+     A stop has none when it breaks BR-14 or, in a re-optimization, [BR-10].
+   - An evaluation that gives a route or stop no times leaves it with none when the plan takes the
+     evaluation's times.
+   - A time the optimizer reports is a `SolveTime`: whole seconds from the date's local midnight,
+     0 or more, with no upper bound. It holds a stop's times, a route's departure and return, a
+     confirmed return ([FR-394]), a revision's planned arrival, and the earliest arrival or return
+     of the *time window*, *shift* and *depot hours* drops. A negative one is refused with
+     `TimeBeforeTheDay`.
+   - A time that must lie in the day stays the kernel's `DaySeconds`, unchanged: a drop's window
+     end, latest return and depot closing.
+   - A route's return is never before its departure, and both count from one date, or the route's
+     plan is refused with `InvalidRouteTimes`, as a stop's times are with `InvalidStopTimes`.
 
-**Part B's points (6 onward) go here.**
+   This amends [ADR-101] point 19, whose fact time was a time of the date, and extends point 39's
+   value checks to a route.
+7. **A solve names the vehicles it left out, and the plan keeps them** ([FR-197], [ADR-100]
+   decision 2).
+   - `ExcludedVehicle` pairs a vehicle with its `ExclusionCause`. The causes mirror the Python
+     `VehicleExclusion` in Planning's words: *depot without location* and *no road between depots*,
+     which a daily solve gives, and *vehicle unavailable*, *no driver*, *shift ran out*, *route
+     finished* and *withdrawn*, which come from a re-optimization's vehicle state ([ADR-050]).
+   - `ValidationReport`, `ValidatedSolution`, `SolveResult` and the proposal hold them, and only
+     the optimizer adapter builds the report.
+   - Applying a daily result and accepting a proposal replace the plan's exclusions with theirs,
+     and the plan's snapshot stores them. A draft holds none.
+   - A *no vehicle available* drop still carries no field: the plan's exclusions are its fact.
+8. **`Plan` answers what a change would leave, and changes nothing** ([ADR-101] point 15,
+   [DL §6.3][DL-6.3]).
+   - `afterMove`, `afterTakeOff`, `afterPlacing`, `afterUndo`, `afterRedo` and `afterHandOver`
+     return the plan's routes, drops and pins as the command would leave them, as a read-only
+     `PlanLayout`. `layout()` returns the plan as it is, for the publishing re-check and the route
+     check.
+   - Each command builds its layout with the same function its query calls, so the two never
+     differ. A query refuses what its command refuses, except what needs `today`, the evaluation
+     or the new driver's standing.
+   - A hand-over now refuses a driver who already drives a route before it reads the evaluation
+     or the standing.
+
+   This extends [ADR-101] point 15: the use case reads the layout the evaluation must describe
+   from the plan.
+9. **`PlanRevised` names each withdrawn vehicle's cause and the orders the revision added**
+   ([FR-39], [FR-267], [FR-271], [ADR-109]).
+   - `withdrawalCauses` holds each withdrawn vehicle's cause, at the vehicle's position in
+     `withdrawnVehicles`, because an event holds no record of its own ([DL §7.3][DL-7.3]).
+     `WithdrawalCause` moves to Planning's `events` package, which the domain imports.
+   - `addedOrders` names the orders an accepted re-optimization put into the plan that it held
+     under no attempt before, in plan order. Every other cause adds none.
+10. **`ObjectiveTerms` mirrors the optimizer's `Cost` term for term** ([FR-103], [FR-256],
+    [BR-115], [ADR-113] point 1). Its terms are `travel`, `drops`, `doorWindow`, `fixedVehicles`,
+    `lateness`, `orphanedStops` and `movedStops`. `orphanedStops` and `movedStops` together are
+    the route-stability cost, and `routeStability()` is their sum, the preview's stability figure.
 
 ### Readings this ADR settles
 
@@ -118,6 +193,20 @@ These rules no document settled; the code takes them.
 - **A hand-over is evaluated with the vehicle rostered to the new driver.** The validator judges
   BR-06 by the vehicle's rostered driver and reports [BR-20] when the route names someone else,
   while the roster follows the hand-over only after `RouteHandedOver` ([FR-191]).
+- **A route with stops but no road to its end has no plan at all.** The validator still gives its
+  departure, but a route plan without a return would be a second kind of partial plan, and the
+  stops keep their own times.
+- **An added order is an order, not an attempt.** A later attempt of an order the plan held, such
+  as a put-back's, is not an added order. A late outcome that puts back a cancelled order's stop
+  (BR-130) adds none either, because only a re-optimization brings new orders to a published plan.
+- **The new IDs a result draws.** Applying a daily result draws at most one ID per route and one
+  per stop of the result, and accepting a proposal at most one per route and one per stop of the
+  proposal; the use case supplies that many. Too few is a bug in the use case, and `FreshIds`
+  fails as one.
+- **A seed's range.** Any `long` is a seed, negative ones included. The solver port takes a seed
+  ([ADR-044]), but no adapter or contract operation passes one yet; the contract that adds it
+  settles the range both sides accept ([NFR-13]).
+- **Planning's events check every part is present**, as the other modules' events do.
 - **A `SolveFailure` whose violations don't match its reason** is a bug in the worker that built it,
   and fails as one. Persistence rebuilds a stored failure through `SolveFailure.ofStored`, which
   refuses a damaged one as stored state.
@@ -140,6 +229,20 @@ These rules no document settled; the code takes them.
 - **Risk:** a stop the proposal omits by mistake, not because it was reported, stays on its old
   route. The validator's rules keep that from happening; the plan doesn't check why a stop was
   omitted.
+- **Easy:** an emptied route, an unreachable stop and a late return are shown with their
+  violations, and the next edit still applies.
+- **Easy:** the use case asks the plan for the layout to send to the optimizer, so it repeats no
+  edit, and a test checks that each command leaves exactly its query's layout.
+- **Easy:** Reporting recomputes the baseline from `PlanRevised` alone, and the dispatcher sees
+  the vehicles a solve left out and why.
+- **Hard:** Planning holds two kinds of time, `SolveTime` for what the optimizer reports and
+  `DaySeconds` for limits that lie in the day, so a reader picks the one the field means.
+- **Hard:** a consumer of `PlanRevised` reads a vehicle's cause by position, and the event fails
+  as a bug when the two lists differ in length.
+- **Cost:** each snapshot of a plan or a proposal stores its excluded vehicles.
+- **Risk:** [FR-36]'s per-driver changes and [FR-334]'s goods hand-overs still have no domain
+  owner: `ReoptimizationResult` keeps them as IDs, as [ADR-101] point 41 decided, until the
+  optimizer's re-optimization report settles their shape in M9.
 
 ## Alternatives considered
 
@@ -155,6 +258,14 @@ These rules no document settled; the code takes them.
   workers and listeners, which would retry with the same clock until the midnight job.
 - **Take a put-back order's stop off too.** Not chosen: it would erase a failed stop's recorded
   outcome, against FR-258.
+- **Widen the kernel's `DaySeconds` past the day's end.** Not chosen: every other module relies on
+  it lying in the day, and a window or a shift must.
+- **Cap the optimizer's times at the date's end.** Rejected in [ADR-113]: a drop fact would lie
+  about how far an order misses.
+- **Make `Layout` public for the use case.** Not chosen: it is the plan's working state, with
+  locks, checks and times, and the use case needs only what the evaluation must describe.
+- **Three lists of withdrawn vehicles, one per cause.** Not chosen: `withdrawnVehicles` stays as
+  every consumer reads it, and a new cause would need a new field.
 
 ## Revisit when
 
@@ -164,9 +275,18 @@ These rules no document settled; the code takes them.
 - A pilot shows that a dispatcher needs more than 100 undo steps.
 - A put-back from a published plan must leave its drop, for example because the old date's report
   counts it twice.
+- The optimizer's contract adds the seed, or its re-optimization report settles the shape of
+  FR-36's per-driver changes and FR-334's goods hand-overs (M9).
+- A screen needs a route's departure when its return can't be timed.
+- The baseline needs a later attempt of a held order counted as added.
 
 [ADR-101]: ADR-101-completed-plans-take-late-outcomes-as-revisions-and-routes-keep-an-index.md
+[ADR-044]: ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md
+[ADR-050]: ADR-050-re-optimization-conventions-live-only-in-the-python-problem-factory.md
+[ADR-100]: ADR-100-k-covers-door-windows-outside-a-shift-and-no-vehicle-is-a-drop-reason.md
 [ADR-105]: ADR-105-a-re-optimizations-problem-carries-its-conventions-and-only-a-vehicle-that-is-out-has-no-driver.md
+[ADR-109]: ADR-109-reporting-computes-exact-on-time-shares-from-current-facts-and-keeps-no-personal-data.md
+[ADR-113]: ADR-113-route-stability-is-its-own-cost-the-rules-read-a-problem-through-a-protocol-and-untimed-outputs-are-documented.md
 [BR-06]: ../requirements/requirements.md#routing-constraints
 [BR-07]: ../requirements/requirements.md#solving-dropping-and-validation
 [BR-10]: ../requirements/requirements.md#re-optimization
@@ -175,15 +295,31 @@ These rules no document settled; the code takes them.
 [BR-71]: ../requirements/requirements.md#plan-lifecycle-and-publishing
 [BR-83]: ../requirements/requirements.md#re-optimization
 [BR-105]: ../requirements/requirements.md#routing-constraints
+[BR-115]: ../requirements/requirements.md#solving-dropping-and-validation
+[BR-14]: ../requirements/requirements.md#routing-constraints
 [BR-108]: ../requirements/requirements.md#re-optimization
+[DL-6.3]: ../architecture/domain_layer/domain_layer_design.md#63-outside-calls-happen-before-the-transaction
+[DL-7.3]: ../architecture/domain_layer/domain_layer_design.md#73-shape-and-delivery
 [DL-8]: ../architecture/domain_layer/domain_layer_design.md#8-when-a-fact-contradicts-the-plan
+[FR-23]: ../requirements/requirements.md#manual-editing
+[FR-36]: ../requirements/requirements.md#live-operations-and-re-optimization
+[FR-39]: ../requirements/requirements.md#reporting-and-baseline
 [FR-75]: ../requirements/requirements.md#live-operations-and-re-optimization
+[FR-103]: ../requirements/requirements.md#live-operations-and-re-optimization
 [FR-145]: ../requirements/requirements.md#manual-editing
 [FR-147]: ../requirements/requirements.md#manual-editing
 [FR-159]: ../requirements/requirements.md#live-operations-and-re-optimization
 [FR-191]: ../requirements/requirements.md#fleet-depots-and-shifts
+[FR-197]: ../requirements/requirements.md#fleet-depots-and-shifts
+[FR-233]: ../requirements/requirements.md#manual-editing
 [FR-238]: ../requirements/requirements.md#manual-editing
+[FR-256]: ../requirements/requirements.md#live-operations-and-re-optimization
 [FR-258]: ../requirements/requirements.md#live-operations-and-re-optimization
+[FR-267]: ../requirements/requirements.md#reporting-and-baseline
 [FR-268]: ../requirements/requirements.md#reporting-and-baseline
+[FR-271]: ../requirements/requirements.md#reporting-and-baseline
 [FR-304]: ../requirements/requirements.md#fleet-depots-and-shifts
 [FR-316]: ../requirements/requirements.md#customers-and-orders
+[FR-334]: ../requirements/requirements.md#live-operations-and-re-optimization
+[FR-394]: ../requirements/requirements.md#fleet-depots-and-shifts
+[NFR-13]: ../requirements/requirements.md#nfr-13
