@@ -196,7 +196,7 @@ def test_given_a_locked_order_when_costed_then_it_pays_no_drop() -> None:
     cost = problem.cost(solution, problem.validate(solution).timings)
 
     assert problem.unserved(solution) == (1,)
-    assert cost.drops == problem.drop_penalties[1]
+    assert (cost.drops, cost.moved_stops) == (problem.penalties.drop_unit * 3, 300)
 
 
 # --- Step 2: places each vehicle (BR-24, BR-51, BR-79, BR-80, BR-81) ---
@@ -671,6 +671,110 @@ def test_given_orphans_when_costed_then_each_pays_300_whatever_the_solution() ->
     costs = [problem.cost(s, problem.validate(s).timings) for s in solutions]
 
     assert [cost.orphaned_stops for cost in costs] == [600, 600]
+    assert [cost.moved_stops for cost in costs] == [0, 0]
+
+
+def test_given_a_stop_that_stays_dropped_when_costed_then_moved_stops_pays_300_apart() -> None:
+    # FR-256 counts a dropped stop as one that leaves its vehicle, so its stability cost is a term
+    # of its own, and `drops` holds only K x (6 - priority).
+    live = a_live_day()
+    live.route(0, 0, 1)
+    problem = live.build()
+    solution = Solution(routes=served_from_the_depot(0).routes, dropped=frozenset({1}))
+
+    cost = problem.cost(solution, problem.validate(solution).timings)
+
+    unit = problem.penalties.drop_unit
+    assert (cost.drops, cost.moved_stops, cost.orphaned_stops) == (unit * 3, 300, 0)
+    assert cost.total == cost.travel + unit * 3 + 300
+
+
+def test_given_every_stop_that_stays_served_when_costed_then_no_moved_stops() -> None:
+    live = a_live_day()
+    live.route(0, 0, 1)
+    problem = live.build()
+    solution = served_from_the_depot(0, 1)
+
+    cost = problem.cost(solution, problem.validate(solution).timings)
+
+    assert (cost.drops, cost.moved_stops) == (0, 0)
+
+
+@pytest.mark.parametrize("cause", ["no location", "no road"])
+def test_given_a_stop_that_stays_but_cannot_be_routed_when_costed_then_no_moved_stops(
+    cause: str,
+) -> None:
+    # ADR-105: it is dropped whatever the solver does, so it pays only its drop.
+    live = a_live_day()
+    if cause == "no location":
+        live.day.order(None)
+    else:
+        live.day.order(300, reachable=False)
+    live.route(0, 0, 2)
+    problem = live.build()
+    solution = Solution(routes=served_from_the_depot(0).routes, dropped=frozenset({1, 2}))
+
+    cost = problem.cost(solution, problem.validate(solution).timings)
+
+    assert (cost.drops, cost.moved_stops) == (problem.penalties.drop_unit * 6, 0)
+    assert list(context_of(problem).pays_to_leave) == [True, False, False]
+
+
+def test_given_a_daily_problem_with_drops_when_costed_then_no_moved_stops() -> None:
+    day = DayBuilder()
+    day.vehicle()
+    day.order(100)
+    problem = day.build()
+    solution = Solution(routes=(), dropped=frozenset({0}))
+
+    cost = problem.cost(solution, problem.validate(solution).timings)
+
+    assert (cost.drops, cost.moved_stops) == (problem.penalties.drop_unit * 3, 0)
+
+
+@pytest.mark.parametrize(
+    ("pays_to_leave", "match"),
+    [
+        pytest.param(
+            [False, False],
+            r"reoptimization\.pays_to_leave\[0\] is False, but the stop stays on vehicle 0, "
+            r"which can serve it",
+            id="a servable stop that stays, unflagged",
+        ),
+        pytest.param(
+            [True, True],
+            r"reoptimization\.pays_to_leave\[1\] is True, but the stop does not stay on a vehicle "
+            r"that can serve it",
+            id="a stop on no route, flagged",
+        ),
+    ],
+)
+def test_given_a_pays_to_leave_flag_against_the_roads_when_built_then_refused(
+    pays_to_leave: list[bool], match: str
+) -> None:
+    live = a_live_day()
+    live.route(0, 0)
+    problem = live.build()
+
+    with pytest.raises(InvalidProblemError, match=match):
+        replace(
+            problem,
+            reoptimization=replace(context_of(problem), pays_to_leave=np.array(pays_to_leave)),
+        )
+
+
+def test_given_a_stop_that_pays_to_leave_below_the_moved_stop_cost_when_built_then_refused() -> (
+    None
+):
+    live = a_live_day()
+    live.route(0, 0)
+    problem = live.build()
+
+    with pytest.raises(
+        InvalidProblemError,
+        match=r"drop_penalties\[0\] is 299\.0, below the moved-stop cost 300\.0 its stop pays",
+    ):
+        replace(problem, drop_penalties=np.array([299.0, 0.0]))
 
 
 def test_given_a_reoptimization_cost_when_totalled_then_the_sum_of_every_term() -> None:
@@ -1106,6 +1210,52 @@ REFUSED: list[object] = [
         id="a position past the matrix",
     ),
 ]
+
+
+@pytest.mark.parametrize(
+    ("latest", "match"),
+    [
+        pytest.param(
+            position(NOW, latitude=91.25),
+            r"^vehicles\[0\]\.latest_position\.latitude must lie from -90 to 90$",
+            id="latitude 91.25",
+        ),
+        pytest.param(
+            position(NOW, longitude=-181.5),
+            r"^vehicles\[0\]\.latest_position\.longitude must lie from -180 to 180$",
+            id="longitude -181.5",
+        ),
+        pytest.param(
+            position(NOW + 1.5),
+            r"^vehicles\[0\]\.latest_position\.received_at must be finite and no later than now$",
+            id="received after now",
+        ),
+        pytest.param(
+            replace(position(NOW), latitude="32.1"),  # type: ignore[arg-type]
+            r"^vehicles\[0\]\.latest_position\.latitude must be a number$",
+            id="latitude text",
+        ),
+    ],
+)
+def test_given_a_refused_position_when_built_then_the_error_names_the_field_not_the_value(
+    latest: VehiclePosition, match: str
+) -> None:
+    # NFR-19: a driver's position is personal data, so the error never quotes it.
+    live = a_live_day()
+    live.position_at(0, 150, latest)
+
+    with pytest.raises(InvalidProblemError, match=match):
+        live.build()
+
+
+def test_given_stop_orders_as_numpy_ints_when_built_then_held_as_ints() -> None:
+    live = a_live_day(orders=3)
+    live.route(0, delivered(np.int64(0), 100), StopFact(np.int64(1)), np.int64(2))  # type: ignore[arg-type]
+
+    problem = live.build()
+
+    assert problem.is_locked(0)
+    assert context_of(problem).warm_start.routes[0].stops == (1, 2)
 
 
 @pytest.mark.parametrize(("change", "match"), REFUSED)

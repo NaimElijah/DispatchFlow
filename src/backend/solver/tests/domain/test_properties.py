@@ -17,29 +17,14 @@ from dispatchflow_solver.domain.exclusions import OrderExclusion
 from dispatchflow_solver.domain.problem import Pin, Problem
 from dispatchflow_solver.domain.rules import LIMIT_TOLERANCE, RuleId
 from dispatchflow_solver.domain.solution import Route, Solution
-from dispatchflow_solver.domain.travel_time import TravelBucket, TravelTimeModel
 from tests.domain.builders import DAY, DEPOT_LOCATION, DayBuilder
-from tests.domain.properties import PROPERTY_SEED, PROPERTY_SETTINGS
+from tests.domain.properties import PROPERTY_SEED, PROPERTY_SETTINGS, points, travel_models
 
-points = st.floats(min_value=1, max_value=1_000, allow_nan=False)
 priorities = st.integers(min_value=1, max_value=5)
 
 
 def one_in_ten(draw: st.DrawFn) -> bool:
     return draw(st.integers(min_value=0, max_value=9)) == 0
-
-
-@st.composite
-def travel_models(draw: st.DrawFn) -> TravelTimeModel:
-    start = draw(st.floats(min_value=0, max_value=40_000, allow_nan=False))
-    length = draw(st.floats(min_value=1, max_value=20_000, allow_nan=False))
-    factor = draw(st.floats(min_value=0.5, max_value=3, allow_nan=False))
-    buckets = (TravelBucket(start, start + length, factor),) if draw(st.booleans()) else ()
-    return TravelTimeModel(
-        buckets=buckets,
-        off_peak_factor=draw(st.floats(min_value=0.5, max_value=3, allow_nan=False)),
-        buffer=draw(st.floats(min_value=0, max_value=0.5, allow_nan=False)),
-    )
 
 
 @st.composite

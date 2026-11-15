@@ -359,6 +359,21 @@ REFUSED = [
     ),
     pytest.param({"durations": [[0, NAN], [100, 0]]}, r"no road.*\[0, 1\]", id="roads disagree"),
     pytest.param(
+        {"durations": [[NAN, 10], [10, NAN]], "distances": [[NAN, 100], [100, NAN]]},
+        r"^durations\[0, 0\] must be 0, from a location to itself: nan$",
+        id="no road on the diagonal",
+    ),
+    pytest.param(
+        {"durations": [[0, 100], [100, 5]]},
+        r"^durations\[1, 1\] must be 0, from a location to itself: 5\.0$",
+        id="a duration on the diagonal",
+    ),
+    pytest.param(
+        {"distances": [[0, 1_000], [1_000, 1e-9]]},
+        r"^distances\[1, 1\] must be 0, from a location to itself: 1e-09$",
+        id="a distance on the diagonal",
+    ),
+    pytest.param(
         {"orders": [an_order(priority=2.7)]}, r"priority\[0\].*int.*2\.7", id="priority 2.7"
     ),
     pytest.param(

@@ -39,7 +39,7 @@ def require_int(name: str, value: object) -> int:
     return whole
 
 
-def require_float(name: str, value: object) -> float:
+def require_float(name: str, value: object, *, personal: bool = False) -> float:
     """Refuses anything but a real number, and converts it to a float.
 
     A bool is a number to Python, but True as a time or a rate is a bug. A whole number too large
@@ -48,6 +48,8 @@ def require_float(name: str, value: object) -> float:
     Args:
         name: The input's name, for the error.
         value: The value to check.
+        personal: Whether the value is personal data, such as a driver's position, so the error
+            names the input and never quotes the value (NFR-19).
 
     Returns:
         The value as a float, which may still be infinite or NaN for the caller to judge.
@@ -57,7 +59,9 @@ def require_float(name: str, value: object) -> float:
             float.
     """
     if isinstance(value, bool | np.bool_) or not isinstance(value, numbers.Real):
-        raise InvalidProblemError(f"{name} must be a number: {value!r}")
+        raise InvalidProblemError(
+            f"{name} must be a number" if personal else f"{name} must be a number: {value!r}"
+        )
     try:
         return float(value)
     except (OverflowError, TypeError, ValueError) as error:

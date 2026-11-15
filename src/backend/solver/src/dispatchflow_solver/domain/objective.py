@@ -6,43 +6,53 @@ departs (FR-402). Each unserved order costs the drop penalty the problem holds f
 window costs the door-window rate (BR-120), on the validator's times. Each vehicle used costs the
 fixed vehicle cost (FR-21).
 
-A re-optimization adds BR-115's two terms. Each second a stop with a hard window is served past
-its end costs the lateness rate, on the validator's times; a door stop pays its window penalty
-instead (BR-120). A stop that leaves its vehicle costs the moved-stop cost: a stop that stays on its
-vehicle carries it in its drop penalty, and each orphan pays it as a constant, which scores it but
-cannot steer the search (ADR-050). A daily solve has neither, so its terms are 0.
+A re-optimization adds BR-115's two penalties. Each second a stop with a hard window is served
+past its end costs the lateness rate, on the validator's times; a door stop pays its window penalty
+instead (BR-120). Each stop that leaves its vehicle costs the moved-stop cost, and that is the
+route-stability cost, in two terms (FR-256, ADR-113): an orphan leaves its vehicle whatever the
+solution does, so it pays as a constant that scores it but cannot steer the search (ADR-050); a
+stop that stays on its vehicle leaves it only by being dropped, so a solver sees its cost inside
+its drop penalty, and `cost` reports it apart from the drop. A daily solve has neither penalty, so
+those terms are 0.
 
-`Problem` appears here in annotations only, under `TYPE_CHECKING`: `problem` imports this module
-at run time, and this module never imports it.
+It reads its problem as a `ProblemView` and never imports `problem`, which imports it (ADR-113).
 """
 
 import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 from dispatchflow_solver.domain.feasibility import RouteTiming, Timings
+from dispatchflow_solver.domain.problem_view import ProblemView
 from dispatchflow_solver.domain.solution import Route, Solution
-
-if TYPE_CHECKING:
-    from dispatchflow_solver.domain.problem import Problem
 
 
 @dataclass(frozen=True, slots=True)
 class Cost:
-    """The objective's terms, in seconds.
+    """The objective's terms, in seconds; each is 0 or more, and `total` is their sum.
+
+    `orphaned_stops` and `moved_stops` together are the route-stability cost: the moved-stop cost
+    times the stops that leave their vehicle, dropped stops included (FR-256, BR-115). No stop is
+    counted in both, and neither counts a stop a locked report serves (BR-10).
 
     Attributes:
         travel: Unbuffered per-bucket travel of every leg the validator timed (FR-402). A stop it
             skipped, which makes the solution infeasible, costs no travel.
-        drops: The drop penalty of every unserved order, excluded ones included (BR-54).
+        drops: The drop penalty of every unserved order, excluded ones included and locked ones
+            never, without the moved-stop cost: K x (6 - priority) as the factory builds it
+            (BR-54, BR-126). The problem's drop penalty of a stop that pays to leave its vehicle
+            also holds the moved-stop cost, and `moved_stops` reports that part.
         door_window: The door-window rate times the seconds door stops spend outside their
             windows (BR-120).
         fixed_vehicles: The fixed vehicle cost times the vehicles used (FR-21).
         lateness: The lateness rate times the seconds stops with a hard window are served past
             their window end; 0 in a daily solve (BR-107, BR-115).
-        orphaned_stops: The moved-stop cost times the orphans, the stops on a vehicle that is out;
-            0 in a daily solve (BR-115, FR-256). A dropped stop that stays on its vehicle pays the
-            moved-stop cost in `drops`.
+        orphaned_stops: The moved-stop cost times the orphans: every stop on a vehicle that is
+            out, served elsewhere or dropped, whatever the solution (BR-106, BR-115). 0 in a daily
+            solve.
+        moved_stops: The moved-stop cost times the stops that stay on their vehicle and are
+            dropped, and so leave it (BR-115, FR-256). A stop that stays but cannot be routed there
+            is dropped whatever the solution does, and is not counted (ADR-105). 0 in a daily
+            solve.
     """
 
     travel: float
@@ -51,6 +61,7 @@ class Cost:
     fixed_vehicles: float
     lateness: float = 0.0
     orphaned_stops: float = 0.0
+    moved_stops: float = 0.0
 
     @property
     def total(self) -> float:
@@ -62,10 +73,11 @@ class Cost:
             + self.fixed_vehicles
             + self.lateness
             + self.orphaned_stops
+            + self.moved_stops
         )
 
 
-def cost(problem: Problem, solution: Solution, timings: Timings) -> Cost:
+def cost(problem: ProblemView, solution: Solution, timings: Timings) -> Cost:
     """Scores a solution on the validator's timings; `Problem.cost` delegates here.
 
     A vehicle is used when its route serves at least one stop. A route with no stops is not
@@ -110,17 +122,20 @@ def cost(problem: Problem, solution: Solution, timings: Timings) -> Cost:
     unserved = list(problem.unserved(solution))
     context = problem.reoptimization
     orphans = 0 if context is None else int(context.orphaned.sum())
+    moved = 0 if context is None else int(context.pays_to_leave[unserved].sum())
+    moved_stops = penalties.moved_stop_cost * moved
     return Cost(
         travel=travel,
-        drops=float(problem.drop_penalties[unserved].sum()),
+        drops=float(problem.drop_penalties[unserved].sum()) - moved_stops,
         door_window=penalties.door_window_rate * door_window,
         fixed_vehicles=penalties.fixed_vehicle_cost * used,
         lateness=0.0 if context is None else penalties.lateness_rate * late,
         orphaned_stops=penalties.moved_stop_cost * orphans,
+        moved_stops=moved_stops,
     )
 
 
-def _route_travel(problem: Problem, route: Route, timing: RouteTiming) -> float:
+def _route_travel(problem: ProblemView, route: Route, timing: RouteTiming) -> float:
     travel = 0.0
     here, departs = route.start, timing.leaves_at
     for position, order in enumerate(route.stops):

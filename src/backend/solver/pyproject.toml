@@ -92,6 +92,49 @@ forbidden_modules = [
     "uvicorn",
 ]
 
+# TS §2.1, rule 3: the domain reads no clock, draws no randomness and does no I/O; time and seeds
+# come in through ports. grimp records standard-library imports as external packages, so each
+# module here is caught. The domain's own imports are math, numbers, dataclasses, typing, enum,
+# collections, bisect and NumPy.
+[[tool.importlinter.contracts]]
+name = "The domain reads no clock, draws no randomness and does no I/O"
+type = "forbidden"
+source_modules = ["dispatchflow_solver.domain"]
+forbidden_modules = [
+    "datetime",
+    "io",
+    "logging",
+    "os",
+    "pathlib",
+    "random",
+    "secrets",
+    "socket",
+    "subprocess",
+    "threading",
+    "time",
+    "urllib",
+    "uuid",
+]
+
+# ADR-113: Problem's methods delegate to these modules, which read a problem through the
+# ProblemView protocol, so none of them imports `problem` and no cycle runs through it.
+[[tool.importlinter.contracts]]
+name = "The validator, the objective and the drop reasons never import the problem"
+type = "forbidden"
+source_modules = [
+    "dispatchflow_solver.domain.drops",
+    "dispatchflow_solver.domain.feasibility",
+    "dispatchflow_solver.domain.objective",
+]
+forbidden_modules = ["dispatchflow_solver.domain.problem"]
+
+# ADR-001: the use cases and the Solver port know no transport, no Pydantic and no OR-Tools.
+[[tool.importlinter.contracts]]
+name = "The application imports no FastAPI, Pydantic or OR-Tools"
+type = "forbidden"
+source_modules = ["dispatchflow_solver.application"]
+forbidden_modules = ["fastapi", "ortools", "pydantic", "pydantic_settings", "starlette"]
+
 # FR-286: PyVRP is the study's reference solver and never enters the product, so no part of the
 # service imports it. tests/test_dependency_boundary.py keeps it out of the environment and lock.
 [[tool.importlinter.contracts]]

@@ -10,6 +10,7 @@ order at 100 and has the order at 200 left, so it is placed at the first order a
 the second at 250 and returns at 460.
 """
 
+import math
 from collections.abc import Callable
 from dataclasses import replace
 
@@ -19,7 +20,7 @@ from dispatchflow_solver.domain.factory import VehicleState
 from dispatchflow_solver.domain.problem import Pin, Problem
 from dispatchflow_solver.domain.rules import RuleId
 from dispatchflow_solver.domain.solution import InvalidSolutionError, Route, Solution
-from tests.domain.builders import DEPOT_LOCATION, DayBuilder, LiveDay, delivered
+from tests.domain.builders import DAY, DEPOT_LOCATION, DayBuilder, LiveDay, delivered
 
 SHIFT = (0.0, 1_000.0)
 RETURN = 420.0
@@ -636,6 +637,31 @@ def test_given_a_shift_under_six_hours_when_return_in_last_45_minutes_then_accep
     assert day.build().validate(served_in_order(0)).accepted
 
 
+def test_given_a_shift_short_of_six_hours_within_the_tolerance_when_validated_then_no_reserve() -> (
+    None
+):
+    # ADR-098: the tolerance only ever relaxes a rule, so a shift a hair short of six hours is
+    # under six hours, and no break is reserved.
+    day = DayBuilder(breaks_reserved=True)
+    day.vehicle(shift=(0, 21_600 - WITHIN_TOLERANCE))
+    day.order(9_451)
+
+    assert day.build().validate(served_in_order(0)).accepted
+
+
+@pytest.mark.parametrize(
+    "length", [21_600, 21_600 + WITHIN_TOLERANCE], ids=["six hours", "a hair over six hours"]
+)
+def test_given_a_shift_of_six_hours_or_more_when_return_in_last_45_minutes_then_br_105(
+    length: float,
+) -> None:
+    day = DayBuilder(breaks_reserved=True)
+    day.vehicle(shift=(0, length))
+    day.order(9_451)
+
+    assert day.build().validate(served_in_order(0)).rules() == {RuleId.BR_105}
+
+
 def test_given_breaks_not_reserved_when_return_in_last_45_minutes_then_accepted() -> None:
     day = DayBuilder(breaks_reserved=False)
     day.vehicle(shift=(0, 21_600))
@@ -658,6 +684,61 @@ def test_given_an_early_arrival_at_a_hard_window_when_timed_then_the_vehicle_wai
     assert list(timing.start) == [150, 260]
     assert list(timing.departure) == [160, 270]
     assert timing.returns_at == 470
+
+
+def test_given_a_route_with_no_stops_when_timed_then_accepted_with_nan_times() -> None:
+    # ADR-113: a route that is not driven has no departure and no return.
+    problem = a_day().build()
+
+    report = problem.validate(solution_of(route_of(0, 0), dropped=frozenset({0, 1})))
+
+    timing = report.timings[0]
+    assert report.accepted
+    assert math.isnan(timing.leaves_at)
+    assert math.isnan(timing.returns_at)
+    assert timing.start.size == timing.leg_seconds.size == 0
+
+
+def test_given_a_stop_the_route_cannot_reach_when_timed_then_its_times_are_nan() -> None:
+    day = a_day()
+    stray = day.order(5_000, reachable=False)
+    problem = day.build()
+
+    report = problem.validate(served_in_order(0, stray, 1))
+
+    timing = report.timings[0]
+    assert report.rules() == {RuleId.BR_14}
+    for times in (timing.arrival, timing.start, timing.departure, timing.late):
+        assert math.isnan(times[1])
+    assert math.isnan(timing.leg_seconds[1])
+    assert list(timing.arrival[[0, 2]]) == [100, 210]
+    assert timing.returns_at == RETURN
+
+
+def test_given_no_road_from_the_last_stop_to_the_end_when_timed_then_the_return_is_nan() -> None:
+    problem, solution = no_road_back_to_the_end_depot()
+
+    timing = problem.validate(solution).timings[0]
+
+    assert list(timing.arrival) == [100, 210]
+    assert math.isnan(timing.returns_at)
+    assert math.isnan(timing.leg_seconds[-1])
+
+
+def test_given_a_route_past_the_dates_end_when_timed_then_its_times_pass_the_day_length() -> None:
+    # ADR-113: times are never capped; the core carries them as seconds from the date's start.
+    day = DayBuilder()
+    day.vehicle(shift=(DAY - 300, DAY))
+    day.order(100, service=10)
+    day.order(200, service=1_000)
+    problem = day.build()
+
+    report = problem.validate(served_in_order(0, 1))
+
+    timing = report.timings[0]
+    assert report.rules() == {RuleId.BR_06}
+    assert timing.departure[1] == DAY - 300 + 200 + 10 + 1_000
+    assert timing.returns_at == DAY + 1_110
 
 
 def test_given_a_route_when_timed_then_legs_carry_buffered_seconds_and_metres() -> None:

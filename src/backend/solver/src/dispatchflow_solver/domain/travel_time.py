@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Final
 
 from dispatchflow_solver.domain.errors import InvalidProblemError
+from dispatchflow_solver.domain.indices import require_float
 
 CEILING_SLACK: Final = 1e-6
 """Seconds subtracted before rounding up, so float64 noise never adds a second (ADR-098).
@@ -34,8 +35,8 @@ class TravelBucket:
         factor: What the base duration is multiplied by for a leg departing in the bucket.
 
     Raises:
-        InvalidProblemError: If the bucket is empty or not finite, or the factor is not positive
-            and finite.
+        InvalidProblemError: If a field is no number, the bucket is empty or not finite, or the
+            factor is not positive and finite.
     """
 
     start: float
@@ -43,13 +44,18 @@ class TravelBucket:
     factor: float
 
     def __post_init__(self) -> None:
-        """Refuses an empty or endless bucket, or a factor that is not positive and finite."""
-        if not (math.isfinite(self.start) and math.isfinite(self.end) and self.start < self.end):
+        """Holds each field as a float; refuses an empty or endless bucket, or a bad factor."""
+        start = require_float("bucket start", self.start)
+        end = require_float("bucket end", self.end)
+        factor = require_float("bucket factor", self.factor)
+        if not (math.isfinite(start) and math.isfinite(end) and start < end):
             raise InvalidProblemError(
-                f"a bucket must end after it starts, both finite: start={self.start}, "
-                f"end={self.end}"
+                f"a bucket must end after it starts, both finite: start={start}, end={end}"
             )
-        _require_positive_factor("bucket factor", self.factor)
+        _require_positive_factor("bucket factor", factor)
+        object.__setattr__(self, "start", start)
+        object.__setattr__(self, "end", end)
+        object.__setattr__(self, "factor", factor)
 
     def contains(self, departure: float) -> bool:
         """Says whether a departure falls in the bucket, start included and end excluded."""
@@ -76,7 +82,9 @@ class TravelTimeModel:
 
     Raises:
         InvalidProblemError: If a bucket is not a `TravelBucket`, buckets overlap, the off-peak
-            factor is not positive and finite, or the buffer is negative or not finite.
+            factor or the buffer is no number, the off-peak factor is not positive and finite, or
+            the buffer is negative or not finite. A method that times a leg raises it too when
+            the leg's time is past a float, which only a factor of about 1e308 can make.
     """
 
     buckets: tuple[TravelBucket, ...]
@@ -97,9 +105,13 @@ class TravelTimeModel:
                     f"buckets overlap: [{earlier.start}, {earlier.end}) and "
                     f"[{later.start}, {later.end})"
                 )
-        _require_positive_factor("off_peak_factor", self.off_peak_factor)
-        if not (math.isfinite(self.buffer) and self.buffer >= 0):
-            raise InvalidProblemError(f"buffer must be finite and zero or more: {self.buffer}")
+        off_peak_factor = require_float("off_peak_factor", self.off_peak_factor)
+        buffer = require_float("buffer", self.buffer)
+        _require_positive_factor("off_peak_factor", off_peak_factor)
+        if not (math.isfinite(buffer) and buffer >= 0):
+            raise InvalidProblemError(f"buffer must be finite and zero or more: {buffer}")
+        object.__setattr__(self, "off_peak_factor", off_peak_factor)
+        object.__setattr__(self, "buffer", buffer)
         object.__setattr__(self, "buckets", ordered)
         object.__setattr__(self, "_starts", tuple(bucket.start for bucket in ordered))
 
@@ -187,7 +199,15 @@ def _scaled(base: float, factor: float, buffer: float) -> float:
         raise InvalidProblemError(f"a base time must be finite; the road check comes first: {base}")
     if factor == _NEUTRAL_FACTOR and buffer == _NO_BUFFER:
         return base
-    return float(math.ceil(base * factor * (1 + buffer) - CEILING_SLACK))
+    scaled = base * factor * (1 + buffer)
+    if not math.isfinite(scaled):
+        # Each input is finite, so only a product past a float lands here; ceil would raise a
+        # bare OverflowError on it.
+        raise InvalidProblemError(
+            f"a travel time of {base} base seconds is past a float: factor {factor}, "
+            f"buffer {buffer}"
+        )
+    return float(math.ceil(scaled - CEILING_SLACK))
 
 
 def _require_positive_factor(name: str, factor: float) -> None:
