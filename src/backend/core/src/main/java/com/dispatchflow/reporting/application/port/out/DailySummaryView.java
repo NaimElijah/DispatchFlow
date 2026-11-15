@@ -8,6 +8,7 @@ import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.VehicleId;
+import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -75,16 +76,29 @@ public record DailySummaryView(DeliveryDate date, Optional<Summary> summary) {
      * @param route the route
      * @param vehicle its vehicle
      * @param driver its driver in the plan's current revision
+     * @param distance the route's planned distance (FR-341), or empty when the validator couldn't
+     *     time the route (ADR-112)
+     * @param drivingTime the route's planned driving time, or empty when the validator couldn't time
+     *     the route (ADR-112)
      * @param stops the route's stops, by what happened at them
      * @param onTime the route's on-time percentage, or unavailable when none was delivered
      */
-    public record RouteLine(RouteId route, VehicleId vehicle, AccountId driver, StopCounts stops, OnTimeRate onTime) {
+    public record RouteLine(
+            RouteId route,
+            VehicleId vehicle,
+            AccountId driver,
+            Optional<Distance> distance,
+            Optional<Duration> drivingTime,
+            StopCounts stops,
+            OnTimeRate onTime) {
 
-        /** Checks every part is present. */
+        /** Checks every part is present, possibly empty. */
         public RouteLine {
             Objects.requireNonNull(route, "route");
             Objects.requireNonNull(vehicle, "vehicle");
             Objects.requireNonNull(driver, "driver");
+            Objects.requireNonNull(distance, "distance");
+            Objects.requireNonNull(drivingTime, "drivingTime");
             Objects.requireNonNull(stops, "stops");
             Objects.requireNonNull(onTime, "onTime");
         }

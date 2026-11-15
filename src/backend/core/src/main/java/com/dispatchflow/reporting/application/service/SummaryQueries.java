@@ -1,10 +1,6 @@
 package com.dispatchflow.reporting.application.service;
 
 import com.dispatchflow.access.application.api.Actor;
-import com.dispatchflow.liveops.application.api.StopResults;
-import com.dispatchflow.orders.application.api.OrdersForDate;
-import com.dispatchflow.planning.application.api.PlanFigures;
-import com.dispatchflow.planning.application.api.PublishedRoutes;
 import com.dispatchflow.reporting.application.port.out.BaselineRepository;
 import com.dispatchflow.reporting.application.port.out.BaselineView;
 import com.dispatchflow.reporting.application.port.out.DailySummaryView;
@@ -17,15 +13,15 @@ import com.dispatchflow.shared.application.NotFound;
 
 /**
  * The daily summary's and the baseline comparison's reads (FR-38, FR-39, FR-106, FR-161). Every
- * figure is computed when it is asked for, from each module's facts read now, so a correction
- * made later changes the next figure (FR-333, ADR-109):
+ * figure is computed when it is asked for, from the facts read now, so a correction made later
+ * changes the next figure (FR-333, ADR-109):
  *
  * <ul>
- *   <li>Planning's {@link PlanFigures} gives a plan's planned figures and standing, and {@link
- *       PublishedRoutes} its routes, vehicles, drivers and planned arrivals;
- *   <li>Live Operations' {@link StopResults} gives each stop's arrival and effective outcome;
- *   <li>Customers &amp; Orders' {@link OrdersForDate} gives each order's window and door flag, and
- *       the orders cancelled now (BR-30);
+ *   <li>{@link ReportingViews} gives every fact of another module, from the views Planning, Live
+ *       Operations and Customers &amp; Orders publish (ADR-041): a plan's standing, planned figures,
+ *       routes with their planned arrivals, stop results, actual figures, and the orders cancelled
+ *       now (BR-30). The class calls no other module's Java API for them;
+ *   <li>{@link BaselineRepository} gives the plan's baseline;
  *   <li>Reporting's own domain judges them: {@code OnTimeRate}, {@code PlannedOnTimeRate} through
  *       {@code PlannedFigures}, and {@code Baseline.compareWith}.
  * </ul>
@@ -39,34 +35,16 @@ public final class SummaryQueries {
 
     private final ReportingViews views;
     private final BaselineRepository baselines;
-    private final PlanFigures planFigures;
-    private final PublishedRoutes publishedRoutes;
-    private final StopResults stopResults;
-    private final OrdersForDate ordersForDate;
 
     /**
      * Creates the queries.
      *
-     * @param views Reporting's read port over the other modules' published views
+     * @param views Reporting's read port over the views other modules publish
      * @param baselines where baselines are kept
-     * @param planFigures Planning's figures and standing of a published plan
-     * @param publishedRoutes Planning's routes of the plans in force
-     * @param stopResults Live Operations' arrivals and effective outcomes of a plan's stops
-     * @param ordersForDate Customers &amp; Orders' orders of a date
      */
-    public SummaryQueries(
-            ReportingViews views,
-            BaselineRepository baselines,
-            PlanFigures planFigures,
-            PublishedRoutes publishedRoutes,
-            StopResults stopResults,
-            OrdersForDate ordersForDate) {
+    public SummaryQueries(ReportingViews views, BaselineRepository baselines) {
         this.views = views;
         this.baselines = baselines;
-        this.planFigures = planFigures;
-        this.publishedRoutes = publishedRoutes;
-        this.stopResults = stopResults;
-        this.ordersForDate = ordersForDate;
     }
 
     /**
@@ -94,7 +72,7 @@ public final class SummaryQueries {
      * @param actor the dispatcher
      * @param plan the plan
      * @return the comparison, empty while the baseline is not computed yet
-     * @throws NotFound when no published plan has the ID
+     * @throws NotFound when Planning's view has no published plan with the ID
      */
     public BaselineView baseline(Actor actor, PlanId plan) {
         throw new UnsupportedOperationException("Built in M5");

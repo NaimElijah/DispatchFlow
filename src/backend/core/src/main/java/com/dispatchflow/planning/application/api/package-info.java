@@ -4,8 +4,8 @@
  * {@link com.dispatchflow.planning.application.api.PublishedRoutes}, {@link
  * com.dispatchflow.planning.application.api.PlanningSettingsFacts}) and the changes it asks
  * Planning to make ({@link com.dispatchflow.planning.application.api.ReconcileLateOutcome}, {@link
- * com.dispatchflow.planning.application.api.RemoveSupersededPutBack}), and what Reporting reads
- * about a plan ({@link com.dispatchflow.planning.application.api.PlanFigures}).
+ * com.dispatchflow.planning.application.api.RemoveSupersededPutBack}). Reporting reads no Java API
+ * of Planning's: it reads the views Planning publishes (ADR-041, ADR-109).
  *
  * <p>Its types use only kernel types, JDK types, their own records, enums and sealed interfaces,
  * and Audit's {@code CallContext}, never a domain type (DL §2.3 rule 1). A revision travels as its

@@ -51,19 +51,6 @@ public interface PublishedRoutes {
     Optional<PublishedRouteFact> routeOf(StopId stop);
 
     /**
-     * Every route of one plan as its latest revision has it, whether the plan is published,
-     * completed or cancelled. Live Operations answers Reporting's stop results from it (FR-38,
-     * ADR-109).
-     *
-     * <p>Built in M5.
-     *
-     * @param plan the plan
-     * @return the routes, in the plan's order; empty for a plan never published
-     * @throws NotFound when no plan has the ID
-     */
-    List<PublishedRouteFact> routesOf(PlanId plan);
-
-    /**
      * What one revision did to the plan's stops: which joined a route, moved, or left (ADR-059).
      *
      * <p>Built in M12.

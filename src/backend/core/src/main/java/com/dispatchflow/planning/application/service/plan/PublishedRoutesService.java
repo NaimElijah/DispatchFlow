@@ -63,16 +63,6 @@ public final class PublishedRoutesService implements PublishedRoutes {
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M5.
-     */
-    @Override
-    public List<PublishedRouteFact> routesOf(PlanId plan) {
-        throw new UnsupportedOperationException("Built in M5");
-    }
-
-    /**
-     * {@inheritDoc}
-     *
      * <p>Built in M12.
      */
     @Override

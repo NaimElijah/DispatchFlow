@@ -3,12 +3,9 @@ package com.dispatchflow.planning.application.port.out;
 import com.dispatchflow.fleet.application.spi.PlanUseFact;
 import com.dispatchflow.orders.application.spi.OrderPlacementFact;
 import com.dispatchflow.orders.application.spi.PlacementFact;
-import com.dispatchflow.planning.application.api.BaselineInputsFact;
 import com.dispatchflow.planning.application.api.LaterStopFact;
 import com.dispatchflow.planning.application.api.MembershipFact;
 import com.dispatchflow.planning.application.api.OrderStopFact;
-import com.dispatchflow.planning.application.api.PlanStandingFact;
-import com.dispatchflow.planning.application.api.PlannedFiguresFact;
 import com.dispatchflow.planning.application.api.PublishedRouteFact;
 import com.dispatchflow.planning.application.api.RevisionChangesFact;
 import com.dispatchflow.planning.application.api.RouteDriversFact;
@@ -179,36 +176,6 @@ public interface PlanningViews {
     Optional<LaterStopFact> laterStopOf(OrderId order, Attempt attempt);
 
     /**
-     * A published plan's planned figures, from its current revision (FR-38, FR-39, FR-266).
-     *
-     * <p>Built in M5.
-     *
-     * @param plan the plan
-     * @return the figures, or empty when no published plan has the ID
-     */
-    Optional<PlannedFiguresFact> figuresOf(PlanId plan);
-
-    /**
-     * Where a published plan is now (FR-338, ADR-109).
-     *
-     * <p>Built in M5.
-     *
-     * @param plan the plan
-     * @return its standing, or empty when no published plan has the ID
-     */
-    Optional<PlanStandingFact> standingOf(PlanId plan);
-
-    /**
-     * What a published plan's daily solve was given, for its baseline (FR-39, FR-342, ADR-052).
-     *
-     * <p>Built in M5.
-     *
-     * @param plan the plan
-     * @return the inputs, or empty when no published plan has the ID
-     */
-    Optional<BaselineInputsFact> inputsOf(PlanId plan);
-
-    /**
      * The plan that holds a stop, or held it in any revision, so a late outcome finds its plan after
      * the stop left it (DL §8).
      *
@@ -302,16 +269,6 @@ public interface PlanningViews {
      * @return the route, or empty
      */
     Optional<PublishedRouteFact> routeInForceHolding(StopId stop);
-
-    /**
-     * Every route of one plan as its latest revision has it, for {@code PublishedRoutes.routesOf}.
-     *
-     * <p>Built in M5.
-     *
-     * @param plan the plan
-     * @return the routes; empty for a plan never published
-     */
-    List<PublishedRouteFact> latestRoutesOf(PlanId plan);
 
     /**
      * One revision's stop changes, for {@code PublishedRoutes.changesIn}.
