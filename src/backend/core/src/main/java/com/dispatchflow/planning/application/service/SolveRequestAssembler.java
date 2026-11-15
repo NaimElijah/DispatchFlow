@@ -101,9 +101,9 @@ public final class SolveRequestAssembler {
      * FR-91, FR-146, FR-147, NFR-13). It builds or reuses the matrix, and stores none (ADR-052).
      *
      * <p>Built in M0 with seeded facts, in full in M2 and M3: M0 reads the seeded orders, fleet and
-     * roster, and the matrix the seeded day brings, because {@code TravelTimes} and {@code
-     * StoredMatrices} arrive in M3; Fleet's and Customers &amp; Orders' facts replace the seeded ones in
-     * M2, and OSRM's matrix replaces the seeded one in M3.
+     * roster, because Fleet's and Customers &amp; Orders' facts arrive in M2. {@code TravelTimes} and
+     * {@code StoredMatrices} arrive in M3, so where M0's matrix comes from until then is M0's choice;
+     * no document settles it.
      *
      * @param date the plan's delivery date
      * @param job the claimed job

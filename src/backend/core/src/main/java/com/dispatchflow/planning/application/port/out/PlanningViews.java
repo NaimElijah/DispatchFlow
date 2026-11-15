@@ -141,7 +141,8 @@ public interface PlanningViews {
 
     /**
      * Whether a stop was on a route at a time, from the revision in force then, and where it is now
-     * (BR-02, BR-27, BR-110, BR-132, ADR-114).
+     * (BR-02, BR-27, BR-110, BR-132, ADR-114). An entitled stop's order and attempt come from that
+     * revision too, so a report on a stop the plan no longer holds still finds them.
      *
      * <p>Built in M5.
      *
@@ -202,10 +203,11 @@ public interface PlanningViews {
      * <p>Built in M9.
      *
      * @param order the order
+     * @param date the order's delivery date, whose plans are read
      * @param attempt the attempt
      * @return the placement, or {@link PlacementFact.NotPlaced} when no plan of the date holds it
      */
-    PlacementFact placementOf(OrderId order, Attempt attempt);
+    PlacementFact placementOf(OrderId order, DeliveryDate date, Attempt attempt);
 
     /**
      * Where the plans of a date hold its orders (FR-76, BR-33).

@@ -52,7 +52,7 @@ import com.dispatchflow.shared.application.IdGenerator;
  * <p><b>Domain gap.</b> {@code SolveJob.succeed} keeps no objective and no stats, which the daily
  * answer carries for NFR-11: M0 adds them to {@code SolveResult} (see {@code DailyAnswer.Solved}).
  *
- * <p>M0 builds a first cut, the daily lane over the matrix the seeded day brings; M4 completes it, as
+ * <p>M0 builds a first cut, the daily lane; M4 completes it, as
  * the roadmap's M4 builds "the {@code solve_job} queue, one worker per lane" (ADR-051).
  *
  * <p>Built in M0.
