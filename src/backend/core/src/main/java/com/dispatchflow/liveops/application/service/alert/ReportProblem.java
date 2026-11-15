@@ -92,7 +92,8 @@ public final class ReportProblem {
      * @param digest the request body's hash
      * @throws com.dispatchflow.shared.RuleViolation with Live Operations' {@code NotYourRoute} when
      *     the acting driver does not drive the route now (BR-02)
-     * @throws NotFound when no plan in force holds the route
+     * @throws NotFound when no plan in force holds the route; the phone's outbox marks the row
+     *     refused (ADR-121).
      * @throws IdempotencyKeyReused when the key was used before with another body, or its stored
      *     receipt is another call's: a {@code RecordedReport} case other than {@code
      *     ProblemReported} (NFR-130)

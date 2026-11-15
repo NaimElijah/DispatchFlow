@@ -18,9 +18,12 @@ import com.dispatchflow.shared.application.StaleVersion;
  * attempt is no longer the put-back's changes nothing, so a redelivered event is safe. It writes
  * its audit record with the listener's server step (NFR-23, ADR-110).
  *
- * <p>Domain gap: {@code Order} has no method that ends a put-back attempt. M8 adds {@code
- * Order.endPutBack(Attempt, Instant)}, which returns the order to the attempt before the one given
- * and changes nothing when the order's current attempt is no longer that one.
+ * <p>Domain gap: {@code Order} has no method that ends a put-back attempt, and a put-back doesn't
+ * keep the earlier attempt's date and window. M8 adds both (ADR-121): {@code Order.putBack} keeps
+ * them, and {@code Order.endPutBack(Attempt, Instant)} returns the order to the attempt before the
+ * one given, on that attempt's date and window. It frees the later date's capacity (BR-101), skips
+ * the past-date check, and changes nothing when the order's current attempt is no longer that
+ * one.
  *
  * <p>Built in M8.
  */

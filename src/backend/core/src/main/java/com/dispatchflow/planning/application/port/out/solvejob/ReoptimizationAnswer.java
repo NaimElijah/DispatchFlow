@@ -64,10 +64,9 @@ public sealed interface ReoptimizationAnswer {
      *
      * <p>The optimizer's own {@code Failed} outcome, its solver failed or found no solution within
      * its budget, comes with a closed kind, {@code SOLVER_FAILED} or {@code
-     * NO_SOLUTION_WITHIN_BUDGET}, which the adapter maps into a {@code SolveFailureReason}. No
-     * reason names it yet: M0 adds one, a domain change and an FR-65 edit, which is the owner's
-     * decision. Until then the adapter must not map it to {@code VALIDATOR_REJECTED} with no
-     * violations.
+     * NO_SOLUTION_WITHIN_BUDGET}, which the adapter maps to the {@code SolveFailureReason} of the
+     * same name (FR-65, ADR-121), never to {@code VALIDATOR_REJECTED}, which carries every
+     * violation.
      *
      * <p><b>Domain gap.</b> {@code SolveJob.fail} keeps no stats, which NFR-11 records with every
      * solve: M0 adds them beside the failure, and {@code RunSolveJob} passes them on.

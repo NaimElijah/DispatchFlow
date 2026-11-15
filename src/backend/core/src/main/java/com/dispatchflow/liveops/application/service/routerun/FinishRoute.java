@@ -112,7 +112,8 @@ public final class FinishRoute {
      * @throws com.dispatchflow.shared.RuleViolation with Live Operations' {@code
      *     DeviceTimeOutOfRange}; {@code NotYourRoute} when the driver is not both the route's
      *     driver at that time and now (BR-02, ADR-114); else {@code RouteAlreadyFinished}
-     * @throws NotFound when no plan in force holds the route
+     * @throws NotFound when no plan in force holds the route; the phone's outbox marks the row
+     *     refused (ADR-121).
      * @throws RouteNotStarted when the route has no run (ADR-107)
      * @throws IdempotencyKeyReused when the key was used before with another body, or its stored
      *     receipt is another call's: a {@code RecordedReport} case other than {@code Finished}

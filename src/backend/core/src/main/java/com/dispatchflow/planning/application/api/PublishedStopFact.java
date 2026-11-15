@@ -15,9 +15,9 @@ import java.util.Optional;
  * served, or rescheduled still gets its leg, which a read of the date's uncancelled orders would
  * miss.
  *
- * <p>Planning's domain doesn't hold them yet: {@code PlannedStop} and {@code RevisionStop} keep
- * only the order, the attempt and the planned times. M5 adds the three to each revision's stops,
- * as the revision took them.
+ * <p>Each revision's stops keep the three as their solve took them, as the legs are kept (ADR-052,
+ * ADR-121). Planning's domain doesn't hold them yet: {@code PlannedStop} keeps only the order, the
+ * attempt and the planned times, and M5 adds the three.
  *
  * <p>Built in M5.
  *

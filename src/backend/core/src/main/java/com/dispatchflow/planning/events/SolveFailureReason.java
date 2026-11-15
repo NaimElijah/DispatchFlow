@@ -24,5 +24,14 @@ public enum SolveFailureReason {
      */
     VALIDATOR_REJECTED,
     /** A locked route could not be kept (FR-238). */
-    LOCK_NOT_HONOURED
+    LOCK_NOT_HONOURED,
+    /** The optimizer's solver failed during its search (FR-65, ADR-121). */
+    SOLVER_FAILED,
+    /** The optimizer found no solution within the job's limit (FR-65, ADR-121). */
+    NO_SOLUTION_WITHIN_BUDGET,
+    /**
+     * The optimizer refused the request: an unknown solver, an unsupported budget or an invalid
+     * problem. It is a fault for the team, not the dispatcher's (FR-65, ADR-121).
+     */
+    REQUEST_REFUSED
 }

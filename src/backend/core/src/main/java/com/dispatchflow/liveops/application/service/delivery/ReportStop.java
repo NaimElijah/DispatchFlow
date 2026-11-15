@@ -155,7 +155,8 @@ public final class ReportStop {
      *     ReportAfterCancellation}, {@code StopNotOnYourRoute}, {@code SameOutcomeAlreadyRecorded}
      *     or {@code OutcomeAlreadyRecorded}; for a failed, {@code ReportAfterCancellation}, {@code
      *     StopNotOnYourRoute}, {@code SameOutcomeAlreadyRecorded} or {@code OutcomeAlreadyRecorded}
-     * @throws NotFound when no plan holds the stop or the route
+     * @throws NotFound when no plan holds the stop or the route; the phone's outbox marks the row
+     *     refused (ADR-121).
      * @throws IdempotencyKeyReused when the key was used before with another body, or its stored
      *     receipt is another call's: a {@code RecordedReport} case other than {@code Recorded} or
      *     {@code Held} (NFR-130)

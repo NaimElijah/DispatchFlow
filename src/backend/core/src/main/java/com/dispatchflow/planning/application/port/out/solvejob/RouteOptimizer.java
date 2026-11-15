@@ -29,11 +29,10 @@ import java.util.List;
  *       job with it, so the plan leaves <em>solving</em>.
  * </ul>
  *
- * <p><b>Gap: the optimizer's own failure.</b> No {@code SolveFailureReason} names it yet: M0 adds
- * one, which is a domain change and an edit to FR-65's list, and so the owner's decision. The
- * adapter maps the optimizer's kind into it. Until then the adapter must not map it to {@code
- * VALIDATOR_REJECTED} with no violations, because that reason means the validator rejected a solution
- * with every violation (BR-57). A refused request waits for the same decision.
+ * <p><b>The optimizer's own failure.</b> The adapter maps the optimizer's kind to the {@code
+ * SolveFailureReason} of the same name, {@code SOLVER_FAILED} or {@code NO_SOLUTION_WITHIN_BUDGET},
+ * and a refused request to {@code REQUEST_REFUSED} (FR-65, ADR-121). It never maps either to {@code
+ * VALIDATOR_REJECTED}, which means the validator rejected a solution with every violation (BR-57).
  *
  * <p>Built in M0, M4 and M9, method by method.
  */

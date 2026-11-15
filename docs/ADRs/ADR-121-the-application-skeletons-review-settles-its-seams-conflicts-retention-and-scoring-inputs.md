@@ -153,7 +153,9 @@ These continue [ADR-120]'s placements.
   - An unknown solver or an unsupported budget is a refused request. The core gets it as
     `OptimizerRefusedRequest`.
   - Planning refuses a solver the optimizer doesn't offer, before its transaction (`SolverNotOffered`,
-    422). The service's registry holds only [FR-20]'s solvers ([ADR-004]).
+    422). When the optimizer can't be reached for its solvers, the request goes on unchecked and the
+    job fails as *optimizer unavailable*. The service's registry holds only [FR-20]'s solvers
+    ([ADR-004]), so the baseline's heuristic is no longer one of them, which amends [ADR-044].
 - **P17. The optimizer's answers carry what the core stores.**
   - A daily solve returns its excluded vehicles ([FR-197]), its objective's terms and its run's stats
     ([NFR-11]).
@@ -187,7 +189,12 @@ These continue [ADR-120]'s placements.
   `OptimizerUnavailable`, `GeocoderUnavailable` and `RoadSnapUnavailable`.
   - The geocoder answers a point and a match quality, or nothing. Ambiguity is a quality, and the
     distance to the nearest road is a port of its own, because OSRM reports it.
-  - Reporting names its own outage error for the baseline, since it can't import Planning's.
+  - Reporting names its own outage error for the baseline (`BaselineOptimizerUnavailable`), since it
+    can't import Planning's.
+  - When the road network can't be reached for an evaluation, the use case asks
+    `FeasibilityChecker.unavailableFor` for the unavailable evaluation, which only the adapter builds
+    ([DL §13][DL-13]). An edit or publishing then refuses, and a hand-over records *not yet
+    checked*.
   - This amends [ADR-085]'s four-case port shape.
 - **P26. Refusals outside a use case.** The web adapter's file reader writes the refused-attempt record
   for a file it can't read. This extends [ADR-120] decision 1's list of refusals made before a use case
@@ -269,6 +276,7 @@ These continue [ADR-120]'s placements.
 
 [ADR-004]: ADR-004-pluggable-solver-port.md
 [ADR-029]: ADR-029-solver-objective-and-re-optimization-rules.md
+[ADR-044]: ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md
 [ADR-050]: ADR-050-re-optimization-conventions-live-only-in-the-python-problem-factory.md
 [ADR-052]: ADR-052-each-plan-stores-the-matrix-and-values-it-was-solved-with.md
 [ADR-057]: ADR-057-concurrent-changes-to-a-plan-use-optimistic-locking.md
@@ -318,4 +326,5 @@ These continue [ADR-120]'s placements.
 [NFR-260]: ../requirements/requirements.md#nfr-260
 [Q-42]: ../requirements/requirements.md#open-questions
 [DL-11]: ../architecture/domain_layer/domain_layer_design.md#11-concurrency
+[DL-13]: ../architecture/domain_layer/domain_layer_design.md#13-inside-each-module-hexagon
 [DL-42]: ../architecture/domain_layer/domain_layer_design.md#42-fleet

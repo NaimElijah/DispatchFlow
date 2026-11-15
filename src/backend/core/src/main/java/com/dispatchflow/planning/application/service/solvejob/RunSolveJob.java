@@ -42,8 +42,8 @@ import com.dispatchflow.shared.application.IdGenerator;
  *       naming the broken rule as for a daily result (ADR-112).
  *   <li>An optimizer answer of failure, an unreachable road network ({@code
  *       RoadNetworkUnavailable}) or a date with no orders fails the job with its reason (FR-65). A
- *       request the optimizer refused ({@code OptimizerRefusedRequest}) fails the job too, with the
- *       reason {@code RouteOptimizer}'s gap waits for, and the step logs it as a defect.
+ *       request the optimizer refused ({@code OptimizerRefusedRequest}) fails the job with {@code
+ *       REQUEST_REFUSED} (ADR-121), and the step logs it as a defect.
  *   <li>A job the watchdog or the midnight job ended meanwhile refuses with {@code
  *       JobAlreadyEnded}, and the worker drops its answer (DL §11).
  *   <li>A lost version race on {@code SolveJobRepository.save} is no error of this step: it reloads
