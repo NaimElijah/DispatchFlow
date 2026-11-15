@@ -11,6 +11,7 @@ import static com.dispatchflow.planning.domain.PlanningFixtures.O1;
 import static com.dispatchflow.planning.domain.PlanningFixtures.O2;
 import static com.dispatchflow.planning.domain.PlanningFixtures.O3;
 import static com.dispatchflow.planning.domain.PlanningFixtures.O4;
+import static com.dispatchflow.planning.domain.PlanningFixtures.O5;
 import static com.dispatchflow.planning.domain.PlanningFixtures.PLAN;
 import static com.dispatchflow.planning.domain.PlanningFixtures.PROPOSAL;
 import static com.dispatchflow.planning.domain.PlanningFixtures.SECOND_JOB;
@@ -19,6 +20,7 @@ import static com.dispatchflow.planning.domain.PlanningFixtures.V1;
 import static com.dispatchflow.planning.domain.PlanningFixtures.V2;
 import static com.dispatchflow.planning.domain.PlanningFixtures.V3;
 import static com.dispatchflow.planning.domain.PlanningFixtures.aPlan;
+import static com.dispatchflow.planning.domain.PlanningFixtures.dropped;
 import static com.dispatchflow.planning.domain.PlanningFixtures.evaluationOf;
 import static com.dispatchflow.planning.domain.PlanningFixtures.freshIds;
 import static com.dispatchflow.planning.domain.PlanningFixtures.noChanges;
@@ -51,6 +53,12 @@ import org.junit.jupiter.api.Test;
 /** Stable route and stop identity, route indexes, and the facts a published plan keeps (ADR-101). */
 class PlanRoutesAndFactsTest {
 
+    /** The published plan's drops, which a proposal that serves neither order drops again. */
+    private static final List<DroppedOrder> BOTH_DROPS =
+            List.of(dropped(O4, new DropReason.Displaced()), dropped(O5, new DropReason.MissingLocation()));
+
+    private static final List<DroppedOrder> O5_DROPPED = List.of(dropped(O5, new DropReason.MissingLocation()));
+
     // ---- a withdrawn vehicle the proposal gives no route ----------------------------------------
 
     @Test
@@ -63,6 +71,7 @@ class PlanRoutesAndFactsTest {
         ReoptimizationProposal proposal = proposal(
                 RevisionNo.FIRST,
                 List.of(solved(V2, D2, O3, O1, O2), solved(V3, D3, O4)),
+                O5_DROPPED,
                 new VehicleWithdrawal(V1, WithdrawalCause.VEHICLE_UNAVAILABLE));
 
         plan.accept(proposal, noChanges(V2, V3), freshIds(700), DISPATCHER, TODAY, LATER);
@@ -89,7 +98,7 @@ class PlanRoutesAndFactsTest {
                 route(3, V3, D3, true)));
 
         plan.accept(
-                proposal(RevisionNo.FIRST, List.of(solved(V1, D1), solved(V2, D2), solved(V3, D3, O4))),
+                proposal(RevisionNo.FIRST, List.of(solved(V1, D1), solved(V2, D2), solved(V3, D3, O4)), List.of()),
                 noChanges(V1, V2, V3),
                 freshIds(700),
                 DISPATCHER,
@@ -104,14 +113,15 @@ class PlanRoutesAndFactsTest {
 
     @Test
     void
-            GivenAVehicleWithdrawnEarlier_WhenASecondProposalWithdrawsItAgainWithTheSameStops_ThenItsRouteKeepsItsIdIndexAndStops() {
+            GivenAVehicleWithdrawnEarlier_WhenASecondProposalWithdrawsItAgainWithNoStops_ThenItsRouteKeepsItsIdIndexAndStops() {
         Plan plan = withdrawnV1();
         PlanSnapshot.RouteSnapshot withdrawn = withdrawnRoute(plan);
 
         plan.accept(
                 proposal(
                         RevisionNo.of(2),
-                        List.of(solved(V1, D1, O1), solved(V2, D2, O3, O2)),
+                        List.of(solved(V1, D1), solved(V2, D2, O3, O2)),
+                        BOTH_DROPS,
                         new VehicleWithdrawal(V1, WithdrawalCause.VEHICLE_UNAVAILABLE)),
                 noChanges(V2),
                 freshIds(800),
@@ -123,6 +133,7 @@ class PlanRoutesAndFactsTest {
         PlanSnapshot.RouteSnapshot again = withdrawnRoute(plan);
         assertThat(again.id()).isEqualTo(withdrawn.id());
         assertThat(again.index()).isEqualTo(withdrawn.index());
+        assertThat(again.stops()).extracting(PlanSnapshot.StopSnapshot::order).containsExactly(O1);
         assertThat(again.stops())
                 .extracting(PlanSnapshot.StopSnapshot::id)
                 .containsExactlyElementsOf(withdrawn.stops().stream()
@@ -140,13 +151,161 @@ class PlanRoutesAndFactsTest {
         PlanAssertions.assertPlanRefused(
                 plan,
                 () -> plan.accept(
-                        proposal(RevisionNo.of(2), List.of(solved(V2, D2, O3, O2, O1))),
+                        proposal(RevisionNo.of(2), List.of(solved(V2, D2, O3, O2, O1)), BOTH_DROPS),
                         noChanges(V2),
                         freshIds(800),
                         DISPATCHER,
                         TODAY,
                         LATER),
                 new PlanningError.OrderAlreadyInPlan(O1, FIRST));
+    }
+
+    // ---- accepting keeps what the proposal leaves out --------------------------------------------
+
+    @Test
+    void GivenAStopReportedBeforeTheBasis_WhenAProposalLeavesItOnNoRoute_ThenAcceptKeepsItOnItsRoute() {
+        Plan plan = aPlan().published();
+        StopId o1 = stopId(plan, O1);
+
+        plan.accept(
+                proposal(RevisionNo.FIRST, List.of(solved(V1, D1, O2), solved(V2, D2, O3)), BOTH_DROPS),
+                noChanges(V1, V2),
+                freshIds(500),
+                DISPATCHER,
+                TODAY,
+                LATER);
+
+        assertThat(ordersOn(plan, V1)).containsExactly(O1, O2);
+        assertThat(stopId(plan, O1)).isEqualTo(o1);
+        assertThatCode(() -> Plan.restore(plan.snapshot())).doesNotThrowAnyException();
+    }
+
+    @Test
+    void GivenAVehicleWithdrawnAfterAStop_WhenTheProposalGivesItARouteWithNoStops_ThenItsRouteKeepsTheStopItMade() {
+        Plan plan = aPlan().published();
+        RouteId v1 = routeId(plan, V1);
+        StopId o1 = stopId(plan, O1);
+
+        plan.accept(
+                proposal(
+                        RevisionNo.FIRST,
+                        List.of(solved(V1, D1), solved(V2, D2, O2, O3)),
+                        BOTH_DROPS,
+                        new VehicleWithdrawal(V1, WithdrawalCause.VEHICLE_UNAVAILABLE)),
+                noChanges(V2),
+                freshIds(500),
+                DISPATCHER,
+                TODAY,
+                LATER);
+
+        PlanSnapshot.RouteSnapshot withdrawn = route(plan, v1);
+        assertThat(withdrawn.withdrawal()).contains(new Withdrawal(WithdrawalCause.VEHICLE_UNAVAILABLE));
+        assertThat(withdrawn.stops()).extracting(PlanSnapshot.StopSnapshot::id).containsExactly(o1);
+        assertThat(ordersOn(plan, V2)).containsExactly(O2, O3);
+    }
+
+    @Test
+    void GivenAStopReportedSinceTheBasisThatTheProposalKeepsAfterTheReportedOne_WhenAccepted_ThenTheReportStands() {
+        Plan plan = aPlan().published();
+        ChangesSinceBasis reportedO2 = new ChangesSinceBasis(
+                List.of(stopId(plan, O2)),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                noChanges(V1, V2).standing());
+
+        plan.accept(
+                proposal(RevisionNo.FIRST, List.of(solved(V1, D1, O2), solved(V2, D2, O3)), BOTH_DROPS),
+                reportedO2,
+                freshIds(500),
+                DISPATCHER,
+                TODAY,
+                LATER);
+
+        assertThat(plan.status()).isEqualTo(new Plan.Status.Published(RevisionNo.of(2)));
+        assertThat(ordersOn(plan, V1)).containsExactly(O1, O2);
+    }
+
+    @Test
+    void GivenARouteTheProposalLeavesOutWithoutWithdrawingIt_WhenAccepted_ThenItStaysInForceForALateFact() {
+        Plan plan = aPlan().published();
+        RouteId v2 = routeId(plan, V2);
+        StopId o3 = stopId(plan, O3);
+        plan.accept(
+                proposal(RevisionNo.FIRST, List.of(solved(V1, D1, O1, O2, O3)), BOTH_DROPS),
+                noChanges(V1),
+                freshIds(500),
+                DISPATCHER,
+                TODAY,
+                LATER);
+        Plan accepted = reload(plan);
+
+        Reconciliation reconciled =
+                accepted.reconcileLateOutcome(new LateFact(o3, O3, FIRST, v2), LATER.plusSeconds(120));
+
+        assertThat(reconciled.kind()).isEqualTo(ReconciliationKind.MOVED_FROM_ROUTE);
+        assertThat(ordersOn(accepted, V2)).containsExactly(O3);
+        assertThat(ordersOn(accepted, V1)).containsExactly(O1, O2);
+    }
+
+    @Test
+    void GivenAProposalThatNeitherServesNorDropsADroppedOrder_WhenAccepted_ThenProposalLosesOrder() {
+        Plan plan = aPlan().published();
+
+        PlanAssertions.assertPlanRefused(
+                plan,
+                () -> plan.accept(
+                        proposal(
+                                RevisionNo.FIRST,
+                                List.of(solved(V1, D1, O1, O2), solved(V2, D2, O3)),
+                                List.of(BOTH_DROPS.get(0))),
+                        noChanges(V1, V2),
+                        freshIds(500),
+                        DISPATCHER,
+                        TODAY,
+                        LATER),
+                new PlanningError.ProposalLosesOrder(PROPOSAL, O5, FIRST));
+    }
+
+    @Test
+    void GivenAProposalListingTheRoutesInAnotherOrder_WhenAccepted_ThenThePlanKeepsItsRouteOrder() {
+        Plan plan = aPlan().published();
+        List<RouteId> before = routeIds(plan);
+
+        plan.accept(
+                proposal(
+                        RevisionNo.FIRST,
+                        List.of(solved(V3, D3, O4), solved(V2, D2, O3, O2), solved(V1, D1, O1)),
+                        O5_DROPPED),
+                noChanges(V1, V2, V3),
+                freshIds(500),
+                DISPATCHER,
+                TODAY,
+                LATER);
+
+        assertThat(routeIds(plan)).startsWith(before.toArray(RouteId[]::new));
+        assertThat(routeIds(plan).get(2)).isEqualTo(routeId(plan, V3));
+    }
+
+    @Test
+    void GivenAProposalWithdrawingTheFirstRouteWithNoRouteForIt_WhenAccepted_ThenTheWithdrawnRouteKeepsItsPlace() {
+        Plan plan = aPlan().published();
+        List<RouteId> before = routeIds(plan);
+
+        plan.accept(
+                proposal(
+                        RevisionNo.FIRST,
+                        List.of(solved(V2, D2, O3, O1, O2)),
+                        BOTH_DROPS,
+                        new VehicleWithdrawal(V1, WithdrawalCause.VEHICLE_UNAVAILABLE)),
+                noChanges(V2),
+                freshIds(500),
+                DISPATCHER,
+                TODAY,
+                LATER);
+
+        assertThat(routeIds(plan)).isEqualTo(before);
     }
 
     // ---- route indexes --------------------------------------------------------------------------
@@ -168,7 +327,13 @@ class PlanRoutesAndFactsTest {
                 .mapToObj(PlanRoutesAndFactsTest::vehicle)
                 .toArray(VehicleId[]::new);
 
-        plan.accept(proposal(RevisionNo.FIRST, proposed), noChanges(all), freshIds(700), DISPATCHER, TODAY, LATER);
+        plan.accept(
+                proposal(RevisionNo.FIRST, proposed, List.of()),
+                noChanges(all),
+                freshIds(700),
+                DISPATCHER,
+                TODAY,
+                LATER);
 
         assertThat(routeOf(plan, vehicle(16)).index()).isEqualTo(RouteIndex.of(30));
     }
@@ -179,7 +344,7 @@ class PlanRoutesAndFactsTest {
                 withRoutes(aPlan().published().snapshot(), route(1, V1, D1, false), route(3, V2, D2, false)));
 
         plan.accept(
-                proposal(RevisionNo.FIRST, List.of(solved(V1, D1), solved(V2, D2), solved(V3, D3, O4))),
+                proposal(RevisionNo.FIRST, List.of(solved(V1, D1), solved(V2, D2), solved(V3, D3, O4)), List.of()),
                 noChanges(V1, V2, V3),
                 freshIds(700),
                 DISPATCHER,
@@ -246,7 +411,7 @@ class PlanRoutesAndFactsTest {
         Plan plan = confirmedHandOver();
 
         plan.accept(
-                proposal(RevisionNo.of(2), List.of(solved(V1, D3, O1, O2), solved(V2, D2, O3))),
+                proposal(RevisionNo.of(2), List.of(solved(V1, D3, O1, O2), solved(V2, D2, O3)), BOTH_DROPS),
                 noChanges(V1, V2),
                 freshIds(700),
                 DISPATCHER,
@@ -257,7 +422,7 @@ class PlanRoutesAndFactsTest {
     }
 
     @Test
-    void GivenALockedRouteOnAPublishedPlan_WhenThePlanIsCancelled_ThenItIsCancelled() {
+    void GivenARouteLockedBeforePublishing_WhenThePlanIsPublishedThenCancelled_ThenItIsCancelledWithNoLock() {
         Plan ready = aPlan().ready();
         ready.lockRoute(routeId(ready, V1), RouteLock.WHOLE_ROUTE, TODAY);
         Plan locked = reload(ready);
@@ -267,7 +432,7 @@ class PlanRoutesAndFactsTest {
         plan.cancel(StartedRoutes.none(), TODAY, LATER);
 
         assertThat(plan.status()).isEqualTo(new Plan.Status.Cancelled(RevisionNo.FIRST, LATER));
-        assertThat(routeOf(plan, V1).lock()).contains(RouteLock.WHOLE_ROUTE);
+        assertThat(routeOf(plan, V1).lock()).isEmpty();
     }
 
     @Test
@@ -313,24 +478,27 @@ class PlanRoutesAndFactsTest {
                 TODAY,
                 LATER);
         Plan plan = reload(locked);
-        ValidatedSolution both = ValidatedSolution.of(
-                ValidationReport.of(List.of(), List.of(solved(V1, D1, O1), solved(V2, D2, O1, O3)), List.of()));
+        SolveJob both = PlanningFixtures.storedSucceededJob(
+                SECOND_JOB, List.of(solved(V1, D1, O1), solved(V2, D2, O1, O3)), List.of());
 
         PlanAssertions.assertPlanRefused(
-                plan,
-                () -> plan.applySolveResult(succeededJob(SECOND_JOB, both), freshIds(500), LATER),
-                new PlanningError.RouteLocked(v2));
+                plan, () -> plan.applySolveResult(both, freshIds(500), LATER), new PlanningError.RouteLocked(v2));
     }
 
     // ---- helpers --------------------------------------------------------------------------------
 
-    /** A published plan whose V1 was withdrawn after serving O1, with O2 moved to V2: revision 2. */
+    /**
+     * A published plan whose V1 was withdrawn after serving O1, with O2 moved to V2: revision 2. The
+     * proposal gives V1 a route with no stops, as the optimizer does: a delivered stop is on no route
+     * of a proposal (BR-10), and no stop is added to a withdrawn route (BR-108).
+     */
     private static Plan withdrawnV1() {
         Plan plan = aPlan().published();
         plan.accept(
                 proposal(
                         RevisionNo.FIRST,
-                        List.of(solved(V1, D1, O1), solved(V2, D2, O3, O2)),
+                        List.of(solved(V1, D1), solved(V2, D2, O3, O2)),
+                        BOTH_DROPS,
                         new VehicleWithdrawal(V1, WithdrawalCause.VEHICLE_UNAVAILABLE)),
                 noChanges(V2),
                 freshIds(700),
@@ -360,7 +528,7 @@ class PlanRoutesAndFactsTest {
     }
 
     private static ReoptimizationProposal proposal(
-            RevisionNo basis, List<SolvedRoute> routes, VehicleWithdrawal... withdrawn) {
+            RevisionNo basis, List<SolvedRoute> routes, List<DroppedOrder> drops, VehicleWithdrawal... withdrawn) {
         SolveJob job = SolveJob.queue(
                 JobId.of(uuid(13)),
                 PLAN,
@@ -368,13 +536,19 @@ class PlanRoutesAndFactsTest {
                 SolverName.OR_TOOLS,
                 SolveLimit.REOPTIMIZATION,
                 Seed.of(1),
-                basis,
+                Optional.of(basis),
                 roomIn(Lane.REOPTIMIZATION),
                 NOW);
         job.claim(NOW);
         job.searchStarted(NOW);
-        ValidatedSolution solution = ValidatedSolution.of(ValidationReport.of(List.of(), routes, List.of()));
+        ValidatedSolution solution = ValidatedSolution.of(ValidationReport.of(List.of(), routes, drops));
         return job.succeed(PROPOSAL, reoptimizationResult(solution, withdrawn), LATER);
+    }
+
+    private static List<RouteId> routeIds(Plan plan) {
+        return plan.snapshot().routes().stream()
+                .map(PlanSnapshot.RouteSnapshot::id)
+                .toList();
     }
 
     private static PlanSnapshot.RouteSnapshot route(Plan plan, RouteId id) {

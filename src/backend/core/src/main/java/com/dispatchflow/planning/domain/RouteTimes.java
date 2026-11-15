@@ -10,7 +10,9 @@ import java.util.Objects;
  * The validator's times for one route of a plan, inside an {@link Evaluation}: the vehicle and
  * driver it judged the route with, and its stops in the order it judged them (FR-23). A plan refuses
  * an evaluation whose vehicle, driver or stops differ from the route after the change, so an
- * evaluation made with the old driver can't pass a hand-over (ADR-101).
+ * evaluation made with the old driver can't pass a hand-over (ADR-101). The validator reads the
+ * driver from the roster, so a hand-over's evaluation is made with the vehicle rostered to the new
+ * driver (ADR-112).
  *
  * @param route the route
  * @param vehicle the vehicle it was judged with

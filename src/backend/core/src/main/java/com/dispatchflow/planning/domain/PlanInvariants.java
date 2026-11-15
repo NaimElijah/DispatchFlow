@@ -107,7 +107,7 @@ final class PlanInvariants {
             }
             default -> {
                 if (hasJournal) {
-                    return Optional.of("only a ready plan keeps a journal");
+                    return Optional.of("only a ready or solving plan keeps a journal");
                 }
                 if (afterPublishing && !applied) {
                     return Optional.of("a published plan has an applied solve");
@@ -120,6 +120,14 @@ final class PlanInvariants {
                         || route.stops().stream().anyMatch(stop -> stop.late().isPresent()));
         if (factsOnRoutes && !afterPublishing) {
             return Optional.of("withdrawals, late outcomes and confirmed returns belong to a published plan");
+        }
+        boolean locked =
+                snapshot.routes().stream().anyMatch(route -> route.lock().isPresent());
+        if (locked && afterPublishing) {
+            return Optional.of("locks belong to a plan not yet published");
+        }
+        if (snapshot.undo().size() + snapshot.redo().size() > Plan.JOURNAL_LIMIT) {
+            return Optional.of("a journal holds at most " + Plan.JOURNAL_LIMIT + " edits");
         }
         boolean appliedEarly = snapshot.applied()
                 .map(done -> done.appliedAt().isBefore(done.basis().requestedAt()))

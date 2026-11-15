@@ -21,6 +21,7 @@ import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.Version;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -35,6 +36,9 @@ import org.jspecify.annotations.Nullable;
  * (BR-112), 2 minutes to build the matrix (ADR-101), and the limit plus 30 seconds of search (BR-32,
  * BR-84). A daily job keeps its validated result for its plan to apply; a re-optimization creates a
  * {@link ReoptimizationProposal}.
+ *
+ * <p>A command's {@code now} before the job's latest recorded time, as a clock stepped back would
+ * give, counts as that time, so the job always loads again (ADR-112).
  */
 public final class SolveJob extends AggregateRoot {
 
@@ -150,7 +154,7 @@ public final class SolveJob extends AggregateRoot {
      * @param solver the solver it runs (FR-20)
      * @param limit its search limit
      * @param seed its seed (NFR-13)
-     * @param basisRevision the revision a re-optimization starts from; {@code null} for a daily solve
+     * @param basisRevision the revision a re-optimization starts from; empty for a daily solve
      * @param capacity the lane's queue, read under its lock
      * @param now the time of the request
      * @return the queued job
@@ -166,7 +170,7 @@ public final class SolveJob extends AggregateRoot {
             SolverName solver,
             SolveLimit limit,
             Seed seed,
-            @Nullable RevisionNo basisRevision,
+            Optional<RevisionNo> basisRevision,
             LaneCapacity capacity,
             Instant now) {
         if (capacity.lane() != lane) {
@@ -188,7 +192,7 @@ public final class SolveJob extends AggregateRoot {
                         solver,
                         limit,
                         seed,
-                        Optional.ofNullable(basisRevision),
+                        basisRevision,
                         now,
                         new Phase.Queued(),
                         Optional.empty()));
@@ -233,7 +237,7 @@ public final class SolveJob extends AggregateRoot {
         if (!(phase instanceof Phase.Queued)) {
             throw new RuleViolation(new JobNotQueued(id));
         }
-        phase = new Phase.BuildingMatrix(now);
+        phase = new Phase.BuildingMatrix(atOrAfterLatest(now));
     }
 
     /**
@@ -248,24 +252,33 @@ public final class SolveJob extends AggregateRoot {
         if (!(phase instanceof Phase.BuildingMatrix building)) {
             throw new RuleViolation(new JobNotBuildingMatrix(id));
         }
-        phase = new Phase.Running(building.claimedAt(), now);
+        phase = new Phase.Running(building.claimedAt(), atOrAfterLatest(now));
     }
 
     /**
      * A daily solve returned a validated solution, which the job keeps for its plan (BR-15). Raises
-     * {@link SolveSucceeded}.
+     * {@link SolveSucceeded}. Its routes and drops are checked as a proposal's are, so a result its
+     * plan could never hold fails the job instead of leaving the plan solving (ADR-112). The worker
+     * asks {@code Plan.locksBrokenBy} first, and fails the job with {@code
+     * SolveFailure.lockNotHonoured} when a lock isn't kept (FR-238).
      *
      * @param solution the validated solution
      * @param now when it ended
      * @throws RuleViolation with {@link JobAlreadyEnded} once ended, {@link ResultForAnotherLane} for a
-     *     re-optimization, or {@link JobNotRunning} when its search is not running
+     *     re-optimization, {@link JobNotRunning} when its search is not running, or {@link
+     *     PlanningError.OrderAlreadyInPlan} (BR-07), {@link PlanningError.VehicleRoutedTwice} or {@link
+     *     PlanningError.DriverRoutedTwice} (BR-39) for a solution no plan could hold
      */
     public void succeed(ValidatedSolution solution, Instant now) {
         requireNotEnded();
         requireLane(Lane.DAILY);
         Phase.Running running = requireRunning();
+        Optional<PlanningError> broken = SolutionShape.brokenBy(solution.routes(), solution.dropped(), List.of());
+        if (broken.isPresent()) {
+            throw new RuleViolation(broken.get());
+        }
         result = new SolveResult(solution.routes(), solution.dropped());
-        endSucceeded(running, now);
+        endSucceeded(running, atOrAfterLatest(now));
     }
 
     /**
@@ -285,9 +298,10 @@ public final class SolveJob extends AggregateRoot {
         requireLane(Lane.REOPTIMIZATION);
         Phase.Running running = requireRunning();
         RevisionNo revision = Objects.requireNonNull(basisRevision, "a re-optimization has a basis revision");
+        Instant ended = atOrAfterLatest(now);
         ReoptimizationProposal proposal = ReoptimizationProposal.create(
-                proposalId, plan, id, new ProposalBasis(revision, reoptimization.factsAt()), reoptimization, now);
-        endSucceeded(running, now);
+                proposalId, plan, id, new ProposalBasis(revision, reoptimization.factsAt()), reoptimization, ended);
+        endSucceeded(running, ended);
         return proposal;
     }
 
@@ -301,7 +315,7 @@ public final class SolveJob extends AggregateRoot {
      */
     public void fail(SolveFailure failure, Instant now) {
         requireNotEnded();
-        endFailed(failure, now);
+        endFailed(failure, atOrAfterLatest(now));
     }
 
     /**
@@ -376,6 +390,18 @@ public final class SolveJob extends AggregateRoot {
                 requestedAt,
                 phase,
                 Optional.ofNullable(result));
+    }
+
+    /** The time a command records: {@code now}, or the job's latest recorded time if that is later. */
+    private Instant atOrAfterLatest(Instant now) {
+        Instant latest = switch (phase) {
+            case Phase.BuildingMatrix building -> building.claimedAt();
+            case Phase.Running running -> running.searchStartedAt();
+            case Phase.Succeeded succeeded -> succeeded.endedAt();
+            case Phase.Failed failed -> failed.endedAt();
+            case Phase.Queued queued -> requestedAt;
+        };
+        return TimeOrder.notBefore(now, latest);
     }
 
     private void requireNotEnded() {

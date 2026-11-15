@@ -1,25 +1,38 @@
 package com.dispatchflow.planning.domain;
 
 import static com.dispatchflow.planning.domain.PlanAssertions.assertJobRefused;
+import static com.dispatchflow.planning.domain.PlanningFixtures.D1;
+import static com.dispatchflow.planning.domain.PlanningFixtures.D2;
+import static com.dispatchflow.planning.domain.PlanningFixtures.FIRST;
 import static com.dispatchflow.planning.domain.PlanningFixtures.JOB;
 import static com.dispatchflow.planning.domain.PlanningFixtures.NOW;
+import static com.dispatchflow.planning.domain.PlanningFixtures.O1;
+import static com.dispatchflow.planning.domain.PlanningFixtures.O2;
 import static com.dispatchflow.planning.domain.PlanningFixtures.PLAN;
 import static com.dispatchflow.planning.domain.PlanningFixtures.PROPOSAL;
+import static com.dispatchflow.planning.domain.PlanningFixtures.V1;
+import static com.dispatchflow.planning.domain.PlanningFixtures.V2;
 import static com.dispatchflow.planning.domain.PlanningFixtures.aJob;
+import static com.dispatchflow.planning.domain.PlanningFixtures.dropped;
+import static com.dispatchflow.planning.domain.PlanningFixtures.reload;
 import static com.dispatchflow.planning.domain.PlanningFixtures.reoptimizationResult;
+import static com.dispatchflow.planning.domain.PlanningFixtures.solved;
 import static com.dispatchflow.planning.domain.PlanningFixtures.standardSolution;
 import static com.dispatchflow.planning.domain.PlanningFixtures.violation;
 import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.planning.domain.PlanningError.DriverRoutedTwice;
 import com.dispatchflow.planning.domain.PlanningError.JobAlreadyEnded;
 import com.dispatchflow.planning.domain.PlanningError.JobNotBuildingMatrix;
 import com.dispatchflow.planning.domain.PlanningError.JobNotQueued;
 import com.dispatchflow.planning.domain.PlanningError.JobNotRunning;
+import com.dispatchflow.planning.domain.PlanningError.OrderAlreadyInPlan;
 import com.dispatchflow.planning.domain.PlanningError.ReoptimizationAlreadyRunning;
 import com.dispatchflow.planning.domain.PlanningError.ResultForAnotherLane;
 import com.dispatchflow.planning.domain.PlanningError.SolveQueueFull;
+import com.dispatchflow.planning.domain.PlanningError.VehicleRoutedTwice;
 import com.dispatchflow.planning.events.Lane;
 import com.dispatchflow.planning.events.SolveFailed;
 import com.dispatchflow.planning.events.SolveFailureReason;
@@ -47,6 +60,7 @@ class SolveJobTest {
 
     private static final Instant CLAIMED = NOW.plusSeconds(10);
     private static final Instant SEARCH = NOW.plusSeconds(20);
+    private static final DropReason DISPLACED = new DropReason.Displaced();
 
     // ---- transitions ----------------------------------------------------------------------------
 
@@ -91,8 +105,17 @@ class SolveJobTest {
         assertThat(snapshot.job()).isEqualTo(JOB);
         assertThat(snapshot.basis().revision()).isEqualTo(RevisionNo.FIRST);
         assertThat(snapshot.state()).isEqualTo(new ReoptimizationProposal.State.Ready());
+        assertThat(snapshot.routes()).isEqualTo(standardSolution().routes());
+        assertThat(snapshot.dropped()).isEqualTo(standardSolution().dropped());
+        assertThat(snapshot.createdAt()).isEqualTo(ended);
         assertThat(job.result()).isEmpty();
-        assertThat(job.pendingEvents()).hasSize(1).first().isInstanceOf(SolveSucceeded.class);
+        assertThat(job.pendingEvents())
+                .containsExactly(new SolveSucceeded(
+                        new EventId("SolveSucceeded", JOB.value(), job.version().next(), 0),
+                        ended,
+                        JOB,
+                        PLAN,
+                        Lane.REOPTIMIZATION));
     }
 
     @Test
@@ -165,7 +188,89 @@ class SolveJobTest {
         assertThat(((SolveFailed) overdue.pendingEvents().get(0)).reason()).isEqualTo(reason);
     }
 
+    // ---- a clock that steps back ----------------------------------------------------------------
+
+    @Test
+    void GivenAClockThatSteppedBack_WhenAQueuedJobIsClaimedBeforeItsRequest_ThenTheClaimCountsFromTheRequest() {
+        SolveJob job = aJob().queued();
+
+        job.claim(NOW.minusSeconds(1));
+
+        assertThat(job.snapshot().phase()).isEqualTo(new SolveJob.Phase.BuildingMatrix(NOW));
+        assertThat(reload(job).snapshot().phase()).isEqualTo(new SolveJob.Phase.BuildingMatrix(NOW));
+    }
+
+    @Test
+    void GivenAClockThatSteppedBack_WhenTheSearchStartsBeforeTheClaim_ThenItCountsFromTheClaim() {
+        SolveJob job = aJob().buildingMatrix();
+
+        job.searchStarted(CLAIMED.minusSeconds(1));
+
+        assertThat(reload(job).snapshot().phase()).isEqualTo(new SolveJob.Phase.Running(CLAIMED, CLAIMED));
+    }
+
+    @Test
+    void GivenAClockThatSteppedBack_WhenADailyJobSucceedsBeforeItsSearchStarted_ThenItEndsWhenTheSearchStarted() {
+        SolveJob job = aJob().running();
+
+        job.succeed(standardSolution(), SEARCH.minusSeconds(1));
+
+        assertThat(reload(job).snapshot().phase()).isEqualTo(new SolveJob.Phase.Succeeded(CLAIMED, SEARCH, SEARCH));
+        assertThat(job.pendingEvents())
+                .first()
+                .extracting(event -> ((SolveSucceeded) event).occurredAt())
+                .isEqualTo(SEARCH);
+    }
+
+    @Test
+    void GivenAClockThatSteppedBack_WhenAReoptimizationSucceedsBeforeItsSearchStarted_ThenTheProposalIsCreatedThen() {
+        SolveJob job = aJob().reoptimizing().running();
+
+        ReoptimizationProposal proposal =
+                job.succeed(PROPOSAL, reoptimizationResult(standardSolution()), SEARCH.minusSeconds(1));
+
+        assertThat(reload(job).snapshot().phase()).isEqualTo(new SolveJob.Phase.Succeeded(CLAIMED, SEARCH, SEARCH));
+        assertThat(proposal.snapshot().createdAt()).isEqualTo(SEARCH);
+    }
+
+    @Test
+    void GivenAClockThatSteppedBack_WhenARunningJobFailsBeforeItsSearchStarted_ThenItEndsWhenTheSearchStarted() {
+        SolveJob job = aJob().running();
+        SolveFailure interrupted = SolveFailure.of(SolveFailureReason.INTERRUPTED);
+
+        job.fail(interrupted, NOW.minusSeconds(1));
+
+        assertThat(reload(job).snapshot().phase()).isEqualTo(new SolveJob.Phase.Failed(interrupted, SEARCH));
+    }
+
     // ---- refusals -------------------------------------------------------------------------------
+
+    @Test
+    void GivenADailySolutionServingAnOrderTwice_WhenTheJobSucceeds_ThenOrderAlreadyInPlan() {
+        SolveJob job = aJob().running();
+        ValidatedSolution twice = ValidatedSolution.of(ValidationReport.of(
+                List.of(), List.of(solved(V1, D1, O1), solved(V2, D2, O2)), List.of(dropped(O1, DISPLACED))));
+
+        assertJobRefused(job, () -> job.succeed(twice, SEARCH.plusSeconds(1)), new OrderAlreadyInPlan(O1, FIRST));
+    }
+
+    @Test
+    void GivenADailySolutionGivingAVehicleTwoRoutes_WhenTheJobSucceeds_ThenVehicleRoutedTwice() {
+        SolveJob job = aJob().running();
+        ValidatedSolution twice = ValidatedSolution.of(
+                ValidationReport.of(List.of(), List.of(solved(V1, D1, O1), solved(V1, D2, O2)), List.of()));
+
+        assertJobRefused(job, () -> job.succeed(twice, SEARCH.plusSeconds(1)), new VehicleRoutedTwice(V1));
+    }
+
+    @Test
+    void GivenADailySolutionPuttingADriverOnTwoRoutes_WhenTheJobSucceeds_ThenDriverRoutedTwice() {
+        SolveJob job = aJob().running();
+        ValidatedSolution twice = ValidatedSolution.of(
+                ValidationReport.of(List.of(), List.of(solved(V1, D1, O1), solved(V2, D1, O2)), List.of()));
+
+        assertJobRefused(job, () -> job.succeed(twice, SEARCH.plusSeconds(1)), new DriverRoutedTwice(D1));
+    }
 
     @Test
     void GivenAJobBuildingItsMatrix_WhenClaimedAgain_ThenJobNotQueued() {
@@ -355,7 +460,7 @@ class SolveJobTest {
                         SolverName.OR_TOOLS,
                         SolveLimit.REOPTIMIZATION,
                         Seed.of(1),
-                        RevisionNo.FIRST,
+                        Optional.of(RevisionNo.FIRST),
                         full,
                         NOW),
                 new SolveQueueFull(Lane.REOPTIMIZATION, 5));
@@ -376,10 +481,22 @@ class SolveJobTest {
                         SolverName.OR_TOOLS,
                         SolveLimit.REOPTIMIZATION,
                         Seed.of(1),
-                        RevisionNo.FIRST,
+                        Optional.of(RevisionNo.FIRST),
                         full,
                         NOW),
                 new ReoptimizationAlreadyRunning(PLAN));
+    }
+
+    @Test
+    void GivenAFullReoptimizationLane_WhenThePlanRequestsAReoptimization_ThenSolveQueueFull() {
+        Plan plan = PlanningFixtures.aPlan().published();
+        LaneCapacity full = LaneCapacity.readUnderLock(Lane.REOPTIMIZATION, otherPlans(5), List.of());
+
+        PlanAssertions.assertPlanRefused(
+                plan,
+                () -> plan.requestReoptimization(
+                        JOB, SolverName.OR_TOOLS, Seed.of(1), full, PlanningFixtures.TODAY, NOW),
+                new SolveQueueFull(Lane.REOPTIMIZATION, 5));
     }
 
     @Test
@@ -387,7 +504,15 @@ class SolveJobTest {
         LaneCapacity room = LaneCapacity.readUnderLock(Lane.DAILY, otherPlans(4), otherPlans(1));
 
         SolveJob job = SolveJob.queue(
-                JOB, PLAN, Lane.DAILY, SolverName.OR_TOOLS, SolveLimit.DEFAULT_DAILY, Seed.of(1), null, room, NOW);
+                JOB,
+                PLAN,
+                Lane.DAILY,
+                SolverName.OR_TOOLS,
+                SolveLimit.DEFAULT_DAILY,
+                Seed.of(1),
+                Optional.empty(),
+                room,
+                NOW);
 
         assertThat(job.snapshot().phase()).isEqualTo(new SolveJob.Phase.Queued());
     }
@@ -482,11 +607,28 @@ class SolveJobTest {
 
     @Test
     void GivenAStoredFailureWhoseViolationsDontMatchItsReason_WhenRebuilt_ThenStoredStateInvalid() {
-        assertThatThrownBy(() -> new SolveFailure(SolveFailureReason.VALIDATOR_REJECTED, List.of()))
+        assertThatThrownBy(() -> SolveFailure.ofStored(SolveFailureReason.VALIDATOR_REJECTED, List.of()))
                 .isInstanceOf(StoredStateInvalid.class);
-        assertThatThrownBy(() -> new SolveFailure(
+        assertThatThrownBy(() -> SolveFailure.ofStored(
                         SolveFailureReason.OVERRAN, List.of(violation("BR-05", RouteId.of(PlanningFixtures.uuid(1))))))
                 .isInstanceOf(StoredStateInvalid.class);
+    }
+
+    @Test
+    void GivenAStoredFailureWhoseViolationsMatchItsReason_WhenRebuilt_ThenItEqualsTheFactorysFailure() {
+        List<Violation> violations = List.of(violation("BR-05", RouteId.of(PlanningFixtures.uuid(1))));
+
+        assertThat(SolveFailure.ofStored(SolveFailureReason.VALIDATOR_REJECTED, violations))
+                .isEqualTo(SolveFailure.rejected(violations));
+        assertThat(SolveFailure.ofStored(SolveFailureReason.OVERRAN, List.of()))
+                .isEqualTo(SolveFailure.of(SolveFailureReason.OVERRAN));
+    }
+
+    @Test
+    void GivenAWorkerThatBuildsAFailureWhoseViolationsDontMatchItsReason_WhenBuilt_ThenItIsAProgrammingError() {
+        assertThatThrownBy(() -> SolveFailure.rejected(List.of())).isInstanceOf(AssertionError.class);
+        assertThatThrownBy(() -> SolveFailure.of(SolveFailureReason.LOCK_NOT_HONOURED))
+                .isInstanceOf(AssertionError.class);
     }
 
     @Test

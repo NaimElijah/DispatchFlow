@@ -24,6 +24,7 @@ import com.dispatchflow.planning.domain.PlanningError.PlanNotReady;
 import com.dispatchflow.planning.domain.PlanningError.PositionOutOfRange;
 import com.dispatchflow.planning.domain.PlanningError.ProposalDeclined;
 import com.dispatchflow.planning.domain.PlanningError.ProposalForAnotherPlan;
+import com.dispatchflow.planning.domain.PlanningError.ProposalLosesOrder;
 import com.dispatchflow.planning.domain.PlanningError.ProposalOutdated;
 import com.dispatchflow.planning.domain.PlanningError.PublishingRefused;
 import com.dispatchflow.planning.domain.PlanningError.RecheckFailed;
@@ -69,6 +70,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -94,6 +96,12 @@ import org.jspecify.annotations.Nullable;
  * not load again. The rules no document settled are ADR-101's.
  */
 public final class Plan extends AggregateRoot {
+
+    /**
+     * The most edits the undo and redo journals hold together; an edit past it forgets the oldest
+     * (FR-145, ADR-112).
+     */
+    static final int JOURNAL_LIMIT = 100;
 
     /** Where a plan is in its lifecycle (DL §3.4, §9.1, BR-12). */
     public sealed interface Status {
@@ -271,7 +279,7 @@ public final class Plan extends AggregateRoot {
             throw new RuleViolation(new PlanNotDraftOrReady(id));
         }
         requireNotPast(today);
-        SolveJob job = SolveJob.queue(jobId, id, Lane.DAILY, solver, limit, seed, null, capacity, now);
+        SolveJob job = SolveJob.queue(jobId, id, Lane.DAILY, solver, limit, seed, Optional.empty(), capacity, now);
         commit(next().status(new Status.Solving(new SolveBasis(jobId, now))));
         return job;
     }
@@ -301,7 +309,7 @@ public final class Plan extends AggregateRoot {
                 solver,
                 SolveLimit.REOPTIMIZATION,
                 seed,
-                published.revision(),
+                Optional.of(published.revision()),
                 capacity,
                 now);
     }
@@ -314,14 +322,16 @@ public final class Plan extends AggregateRoot {
      *
      * <p>A vehicle keeps its route's ID and index, an order and attempt keeps its stop's ID, and a
      * new vehicle takes the lowest free index (ADR-101). A locked route must come back as locked
-     * (FR-147); the journal is cleared (FR-145).
+     * (FR-147); the journal is cleared (FR-145). The worker asks {@link #locksBrokenBy} before the
+     * job succeeds, so the lock check here is a backstop (ADR-112). A {@code now} before the
+     * request counts as the request's time (ADR-112).
      *
      * @param job the ended job, whose result the plan applies
      * @param ids new IDs for new routes and stops
      * @param now when the plan applies it
      * @throws RuleViolation with {@link RouteLocked} when the result changes a locked route, {@link
      *     OrderAlreadyInPlan} (BR-07), or {@link VehicleAlreadyHasRoute} or {@link
-     *     DriverAlreadyHasRoute} (BR-39); each means the optimizer broke its contract
+     *     DriverAlreadyHasRoute} (BR-39); each means a check upstream was skipped
      */
     public void applySolveResult(SolveJob job, FreshIds ids, Instant now) {
         if (!(status instanceof Status.Solving solving)
@@ -331,16 +341,22 @@ public final class Plan extends AggregateRoot {
             return;
         }
         SolveResult result = job.result().get();
-        for (Route locked : layout.routes()) {
-            if (locked.lock().isPresent() && !keptBy(locked, result.routes())) {
-                throw new RuleViolation(new RouteLocked(locked.id()));
-            }
+        Optional<Route> broken = locksBrokenBy(result.routes()).stream().findFirst();
+        if (broken.isPresent()) {
+            throw new RuleViolation(new RouteLocked(broken.get().id()));
         }
         requireSingleAssignment(result.routes(), result.dropped());
-        List<Route> placed =
-                place(result.routes(), layout.routes(), layout.routes(), List.of(), ids, vehicle -> Optional.empty());
+        List<Route> placed = place(
+                result.routes(),
+                layout.routes(),
+                layout.routes(),
+                List.of(),
+                ids,
+                vehicle -> Optional.empty(),
+                route -> List.of());
+        Instant appliedAt = TimeOrder.notBefore(now, solving.pending().requestedAt());
         commit(next().status(new Status.Ready())
-                .applied(new AppliedSolve(solving.pending(), now))
+                .applied(new AppliedSolve(solving.pending(), appliedAt))
                 .layout(new Layout(carryLocks(placed), result.dropped(), layout.pins()))
                 .violations(List.of())
                 .clearingJournal());
@@ -495,8 +511,9 @@ public final class Plan extends AggregateRoot {
     }
 
     /**
-     * Locks a route against edits and solves, replacing any lock it had (FR-147). A lock changes no
-     * route, so it needs no evaluation.
+     * Locks a route against edits and daily solves, replacing any lock it had (FR-147). A lock
+     * changes no route, so it needs no evaluation. Locking a route with the lock it already has
+     * changes nothing and journals nothing (ADR-112). Publishing clears every lock.
      *
      * @param route the route
      * @param lock the kind of lock
@@ -507,6 +524,9 @@ public final class Plan extends AggregateRoot {
         requireReady();
         requireNotPast(today);
         Route locked = route(route);
+        if (locked.lock().equals(Optional.of(lock))) {
+            return;
+        }
         commit(next().layout(layout.locking(route, Optional.of(lock)))
                 .journaling(new Edit.Locked(route, locked.lock(), lock)));
     }
@@ -575,9 +595,11 @@ public final class Plan extends AggregateRoot {
     // ---- Publishing and the published plan -----------------------------------------------------
 
     /**
-     * Publishes the plan as revision 1, with the re-checked times (FR-26, BR-68). The four checks of
-     * BR-72 run in order, and the first that refuses lists every refusal it found. Raises {@link
-     * PlanPublished}.
+     * Publishes the plan as revision 1, with the re-checked times (FR-26, BR-68). The re-check must
+     * describe this version and layout before any step runs. Then the four checks of BR-72 run in
+     * order, and the first that refuses lists every refusal it found. Publishing clears every lock,
+     * because a lock binds daily solves only and a re-optimization takes none (ADR-105, ADR-112).
+     * Raises {@link PlanPublished}.
      *
      * @param checks the roster's answers, the date's orders and the optimizer's re-check
      * @param by who publishes
@@ -594,6 +616,7 @@ public final class Plan extends AggregateRoot {
         requireNotPast(today);
         Evaluation recheck = checks.recheck();
         requireCurrent(recheck);
+        Layout rechecked = recheck.available() ? layout.judgedBy(recheck, version(), true) : layout;
         RuleViolations.throwIfAny(new PublishingRefused(PublishingStep.STAFFING), unstaffed(checks.staffing()));
         RuleViolations.throwIfAny(new PublishingRefused(PublishingStep.ORDERS), unaccounted(checks.orders()));
         RuleViolations.throwIfAny(
@@ -610,7 +633,7 @@ public final class Plan extends AggregateRoot {
                     : List.of(new RecheckUnavailable());
             RuleViolations.throwIfAny(new PublishingRefused(PublishingStep.RECHECK), refusals);
         }
-        Layout published = recheck.available() ? layout.judgedBy(recheck, version(), true) : layout;
+        Layout published = rechecked.unlocked();
         commit(next().layout(published).clearingJournal().status(new Status.Published(RevisionNo.FIRST)));
         pendingRevision = revisionOf(RevisionNo.FIRST, RevisionCause.PUBLISHED, Optional.empty(), Optional.of(by), now);
         List<RouteId> routes = routeIds(published.routes());
@@ -623,13 +646,26 @@ public final class Plan extends AggregateRoot {
      * persistence builds, so only a validated solution reaches the plan (BR-15). Raises {@link
      * PlanRevised}.
      *
-     * <p>A vehicle keeps its route's ID and index, and its confirmed return when it keeps its driver;
-     * an order and attempt keeps its stop's ID, from any route, withdrawn ones included. A withdrawn
-     * vehicle's route is marked with its cause (FR-271), and keeps the stops the proposal doesn't
-     * serve or drop when the proposal gives it no route. A vehicle withdrawn earlier that the proposal
-     * withdraws again keeps that route's ID and index, and takes the proposal's cause and stops. Any
-     * other route withdrawn earlier stays as it is (FR-268), and an order it holds that the proposal
-     * serves or drops elsewhere refuses the acceptance (BR-07, ADR-101).
+     * <p>A proposal holds no stop already reported done or in progress (BR-10, BR-108), so every route
+     * of the plan in force stays, and keeps the stops the proposal neither serves nor drops ahead of
+     * the proposal's stops: its reported prefix (BR-83, FR-268, ADR-112). In detail:
+     *
+     * <ul>
+     *   <li>A vehicle keeps its route's ID and index, and its confirmed return when it keeps its
+     *       driver; an order and attempt keeps its stop's ID, from any route, withdrawn ones included.
+     *   <li>A route the proposal gives no route stays with its prefix, or with no stops left, and is
+     *       marked withdrawn when the proposal withdraws its vehicle (FR-271).
+     *   <li>A vehicle withdrawn earlier that the proposal withdraws again and routes keeps that
+     *       withdrawn route: its ID, index and stops, and takes the proposal's cause.
+     *   <li>Any other route withdrawn earlier stays as it is (FR-268), and an order it holds that the
+     *       proposal serves or drops elsewhere refuses the acceptance (BR-07, ADR-101).
+     *   <li>Every order and attempt the plan held is still held, on a route or dropped (BR-07).
+     *   <li>The routes keep their order in the plan, and a new route joins the end. No route takes a
+     *       lock, because a published plan holds none.
+     * </ul>
+     *
+     * <p>A stop reported since the basis stands when the route as accepted keeps it on its vehicle
+     * after the same stops (BR-83, ADR-101).
      *
      * @param proposal the proposal
      * @param changes what was recorded since its basis
@@ -641,7 +677,9 @@ public final class Plan extends AggregateRoot {
      *     ProposalForAnotherPlan}, {@link ProposalDeclined}, {@link ProposalOutdated} naming every
      *     change, including any revision since its basis (BR-25, BR-82), {@link VehicleUnavailable}
      *     naming every vehicle (BR-64, BR-65), {@link OrderAlreadyInPlan}, {@link
-     *     VehicleAlreadyHasRoute}, {@link DriverAlreadyHasRoute}, or {@link RouteIndexesUsedUp}
+     *     VehicleAlreadyHasRoute}, {@link DriverAlreadyHasRoute}, {@link RouteIndexesUsedUp}, or
+     *     {@link ProposalLosesOrder} for an order and attempt it neither serves nor drops and no route
+     *     keeps
      */
     public void accept(
             ReoptimizationProposal proposal,
@@ -659,7 +697,8 @@ public final class Plan extends AggregateRoot {
         if (offer.state() instanceof ReoptimizationProposal.State.Declined) {
             throw new RuleViolation(new ProposalDeclined(offer.id()));
         }
-        List<BasisChange> outdated = changesSince(offer, changes, published.revision());
+        Set<StopKey> taken = new HashSet<>(keysOf(offer.routes(), offer.dropped()));
+        List<BasisChange> outdated = changesSince(offer, taken, changes, published.revision());
         if (!outdated.isEmpty()) {
             throw new RuleViolation(new ProposalOutdated(offer.id(), outdated));
         }
@@ -669,26 +708,36 @@ public final class Plan extends AggregateRoot {
         }
         requireSingleAssignment(offer.routes(), offer.dropped());
         List<Route> before = layout.routes();
+        Set<VehicleId> routed = new HashSet<>();
+        offer.routes().forEach(route -> routed.add(route.vehicle()));
         List<Route> active = before.stream().filter(route -> !route.withdrawn()).toList();
-        List<Route> uncovered = uncoveredWithdrawals(offer, active);
         List<Route> covered = active.stream()
-                .filter(route -> uncovered.stream().noneMatch(kept -> kept.id().equals(route.id())))
+                .filter(route -> routed.contains(route.vehicle()))
+                .toList();
+        List<Route> leftOut = active.stream()
+                .filter(route -> !routed.contains(route.vehicle()))
+                .map(route -> route.withWithdrawal(withdrawalFor(offer, route.vehicle()))
+                        .withStops(keptStops(route, taken)))
                 .toList();
         List<Route> rewithdrawn = rewithdrawnRoutes(offer, before, covered);
-        List<Route> earlierWithdrawn = before.stream()
-                .filter(route -> route.withdrawn() && !rewithdrawn.contains(route))
-                .toList();
         List<Route> matchable = new ArrayList<>(covered);
         matchable.addAll(rewithdrawn);
-        List<Route> kept = new ArrayList<>(earlierWithdrawn);
-        kept.addAll(uncovered);
-        List<Route> placed =
-                place(offer.routes(), matchable, before, kept, ids, vehicle -> withdrawalFor(offer, vehicle));
-        List<Route> next = new ArrayList<>(earlierWithdrawn);
-        next.addAll(placed);
-        next.addAll(uncovered);
+        List<Route> alongside = new ArrayList<>(before.stream()
+                .filter(route -> route.withdrawn() && !rewithdrawn.contains(route))
+                .toList());
+        alongside.addAll(leftOut);
+        List<Route> placed = place(
+                offer.routes(),
+                matchable,
+                before,
+                alongside,
+                ids,
+                vehicle -> withdrawalFor(offer, vehicle),
+                route -> keptStops(route, taken));
+        List<Route> next = inPlanOrder(before, placed, leftOut);
         Layout after = new Layout(next, offer.dropped(), layout.pins());
         requireEachOrderOnce(after);
+        requireNothingLost(offer.id(), after);
         List<VehicleId> newlyWithdrawn = next.stream()
                 .filter(route -> route.withdrawn()
                         && before.stream().noneMatch(old -> old.id().equals(route.id()) && old.withdrawn()))
@@ -710,9 +759,12 @@ public final class Plan extends AggregateRoot {
      * reported stops keep their deliveries (FR-55, FR-192, FR-303). Raises {@link PlanRevised}, then
      * {@link RouteHandedOver}, so the roster follows (FR-191).
      *
-     * <p>With an available evaluation, which must have judged the route with the new driver, the
-     * route is checked; a broken shift (BR-06) needs the dispatcher's confirmation, and a confirmed
-     * one sets the route's confirmed return to the evaluated return (FR-304, FR-394). With none, or an
+     * <p>With an available evaluation, the route is checked. The evaluation must have judged the
+     * route with the new driver, and the validator judges a shift by the vehicle's rostered driver,
+     * so the use case asks for it with the vehicle rostered to the new driver (ADR-112). A broken
+     * shift (BR-06) needs the dispatcher's confirmation. A confirmed one sets the route's confirmed
+     * return to the evaluated return (FR-304, FR-394), and waives the route's BR-06 and its BR-105
+     * break reserve, which the same late return breaks (ADR-112). With no evaluation, or an
      * unavailable one, the route is not yet checked (FR-395, ADR-058).
      *
      * @param route the route
@@ -769,7 +821,9 @@ public final class Plan extends AggregateRoot {
             Optional<DaySeconds> confirmed = breaks ? judged.returnOf(route) : Optional.empty();
             after = after.changing(route, handed -> handed.withConfirmedReturn(confirmed));
             nextViolations = judged.violations().stream()
-                    .filter(violation -> !(breaks && violation.breaks(RuleCode.SHIFTS, route)))
+                    .filter(violation -> !(breaks
+                            && (violation.breaks(RuleCode.SHIFTS, route)
+                                    || violation.breaks(RuleCode.BREAK_RESERVE, route))))
                     .toList();
         } else {
             after = after.changing(
@@ -809,32 +863,46 @@ public final class Plan extends AggregateRoot {
         if (!ready && !(status instanceof Status.Published)) {
             return;
         }
-        StopKey key = new StopKey(order, attempt);
-        Optional<Located> located = layout.locate(key);
-        Layout after;
-        List<RouteId> changed;
-        if (located.isPresent()) {
-            RouteId route = located.get().route().id();
-            after = layout.removing(located.get().stop().id())
-                    .changing(route, unchecked -> unchecked.withCheck(CheckState.NOT_YET_CHECKED));
-            changed = List.of(route);
-        } else if (layout.drop(key).isPresent()) {
-            after = layout.without(key);
-            changed = List.of();
-        } else {
+        Optional<Removal> removal = removalOf(new StopKey(order, attempt));
+        if (removal.isEmpty()) {
             return;
         }
         if (ready) {
-            commit(next().layout(after).clearingJournal());
+            commit(next().layout(removal.get().after()).clearingJournal());
         } else {
             revise(
-                    next().layout(after),
+                    next().layout(removal.get().after()),
                     cause.revisionCause(),
                     Optional.empty(),
                     Optional.empty(),
                     now,
-                    changed,
+                    removal.get().changed(),
                     List.of());
+        }
+    }
+
+    /**
+     * Takes a dropped order and attempt off the plan of its old date after it was put back onto
+     * another date (FR-75, ADR-112). Its listener calls it with the attempt that was dropped or
+     * failed, when Customers &amp; Orders announces a put-back to another date. The drop leaves at
+     * once, as a date change takes an order off a ready plan (FR-316), and the journal is cleared
+     * (FR-145).
+     *
+     * <p>Only a drop leaves. A stop of that attempt stays where it is, because a put-back stop can
+     * only have failed, and the earlier stop's outcome stays as recorded (FR-258, BR-07). Only a ready
+     * plan changes, so its publishing isn't refused for an order its date no longer has (BR-71). A
+     * draft holds no orders. A published, completed or cancelled plan keeps the drop as the day's
+     * history. A solving plan changes nothing either: its routes and drops wait for its new solve's
+     * result, and publishing refuses an order the date no longer has until a solve leaves it out
+     * (BR-71). An order the plan doesn't drop changes nothing, so a repeat is harmless (ADR-101).
+     *
+     * @param order the order
+     * @param attempt the attempt that was dropped or failed
+     */
+    public void removePutBackOrder(OrderId order, Attempt attempt) {
+        StopKey key = new StopKey(order, attempt);
+        if (status instanceof Status.Ready && layout.drop(key).isPresent()) {
+            commit(next().layout(layout.without(key)).clearingJournal());
         }
     }
 
@@ -917,8 +985,7 @@ public final class Plan extends AggregateRoot {
 
     /**
      * Cancels the published plan for a day that doesn't run, while no route has started and no stop
-     * is reported (FR-336, BR-103). Its routes stay as they were, and it overrides any lock; cancelling
-     * makes no revision. Raises {@link PlanCancelled}, so its drivers are alerted (FR-337).
+     * is reported (FR-336, BR-103). Its routes stay as they were, and cancelling makes no revision. Raises {@link PlanCancelled}, so its drivers are alerted (FR-337).
      *
      * @param started what has happened on its routes
      * @param today the current date in {@code Asia/Jerusalem}
@@ -971,6 +1038,24 @@ public final class Plan extends AggregateRoot {
     }
 
     // ---- Queries -------------------------------------------------------------------------------
+
+    /**
+     * The locks a daily solve's validated solution doesn't keep (FR-147, FR-238). The worker asks it
+     * before the job succeeds, and fails the job with {@code SolveFailure.lockNotHonoured} when it
+     * names any, so a result that breaks a lock never reaches {@link #applySolveResult} (ADR-112). A
+     * whole-route lock keeps its vehicle, its driver and its stops in order; a sequence lock keeps
+     * its stops in order on whichever one route serves them, and an empty sequence stays on its own
+     * vehicle's route, empty.
+     *
+     * @param solution the solution the validator accepted
+     * @return one {@link RuleCode#LOCKS} violation on each locked route the solution doesn't keep, in
+     *     plan order; empty when it keeps every lock
+     */
+    public List<Violation> locksBrokenBy(ValidatedSolution solution) {
+        return locksBrokenBy(solution.routes()).stream()
+                .map(route -> Violation.onRoute(RuleCode.LOCKS, route.id()))
+                .toList();
+    }
 
     /**
      * The plan's ID.
@@ -1050,8 +1135,11 @@ public final class Plan extends AggregateRoot {
             return this;
         }
 
+        /** Journals an edit, forgetting the oldest past {@link #JOURNAL_LIMIT}; a new edit clears redo. */
         Next journaling(Edit edit) {
-            return undo(appended(undo, edit)).redo(List.of());
+            List<Edit> journaled = appended(undo, edit);
+            return undo(journaled.subList(Math.max(0, journaled.size() - JOURNAL_LIMIT), journaled.size()))
+                    .redo(List.of());
         }
 
         Next clearingJournal() {
@@ -1198,6 +1286,27 @@ public final class Plan extends AggregateRoot {
         }
     }
 
+    /** What taking an order and attempt off would leave: the layout, and the route it left, if any. */
+    private record Removal(Layout after, List<RouteId> changed) {}
+
+    /**
+     * Takes an order and attempt off its route or the drops; a route it leaves becomes not yet
+     * checked (FR-395).
+     */
+    private Optional<Removal> removalOf(StopKey key) {
+        Optional<Located> located = layout.locate(key);
+        if (located.isPresent()) {
+            RouteId route = located.get().route().id();
+            Layout after = layout.removing(located.get().stop().id())
+                    .changing(route, unchecked -> unchecked.withCheck(CheckState.NOT_YET_CHECKED));
+            return Optional.of(new Removal(after, List.of(route)));
+        }
+        if (layout.drop(key).isPresent()) {
+            return Optional.of(new Removal(layout.without(key), List.of()));
+        }
+        return Optional.empty();
+    }
+
     // ---- Edits ---------------------------------------------------------------------------------
 
     private void commitEdit(Layout after, Evaluation evaluation, Edit edit) {
@@ -1323,15 +1432,18 @@ public final class Plan extends AggregateRoot {
      * Turns solved routes into the plan's routes (ADR-101):
      *
      * <ul>
-     *   <li>a vehicle with a route in {@code current} keeps its ID, index and lock, and its confirmed
-     *       return when its driver stays;
+     *   <li>a vehicle with a route in {@code current} keeps its ID and index, the stops {@code keptOf}
+     *       keeps of that route ahead of the solved ones, and its confirmed return when its driver
+     *       stays;
      *   <li>an order and attempt on any route of {@code stopSource} keeps its stop's ID and late mark;
      *   <li>the rest take new IDs and the lowest index that neither {@code keptAlongside} nor the other
-     *       routes hold.
+     *       routes hold;
+     *   <li>no route takes a lock: {@link #carryLocks} gives a daily solve's routes theirs.
      * </ul>
      *
-     * One route per vehicle and driver is checked before any index is handed out, so BR-39's
-     * refusals come before {@link RouteIndexesUsedUp}.
+     * One route per vehicle and driver, over these routes and the active routes of {@code
+     * keptAlongside}, is checked before any index is handed out, so BR-39's refusals come before
+     * {@link RouteIndexesUsedUp}.
      */
     private static List<Route> place(
             List<SolvedRoute> solved,
@@ -1339,7 +1451,8 @@ public final class Plan extends AggregateRoot {
             List<Route> stopSource,
             List<Route> keptAlongside,
             FreshIds ids,
-            Function<VehicleId, Optional<Withdrawal>> withdrawalOf) {
+            Function<VehicleId, Optional<Withdrawal>> withdrawalOf,
+            Function<Route, List<PlannedStop>> keptOf) {
         Map<StopKey, PlannedStop> existingStops = new HashMap<>();
         stopSource.forEach(route -> route.stops().forEach(stop -> existingStops.put(stop.key(), stop)));
         List<Route> provisional = new ArrayList<>();
@@ -1356,6 +1469,8 @@ public final class Plan extends AggregateRoot {
             Optional<Route> kept = current.stream()
                     .filter(candidate -> candidate.vehicle().equals(route.vehicle()))
                     .findFirst();
+            List<PlannedStop> allStops = new ArrayList<>(kept.map(keptOf).orElse(List.of()));
+            allStops.addAll(stops);
             RouteId routeId = kept.map(Route::id).orElseGet(() -> RouteId.of(ids.next()));
             Optional<DaySeconds> confirmed =
                     kept.filter(old -> old.driver().equals(route.driver())).flatMap(Route::confirmedReturn);
@@ -1364,12 +1479,12 @@ public final class Plan extends AggregateRoot {
                     kept.map(Route::index).orElse(RouteIndex.of(RouteIndex.LOWEST)),
                     route.vehicle(),
                     route.driver(),
-                    kept.flatMap(Route::lock),
+                    Optional.empty(),
                     CheckState.CHECKED,
                     withdrawalOf.apply(route.vehicle()),
                     confirmed,
                     route.plan(),
-                    stops));
+                    allStops));
             needsIndex.add(kept.isEmpty());
         }
         Map<VehicleId, RouteId> routed = new HashMap<>();
@@ -1379,7 +1494,9 @@ public final class Plan extends AggregateRoot {
                 throw new RuleViolation(new VehicleAlreadyHasRoute(route.vehicle(), first));
             }
         }
-        requireOneRoutePerVehicleAndDriver(provisional);
+        List<Route> inForce = new ArrayList<>(provisional);
+        inForce.addAll(keptAlongside);
+        requireOneRoutePerVehicleAndDriver(inForce);
         Set<RouteIndex> taken = new HashSet<>();
         keptAlongside.forEach(route -> taken.add(route.index()));
         for (int i = 0; i < provisional.size(); i++) {
@@ -1408,25 +1525,39 @@ public final class Plan extends AggregateRoot {
                 .orElseThrow(() -> new RuleViolation(new RouteIndexesUsedUp()));
     }
 
-    /** Whether solved routes keep a locked route as its lock says (FR-147, ADR-101). */
+    /** The plan's locked routes that solved routes don't keep, in plan order (FR-147, FR-238). */
+    private List<Route> locksBrokenBy(List<SolvedRoute> solved) {
+        return layout.routes().stream()
+                .filter(route -> route.lock().isPresent() && !keptBy(route, solved))
+                .toList();
+    }
+
+    /**
+     * Whether solved routes keep a locked route as its lock says (FR-147, ADR-101). Every route has
+     * the same empty sequence, so an empty sequence is kept only on its own vehicle's route (ADR-112).
+     */
     private static boolean keptBy(Route locked, List<SolvedRoute> solved) {
         List<StopKey> keys = locked.keys();
         Predicate<SolvedRoute> sameSequence =
                 route -> keysOf(List.of(route), List.of()).equals(keys);
+        Predicate<SolvedRoute> sameVehicle = route -> route.vehicle().equals(locked.vehicle());
         RouteLock lock = locked.lock().orElseThrow();
         return switch (lock) {
             case WHOLE_ROUTE ->
                 solved.stream()
-                        .anyMatch(route -> route.vehicle().equals(locked.vehicle())
+                        .anyMatch(route -> sameVehicle.test(route)
                                 && route.driver().equals(locked.driver())
                                 && sameSequence.test(route));
-            case STOP_SEQUENCE -> solved.stream().anyMatch(sameSequence);
+            case STOP_SEQUENCE ->
+                solved.stream()
+                        .anyMatch(route -> sameSequence.test(route) && (!keys.isEmpty() || sameVehicle.test(route)));
         };
     }
 
     /**
-     * Gives each lock of the current routes to the route that kept it: a whole-route lock stays with
-     * its vehicle's route, and a sequence lock goes to the route that now serves the sequence.
+     * Gives each lock of the current routes to the route that kept it: a whole-route lock, or a
+     * sequence lock on an empty route, stays with its vehicle's route, and any other sequence lock
+     * goes to the one route that now serves the sequence.
      */
     private List<Route> carryLocks(List<Route> placed) {
         List<Route> result = new ArrayList<>(
@@ -1438,7 +1569,9 @@ public final class Plan extends AggregateRoot {
             RouteLock lock = locked.lock().get();
             for (int position = 0; position < result.size(); position++) {
                 Route candidate = result.get(position);
-                boolean holds = lock == RouteLock.WHOLE_ROUTE
+                boolean staysWithItsVehicle =
+                        lock == RouteLock.WHOLE_ROUTE || locked.keys().isEmpty();
+                boolean holds = staysWithItsVehicle
                         ? candidate.id().equals(locked.id())
                         : candidate.keys().equals(locked.keys());
                 if (holds) {
@@ -1459,25 +1592,46 @@ public final class Plan extends AggregateRoot {
     // ---- Accepting a proposal ------------------------------------------------------------------
 
     /**
-     * The routes of vehicles the proposal withdraws but gives no route: each stays, withdrawn, without
-     * the orders the proposal serves or drops, so no order is held twice and its index stays reserved.
+     * The stops of a route that a proposal neither serves nor drops: the stops already reported done
+     * or in progress, which a proposal holds on no route (BR-10, BR-108, ADR-112).
      */
-    private static List<Route> uncoveredWithdrawals(ReoptimizationProposalSnapshot proposal, List<Route> active) {
-        Set<VehicleId> routed = new HashSet<>();
-        proposal.routes().forEach(route -> routed.add(route.vehicle()));
-        Set<StopKey> taken = new HashSet<>(keysOf(proposal.routes(), proposal.dropped()));
-        return active.stream()
-                .filter(route -> proposal.withdraws(route.vehicle()) && !routed.contains(route.vehicle()))
-                .map(route -> route.withWithdrawal(withdrawalFor(proposal, route.vehicle()))
-                        .withStops(route.stops().stream()
-                                .filter(stop -> !taken.contains(stop.key()))
-                                .toList()))
+    private static List<PlannedStop> keptStops(Route route, Set<StopKey> taken) {
+        return route.stops().stream()
+                .filter(stop -> !taken.contains(stop.key()))
                 .toList();
     }
 
     /**
+     * The routes an acceptance leaves, in the plan's order: each route as placed or kept, or as it
+     * was, and then the new routes in the proposal's order.
+     */
+    private static List<Route> inPlanOrder(List<Route> before, List<Route> placed, List<Route> leftOut) {
+        Map<RouteId, Route> replacing = new LinkedHashMap<>();
+        placed.forEach(route -> replacing.put(route.id(), route));
+        leftOut.forEach(route -> replacing.put(route.id(), route));
+        List<Route> next = new ArrayList<>();
+        for (Route route : before) {
+            Route replaced = replacing.remove(route.id());
+            next.add(replaced != null ? replaced : route);
+        }
+        next.addAll(replacing.values());
+        return next;
+    }
+
+    /** BR-07's other half: every order and attempt the plan held, the layout still serves or drops. */
+    private void requireNothingLost(ProposalId proposal, Layout after) {
+        Set<StopKey> held = new HashSet<>(after.keys());
+        for (StopKey key : layout.keys()) {
+            if (!held.contains(key)) {
+                throw new RuleViolation(new ProposalLosesOrder(proposal, key.order(), key.attempt()));
+            }
+        }
+    }
+
+    /**
      * The withdrawn routes a proposal routes again: a vehicle the proposal withdraws, with no active
-     * route but a route withdrawn earlier, keeps that route's ID, index and stops (ADR-101).
+     * route but a route withdrawn earlier, keeps its last such route's ID, index and stops (ADR-101,
+     * ADR-112).
      */
     private static List<Route> rewithdrawnRoutes(
             ReoptimizationProposalSnapshot proposal, List<Route> before, List<Route> covered) {
@@ -1510,14 +1664,17 @@ public final class Plan extends AggregateRoot {
 
     /** The changes since the proposal's basis that it moves, drops or relies on (BR-25, BR-82, BR-83). */
     private List<BasisChange> changesSince(
-            ReoptimizationProposalSnapshot proposal, ChangesSinceBasis changes, RevisionNo current) {
+            ReoptimizationProposalSnapshot proposal,
+            Set<StopKey> taken,
+            ChangesSinceBasis changes,
+            RevisionNo current) {
         List<BasisChange> found = new ArrayList<>();
         for (int revision = proposal.basis().revision().value() + 1; revision <= current.value(); revision++) {
             found.add(new BasisChange.RevisionMade(RevisionNo.of(revision)));
         }
         for (StopId stop : changes.reportedStops()) {
             layout.locate(stop)
-                    .filter(at -> movesOrDrops(proposal, at))
+                    .filter(at -> movesOrDrops(proposal, taken, at))
                     .ifPresent(at -> found.add(new BasisChange.ReportedStop(stop)));
         }
         Set<OrderId> relied = new LinkedHashSet<>();
@@ -1544,21 +1701,26 @@ public final class Plan extends AggregateRoot {
     }
 
     /**
-     * Whether the proposal moves or drops a stop: it stays put only on the same vehicle, after the
-     * same stops in the same order (BR-83, ADR-101).
+     * Whether accepting the proposal moves or drops a stop: it stays put only on the same vehicle,
+     * after the same stops in the same order (BR-83, ADR-101). The stops before it are those of the
+     * route as accepted, its kept stops ahead of the proposal's, so a stop the proposal keeps after a
+     * reported one stays put (ADR-112).
      */
-    private static boolean movesOrDrops(ReoptimizationProposalSnapshot proposal, Located at) {
+    private static boolean movesOrDrops(ReoptimizationProposalSnapshot proposal, Set<StopKey> taken, Located at) {
         StopKey key = at.stop().key();
-        List<StopKey> before = at.route().keys().subList(0, at.position());
-        for (SolvedRoute route : proposal.routes()) {
-            List<StopKey> keys = keysOf(List.of(route), List.of());
-            int position = keys.indexOf(key);
-            if (position >= 0) {
-                return !route.vehicle().equals(at.route().vehicle())
-                        || !keys.subList(0, position).equals(before);
+        List<StopKey> accepted = new ArrayList<>(
+                keptStops(at.route(), taken).stream().map(PlannedStop::key).toList());
+        if (!accepted.contains(key)) {
+            Optional<SolvedRoute> serving = proposal.routes().stream()
+                    .filter(route -> keysOf(List.of(route), List.of()).contains(key))
+                    .findFirst();
+            if (serving.isEmpty() || !serving.get().vehicle().equals(at.route().vehicle())) {
+                return true;
             }
+            accepted.addAll(keysOf(List.of(serving.get()), List.of()));
         }
-        return true;
+        List<StopKey> before = at.route().keys().subList(0, at.position());
+        return !accepted.subList(0, accepted.indexOf(key)).equals(before);
     }
 
     private static List<VehicleId> unavailableVehicles(

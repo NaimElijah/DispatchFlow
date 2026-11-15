@@ -149,6 +149,12 @@ record Layout(List<Route> routes, List<DroppedOrder> dropped, List<Pin> pins) {
         return changing(id, route -> route.withLock(lock));
     }
 
+    /** The layout with no route locked, as publishing leaves it (ADR-112). */
+    Layout unlocked() {
+        return withRoutes(
+                routes.stream().map(route -> route.withLock(Optional.empty())).toList());
+    }
+
     /**
      * Checks that an evaluation describes this layout, and marks every route checked: its routes are
      * exactly these routes, each with its vehicle, its driver and these stops in this order, and its violations name only these

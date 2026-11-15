@@ -11,15 +11,10 @@ import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.ProposalId;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StoredStateInvalid;
-import com.dispatchflow.shared.VehicleId;
 import com.dispatchflow.shared.Version;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
 /**
  * A re-optimization's result, waiting for a dispatcher (DL §4.4, §17 "Proposal"). It never changes,
@@ -78,8 +73,8 @@ public final class ReoptimizationProposal extends AggregateRoot {
      */
     static ReoptimizationProposal create(
             ProposalId id, PlanId plan, JobId job, ProposalBasis basis, ReoptimizationResult result, Instant now) {
-        Optional<PlanningError> broken =
-                brokenBy(result.solution().routes(), result.solution().dropped(), result.withdrawn());
+        Optional<PlanningError> broken = SolutionShape.brokenBy(
+                result.solution().routes(), result.solution().dropped(), result.withdrawn());
         if (broken.isPresent()) {
             throw new RuleViolation(broken.get());
         }
@@ -111,7 +106,8 @@ public final class ReoptimizationProposal extends AggregateRoot {
      *     declined before it was created
      */
     public static ReoptimizationProposal restore(ReoptimizationProposalSnapshot snapshot) {
-        Optional<PlanningError> broken = brokenBy(snapshot.routes(), snapshot.dropped(), snapshot.withdrawn());
+        Optional<PlanningError> broken =
+                SolutionShape.brokenBy(snapshot.routes(), snapshot.dropped(), snapshot.withdrawn());
         if (broken.isPresent()) {
             throw new StoredStateInvalid(
                     ReoptimizationProposal.class,
@@ -129,7 +125,7 @@ public final class ReoptimizationProposal extends AggregateRoot {
     /**
      * A dispatcher declines the proposal; nothing else changes (BR-26, DL §6.2). An accepted proposal
      * may still be declined: acceptance lives on the plan, so this changes nothing it applied
-     * (ADR-101).
+     * (ADR-101). A {@code now} before the proposal was created counts as its creation (ADR-112).
      *
      * @param by who declines it
      * @param now when
@@ -139,7 +135,7 @@ public final class ReoptimizationProposal extends AggregateRoot {
         if (state instanceof State.Declined) {
             throw new RuleViolation(new ProposalAlreadyDeclined(content.id()));
         }
-        state = new State.Declined(by, now);
+        state = new State.Declined(by, TimeOrder.notBefore(now, content.createdAt()));
     }
 
     /**
@@ -173,36 +169,5 @@ public final class ReoptimizationProposal extends AggregateRoot {
                 content.needsGoodsHandOver(),
                 content.createdAt(),
                 state);
-    }
-
-    /**
-     * The first rule a proposal's routes and drops break, which both {@link #create} and {@link
-     * #restore} check: an order and attempt once (BR-07), a vehicle on one route, and a driver on one
-     * route it isn't withdrawn from (BR-39).
-     */
-    private static Optional<PlanningError> brokenBy(
-            List<SolvedRoute> routes, List<DroppedOrder> dropped, List<VehicleWithdrawal> withdrawn) {
-        Set<StopKey> seen = new HashSet<>();
-        List<StopKey> keys = new ArrayList<>();
-        routes.forEach(route -> route.stops().forEach(stop -> keys.add(new StopKey(stop.order(), stop.attempt()))));
-        dropped.forEach(drop -> keys.add(new StopKey(drop.order(), drop.attempt())));
-        for (StopKey key : keys) {
-            if (!seen.add(key)) {
-                return Optional.of(new OrderAlreadyInPlan(key.order(), key.attempt()));
-            }
-        }
-        Set<VehicleId> withdrawnVehicles = new HashSet<>();
-        withdrawn.forEach(withdrawal -> withdrawnVehicles.add(withdrawal.vehicle()));
-        Set<VehicleId> vehicles = new HashSet<>();
-        Set<AccountId> drivers = new HashSet<>();
-        for (SolvedRoute route : routes) {
-            if (!vehicles.add(route.vehicle())) {
-                return Optional.of(new VehicleRoutedTwice(route.vehicle()));
-            }
-            if (!withdrawnVehicles.contains(route.vehicle()) && !drivers.add(route.driver())) {
-                return Optional.of(new DriverRoutedTwice(route.driver()));
-            }
-        }
-        return Optional.empty();
     }
 }

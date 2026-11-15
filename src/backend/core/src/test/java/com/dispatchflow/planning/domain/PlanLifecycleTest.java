@@ -345,6 +345,18 @@ class PlanLifecycleTest {
                 SAME,
                 SAME);
         row(
+                "removePutBackOrder",
+                NO_SETUP,
+                plan -> run(() -> plan.removePutBackOrder(O4, FIRST)),
+                NOTHING_RETURNED,
+                SAME,
+                SAME,
+                READY,
+                SAME,
+                SAME,
+                SAME,
+                SAME);
+        row(
                 "reconcileLateOutcome",
                 NO_SETUP,
                 plan -> plan.reconcileLateOutcome(new LateFact(stop(plan, O1), O1, FIRST, route(plan, V2)), LATER),

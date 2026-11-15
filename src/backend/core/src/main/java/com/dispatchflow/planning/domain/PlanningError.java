@@ -257,6 +257,16 @@ public sealed interface PlanningError extends DomainError {
     }
 
     /**
+     * The proposal neither serves nor drops an order and attempt the plan holds, and no route keeps
+     * it, so accepting it would lose the order (BR-07, ADR-112).
+     *
+     * @param proposal the proposal
+     * @param order the order
+     * @param attempt its attempt
+     */
+    record ProposalLosesOrder(ProposalId proposal, OrderId order, Attempt attempt) implements PlanningError {}
+
+    /**
      * Vehicles the proposal keeps driving no longer meet BR-20 (BR-64, BR-65).
      *
      * @param vehicles every such vehicle
@@ -270,16 +280,16 @@ public sealed interface PlanningError extends DomainError {
     }
 
     /**
-     * A re-optimization's solution gives one vehicle two routes, withdrawn or not, so it can't become
-     * a proposal (BR-39, ADR-101).
+     * A solution gives one vehicle two routes, withdrawn or not, so its daily job can't succeed and a
+     * re-optimization's can't become a proposal (BR-39, ADR-101, ADR-112).
      *
      * @param vehicle the vehicle
      */
     record VehicleRoutedTwice(VehicleId vehicle) implements PlanningError {}
 
     /**
-     * A re-optimization's solution puts one driver on two routes it doesn't withdraw, so it can't
-     * become a proposal (BR-39, ADR-101).
+     * A solution puts one driver on two routes it doesn't withdraw, so its daily job can't succeed
+     * and a re-optimization's can't become a proposal (BR-39, ADR-101, ADR-112).
      *
      * @param driver the driver's account
      */

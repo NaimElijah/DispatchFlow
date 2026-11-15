@@ -61,6 +61,7 @@ class PlanningErrorTest {
                         "PROPOSAL_ALREADY_DECLINED",
                         "PROPOSAL_DECLINED",
                         "PROPOSAL_FOR_ANOTHER_PLAN",
+                        "PROPOSAL_LOSES_ORDER",
                         "PROPOSAL_OUTDATED",
                         "PUBLISHING_REFUSED",
                         "RECHECK_FAILED",

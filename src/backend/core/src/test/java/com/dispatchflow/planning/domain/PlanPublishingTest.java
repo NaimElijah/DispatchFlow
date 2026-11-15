@@ -9,6 +9,7 @@ import static com.dispatchflow.planning.domain.PlanningFixtures.JOB;
 import static com.dispatchflow.planning.domain.PlanningFixtures.LATER;
 import static com.dispatchflow.planning.domain.PlanningFixtures.NOW;
 import static com.dispatchflow.planning.domain.PlanningFixtures.O1;
+import static com.dispatchflow.planning.domain.PlanningFixtures.O2;
 import static com.dispatchflow.planning.domain.PlanningFixtures.O3;
 import static com.dispatchflow.planning.domain.PlanningFixtures.O4;
 import static com.dispatchflow.planning.domain.PlanningFixtures.O6;
@@ -115,6 +116,72 @@ class PlanPublishingTest {
                 plan,
                 () -> plan.publish(stale, DISPATCHER, TODAY, LATER),
                 new StaleEvaluation(Version.NEW, plan.version()));
+    }
+
+    @Test
+    void GivenARecheckOfThisVersionDescribingAnotherLayoutWithAViolation_WhenPublished_ThenStaleEvaluation() {
+        Plan plan = aPlan().ready();
+        RouteId v1 = routeId(plan, V1);
+        Evaluation otherLayout = evaluationOf(plan)
+                .moving(stopId(plan, O2), v1, 0)
+                .withViolation(violation("BR-03", v1))
+                .build();
+        PublishingChecks checks = checksFor(plan);
+
+        assertPlanRefused(
+                plan,
+                () -> plan.publish(
+                        new PublishingChecks(checks.staffing(), checks.orders(), otherLayout),
+                        DISPATCHER,
+                        TODAY,
+                        LATER),
+                new StaleEvaluation(plan.version(), plan.version()));
+    }
+
+    @Test
+    void GivenALockedRoute_WhenPublished_ThenTheLockIsClearedBecauseLocksBindDailySolvesOnly() {
+        Plan ready = aPlan().ready();
+        ready.lockRoute(routeId(ready, V1), RouteLock.WHOLE_ROUTE, TODAY);
+        Plan plan = reload(ready);
+
+        plan.publish(checksFor(plan), DISPATCHER, TODAY, LATER);
+
+        assertThat(plan.snapshot().routes())
+                .allSatisfy(route -> assertThat(route.lock()).isEmpty());
+    }
+
+    @Test
+    void GivenAnUnaccountedOrderAndAnOpenViolation_WhenPublished_ThenOnlyTheOrdersStepIsListed() {
+        Plan plan = withOpenViolation();
+        PublishingChecks checks = checksFor(plan);
+        List<DateOrder> withAnUnsolvedOrder = new ArrayList<>(checks.orders());
+        withAnUnsolvedOrder.add(new DateOrder(O6, FIRST, NOW.minusSeconds(3_600), NOW.minusSeconds(3_600)));
+
+        assertPlanAllRefused(
+                plan,
+                () -> plan.publish(
+                        new PublishingChecks(checks.staffing(), withAnUnsolvedOrder, checks.recheck()),
+                        DISPATCHER,
+                        TODAY,
+                        LATER),
+                new PublishingRefused(PublishingStep.ORDERS),
+                List.of(new OrderNotAccounted(O6, FIRST)));
+    }
+
+    @Test
+    void GivenAnOpenViolationAndAFailingRecheck_WhenPublished_ThenOnlyTheViolationsStepIsListed() {
+        Plan plan = withOpenViolation();
+        PublishingChecks checks = checksFor(plan);
+        Evaluation failing = evaluationOf(plan)
+                .withViolation(violation("BR-05", routeId(plan, V1)))
+                .build();
+
+        assertPlanAllRefused(
+                plan,
+                () -> plan.publish(
+                        new PublishingChecks(checks.staffing(), checks.orders(), failing), DISPATCHER, TODAY, LATER),
+                new PublishingRefused(PublishingStep.VIOLATIONS),
+                List.of(new OpenViolation(RuleCode.of("BR-03"), Optional.of(routeId(plan, V2)), Optional.empty())));
     }
 
     @Test
@@ -342,6 +409,23 @@ class PlanPublishingTest {
                 .map(order -> order.order().equals(O3) ? new DateOrder(O3, FIRST, placedAt, lastChangedAt) : order)
                 .toList();
         return new PublishingChecks(checks.staffing(), orders, checks.recheck());
+    }
+
+    /** A ready plan whose O1 was moved to the front of V2, leaving BR-03 open there. */
+    private static Plan withOpenViolation() {
+        Plan ready = aPlan().ready();
+        StopId o1 = stopId(ready, O1);
+        RouteId v2 = routeId(ready, V2);
+        ready.moveStop(
+                o1,
+                v2,
+                0,
+                evaluationOf(ready)
+                        .moving(o1, v2, 0)
+                        .withViolation(violation("BR-03", v2))
+                        .build(),
+                TODAY);
+        return reload(ready);
     }
 
     private static Plan readyAppliedAt(Instant appliedAt) {

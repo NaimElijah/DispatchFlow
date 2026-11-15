@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
@@ -265,13 +266,32 @@ final class PlanningFixtures {
                 SolverName.OR_TOOLS,
                 SolveLimit.DEFAULT_DAILY,
                 Seed.of(7),
-                null,
+                Optional.empty(),
                 roomIn(Lane.DAILY),
                 NOW);
         job.claim(NOW);
         job.searchStarted(NOW);
         job.succeed(solution, NOW);
         return reload(job);
+    }
+
+    /**
+     * A succeeded daily job of {@link #PLAN} rebuilt from storage with a result that {@code succeed}
+     * refuses, so the plan's own backstop checks can be reached.
+     */
+    static SolveJob storedSucceededJob(JobId id, List<SolvedRoute> routes, List<DroppedOrder> dropped) {
+        return SolveJob.restore(new SolveJobSnapshot(
+                id,
+                Version.NEW.next(),
+                PLAN,
+                Lane.DAILY,
+                SolverName.OR_TOOLS,
+                SolveLimit.DEFAULT_DAILY,
+                Seed.of(7),
+                Optional.empty(),
+                NOW,
+                new SolveJob.Phase.Succeeded(NOW, NOW, NOW),
+                Optional.of(new SolveResult(routes, dropped))));
     }
 
     /** The checks under which a ready plan publishes: every route staffed, every order accounted for. */
@@ -303,7 +323,7 @@ final class PlanningFixtures {
 
         SolveJob queued() {
             SolveLimit limit = lane == Lane.DAILY ? SolveLimit.DEFAULT_DAILY : SolveLimit.REOPTIMIZATION;
-            RevisionNo basis = lane == Lane.DAILY ? null : RevisionNo.FIRST;
+            Optional<RevisionNo> basis = lane == Lane.DAILY ? Optional.empty() : Optional.of(RevisionNo.FIRST);
             return reload(
                     SolveJob.queue(JOB, PLAN, lane, SolverName.OR_TOOLS, limit, Seed.of(7), basis, roomIn(lane), NOW));
         }

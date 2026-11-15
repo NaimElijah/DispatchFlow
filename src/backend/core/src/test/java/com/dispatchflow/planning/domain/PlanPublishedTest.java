@@ -122,8 +122,8 @@ class PlanPublishedTest {
     void GivenAProposalThatWithdrawsAVehicle_WhenAccepted_ThenItsRouteKeepsTheStopsItMadeAndHoldsTheCause() {
         Plan plan = aPlan().published();
         ReoptimizationProposal proposal = proposal(
-                List.of(solved(V1, D1, O1), solved(V2, D2, O3, O2)),
-                List.of(),
+                List.of(solved(V1, D1), solved(V2, D2, O3, O2)),
+                List.of(dropped(O4, new DropReason.Displaced()), dropped(O5, new DropReason.MissingLocation())),
                 new VehicleWithdrawal(V1, WithdrawalCause.VEHICLE_UNAVAILABLE));
 
         plan.accept(proposal, noChanges(V2), freshIds(700), DISPATCHER, TODAY, LATER);
@@ -160,7 +160,7 @@ class PlanPublishedTest {
                 SolverName.OR_TOOLS,
                 SolveLimit.REOPTIMIZATION,
                 Seed.of(1),
-                RevisionNo.FIRST,
+                Optional.of(RevisionNo.FIRST),
                 roomIn(Lane.REOPTIMIZATION),
                 NOW);
         job.claim(NOW);
@@ -381,6 +381,25 @@ class PlanPublishedTest {
     }
 
     @Test
+    void GivenABrokenShiftAndBreakReserveConfirmed_WhenARouteIsHandedOver_ThenBothAreWaivedAndOthersStayOpen() {
+        Plan plan = aPlan().published();
+        RouteId v1 = routeId(plan, V1);
+        RouteId v2 = routeId(plan, V2);
+        Evaluation breaks = evaluationOf(plan)
+                .handingOver(v1, D3)
+                .withViolation(violation("BR-06", v1))
+                .withViolation(violation("BR-105", v1))
+                .withViolation(violation("BR-105", v2))
+                .withViolation(violation("BR-03", v1))
+                .returningAt(70_000)
+                .build();
+
+        plan.handOver(v1, D3_STANDS, Optional.of(breaks), true, DISPATCHER, TODAY, LATER);
+
+        assertThat(plan.snapshot().violations()).containsExactly(violation("BR-105", v2), violation("BR-03", v1));
+    }
+
+    @Test
     void GivenABrokenShiftConfirmed_WhenARouteIsHandedOver_ThenTheConfirmedReturnIsTheEvaluatedReturn() {
         Plan plan = aPlan().published();
         RouteId v1 = routeId(plan, V1);
@@ -453,8 +472,8 @@ class PlanPublishedTest {
         Plan accepted = aPlan().published();
         accepted.accept(
                 proposal(
-                        List.of(solved(V1, D1, O1), solved(V2, D2, O3, O2)),
-                        List.of(),
+                        List.of(solved(V1, D1), solved(V2, D2, O3, O2)),
+                        List.of(dropped(O4, new DropReason.Displaced()), dropped(O5, new DropReason.MissingLocation())),
                         new VehicleWithdrawal(V1, WithdrawalCause.NO_DRIVER)),
                 noChanges(V2),
                 freshIds(700),
@@ -534,6 +553,66 @@ class PlanPublishedTest {
         PlanRevised revised = (PlanRevised) plan.pendingEvents().get(0);
         assertThat(revised.cause()).isEqualTo(RevisionCause.CORRECTED_AFTER_PUT_BACK);
         assertThat(revised.changedRoutes()).isEmpty();
+    }
+
+    // ---- an order put back onto another date ----------------------------------------------------
+
+    @Test
+    void GivenADroppedOrderPutBackOntoAnotherDate_WhenTheReadyPlanTakesItOff_ThenItsDropGoesAndThePlanPublishes() {
+        Plan ready = aPlan().ready();
+        ready.lockRoute(routeId(ready, V1), RouteLock.WHOLE_ROUTE, TODAY);
+        Plan plan = reload(ready);
+
+        plan.removePutBackOrder(O4, FIRST);
+
+        assertThat(plan.snapshot().dropped()).extracting(DroppedOrder::order).containsExactly(O5);
+        assertThat(plan.snapshot().undo()).isEmpty();
+        assertThat(plan.pendingEvents()).isEmpty();
+        assertThat(plan.pendingRevision()).isEmpty();
+        Plan reloaded = reload(plan);
+        reloaded.publish(PlanningFixtures.checksFor(reloaded), DISPATCHER, TODAY, LATER);
+        assertThat(reloaded.status()).isEqualTo(new Plan.Status.Published(RevisionNo.FIRST));
+    }
+
+    @Test
+    void GivenAReadyPlanHoldingTheAttemptAsAStop_WhenItIsPutBackOntoAnotherDate_ThenTheStopStays() {
+        Plan plan = aPlan().ready();
+        PlanSnapshot before = plan.snapshot();
+
+        plan.removePutBackOrder(O1, FIRST);
+
+        assertUnchanged(plan, before);
+    }
+
+    @Test
+    void GivenAPublishedPlanWhoseStopFailed_WhenItsOrderIsPutBackOntoAnotherDate_ThenTheFailedStopStays() {
+        Plan plan = aPlan().published();
+        PlanSnapshot before = plan.snapshot();
+
+        plan.removePutBackOrder(O1, FIRST);
+
+        assertUnchanged(plan, before);
+        assertThat(ordersOn(plan, V1)).containsExactly(O1, O2);
+    }
+
+    @Test
+    void GivenAPublishedPlan_WhenAnOrderItDroppedIsPutBackOntoAnotherDate_ThenTheDropStaysAsTheDaysHistory() {
+        Plan plan = aPlan().published();
+        PlanSnapshot before = plan.snapshot();
+
+        plan.removePutBackOrder(O4, FIRST);
+
+        assertUnchanged(plan, before);
+    }
+
+    @Test
+    void GivenAReadyPlan_WhenAnOrderItDoesNotHoldIsPutBack_ThenNothingChanges() {
+        Plan plan = aPlan().ready();
+        PlanSnapshot before = plan.snapshot();
+
+        plan.removePutBackOrder(O6, FIRST);
+
+        assertUnchanged(plan, before);
     }
 
     @Test

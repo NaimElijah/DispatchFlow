@@ -4,6 +4,7 @@ import static com.dispatchflow.planning.domain.PlanAssertions.assertPlanRefused;
 import static com.dispatchflow.planning.domain.PlanAssertions.assertUnchanged;
 import static com.dispatchflow.planning.domain.PlanningFixtures.D1;
 import static com.dispatchflow.planning.domain.PlanningFixtures.D2;
+import static com.dispatchflow.planning.domain.PlanningFixtures.D3;
 import static com.dispatchflow.planning.domain.PlanningFixtures.DATE;
 import static com.dispatchflow.planning.domain.PlanningFixtures.JOB;
 import static com.dispatchflow.planning.domain.PlanningFixtures.LATER;
@@ -32,6 +33,7 @@ import static com.dispatchflow.planning.domain.PlanningFixtures.routeOf;
 import static com.dispatchflow.planning.domain.PlanningFixtures.solved;
 import static com.dispatchflow.planning.domain.PlanningFixtures.standardSolution;
 import static com.dispatchflow.planning.domain.PlanningFixtures.stopId;
+import static com.dispatchflow.planning.domain.PlanningFixtures.storedSucceededJob;
 import static com.dispatchflow.planning.domain.PlanningFixtures.succeededJob;
 import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -49,15 +51,20 @@ import com.dispatchflow.planning.domain.PlanningError.RouteLocked;
 import com.dispatchflow.planning.domain.PlanningError.SolveQueueFull;
 import com.dispatchflow.planning.domain.PlanningError.VehicleAlreadyHasRoute;
 import com.dispatchflow.planning.events.Lane;
+import com.dispatchflow.planning.events.SolveFailureReason;
 import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
+import com.dispatchflow.shared.VehicleId;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class PlanSolvingTest {
+
+    private static final List<DroppedOrder> BOTH_DROPS =
+            List.of(dropped(O4, new DropReason.Displaced()), dropped(O5, new DropReason.MissingLocation()));
 
     private static final LaneCapacity FULL_DAILY_LANE = LaneCapacity.readUnderLock(
             Lane.DAILY,
@@ -286,6 +293,28 @@ class PlanSolvingTest {
         assertThat(ordersOn(plan, V1)).containsExactly(O2, O1);
     }
 
+    /** V1/D1 serves O1, O2; V2/D2 serves O3; V3/D3 drives an empty route; O4 and O5 are dropped. */
+    private static ValidatedSolution threeRoutesWithV3Empty() {
+        return ValidatedSolution.of(ValidationReport.of(
+                List.of(), List.of(solved(V1, D1, O1, O2), solved(V2, D2, O3), solved(V3, D3)), BOTH_DROPS));
+    }
+
+    /** A plan solved as {@code solution}, one vehicle's route locked, solving again for the second job. */
+    private static Plan solvingAgainWithLock(VehicleId vehicle, RouteLock lock, ValidatedSolution solution) {
+        Plan ready = aPlan().solvedAs(solution).ready();
+        ready.lockRoute(routeId(ready, vehicle), lock, TODAY);
+        Plan locked = reload(ready);
+        locked.requestSolve(
+                SECOND_JOB,
+                SolverName.OR_TOOLS,
+                SolveLimit.DEFAULT_DAILY,
+                Seed.of(8),
+                roomIn(Lane.DAILY),
+                TODAY,
+                LATER);
+        return reload(locked);
+    }
+
     @Test
     void GivenAReadyPlanWithEdits_WhenANewSolveIsApplied_ThenTheJournalIsCleared() {
         Plan ready = aPlan().ready();
@@ -309,38 +338,35 @@ class PlanSolvingTest {
     }
 
     @Test
-    void GivenAResultServingAnOrderTwice_WhenApplied_ThenOrderAlreadyInPlan() {
+    void GivenAStoredResultServingAnOrderTwice_WhenApplied_ThenOrderAlreadyInPlan() {
         Plan plan = aPlan().solving();
-        ValidatedSolution twice = ValidatedSolution.of(
-                ValidationReport.of(List.of(), List.of(solved(V1, D1, O1), solved(V2, D2, O1)), List.of()));
+        SolveJob twice = storedSucceededJob(JOB, List.of(solved(V1, D1, O1), solved(V2, D2, O1)), List.of());
 
         assertPlanRefused(
                 plan,
-                () -> plan.applySolveResult(succeededJob(JOB, twice), freshIds(0), LATER),
+                () -> plan.applySolveResult(twice, freshIds(0), LATER),
                 new OrderAlreadyInPlan(O1, Attempt.FIRST));
     }
 
     @Test
-    void GivenAResultGivingAVehicleTwoRoutes_WhenApplied_ThenVehicleAlreadyHasRoute() {
+    void GivenAStoredResultGivingAVehicleTwoRoutes_WhenApplied_ThenVehicleAlreadyHasRoute() {
         Plan plan = aPlan().solving();
-        ValidatedSolution twice = ValidatedSolution.of(
-                ValidationReport.of(List.of(), List.of(solved(V1, D1, O1), solved(V1, D2, O2)), List.of()));
+        SolveJob twice = storedSucceededJob(JOB, List.of(solved(V1, D1, O1), solved(V1, D2, O2)), List.of());
 
         assertPlanRefused(
                 plan,
-                () -> plan.applySolveResult(succeededJob(JOB, twice), freshIds(0), LATER),
+                () -> plan.applySolveResult(twice, freshIds(0), LATER),
                 new VehicleAlreadyHasRoute(V1, RouteId.of(PlanningFixtures.uuid(10_000 + 1))));
     }
 
     @Test
-    void GivenAResultGivingADriverTwoRoutes_WhenApplied_ThenDriverAlreadyHasRoute() {
+    void GivenAStoredResultGivingADriverTwoRoutes_WhenApplied_ThenDriverAlreadyHasRoute() {
         Plan plan = aPlan().solving();
-        ValidatedSolution twice = ValidatedSolution.of(
-                ValidationReport.of(List.of(), List.of(solved(V1, D1, O1), solved(V2, D1, O2)), List.of()));
+        SolveJob twice = storedSucceededJob(JOB, List.of(solved(V1, D1, O1), solved(V2, D1, O2)), List.of());
 
         assertPlanRefused(
                 plan,
-                () -> plan.applySolveResult(succeededJob(JOB, twice), freshIds(0), LATER),
+                () -> plan.applySolveResult(twice, freshIds(0), LATER),
                 new DriverAlreadyHasRoute(D1, RouteId.of(PlanningFixtures.uuid(10_000 + 1))));
     }
 
@@ -389,6 +415,67 @@ class PlanSolvingTest {
 
         assertThat(routeOf(plan, V3).lock()).contains(RouteLock.STOP_SEQUENCE);
         assertThat(routeOf(plan, V1).lock()).isEmpty();
+    }
+
+    @Test
+    void GivenAClockThatSteppedBack_WhenTheResultIsAppliedBeforeTheRequest_ThenItCountsAsAppliedAtTheRequest() {
+        Plan plan = aPlan().solving();
+
+        plan.applySolveResult(succeededJob(JOB, standardSolution()), freshIds(0), NOW.minusSeconds(1));
+
+        assertThat(plan.snapshot().applied()).contains(new AppliedSolve(new SolveBasis(JOB, NOW), NOW));
+        assertThat(reload(plan).status()).isEqualTo(new Plan.Status.Ready());
+    }
+
+    @Test
+    void GivenASequenceLockOnAnEmptyRoute_WhenANewResultLeavesTwoRoutesEmpty_ThenOnlyThatVehiclesRouteKeepsTheLock() {
+        Plan plan = solvingAgainWithLock(V3, RouteLock.STOP_SEQUENCE, threeRoutesWithV3Empty());
+        ValidatedSolution twoEmpty = ValidatedSolution.of(ValidationReport.of(
+                List.of(), List.of(solved(V1, D1, O1, O2, O3), solved(V2, D2), solved(V3, D3)), BOTH_DROPS));
+
+        plan.applySolveResult(succeededJob(SECOND_JOB, twoEmpty), freshIds(500), LATER);
+
+        assertThat(routeOf(plan, V3).lock()).contains(RouteLock.STOP_SEQUENCE);
+        assertThat(routeOf(plan, V2).lock()).isEmpty();
+        assertThat(routeOf(plan, V1).lock()).isEmpty();
+    }
+
+    @Test
+    void GivenASequenceLockOnAnEmptyRoute_WhenANewResultGivesThatVehicleStops_ThenRouteLocked() {
+        Plan plan = solvingAgainWithLock(V3, RouteLock.STOP_SEQUENCE, threeRoutesWithV3Empty());
+        RouteId v3 = routeId(plan, V3);
+        ValidatedSolution filled = ValidatedSolution.of(ValidationReport.of(
+                List.of(), List.of(solved(V1, D1, O1, O2), solved(V2, D2), solved(V3, D3, O3)), BOTH_DROPS));
+
+        assertPlanRefused(
+                plan,
+                () -> plan.applySolveResult(succeededJob(SECOND_JOB, filled), freshIds(500), LATER),
+                new RouteLocked(v3));
+    }
+
+    @Test
+    void GivenALockTheResultKeeps_WhenThePlanIsAskedForTheLocksItBreaks_ThenNone() {
+        Plan plan = solvingAgainWithLock(V2, RouteLock.WHOLE_ROUTE, standardSolution());
+
+        assertThat(plan.locksBrokenBy(standardSolution())).isEmpty();
+    }
+
+    @Test
+    void GivenLocksTheResultBreaks_WhenThePlanIsAskedForTheLocksItBreaks_ThenEachIsAnFr147ViolationOnItsRoute() {
+        Plan ready = aPlan().ready();
+        RouteId v1 = routeId(ready, V1);
+        RouteId v2 = routeId(ready, V2);
+        ready.lockRoute(v1, RouteLock.WHOLE_ROUTE, TODAY);
+        Plan locked = reload(ready);
+        locked.lockRoute(v2, RouteLock.STOP_SEQUENCE, TODAY);
+        Plan plan = reload(locked);
+        ValidatedSolution breaksBoth = ValidatedSolution.of(ValidationReport.of(
+                List.of(), List.of(solved(V1, D1, O2, O1), solved(V2, D2, O3, O4)), List.of(BOTH_DROPS.get(1))));
+
+        assertThat(plan.locksBrokenBy(breaksBoth))
+                .containsExactly(Violation.onRoute(RuleCode.LOCKS, v1), Violation.onRoute(RuleCode.LOCKS, v2));
+        assertThat(SolveFailure.lockNotHonoured(plan.locksBrokenBy(breaksBoth)).reason())
+                .isEqualTo(SolveFailureReason.LOCK_NOT_HONOURED);
     }
 
     @Test

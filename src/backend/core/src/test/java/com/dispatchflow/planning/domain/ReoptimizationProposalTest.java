@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.dispatchflow.planning.domain.PlanningError.ProposalAlreadyDeclined;
 import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.StoredStateInvalid;
+import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -44,6 +45,20 @@ class ReoptimizationProposalTest {
 
         assertRefused(() -> proposal.decline(DISPATCHER, LATER.plusSeconds(1)), new ProposalAlreadyDeclined(PROPOSAL));
         assertThat(proposal.snapshot()).isEqualTo(before);
+        assertThat(proposal.pendingEvents()).isEmpty();
+    }
+
+    @Test
+    void GivenAClockThatSteppedBack_WhenAProposalIsDeclinedBeforeItWasCreated_ThenItCountsAsDeclinedWhenCreated() {
+        ReoptimizationProposal proposal = ready();
+        Instant created = proposal.snapshot().createdAt();
+
+        proposal.decline(DISPATCHER, created.minusSeconds(1));
+
+        assertThat(proposal.snapshot().state())
+                .isEqualTo(new ReoptimizationProposal.State.Declined(DISPATCHER, created));
+        assertThat(ReoptimizationProposal.restore(proposal.snapshot()).snapshot())
+                .isEqualTo(proposal.snapshot());
     }
 
     @Test

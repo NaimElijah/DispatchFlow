@@ -1,6 +1,7 @@
 package com.dispatchflow.planning.domain;
 
 import static com.dispatchflow.planning.domain.PlanAssertions.assertPlanRefused;
+import static com.dispatchflow.planning.domain.PlanAssertions.assertUnchanged;
 import static com.dispatchflow.planning.domain.PlanningFixtures.D1;
 import static com.dispatchflow.planning.domain.PlanningFixtures.DATE;
 import static com.dispatchflow.planning.domain.PlanningFixtures.FIRST;
@@ -385,6 +386,52 @@ class PlanEditingTest {
     }
 
     @Test
+    void GivenALockedRoute_WhenItIsLockedAgainWithTheSameLock_ThenNothingChangesAndNothingIsJournaled() {
+        Plan plan = lockedReady(V1, RouteLock.WHOLE_ROUTE);
+        PlanSnapshot before = plan.snapshot();
+
+        plan.lockRoute(routeId(plan, V1), RouteLock.WHOLE_ROUTE, TODAY);
+
+        assertUnchanged(plan, before);
+        assertThat(plan.snapshot().undo()).hasSize(1);
+    }
+
+    @Test
+    void GivenALockedRoute_WhenItIsLockedWithTheOtherKind_ThenTheKindChangesAndIsJournaled() {
+        Plan plan = lockedReady(V1, RouteLock.WHOLE_ROUTE);
+        RouteId v1 = routeId(plan, V1);
+
+        plan.lockRoute(v1, RouteLock.STOP_SEQUENCE, TODAY);
+
+        assertThat(routeOf(plan, V1).lock()).contains(RouteLock.STOP_SEQUENCE);
+        assertThat(plan.snapshot().undo())
+                .last()
+                .isEqualTo(new Edit.Locked(v1, Optional.of(RouteLock.WHOLE_ROUTE), RouteLock.STOP_SEQUENCE));
+    }
+
+    @Test
+    void GivenOneHundredEditsInTheJournal_WhenAnotherIsMade_ThenTheOldestIsForgottenAndTheJournalHoldsOneHundred() {
+        Plan plan = aPlan().ready();
+        RouteId v1 = routeId(plan, V1);
+        for (int edit = 0; edit < 50; edit++) {
+            plan.lockRoute(v1, RouteLock.WHOLE_ROUTE, TODAY);
+            plan = reload(plan);
+            plan.unlockRoute(v1, TODAY);
+            plan = reload(plan);
+        }
+        assertThat(plan.snapshot().undo()).hasSize(100);
+
+        plan.lockRoute(v1, RouteLock.STOP_SEQUENCE, TODAY);
+
+        assertThat(plan.snapshot().undo()).hasSize(100);
+        assertThat(plan.snapshot().undo().get(0)).isEqualTo(new Edit.Unlocked(v1, RouteLock.WHOLE_ROUTE));
+        assertThat(plan.snapshot().undo())
+                .last()
+                .isEqualTo(new Edit.Locked(v1, Optional.empty(), RouteLock.STOP_SEQUENCE));
+        assertThat(reload(plan).snapshot().undo()).hasSize(100);
+    }
+
+    @Test
     void GivenARouteThePlanDoesNotHave_WhenItIsLocked_ThenRouteNotInPlan() {
         Plan plan = aPlan().ready();
 
@@ -417,10 +464,12 @@ class PlanEditingTest {
         assertThat(plan.snapshot().undo()).isEmpty();
         assertThat(plan.snapshot().redo()).hasSize(1);
 
-        plan.redo(evaluationOf(plan).moving(o1, v2, 0).build(), TODAY);
+        Plan undone = reload(plan);
+        undone.redo(evaluationOf(undone).moving(o1, v2, 0).build(), TODAY);
 
-        assertThat(ordersOn(plan, V2)).containsExactly(O1, O3);
-        assertThat(plan.snapshot().redo()).isEmpty();
+        assertThat(ordersOn(undone, V2)).containsExactly(O1, O3);
+        assertThat(undone.snapshot().redo()).isEmpty();
+        assertThat(undone.snapshot().undo()).hasSize(1);
     }
 
     @Test
@@ -459,25 +508,34 @@ class PlanEditingTest {
 
     @Test
     void GivenALockAndAPin_WhenBothAreUndone_ThenThePlanHasNeither() {
-        Plan plan = aPlan().ready();
-        RouteId v1 = routeId(plan, V1);
-        plan.pin(O4, new PinTarget.ToVehicle(V1), evaluationOf(plan).build(), TODAY);
-        plan.lockRoute(v1, RouteLock.WHOLE_ROUTE, TODAY);
+        Plan ready = aPlan().ready();
+        RouteId v1 = routeId(ready, V1);
+        ready.pin(O4, new PinTarget.ToVehicle(V1), evaluationOf(ready).build(), TODAY);
+        Plan pinned = reload(ready);
+        pinned.lockRoute(v1, RouteLock.WHOLE_ROUTE, TODAY);
+        Plan locked = reload(pinned);
+        locked.undo(evaluationOf(locked).build(), TODAY);
+        Plan plan = reload(locked);
 
-        plan.undo(evaluationOf(plan).build(), TODAY);
         plan.undo(evaluationOf(plan).build(), TODAY);
 
         assertThat(routeOf(plan, V1).lock()).isEmpty();
         assertThat(plan.snapshot().pins()).isEmpty();
         assertThat(plan.snapshot().redo()).hasSize(2);
+        Plan undone = reload(plan);
+        undone.redo(evaluationOf(undone).build(), TODAY);
+        assertThat(undone.snapshot().pins()).containsExactly(new Pin(O4, new PinTarget.ToVehicle(V1)));
+        assertThat(routeOf(undone, V1).lock()).isEmpty();
     }
 
     @Test
     void GivenAnUndoneEdit_WhenANewEditIsMade_ThenRedoIsCleared() {
-        Plan plan = aPlan().ready();
-        RouteId v1 = routeId(plan, V1);
-        plan.lockRoute(v1, RouteLock.WHOLE_ROUTE, TODAY);
-        plan.undo(evaluationOf(plan).build(), TODAY);
+        Plan ready = aPlan().ready();
+        RouteId v1 = routeId(ready, V1);
+        ready.lockRoute(v1, RouteLock.WHOLE_ROUTE, TODAY);
+        Plan locked = reload(ready);
+        locked.undo(evaluationOf(locked).build(), TODAY);
+        Plan plan = reload(locked);
 
         plan.lockRoute(v1, RouteLock.STOP_SEQUENCE, TODAY);
 

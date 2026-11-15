@@ -1,19 +1,48 @@
 package com.dispatchflow.planning.domain;
 
 import static com.dispatchflow.planning.domain.PlanningFixtures.D1;
+import static com.dispatchflow.planning.domain.PlanningFixtures.D2;
+import static com.dispatchflow.planning.domain.PlanningFixtures.D3;
+import static com.dispatchflow.planning.domain.PlanningFixtures.DATE;
+import static com.dispatchflow.planning.domain.PlanningFixtures.DISPATCHER;
 import static com.dispatchflow.planning.domain.PlanningFixtures.FIRST;
 import static com.dispatchflow.planning.domain.PlanningFixtures.JOB;
+import static com.dispatchflow.planning.domain.PlanningFixtures.LATER;
 import static com.dispatchflow.planning.domain.PlanningFixtures.NOW;
 import static com.dispatchflow.planning.domain.PlanningFixtures.O1;
+import static com.dispatchflow.planning.domain.PlanningFixtures.O2;
+import static com.dispatchflow.planning.domain.PlanningFixtures.O3;
+import static com.dispatchflow.planning.domain.PlanningFixtures.O4;
+import static com.dispatchflow.planning.domain.PlanningFixtures.O5;
+import static com.dispatchflow.planning.domain.PlanningFixtures.PLAN;
+import static com.dispatchflow.planning.domain.PlanningFixtures.SECOND_JOB;
+import static com.dispatchflow.planning.domain.PlanningFixtures.TODAY;
+import static com.dispatchflow.planning.domain.PlanningFixtures.TOMORROW;
 import static com.dispatchflow.planning.domain.PlanningFixtures.V1;
 import static com.dispatchflow.planning.domain.PlanningFixtures.V2;
 import static com.dispatchflow.planning.domain.PlanningFixtures.aPlan;
+import static com.dispatchflow.planning.domain.PlanningFixtures.checksFor;
+import static com.dispatchflow.planning.domain.PlanningFixtures.dropped;
+import static com.dispatchflow.planning.domain.PlanningFixtures.evaluationOf;
+import static com.dispatchflow.planning.domain.PlanningFixtures.freshIds;
+import static com.dispatchflow.planning.domain.PlanningFixtures.noChanges;
+import static com.dispatchflow.planning.domain.PlanningFixtures.reload;
+import static com.dispatchflow.planning.domain.PlanningFixtures.reoptimizationResult;
+import static com.dispatchflow.planning.domain.PlanningFixtures.roomIn;
+import static com.dispatchflow.planning.domain.PlanningFixtures.routeId;
+import static com.dispatchflow.planning.domain.PlanningFixtures.solved;
+import static com.dispatchflow.planning.domain.PlanningFixtures.standardSolution;
+import static com.dispatchflow.planning.domain.PlanningFixtures.stopId;
+import static com.dispatchflow.planning.domain.PlanningFixtures.succeededJob;
 import static com.dispatchflow.planning.domain.PlanningFixtures.uuid;
 import static com.dispatchflow.planning.domain.PlanningFixtures.violation;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.planning.events.Lane;
 import com.dispatchflow.shared.AccountId;
+import com.dispatchflow.shared.JobId;
+import com.dispatchflow.shared.ProposalId;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.StoredStateInvalid;
@@ -23,7 +52,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -31,24 +62,157 @@ import org.junit.jupiter.params.provider.MethodSource;
 /** {@link Plan#restore} rebuilds every state it saved, and refuses a snapshot that breaks an at-rest invariant. */
 class PlanRestoreTest {
 
+    /**
+     * Each state as its last command left it, before any reload, so the round trip is checked against
+     * what the commands built rather than against what {@code restore} built before.
+     */
     static Stream<Arguments> builderStates() {
-        return Stream.<Supplier<Plan>>of(
-                        () -> aPlan().draft(),
-                        () -> aPlan().solving(),
-                        () -> aPlan().ready(),
-                        () -> aPlan().solvingAgain(),
-                        () -> aPlan().published(),
-                        () -> aPlan().completed(),
-                        () -> aPlan().cancelled(),
-                        () -> aPlan().abandoned())
-                .map(Supplier::get)
-                .map(plan -> Arguments.of(plan.status().getClass().getSimpleName(), plan));
+        return Stream.of(
+                state("draft", () -> Plan.open(PLAN, DATE, PlansOnDate.none(), TODAY, NOW)),
+                state("solving", () -> {
+                    Plan plan = aPlan().draft();
+                    plan.requestSolve(
+                            JOB,
+                            SolverName.OR_TOOLS,
+                            SolveLimit.DEFAULT_DAILY,
+                            Seed.of(7),
+                            roomIn(Lane.DAILY),
+                            TODAY,
+                            NOW);
+                    return plan;
+                }),
+                state("ready", () -> {
+                    Plan plan = aPlan().solving();
+                    plan.applySolveResult(succeededJob(JOB, standardSolution()), freshIds(0), NOW);
+                    return plan;
+                }),
+                state("ready with pins, a lock, a violation and both journals", PlanRestoreTest::readyEdited),
+                state("solving again", () -> {
+                    Plan plan = aPlan().ready();
+                    plan.requestSolve(
+                            SECOND_JOB,
+                            SolverName.OR_TOOLS,
+                            SolveLimit.DEFAULT_DAILY,
+                            Seed.of(8),
+                            roomIn(Lane.DAILY),
+                            TODAY,
+                            LATER);
+                    return plan;
+                }),
+                state("published", () -> {
+                    Plan plan = aPlan().ready();
+                    plan.publish(checksFor(plan), DISPATCHER, TODAY, LATER);
+                    return plan;
+                }),
+                state(
+                        "published at revision 4 with a withdrawn route, a late outcome and a confirmed return",
+                        PlanRestoreTest::publishedWithFacts),
+                state("completed", () -> {
+                    Plan plan = aPlan().published();
+                    plan.complete(TOMORROW);
+                    return plan;
+                }),
+                state("cancelled", () -> {
+                    Plan plan = aPlan().published();
+                    plan.cancel(StartedRoutes.none(), TODAY, LATER);
+                    return plan;
+                }),
+                state("abandoned", () -> {
+                    Plan plan = aPlan().ready();
+                    plan.abandon(TOMORROW);
+                    return plan;
+                }));
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("builderStates")
-    void GivenAPlanInEachBuilderState_WhenItsSnapshotIsRestored_ThenTheSnapshotRoundTrips(String state, Plan plan) {
+    void GivenAPlanInEachBuilderState_WhenItsSnapshotIsRestored_ThenTheSnapshotRoundTrips(
+            String state, PlanSnapshot commanded) {
+        assertThat(Plan.restore(commanded).snapshot()).isEqualTo(commanded);
+    }
+
+    @Test
+    void GivenAReloadedPlanWithAnUndoneEdit_WhenItIsRedone_ThenTheEditIsBack() {
+        Plan plan = reload(readyEdited());
+
+        plan.redo(
+                evaluationOf(plan)
+                        .withViolation(violation("BR-03", routeId(plan, V2)))
+                        .build(),
+                TODAY);
+
+        assertThat(plan.snapshot().pins())
+                .containsExactly(new Pin(O4, new PinTarget.ToVehicle(V2)), new Pin(O5, new PinTarget.ToVehicle(V1)));
+        assertThat(plan.snapshot().redo()).isEmpty();
         assertThat(Plan.restore(plan.snapshot()).snapshot()).isEqualTo(plan.snapshot());
+    }
+
+    private static Arguments state(String name, Supplier<Plan> commands) {
+        return Arguments.of(name, commands.get().snapshot());
+    }
+
+    /**
+     * A ready plan with a pin, a lock, an open violation, three edits to undo and one to redo: O5 is
+     * pinned to V1, O1 moved to the front of V2 with BR-03 there, V1 locked, and O4's pin undone.
+     */
+    private static Plan readyEdited() {
+        Plan ready = aPlan().ready();
+        RouteId v1 = routeId(ready, V1);
+        RouteId v2 = routeId(ready, V2);
+        StopId o1 = stopId(ready, O1);
+        Violation late = violation("BR-03", v2);
+        ready.pin(O5, new PinTarget.ToVehicle(V1), evaluationOf(ready).build(), TODAY);
+        Plan pinned = reload(ready);
+        pinned.moveStop(
+                o1,
+                v2,
+                0,
+                evaluationOf(pinned).moving(o1, v2, 0).withViolation(late).build(),
+                TODAY);
+        Plan moved = reload(pinned);
+        moved.lockRoute(v1, RouteLock.WHOLE_ROUTE, TODAY);
+        Plan locked = reload(moved);
+        locked.pin(
+                O4,
+                new PinTarget.ToVehicle(V2),
+                evaluationOf(locked).withViolation(late).build(),
+                TODAY);
+        Plan pinnedTwice = reload(locked);
+        pinnedTwice.undo(evaluationOf(pinnedTwice).withViolation(late).build(), TODAY);
+        return pinnedTwice;
+    }
+
+    /**
+     * A published plan at revision 4: V1 withdrawn after O1, kept on its route (revision 2); O4
+     * served late on V2 from the drops (revision 3); V2 handed to D3 with a confirmed broken shift
+     * (revision 4).
+     */
+    private static Plan publishedWithFacts() {
+        Plan published = aPlan().published();
+        SolveJob job = published.requestReoptimization(
+                JobId.of(uuid(60)), SolverName.OR_TOOLS, Seed.of(1), roomIn(Lane.REOPTIMIZATION), TODAY, LATER);
+        job.claim(LATER);
+        job.searchStarted(LATER);
+        ValidatedSolution solution = ValidatedSolution.of(ValidationReport.of(
+                List.of(),
+                List.of(solved(V1, D1), solved(V2, D2, O3, O2)),
+                List.of(dropped(O4, new DropReason.Displaced()), dropped(O5, new DropReason.MissingLocation()))));
+        ReoptimizationProposal proposal = job.succeed(
+                ProposalId.of(uuid(61)),
+                reoptimizationResult(solution, new VehicleWithdrawal(V1, WithdrawalCause.VEHICLE_UNAVAILABLE)),
+                LATER);
+        published.accept(proposal, noChanges(V2), freshIds(700), DISPATCHER, TODAY, LATER);
+        Plan withdrawn = reload(published);
+        RouteId v2 = routeId(withdrawn, V2);
+        withdrawn.reconcileLateOutcome(new LateFact(StopId.of(uuid(62)), O4, FIRST, v2), LATER);
+        Plan late = reload(withdrawn);
+        Evaluation breaks = evaluationOf(late)
+                .handingOver(v2, D3)
+                .withViolation(violation("BR-06", v2))
+                .returningAt(70_000)
+                .build();
+        late.handOver(v2, new DriverStanding(D3, true, true), Optional.of(breaks), true, DISPATCHER, TODAY, LATER);
+        return late;
     }
 
     static Stream<Arguments> brokenSnapshots() {
@@ -80,7 +244,7 @@ class PlanRestoreTest {
                         s -> s.applied(Optional.empty())),
                 broken(
                         "a published plan with a journal",
-                        "only a ready plan keeps a journal",
+                        "only a ready or solving plan keeps a journal",
                         () -> aPlan().published(),
                         s -> s.undo(List.of(new Edit.Unpinned(O1, new PinTarget.ToVehicle(V1))))),
                 broken(
@@ -90,7 +254,7 @@ class PlanRestoreTest {
                         s -> s.applied(Optional.empty())),
                 broken(
                         "an abandoned plan with a journal",
-                        "only a ready plan keeps a journal",
+                        "only a ready or solving plan keeps a journal",
                         () -> aPlan().abandoned(),
                         s -> s.undo(List.of(new Edit.Unpinned(O1, new PinTarget.ToVehicle(V1))))),
                 broken(
@@ -232,14 +396,34 @@ class PlanRestoreTest {
                         s -> s.applied(Optional.empty())),
                 broken(
                         "a completed plan with a journal",
-                        "only a ready plan keeps a journal",
+                        "only a ready or solving plan keeps a journal",
                         () -> aPlan().completed(),
                         s -> s.undo(List.of(new Edit.Unpinned(O1, new PinTarget.ToVehicle(V1))))),
                 broken(
                         "a cancelled plan with a journal",
-                        "only a ready plan keeps a journal",
+                        "only a ready or solving plan keeps a journal",
                         () -> aPlan().cancelled(),
                         s -> s.undo(List.of(new Edit.Unpinned(O1, new PinTarget.ToVehicle(V1))))),
+                broken(
+                        "a published plan with a lock",
+                        "locks belong to a plan not yet published",
+                        () -> aPlan().published(),
+                        s -> s.firstRoute(route -> new PlanSnapshot.RouteSnapshot(
+                                route.id(),
+                                route.index(),
+                                route.vehicle(),
+                                route.driver(),
+                                Optional.of(RouteLock.WHOLE_ROUTE),
+                                route.check(),
+                                route.withdrawal(),
+                                route.confirmedReturn(),
+                                route.plan(),
+                                route.stops()))),
+                broken(
+                        "a ready plan with 101 journal entries",
+                        "a journal holds at most 100 edits",
+                        () -> aPlan().ready(),
+                        s -> s.undo(pinEdits(51)).redo(pinEdits(50))),
                 broken(
                         "a draft with drops only",
                         "a draft plan has no routes",
@@ -322,6 +506,13 @@ class PlanRestoreTest {
                 invariant,
                 detail,
                 change.apply(new Editor(from.get().snapshot())).build());
+    }
+
+    /** Journal entries that name no route or stop, so only their number matters. */
+    private static List<Edit> pinEdits(int count) {
+        return IntStream.range(0, count)
+                .<Edit>mapToObj(n -> new Edit.Unpinned(O1, new PinTarget.ToVehicle(V1)))
+                .toList();
     }
 
     /** A ready plan whose last edit moved O1 to the front of V2's route. */

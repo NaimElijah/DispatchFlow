@@ -14,6 +14,11 @@ import java.util.Optional;
  * another version, or one whose routes and stops differ from the plan's after the change
  * ({@code StaleEvaluation}, ADR-101).
  *
+ * <p>The validator judges a route's shift by its vehicle's rostered driver, and reports BR-20 when
+ * the route names anyone else. So an evaluation of a hand-over must be read with the vehicle
+ * rostered to the new driver, although the roster follows only after {@code RouteHandedOver}
+ * (FR-191, ADR-112).
+ *
  * <p>Only the optimizer adapter builds one (DL §13): its constructor is private, and an ArchUnit
  * rule allows no other caller of its factories. It is never stored.
  */
@@ -91,7 +96,9 @@ public final class Evaluation {
 
     /**
      * Whether the route breaks its driver's shift, the break a hand-over needs the dispatcher to
-     * confirm (FR-304, BR-06). BR-105's break reserve doesn't count (ADR-101).
+     * confirm (FR-304, BR-06). BR-105's break reserve alone doesn't make a broken shift (ADR-101).
+     * A late return that breaks the shift breaks the reserve too, so a confirmed hand-over waives
+     * both (ADR-112).
      *
      * @param route the route
      * @return {@code true} when a BR-06 violation concerns it

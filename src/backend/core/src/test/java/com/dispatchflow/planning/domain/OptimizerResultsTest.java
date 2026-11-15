@@ -14,7 +14,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.dispatchflow.planning.domain.PlanningError.SolutionRejected;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.Version;
+import com.dispatchflow.shared.Volume;
+import com.dispatchflow.shared.Weight;
+import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 class OptimizerResultsTest {
@@ -65,10 +72,29 @@ class OptimizerResultsTest {
 
     @Test
     void GivenEachDropReason_WhenAskedWhetherItIsAboutTheLocation_ThenOnlyTheTwoLocationReasonsAre() {
-        assertThat(new DropReason.MissingLocation().isAboutLocation()).isTrue();
-        assertThat(new DropReason.UnreachableLocation().isAboutLocation()).isTrue();
-        assertThat(new DropReason.NoVehicleAvailable().isAboutLocation()).isFalse();
-        assertThat(new DropReason.Displaced().isAboutLocation()).isFalse();
-        assertThat(new DropReason.VehicleLimit().isAboutLocation()).isFalse();
+        Weight kilograms = Weight.kilograms(BigDecimal.TEN);
+        Volume litres = Volume.litres(BigDecimal.TEN);
+        Map<Class<?>, DropReason> samples = new LinkedHashMap<>();
+        Stream.of(
+                        new DropReason.MissingLocation(),
+                        new DropReason.NoVehicleAvailable(),
+                        new DropReason.UnreachableLocation(),
+                        new DropReason.RemovedByDispatcher(),
+                        new DropReason.PinNotHonoured(new PinTarget.ToVehicle(V1), false),
+                        new DropReason.Capacity(kilograms, litres, kilograms, litres),
+                        new DropReason.TimeWindow(at(30_000), at(31_000)),
+                        new DropReason.Shift(at(60_000), at(61_000)),
+                        new DropReason.DepotHours(at(60_000), at(61_000)),
+                        new DropReason.VehicleLimit(),
+                        new DropReason.Displaced())
+                .forEach(reason -> samples.put(reason.getClass(), reason));
+        Set<Class<?>> locationReasons = Set.of(DropReason.MissingLocation.class, DropReason.UnreachableLocation.class);
+
+        assertThat(samples.keySet()).containsExactlyInAnyOrder(DropReason.class.getPermittedSubclasses());
+        for (Class<?> variant : DropReason.class.getPermittedSubclasses()) {
+            assertThat(samples.get(variant).isAboutLocation())
+                    .as(variant.getSimpleName())
+                    .isEqualTo(locationReasons.contains(variant));
+        }
     }
 }
