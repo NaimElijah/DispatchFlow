@@ -5,9 +5,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.dispatchflow.archfixture.alpha.application.AlphaUseCase;
 import com.dispatchflow.archfixture.epsilon.domain.LayerBelow;
 import com.dispatchflow.archfixture.epsilon.domain.RootInACycle;
+import com.dispatchflow.archfixture.epsilon.domain.RootUsingASubpackage;
 import com.dispatchflow.archfixture.epsilon.domain.cycle.SubpackageInACycle;
 import com.dispatchflow.archfixture.epsilon.domain.layer.LayerAbove;
 import com.dispatchflow.archfixture.epsilon.domain.unmarked.UnmarkedValue;
+import com.dispatchflow.archfixture.epsilon.domain.used.UsedByTheRoot;
 import com.dispatchflow.archfixture.shared.KernelValue;
 import com.tngtech.archunit.library.dependencies.Slices;
 import org.junit.jupiter.api.Test;
@@ -37,6 +39,46 @@ class DomainPackageRulesTest {
     @Test
     void GivenTheSplitAlphaDomain_WhenTheCycleRuleEvaluates_ThenNothingIsFlagged() {
         assertThat(DomainPackageRules.domainPackagesAreFreeOfCycles(FIXTURE_ROOT)
+                        .evaluate(FixtureClasses.inPackage("alpha"))
+                        .hasViolation())
+                .isFalse();
+    }
+
+    @Test
+    void GivenADomainRootThatUsesASubpackageOneWay_WhenTheCycleRuleEvaluates_ThenNothingIsFlagged() {
+        assertThat(DomainPackageRules.domainPackagesAreFreeOfCycles(FIXTURE_ROOT)
+                        .evaluate(FixtureClasses.only(RootUsingASubpackage.class, UsedByTheRoot.class))
+                        .hasViolation())
+                .isFalse();
+    }
+
+    @Test
+    void GivenADomainRootThatUsesASubpackageOneWay_WhenTheRootRuleEvaluates_ThenItIsFlagged() {
+        assertThat(DomainPackageRules.domainRootsUseNoSubpackage(FIXTURE_ROOT)
+                        .evaluate(FixtureClasses.only(RootUsingASubpackage.class, UsedByTheRoot.class))
+                        .hasViolation())
+                .isTrue();
+    }
+
+    @Test
+    void GivenADomainRootInACycleWithASubpackage_WhenTheRootRuleEvaluates_ThenItIsFlagged() {
+        assertThat(DomainPackageRules.domainRootsUseNoSubpackage(FIXTURE_ROOT)
+                        .evaluate(FixtureClasses.only(RootInACycle.class, SubpackageInACycle.class))
+                        .hasViolation())
+                .isTrue();
+    }
+
+    @Test
+    void GivenASubpackageThatUsesTheDomainRootOneWay_WhenTheRootRuleEvaluates_ThenNothingIsFlagged() {
+        assertThat(DomainPackageRules.domainRootsUseNoSubpackage(FIXTURE_ROOT)
+                        .evaluate(FixtureClasses.only(LayerBelow.class, LayerAbove.class))
+                        .hasViolation())
+                .isFalse();
+    }
+
+    @Test
+    void GivenTheSplitAlphaDomain_WhenTheRootRuleEvaluates_ThenNothingIsFlagged() {
+        assertThat(DomainPackageRules.domainRootsUseNoSubpackage(FIXTURE_ROOT)
                         .evaluate(FixtureClasses.inPackage("alpha"))
                         .hasViolation())
                 .isFalse();

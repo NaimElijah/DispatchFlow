@@ -1,12 +1,16 @@
 package com.dispatchflow.architecture;
 
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaPackage;
 import com.tngtech.archunit.core.domain.PackageMatcher;
+import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
+import com.tngtech.archunit.lang.ConditionEvents;
+import com.tngtech.archunit.lang.SimpleConditionEvent;
 import com.tngtech.archunit.library.dependencies.SliceAssignment;
 import com.tngtech.archunit.library.dependencies.SliceIdentifier;
 import java.util.SortedSet;
@@ -17,8 +21,8 @@ import org.jspecify.annotations.NullMarked;
 
 /**
  * The package rules of ADR-118, built for a root package as {@link DomainPurityRules} is: no cycle
- * between a module's domain packages, and {@code @NullMarked} on the kernel and on every domain and
- * events package. {@code com.dispatchflow} checks production code; {@code
+ * between a module's domain packages, a domain root that uses none of its subpackages, and
+ * {@code @NullMarked} on the kernel and on every domain and events package. {@code com.dispatchflow} checks production code; {@code
  * com.dispatchflow.archfixture} checks the fixtures that prove each rule fires.
  */
 final class DomainPackageRules {
@@ -57,6 +61,40 @@ final class DomainPackageRules {
                 .beFreeOfCycles()
                 .because("ADR-118 rule 7: dependencies point from aggregate packages to concept packages to"
                         + " the root, and one aggregate package uses another one way only");
+    }
+
+    /**
+     * ADR-118 rule 2: no class directly in {@code <root>.<module>.domain} uses a class in a package
+     * under it. The cycle rule can't see this when the subpackage never names the root, and
+     * {@link DomainPurityRules#onlyAllowedDependencies} lets any class reach its own module's domain
+     * subpackages.
+     */
+    static ArchRule domainRootsUseNoSubpackage(String root) {
+        return classes()
+                .that()
+                .resideInAPackage(root + ".*." + DOMAIN)
+                .should(useNoPackageBelowItsOwn())
+                .because("ADR-118 rule 2: the domain root holds the error and what several packages use, and"
+                        + " imports no subpackage");
+    }
+
+    private static ArchCondition<JavaClass> useNoPackageBelowItsOwn() {
+        return new ArchCondition<>("use no class in a package under its own") {
+            @Override
+            public void check(JavaClass item, ConditionEvents events) {
+                String below = item.getPackageName() + ".";
+                item.getDirectDependenciesFromSelf().stream()
+                        .filter(dependency -> baseType(dependency.getTargetClass())
+                                .getPackageName()
+                                .startsWith(below))
+                        .forEach(dependency ->
+                                events.add(SimpleConditionEvent.violated(dependency, dependency.getDescription())));
+            }
+        };
+    }
+
+    private static JavaClass baseType(JavaClass type) {
+        return type.isArray() ? type.getBaseComponentType() : type;
     }
 
     /**

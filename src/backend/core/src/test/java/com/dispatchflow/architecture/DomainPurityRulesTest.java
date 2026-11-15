@@ -37,18 +37,30 @@ import com.dispatchflow.archfixture.alpha.domain.exception.CreatesAnIllegalState
 import com.dispatchflow.archfixture.alpha.domain.exception.CreatesAnIllegalStateByReference;
 import com.dispatchflow.archfixture.alpha.domain.id.GeneratesARandomUuid;
 import com.dispatchflow.archfixture.alpha.domain.id.GeneratesARandomUuidByReference;
+import com.dispatchflow.archfixture.alpha.domain.io.BuildsADatePatternWithTheDefaultLocale;
 import com.dispatchflow.archfixture.alpha.domain.io.CallsOverHttp;
+import com.dispatchflow.archfixture.alpha.domain.io.FormatsATemplateWithTheDefaultLocale;
+import com.dispatchflow.archfixture.alpha.domain.io.FormatsWithTheDefaultLocale;
 import com.dispatchflow.archfixture.alpha.domain.io.LoadsAResourceBundle;
+import com.dispatchflow.archfixture.alpha.domain.io.LoadsAService;
+import com.dispatchflow.archfixture.alpha.domain.io.LowerCasesWithTheDefaultLocaleByReference;
 import com.dispatchflow.archfixture.alpha.domain.io.OpensASocket;
 import com.dispatchflow.archfixture.alpha.domain.io.PrintsToStandardOut;
 import com.dispatchflow.archfixture.alpha.domain.io.ReadsAFile;
 import com.dispatchflow.archfixture.alpha.domain.io.ReadsAPath;
+import com.dispatchflow.archfixture.alpha.domain.io.ReadsAResourceThroughAClassLoader;
+import com.dispatchflow.archfixture.alpha.domain.io.ReadsAResourceThroughItsClass;
 import com.dispatchflow.archfixture.alpha.domain.io.ReadsTheDefaultLocale;
 import com.dispatchflow.archfixture.alpha.domain.io.ReadsTheDefaultLocaleOfACategory;
 import com.dispatchflow.archfixture.alpha.domain.io.ReadsTheEnvironment;
 import com.dispatchflow.archfixture.alpha.domain.io.ReadsTheJvmsManagement;
 import com.dispatchflow.archfixture.alpha.domain.io.SetsTheDefaultLocale;
+import com.dispatchflow.archfixture.alpha.domain.io.StartsAPlatformThread;
 import com.dispatchflow.archfixture.alpha.domain.io.StartsAProcess;
+import com.dispatchflow.archfixture.alpha.domain.io.StartsAThread;
+import com.dispatchflow.archfixture.alpha.domain.io.StartsAVirtualThread;
+import com.dispatchflow.archfixture.alpha.domain.io.UpperCasesWithTheDefaultLocale;
+import com.dispatchflow.archfixture.alpha.domain.io.UsesAnExecutor;
 import com.dispatchflow.archfixture.alpha.domain.io.UsesPreferences;
 import com.dispatchflow.archfixture.alpha.domain.logging.LogsWithJul;
 import com.dispatchflow.archfixture.alpha.domain.logging.LogsWithSlf4j;
@@ -210,7 +222,19 @@ class DomainPurityRulesTest {
                 LoadsAResourceBundle.class,
                 ReadsTheDefaultLocale.class,
                 ReadsTheDefaultLocaleOfACategory.class,
-                SetsTheDefaultLocale.class
+                SetsTheDefaultLocale.class,
+                UpperCasesWithTheDefaultLocale.class,
+                LowerCasesWithTheDefaultLocaleByReference.class,
+                FormatsWithTheDefaultLocale.class,
+                FormatsATemplateWithTheDefaultLocale.class,
+                BuildsADatePatternWithTheDefaultLocale.class,
+                LoadsAService.class,
+                ReadsAResourceThroughItsClass.class,
+                ReadsAResourceThroughAClassLoader.class,
+                StartsAThread.class,
+                StartsAPlatformThread.class,
+                StartsAVirtualThread.class,
+                UsesAnExecutor.class
             })
     void GivenIo_WhenRule4Evaluates_ThenItIsFlagged(Class<?> fixture) {
         assertThat(flags(DomainPurityRules.noIo(FIXTURE_ROOT), fixture)).isTrue();
@@ -218,7 +242,7 @@ class DomainPurityRulesTest {
 
     @ParameterizedTest
     @ValueSource(classes = {AlphaValue.class, AlphaAggregate.class})
-    void GivenIdnOrNoIoAtAll_WhenRule4Evaluates_ThenNothingIsFlagged(Class<?> fixture) {
+    void GivenIdnAFixedLocaleOrNoIoAtAll_WhenRule4Evaluates_ThenNothingIsFlagged(Class<?> fixture) {
         assertThat(flags(DomainPurityRules.noIo(FIXTURE_ROOT), fixture)).isFalse();
     }
 

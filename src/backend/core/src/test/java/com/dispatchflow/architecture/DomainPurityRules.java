@@ -3,6 +3,7 @@ package com.dispatchflow.architecture;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 
 import com.tngtech.archunit.core.domain.AccessTarget;
+import com.tngtech.archunit.core.domain.AccessTarget.CodeUnitAccessTarget;
 import com.tngtech.archunit.core.domain.JavaAccess;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaCodeUnitAccess;
@@ -60,17 +61,43 @@ final class DomainPurityRules {
     // Not I/O: java.net.IDN converts email domains to ASCII (BR-45); Serializable and Serial only
     // mark types.
     private static final Set<String> IO_EXCEPTIONS = Set.of("java.net.IDN", "java.io.Serializable", "java.io.Serial");
-    // A ResourceBundle loads its text from the classpath.
+    // A ResourceBundle loads its text from the classpath, and a ServiceLoader its providers.
     private static final List<String> IO_CLASSES = List.of(
             "java.lang.ProcessBuilder",
             "java.lang.Process",
             "java.lang.ProcessHandle",
             "java.lang.Runtime",
-            "java.util.ResourceBundle");
+            "java.util.ResourceBundle",
+            "java.util.ServiceLoader");
     private static final Set<String> IO_SYSTEM_MEMBERS =
             Set.of("in", "out", "err", "console", "getenv", "getProperty", "getProperties", "setProperty");
     // The default locale is the process's environment, as a system property is.
     private static final Set<String> DEFAULT_LOCALE_MEMBERS = Set.of("getDefault", "setDefault");
+    // Each of these reads the default locale when it is given none: a case change with no argument,
+    // String.format whose first parameter is the template rather than a Locale, and ofPattern with
+    // the pattern alone. String.formatted has no Locale overload at all.
+    private static final Set<String> CASE_CHANGES = Set.of("toUpperCase", "toLowerCase");
+    private static final String FORMAT = "format";
+    private static final String FORMATTED = "formatted";
+    private static final String OF_PATTERN = "ofPattern";
+    private static final String STRING = "java.lang.String";
+    private static final String DATE_TIME_FORMATTER = "java.time.format.DateTimeFormatter";
+    // A class, its loader or its module reads a resource from the classpath.
+    private static final List<String> RESOURCE_OWNERS =
+            List.of("java.lang.Class", "java.lang.ClassLoader", "java.lang.Module");
+    private static final Set<String> RESOURCE_MEMBERS = Set.of(
+            "getResource",
+            "getResources",
+            "getResourceAsStream",
+            "getSystemResource",
+            "getSystemResources",
+            "getSystemResourceAsStream",
+            "resources");
+    // A thread the domain starts makes its outcome depend on the scheduler, as a Process it starts
+    // depends on the operating system.
+    private static final String THREAD = "java.lang.Thread";
+    private static final Set<String> THREAD_BUILDERS = Set.of("ofPlatform", "ofVirtual", "startVirtualThread");
+    private static final String EXECUTORS = "java.util.concurrent.Executors";
 
     private static final List<String> LOGGING_PACKAGES = List.of(
             "java.util.logging", "org.slf4j", "org.apache.logging", "org.apache.commons.logging", "ch.qos.logback");
@@ -152,8 +179,14 @@ final class DomainPurityRules {
                 .should(notDependOn("an I/O type", DomainPurityRules::isIo)
                         .and(notAccess(
                                 "use the process's streams, environment or default locale",
-                                DomainPurityRules::usesTheProcess)))
-                .because("DL §3.9 rule 4: the domain does no I/O");
+                                DomainPurityRules::usesTheProcess))
+                        .and(notAccess(
+                                "change case, format or build a date pattern with the default locale",
+                                DomainPurityRules::readsTheDefaultLocaleImplicitly))
+                        .and(notAccess("read a resource from the classpath", DomainPurityRules::readsAResource))
+                        .and(notAccess("start a thread or an executor", DomainPurityRules::startsAThread)))
+                .because("DL §3.9 rule 4: the domain does no I/O; the default locale, the classpath and the"
+                        + " process's threads count as I/O, as a Process does");
     }
 
     /** Rule 4: no logging. */
@@ -325,6 +358,43 @@ final class DomainPurityRules {
         String name = access.getTarget().getName();
         return (owner.equals("java.lang.System") && IO_SYSTEM_MEMBERS.contains(name))
                 || (owner.equals("java.util.Locale") && DEFAULT_LOCALE_MEMBERS.contains(name));
+    }
+
+    private static boolean readsTheDefaultLocaleImplicitly(JavaAccess<?> access) {
+        if (!(access.getTarget() instanceof CodeUnitAccessTarget target)) {
+            return false;
+        }
+        String owner = target.getOwner().getName();
+        String name = target.getName();
+        List<JavaClass> parameters = target.getRawParameterTypes();
+        if (owner.equals(DATE_TIME_FORMATTER)) {
+            return name.equals(OF_PATTERN) && parameters.size() == 1;
+        }
+        return owner.equals(STRING)
+                && ((CASE_CHANGES.contains(name) && parameters.isEmpty())
+                        || name.equals(FORMATTED)
+                        || (name.equals(FORMAT)
+                                && !parameters.isEmpty()
+                                && parameters.get(0).getName().equals(STRING)));
+    }
+
+    /** A subclass of ClassLoader counts too. */
+    private static boolean readsAResource(JavaAccess<?> access) {
+        JavaClass owner = access.getTarget().getOwner();
+        return RESOURCE_MEMBERS.contains(access.getTarget().getName())
+                && RESOURCE_OWNERS.stream().anyMatch(owner::isAssignableTo);
+    }
+
+    /**
+     * A subclass of Thread counts too, through its call to Thread's constructor. Every member of
+     * Executors counts, as the class exists to make thread pools.
+     */
+    private static boolean startsAThread(JavaAccess<?> access) {
+        JavaClass owner = access.getTarget().getOwner();
+        String name = access.getTarget().getName();
+        return (owner.isAssignableTo(THREAD) && name.equals(CONSTRUCTOR))
+                || (owner.getName().equals(THREAD) && THREAD_BUILDERS.contains(name))
+                || owner.getName().equals(EXECUTORS);
     }
 
     private static boolean isLogging(JavaClass type) {
