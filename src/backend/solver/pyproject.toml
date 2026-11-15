@@ -170,11 +170,22 @@ source_modules = [
 forbidden_modules = ["dispatchflow_solver.domain.problem"]
 
 # ADR-001: the use cases and the Solver port know no transport, no Pydantic and no OR-Tools.
+# ADR-092: Numba and the alns package belong to our solver's adapter. ADR-051 keeps the process
+# model, the worker per lane started with multiprocessing, in the adapter too.
 [[tool.importlinter.contracts]]
-name = "The application imports no FastAPI, Pydantic or OR-Tools"
+name = "The application imports no FastAPI, Pydantic, solver library or multiprocessing"
 type = "forbidden"
 source_modules = ["dispatchflow_solver.application"]
-forbidden_modules = ["fastapi", "ortools", "pydantic", "pydantic_settings", "starlette"]
+forbidden_modules = [
+    "alns",
+    "fastapi",
+    "multiprocessing",
+    "numba",
+    "ortools",
+    "pydantic",
+    "pydantic_settings",
+    "starlette",
+]
 
 # FR-286: PyVRP is the study's reference solver and never enters the product, so no part of the
 # service imports it. tests/test_dependency_boundary.py keeps it out of the environment and lock.
