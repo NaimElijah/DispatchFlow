@@ -21,7 +21,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  * event's. Before its transaction it asks {@code Baseline.withdrawnFleetAfter} which vehicles the
  * solve leaves out and which it gives their whole shift (FR-271), reads the plan's {@code
  * BaselineInputs} through {@link ReportingViews#baselineInputsOf}, from the views Planning and
- * Customers &amp; Orders publish (ADR-041, ADR-109), builds the {@code BaselineRequest} from both,
+ * Customers &amp; Orders publish (ADR-041, ADR-109), builds the {@code BaselineRequest} from both
+ * with {@code BaselineSolve}'s seed and budget, the publication's own (NFR-13),
  * and asks the {@link BaselinePlanner} for the solve (DL §6.3); then {@code Baseline.recompute}
  * stores it. It reads no other module's Java API.
  *

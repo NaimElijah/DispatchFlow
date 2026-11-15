@@ -30,14 +30,15 @@ public sealed interface BaselineAnswer {
     }
 
     /**
-     * The optimizer answered, and found no baseline. For a cause that is deterministic under a seed
-     * and an iteration budget, asking again with the same request gets the same answer; the M5
-     * contract of {@code optimizer-api} v1 settles which causes are. The listener records the
-     * refusal and completes instead of failing its delivery.
+     * The optimizer answered, and found no baseline. Every baseline request carries the same seed and
+     * a solution budget, never a wall-clock limit, so asking again with the same request gets the
+     * same answer from a deterministic solver (NFR-13). The listener records the refusal and
+     * completes instead of failing its delivery.
      *
      * <p>Built in M5.
      *
-     * @param cause why, as the adapter maps the optimizer's refusal code
+     * @param cause why, as the adapter maps the optimizer's answer: its failure's closed kind, or its
+     *     validator's rejection
      */
     record Refused(RefusalCause cause) implements BaselineAnswer {
 

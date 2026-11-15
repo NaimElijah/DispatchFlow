@@ -10,7 +10,13 @@ import java.util.Objects;
  * What the optimizer's validator is asked to judge: a plan's routes, drops and pins as a change would
  * leave them, for one version of the plan, against the date's facts (FR-23, FR-233, BR-21, DL §6.3,
  * ADR-101 point 15). The layout comes from the plan's {@code layout()} or one of its {@code after…}
- * queries, so the command later leaves exactly the layout judged (ADR-112).
+ * queries, so the command later leaves exactly the layout judged (ADR-112). The layout's drops
+ * with the reason <em>removed by dispatcher</em> are the orders a dispatcher took off (FR-146): the
+ * adapter sends them as {@code removed_by_dispatcher}, so the validator gives them that reason.
+ *
+ * <p>It is the optimizer's daily evaluation, over the stored matrix only: it carries no reported
+ * stop, no position and no {@code now}. Whether evaluating a published plan mid-day takes the daily
+ * or the re-optimization rules is open until M9 (see {@link FeasibilityChecker}).
  *
  * <p>Built in M4.
  *

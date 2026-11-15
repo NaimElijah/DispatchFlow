@@ -9,6 +9,9 @@ import com.dispatchflow.shared.application.Clock;
  * Startup recovery, before the lane workers start: a job that was building its matrix or running
  * fails as <em>interrupted</em>, a queued re-optimization fails too, and a queued daily solve stays
  * queued for its worker (BR-74, BR-85, NFR-12, DL §12). Each job changes in a transaction of its own.
+ * A lost version race on {@code SolveJobRepository.save}, such as with the midnight job, is no error
+ * of the recovery: it reloads the job, finds it ended ({@code JobAlreadyEnded}), and moves on to the
+ * next job, never retrying its change (DL §11).
  *
  * <p>Built in M4.
  */

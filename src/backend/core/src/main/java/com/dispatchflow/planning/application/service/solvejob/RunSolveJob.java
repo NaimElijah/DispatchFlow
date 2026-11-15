@@ -3,6 +3,7 @@ package com.dispatchflow.planning.application.service.solvejob;
 import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.planning.application.port.out.LiveUpdates;
+import com.dispatchflow.planning.application.port.out.StoredMatrices;
 import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
 import com.dispatchflow.planning.application.port.out.proposal.ProposalRepository;
 import com.dispatchflow.planning.application.port.out.solvejob.RouteOptimizer;
@@ -24,14 +25,35 @@ import com.dispatchflow.shared.application.IdGenerator;
  *       (FR-238). Otherwise {@code SolveJob.succeed} keeps it, and a result no plan could hold
  *       ({@code OrderAlreadyInPlan}, {@code VehicleRoutedTwice}, {@code DriverRoutedTwice}) fails
  *       the job with {@code SolveFailure.rejected} instead (ADR-112).
- *   <li>A re-optimization's result becomes a proposal, created in the job's transaction (DL §6.1).
- *   <li>An optimizer answer of failure, an unreachable road network or a date with no orders fails
- *       the job with its reason (FR-65).
+ *   <li>From M3, a daily job's success transaction also stores the matrix its request was built
+ *       with, through {@link StoredMatrices#store}, so a failed job stores none and the assembler
+ *       only reads (ADR-052, BR-37). A re-optimization stores none: it reuses the plan's matrix.
+ *   <li>A re-optimization's answer becomes a {@code ReoptimizationResult}, which this step builds from
+ *       the answer and the request: the request's fact time, each withdrawn vehicle's cause from its
+ *       {@code VehicleState}, and the per-driver changes and goods hand-overs against the request's
+ *       routes (see {@code ReoptimizationAnswer}). {@code SolveJob.succeed} then creates the proposal
+ *       in the job's transaction (DL §6.1). A result the proposal refuses, from {@code
+ *       ReoptimizationProposal.create} ({@code OrderAlreadyInPlan}, {@code VehicleRoutedTwice} or
+ *       {@code DriverRoutedTwice}), fails the job with {@code SolveFailure.rejected} instead, naming
+ *       the broken rule as for a daily result (ADR-112).
+ *   <li>An optimizer answer of failure, an unreachable road network ({@code RoadNetworkUnavailable})
+ *       or a date with no orders fails the job with its reason (FR-65). A request the optimizer
+ *       refused ({@code OptimizerRefusedRequest}) fails the job too, with the reason {@code
+ *       RouteOptimizer}'s gap waits for, and the step logs it as a defect.
  *   <li>A job the watchdog or the midnight job ended meanwhile refuses with {@code JobAlreadyEnded},
  *       and the worker drops its answer (DL §11).
+ *   <li>A lost version race on {@code SolveJobRepository.save} is no error of this step: it reloads
+ *       the job, finds it ended ({@code JobAlreadyEnded}), and moves on to the next job (DL §11). It
+ *       never retries its own change.
  * </ul>
  *
  * <p>The job's events, {@code SolveSucceeded} or {@code SolveFailed}, then end the plan's solve (BR-59).
+ *
+ * <p><b>Domain gap.</b> {@code SolveJob.succeed} keeps no objective and no stats, which the daily
+ * answer carries for NFR-11: M0 adds them to {@code SolveResult} (see {@code DailyAnswer.Solved}).
+ *
+ * <p>M0 builds a first cut, the daily lane over the matrix the seeded day brings; M4 completes it, as
+ * the roadmap's M4 builds "the {@code solve_job} queue, one worker per lane" (ADR-051).
  *
  * <p>Built in M0.
  */
@@ -42,6 +64,7 @@ public final class RunSolveJob {
     private final ProposalRepository proposals;
     private final SolveRequestAssembler assembler;
     private final RouteOptimizer optimizer;
+    private final StoredMatrices storedMatrices;
     private final Clock clock;
     private final IdGenerator ids;
     private final LiveUpdates liveUpdates;
@@ -55,6 +78,7 @@ public final class RunSolveJob {
      * @param proposals where a re-optimization's proposal is added
      * @param assembler builds the job's request and matrix
      * @param optimizer the optimization service
+     * @param storedMatrices each plan's stored matrix, which the success transaction writes (ADR-052)
      * @param clock the time of each phase change
      * @param ids the new proposal's ID
      * @param liveUpdates the dispatchers' open screens (FR-142, FR-222)
@@ -66,6 +90,7 @@ public final class RunSolveJob {
             ProposalRepository proposals,
             SolveRequestAssembler assembler,
             RouteOptimizer optimizer,
+            StoredMatrices storedMatrices,
             Clock clock,
             IdGenerator ids,
             LiveUpdates liveUpdates,
@@ -75,6 +100,7 @@ public final class RunSolveJob {
         this.proposals = proposals;
         this.assembler = assembler;
         this.optimizer = optimizer;
+        this.storedMatrices = storedMatrices;
         this.clock = clock;
         this.ids = ids;
         this.liveUpdates = liveUpdates;

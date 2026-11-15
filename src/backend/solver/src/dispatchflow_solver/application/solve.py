@@ -21,7 +21,8 @@ class Solve:
         """Holds the ports the solve uses.
 
         Args:
-            solvers: The solvers, by name.
+            solvers: The service's registry, which holds only FR-20's solvers, OR-Tools and the
+                DispatchFlow solver; the baseline's solver is not in it (FR-39).
             stopwatch: Times the search for the stats.
         """
         self._solvers = solvers
@@ -33,24 +34,28 @@ class Solve:
         The solver searches from no warm start under the request's budget and seed. Its solution
         is judged by `Problem.validate` and scored by `Problem.cost`, never by the solver itself,
         and each unserved order gets its reason from `Problem.explain_drop` (BR-09, BR-15, BR-42,
-        FR-144). Validation runs inside the limit (NFR-119). The solver's `SearchResult.reached`
-        goes into the stats (NFR-13).
+        FR-144). The validator runs inside the request's limit (ADR-051, TS §7.2), as NFR-119 asks
+        of the re-optimization's. The solver's `SearchResult.reached` goes into the stats (NFR-13),
+        and the problem's vehicle exclusions into `Solved.excluded` (FR-197).
 
-        It catches the `SolverError` the solver raises, failing or finding no solution within its
-        budget, and answers `Failed`; no other solver is tried in its place (ADR-004).
+        It catches the `SearchFailedError` the solver raises, failing or finding no solution
+        within its budget, and answers `Failed` with its kind; no other solver is tried in its
+        place (ADR-004).
 
         Args:
             request: The date's inputs, and the solver, budget and seed.
 
         Returns:
-            The validated, scored solution with its drop reasons, the validator's refusal, or the
-            solver's failure.
+            The validated, scored solution with its drop reasons and excluded vehicles, the
+            validator's refusal, or the solver's failure.
 
         Raises:
             InvalidProblemError: If an input is malformed or contradicts another.
             InvalidSolutionError: If the solver returns a solution of the wrong shape.
-            SolverError: If the registry holds no solver of that name, which is a refused request,
-                not a failed search (ADR-004).
+            UnknownSolverError: If the registry holds no solver of that name, which is a refused
+                request, not a failed search (ADR-004).
+            UnsupportedBudgetError: If the solver cannot honour the budget's kind, which is a
+                refused request too (ADR-044).
             NotImplementedError: Until M0 builds it.
         """
         raise NotImplementedError("Built in M0")

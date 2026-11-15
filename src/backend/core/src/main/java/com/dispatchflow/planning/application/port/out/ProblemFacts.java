@@ -34,10 +34,14 @@ import java.util.Optional;
  * <p>Built in M0.
  *
  * @param date the delivery date
- * @param orders the date's uncancelled orders, each once, at their current attempt (BR-22, FR-258)
+ * @param orders the date's uncancelled orders, each once, at their current attempt (BR-22, FR-258);
+ *     for a re-optimization, also every order on the current revision's routes that the date's
+ *     orders lack, such as one put back to another date, so every stop has its order (ADR-050)
  * @param depots every depot a vehicle starts or ends at, each once
- * @param vehicles the vehicles that may drive on the date: active, and not marked unavailable
- *     (FR-56, FR-194)
+ * @param vehicles for a daily solve and an evaluation, the vehicles that may drive on the date:
+ *     active, not marked unavailable, and rostered to an available driver, because the optimizer
+ *     requires a driver for every daily vehicle (FR-56, FR-194, ADR-105); for a re-optimization,
+ *     every vehicle of the plan, whatever its state, which the request's routes give (ADR-050)
  * @param drivers the date's rostered drivers who are available, each once (FR-54, FR-82)
  * @param travel the travel model's settings (FR-321, FR-322, FR-227, FR-21, FR-67)
  * @param matrix the base travel matrix over every distinct location of the orders and depots
@@ -163,7 +167,7 @@ public record ProblemFacts(
     }
 
     /**
-     * One vehicle that may drive on the date (FR-05, BR-05).
+     * One vehicle of the request (FR-05, BR-05).
      *
      * <p>Built in M0.
      *

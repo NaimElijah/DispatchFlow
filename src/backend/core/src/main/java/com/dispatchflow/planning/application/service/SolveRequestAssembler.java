@@ -3,6 +3,7 @@ package com.dispatchflow.planning.application.service;
 import com.dispatchflow.fleet.application.api.FleetFacts;
 import com.dispatchflow.orders.application.api.OrdersForDate;
 import com.dispatchflow.orders.application.api.ServiceAreaCheck;
+import com.dispatchflow.planning.application.port.out.RoadNetworkUnavailable;
 import com.dispatchflow.planning.application.port.out.StoredMatrices;
 import com.dispatchflow.planning.application.port.out.TravelTimes;
 import com.dispatchflow.planning.application.port.out.plan.EvaluationRequest;
@@ -30,10 +31,18 @@ import java.time.Instant;
  *
  * <p>A daily solve builds its matrix here, which is its job's <em>building matrix</em> phase (BR-75):
  * it reuses the plan's stored matrix when the locations are the same, and otherwise asks {@code
- * TravelTimes} and stores the new one (ADR-052). A re-optimization reuses the stored matrix and adds
- * rows only: one {@code TravelTimes.from} call, from the vehicles' usable latest positions to the stop
- * locations (ADR-050, ADR-052). An evaluation reuses the stored matrix. It reads every fact outside
- * any transaction (DL §6.3).
+ * TravelTimes} for a new one (ADR-052). It only reads: {@code RunSolveJob} stores the request's
+ * matrix in the job's success transaction. A re-optimization reuses the stored matrix and adds rows
+ * only: one {@code TravelTimes.from} call, from each vehicle's latest position, one row exactly where
+ * a position exists, to every location of the stored matrix, depots included (ADR-050, ADR-052).
+ * Which positions are usable is the optimizer's to judge (BR-80, ADR-050). New locations, such as a
+ * new order's address, wait for the owner's decision on extending the matrix. An evaluation reuses
+ * the stored matrix. It reads every fact outside any transaction (DL §6.3).
+ *
+ * <p>A daily request's vehicles are those rostered to an available driver, active and not marked
+ * unavailable, because the optimizer requires a driver for every daily vehicle (ADR-105). It relies
+ * on Fleet's {@code FleetFacts.rosterOn} keeping only drivers whose standing is active (ADR-062), so
+ * it checks no standing itself.
  *
  * <p>Built in M0, M4 and M9, method by method.
  */
@@ -86,21 +95,22 @@ public final class SolveRequestAssembler {
     }
 
     /**
-     * The daily solve a claimed job runs: the date's uncancelled orders, the vehicles that may drive,
-     * the rostered drivers, the settings, the plan's pins and locked routes, and the job's solver,
-     * limit and seed (FR-15, FR-19, FR-20, FR-91, FR-147, NFR-13). It builds or reuses the matrix and
-     * stores it for the plan (ADR-052).
+     * The daily solve a claimed job runs: the date's uncancelled orders, the vehicles rostered to an
+     * available driver, the rostered drivers, the settings, the plan's pins, its drops a dispatcher
+     * took off a route, its locked routes, and the job's solver, limit and seed (FR-15, FR-19, FR-20,
+     * FR-91, FR-146, FR-147, NFR-13). It builds or reuses the matrix, and stores none (ADR-052).
      *
      * <p>Built in M0 with seeded facts, in full in M2 and M3: M0 reads the seeded orders, fleet and
-     * roster, and stores no matrix; Fleet's and Customers &amp; Orders' facts replace the seeded ones in
-     * M2, and the stored matrix arrives in M3.
+     * roster, and the matrix the seeded day brings, because {@code TravelTimes} and {@code
+     * StoredMatrices} arrive in M3; Fleet's and Customers &amp; Orders' facts replace the seeded ones in
+     * M2, and OSRM's matrix replaces the seeded one in M3.
      *
      * @param date the plan's delivery date
      * @param job the claimed job
      * @return the request
      * @throws NotFound when no job has the ID
-     * @throws java.io.UncheckedIOException when the road network can't be reached, which fails the job
-     *     as <em>road network unavailable</em> (FR-65)
+     * @throws RoadNetworkUnavailable when the road network can't be reached, which fails the job as
+     *     <em>road network unavailable</em> (FR-65)
      */
     public SolveRequest daily(DeliveryDate date, JobId job) {
         throw new UnsupportedOperationException("Built in M0");
@@ -113,6 +123,12 @@ public final class SolveRequestAssembler {
      * and put-back orders, the stored matrix, and the position rows from {@code TravelTimes.from}
      * (FR-35, ADR-050, ADR-052).
      *
+     * <p>It sends every vehicle of the plan, whatever its state, and every order on the current
+     * revision's routes besides the date's orders, so every stop has its order and its vehicle, one put
+     * back to another date included. Its put-back orders are those on the routes whose failed stop a
+     * dispatcher put back for today (FR-75): the date's orders hold the order at a later attempt than
+     * its failed stop's.
+     *
      * <p>Built in M9.
      *
      * @param date the plan's delivery date
@@ -120,7 +136,7 @@ public final class SolveRequestAssembler {
      * @param factsAt the time the facts are gathered at, which becomes the proposal's fact time (BR-25)
      * @return the request
      * @throws NotFound when no job has the ID
-     * @throws java.io.UncheckedIOException when the road network can't be reached
+     * @throws RoadNetworkUnavailable when the road network can't be reached
      */
     public ReoptimizationRequest reoptimization(DeliveryDate date, JobId job, Instant factsAt) {
         throw new UnsupportedOperationException("Built in M9");
@@ -130,6 +146,10 @@ public final class SolveRequestAssembler {
      * The evaluation of a layout of the date's plan, against the date's facts now and the plan's
      * stored matrix (FR-23, FR-233, BR-21, FR-395). Each route's vehicle is rostered to the layout's
      * driver for it, so a hand-over is judged with the new driver's shift (ADR-112).
+     *
+     * <p><b>Gap until M9.</b> It builds the daily evaluation only: no reported stop, no position and
+     * no {@code now}. Whether evaluating a published plan mid-day takes the daily or the
+     * re-optimization rules is open, and M9 decides it (see {@code FeasibilityChecker}).
      *
      * <p>Built in M4.
      *

@@ -15,7 +15,8 @@ import java.util.Optional;
 public interface StoredMatrices {
 
     /**
-     * Stores the matrix a solve job built for its plan, in the caller's transaction. It replaces the
+     * Stores the matrix a solve job built for its plan, in the caller's transaction: {@code
+     * RunSolveJob}'s success transaction for a daily job, so a failed job stores none. It replaces the
      * plan's earlier matrix, which the job's own stored input still records (DL §9.7).
      *
      * <p>Built in M3.

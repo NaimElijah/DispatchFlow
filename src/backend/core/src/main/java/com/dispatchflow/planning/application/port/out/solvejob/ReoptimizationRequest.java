@@ -11,6 +11,7 @@ import com.dispatchflow.planning.domain.plan.SolverName;
 import com.dispatchflow.planning.domain.solution.DroppedOrder;
 import com.dispatchflow.shared.GeoPoint;
 import com.dispatchflow.shared.JobId;
+import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.StopId;
@@ -33,13 +34,16 @@ import java.util.Optional;
  * @param limit the search limit, 20 seconds (BR-84)
  * @param seed the seed (NFR-13)
  * @param now the time the facts were gathered, the proposal's fact time (BR-25)
- * @param facts the date's orders, new and put-back ones included, fleet, roster, settings and stored
- *     matrix
+ * @param facts the date's orders, new and put-back ones included, and every order on the current
+ *     revision's routes; every vehicle of the plan; the roster, the settings and the stored matrix
  * @param routes the routes of the plan's current revision, each with what happened on it
  * @param dropped the plan's dropped orders
- * @param positionRows the base travel times and distances from each usable latest position to every
- *     stop location of {@code facts}, the extra source rows ADR-050 and ADR-052 ask for; the stored
- *     matrix itself isn't rebuilt
+ * @param putBack the orders on {@code routes} whose failed stop a dispatcher put back for today
+ *     (FR-75), which the adapter sends as {@code put_back}
+ * @param positionRows the base travel times and distances from each vehicle's latest position, one
+ *     row exactly where a position exists, to every location of the stored matrix, depots included:
+ *     the extra source rows ADR-050 and ADR-052 ask for. Whether a position is usable is the
+ *     optimizer's to judge (BR-80, ADR-050), and the stored matrix itself isn't rebuilt
  */
 public record ReoptimizationRequest(
         JobId job,
@@ -52,6 +56,7 @@ public record ReoptimizationRequest(
         ProblemFacts facts,
         List<LiveRoute> routes,
         List<DroppedOrder> dropped,
+        List<OrderId> putBack,
         TravelRows positionRows) {
 
     /** Checks every part is present, and copies the lists. */
@@ -66,6 +71,7 @@ public record ReoptimizationRequest(
         Objects.requireNonNull(facts, "facts");
         routes = List.copyOf(routes);
         dropped = List.copyOf(dropped);
+        putBack = List.copyOf(putBack);
         Objects.requireNonNull(positionRows, "positionRows");
     }
 
@@ -133,14 +139,16 @@ public record ReoptimizationRequest(
     }
 
     /**
-     * One reported stop, with its corrected times (BR-10, BR-91, BR-114).
+     * One reported stop, with its corrected times (BR-10, BR-91, BR-114). The adapter sends the
+     * optimizer's {@code reported_at}, the corrected time of the stop's first report, from them: its
+     * arrival when recorded, otherwise its outcome.
      *
      * <p>Built in M9.
      *
      * @param stop the stop
      * @param progress what stands at it
-     * @param arrivedAt when the driver arrived, if recorded
-     * @param outcomeAt when its outcome was recorded, if it has one
+     * @param arrivedAt the corrected time of the first report of its arrival (BR-114), if recorded
+     * @param outcomeAt the corrected time of the first report of its outcome (BR-114), if it has one
      */
     public record ReportedStop(
             StopId stop, ReportedState progress, Optional<Instant> arrivedAt, Optional<Instant> outcomeAt) {

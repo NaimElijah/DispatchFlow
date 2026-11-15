@@ -15,7 +15,8 @@ import com.dispatchflow.shared.application.NotFound;
  * Computes a published plan's baseline when Reporting hears {@code PlanPublished} (FR-39, FR-342,
  * DL §7.2). Before its transaction it reads the plan's {@code BaselineInputs} through {@link
  * ReportingViews#baselineInputsOf}, from the views Planning and Customers &amp; Orders publish
- * (ADR-041, ADR-109), builds the {@code BaselineRequest} from them with no vehicle withdrawn, and
+ * (ADR-041, ADR-109), builds the {@code BaselineRequest} from them with no vehicle withdrawn and
+ * with {@code BaselineSolve}'s seed and budget, and
  * asks the {@link BaselinePlanner} for the nearest-neighbour solve (DL §6.3); then {@code
  * Baseline.compute} stores it. It reads no other module's Java API. Delivery is at least once
  * (ADR-064): the plan keys the baseline and the refusal, so a repeated delivery finds one stored and
