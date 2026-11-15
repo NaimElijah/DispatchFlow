@@ -65,10 +65,11 @@ public enum TextKind {
      * or an address one would make two values look alike (BR-48, ADR-111). Every kind trims them
      * from its ends.
      *
-     * <p>A variation selector is a filler too, unless it follows an emoji (a character that {@link
-     * Character#isExtendedPictographic} accepts) or another selector that follows one. So a kind
-     * that refuses fillers keeps a heart emoji, U+2764 U+FE0F, but refuses a selector after a
-     * letter or a digit inside it, and trims one at its end. A kind that allows fillers keeps every
+     * <p>A variation selector is a filler too, unless it is an emoji's one presentation selector:
+     * U+FE0E or U+FE0F right after a character that {@link Character#isExtendedPictographic}
+     * accepts. So a kind that refuses fillers keeps a heart emoji, U+2764 U+FE0F. It refuses any
+     * other selector inside it, such as one after a letter or a digit or a second after an emoji,
+     * and trims one at its end. A kind that allows fillers keeps every
      * selector inside it, and one at its end after any visible character.
      *
      * @return {@code true} for {@link #NOTE} only

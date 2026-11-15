@@ -54,11 +54,12 @@ On 2026-11-15 the owner, Naim Elijah, decided:
    a name or an address. A `NOTE` keeps them all inside ([BR-48], [FR-398]).
 
    A variation selector belongs to the character before it. In a `NAME` or an `ADDRESS` it stays
-   only right after an emoji, a base for which the JDK's `Character.isExtendedPictographic` is
-   true, or after another variation selector that follows one, so "Dana ❤️" keeps its emoji
-   presentation. After anything else, such as a letter or a digit, it renders as nothing: it is
-   refused inside the text and trimmed at the ends, so "Van 1" followed by U+FE0F equals "Van 1"
-   ([BR-48]). A `NOTE` keeps every variation selector inside it, and one at its end after any
+   only as an emoji's one presentation selector: text (U+FE0E) or emoji (U+FE0F), right after a
+   base for which the JDK's `Character.isExtendedPictographic` is true. So "Dana ❤️" keeps its
+   emoji presentation. Any other selector renders as nothing, whether after a letter or a digit, a
+   second after an emoji, or VS1 to VS14, a Mongolian or an ideographic selector after an emoji.
+   It is refused inside the text and trimmed at the ends, so "Van 1" followed by U+FE0F equals
+   "Van 1", and an emoji with two selectors equals the emoji with its first ([BR-48]). A `NOTE` keeps every variation selector inside it, and one at its end after any
    visible character; at its end a selector is trimmed only together with an invisible character
    it follows. In every kind a leading selector is trimmed.
 

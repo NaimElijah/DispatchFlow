@@ -213,14 +213,63 @@ class PlainTextTest {
         assertThat(PlainText.of(TextKind.ADDRESS, raw).text()).isEqualTo(raw);
     }
 
-    /** A selector that follows an emoji's selector still belongs to the emoji. */
+    /** An emoji takes one presentation selector, text (VS15) or emoji (VS16), and no more. */
+    @ParameterizedTest
+    @ValueSource(ints = {0xFE0E, 0xFE0F})
+    void GivenAnEmojiWithOnePresentationSelectorInANameOrAddress_WhenBuilt_ThenItIsUnchanged(int selector) {
+        String raw = "Dana " + Character.toString(0x2764) + Character.toString(selector) + " Levi";
+
+        assertThat(PlainText.of(TextKind.NAME, raw).text()).isEqualTo(raw);
+        assertThat(PlainText.of(TextKind.ADDRESS, raw).text()).isEqualTo(raw);
+    }
+
+    /** A second selector after an emoji renders as nothing, so two names would look alike (BR-48). */
     @Test
-    void GivenTwoVariationSelectorsAfterAnEmojiInAName_WhenBuilt_ThenBothAreKept() {
+    void GivenTwoVariationSelectorsAfterAnEmojiInsideAName_WhenBuilt_ThenTextHasForbiddenCharacters() {
+        String raw = "Dana " + Character.toString(0x2764) + Character.toString(0xFE0F) + Character.toString(0xFE0F)
+                + " Levi";
+
+        assertRefused(() -> PlainText.of(TextKind.NAME, raw), new TextHasForbiddenCharacters(TextKind.NAME));
+        assertRefused(() -> PlainText.of(TextKind.ADDRESS, raw), new TextHasForbiddenCharacters(TextKind.ADDRESS));
+    }
+
+    @Test
+    void GivenTwoVariationSelectorsAfterAnEmojiAtTheEndOfAName_WhenBuilt_ThenOnlyTheFirstIsKept() {
+        String heart = Character.toString(0x2764) + Character.toString(0xFE0F);
+
+        assertThat(PlainText.of(TextKind.NAME, "Dana " + heart + Character.toString(0xFE0F)))
+                .isEqualTo(PlainText.of(TextKind.NAME, "Dana " + heart));
+        assertThat(PlainText.of(TextKind.NAME, "Dana " + heart + Character.toString(0xFE0E)))
+                .isEqualTo(PlainText.of(TextKind.NAME, "Dana " + heart));
+    }
+
+    /** VS1, an ideographic selector and a Mongolian free variation selector change no emoji. */
+    @ParameterizedTest
+    @ValueSource(ints = {0xFE00, 0xE0100, 0x180B})
+    void GivenAnEmojiWithANonPresentationSelectorInsideANameOrAddress_WhenBuilt_ThenTextHasForbiddenCharacters(
+            int selector) {
+        String raw = "Dana " + Character.toString(0x2764) + Character.toString(selector) + " Levi";
+
+        assertRefused(() -> PlainText.of(TextKind.NAME, raw), new TextHasForbiddenCharacters(TextKind.NAME));
+        assertRefused(() -> PlainText.of(TextKind.ADDRESS, raw), new TextHasForbiddenCharacters(TextKind.ADDRESS));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0xFE00, 0xE0100, 0x180B})
+    void GivenAnEmojiWithANonPresentationSelectorAtTheEndOfAName_WhenBuilt_ThenTheSelectorIsTrimmed(int selector) {
+        String heart = "Dana " + Character.toString(0x2764);
+
+        assertThat(PlainText.of(TextKind.NAME, heart + Character.toString(selector)))
+                .isEqualTo(PlainText.of(TextKind.NAME, heart));
+    }
+
+    @Test
+    void GivenTwoVariationSelectorsAfterAnEmojiInANote_WhenBuilt_ThenBothAreKept() {
         String emoji = Character.toString(0x2764) + Character.toString(0xFE0E) + Character.toString(0xFE0F);
 
-        assertThat(PlainText.of(TextKind.NAME, "Dana " + emoji + " Levi").text())
-                .isEqualTo("Dana " + emoji + " Levi");
-        assertThat(PlainText.of(TextKind.NAME, "Dana " + emoji).text()).isEqualTo("Dana " + emoji);
+        assertThat(PlainText.of(TextKind.NOTE, "Ring " + emoji + " twice").text())
+                .isEqualTo("Ring " + emoji + " twice");
+        assertThat(PlainText.of(TextKind.NOTE, "Ring " + emoji).text()).isEqualTo("Ring " + emoji);
     }
 
     @Test

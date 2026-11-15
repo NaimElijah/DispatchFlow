@@ -14,10 +14,11 @@ import org.jspecify.annotations.Nullable;
  * ends: whitespace, space separators such as the no-break space, format characters such as the
  * zero-width space, Unicode's default-ignorable code points such as the Hangul fillers and the
  * combining grapheme joiner, and the blank Braille pattern (ADR-106, ADR-111). A variation selector
- * at the end belongs to the character before it, as an emoji's does. In a name or an address it
- * stays only after an emoji, a character that {@link Character#isExtendedPictographic} accepts,
- * and is trimmed after anything else, such as a letter or a digit; in a note it is trimmed only
- * with an invisible character it follows. The interior is kept as entered, except that a {@link
+ * at the end belongs to the character before it, as an emoji's does. In a name or an address only
+ * an emoji's one presentation selector stays: text (VS15) or emoji (VS16), right after a character
+ * that {@link Character#isExtendedPictographic} accepts. Every other selector at the end is
+ * trimmed, such as one after a letter or a digit, or a second after an emoji. In a note a selector
+ * is trimmed only with an invisible character it follows. The interior is kept as entered, except that a {@link
  * TextKind#NOTE}'s carriage returns become line feeds. It holds at most its {@link TextKind}'s cap
  * in code points, and none of these:
  *
@@ -29,8 +30,8 @@ import org.jspecify.annotations.Nullable;
  *   <li>an interior invisible filler in a name or an address, which would make two names or
  *       addresses look alike (BR-48, ADR-111): a default-ignorable code point that is not a
  *       format character, such as a Hangul filler, the combining grapheme joiner or a Khmer
- *       inherent vowel; the blank Braille pattern; or a variation selector that follows neither
- *       an emoji nor another selector that follows one;
+ *       inherent vowel; the blank Braille pattern; or a variation selector other than an emoji's
+ *       one presentation selector;
  *   <li>a bidi embedding, override or isolate control, in any kind;
  *   <li>an unpaired surrogate, or a private-use or unassigned code point.
  * </ul>
@@ -74,6 +75,12 @@ public final class PlainText {
     private static final int[][] VARIATION_SELECTORS = {
         {0x180B, 0x180D}, {0x180F, 0x180F}, {0xFE00, 0xFE0F}, {0xE0100, 0xE01EF}
     };
+
+    /** VS15, which asks for an emoji's text presentation. */
+    private static final int TEXT_PRESENTATION_SELECTOR = 0xFE0E;
+
+    /** VS16, which asks for an emoji's emoji presentation. */
+    private static final int EMOJI_PRESENTATION_SELECTOR = 0xFE0F;
 
     /**
      * Unicode's Default_Ignorable_Code_Point ranges, as of Unicode 15 (DerivedCoreProperties.txt),
@@ -189,8 +196,8 @@ public final class PlainText {
 
     /**
      * At the start nothing comes before a variation selector, so it goes with the rest. At the end
-     * a run of selectors stays when the character before it carries selectors, so an emoji keeps
-     * its presentation.
+     * a run of selectors keeps what the character before it carries, so an emoji keeps its
+     * presentation.
      */
     private static String trimmed(String text, TextKind kind) {
         int start = 0;
@@ -202,7 +209,9 @@ public final class PlainText {
             int last = text.codePointBefore(end);
             if (isVariationSelector(last)) {
                 int runStart = startOfSelectorRun(text, start, end);
-                if (runStart > start && carriesSelectors(text.codePointBefore(runStart), kind)) {
+                int keptEnd = runStart > start ? endOfCarriedSelectors(text, runStart, end, kind) : runStart;
+                if (keptEnd > runStart) {
+                    end = keptEnd;
                     break;
                 }
                 end = runStart;
@@ -224,23 +233,24 @@ public final class PlainText {
     }
 
     /**
-     * A name or an address keeps a variation selector only after an emoji, or after a selector that
-     * follows one: after a letter or a digit it renders as nothing, so "Van 1" with one would look
-     * like "Van 1" without (BR-48).
+     * A name or an address keeps a variation selector only as an emoji's one presentation selector:
+     * text (VS15) or emoji (VS16), right after it. Anywhere else, a selector renders as nothing, so
+     * "Van 1" with one, or an emoji with a second, would look like the text without it (BR-48).
      */
     private static boolean holdsForbidden(String text, TextKind kind) {
-        boolean selectorBelongs = false;
+        boolean afterEmoji = false;
         int index = 0;
         while (index < text.length()) {
             int codePoint = text.codePointAt(index);
             if (isVariationSelector(codePoint)) {
-                if (!(selectorBelongs || kind.allowsInvisibleFillers())) {
+                if (!(kind.allowsInvisibleFillers() || (afterEmoji && isPresentationSelector(codePoint)))) {
                     return true;
                 }
+                afterEmoji = false;
             } else if (isForbidden(codePoint, kind)) {
                 return true;
             } else {
-                selectorBelongs = Character.isExtendedPictographic(codePoint);
+                afterEmoji = Character.isExtendedPictographic(codePoint);
             }
             index += Character.charCount(codePoint);
         }
@@ -248,11 +258,24 @@ public final class PlainText {
     }
 
     /**
-     * Whether a run of variation selectors at the end stays with the character before it. A note
-     * keeps the run after any visible character, as it keeps every selector inside it.
+     * Where a run of variation selectors at the end of the text should end, keeping what the
+     * character before it carries. A note keeps the whole run after any visible character, as it
+     * keeps every selector inside it. A name or an address keeps only an emoji's one presentation
+     * selector, and trims the rest.
      */
-    private static boolean carriesSelectors(int base, TextKind kind) {
-        return kind.allowsInvisibleFillers() ? !isInvisible(base) : Character.isExtendedPictographic(base);
+    private static int endOfCarriedSelectors(String text, int runStart, int end, TextKind kind) {
+        int base = text.codePointBefore(runStart);
+        if (kind.allowsInvisibleFillers()) {
+            return isInvisible(base) ? runStart : end;
+        }
+        int first = text.codePointAt(runStart);
+        return Character.isExtendedPictographic(base) && isPresentationSelector(first)
+                ? runStart + Character.charCount(first)
+                : runStart;
+    }
+
+    private static boolean isPresentationSelector(int codePoint) {
+        return codePoint == TEXT_PRESENTATION_SELECTOR || codePoint == EMOJI_PRESENTATION_SELECTOR;
     }
 
     /**
