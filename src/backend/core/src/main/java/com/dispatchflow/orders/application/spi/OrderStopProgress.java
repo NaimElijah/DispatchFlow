@@ -6,7 +6,7 @@ import java.util.Objects;
 /**
  * One order and what has happened at its stop, in a date's answer (BR-33, BR-92, DL §9.6).
  *
- * <p>Built in M5.
+ * <p>Built in M5: until then a date's answer holds no entry (ADR-121).
  *
  * @param order the order
  * @param progress what has happened at the stop of its latest attempt on the date

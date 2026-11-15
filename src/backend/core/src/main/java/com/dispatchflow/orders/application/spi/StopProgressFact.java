@@ -9,14 +9,14 @@ import java.util.Objects;
  * any correction (FR-333); a held report is not an outcome (BR-132). Each fact names the attempt
  * whose stop it is (FR-258).
  *
- * <p>Built in M5.
+ * <p>Built in M2 and M5, case by case: M2 answers {@link NoFact} for every stop (ADR-121).
  */
 public sealed interface StopProgressFact {
 
     /**
      * No arrival and no outcome.
      *
-     * <p>Built in M5.
+     * <p>Built in M2.
      */
     record NoFact() implements StopProgressFact {}
 

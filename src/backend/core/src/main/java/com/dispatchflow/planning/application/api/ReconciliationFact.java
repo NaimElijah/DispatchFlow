@@ -5,9 +5,9 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * What reconciling a late outcome changed in the plan, which Live Operations raises the
- * dispatcher's alert from (DL §7.4, DL §8). Planning translates its {@code Reconciliation} into
- * it.
+ * What reconciling a late outcome changed in the plan (DL §7.4, DL §8). Planning translates its
+ * {@code Reconciliation} into it. Live Operations has raised the dispatcher's alert before it asks,
+ * from where the stop was (ADR-121), so the answer reports the change and names no alert.
  *
  * <p>Built in M8.
  *
@@ -43,8 +43,7 @@ public record ReconciliationFact(Kind kind, Optional<RouteId> from) {
     public ReconciliationFact {
         Objects.requireNonNull(kind, "kind");
         Objects.requireNonNull(from, "from");
-        // Live Operations' alert names the route a stop left, so only a move may carry one, and a
-        // move must.
+        // Only a move leaves a route, so only a move may name one, and a move must.
         if (from.isPresent() != (kind == Kind.MOVED_FROM_ROUTE)) {
             throw new IllegalArgumentException("from is present exactly for MOVED_FROM_ROUTE");
         }

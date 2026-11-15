@@ -143,7 +143,7 @@ These continue [ADR-120]'s placements.
   runs ([ADR-110]).
 - **P27. Bodies written for real.** The list of [ADR-119] decision 2 also holds:
   - the error types' accessors;
-  - a record's check of its own invariant (`Actor`, `ReconciliationFact`).
+  - a record's check of its own invariant (`Actor`, `ReconciliationFact` and `SolveConfiguration`'s values).
 
   Each check has a unit test. They are the only tests besides the architecture rules.
 - **P28. Two rules join [ADR-120] decision 10:**

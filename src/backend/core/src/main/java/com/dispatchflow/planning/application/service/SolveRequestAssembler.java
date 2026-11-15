@@ -193,7 +193,9 @@ public final class SolveRequestAssembler {
      * @return the request
      * @throws NotFound when the date has no uncancelled plan
      * @throws RoadNetworkUnavailable when the stored matrix lacks a location and the road network
-     *     can't be reached
+     *     can't be reached. Every caller treats it as {@code FeasibilityChecker} treats an
+     *     unreachable optimizer: the evaluation is unavailable, which an edit refuses, publishing
+     *     refuses, and a hand-over records as <em>not yet checked</em> (BR-70, FR-395)
      */
     public EvaluationRequest evaluation(DeliveryDate date, PlanLayout layout, Version planVersion) {
         throw new UnsupportedOperationException("Built in M4");

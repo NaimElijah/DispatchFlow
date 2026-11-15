@@ -6,7 +6,8 @@ import com.dispatchflow.shared.application.NotFound;
 /**
  * Puts a stop on the route that actually served it, after an accepted outcome arrived late (DL
  * §8, BR-89, BR-130, ADR-101). Live Operations' listener on {@code OutcomeRecorded} calls it when
- * the current revision disagrees with the fact, then raises the dispatcher's alert from the answer.
+ * the current revision disagrees with the fact, after it has raised the dispatcher's alert from where
+ * the stop is now, so a failure between the two can't lose the alert (ADR-121).
  *
  * <p>Built in M8.
  */
