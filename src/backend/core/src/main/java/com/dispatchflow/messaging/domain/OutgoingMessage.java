@@ -1,6 +1,7 @@
 package com.dispatchflow.messaging.domain;
 
 import com.dispatchflow.shared.PersonalData;
+import com.dispatchflow.shared.PhoneNumber;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
@@ -10,11 +11,15 @@ import java.util.Optional;
  * immutable: {@code StopMessages} replaces it when its state moves. Its type and sequence identify
  * it, so it is sent at most once (NFR-191).
  *
- * <p>Its text is personal data (NFR-193), so {@link #toString()} leaves the text out.
+ * <p>It keeps the phone it goes to, chosen by FR-348 when it was triggered, so a later trigger that
+ * names another phone changes neither where it is sent nor where it was sent (ADR-117).
+ *
+ * <p>Its phone and its text are personal data (NFR-193), so {@link #toString()} leaves both out.
  *
  * @param id the message's local ID, DispatchFlow's reference to the provider (NFR-198)
  * @param type what the message says
  * @param sequence 1, or for a second "time changed" 2 (NFR-191, FR-384)
+ * @param phone the phone it goes to, an Israeli mobile when it was triggered (FR-348, FR-378)
  * @param text the text, written when it was triggered
  * @param arrivalSent the rounded arrival it gives, for "out for delivery" and "time changed" only
  * @param asksForRating whether it is a "delivered" message that asks for a rating (FR-356)
@@ -25,6 +30,7 @@ public record OutgoingMessage(
         OutgoingMessageId id,
         MessageType type,
         int sequence,
+        PhoneNumber phone,
         MessageText text,
         Optional<QuarterHour> arrivalSent,
         boolean asksForRating,
@@ -36,6 +42,7 @@ public record OutgoingMessage(
     public OutgoingMessage {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(type, "type");
+        Objects.requireNonNull(phone, "phone");
         Objects.requireNonNull(text, "text");
         Objects.requireNonNull(arrivalSent, "arrivalSent");
         Objects.requireNonNull(triggeredAt, "triggeredAt");
@@ -49,18 +56,18 @@ public record OutgoingMessage(
      * @return the message
      */
     OutgoingMessage in(MessageState next) {
-        return new OutgoingMessage(id, type, sequence, text, arrivalSent, asksForRating, triggeredAt, next);
+        return new OutgoingMessage(id, type, sequence, phone, text, arrivalSent, asksForRating, triggeredAt, next);
     }
 
     /**
-     * A form that leaves the text out.
+     * A form that leaves the phone and the text out.
      *
-     * @return the message without its text
+     * @return the message without its phone and text
      */
     @Override
     public String toString() {
-        return "OutgoingMessage[id=" + id + ", type=" + type + ", sequence=" + sequence + ", text=redacted"
-                + ", arrivalSent=" + arrivalSent + ", asksForRating=" + asksForRating + ", triggeredAt="
-                + triggeredAt + ", state=" + state + "]";
+        return "OutgoingMessage[id=" + id + ", type=" + type + ", sequence=" + sequence + ", phone=redacted"
+                + ", text=redacted, arrivalSent=" + arrivalSent + ", asksForRating=" + asksForRating
+                + ", triggeredAt=" + triggeredAt + ", state=" + state + "]";
     }
 }

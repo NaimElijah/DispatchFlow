@@ -1,6 +1,7 @@
 package com.dispatchflow.messaging.domain;
 
 import static com.dispatchflow.messaging.domain.MessagingFixtures.MOBILE;
+import static com.dispatchflow.messaging.domain.MessagingFixtures.OTHER_MOBILE;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.STOP;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.TEN;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.at;
@@ -20,6 +21,9 @@ import com.dispatchflow.messaging.domain.StopMessages.Claim;
 import com.dispatchflow.messaging.domain.StopMessages.ProviderRepeats;
 import com.dispatchflow.shared.DomainError;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
@@ -37,6 +41,7 @@ class StopMessagesSendingTest {
     private static final ProviderReference REFERENCE = new ProviderReference("provider-1");
     private static final DailySendCap ROOM = new DailySendCap(0);
     private static final Instant SOON = at(5);
+    private static final MessageState ACCEPTED_TODAY = new MessageState.Accepted(at(1), REFERENCE);
 
     private static void assertRefusedUnchanged(StopMessages messages, ThrowingCallable call, DomainError expected) {
         StopMessagesSnapshot before = messages.snapshot();
@@ -248,6 +253,21 @@ class StopMessagesSendingTest {
     }
 
     @Test
+    void
+            GivenAMessageOfUnknownOutcome_WhenClaimedAfterItsPhoneOptedOut_ThenItIsDroppedWithItsOutcomeUnknownAndStillCounts() {
+        StopMessages messages = inState(State.UNKNOWN);
+
+        assertThat(messages.claim(messageId(1), ROOM, PhoneConsent.OPTED_OUT, SOON))
+                .isEqualTo(Claim.DROPPED);
+
+        MessageState dropped = stateOf(messages);
+        assertThat(dropped).isEqualTo(new MessageState.Dropped(SOON, DropCause.OUTCOME_UNKNOWN));
+        List<MessageState> claimedToday = new ArrayList<>(Collections.nCopies(999, ACCEPTED_TODAY));
+        claimedToday.add(dropped);
+        assertThat(DailySendCap.counting(claimedToday).hasRoom()).isFalse();
+    }
+
+    @Test
     void GivenTheDaysCapReached_WhenClaimed_ThenTheMessageWaitsUnchanged() {
         StopMessages messages = inState(State.PENDING);
         StopMessagesSnapshot before = messages.snapshot();
@@ -312,6 +332,7 @@ class StopMessagesSendingTest {
                 messageId(1),
                 MessageType.DELIVERED,
                 1,
+                MOBILE,
                 text(new Wording.Delivered(false, true)),
                 Optional.empty(),
                 true,
@@ -334,6 +355,7 @@ class StopMessagesSendingTest {
                 messageId(1),
                 MessageType.DELIVERED,
                 1,
+                MOBILE,
                 text(new Wording.Delivered(false, true)),
                 Optional.empty(),
                 true,
@@ -342,6 +364,27 @@ class StopMessagesSendingTest {
         StopMessages messages = aStopMessages().with(asking).build();
 
         assertThat(messages.accepted(messageId(1), REFERENCE, SOON)).contains(new RatingQuestion(STOP, MOBILE, SOON));
+    }
+
+    @Test
+    void GivenADeliveredMessageToAnotherPhoneThanAnEarlierMessage_WhenAccepted_ThenTheQuestionGoesToItsOwnPhone() {
+        OutgoingMessage asking = new OutgoingMessage(
+                messageId(2),
+                MessageType.DELIVERED,
+                1,
+                OTHER_MOBILE,
+                text(new Wording.Delivered(false, true)),
+                Optional.empty(),
+                true,
+                TEN,
+                new MessageState.Sending(at(1)));
+        StopMessages messages = aStopMessages()
+                .with(outForDelivery(1, ACCEPTED_TODAY))
+                .with(asking)
+                .build();
+
+        assertThat(messages.accepted(messageId(2), REFERENCE, SOON))
+                .contains(new RatingQuestion(STOP, OTHER_MOBILE, SOON));
     }
 
     @Test

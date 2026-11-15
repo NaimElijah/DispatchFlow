@@ -7,6 +7,7 @@ import com.dispatchflow.messaging.domain.MessagingError.UnknownMessage;
 import com.dispatchflow.shared.AggregateRoot;
 import com.dispatchflow.shared.FreshIds;
 import com.dispatchflow.shared.PersonalData;
+import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.StoredStateInvalid;
@@ -29,6 +30,9 @@ import java.util.Optional;
  * changed", at most twice (NFR-191, FR-384). The messages of FR-351 to FR-354 and FR-372 stop once
  * the stop is arrived at or has an outcome (FR-373). Only the first outcome is messaged, and a
  * correction sends nothing: Messaging is never told of one (FR-374).
+ *
+ * <p>Each message keeps the phone it was triggered for, and is sent to that phone: a later trigger
+ * that names another phone adds its message there and leaves the earlier ones alone (ADR-117).
  *
  * <p>It raises no event. Every method checks all its rules before it changes anything.
  */
@@ -62,13 +66,11 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
     }
 
     private final StopId stop;
-    private RecipientPhone phone;
     private List<OutgoingMessage> messages;
 
     private StopMessages(StopMessagesSnapshot state) {
         super(state.version());
         this.stop = state.stop();
-        this.phone = state.phone();
         this.messages = state.messages();
     }
 
@@ -76,20 +78,18 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
      * Starts the messages of a stop that has none yet, when its first trigger arrives (DL §6.2).
      *
      * @param stop the stop
-     * @return the aggregate, with no phone and no message, at {@link Version#NEW}
+     * @return the aggregate, with no message, at {@link Version#NEW}
      */
     public static StopMessages open(StopId stop) {
-        return new StopMessages(new StopMessagesSnapshot(
-                Objects.requireNonNull(stop, "stop"), Version.NEW, new RecipientPhone.None(), List.of()));
+        return new StopMessages(new StopMessagesSnapshot(Objects.requireNonNull(stop, "stop"), Version.NEW, List.of()));
     }
 
     /**
      * Rebuilds a stop's messages from storage, checking the invariants that hold at rest: each
      * message has its own ID; each type is numbered from 1 up to its most per stop; only "out for
      * delivery" and "time changed" give an arrival, and a "time changed" follows one that did;
-     * only "delivered" asks for a rating; one outcome message at most; a pending message is pending
-     * since its trigger; and a stop with messages has a phone. Only persistence adapters call it
-     * (DL §3.5).
+     * only "delivered" asks for a rating; one outcome message at most; and a pending message is
+     * pending since its trigger. Only persistence adapters call it (DL §3.5).
      *
      * @param stored the stored state
      * @return the aggregate at the stored version
@@ -176,13 +176,15 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
         Objects.requireNonNull(conditions, "conditions");
         Objects.requireNonNull(facts, "facts");
         Objects.requireNonNull(now, "now");
-        if (!mayAdd(to, conditions) || !facts.stop().awaitsDelivery()) {
+        Optional<PhoneNumber> phone = phoneToMessage(to, conditions);
+        if (phone.isEmpty() || !facts.stop().awaitsDelivery()) {
             return;
         }
         List<OutgoingMessage> next = new ArrayList<>(messages);
         if (arrivingSoon(facts, now) && countOf(MessageType.ARRIVING_SOON) == 0) {
             next.add(pending(
                     OutgoingMessageId.of(ids.next()),
+                    phone.get(),
                     MessageType.ARRIVING_SOON,
                     conditions.write(new Wording.ArrivingSoon()),
                     Optional.empty(),
@@ -198,6 +200,7 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
             QuarterHour arrival = QuarterHour.nearest(facts.arrival());
             next.add(pending(
                     OutgoingMessageId.of(ids.next()),
+                    phone.get(),
                     MessageType.TIME_CHANGED,
                     conditions.write(new Wording.TimeChanged(arrival)),
                     Optional.of(arrival),
@@ -205,7 +208,7 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
                     now));
         }
         if (next.size() > messages.size()) {
-            commit(to, next);
+            commit(next);
         }
     }
 
@@ -299,10 +302,12 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
     /**
      * The sender claims a message to send it (DL §9.5). A message more than 15 minutes past its
      * trigger is dropped instead (NFR-190), and so is one whose phone opted out since its trigger
-     * (FR-363). While the day's cap is reached the message waits, unchanged (NFR-196).
+     * (FR-363). A message of unknown outcome dropped either way is dropped with its outcome unknown,
+     * because it was claimed before and may have left, so it still counts toward the daily cap
+     * (NFR-196, ADR-108). While the day's cap is reached the message waits, unchanged (NFR-196).
      *
      * @param id the message
-     * @param cap the day's accepted messages
+     * @param cap the day's claimed messages that count toward the cap
      * @param consent the phone's standing now
      * @param now when the sender claims it
      * @return what the claim did
@@ -322,7 +327,7 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
             return Claim.DROPPED;
         }
         if (consent == PhoneConsent.OPTED_OUT) {
-            replace(message.in(new MessageState.Dropped(now, DropCause.OPTED_OUT)));
+            replace(message.in(optedOutDrop(message.state(), now)));
             return Claim.DROPPED;
         }
         if (!cap.hasRoom()) {
@@ -336,7 +341,7 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
      * The provider accepted a message the sender is sending, or one dropped as stale while it was
      * sending: that one really left, and the fact stands (ADR-065, ADR-108). A "delivered" message
      * that asks for a rating then opens a rating request, which the use case creates in the same
-     * transaction (DL §6.2).
+     * transaction (DL §6.2), for the phone that message went to (ADR-117).
      *
      * @param id the message
      * @param reference the provider's identifier for it
@@ -355,8 +360,8 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
             throw new RuleViolation(new MessageNotSending(id));
         }
         replace(message.in(new MessageState.Accepted(now, reference)));
-        if (message.asksForRating() && phone instanceof RecipientPhone.Known(var to)) {
-            return Optional.of(new RatingQuestion(stop, to, now));
+        if (message.asksForRating()) {
+            return Optional.of(new RatingQuestion(stop, message.phone(), now));
         }
         return Optional.empty();
     }
@@ -414,7 +419,7 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
             }
         }
         if (dropped > 0) {
-            commit(phone, next);
+            commit(next);
         }
         return dropped;
     }
@@ -449,11 +454,11 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
      * @return a snapshot that {@link #restore} rebuilds
      */
     public StopMessagesSnapshot snapshot() {
-        return new StopMessagesSnapshot(stop, version(), phone, messages);
+        return new StopMessagesSnapshot(stop, version(), messages);
     }
 
     /**
-     * A form that names the stop and leaves the phone and the texts out.
+     * A form that names the stop and leaves the phones and the texts out.
      *
      * @return the aggregate without personal data
      */
@@ -506,20 +511,26 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
             Optional<QuarterHour> arrival,
             boolean asksForRating,
             Instant now) {
-        if (!mayAdd(to, conditions) || countOf(type) >= type.mostPerStop()) {
+        Optional<PhoneNumber> phone = phoneToMessage(to, conditions);
+        if (phone.isEmpty() || countOf(type) >= type.mostPerStop()) {
             return;
         }
         List<OutgoingMessage> next = new ArrayList<>(messages);
-        next.add(pending(id, type, conditions.write(wording), arrival, asksForRating, now));
-        commit(to, next);
+        next.add(pending(id, phone.get(), type, conditions.write(wording), arrival, asksForRating, now));
+        commit(next);
     }
 
-    private static boolean mayAdd(RecipientPhone to, SendingConditions conditions) {
-        return conditions.mayMessage() && to.takesMessages();
+    /** The phone a new message goes to, while messages may go to it (FR-350, FR-363, FR-378). */
+    private static Optional<PhoneNumber> phoneToMessage(RecipientPhone to, SendingConditions conditions) {
+        if (conditions.mayMessage() && to.takesMessages() && to instanceof RecipientPhone.Known(PhoneNumber phone)) {
+            return Optional.of(phone);
+        }
+        return Optional.empty();
     }
 
     private OutgoingMessage pending(
             OutgoingMessageId id,
+            PhoneNumber phone,
             MessageType type,
             MessageText text,
             Optional<QuarterHour> arrival,
@@ -529,7 +540,7 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
             throw new AssertionError("a new message needs a new ID");
         }
         return new OutgoingMessage(
-                id, type, countOf(type) + 1, text, arrival, asksForRating, now, new MessageState.Pending(now));
+                id, type, countOf(type) + 1, phone, text, arrival, asksForRating, now, new MessageState.Pending(now));
     }
 
     private static boolean arrivingSoon(ArrivalFacts facts, Instant now) {
@@ -562,6 +573,15 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
         return new MessageState.Dropped(now, cause);
     }
 
+    /**
+     * An unknown message was claimed once, so it may have left and keeps counting toward the daily
+     * cap (NFR-196, ADR-108); only a pending one is dropped as opted out.
+     */
+    private static MessageState optedOutDrop(MessageState state, Instant now) {
+        DropCause cause = state instanceof MessageState.Unknown ? DropCause.OUTCOME_UNKNOWN : DropCause.OPTED_OUT;
+        return new MessageState.Dropped(now, cause);
+    }
+
     private static boolean isStale(OutgoingMessage message, Instant now) {
         return now.isAfter(message.triggeredAt().plus(STALE_AFTER));
     }
@@ -587,7 +607,7 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
         for (OutgoingMessage message : messages) {
             next.add(message.id().equals(changed.id()) ? changed : message);
         }
-        commit(phone, next);
+        commit(next);
     }
 
     /**
@@ -595,12 +615,11 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
      * invariant. Every rule a caller can break was checked before this point, so a broken invariant
      * here is a bug in the command, not a refusal.
      */
-    private void commit(RecipientPhone nextPhone, List<OutgoingMessage> nextMessages) {
-        StopMessagesSnapshot candidate = new StopMessagesSnapshot(stop, version(), nextPhone, nextMessages);
+    private void commit(List<OutgoingMessage> nextMessages) {
+        StopMessagesSnapshot candidate = new StopMessagesSnapshot(stop, version(), nextMessages);
         StopMessagesInvariants.brokenBy(candidate).ifPresent(broken -> {
             throw new AssertionError("a stop messages command would leave a state that breaks: " + broken);
         });
-        phone = candidate.phone();
         messages = candidate.messages();
     }
 }

@@ -19,8 +19,9 @@ public sealed interface Reply {
      *
      * <ul>
      *   <li>It is an opt-out when its first token, split at whitespace, is "הסר", "הסרה", "להסרה"
-     *       or "STOP" in any letter case, once it is in NFKC and its emoji, symbols, format
-     *       characters and punctuation are removed (FR-363, ADR-108).
+     *       or "STOP" in any letter case, once it is cut to its first 500 code points, put in NFKC,
+     *       and its emoji, symbols, format characters and punctuation are removed (FR-363,
+     *       ADR-108, ADR-117).
      *   <li>Otherwise it is a rating when, once spaces are trimmed, it starts with a whole number
      *       from 1 to 10 in Western digits, with no leading zero, followed by neither a digit nor a
      *       decimal point and a digit (FR-376). A rating followed by anything is also a comment,

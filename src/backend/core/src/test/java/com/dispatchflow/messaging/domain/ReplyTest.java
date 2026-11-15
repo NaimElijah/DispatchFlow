@@ -18,6 +18,9 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 class ReplyTest {
 
+    /** U+1FFFE, a noncharacter: unassigned (Cn) in every Unicode version, so on every JDK. */
+    private static final String NEVER_ASSIGNED = "🿾";
+
     // --- ratings (FR-376)
 
     @ParameterizedTest
@@ -86,6 +89,18 @@ class ReplyTest {
         assertThat(Reply.parse(text)).isNotEqualTo(new Reply.OptOutWord());
     }
 
+    @Test
+    void GivenAFirstTokenOfExactly500CodePointsEndingInStop_WhenParsed_ThenItIsAnOptOut() {
+        assertThat(Reply.parse("!".repeat(496) + "STOP")).isEqualTo(new Reply.OptOutWord());
+    }
+
+    @Test
+    void GivenAFirstTokenWhoseStopEndsPast500CodePoints_WhenParsed_ThenOnlyItsFirst500AreReadAndItIsNoOptOut() {
+        String text = "!".repeat(497) + "STOP";
+
+        assertThat(Reply.parse(text)).isEqualTo(new Reply.TextReply(Comment.cutFrom(text)));
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"", "   ", "\n\t ", "\uFE0F"})
     void GivenAReplyWithNothingVisible_WhenParsed_ThenItIsBlank(String text) {
@@ -142,9 +157,10 @@ class ReplyTest {
     }
 
     @Test
-    void GivenARatingWithAnEmojiNewerThanTheJdksUnicode_WhenParsed_ThenTheRatingAndTheCommentSurvive() {
-        // U+1FAE9 (face with bags under the eyes) is Unicode 16, unassigned in JDK 21.
-        assertThat(Reply.parse("10 \uD83E\uDEE9"))
+    void GivenARatingWithACodePointUnassignedOnEveryJdk_WhenParsed_ThenTheRatingAndTheCommentSurvive() {
+        // U+1FFFE is a noncharacter, which Unicode never assigns, so it stands on every JDK for an
+        // emoji newer than the JDK's Unicode; a real one such as U+1FAE9 is assigned by a later JDK.
+        assertThat(Reply.parse("10 " + NEVER_ASSIGNED))
                 .isEqualTo(new Reply.RatingReply(Rating.of(10), Optional.of(Comment.ofStored("10 \uFFFD"))));
     }
 
@@ -159,7 +175,7 @@ class ReplyTest {
     @Test
     void GivenACommentWithEveryKindTheKernelRefusesInANote_WhenCut_ThenEachBecomesAReplacementAndNoneIsRefused() {
         // A control, a bidi isolate, a private-use, an unassigned and an unpaired surrogate code point.
-        String text = "a\u0007b\u2066c\uE000d\uD83E\uDEE9e\uD800f";
+        String text = "a\u0007b\u2066c\uE000d" + NEVER_ASSIGNED + "e\uD800f";
 
         assertThat(Comment.cutFrom(text).text()).isEqualTo("a\uFFFDb\uFFFDc\uFFFDd\uFFFDe\uFFFDf");
     }

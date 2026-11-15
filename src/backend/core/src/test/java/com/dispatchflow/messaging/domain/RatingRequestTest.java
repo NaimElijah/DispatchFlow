@@ -298,8 +298,12 @@ class RatingRequestTest {
                 .withComment("second", WINDOW_END)
                 .phoneRemoved(RETENTION_END)
                 .build();
+        RatingRequestSnapshot before = request.snapshot();
 
         assertRefused(() -> request.removePersonalData(RETENTION_END.plusSeconds(3_600)), new RetentionNotOver());
+
+        assertThat(request.snapshot()).isEqualTo(before);
+        assertThat(request.pendingEvents()).isEmpty();
     }
 
     @Test

@@ -17,6 +17,8 @@ final class MessagingFixtures {
     static final PhoneNumber MOBILE = PhoneNumber.parse("052-345-6789");
     static final PhoneNumber LANDLINE = PhoneNumber.parse("03-123-4567");
     static final RecipientPhone TO_MOBILE = new RecipientPhone.Known(MOBILE);
+    static final PhoneNumber OTHER_MOBILE = PhoneNumber.parse("054-345-6789");
+    static final RecipientPhone TO_OTHER_MOBILE = new RecipientPhone.Known(OTHER_MOBILE);
     static final CompanyName COMPANY = CompanyName.of("Shefa Deliveries");
     static final DispatchPhone DISPATCH = DispatchPhone.of(PhoneNumber.parse("03-555-1234"));
 

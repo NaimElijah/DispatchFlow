@@ -20,11 +20,12 @@ public sealed interface MessageState {
         /** The provider refused it. */
         REFUSED,
         /**
-         * Its send's outcome is unknown, and the provider doesn't drop repeats (NFR-198) or 15
-         * minutes have passed since its trigger (NFR-190).
+         * Its send's outcome is unknown, and the provider doesn't drop repeats (NFR-198), 15 minutes
+         * have passed since its trigger (NFR-190), or its phone opted out before it was claimed
+         * again (FR-363).
          */
         OUTCOME_UNKNOWN,
-        /** The phone opted out after the message was triggered (FR-363). */
+        /** The phone opted out after the message was triggered and before it was claimed (FR-363). */
         OPTED_OUT
     }
 

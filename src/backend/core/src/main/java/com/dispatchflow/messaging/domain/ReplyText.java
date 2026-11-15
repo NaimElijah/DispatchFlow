@@ -53,11 +53,22 @@ final class ReplyText {
     /**
      * Whether a token is an opt-out word (FR-363, ADR-108): in NFKC, so a full-width "\uFF33\uFF34\uFF2F\uFF30" reads
      * as "STOP", with emoji, other and modifier symbols (So, Sk), format characters (Cf) and
-     * punctuation (P) removed, and upper-cased.
+     * punctuation (P) removed, and upper-cased. Only the token's first 500 code points are read, and
+     * they are cut before they are normalized, as a comment is, so a token of thousands of combining
+     * marks costs no more than one of 500 (ADR-117).
      */
     static boolean isOptOutWord(String token) {
+        String read = firstCodePoints(token, Comment.MAXIMUM_LENGTH);
         return OPT_OUT_WORDS.contains(
-                wordOnly(Normalizer.normalize(token, Normalizer.Form.NFKC)).toUpperCase(Locale.ROOT));
+                wordOnly(Normalizer.normalize(read, Normalizer.Form.NFKC)).toUpperCase(Locale.ROOT));
+    }
+
+    /** The text's first {@code most} code points, cut so that no surrogate pair is split. */
+    static String firstCodePoints(String text, int most) {
+        if (text.codePointCount(0, text.length()) <= most) {
+            return text;
+        }
+        return text.substring(0, text.offsetByCodePoints(0, most));
     }
 
     /** The text with every character that isn't part of a word removed. */

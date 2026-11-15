@@ -14,7 +14,10 @@ import java.util.List;
  */
 public record DailySendCap(int claimedToday) {
 
-    /** The most messages accepted in a day (NFR-196). */
+    /**
+     * The most messages claimed in a day (NFR-196). It counts claims, not acceptances, because a
+     * claimed message may have left (ADR-108).
+     */
     public static final int LIMIT = 1_000;
 
     /**

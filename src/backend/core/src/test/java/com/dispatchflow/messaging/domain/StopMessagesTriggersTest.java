@@ -1,9 +1,12 @@
 package com.dispatchflow.messaging.domain;
 
 import static com.dispatchflow.messaging.domain.MessagingFixtures.LANDLINE;
+import static com.dispatchflow.messaging.domain.MessagingFixtures.MOBILE;
+import static com.dispatchflow.messaging.domain.MessagingFixtures.OTHER_MOBILE;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.STOP;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.TEN;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.TO_MOBILE;
+import static com.dispatchflow.messaging.domain.MessagingFixtures.TO_OTHER_MOBILE;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.at;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.conditions;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.freshIds;
@@ -42,8 +45,8 @@ class StopMessagesTriggersTest {
     private static final ProviderReference REFERENCE = new ProviderReference("provider-1");
     private static final MessageState ACCEPTED = new MessageState.Accepted(TEN, REFERENCE);
 
-    private static StopMessagesSnapshot expected(RecipientPhone phone, OutgoingMessage... messages) {
-        return new StopMessagesSnapshot(STOP, StopMessagesBuilder.LOADED, phone, List.of(messages));
+    private static StopMessagesSnapshot expected(OutgoingMessage... messages) {
+        return new StopMessagesSnapshot(STOP, StopMessagesBuilder.LOADED, List.of(messages));
     }
 
     private static OutgoingMessage pendingMessage(
@@ -58,6 +61,7 @@ class StopMessagesTriggersTest {
                 messageId(n),
                 type,
                 sequence,
+                MOBILE,
                 MessageText.ofStored(text),
                 arrival,
                 asks,
@@ -95,7 +99,6 @@ class StopMessagesTriggersTest {
                 .isEqualTo(new StopMessagesSnapshot(
                         STOP,
                         Version.NEW,
-                        TO_MOBILE,
                         List.of(pendingMessage(
                                 1,
                                 MessageType.OUT_FOR_DELIVERY,
@@ -115,16 +118,14 @@ class StopMessagesTriggersTest {
                 messageId(1), TO_MOBILE, on(), StopProgress.NOT_REACHED, projected(at(60)), at(5));
 
         assertThat(messages.snapshot())
-                .isEqualTo(expected(
-                        TO_MOBILE,
-                        pendingMessage(
-                                1,
-                                MessageType.OUT_FOR_DELIVERY,
-                                1,
-                                "Shefa Deliveries: המשלוח בדרך ויגיע היום בין 10:30–11:30",
-                                Optional.of(quarter(60)),
-                                false,
-                                at(5))));
+                .isEqualTo(expected(pendingMessage(
+                        1,
+                        MessageType.OUT_FOR_DELIVERY,
+                        1,
+                        "Shefa Deliveries: המשלוח בדרך ויגיע היום בין 10:30–11:30",
+                        Optional.of(quarter(60)),
+                        false,
+                        at(5))));
     }
 
     static Stream<Arguments> noOutForDelivery() {
@@ -183,16 +184,14 @@ class StopMessagesTriggersTest {
         messages.onArrivalProjected(freshIds(1), TO_MOBILE, on(), inProgress(at(15)), TEN);
 
         assertThat(messages.snapshot())
-                .isEqualTo(expected(
-                        TO_MOBILE,
-                        pendingMessage(
-                                1,
-                                MessageType.ARRIVING_SOON,
-                                1,
-                                "Shefa Deliveries: הנהג יגיע אליך בעוד כ-15 דקות",
-                                Optional.empty(),
-                                false,
-                                TEN)));
+                .isEqualTo(expected(pendingMessage(
+                        1,
+                        MessageType.ARRIVING_SOON,
+                        1,
+                        "Shefa Deliveries: הנהג יגיע אליך בעוד כ-15 דקות",
+                        Optional.empty(),
+                        false,
+                        TEN)));
     }
 
     @Test
@@ -336,7 +335,6 @@ class StopMessagesTriggersTest {
 
         assertThat(messages.snapshot())
                 .isEqualTo(expected(
-                        TO_MOBILE,
                         outForDelivery(1, ACCEPTED),
                         pendingMessage(
                                 2,
@@ -346,6 +344,16 @@ class StopMessagesTriggersTest {
                                 Optional.of(quarter(90)),
                                 false,
                                 TEN)));
+    }
+
+    @Test
+    void GivenAnArrivalSentFor1100_WhenTheProjectionIs29Minutes59SecondsEarlier_ThenNoTimeChangedIsAdded() {
+        StopMessages messages =
+                aStopMessages().with(outForDelivery(1, ACCEPTED)).build();
+
+        assertNothingAdded(
+                messages,
+                m -> m.onArrivalProjected(freshIds(2), TO_MOBILE, on(), inProgress(at(30).plusSeconds(1)), TEN));
     }
 
     @Test
@@ -472,6 +480,7 @@ class StopMessagesTriggersTest {
                 messageId(n),
                 MessageType.TIME_CHANGED,
                 sequence,
+                MOBILE,
                 MessagingFixtures.text(new Wording.TimeChanged(arrival)),
                 Optional.of(arrival),
                 false,
@@ -504,16 +513,14 @@ class StopMessagesTriggersTest {
                 messageId(1), TO_MOBILE, on(), RouteProgress.IN_PROGRESS, StopProgress.NOT_REACHED, TEN);
 
         assertThat(messages.snapshot())
-                .isEqualTo(expected(
-                        TO_MOBILE,
-                        pendingMessage(
-                                1,
-                                MessageType.DELIVERY_CHANGED,
-                                1,
-                                "Shefa Deliveries: חל שינוי במשלוח. לפרטים: 035551234",
-                                Optional.empty(),
-                                false,
-                                TEN)));
+                .isEqualTo(expected(pendingMessage(
+                        1,
+                        MessageType.DELIVERY_CHANGED,
+                        1,
+                        "Shefa Deliveries: חל שינוי במשלוח. לפרטים: 035551234",
+                        Optional.empty(),
+                        false,
+                        TEN)));
     }
 
     @Test
@@ -543,16 +550,14 @@ class StopMessagesTriggersTest {
         messages.onOutcome(messageId(1), TO_MOBILE, on(), new ReportedOutcome.Delivered(true), TEN);
 
         assertThat(messages.snapshot())
-                .isEqualTo(expected(
-                        TO_MOBILE,
-                        pendingMessage(
-                                1,
-                                MessageType.DELIVERED,
-                                1,
-                                "Shefa Deliveries: המשלוח נמסר (ליד הדלת).",
-                                Optional.empty(),
-                                false,
-                                TEN)));
+                .isEqualTo(expected(pendingMessage(
+                        1,
+                        MessageType.DELIVERED,
+                        1,
+                        "Shefa Deliveries: המשלוח נמסר (ליד הדלת).",
+                        Optional.empty(),
+                        false,
+                        TEN)));
     }
 
     @Test
@@ -567,16 +572,14 @@ class StopMessagesTriggersTest {
                 TEN);
 
         assertThat(messages.snapshot())
-                .isEqualTo(expected(
-                        TO_MOBILE,
-                        pendingMessage(
-                                1,
-                                MessageType.DELIVERED,
-                                1,
-                                "Shefa Deliveries: המשלוח נמסר. איך היה? השב/י במספר 1–10",
-                                Optional.empty(),
-                                true,
-                                TEN)));
+                .isEqualTo(expected(pendingMessage(
+                        1,
+                        MessageType.DELIVERED,
+                        1,
+                        "Shefa Deliveries: המשלוח נמסר. איך היה? השב/י במספר 1–10",
+                        Optional.empty(),
+                        true,
+                        TEN)));
     }
 
     @Test
@@ -586,16 +589,14 @@ class StopMessagesTriggersTest {
         messages.onOutcome(messageId(1), TO_MOBILE, on(), new ReportedOutcome.Failed(), TEN);
 
         assertThat(messages.snapshot())
-                .isEqualTo(expected(
-                        TO_MOBILE,
-                        pendingMessage(
-                                1,
-                                MessageType.MISSED_YOU,
-                                1,
-                                "Shefa Deliveries: לא הצלחנו למסור את המשלוח. לפרטים: 035551234",
-                                Optional.empty(),
-                                false,
-                                TEN)));
+                .isEqualTo(expected(pendingMessage(
+                        1,
+                        MessageType.MISSED_YOU,
+                        1,
+                        "Shefa Deliveries: לא הצלחנו למסור את המשלוח. לפרטים: 035551234",
+                        Optional.empty(),
+                        false,
+                        TEN)));
     }
 
     @Test
@@ -633,17 +634,48 @@ class StopMessagesTriggersTest {
                         TEN));
     }
 
-    // --- the phone and the IDs
+    // --- the phone each message goes to (FR-348, ADR-117), and the IDs
 
     @Test
-    void GivenAMessageSentToOnePhone_WhenALaterTriggerGivesAnother_ThenTheLatestMessagesPhoneIsKept() {
-        RecipientPhone other = new RecipientPhone.Known(PhoneNumber.parse("054-345-6789"));
+    void GivenAPendingMessageToOnePhone_WhenALaterTriggerGivesAnother_ThenThePendingMessageStillGoesToItsOwnPhone() {
+        StopMessages messages = StopMessages.open(STOP);
+
+        messages.onRouteStarted(messageId(1), TO_MOBILE, on(), StopProgress.NOT_REACHED, projected(at(60)), TEN);
+        messages.onDeliveryChanged(
+                messageId(2), TO_OTHER_MOBILE, on(), RouteProgress.IN_PROGRESS, StopProgress.NOT_REACHED, at(1));
+
+        assertThat(messages.snapshot().messages())
+                .extracting(OutgoingMessage::id, OutgoingMessage::phone, OutgoingMessage::state)
+                .containsExactly(
+                        tuple(messageId(1), MOBILE, new MessageState.Pending(TEN)),
+                        tuple(messageId(2), OTHER_MOBILE, new MessageState.Pending(at(1))));
+    }
+
+    @Test
+    void GivenAMessageAcceptedForOnePhone_WhenALaterTriggerGivesAnother_ThenTheAcceptedMessageStillShowsItsOwnPhone() {
         StopMessages messages =
                 aStopMessages().with(outForDelivery(1, ACCEPTED)).build();
 
-        messages.onOutcome(messageId(2), other, on(), new ReportedOutcome.Failed(), at(30));
+        messages.onOutcome(messageId(2), TO_OTHER_MOBILE, on(), new ReportedOutcome.Failed(), at(30));
 
-        assertThat(messages.snapshot().phone()).isEqualTo(other);
+        assertThat(messages.snapshot().messages())
+                .extracting(OutgoingMessage::id, OutgoingMessage::phone)
+                .containsExactly(tuple(messageId(1), MOBILE), tuple(messageId(2), OTHER_MOBILE));
+    }
+
+    @Test
+    void GivenAProjectionAddingTwoMessages_WhenItNamesAnotherPhoneThanTheArrivalSent_ThenBothGoToTheNamedPhone() {
+        StopMessages messages =
+                aStopMessages().with(outForDelivery(1, ACCEPTED)).build();
+
+        messages.onArrivalProjected(freshIds(2, 3), TO_OTHER_MOBILE, on(), inProgress(at(15)), TEN);
+
+        assertThat(messages.snapshot().messages())
+                .extracting(OutgoingMessage::type, OutgoingMessage::phone)
+                .containsExactly(
+                        tuple(MessageType.OUT_FOR_DELIVERY, MOBILE),
+                        tuple(MessageType.ARRIVING_SOON, OTHER_MOBILE),
+                        tuple(MessageType.TIME_CHANGED, OTHER_MOBILE));
     }
 
     @Test

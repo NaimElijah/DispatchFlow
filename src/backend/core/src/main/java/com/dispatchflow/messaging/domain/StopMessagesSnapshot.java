@@ -8,34 +8,32 @@ import java.util.Objects;
 
 /**
  * {@link StopMessages}' whole state: what {@code snapshot()} gives and {@code restore} takes. The
- * repository rebuilds the phone with {@code PhoneNumber.ofStored} and each text with {@link
- * MessageText#ofStored}. It holds the recipient's phone and the messages' texts, so {@link
+ * repository rebuilds each message's phone with {@code PhoneNumber.ofStored} and its text with
+ * {@link MessageText#ofStored}. Each message holds the recipient's phone and its text, so {@link
  * #toString()} leaves them out.
  *
  * @param stop the stop the messages are about, which keys the aggregate
  * @param version the version it was loaded at
- * @param phone the phone the latest message went to; {@link RecipientPhone.None} before any
- * @param messages every message to the stop, in the order they were triggered
+ * @param messages every message to the stop, each with the phone it goes to, in the order they were
+ *     triggered (ADR-117)
  */
-public record StopMessagesSnapshot(StopId stop, Version version, RecipientPhone phone, List<OutgoingMessage> messages)
+public record StopMessagesSnapshot(StopId stop, Version version, List<OutgoingMessage> messages)
         implements PersonalData {
 
     /** Checks every part is present and copies the list. */
     public StopMessagesSnapshot {
         Objects.requireNonNull(stop, "stop");
         Objects.requireNonNull(version, "version");
-        Objects.requireNonNull(phone, "phone");
         messages = List.copyOf(messages);
     }
 
     /**
-     * A form that names the stop and its messages and leaves the phone and the texts out.
+     * A form that names the stop and its messages and leaves the phones and the texts out.
      *
      * @return the snapshot without personal data
      */
     @Override
     public String toString() {
-        return "StopMessagesSnapshot[stop=" + stop + ", version=" + version + ", phone="
-                + (phone instanceof RecipientPhone.Known ? "redacted" : "none") + ", messages=" + messages + "]";
+        return "StopMessagesSnapshot[stop=" + stop + ", version=" + version + ", messages=" + messages + "]";
     }
 }

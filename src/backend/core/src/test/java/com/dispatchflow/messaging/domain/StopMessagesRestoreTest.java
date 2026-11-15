@@ -1,5 +1,7 @@
 package com.dispatchflow.messaging.domain;
 
+import static com.dispatchflow.messaging.domain.MessagingFixtures.MOBILE;
+import static com.dispatchflow.messaging.domain.MessagingFixtures.OTHER_MOBILE;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.STOP;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.TEN;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.at;
@@ -33,6 +35,7 @@ class StopMessagesRestoreTest {
                 messageId(n),
                 MessageType.TIME_CHANGED,
                 sequence,
+                MOBILE,
                 text(new Wording.TimeChanged(quarter(90))),
                 Optional.of(quarter(90)),
                 false,
@@ -67,10 +70,6 @@ class StopMessagesRestoreTest {
         OutgoingMessage delivered = plain(2, MessageType.DELIVERED, ACCEPTED);
         return Stream.of(
                 Arguments.of(
-                        "messages without a phone",
-                        aStopMessages().with(outForDelivery(1, ACCEPTED)).withPhone(new RecipientPhone.None()),
-                        "a stop with messages has the phone they went to"),
-                Arguments.of(
                         "two messages with one ID",
                         aStopMessages()
                                 .with(outForDelivery(1, ACCEPTED))
@@ -99,6 +98,7 @@ class StopMessagesRestoreTest {
                                         messageId(1),
                                         MessageType.ARRIVING_SOON,
                                         1,
+                                        MOBILE,
                                         text(new Wording.ArrivingSoon()),
                                         Optional.of(quarter(60)),
                                         false,
@@ -112,6 +112,7 @@ class StopMessagesRestoreTest {
                                         messageId(1),
                                         MessageType.OUT_FOR_DELIVERY,
                                         1,
+                                        MOBILE,
                                         text(new Wording.ArrivingSoon()),
                                         Optional.empty(),
                                         false,
@@ -125,6 +126,7 @@ class StopMessagesRestoreTest {
                                         messageId(1),
                                         MessageType.MISSED_YOU,
                                         1,
+                                        MOBILE,
                                         text(new Wording.ArrivingSoon()),
                                         Optional.empty(),
                                         true,
@@ -153,6 +155,42 @@ class StopMessagesRestoreTest {
             assertThat(invalid.subject()).isEqualTo("StopMessages");
             assertThat(invalid.detail()).isEqualTo(detail);
         });
+    }
+
+    @Test
+    void GivenAStoredMessageWithNoPhone_WhenRebuilt_ThenItIsRefusedBeforeTheStopIsRestored() {
+        assertThatThrownBy(() -> new OutgoingMessage(
+                        messageId(1),
+                        MessageType.ARRIVING_SOON,
+                        1,
+                        null,
+                        text(new Wording.ArrivingSoon()),
+                        Optional.empty(),
+                        false,
+                        TEN,
+                        ACCEPTED))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("phone");
+    }
+
+    @Test
+    void GivenMessagesToTwoPhones_WhenTheSnapshotIsRestored_ThenEachKeepsItsOwnPhone() {
+        StopMessagesBuilder builder = aStopMessages()
+                .with(outForDelivery(1, ACCEPTED))
+                .with(new OutgoingMessage(
+                        messageId(2),
+                        MessageType.MISSED_YOU,
+                        1,
+                        OTHER_MOBILE,
+                        text(new Wording.MissedYou(MessagingFixtures.DISPATCH)),
+                        Optional.empty(),
+                        false,
+                        TEN,
+                        ACCEPTED));
+
+        assertThat(builder.build().snapshot().messages())
+                .extracting(OutgoingMessage::phone)
+                .containsExactly(MOBILE, OTHER_MOBILE);
     }
 
     @Test

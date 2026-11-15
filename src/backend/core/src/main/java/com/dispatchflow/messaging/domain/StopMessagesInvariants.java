@@ -23,9 +23,6 @@ final class StopMessagesInvariants {
      */
     static Optional<String> brokenBy(StopMessagesSnapshot state) {
         List<OutgoingMessage> messages = state.messages();
-        if (!messages.isEmpty() && !(state.phone() instanceof RecipientPhone.Known)) {
-            return Optional.of("a stop with messages has the phone they went to");
-        }
         Set<OutgoingMessageId> ids = new HashSet<>();
         Set<MessageType> outcomes = EnumSet.noneOf(MessageType.class);
         boolean arrivalGiven = false;

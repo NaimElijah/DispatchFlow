@@ -143,9 +143,6 @@ public final class Comment implements PersonalData {
     }
 
     private static String firstCodePoints(String text) {
-        if (text.codePointCount(0, text.length()) <= MAXIMUM_LENGTH) {
-            return text;
-        }
-        return text.substring(0, text.offsetByCodePoints(0, MAXIMUM_LENGTH));
+        return ReplyText.firstCodePoints(text, MAXIMUM_LENGTH);
     }
 }
