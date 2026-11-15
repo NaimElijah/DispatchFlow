@@ -1,6 +1,6 @@
 # ADR-109: Reporting computes exact on-time shares from current facts and keeps no personal data
 
-- **Status:** Accepted; amended by ADR-112
+- **Status:** Accepted; extended by ADR-112
 - **Date:** 2026-11-14
 
 ## Context

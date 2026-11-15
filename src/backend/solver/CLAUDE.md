@@ -24,18 +24,20 @@ draws it, where `nearest_neighbour` joins them. Neither is in the tree yet.
 - `domain` imports no `fastapi`, `pydantic`, `ortools`, `pyvrp`, `numba`, `alns`, `starlette`,
   `uvicorn`, `pydantic_settings`, `structlog` or `opentelemetry`, and no standard-library module
   that reads a clock, draws randomness or does I/O (`datetime`, `time`, `random`, `os`, `io` and the
-  like, listed in `pyproject.toml`). NumPy is allowed ([TS §2.1]). `application` imports nothing from
-  FastAPI, Pydantic or OR-Tools. OR-Tools types live in `solvers/ortools` ([ADR-001]).
-  `feasibility`, `objective` and `drops` never import `problem`: they read it through
-  `ProblemView` ([ADR-113]). import-linter checks all of this, the layers, and that the product
-  never imports PyVRP (`pyproject.toml`, run by `just solver-check`).
+  like, listed in `pyproject.toml`). NumPy is allowed ([TS §2.1]), but not `numpy.random`,
+  `datetime64` or `timedelta64`: ruff's `TID251` bans them in the domain ([ADR-113]). `application`
+  imports nothing from FastAPI, Pydantic or OR-Tools. OR-Tools types live in `solvers/ortools`
+  ([ADR-001]). `feasibility`, `objective` and `drops` never import `problem`: they read it through
+  `ProblemView` ([ADR-113]). import-linter, and ruff for the NumPy bans, check all of this, the
+  layers, and that the product never imports PyVRP (`pyproject.toml`, run by `just solver-check`).
 - Pydantic models are generated from the contract by datamodel-code-generator ([ADR-043],
   Accepted), and only the HTTP adapter uses them.
 - `Problem` owns `validate`, `cost` and `explain_drop` ([TS §7.1]). `validate` is the one
   definition of feasibility, and `cost` is the one objective, a `Cost` of seven terms: `travel`,
   `drops`, `door_window`, `fixed_vehicles`, `lateness`, `orphaned_stops` and `moved_stops`. The last
-  two are the route-stability cost, and `drops` holds only the drop penalties ([ADR-113]). `Problem` and `Solution` are frozen
-  dataclasses over NumPy arrays ([TS §7.1]).
+  two are the route-stability cost the objective charges. It leaves out an unroutable stay-on stop,
+  which FR-256 counts and [ADR-105] charges nothing. `drops` holds only the drop penalties
+  ([ADR-113]). `Problem` and `Solution` are frozen dataclasses over NumPy arrays ([TS §7.1]).
 - `ProblemFactory` alone applies the re-optimization conventions ([ADR-050]). It writes each one
   into the `Problem` once ([ADR-105]): a vehicle's start and end into `Vehicles`, a vehicle that is
   out as an exclusion for its state, and the rest into the `ReoptContext`. A daily `Problem` has no

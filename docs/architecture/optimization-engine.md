@@ -3,8 +3,9 @@
 `src/backend/solver` serves one operation, `GET /health/liveness`. Its `domain` package holds the
 domain for daily solves and re-optimizations ([code-structure.md](code-structure.md#srcbackendsolver)):
 - `Problem`, with `validate` (the feasibility validator), `cost` (the objective, a `Cost` of seven
-  terms, of which `orphaned_stops` and `moved_stops` are the route-stability cost) and
-  `explain_drop` (the drop reasons);
+  terms, of which `orphaned_stops` and `moved_stops` are the route-stability cost the objective
+  charges, leaving out an unroutable stay-on stop, [ADR-113](../ADRs/ADR-113-route-stability-is-its-own-cost-the-rules-read-a-problem-through-a-protocol-and-untimed-outputs-are-documented.md))
+  and `explain_drop` (the drop reasons);
 - `ProblemFactory.daily` and `ProblemFactory.reoptimization`, `Solution`, `TravelTimeModel` and
   `PenaltyScale`.
 

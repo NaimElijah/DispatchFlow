@@ -10,7 +10,7 @@ packages held more than 30 Java files:
 
 | Package | Java files |
 |---|---|
-| Planning | 76 |
+| Planning | 81 |
 | Live Operations | 46 |
 | Recipient Messaging | 42 |
 | Customers & Orders | 41 |
@@ -128,7 +128,7 @@ Customers & Orders stays flat until its cycle is broken. So do Reporting, Audit,
 
 ## Alternatives considered
 
-- **Stay flat.** Rejected: up to 76 files in one folder, against the owner's request.
+- **Stay flat.** Rejected: up to 81 files in one folder, against the owner's request.
 - **Split by kind** (`value`, `error`, `snapshot`, `invariants`). Rejected:
   - `PlanningError` and `RuleCode` form a cycle;
   - invariants and snapshots are bound to their aggregates;

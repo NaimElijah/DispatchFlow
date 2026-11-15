@@ -9,7 +9,13 @@ application-wide web concerns, and the shared kernel `shared`, which every conte
 ([code-structure.md](code-structure.md#srcbackendcore)). The ninth context, Optimization, is the
 solver's `domain` package ([optimization-engine.md](optimization-engine.md)).
 
-A module's domain splits into one package per aggregate over a root that holds its error and what several packages use, once it passes 30 files ([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)). Planning has the root and `plan`, `solution`, `basis`, `revision`, `reconciliation` and `settings`; Live Operations `delivery`, `alert` and `routerun`; Recipient Messaging `message`, `rating` and `settings`; Access `account`, `session` and `companyprofile`; Fleet `register`, `roster` and `driver`. Customers & Orders, Reporting and Audit, the shared kernel and every `events` package stay flat.
+A module's domain splits into one package per aggregate over a root that holds its error and what
+several packages use, once it passes 30 files
+([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)). Planning has the
+root and `plan`, `solution`, `basis`, `revision`, `reconciliation` and `settings`; Live Operations
+`delivery`, `alert` and `routerun`; Recipient Messaging `message`, `rating` and `settings`; Access
+`account`, `session` and `companyprofile`; Fleet `register`, `roster` and `driver`. Customers &
+Orders, Reporting and Audit, the shared kernel and every `events` package stay flat.
 
 The decided design is in the
 [domain layer design](domain_layer/domain_layer_design.md): the contexts in

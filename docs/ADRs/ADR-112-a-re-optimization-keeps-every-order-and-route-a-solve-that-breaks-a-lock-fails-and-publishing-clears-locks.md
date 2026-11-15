@@ -63,8 +63,8 @@ each stands.
 On 2026-11-15 the owner, Naim Elijah, decided:
 
 1. **Accepting a re-optimization keeps every route in force, with the stops the proposal neither
-   serves nor drops, and refuses a proposal that loses an order** ([BR-07], [BR-10], [BR-83],
-   [BR-108], [FR-268]).
+   serves nor drops, and keeps every order the plan held** ([BR-07], [BR-10], [BR-83], [BR-108],
+   [FR-268]).
    - Each route keeps its reported prefix, the stops the proposal neither serves nor drops, ahead of
      the proposal's stops for its vehicle.
    - A route the proposal gives no route stays with its prefix, or with no stops left. It is marked
@@ -180,6 +180,10 @@ On 2026-11-15 the owner, Naim Elijah, decided:
      `WithdrawalCause` moves to Planning's `events` package, which the domain imports.
    - `addedOrders` names the orders an accepted re-optimization put into the plan that it held
      under no attempt before, in plan order. Every other cause adds none.
+   - Reporting owns the rule that splits the withdrawn vehicles ([FR-271], [ADR-063]): it keeps
+     its own `WithdrawalCause` and `WithdrawnFleet`, the listener maps the event's causes to it
+     one to one, and `Baseline.withdrawnFleetAfter` says which vehicles the baseline's solve
+     leaves out and which it gives their whole shift.
 10. **`ObjectiveTerms` mirrors the optimizer's `Cost` term for term** ([FR-103], [FR-256],
     [BR-115], [ADR-113] point 1). Its terms are `travel`, `drops`, `doorWindow`, `fixedVehicles`,
     `lateness`, `orphanedStops` and `movedStops`. `orphanedStops` and `movedStops` together are
@@ -269,7 +273,7 @@ These rules no document settled; the code takes them.
   by a re-optimization, which takes no lock, so the lock would bind nothing.
 - **Refuse a command whose `now` is out of order, with a named error.** Not chosen: the callers are
   workers and listeners, which would retry with the same clock until the midnight job.
-- **Refuse a proposal that neither serves nor drops a drop the plan holds** (`ProposalLosesOrder`).
+- **Refuse a proposal that neither serves nor drops a drop the plan holds**, with a named error.
   Rejected: the optimizer knows no attempts, so after a put-back onto the same date a proposal holds
   only the new attempt, and after a put-back onto another date it holds neither. Every
   re-optimization of the date would then be refused, though re-optimizing is how [FR-75] brings the
@@ -303,6 +307,7 @@ These rules no document settled; the code takes them.
 [ADR-101]: ADR-101-completed-plans-take-late-outcomes-as-revisions-and-routes-keep-an-index.md
 [ADR-044]: ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md
 [ADR-050]: ADR-050-re-optimization-conventions-live-only-in-the-python-problem-factory.md
+[ADR-063]: ADR-063-a-transaction-changes-one-aggregate-and-every-rule-has-one-owner.md
 [ADR-100]: ADR-100-k-covers-door-windows-outside-a-shift-and-no-vehicle-is-a-drop-reason.md
 [ADR-105]: ADR-105-a-re-optimizations-problem-carries-its-conventions-and-only-a-vehicle-that-is-out-has-no-driver.md
 [ADR-109]: ADR-109-reporting-computes-exact-on-time-shares-from-current-facts-and-keeps-no-personal-data.md

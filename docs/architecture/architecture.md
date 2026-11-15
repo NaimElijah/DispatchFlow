@@ -53,7 +53,9 @@ it yet. The `domain` packages of `access`, `audit`, `fleet`, `liveops`, `messagi
 `planning` and `reporting` are built ahead of their milestones, with the `events` packages of the six
 modules that raise events (not `audit` or `reporting`), and nothing calls them yet either.
 
-A module's domain splits into one package per aggregate over a root that holds its error and what several packages use, once it passes 30 files ([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)). Planning has the root and `plan`, `solution`, `basis`, `revision`, `reconciliation` and `settings`; Live Operations `delivery`, `alert` and `routerun`; Recipient Messaging `message`, `rating` and `settings`; Access `account`, `session` and `companyprofile`; Fleet `register`, `roster` and `driver`. Customers & Orders, Reporting and Audit, the shared kernel and every `events` package stay flat.
+A module's domain splits into one package per aggregate once it passes 30 files
+([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)). Which modules
+are split, and into what, is in [bounded-contexts.md](bounded-contexts.md).
 
 ## Communication
 
@@ -112,8 +114,9 @@ have a `Dockerfile`, and neither runs as root
   fixes its call as `solve(problem, start, budget, seed)`). The port does not exist yet.
 - **PyVRP stays out of `solver`.** `src/backend/solver/tests/test_dependency_boundary.py` holds two
   tests. One fails if PyVRP is installed there, and the other if PyVRP is locked in its `uv.lock`.
-  With `core`'s purity, shape and package rules and `solver`'s import-linter contracts (a lint step
-  in `just solver-check`), they are the only architecture rules checked automatically today.
+  With `core`'s purity, shape and package rules, and `solver`'s import-linter contracts and the ruff
+  ban on NumPy's randomness and clock in its domain (lint steps in `just solver-check`), they are
+  the only architecture rules checked automatically today.
 - **Flyway owns the schema.** `core` sets `spring.jpa.hibernate.ddl-auto=validate`, so Hibernate
   never changes it ([ADR-007](../ADRs/ADR-007-postgresql-with-flyway-migrations.md), superseded by
   [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md),

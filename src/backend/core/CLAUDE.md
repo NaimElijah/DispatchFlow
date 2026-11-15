@@ -46,18 +46,23 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
 
 - `domain`, `events` and `shared` stay pure ([DL §3.9], [ADR-097]). Six rules, each an ArchUnit
   test in `src/test/java/com/dispatchflow/architecture/`:
-  1. A module's domain imports only the JDK, the shared kernel, its own domain's packages (the root
-     imports no subpackage, [ADR-118]), its own module's `events` package, JSpecify, libphonenumber and JTS ([DL §7.3] for `events`). An `events`
-     package imports only the JDK, JSpecify, the kernel and itself. Spring Modulith annotations
-     are allowed on a `package-info` only.
+  1. A module's domain imports only the JDK, the shared kernel, its own domain's packages, its own
+     module's `events` package, JSpecify, libphonenumber and JTS ([DL §7.3] for `events`). An
+     `events` package imports only the JDK, JSpecify, the kernel and itself. Spring Modulith
+     annotations are allowed on a `package-info` only.
   2. It never reads the clock:
      - no `now()` or `dateNow()`;
      - no `Clock`, `InstantSource`, `Date`, `Calendar` or `TimeZone`, and no default zone;
      - no `System.currentTimeMillis()` or `nanoTime()`, and no `Thread.sleep`.
   3. It never calls `UUID.randomUUID()`. Factories take the new ID, and a method that creates many
      children takes a `FreshIds`.
-  4. It uses no randomness, I/O or logging. `java.net.IDN` is the one allowed `java.net` class. The
-     default locale, `java.util.prefs`, `java.lang.management` and `ResourceBundle` count as I/O.
+  4. It uses no randomness, I/O or logging. `java.net.IDN` is the one allowed `java.net` class.
+     These count as I/O:
+     - the default locale, named or implicit: a case change with no `Locale`, `String.format` or
+       `formatted` with no `Locale`, and `DateTimeFormatter.ofPattern` with no `Locale`;
+     - `java.util.prefs`, `java.lang.management`, `ResourceBundle` and `ServiceLoader`;
+     - `getResource*` on a class, a class loader or a module;
+     - starting a thread: `new Thread`, `Thread.ofPlatform` or `ofVirtual`, and `Executors`.
   5. It never creates an `IllegalArgumentException` or an `IllegalStateException`, or a subclass of
      either. It throws the module's named error in a `RuleViolation`, or a `StoredStateInvalid`
      from `restore`.
@@ -78,14 +83,14 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
     ([ADR-106]). Every personal value implements it; no test checks that, review does.
   - Every concrete `PersonalData` type declares its own `toString()`, which prints redacted. A
     record's implicit one doesn't count.
-  - Events live in an `events` package. Their fields are typed IDs, the shared values other than
-    `PhoneNumber`, `GeoPoint` and `PlainText`, `EventId`, `Version`, the package's own enums,
+  - Events live in an `events` package. Their fields are typed IDs, `EventId`, `Version`, the shared
+    values other than `PhoneNumber`, `GeoPoint`, `PlainText` and `Attempt`, the package's own enums,
     `Instant`, `int`, `long`, `boolean`, or lists of these (a list holds their boxes; a field is
     never boxed). No field holds a `PersonalData` value.
-- Package rules (`DomainPackageRules`, [ADR-118]): no cycle between a module's domain packages, and
-  every kernel, domain and `events` package is `@NullMarked`. A module's domain never gets a
-  subpackage to dodge a rule: nothing is made more visible in production code, and no package cycle
-  is created, to move a file.
+- Package rules (`DomainPackageRules`, [ADR-118]): no cycle between a module's domain packages, a
+  domain root that imports none of its own subpackages, and every kernel, domain and `events`
+  package is `@NullMarked`. A module's domain never gets a subpackage to dodge a rule: nothing is
+  made more visible in production code, and no package cycle is created, to move a file.
 - `ErrorCodeUniquenessTest`, `EventNameUniquenessTest` and `ErrorRefusalTestsTest` check three
   things: error codes and event names are unique across modules, and every error has a refusal
   test. Each rule has a deliberately wrong fixture under `archfixture/` that it must flag, so a

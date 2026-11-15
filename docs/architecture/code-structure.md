@@ -289,7 +289,9 @@ Three sets of rules are checked automatically today:
 - in `solver`, the import-linter contracts in `pyproject.toml`: the domain imports no framework,
   solver or standard-library module that reads a clock, draws randomness or does I/O; the validator,
   the objective and the drop reasons never import `problem`; `application` imports no FastAPI,
-  Pydantic or OR-Tools; the layers point one way; and the product never imports PyVRP.
+  Pydantic or OR-Tools; the layers point one way; and the product never imports PyVRP. Ruff's
+  `TID251` also bans `numpy.random`, `datetime64` and `timedelta64` in the domain
+  ([ADR-113](../ADRs/ADR-113-route-stability-is-its-own-cost-the-rules-read-a-problem-through-a-protocol-and-untimed-outputs-are-documented.md)).
 
 The purity rules are ArchUnit tests in `src/test/java/com/dispatchflow/architecture/`, over
 `shared` and every module's `domain` and `events` packages

@@ -54,6 +54,8 @@ On 2026-11-15 the owner, Naim Elijah, decided, and accepted the review's fix for
 - **Hard:** a recipient who writes 497 or more ignored characters before "STOP" in one token is not
   opted out by that reply.
 - **Cost:** the persistence adapter, built with its milestone, maps one phone column per message.
+- **Risk:** a stored message with no phone can't be rebuilt, so a damaged row stops its stop's
+  messages from loading until it is repaired.
 
 ## Alternatives considered
 
