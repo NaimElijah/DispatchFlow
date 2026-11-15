@@ -8,13 +8,14 @@ import com.dispatchflow.messaging.application.port.out.StopMessagesRepository;
 import com.dispatchflow.shared.application.Clock;
 
 /**
- * The nightly retention job's Messaging step (NFR-184, NFR-193, NFR-258, ADR-075, ADR-108): it
+ * The nightly retention job's Messaging step (NFR-184, NFR-193, NFR-260, ADR-075, ADR-108): it
  * deletes each stop's messages 90 days after the last reached its state, deletes replies 90 days
  * after receipt, and removes each due rating request's phone and comments through {@code
  * RatingRequest.removePersonalData}, one request per transaction, keeping its rating. The opt-out
  * history stays (NFR-202). The scheduler calls it at 03:00 {@code Asia/Jerusalem} (DL §10.3).
  *
- * <p>Built in M12. Rows: NFR-258, ADR-108.
+ * <p>Built in M13, with the whole nightly retention run (ADR-121). Rows: NFR-184, NFR-193, NFR-260,
+ * ADR-108.
  */
 public final class EraseExpiredMessages {
 
@@ -49,12 +50,12 @@ public final class EraseExpiredMessages {
     /**
      * Erases what is due. A request another writer saved meanwhile is left for the next night.
      *
-     * <p>Built in M12.
+     * <p>Built in M13.
      *
      * @param call the job's server step
      * @return how many stops' messages, replies and requests it deleted or cleared, together
      */
     public int erase(CallContext call) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("Built in M13");
     }
 }

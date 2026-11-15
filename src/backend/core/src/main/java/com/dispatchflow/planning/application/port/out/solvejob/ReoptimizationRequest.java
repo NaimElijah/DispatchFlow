@@ -1,6 +1,7 @@
 package com.dispatchflow.planning.application.port.out.solvejob;
 
 import com.dispatchflow.planning.application.port.out.ProblemFacts;
+import com.dispatchflow.planning.application.port.out.SolveConfiguration;
 import com.dispatchflow.planning.application.port.out.TravelRows;
 import com.dispatchflow.planning.domain.RevisionNo;
 import com.dispatchflow.planning.domain.SolveLimit;
@@ -11,9 +12,11 @@ import com.dispatchflow.planning.domain.plan.SolverName;
 import com.dispatchflow.planning.domain.solution.DroppedOrder;
 import com.dispatchflow.shared.GeoPoint;
 import com.dispatchflow.shared.JobId;
+import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.StopId;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
@@ -33,13 +36,22 @@ import java.util.Optional;
  * @param limit the search limit, 20 seconds (BR-84)
  * @param seed the seed (NFR-13)
  * @param now the time the facts were gathered, the proposal's fact time (BR-25)
- * @param facts the date's orders, new and put-back ones included, fleet, roster, settings and stored
- *     matrix
+ * @param facts the date's orders, new and put-back ones included, and every order on the current
+ *     revision's routes; every vehicle of the plan; the roster, the settings, the door-window rate
+ *     and the break flag; and the matrix: the plan's stored one, or, when it lacks a location such
+ *     as a new order's address, a new one over the new list of locations (FR-35, ADR-121)
+ * @param latenessRate the lateness rate, from {@code SolveConfiguration} (BR-115, ADR-121)
+ * @param movedStopCost the cost of each stop that leaves its vehicle, from {@code
+ *     SolveConfiguration} (BR-115, ADR-121)
  * @param routes the routes of the plan's current revision, each with what happened on it
  * @param dropped the plan's dropped orders
- * @param positionRows the base travel times and distances from each usable latest position to every
- *     stop location of {@code facts}, the extra source rows ADR-050 and ADR-052 ask for; the stored
- *     matrix itself isn't rebuilt
+ * @param putBack the orders on {@code routes} whose failed stop a dispatcher put back for today
+ *     (FR-75), which the adapter sends as {@code put_back}
+ * @param positionRows the base travel times and distances from each vehicle's latest position, one
+ *     row exactly where a position exists, to every location of {@code facts}' matrix, depots
+ *     included: the extra source rows ADR-050 and ADR-052 ask for. Whether a position is usable is
+ *     the optimizer's to judge (BR-80, ADR-050). When the stored matrix has every location, these
+ *     rows are all the request adds to it (ADR-121)
  */
 public record ReoptimizationRequest(
         JobId job,
@@ -50,8 +62,11 @@ public record ReoptimizationRequest(
         Seed seed,
         Instant now,
         ProblemFacts facts,
+        SolveConfiguration.Factor latenessRate,
+        Duration movedStopCost,
         List<LiveRoute> routes,
         List<DroppedOrder> dropped,
+        List<OrderId> putBack,
         TravelRows positionRows) {
 
     /** Checks every part is present, and copies the lists. */
@@ -64,8 +79,11 @@ public record ReoptimizationRequest(
         Objects.requireNonNull(seed, "seed");
         Objects.requireNonNull(now, "now");
         Objects.requireNonNull(facts, "facts");
+        Objects.requireNonNull(latenessRate, "latenessRate");
+        Objects.requireNonNull(movedStopCost, "movedStopCost");
         routes = List.copyOf(routes);
         dropped = List.copyOf(dropped);
+        putBack = List.copyOf(putBack);
         Objects.requireNonNull(positionRows, "positionRows");
     }
 
@@ -106,12 +124,17 @@ public record ReoptimizationRequest(
     /**
      * One route of the current revision and what happened on it (ADR-050 points 1 to 3).
      *
+     * <p>The optimizer applies a confirmed return, as it applies the departure allowance: the core
+     * sends it beside the driver's shift and never folds it into the shift times, so the Python
+     * {@code ProblemFactory} alone decides how it binds the route (ADR-050, ADR-121). The factory
+     * has no per-driver input for it yet: a domain gap that M9 closes.
+     *
      * <p>Built in M9.
      *
      * @param route the route as the revision holds it
      * @param state where its vehicle stands
-     * @param confirmedReturn the return time a confirmed hand-over set, which the optimizer may not
-     *     stretch (FR-394)
+     * @param confirmedReturn the return time a confirmed hand-over set, which the optimizer applies
+     *     and may not stretch (FR-394, ADR-121)
      * @param reported its reported stops, in the order reported
      * @param lastPositions its vehicle's last two positions, the latest last (BR-79, BR-80)
      */
@@ -133,14 +156,16 @@ public record ReoptimizationRequest(
     }
 
     /**
-     * One reported stop, with its corrected times (BR-10, BR-91, BR-114).
+     * One reported stop, with its corrected times (BR-10, BR-91, BR-114). The adapter sends the
+     * optimizer's {@code reported_at}, the corrected time of the stop's first report, from them: its
+     * arrival when recorded, otherwise its outcome.
      *
      * <p>Built in M9.
      *
      * @param stop the stop
      * @param progress what stands at it
-     * @param arrivedAt when the driver arrived, if recorded
-     * @param outcomeAt when its outcome was recorded, if it has one
+     * @param arrivedAt the corrected time of the first report of its arrival (BR-114), if recorded
+     * @param outcomeAt the corrected time of the first report of its outcome (BR-114), if it has one
      */
     public record ReportedStop(
             StopId stop, ReportedState progress, Optional<Instant> arrivedAt, Optional<Instant> outcomeAt) {

@@ -28,8 +28,9 @@ import java.util.Optional;
 /**
  * Planning's read side: what its screens show, and what other modules read about its plans,
  * straight from Planning's own schema without loading an aggregate (CQRS-lite, TS §2.1 rule 5, DL
- * §3.6). The persistence adapter implements it. It never reads another module's schema (DL §2.3 rule
- * 3), so a screen that needs another module's data joins it in the query class or in the client.
+ * §3.6). The persistence adapter implements it. It never reads another module's schema (DL §2.3
+ * rule 3), so a screen that needs another module's data joins it in the query class or in the
+ * client.
  *
  * <p>The facts other modules read come back as Planning's {@code api} records, or as the records of
  * the {@code spi} Planning implements, so the services that implement them translate nothing twice.
@@ -130,6 +131,18 @@ public interface PlanningViews {
     List<PublishedRouteFact> routesInForceOn(DeliveryDate date);
 
     /**
+     * Every route of every plan in force from a date on, from each plan's current revision (FR-324,
+     * ADR-059).
+     *
+     * <p>Built in M5.
+     *
+     * @param from the first date
+     * @return the routes, by date and then in each plan's order; empty when no plan in force is
+     *     that late
+     */
+    List<PublishedRouteFact> routesInForceFrom(DeliveryDate from);
+
+    /**
      * One route of a plan in force, from its current revision.
      *
      * <p>Built in M5.
@@ -141,7 +154,9 @@ public interface PlanningViews {
 
     /**
      * Whether a stop was on a route at a time, from the revision in force then, and where it is now
-     * (BR-02, BR-27, BR-110, BR-132, ADR-114).
+     * (BR-02, BR-27, BR-110, BR-132, ADR-114). An entitled stop's order and attempt come from that
+     * revision too, so a report on a stop the plan no longer holds still finds them, and so do the
+     * plan and its date, so a cancelled plan still names both.
      *
      * <p>Built in M5.
      *
@@ -176,8 +191,8 @@ public interface PlanningViews {
     Optional<LaterStopFact> laterStopOf(OrderId order, Attempt attempt);
 
     /**
-     * The plan that holds a stop, or held it in any revision, so a late outcome finds its plan after
-     * the stop left it (DL §8).
+     * The plan that holds a stop, or held it in any revision, so a late outcome finds its plan
+     * after the stop left it (DL §8).
      *
      * <p>Built in M8.
      *
@@ -197,15 +212,17 @@ public interface PlanningViews {
     Optional<PlanId> planOfRoute(RouteId route);
 
     /**
-     * Where the plan of an order's date holds one attempt (BR-33, DL §9.6).
+     * Where the plan of an order's date holds one attempt (BR-33, DL §9.6). It reads the same view
+     * as {@link #placementsOn}, narrowed to the one order and attempt (ADR-121).
      *
-     * <p>Built in M9.
+     * <p>Built in M2.
      *
      * @param order the order
+     * @param date the order's delivery date, whose plans are read
      * @param attempt the attempt
      * @return the placement, or {@link PlacementFact.NotPlaced} when no plan of the date holds it
      */
-    PlacementFact placementOf(OrderId order, Attempt attempt);
+    PlacementFact placementOf(OrderId order, DeliveryDate date, Attempt attempt);
 
     /**
      * Where the plans of a date hold its orders (FR-76, BR-33).
@@ -218,12 +235,13 @@ public interface PlanningViews {
     List<OrderPlacementFact> placementsOn(DeliveryDate date);
 
     /**
-     * The plans not yet completed that serve or drop any of the given orders (BR-43). The orders carry
-     * no date filter, so this is where "not yet completed" is decided (DL §4.3).
+     * The plans not yet completed that serve or drop any of the given orders (BR-43). The orders
+     * carry no date filter, so this is where "not yet completed" is decided (DL §4.3).
      *
      * <p>Built in M2.
      *
-     * @param orders every order of a customer not yet anonymized, as Customers &amp; Orders names them
+     * @param orders every order of a customer not yet anonymized, as Customers &amp; Orders names
+     *     them
      * @return the plans, each once
      */
     List<PlanId> unfinishedPlansUsing(List<OrderId> orders);

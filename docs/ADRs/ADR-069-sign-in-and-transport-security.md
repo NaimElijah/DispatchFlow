@@ -1,6 +1,6 @@
 # ADR-069: Sign-in uses signed access tokens, rotating refresh tokens and Argon2id, over HTTPS through Caddy
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-121
 - **Date:** 2026-11-14
 
 ## Context

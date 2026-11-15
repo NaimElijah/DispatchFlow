@@ -9,7 +9,8 @@ import com.dispatchflow.planning.application.port.out.solvejob.RouteOptimizer;
 
 /**
  * The planning settings an Admin sees and changes (FR-183, placement P7), and the solvers a dispatcher
- * may choose for a solve or a re-optimization (FR-20, FR-224).
+ * may choose for a solve or a re-optimization (FR-20, FR-224). The optimizer lists only FR-20's
+ * solvers, so the baseline's is never offered.
  *
  * <p>The settings are Admin and Dispatcher only (FR-183). The permission matrix's <em>Read the
  * company's settings</em> row grants a Driver only the company's name and dispatch phone. That grant
@@ -57,7 +58,8 @@ public final class PlanningSettingsQueries {
      *
      * @param actor the dispatcher
      * @return the solvers' names and the two defaults
-     * @throws java.io.UncheckedIOException when the optimizer can't be reached
+     * @throws com.dispatchflow.planning.application.port.out.OptimizerUnavailable when the optimizer
+     *     can't be reached
      */
     public SolversView solvers(Actor actor) {
         throw new UnsupportedOperationException("Built in M4");

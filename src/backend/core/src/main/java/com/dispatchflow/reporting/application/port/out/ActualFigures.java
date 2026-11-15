@@ -6,10 +6,12 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * What a plan's vehicles actually drove, beside its planned figures (FR-106). How each is measured
- * waits on the pilot protocol (Q-40), so each may be unknown.
+ * What a plan's vehicles actually drove, beside its planned figures (FR-106). Q-40 settled that
+ * actuals come from the apps' report times and the position traces (NFR-249), but no milestone
+ * measures the distance and driving time from the traces yet, so each may be unknown.
  *
- * <p>Built in M5.
+ * <p>Built in an unscheduled milestone (Q-40); the actual arrivals beside them, in {@link
+ * PlannedVsActualView}, in M5.
  *
  * @param distance the distance driven over every route, or empty when it was not measured
  * @param drivingTime the time driven over every route, or empty when it was not measured

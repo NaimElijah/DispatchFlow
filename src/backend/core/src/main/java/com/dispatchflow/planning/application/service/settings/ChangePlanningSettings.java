@@ -25,6 +25,14 @@ import java.util.Objects;
  * gave its password within the step-up window, before it reads the settings (NFR-214, ADR-068,
  * ADR-104). The step-up arrives in M6.
  *
+ * <p>{@code PlanningSettings} has no default solver of each kind yet, which ADR-004 puts there: a
+ * domain gap that M4 closes (placement P3). Until M4 adds the field, the {@link Command} has no
+ * default solver to change, and a solve with no solver runs OR-Tools, the default that ADR-004 and
+ * FR-20 name. M4 adds the daily and the re-optimization defaults to the command with the field.
+ *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
+ *
  * <p>Built in M4.
  */
 public final class ChangePlanningSettings {

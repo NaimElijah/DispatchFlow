@@ -15,6 +15,11 @@ import java.util.Optional;
  * Planning's implementation of {@link PublishedRoutes}: it reads the current revisions of the plans in
  * force through {@link PlanningViews} (ADR-059, ADR-067, ADR-101).
  *
+ * <p>It fills each {@code PublishedStopFact}'s window, service time and door flag from the revision,
+ * as the revision took its order, never from the order as it is now, so a stop whose order changed
+ * since keeps the leg it was planned with. The revision stores the three once M5 adds them to its
+ * stops (FR-364, BR-49, BR-124).
+ *
  * <p>Built in M5 and M12, method by method.
  */
 public final class PublishedRoutesService implements PublishedRoutes {
@@ -37,6 +42,16 @@ public final class PublishedRoutesService implements PublishedRoutes {
      */
     @Override
     public List<PublishedRouteFact> inForceOn(DeliveryDate date) {
+        throw new UnsupportedOperationException("Built in M5");
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Built in M5.
+     */
+    @Override
+    public List<PublishedRouteFact> inForceFrom(DeliveryDate from) {
         throw new UnsupportedOperationException("Built in M5");
     }
 

@@ -5,9 +5,12 @@ import java.util.UUID;
 
 /**
  * A change was made against a version of an aggregate that is no longer current, so optimistic
- * locking refuses it (BR-76, ADR-057). It is not a domain refusal, so it is no {@code DomainError}:
- * the web adapter answers it with 412 and {@link #code()}, through {@code ETag} and {@code
- * If-Match}. The message names the kind and the ID only, never personal data (NFR-19).
+ * locking refuses it (BR-76, ADR-057). It is not a domain refusal, so it is no {@code DomainError}.
+ * The web adapter answers a call that sent {@code If-Match}, a use case's {@code Version expected},
+ * with 412 and {@link #code()}, through {@code ETag}. A call that sent no version never saw the
+ * version it lost to, so the adapter retries it at once, up to three times, and then answers 503
+ * with {@code Retry-After} (ADR-121), as a listener adapter retries (DL §11). The message names the
+ * kind and the ID only, never personal data (NFR-19).
  *
  * <p>Built in M0.
  */

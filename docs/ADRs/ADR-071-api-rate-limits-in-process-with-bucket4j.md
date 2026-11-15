@@ -1,6 +1,6 @@
 # ADR-071: API rate limits run in the core's process, with Bucket4j
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-121
 - **Date:** 2026-11-13
 
 ## Context

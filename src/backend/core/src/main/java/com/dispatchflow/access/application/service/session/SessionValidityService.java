@@ -9,7 +9,10 @@ import com.dispatchflow.shared.SessionId;
 /**
  * Access's implementation of {@code SessionValidity}: whether an access token's account and session
  * generations are still current, for the security filter and the stream's heartbeat (ADR-045,
- * NFR-177, NFR-267). The revocation cache wraps these reads in the adapter.
+ * NFR-177, NFR-267). It reads through two narrow reads, never a whole aggregate: {@code
+ * UserAccountRepository.activeGenerationOf} and {@code SessionRepository.liveGenerationOf}. The
+ * persistence adapter caches those reads (ADR-045), so this stays the one implementation of {@code
+ * SessionValidity}, cached or not.
  *
  * <p>Built in M6.
  */

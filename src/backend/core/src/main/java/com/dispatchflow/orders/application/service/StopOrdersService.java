@@ -4,11 +4,12 @@ import com.dispatchflow.orders.application.api.StopOrderFact;
 import com.dispatchflow.orders.application.api.StopOrders;
 import com.dispatchflow.orders.application.port.out.OrdersViews;
 import com.dispatchflow.shared.OrderId;
+import java.util.List;
 
 /**
- * Customers &amp; Orders' implementation of {@link StopOrders}: it reads an order's door flag and
- * the fields a driver sees at its stop from its own read port (DL §2.2, FR-86, FR-87, FR-135,
- * FR-364).
+ * Customers &amp; Orders' implementation of {@link StopOrders}: it reads the orders' door flags and
+ * the fields a driver sees at their stops from its own read port in one read, and refuses the
+ * request when any order is missing from the answer (DL §2.2, FR-86, FR-87, FR-135, FR-364).
  *
  * <p>Built in M5.
  */
@@ -31,7 +32,7 @@ public final class StopOrdersService implements StopOrders {
      * <p>Built in M5.
      */
     @Override
-    public StopOrderFact of(OrderId order) {
+    public List<StopOrderFact> of(List<OrderId> orders) {
         throw new UnsupportedOperationException("Built in M5");
     }
 }

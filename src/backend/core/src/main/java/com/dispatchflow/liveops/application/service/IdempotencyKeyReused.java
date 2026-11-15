@@ -4,7 +4,8 @@ import com.dispatchflow.liveops.application.port.out.IdempotencyKey;
 import java.util.Objects;
 
 /**
- * A phone sent a request key it already used with a different body, so the request is refused
+ * A phone sent a request key it already used with a different body, or for another kind of call,
+ * whose stored {@code RecordedReport} case doesn't match this one, so the request is refused
  * (NFR-130, ADR-087). It is not a domain refusal, so it is no {@code DomainError}: the web adapter
  * answers it with 409 and {@link #code()}. The message names the key only, never the body.
  *

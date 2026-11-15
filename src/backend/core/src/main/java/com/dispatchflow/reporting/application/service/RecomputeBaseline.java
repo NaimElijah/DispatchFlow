@@ -4,6 +4,7 @@ import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.planning.events.PlanRevised;
 import com.dispatchflow.reporting.application.port.out.BaselineAnswer;
+import com.dispatchflow.reporting.application.port.out.BaselineOptimizerUnavailable;
 import com.dispatchflow.reporting.application.port.out.BaselinePlanner;
 import com.dispatchflow.reporting.application.port.out.BaselineRepository;
 import com.dispatchflow.reporting.application.port.out.ReportingViews;
@@ -21,9 +22,10 @@ import com.dispatchflow.shared.application.StaleVersion;
  * event's. Before its transaction it asks {@code Baseline.withdrawnFleetAfter} which vehicles the
  * solve leaves out and which it gives their whole shift (FR-271), reads the plan's {@code
  * BaselineInputs} through {@link ReportingViews#baselineInputsOf}, from the views Planning and
- * Customers &amp; Orders publish (ADR-041, ADR-109), builds the {@code BaselineRequest} from both,
- * and asks the {@link BaselinePlanner} for the solve (DL §6.3); then {@code Baseline.recompute}
- * stores it. It reads no other module's Java API.
+ * Customers &amp; Orders publish (ADR-041, ADR-109), builds the {@code BaselineRequest} from both
+ * with {@code BaselineSolve}'s seed and budget, the publication's own (NFR-13), and asks the {@link
+ * BaselinePlanner} for the solve (DL §6.3); then {@code Baseline.recompute} stores it. It reads no
+ * other module's Java API.
  *
  * <p>Delivery is at least once (ADR-064), and a recompute is not idempotent by nature, because it
  * stores a new solve: the use case records the {@code (listener, event ID)} pair in {@link
@@ -82,8 +84,10 @@ public final class RecomputeBaseline {
      * @param event the revision
      * @param call the listener's server step, which the audit record is written with
      * @throws NotFound when Planning's view has no published plan with the event's ID, or the plan
-     *     has neither a baseline nor a recorded refusal yet, so the delivery fails and is resubmitted
-     *     until the publication's listener has run
+     *     has neither a baseline nor a recorded refusal yet, so the delivery fails and is
+     *     resubmitted until the publication's listener has run
+     * @throws BaselineOptimizerUnavailable when the optimizer can't be reached, so the delivery
+     *     fails and is resubmitted (ADR-064)
      * @throws RuleViolation with Reporting's {@code NegativeDistance}, {@code NegativeDriverHours}
      *     or {@code OrderCountedTwice} when the optimizer's answer translates into no valid figures
      * @throws StaleVersion when another recompute of the plan was saved since the baseline was

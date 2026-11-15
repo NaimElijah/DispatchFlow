@@ -4,9 +4,10 @@ import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.shared.application.NotFound;
 
 /**
- * Puts a stop on the route that actually served it, after an accepted outcome arrived late (DL
- * §8, BR-89, BR-130, ADR-101). Live Operations' listener on {@code OutcomeRecorded} calls it when
- * the current revision disagrees with the fact, then raises the dispatcher's alert from the answer.
+ * Puts a stop on the route that actually served it, after an accepted outcome arrived late (DL §8,
+ * BR-89, BR-130, ADR-101). Live Operations' listener on {@code OutcomeRecorded} calls it when the
+ * current revision disagrees with the fact, after it has raised the dispatcher's alert from where
+ * the stop is now, so a failure between the two can't lose the alert (ADR-121).
  *
  * <p>Built in M8.
  */
@@ -21,13 +22,14 @@ public interface ReconcileLateOutcome {
      *
      * @param fact the accepted outcome and the route that served it
      * @param call the listener's server step
-     * @return what changed, for the dispatcher's alert
+     * @return what changed in the plan; the dispatcher's alert is raised before this call, so the
+     *     answer only reports the change
      * @throws NotFound when no plan holds the stop
      * @throws com.dispatchflow.shared.RuleViolation with Planning's {@code PlanNotPublished} for a
      *     plan never published, or {@code RouteNotInPlan} for an unknown serving route
-     * @throws com.dispatchflow.shared.application.StaleVersion when the plan changed between its read
-     *     and its save (BR-76); the caller's listener or job adapter retries at once, up to three
-     *     times (DL §11)
+     * @throws com.dispatchflow.shared.application.StaleVersion when the plan changed between its
+     *     read and its save (BR-76); the caller's listener or job adapter retries at once, up to
+     *     three times (DL §11)
      */
     ReconciliationFact reconcile(LateOutcomeFact fact, CallContext call);
 }

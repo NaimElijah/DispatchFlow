@@ -16,7 +16,8 @@ import java.util.Optional;
  * A date's planned figures beside what actually happened (FR-106, FR-341): distance, driving time
  * and each stop's arrival. It holds IDs, times and figures only, never personal data.
  *
- * <p>Built in M5.
+ * <p>Built in M5 for the arrivals; the actual distance and driving time in an unscheduled milestone
+ * (Q-40, NFR-249), and until then both are empty.
  *
  * @param date the date
  * @param plan the comparison for the date's published or completed plan, or empty when the date
@@ -33,18 +34,28 @@ public record PlannedVsActualView(DeliveryDate date, Optional<PlanComparison> pl
     /**
      * One plan's planned and actual figures (FR-106).
      *
-     * <p>Built in M5.
+     * <p>The planned distance follows the routes' optional values, by the same rule as {@code
+     * DailySummaryView.Summary} (ADR-112): the sum over the routes that have one, and empty when a
+     * route with stops has none, so the total never leaves out a route that drove.
+     *
+     * <p><b>Domain gap.</b> Reporting's {@code PlannedFigures} holds its distance as a plain {@code
+     * Distance}, so a plan with an untimed route has no way to say so there: M5 makes it optional
+     * by the same rule, for the baseline comparison too.
+     *
+     * <p>Built in M5 for the arrivals; the actual distance and driving time in an unscheduled
+     * milestone.
      *
      * @param plan the plan
-     * @param plannedDistance the planned distance over every route (FR-341)
-     * @param actualDistance the distance driven, or empty when it was not measured (Q-40)
+     * @param plannedDistance the planned distance over every route (FR-341), or empty when a route
+     *     with stops couldn't be timed
+     * @param actualDistance the distance driven, or empty when it was not measured (Q-40, NFR-249)
      * @param plannedDriverHours the planned driver-hours over every route
-     * @param actualDrivingTime the time driven, or empty when it was not measured (Q-40)
+     * @param actualDrivingTime the time driven, or empty when it was not measured (Q-40, NFR-249)
      * @param stops each stop's planned and actual arrival, in the plan's route order
      */
     public record PlanComparison(
             PlanId plan,
-            Distance plannedDistance,
+            Optional<Distance> plannedDistance,
             Optional<Distance> actualDistance,
             DriverHours plannedDriverHours,
             Optional<Duration> actualDrivingTime,
@@ -70,8 +81,9 @@ public record PlannedVsActualView(DeliveryDate date, Optional<PlanComparison> pl
      * @param order its order
      * @param plannedArrival when the plan has the vehicle reach it, or empty when it has no planned
      *     time
-     * @param actualArrival when the driver arrived, as corrected for the device's clock (BR-114), or
-     *     the delivery time when no arrival was reported (FR-340); empty when neither was reported
+     * @param actualArrival when the driver arrived, as corrected for the device's clock (BR-114),
+     *     or the delivery time when no arrival was reported (FR-340); empty when neither was
+     *     reported
      */
     public record StopArrival(
             StopId stop, OrderId order, Optional<Instant> plannedArrival, Optional<Instant> actualArrival) {

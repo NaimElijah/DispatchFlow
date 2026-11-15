@@ -34,7 +34,8 @@ public final class ProposalQueries {
      * @param actor the dispatcher
      * @param proposal the proposal
      * @return what changes for each driver, the drops, the broken windows, the withdrawn vehicles, the
-     *     vehicles without a usable position, the goods hand-overs and the change in the totals
+     *     vehicles without a usable position, the goods hand-overs, the change in the totals, and the
+     *     proposal's and the plan's versions that a decline and an accept send (BR-76)
      * @throws NotFound when no proposal has the ID
      */
     public ProposalPreviewView preview(Actor actor, ProposalId proposal) {

@@ -5,8 +5,8 @@ import com.dispatchflow.shared.PersonalData;
 import java.util.Objects;
 
 /**
- * The geocoder's answer for one address, which the geocoding adapter translates into this
- * context's language (FR-12, FR-63). It names the normalized address it was looked up for, so an
+ * The geocoder's answer for one address, which the geocoding job builds from the {@code Geocoder}'s
+ * and the {@code RoadSnap}'s answers, in this context's language (FR-12, FR-63). It names the normalized address it was looked up for, so an
  * answer that arrives after the address changed is ignored (BR-104). An unreachable geocoder is
  * retried by the outbox for 24 hours (FR-64); only when the retries stop does it become a result,
  * {@link GaveUp}.

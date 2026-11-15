@@ -7,7 +7,6 @@ import com.dispatchflow.access.application.port.out.UserAccountRepository;
 import com.dispatchflow.access.domain.account.EmailAddress;
 import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
-import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.IdGenerator;
 
@@ -16,14 +15,27 @@ import com.dispatchflow.shared.application.IdGenerator;
  * works once and for 1 hour (FR-345), and asking for it leaves the current password working. No
  * answer waits for the email to be sent (NFR-225).
  *
- * <p><b>Refusals answered alike</b> (NFR-145): an address no account holds, which returns normally
- * and sends nothing; the refusals of {@code UserAccount.issueLink} for a recovery link: {@code
- * AccountDeactivated}, {@code AccountAnonymized} and {@code AccountHasNoRole} (BR-123); FR-172's
- * limit of 5 recoveries an hour per account; NFR-215's cap of 100 recovery emails a day; and a
- * version conflict on the save, where a concurrent request for the same account won and is issuing
- * the link, so no {@code StaleVersion} leaves the use case. The recovery endpoint answers every one
- * as "sent", after the same work, so no caller learns whether the address has an account or why
- * nothing was sent.
+ * <p><b>Refusals answered alike</b> (NFR-145). The use case returns normally, and sends nothing,
+ * for each of these, so the recovery endpoint answers every request as "sent" and no caller learns
+ * whether the address has an account or why nothing was sent:
+ *
+ * <ul>
+ *   <li>an address no account holds, for which the use case writes {@code AuditLog.refused} naming
+ *       no account, in its own transaction (ADR-110), with the code M5 adds to {@code AccessError}
+ *       for an address no account holds ({@code SignIn}'s domain gap);
+ *   <li>a refusal of {@code UserAccount.issueLink} for a recovery link: {@code AccountDeactivated},
+ *       {@code AccountAnonymized} or {@code AccountHasNoRole} (BR-123). The use case catches the
+ *       {@code RuleViolation} itself, and writes {@code AuditLog.refused} with the domain's
+ *       specific code, naming the account, in its own transaction (ADR-110); no {@code
+ *       RuleViolation} leaves it;
+ *   <li>NFR-215's cap of 100 recovery emails a day, reached;
+ *   <li>a version conflict on the save, where a concurrent request for the same account won and is
+ *       issuing the link, so no {@code StaleVersion} leaves the use case.
+ * </ul>
+ *
+ * <p>The answer is the same; the work behind it is not. Only a request that issues a link saves the
+ * account and hands the email over. No password is hashed on this path, so there is no slow step to
+ * even out as {@code SignIn} does, and no answer waits for the email to be sent (NFR-225).
  *
  * <p><b>The two limits.</b> FR-172's limit is the web adapter's Bucket4j limit, keyed by the
  * canonical address (ADR-071), so a request over it never reaches this use case. NFR-215's cap is
@@ -34,10 +46,12 @@ import com.dispatchflow.shared.application.IdGenerator;
  * day's cap within an hour; ADR-036 revisits the limits on a day the cap is reached.
  *
  * <p><b>The order.</b> The use case calls {@code UserAccount.issueLink} first, then {@link
- * RecoveryEmailCap#take}, and saves the account and sends the link only when the take succeeds. On a
- * refused take the account isn't saved, so the link issued in memory is dropped and the account's
- * earlier open link, if it has one, stays valid. The take is in the same transaction as the save, so
- * a version conflict on the save rolls the take back and a lost race spends none of the cap.
+ * RecoveryEmailCap#take}, and saves the account only when the take succeeds. On a refused take the
+ * account isn't saved, so the link issued in memory is dropped and the account's earlier open link,
+ * if it has one, stays valid. The take is in the same transaction as the save, so a version
+ * conflict on the save rolls the take back and a lost race spends none of the cap. The email goes
+ * to {@code EmailSender.sendLink} only after that transaction commits, as every Access email does,
+ * so a rolled-back save sends nothing.
  *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
@@ -90,8 +104,6 @@ public final class RequestPasswordRecovery {
      *
      * @param email the address typed
      * @param call the call's context: no user or session, the client and the trace (ADR-110)
-     * @throws RuleViolation with a refusal of {@code UserAccount.issueLink} named above, which the
-     *     endpoint answers as "sent"
      */
     public void request(EmailAddress email, CallContext call) {
         throw new UnsupportedOperationException("Built in M6");

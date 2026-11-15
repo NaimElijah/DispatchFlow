@@ -20,6 +20,15 @@ import com.dispatchflow.shared.application.NotFound;
  * (FR-85), access details (FR-86), its own recipient (FR-87), its own note (FR-135) and the door
  * flag (FR-364); its reference must be free among the date's uncancelled orders (FR-211). An order
  * added to a date whose plan is published reaches the routes through a re-optimization (FR-11).
+ * A retired or anonymized customer gets no new order (FR-193).
+ *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
+ *
+ * <p>Domain gap: {@code Customer.orderDefaults} answers in every state, so no domain method yet
+ * refuses an order for a customer that isn't active. M2 adds {@code Customer.activeDefaults()},
+ * which answers an active customer's defaults and refuses a retired or anonymized one as its other
+ * commands do.
  *
  * <p>Built in M2.
  */
@@ -60,7 +69,8 @@ public final class PlaceOrder {
      * @param details what the form gives
      * @return the new order's ID
      * @throws NotFound when no customer has the ID
-     * @throws RuleViolation with the first of, in this order: {@code DateInPast} (BR-116); {@code
+     * @throws RuleViolation with the first of, in this order: {@code CustomerAnonymized} or {@code
+     *     CustomerRetired} (FR-193); {@code DateInPast} (BR-116); {@code
      *     NonexistentLocalTime} (BR-111) or {@code WindowNotOnDate} (BR-35); {@code NoServiceTime}
      *     (BR-124); {@code DuplicateOrderReference} (FR-211); {@code DateFull} (BR-101)
      */

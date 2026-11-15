@@ -25,7 +25,8 @@ import java.util.List;
  * TrackingStanding} it is judged by comes from Planning's {@link PublishedRoutes} (the current
  * driver, and a confirmed return, FR-394) and Fleet's {@link FleetFacts#driverOn} (the availability
  * and the shift end). The kept positions are appended with the receipt and the audit record, so a
- * retried batch is stored once (NFR-285).
+ * retried batch is stored once (NFR-285). Like every changing call it writes its audit record, a
+ * refused attempt's in its own transaction (NFR-23, ADR-110).
  *
  * <p>Built in M8. Rows: FR-31, FR-243, FR-328, NFR-30, NFR-285.
  */
@@ -84,10 +85,15 @@ public final class RecordPositions {
      * @param digest the request body's hash
      * @throws com.dispatchflow.shared.RuleViolation with Live Operations' {@code
      *     DeviceTimeOutOfRange} for a fix's device instant outside the years 1 to 9999
-     * @throws NotFound when no plan in force holds the route
-     * @throws IdempotencyKeyReused when the key was used before with another body (NFR-130)
-     * @throws StaleVersion when a concurrent send recorded the key first; the outbox retries with
-     *     the same key and gets the stored answer
+     * @throws NotFound when no plan in force holds the route; the phone's outbox marks the row
+     *     refused (ADR-121).
+     * @throws IdempotencyKeyReused when the key was used before with another body, or its stored
+     *     receipt is another call's: a {@code RecordedReport} case other than {@code
+     *     PositionsTaken} (NFR-130)
+     * @throws StaleVersion when a concurrent send recorded the key first; the web adapter retries
+     *     the call at once, up to three times, then answers 503 with {@code Retry-After} (ADR-121),
+     *     and the phone's outbox backs off and resends it with the same key (ADR-087). A retry or a
+     *     resend gets the stored answer
      */
     public void record(Actor actor, RouteId route, List<PositionFix> fixes, IdempotencyKey key, RequestDigest digest) {
         throw new UnsupportedOperationException("Built in M8");

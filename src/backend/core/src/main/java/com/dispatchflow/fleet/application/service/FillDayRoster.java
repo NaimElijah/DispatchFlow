@@ -18,6 +18,10 @@ import com.dispatchflow.shared.application.StaleVersion;
  * default can't be used is skipped and reported with the reason, and every other driver is still
  * filled; filling again changes nothing.
  *
+ * <p>It takes no version the caller read, unlike the roster's other changes (BR-76): a fill sets
+ * only values nobody set, so it overwrites no one's change. The save's own version check still
+ * catches a change made between the fill's read and its save.
+ *
  * <p>The driver's standing combines Access's answer on the account with the driver record's own
  * state, read now (ADR-062). Like every changing call it writes its audit record, a refused
  * attempt's in its own transaction (NFR-23, ADR-110).
@@ -67,7 +71,9 @@ public final class FillDayRoster {
      * @param date the date to fill
      * @return the drivers filled, and the drivers skipped with their reasons
      * @throws NotFound when an account of a driver record no longer exists
-     * @throws StaleVersion when the roster changed between its read and its save (BR-76)
+     * @throws StaleVersion when the roster changed between its read and its save (BR-76); the web
+     *     adapter retries the call at once, up to three times, then answers 503 with {@code
+     *     Retry-After} (ADR-121)
      */
     public RosterFill fill(Actor actor, DeliveryDate date) {
         throw new UnsupportedOperationException("Built in M2");

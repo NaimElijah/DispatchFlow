@@ -14,6 +14,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  * A dispatcher discards an import preview: {@code ImportBatch.discard}, and its rows are deleted at
  * once (FR-399, NFR-31, ADR-086).
  *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
+ *
  * <p>Built in M2.
  */
 public final class DiscardOrderImport {

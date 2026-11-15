@@ -30,7 +30,9 @@ final class RestrictedTypes {
         return type.isAssignableTo(AggregateRoot.class) && !type.isEquivalentTo(AggregateRoot.class);
     }
 
-    /** Whether a type is a snapshot read under a lock: it declares a static {@code readUnderLock}. */
+    /**
+     * Whether a type is a snapshot read under a lock: it declares a static {@code readUnderLock}.
+     */
     static boolean readsUnderLock(JavaClass type) {
         return type.getMethods().stream()
                 .anyMatch(method -> method.getName().equals(READ_UNDER_LOCK)

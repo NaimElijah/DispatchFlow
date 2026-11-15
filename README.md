@@ -30,7 +30,7 @@ enterprise-scale fleets.
 > layer, not features yet.**
 > Every component builds and passes its tests with `just check`, and CI runs the same recipes on
 > every push and on every pull request into `dev` or `main`. The application layer is declared but
-> not built, and no adapter exists yet, so none of the planning capabilities can be used.
+> not built, and no adapter calls it yet, so none of the planning capabilities can be used.
 > What the system must do is in [requirements.md](docs/requirements/requirements.md); what exists
 > today and what comes next are under [Status and limitations](#status-and-limitations).
 

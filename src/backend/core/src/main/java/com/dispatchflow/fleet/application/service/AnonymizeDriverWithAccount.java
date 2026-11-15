@@ -15,9 +15,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  * server step's context, because ADR-110 audits server steps.
  *
  * <p>It follows Access's {@code AnonymizeDeactivatedAccounts}, the only raiser of the event, into
- * the same unscheduled milestone.
+ * M13.
  *
- * <p>Built in an unscheduled milestone.
+ * <p>Built in M13, with the whole nightly retention run (ADR-121).
  */
 public final class AnonymizeDriverWithAccount {
 
@@ -41,14 +41,14 @@ public final class AnonymizeDriverWithAccount {
     /**
      * Anonymizes the driver record.
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>Built in M13.
      *
      * @param event the account's anonymization
      * @param call the listener's server step
-     * @throws StaleVersion when the record changed between its read and its save; the redelivery
-     *     tries again
+     * @throws StaleVersion when the record changed between its read and its save; the listener
+     *     adapter retries at once, up to three times (ADR-120 decision 7, DL §11)
      */
     public void on(AccountAnonymized event, CallContext call) {
-        throw new UnsupportedOperationException("Built in an unscheduled milestone");
+        throw new UnsupportedOperationException("Built in M13");
     }
 }

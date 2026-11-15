@@ -12,6 +12,7 @@ import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.ProposalId;
 import com.dispatchflow.shared.VehicleId;
+import com.dispatchflow.shared.Version;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -25,7 +26,10 @@ import java.util.Objects;
  * <p>Built in M9.
  *
  * @param proposal the proposal
+ * @param version the proposal's version, which a decline sends as {@code If-Match} (BR-76)
  * @param plan the plan it would change
+ * @param planVersion the plan's version, which an accept sends in its request body, because
+ *     accepting changes the plan while the request's target is the proposal (BR-76)
  * @param job the job that computed it
  * @param basis the revision and fact time it was computed from (BR-25, BR-82)
  * @param createdAt when it was created
@@ -42,7 +46,9 @@ import java.util.Objects;
  */
 public record ProposalPreviewView(
         ProposalId proposal,
+        Version version,
         PlanId plan,
+        Version planVersion,
         JobId job,
         ProposalBasis basis,
         Instant createdAt,
@@ -60,7 +66,9 @@ public record ProposalPreviewView(
     /** Checks every part is present, and copies the lists. */
     public ProposalPreviewView {
         Objects.requireNonNull(proposal, "proposal");
+        Objects.requireNonNull(version, "version");
         Objects.requireNonNull(plan, "plan");
+        Objects.requireNonNull(planVersion, "planVersion");
         Objects.requireNonNull(job, "job");
         Objects.requireNonNull(basis, "basis");
         Objects.requireNonNull(createdAt, "createdAt");

@@ -32,9 +32,14 @@ import java.util.Optional;
  * the account isn't their own, before the account is read, so the 403 confirms no ID. On the
  * actor's own account it needs the current password instead, which it checks through {@code
  * PasswordHasher.matches} (FR-387); a wrong one counts toward the sign-in limits, in the rate-limit
- * adapter (FR-177, ADR-071). Access's domain has no error for a missing or wrong password yet; M6
- * adds it. Like every changing call it writes its audit record, a refused attempt's in its own
- * transaction (NFR-23, ADR-110).
+ * adapter (FR-177, ADR-071). Access's domain has no error for a missing or wrong password yet: M5
+ * adds the wrong-password one, with {@code SignIn}, and M6 the missing one. Like every changing
+ * call it writes its audit record, a refused attempt's in its own transaction (NFR-23, ADR-110).
+ *
+ * <p>The web adapter limits requests for an email-change link to 5 an hour per account that
+ * requests them, keyed by the signed-in actor, so no one can spend another account's limit. It
+ * counts them with Bucket4j, and answers a request over the limit 429 before it reaches this use
+ * case (FR-411, ADR-071, ADR-121).
  *
  * <p>Built in M6.
  */
@@ -93,10 +98,10 @@ public final class RequestEmailChange {
      * @param expected the version of the account the caller last read (BR-76)
      * @throws RuleViolation with {@code AccountDeactivated} or {@code AccountAnonymized} when the
      *     account is not active; {@code EmailOfAnotherAdmin} when the account holds the Admin role
-     *     and the actor is another account (FR-387); on the actor's own account, the wrong-password
-     *     refusal M6 adds when the current password is missing or wrong (FR-387); on another
-     *     account, {@code StepUpRequired} when the acting session gave its password more than 5
-     *     minutes ago, or {@code SessionRevoked} when it is revoked (NFR-214)
+     *     and the actor is another account (FR-387); on the actor's own account, the refusal M6
+     *     adds when the current password is missing, or the one M5 adds when it is wrong (FR-387);
+     *     on another account, {@code StepUpRequired} when the acting session gave its password more
+     *     than 5 minutes ago, or {@code SessionRevoked} when it is revoked (NFR-214)
      * @throws GrantLimitExceeded when the actor's roles give only the limited grant, a Dispatcher's
      *     or a Driver's "only their own", and {@code account} isn't the actor's own; checked before
      *     the account is read, so it answers alike for an ID no account has (the permission matrix)

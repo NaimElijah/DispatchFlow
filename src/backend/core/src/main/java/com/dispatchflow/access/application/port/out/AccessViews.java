@@ -47,7 +47,9 @@ public interface AccessViews {
      *
      * <p>Built in M2.
      *
-     * @return the details, or empty before the profile exists
+     * @return the details with the profile's version, which every save after the first sends as
+     *     {@code If-Match}; or empty before the profile exists, when the first save sends {@code
+     *     If-None-Match: *}
      */
     Optional<CompanyView> company();
 

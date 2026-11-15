@@ -1,6 +1,6 @@
 # ADR-052: Each plan stores the travel-time matrix and the values it was solved with
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-121
 - **Date:** 2026-11-13
 
 ## Context

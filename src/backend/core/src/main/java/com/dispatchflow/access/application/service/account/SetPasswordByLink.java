@@ -20,11 +20,26 @@ import com.dispatchflow.shared.application.StaleVersion;
  * other open link (NFR-224), and ends every session of the user (FR-345). The change moves the
  * account's generation and raises {@code SessionsRevoked}, so every token issued before is refused
  * at once (NFR-90, NFR-177); the use case evicts the account from the revocation cache after its
- * commit (ADR-045). Every active Admin is emailed when it is an Admin's password (FR-389).
+ * commit (ADR-045). Every active Admin is emailed when it is an Admin's password (FR-389): the use
+ * case reads them through {@code UserAccountRepository.activeAdminRecipients} and sends {@code
+ * EmailSender.sendAdminNotice}.
  *
  * <p>A token no account's link holds is refused as {@code UnknownLink}, the same as a token the
  * account holds no such link for, so the page learns nothing more. Like every changing call it
  * writes its audit record, a refused attempt's in its own transaction (NFR-23, ADR-110).
+ *
+ * <p><b>Refusals answered as a voided link</b> (NFR-145, NFR-224), as {@code ConfirmEmailByLink}
+ * answers them. The holder of the link must learn nothing about the account's state, so the use
+ * case catches {@code UserAccount.setPasswordByLink}'s {@code AccountDeactivated} and {@code
+ * AccountAnonymized}, writes {@code AuditLog.refused} with the domain's specific code in its own
+ * transaction (ADR-110), and then throws a {@code RuleViolation} with Access's {@code LinkVoided}
+ * in its place. A deactivation voids every unspent link (NFR-224), so for an unspent link {@code
+ * LinkVoided} is what happened to it.
+ *
+ * <p><b>Gap for M6.</b> {@code UserAccount} checks the account's state before the link's, so a
+ * spent link answers {@code LinkAlreadyUsed} on an active account and {@code LinkVoided} on a
+ * deactivated one. M6 checks the link's state first, so a spent link answers alike in every state
+ * (NFR-145).
  *
  * <p>Built in M6.
  */
@@ -80,11 +95,13 @@ public final class SetPasswordByLink {
      * @param call the call's context: no user or session, the client and the trace (ADR-110)
      * @throws RuleViolation with Access's {@code UnknownLink} when no set-password or recovery link
      *     has the token; {@code LinkAlreadyUsed}, {@code LinkVoided} or {@code LinkExpired} when
-     *     the link no longer works (NFR-211, NFR-224); {@code AccountDeactivated} or {@code
-     *     AccountAnonymized} when the account is not active; {@code PasswordHasUnpairedSurrogate},
-     *     {@code PasswordTooShort} or {@code PasswordTooCommon} for a password the policy refuses
-     *     (NFR-95)
-     * @throws StaleVersion when the account changed between its read and its save (BR-76)
+     *     the link no longer works (NFR-211, NFR-224); {@code LinkVoided} also in place of {@code
+     *     AccountDeactivated} or {@code AccountAnonymized}, when the account is not active, as
+     *     above (NFR-145); {@code PasswordHasUnpairedSurrogate}, {@code PasswordTooShort} or {@code
+     *     PasswordTooCommon} for a password the policy refuses (NFR-95)
+     * @throws StaleVersion when the account changed between its read and its save (BR-76); the web
+     *     adapter retries the call at once, up to three times, then answers 503 with {@code
+     *     Retry-After} (ADR-121)
      */
     public void set(PresentedToken token, PresentedPassword password, CallContext call) {
         throw new UnsupportedOperationException("Built in M6");

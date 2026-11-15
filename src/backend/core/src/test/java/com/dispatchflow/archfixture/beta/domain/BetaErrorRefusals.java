@@ -6,8 +6,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Stands in for a module error test: it covers some of BetaError, not BetaOnly or SlotGone. Its
- * name matches no Surefire pattern, so these tests never run. The helper named after BetaOnly is not
- * a test, so it covers nothing.
+ * name matches no Surefire pattern, so these tests never run. The helper named after BetaOnly is
+ * not a test, so it covers nothing.
  */
 public final class BetaErrorRefusals {
 

@@ -1,6 +1,8 @@
 package com.dispatchflow.access.application.service.session;
 
 import com.dispatchflow.access.application.port.out.PresentedToken;
+import com.dispatchflow.access.application.port.out.PushTokens;
+import com.dispatchflow.access.application.port.out.RevocationCache;
 import com.dispatchflow.access.application.port.out.SecretTokens;
 import com.dispatchflow.access.application.port.out.SessionRepository;
 import com.dispatchflow.access.application.port.out.TokenSigner;
@@ -20,12 +22,24 @@ import com.dispatchflow.shared.application.IdGenerator;
  * expired, superseded or reused one, a revoked session, and a session begun before its account's
  * last revocation (NFR-177). Every refresh leaves an audit record (NFR-23).
  *
- * <p><b>A version conflict.</b> Two refreshes of one session can race, as when a device retries on
- * weak signal. When the save meets a {@code StaleVersion}, the use case reloads the session and
- * exchanges the presented token once more. When the other change exchanged the same token moments
- * ago, the second exchange lands in NFR-178's 30-second grace and gets the token that replaces the
- * one the other exchange issued, revoking nothing. A second conflict answers the one refusal,
- * unsaved. So no conflict leaves this use case.
+ * <p><b>A refusal that revoked the session</b> (NFR-88). When the exchange moved the session from
+ * live to revoked, the use case stores the session through {@code
+ * SessionRepository.saveRevocation}, which takes no version, so no conflict can lose the
+ * revocation: the domain revoked it, and the save only writes it. After the commit it evicts the
+ * session from the revocation cache, in the same thread, so the next request sees it (ADR-045), and
+ * removes the session's push address through {@code PushTokens.removeFor} (NFR-263).
+ *
+ * <p><b>A version conflict.</b> A grant, or a refusal that revoked nothing, is saved with the
+ * version check. Two refreshes of one session can race, as when a device retries on weak signal.
+ * When the save meets a {@code StaleVersion}, the use case reloads the session and exchanges the
+ * presented token once more. When the other change exchanged the same token moments ago, the second
+ * exchange lands in NFR-178's 30-second grace and gets the token that replaces the one the other
+ * exchange issued, revoking nothing. A second exchange that revokes is written as above. A second
+ * conflict answers the one refusal, unsaved: only a grant or housekeeping is lost then, never a
+ * revocation. So no conflict leaves this use case.
+ *
+ * <p>The removal through {@code PushTokens} joins in M10, which builds that port; until then no
+ * session has a push address.
  *
  * <p>Built in M6.
  */
@@ -35,6 +49,8 @@ public final class RefreshSession {
     private final UserAccountRepository accounts;
     private final SecretTokens secretTokens;
     private final TokenSigner tokenSigner;
+    private final RevocationCache revocationCache;
+    private final PushTokens pushTokens;
     private final IdGenerator ids;
     private final Clock clock;
     private final AuditLog auditLog;
@@ -46,6 +62,8 @@ public final class RefreshSession {
      * @param accounts where accounts are kept
      * @param secretTokens makes refresh and link tokens, and hashes a presented one
      * @param tokenSigner signs access tokens
+     * @param revocationCache the token check's cache, evicted after a revocation
+     * @param pushTokens the push addresses of signed-in phones, a revoked session's removed
      * @param ids makes new IDs
      * @param clock the time
      * @param auditLog where the audit record is written
@@ -55,6 +73,8 @@ public final class RefreshSession {
             UserAccountRepository accounts,
             SecretTokens secretTokens,
             TokenSigner tokenSigner,
+            RevocationCache revocationCache,
+            PushTokens pushTokens,
             IdGenerator ids,
             Clock clock,
             AuditLog auditLog) {
@@ -62,6 +82,8 @@ public final class RefreshSession {
         this.accounts = accounts;
         this.secretTokens = secretTokens;
         this.tokenSigner = tokenSigner;
+        this.revocationCache = revocationCache;
+        this.pushTokens = pushTokens;
         this.ids = ids;
         this.clock = clock;
         this.auditLog = auditLog;

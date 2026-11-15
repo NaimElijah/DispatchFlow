@@ -22,11 +22,13 @@ import com.dispatchflow.shared.application.StaleVersion;
  * changed</em> with the dispatch phone, unless the stop is arrived at or has an outcome (FR-354,
  * FR-373). One transaction calls {@code StopMessages.onDeliveryChanged} for the order's stop on the
  * date it left, with the route's and the stop's progress from Live Operations' {@link
- * ArrivalProjections}, and the audit record.
+ * ArrivalProjections#progressOf}, and the audit record. The phone comes from Customers &amp; Orders'
+ * {@link RecipientContacts}, asked for the event's one order.
  *
  * <p>Planning's own listener takes the stop off the plan on the same event, so the stop may already
  * be gone from the plan when this runs; {@code RouteMembership.stopOf} finds it, and the route that
- * held it, in the stored revisions.
+ * held it, in the stored revisions. {@code progressOf} reads that route's run and the stop's
+ * delivery, whatever the plan holds now, so it answers for a stop already taken off.
  *
  * <p>Delivery is at least once (ADR-064); the message goes at most once per stop (NFR-191), so it
  * records no {@code ProcessedEvents} pair.
@@ -60,7 +62,7 @@ public final class MessageDeliveryChanged {
      * @param company Access's company profile, for the name and language
      * @param recipientContacts Customers &amp; Orders' recipient phones
      * @param routeMembership Planning's stored revisions, for the order's stop on the date and its route
-     * @param arrivalProjections Live Operations' route and stop progress
+     * @param arrivalProjections Live Operations' route and stop progress, read from its own records
      * @param clock the server's time
      * @param ids new IDs, for the message
      * @param auditLog the audit trail

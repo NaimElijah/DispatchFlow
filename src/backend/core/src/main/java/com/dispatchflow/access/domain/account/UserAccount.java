@@ -429,8 +429,9 @@ public final class UserAccount extends AggregateRoot {
      * step-up alone would let one Admin point another's address at a mailbox they control, recover
      * that account and hold both of BR-19's Admins.
      *
-     * <p>The recovery endpoint answers every refusal here as "sent", after the same work, so no
-     * caller learns the account's state (NFR-145).
+     * <p>The recovery endpoint answers every refusal here as "sent", as it answers an address no
+     * account holds, so no caller learns the account's state (NFR-145). The work behind the answer
+     * differs: only a link issued and saved is sent, and no path hashes a password.
      *
      * @param purpose what the link lets its holder do
      * @param linkId the new link's ID, which no link of the account holds

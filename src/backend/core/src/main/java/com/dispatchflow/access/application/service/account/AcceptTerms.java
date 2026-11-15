@@ -43,7 +43,9 @@ public final class AcceptTerms {
      * @throws RuleViolation with {@code AccountDeactivated} or {@code AccountAnonymized} when the
      *     account is not active
      * @throws NotFound when the actor's account no longer exists
-     * @throws StaleVersion when the account changed between its read and its save (BR-76)
+     * @throws StaleVersion when the account changed between its read and its save (BR-76); the web
+     *     adapter retries the call at once, up to three times, then answers 503 with {@code
+     *     Retry-After} (ADR-121)
      */
     public void accept(Actor actor) {
         throw new UnsupportedOperationException("Built in M6");

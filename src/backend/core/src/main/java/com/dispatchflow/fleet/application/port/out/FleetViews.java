@@ -16,7 +16,8 @@ public interface FleetViews {
      *
      * <p>Built in M2.
      *
-     * @return every depot and vehicle
+     * @return every depot and vehicle, at {@code Version.NEW} and with none before the register is
+     *     first stored
      */
     RegisterView register();
 
@@ -30,12 +31,15 @@ public interface FleetViews {
     List<DriverView> drivers();
 
     /**
-     * One date's roster (FR-54, FR-79).
+     * One date's roster (FR-54, FR-79). Each line's standing is the driver record's alone: {@code
+     * RETIRED}, {@code ANONYMIZED}, or {@code ACTIVE} for an active record, which {@code
+     * RosterQueries} turns into {@code NOT_A_DRIVER} when Access answers that the account is not an
+     * active Driver (ADR-062). The role lives in Access, so this port can't read it.
      *
      * <p>Built in M2.
      *
      * @param date the date
-     * @return the roster, empty for a date nobody rostered
+     * @return the roster, empty and at {@code Version.NEW} for a date nobody rostered
      */
     RosterView roster(DeliveryDate date);
 }

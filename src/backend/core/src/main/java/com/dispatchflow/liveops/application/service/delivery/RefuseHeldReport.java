@@ -15,7 +15,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  * A dispatcher refuses a report held for their decision, as BR-90 refuses a contradicting report
  * (BR-132, BR-135). The stop goes back to <em>arrived</em> or <em>pending</em>, or stays
  * <em>held</em> while another report is. One transaction calls {@code Delivery.refuseHeld} with the
- * audit record.
+ * audit record. Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
  *
  * <p>Built in M8. Rows: BR-132, BR-135.
  */

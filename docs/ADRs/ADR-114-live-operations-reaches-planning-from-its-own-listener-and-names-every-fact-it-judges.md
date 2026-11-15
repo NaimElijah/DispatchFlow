@@ -1,6 +1,6 @@
 # ADR-114: Live Operations reaches Planning from its own listener, and names every fact it judges
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-121
 - **Date:** 2026-11-15
 
 ## Context

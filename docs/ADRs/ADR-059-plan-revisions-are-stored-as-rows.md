@@ -1,6 +1,6 @@
 # ADR-059: Each published plan revision is stored as rows, one per stop
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-121
 - **Date:** 2026-11-14
 
 ## Context

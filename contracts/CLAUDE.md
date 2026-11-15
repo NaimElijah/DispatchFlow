@@ -41,8 +41,10 @@ Both are OpenAPI 3.1. Today `client-api`, served under `/api/v1`, declares no op
   - a new error `code` is a public name: it needs a contract entry, and Hebrew and English text with
     a next step ([ADR-043], NFR-144);
   - a validation failure lists every field or row at once ([ADR-043]);
-  - `ETag` and `If-Match`, answering 412 `STALE_VERSION` on a stale version ([ADR-057]);
-  - `Idempotency-Key` on driver reports ([ADR-087]) and position batches ([NFR-285]),
+  - `ETag` and `If-Match`, answering 412 `STALE_VERSION` on a stale `If-Match`; a call that sent no
+    version is retried, then answered 503 with `Retry-After` ([ADR-057], [ADR-121]);
+  - `Idempotency-Key` on driver reports, route starts and finishes, problem reports ([ADR-087],
+    [ADR-121]) and position batches ([NFR-285]),
     and the client headers ([ADR-082]).
 - The optimizer API is stateless: each call carries the whole problem. The travel-time matrix is
   base64 little-endian `int32` over distinct locations ([ADR-052](../docs/ADRs/ADR-052-each-plan-stores-the-matrix-and-values-it-was-solved-with.md)).
@@ -65,6 +67,7 @@ Both are OpenAPI 3.1. Today `client-api`, served under `/api/v1`, declares no op
 [ADR-073]: ../docs/ADRs/ADR-073-runtime-contract-validation.md
 [ADR-082]: ../docs/ADRs/ADR-082-supported-phone-app-versions.md
 [ADR-087]: ../docs/ADRs/ADR-087-driver-reports-sync-through-an-idempotent-outbox.md
+[ADR-121]: ../docs/ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md
 [ADR-094]: ../docs/ADRs/ADR-094-each-pull-requests-contract-check-compares-against-its-base-branch.md
 [NFR-92]: ../docs/requirements/requirements.md#nfr-92
 [NFR-134]: ../docs/requirements/requirements.md#nfr-134

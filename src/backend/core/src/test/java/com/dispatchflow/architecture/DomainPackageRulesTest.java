@@ -14,7 +14,10 @@ import com.dispatchflow.archfixture.shared.KernelValue;
 import com.tngtech.archunit.library.dependencies.Slices;
 import org.junit.jupiter.api.Test;
 
-/** Proves each package rule of ADR-118 fires on the fixture that breaks it and allows the clean ones. */
+/**
+ * Proves each package rule of ADR-118 fires on the fixture that breaks it and allows the clean
+ * ones.
+ */
 class DomainPackageRulesTest {
 
     private static final String FIXTURE_ROOT = FixtureClasses.ROOT;

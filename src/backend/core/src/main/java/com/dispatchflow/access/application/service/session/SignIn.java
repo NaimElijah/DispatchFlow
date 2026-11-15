@@ -28,9 +28,22 @@ import com.dispatchflow.shared.application.IdGenerator;
  * code goes only to {@code AuditLog.refused}, so no caller learns whether an address has an account
  * or why it can't sign in.
  *
+ * <p>Domain gap: {@code AccessError} has no code for an address no account holds or for a wrong
+ * password, which {@code AuditLog.refused} needs; M5 adds both.
+ *
  * <p>The attempt limits of NFR-35, NFR-216 and NFR-226 belong to the rate-limit adapter (ADR-071),
  * which counts typed addresses whether or not an account holds them (NFR-225). FR-299's warning is
  * read from {@code AccountQueries.me} after sign-in.
+ *
+ * <p>The access token's lifetime is configuration: NFR-86's 15 minutes. Until M6 builds refresh,
+ * the {@code dev} profile alone may set a longer lifetime, so an Alpha session outlasts 15 minutes
+ * (ADR-121). Unless {@code dev} is the only active profile, the core refuses to boot with a
+ * lifetime other than NFR-86's 15 minutes, which M5 tests. M6 deletes the dev allowance.
+ *
+ * <p>This use case replaces the stand-in session that the web adapter builds the {@code Actor} from
+ * before M5. The stand-in exists only when {@code dev} or {@code test} is the only active profile,
+ * and the core refuses to boot with it and any other profile active, which a test proves. M5
+ * deletes the stand-in (ADR-121).
  *
  * <p>Built in M5.
  */

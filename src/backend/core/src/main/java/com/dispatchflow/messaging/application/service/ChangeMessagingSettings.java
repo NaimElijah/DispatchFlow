@@ -19,7 +19,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  * or creates the settings on the first change, with the audit record (FR-186).
  *
  * <p>The change is Admin-only, so before anything else it asks Access's {@link StepUp} that the
- * acting session gave its password within the step-up window (NFR-214, ADR-068).
+ * acting session gave its password within the step-up window (NFR-214, ADR-068). Like every
+ * changing call it writes its audit record, a refused attempt's in its own transaction (NFR-23,
+ * ADR-110).
  *
  * <p>Built in M12. Rows: FR-199, FR-350, FR-375, FR-382, NFR-214.
  */

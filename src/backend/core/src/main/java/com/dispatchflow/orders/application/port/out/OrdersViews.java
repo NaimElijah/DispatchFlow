@@ -11,6 +11,7 @@ import com.dispatchflow.shared.ImportBatchId;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PhoneNumber;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -24,8 +25,10 @@ import java.util.Optional;
 public interface OrdersViews {
 
     /**
-     * Every uncancelled order of a date, with its customer's location and defaults applied (FR-15,
-     * BR-22, BR-49, BR-124).
+     * Every uncancelled order of a date, with its customer's location, its outside-service-area
+     * flag and defaults applied (FR-15, FR-320, BR-22, BR-49, BR-124). Each order's {@code
+     * placedAt} has no column to read yet: M2 adds the time the order joined its date, set by
+     * {@code place}, {@code reschedule} and a put-back to another date (BR-71).
      *
      * <p>Built in M2.
      *
@@ -47,25 +50,26 @@ public interface OrdersViews {
     OrderChanges changesSince(DeliveryDate date, Instant since);
 
     /**
-     * One order's door flag and the fields a driver sees at its stop (FR-86, FR-87, FR-135,
-     * FR-364).
+     * Orders' door flags and the fields a driver sees at their stops, in one read (FR-86, FR-87,
+     * FR-135, FR-364).
      *
      * <p>Built in M5.
      *
-     * @param order the order
-     * @return the fields, or empty when no order has the ID
+     * @param orders the orders, each once
+     * @return one answer per order found, in any order; an ID that names no order has none
      */
-    Optional<StopOrderFact> stopOrder(OrderId order);
+    List<StopOrderFact> stopOrders(List<OrderId> orders);
 
     /**
-     * One order's recipient phone and its customer's contact phone (FR-348).
+     * Orders' recipient phones and their customers' contact phones, in one read (FR-348).
      *
      * <p>Built in M12.
      *
-     * @param order the order
-     * @return both phones, each if it exists, or empty when no order has the ID
+     * @param orders the orders, each once
+     * @return one answer per order found, in any order, each with both phones where they exist; an
+     *     ID that names no order has none
      */
-    Optional<RecipientContactFact> recipientContacts(OrderId order);
+    List<RecipientContactFact> recipientContacts(List<OrderId> orders);
 
     /**
      * The customers whose name, phone or address contains a text, retired ones included and
@@ -75,9 +79,10 @@ public interface OrdersViews {
      *
      * @param text what the dispatcher typed, matched against the name, the phone in any form the
      *     dispatcher types it, and the normalized address (FR-398)
-     * @return the customers found, each once, ordered by name
+     * @param limit the most customers to answer, 1 or more
+     * @return the first {@code limit} customers found, each once, ordered by name
      */
-    List<CustomerSummary> customersMatching(String text);
+    List<CustomerSummary> customersMatching(String text, int limit);
 
     /**
      * One customer, with its orders from today on.
@@ -111,6 +116,17 @@ public interface OrdersViews {
      * @return the flagged customers, each once, ordered by name
      */
     List<FlaggedCustomer> flaggedCustomers();
+
+    /**
+     * The geocoding outbox's backlog on one Israel day: how many requests wait, and whether the
+     * day's tries reached {@value GeocodeRequests#DAILY_LOOKUPS} (NFR-135, FR-64).
+     *
+     * <p>Built in M7.
+     *
+     * @param today today in {@code Asia/Jerusalem}, whose tries the cap counts
+     * @return the backlog
+     */
+    GeocodingBacklog geocodingBacklog(LocalDate today);
 
     /**
      * Every order of a date, cancelled ones included, without their statuses, which the query

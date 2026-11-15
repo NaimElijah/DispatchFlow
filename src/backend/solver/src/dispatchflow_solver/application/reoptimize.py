@@ -22,7 +22,8 @@ class Reoptimize:
         """Holds the ports the re-optimization uses.
 
         Args:
-            solvers: The solvers, by name.
+            solvers: The service's registry, which holds only FR-20's solvers, OR-Tools and the
+                DispatchFlow solver; the baseline's solver is not in it (FR-39).
             stopwatch: Times the search for the stats.
         """
         self._solvers = solvers
@@ -36,11 +37,12 @@ class Reoptimize:
         reported stop is a fact, and a stop past its window end is a late stop, flagged and not
         refused (BR-23, BR-10, BR-107). Route stability is part of the cost (FR-37, BR-115), and
         validation runs inside the limit (NFR-119). The solver's `SearchResult.reached` goes into
-        the stats (NFR-13).
+        the stats (NFR-13), and the problem's vehicle exclusions, the withdrawn vehicles
+        included, into `Solved.excluded` (FR-197, FR-267).
 
-        It catches the `SolverError` the solver raises, failing or finding no solution within its
-        budget, and answers `Failed` as its result; no other solver is tried in its place
-        (ADR-004).
+        It catches the `SearchFailedError` the solver raises, failing or finding no solution
+        within its budget, and answers `Failed` with its kind as its result; no other solver is
+        tried in its place (ADR-004).
 
         Args:
             request: The live day's facts, and the solver, budget and seed.
@@ -53,8 +55,10 @@ class Reoptimize:
             InvalidProblemError: If an input is malformed or contradicts another, such as a
                 report timed after now.
             InvalidSolutionError: If the solver returns a solution of the wrong shape.
-            SolverError: If the registry holds no solver of that name, which is a refused request,
-                not a failed search (ADR-004).
+            UnknownSolverError: If the registry holds no solver of that name, which is a refused
+                request, not a failed search (ADR-004).
+            UnsupportedBudgetError: If the solver cannot honour the budget's kind, which is a
+                refused request too (ADR-044).
             NotImplementedError: Until M9 builds it.
         """
         raise NotImplementedError("Built in M9")

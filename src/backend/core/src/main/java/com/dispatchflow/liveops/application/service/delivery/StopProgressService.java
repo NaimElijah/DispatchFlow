@@ -18,7 +18,11 @@ import java.util.List;
  * report is not an outcome, though an arrival recorded before it counts (BR-132). A date's answer
  * takes the date's stops from Planning's {@link PublishedRoutes}.
  *
- * <p>Built in M5.
+ * <p>M2's order screens and order changes need an answer before Live Operations records any report,
+ * so M2 builds it answering <em>no report</em> for every stop: {@link StopProgressFact.NoFact} for
+ * one attempt, and no entry for a date's orders. M5 builds it in full, from the deliveries (ADR-121).
+ *
+ * <p>Built in M2, answering no report for every stop; in full in M5.
  */
 public final class StopProgressService implements StopProgress {
 
@@ -39,20 +43,20 @@ public final class StopProgressService implements StopProgress {
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M5.
+     * <p>Built in M2, answering {@link StopProgressFact.NoFact}; in full in M5.
      */
     @Override
     public StopProgressFact stateOf(OrderId order, Attempt attempt) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("Built in M2");
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M5.
+     * <p>Built in M2, answering no entry; in full in M5.
      */
     @Override
     public List<OrderStopProgress> statesOn(DeliveryDate date) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("Built in M2");
     }
 }

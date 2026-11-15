@@ -23,7 +23,15 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>The answer says at once whether the order is on a published route, so the dispatcher knows
  * the driver sees the change only after a re-optimization (FR-396). The use case learns it from
- * Planning, through the {@link OrderPlacement} port Planning implements.
+ * Planning, through the {@link OrderPlacement#placementOf} port Planning implements, asked with the
+ * order's date and current attempt.
+ *
+ * <p>Both answers are built in M2 (ADR-121): {@code placementOf} in full, and {@code StopProgress}
+ * answering no report for every stop until M5 builds it in full, so until then no change is refused
+ * as {@code StopAlreadyHasFact}.
+ *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
  *
  * <p>Built in M2.
  */

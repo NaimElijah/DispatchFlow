@@ -34,13 +34,17 @@ final class DomainPurityRules {
     private static final String KERNEL = "shared";
     private static final String DOMAIN = "domain";
     private static final String EVENTS = "events";
+    private static final String APPLICATION = "application";
     private static final String PACKAGE_INFO = "package-info";
     private static final List<String> KERNEL_LIBRARIES = List.of("com.google.i18n.phonenumbers");
     private static final List<String> DOMAIN_LIBRARIES =
             List.of("com.google.i18n.phonenumbers", "org.locationtech.jts");
     private static final List<String> ALWAYS_ALLOWED = List.of("java", "org.jspecify");
-    // M0 puts @ApplicationModule and @NamedInterface on these packages' package-info (ADR-040).
+    // M0 puts @ApplicationModule and @NamedInterface on these packages' package-info (ADR-040), and
+    // @NamedInterface alone on shared.application's (ADR-120 decision 2).
     private static final String MODULITH = "org.springframework.modulith";
+    // The fixtures' stand-in keeps the simple name, so one name serves Modulith and the stand-in.
+    private static final String NAMED_INTERFACE = "NamedInterface";
 
     // A legacy date type or a Clock is a way to read the time inside the domain.
     private static final List<String> CLOCK_TYPES = List.of(
@@ -164,7 +168,8 @@ final class DomainPurityRules {
 
     /**
      * Rule 1: the kernel, each domain and each events package depend only on what DL §3.9 and §7.3
-     * allow, with Spring Modulith's annotations allowed on their {@code package-info} only.
+     * allow, with Spring Modulith's annotations allowed on their {@code package-info} only, and on
+     * the kernel's application package-info only {@code @NamedInterface}.
      */
     static ArchRule onlyAllowedDependencies(String root) {
         return onlyAllowedDependencies(root, MODULITH);
@@ -173,7 +178,8 @@ final class DomainPurityRules {
     /**
      * Rule 1, with the package whose annotations a {@code package-info} may carry given: Spring
      * Modulith's for production, a stand-in for the fixtures, because Modulith is not on the
-     * classpath before M0.
+     * classpath before M0. Of that package, the kernel's application package-info may carry only
+     * the {@code NamedInterface} annotation.
      */
     static ArchRule onlyAllowedDependencies(String root, String moduleAnnotations) {
         return classes()
@@ -292,10 +298,13 @@ final class DomainPurityRules {
             @Override
             public void check(JavaClass item, ConditionEvents events) {
                 List<String> allowed = allowedPackages(root, moduleAnnotations, item);
+                Set<String> allowedTypes = allowedTypes(root, moduleAnnotations, item);
                 item.getDirectDependenciesFromSelf().stream()
                         .filter(dependency -> {
                             JavaClass target = baseType(dependency.getTargetClass());
-                            return !target.isPrimitive() && !isInAny(target.getPackageName(), allowed);
+                            return !target.isPrimitive()
+                                    && !isInAny(target.getPackageName(), allowed)
+                                    && !allowedTypes.contains(target.getName());
                         })
                         .forEach(dependency ->
                                 events.add(SimpleConditionEvent.violated(dependency, dependency.getDescription())));
@@ -307,16 +316,18 @@ final class DomainPurityRules {
      * The packages one class may depend on, from where it lives: {@code <root>.shared...}, {@code
      * <root>.<module>.domain...} or {@code <root>.<module>.events...}. A {@code package-info} of a
      * domain or events package, or of the kernel's own package (a module root), may also carry the
-     * module annotations.
+     * module annotations; the kernel's application package-info takes one of them only, through
+     * {@link #allowedTypes}.
      */
     private static List<String> allowedPackages(String root, String moduleAnnotations, JavaClass item) {
-        String[] segments = item.getPackageName().substring(root.length() + 1).split("\\.");
+        String[] segments = segmentsBelow(root, item);
         List<String> allowed = new ArrayList<>(ALWAYS_ALLOWED);
         allowed.add(root + "." + KERNEL);
         boolean packageInfo = item.getSimpleName().equals(PACKAGE_INFO);
         if (segments[0].equals(KERNEL)) {
             allowed.addAll(KERNEL_LIBRARIES);
-            if (packageInfo && segments.length == 1) {
+            boolean kernelRoot = segments.length == 1;
+            if (packageInfo && kernelRoot) {
                 allowed.add(moduleAnnotations);
             }
             return allowed;
@@ -331,6 +342,27 @@ final class DomainPurityRules {
             allowed.add(moduleAnnotations);
         }
         return allowed;
+    }
+
+    /**
+     * The single types one class may depend on beyond {@link #allowedPackages}: the kernel's
+     * application package-info may carry {@code @NamedInterface}, which makes it a named interface
+     * of the kernel (ADR-120 decision 2), and no other module annotation, since it is no module.
+     */
+    private static Set<String> allowedTypes(String root, String moduleAnnotations, JavaClass item) {
+        String[] segments = segmentsBelow(root, item);
+        boolean kernelApplication =
+                segments.length == 2 && segments[0].equals(KERNEL) && segments[1].equals(APPLICATION);
+        return kernelApplication && item.getSimpleName().equals(PACKAGE_INFO)
+                ? Set.of(moduleAnnotations + "." + NAMED_INTERFACE)
+                : Set.of();
+    }
+
+    /**
+     * The class's package segments below the root, such as {@code shared} and {@code application}.
+     */
+    private static String[] segmentsBelow(String root, JavaClass item) {
+        return item.getPackageName().substring(root.length() + 1).split("\\.");
     }
 
     private static ArchCondition<JavaClass> notAccess(String description, Predicate<JavaAccess<?>> forbidden) {

@@ -9,6 +9,12 @@
  * com.dispatchflow.planning.application.port.out.LiveUpdates} the screens follow, and the read port
  * {@link com.dispatchflow.planning.application.port.out.PlanningViews} with its view records.
  *
+ * <p>An outside system that fails throws a named, unchecked port error, one per system: {@link
+ * com.dispatchflow.planning.application.port.out.RoadNetworkUnavailable} for the road network, and
+ * {@link com.dispatchflow.planning.application.port.out.OptimizerUnavailable} or {@link
+ * com.dispatchflow.planning.application.port.out.OptimizerRefusedRequest} for the optimizer. They sit
+ * here because the ports of several aggregates throw them.
+ *
  * <p>The ports of one aggregate sit in its subpackage: {@code plan}, {@code solvejob}, {@code
  * proposal} and {@code settings} (ADR-118's rule). This root imports none of them. The read port
  * sits here, with every view it returns, because the query classes of every aggregate read it.

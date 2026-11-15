@@ -5,16 +5,19 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * A date's orders, as Planning and Live Operations read them (DL §2.2, BR-22, ADR-109).
- * Each answer is read now; the caller translates it into its own values (DL §2.3 rule 1).
+ * A date's orders, as Planning and Live Operations read them (DL §2.2, BR-22). Each answer is read
+ * now; the caller translates it into its own values (DL §2.3 rule 1).
  *
  * <p>Built in M2 and M9, method by method.
  */
 public interface OrdersForDate {
 
     /**
-     * Every uncancelled order of a date: what a solve, a publication and Live Operations' projections
-     * read (FR-15, BR-22, BR-71, ADR-067).
+     * Every uncancelled order of a date: what a solve and a publication read, and what Live
+     * Operations takes for its live map and for Navigate, the orders' locations and last change
+     * times alone (FR-15, FR-325, FR-397, BR-22, BR-71). Each order's {@code
+     * placedAt} has no source yet: M2 adds the time the order joined its date, set by {@code
+     * place}, {@code reschedule} and a put-back to another date (BR-71).
      *
      * <p>Built in M2.
      *

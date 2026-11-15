@@ -21,16 +21,17 @@ import com.dispatchflow.shared.application.StaleVersion;
  * (FR-73, FR-257, FR-368). It needs no proof (FR-367) and no entitlement, starts no route run, and
  * overtakes every held report, each shown to the dispatcher (BR-134, ADR-107).
  *
- * <p>Outside calls first: Planning's {@link PublishedRoutes} for the route's stop, order and attempt
- * and its plan, and Customers &amp; Orders' {@link StopOrders} for the door flag. Then one
- * transaction calls {@code Delivery.recordOnBehalf}, creating the delivery on its first fact, with an
- * alert per overtaken held report and the audit record. Its {@code OutcomeRecorded} reconciles the
- * plan (DL §8).
+ * <p>Outside calls first: Planning's {@link PublishedRoutes} for the route's stop, order and
+ * attempt and its plan with its date, which each alert is stored with, and Customers &amp; Orders'
+ * {@link StopOrders} for the door flag. Then one transaction calls {@code Delivery.recordOnBehalf},
+ * creating the delivery on its first fact, with an alert per overtaken held report and the audit
+ * record. Its {@code OutcomeRecorded} reconciles the plan (DL §8). Like every changing call it
+ * writes its audit record, a refused attempt's in its own transaction (NFR-23, ADR-110).
  *
  * <p>For each alert it raises, it calls {@link PushNotifier#alertStaff} after the commit, so a
  * staff phone app in the background learns of it (FR-405, ADR-083).
  *
- * <p>Built in M8. Rows: FR-73, FR-257, FR-368, BR-134.
+ * <p>Built in M8; the push through {@link PushNotifier} in M10. Rows: FR-73, FR-257, FR-368, BR-134.
  */
 public final class RecordOutcomeOnBehalf {
 
@@ -81,7 +82,7 @@ public final class RecordOutcomeOnBehalf {
     /**
      * Records the outcome, counting from now.
      *
-     * <p>Built in M8.
+     * <p>Built in M8; the push in M10.
      *
      * @param actor the dispatcher
      * @param stop the stop
@@ -91,7 +92,9 @@ public final class RecordOutcomeOnBehalf {
      *     NotALeaveAtDoorOrder}, then {@code SameOutcomeAlreadyRecorded} or {@code
      *     OutcomeAlreadyRecorded} (BR-18)
      * @throws NotFound when no plan in force holds the route, or the route doesn't hold the stop
-     * @throws StaleVersion when another writer saved the stop's delivery meanwhile
+     * @throws StaleVersion when another writer saved the stop's delivery meanwhile; the web adapter
+     *     retries the call at once, up to three times, then answers 503 with {@code Retry-After}
+     *     (ADR-121)
      */
     public void record(Actor actor, StopId stop, RouteId route, DispatcherOutcome outcome) {
         throw new UnsupportedOperationException("Built in M8");

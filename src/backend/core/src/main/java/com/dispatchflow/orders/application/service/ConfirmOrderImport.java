@@ -29,6 +29,9 @@ import java.util.List;
  * request for each new customer (FR-12, FR-311). A Windows-1255 file needs the dispatcher's
  * confirmation of the decoded preview (FR-313).
  *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
+ *
  * <p>Built in M2.
  */
 public final class ConfirmOrderImport {
