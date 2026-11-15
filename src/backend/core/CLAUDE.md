@@ -112,10 +112,11 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
      own module's `domain`, `events` and `application`, and other modules' `api` and `events`.
      Another module's `spi` interface is allowed only to the module that owns it and to the
      implementer that `SPI_IMPLEMENTERS` names, and the records beside it to any module that implements
-     one of that owner's interfaces. They import no `adapter`, their own module's included, and no libphonenumber or JTS. From
-     Spring they take only `@Transactional` and its enums ([TS §2.2]); Spring Modulith's
-     annotations sit on a `package-info` only. `shared/application/` also falls under the kernel's
-     purity rules, so it takes no `@Transactional`.
+     one of that owner's interfaces. They import no `adapter`, their own module's included, and no
+     libphonenumber or JTS. From Spring they take only `@Transactional` and its enums ([TS §2.2]);
+     Spring Modulith's annotations sit on a `package-info` only. `shared/application/` also falls
+     under the kernel's purity rules, so it takes no `@Transactional`, and its `package-info` may
+     carry `@NamedInterface` and no other Modulith annotation ([ADR-121]).
   2. Modules depend on each other along [DL §2.1]'s arrows and no others.
   3. No `api` or `spi` type uses a domain type.
   4. Each `api` interface `X` has exactly one implementation, `XService`, under its own module's
@@ -131,8 +132,9 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
      none of their own subpackages ([ADR-118]'s rules, carried to the application). A test checks
      that `MODULE_GRAPH` has no cycle.
   8. No class of `reporting`, its adapters included, uses a class of `liveops`, `planning` or
-     `orders` outside their `events` ([ADR-120] P5: Reporting reads them through the views they
-     publish).
+     `orders` outside their `events`, or any of Access's `api` but `Actor` and `ActorRole`
+     (`REPORTING_NARROWED_APIS`; [ADR-120] P5: Reporting reads them through the views they publish;
+     [ADR-121]).
 - Package rules (`DomainPackageRules`, [ADR-118]): no cycle between a module's domain packages, a
   domain root that imports none of its own subpackages, and every kernel, domain and `events`
   package is `@NullMarked`. A module's domain never gets a subpackage to dodge a rule: nothing is
