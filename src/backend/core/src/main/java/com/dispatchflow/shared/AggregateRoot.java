@@ -12,8 +12,9 @@ import java.util.function.Function;
  * keyed differently: most by a typed ID, some by another ID or a date, and singletons by nothing.
  *
  * <p>An instance is saved once: the repository saves it at {@code version().next()} and publishes
- * {@link #pullEvents()} in the same transaction. To change it again, reload it. The one save that
- * doesn't move the version is {@code Session.recordContact}, which raises no event (DL §4.1).
+ * {@link #pullEvents()} in the same transaction. To change it again, reload it. A save that only
+ * keeps bookkeeping no business rule reads, and raises no event, may leave the version where it is,
+ * as a session's contact times do (DL §4.1).
  */
 public abstract class AggregateRoot {
 

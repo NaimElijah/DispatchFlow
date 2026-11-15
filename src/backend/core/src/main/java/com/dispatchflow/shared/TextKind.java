@@ -6,20 +6,22 @@ package com.dispatchflow.shared;
  */
 public enum TextKind {
     /** A person's, customer's, vehicle's or depot's name, or another short field. */
-    NAME(100, false, false),
+    NAME(100, false, false, false),
     /** An address as typed. */
-    ADDRESS(200, false, false),
+    ADDRESS(200, false, false, false),
     /** A note for a driver or a free comment, which may run over several lines. */
-    NOTE(500, true, true);
+    NOTE(500, true, true, true);
 
     private final int maxLength;
     private final boolean allowsLineFeed;
     private final boolean allowsFormatCharacters;
+    private final boolean allowsInvisibleFillers;
 
-    TextKind(int maxLength, boolean allowsLineFeed, boolean allowsFormatCharacters) {
+    TextKind(int maxLength, boolean allowsLineFeed, boolean allowsFormatCharacters, boolean allowsInvisibleFillers) {
         this.maxLength = maxLength;
         this.allowsLineFeed = allowsLineFeed;
         this.allowsFormatCharacters = allowsFormatCharacters;
+        this.allowsInvisibleFillers = allowsInvisibleFillers;
     }
 
     /**
@@ -53,5 +55,18 @@ public enum TextKind {
      */
     public boolean allowsFormatCharacters() {
         return allowsFormatCharacters;
+    }
+
+    /**
+     * Whether text of this kind may hold, inside it, the invisible fillers that are not format
+     * characters: the combining grapheme joiner (U+034F), the Hangul fillers (U+115F, U+1160,
+     * U+3164, U+FFA0) and the blank Braille pattern (U+2800). In a name or an address one would
+     * make two values look alike (BR-48, ADR-111). Every kind trims them from its ends, and none
+     * refuses a variation selector, which emoji need.
+     *
+     * @return {@code true} for {@link #NOTE} only
+     */
+    public boolean allowsInvisibleFillers() {
+        return allowsInvisibleFillers;
     }
 }

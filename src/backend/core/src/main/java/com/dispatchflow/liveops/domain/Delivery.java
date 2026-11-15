@@ -25,6 +25,7 @@ import com.dispatchflow.liveops.events.OutcomeRecorded;
 import com.dispatchflow.liveops.events.PutBackSuperseded;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.AggregateRoot;
+import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.RouteId;

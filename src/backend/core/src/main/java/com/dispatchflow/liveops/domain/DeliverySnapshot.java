@@ -1,6 +1,7 @@
 package com.dispatchflow.liveops.domain;
 
 import com.dispatchflow.shared.AccountId;
+import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.RouteId;

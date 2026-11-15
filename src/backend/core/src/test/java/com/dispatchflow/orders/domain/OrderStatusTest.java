@@ -5,6 +5,7 @@ import static com.dispatchflow.orders.domain.OrdersTestData.NOW;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dispatchflow.orders.domain.Placement.PlanStanding;
+import com.dispatchflow.shared.Attempt;
 import java.util.stream.Stream;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;

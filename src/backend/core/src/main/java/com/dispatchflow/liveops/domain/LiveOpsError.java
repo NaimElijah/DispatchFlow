@@ -2,6 +2,7 @@ package com.dispatchflow.liveops.domain;
 
 import com.dispatchflow.liveops.events.OutcomeKind;
 import com.dispatchflow.shared.AlertId;
+import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.DomainError;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;

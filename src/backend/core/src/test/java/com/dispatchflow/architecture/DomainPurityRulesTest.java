@@ -25,6 +25,7 @@ import com.dispatchflow.archfixture.alpha.domain.DependsOnItsApplication;
 import com.dispatchflow.archfixture.alpha.domain.GeneratesARandomUuid;
 import com.dispatchflow.archfixture.alpha.domain.GeneratesARandomUuidByReference;
 import com.dispatchflow.archfixture.alpha.domain.HoldsAClock;
+import com.dispatchflow.archfixture.alpha.domain.LoadsAResourceBundle;
 import com.dispatchflow.archfixture.alpha.domain.LogsWithJul;
 import com.dispatchflow.archfixture.alpha.domain.LogsWithSlf4j;
 import com.dispatchflow.archfixture.alpha.domain.LogsWithTheSystemLogger;
@@ -36,18 +37,25 @@ import com.dispatchflow.archfixture.alpha.domain.ReadsCurrentTimeMillis;
 import com.dispatchflow.archfixture.alpha.domain.ReadsInstantNow;
 import com.dispatchflow.archfixture.alpha.domain.ReadsInstantNowByReference;
 import com.dispatchflow.archfixture.alpha.domain.ReadsLocalDateNow;
+import com.dispatchflow.archfixture.alpha.domain.ReadsNanoTime;
 import com.dispatchflow.archfixture.alpha.domain.ReadsTheDateFromAChronology;
+import com.dispatchflow.archfixture.alpha.domain.ReadsTheDefaultLocale;
+import com.dispatchflow.archfixture.alpha.domain.ReadsTheDefaultLocaleOfACategory;
 import com.dispatchflow.archfixture.alpha.domain.ReadsTheDefaultTimeZone;
 import com.dispatchflow.archfixture.alpha.domain.ReadsTheDefaultZone;
 import com.dispatchflow.archfixture.alpha.domain.ReadsTheDefaultZoneThroughZoneOffset;
 import com.dispatchflow.archfixture.alpha.domain.ReadsTheEnvironment;
+import com.dispatchflow.archfixture.alpha.domain.ReadsTheJvmsManagement;
 import com.dispatchflow.archfixture.alpha.domain.ReadsTheSystemClock;
+import com.dispatchflow.archfixture.alpha.domain.SetsTheDefaultLocale;
 import com.dispatchflow.archfixture.alpha.domain.ShufflesAList;
+import com.dispatchflow.archfixture.alpha.domain.SleepsTheThread;
 import com.dispatchflow.archfixture.alpha.domain.StartsAProcess;
 import com.dispatchflow.archfixture.alpha.domain.UsesACalendar;
 import com.dispatchflow.archfixture.alpha.domain.UsesALegacyDate;
 import com.dispatchflow.archfixture.alpha.domain.UsesARandomGenerator;
 import com.dispatchflow.archfixture.alpha.domain.UsesMathRandom;
+import com.dispatchflow.archfixture.alpha.domain.UsesPreferences;
 import com.dispatchflow.archfixture.alpha.domain.UsesRandom;
 import com.dispatchflow.archfixture.alpha.domain.UsesThreadLocalRandom;
 import com.dispatchflow.archfixture.alpha.events.AlphaEventKind;
@@ -69,9 +77,9 @@ import com.dispatchflow.archfixture.planning.domain.Evaluation;
 import com.dispatchflow.archfixture.planning.domain.ValidationReport;
 import com.dispatchflow.archfixture.shared.KernelCreatesAnIllegalArgument;
 import com.dispatchflow.archfixture.shared.KernelDependsOnAModule;
+import com.dispatchflow.archfixture.shared.KernelDependsOnJts;
 import com.dispatchflow.archfixture.shared.KernelValue;
 import com.tngtech.archunit.core.domain.JavaClasses;
-import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.lang.ArchRule;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -86,12 +94,11 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 class DomainPurityRulesTest {
 
-    private static final String FIXTURE_ROOT = "com.dispatchflow.archfixture";
+    private static final String FIXTURE_ROOT = FixtureClasses.ROOT;
     private static final String FIXTURE_MODULE_ANNOTATIONS = NamedInterface.class.getPackageName();
 
     private static boolean flags(ArchRule rule, Class<?>... fixtures) {
-        JavaClasses imported = new ClassFileImporter().importClasses(fixtures);
-        return rule.evaluate(imported).hasViolation();
+        return rule.evaluate(FixtureClasses.only(fixtures)).hasViolation();
     }
 
     private static ArchRule rule1() {
@@ -109,6 +116,7 @@ class DomainPurityRulesTest {
                 EventDependsOnAnotherModulesEvents.class,
                 EventDependsOnLibphonenumber.class,
                 KernelDependsOnAModule.class,
+                KernelDependsOnJts.class,
                 AnnotatedWithModulith.class
             })
     void GivenAForbiddenDependency_WhenRule1Evaluates_ThenItIsFlagged(Class<?> fixture) {
@@ -123,7 +131,7 @@ class DomainPurityRulesTest {
 
     @Test
     void GivenModuleAnnotationsOnPackageInfos_WhenRule1Evaluates_ThenNothingIsFlagged() {
-        JavaClasses gamma = new ClassFileImporter().importPackages(FIXTURE_ROOT + ".gamma");
+        JavaClasses gamma = FixtureClasses.inPackage("gamma");
 
         assertThat(gamma.stream().map(type -> type.getSimpleName())).contains("package-info");
         assertThat(rule1().evaluate(gamma).hasViolation()).isFalse();
@@ -131,7 +139,7 @@ class DomainPurityRulesTest {
 
     @Test
     void GivenAnotherFrameworksAnnotationOnADomainPackageInfo_WhenRule1Evaluates_ThenItIsFlagged() {
-        JavaClasses delta = new ClassFileImporter().importPackages(FIXTURE_ROOT + ".delta");
+        JavaClasses delta = FixtureClasses.inPackage("delta");
 
         assertThat(delta.stream().map(type -> type.getSimpleName())).containsExactly("package-info");
         assertThat(rule1().evaluate(delta).hasViolation()).isTrue();
@@ -145,6 +153,8 @@ class DomainPurityRulesTest {
                 ReadsLocalDateNow.class,
                 ReadsTheSystemClock.class,
                 ReadsCurrentTimeMillis.class,
+                ReadsNanoTime.class,
+                SleepsTheThread.class,
                 UsesALegacyDate.class,
                 UsesACalendar.class,
                 ReadsTheDefaultZone.class,
@@ -194,7 +204,13 @@ class DomainPurityRulesTest {
                 OpensASocket.class,
                 PrintsToStandardOut.class,
                 ReadsTheEnvironment.class,
-                StartsAProcess.class
+                StartsAProcess.class,
+                UsesPreferences.class,
+                ReadsTheJvmsManagement.class,
+                LoadsAResourceBundle.class,
+                ReadsTheDefaultLocale.class,
+                ReadsTheDefaultLocaleOfACategory.class,
+                SetsTheDefaultLocale.class
             })
     void GivenIo_WhenRule4Evaluates_ThenItIsFlagged(Class<?> fixture) {
         assertThat(flags(DomainPurityRules.noIo(FIXTURE_ROOT), fixture)).isTrue();

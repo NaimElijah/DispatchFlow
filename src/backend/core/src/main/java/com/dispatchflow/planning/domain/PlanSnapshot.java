@@ -1,6 +1,7 @@
 package com.dispatchflow.planning.domain;
 
 import com.dispatchflow.shared.AccountId;
+import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.DaySeconds;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.OrderId;

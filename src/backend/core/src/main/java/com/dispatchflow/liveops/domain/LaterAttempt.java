@@ -1,6 +1,7 @@
 package com.dispatchflow.liveops.domain;
 
 import com.dispatchflow.liveops.events.OutcomeKind;
+import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.StopId;
 import java.util.Objects;

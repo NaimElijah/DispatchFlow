@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dispatchflow.planning.domain.PlanningError.ProposalAlreadyDeclined;
+import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.StoredStateInvalid;
 import java.util.List;
 import org.junit.jupiter.api.Test;

@@ -49,6 +49,7 @@ import com.dispatchflow.planning.events.RevisionCause;
 import com.dispatchflow.planning.events.RouteHandedOver;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.AggregateRoot;
+import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.DaySeconds;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.FreshIds;

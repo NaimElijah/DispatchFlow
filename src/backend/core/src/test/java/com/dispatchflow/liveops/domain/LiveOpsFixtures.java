@@ -3,6 +3,7 @@ package com.dispatchflow.liveops.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dispatchflow.shared.AccountId;
+import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.DomainAssertions;
 import com.dispatchflow.shared.DomainError;

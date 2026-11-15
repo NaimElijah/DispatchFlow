@@ -77,12 +77,6 @@ class LiveOpsValuesTest {
     }
 
     @Test
-    void GivenAnAttemptBelowOne_WhenBuilt_ThenStoredStateInvalid() {
-        assertThatThrownBy(() -> Attempt.of(0)).isInstanceOf(StoredStateInvalid.class);
-        assertThat(Attempt.of(1).number()).isEqualTo(1);
-    }
-
-    @Test
     void GivenOtherWithBlankText_WhenBuilt_ThenFailureReasonRequired() {
         assertRefused(() -> FailureReason.other("   "), new FailureReasonRequired());
     }

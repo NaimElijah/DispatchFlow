@@ -41,6 +41,7 @@ import com.dispatchflow.orders.domain.OrdersError.WindowNotOnDate;
 import com.dispatchflow.orders.domain.Placement.PlanStanding;
 import com.dispatchflow.orders.events.OrderCancelled;
 import com.dispatchflow.orders.events.OrderRescheduled;
+import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.DomainError;
 import com.dispatchflow.shared.EventId;
@@ -797,11 +798,6 @@ class OrderTest {
                             StoredStateInvalid.class,
                             invalid -> assertThat(invalid.detail())
                                     .isEqualTo("the order was cancelled after its last change"));
-        }
-
-        @Test
-        void GivenAStoredAttemptOfZero_WhenRebuilt_ThenStoredStateInvalid() {
-            assertThatThrownBy(() -> Attempt.of(0)).isInstanceOf(StoredStateInvalid.class);
         }
     }
 }

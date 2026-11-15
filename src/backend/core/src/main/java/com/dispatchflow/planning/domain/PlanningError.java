@@ -2,6 +2,7 @@ package com.dispatchflow.planning.domain;
 
 import com.dispatchflow.planning.events.Lane;
 import com.dispatchflow.shared.AccountId;
+import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.DomainError;
 import com.dispatchflow.shared.JobId;
@@ -414,13 +415,6 @@ public sealed interface PlanningError extends DomainError {
      * @param violations how many violations it found
      */
     record SolutionRejected(int violations) implements PlanningError {}
-
-    /**
-     * An attempt number below 1 (FR-258).
-     *
-     * @param attempt the refused number
-     */
-    record InvalidAttempt(int attempt) implements PlanningError {}
 
     /** A rule code that is not a requirement row's ID, such as {@code BR-03} (ADR-101). */
     record MalformedRuleCode() implements PlanningError {}

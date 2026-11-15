@@ -49,6 +49,7 @@ import com.dispatchflow.planning.domain.PlanningError.RouteLocked;
 import com.dispatchflow.planning.domain.PlanningError.SolveQueueFull;
 import com.dispatchflow.planning.domain.PlanningError.VehicleAlreadyHasRoute;
 import com.dispatchflow.planning.events.Lane;
+import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.RouteId;

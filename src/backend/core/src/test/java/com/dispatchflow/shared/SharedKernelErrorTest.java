@@ -22,6 +22,7 @@ class SharedKernelErrorTest {
         assertThat(codes)
                 .containsExactly(
                         "DATE_OUT_OF_RANGE",
+                        "INVALID_ATTEMPT",
                         "INVALID_COORDINATES",
                         "INVALID_PHONE_NUMBER",
                         "INVALID_TIME_WINDOW",

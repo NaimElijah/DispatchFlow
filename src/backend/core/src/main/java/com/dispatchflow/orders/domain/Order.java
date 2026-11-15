@@ -14,6 +14,7 @@ import com.dispatchflow.orders.domain.OrdersError.WindowNotOnDate;
 import com.dispatchflow.orders.events.OrderCancelled;
 import com.dispatchflow.orders.events.OrderRescheduled;
 import com.dispatchflow.shared.AggregateRoot;
+import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.CustomerId;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.DomainError;

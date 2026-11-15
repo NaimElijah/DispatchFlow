@@ -1,5 +1,7 @@
 package com.dispatchflow.orders.domain;
 
+import com.dispatchflow.shared.Attempt;
+
 /**
  * An order's status, derived and never stored (BR-33, DL §9.6). It has three owners: the order says
  * whether it is cancelled, Planning where the current attempt is placed, and Live Operations what

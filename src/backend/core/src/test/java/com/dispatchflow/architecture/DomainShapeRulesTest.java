@@ -8,7 +8,6 @@ import com.dispatchflow.archfixture.alpha.domain.AlphaCapacity;
 import com.dispatchflow.archfixture.alpha.domain.AlphaError;
 import com.dispatchflow.archfixture.alpha.domain.AlphaRecord;
 import com.dispatchflow.archfixture.alpha.domain.CleanError;
-import com.dispatchflow.archfixture.alpha.domain.Contact;
 import com.dispatchflow.archfixture.alpha.domain.ContactName;
 import com.dispatchflow.archfixture.alpha.domain.ErrorInheritingAText;
 import com.dispatchflow.archfixture.alpha.domain.ErrorWithAContact;
@@ -31,17 +30,15 @@ import com.dispatchflow.archfixture.alpha.domain.ErrorWithItsOwnCode;
 import com.dispatchflow.archfixture.alpha.domain.ErrorWithPlainText;
 import com.dispatchflow.archfixture.alpha.domain.ErrorWithRecipients;
 import com.dispatchflow.archfixture.alpha.domain.EventOutsideEvents;
-import com.dispatchflow.archfixture.alpha.domain.LinkedCode;
-import com.dispatchflow.archfixture.alpha.domain.Name;
 import com.dispatchflow.archfixture.alpha.domain.OpenError;
-import com.dispatchflow.archfixture.alpha.domain.Recipient;
-import com.dispatchflow.archfixture.alpha.domain.Recipients;
-import com.dispatchflow.archfixture.alpha.domain.RuleCode;
 import com.dispatchflow.archfixture.alpha.domain.SnapshotRecordWithReadUnderLock;
 import com.dispatchflow.archfixture.alpha.domain.UnredactedContactName;
 import com.dispatchflow.archfixture.alpha.domain.UnredactedNote;
 import com.dispatchflow.archfixture.alpha.events.CleanEvent;
 import com.dispatchflow.archfixture.alpha.events.EventInheritingAText;
+import com.dispatchflow.archfixture.alpha.events.EventWithABoxedFlag;
+import com.dispatchflow.archfixture.alpha.events.EventWithABoxedNumber;
+import com.dispatchflow.archfixture.alpha.events.EventWithABoxedTotal;
 import com.dispatchflow.archfixture.alpha.events.EventWithAContactName;
 import com.dispatchflow.archfixture.alpha.events.EventWithAListOfText;
 import com.dispatchflow.archfixture.alpha.events.EventWithALocation;
@@ -57,8 +54,6 @@ import com.dispatchflow.archfixture.alpha.events.Reported;
 import com.dispatchflow.archfixture.planning.domain.Evaluation;
 import com.dispatchflow.archfixture.planning.domain.ValidatedSolution;
 import com.dispatchflow.archfixture.planning.domain.ValidationReport;
-import com.tngtech.archunit.core.domain.JavaClasses;
-import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.lang.ArchRule;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -67,11 +62,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 /** Proves each shape rule fires on the fixture that breaks it and allows the clean ones. */
 class DomainShapeRulesTest {
 
-    private static final String FIXTURE_ROOT = "com.dispatchflow.archfixture";
+    private static final String FIXTURE_ROOT = FixtureClasses.ROOT;
 
-    private static boolean flags(ArchRule rule, Class<?> fixture) {
-        JavaClasses imported = new ClassFileImporter().importClasses(fixture);
-        return rule.evaluate(imported).hasViolation();
+    private static boolean flags(ArchRule rule, Class<?>... fixtures) {
+        return rule.evaluate(FixtureClasses.only(fixtures)).hasViolation();
     }
 
     @ParameterizedTest
@@ -131,7 +125,10 @@ class DomainShapeRulesTest {
                 EventWithARuleViolation.class,
                 EventInheritingAText.class,
                 EventWithAContactName.class,
-                EventWithAPersonalEnum.class
+                EventWithAPersonalEnum.class,
+                EventWithABoxedNumber.class,
+                EventWithABoxedTotal.class,
+                EventWithABoxedFlag.class
             })
     void GivenAnEventFieldOfAForbiddenType_WhenEvaluated_ThenItIsFlagged(Class<?> fixture) {
         assertThat(flags(DomainShapeRules.eventFieldsAreClosed(FIXTURE_ROOT), fixture))
@@ -176,55 +173,30 @@ class DomainShapeRulesTest {
     }
 
     /**
-     * The rule looks inside field types, so the types it looks into are imported with the error, as
-     * the whole-root import of the production check imports them.
+     * The rule looks inside field types. The one fixture import holds those types fully, as the
+     * production check's whole-root import does, so the error alone is evaluated.
      */
     @Test
     void GivenPersonalDataInsideAnUnmarkedWrapper_WhenEvaluated_ThenTheErrorIsFlagged() {
-        JavaClasses imported =
-                new ClassFileImporter().importClasses(ErrorWithAContact.class, Contact.class, ContactName.class);
-
-        assertThat(DomainShapeRules.errorParametersCarryNoPersonalData(FIXTURE_ROOT)
-                        .evaluate(imported)
-                        .hasViolation())
+        assertThat(flags(DomainShapeRules.errorParametersCarryNoPersonalData(FIXTURE_ROOT), ErrorWithAContact.class))
                 .isTrue();
     }
 
     @Test
     void GivenPersonalValuesInAnArrayInsideAWrapper_WhenEvaluated_ThenTheErrorIsFlagged() {
-        JavaClasses imported =
-                new ClassFileImporter().importClasses(ErrorWithRecipients.class, Recipients.class, Name.class);
-
-        assertThat(DomainShapeRules.errorParametersCarryNoPersonalData(FIXTURE_ROOT)
-                        .evaluate(imported)
-                        .hasViolation())
+        assertThat(flags(DomainShapeRules.errorParametersCarryNoPersonalData(FIXTURE_ROOT), ErrorWithRecipients.class))
                 .isTrue();
     }
 
     @Test
     void GivenASealedTypeWhoseVariantHoldsAPersonalValue_WhenEvaluated_ThenTheErrorIsFlagged() {
-        JavaClasses imported = new ClassFileImporter()
-                .importClasses(
-                        ErrorWithARecipient.class,
-                        Recipient.class,
-                        Recipient.Named.class,
-                        Recipient.Anonymous.class,
-                        Name.class);
-
-        assertThat(DomainShapeRules.errorParametersCarryNoPersonalData(FIXTURE_ROOT)
-                        .evaluate(imported)
-                        .hasViolation())
+        assertThat(flags(DomainShapeRules.errorParametersCarryNoPersonalData(FIXTURE_ROOT), ErrorWithARecipient.class))
                 .isTrue();
     }
 
     @Test
     void GivenAValueThatRefersToItsOwnType_WhenEvaluated_ThenTheSearchEndsAndNothingIsFlagged() {
-        JavaClasses imported =
-                new ClassFileImporter().importClasses(ErrorWithALinkedCode.class, LinkedCode.class, RuleCode.class);
-
-        assertThat(DomainShapeRules.errorParametersCarryNoPersonalData(FIXTURE_ROOT)
-                        .evaluate(imported)
-                        .hasViolation())
+        assertThat(flags(DomainShapeRules.errorParametersCarryNoPersonalData(FIXTURE_ROOT), ErrorWithALinkedCode.class))
                 .isFalse();
     }
 

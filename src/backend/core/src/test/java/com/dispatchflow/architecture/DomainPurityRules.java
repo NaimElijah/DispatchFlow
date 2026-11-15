@@ -2,7 +2,6 @@ package com.dispatchflow.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 
-import com.dispatchflow.shared.AggregateRoot;
 import com.tngtech.archunit.core.domain.AccessTarget;
 import com.tngtech.archunit.core.domain.JavaAccess;
 import com.tngtech.archunit.core.domain.JavaClass;
@@ -45,6 +44,8 @@ final class DomainPurityRules {
     private static final List<String> CLOCK_TYPES = List.of(
             "java.util.Date", "java.util.Calendar", "java.util.TimeZone", "java.time.Clock", "java.time.InstantSource");
 
+    // java.util.prefs reads and writes stored preferences, and java.lang.management reads the
+    // running process.
     private static final List<String> IO_PACKAGES = List.of(
             "java.io",
             "java.nio.file",
@@ -53,14 +54,23 @@ final class DomainPurityRules {
             "java.sql",
             "javax.sql",
             "java.rmi",
-            "javax.net");
+            "javax.net",
+            "java.util.prefs",
+            "java.lang.management");
     // Not I/O: java.net.IDN converts email domains to ASCII (BR-45); Serializable and Serial only
     // mark types.
     private static final Set<String> IO_EXCEPTIONS = Set.of("java.net.IDN", "java.io.Serializable", "java.io.Serial");
-    private static final List<String> IO_CLASSES =
-            List.of("java.lang.ProcessBuilder", "java.lang.Process", "java.lang.ProcessHandle", "java.lang.Runtime");
+    // A ResourceBundle loads its text from the classpath.
+    private static final List<String> IO_CLASSES = List.of(
+            "java.lang.ProcessBuilder",
+            "java.lang.Process",
+            "java.lang.ProcessHandle",
+            "java.lang.Runtime",
+            "java.util.ResourceBundle");
     private static final Set<String> IO_SYSTEM_MEMBERS =
             Set.of("in", "out", "err", "console", "getenv", "getProperty", "getProperties", "setProperty");
+    // The default locale is the process's environment, as a system property is.
+    private static final Set<String> DEFAULT_LOCALE_MEMBERS = Set.of("getDefault", "setDefault");
 
     private static final List<String> LOGGING_PACKAGES = List.of(
             "java.util.logging", "org.slf4j", "org.apache.logging", "org.apache.commons.logging", "ch.qos.logback");
@@ -110,7 +120,7 @@ final class DomainPurityRules {
         return classes()
                 .that()
                 .resideInAnyPackage(pureLayers(root))
-                .should(notAccess("read the system clock", DomainPurityRules::readsTheClock)
+                .should(notAccess("read or wait on the system clock", DomainPurityRules::readsTheClock)
                         .and(notDependOn("a legacy date type or a clock", DomainPurityRules::isAClock)))
                 .because("DL §3.9 rule 2: now and today are parameters (NFR-13, NFR-175)");
     }
@@ -140,7 +150,9 @@ final class DomainPurityRules {
                 .that()
                 .resideInAnyPackage(pureLayers(root))
                 .should(notDependOn("an I/O type", DomainPurityRules::isIo)
-                        .and(notAccess("use the process's streams or environment", DomainPurityRules::usesTheProcess)))
+                        .and(notAccess(
+                                "use the process's streams, environment or default locale",
+                                DomainPurityRules::usesTheProcess)))
                 .because("DL §3.9 rule 4: the domain does no I/O");
     }
 
@@ -273,7 +285,8 @@ final class DomainPurityRules {
                 || (owner.equals("java.lang.System") && (name.equals("currentTimeMillis") || name.equals("nanoTime")))
                 || (owner.startsWith("java.time.") && name.equals("dateNow"))
                 || (target.getOwner().isAssignableTo(ZoneId.class) && name.equals("systemDefault"))
-                || (owner.equals("java.util.TimeZone") && name.equals("getDefault"));
+                || (owner.equals("java.util.TimeZone") && name.equals("getDefault"))
+                || (owner.equals("java.lang.Thread") && name.equals("sleep"));
     }
 
     private static boolean isAClock(JavaClass type) {
@@ -296,16 +309,21 @@ final class DomainPurityRules {
                 || (owner.equals("java.util.Collections") && name.equals("shuffle"));
     }
 
+    /** A subclass counts too, such as a PropertyResourceBundle. */
     private static boolean isIo(JavaClass type) {
         if (IO_EXCEPTIONS.contains(type.getName())) {
             return false;
         }
-        return isInAny(type.getPackageName(), IO_PACKAGES) || isAnyOf(type, IO_CLASSES);
+        return isInAny(type.getPackageName(), IO_PACKAGES)
+                || isAnyOf(type, IO_CLASSES)
+                || IO_CLASSES.stream().anyMatch(type::isAssignableTo);
     }
 
     private static boolean usesTheProcess(JavaAccess<?> access) {
-        return access.getTarget().getOwner().getName().equals("java.lang.System")
-                && IO_SYSTEM_MEMBERS.contains(access.getTarget().getName());
+        String owner = access.getTarget().getOwner().getName();
+        String name = access.getTarget().getName();
+        return (owner.equals("java.lang.System") && IO_SYSTEM_MEMBERS.contains(name))
+                || (owner.equals("java.util.Locale") && DEFAULT_LOCALE_MEMBERS.contains(name));
     }
 
     private static boolean isLogging(JavaClass type) {
@@ -326,7 +344,7 @@ final class DomainPurityRules {
     private static boolean rebuildsStoredState(JavaAccess<?> access) {
         AccessTarget target = access.getTarget();
         boolean restoresAnAggregate = target.getName().equals(RestrictedTypes.RESTORE)
-                && target.getOwner().isAssignableTo(AggregateRoot.class)
+                && RestrictedTypes.isAggregate(target.getOwner())
                 && isStatic(target);
         return (restoresAnAggregate || target.getName().equals(RestrictedTypes.READ_UNDER_LOCK))
                 && !RestrictedTypes.isWithin(access.getOriginOwner(), access.getTargetOwner());

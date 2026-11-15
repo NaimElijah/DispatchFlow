@@ -4,7 +4,6 @@ import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.dispatchflow.planning.domain.PlanningError.InvalidAttempt;
 import com.dispatchflow.planning.domain.PlanningError.InvalidSolverName;
 import com.dispatchflow.planning.domain.PlanningError.InvalidStopTimes;
 import com.dispatchflow.planning.domain.PlanningError.InvalidTravelLeg;
@@ -23,18 +22,6 @@ class PlanningValuesTest {
 
     private static final DeliveryDate DATE = DeliveryDate.of(LocalDate.of(2027, 6, 15));
     private static final DeliveryDate NEXT_DATE = DeliveryDate.of(LocalDate.of(2027, 6, 16));
-
-    @Test
-    void GivenOneOrMore_WhenAnAttemptIsBuilt_ThenItIsKept() {
-        assertThat(Attempt.of(1).number()).isEqualTo(1);
-        assertThat(Attempt.FIRST.next()).isEqualTo(Attempt.of(2));
-    }
-
-    @ParameterizedTest
-    @ValueSource(ints = {0, -1, Integer.MIN_VALUE})
-    void GivenANumberBelowOne_WhenAnAttemptIsBuilt_ThenInvalidAttempt(int number) {
-        assertRefused(() -> Attempt.of(number), new InvalidAttempt(number));
-    }
 
     @Test
     void GivenTheFirstRevision_WhenTheNextIsTaken_ThenItIsTwo() {

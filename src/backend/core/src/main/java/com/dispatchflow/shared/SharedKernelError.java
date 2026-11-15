@@ -71,6 +71,15 @@ public sealed interface SharedKernelError extends DomainError {
     record PriorityOutOfRange(int priority) implements SharedKernelError {}
 
     /**
+     * An attempt numbered below 1 (FR-258). No user types an attempt's number: it comes from stored
+     * state, where the persistence adapter turns this refusal into a {@link StoredStateInvalid}, or
+     * from an event's {@code int}, so it means a bug or damaged state rather than a user's mistake.
+     *
+     * @param attempt the refused number
+     */
+    record InvalidAttempt(int attempt) implements SharedKernelError {}
+
+    /**
      * Text that is not a valid phone number (FR-377). It names no number, because a phone number
      * is personal data.
      */
@@ -96,11 +105,12 @@ public sealed interface SharedKernelError extends DomainError {
     record TextTooLong(TextKind kind, int maxLength) implements SharedKernelError {}
 
     /**
-     * Free text holding a character its kind refuses (ADR-106): a control character other than a
-     * line feed in a note; a line or paragraph separator outside a note; an interior format
-     * character in a name or an address, other than U+061C and U+200C to U+200F; a bidi
-     * embedding, override or isolate control; an unpaired surrogate; or a private-use or unassigned code point. It
-     * names no text or character, because the text is personal data.
+     * Free text holding a character its kind refuses (ADR-106, ADR-111): a control character other
+     * than a line feed in a note; a line or paragraph separator outside a note; an interior format
+     * character in a name or an address, other than U+061C and U+200C to U+200F; an interior
+     * invisible filler in a name or an address (U+034F, U+115F, U+1160, U+2800, U+3164, U+FFA0); a
+     * bidi embedding, override or isolate control; an unpaired surrogate; or a private-use or
+     * unassigned code point. It names no text or character, because the text is personal data.
      *
      * @param kind the kind of text refused
      */

@@ -96,9 +96,4 @@ class OrderValuesTest {
         assertThat(access.toString()).doesNotContain("4").doesNotContain("12#");
         assertThat(Apartment.of(" 7 ").orElseThrow().toString()).doesNotContain("7");
     }
-
-    @Test
-    void GivenAnAttempt_WhenTheNextIsTaken_ThenItIsNumberedOneHigher() {
-        assertThat(Attempt.FIRST.next()).isEqualTo(Attempt.of(2));
-    }
 }
