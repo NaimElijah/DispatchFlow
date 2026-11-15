@@ -20,7 +20,7 @@ import com.dispatchflow.planning.events.RouteHandedOver;
  * <p>Delivery is at least once (ADR-064), and a repeated notice carries no data (NFR-218), so it
  * records no {@code ProcessedEvents} pair.
  *
- * <p>Built in M8. Rows: FR-71, FR-97, FR-249.
+ * <p>Built in M8 and M9, method by method. Rows: FR-71, FR-97, FR-249.
  */
 public final class TellDriversOfRevision {
 

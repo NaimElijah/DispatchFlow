@@ -22,6 +22,9 @@ import com.dispatchflow.shared.application.IdGenerator;
  * from Planning's {@link PublishedRoutes}, their phones from {@link RecipientContacts}. Each stop
  * changes in a transaction of its own, with the audit record.
  *
+ * <p>Access's {@link Company#profile()} is empty before the first Admin sets the company up. With no
+ * profile there is no sender name, so the run adds no message and answers 0.
+ *
  * <p>Built in M12. Rows: FR-352, FR-353, FR-384.
  */
 public final class ProjectArrivals {

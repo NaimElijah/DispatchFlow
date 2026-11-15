@@ -30,6 +30,10 @@ import java.time.Instant;
  * are due are then sent through {@link SmsGateway}, after the commit and outside it (placement P10,
  * ADR-108); one that fails is not kept for later.
  *
+ * <p>Access's {@link Company#profile()} is empty before the first Admin sets the company up. With no
+ * profile there is no sender name, so no message was ever sent and no rating request is open: an
+ * opt-out word still opts the phone out, any other reply is discarded, and no answer is sent.
+ *
  * <p>Built in M12. Rows: FR-357 to FR-360, FR-363, FR-371, FR-376, FR-379, NFR-199, NFR-201, NFR-203.
  */
 public final class ReceiveReply {

@@ -14,7 +14,7 @@ import com.dispatchflow.orders.events.OrderRescheduled;
 import com.dispatchflow.planning.application.api.RouteMembership;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.IdGenerator;
-import com.dispatchflow.shared.application.NotFound;
+import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * Messaging's listener on Customers &amp; Orders' {@code OrderCancelled} and {@code
@@ -30,6 +30,9 @@ import com.dispatchflow.shared.application.NotFound;
  *
  * <p>Delivery is at least once (ADR-064); the message goes at most once per stop (NFR-191), so it
  * records no {@code ProcessedEvents} pair.
+ *
+ * <p>Access's {@link Company#profile()} is empty before the first Admin sets the company up. With no
+ * profile there is no sender name, so the trigger adds no message and changes nothing.
  *
  * <p>Built in M12. Rows: FR-354.
  */
@@ -94,7 +97,8 @@ public final class MessageDeliveryChanged {
      *
      * @param event the cancelled order
      * @param call the listener's server step
-     * @throws NotFound when the company has no profile yet, so the delivery is retried
+     * @throws StaleVersion when another trigger or the sender saved the stop's messages meanwhile;
+     *     the listener adapter retries the event at once, up to three times (DL §11)
      */
     public void on(OrderCancelled event, CallContext call) {
         throw new UnsupportedOperationException("Built in M12");
@@ -107,7 +111,8 @@ public final class MessageDeliveryChanged {
      *
      * @param event the rescheduled order
      * @param call the listener's server step
-     * @throws NotFound when the company has no profile yet, so the delivery is retried
+     * @throws StaleVersion when another trigger or the sender saved the stop's messages meanwhile;
+     *     the listener adapter retries the event at once, up to three times (DL §11)
      */
     public void on(OrderRescheduled event, CallContext call) {
         throw new UnsupportedOperationException("Built in M12");

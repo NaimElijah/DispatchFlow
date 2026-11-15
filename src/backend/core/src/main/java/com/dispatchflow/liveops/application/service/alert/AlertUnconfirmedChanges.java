@@ -4,6 +4,7 @@ import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.liveops.application.port.out.AlertRepository;
 import com.dispatchflow.liveops.application.port.out.LiveUpdates;
+import com.dispatchflow.liveops.application.port.out.PushNotifier;
 import com.dispatchflow.liveops.application.port.out.RouteRunRepository;
 import com.dispatchflow.planning.application.api.PublishedRoutes;
 import com.dispatchflow.shared.application.Clock;
@@ -16,6 +17,9 @@ import com.dispatchflow.shared.application.IdGenerator;
  * {@link PublishedRoutes} gives each route, and raises a <em>route change unconfirmed</em> alert,
  * keyed on the revision, so each overdue revision alerts once.
  *
+ * <p>For each alert it raises, it calls {@link PushNotifier#alertStaff} after the commit, so a
+ * staff phone app in the background learns of it (FR-405, ADR-083).
+ *
  * <p>Built in M8. Rows: FR-157, FR-250, ADR-107.
  */
 public final class AlertUnconfirmedChanges {
@@ -23,6 +27,7 @@ public final class AlertUnconfirmedChanges {
     private final RouteRunRepository runs;
     private final PublishedRoutes publishedRoutes;
     private final AlertRepository alerts;
+    private final PushNotifier pushNotifier;
     private final Clock clock;
     private final IdGenerator ids;
     private final AuditLog auditLog;
@@ -34,6 +39,7 @@ public final class AlertUnconfirmedChanges {
      * @param runs where route runs are kept
      * @param publishedRoutes Planning's routes in force, for each route's last change
      * @param alerts where alerts are kept
+     * @param pushNotifier the staff's phones, told of each alert raised
      * @param clock the server's time and today's date
      * @param ids new IDs, for the alerts
      * @param auditLog the audit trail
@@ -43,6 +49,7 @@ public final class AlertUnconfirmedChanges {
             RouteRunRepository runs,
             PublishedRoutes publishedRoutes,
             AlertRepository alerts,
+            PushNotifier pushNotifier,
             Clock clock,
             IdGenerator ids,
             AuditLog auditLog,
@@ -50,6 +57,7 @@ public final class AlertUnconfirmedChanges {
         this.runs = runs;
         this.publishedRoutes = publishedRoutes;
         this.alerts = alerts;
+        this.pushNotifier = pushNotifier;
         this.clock = clock;
         this.ids = ids;
         this.auditLog = auditLog;

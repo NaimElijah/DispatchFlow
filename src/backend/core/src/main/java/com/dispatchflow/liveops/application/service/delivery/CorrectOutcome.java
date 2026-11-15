@@ -71,14 +71,15 @@ public final class CorrectOutcome {
      * <p>Built in M8.
      *
      * @param actor the dispatcher
-     * @param command the stop, the corrected outcome, the reason, the stated time and the version
+     * @param command the stop, the corrected outcome, the reason and the stated time
+     * @param expected the delivery's version the dispatcher saw (BR-76)
      * @throws com.dispatchflow.shared.RuleViolation with Live Operations' {@code
      *     NotALeaveAtDoorOrder}, {@code CorrectionTimeInFuture}, {@code NoOutcomeToCorrect}, {@code
      *     CorrectionChangesNothing} or {@code LaterAttemptHasOutcome} (FR-404), in that order
      * @throws NotFound when nothing is recorded for the stop
-     * @throws StaleVersion when the delivery changed since {@code command.expected()}
+     * @throws StaleVersion when the delivery changed since {@code expected}
      */
-    public void correct(Actor actor, Command command) {
+    public void correct(Actor actor, Command command, Version expected) {
         throw new UnsupportedOperationException("Built in M8");
     }
 
@@ -93,14 +94,9 @@ public final class CorrectOutcome {
      * @param reason why (FR-333)
      * @param statedTime when the corrected outcome happened, if the dispatcher states it, no later
      *     than now; else it counts from the original's time (ADR-107)
-     * @param expected the delivery's version the dispatcher saw (BR-76)
      */
     public record Command(
-            StopId stop,
-            DispatcherOutcome corrected,
-            CorrectionReason reason,
-            Optional<Instant> statedTime,
-            Version expected)
+            StopId stop, DispatcherOutcome corrected, CorrectionReason reason, Optional<Instant> statedTime)
             implements PersonalData {
 
         /** Checks every part is present, possibly empty. */
@@ -109,17 +105,16 @@ public final class CorrectOutcome {
             Objects.requireNonNull(corrected, "corrected");
             Objects.requireNonNull(reason, "reason");
             Objects.requireNonNull(statedTime, "statedTime");
-            Objects.requireNonNull(expected, "expected");
         }
 
         /**
          * A form that names the stop and hides the outcome and the reason.
          *
-         * @return the stop and the version, redacted
+         * @return the stop, redacted
          */
         @Override
         public String toString() {
-            return "Command[stop=" + stop + ", expected=" + expected + ", redacted]";
+            return "Command[stop=" + stop + ", redacted]";
         }
     }
 }

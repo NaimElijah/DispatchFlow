@@ -5,6 +5,7 @@ import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.fleet.application.api.FleetFacts;
 import com.dispatchflow.liveops.application.port.out.AlertRepository;
 import com.dispatchflow.liveops.application.port.out.LiveUpdates;
+import com.dispatchflow.liveops.application.port.out.PushNotifier;
 import com.dispatchflow.liveops.application.port.out.RouteRunRepository;
 import com.dispatchflow.planning.application.api.PlanningSettingsFacts;
 import com.dispatchflow.planning.application.api.PublishedRoutes;
@@ -18,6 +19,9 @@ import com.dispatchflow.shared.application.IdGenerator;
  * shift and Planning's {@link PlanningSettingsFacts#departureAllowance}, and raises a <em>route not
  * started</em> alert once per route.
  *
+ * <p>For each alert it raises, it calls {@link PushNotifier#alertStaff} after the commit, so a
+ * staff phone app in the background learns of it (FR-405, ADR-083).
+ *
  * <p>Built in M8. Rows: FR-101.
  */
 public final class AlertRoutesNotStarted {
@@ -27,6 +31,7 @@ public final class AlertRoutesNotStarted {
     private final FleetFacts fleetFacts;
     private final PlanningSettingsFacts planningSettings;
     private final AlertRepository alerts;
+    private final PushNotifier pushNotifier;
     private final Clock clock;
     private final IdGenerator ids;
     private final AuditLog auditLog;
@@ -40,6 +45,7 @@ public final class AlertRoutesNotStarted {
      * @param fleetFacts Fleet's roster, for each driver's shift
      * @param planningSettings Planning's departure allowance
      * @param alerts where alerts are kept
+     * @param pushNotifier the staff's phones, told of each alert raised
      * @param clock the server's time and today's date
      * @param ids new IDs, for the alerts
      * @param auditLog the audit trail
@@ -51,6 +57,7 @@ public final class AlertRoutesNotStarted {
             FleetFacts fleetFacts,
             PlanningSettingsFacts planningSettings,
             AlertRepository alerts,
+            PushNotifier pushNotifier,
             Clock clock,
             IdGenerator ids,
             AuditLog auditLog,
@@ -60,6 +67,7 @@ public final class AlertRoutesNotStarted {
         this.fleetFacts = fleetFacts;
         this.planningSettings = planningSettings;
         this.alerts = alerts;
+        this.pushNotifier = pushNotifier;
         this.clock = clock;
         this.ids = ids;
         this.auditLog = auditLog;

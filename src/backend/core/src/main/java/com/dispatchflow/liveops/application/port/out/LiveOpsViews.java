@@ -2,6 +2,7 @@ package com.dispatchflow.liveops.application.port.out;
 
 import com.dispatchflow.liveops.domain.RevisionNo;
 import com.dispatchflow.liveops.domain.delivery.DeliveryStatus;
+import com.dispatchflow.liveops.domain.delivery.ProofId;
 import com.dispatchflow.liveops.domain.delivery.StopFact;
 import com.dispatchflow.shared.GeoPoint;
 import com.dispatchflow.shared.PersonalData;
@@ -81,6 +82,18 @@ public interface LiveOpsViews {
      * @return the history, or empty when nothing is recorded for the stop
      */
     Optional<StopHistoryView> historyOf(StopId stop);
+
+    /**
+     * The stop whose delivery names a proof, so a query can check whose route the proof is on
+     * (BR-02, NFR-38). The delivery keeps the proof's ID after retention deletes the file
+     * (ADR-107).
+     *
+     * <p>Built in M5.
+     *
+     * @param proof the proof's ID
+     * @return the stop, or empty when no delivery names the proof
+     */
+    Optional<StopId> stopOfProof(ProofId proof);
 
     /**
      * Where one stop stands.

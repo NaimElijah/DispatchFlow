@@ -6,9 +6,13 @@ import com.dispatchflow.messaging.application.port.out.MessagingSettingsView;
 import com.dispatchflow.messaging.application.port.out.MessagingViews;
 
 /**
- * The messaging part of the company settings page, which an Admin reads (FR-125, FR-350, FR-375,
- * placement P7), and the dispatch phone a driver calls with one tap (FR-199), the one part a driver
- * may read (the permission matrix's <em>Read the company's settings</em> row).
+ * The messaging part of the company settings page, which an Admin or a Dispatcher reads (FR-125,
+ * FR-350, FR-375, placement P7), and the dispatch phone a driver calls with one tap (FR-199).
+ *
+ * <p>The permission matrix's <em>Read the company's settings</em> row grants a Driver only the
+ * company's name and dispatch phone, which {@link #dispatchPhone} serves. {@link #settings} refuses
+ * a Driver: its operation's {@code x-capability} leaves the Driver role out, so the web adapter's
+ * role check answers 403 before the call (ADR-068).
  *
  * <p>Built in M12. Rows: FR-199, FR-350, FR-375.
  */
@@ -31,7 +35,7 @@ public final class MessagingSettingsQueries {
      *
      * <p>Built in M12.
      *
-     * @param actor the Admin
+     * @param actor the Admin or Dispatcher; never a Driver, whom the role check refuses first
      * @return the settings, with the version a change sends back
      */
     public MessagingSettingsView settings(Actor actor) {

@@ -5,6 +5,7 @@ import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.liveops.application.port.out.AlertRepository;
 import com.dispatchflow.liveops.application.port.out.DeliveryRepository;
 import com.dispatchflow.liveops.application.port.out.LiveUpdates;
+import com.dispatchflow.liveops.application.port.out.PushNotifier;
 import com.dispatchflow.liveops.application.port.out.RouteRunRepository;
 import com.dispatchflow.liveops.application.service.DeviceClock;
 import com.dispatchflow.planning.application.api.PublishedRoutes;
@@ -24,6 +25,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  * <em>route finished with stops pending</em> alert when any are, and the audit record. A late report
  * after the finish is still accepted and changes no run (ADR-107).
  *
+ * <p>For each alert it raises, it calls {@link PushNotifier#alertStaff} after the commit, so a
+ * staff phone app in the background learns of it (FR-405, ADR-083).
+ *
  * <p>Built in M5. Rows: FR-68, FR-329, ADR-107.
  */
 public final class FinishRoute {
@@ -31,6 +35,7 @@ public final class FinishRoute {
     private final RouteRunRepository runs;
     private final DeliveryRepository deliveries;
     private final AlertRepository alerts;
+    private final PushNotifier pushNotifier;
     private final RouteMembership membership;
     private final PublishedRoutes publishedRoutes;
     private final Clock clock;
@@ -44,6 +49,7 @@ public final class FinishRoute {
      * @param runs where route runs are kept
      * @param deliveries where deliveries are kept, for the pending stops
      * @param alerts where alerts are kept
+     * @param pushNotifier the staff's phones, told of each alert raised
      * @param membership Planning's answers on a route's drivers at a time
      * @param publishedRoutes Planning's routes in force, for the route's stops and plan
      * @param clock the server's time
@@ -55,6 +61,7 @@ public final class FinishRoute {
             RouteRunRepository runs,
             DeliveryRepository deliveries,
             AlertRepository alerts,
+            PushNotifier pushNotifier,
             RouteMembership membership,
             PublishedRoutes publishedRoutes,
             Clock clock,
@@ -64,6 +71,7 @@ public final class FinishRoute {
         this.runs = runs;
         this.deliveries = deliveries;
         this.alerts = alerts;
+        this.pushNotifier = pushNotifier;
         this.membership = membership;
         this.publishedRoutes = publishedRoutes;
         this.clock = clock;

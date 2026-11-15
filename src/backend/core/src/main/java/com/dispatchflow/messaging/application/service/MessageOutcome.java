@@ -12,6 +12,7 @@ import com.dispatchflow.orders.application.api.RecipientContacts;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.IdGenerator;
 import com.dispatchflow.shared.application.NotFound;
+import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * Messaging's listener on Live Operations' {@code OutcomeRecorded}, the stop's first outcome:
@@ -24,6 +25,9 @@ import com.dispatchflow.shared.application.NotFound;
  *
  * <p>Delivery is at least once (ADR-064); a stop gets one of the two at most, so it records no
  * {@code ProcessedEvents} pair.
+ *
+ * <p>Access's {@link Company#profile()} is empty before the first Admin sets the company up. With no
+ * profile there is no sender name, so the trigger adds no message and changes nothing.
  *
  * <p>Built in M12. Rows: FR-355, FR-356, FR-374.
  */
@@ -80,8 +84,9 @@ public final class MessageOutcome {
      *
      * @param event the first outcome
      * @param call the listener's server step
-     * @throws NotFound when the company has no profile yet, or the order is gone, so the delivery is
-     *     retried
+     * @throws NotFound when the order is gone, so the delivery is retried
+     * @throws StaleVersion when another trigger or the sender saved the stop's messages meanwhile;
+     *     the listener adapter retries the event at once, up to three times (DL §11)
      */
     public void on(OutcomeRecorded event, CallContext call) {
         throw new UnsupportedOperationException("Built in M12");

@@ -3,6 +3,7 @@ package com.dispatchflow.liveops.application.service.delivery;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.liveops.events.PutBackSuperseded;
 import com.dispatchflow.planning.application.api.RemoveSupersededPutBack;
+import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * Live Operations' own listener on {@code PutBackSuperseded}: a failed stop was corrected to
@@ -35,6 +36,8 @@ public final class RemoveSupersededStop {
      *
      * @param event the superseded put-back
      * @param call the listener's server step, which Planning's call carries
+     * @throws StaleVersion when Planning's plan changed meanwhile; the listener adapter retries the
+     *     event at once, up to three times (DL §11)
      */
     public void on(PutBackSuperseded event, CallContext call) {
         throw new UnsupportedOperationException("Built in M8");

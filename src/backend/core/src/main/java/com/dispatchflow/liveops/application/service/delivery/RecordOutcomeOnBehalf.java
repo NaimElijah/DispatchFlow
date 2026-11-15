@@ -5,6 +5,7 @@ import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.liveops.application.port.out.AlertRepository;
 import com.dispatchflow.liveops.application.port.out.DeliveryRepository;
 import com.dispatchflow.liveops.application.port.out.LiveUpdates;
+import com.dispatchflow.liveops.application.port.out.PushNotifier;
 import com.dispatchflow.liveops.domain.delivery.DispatcherOutcome;
 import com.dispatchflow.orders.application.api.StopOrders;
 import com.dispatchflow.planning.application.api.PublishedRoutes;
@@ -26,12 +27,16 @@ import com.dispatchflow.shared.application.StaleVersion;
  * alert per overtaken held report and the audit record. Its {@code OutcomeRecorded} reconciles the
  * plan (DL §8).
  *
+ * <p>For each alert it raises, it calls {@link PushNotifier#alertStaff} after the commit, so a
+ * staff phone app in the background learns of it (FR-405, ADR-083).
+ *
  * <p>Built in M8. Rows: FR-73, FR-257, FR-368, BR-134.
  */
 public final class RecordOutcomeOnBehalf {
 
     private final DeliveryRepository deliveries;
     private final AlertRepository alerts;
+    private final PushNotifier pushNotifier;
     private final PublishedRoutes publishedRoutes;
     private final StopOrders stopOrders;
     private final Clock clock;
@@ -44,6 +49,7 @@ public final class RecordOutcomeOnBehalf {
      *
      * @param deliveries where deliveries are kept
      * @param alerts where alerts are kept
+     * @param pushNotifier the staff's phones, told of each alert raised
      * @param publishedRoutes Planning's routes in force
      * @param stopOrders Customers &amp; Orders' door flag of an order
      * @param clock the server's time, which the outcome counts from
@@ -54,6 +60,7 @@ public final class RecordOutcomeOnBehalf {
     public RecordOutcomeOnBehalf(
             DeliveryRepository deliveries,
             AlertRepository alerts,
+            PushNotifier pushNotifier,
             PublishedRoutes publishedRoutes,
             StopOrders stopOrders,
             Clock clock,
@@ -62,6 +69,7 @@ public final class RecordOutcomeOnBehalf {
             LiveUpdates liveUpdates) {
         this.deliveries = deliveries;
         this.alerts = alerts;
+        this.pushNotifier = pushNotifier;
         this.publishedRoutes = publishedRoutes;
         this.stopOrders = stopOrders;
         this.clock = clock;

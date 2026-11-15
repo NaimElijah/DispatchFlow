@@ -1,7 +1,7 @@
 package com.dispatchflow.liveops.application.service;
 
+import com.dispatchflow.liveops.application.port.out.IdempotencyKey;
 import java.util.Objects;
-import java.util.UUID;
 
 /**
  * A phone sent a request key it already used with a different body, so the request is refused
@@ -15,15 +15,15 @@ public final class IdempotencyKeyReused extends RuntimeException {
     /** The stable code the web adapter answers with, beside the 409 status (ADR-087). */
     public static final String CODE = "IDEMPOTENCY_KEY_REUSED";
 
-    private final UUID key;
+    private final IdempotencyKey key;
 
     /**
      * Creates the error.
      *
      * @param key the reused request key
      */
-    public IdempotencyKeyReused(UUID key) {
-        super("request key " + Objects.requireNonNull(key, "key") + " was used with another body");
+    public IdempotencyKeyReused(IdempotencyKey key) {
+        super("request key " + Objects.requireNonNull(key, "key").value() + " was used with another body");
         this.key = key;
     }
 
@@ -41,7 +41,7 @@ public final class IdempotencyKeyReused extends RuntimeException {
      *
      * @return the key
      */
-    public UUID key() {
+    public IdempotencyKey key() {
         return key;
     }
 }
