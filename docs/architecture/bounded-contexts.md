@@ -34,3 +34,6 @@ adapters exist.
 [ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)
 holds the conventions the application layers follow (the `Actor` and the `CallContext`,
 `shared/application`, query ports), not what each module declares: each package lists that itself.
+
+[The domain layer visual guide](domain_layer/domain_layer_visual_guide.md) draws every context as
+built: its aggregates, packages, lifecycles and events, with a reading path through the code and tests.
