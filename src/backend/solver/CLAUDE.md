@@ -8,12 +8,15 @@ and it hosts every solver behind one port ([ADR-004]). Python 3.14, FastAPI, Uvi
 | Package under `src/dispatchflow_solver/` | Holds |
 |---|---|
 | `domain/` | `Problem` (`validate`, `cost`, `explain_drop`), `ProblemFactory` (`daily`, `reoptimization`), `Solution`, `TravelTimeModel`, `PenaltyScale` and `RuleId`: the problem, the solution, the shared objective, the feasibility validator and the drop reasons, for daily solves and re-optimizations. `problem_parts` holds the parts a problem is made of, and `problem_view` the `ProblemView` protocol that the validator, the objective and the drop reasons read it through ([ADR-113]) |
-| `application/` | The solve use cases, the `Solver` port and the solver registry |
+| `application/` | Declared ahead, bodies not built ([ADR-119]): the `Solver` protocol, `SolverRegistry`, `Budget` (the alias over a `TimeLimit`, `IterationLimit` or `SolutionLimit`) and the `Stopwatch` protocol (`ports.py`), the requests and outcomes (`requests.py`, `outcomes.py`) and five use cases, `Solve`, `Reoptimize`, `Evaluate`, `Baseline` and `ListSolvers` |
 | `solvers/ortools/`, `solvers/alns/` | One adapter per solver: OR-Tools, and ours. Ours runs the `alns` package (MIT) as its outer loop, and the Clarke-Wright construction, the operators, the route state and the Numba kernels are ours ([ADR-092]) |
 | `adapters/inbound/http/` | `create_app()`: the FastAPI app and its request and response models |
 
-`application/` holds only an empty `__init__.py` today, and `solvers/` only `.gitkeep` files. `tests/`
-mirrors the package path.
+Every `application/` body raises `NotImplementedError("Built in M<n>")`, naming the milestone that
+builds it, and nothing calls it yet. A milestone fills a body test first: write the failing test,
+replace the `raise`, then build the adapter. It may change a declared signature, with every caller
+in the same pull request, and it drops the docstring's "Built in M<n>" when the body is built
+([ADR-119]). `solvers/` holds only `.gitkeep` files. `tests/` mirrors the package path.
 
 [ADR-037] (Accepted) renames the service to `src/optimizer` with the package `dispatchflow_opt`,
 in the M0 restructure. [ADR-040] puts the solvers under `adapters/outbound/solvers/`, as [TS §4]
@@ -28,8 +31,11 @@ draws it, where `nearest_neighbour` joins them. Neither is in the tree yet.
   `datetime64`, `timedelta64`, `numpy.load`, `fromfile` or `loadtxt`, and neither is
   `importlib.import_module`: ruff's `TID251` bans them in the domain. So do `PTH123`, `T20`, `S102`
   and `S307` for `open()`, `print()`, `exec()` and `eval()` ([ADR-113]). `application`
-  imports nothing from FastAPI, Pydantic or OR-Tools. OR-Tools types live in `solvers/ortools`
-  ([ADR-001]). `feasibility`, `objective` and `drops` never import `problem`: they read it through
+  imports no `fastapi`, `starlette`, `pydantic`, `pydantic_settings`, `ortools`, `numba`, `alns`,
+  `concurrent`, `multiprocessing` or `subprocess`: import-linter's contract "The application
+  imports no FastAPI, Pydantic, solver library or process model". OR-Tools types live in `solvers/ortools` ([ADR-001]), and the
+  process model stays in the adapter ([ADR-051]). The `Solver` port and the registry are declared in
+  `application/ports.py` ([ADR-004]). `feasibility`, `objective` and `drops` never import `problem`: they read it through
   `ProblemView` ([ADR-113]). import-linter, and ruff for the bans above, check all of this, the
   layers, and that the product never imports PyVRP (`pyproject.toml`, run by `just solver-check`).
 - Pydantic models are generated from the contract by datamodel-code-generator ([ADR-043],
@@ -67,8 +73,10 @@ draws it, where `nearest_neighbour` joins them. Neither is in the tree yet.
   [ADR-048]).
 - Every solver implements the one `Solver` port, `solve(problem, start, budget, seed)`: `start` is
   an optional warm start, and `budget` is a time limit, an iteration budget or a solution limit
-  ([ADR-044], Accepted). A solver is chosen by name for each solve. The registry has no default,
-  and a name it does not hold is rejected ([ADR-004]).
+  ([ADR-044], Accepted). It returns a `SearchResult(solution, reached)`, where `reached` is the
+  replay budget, an `IterationLimit` or a `SolutionLimit` ([ADR-120] amends ADR-044). A solver is
+  chosen by name for each solve. The registry has no default, and a name it does not hold is
+  rejected ([ADR-004]).
 - Every solution passes `Problem.validate` and is scored by `Problem.cost` before it leaves the
   service, whichever solver produced it. A solver's own objective value is never reported.
 - A solve takes a seed, and nothing draws unseeded randomness, so a run can be replayed
@@ -137,6 +145,8 @@ Run `just` recipes from the repository root, and `uv` from this folder.
 [ADR-099]: ../../../docs/ADRs/ADR-099-a-route-may-carry-the-starts-its-solver-claims.md
 [ADR-105]: ../../../docs/ADRs/ADR-105-a-re-optimizations-problem-carries-its-conventions-and-only-a-vehicle-that-is-out-has-no-driver.md
 [ADR-113]: ../../../docs/ADRs/ADR-113-route-stability-is-its-own-cost-the-rules-read-a-problem-through-a-protocol-and-untimed-outputs-are-documented.md
+[ADR-119]: ../../../docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md
+[ADR-120]: ../../../docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md
 [TS §2.1]: ../../../docs/architecture/tech_stack.md#21-the-dependency-rule
 [TS §4]: ../../../docs/architecture/tech_stack.md#4-repository-layout
 [TS §7]: ../../../docs/architecture/tech_stack.md#7-optimization-service-python

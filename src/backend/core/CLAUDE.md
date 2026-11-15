@@ -18,25 +18,36 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
     `StoredStateInvalid`, `Version`, `AggregateRoot`, `DomainEvent`, `EventId`, `FreshIds`,
     `PlainText` with its `TextKind`, and the `PersonalData` marker.
     Never add a type that holds one context's rule.
+  - `shared/application/`, the application ports every module uses: `Clock`, `IdGenerator`,
+    `ProcessedEvents`, `NotFound` and `StaleVersion` ([ADR-120]). It is a package of its own, so the
+    kernel's domain types stay flat ([ADR-118]).
 - Built so far: the `domain` packages of `access`, `audit`, `fleet`, `liveops`, `messaging`,
   `orders`, `planning` and `reporting`, and the `events` packages of the six that raise events (not
   `audit` or `reporting`). The contexts are decided ([DL §1]), and each is
   one module, laid out as in [TS §4] and [ADR-040]. Each module's domain is built ahead of its
-  milestone, and M0 adds the first application layer and adapters ([roadmap §2.2]).
+  milestone, and M0 adds the first adapters ([roadmap §2.2]).
+- Declared, not built: each module's `application` layer, in whichever of `api`, `spi`, `port/out`
+  and `service` it has something for ([ADR-119]). Every use case, query, port and module API has its
+  signature and Javadoc, and every body that would do work throws
+  `UnsupportedOperationException("Built in M<n>")`. Nothing is wired: no Spring annotation, no bean,
+  no adapter. `grep "Built in M5"` lists a milestone's remaining work.
 
   ```text
   <module>/domain/, events/
-  <module>/application/{api,spi,port/out,service}
-  <module>/adapter/{in/web,in/job,in/listen,...,out/persistence,...}
+  <module>/application/{api,spi,port/out,service}      declared, bodies throw (ADR-119)
+  <module>/adapter/{in/web,in/job,in/listen,...,out/persistence,...}      not in the tree yet
   shared/                      the shared kernel, beside the modules
+  shared/application/          Clock, IdGenerator, ProcessedEvents, NotFound, StaleVersion (ADR-120)
   modules: access fleet orders planning liveops messaging reporting audit
   ```
 
   A module's domain splits into `domain/<aggregate>/` packages over a root, `domain/`, that holds
   the module's error and what several packages use ([ADR-118]). `access`, `fleet`, `liveops`,
   `messaging` and `planning` are split; `orders`, `reporting` and `audit` are flat, and so are
-  `shared/` and every `events/`. Planning's packages are `plan`, `solution`, `basis`, `revision`,
-  `reconciliation` and `settings`.
+  the kernel's domain types and every `events/`. Planning's packages are `plan`, `solution`,
+  `basis`, `revision`, `reconciliation` and `settings`. The threshold applies to every source
+  folder, so an application package above 30 files splits by aggregate too: Planning's `service` and
+  `port/out`, Access's `service` and Live Operations' `service` are split.
 - `src/main/resources/db/migration/` holds the Flyway migrations, which [ADR-041] keeps from
   ADR-007.
 - `src/test/java/com/dispatchflow/` holds the tests, `TestcontainersConfiguration` (PostgreSQL
@@ -95,6 +106,26 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
     values other than `PhoneNumber`, `GeoPoint`, `PlainText` and `Attempt`, the package's own enums,
     `Instant`, `int`, `long`, `boolean`, or lists of these (a list holds their boxes; a field is
     never boxed). No field holds a `PersonalData` value.
+- Application rules (`ApplicationRules`, [ADR-119], [ADR-120]), each with a deliberately wrong
+  fixture under `archfixture/zeta/`:
+  1. The application layer and `shared/application/` import only the JDK, JSpecify, the kernel, their
+     own module's `domain`, `events` and `application`, and other modules' `api` and `events`.
+     Another module's `spi` interface is allowed only to the module that owns it and to the
+     implementer that `SPI_IMPLEMENTERS` names, and the records beside it to any module that implements
+     one of that owner's interfaces. They import no `adapter`, their own module's included, and no libphonenumber or JTS. From
+     Spring they take only `@Transactional` and its enums ([TS §2.2]); Spring Modulith's
+     annotations sit on a `package-info` only. `shared/application/` also falls under the kernel's
+     purity rules, so it takes no `@Transactional`.
+  2. Modules depend on each other along [DL §2.1]'s arrows and no others.
+  3. No `api` or `spi` type uses a domain type.
+  4. Each `api` interface has exactly one implementation, in its own module. Each `spi` interface has
+     exactly one, in the module that DL §2.1's dashed arrow names (`SPI_IMPLEMENTERS`). Sealed
+     interfaces are skipped.
+  5. Every application package is `@NullMarked`.
+  6. No class in a `domain` or `events` package, or in the kernel root, imports
+     `shared.application`, so a domain can't reach the `Clock` port.
+  7. No cycle between a module's application packages, and the `service` and `port/out` roots import
+     none of their own subpackages ([ADR-118]'s rules, carried to the application).
 - Package rules (`DomainPackageRules`, [ADR-118]): no cycle between a module's domain packages, a
   domain root that imports none of its own subpackages, and every kernel, domain and `events`
   package is `@NullMarked`. A module's domain never gets a subpackage to dodge a rule: nothing is
@@ -113,6 +144,9 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
   Spring Modulith's `verify()` fails the build on any other use ([ADR-040], Accepted).
 - Each module owns its tables, in its own PostgreSQL schema. No SQL reads another module's schema
   ([DL §2.3], rule 3).
+- Building a declared body ([ADR-119], decision 5): write the failing test first, replace the
+  `throw`, then build the adapter. A milestone may change a declared signature or add a class, with
+  every caller in the same pull request. Delete the Javadoc's "Built in M<n>" when the body is built.
 - A use case follows [TS §6.2], [ADR-063] and [ADR-064]:
   - One class per use case. Its one `@Transactional` method changes one existing aggregate, after
     the outside calls.
@@ -206,8 +240,11 @@ Windows).
 [ADR-106]: ../../../docs/ADRs/ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md
 [ADR-111]: ../../../docs/ADRs/ADR-111-attempt-is-a-shared-kernel-value-and-names-and-addresses-drop-invisible-fillers.md
 [ADR-118]: ../../../docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md
+[ADR-119]: ../../../docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md
+[ADR-120]: ../../../docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md
 [NFR-176]: ../../../docs/requirements/requirements.md#nfr-176
 [DL §1]: ../../../docs/architecture/domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts
+[DL §2.1]: ../../../docs/architecture/domain_layer/domain_layer_design.md#21-module-graph
 [DL §2.3]: ../../../docs/architecture/domain_layer/domain_layer_design.md#23-rules-between-contexts
 [DL §3.9]: ../../../docs/architecture/domain_layer/domain_layer_design.md#39-purity
 [DL §4]: ../../../docs/architecture/domain_layer/domain_layer_design.md#4-aggregates-context-by-context
@@ -217,6 +254,7 @@ Windows).
 [ADR-063]: ../../../docs/ADRs/ADR-063-a-transaction-changes-one-aggregate-and-every-rule-has-one-owner.md
 [ADR-064]: ../../../docs/ADRs/ADR-064-events-only-where-they-earn-their-place-through-the-modulith-registry.md
 [TS §17.1]: ../../../docs/architecture/tech_stack.md#171-by-layer
+[TS §2.2]: ../../../docs/architecture/tech_stack.md#22-enforcement
 [TS §4]: ../../../docs/architecture/tech_stack.md#4-repository-layout
 [TS §6]: ../../../docs/architecture/tech_stack.md#6-core-service-java
 [TS §6.2]: ../../../docs/architecture/tech_stack.md#62-application-layer
