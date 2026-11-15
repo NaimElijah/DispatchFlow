@@ -58,9 +58,13 @@ class UserAccountTest {
     private static final ActiveAdmins TWO_ADMINS = ActiveAdmins.readUnderLock(List.of(ACCOUNT, OTHER_ADMIN));
     private static final ActiveAdmins THREE_ADMINS =
             ActiveAdmins.readUnderLock(List.of(ACCOUNT, OTHER_ADMIN, THIRD_ADMIN));
+    private static final ActiveAdmins ADMINS_BUT_THE_ACCOUNT =
+            ActiveAdmins.readUnderLock(List.of(OTHER_ADMIN, THIRD_ADMIN));
     private static final TokenHash SET_PASSWORD_TOKEN = new TokenHash("set-password-token");
     private static final TokenHash RECOVERY_TOKEN = new TokenHash("recovery-token");
     private static final TokenHash EMAIL_TOKEN = new TokenHash("email-token");
+    private static final TokenHash OWN_EMAIL_TOKEN = new TokenHash("own-email-token");
+    private static final EmailAddress THIRD_EMAIL = EmailAddress.parse("d.cohen@example.com");
     private static final PasswordHash NEW_PASSWORD = new PasswordHash("new-hash");
 
     /** Asserts the refusal through the shared helper, and that it changed nothing. */
@@ -119,7 +123,8 @@ class UserAccountTest {
         ActiveAdmins others = ActiveAdmins.readUnderLock(List.of(OTHER_ADMIN, THIRD_ADMIN));
         String message = "the active Admins read under lock must include the active Admin that changes";
 
-        assertBugUnchanged(account, () -> account.changeRoles(RoleSet.of(Role.DISPATCHER), others, NOW), message);
+        assertBugUnchanged(
+                account, () -> account.changeRoles(RoleSet.of(Role.DISPATCHER), others, OTHER_ADMIN, NOW), message);
         assertBugUnchanged(account, () -> account.deactivate(others, NOW), message);
     }
 
@@ -272,7 +277,7 @@ class UserAccountTest {
     void GivenADispatcher_WhenGivenTheDriverRoleToo_ThenItHoldsBothAndEverySessionIsRevoked() {
         UserAccount account = anAccount().build();
 
-        account.changeRoles(RoleSet.of(Role.DISPATCHER, Role.DRIVER), TWO_ADMINS, NOW);
+        account.changeRoles(RoleSet.of(Role.DISPATCHER, Role.DRIVER), TWO_ADMINS, OTHER_ADMIN, NOW);
 
         assertThat(account.roles()).isEqualTo(RoleSet.of(Role.DISPATCHER, Role.DRIVER));
         assertRevokedOnce(account);
@@ -282,7 +287,7 @@ class UserAccountTest {
     void GivenTheRolesItHolds_WhenRolesAreChanged_ThenNothingChangesAndNothingIsRevoked() {
         UserAccount account = anAccount().build();
 
-        account.changeRoles(RoleSet.of(Role.DISPATCHER), TWO_ADMINS, NOW);
+        account.changeRoles(RoleSet.of(Role.DISPATCHER), TWO_ADMINS, OTHER_ADMIN, NOW);
 
         assertThat(account.generation()).isEqualTo(GENERATION);
         assertThat(account.pendingEvents()).isEmpty();
@@ -292,7 +297,8 @@ class UserAccountTest {
     void GivenAnyAccount_WhenAnAdminTakesEveryRole_ThenNoRoleGiven() {
         UserAccount account = anAccount().build();
 
-        assertRefusedUnchanged(account, () -> account.changeRoles(RoleSet.of(), TWO_ADMINS, NOW), new NoRoleGiven());
+        assertRefusedUnchanged(
+                account, () -> account.changeRoles(RoleSet.of(), TWO_ADMINS, OTHER_ADMIN, NOW), new NoRoleGiven());
     }
 
     @Test
@@ -300,14 +306,16 @@ class UserAccountTest {
         UserAccount account = anAccount().withRoles(Role.ADMIN).build();
 
         assertRefusedUnchanged(
-                account, () -> account.changeRoles(RoleSet.of(Role.DISPATCHER), TWO_ADMINS, NOW), new TooFewAdmins(2));
+                account,
+                () -> account.changeRoles(RoleSet.of(Role.DISPATCHER), TWO_ADMINS, OTHER_ADMIN, NOW),
+                new TooFewAdmins(2));
     }
 
     @Test
     void GivenOneOfThreeActiveAdmins_WhenItLosesTheAdminRole_ThenItKeepsTheOthers() {
         UserAccount account = anAccount().withRoles(Role.ADMIN, Role.DISPATCHER).build();
 
-        account.changeRoles(RoleSet.of(Role.DISPATCHER), THREE_ADMINS, NOW);
+        account.changeRoles(RoleSet.of(Role.DISPATCHER), THREE_ADMINS, OTHER_ADMIN, NOW);
 
         assertThat(account.roles()).isEqualTo(RoleSet.of(Role.DISPATCHER));
         assertRevokedOnce(account);
@@ -317,7 +325,7 @@ class UserAccountTest {
     void GivenOneOfTwoActiveAdmins_WhenItGainsARole_ThenTheMinimumIsNotChecked() {
         UserAccount account = anAccount().withRoles(Role.ADMIN).build();
 
-        account.changeRoles(RoleSet.of(Role.ADMIN, Role.DRIVER), TWO_ADMINS, NOW);
+        account.changeRoles(RoleSet.of(Role.ADMIN, Role.DRIVER), TWO_ADMINS, OTHER_ADMIN, NOW);
 
         assertThat(account.roles()).isEqualTo(RoleSet.of(Role.ADMIN, Role.DRIVER));
     }
@@ -743,7 +751,7 @@ class UserAccountTest {
     void
             GivenAnAdminDemotedAndRecoveredThroughAnotherAdminsEmailChange_WhenPromotedAgain_ThenEmailSetByAnotherAccount() {
         UserAccount demoted = anAccount().withRoles(Role.ADMIN).build();
-        demoted.changeRoles(RoleSet.of(Role.DISPATCHER), THREE_ADMINS, NOW);
+        demoted.changeRoles(RoleSet.of(Role.DISPATCHER), THREE_ADMINS, OTHER_ADMIN, NOW);
         UserAccount changed = UserAccount.restore(demoted.snapshot());
         changed.issueLink(new LinkPurpose.EmailChange(NEW_EMAIL, OTHER_ADMIN), linkId("1"), EMAIL_TOKEN, NOW);
         changed.confirmEmailByLink(EMAIL_TOKEN, EmailHolder.nobody(NEW_EMAIL), NOW.plusSeconds(1));
@@ -751,11 +759,11 @@ class UserAccountTest {
         recovered.issueLink(new LinkPurpose.Recovery(), linkId("2"), RECOVERY_TOKEN, NOW.plusSeconds(2));
         recovered.setPasswordByLink(RECOVERY_TOKEN, NEW_PASSWORD, NOW.plusSeconds(3));
         UserAccount account = UserAccount.restore(recovered.snapshot());
-        ActiveAdmins others = ActiveAdmins.readUnderLock(List.of(OTHER_ADMIN, THIRD_ADMIN));
 
         assertRefusedUnchanged(
                 account,
-                () -> account.changeRoles(RoleSet.of(Role.ADMIN), others, NOW.plusSeconds(4)),
+                () -> account.changeRoles(
+                        RoleSet.of(Role.ADMIN), ADMINS_BUT_THE_ACCOUNT, OTHER_ADMIN, NOW.plusSeconds(4)),
                 new EmailSetByAnotherAccount());
     }
 
@@ -768,40 +776,131 @@ class UserAccountTest {
         account.confirmEmailByLink(EMAIL_TOKEN, EmailHolder.nobody(NEW_EMAIL), NOW);
 
         assertThat(account.email()).contains(NEW_EMAIL);
-        assertThat(account.snapshot().emailSetByAnotherAt()).contains(NOW);
+        assertThat(account.snapshot().emailSetByAnother()).contains(new EmailSetByAnother(OTHER_ADMIN, NOW));
+    }
+
+    /**
+     * ADR-116's round trip carried one step further: A takes B's Admin role, points B's email at
+     * A's own mailbox with A's link and recovers the account. Then, signed in as B, A confirms an
+     * email change that B's own account asked for.
+     */
+    private static UserAccount demotedRecoveredAndChangedAgainAsThemselves() {
+        UserAccount demoted = anAccount().withRoles(Role.ADMIN).build();
+        demoted.changeRoles(RoleSet.of(Role.DISPATCHER), THREE_ADMINS, OTHER_ADMIN, NOW);
+        UserAccount changed = UserAccount.restore(demoted.snapshot());
+        changed.issueLink(new LinkPurpose.EmailChange(NEW_EMAIL, OTHER_ADMIN), linkId("1"), EMAIL_TOKEN, NOW);
+        changed.confirmEmailByLink(EMAIL_TOKEN, EmailHolder.nobody(NEW_EMAIL), NOW.plusSeconds(1));
+        UserAccount recovered = UserAccount.restore(changed.snapshot());
+        recovered.issueLink(new LinkPurpose.Recovery(), linkId("2"), RECOVERY_TOKEN, NOW.plusSeconds(2));
+        recovered.setPasswordByLink(RECOVERY_TOKEN, NEW_PASSWORD, NOW.plusSeconds(3));
+        UserAccount changedAgain = UserAccount.restore(recovered.snapshot());
+        changedAgain.issueLink(
+                new LinkPurpose.EmailChange(THIRD_EMAIL, ACCOUNT), linkId("3"), OWN_EMAIL_TOKEN, NOW.plusSeconds(4));
+        changedAgain.confirmEmailByLink(OWN_EMAIL_TOKEN, EmailHolder.nobody(THIRD_EMAIL), NOW.plusSeconds(5));
+        return UserAccount.restore(changedAgain.snapshot());
     }
 
     @Test
-    void GivenADispatcherWhoseEmailAnAdminSet_WhenTheyConfirmAnEmailChangeOfTheirOwn_ThenTheRecordIsCleared() {
+    void
+            GivenAnAdminTakenOverThroughAnotherAdminsEmailChangeAndChangedAgainAsThemselves_WhenThatAdminPromotesThem_ThenEmailSetByAnotherAccount() {
+        UserAccount account = demotedRecoveredAndChangedAgainAsThemselves();
+
+        assertRefusedUnchanged(
+                account,
+                () -> account.changeRoles(
+                        RoleSet.of(Role.ADMIN), ADMINS_BUT_THE_ACCOUNT, OTHER_ADMIN, NOW.plusSeconds(6)),
+                new EmailSetByAnotherAccount());
+    }
+
+    @Test
+    void
+            GivenAnAdminTakenOverThroughAnotherAdminsEmailChangeAndChangedAgainAsThemselves_WhenAThirdAdminPromotesThem_ThenTheyAreAnAdminAndTheRecordIsCleared() {
+        UserAccount account = demotedRecoveredAndChangedAgainAsThemselves();
+
+        account.changeRoles(RoleSet.of(Role.ADMIN), ADMINS_BUT_THE_ACCOUNT, THIRD_ADMIN, NOW.plusSeconds(6));
+
+        assertThat(account.roles()).isEqualTo(RoleSet.of(Role.ADMIN));
+        assertThat(account.snapshot().emailSetByAnother()).isEmpty();
+        assertThat(UserAccount.restore(account.snapshot()).snapshot()).isEqualTo(account.snapshot());
+    }
+
+    @Test
+    void GivenADispatcherWhoseEmailAnAdminSet_WhenTheyConfirmAnEmailChangeOfTheirOwn_ThenTheRecordStays() {
         UserAccount account = anAccount()
-                .withEmailSetByAnotherAt(SENT)
+                .withEmailSetBy(OTHER_ADMIN, SENT)
                 .withLink(openLink("1", new LinkPurpose.EmailChange(NEW_EMAIL, ACCOUNT), EMAIL_TOKEN.value()))
                 .build();
 
         account.confirmEmailByLink(EMAIL_TOKEN, EmailHolder.nobody(NEW_EMAIL), NOW);
 
-        assertThat(account.snapshot().emailSetByAnotherAt()).isEmpty();
+        assertThat(account.email()).contains(NEW_EMAIL);
+        assertThat(account.snapshot().emailSetByAnother()).contains(new EmailSetByAnother(OTHER_ADMIN, SENT));
     }
 
     @Test
-    void GivenADispatcherWhoseEmailAnAdminSet_WhenTheyConfirmTheirOwnChangeAndArePromoted_ThenTheyAreAnAdmin() {
-        UserAccount confirmed = anAccount()
-                .withEmailSetByAnotherAt(SENT)
-                .withLink(openLink("1", new LinkPurpose.EmailChange(NEW_EMAIL, ACCOUNT), EMAIL_TOKEN.value()))
-                .build();
-        confirmed.confirmEmailByLink(EMAIL_TOKEN, EmailHolder.nobody(NEW_EMAIL), NOW);
-        UserAccount account = UserAccount.restore(confirmed.snapshot());
+    void GivenADispatcherWhoseEmailAnAdminSet_WhenTheyChangeTheirPassword_ThenTheRecordStays() {
+        UserAccount account = anAccount().withEmailSetBy(OTHER_ADMIN, SENT).build();
 
-        account.changeRoles(RoleSet.of(Role.ADMIN), TWO_ADMINS, NOW.plusSeconds(1));
+        account.changePassword(NEW_PASSWORD, NOW);
+
+        assertThat(account.snapshot().emailSetByAnother()).contains(new EmailSetByAnother(OTHER_ADMIN, SENT));
+    }
+
+    @Test
+    void GivenADispatcherWhoseEmailAnAdminSet_WhenTheyRecoverTheirAccount_ThenTheRecordStays() {
+        UserAccount account = anAccount()
+                .withEmailSetBy(OTHER_ADMIN, SENT)
+                .withLink(openLink("1", new LinkPurpose.Recovery(), RECOVERY_TOKEN.value()))
+                .build();
+
+        account.setPasswordByLink(RECOVERY_TOKEN, NEW_PASSWORD, NOW);
+
+        assertThat(account.snapshot().emailSetByAnother()).contains(new EmailSetByAnother(OTHER_ADMIN, SENT));
+    }
+
+    /** Whoever chose the current mailbox is the one who can't promote: here, the later Admin. */
+    @Test
+    void GivenADispatcherWhoseEmailOneAdminSet_WhenAnotherAdminsEmailChangeIsConfirmed_ThenTheRecordNamesTheLater() {
+        UserAccount account = anAccount()
+                .withEmailSetBy(OTHER_ADMIN, SENT)
+                .withLink(openLink("1", new LinkPurpose.EmailChange(NEW_EMAIL, THIRD_ADMIN), EMAIL_TOKEN.value()))
+                .build();
+
+        account.confirmEmailByLink(EMAIL_TOKEN, EmailHolder.nobody(NEW_EMAIL), NOW);
+
+        assertThat(account.snapshot().emailSetByAnother()).contains(new EmailSetByAnother(THIRD_ADMIN, NOW));
+    }
+
+    @Test
+    void GivenADispatcherWhoseEmailAnAdminSet_WhenThatAdminGivesThemTheAdminRole_ThenEmailSetByAnotherAccount() {
+        UserAccount account = anAccount()
+                .withRoles(Role.DISPATCHER, Role.DRIVER)
+                .withEmailSetBy(OTHER_ADMIN, SENT)
+                .build();
+
+        assertRefusedUnchanged(
+                account,
+                () -> account.changeRoles(
+                        RoleSet.of(Role.ADMIN, Role.DISPATCHER, Role.DRIVER), TWO_ADMINS, OTHER_ADMIN, NOW),
+                new EmailSetByAnotherAccount());
+    }
+
+    @Test
+    void GivenADispatcherWhoseEmailAnAdminSet_WhenAnotherAdminPromotesThem_ThenTheyAreAnAdminAndTheRecordIsCleared() {
+        UserAccount account = anAccount().withEmailSetBy(OTHER_ADMIN, SENT).build();
+
+        account.changeRoles(RoleSet.of(Role.ADMIN), TWO_ADMINS, THIRD_ADMIN, NOW);
 
         assertThat(account.roles()).isEqualTo(RoleSet.of(Role.ADMIN));
+        assertThat(account.snapshot().emailSetByAnother()).isEmpty();
+        assertRevokedOnce(account);
     }
 
     @Test
     void GivenADispatcherWhoseEmailAnAdminSet_WhenGivenTheDriverRole_ThenItIsGiven() {
-        UserAccount account = anAccount().withEmailSetByAnotherAt(SENT).build();
+        UserAccount account = anAccount().withEmailSetBy(OTHER_ADMIN, SENT).build();
 
-        account.changeRoles(RoleSet.of(Role.DISPATCHER, Role.DRIVER), TWO_ADMINS, NOW);
+        account.changeRoles(RoleSet.of(Role.DISPATCHER, Role.DRIVER), TWO_ADMINS, OTHER_ADMIN, NOW);
 
         assertThat(account.roles()).isEqualTo(RoleSet.of(Role.DISPATCHER, Role.DRIVER));
         assertRevokedOnce(account);
@@ -813,10 +912,10 @@ class UserAccountTest {
         UserAccount opened = UserAccount.open(
                 NEW_ACCOUNT, NEW_EMAIL, RoleSet.of(Role.DISPATCHER), Language.HEBREW, EmailHolder.nobody(NEW_EMAIL));
 
-        opened.changeRoles(RoleSet.of(Role.ADMIN), TWO_ADMINS, NOW);
+        opened.changeRoles(RoleSet.of(Role.ADMIN), TWO_ADMINS, OTHER_ADMIN, NOW);
 
         assertThat(opened.roles()).isEqualTo(RoleSet.of(Role.ADMIN));
-        assertThat(opened.snapshot().emailSetByAnotherAt()).isEmpty();
+        assertThat(opened.snapshot().emailSetByAnother()).isEmpty();
     }
 
     @Test
@@ -926,7 +1025,7 @@ class UserAccountTest {
         UserAccount account = anAccount()
                 .withRoles(Role.DRIVER)
                 .withState(new AccountState.Deactivated(deactivated))
-                .withEmailSetByAnotherAt(SENT)
+                .withEmailSetBy(OTHER_ADMIN, SENT)
                 .withLink(openLink("1", new LinkPurpose.EmailChange(NEW_EMAIL, ACCOUNT), EMAIL_TOKEN.value()))
                 .build();
 
@@ -936,7 +1035,7 @@ class UserAccountTest {
         assertThat(account.email()).isEmpty();
         assertThat(account.passwordHash()).isEmpty();
         assertThat(account.snapshot().links()).isEmpty();
-        assertThat(account.snapshot().emailSetByAnotherAt()).isEmpty();
+        assertThat(account.snapshot().emailSetByAnother()).isEmpty();
         assertThat(account.roles()).isEqualTo(RoleSet.of(Role.DRIVER));
         assertThat(account.pendingEvents())
                 .containsExactly(new com.dispatchflow.access.events.AccountAnonymized(

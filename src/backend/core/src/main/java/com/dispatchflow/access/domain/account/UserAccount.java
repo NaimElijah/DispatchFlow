@@ -57,10 +57,10 @@ import org.jspecify.annotations.Nullable;
  * password-less ({@link PasswordNotSet}) or unknown account as they answer a wrong password, or as
  * "sent", after the same password-hash work (NFR-145, NFR-225).
  *
- * <p>The account records when another account's email-change link set its current email, and is
- * not given the Admin role until its user confirms an email change of their own (ADR-116). The
- * address an Admin chose when opening the account doesn't count: that is a new identity, not a
- * takeover.
+ * <p>The account records which other account's email-change link set its email, and when. That
+ * account can't give it the Admin role; another Admin can, and doing so clears the record
+ * (ADR-116). Nothing the account's own user does clears it. The address an Admin chose when
+ * opening the account doesn't count: that is a new identity, not a takeover.
  */
 public final class UserAccount extends AggregateRoot {
 
@@ -81,7 +81,7 @@ public final class UserAccount extends AggregateRoot {
 
     private final AccountId id;
     private @Nullable EmailAddress email;
-    private @Nullable Instant emailSetByAnotherAt;
+    private @Nullable EmailSetByAnother emailSetByAnother;
     private RoleSet roles;
     private @Nullable PasswordHash passwordHash;
     private AccountState state;
@@ -94,7 +94,7 @@ public final class UserAccount extends AggregateRoot {
             Version version,
             AccountId id,
             @Nullable EmailAddress email,
-            @Nullable Instant emailSetByAnotherAt,
+            @Nullable EmailSetByAnother emailSetByAnother,
             RoleSet roles,
             @Nullable PasswordHash passwordHash,
             AccountState state,
@@ -105,7 +105,7 @@ public final class UserAccount extends AggregateRoot {
         super(version);
         this.id = Objects.requireNonNull(id, "id");
         this.email = email;
-        this.emailSetByAnotherAt = emailSetByAnotherAt;
+        this.emailSetByAnother = emailSetByAnother;
         this.roles = Objects.requireNonNull(roles, "roles");
         this.passwordHash = passwordHash;
         this.state = Objects.requireNonNull(state, "state");
@@ -192,9 +192,10 @@ public final class UserAccount extends AggregateRoot {
      * @return the account at its stored version
      * @throws StoredStateInvalid when an anonymized account still holds an email, a password or a
      *     link, or any other account holds no email; when an anonymized account or an Admin records
-     *     that another account set its email; when it was anonymized before it was deactivated;
-     *     when two links share an ID or a token hash, or two open links share a kind; or when a link
-     *     expires no later than it was sent
+     *     that another account set its email; when it records the account itself as the one that
+     *     set its email; when it was anonymized before it was deactivated; when two links share an
+     *     ID or a token hash, or two open links share a kind; or when a link expires no later than
+     *     it was sent
      */
     public static UserAccount restore(UserAccountSnapshot stored) {
         boolean anonymized = stored.state() instanceof AccountState.Anonymized;
@@ -204,9 +205,14 @@ public final class UserAccount extends AggregateRoot {
         if (anonymized && (stored.passwordHash().isPresent() || !stored.links().isEmpty())) {
             throw invalid("an anonymized account holds no password and no link");
         }
-        if (stored.emailSetByAnotherAt().isPresent()
+        if (stored.emailSetByAnother().isPresent()
                 && (anonymized || stored.roles().contains(Role.ADMIN))) {
             throw invalid("an email another account set belongs to an account that holds it and no Admin role");
+        }
+        if (stored.emailSetByAnother()
+                .filter(set -> set.by().equals(stored.id()))
+                .isPresent()) {
+            throw invalid("the account that set an email is another account");
         }
         if (stored.state() instanceof AccountState.Anonymized(Instant deactivatedAt, Instant anonymizedAt)
                 && anonymizedAt.isBefore(deactivatedAt)) {
@@ -217,7 +223,7 @@ public final class UserAccount extends AggregateRoot {
                 stored.version(),
                 stored.id(),
                 stored.email().orElse(null),
-                stored.emailSetByAnotherAt().orElse(null),
+                stored.emailSetByAnother().orElse(null),
                 stored.roles(),
                 stored.passwordHash().orElse(null),
                 stored.state(),
@@ -278,19 +284,25 @@ public final class UserAccount extends AggregateRoot {
      * giving the roles it holds changes nothing. An Admin can't leave a user with no role; only
      * retiring a driver can (ADR-104).
      *
+     * <p>Giving the Admin role to an account whose email another account's link set takes two
+     * people: the Admin who set the address can't, and any other Admin can, which clears the
+     * record (ADR-116). The account's own user can't clear it, because whoever holds the mailbox
+     * can act as that user.
+     *
      * @param newRoles the roles it will hold, at least one
      * @param activeAdmins the active Admins, read under lock
+     * @param by the Admin making the change
      * @param now when
      * @throws RuleViolation with {@link AccessError.AccountAnonymized} or {@link
      *     AccountDeactivated} when it is not active; with {@link NoRoleGiven} for no role (FR-02);
      *     with {@link AccessError.TooFewAdmins} when it would leave the company with fewer than
      *     two active Admins (BR-19); or with {@link EmailSetByAnotherAccount} when it would give
-     *     the Admin role to an account whose current email another account's email-change link set
-     *     (ADR-116)
+     *     the Admin role to an account whose email {@code by}'s email-change link set (ADR-116)
      */
-    public void changeRoles(RoleSet newRoles, ActiveAdmins activeAdmins, Instant now) {
+    public void changeRoles(RoleSet newRoles, ActiveAdmins activeAdmins, AccountId by, Instant now) {
         Objects.requireNonNull(newRoles, "newRoles");
         Objects.requireNonNull(activeAdmins, "activeAdmins");
+        Objects.requireNonNull(by, "by");
         Objects.requireNonNull(now, "now");
         requireActive();
         if (newRoles.isEmpty()) {
@@ -302,10 +314,14 @@ public final class UserAccount extends AggregateRoot {
         if (roles.contains(Role.ADMIN) && !newRoles.contains(Role.ADMIN)) {
             activeAdmins.checkCanLose(id);
         }
-        if (!roles.contains(Role.ADMIN) && newRoles.contains(Role.ADMIN) && emailSetByAnotherAt != null) {
+        boolean promoted = !roles.contains(Role.ADMIN) && newRoles.contains(Role.ADMIN);
+        if (promoted && emailSetByAnother != null && emailSetByAnother.by().equals(by)) {
             throw new RuleViolation(new EmailSetByAnotherAccount());
         }
         roles = newRoles;
+        if (promoted) {
+            emailSetByAnother = null;
+        }
         revokeEverySession(now);
     }
 
@@ -500,9 +516,10 @@ public final class UserAccount extends AggregateRoot {
      * {@link EmailOfAnotherAdmin}, as it answers {@link LinkVoided}, so the holder of the new
      * mailbox learns nothing about the account's roles.
      *
-     * <p>When another account asked for the change, the account records when the address took
-     * effect, which keeps the Admin role from it; a change the user asked for clears that record
-     * (ADR-116).
+     * <p>When another account asked for the change, the account records which account that was and
+     * when the address took effect, so that account can't later give it the Admin role (ADR-116). A
+     * change the user asked for leaves the record as it is: whoever holds the mailbox the other
+     * account chose can ask as that user.
      *
      * @param presented the hash of the token the link carried
      * @param holder which account holds the new address now
@@ -529,7 +546,9 @@ public final class UserAccount extends AggregateRoot {
         }
         link.spend();
         email = change.newEmail();
-        emailSetByAnotherAt = change.requestedBy().equals(id) ? null : now;
+        if (!change.requestedBy().equals(id)) {
+            emailSetByAnother = new EmailSetByAnother(change.requestedBy(), now);
+        }
         voidOpenLinks();
         revokeEverySession(now);
     }
@@ -605,7 +624,7 @@ public final class UserAccount extends AggregateRoot {
             throw new RuleViolation(new RetentionNotOver());
         }
         email = null;
-        emailSetByAnotherAt = null;
+        emailSetByAnother = null;
         passwordHash = null;
         links.clear();
         state = new AccountState.Anonymized(deactivated.at(), now);
@@ -731,7 +750,7 @@ public final class UserAccount extends AggregateRoot {
                 version(),
                 id,
                 Optional.ofNullable(email),
-                Optional.ofNullable(emailSetByAnotherAt),
+                Optional.ofNullable(emailSetByAnother),
                 roles,
                 Optional.ofNullable(passwordHash),
                 state,

@@ -23,8 +23,8 @@ import java.util.Optional;
  * @param version the stored version
  * @param id the account's ID
  * @param email the address it signs in with; absent once anonymized
- * @param emailSetByAnotherAt when another account's email-change link set that address, if one did
- *     and the user has not since confirmed a change of their own (ADR-116)
+ * @param emailSetByAnother which other account's email-change link set the account's address, and
+ *     when, until another Admin gives it the Admin role or it is anonymized (ADR-116)
  * @param roles its roles, perhaps none (BR-123)
  * @param passwordHash its password's hash; absent until a password is set, and once anonymized
  * @param state active, deactivated or anonymized
@@ -37,7 +37,7 @@ public record UserAccountSnapshot(
         Version version,
         AccountId id,
         Optional<EmailAddress> email,
-        Optional<Instant> emailSetByAnotherAt,
+        Optional<EmailSetByAnother> emailSetByAnother,
         RoleSet roles,
         Optional<PasswordHash> passwordHash,
         AccountState state,
@@ -51,7 +51,7 @@ public record UserAccountSnapshot(
         Objects.requireNonNull(version, "version");
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(email, "email");
-        Objects.requireNonNull(emailSetByAnotherAt, "emailSetByAnotherAt");
+        Objects.requireNonNull(emailSetByAnother, "emailSetByAnother");
         Objects.requireNonNull(roles, "roles");
         Objects.requireNonNull(passwordHash, "passwordHash");
         Objects.requireNonNull(state, "state");

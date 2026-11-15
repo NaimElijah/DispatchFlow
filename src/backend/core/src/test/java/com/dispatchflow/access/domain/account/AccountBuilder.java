@@ -28,7 +28,7 @@ public final class AccountBuilder {
     static final Instant SENT = Instant.parse("2027-06-15T06:00:00Z");
 
     private Optional<EmailAddress> email = Optional.of(EMAIL);
-    private Optional<Instant> emailSetByAnotherAt = Optional.empty();
+    private Optional<EmailSetByAnother> emailSetByAnother = Optional.empty();
     private RoleSet roles = RoleSet.of(Role.DISPATCHER);
     private Optional<PasswordHash> passwordHash = Optional.of(PASSWORD);
     private AccountState state = new AccountState.Active();
@@ -64,9 +64,9 @@ public final class AccountBuilder {
         return this;
     }
 
-    /** The account's current email was set by another account's email-change link, at {@code at}. */
-    AccountBuilder withEmailSetByAnotherAt(Instant at) {
-        emailSetByAnotherAt = Optional.of(at);
+    /** The account's current email was set by {@code by}'s email-change link, at {@code at}. */
+    AccountBuilder withEmailSetBy(AccountId by, Instant at) {
+        emailSetByAnother = Optional.of(new EmailSetByAnother(by, at));
         return this;
     }
 
@@ -110,7 +110,7 @@ public final class AccountBuilder {
                 VERSION,
                 ACCOUNT,
                 email,
-                emailSetByAnotherAt,
+                emailSetByAnother,
                 roles,
                 passwordHash,
                 state,

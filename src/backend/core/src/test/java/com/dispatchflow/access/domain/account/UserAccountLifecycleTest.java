@@ -101,7 +101,7 @@ class UserAccountLifecycleTest {
             });
     private static final Command CHANGE_ROLES = new Command(
             "changeRoles",
-            account -> account.changeRoles(RoleSet.of(Role.DISPATCHER), THREE_ADMINS, NOW),
+            account -> account.changeRoles(RoleSet.of(Role.DISPATCHER), THREE_ADMINS, OTHER_ADMIN, NOW),
             (before, after) -> {
                 assertThat(after.roles()).isEqualTo(RoleSet.of(Role.DISPATCHER));
                 revokedOnce(before, after);

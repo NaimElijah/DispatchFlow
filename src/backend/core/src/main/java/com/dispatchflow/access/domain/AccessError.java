@@ -24,10 +24,10 @@ public sealed interface AccessError extends DomainError {
     record EmailOfAnotherAdmin() implements AccessError {}
 
     /**
-     * The account's current email was set by another account's email-change link, so it is not
-     * given the Admin role until its user confirms an email change of their own (ADR-116).
-     * Otherwise an Admin could take another's Admin role, point the address at their own mailbox,
-     * recover the account and give the role back, and hold two of BR-19's Admins.
+     * The Admin giving the account the Admin role is the one whose email-change link set its
+     * email; another Admin must give it (ADR-116). Otherwise an Admin could take another's Admin
+     * role, point the address at their own mailbox, recover the account and give the role back,
+     * and hold two of BR-19's Admins.
      */
     record EmailSetByAnotherAccount() implements AccessError {}
 

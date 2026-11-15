@@ -3,6 +3,7 @@ package com.dispatchflow.access.domain.account;
 import static com.dispatchflow.access.domain.account.AccountBuilder.ACCOUNT;
 import static com.dispatchflow.access.domain.account.AccountBuilder.EMAIL;
 import static com.dispatchflow.access.domain.account.AccountBuilder.NEW_EMAIL;
+import static com.dispatchflow.access.domain.account.AccountBuilder.OTHER_ADMIN;
 import static com.dispatchflow.access.domain.account.AccountBuilder.PASSWORD;
 import static com.dispatchflow.access.domain.account.AccountBuilder.SENT;
 import static com.dispatchflow.access.domain.account.AccountBuilder.anAccount;
@@ -35,7 +36,10 @@ class UserAccountRestoreTest {
                 anAccount().withRoles(Role.ADMIN, Role.DISPATCHER, Role.DRIVER),
                 anAccount().withPassword(Optional.empty()),
                 anAccount().withTermsAcceptedAt(SENT),
-                anAccount().withEmailSetByAnotherAt(SENT),
+                anAccount().withEmailSetBy(OTHER_ADMIN, SENT),
+                anAccount()
+                        .withState(new AccountState.Deactivated(DEACTIVATED_AT))
+                        .withEmailSetBy(OTHER_ADMIN, SENT),
                 anAccount()
                         .withLink(openLink("1", new LinkPurpose.SetPassword(), "a"))
                         .withLink(openLink("2", new LinkPurpose.Recovery(), "b"))
@@ -98,15 +102,21 @@ class UserAccountRestoreTest {
     @Test
     void GivenAnAdminWhoseEmailAnotherAccountSet_WhenRestored_ThenStoredStateInvalid() {
         assertStoredStateInvalid(
-                anAccount().withRoles(Role.ADMIN).withEmailSetByAnotherAt(SENT),
+                anAccount().withRoles(Role.ADMIN).withEmailSetBy(OTHER_ADMIN, SENT),
                 "an email another account set belongs to an account that holds it and no Admin role");
     }
 
     @Test
     void GivenAnAnonymizedAccountStillRecordingWhoSetItsEmail_WhenRestored_ThenStoredStateInvalid() {
         assertStoredStateInvalid(
-                anAnonymizedAccount(DEACTIVATED_AT, ANONYMIZED_AT).withEmailSetByAnotherAt(SENT),
+                anAnonymizedAccount(DEACTIVATED_AT, ANONYMIZED_AT).withEmailSetBy(OTHER_ADMIN, SENT),
                 "an email another account set belongs to an account that holds it and no Admin role");
+    }
+
+    @Test
+    void GivenAnAccountRecordingThatItsOwnLinkSetItsEmail_WhenRestored_ThenStoredStateInvalid() {
+        assertStoredStateInvalid(
+                anAccount().withEmailSetBy(ACCOUNT, SENT), "the account that set an email is another account");
     }
 
     @Test
