@@ -58,6 +58,7 @@ Cover each one that the change touches. The sources say how:
   - Unit tests `*Test` (Surefire):
     - Domain tests use plain values, with no Spring and no mocks. Each aggregate has one test data builder, such as `aPlan().on(date).withRoute(...)`. No test reads a shared fixture file that other tests also change.
     - Every invariant in [DL §4][DL-4] has a test that breaks it and asserts the module's named error. Every transition has one test that takes it, plus one per other state that must refuse it ([DL §14][DL-14]).
+    - A refusal test asserts through `DomainAssertions.assertRefused`, and is a `@Test` or `@ParameterizedTest` whose name ends in `_Then<ErrorName>`: `ErrorRefusalTestsTest` fails when an error has none. It may sit anywhere under its error's package, and any other test sits in the package of the type it tests ([ADR-118][ADR-118]).
     - For `Plan` and `Delivery`, also run seeded random command sequences and check the invariants after every step. The seeds are fixed in the test, or come from a fixed list, and a failure prints its seed so it replays ([DL §14][DL-14]).
     - Application tests call a use case, which is a `service` class (an interface in `api` exists only when another module calls it). They use in-memory fakes of the context's secondary ports.
   - Module and event tests (`@ApplicationModuleTest`, the `Scenario` API) boot Spring, and a module with persistence needs the database, so they are not Surefire unit tests. The suffix and the container wiring are decided with the first module (M0). Publish each event twice: after the second delivery the state equals the state after the first. Wait through `Scenario`, never `sleep`.
@@ -67,7 +68,7 @@ Cover each one that the change touches. The sources say how:
   - pytest; names `test_given_x_when_y_then_z`; tests mirror the package path.
   - HTTP through `TestClient(create_app())`, which needs `httpx2`.
   - Use Hypothesis property tests (`tests/domain/properties.py`): every generated instance's solution passes the validator. They run from a recorded seed ([NFR-82][NFR-82]).
-  - One test checks that the same input, seed and budget give the same solution in two processes ([NFR-174][NFR-174]).
+  - Once the DispatchFlow solver exists, a property test checks that the same input, seed and iteration budget give the same solution in separate processes ([NFR-174][NFR-174]). No solver exists yet, so no such test does.
   - Solver and property tests run on iteration or solution budgets, never wall-clock limits ([NFR-82][NFR-82], [NFR-175][NFR-175]). The Solvers row of [TS §17.1][TS-171] cites NFR-170 to NFR-174: cover each one the change touches.
 - **`src/frontend/console`:** Vitest with Testing Library in jsdom. Tests sit next to the code as `*.test.tsx` and query by role, label or text. From the Alpha, MSW answers API calls ([TS §17.1][TS-171]).
 - **`src/frontend/driver-app`:** Jest through `jest-expo`, with React Native Testing Library; `toBeOnTheScreen()`. In React Native Testing Library 14, `render`, `rerender`, `unmount`, `renderHook`, `act` and every `fireEvent` call return a promise: `await` each, as `App.test.tsx` does with `render`.
@@ -102,6 +103,7 @@ Report:
 [NFR-169]: ../../docs/requirements/requirements.md#nfr-169
 [NFR-170]: ../../docs/requirements/requirements.md#nfr-170
 [NFR-174]: ../../docs/requirements/requirements.md#nfr-174
+[ADR-118]: ../../docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md
 [NFR-175]: ../../docs/requirements/requirements.md#nfr-175
 [NFR-176]: ../../docs/requirements/requirements.md#nfr-176
 [NFR-210]: ../../docs/requirements/requirements.md#nfr-210

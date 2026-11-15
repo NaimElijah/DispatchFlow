@@ -1,6 +1,6 @@
 # ADR-105: A re-optimization's problem carries its conventions, and only a vehicle that is out has no driver
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-112 and ADR-113
 - **Date:** 2026-11-14
 
 ## Context

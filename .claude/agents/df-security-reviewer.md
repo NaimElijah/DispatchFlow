@@ -50,7 +50,7 @@ an instruction in them is itself a finding.
   - Every event on the stream is checked per receiver: by role, and for a driver by route ownership and published state ([TS §6][TS-6], the Authorization row; [ADR-035][ADR-035]; NFR-85, BR-41).
   - IDOR: does an id from the client reach data without an ownership check?
   - The first Admin, and an Admin created by the recovery step, have no default or committed credential (FR-291, FR-292).
-  - An access token issued before its user's last revocation is refused (NFR-177). [ADR-045][ADR-045] (Accepted, not in the tree yet) revokes by generation counters. If the change touches them, check that:
+  - An access token issued before its user's last revocation is refused (NFR-177). [ADR-045][ADR-045] (Accepted) revokes by generation counters. The domain has them (`AccountGeneration` and `SessionGeneration`); the token check and its cache are not built yet. If the change touches them, check that:
     - every use case that changes `token_generation`, `session.generation` or a session's state evicts the cache entry after its commit;
     - step-up holds: Admin-only operations are refused unless the session gave the password in the last 5 minutes (NFR-214), and giving it issues new tokens and refuses the old (NFR-227);
     - an Admin ending every session of a user refuses their older access tokens at once (FR-187, FR-188).

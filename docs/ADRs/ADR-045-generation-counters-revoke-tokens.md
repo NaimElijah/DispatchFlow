@@ -1,6 +1,6 @@
 # ADR-045: Generation counters on the user and the session revoke tokens
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-104
 - **Date:** 2026-11-13
 
 ## Context

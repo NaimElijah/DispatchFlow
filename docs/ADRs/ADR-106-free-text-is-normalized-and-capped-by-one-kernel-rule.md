@@ -1,6 +1,6 @@
 # ADR-106: Free text is normalized and capped by one kernel rule, and personal values carry a marker
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-111
 - **Date:** 2026-11-14
 
 ## Context

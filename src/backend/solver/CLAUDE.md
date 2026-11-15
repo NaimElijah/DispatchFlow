@@ -7,12 +7,13 @@ and it hosts every solver behind one port ([ADR-004]). Python 3.14, FastAPI, Uvi
 
 | Package under `src/dispatchflow_solver/` | Holds |
 |---|---|
-| `domain/` | `Problem` (`validate`, `cost`, `explain_drop`), `ProblemFactory` (`daily`, `reoptimization`), `Solution`, `TravelTimeModel`, `PenaltyScale` and `RuleId`: the problem, the solution, the shared objective, the feasibility validator and the drop reasons, for daily solves and re-optimizations |
+| `domain/` | `Problem` (`validate`, `cost`, `explain_drop`), `ProblemFactory` (`daily`, `reoptimization`), `Solution`, `TravelTimeModel`, `PenaltyScale` and `RuleId`: the problem, the solution, the shared objective, the feasibility validator and the drop reasons, for daily solves and re-optimizations. `problem_parts` holds the parts a problem is made of, and `problem_view` the `ProblemView` protocol that the validator, the objective and the drop reasons read it through ([ADR-113]) |
 | `application/` | The solve use cases, the `Solver` port and the solver registry |
 | `solvers/ortools/`, `solvers/alns/` | One adapter per solver: OR-Tools, and ours. Ours runs the `alns` package (MIT) as its outer loop, and the Clarke-Wright construction, the operators, the route state and the Numba kernels are ours ([ADR-092]) |
 | `adapters/inbound/http/` | `create_app()`: the FastAPI app and its request and response models |
 
-`application/` and `solvers/` are placeholders today. `tests/` mirrors the package path.
+`application/` holds only an empty `__init__.py` today, and `solvers/` only `.gitkeep` files. `tests/`
+mirrors the package path.
 
 [ADR-037] (Accepted) renames the service to `src/optimizer` with the package `dispatchflow_opt`,
 in the M0 restructure. [ADR-040] puts the solvers under `adapters/outbound/solvers/`, as [TS §4]
@@ -21,14 +22,19 @@ draws it, where `nearest_neighbour` joins them. Neither is in the tree yet.
 ## Rules
 
 - `domain` imports no `fastapi`, `pydantic`, `ortools`, `pyvrp`, `numba`, `alns`, `starlette`,
-  `uvicorn`, `pydantic_settings`, `structlog` or `opentelemetry`. NumPy is allowed
-  ([TS §2.1]). `application` imports nothing from FastAPI, Pydantic or OR-Tools. OR-Tools types
-  live in `solvers/ortools` ([ADR-001]). import-linter checks the domain's imports, the layers
-  and that the product never imports PyVRP (`pyproject.toml`, run by `just solver-check`).
+  `uvicorn`, `pydantic_settings`, `structlog` or `opentelemetry`, and no standard-library module
+  that reads a clock, draws randomness or does I/O (`datetime`, `time`, `random`, `os`, `io` and the
+  like, listed in `pyproject.toml`). NumPy is allowed ([TS §2.1]). `application` imports nothing from
+  FastAPI, Pydantic or OR-Tools. OR-Tools types live in `solvers/ortools` ([ADR-001]).
+  `feasibility`, `objective` and `drops` never import `problem`: they read it through
+  `ProblemView` ([ADR-113]). import-linter checks all of this, the layers, and that the product
+  never imports PyVRP (`pyproject.toml`, run by `just solver-check`).
 - Pydantic models are generated from the contract by datamodel-code-generator ([ADR-043],
   Accepted), and only the HTTP adapter uses them.
 - `Problem` owns `validate`, `cost` and `explain_drop` ([TS §7.1]). `validate` is the one
-  definition of feasibility, and `cost` is the one objective. `Problem` and `Solution` are frozen
+  definition of feasibility, and `cost` is the one objective, a `Cost` of seven terms: `travel`,
+  `drops`, `door_window`, `fixed_vehicles`, `lateness`, `orphaned_stops` and `moved_stops`. The last
+  two are the route-stability cost, and `drops` holds only the drop penalties ([ADR-113]). `Problem` and `Solution` are frozen
   dataclasses over NumPy arrays ([TS §7.1]).
 - `ProblemFactory` alone applies the re-optimization conventions ([ADR-050]). It writes each one
   into the `Problem` once ([ADR-105]): a vehicle's start and end into `Vehicles`, a vehicle that is
@@ -97,8 +103,9 @@ draws it, where `nearest_neighbour` joins them. Neither is in the tree yet.
 - `tests/domain/data/solomon/` holds six Solomon instances and their published best-known
   solutions. `validate` accepts each, and its travel total matches the published one (NFR-167).
   Its `README.md` names the source.
-- One test checks that the same input, seed and budget give the same solution in two processes
-  (NFR-174).
+- Once the DispatchFlow solver exists, a property test checks that the same input, seed and
+  iteration budget give the same solution in separate processes (NFR-174). No solver exists yet, so
+  no such test does.
 
 ## Commands
 
@@ -125,6 +132,7 @@ Run `just` recipes from the repository root, and `uv` from this folder.
 [ADR-098]: ../../../docs/ADRs/ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md
 [ADR-099]: ../../../docs/ADRs/ADR-099-a-route-may-carry-the-starts-its-solver-claims.md
 [ADR-105]: ../../../docs/ADRs/ADR-105-a-re-optimizations-problem-carries-its-conventions-and-only-a-vehicle-that-is-out-has-no-driver.md
+[ADR-113]: ../../../docs/ADRs/ADR-113-route-stability-is-its-own-cost-the-rules-read-a-problem-through-a-protocol-and-untimed-outputs-are-documented.md
 [TS §2.1]: ../../../docs/architecture/tech_stack.md#21-the-dependency-rule
 [TS §4]: ../../../docs/architecture/tech_stack.md#4-repository-layout
 [TS §7]: ../../../docs/architecture/tech_stack.md#7-optimization-service-python

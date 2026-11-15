@@ -1,6 +1,6 @@
 # ADR-104: The company profile holds a new customer's defaults, and capabilities follow the role matrix
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-116
 - **Date:** 2026-11-14
 
 ## Context
