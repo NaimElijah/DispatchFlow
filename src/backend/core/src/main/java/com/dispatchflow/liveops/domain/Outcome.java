@@ -30,6 +30,18 @@ public sealed interface Outcome extends PersonalData {
     boolean isSameAs(Outcome other);
 
     /**
+     * Whether another outcome states exactly this one, so a correction to it would change nothing
+     * (FR-333, ADR-114): the same kind, the same *left at the door*, and for a failure the same
+     * reason with the same text. A proof is not compared, because a dispatcher's outcome never
+     * carries one (FR-367). A reason whose text retention erased states nothing exact any more, so
+     * it matches no reason: two corrected texts that are both erased later still differ at rest.
+     *
+     * @param other the outcome to compare with
+     * @return {@code true} when the two state exactly the same outcome
+     */
+    boolean statesExactly(Outcome other);
+
+    /**
      * Delivered (FR-29, FR-366).
      *
      * @param proof the proof; a driver's report needs one (FR-367), a dispatcher's record none
@@ -73,6 +85,11 @@ public sealed interface Outcome extends PersonalData {
             return other instanceof Delivered;
         }
 
+        @Override
+        public boolean statesExactly(Outcome other) {
+            return other instanceof Delivered delivered && delivered.leftAtDoor == leftAtDoor;
+        }
+
         /**
          * A form that leaves out the proof's note, because it is personal data.
          *
@@ -104,6 +121,14 @@ public sealed interface Outcome extends PersonalData {
         @Override
         public boolean isSameAs(Outcome other) {
             return other instanceof Failed(FailureReason otherReason) && otherReason.kind() == reason.kind();
+        }
+
+        @Override
+        public boolean statesExactly(Outcome other) {
+            return other instanceof Failed(FailureReason otherReason)
+                    && !reason.isErased()
+                    && !otherReason.isErased()
+                    && otherReason.equals(reason);
         }
 
         /**

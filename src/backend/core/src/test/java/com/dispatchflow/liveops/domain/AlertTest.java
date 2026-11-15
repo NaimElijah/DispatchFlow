@@ -2,6 +2,7 @@ package com.dispatchflow.liveops.domain;
 
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.DISPATCHER;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.DRIVER_A;
+import static com.dispatchflow.liveops.domain.LiveOpsFixtures.DRIVER_B;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.HELD_1;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.LATER;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.NOW;
@@ -17,6 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import com.dispatchflow.liveops.domain.LiveOpsError.AlertAlreadyAcknowledged;
+import com.dispatchflow.liveops.events.OutcomeKind;
 import com.dispatchflow.shared.AlertId;
 import com.dispatchflow.shared.RatingRequestId;
 import com.dispatchflow.shared.Version;
@@ -29,7 +31,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * An alert's lifecycle (FR-157, FR-260) and each kind's dedupe key, which makes it once (DL §5,
- * ADR-107).
+ * ADR-107, ADR-114).
  */
 class AlertTest {
 
@@ -54,7 +56,9 @@ class AlertTest {
                 arguments(
                         new AlertSubject.ReportHeld(PLAN, ROUTE_A, STOP, HELD_1),
                         "REPORT_HELD:0190a5e2-0000-7000-a000-000000000040"),
-                arguments(new AlertSubject.ReportRefused(PLAN, ROUTE_A, STOP), "REPORT_REFUSED:" + S + ":" + A),
+                arguments(
+                        new AlertSubject.ReportRefused(PLAN, ROUTE_A, STOP, DRIVER_A, OutcomeKind.DELIVERED),
+                        "REPORT_REFUSED:" + S + ":" + A + ":0190a5e2-0000-7000-a000-000000000010:DELIVERED"),
                 arguments(
                         new AlertSubject.RouteFinishedWithPendingStops(PLAN, ROUTE_A),
                         "ROUTE_FINISHED_WITH_PENDING_STOPS:" + A),
@@ -92,6 +96,30 @@ class AlertTest {
 
         assertThat(Alert.raise(ALERT, subject, NOW).dedupeKey())
                 .isEqualTo(Alert.raise(OTHER_ALERT, subject, LATER).dedupeKey());
+    }
+
+    @Test
+    void GivenOneRefusedReportRetried_WhenKeyed_ThenTheKeysMatch() {
+        AlertSubject subject = new AlertSubject.ReportRefused(PLAN, ROUTE_A, STOP, DRIVER_A, OutcomeKind.FAILED);
+
+        assertThat(Alert.raise(ALERT, subject, NOW).dedupeKey())
+                .isEqualTo(Alert.raise(OTHER_ALERT, subject, LATER).dedupeKey());
+    }
+
+    @Test
+    void GivenRefusalsFromTwoDriversOnOneRouteAndStop_WhenKeyed_ThenEachAlerts() {
+        AlertSubject first = new AlertSubject.ReportRefused(PLAN, ROUTE_A, STOP, DRIVER_A, OutcomeKind.FAILED);
+        AlertSubject second = new AlertSubject.ReportRefused(PLAN, ROUTE_A, STOP, DRIVER_B, OutcomeKind.FAILED);
+
+        assertThat(first.dedupeKey(ALERT)).isNotEqualTo(second.dedupeKey(OTHER_ALERT));
+    }
+
+    @Test
+    void GivenRefusalsOfTwoOutcomesFromOneDriver_WhenKeyed_ThenEachAlerts() {
+        AlertSubject delivered = new AlertSubject.ReportRefused(PLAN, ROUTE_A, STOP, DRIVER_A, OutcomeKind.DELIVERED);
+        AlertSubject failed = new AlertSubject.ReportRefused(PLAN, ROUTE_A, STOP, DRIVER_A, OutcomeKind.FAILED);
+
+        assertThat(delivered.dedupeKey(ALERT)).isNotEqualTo(failed.dedupeKey(OTHER_ALERT));
     }
 
     @Test

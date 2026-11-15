@@ -113,7 +113,8 @@ class ArrivalProjectionTest {
     }
 
     @Test
-    void GivenStopsReportedOutOfOrder_WhenProjected_ThenASkippedStopHasNoProjectionAndAPassedOneIsPassedOnItsLeg() {
+    void
+            GivenStopsReportedOutOfOrder_WhenProjected_ThenASkippedStopHasItsPlannedArrivalAndAPassedOneIsPassedOnItsLeg() {
         ArrivalProjection skipped = ArrivalProjection.of(
                 ROUTE, List.of(outcome(S2, "07:00:00")), Optional.of(at("06:00:00")), at("07:00:00"));
         ArrivalProjection passed = ArrivalProjection.of(
@@ -122,10 +123,30 @@ class ArrivalProjectionTest {
                 Optional.of(at("06:00:00")),
                 at("07:10:00"));
 
-        assertThat(skipped.arrivalOf(S1)).isEmpty();
+        assertThat(skipped.arrivalOf(S1)).contains(at("07:00:00"));
         assertThat(skipped.arrivalOf(S3)).contains(at("07:15:00"));
         assertThat(passed.arrivalOf(S2)).isEmpty();
         assertThat(passed.arrivalOf(S3)).contains(at("07:45:00"));
+    }
+
+    @Test
+    void
+            GivenARouteStartedByAReportOnItsLastStop_WhenProjected_ThenEachSkippedStopHasItsPlannedArrivalNoEarlierThanNow() {
+        ArrivalProjection projection = ArrivalProjection.of(
+                ROUTE, List.of(outcome(S3, "06:50:00")), Optional.of(at("06:00:00")), at("07:00:00"));
+
+        assertThat(projection.arrivalOf(S1)).contains(at("07:00:00"));
+        assertThat(projection.arrivalOf(S2)).contains(at("07:30:00"));
+        assertThat(projection.arrivalOf(S3)).isEmpty();
+    }
+
+    @Test
+    void GivenASkippedStopWhoseArrivalIsNowPastItsRiskMargin_WhenJudged_ThenItIsNotAtRiskOnThatBasisAlone() {
+        ArrivalProjection projection = ArrivalProjection.of(
+                ROUTE, List.of(outcome(S2, "09:45:00")), Optional.of(at("06:00:00")), at("09:50:00"));
+
+        assertThat(projection.arrivalOf(S1)).contains(at("09:50:00"));
+        assertThat(projection.isAtRisk(S1)).isFalse();
     }
 
     @Test

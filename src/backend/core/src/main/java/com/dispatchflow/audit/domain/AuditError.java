@@ -15,8 +15,14 @@ public sealed interface AuditError extends DomainError {
      */
     record MalformedOperationName() implements AuditError {}
 
-    /** A refusal's code that is not upper snake case ASCII, such as {@code STALE_VERSION}. */
+    /**
+     * A refusal's code that is not upper snake case ASCII of at most 100 characters, such as {@code
+     * STALE_VERSION}.
+     */
     record MalformedErrorCode() implements AuditError {}
+
+    /** An audit record that names more than 500 records (NFR-93, ADR-114). */
+    record TooManyNamedRecords() implements AuditError {}
 
     /**
      * An app version that is not three dot-separated numbers without leading zeros, each within

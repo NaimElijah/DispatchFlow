@@ -1,5 +1,6 @@
 package com.dispatchflow.liveops.domain;
 
+import com.dispatchflow.liveops.domain.LiveOpsError.NotYourRoute;
 import com.dispatchflow.liveops.domain.LiveOpsError.RouteAlreadyFinished;
 import com.dispatchflow.liveops.domain.LiveOpsError.RunAlreadyStarted;
 import com.dispatchflow.liveops.domain.LiveOpsError.TrackingClosed;
@@ -53,15 +54,22 @@ public final class RouteRun extends AggregateRoot {
      *
      * @param route the route
      * @param report the driver's start or first report, whose corrected time is the start
+     * @param routeDriver the route's driver in the revision in force at the report's corrected
+     *     time, from Planning; for a first stop report, the driver its {@link Entitlement} names
      * @param cause what started it
      * @param now when the server records it
      * @return the run, started, at {@link Version#NEW}
+     * @throws RuleViolation with {@link NotYourRoute} when the report's driver is not {@code
+     *     routeDriver}, as after a hand-over (BR-02, ADR-114)
      */
-    public static RouteRun start(RouteId route, DriverReport report, RunStartCause cause, Instant now) {
+    public static RouteRun start(
+            RouteId route, DriverReport report, AccountId routeDriver, RunStartCause cause, Instant now) {
         Objects.requireNonNull(route, "route");
         Objects.requireNonNull(report, "report");
+        Objects.requireNonNull(routeDriver, "routeDriver");
         Objects.requireNonNull(cause, "cause");
         Objects.requireNonNull(now, "now");
+        refuseIfNotTheDriver(route, report, routeDriver);
         Instant startedAt = report.time().corrected();
         RouteRun run = new RouteRun(new RouteRunSnapshot(
                 route, Version.NEW, report.driver(), cause, startedAt, new RunStatus.Started(), Optional.empty()));
@@ -127,13 +135,17 @@ public final class RouteRun extends AggregateRoot {
      * A driver's start on a route that already has a run; a run starts once (FR-68).
      *
      * @param report the driver's start
+     * @param routeDriver the route's driver in the revision in force at the report's corrected time
      * @param now when the server received it
-     * @throws RuleViolation with {@link RouteAlreadyFinished} when the run has finished, else {@link
-     *     RunAlreadyStarted}
+     * @throws RuleViolation with {@link NotYourRoute} when the report's driver is not {@code
+     *     routeDriver} (BR-02, ADR-114), else {@link RouteAlreadyFinished} when the run has
+     *     finished, else {@link RunAlreadyStarted}
      */
-    public void start(DriverReport report, Instant now) {
+    public void start(DriverReport report, AccountId routeDriver, Instant now) {
         Objects.requireNonNull(report, "report");
+        Objects.requireNonNull(routeDriver, "routeDriver");
         Objects.requireNonNull(now, "now");
+        refuseIfNotTheDriver(route, report, routeDriver);
         refuseIfFinished();
         throw new RuleViolation(new RunAlreadyStarted(route));
     }
@@ -142,12 +154,16 @@ public final class RouteRun extends AggregateRoot {
      * Finishes the route, perhaps with stops pending, which the use case alerts on (FR-68, FR-329).
      *
      * @param report the driver's finish, whose corrected time is the finish
+     * @param routeDriver the route's driver in the revision in force at the report's corrected time
      * @param pending the stops with no outcome, in the route's order
-     * @throws RuleViolation with {@link RouteAlreadyFinished} when the run has finished
+     * @throws RuleViolation with {@link NotYourRoute} when the report's driver is not {@code
+     *     routeDriver} (BR-02, ADR-114), else {@link RouteAlreadyFinished} when the run has finished
      */
-    public void finish(DriverReport report, List<StopId> pending) {
+    public void finish(DriverReport report, AccountId routeDriver, List<StopId> pending) {
         Objects.requireNonNull(report, "report");
+        Objects.requireNonNull(routeDriver, "routeDriver");
         Objects.requireNonNull(pending, "pending");
+        refuseIfNotTheDriver(route, report, routeDriver);
         refuseIfFinished();
         commit(new RunStatus.Finished(report.time().corrected(), report.driver(), pending), confirmed);
     }
@@ -239,6 +255,17 @@ public final class RouteRun extends AggregateRoot {
         return TrackingWindow.of(startedAt, finishedAt, standing.shiftEnd()).admits(at)
                 ? Optional.empty()
                 : Optional.of(TrackingRefusal.OUTSIDE_WINDOW);
+    }
+
+    /**
+     * Only the driver who drove the route at the report's time may start or finish it, so a driver
+     * the route was handed away from can't (BR-02, ADR-114). It comes first, so such a report learns
+     * nothing of the run's state.
+     */
+    private static void refuseIfNotTheDriver(RouteId route, DriverReport report, AccountId routeDriver) {
+        if (!report.driver().equals(routeDriver)) {
+            throw new RuleViolation(new NotYourRoute(route));
+        }
     }
 
     private void refuseIfFinished() {

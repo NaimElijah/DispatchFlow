@@ -36,9 +36,12 @@ import com.dispatchflow.shared.DomainEvent;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -365,17 +368,16 @@ class DeliveryLifecycleTest {
         assertRefusedUnchanged(delivery, () -> command.run.apply(delivery), expected);
     }
 
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("everyState")
-    void GivenEveryCell_WhenCounted_ThenEachStateAndCommandPairIsCoveredOnce(State state) {
-        long cells = Stream.concat(accepted(), refused())
-                .filter(cell -> cell.get()[0] == state)
-                .count();
+    @Test
+    void GivenEveryCell_WhenItsStateAndCommandArePaired_ThenEachPairOfTheFullProductIsCoveredOnce() {
+        List<List<Object>> pairs = Stream.concat(accepted(), refused())
+                .map(cell -> List.of(cell.get()[0], cell.get()[1]))
+                .toList();
+        Set<List<Object>> product = Stream.of(State.values())
+                .flatMap(state -> Stream.of(Command.values()).map(command -> List.<Object>of(state, command)))
+                .collect(Collectors.toSet());
 
-        assertThat(cells).isEqualTo(Command.values().length);
-    }
-
-    static Stream<State> everyState() {
-        return Stream.of(State.values());
+        assertThat(pairs).doesNotHaveDuplicates();
+        assertThat(Set.copyOf(pairs)).isEqualTo(product);
     }
 }

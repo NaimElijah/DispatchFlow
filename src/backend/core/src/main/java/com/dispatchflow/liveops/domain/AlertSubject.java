@@ -1,5 +1,6 @@
 package com.dispatchflow.liveops.domain;
 
+import com.dispatchflow.liveops.events.OutcomeKind;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.AlertId;
 import com.dispatchflow.shared.PlanId;
@@ -239,20 +240,26 @@ public sealed interface AlertSubject {
     }
 
     /**
-     * A report refused and shown to the dispatcher (BR-90, BR-134, BR-135): one per stop and
-     * reporting route.
+     * A report refused and shown to the dispatcher (BR-90, BR-134, BR-135): one per stop, reporting
+     * route, reporting driver and refused outcome, so a retried refusal alerts once and a different
+     * driver's or a different outcome's refusal alerts again (ADR-107, ADR-114).
      *
      * @param plan the plan
      * @param route the route the report came from
      * @param stop the stop
+     * @param driver the driver who sent the report
+     * @param refused the outcome the report stated
      */
-    record ReportRefused(PlanId plan, RouteId route, StopId stop) implements AlertSubject {
+    record ReportRefused(PlanId plan, RouteId route, StopId stop, AccountId driver, OutcomeKind refused)
+            implements AlertSubject {
 
         /** Checks every part is present. */
         public ReportRefused {
             Objects.requireNonNull(plan, "plan");
             Objects.requireNonNull(route, "route");
             Objects.requireNonNull(stop, "stop");
+            Objects.requireNonNull(driver, "driver");
+            Objects.requireNonNull(refused, "refused");
         }
 
         @Override
@@ -262,7 +269,8 @@ public sealed interface AlertSubject {
 
         @Override
         public DedupeKey dedupeKey(AlertId alert) {
-            return DedupeKey.of(kind(), List.of(stop.value(), route.value()), List.of());
+            return DedupeKey.of(
+                    kind(), List.of(stop.value(), route.value(), driver.value()), List.of(), List.of(refused));
         }
     }
 

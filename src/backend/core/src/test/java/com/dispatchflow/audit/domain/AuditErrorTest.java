@@ -22,6 +22,10 @@ class AuditErrorTest {
 
         assertThat(codes)
                 .containsExactly(
-                        "INVALID_APP_VERSION", "INVALID_TRACE_ID", "MALFORMED_ERROR_CODE", "MALFORMED_OPERATION_NAME");
+                        "INVALID_APP_VERSION",
+                        "INVALID_TRACE_ID",
+                        "MALFORMED_ERROR_CODE",
+                        "MALFORMED_OPERATION_NAME",
+                        "TOO_MANY_NAMED_RECORDS");
     }
 }

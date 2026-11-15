@@ -79,15 +79,23 @@ public final class Baseline extends AggregateRoot {
      * changed, and a solve on the plan's orders that leaves out a vehicle marked unavailable or left
      * without a driver, and gives a vehicle whose shift ran out its whole shift (FR-271).
      *
+     * <p>The baseline needs only the vehicles and the orders. Why each vehicle was withdrawn shapes
+     * the solve the listener asks for (FR-271), so the listener reads it from the event and the
+     * baseline never sees it.
+     *
      * <p>What changed adds to what was named before, in the order first named, because a withdrawn
      * route never returns (FR-268) and an added order stays in the comparison; something named again
      * is named once. A revision that neither withdrew a vehicle nor added an order changes nothing, so
      * a recompute asked for without either is ignored. A cancellation is neither: it only leaves the
      * order out of both planned on-time rates (BR-30, ADR-109).
      *
-     * @param withdrawn the vehicles the revision withdrew
-     * @param added the orders the revision added
-     * @param newResult the new solve's figures
+     * @param withdrawn every vehicle this revision withdrew mid-route, whatever the cause (FR-267), in
+     *     the event's order; empty when it withdrew none
+     * @param added every order this revision brought into the plan that the plan didn't hold before,
+     *     in the event's order; empty when it added none. An order that moved between the plan's
+     *     routes, or came back from *dropped*, was already the plan's, so it is not added
+     * @param newResult the new solve's figures, on every order the plan now holds, the added ones
+     *     included
      * @param now when it was computed
      */
     public void recompute(List<VehicleId> withdrawn, List<OrderId> added, PlannedFigures newResult, Instant now) {

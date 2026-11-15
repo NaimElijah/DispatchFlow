@@ -131,7 +131,9 @@ public final class Delivery extends AggregateRoot implements PersonalData {
      * Where the delivery stands, for {@code StopProgress} and {@code ExecutionFacts} (DL §9.3,
      * §9.6): the effective outcome, then an open held report, then an arrival.
      *
-     * @return the derived state; a held report is not an outcome (BR-132)
+     * @return the derived state; a held report is not an outcome (BR-132), and {@link
+     *     DeliveryStatus#HELD} hides an arrival recorded before it, which {@link #hasArrival()}
+     *     still answers
      */
     public DeliveryStatus status() {
         if (!outcomes.isEmpty()) {
@@ -166,6 +168,18 @@ public final class Delivery extends AggregateRoot implements PersonalData {
     }
 
     /**
+     * Whether the driver's arrival is recorded, whatever the state shows. A rule that turns on the
+     * stop being *arrived* or having an outcome, such as BR-92's order lock and FR-373's message
+     * cut-off, asks this beside {@link #effectiveOutcome()}, because {@link #status()} shows
+     * {@link DeliveryStatus#HELD} over an arrival while a report is held.
+     *
+     * @return {@code true} once an arrival is recorded
+     */
+    public boolean hasArrival() {
+        return arrival != null;
+    }
+
+    /**
      * When the driver arrived.
      *
      * @return the arrival's corrected time, or empty when none is recorded
@@ -183,7 +197,7 @@ public final class Delivery extends AggregateRoot implements PersonalData {
      * @param entitlement Planning's answer for the report's route at its corrected time
      * @param where where the stop is now
      * @throws RuleViolation with {@link ReportAfterCancellation} when the report is timed at or after
-     *     a cancellation (BR-90), {@link StopNotOnYourRoute} (BR-02, BR-110), {@link
+     *     a cancellation (BR-90), {@link StopNotOnYourRoute} (BR-02, BR-110, ADR-114), {@link
      *     ArrivalAfterOutcome} when an outcome stands, or {@link ArrivalAlreadyRecorded}, in that
      *     order
      */
@@ -216,9 +230,9 @@ public final class Delivery extends AggregateRoot implements PersonalData {
      * @return what was done: recorded, with any held reports it overtook, or held
      * @throws RuleViolation with {@link ProofRequired} (FR-367), {@link ProofHasNoFile}, {@link
      *     NotALeaveAtDoorOrder} (FR-366), {@link LeftAtDoorNeedsPhoto} (FR-368), {@link
-     *     ReportAfterCancellation} (BR-88, BR-90), {@link StopNotOnYourRoute} (BR-02, BR-110), {@link
-     *     SameOutcomeAlreadyRecorded} or {@link OutcomeAlreadyRecorded} (BR-18, BR-88, BR-90, and
-     *     against the same driver's open held report, ADR-107), in that order
+     *     ReportAfterCancellation} (BR-88, BR-90), {@link StopNotOnYourRoute} (BR-02, BR-110,
+     *     ADR-114), {@link SameOutcomeAlreadyRecorded} or {@link OutcomeAlreadyRecorded} (BR-18,
+     *     BR-88, BR-90, and against the same driver's open held report, ADR-107), in that order
      */
     public ReportAnswer deliver(
             DriverReport report,
@@ -258,7 +272,7 @@ public final class Delivery extends AggregateRoot implements PersonalData {
      * @param now when the server records it
      * @return what was done: recorded, with any held reports it overtook, or held
      * @throws RuleViolation with {@link ReportAfterCancellation} (BR-88, BR-90), {@link
-     *     StopNotOnYourRoute} (BR-02, BR-110), {@link SameOutcomeAlreadyRecorded} or {@link
+     *     StopNotOnYourRoute} (BR-02, BR-110, ADR-114), {@link SameOutcomeAlreadyRecorded} or {@link
      *     OutcomeAlreadyRecorded} (BR-18, BR-88, BR-90, and against the same driver's open held
      *     report, ADR-107), in that order
      */
@@ -305,10 +319,13 @@ public final class Delivery extends AggregateRoot implements PersonalData {
     }
 
     /**
-     * Corrects the effective outcome, keeping the original beside it (FR-333). Correcting a failed
-     * stop to delivered after a put-back is allowed while the put-back's stop has no outcome, and
-     * then raises {@link PutBackSuperseded} so Planning takes that stop off (FR-404, ADR-107). A
-     * correction raises no other event: nothing reacts to one (FR-374, ADR-064).
+     * Corrects the effective outcome, keeping the original beside it (FR-333). A correction may
+     * change the kind, the reason or its text, or *left at the door* alone; the proof is not
+     * compared, because a dispatcher's outcome never carries one (ADR-114). Correcting a failed stop
+     * to delivered after a put-back is allowed while the put-back's stop has no outcome, and then
+     * raises {@link PutBackSuperseded}, on which Live Operations' own listener asks Planning to take
+     * that stop off (FR-404, ADR-114). A correction raises no other event: nothing reacts to one
+     * (FR-374, ADR-064).
      *
      * @param corrected the outcome the stop now has, which can't carry a proof (FR-367)
      * @param reason why (FR-333)
@@ -349,7 +366,7 @@ public final class Delivery extends AggregateRoot implements PersonalData {
             throw new RuleViolation(new NoOutcomeToCorrect(stop));
         }
         OutcomeKind from = effective().outcome().kind();
-        if (to.isSameAs(effective().outcome())) {
+        if (to.statesExactly(effective().outcome())) {
             throw new RuleViolation(new CorrectionChangesNothing(stop, from));
         }
         boolean failedToDelivered = from == OutcomeKind.FAILED && to.kind() == OutcomeKind.DELIVERED;
@@ -551,6 +568,7 @@ public final class Delivery extends AggregateRoot implements PersonalData {
                         attempt.number(),
                         route,
                         recorded.outcome().kind(),
+                        recorded.outcome() instanceof Outcome.Delivered delivered && delivered.leftAtDoor(),
                         recorded.factTime(),
                         onBehalf,
                         recorded.by()));
@@ -569,12 +587,17 @@ public final class Delivery extends AggregateRoot implements PersonalData {
         }
     }
 
+    /**
+     * A report is entitled only when the stop was on its route and its sender drove that route in
+     * the revision in force at its corrected time, so a driver the route was handed away from can't
+     * report on it past the hand-over (BR-02, BR-110, ADR-114).
+     */
     private RevisionNo requireEntitled(Entitlement entitlement, DriverReport report) {
-        return switch (entitlement) {
-            case Entitlement.OnRoute onRoute -> onRoute.revision();
-            case Entitlement.NotOnRoute notOnRoute ->
-                throw new RuleViolation(new StopNotOnYourRoute(stop, report.route()));
-        };
+        if (entitlement instanceof Entitlement.OnRoute onRoute
+                && onRoute.driver().equals(report.driver())) {
+            return onRoute.revision();
+        }
+        throw new RuleViolation(new StopNotOnYourRoute(stop, report.route()));
     }
 
     /**

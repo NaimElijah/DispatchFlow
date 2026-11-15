@@ -64,7 +64,11 @@ final class LiveOpsFixtures {
     static final Proof SIGNATURE = Proof.of(ProofKind.SIGNATURE, SIGNATURE_FILE, Optional.empty());
     static final Proof PHOTO = Proof.of(ProofKind.PHOTO, PHOTO_FILE, ProofNote.of("by the blue door"));
     static final FailureReason ABSENT = FailureReason.of(FailureReasonKind.CUSTOMER_ABSENT);
-    static final Entitlement ON_ROUTE = new Entitlement.OnRoute(REV_1);
+    /** Driver A's route held the stop in revision 1, with A driving it. */
+    static final Entitlement ON_ROUTE = new Entitlement.OnRoute(REV_1, DRIVER_A);
+
+    static final Entitlement ON_ROUTE_B = new Entitlement.OnRoute(REV_1, DRIVER_B);
+    static final Entitlement ON_ROUTE_C = new Entitlement.OnRoute(REV_1, DRIVER_C);
     static final Entitlement NOT_ON_ROUTE = new Entitlement.NotOnRoute();
     static final StopWhereabouts SERVING = new StopWhereabouts.OnServingRoute();
     static final StopWhereabouts ON_B = new StopWhereabouts.OnAnotherRoute(ROUTE_B);
@@ -203,7 +207,7 @@ final class LiveOpsFixtures {
                     Optional.of(SIGNATURE),
                     false,
                     LeaveAtDoor.NOT_ALLOWED,
-                    ON_ROUTE,
+                    ON_ROUTE_B,
                     MOVED_TO_A_WITH_CONTACT,
                     id,
                     NOW);

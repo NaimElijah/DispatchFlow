@@ -1,6 +1,7 @@
 package com.dispatchflow.liveops.domain;
 
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.ABSENT;
+import static com.dispatchflow.liveops.domain.LiveOpsFixtures.DATE;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.DISPATCHER;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.LATER_STOP;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.NOW;
@@ -41,7 +42,8 @@ import org.junit.jupiter.params.provider.ValueSource;
  * After every step the invariants are recomputed from the snapshot in test code: the first outcome
  * never changes once recorded (BR-18), no report stays held beside an outcome, at most one held
  * report is confirmed, the state follows its precedence, and {@code restore} takes the snapshot
- * back. A refused step leaves the snapshot and the events as they were. Each seed must reach a held
+ * back. An accepted step raises exactly the events its states before and after call for. A refused
+ * step leaves the snapshot and the events as they were. Each seed must reach a held
  * report, and have one confirmation and one refusal accepted. The message names the seed and the
  * step, so a failure replays.
  */
@@ -91,7 +93,12 @@ class DeliverySequenceTest {
             DeliverySnapshot before = delivery.snapshot();
             List<DomainEvent> eventsBefore = delivery.pendingEvents();
             try {
-                run(command, delivery, random, step, counts);
+                boolean putBackWithoutOutcome = run(command, delivery, random, step, counts);
+                assertThat(delivery.pendingEvents().stream()
+                                .map(event -> event.eventId().eventType())
+                                .toList())
+                        .as(where + ": events")
+                        .isEqualTo(expectedEvents(before, delivery.snapshot(), putBackWithoutOutcome));
                 delivery = reload(delivery);
             } catch (RuleViolation refused) {
                 assertThat(delivery.snapshot()).as(where).isEqualTo(before);
@@ -125,10 +132,39 @@ class DeliverySequenceTest {
         assertThat(counts.refused).as("seed " + seed + " refused a held report").isPositive();
     }
 
-    private static void run(String command, Delivery delivery, Random random, int step, Counts counts) {
+    /**
+     * The event types an accepted step raises, derived from the states before and after it: {@code
+     * OutcomeRecorded} exactly when the stop gets its first outcome, {@code PutBackSuperseded}
+     * exactly when a failed stop is corrected to delivered while the put-back's stop has no outcome
+     * (FR-404), and nothing otherwise.
+     */
+    private static List<String> expectedEvents(
+            DeliverySnapshot before, DeliverySnapshot after, boolean putBackWithoutOutcome) {
+        if (before.outcomes().isEmpty() && !after.outcomes().isEmpty()) {
+            return List.of("OutcomeRecorded");
+        }
+        boolean corrected = after.outcomes().size() == before.outcomes().size() + 1;
+        if (corrected
+                && putBackWithoutOutcome
+                && effectiveKind(before) == OutcomeKind.FAILED
+                && effectiveKind(after) == OutcomeKind.DELIVERED) {
+            return List.of("PutBackSuperseded");
+        }
+        return List.of();
+    }
+
+    private static OutcomeKind effectiveKind(DeliverySnapshot state) {
+        return state.outcomes().get(state.outcomes().size() - 1).outcome().kind();
+    }
+
+    /**
+     * Runs one command with random facts.
+     *
+     * @return whether the command was a correction told that the put-back's stop has no outcome
+     */
+    private static boolean run(String command, Delivery delivery, Random random, int step, Counts counts) {
         Instant now = NOW.plus(Duration.ofMinutes(step));
-        Entitlement entitlement =
-                random.nextInt(10) == 0 ? new Entitlement.NotOnRoute() : new Entitlement.OnRoute(REV_1);
+        int entitled = random.nextInt(10);
         int driver = random.nextInt(3);
         DriverReport report;
         CorrectedTime time =
@@ -137,6 +173,11 @@ class DeliverySequenceTest {
             case 0 -> byA(time);
             case 1 -> byB(time);
             default -> byC(time);
+        };
+        Entitlement entitlement = switch (entitled) {
+            case 0 -> new Entitlement.NotOnRoute();
+            case 1 -> new Entitlement.OnRoute(REV_1, DISPATCHER);
+            default -> new Entitlement.OnRoute(REV_1, report.driver());
         };
         int place = random.nextInt(10);
         StopWhereabouts where;
@@ -175,19 +216,18 @@ class DeliverySequenceTest {
                                 : new DispatcherOutcome.Failed(ABSENT),
                         LeaveAtDoor.ALLOWED,
                         now);
-            case "correct" ->
-                delivery.correct(
-                        random.nextBoolean()
-                                ? new DispatcherOutcome.Delivered(false)
-                                : new DispatcherOutcome.Failed(FailureReason.of(FailureReasonKind.DAMAGED)),
-                        TYPO,
-                        Optional.empty(),
-                        DISPATCHER,
-                        random.nextBoolean()
-                                ? new LaterAttempt.None()
-                                : new LaterAttempt.WithOutcome(LATER_STOP, SECOND, OutcomeKind.FAILED),
-                        LeaveAtDoor.ALLOWED,
-                        now);
+            case "correct" -> {
+                DispatcherOutcome corrected = random.nextBoolean()
+                        ? new DispatcherOutcome.Delivered(false)
+                        : new DispatcherOutcome.Failed(FailureReason.of(FailureReasonKind.DAMAGED));
+                LaterAttempt later = switch (random.nextInt(3)) {
+                    case 0 -> new LaterAttempt.None();
+                    case 1 -> new LaterAttempt.WithOutcome(LATER_STOP, SECOND, OutcomeKind.FAILED);
+                    default -> new LaterAttempt.WithoutOutcome(LATER_STOP, SECOND, DATE);
+                };
+                delivery.correct(corrected, TYPO, Optional.empty(), DISPATCHER, later, LeaveAtDoor.ALLOWED, now);
+                return later instanceof LaterAttempt.WithoutOutcome;
+            }
             case "confirm" -> {
                 delivery.confirmHeld(pickHeld(delivery, random, next), DISPATCHER, now);
                 counts.confirmed++;
@@ -199,6 +239,7 @@ class DeliverySequenceTest {
             case "erase" -> delivery.eraseExpired(now.plus(Duration.ofDays(random.nextInt(2) * 120L)));
             default -> throw new AssertionError("unknown command " + command);
         }
+        return false;
     }
 
     /** Mostly a held report the delivery has, sometimes one it doesn't, so both answers occur. */

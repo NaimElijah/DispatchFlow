@@ -3,6 +3,7 @@ package com.dispatchflow.liveops.domain;
 import com.dispatchflow.shared.StopId;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,12 +24,16 @@ import java.util.Optional;
  *       arrival is projected before now (FR-254). A hard window absorbs delay by waiting; a door
  *       stop never waits (BR-122).
  *   <li>A later stop that already has a fact is passed on its leg with no service, and gets no
- *       projection. A stop before the latest event in planned order with no fact, skipped
- *       (BR-29), has no leg from where the vehicle is, so it gets none either (ADR-107).
+ *       projection.
+ *   <li>A stop before the latest event in planned order with no fact, skipped (BR-29), has no leg
+ *       from where the vehicle is. It gets its planned arrival, timed from the planned departure
+ *       along the legs as if nothing had happened, and never earlier than now (FR-254), so its
+ *       recipient still hears when to expect it (FR-351 to FR-353, ADR-114).
  * </ol>
  *
  * <p>A stop is at risk when its projected arrival is later than its window's end less 15 minutes,
- * and a door stop never is (FR-253, FR-369).
+ * and a door stop never is (FR-253, FR-369). A skipped stop is never at risk on its planned arrival
+ * alone, because nothing observed carries delay to it (ADR-114).
  */
 public final class ArrivalProjection {
 
@@ -36,11 +41,11 @@ public final class ArrivalProjection {
     public static final Duration AT_RISK_MARGIN = Duration.ofMinutes(15);
 
     private final Map<StopId, Instant> arrivals;
-    private final Map<StopId, PlannedStopLeg> legs;
+    private final Map<StopId, PlannedStopLeg> propagated;
 
-    private ArrivalProjection(Map<StopId, Instant> arrivals, Map<StopId, PlannedStopLeg> legs) {
+    private ArrivalProjection(Map<StopId, Instant> arrivals, Map<StopId, PlannedStopLeg> propagated) {
         this.arrivals = arrivals;
-        this.legs = legs;
+        this.propagated = propagated;
     }
 
     /**
@@ -81,29 +86,34 @@ public final class ArrivalProjection {
         }
 
         Map<StopId, Instant> arrivals = new LinkedHashMap<>();
-        Map<StopId, PlannedStopLeg> legs = new LinkedHashMap<>();
+        List<Instant> asPlanned = plannedArrivals(planned);
+        for (int j = 0; j < anchor; j++) {
+            StopId skipped = stops.get(j).stop();
+            if (!reported.containsKey(skipped)) {
+                arrivals.put(skipped, later(asPlanned.get(j), now));
+            }
+        }
+        Map<StopId, PlannedStopLeg> propagated = new LinkedHashMap<>();
         Instant t = leaves;
         for (int j = anchor + 1; j < stops.size(); j++) {
             PlannedStopLeg leg = stops.get(j);
-            legs.put(leg.stop(), leg);
             t = t.plus(leg.legFromPrevious());
             if (reported.containsKey(leg.stop())) {
                 continue;
             }
             Instant arrival = later(t, now);
             arrivals.put(leg.stop(), arrival);
-            Instant start =
-                    leg.door() ? arrival : later(arrival, leg.window().start().toInstant());
-            t = start.plus(leg.service());
+            propagated.put(leg.stop(), leg);
+            t = serviceEnds(leg, arrival);
         }
-        return new ArrivalProjection(arrivals, legs);
+        return new ArrivalProjection(arrivals, propagated);
     }
 
     /**
      * A stop's projected arrival.
      *
      * @param stop the stop
-     * @return the arrival, or empty for a stop with a fact, a skipped one, or one not on the route
+     * @return the arrival, or empty for a stop with a fact or one not on the route
      */
     public Optional<Instant> arrivalOf(StopId stop) {
         return Optional.ofNullable(arrivals.get(Objects.requireNonNull(stop, "stop")));
@@ -113,17 +123,35 @@ public final class ArrivalProjection {
      * Whether a stop is at risk of missing its window (FR-253, FR-369).
      *
      * @param stop the stop
-     * @return {@code true} when it has a projection later than its window's end less 15 minutes and
-     *     is not a door stop
+     * @return {@code true} when its projection, carried from the latest event, is later than its
+     *     window's end less 15 minutes and it is not a door stop; a skipped stop never is
      */
     public boolean isAtRisk(StopId stop) {
-        Optional<Instant> arrival = arrivalOf(stop);
-        if (arrival.isEmpty()) {
+        PlannedStopLeg leg = propagated.get(Objects.requireNonNull(stop, "stop"));
+        if (leg == null) {
             return false;
         }
-        PlannedStopLeg leg = legs.get(stop);
         return !leg.door()
-                && arrival.get().isAfter(leg.window().end().toInstant().minus(AT_RISK_MARGIN));
+                && arrivals.get(stop).isAfter(leg.window().end().toInstant().minus(AT_RISK_MARGIN));
+    }
+
+    /** Each stop's arrival as planned: from the planned departure along the legs, with no fact. */
+    private static List<Instant> plannedArrivals(PlannedLegs planned) {
+        List<Instant> arrivals = new ArrayList<>();
+        Instant t = planned.plannedDeparture().toInstant();
+        for (PlannedStopLeg leg : planned.stops()) {
+            Instant arrival = t.plus(leg.legFromPrevious());
+            arrivals.add(arrival);
+            t = serviceEnds(leg, arrival);
+        }
+        return arrivals;
+    }
+
+    /** When service ends at a stop reached at {@code arrival}: a hard window waits, a door stop doesn't. */
+    private static Instant serviceEnds(PlannedStopLeg leg, Instant arrival) {
+        Instant start =
+                leg.door() ? arrival : later(arrival, leg.window().start().toInstant());
+        return start.plus(leg.service());
     }
 
     private static Instant later(Instant a, Instant b) {

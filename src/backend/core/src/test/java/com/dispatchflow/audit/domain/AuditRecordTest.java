@@ -1,14 +1,18 @@
 package com.dispatchflow.audit.domain;
 
+import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.audit.domain.AuditError.TooManyNamedRecords;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.SessionId;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -19,6 +23,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * The audit record (NFR-23, NFR-93, NFR-94, ADR-110): exactly NFR-93's fields, each an ID, a code,
@@ -130,6 +135,40 @@ class AuditRecordTest {
 
         assertThat(record.records()).containsExactly(ORDER, PLAN);
         assertThatThrownBy(() -> record.records().add(PLAN)).isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    void GivenNfr93_WhenTheRecordsComponentsAreListed_ThenTheyAreExactlyItsFields() {
+        assertThat(Arrays.stream(AuditRecord.class.getRecordComponents())
+                        .map(component -> component.getName() + ":"
+                                + component.getGenericType().getTypeName()))
+                .containsExactly(
+                        "at:java.time.Instant",
+                        "user:java.util.Optional<com.dispatchflow.shared.AccountId>",
+                        "session:java.util.Optional<com.dispatchflow.shared.SessionId>",
+                        "app:java.util.Optional<com.dispatchflow.audit.domain.DeclaredApp>",
+                        "operation:com.dispatchflow.audit.domain.OperationName",
+                        "records:java.util.List<com.dispatchflow.audit.domain.NamedRecord>",
+                        "outcome:com.dispatchflow.audit.domain.AuditOutcome",
+                        "traceId:com.dispatchflow.audit.domain.TraceId");
+    }
+
+    @ParameterizedTest(name = "{0} records")
+    @ValueSource(ints = {0, 1, 499, 500})
+    void GivenUpToFiveHundredNamedRecords_WhenRecorded_ThenEachIsKept(int count) {
+        Fields fields = new Fields();
+        fields.records = Collections.nCopies(count, ORDER);
+
+        assertThat(fields.build().records()).hasSize(count);
+    }
+
+    @ParameterizedTest(name = "{0} records")
+    @ValueSource(ints = {501, 10_000})
+    void GivenMoreThanFiveHundredNamedRecords_WhenRecorded_ThenTooManyNamedRecords(int count) {
+        Fields fields = new Fields();
+        fields.records = Collections.nCopies(count, ORDER);
+
+        assertRefused(fields::build, new TooManyNamedRecords());
     }
 
     static Stream<Arguments> eachComponentMissing() {

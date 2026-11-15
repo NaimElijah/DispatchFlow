@@ -16,12 +16,27 @@ public sealed interface LiveOpsError extends DomainError {
 
     /**
      * The stop was not on the reporting driver's route in the revision in force at the report's
-     * corrected time (BR-02, BR-110, BR-114).
+     * corrected time: it was on no such route, or that route had another driver then, as after a
+     * hand-over (BR-02, BR-110, BR-114, ADR-114).
      *
      * @param stop the stop
      * @param route the route the report came from
      */
     record StopNotOnYourRoute(StopId stop, RouteId route) implements LiveOpsError {}
+
+    /**
+     * A driver started or finished a route that another driver drove in the revision in force at
+     * the report's corrected time, as after a hand-over (BR-02, FR-68, ADR-114).
+     *
+     * @param route the route
+     */
+    record NotYourRoute(RouteId route) implements LiveOpsError {}
+
+    /**
+     * A report's device time or device clock lies outside the years 1 to 9999, so no corrected time
+     * can be computed from it (BR-114, ADR-114).
+     */
+    record DeviceTimeOutOfRange() implements LiveOpsError {}
 
     /**
      * The report's corrected time is at or after its order was cancelled or rescheduled, or its
@@ -107,7 +122,8 @@ public sealed interface LiveOpsError extends DomainError {
     record NoOutcomeToCorrect(StopId stop) implements LiveOpsError {}
 
     /**
-     * The correction states the outcome the stop already has (FR-333, ADR-107).
+     * The correction states exactly the outcome the stop already has: the same kind, the same *left
+     * at the door*, and for a failure the same reason with its text (FR-333, ADR-107, ADR-114).
      *
      * @param stop the stop
      * @param outcome the outcome it has

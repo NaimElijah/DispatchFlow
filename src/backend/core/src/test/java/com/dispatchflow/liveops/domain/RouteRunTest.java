@@ -1,6 +1,7 @@
 package com.dispatchflow.liveops.domain;
 
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.DRIVER_A;
+import static com.dispatchflow.liveops.domain.LiveOpsFixtures.DRIVER_B;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.NOW;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.ONLINE;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.REV_1;
@@ -15,6 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+import com.dispatchflow.liveops.domain.LiveOpsError.NotYourRoute;
 import com.dispatchflow.liveops.domain.LiveOpsError.RouteAlreadyFinished;
 import com.dispatchflow.liveops.domain.LiveOpsError.RunAlreadyStarted;
 import com.dispatchflow.liveops.domain.LiveOpsError.TrackingClosed;
@@ -41,8 +43,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * A route run's lifecycle (FR-68, FR-244, FR-327, FR-329), its tracking window (FR-328, FR-394,
- * NFR-30), the driver's *Seen* (FR-97, FR-250) and the unconfirmed-change rule (ADR-107). Times are
- * on 1 March 2027, UTC+2.
+ * NFR-30), the driver's *Seen* (FR-97, FR-250), the unconfirmed-change rule (ADR-107) and who may
+ * start or finish it (BR-02, ADR-114). Times are on 1 March 2027, UTC+2.
  */
 class RouteRunTest {
 
@@ -59,12 +61,12 @@ class RouteRunTest {
             Instant.parse("2027-03-01T13:00:00Z"));
 
     private static RouteRun started() {
-        return reload(RouteRun.start(ROUTE_A, byA(ONLINE), RunStartCause.DRIVER_STARTED, NOW));
+        return reload(RouteRun.start(ROUTE_A, byA(ONLINE), DRIVER_A, RunStartCause.DRIVER_STARTED, NOW));
     }
 
     private static RouteRun finished() {
         RouteRun run = started();
-        run.finish(byA(FINISH_1300), List.of(STOP));
+        run.finish(byA(FINISH_1300), DRIVER_A, List.of(STOP));
         return reload(run);
     }
 
@@ -79,7 +81,7 @@ class RouteRunTest {
 
     @Test
     void GivenNoRun_WhenTheFirstReportStartsTheRoute_ThenRouteStartedNamesItsCorrectedTime() {
-        RouteRun run = RouteRun.start(ROUTE_A, byA(ONLINE), RunStartCause.FIRST_REPORT, NOW);
+        RouteRun run = RouteRun.start(ROUTE_A, byA(ONLINE), DRIVER_A, RunStartCause.FIRST_REPORT, NOW);
 
         assertThat(run.isFinished()).isFalse();
         assertThat(run.pendingEvents())
@@ -94,8 +96,8 @@ class RouteRunTest {
     }
 
     enum Command {
-        START(run -> run.start(byA(ONLINE), NOW)),
-        FINISH(run -> run.finish(byA(FINISH_1300), List.of()));
+        START(run -> run.start(byA(ONLINE), DRIVER_A, NOW)),
+        FINISH(run -> run.finish(byA(FINISH_1300), DRIVER_A, List.of()));
 
         private final Consumer<RouteRun> call;
 
@@ -121,10 +123,48 @@ class RouteRunTest {
     }
 
     @Test
+    void GivenARouteDrivenByBAtTheStart_WhenAStartsIt_ThenNotYourRouteAndNoRunStarts() {
+        assertRefused(
+                () -> RouteRun.start(ROUTE_A, byA(ONLINE), DRIVER_B, RunStartCause.DRIVER_STARTED, NOW),
+                new NotYourRoute(ROUTE_A));
+    }
+
+    @Test
+    void GivenARunHandedToB_WhenAStartsItAgain_ThenNotYourRouteComesBeforeRunAlreadyStarted() {
+        RouteRun run = started();
+
+        assertRefusedUnchanged(run, () -> run.start(byA(ONLINE), DRIVER_B, NOW), new NotYourRoute(ROUTE_A));
+    }
+
+    @Test
+    void GivenARunHandedToB_WhenAFinishesIt_ThenNotYourRoute() {
+        RouteRun run = started();
+
+        assertRefusedUnchanged(run, () -> run.finish(byA(FINISH_1300), DRIVER_B, List.of()), new NotYourRoute(ROUTE_A));
+    }
+
+    @Test
+    void GivenAFinishedRunHandedToB_WhenAFinishesItAgain_ThenNotYourRouteComesBeforeRouteAlreadyFinished() {
+        RouteRun run = finished();
+
+        assertRefusedUnchanged(run, () -> run.finish(byA(FINISH_1300), DRIVER_B, List.of()), new NotYourRoute(ROUTE_A));
+    }
+
+    @Test
+    void GivenARunHandedToB_WhenBFinishesIt_ThenItIsFinishedByB() {
+        RouteRun run = started();
+
+        run.finish(new DriverReport(DRIVER_B, ROUTE_A, FINISH_1300), DRIVER_B, List.of());
+
+        assertThat(run.snapshot().status())
+                .isEqualTo(new RunStatus.Finished(Instant.parse("2027-03-01T13:00:00Z"), DRIVER_B, List.of()));
+    }
+
+    @Test
     void GivenAStartedRun_WhenFinishedWithAStopPending_ThenItIsFinishedWithThatStop() {
         RouteRun run = started();
 
-        run.finish(byA(FINISH_1300), List.of(STOP));
+        run.finish(byA(FINISH_1300), DRIVER_A, List.of(STOP));
 
         assertThat(run.isFinished()).isTrue();
         assertThat(run.snapshot().status())
@@ -157,14 +197,15 @@ class RouteRunTest {
     void GivenAStartedRun_WhenTheDriverStartsAgain_ThenRunAlreadyStarted() {
         RouteRun run = started();
 
-        assertRefusedUnchanged(run, () -> run.start(byA(ONLINE), NOW), new RunAlreadyStarted(ROUTE_A));
+        assertRefusedUnchanged(run, () -> run.start(byA(ONLINE), DRIVER_A, NOW), new RunAlreadyStarted(ROUTE_A));
     }
 
     @Test
     void GivenAFinishedRun_WhenFinishedAgain_ThenRouteAlreadyFinished() {
         RouteRun run = finished();
 
-        assertRefusedUnchanged(run, () -> run.finish(byA(FINISH_1300), List.of()), new RouteAlreadyFinished(ROUTE_A));
+        assertRefusedUnchanged(
+                run, () -> run.finish(byA(FINISH_1300), DRIVER_A, List.of()), new RouteAlreadyFinished(ROUTE_A));
     }
 
     @Test
@@ -318,7 +359,10 @@ class RouteRunTest {
                 new RunStatus.Finished(Instant.parse("2027-03-01T13:00:00Z"), DRIVER_A, List.of(STOP, STOP)),
                 Optional.empty());
 
-        assertThatThrownBy(() -> RouteRun.restore(twice)).isInstanceOf(StoredStateInvalid.class);
+        assertThatThrownBy(() -> RouteRun.restore(twice)).isInstanceOfSatisfying(StoredStateInvalid.class, refused -> {
+            assertThat(refused.subject()).isEqualTo("RouteRun");
+            assertThat(refused.detail()).isEqualTo("a finished run names each pending stop once (FR-329)");
+        });
     }
 
     @ParameterizedTest(name = "{0}")
@@ -333,11 +377,13 @@ class RouteRunTest {
     void GivenAMissingParameter_WhenEachCommandRuns_ThenItFailsLoudly() {
         RouteRun run = started();
 
-        assertThatThrownBy(() -> run.finish(byA(FINISH_1300), null)).isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> run.finish(byA(FINISH_1300), DRIVER_A, null)).isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> run.finish(byA(FINISH_1300), null, List.of()))
+                .isInstanceOf(NullPointerException.class);
         assertThatThrownBy(() -> run.acknowledge(REV_1, null)).isInstanceOf(NullPointerException.class);
         assertThatThrownBy(() -> run.checkPositionAt(NOW, null)).isInstanceOf(NullPointerException.class);
         assertThatThrownBy(() -> new TrackingStanding(true, true, null)).isInstanceOf(NullPointerException.class);
-        assertThatThrownBy(() -> RouteRun.start(ROUTE_A, byA(ONLINE), null, NOW))
+        assertThatThrownBy(() -> RouteRun.start(ROUTE_A, byA(ONLINE), DRIVER_A, null, NOW))
                 .isInstanceOf(NullPointerException.class);
         assertThat(run.isFinished()).isFalse();
     }

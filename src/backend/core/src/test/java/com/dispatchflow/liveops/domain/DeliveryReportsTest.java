@@ -15,6 +15,7 @@ import static com.dispatchflow.liveops.domain.LiveOpsFixtures.NO_HOLD;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.ONLINE;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.ON_B;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.ON_ROUTE;
+import static com.dispatchflow.liveops.domain.LiveOpsFixtures.ON_ROUTE_C;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.ORDER;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.PHOTO;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.REV_1;
@@ -71,6 +72,7 @@ class DeliveryReportsTest {
                         1,
                         ROUTE_A,
                         OutcomeKind.DELIVERED,
+                        false,
                         T_0800,
                         false,
                         DRIVER_A));
@@ -79,12 +81,50 @@ class DeliveryReportsTest {
     }
 
     @Test
-    void GivenALeaveAtDoorOrder_WhenADriverLeavesItWithAPhoto_ThenItIsRecordedAsLeftAtTheDoor() {
+    void GivenALeaveAtDoorOrder_WhenADriverLeavesItWithAPhoto_ThenItIsRecordedAndAnnouncedAsLeftAtTheDoor() {
         Delivery delivery = aDelivery().fresh();
 
         delivery.deliver(byA(ONLINE), Optional.of(PHOTO), true, LeaveAtDoor.ALLOWED, ON_ROUTE, NO_HOLD, HELD_1, NOW);
 
         assertThat(delivery.effectiveOutcome()).contains(Outcome.Delivered.withProof(PHOTO, true));
+        assertThat(delivery.pendingEvents())
+                .singleElement()
+                .isInstanceOfSatisfying(
+                        OutcomeRecorded.class,
+                        recorded -> assertThat(recorded.leftAtDoor()).isTrue());
+    }
+
+    @Test
+    void GivenALeftAtTheDoorStop_WhenCorrectedToFailed_ThenTheFirstOutcomesEventStillSaysLeftAtTheDoor() {
+        Delivery delivery = aDelivery().fresh();
+        delivery.deliver(byA(ONLINE), Optional.of(PHOTO), true, LeaveAtDoor.ALLOWED, ON_ROUTE, NO_HOLD, HELD_1, NOW);
+
+        delivery.correct(
+                new DispatcherOutcome.Failed(ABSENT),
+                LiveOpsFixtures.TYPO,
+                Optional.empty(),
+                DISPATCHER,
+                new LaterAttempt.None(),
+                LeaveAtDoor.ALLOWED,
+                LATER);
+
+        assertThat(delivery.effectiveOutcome()).contains(new Outcome.Failed(ABSENT));
+        assertThat(delivery.pendingEvents())
+                .singleElement()
+                .isInstanceOfSatisfying(
+                        OutcomeRecorded.class,
+                        recorded -> assertThat(recorded.leftAtDoor()).isTrue());
+    }
+
+    @Test
+    void GivenAnArrivalAndThenAHeldReport_WhenAskedWhetherItHasAnArrival_ThenItHasThoughItsStateIsHeld() {
+        Delivery delivery = aDelivery().heldAfterArrival();
+
+        assertThat(delivery.status()).isEqualTo(DeliveryStatus.HELD);
+        assertThat(delivery.hasArrival()).isTrue();
+        assertThat(aDelivery().arrived().hasArrival()).isTrue();
+        assertThat(aDelivery().held().hasArrival()).isFalse();
+        assertThat(aDelivery().delivered().hasArrival()).isFalse();
     }
 
     @Test
@@ -102,6 +142,7 @@ class DeliveryReportsTest {
                         1,
                         ROUTE_A,
                         OutcomeKind.DELIVERED,
+                        true,
                         NOW,
                         true,
                         DISPATCHER));
@@ -196,7 +237,7 @@ class DeliveryReportsTest {
     void GivenAnotherDriversHeldReport_WhenAFurtherLateReportArrivesWithNoContact_ThenItIsHeldToo() {
         Delivery delivery = aDelivery().held();
 
-        ReportAnswer answer = delivery.fail(byC(LATE), ABSENT, ON_ROUTE, NOW_ON_A_NO_CONTACT, HELD_2, NOW);
+        ReportAnswer answer = delivery.fail(byC(LATE), ABSENT, ON_ROUTE_C, NOW_ON_A_NO_CONTACT, HELD_2, NOW);
 
         assertThat(answer).isEqualTo(new ReportAnswer.Held(HELD_2));
         assertThat(delivery.snapshot().heldReports())
@@ -243,6 +284,7 @@ class DeliveryReportsTest {
                         1,
                         ROUTE_C,
                         OutcomeKind.FAILED,
+                        false,
                         T_0800,
                         false,
                         DRIVER_C));
@@ -296,7 +338,7 @@ class DeliveryReportsTest {
 
     /** Driver C's late *failed*, held as HELD_2 beside B's because a report is already held (BR-136). */
     private static void holdAnother(Delivery delivery) {
-        delivery.fail(byC(LATE), ABSENT, ON_ROUTE, NOW_ON_A_NO_CONTACT, HELD_2, NOW);
+        delivery.fail(byC(LATE), ABSENT, ON_ROUTE_C, NOW_ON_A_NO_CONTACT, HELD_2, NOW);
     }
 
     @Test

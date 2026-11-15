@@ -2,6 +2,7 @@ package com.dispatchflow.liveops.domain;
 
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.ABSENT;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.DISPATCHER;
+import static com.dispatchflow.liveops.domain.LiveOpsFixtures.DRIVER_B;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.HELD_1;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.HELD_2;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.LATE;
@@ -12,6 +13,7 @@ import static com.dispatchflow.liveops.domain.LiveOpsFixtures.NOT_ON_ROUTE;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.NO_HOLD;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.ONLINE;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.ON_ROUTE;
+import static com.dispatchflow.liveops.domain.LiveOpsFixtures.ON_ROUTE_B;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.PHOTO;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.ROUTE_A;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.SECOND;
@@ -64,6 +66,9 @@ class DeliveryRefusalsTest {
 
     private static final StopWhereabouts CANCELLED_AT_0800 =
             new StopWhereabouts.Cancelled(CancellationKind.ORDER_CANCELLED, T_0800);
+    /** Route A held the stop at the report's time, but B drove it then: A had handed it over. */
+    private static final Entitlement HANDED_TO_B = new Entitlement.OnRoute(LiveOpsFixtures.REV_2, DRIVER_B);
+
     private static final StopWhereabouts RESCHEDULED_AT_0759 =
             new StopWhereabouts.Cancelled(CancellationKind.ORDER_RESCHEDULED, Instant.parse("2027-03-01T07:59:59Z"));
 
@@ -166,10 +171,10 @@ class DeliveryRefusalsTest {
                                 byA(ONLINE), FailureReason.other("dog in the yard"), ON_ROUTE, NO_HOLD, HELD_2, LATER),
                         new SameOutcomeAlreadyRecorded(STOP, OutcomeKind.FAILED)),
                 arguments(
-                        "correct, other to other with another text: nothing changes",
+                        "correct, other to other with the same text: nothing changes",
                         failedOther,
                         (Consumer<Delivery>) d -> d.correct(
-                                new DispatcherOutcome.Failed(FailureReason.other("dog in the yard")),
+                                new DispatcherOutcome.Failed(FailureReason.other("gate locked")),
                                 TYPO,
                                 Optional.empty(),
                                 DISPATCHER,
@@ -196,7 +201,7 @@ class DeliveryRefusalsTest {
                                 Optional.of(SIGNATURE),
                                 false,
                                 LeaveAtDoor.NOT_ALLOWED,
-                                ON_ROUTE,
+                                ON_ROUTE_B,
                                 MOVED_TO_A_WITH_CONTACT,
                                 HELD_2,
                                 LATER),
@@ -205,7 +210,7 @@ class DeliveryRefusalsTest {
                         "fail, contradicting the same driver's held report",
                         held,
                         (Consumer<Delivery>)
-                                d -> d.fail(byB(LATE), ABSENT, ON_ROUTE, MOVED_TO_A_WITH_CONTACT, HELD_2, LATER),
+                                d -> d.fail(byB(LATE), ABSENT, ON_ROUTE_B, MOVED_TO_A_WITH_CONTACT, HELD_2, LATER),
                         new OutcomeAlreadyRecorded(STOP, OutcomeKind.DELIVERED)),
                 arguments(
                         "arrive, timed at a cancellation",
@@ -227,6 +232,47 @@ class DeliveryRefusalsTest {
                         delivered,
                         (Consumer<Delivery>) d -> d.arrive(byA(ONLINE), NOT_ON_ROUTE, SERVING),
                         new StopNotOnYourRoute(STOP, ROUTE_A)),
+                arguments(
+                        "arrive, from the driver the route was handed away from",
+                        fresh,
+                        (Consumer<Delivery>) d -> d.arrive(byA(ONLINE), HANDED_TO_B, SERVING),
+                        new StopNotOnYourRoute(STOP, ROUTE_A)),
+                arguments(
+                        "deliver, from the driver the route was handed away from",
+                        fresh,
+                        (Consumer<Delivery>) d -> d.deliver(
+                                byA(ONLINE),
+                                Optional.of(SIGNATURE),
+                                false,
+                                LeaveAtDoor.NOT_ALLOWED,
+                                HANDED_TO_B,
+                                NO_HOLD,
+                                HELD_2,
+                                LATER),
+                        new StopNotOnYourRoute(STOP, ROUTE_A)),
+                arguments(
+                        "fail, from the driver the route was handed away from",
+                        fresh,
+                        (Consumer<Delivery>) d -> d.fail(byA(ONLINE), ABSENT, HANDED_TO_B, NO_HOLD, HELD_2, LATER),
+                        new StopNotOnYourRoute(STOP, ROUTE_A)),
+                arguments(
+                        "fail, from the driver the route was handed away from, and an outcome stands: entitlement"
+                                + " comes first",
+                        delivered,
+                        (Consumer<Delivery>) d -> d.fail(byA(ONLINE), ABSENT, HANDED_TO_B, NO_HOLD, HELD_2, LATER),
+                        new StopNotOnYourRoute(STOP, ROUTE_A)),
+                arguments(
+                        "fail, from the driver the route was handed away from, timed at a cancellation: the"
+                                + " cancellation comes first",
+                        fresh,
+                        (Consumer<Delivery>) d -> d.fail(
+                                byA(ONLINE),
+                                ABSENT,
+                                HANDED_TO_B,
+                                HoldCheck.of(CANCELLED_AT_0800, List.of()),
+                                HELD_2,
+                                LATER),
+                        new ReportAfterCancellation(STOP, CancellationKind.ORDER_CANCELLED)),
                 arguments(
                         "arrive, after an outcome",
                         delivered,
@@ -607,7 +653,7 @@ class DeliveryRefusalsTest {
                         Optional.of(SIGNATURE),
                         false,
                         LeaveAtDoor.NOT_ALLOWED,
-                        ON_ROUTE,
+                        ON_ROUTE_B,
                         MOVED_TO_A_WITH_CONTACT,
                         HELD_2,
                         LATER),

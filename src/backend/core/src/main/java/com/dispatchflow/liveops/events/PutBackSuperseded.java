@@ -11,8 +11,9 @@ import java.util.Objects;
 
 /**
  * A failed stop was corrected to delivered after its order was put back, so the put-back's stop is
- * no longer needed (FR-404, ADR-107). Planning's listener takes that stop off its route with the
- * FR-404 cause.
+ * no longer needed (FR-404, ADR-107). Live Operations' own listener calls Planning's API, which
+ * takes that stop off its route with the FR-404 cause; Planning never listens to Live Operations,
+ * so the module graph keeps pointing one way (ADR-040, ADR-114).
  *
  * @param eventId the event's ID
  * @param occurredAt when the correction was made
@@ -20,7 +21,7 @@ import java.util.Objects;
  * @param order its order
  * @param laterStop the put-back's stop, which has no outcome
  * @param laterAttempt the put-back's attempt number
- * @param laterDate the delivery date the put-back's stop is on, so Planning's listener finds the
+ * @param laterDate the delivery date the put-back's stop is on, so the listener finds the
  *     plan that holds it, as {@code OrderCancelled} names its date
  * @param by the dispatcher who corrected
  */

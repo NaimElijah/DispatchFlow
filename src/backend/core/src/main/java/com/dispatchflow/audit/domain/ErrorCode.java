@@ -15,18 +15,25 @@ import java.util.regex.Pattern;
  */
 public record ErrorCode(String value) {
 
+    /**
+     * The longest code accepted, in characters: the same cap as {@link OperationName#MAX_LENGTH},
+     * far above any code the domain derives from an error's name (ADR-114).
+     */
+    public static final int MAX_LENGTH = OperationName.MAX_LENGTH;
+
     private static final Pattern UPPER_SNAKE_CASE = Pattern.compile("[A-Z][A-Z0-9]*(_[A-Z0-9]+)*");
 
     /**
      * Checks the code.
      *
-     * @throws RuleViolation with {@link MalformedErrorCode} when it is not upper snake case ASCII:
-     *     words of capitals and digits, the first starting with a capital, joined by single
-     *     underscores
+     * @throws RuleViolation with {@link MalformedErrorCode} when it is longer than {@link
+     *     #MAX_LENGTH}, checked first so a long input is never matched, or when it is not upper snake
+     *     case ASCII: words of capitals and digits, the first starting with a capital, joined by
+     *     single underscores
      */
     public ErrorCode {
         Objects.requireNonNull(value, "value");
-        if (!UPPER_SNAKE_CASE.matcher(value).matches()) {
+        if (value.length() > MAX_LENGTH || !UPPER_SNAKE_CASE.matcher(value).matches()) {
             throw new RuleViolation(new MalformedErrorCode());
         }
     }
@@ -36,7 +43,8 @@ public record ErrorCode(String value) {
      *
      * @param value the code
      * @return the code
-     * @throws RuleViolation with {@link MalformedErrorCode} when it is not upper snake case ASCII
+     * @throws RuleViolation with {@link MalformedErrorCode} when it is not upper snake case ASCII of
+     *     at most {@link #MAX_LENGTH} characters
      */
     public static ErrorCode of(String value) {
         return new ErrorCode(value);

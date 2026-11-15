@@ -1,7 +1,9 @@
 package com.dispatchflow.audit.domain;
 
+import com.dispatchflow.audit.domain.AuditError.TooManyNamedRecords;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.IsraelDateTime;
+import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.SessionId;
 import java.time.Instant;
 import java.time.Period;
@@ -25,7 +27,8 @@ import java.util.Optional;
  * @param session the acting session, when known; recorded whether or not the user is
  * @param app the app and its version as the client declared them, when a client made the call
  * @param operation the operation attempted
- * @param records the records the operation names, in the order given; possibly none
+ * @param records the records the operation names, in the order given; possibly none, and at most
+ *     {@link #MAX_RECORDS}
  * @param outcome whether it succeeded, or the code it was refused with
  * @param traceId the request's trace ID
  */
@@ -46,7 +49,19 @@ public record AuditRecord(
      */
     public static final Period RETENTION = Period.ofYears(1);
 
-    /** Checks every component is present, and copies the named records. */
+    /**
+     * The most records one audit record names. An operation on a whole plan names at most its plan,
+     * its 15 routes and vehicles, and its 200 stops and their orders (NFR-04, NFR-05), 431 in all, so
+     * the cap leaves room and still bounds what one call can write (ADR-114).
+     */
+    public static final int MAX_RECORDS = 500;
+
+    /**
+     * Checks every component is present, and copies the named records.
+     *
+     * @throws RuleViolation with {@link TooManyNamedRecords} when more than {@link #MAX_RECORDS}
+     *     records are named
+     */
     public AuditRecord {
         Objects.requireNonNull(at, "at");
         Objects.requireNonNull(user, "user");
@@ -56,6 +71,9 @@ public record AuditRecord(
         Objects.requireNonNull(records, "records");
         Objects.requireNonNull(outcome, "outcome");
         Objects.requireNonNull(traceId, "traceId");
+        if (records.size() > MAX_RECORDS) {
+            throw new RuleViolation(new TooManyNamedRecords());
+        }
         records = List.copyOf(records);
     }
 

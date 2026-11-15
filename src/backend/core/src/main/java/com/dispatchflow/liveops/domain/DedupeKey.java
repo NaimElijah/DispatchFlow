@@ -1,10 +1,9 @@
 package com.dispatchflow.liveops.domain;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * The key that makes an alert once: its kind plus the IDs its kind names, in a fixed text form
@@ -31,11 +30,24 @@ public record DedupeKey(String value) {
      * @return the key
      */
     static DedupeKey of(AlertKind kind, List<UUID> ids, List<Integer> numbers) {
-        return new DedupeKey(Stream.concat(
-                        Stream.of(kind.name()),
-                        Stream.concat(
-                                ids.stream().map(UUID::toString),
-                                numbers.stream().map(String::valueOf)))
-                .collect(Collectors.joining(SEPARATOR)));
+        return of(kind, ids, numbers, List.of());
+    }
+
+    /**
+     * Builds a key from a kind and its parts, in the order given, ending with enum constants.
+     *
+     * @param kind the alert's kind
+     * @param ids the UUIDs the kind keys on
+     * @param numbers the numbers the kind keys on, after the UUIDs
+     * @param names the enum constants the kind keys on, by name, after the numbers
+     * @return the key
+     */
+    static DedupeKey of(AlertKind kind, List<UUID> ids, List<Integer> numbers, List<? extends Enum<?>> names) {
+        List<String> parts = new ArrayList<>();
+        parts.add(kind.name());
+        ids.forEach(id -> parts.add(id.toString()));
+        numbers.forEach(number -> parts.add(String.valueOf(number)));
+        names.forEach(name -> parts.add(name.name()));
+        return new DedupeKey(String.join(SEPARATOR, parts));
     }
 }

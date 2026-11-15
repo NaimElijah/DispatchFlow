@@ -13,7 +13,10 @@ public sealed interface StopOutcome {
     /** No outcome stands: the stop is pending, only arrived, or not reported (BR-129). */
     record NotReported() implements StopOutcome {}
 
-    /** The stop failed (FR-339); it counts in neither part of the on-time rate. */
+    /**
+     * The stop failed. It counts in neither part of the on-time rate (FR-264), and the summary shows
+     * it beside the rate (FR-339).
+     */
     record Failed() implements StopOutcome {}
 
     /**

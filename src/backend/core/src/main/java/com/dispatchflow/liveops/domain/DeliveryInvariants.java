@@ -32,7 +32,10 @@ final class DeliveryInvariants {
             if (correction != (i > 0)) {
                 return Optional.of("the first outcome is the original and every later one a correction (FR-333)");
             }
-            if (i > 0 && outcomes.get(i).outcome().isSameAs(outcomes.get(i - 1).outcome())) {
+            if (i > 0
+                    && outcomes.get(i)
+                            .outcome()
+                            .statesExactly(outcomes.get(i - 1).outcome())) {
                 return Optional.of("a correction changes the outcome it corrects (FR-333)");
             }
         }

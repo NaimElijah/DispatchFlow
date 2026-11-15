@@ -10,12 +10,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dispatchflow.liveops.domain.LiveOpsError.CorrectionReasonRequired;
+import com.dispatchflow.liveops.domain.LiveOpsError.DeviceTimeOutOfRange;
 import com.dispatchflow.liveops.domain.LiveOpsError.FailureReasonRequired;
 import com.dispatchflow.liveops.domain.LiveOpsError.InvalidRevision;
+import com.dispatchflow.liveops.events.OutcomeKind;
+import com.dispatchflow.liveops.events.OutcomeRecorded;
+import com.dispatchflow.liveops.events.RouteStarted;
+import com.dispatchflow.liveops.events.RunStartCause;
+import com.dispatchflow.shared.EventId;
 import com.dispatchflow.shared.IsraelDateTime;
 import com.dispatchflow.shared.SharedKernelError.TextTooLong;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.TextKind;
+import com.dispatchflow.shared.Version;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -25,7 +32,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-/** Live Operations' values check themselves (DL §3.3). */
+/** Live Operations' values and events check themselves (DL §3.3, §7.3). */
 class LiveOpsValuesTest {
 
     @Test
@@ -46,6 +53,77 @@ class LiveOpsValuesTest {
                 Instant.parse("2027-03-01T08:00:00Z"));
 
         assertThat(time.corrected()).isEqualTo(Instant.parse("2027-03-01T08:00:00Z"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"0001-01-01T00:00:00Z", "9999-12-31T23:59:59.999999999Z"})
+    void GivenADeviceTimeAtTheEdgeOfTheYears1To9999_WhenCorrected_ThenItIsAccepted(String edge) {
+        Instant device = Instant.parse(edge);
+
+        CorrectedTime time = CorrectedTime.of(device, device, NOW);
+
+        assertThat(time.corrected()).isEqualTo(Instant.parse("2027-03-01T10:00:00Z"));
+        assertThat(time.contactWindow()).isEmpty();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"-1000000000-01-01T00:00:00Z", "0000-12-31T23:59:59.999999999Z", "+10000-01-01T00:00:00Z"})
+    void GivenADeviceTimePastTheYears1To9999_WhenTheTimeIsBuilt_ThenDeviceTimeOutOfRange(String outside) {
+        Instant device = Instant.parse(outside);
+
+        assertRefused(() -> CorrectedTime.of(device, NOW, NOW), new DeviceTimeOutOfRange());
+        assertRefused(() -> CorrectedTime.of(NOW, device, NOW), new DeviceTimeOutOfRange());
+        assertRefused(() -> CorrectedTime.of(Instant.MAX, Instant.MIN, NOW), new DeviceTimeOutOfRange());
+    }
+
+    @Test
+    void GivenBr109_WhenTheFailureReasonsAreListed_ThenTheyAreExactlyItsSix() {
+        assertThat(FailureReasonKind.values())
+                .containsExactly(
+                        FailureReasonKind.CUSTOMER_ABSENT,
+                        FailureReasonKind.WRONG_ADDRESS,
+                        FailureReasonKind.REFUSED,
+                        FailureReasonKind.NO_ACCESS,
+                        FailureReasonKind.DAMAGED,
+                        FailureReasonKind.OTHER);
+    }
+
+    @Test
+    void GivenAMissingPart_WhenAnOutcomeRecordedOrARouteStartedIsBuilt_ThenItFailsLoudly() {
+        EventId id = new EventId("OutcomeRecorded", LiveOpsFixtures.STOP.value(), Version.of(1), 0);
+
+        assertThatThrownBy(() -> new OutcomeRecorded(
+                        id,
+                        NOW,
+                        LiveOpsFixtures.STOP,
+                        LiveOpsFixtures.ORDER,
+                        1,
+                        LiveOpsFixtures.ROUTE_A,
+                        null,
+                        false,
+                        T_0800,
+                        false,
+                        LiveOpsFixtures.DRIVER_A))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> new OutcomeRecorded(
+                        id,
+                        NOW,
+                        LiveOpsFixtures.STOP,
+                        LiveOpsFixtures.ORDER,
+                        1,
+                        LiveOpsFixtures.ROUTE_A,
+                        OutcomeKind.DELIVERED,
+                        false,
+                        T_0800,
+                        false,
+                        null))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() ->
+                        new RouteStarted(id, NOW, LiveOpsFixtures.ROUTE_A, LiveOpsFixtures.DRIVER_A, T_0800, null))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() ->
+                        new RouteStarted(id, NOW, null, LiveOpsFixtures.DRIVER_A, T_0800, RunStartCause.FIRST_REPORT))
+                .isInstanceOf(NullPointerException.class);
     }
 
     @Test

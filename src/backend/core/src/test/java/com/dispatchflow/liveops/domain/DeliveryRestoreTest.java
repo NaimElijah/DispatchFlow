@@ -5,6 +5,7 @@ import static com.dispatchflow.liveops.domain.LiveOpsFixtures.DISPATCHER;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.DRIVER_A;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.FIRST;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.HELD_1;
+import static com.dispatchflow.liveops.domain.LiveOpsFixtures.HELD_2;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.LATE;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.LATER;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.NOW;
@@ -117,6 +118,31 @@ class DeliveryRestoreTest {
     }
 
     @Test
+    void GivenTwoConfirmedHeldReports_WhenRestored_ThenStoredStateInvalid() {
+        OutcomeRecord confirmed = new OutcomeRecord(DELIVERED, DRIVER_A, T_0800, new Origin.ConfirmedHeld(HELD_1));
+        HeldState yes = new HeldState.Confirmed(DISPATCHER, NOW);
+        assertRestoreRefuses(
+                with(List.of(confirmed), List.of(held(HELD_1, DELIVERED, yes), held(HELD_2, DELIVERED, yes))),
+                "a confirmed held report is exactly");
+    }
+
+    @Test
+    void GivenAConfirmedOutcomeByAnotherAccount_WhenRestored_ThenStoredStateInvalid() {
+        OutcomeRecord confirmed = new OutcomeRecord(FAILED, DISPATCHER, T_0800, new Origin.ConfirmedHeld(HELD_1));
+        assertRestoreRefuses(
+                with(List.of(confirmed), List.of(held(HELD_1, FAILED, new HeldState.Confirmed(DISPATCHER, NOW)))),
+                "a confirmed outcome is the one");
+    }
+
+    @Test
+    void GivenAConfirmedOutcomeAtAnotherTime_WhenRestored_ThenStoredStateInvalid() {
+        OutcomeRecord confirmed = new OutcomeRecord(FAILED, DRIVER_A, T_0900, new Origin.ConfirmedHeld(HELD_1));
+        assertRestoreRefuses(
+                with(List.of(confirmed), List.of(held(HELD_1, FAILED, new HeldState.Confirmed(DISPATCHER, NOW)))),
+                "a confirmed outcome is the one");
+    }
+
+    @Test
     void GivenAReportedOutcomeThatDoesNotCountFromItsReport_WhenRestored_ThenStoredStateInvalid() {
         OutcomeRecord shifted = new OutcomeRecord(
                 FAILED, DRIVER_A, T_0900, new Origin.Reported(ROUTE_A, REV_1, ONLINE, Optional.empty()));
@@ -177,7 +203,7 @@ class DeliveryRestoreTest {
                 Optional.of(PHOTO),
                 true,
                 LeaveAtDoor.ALLOWED,
-                new Entitlement.OnRoute(REV_1),
+                new Entitlement.OnRoute(REV_1, DRIVER_A),
                 LiveOpsFixtures.NO_HOLD,
                 HELD_1,
                 NOW);
@@ -199,7 +225,7 @@ class DeliveryRestoreTest {
                 Optional.of(PHOTO),
                 true,
                 LeaveAtDoor.ALLOWED,
-                new Entitlement.OnRoute(REV_1),
+                new Entitlement.OnRoute(REV_1, DRIVER_A),
                 LiveOpsFixtures.NO_HOLD,
                 HELD_1,
                 NOW);
@@ -215,7 +241,7 @@ class DeliveryRestoreTest {
         delivery.fail(
                 byA(ONLINE),
                 FailureReason.other("gate locked"),
-                new Entitlement.OnRoute(REV_1),
+                new Entitlement.OnRoute(REV_1, DRIVER_A),
                 LiveOpsFixtures.NO_HOLD,
                 HELD_1,
                 NOW);
@@ -245,7 +271,7 @@ class DeliveryRestoreTest {
         delivery.fail(
                 byA(ONLINE),
                 FailureReason.other("gate locked"),
-                new Entitlement.OnRoute(REV_1),
+                new Entitlement.OnRoute(REV_1, DRIVER_A),
                 LiveOpsFixtures.NO_HOLD,
                 HELD_1,
                 NOW);
@@ -253,6 +279,34 @@ class DeliveryRestoreTest {
         delivery.eraseExpired(Instant.parse("2027-05-30T06:59:59Z"));
 
         assertThat(delivery.effectiveOutcome()).contains(new Outcome.Failed(FailureReason.other("gate locked")));
+    }
+
+    @Test
+    void GivenACorrectionReasonOneSecondShortOfNinetyDays_WhenErased_ThenItsTextStaysWhileTheOriginalsGoes() {
+        Delivery delivery = aDelivery().fresh();
+        delivery.fail(
+                byA(ONLINE),
+                FailureReason.other("gate locked"),
+                new Entitlement.OnRoute(REV_1, DRIVER_A),
+                LiveOpsFixtures.NO_HOLD,
+                HELD_1,
+                NOW);
+        delivery.correct(
+                new DispatcherOutcome.Failed(FailureReason.of(FailureReasonKind.NO_ACCESS)),
+                TYPO,
+                Optional.empty(),
+                DISPATCHER,
+                new LaterAttempt.None(),
+                LeaveAtDoor.NOT_ALLOWED,
+                NOW);
+
+        // The correction at 12:00 local is due at 12:00 local on 30 May, 09:00Z after the spring change.
+        delivery.eraseExpired(Instant.parse("2027-05-30T08:59:59Z"));
+
+        List<OutcomeRecord> outcomes = delivery.snapshot().outcomes();
+        assertThat(((Outcome.Failed) outcomes.get(0).outcome()).reason().isErased())
+                .isTrue();
+        assertThat(outcomes.get(1).origin()).isEqualTo(new Origin.Correction(TYPO, NOW));
     }
 
     @Test
