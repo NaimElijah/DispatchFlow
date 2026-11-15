@@ -10,14 +10,14 @@ import com.dispatchflow.liveops.application.port.out.UnconfirmedView;
 import com.dispatchflow.orders.application.api.OrdersForDate;
 import com.dispatchflow.planning.application.api.PublishedRoutes;
 import com.dispatchflow.shared.DeliveryDate;
-import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import java.time.Duration;
+import java.util.List;
 
 /**
- * The dispatcher's live screens: the map, a route's progress, the stops at risk, the unconfirmed
+ * The dispatcher's live screens: the map, each route's progress, the stops at risk, the unconfirmed
  * route changes and a stop's history (FR-33, FR-34, FR-74, FR-158, FR-250, FR-251, FR-253, FR-333,
  * FR-369, FR-397). It joins Planning's {@link PublishedRoutes}, whose stops carry their windows and
  * door flags, and Customers &amp; Orders' {@link OrdersForDate}, for the orders' locations and last
@@ -67,17 +67,18 @@ public final class LiveQueries {
     }
 
     /**
-     * A route's progress: stops done, delay, next stop, last report and its driver's confirmation
-     * (FR-158, FR-250).
+     * Each route's progress on a date: stops done, delay, next stop, last report and its driver's
+     * confirmation (FR-158, FR-250). It reads the date's routes, runs and stops in one pass, not one
+     * route per call.
      *
      * <p>Built in M5.
      *
      * @param actor the dispatcher
-     * @param route the route
-     * @return the route's progress
-     * @throws NotFound when no plan in force holds the route
+     * @param date the date
+     * @return one entry per route of the date's plan in force, in the plan's order; empty when the
+     *     date has no plan in force
      */
-    public RouteProgressView routeProgress(Actor actor, RouteId route) {
+    public List<RouteProgressView> routeProgress(Actor actor, DeliveryDate date) {
         throw new UnsupportedOperationException("Built in M5");
     }
 

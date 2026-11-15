@@ -4,7 +4,7 @@ import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.liveops.application.port.out.DeliveryRepository;
 import com.dispatchflow.liveops.application.port.out.PositionLog;
-import com.dispatchflow.liveops.application.port.out.ProofStore;
+import com.dispatchflow.liveops.application.port.out.proof.ProofStore;
 import com.dispatchflow.shared.application.Clock;
 
 /**

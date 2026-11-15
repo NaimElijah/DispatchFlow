@@ -2,11 +2,13 @@ package com.dispatchflow.liveops.application.service.delivery;
 
 import com.dispatchflow.access.application.api.Actor;
 import com.dispatchflow.audit.application.api.AuditLog;
-import com.dispatchflow.liveops.application.port.out.ProofIdTaken;
-import com.dispatchflow.liveops.application.port.out.ProofImageTooLarge;
-import com.dispatchflow.liveops.application.port.out.ProofStore;
-import com.dispatchflow.liveops.application.port.out.ProofUpload;
-import com.dispatchflow.liveops.application.port.out.ProofUploadsCapped;
+import com.dispatchflow.liveops.application.port.out.proof.ProofFormatRefused;
+import com.dispatchflow.liveops.application.port.out.proof.ProofIdTaken;
+import com.dispatchflow.liveops.application.port.out.proof.ProofImageTooLarge;
+import com.dispatchflow.liveops.application.port.out.proof.ProofImageUnreadable;
+import com.dispatchflow.liveops.application.port.out.proof.ProofStore;
+import com.dispatchflow.liveops.application.port.out.proof.ProofUpload;
+import com.dispatchflow.liveops.application.port.out.proof.ProofUploadsCapped;
 import com.dispatchflow.liveops.domain.delivery.ProofId;
 import com.dispatchflow.liveops.domain.delivery.ProofKind;
 import com.dispatchflow.shared.application.Clock;
@@ -19,8 +21,11 @@ import com.dispatchflow.shared.application.Clock;
  * <p>It passes the acting driver's account and the stated kind to {@link ProofStore#store}, which
  * binds the file to both, so a report names only its own driver's proof of the kind it states
  * (FR-367, BR-02). The web adapter caps the request body at NFR-37's 5 MB while it streams it, so
- * an oversized upload is cut off before it is held in memory; the store then refuses an image whose
- * header gives pixel dimensions above its cap, before decoding it.
+ * an oversized upload is cut off before it is held in memory. The store then refuses a file whose
+ * leading bytes aren't the declared JPEG or PNG ({@link ProofFormatRefused}, 415), reads the pixel
+ * dimensions with the declared format's reader alone and refuses an image above its cap before
+ * decoding it ({@link ProofImageTooLarge}), and refuses a file that reader can't decode ({@link
+ * ProofImageUnreadable}, 422), so each refusal names its reason (NFR-37, NFR-205).
  *
  * <p>An upload stays unnamed until the report that names it arrives. The store bounds such uploads:
  * it deletes one that no report names within a window longer than the 14 days a phone may hold its
@@ -30,8 +35,8 @@ import com.dispatchflow.shared.application.Clock;
  * waits instead of marking its row refused. Both are the store adapter's named settings, whose
  * values M5 fixes.
  *
- * <p>Live Operations' domain has no error for a proof in another format yet, so the refusal this
- * use case raises for one waits for that error.
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own transaction
+ * (NFR-23, ADR-110).
  *
  * <p>Built in M5. Rows: FR-30, FR-367, NFR-37, NFR-204, NFR-205, NFR-235.
  */
@@ -65,7 +70,9 @@ public final class UploadProof {
      * @param upload the image, within the 5 MB the web adapter let through
      * @throws ProofIdTaken when another driver holds the ID, this driver holds it under the other
      *     kind, or the ID is retired because its file was deleted
+     * @throws ProofFormatRefused when the file's leading bytes are not the declared JPEG or PNG
      * @throws ProofImageTooLarge when the image's pixel dimensions are above the store's cap
+     * @throws ProofImageUnreadable when the declared format's reader can't decode the file
      * @throws ProofUploadsCapped when the driver already holds as many uploads that no report names
      *     as the store's cap allows
      */

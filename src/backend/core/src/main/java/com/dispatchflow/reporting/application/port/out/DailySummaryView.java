@@ -35,10 +35,17 @@ public record DailySummaryView(DeliveryDate date, Optional<Summary> summary) {
     /**
      * One plan's summary, in total and per route (FR-38).
      *
+     * <p>Both travel totals follow the routes' optional values (ADR-112): each is the sum over the
+     * routes that have one, since a route with no stops has no times and adds nothing, and empty
+     * when a route with stops has none, so a total never leaves out a route that drove.
+     *
      * <p>Built in M5.
      *
      * @param plan the plan
-     * @param distance the planned distance over every route (FR-341)
+     * @param distance the planned distance over every route (FR-341), or empty when a route with
+     *     stops couldn't be timed
+     * @param drivingTime the planned driving time over every route (FR-38), or empty when a route
+     *     with stops couldn't be timed
      * @param driverHours the planned driver-hours over every route
      * @param stops the plan's stops, by what happened at them
      * @param onTime the on-time percentage of the delivered stops, or unavailable when none was
@@ -49,7 +56,8 @@ public record DailySummaryView(DeliveryDate date, Optional<Summary> summary) {
      */
     public record Summary(
             PlanId plan,
-            Distance distance,
+            Optional<Distance> distance,
+            Optional<Duration> drivingTime,
             DriverHours driverHours,
             StopCounts stops,
             OnTimeRate onTime,
@@ -57,10 +65,11 @@ public record DailySummaryView(DeliveryDate date, Optional<Summary> summary) {
             int droppedOrders,
             List<RouteLine> routes) {
 
-        /** Checks every part is present, and copies the routes. */
+        /** Checks every part is present, possibly empty, and copies the routes. */
         public Summary {
             Objects.requireNonNull(plan, "plan");
             Objects.requireNonNull(distance, "distance");
+            Objects.requireNonNull(drivingTime, "drivingTime");
             Objects.requireNonNull(driverHours, "driverHours");
             Objects.requireNonNull(stops, "stops");
             Objects.requireNonNull(onTime, "onTime");

@@ -9,20 +9,18 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * The dispatcher's one alert list for a date (FR-157): every unacknowledged alert of the date's plan
- * until the plan completes, and one raised after that until it is acknowledged (FR-261). An alert
+ * The dispatcher's one alert list (FR-157), across dates: every unacknowledged alert of a plan not
+ * yet completed, and one raised after its plan completed until it is acknowledged (FR-261). An alert
  * raised while the web app was closed waits here (FR-335).
  *
  * <p>Built in M8.
  *
- * @param date the date
  * @param alerts the alerts, the newest first
  */
-public record OpenAlertsView(DeliveryDate date, List<OpenAlert> alerts) {
+public record OpenAlertsView(List<OpenAlert> alerts) {
 
-    /** Checks the date is present, and copies the alerts. */
+    /** Copies the alerts. */
     public OpenAlertsView {
-        Objects.requireNonNull(date, "date");
         alerts = List.copyOf(alerts);
     }
 
@@ -33,15 +31,17 @@ public record OpenAlertsView(DeliveryDate date, List<OpenAlert> alerts) {
      *
      * @param alert the alert
      * @param subject what it is about: its kind and the records it names
+     * @param date its plan's delivery date, which the list shows beside it, since it spans dates
      * @param raisedAt when it was raised
      * @param version its version, which acknowledging it sends back (BR-76)
      */
-    public record OpenAlert(AlertId alert, AlertSubject subject, Instant raisedAt, Version version) {
+    public record OpenAlert(AlertId alert, AlertSubject subject, DeliveryDate date, Instant raisedAt, Version version) {
 
         /** Checks every part is present. */
         public OpenAlert {
             Objects.requireNonNull(alert, "alert");
             Objects.requireNonNull(subject, "subject");
+            Objects.requireNonNull(date, "date");
             Objects.requireNonNull(raisedAt, "raisedAt");
             Objects.requireNonNull(version, "version");
         }

@@ -24,7 +24,7 @@ import com.dispatchflow.shared.application.IdGenerator;
  * <p>For each alert it raises, it calls {@link PushNotifier#alertStaff} after the commit, so a
  * staff phone app in the background learns of it (FR-405, ADR-083).
  *
- * <p>Built in M8. Rows: FR-101.
+ * <p>Built in M8; the push through {@link PushNotifier} in M10. Rows: FR-101.
  */
 public final class AlertRoutesNotStarted {
 
@@ -79,12 +79,12 @@ public final class AlertRoutesNotStarted {
     /**
      * Raises the alerts now due.
      *
-     * <p>Built in M8.
+     * <p>Built in M8; the push in M10.
      *
      * @param call the job's server step
      * @return how many alerts were raised; one whose key was taken doesn't count
      */
-    public int checkDue(CallContext call) {
+    public int alertDue(CallContext call) {
         throw new UnsupportedOperationException("Built in M8");
     }
 }

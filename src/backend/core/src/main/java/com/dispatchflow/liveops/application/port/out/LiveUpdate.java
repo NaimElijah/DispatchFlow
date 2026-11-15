@@ -1,6 +1,8 @@
 package com.dispatchflow.liveops.application.port.out;
 
+import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.AlertId;
+import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
 import java.util.Objects;
@@ -9,7 +11,13 @@ import java.util.Objects;
  * What changed on the live screens, which the event stream tells the open clients so they refetch
  * (DL §7.1, ADR-026). It names IDs only, never personal data (NFR-218).
  *
- * <p>Built in M5 and M8, case by case.
+ * <p>The stream is filtered by role, and the Driver role gets its own published routes and nothing
+ * else (ADR-035). So a case a driver's screen hears names the driver it is for, and the adapter sends
+ * it to that driver's streams and to the staff's, without asking Planning who drives what. The web
+ * app learns of a route change only this way (FR-347), and alerts a driver who has it open on their
+ * route (FR-391).
+ *
+ * <p>Built in M5, M8 and M9, case by case.
  */
 public sealed interface LiveUpdate {
 
@@ -70,6 +78,61 @@ public sealed interface LiveUpdate {
         /** Checks the alert is present. */
         public AlertChanged {
             Objects.requireNonNull(alert, "alert");
+        }
+    }
+
+    /**
+     * A date's routes were published, told once to each driver with a route on the plan, so a
+     * driver with the web app open is alerted and the route is listed with its date (FR-152,
+     * FR-324, FR-391).
+     *
+     * <p>Built in M5.
+     *
+     * @param date the plan's date, which the app opens
+     * @param driver the driver it is for
+     */
+    record RoutesPublished(DeliveryDate date, AccountId driver) implements LiveUpdate {
+
+        /** Checks both parts are present. */
+        public RoutesPublished {
+            Objects.requireNonNull(date, "date");
+            Objects.requireNonNull(driver, "driver");
+        }
+    }
+
+    /**
+     * A revision changed a route, told to its driver, and to the driver a hand-over took it from, so
+     * the web app reads the route again and alerts the driver (FR-71, FR-347, FR-391). The
+     * dispatcher's unconfirmed list follows it too (FR-250).
+     *
+     * <p>Built in M8.
+     *
+     * @param route the route
+     * @param driver the driver it is for
+     */
+    record RouteRevised(RouteId route, AccountId driver) implements LiveUpdate {
+
+        /** Checks both parts are present. */
+        public RouteRevised {
+            Objects.requireNonNull(route, "route");
+            Objects.requireNonNull(driver, "driver");
+        }
+    }
+
+    /**
+     * A date's plan was cancelled, told once to each driver who had a route on it (FR-337).
+     *
+     * <p>Built in M9.
+     *
+     * @param date the cancelled plan's date
+     * @param driver the driver it is for
+     */
+    record PlanCancelled(DeliveryDate date, AccountId driver) implements LiveUpdate {
+
+        /** Checks both parts are present. */
+        public PlanCancelled {
+            Objects.requireNonNull(date, "date");
+            Objects.requireNonNull(driver, "driver");
         }
     }
 }

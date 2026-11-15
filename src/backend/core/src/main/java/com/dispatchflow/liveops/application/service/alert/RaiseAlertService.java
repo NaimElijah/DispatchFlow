@@ -16,9 +16,9 @@ import com.dispatchflow.shared.application.IdGenerator;
 /**
  * Live Operations' implementation of {@link RaiseAlert}, which Messaging's listener on {@code
  * RatingReceived} calls (FR-361, DL §2.2). A rated stop was delivered, so its delivery names the
- * route that served it, and Planning's {@link PublishedRoutes} that route's plan; the {@code
- * AlertSubject.LowRating} is keyed on the rating request, so a retried listener raises it once
- * (ADR-107 point 4).
+ * route that served it, and Planning's {@link PublishedRoutes} that route's plan and its date; the
+ * {@code AlertSubject.LowRating} is keyed on the rating request, so a retried listener raises it
+ * once (ADR-107 point 4).
  *
  * <p>For each alert it raises, it calls {@link PushNotifier#alertStaff} after the commit, so a
  * staff phone app in the background learns of it (FR-405, ADR-083).
@@ -73,7 +73,7 @@ public final class RaiseAlertService implements RaiseAlert {
      * <p>Built in M12.
      */
     @Override
-    public void lowRating(StopId stop, RatingRequestId request, int rating, CallContext call) {
+    public void lowRating(StopId stop, RatingRequestId request, CallContext call) {
         throw new UnsupportedOperationException("Built in M12");
     }
 }

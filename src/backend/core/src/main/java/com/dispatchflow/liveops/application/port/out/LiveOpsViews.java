@@ -4,9 +4,9 @@ import com.dispatchflow.liveops.domain.RevisionNo;
 import com.dispatchflow.liveops.domain.delivery.DeliveryStatus;
 import com.dispatchflow.liveops.domain.delivery.ProofId;
 import com.dispatchflow.liveops.domain.delivery.StopFact;
+import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.GeoPoint;
 import com.dispatchflow.shared.PersonalData;
-import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
 import java.time.Instant;
@@ -54,24 +54,30 @@ public interface LiveOpsViews {
     List<LatestPosition> latestPositions(List<RouteId> routes);
 
     /**
-     * A plan's unacknowledged alerts (FR-157, FR-261).
+     * Every unacknowledged alert the dispatcher's list shows on a day, whatever its plan's date
+     * (FR-157, FR-261): one whose plan has not completed, and one raised after its plan completed.
+     * A plan completes at the midnight after its date (BR-102), so the read needs no answer from
+     * Planning: it compares the plan's date kept beside each alert ({@link
+     * AlertRepository#addUnlessKeyTaken}) with today. An unacknowledged alert raised before its plan
+     * completed drops off the list then.
      *
      * <p>Built in M8.
      *
-     * @param plan the plan
-     * @return the alerts, the newest first
+     * @param today today's date in {@code Asia/Jerusalem} (ADR-088)
+     * @return the alerts, the newest first; one whose plan's date is today or later, or one raised
+     *     at or after the midnight that ended its plan's date
      */
-    List<OpenAlertsView.OpenAlert> unacknowledgedOf(PlanId plan);
+    List<OpenAlertsView.OpenAlert> unacknowledgedAt(DeliveryDate today);
 
     /**
-     * The open held reports of several stops (BR-132).
+     * Every open held report, whatever its stop's date: a held report is a late one, so it waits
+     * for a decision after its plan completes (BR-132, BR-135).
      *
      * <p>Built in M8.
      *
-     * @param stops the stops, each once
      * @return the reports, in the order they were held
      */
-    List<HeldReportsView.HeldEntry> openHeldOf(List<StopId> stops);
+    List<HeldReportsView.HeldEntry> openHeld();
 
     /**
      * One stop's history (FR-333).

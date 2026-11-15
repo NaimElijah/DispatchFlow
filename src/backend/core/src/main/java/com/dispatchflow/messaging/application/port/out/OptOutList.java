@@ -1,7 +1,6 @@
 package com.dispatchflow.messaging.application.port.out;
 
 import com.dispatchflow.messaging.domain.OptOutRecord;
-import com.dispatchflow.messaging.domain.PhoneHash;
 import java.util.List;
 
 /**
@@ -14,14 +13,19 @@ import java.util.List;
 public interface OptOutList {
 
     /**
-     * A phone's history, which {@code OptOutStatus} judges.
+     * A phone's history under every key version still in use, which {@code OptOutStatus} judges, so
+     * an opt-out made before a key rotation still counts (ADR-069, NFR-202).
+     *
+     * <p>{@code OptOutStatus.of} takes one {@code PhoneHash} and refuses an entry under another, so
+     * it can't judge a history read under two keys yet: M12 lets it read one under several key
+     * versions, with the version {@code PhoneHash} gains then (a domain gap).
      *
      * <p>Built in M12.
      *
-     * @param phone the phone's keyed hash
-     * @return its entries in the order they were appended; empty when it has none
+     * @param phone the phone's keyed hashes, the current one and the older ones still in use
+     * @return its entries under all of them, in the order they were appended; empty when it has none
      */
-    List<OptOutRecord> historyOf(PhoneHash phone);
+    List<OptOutRecord> historyOf(PhoneHashes phone);
 
     /**
      * Appends an entry, in the caller's transaction.

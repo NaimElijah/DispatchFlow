@@ -29,7 +29,7 @@ import com.dispatchflow.shared.application.NotFound;
  * <p>Every read is the dispatcher's, authorized by role from its operation (ADR-068); no driver
  * scope applies (BR-02), so no check depends on the data.
  *
- * <p>Built in M5.
+ * <p>Built in M5 and an unscheduled milestone, method by method.
  */
 public final class SummaryQueries {
 
@@ -79,9 +79,13 @@ public final class SummaryQueries {
     }
 
     /**
-     * A date's planned distance, driving time and arrivals beside the actual ones (FR-106).
+     * A date's planned distance, driving time and arrivals beside the actual ones (FR-106). The
+     * actual arrivals come from {@link ReportingViews#stopResultsOf}; the actual distance and
+     * driving time from {@link ReportingViews#actualsOf}, which is unscheduled, so until it is built
+     * both are empty (Q-40, NFR-249).
      *
-     * <p>Built in M5.
+     * <p>Built in M5 for the arrivals; the actual distance and driving time in an unscheduled
+     * milestone.
      *
      * @param actor the dispatcher
      * @param date the date
@@ -95,7 +99,7 @@ public final class SummaryQueries {
      * The failed and dropped orders of a range of dates, for the screen to group by reason,
      * customer and driver (FR-161).
      *
-     * <p>Built in M5.
+     * <p>Built in an unscheduled milestone: FR-161, a Should, is in no milestone of the roadmap.
      *
      * @param actor the dispatcher
      * @param from the first date, included
@@ -103,6 +107,6 @@ public final class SummaryQueries {
      * @return the failures and drops of the range
      */
     public FailuresAndDropsView failuresAndDrops(Actor actor, DeliveryDate from, DeliveryDate to) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("Built in an unscheduled milestone");
     }
 }

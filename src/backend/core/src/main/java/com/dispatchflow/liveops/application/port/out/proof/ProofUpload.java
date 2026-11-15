@@ -1,4 +1,4 @@
-package com.dispatchflow.liveops.application.port.out;
+package com.dispatchflow.liveops.application.port.out.proof;
 
 import com.dispatchflow.shared.PersonalData;
 import java.util.Objects;

@@ -10,6 +10,7 @@ import com.dispatchflow.reporting.application.port.out.ReportingViews;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
+import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * Computes a published plan's baseline when Reporting hears {@code PlanPublished} (FR-39, FR-342,
@@ -71,6 +72,8 @@ public final class ComputeBaseline {
      *     bug causes
      * @throws RuleViolation with Reporting's {@code NegativeDistance}, {@code NegativeDriverHours}
      *     or {@code OrderCountedTwice} when the optimizer's answer translates into no valid figures
+     * @throws StaleVersion when a concurrent delivery stored the plan's baseline or refusal first;
+     *     the listener adapter retries the event, and the retry finds the plan settled
      */
     public void on(PlanPublished event, CallContext call) {
         throw new UnsupportedOperationException("Built in M5");

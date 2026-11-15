@@ -1,5 +1,6 @@
 package com.dispatchflow.messaging.application.port.out;
 
+import com.dispatchflow.messaging.domain.OutgoingMessageId;
 import com.dispatchflow.messaging.domain.message.DailySendCap;
 import com.dispatchflow.messaging.domain.message.StopMessages;
 import com.dispatchflow.shared.PhoneNumber;
@@ -61,8 +62,10 @@ public interface StopMessagesRepository {
     List<StopId> withPendingMessages();
 
     /**
-     * The messages claimed on an Israel day that count toward the cap of 1,000 (NFR-196, ADR-088,
-     * ADR-108).
+     * The messages that count toward an Israel day's cap of 1,000 (NFR-196, ADR-088, ADR-108): the
+     * stops' messages claimed that day that count ({@code MessageState.countsTowardTheDailyCap}),
+     * and the reply answers counted that day through {@link #countAnswer}, each of which may have
+     * left.
      *
      * <p>Built in M12.
      *
@@ -70,6 +73,19 @@ public interface StopMessagesRepository {
      * @return the cap as it stands
      */
     DailySendCap capOn(LocalDate day);
+
+    /**
+     * Counts a reply's answer, a thank-you, a format reminder or an opt-out confirmation, toward an
+     * Israel day's cap, in the caller's transaction, before it is sent (NFR-196, ADR-108). An answer
+     * keeps no state of its own and belongs to no stop, so this records only that it was sent that
+     * day, for {@link #capOn} to count; counting the same answer twice changes nothing.
+     *
+     * <p>Built in M12.
+     *
+     * @param answer the answer's own ID, the reference the provider is given
+     * @param day the day it is sent, in {@code Asia/Jerusalem}
+     */
+    void countAnswer(OutgoingMessageId answer, LocalDate day);
 
     /**
      * When a message to a phone was last accepted by the provider, which decides whether an opt-out

@@ -3,6 +3,7 @@ package com.dispatchflow.liveops.application.port.out;
 import com.dispatchflow.liveops.domain.delivery.DeliveryStatus;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.DeliveryDate;
+import com.dispatchflow.shared.GeoPoint;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.PhoneNumber;
@@ -90,6 +91,8 @@ public record DriverDayView(DeliveryDate date, AccountId driver, List<DriverRout
      * @param eta its projected arrival, or its planned one before the route moves (FR-27, FR-96,
      *     FR-254); empty when it has an outcome or is not timed
      * @param window its time window, whose end the screen counts down to (FR-154)
+     * @param location the stop's stored coordinates, which Navigate sends to Waze or Google Maps, so
+     *     a corrected pin is honoured (FR-28, FR-325); empty when they are not known
      * @param leaveAtDoor whether it may be left at the door (FR-364)
      * @param atRisk whether it is at risk, marked as on the dispatcher's list (FR-251)
      * @param details the customer's details and the notes the driver reads (FR-27, FR-86, FR-87,
@@ -101,6 +104,7 @@ public record DriverDayView(DeliveryDate date, AccountId driver, List<DriverRout
             DeliveryStatus status,
             Optional<Instant> eta,
             TimeWindow window,
+            Optional<GeoPoint> location,
             boolean leaveAtDoor,
             boolean atRisk,
             StopDetails details)
@@ -113,11 +117,12 @@ public record DriverDayView(DeliveryDate date, AccountId driver, List<DriverRout
             Objects.requireNonNull(status, "status");
             Objects.requireNonNull(eta, "eta");
             Objects.requireNonNull(window, "window");
+            Objects.requireNonNull(location, "location");
             Objects.requireNonNull(details, "details");
         }
 
         /**
-         * A form that leaves the details out.
+         * A form that leaves the details and the location out.
          *
          * @return the stop and its status, redacted
          */

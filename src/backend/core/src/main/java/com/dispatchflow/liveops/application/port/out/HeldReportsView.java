@@ -1,7 +1,6 @@
 package com.dispatchflow.liveops.application.port.out;
 
 import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.HeldReport;
-import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.Version;
@@ -9,30 +8,29 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * The reports a date's stops hold for a dispatcher's decision (BR-132, BR-135, FR-157). Each states
- * an outcome with its reason or proof, so it prints redacted.
+ * The reports held for a dispatcher's decision, whatever their stops' dates: a held report is a late
+ * one, so it still waits after its plan completes (BR-132, BR-135, FR-157). Each states an outcome
+ * with its reason or proof, so it prints redacted.
  *
  * <p>Built in M8.
  *
- * @param date the date
  * @param reports the open held reports, in the order they were held
  */
-public record HeldReportsView(DeliveryDate date, List<HeldEntry> reports) implements PersonalData {
+public record HeldReportsView(List<HeldEntry> reports) implements PersonalData {
 
-    /** Checks the date is present, and copies the reports. */
+    /** Copies the reports. */
     public HeldReportsView {
-        Objects.requireNonNull(date, "date");
         reports = List.copyOf(reports);
     }
 
     /**
      * A form that leaves the reports out.
      *
-     * @return the date and the number of reports
+     * @return the number of reports
      */
     @Override
     public String toString() {
-        return "HeldReportsView[date=" + date + ", reports=" + reports.size() + ", redacted]";
+        return "HeldReportsView[reports=" + reports.size() + ", redacted]";
     }
 
     /**

@@ -19,7 +19,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  * follows it (DL §8 step 2, BR-89, BR-130, ADR-101). It asks Planning's {@link RouteMembership}
  * where the stop is now; when the current revision disagrees with the route that served it, it calls
  * Planning's {@link ReconcileLateOutcome}, then raises the dispatcher's <em>late report</em> alert
- * from the answer, in a transaction of its own.
+ * from the answer, in a transaction of its own, stored with its plan's date from {@link
+ * PublishedRoutes}.
  *
  * <p>Delivery is at least once (ADR-064). Both steps are idempotent: reconciling a stop already
  * where the fact puts it changes nothing, and the alert's dedupe key stores it once (ADR-107), so it
@@ -28,7 +29,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * <p>For each alert it raises, it calls {@link PushNotifier#alertStaff} after the commit, so a
  * staff phone app in the background learns of it (FR-405, ADR-083).
  *
- * <p>Built in M8. Rows: DL §8, FR-157, BR-89, BR-130.
+ * <p>Built in M8; the push through {@link PushNotifier} in M10. Rows: DL §8, FR-157, BR-89, BR-130.
  */
 public final class ReconcileOutcome {
 
@@ -79,7 +80,7 @@ public final class ReconcileOutcome {
     /**
      * Reconciles the plan with an accepted outcome, and alerts the dispatcher when it moved a stop.
      *
-     * <p>Built in M8.
+     * <p>Built in M8; the push in M10.
      *
      * @param event the recorded outcome
      * @param call the listener's server step, which Planning's call and the audit record carry

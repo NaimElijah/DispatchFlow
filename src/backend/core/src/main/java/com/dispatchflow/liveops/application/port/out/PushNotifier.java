@@ -16,7 +16,8 @@ public interface PushNotifier {
 
     /**
      * Tells a driver that something changed. A driver with no registered phone gets nothing, which
-     * is not an error: the web build reads its route every 30 seconds (FR-347).
+     * is not an error: the web app learns of the change from its event stream, through {@link
+     * LiveUpdates}, and reads the route again when the stream reconnects (FR-347, ADR-035).
      *
      * <p>Built in M10.
      *

@@ -15,7 +15,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  * A driver confirms they have seen a change to their route: <em>Seen</em> (FR-97, FR-250). Planning's
  * {@link PublishedRoutes} gives the route's current driver and the plan's current revision, and one
  * transaction calls {@code RouteRun.acknowledge} with the audit record. The confirmed revision never
- * goes back, and a route with no run stores nothing (ADR-107).
+ * goes back, and a route with no run stores nothing (ADR-107). Like every changing call it writes its
+ * audit record, a refused attempt's in its own transaction (NFR-23, ADR-110).
  *
  * <p>Built in M8. Rows: FR-97, FR-250.
  */

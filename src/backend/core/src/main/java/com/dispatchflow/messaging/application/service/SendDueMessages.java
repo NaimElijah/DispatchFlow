@@ -17,7 +17,8 @@ import com.dispatchflow.shared.application.IdGenerator;
  * commits the claim, calls {@link SmsGateway#send} outside any transaction, and records the answer
  * through {@code accepted}, {@code refused} or {@code outcomeUnknown} (NFR-198). A
  * <em>delivered</em> message that asks for a rating opens its {@code RatingRequest} in the
- * transaction of its acceptance (DL §6.2). Each step writes its audit record.
+ * transaction of its acceptance (DL §6.2). Each step writes its audit record. Each run returns a
+ * {@link SendRun} with the number dropped, which the job adapter measures (NFR-190, NFR-161).
  *
  * <p>Built in M12. Rows: NFR-190, NFR-191, NFR-198.
  */
@@ -69,9 +70,9 @@ public final class SendDueMessages {
      * <p>Built in M12.
      *
      * @param call the job's server step
-     * @return how many messages the provider accepted
+     * @return how many messages the provider accepted, and how many were dropped as stale (NFR-190)
      */
-    public int sendDue(CallContext call) {
+    public SendRun sendDue(CallContext call) {
         throw new UnsupportedOperationException("Built in M12");
     }
 }

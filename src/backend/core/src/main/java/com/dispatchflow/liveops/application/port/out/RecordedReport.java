@@ -41,4 +41,26 @@ public sealed interface RecordedReport {
      * <p>Built in M8.
      */
     record PositionsTaken() implements RecordedReport {}
+
+    /**
+     * The route was started, as the phone's outbox may send offline (FR-70, ADR-087).
+     *
+     * <p>Built in M8.
+     */
+    record Started() implements RecordedReport {}
+
+    /**
+     * The route was finished, as the phone's outbox may send offline (FR-70, ADR-087).
+     *
+     * <p>Built in M8.
+     */
+    record Finished() implements RecordedReport {}
+
+    /**
+     * A driver's problem was reported and its alert raised (FR-95), so a resent report raises no
+     * second alert.
+     *
+     * <p>Built in M8.
+     */
+    record ProblemReported() implements RecordedReport {}
 }

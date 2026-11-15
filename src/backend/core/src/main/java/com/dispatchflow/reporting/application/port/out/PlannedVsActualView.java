@@ -16,7 +16,8 @@ import java.util.Optional;
  * A date's planned figures beside what actually happened (FR-106, FR-341): distance, driving time
  * and each stop's arrival. It holds IDs, times and figures only, never personal data.
  *
- * <p>Built in M5.
+ * <p>Built in M5 for the arrivals; the actual distance and driving time in an unscheduled milestone
+ * (Q-40, NFR-249), and until then both are empty.
  *
  * @param date the date
  * @param plan the comparison for the date's published or completed plan, or empty when the date
@@ -33,13 +34,14 @@ public record PlannedVsActualView(DeliveryDate date, Optional<PlanComparison> pl
     /**
      * One plan's planned and actual figures (FR-106).
      *
-     * <p>Built in M5.
+     * <p>Built in M5 for the arrivals; the actual distance and driving time in an unscheduled
+     * milestone.
      *
      * @param plan the plan
      * @param plannedDistance the planned distance over every route (FR-341)
-     * @param actualDistance the distance driven, or empty when it was not measured (Q-40)
+     * @param actualDistance the distance driven, or empty when it was not measured (Q-40, NFR-249)
      * @param plannedDriverHours the planned driver-hours over every route
-     * @param actualDrivingTime the time driven, or empty when it was not measured (Q-40)
+     * @param actualDrivingTime the time driven, or empty when it was not measured (Q-40, NFR-249)
      * @param stops each stop's planned and actual arrival, in the plan's route order
      */
     public record PlanComparison(

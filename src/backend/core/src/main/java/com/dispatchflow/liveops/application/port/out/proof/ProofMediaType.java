@@ -1,4 +1,4 @@
-package com.dispatchflow.liveops.application.port.out;
+package com.dispatchflow.liveops.application.port.out.proof;
 
 /**
  * The image formats a proof of delivery is accepted in (NFR-37).

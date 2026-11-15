@@ -11,7 +11,8 @@ import com.dispatchflow.shared.application.Clock;
  * A dispatcher removes a phone's opt-out at the person's own request by phone, by appending an
  * opt-in, noting who did it and when; the latest entry wins (FR-380, NFR-202, ADR-108). {@code
  * OptOutStatus.removeByDispatcher} decides the entry, and one transaction appends it with the audit
- * record. A phone with no opt-out standing gets no entry.
+ * record. A phone with no opt-out standing gets no entry. Like every changing call it writes its
+ * audit record, a refused attempt's in its own transaction (NFR-23, ADR-110).
  *
  * <p>Built in M12. Rows: FR-380, NFR-202.
  */

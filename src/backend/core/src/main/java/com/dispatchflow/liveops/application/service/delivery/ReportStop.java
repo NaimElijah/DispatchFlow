@@ -7,11 +7,11 @@ import com.dispatchflow.liveops.application.port.out.AlertRepository;
 import com.dispatchflow.liveops.application.port.out.DeliveryRepository;
 import com.dispatchflow.liveops.application.port.out.IdempotencyKey;
 import com.dispatchflow.liveops.application.port.out.LiveUpdates;
-import com.dispatchflow.liveops.application.port.out.ProofStore;
 import com.dispatchflow.liveops.application.port.out.PushNotifier;
 import com.dispatchflow.liveops.application.port.out.ReportReceipts;
 import com.dispatchflow.liveops.application.port.out.RequestDigest;
 import com.dispatchflow.liveops.application.port.out.RouteRunRepository;
+import com.dispatchflow.liveops.application.port.out.proof.ProofStore;
 import com.dispatchflow.liveops.application.service.DeviceClock;
 import com.dispatchflow.liveops.application.service.IdempotencyKeyReused;
 import com.dispatchflow.orders.application.api.StopOrders;
@@ -37,8 +37,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  * for that one order, for its door flag, as a {@code LeaveAtDoor} (FR-366). A first fact's {@code
  * Delivery.firstFact} takes the stop's order and attempt from the membership's {@code
  * EntitlementFact.OnRoute}, the revision in force at the corrected time, so a late report on a stop
- * the plan has since taken off still creates it (BR-110). The stop's plan, for the alerts, comes
- * from Planning's {@link PublishedRoutes}.
+ * the plan has since taken off still creates it (BR-110). The stop's plan and its date, which each
+ * alert is stored with, come from Planning's {@link PublishedRoutes}.
  *
  * <p>Then one transaction changes the stop's {@code Delivery} through {@code arrive}, {@code
  * deliver} or {@code fail}, creating it on its first fact. In the same transaction it creates the
@@ -48,7 +48,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  * audit record. A contradicting report is refused and its <em>report refused</em> alert raised in a
  * transaction of its own (BR-90); a repeated one raises none (BR-88, ADR-107). The screens are told
  * after the commit, and for each alert raised it calls {@link PushNotifier#alertStaff} after the
- * commit, so a staff phone app in the background learns of it (FR-405, ADR-083).
+ * commit, so a staff phone app in the background learns of it (FR-405, ADR-083). Like every
+ * changing call it writes its audit record, a refused attempt's in its own transaction (NFR-23,
+ * ADR-110).
  *
  * <p>Before a <em>delivered</em> report reaches the domain, {@link ProofStore#find} checks the
  * proof it names: the file must be stored, uploaded by the acting driver, and of the kind the
@@ -57,9 +59,10 @@ import com.dispatchflow.shared.application.StaleVersion;
  * driver learns nothing of another driver's upload. The domain has no error of its own for the
  * uploader or the kind, so the use case raises that one.
  *
- * <p>Built in M5, online with a signature as the proof; the request key, the hold and photos in M8.
- * Rows: FR-29, FR-30, FR-70, FR-102, FR-242, FR-245 to FR-248, FR-298, FR-365 to FR-368, FR-405,
- * BR-02, BR-27, BR-28, BR-88 to BR-90, BR-110, BR-114, BR-132 to BR-136, NFR-65, NFR-130.
+ * <p>Built in M5, online with a signature as the proof; the request key, the hold, photos and the
+ * alerts through {@link AlertRepository} in M8; the push through {@link PushNotifier} in M10. Rows:
+ * FR-29, FR-30, FR-70, FR-102, FR-242, FR-245 to FR-248, FR-298, FR-365 to FR-368, FR-405, BR-02,
+ * BR-27, BR-28, BR-88 to BR-90, BR-110, BR-114, BR-132 to BR-136, NFR-65, NFR-130.
  */
 public final class ReportStop {
 
@@ -132,7 +135,7 @@ public final class ReportStop {
      * Takes a driver's report. The acting driver is the report's sender; a driver reports only a
      * stop that was on their route at the report's corrected time (BR-02, BR-110).
      *
-     * <p>Built in M5; the request key, the hold and photos in M8.
+     * <p>Built in M5; the request key, the hold, photos and the alerts in M8; the push in M10.
      *
      * @param actor the reporting driver
      * @param report what the driver reports, at which stop of which route

@@ -21,7 +21,7 @@ import java.util.Optional;
  * 1, ADR-109). A day has at most 200 orders (BR-101), so each answer is one pass over at most 200
  * rows.
  *
- * <p>Built in M5.
+ * <p>Built in M5 and an unscheduled milestone, method by method.
  */
 public interface ReportingViews {
 
@@ -117,12 +117,14 @@ public interface ReportingViews {
 
     /**
      * What a plan's vehicles actually drove, from Live Operations' published view (FR-106,
-     * ADR-041, ADR-109).
+     * ADR-041, ADR-109). Q-40 settled that actuals come from the apps' report times and the
+     * position traces (NFR-249); no milestone measures the distance and driving time from the traces
+     * yet. The actual arrivals come from {@link #stopResultsOf}, in M5.
      *
-     * <p>Built in M5.
+     * <p>Built in an unscheduled milestone.
      *
      * @param plan the plan
-     * @return the distance and the time driven, each if measured (Q-40)
+     * @return the distance and the time driven, each if measured
      */
     ActualFigures actualsOf(PlanId plan);
 
@@ -134,7 +136,7 @@ public interface ReportingViews {
      * Orders'. The order's effective
      * outcome counts (FR-333), and a cancelled order is left out (BR-30).
      *
-     * <p>Built in M5.
+     * <p>Built in an unscheduled milestone: FR-161, a Should, is in no milestone of the roadmap.
      *
      * @param from the first date, included
      * @param to the last date, included; a range with {@code to} before {@code from} has none

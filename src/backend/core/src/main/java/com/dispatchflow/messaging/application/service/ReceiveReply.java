@@ -11,6 +11,7 @@ import com.dispatchflow.messaging.application.port.out.ReplyLog;
 import com.dispatchflow.messaging.application.port.out.SmsGateway;
 import com.dispatchflow.messaging.application.port.out.StopMessagesRepository;
 import com.dispatchflow.shared.PhoneNumber;
+import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.IdGenerator;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.time.Instant;
@@ -30,11 +31,27 @@ import java.time.Instant;
  * are due are then sent through {@link SmsGateway}, after the commit and outside it (placement P10,
  * ADR-108); one that fails is not kept for later.
  *
+ * <p>Each answer counts toward the day's cap of 1,000 messages (NFR-196, ADR-108 Risk). In the
+ * transaction of the reply's effect, it reads {@link StopMessagesRepository#capOn} for today's Israel
+ * date from the {@link Clock}, and, while the cap has room, counts the answer through {@link
+ * StopMessagesRepository#countAnswer} before sending it. Once the cap is reached the answer is
+ * skipped for good, as an answer due when messages can't go to the phone is (ADR-108), since each is
+ * sent once.
+ *
+ * <p><b>Precondition.</b> The callback's adapter has accepted the call only with the provider's
+ * signature or header secret, one of two while one is rotated, compared in constant time, before it
+ * calls this; any other call is refused there and changes nothing (NFR-192). This use case trusts
+ * that its arguments came from the provider.
+ *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own transaction
+ * (NFR-23, ADR-110).
+ *
  * <p>Access's {@link Company#profile()} is empty before the first Admin sets the company up. With no
  * profile there is no sender name, so no message was ever sent and no rating request is open: an
  * opt-out word still opts the phone out, any other reply is discarded, and no answer is sent.
  *
- * <p>Built in M12. Rows: FR-357 to FR-360, FR-363, FR-371, FR-376, FR-379, NFR-199, NFR-201, NFR-203.
+ * <p>Built in M12. Rows: FR-357 to FR-360, FR-363, FR-371, FR-376, FR-379, NFR-192, NFR-196,
+ * NFR-199, NFR-201, NFR-203.
  */
 public final class ReceiveReply {
 
@@ -46,6 +63,7 @@ public final class ReceiveReply {
     private final MessagingSettingsRepository settings;
     private final Company company;
     private final SmsGateway smsGateway;
+    private final Clock clock;
     private final IdGenerator ids;
     private final AuditLog auditLog;
 
@@ -54,12 +72,14 @@ public final class ReceiveReply {
      *
      * @param replies where replies are kept
      * @param ratingRequests where rating requests are kept
-     * @param stopMessages where stops' messages are kept, for the phone's last accepted message
+     * @param stopMessages where stops' messages are kept, for the phone's last accepted message and
+     *     the day's cap, which the answers count toward
      * @param optOuts the phones' opt-out history
      * @param phoneHasher the keyed phone hash
      * @param settings where the messaging settings are kept
      * @param company Access's company profile, for the name and language the answers are written in
      * @param smsGateway the SMS provider, for the answers
+     * @param clock today's Israel date, for the cap
      * @param ids new IDs, for each answer sent
      * @param auditLog the audit trail
      */
@@ -72,6 +92,7 @@ public final class ReceiveReply {
             MessagingSettingsRepository settings,
             Company company,
             SmsGateway smsGateway,
+            Clock clock,
             IdGenerator ids,
             AuditLog auditLog) {
         this.replies = replies;
@@ -82,12 +103,13 @@ public final class ReceiveReply {
         this.settings = settings;
         this.company = company;
         this.smsGateway = smsGateway;
+        this.clock = clock;
         this.ids = ids;
         this.auditLog = auditLog;
     }
 
     /**
-     * Takes one reply.
+     * Takes one reply. The caller has checked the provider's signature or secret (NFR-192).
      *
      * <p>Built in M12.
      *

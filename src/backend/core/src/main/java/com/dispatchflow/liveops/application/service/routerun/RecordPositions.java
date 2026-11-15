@@ -25,7 +25,8 @@ import java.util.List;
  * TrackingStanding} it is judged by comes from Planning's {@link PublishedRoutes} (the current
  * driver, and a confirmed return, FR-394) and Fleet's {@link FleetFacts#driverOn} (the availability
  * and the shift end). The kept positions are appended with the receipt and the audit record, so a
- * retried batch is stored once (NFR-285).
+ * retried batch is stored once (NFR-285). Like every changing call it writes its audit record, a
+ * refused attempt's in its own transaction (NFR-23, ADR-110).
  *
  * <p>Built in M8. Rows: FR-31, FR-243, FR-328, NFR-30, NFR-285.
  */

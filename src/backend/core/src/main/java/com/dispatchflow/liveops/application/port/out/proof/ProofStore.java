@@ -1,4 +1,4 @@
-package com.dispatchflow.liveops.application.port.out;
+package com.dispatchflow.liveops.application.port.out.proof;
 
 import com.dispatchflow.liveops.domain.delivery.ProofId;
 import com.dispatchflow.liveops.domain.delivery.ProofKind;
@@ -34,10 +34,20 @@ public interface ProofStore {
      * Storing an ID the same uploader already stored under the same kind changes nothing, so the
      * phone's retried upload is safe (ADR-087).
      *
-     * <p>The adapter reads the image's pixel dimensions from its header and refuses one above its
-     * named cap before it decodes anything, so a small file that unpacks into a huge bitmap never
-     * reaches the decoder. It then re-encodes the image and strips its metadata before it writes
-     * (NFR-205). The cap is the adapter's setting, whose value M5 fixes.
+     * <p>The adapter checks the image in this order, before it writes anything (NFR-37, NFR-205):
+     *
+     * <ol>
+     *   <li>the leading bytes must be the signature of the declared {@link ProofMediaType}, else
+     *       {@link ProofFormatRefused};
+     *   <li>it takes the declared format's reader alone, never one the content picks, and reads the
+     *       pixel dimensions from that same reader's header before decoding, refusing one above its
+     *       named cap with {@link ProofImageTooLarge}, so a small file that unpacks into a huge
+     *       bitmap never reaches the decoder;
+     *   <li>it decodes with that reader, and a file it can't decode is {@link ProofImageUnreadable};
+     *   <li>it re-encodes the image and strips its metadata, and writes the result.
+     * </ol>
+     *
+     * <p>The cap is the adapter's setting, whose value M5 fixes.
      *
      * <p>Built in M5.
      *
@@ -47,7 +57,10 @@ public interface ProofStore {
      * @param upload the uploaded image
      * @throws ProofIdTaken when another uploader holds the ID, the same uploader holds it under the
      *     other kind, or the ID is retired because its file was deleted
-     * @throws ProofImageTooLarge when the image's header gives pixel dimensions above the cap
+     * @throws ProofFormatRefused when the file's leading bytes are not the declared JPEG or PNG
+     * @throws ProofImageTooLarge when the declared format's reader gives pixel dimensions above the
+     *     cap
+     * @throws ProofImageUnreadable when the declared format's reader can't decode the file
      * @throws ProofUploadsCapped when the uploader already holds as many uploads that no report
      *     names as the cap allows, and this one isn't a retry of one of them
      */
