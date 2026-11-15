@@ -11,6 +11,7 @@ import com.dispatchflow.archfixture.zeta.lower.application.api.LowerFactLeaksThe
 import com.dispatchflow.archfixture.zeta.lower.application.api.LowerFacts;
 import com.dispatchflow.archfixture.zeta.lower.application.api.LowerOutcome;
 import com.dispatchflow.archfixture.zeta.lower.application.api.Unimplemented;
+import com.dispatchflow.archfixture.zeta.lower.application.service.HomeUsageService;
 import com.dispatchflow.archfixture.zeta.lower.application.service.LowerReachesUp;
 import com.dispatchflow.archfixture.zeta.lower.application.spi.LowerUsage;
 import com.dispatchflow.archfixture.zeta.lower.application.spi.UsageFactLeaksTheDomain;
@@ -23,6 +24,8 @@ import com.dispatchflow.archfixture.zeta.lower.events.LowerEventUsesTheClock;
 import com.dispatchflow.archfixture.zeta.lower.events.LowerHappened;
 import com.dispatchflow.archfixture.zeta.shared.KernelRootUsesTheClock;
 import com.dispatchflow.archfixture.zeta.shared.application.SharedPortUsesSpring;
+import com.dispatchflow.archfixture.zeta.side.application.service.CallsAnSpiItDoesNotImplement;
+import com.dispatchflow.archfixture.zeta.side.application.service.WrongModuleUsageService;
 import com.dispatchflow.archfixture.zeta.stray.StrayValue;
 import com.dispatchflow.archfixture.zeta.upper.application.port.out.PortRootUsingASubpackage;
 import com.dispatchflow.archfixture.zeta.upper.application.port.out.UpperRecords;
@@ -30,9 +33,11 @@ import com.dispatchflow.archfixture.zeta.upper.application.port.out.looped.Loope
 import com.dispatchflow.archfixture.zeta.upper.application.port.out.used.UsedByThePortRoot;
 import com.dispatchflow.archfixture.zeta.upper.application.service.AnnotatedAsANamedInterface;
 import com.dispatchflow.archfixture.zeta.upper.application.service.AnnotatedAsASpringComponent;
+import com.dispatchflow.archfixture.zeta.upper.application.service.DependsOnADomainLibrary;
 import com.dispatchflow.archfixture.zeta.upper.application.service.DependsOnAnotherModulesDomain;
 import com.dispatchflow.archfixture.zeta.upper.application.service.DependsOnAnotherModulesService;
 import com.dispatchflow.archfixture.zeta.upper.application.service.DependsOnItsOwnAdapter;
+import com.dispatchflow.archfixture.zeta.upper.application.service.LowerUsageService;
 import com.dispatchflow.archfixture.zeta.upper.application.service.ServiceRootUsingASubpackage;
 import com.dispatchflow.archfixture.zeta.upper.application.service.UpperUseCase;
 import com.dispatchflow.archfixture.zeta.upper.application.service.looped.LoopedUseCase;
@@ -43,9 +48,12 @@ import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.ViolationHandler;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -62,6 +70,12 @@ class ApplicationRulesTest {
     private static final String ROOT = FixtureClasses.ROOT + "." + ZETA;
     private static final String FIXTURE_MODULE_ANNOTATIONS = NamedInterface.class.getPackageName();
     private static final String PACKAGE_INFO = ".package-info";
+    private static final String LOOPED_USE_CASES = ROOT + ".upper.application.service.looped";
+    private static final String LOOPED_PORTS = ROOT + ".upper.application.port.out.looped";
+    // One line of a cycle's header: "Cycle detected: Slice a -> ", then "  Slice b -> ", then "  Slice a".
+    private static final Pattern CYCLE_STEP = Pattern.compile("^(?:Cycle detected: |\\s*)Slice (\\S+)(?: -> )?\\s*$");
+    // Two slices and the first again, which closes the loop.
+    private static final int CLOSED_LOOP_OF_TWO = 3;
     // upper and side may depend on lower; lower on nothing. stray is left out on purpose.
     private static final Map<String, Set<String>> GRAPH =
             Map.of("lower", Set.of(), "upper", Set.of("lower"), "side", Set.of("lower"));
@@ -72,6 +86,10 @@ class ApplicationRulesTest {
             "lower.application.spi.UsageImplementedAtHome", "upper",
             "lower.application.spi.UsageUnimplemented", "upper",
             "lower.application.spi.UsageImplementedByTheWrongModule", "upper");
+
+    private static ArchRule rule1() {
+        return ApplicationRules.onlyAllowedDependencies(ROOT, FIXTURE_MODULE_ANNOTATIONS, SPI_IMPLEMENTERS);
+    }
 
     private static JavaClasses zeta() {
         return FixtureClasses.inPackage(ZETA);
@@ -86,44 +104,97 @@ class ApplicationRulesTest {
         return names;
     }
 
+    /** Rule 7's cycle report: one detail per cycle found. */
+    private static List<String> cycleDetails(JavaClasses classes) {
+        return ApplicationRules.applicationPackagesAreFreeOfCycles(ROOT)
+                .evaluate(classes)
+                .getFailureReport()
+                .getDetails();
+    }
+
+    /**
+     * The cycle's header walks the two looped slices and closes on the first. Which of the two comes
+     * first is ArchUnit's choice, so it is left open.
+     */
+    private static void isTheLoopedCycle(String detail) {
+        List<String> walked = detail.lines()
+                .map(CYCLE_STEP::matcher)
+                .takeWhile(Matcher::matches)
+                .map(step -> step.group(1))
+                .toList();
+
+        assertThat(walked).as("the slices the cycle walks in %s", detail).hasSize(CLOSED_LOOP_OF_TWO);
+        assertThat(walked.subList(0, CLOSED_LOOP_OF_TWO - 1))
+                .as("the slices the cycle walks in %s", detail)
+                .containsExactlyInAnyOrder(LOOPED_USE_CASES, LOOPED_PORTS);
+        assertThat(walked.getLast()).as("the slice that closes the cycle").isEqualTo(walked.getFirst());
+    }
+
     private static String[] namesOf(Class<?>... types) {
         return Arrays.stream(types).map(Class::getName).toArray(String[]::new);
     }
 
     @Test
     void GivenTheZetaFixtures_WhenRule1Evaluates_ThenExactlyTheForbiddenDependenciesAreFlagged() {
-        assertThat(violators(ApplicationRules.onlyAllowedDependencies(ROOT, FIXTURE_MODULE_ANNOTATIONS), zeta()))
+        assertThat(violators(rule1(), zeta()))
                 .containsExactlyInAnyOrder(
                         SharedPortUsesSpring.class.getName(),
                         DependsOnAnotherModulesDomain.class.getName(),
                         DependsOnAnotherModulesService.class.getName(),
                         DependsOnItsOwnAdapter.class.getName(),
+                        DependsOnADomainLibrary.class.getName(),
                         AnnotatedAsASpringComponent.class.getName(),
                         AnnotatedAsANamedInterface.class.getName(),
+                        CallsAnSpiItDoesNotImplement.class.getName(),
+                        // No arrow names side for lower's spi, so rule 1 refuses its implementation too.
+                        WrongModuleUsageService.class.getName(),
                         ROOT + ".upper.application.configured" + PACKAGE_INFO);
     }
 
     @Test
-    void GivenAUseCaseUsingEverythingAllowedAndTransactional_WhenRule1Evaluates_ThenNothingIsFlagged() {
+    void GivenAUseCaseHoldingAJtsPoint_WhenRule1Evaluates_ThenItIsFlagged() {
+        assertThat(violators(rule1(), FixtureClasses.only(DependsOnADomainLibrary.class)))
+                .containsExactly(DependsOnADomainLibrary.class.getName());
+    }
+
+    @Test
+    void GivenAModuleThatNeitherOwnsNorImplementsAnotherModulesSpi_WhenRule1Evaluates_ThenItsUseOfTheSpiIsFlagged() {
+        assertThat(violators(rule1(), FixtureClasses.only(CallsAnSpiItDoesNotImplement.class)))
+                .containsExactly(CallsAnSpiItDoesNotImplement.class.getName());
+    }
+
+    @Test
+    void GivenAMapNamingTheCallerAsAnImplementerOfThatSpi_WhenRule1Evaluates_ThenItsUseOfTheSpiIsAllowed() {
+        Map<String, String> sideImplements = Map.of("lower.application.spi.LowerUsage", "side");
+
         assertThat(violators(
-                        ApplicationRules.onlyAllowedDependencies(ROOT, FIXTURE_MODULE_ANNOTATIONS),
-                        FixtureClasses.only(UpperUseCase.class)))
+                        ApplicationRules.onlyAllowedDependencies(ROOT, FIXTURE_MODULE_ANNOTATIONS, sideImplements),
+                        FixtureClasses.only(CallsAnSpiItDoesNotImplement.class)))
                 .isEmpty();
     }
 
     @Test
-    void GivenAUseCaseThatDependsOnItsOwnModulesAdapter_WhenRule1Evaluates_ThenItIsFlagged() {
+    void GivenTheSpisOwnerAndItsNamedImplementer_WhenRule1Evaluates_ThenTheirUsesOfTheSpiAreAllowed() {
         assertThat(violators(
-                        ApplicationRules.onlyAllowedDependencies(ROOT, FIXTURE_MODULE_ANNOTATIONS),
-                        FixtureClasses.only(DependsOnItsOwnAdapter.class)))
+                        rule1(),
+                        FixtureClasses.only(HomeUsageService.class, LowerUsageService.class, UpperUseCase.class)))
+                .isEmpty();
+    }
+
+    @Test
+    void GivenAUseCaseUsingEverythingAllowedAndTransactional_WhenRule1Evaluates_ThenNothingIsFlagged() {
+        assertThat(violators(rule1(), FixtureClasses.only(UpperUseCase.class))).isEmpty();
+    }
+
+    @Test
+    void GivenAUseCaseThatDependsOnItsOwnModulesAdapter_WhenRule1Evaluates_ThenItIsFlagged() {
+        assertThat(violators(rule1(), FixtureClasses.only(DependsOnItsOwnAdapter.class)))
                 .containsExactly(DependsOnItsOwnAdapter.class.getName());
     }
 
     @Test
     void GivenAModuleAnnotationOnAnApplicationClass_WhenRule1Evaluates_ThenItIsFlagged() {
-        assertThat(violators(
-                        ApplicationRules.onlyAllowedDependencies(ROOT, FIXTURE_MODULE_ANNOTATIONS),
-                        FixtureClasses.only(AnnotatedAsANamedInterface.class)))
+        assertThat(violators(rule1(), FixtureClasses.only(AnnotatedAsANamedInterface.class)))
                 .containsExactly(AnnotatedAsANamedInterface.class.getName());
     }
 
@@ -132,15 +203,14 @@ class ApplicationRulesTest {
         JavaClasses api = FixtureClasses.inPackage(ZETA + ".upper.application.api");
 
         assertThat(api.stream().map(JavaClass::getSimpleName)).contains("package-info");
-        assertThat(violators(ApplicationRules.onlyAllowedDependencies(ROOT, FIXTURE_MODULE_ANNOTATIONS), api))
-                .isEmpty();
+        assertThat(violators(rule1(), api)).isEmpty();
     }
 
     @Test
     void GivenAnotherFrameworksAnnotationOnAnApplicationPackageInfo_WhenRule1Evaluates_ThenItIsFlagged() {
         JavaClasses configured = FixtureClasses.inPackage(ZETA + ".upper.application.configured");
 
-        assertThat(violators(ApplicationRules.onlyAllowedDependencies(ROOT, FIXTURE_MODULE_ANNOTATIONS), configured))
+        assertThat(violators(rule1(), configured))
                 .containsExactly(ROOT + ".upper.application.configured" + PACKAGE_INFO);
     }
 
@@ -326,18 +396,14 @@ class ApplicationRulesTest {
 
     @Test
     void GivenAUseCasePackageAndAPortPackageThatUseEachOther_WhenRule7ChecksCycles_ThenItIsFlagged() {
-        assertThat(ApplicationRules.applicationPackagesAreFreeOfCycles(ROOT)
-                        .evaluate(FixtureClasses.only(LoopedUseCase.class, LoopedRecords.class))
-                        .hasViolation())
-                .isTrue();
+        assertThat(cycleDetails(FixtureClasses.only(LoopedUseCase.class, LoopedRecords.class)))
+                .singleElement()
+                .satisfies(ApplicationRulesTest::isTheLoopedCycle);
     }
 
     @Test
-    void GivenTheZetaFixtures_WhenRule7ChecksCycles_ThenTheLoopIsFlagged() {
-        assertThat(ApplicationRules.applicationPackagesAreFreeOfCycles(ROOT)
-                        .evaluate(zeta())
-                        .hasViolation())
-                .isTrue();
+    void GivenTheZetaFixtures_WhenRule7ChecksCycles_ThenTheLoopIsTheOneCycleFlagged() {
+        assertThat(cycleDetails(zeta())).singleElement().satisfies(ApplicationRulesTest::isTheLoopedCycle);
     }
 
     @Test

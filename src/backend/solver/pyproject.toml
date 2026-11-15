@@ -171,9 +171,9 @@ forbidden_modules = ["dispatchflow_solver.domain.problem"]
 
 # ADR-001: the use cases and the Solver port know no transport, no Pydantic and no OR-Tools.
 # ADR-092: Numba and the alns package belong to our solver's adapter. ADR-051 keeps the process
-# model in the adapter too: the worker per lane started with multiprocessing, and any pool or child
-# process. grimp records the standard library as external packages, so `concurrent` catches
-# concurrent.futures.
+# model in the adapter too, and this contract bans the application three of its modules:
+# `multiprocessing`, `concurrent` and `subprocess`. grimp records the standard library as external
+# packages, so `concurrent` catches concurrent.futures.
 [[tool.importlinter.contracts]]
 name = "The application imports no FastAPI, Pydantic, solver library or process model"
 type = "forbidden"

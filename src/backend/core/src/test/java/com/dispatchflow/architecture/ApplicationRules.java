@@ -93,30 +93,36 @@ final class ApplicationRules {
      * Rule 1: each module's application layer and the shared application package depend only on
      * what TS §2.2 and DL §2.3 allow, with Spring Modulith's annotations allowed on their {@code
      * package-info} only. A module's own {@code adapter} is not among them: dependencies point from
-     * the adapters to the application, never back.
+     * the adapters to the application, never back. Another module's {@code spi} is open only to the
+     * module a dashed arrow of {@link #SPI_IMPLEMENTERS} names to implement one of its interfaces.
      *
      * <p>{@code @Transactional} is allowed here for a module's use cases. The shared application
      * package can't take it all the same: it sits under the kernel, so {@link DomainPurityRules}
      * holds it to the kernel's purity rules too, and they allow no Spring.
      */
     static ArchRule onlyAllowedDependencies(String root) {
-        return onlyAllowedDependencies(root, MODULITH);
+        return onlyAllowedDependencies(root, MODULITH, SPI_IMPLEMENTERS);
     }
 
     /**
      * Rule 1, with the package whose annotations a {@code package-info} may carry given: Spring
      * Modulith's for production, a stand-in for the fixtures, because Modulith is not on the
-     * classpath before M0.
+     * classpath before M0. The dashed arrows are given too, as rule 4 takes them.
+     *
+     * @param implementers each {@code spi} interface, by its name below the root, and the module that
+     *     implements it
      */
-    static ArchRule onlyAllowedDependencies(String root, String moduleAnnotations) {
+    static ArchRule onlyAllowedDependencies(String root, String moduleAnnotations, Map<String, String> implementers) {
         return classes()
                 .that()
                 .resideInAPackage(applicationLayers(root))
                 .should(dependOnlyOn(
                         "the packages TS §2.2 allows the application",
-                        (item, target) -> isAllowedInTheApplication(root, moduleAnnotations, item, target)))
+                        (item, target) ->
+                                isAllowedInTheApplication(root, moduleAnnotations, implementers, item, target)))
                 .because("TS §2.2 and DL §2.3: the application imports the JDK, JSpecify, the kernel, its own"
-                        + " module, other modules' api, spi and events, and from Spring only @Transactional");
+                        + " module, other modules' api and events, the spi of a module whose dashed arrow it"
+                        + " implements, and from Spring only @Transactional");
     }
 
     /** Rule 2: a module depends on another module only along DL §2.1's arrows. */
@@ -324,12 +330,12 @@ final class ApplicationRules {
     }
 
     /**
-     * What a class of {@code <root>.<module>.application} may depend on. Another module's {@code
-     * api}, {@code spi} and {@code events} are allowed here whatever the module; rule 2 decides
-     * which modules.
+     * What a class of {@code <root>.<module>.application} may depend on. Another module's {@code api}
+     * and {@code events} are allowed here whatever the module, and rule 2 decides which modules.
+     * Another module's {@code spi} is allowed only to a module that implements one of its interfaces.
      */
     private static boolean isAllowedInTheApplication(
-            String root, String moduleAnnotations, JavaClass item, JavaClass target) {
+            String root, String moduleAnnotations, Map<String, String> implementers, JavaClass item, JavaClass target) {
         String targetPackage = target.getPackageName();
         if (isInAny(targetPackage, ALWAYS_ALLOWED)
                 || isIn(targetPackage, root + "." + KERNEL)
@@ -337,22 +343,41 @@ final class ApplicationRules {
                 || (item.getSimpleName().equals(PACKAGE_INFO) && isIn(targetPackage, moduleAnnotations))) {
             return true;
         }
-        String module = root + "." + topLevelPackage(root, item).orElseThrow();
+        String itemModule = topLevelPackage(root, item).orElseThrow();
+        String module = root + "." + itemModule;
         if (isIn(targetPackage, module + "." + DOMAIN)
                 || isIn(targetPackage, module + "." + EVENTS)
                 || isIn(targetPackage, module + "." + APPLICATION)) {
             return true;
         }
-        return isAPublishedPackageOfAModule(root, targetPackage);
+        return isPublishedToTheModule(root, targetPackage, itemModule, implementers);
     }
 
-    /** A module's {@code application.api}, {@code application.spi} or {@code events}, or below one. */
-    private static boolean isAPublishedPackageOfAModule(String root, String targetPackage) {
+    /**
+     * A module's {@code application.api} or {@code events}, or below one; or its {@code
+     * application.spi}, or below it, when a dashed arrow names {@code itemModule} to implement one of
+     * that spi's interfaces. The arrow opens the whole package, because an implementation also uses
+     * the records beside the interface.
+     */
+    private static boolean isPublishedToTheModule(
+            String root, String targetPackage, String itemModule, Map<String, String> implementers) {
         String[] segments = segmentsBelow(root, targetPackage);
-        return (segments.length >= 2 && segments[1].equals(EVENTS))
-                || (segments.length >= 3
-                        && segments[1].equals(APPLICATION)
-                        && (segments[2].equals(API) || segments[2].equals(SPI)));
+        if (segments.length >= 2 && segments[1].equals(EVENTS)) {
+            return true;
+        }
+        if (segments.length < 3 || !segments[1].equals(APPLICATION)) {
+            return false;
+        }
+        return segments[2].equals(API)
+                || (segments[2].equals(SPI) && implementsAnSpiOf(segments[0], itemModule, implementers));
+    }
+
+    /** Whether a dashed arrow names {@code module} to implement an interface of {@code owner}'s spi. */
+    private static boolean implementsAnSpiOf(String owner, String module, Map<String, String> implementers) {
+        String ownersSpi = owner + "." + APPLICATION + "." + SPI + ".";
+        return implementers.entrySet().stream()
+                .anyMatch(arrow ->
+                        arrow.getKey().startsWith(ownersSpi) && arrow.getValue().equals(module));
     }
 
     /**
