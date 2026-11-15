@@ -36,11 +36,14 @@ A second review, of the fixes on this branch, found three gaps they left:
   the projection is held at now, so it is always zero minutes away and always later than the
   arrival last sent. Its recipient got *arriving soon* a minute after the start, and *time changed*
   twice in the hour after ([FR-352], [FR-353], [FR-384]).
-- **A former driver can still act on the route by backdating.** A report or a finish timed before
-  the hand-over was judged by the revision in force then, which names the former driver. So an
-  offline phone's late finish ended the new driver's run, its *Seen* hid the new driver's
-  unconfirmed change, and its late outcome was recorded on the new driver's route ([FR-68],
-  [FR-97], [FR-250], [FR-328], [FR-329]).
+- **A former driver can still act on the route by backdating.** A report, a start or a finish
+  timed before the hand-over was judged by the revision in force then, which names the former
+  driver. So an offline phone's late finish ended the new driver's run, its *Seen* hid the new
+  driver's unconfirmed change, and its late outcome was recorded on the new driver's route
+  ([FR-68], [FR-97], [FR-250], [FR-328], [FR-329]). Its late start, on a route the new driver had
+  not started yet, started the run in its own name: every recipient got *out for delivery*, the
+  new driver's start was refused as already started, and the dispatcher's not-started alert never
+  came ([FR-101], [FR-351]).
 - **A refused arrival can't alert.** The refused-report key needed an outcome kind, and an arrival
   refused for a cancellation has none ([BR-90], [FR-157]).
 
@@ -89,11 +92,12 @@ On 2026-11-15 the owner, Naim Elijah, decided:
    the driver then who no longer drives the route, as after a hand-over, is never recorded
    directly: its *delivered* or *failed* is held for the dispatcher, whatever the account's
    contacts ([BR-132], [BR-133], [BR-27]), and its arrival, which can't be held, is refused with
-   `StopNotOnYourRoute`. `RouteRun.start` takes the route's driver at the report's corrected time.
-   `RouteRun.finish` takes that driver and the route's current one, and `RouteRun.acknowledge` the
-   sender and the current driver; each refuses any other with `NotYourRoute`, before any other rule
-   ([BR-02], [BR-110], [FR-68], [FR-97], [FR-250], [FR-328], [FR-329]). This amends [ADR-107]'s
-   reading of the order of refusals.
+   `StopNotOnYourRoute`. `RouteRun.start`, in both its forms, and `RouteRun.finish` take the
+   route's driver at the report's corrected time and the route's current one, and
+   `RouteRun.acknowledge` the sender and the current driver. Each refuses, with `NotYourRoute` and
+   before any other rule, a report from any account that is not both of the drivers it takes
+   ([BR-02], [BR-110], [FR-68], [FR-97], [FR-101], [FR-250], [FR-328], [FR-329], [FR-351]). This
+   amends [ADR-107]'s reading of the order of refusals.
 
 ### Readings this ADR settles
 
@@ -105,10 +109,12 @@ No document said these, and the implementation reads them so:
 - **`RouteRun` takes the route's drivers, not an `Entitlement`.** Starting or finishing a route is
   about the route, not a stop. For a first stop report, the use case passes the driver the stop's
   `Entitlement` names.
-- **A held former driver's report starts no run.** A run starts on a recorded first report, and a
+- **A former driver's report starts no run.** A run starts on a recorded first report, and a
   held one is recorded only when the dispatcher confirms it ([DL §6.2][DL-62]). A driver's explicit
-  start, timed before the hand-over, is still judged by the driver then alone: only `finish` and
-  `acknowledge` ask for the current driver.
+  start, timed before the hand-over, is refused as point 5 says, so the run waits for the new
+  driver's start. A dispatcher's confirmation of a former driver's held first report records its
+  outcome, and `RouteRun.start` refuses to start a run in that driver's name: the use case starts
+  none, and the route waits for the current driver.
 - **The refused-report alert names a refused fact.** [BR-90] and [BR-135] show the dispatcher a
   refused report. Live Operations' own `RefusedFact` names it, rather than the events package's
   `OutcomeKind`, because an arrival is not an outcome.
@@ -143,8 +149,8 @@ No document said these, and the implementation reads them so:
   original beside it.
 - **Easy:** a dispatcher who acknowledged one refusal still sees another driver's.
 - **Easy:** after a hand-over, only the new driver's reports are recorded directly, and only the
-  new driver finishes the route or confirms its changes. A former driver's late outcome reaches the
-  dispatcher, who decides.
+  new driver starts or finishes the route or confirms its changes. A former driver's late outcome
+  reaches the dispatcher, who decides.
 - **Hard:** a skipped stop's projection ignores the delay the route has built up, so its message
   can be early. It is never earlier than now, and it moves once the stop has a fact or a later one
   anchors.
@@ -153,6 +159,8 @@ No document said these, and the implementation reads them so:
   carries an arrival to the stop, and may get none if the driver serves it next.
 - **Hard:** every late outcome a former driver sends after a hand-over waits for the dispatcher,
   even one with no contact in [BR-133]'s window.
+- **Hard:** a former driver who drove the route before a hand-over and sent their start offline
+  leaves no run behind it. The route counts as not started until the new driver starts it.
 - **Cost:** Planning's API for the superseded put-back, and Live Operations' listener that calls it,
   arrive with their milestones. The use cases must ask Planning for the route's driver at the
   report's corrected time and for its driver now.
@@ -179,6 +187,9 @@ No document said these, and the implementation reads them so:
 - **Record a former driver's outcome timed before the hand-over, as [BR-27] reads alone.** Rejected:
   the phone's clock is the report's only evidence of its time, so a backdated report would take a
   stop off the new driver's route without anyone deciding.
+- **Judge a former driver's backdated start by the driver then alone.** Rejected: it starts the
+  new driver's run in the former driver's name, sends *out for delivery* before anyone drives the
+  route, and silences the not-started alert ([FR-101], [FR-351]).
 - **Hold a former driver's outcome only with a contact in [BR-133]'s window.** Not chosen: without
   contact, the report would be recorded straight onto the new driver's route.
 - **Key a refused arrival on `OutcomeKind`, with a new constant.** Rejected: `OutcomeKind` is the
@@ -216,6 +227,7 @@ No document said these, and the implementation reads them so:
 [DL-62]: ../architecture/domain_layer/domain_layer_design.md#62-commands
 [FR-68]: ../requirements/requirements.md#publishing-and-the-phone-app
 [FR-97]: ../requirements/requirements.md#publishing-and-the-phone-app
+[FR-101]: ../requirements/requirements.md#live-operations-and-re-optimization
 [FR-157]: ../requirements/requirements.md#live-operations-and-re-optimization
 [FR-250]: ../requirements/requirements.md#publishing-and-the-phone-app
 [FR-253]: ../requirements/requirements.md#live-operations-and-re-optimization

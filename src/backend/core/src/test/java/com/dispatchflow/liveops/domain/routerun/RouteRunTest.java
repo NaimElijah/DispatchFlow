@@ -64,7 +64,7 @@ class RouteRunTest {
             Instant.parse("2027-03-01T13:00:00Z"));
 
     private static RouteRun started() {
-        return reload(RouteRun.start(ROUTE_A, byA(ONLINE), DRIVER_A, RunStartCause.DRIVER_STARTED, NOW));
+        return reload(RouteRun.start(ROUTE_A, byA(ONLINE), DRIVER_A, DRIVER_A, RunStartCause.DRIVER_STARTED, NOW));
     }
 
     private static RouteRun finished() {
@@ -84,7 +84,7 @@ class RouteRunTest {
 
     @Test
     void GivenNoRun_WhenTheFirstReportStartsTheRoute_ThenRouteStartedNamesItsCorrectedTime() {
-        RouteRun run = RouteRun.start(ROUTE_A, byA(ONLINE), DRIVER_A, RunStartCause.FIRST_REPORT, NOW);
+        RouteRun run = RouteRun.start(ROUTE_A, byA(ONLINE), DRIVER_A, DRIVER_A, RunStartCause.FIRST_REPORT, NOW);
 
         assertThat(run.isFinished()).isFalse();
         assertThat(run.pendingEvents())
@@ -99,7 +99,7 @@ class RouteRunTest {
     }
 
     enum Command {
-        START(run -> run.start(byA(ONLINE), DRIVER_A, NOW)),
+        START(run -> run.start(byA(ONLINE), DRIVER_A, DRIVER_A, NOW)),
         FINISH(run -> run.finish(byA(FINISH_1300), DRIVER_A, DRIVER_A, List.of()));
 
         private final Consumer<RouteRun> call;
@@ -128,7 +128,7 @@ class RouteRunTest {
     @Test
     void GivenARouteDrivenByBAtTheStart_WhenAStartsIt_ThenNotYourRouteAndNoRunStarts() {
         assertRefused(
-                () -> RouteRun.start(ROUTE_A, byA(ONLINE), DRIVER_B, RunStartCause.DRIVER_STARTED, NOW),
+                () -> RouteRun.start(ROUTE_A, byA(ONLINE), DRIVER_B, DRIVER_B, RunStartCause.DRIVER_STARTED, NOW),
                 new NotYourRoute(ROUTE_A));
     }
 
@@ -136,7 +136,66 @@ class RouteRunTest {
     void GivenARunHandedToB_WhenAStartsItAgain_ThenNotYourRouteComesBeforeRunAlreadyStarted() {
         RouteRun run = started();
 
-        assertRefusedUnchanged(run, () -> run.start(byA(ONLINE), DRIVER_B, NOW), new NotYourRoute(ROUTE_A));
+        assertRefusedUnchanged(run, () -> run.start(byA(ONLINE), DRIVER_B, DRIVER_B, NOW), new NotYourRoute(ROUTE_A));
+    }
+
+    @Test
+    void GivenARouteHandedToBAt0810BeforeBStarts_WhenAsStartTimedAt0755Arrives_ThenNotYourRouteAndBStillStartsIt() {
+        CorrectedTime beforeTheHandOver = CorrectedTime.of(
+                Instant.parse("2027-03-01T07:55:00Z"),
+                Instant.parse("2027-03-01T08:20:00Z"),
+                Instant.parse("2027-03-01T08:20:00Z"));
+
+        assertRefused(
+                () -> RouteRun.start(
+                        ROUTE_A, byA(beforeTheHandOver), DRIVER_A, DRIVER_B, RunStartCause.DRIVER_STARTED, NOW),
+                new NotYourRoute(ROUTE_A));
+        RouteRun run = RouteRun.start(
+                ROUTE_A,
+                new DriverReport(DRIVER_B, ROUTE_A, ONLINE),
+                DRIVER_B,
+                DRIVER_B,
+                RunStartCause.DRIVER_STARTED,
+                NOW);
+
+        assertThat(run.snapshot().startedBy()).isEqualTo(DRIVER_B);
+        assertThat(run.pendingEvents())
+                .containsExactly(new RouteStarted(
+                        new EventId("RouteStarted", ROUTE_A.value(), Version.of(1), 0),
+                        NOW,
+                        ROUTE_A,
+                        DRIVER_B,
+                        T_0800,
+                        RunStartCause.DRIVER_STARTED));
+    }
+
+    @Test
+    void GivenARouteHandedToBAndBackToA_WhenAStartsWithATimeInBsTurn_ThenNotYourRoute() {
+        assertRefused(
+                () -> RouteRun.start(ROUTE_A, byA(ONLINE), DRIVER_B, DRIVER_A, RunStartCause.DRIVER_STARTED, NOW),
+                new NotYourRoute(ROUTE_A));
+    }
+
+    @Test
+    void GivenARunHandedToB_WhenAsStartTimedBeforeTheHandOverArrives_ThenNotYourRouteComesBeforeRunAlreadyStarted() {
+        RouteRun run = started();
+
+        assertRefusedUnchanged(run, () -> run.start(byA(ONLINE), DRIVER_A, DRIVER_B, NOW), new NotYourRoute(ROUTE_A));
+    }
+
+    @Test
+    void
+            GivenAFinishedRunHandedToB_WhenAsStartTimedBeforeTheHandOverArrives_ThenNotYourRouteComesBeforeRouteAlreadyFinished() {
+        RouteRun run = finished();
+
+        assertRefusedUnchanged(run, () -> run.start(byA(ONLINE), DRIVER_A, DRIVER_B, NOW), new NotYourRoute(ROUTE_A));
+    }
+
+    @Test
+    void GivenARunHandedToBAndBackToA_WhenAStartsAgainWithATimeInBsTurn_ThenNotYourRouteComesBeforeRunAlreadyStarted() {
+        RouteRun run = started();
+
+        assertRefusedUnchanged(run, () -> run.start(byA(ONLINE), DRIVER_B, DRIVER_A, NOW), new NotYourRoute(ROUTE_A));
     }
 
     @Test
@@ -253,7 +312,8 @@ class RouteRunTest {
     void GivenAStartedRun_WhenTheDriverStartsAgain_ThenRunAlreadyStarted() {
         RouteRun run = started();
 
-        assertRefusedUnchanged(run, () -> run.start(byA(ONLINE), DRIVER_A, NOW), new RunAlreadyStarted(ROUTE_A));
+        assertRefusedUnchanged(
+                run, () -> run.start(byA(ONLINE), DRIVER_A, DRIVER_A, NOW), new RunAlreadyStarted(ROUTE_A));
     }
 
     @Test
@@ -452,8 +512,11 @@ class RouteRunTest {
                 .isInstanceOf(NullPointerException.class);
         assertThatThrownBy(() -> run.checkPositionAt(NOW, null)).isInstanceOf(NullPointerException.class);
         assertThatThrownBy(() -> new TrackingStanding(true, true, null)).isInstanceOf(NullPointerException.class);
-        assertThatThrownBy(() -> RouteRun.start(ROUTE_A, byA(ONLINE), DRIVER_A, null, NOW))
+        assertThatThrownBy(() -> RouteRun.start(ROUTE_A, byA(ONLINE), DRIVER_A, DRIVER_A, null, NOW))
                 .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> RouteRun.start(ROUTE_A, byA(ONLINE), DRIVER_A, null, RunStartCause.FIRST_REPORT, NOW))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> run.start(byA(ONLINE), DRIVER_A, null, NOW)).isInstanceOf(NullPointerException.class);
         assertThat(run.isFinished()).isFalse();
     }
 }
