@@ -11,6 +11,7 @@ import com.dispatchflow.shared.ImportBatchId;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PhoneNumber;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -78,9 +79,10 @@ public interface OrdersViews {
      *
      * @param text what the dispatcher typed, matched against the name, the phone in any form the
      *     dispatcher types it, and the normalized address (FR-398)
-     * @return the customers found, each once, ordered by name
+     * @param limit the most customers to answer, 1 or more
+     * @return the first {@code limit} customers found, each once, ordered by name
      */
-    List<CustomerSummary> customersMatching(String text);
+    List<CustomerSummary> customersMatching(String text, int limit);
 
     /**
      * One customer, with its orders from today on.
@@ -114,6 +116,17 @@ public interface OrdersViews {
      * @return the flagged customers, each once, ordered by name
      */
     List<FlaggedCustomer> flaggedCustomers();
+
+    /**
+     * The geocoding outbox's backlog on one Israel day: how many requests wait, and whether the
+     * day's tries reached {@value GeocodeRequests#DAILY_LOOKUPS} (NFR-135, FR-64).
+     *
+     * <p>Built in M7.
+     *
+     * @param today today in {@code Asia/Jerusalem}, whose tries the cap counts
+     * @return the backlog
+     */
+    GeocodingBacklog geocodingBacklog(LocalDate today);
 
     /**
      * Every order of a date, cancelled ones included, without their statuses, which the query

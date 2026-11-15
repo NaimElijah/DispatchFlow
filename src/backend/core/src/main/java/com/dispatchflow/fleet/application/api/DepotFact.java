@@ -9,8 +9,8 @@ import java.util.Optional;
 
 /**
  * One depot of the fleet register, as the optimizer's inputs need it (FR-04, FR-129, BR-46): where
- * it is and when routes may leave and must be back. A depot with no location yet can't start a
- * route (FR-130). Its location is a kernel {@link GeoPoint}, so it prints redacted.
+ * it is and when routes may leave and must be back. A depot with no location yet can't start or
+ * end a route (FR-197). Its location is a kernel {@link GeoPoint}, so it prints redacted.
  *
  * <p>Built in M2.
  *

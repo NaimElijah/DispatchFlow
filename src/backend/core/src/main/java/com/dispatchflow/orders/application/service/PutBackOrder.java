@@ -23,6 +23,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  * order raises {@code OrderPutBack}, which leaves with the save, so Planning takes the old attempt's
  * drop off the old date's plan (ADR-115).
  *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
+ *
  * <p>Built in M9.
  */
 public final class PutBackOrder {

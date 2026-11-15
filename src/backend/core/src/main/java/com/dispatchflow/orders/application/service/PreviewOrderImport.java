@@ -26,6 +26,11 @@ import java.util.List;
  * ImportBatch.preview}, which keeps every error with its row. A preview is never refused: its
  * errors refuse the confirmation.
  *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110). A file the reader refuses never reaches this use case, so the web
+ * adapter's file reader writes that refusal's record itself, through {@code AuditLog.refused} with
+ * the refusal's code (NFR-23).
+ *
  * <p>Built in M2.
  */
 public final class PreviewOrderImport {
@@ -75,7 +80,8 @@ public final class PreviewOrderImport {
      * @param hash the file's hash
      * @param encoding how the reader decoded it
      * @param rows every row the reader parsed, each read whole or with its fields' refusals
-     * @return the new preview's ID
+     * @return the new preview's ID; the web adapter then reads {@link ImportQueries#preview} with
+     *     it, so the upload answers with the preview (ADR-086)
      * @throws CompanyNotSetUp when no Admin has set the company profile up yet
      */
     public ImportBatchId preview(Actor actor, FileHash hash, FileEncoding encoding, List<ImportRow> rows) {

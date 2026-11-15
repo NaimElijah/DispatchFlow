@@ -18,6 +18,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  * result (BR-13), serves every future order (FR-215), clears the address's flags (FR-217), and
  * must lie inside the service area (FR-320).
  *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
+ *
  * <p>Built in M7.
  */
 public final class PlaceCustomerLocation {

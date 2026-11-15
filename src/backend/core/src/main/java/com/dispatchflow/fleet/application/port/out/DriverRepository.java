@@ -3,7 +3,7 @@ package com.dispatchflow.fleet.application.port.out;
 import com.dispatchflow.fleet.domain.driver.Driver;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.application.StaleVersion;
-import java.time.LocalDate;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,16 +36,17 @@ public interface DriverRepository {
     List<Driver> registered();
 
     /**
-     * The retired drivers whose retention is over: retired at least a year before today, in
-     * Israel's calendar, and not yet anonymized (BR-98, NFR-184, ADR-075). It answers IDs, so each
-     * record is loaded, changed and saved in its own transaction.
+     * The retired drivers whose retention may be over at an instant: retired at least a year before
+     * it, and not yet anonymized (BR-98, NFR-184, ADR-075). {@code Driver.anonymize} decides each
+     * one, in Israel's calendar. It answers IDs, so each record is loaded, changed and saved in its
+     * own transaction.
      *
      * <p>Built in an unscheduled milestone.
      *
-     * @param today today's date in {@code Asia/Jerusalem}
-     * @return their IDs, in any order
+     * @param now the time of the retention job
+     * @return their IDs, in any order; an anonymized driver is never among them
      */
-    List<AccountId> dueForAnonymization(LocalDate today);
+    List<AccountId> dueForAnonymization(Instant now);
 
     /**
      * Stores a new driver record (DL §3.6).

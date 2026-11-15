@@ -9,12 +9,15 @@ import java.util.List;
 /**
  * The geocoding outbox (FR-12, FR-64, DL §6.1 point 2, DL §12): a use case that registers a
  * customer or changes its address writes a request in its own transaction, and the geocoding job
- * calls the {@link Geocoder} for each request outside any transaction. So a provider that is down
- * never stops a customer being saved (FR-64).
+ * calls the {@link Geocoder} and {@link RoadSnap} for each request outside any transaction. So a
+ * provider that is down never stops a customer being saved (FR-64).
  *
  * <p>Built in M7.
  */
 public interface GeocodeRequests {
+
+    /** The most requests the geocoding job claims on one Israel day (NFR-135, ADR-085). */
+    int DAILY_LOOKUPS = 1_000;
 
     /**
      * Writes a request, in the caller's transaction, so it commits with the customer it is for.
@@ -35,7 +38,8 @@ public interface GeocodeRequests {
      * <p>Built in M7.
      *
      * @param now the time of the job
-     * @param max the most requests to claim, which keeps the day's lookups within NFR-135's cap
+     * @param max the most requests to claim, which keeps the day's lookups within {@value
+     *     #DAILY_LOOKUPS} (NFR-135)
      * @return the claimed requests, oldest first, at most {@code max}
      */
     List<GeocodeRequest> due(Instant now, int max);
@@ -50,7 +54,7 @@ public interface GeocodeRequests {
     void done(GeocodeRequest request);
 
     /**
-     * How many tries the job made on one Israel day, which NFR-135 caps.
+     * How many tries the job made on one Israel day, which {@value #DAILY_LOOKUPS} caps (NFR-135).
      *
      * <p>Built in M7.
      *

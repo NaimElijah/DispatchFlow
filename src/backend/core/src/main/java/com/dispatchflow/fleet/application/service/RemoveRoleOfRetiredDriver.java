@@ -4,6 +4,7 @@ import com.dispatchflow.access.application.api.RemoveDriverRole;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.fleet.events.DriverRetired;
 import com.dispatchflow.shared.application.NotFound;
+import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * Fleet's listener on its own {@code DriverRetired}: it calls Access's {@code RemoveDriverRole},
@@ -35,9 +36,9 @@ public final class RemoveRoleOfRetiredDriver {
      * @param event the retirement
      * @param call the listener's server step
      * @throws NotFound when no account has the driver's ID
-     * @throws com.dispatchflow.shared.application.StaleVersion when the account, through Access's call, changed between its read
-     *     and its save (BR-76); the caller's listener or job adapter retries at once, up to three
-     *     times (DL §11)
+     * @throws StaleVersion when the account, through Access's call, changed between its read and
+     *     its save (BR-76); the caller's listener or job adapter retries at once, up to three times
+     *     (DL §11)
      */
     public void on(DriverRetired event, CallContext call) {
         throw new UnsupportedOperationException("Built in M2");

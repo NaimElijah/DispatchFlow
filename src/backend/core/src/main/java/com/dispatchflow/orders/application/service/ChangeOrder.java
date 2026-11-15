@@ -26,6 +26,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  * Planning, through the {@link OrderPlacement#placementOf} port Planning implements, asked with the
  * order's date and current attempt.
  *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
+ *
  * <p>Built in M2.
  */
 public final class ChangeOrder {

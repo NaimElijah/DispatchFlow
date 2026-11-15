@@ -25,6 +25,9 @@ import java.util.Optional;
  * PhoneNumber} at the boundary (FR-377). The customer has no location until geocoding answers, so
  * the use case writes a geocoding request in the same transaction from M7 on (FR-12, DL §6.1).
  *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
+ *
  * <p>Built in M2.
  */
 public final class RegisterCustomer {

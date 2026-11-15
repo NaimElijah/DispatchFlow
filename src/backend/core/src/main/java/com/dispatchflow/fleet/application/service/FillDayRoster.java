@@ -18,6 +18,10 @@ import com.dispatchflow.shared.application.StaleVersion;
  * default can't be used is skipped and reported with the reason, and every other driver is still
  * filled; filling again changes nothing.
  *
+ * <p>It takes no version the caller read, unlike the roster's other changes (BR-76): a fill sets
+ * only values nobody set, so it overwrites no one's change. The save's own version check still
+ * catches a change made between the fill's read and its save.
+ *
  * <p>The driver's standing combines Access's answer on the account with the driver record's own
  * state, read now (ADR-062). Like every changing call it writes its audit record, a refused
  * attempt's in its own transaction (NFR-23, ADR-110).

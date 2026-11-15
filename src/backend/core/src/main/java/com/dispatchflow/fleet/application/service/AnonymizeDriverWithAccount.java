@@ -45,8 +45,8 @@ public final class AnonymizeDriverWithAccount {
      *
      * @param event the account's anonymization
      * @param call the listener's server step
-     * @throws StaleVersion when the record changed between its read and its save; the redelivery
-     *     tries again
+     * @throws StaleVersion when the record changed between its read and its save; the listener
+     *     adapter retries at once, up to three times (ADR-120 decision 7, DL §11)
      */
     public void on(AccountAnonymized event, CallContext call) {
         throw new UnsupportedOperationException("Built in an unscheduled milestone");

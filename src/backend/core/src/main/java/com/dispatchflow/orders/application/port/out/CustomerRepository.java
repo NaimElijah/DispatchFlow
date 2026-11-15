@@ -60,16 +60,16 @@ public interface CustomerRepository {
     List<CustomerMatch.Candidate> candidatesAt(NormalizedAddress address);
 
     /**
-     * The date of a customer's last order, from which a customer never retired counts its
-     * retention (BR-98, NFR-257, ADR-102).
+     * A customer's last delivery date: the latest delivery date of any of its orders, from which a
+     * customer never retired counts its retention (BR-98, NFR-257, ADR-102).
      *
      * <p>Built in an unscheduled milestone.
      *
      * @param customer the customer
-     * @return the latest date of any of its orders, cancelled ones included, or empty when it has
-     *     none
+     * @return the latest delivery date of any of its orders, cancelled ones included, or empty when
+     *     it has none
      */
-    Optional<DeliveryDate> lastOrderDateOf(CustomerId customer);
+    Optional<DeliveryDate> lastDeliveryDateOf(CustomerId customer);
 
     /**
      * The customers whose retention may be over at an instant: retired a year before it, or, never

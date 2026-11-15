@@ -16,7 +16,8 @@ public interface FleetViews {
      *
      * <p>Built in M2.
      *
-     * @return every depot and vehicle
+     * @return every depot and vehicle, at {@code Version.NEW} and with none before the register is
+     *     first stored
      */
     RegisterView register();
 
@@ -38,7 +39,7 @@ public interface FleetViews {
      * <p>Built in M2.
      *
      * @param date the date
-     * @return the roster, empty for a date nobody rostered
+     * @return the roster, empty and at {@code Version.NEW} for a date nobody rostered
      */
     RosterView roster(DeliveryDate date);
 }

@@ -17,7 +17,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  * every changing call it writes its audit record, a refused attempt's in its own transaction
  * (NFR-23, ADR-110).
  *
- * <p>Built in M2.
+ * <p>Built in an unscheduled milestone: the Alpha leaves weekly shifts out and seeds its rosters
+ * (DL §4.2), and the roadmap names no milestone for them.
  */
 public final class ChangeWeeklyShifts {
 
@@ -41,7 +42,7 @@ public final class ChangeWeeklyShifts {
     /**
      * Replaces the template.
      *
-     * <p>Built in M2.
+     * <p>Built in an unscheduled milestone.
      *
      * @param actor the signed-in user acting
      * @param driver the driver's account
@@ -54,6 +55,6 @@ public final class ChangeWeeklyShifts {
      *     before the save (BR-76)
      */
     public void change(Actor actor, AccountId driver, WeeklyShifts weeklyShifts, Version expected) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("Built in an unscheduled milestone");
     }
 }

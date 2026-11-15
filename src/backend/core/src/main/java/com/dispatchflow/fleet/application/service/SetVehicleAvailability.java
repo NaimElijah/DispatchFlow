@@ -15,10 +15,10 @@ import com.dispatchflow.shared.application.StaleVersion;
 /**
  * A dispatcher marks a vehicle unavailable on a date, during the day (FR-07) or before it starts
  * (FR-301), whether or not anyone drives it; or available again, effective from the next solve or
- * re-optimization (FR-194, FR-300). It keeps its driver, and BR-20 refuses publishing it. A date
- * with no roster yet is opened empty, at {@code Version.NEW}, so the domain answers a driver who is
- * not on it. Like every changing call it writes its audit record, a refused attempt's in its own
- * transaction (NFR-23, ADR-110).
+ * re-optimization (FR-300). It keeps its driver, and BR-20 refuses publishing it. A date with no
+ * roster yet is opened empty, at {@code Version.NEW}, so a vehicle can be marked before anyone is
+ * rostered; the vehicle's standing comes from the register. Like every changing call it writes its
+ * audit record, a refused attempt's in its own transaction (NFR-23, ADR-110).
  *
  * <p>Built in M2.
  */

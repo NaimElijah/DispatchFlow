@@ -5,8 +5,8 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * A date's orders, as Planning and Live Operations read them (DL §2.2, BR-22, ADR-109).
- * Each answer is read now; the caller translates it into its own values (DL §2.3 rule 1).
+ * A date's orders, as Planning and Live Operations read them (DL §2.2, BR-22). Each answer is read
+ * now; the caller translates it into its own values (DL §2.3 rule 1).
  *
  * <p>Built in M2 and M9, method by method.
  */

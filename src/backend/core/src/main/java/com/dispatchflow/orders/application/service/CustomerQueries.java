@@ -4,6 +4,7 @@ import com.dispatchflow.access.application.api.Actor;
 import com.dispatchflow.orders.application.port.out.CustomerList;
 import com.dispatchflow.orders.application.port.out.CustomerView;
 import com.dispatchflow.orders.application.port.out.FlaggedAddresses;
+import com.dispatchflow.orders.application.port.out.GeocodingBacklog;
 import com.dispatchflow.orders.application.port.out.OrdersViews;
 import com.dispatchflow.orders.domain.Address;
 import com.dispatchflow.shared.CustomerId;
@@ -15,12 +16,16 @@ import java.util.Optional;
 /**
  * The customer screens' reads (FR-56, FR-63, FR-134, FR-149, FR-212, FR-216, FR-259): finding a
  * customer, one customer's page, the warning about a likely duplicate, and the flagged addresses
- * checked before a solve. Every read is the dispatcher's, authorized by role from its operation
- * (ADR-068); no driver scope applies (BR-02), so no check depends on the data.
+ * checked before a solve, with the geocoding lookups still waiting (NFR-135). Every read is the
+ * dispatcher's, authorized by role from its operation (ADR-068); no driver scope applies (BR-02),
+ * so no check depends on the data.
  *
  * <p>Built in M2, M7 and an unscheduled milestone, method by method.
  */
 public final class CustomerQueries {
+
+    /** The most customers one search answers, so a short text can't read the whole table. */
+    public static final int MAX_SEARCH_RESULTS = 50;
 
     private final OrdersViews views;
     private final Clock clock;
@@ -44,9 +49,11 @@ public final class CustomerQueries {
      *
      * @param actor the dispatcher
      * @param text what the dispatcher typed
-     * @return the customers found, retired ones included, ordered by name
+     * @param limit the most customers to answer, from 1 to {@value #MAX_SEARCH_RESULTS}; the web
+     *     adapter refuses any other value at the boundary
+     * @return the first {@code limit} customers found, retired ones included, ordered by name
      */
-    public CustomerList search(Actor actor, String text) {
+    public CustomerList search(Actor actor, String text, int limit) {
         throw new UnsupportedOperationException("Built in M2");
     }
 
@@ -92,6 +99,19 @@ public final class CustomerQueries {
      * @return the flagged customers
      */
     public FlaggedAddresses flagged(Actor actor) {
+        throw new UnsupportedOperationException("Built in M7");
+    }
+
+    /**
+     * The geocoding lookups still waiting, which the screen of flagged addresses shows: how many
+     * wait, and whether today's cap held them back to the next day (NFR-135, FR-64).
+     *
+     * <p>Built in M7.
+     *
+     * @param actor the dispatcher
+     * @return the backlog, today's in {@code Asia/Jerusalem}
+     */
+    public GeocodingBacklog geocodingBacklog(Actor actor) {
         throw new UnsupportedOperationException("Built in M7");
     }
 }

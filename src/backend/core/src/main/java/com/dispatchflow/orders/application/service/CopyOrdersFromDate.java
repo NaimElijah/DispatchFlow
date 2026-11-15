@@ -14,11 +14,17 @@ import com.dispatchflow.shared.application.IdGenerator;
  * (FR-62, a Should row). Each copy is a new order placed on the new date's capacity, read under its
  * lock, with its window moved to the new date, so the limit counts it (BR-113) and its reference
  * is checked there (FR-211, ADR-102). The new orders are created together in one transaction (DL
- * §6.1 point 1).
+ * §6.1 point 1). An order of a customer retired or anonymized since gets no copy, so the copy is
+ * refused (FR-193).
+ *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
  *
  * <p>Domain gap: no domain method copies an order, and {@code Order} gives its details only through
  * its snapshot. The milestone that builds this adds the method, for example a factory that places
- * an order's details on another date's capacity.
+ * an order's details on another date's capacity. Each copy takes its customer's defaults through
+ * {@code Customer.activeDefaults()}, which M2 adds for {@link PlaceOrder}, so a customer that isn't
+ * active refuses.
  *
  * <p>Built in an unscheduled milestone.
  */
@@ -57,9 +63,10 @@ public final class CopyOrdersFromDate {
      * @param from the date copied from
      * @param to the new date
      * @return how many orders were copied, 0 or more
-     * @throws RuleViolation with the first refusal of {@code Order.place} for any copy, such as
-     *     {@code DateInPast} (BR-116), {@code DuplicateOrderReference} (FR-211) or {@code DateFull}
-     *     (BR-101), so nothing is copied
+     * @throws RuleViolation with the first refusal for any copy, so nothing is copied: {@code
+     *     CustomerAnonymized} or {@code CustomerRetired} for its customer (FR-193), or the first
+     *     refusal of {@code Order.place}, such as {@code DateInPast} (BR-116), {@code
+     *     DuplicateOrderReference} (FR-211) or {@code DateFull} (BR-101)
      */
     public int copy(Actor actor, DeliveryDate from, DeliveryDate to) {
         throw new UnsupportedOperationException("Built in an unscheduled milestone");

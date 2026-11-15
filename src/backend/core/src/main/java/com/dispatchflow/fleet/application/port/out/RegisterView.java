@@ -7,23 +7,27 @@ import com.dispatchflow.shared.DepotId;
 import com.dispatchflow.shared.GeoPoint;
 import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.VehicleId;
+import com.dispatchflow.shared.Version;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 /**
  * The fleet register as its screen shows it: every depot and vehicle, active or retired (FR-56,
- * FR-193).
+ * FR-193). The version is the one every register change sends back (BR-76).
  *
  * <p>Built in M2.
  *
  * @param depots every depot, in the order they were added
  * @param vehicles every vehicle, in the order they were added
+ * @param version the version the register was read at, for {@code If-Match} (BR-76); {@code
+ *     Version.NEW} before the register is first stored
  */
-public record RegisterView(List<DepotRow> depots, List<VehicleRow> vehicles) {
+public record RegisterView(List<DepotRow> depots, List<VehicleRow> vehicles, Version version) {
 
-    /** Copies the lists. */
+    /** Checks the version is present, and copies the lists. */
     public RegisterView {
+        Objects.requireNonNull(version, "version");
         depots = List.copyOf(depots);
         vehicles = List.copyOf(vehicles);
     }
