@@ -1,5 +1,7 @@
 package com.dispatchflow.access.application.api;
 
+import java.util.Optional;
+
 /**
  * The company's profile, which Access owns (FR-125, FR-184, ADR-104): Customers &amp; Orders reads
  * a new customer's defaults from it, and Messaging the name and language its messages use (FR-349,
@@ -14,9 +16,8 @@ public interface Company {
      *
      * <p>Built in M2.
      *
-     * @return the name, the language, the default window and the default service time
-     * @throws com.dispatchflow.shared.application.NotFound when no profile exists yet, before the
-     *     first Admin set one up
+     * @return the name, the language, the default window and the default service time, or empty
+     *     before the first Admin set a profile up; each caller chooses how it refuses then
      */
-    CompanyFacts profile();
+    Optional<CompanyFacts> profile();
 }

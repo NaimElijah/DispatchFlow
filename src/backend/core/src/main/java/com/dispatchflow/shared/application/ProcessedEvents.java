@@ -5,7 +5,8 @@ import com.dispatchflow.shared.EventId;
 /**
  * The listeners' idempotency record: the {@code (listener, event ID)} pairs already handled (DL
  * §7.3, ADR-064). Delivery is at least once, so a listener whose reaction is not idempotent by
- * nature records the pair first, in its own transaction, and does nothing on a repeat. A phone's
+ * nature records the pair in the transaction of its reaction, so a reaction that fails forgets
+ * the pair and the next delivery runs it again, and it does nothing on a repeat. A phone's
  * idempotent request keys are Live Operations' own record, not this one (placement P2).
  *
  * <p>Built in M0.

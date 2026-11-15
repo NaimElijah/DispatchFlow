@@ -5,6 +5,7 @@ import com.dispatchflow.shared.AccountId;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -26,6 +27,11 @@ public record Actor(AccountId account, Set<ActorRole> roles, CallContext call) {
         Objects.requireNonNull(account, "account");
         Objects.requireNonNull(roles, "roles");
         Objects.requireNonNull(call, "call");
+        // The audit record names the user and session from the call context (NFR-93), so they
+        // must be the acting account's own.
+        if (!call.user().equals(Optional.of(account)) || call.session().isEmpty()) {
+            throw new IllegalArgumentException("the call context names another user or no session");
+        }
         // EnumSet.copyOf refuses an empty collection that is not itself an EnumSet.
         roles = roles.isEmpty()
                 ? Collections.unmodifiableSet(EnumSet.noneOf(ActorRole.class))

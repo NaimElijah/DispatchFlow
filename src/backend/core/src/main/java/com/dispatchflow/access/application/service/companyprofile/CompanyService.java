@@ -3,6 +3,7 @@ package com.dispatchflow.access.application.service.companyprofile;
 import com.dispatchflow.access.application.api.Company;
 import com.dispatchflow.access.application.api.CompanyFacts;
 import com.dispatchflow.access.application.port.out.CompanyProfileRepository;
+import java.util.Optional;
 
 /**
  * Access's implementation of {@code Company}: the company's profile, which Customers &amp; Orders
@@ -30,7 +31,7 @@ public final class CompanyService implements Company {
      * <p>Built in M2.
      */
     @Override
-    public CompanyFacts profile() {
+    public Optional<CompanyFacts> profile() {
         throw new UnsupportedOperationException("Built in M2");
     }
 }

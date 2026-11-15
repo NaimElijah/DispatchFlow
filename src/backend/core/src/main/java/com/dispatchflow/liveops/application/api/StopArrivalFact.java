@@ -14,7 +14,7 @@ import java.util.Optional;
  *
  * @param stop the stop
  * @param arrival the stop's projected arrival, or empty when it has none: a stop with an arrival
- *     or an outcome, or one no route in force holds
+ *     or an outcome
  * @param routeProgress how far the stop's route has come
  * @param previousStop the stop before it in plan order
  * @param stopProgress how far the stop itself has come

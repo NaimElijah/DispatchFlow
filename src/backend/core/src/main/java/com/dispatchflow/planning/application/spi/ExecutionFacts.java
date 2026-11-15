@@ -1,6 +1,6 @@
 package com.dispatchflow.planning.application.spi;
 
-import com.dispatchflow.shared.DeliveryDate;
+import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
 import java.time.Instant;
 import java.util.List;
@@ -15,39 +15,42 @@ import java.util.List;
 public interface ExecutionFacts {
 
     /**
-     * The started routes and the reported stops of a date, which cancelling its plan judges
-     * (FR-336).
+     * Which of a plan's routes have started and which of its stops are reported, which cancelling
+     * the plan judges (FR-336). Planning names its own routes and stops, so Live Operations reads
+     * only its own records and never asks Planning back.
      *
      * <p>Built in M9.
      *
-     * @param date the date
-     * @return the started routes and the reported stops
+     * @param routes the plan's routes
+     * @param stops the plan's stops
+     * @return the started routes and the reported stops, among those given
      */
-    StartedRoutesFact startedOn(DeliveryDate date);
+    StartedRoutesFact startedAmong(List<RouteId> routes, List<StopId> stops);
 
     /**
-     * The stops of a date with an accepted outcome or an arrival recorded since an instant, which
+     * The stops among a plan's with an accepted outcome or an arrival recorded since an instant, which
      * Planning's {@code ChangesSinceBasis.reportedStops} holds. A report held for the dispatcher
      * doesn't count until it is confirmed (BR-132, ADR-101).
      *
      * <p>Built in M9.
      *
-     * @param date the date
+     * @param stops the plan's stops
      * @param since the instant the reports count from, excluded, by when the server recorded them
-     * @return the reported stops, each once
+     * @return the reported stops among those given, each once
      */
-    List<StopId> changesSince(DeliveryDate date, Instant since);
+    List<StopId> changesSince(List<StopId> stops, Instant since);
 
     /**
-     * What has happened on a date's routes up to now, for a re-optimization (ADR-050 points 1 to
+     * What has happened on a plan's routes up to now, for a re-optimization (ADR-050 points 1 to
      * 3).
      *
      * <p>Built in M9.
      *
-     * @param date the date
+     * @param routes the plan's routes
+     * @param stops the plan's stops
      * @param now the re-optimization's {@code now}; nothing recorded after it counts
      * @return the reported stops with their corrected times, the finished routes and each route's
      *     last two positions
      */
-    LiveStateFact liveStateOn(DeliveryDate date, Instant now);
+    LiveStateFact liveStateOf(List<RouteId> routes, List<StopId> stops, Instant now);
 }
