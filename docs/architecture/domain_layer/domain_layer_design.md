@@ -305,7 +305,7 @@ none of them. None exists in the current requirements.
 ### 3.9 Purity
 
 Six ArchUnit tests keep the Java domain pure ([ADR-040]). In Python, import-linter does the same, and
-ruff keeps NumPy's randomness, clock and file readers, imports by name, `open`, `print`, `exec` and
+ruff keeps NumPy's randomness, clock and file readers (`load`, `fromfile`, `loadtxt`), imports by name, `open`, `print`, `exec` and
 `eval` out ([ADR-113]).
 
 1. A module's domain imports only the JDK, the shared kernel, its own domain, its own module's `events`
@@ -1538,7 +1538,7 @@ flowchart LR
 - **Python** uses Hypothesis for generated instances, and the violation catalogue names the `RuleId` each
   crafted case must trigger (NFR-169).
 - **The architecture is tested too**: Spring Modulith's `verify()`, the purity rules of §3.9, and
-  import-linter in Python, with ruff's domain bans: `TID251` for NumPy's randomness, clock and file readers and `importlib.import_module`, and `PTH123`, `T20`, `S102` and `S307` ([ADR-113]).
+  import-linter in Python, with ruff's domain bans: `TID251` for NumPy's randomness, clock and file readers (`load`, `fromfile`, `loadtxt`) and `importlib.import_module`, and `PTH123`, `T20`, `S102` and `S307` ([ADR-113]).
 
 ---
 

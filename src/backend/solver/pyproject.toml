@@ -48,7 +48,7 @@ select = ["E", "W", "F", "I", "B", "UP", "N", "SIM", "D", "TID251", "PTH123", "T
 convention = "google"
 
 # TS §2.1, rule 3: NumPy is allowed in the domain, but not its randomness, its clock
-# (np.datetime64("now")) or its file readers. import-linter can't forbid a submodule or attribute
+# (np.datetime64("now")) or its file readers np.load, np.fromfile and np.loadtxt. import-linter can't forbid a submodule or attribute
 # of an external package the domain may import, nor a function of a standard module it may import,
 # so ruff bans the names, in the domain only (per-file-ignores).
 [tool.ruff.lint.flake8-tidy-imports.banned-api]

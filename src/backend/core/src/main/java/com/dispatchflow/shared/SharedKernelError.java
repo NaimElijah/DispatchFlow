@@ -109,10 +109,10 @@ public sealed interface SharedKernelError extends DomainError {
      * than a line feed in a note; a line or paragraph separator outside a note; an interior format
      * character in a name or an address, other than U+061C and U+200C to U+200F; an interior
      * invisible filler in a name or an address, which is any default-ignorable code point that is
-     * not a format character, the blank Braille pattern U+2800, or a variation selector other than
-     * U+FE0F right after an emoji that shows as text by default; a bidi embedding, override or
-     * isolate control; an unpaired surrogate; or a private-use or unassigned code point. It names no
-     * text or character, because the text is personal data.
+     * not a format character, the blank Braille pattern U+2800, the musical null notehead U+1D159,
+     * or a variation selector other than U+FE0F right after an emoji that shows as text by default;
+     * a bidi embedding, override or isolate control; an unpaired surrogate; or a private-use or
+     * unassigned code point. It names no text or character, because the text is personal data.
      *
      * @param kind the kind of text refused
      */
