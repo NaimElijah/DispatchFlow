@@ -19,6 +19,9 @@ and never restates them.
 that define their topics. They also say that each application layer is declared, not built
 ([ADR-119]). `data-model.md` points to them until a migration exists.
 `code-structure.md` describes the repository layout.
+`architecture/domain_layer/domain_layer_visual_guide.md` is the one file in its folder that decides
+nothing: a visual map of the domain layer as built, for reading the code. The domain document wins
+wherever the two differ.
 
 ## Requirements
 

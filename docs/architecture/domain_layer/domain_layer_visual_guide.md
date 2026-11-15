@@ -28,9 +28,10 @@ request that moves the code should update the prefixes here.
 **Reading the diagrams.** They use no colour. In a class diagram, `<<root>>` is an aggregate root,
 `<<entity>>` an object held inside a root, `<<value>>` a value object, `<<fact>>` a value the use case
 reads first and passes in, and `<<sealed>>` a sealed interface whose records are listed as its
-members. A filled diamond means "holds inside the aggregate". A dotted arrow means "names another aggregate by its ID only" (DL
-[§3.1](domain_layer_design.md#31-aggregates)). Class diagrams show the fields and methods that explain
-the shape, not every member.
+members. A filled diamond means "holds inside the aggregate". A dotted arrow is a dependency that its
+label names (raises, throws, requires, returns); between two aggregates it means "names the other by its
+ID only" (DL [§3.1](domain_layer_design.md#31-aggregates)). Class diagrams show the fields and methods
+that explain the shape, not every member.
 
 **Contents**
 
@@ -87,10 +88,10 @@ An arrow means *depends on*. The sources for each box:
   in `solver/application/`. `grep -rn "Built in M5" src/backend` lists one milestone's remaining work.
   The two kernel errors in `shared/application/` (`NotFound`, `StaleVersion`) are complete classes; its
   three ports (`Clock`, `IdGenerator`, `ProcessedEvents`) are interfaces with no implementation.
-- **Absent.** Nothing is wired: no Spring annotation, no bean, no `adapter/` package under `core/`. The
-  only non-domain code outside `application/` is the entry point `core/DispatchFlowApplication.java`,
-  one error handler in `core/web/`, and the solver's liveness probe in
-  `solver/adapters/inbound/http/app.py`.
+- **Absent.** No use case, port or adapter is wired, and there is no `adapter/` package under `core/`.
+  The only Spring annotations are `@SpringBootApplication` on the entry point
+  `core/DispatchFlowApplication.java` and `@RestControllerAdvice` on the one error handler in
+  `core/web/`. The solver's only adapter is the liveness probe in `solver/adapters/inbound/http/app.py`.
 
 **Dependency direction.** Dependencies point inwards, as DL [§13](domain_layer_design.md#13-inside-each-module-hexagon)
 draws. The rules that keep the domain pure are DL [§2.3](domain_layer_design.md#23-rules-between-contexts)
@@ -311,7 +312,8 @@ How the pieces work together:
   as the routes and stops of a solve result. The use case fills it from `IdGenerator`, because the
   domain never makes an ID.
 - **`PersonalData`** is a marker. A type that identifies or describes a person implements it and prints
-  itself redacted; an ArchUnit rule in `DomainShapeTest` refuses it in an error or event field.
+  itself redacted; a rule in `DomainShapeRules`, run by `DomainShapeTest`, refuses it in an error or
+  event field.
 
 ### What can go wrong, and what is thrown
 
@@ -341,9 +343,9 @@ Every ID is a record wrapping a UUID, so one kind can't be passed for another (D
 | `AlertId` | an alert | none |
 | `RatingRequestId` | a rating request | none |
 
-Ids that only one module names stay in that module: `RefreshTokenId` and `CredentialLinkId` in
-`core/access/domain/`, `OutgoingMessageId` in `core/messaging/domain/`, `HeldReportId` and `ProofId` in
-`core/liveops/domain/`.
+Ids that only one module names stay in that module: `RefreshTokenId` in `core/access/domain/session/`,
+`CredentialLinkId` in `core/access/domain/account/`, `OutgoingMessageId` in `core/messaging/domain/`,
+`HeldReportId` in `core/liveops/domain/` and `ProofId` in `core/liveops/domain/delivery/`.
 
 ### Shared values
 
@@ -364,7 +366,7 @@ DL [§3.3](domain_layer_design.md#33-value-objects) lists what each checks and t
 
 ## 4. Anatomy of one aggregate
 
-Every one of the 20 roots follows one pattern. The clearest small example with an event is `Driver`
+Most of the 20 roots follow one pattern. The clearest small example with an event is `Driver`
 (`core/fleet/domain/driver/Driver.java`, 273 lines). `Alert` (`core/liveops/domain/alert/Alert.java`,
 121 lines) is a small root that raises none.
 
@@ -432,8 +434,10 @@ classDiagram
 
 The pattern, with where `Driver` shows each part:
 
-1. **A private constructor takes a snapshot.** `private Driver(DriverSnapshot stored)`. Nothing outside
-   the class can build an instance except through a static factory.
+1. **A private constructor**, which `DomainShapeRules` requires, usually taking the snapshot:
+   `private Driver(DriverSnapshot stored)`. A few roots take their fields instead (`UserAccount`,
+   `Session`, `CompanyProfile`, `FleetRegister`, `DayRoster`). Either way, nothing outside the class can
+   build an instance except through a static factory.
 2. **A creation factory checks every invariant of a new aggregate** and returns it at `Version.NEW`. Its
    name says what the business does: `register` here, `place`, `open`, `start`, `raise`, `compute` in the
    table of roots in §2. The new ID and `now` are parameters, never made inside (DL
@@ -460,11 +464,15 @@ A call to `Driver.retire`, from a use case that is declared but not built (`Reti
 ```mermaid
 sequenceDiagram
   participant UC as RetireDriver (declared)
+  participant Use as RecordUsage (Fleet spi)
   participant Repo as DriverRepository
   participant D as Driver
   participant Root as AggregateRoot
+  UC->>Use: the plans that use the driver
+  Use-->>UC: PlanUses
   UC->>Repo: get(driver)
   Repo-->>UC: Driver, rebuilt with restore
+  UC->>UC: driver.version() equals expected, else StaleVersion
   UC->>D: retire(uses, today, now)
   D->>D: requireActive
   alt an uncancelled plan uses the driver
@@ -474,10 +482,10 @@ sequenceDiagram
     D->>Root: raise(DriverRetired.class, ...)
     Root-->>D: event with EventId(DriverRetired, uuid, version.next(), 0)
     D-->>UC: returns
-    UC->>Repo: save(driver) with the version check
-    UC->>D: pullEvents()
-    D-->>UC: DriverRetired
-    Note over UC,Repo: The save publishes the event in the same transaction (DL 3.6)
+    UC->>Repo: save(driver)
+    Repo->>D: pullEvents()
+    D-->>Repo: DriverRetired
+    Note over UC,Repo: The save checks the version again and publishes the event in the same transaction (DL 3.6)
   end
 ```
 
@@ -533,6 +541,7 @@ classDiagram
     open(...)
     exchange(...)
     confirmPassword(...)
+    requireFreshStepUp(generation, now)
     recordContact(now)
     revoke(...)
   }
@@ -576,6 +585,10 @@ classDiagram
   `DefaultServiceTime`. `session/` imports `account/` once: `Session.open` takes the `UserAccount`.
 - **Two counters, not one.** `AccountGeneration` is on the account and `SessionGeneration` on the
   session, as distinct types. A token issued under an older generation is refused (DL §3.3).
+- **Step-up lives on the session.** `confirmPassword` is the Admin step-up (NFR-214, NFR-227): it
+  supersedes the current refresh token and issues a new one under a new `SessionGeneration`.
+  `requireFreshStepUp` refuses an Admin-only operation once `STEP_UP_LIFETIME` (5 minutes) has passed
+  since the password was last given. An Admin-only use case calls it rather than checking by itself.
 - **Events:** `SessionsRevoked` and `AccountAnonymized`, both raised by `UserAccount`.
 - **Start reading:** `CompanyProfile.java` (153 lines) for the pattern, then `Session.java` (573, the
   refresh-token chain), then `UserAccount.java` (763). Tests: `core-test/access/domain/account/`
@@ -862,7 +875,8 @@ flowchart LR
 
 The solid arrows are Java calls. The dotted one is an event (§7). Only the optimizer adapter may build a
 `ValidationReport` or an `Evaluation`, so `Plan` can't be handed an unvalidated solution (DL
-[§13](domain_layer_design.md#13-inside-each-module-hexagon); the rule is in `DomainPurityTest`).
+[§13](domain_layer_design.md#13-inside-each-module-hexagon); the rule is
+`DomainPurityRules.optimizerResultsOnlyFromOptimizerAdapter`, run by `DomainPurityTest`).
 
 **What `Plan` holds.** Its fields are in `core/planning/domain/plan/Plan.java`, and its stored form in
 `PlanSnapshot.java`.
@@ -1377,7 +1391,7 @@ DL [§9](domain_layer_design.md#9-lifecycles) draws five: [Plan](domain_layer_de
 derived, is [§9.6](domain_layer_design.md#96-order-status-br-33-is-derived-not-stored), and the table of
 how every kind of thing ends is [§9.7](domain_layer_design.md#97-how-things-end). The lifecycles below
 come from the sealed state types in the code and the methods that move between them. Each arrow is one
-method.
+method, except where its label says that time passes.
 
 ### UserAccount (`AccountState`)
 
@@ -1412,15 +1426,18 @@ stateDiagram-v2
 
 ```mermaid
 stateDiagram-v2
-  [*] --> Current : open or exchange issues it
+  [*] --> Current : open, exchange or confirmPassword issues it
   Current --> Exchanged : exchange
-  Exchanged --> Exchanged : exchange again within 30 seconds
+  Exchanged --> Exchanged : exchange again within 30 seconds, while its successor is current
   Current --> Replaced : its predecessor is exchanged again within 30 seconds
   Current --> Superseded : confirmPassword
 ```
 
-A `Replaced` token presented again, or an `Exchanged` one after the 30 seconds, revokes the session. A
-`Superseded` token is refused and revokes nothing. `Session.exchange` answers with a `RefreshOutcome`
+These revoke the session: a `Replaced` token presented again, an `Exchanged` one after its 30 seconds,
+and an `Exchanged` one within them whose successor is no longer current (for example, because it was
+exchanged too). A `Superseded` token is refused and revokes nothing, and so is an `Exchanged` one,
+within its 30 seconds, whose successor a password confirmation superseded (`Session.exchange` and its
+private `repeated`). `Session.exchange` answers with a `RefreshOutcome`
 (`Issued` or `Refused`) instead of throwing, so the caller can save the revocation.
 
 ### Driver (`DriverStatus`)
@@ -1531,7 +1548,7 @@ stateDiagram-v2
 
 DL [§7](domain_layer_design.md#7-domain-events) says when an event earns its place and
 [§7.2](domain_layer_design.md#72-the-events) lists them. At this commit the `events/` packages hold **16
-event records**, in the 14 rows of the DL table (two rows name two events each). Six modules raise them;
+event records**, in the 15 rows of the DL table (one row names two events). Six modules raise them;
 Audit and Reporting raise none. An event is raised by an aggregate's method and recorded on the root
 (§3), and is a past-tense record of IDs and kernel values.
 
@@ -1674,7 +1691,7 @@ group. The arrows come from the `import` lines of each file in `solver/domain/`.
   and `VehicleExclusion` (`exclusions.py`). `rules.py` holds `RuleId`, one member per rule named after its
   requirement row. Two errors guard input: `InvalidProblemError` and `InvalidSolutionError`.
 - **Start reading:** `solution.py` (117), `rules.py` (77), `problem_view.py` (74), `feasibility.py` (611),
-  `problem.py`, then `factory.py`. Tests in `solver-test/domain/`: `test_solution.py`, `test_problem.py`,
+  `problem.py`, then `factory.py`. Tests in `solver-test/domain/` include `test_solution.py`, `test_problem.py`,
   `test_violation_catalogue.py` (the `RuleId` each crafted case must trigger), `test_objective.py`,
   `test_drops.py`, `test_factory.py`, `test_reoptimization.py`, and `test_properties.py` (Hypothesis).
   `solver-test/test_dependency_boundary.py` keeps PyVRP out.
@@ -1705,12 +1722,13 @@ sequenceDiagram
   participant W as RunSolveJob (declared)
   participant L as ApplySolveResult (declared)
   Web->>UC: request(actor, plan, solver, limit, expected)
-  Note over UC,Opt: Outside calls first, before any transaction (DL 6.3)
+  Note over UC,Opt: From M4: outside calls first, before any transaction (DL 6.3). M0 asks no list and runs OR-Tools
   UC->>Opt: solvers()
   Opt-->>UC: the solvers on offer
   Note over UC,J: One transaction: one existing aggregate changes
   UC->>PR: get(plan)
   PR-->>UC: Plan, loaded whole
+  UC->>UC: plan.version() equals expected, else StaleVersion
   UC->>JR: capacityUnderLock(Lane.DAILY)
   JR-->>UC: LaneCapacity
   UC->>P: requestSolve(jobId, solver, limit, seed, capacity, today, now)
@@ -1718,17 +1736,25 @@ sequenceDiagram
   J-->>P: SolveJob, queued
   P->>P: status = Solving(SolveBasis)
   P-->>UC: the new SolveJob
-  UC->>PR: save(plan) with the version check
+  UC->>PR: save(plan), which checks the version again
   UC->>JR: add(job)
   Note over UC,JR: The audit record is written in this transaction
   UC-->>Web: JobId
-  Note over W,J: Later, in the daily lane's worker
+  Note over W,J: Later, in the daily lane's worker. Each phase change is its own transaction: load, change, save
   W->>JR: claimNext(Lane.DAILY)
   JR-->>W: the oldest queued SolveJob, locked
   W->>J: claim(now)
+  W->>JR: save(job)
+  Note over W,Opt: The matrix is built here, outside any transaction (M3)
+  W->>JR: get(job)
   W->>J: searchStarted(now)
+  W->>JR: save(job)
   W->>Opt: solve(request), outside any transaction
   Opt-->>W: DailyAnswer
+  W->>PR: get(plan)
+  W->>P: locksBrokenBy(solution)
+  P-->>W: no lock broken
+  W->>JR: get(job)
   W->>J: succeed(ValidatedSolution, now)
   J->>J: raises SolveSucceeded
   W->>JR: save(job), which stores the event with it
@@ -1741,8 +1767,13 @@ Reading the diagram:
 
 - **Who supplies what.** `now` and `today` come from the `Clock` port, the job's ID from `IdGenerator`, the
   seed from `Seeds`. The domain makes none of them (DL §3.9).
-- **The version check.** `expected` is the plan version the dispatcher saw. `save` fails with `StaleVersion`
-  when it moved, and only the optimizer call is lost (DL §6.3).
+- **The version check.** `expected` is the plan version the dispatcher saw. The use case compares it with
+  the loaded plan's version and throws `StaleVersion` when they differ; `save` then catches only a change
+  made between the load and the save. Either way, only the optimizer call is lost (DL §6.3).
+- **The worker saves each phase.** `claim` and `searchStarted` are each saved in their own transaction,
+  so `SolveJob.expireIfOverdue` judges the job by its current phase's deadline (DL
+  [§9.2](domain_layer_design.md#92-solvejob)). A daily result is checked against the plan's locks
+  (`Plan.locksBrokenBy`) before `succeed`; a broken lock fails the job instead (`RunSolveJob`'s Javadoc).
 - **Two aggregates, one transaction.** The plan changes (`Solving`) and a new `SolveJob` is created. This
   is the allowed case of DL §6.1: one existing aggregate changes, and a new one of the same module is
   created beside it.
@@ -1756,8 +1787,7 @@ Other commands follow the same shape; DL §6.2 lists each one with what it chang
 ## 10. Where the code is behind the design
 
 The DL and the accepted ADRs describe a model that the code does not fully have yet. The code says so
-itself: a Javadoc paragraph that begins "Domain gap" in the declared use case that needs the missing
-piece. `grep -rn -i "domain gap" src/backend/core/src/main` lists them all at this commit. A milestone's
+itself: the Javadoc of the declared use case or port that needs the missing piece mentions a domain gap. `grep -rn -i "domain gap" src/backend/core/src/main` lists them all at this commit. A milestone's
 pull request closes each one. The ones below are the ones a reader is most likely to trip over.
 
 | Module | What is missing in the domain | Written in | Closed by |
@@ -1766,10 +1796,10 @@ pull request closes each one. The ones below are the ones a reader is most likel
 | Orders | A `Customer` method that changes the customer's fields; `Customer.activeDefaults()` | `orders/application/service/ChangeCustomer.java`, `PlaceOrder.java` | M2 |
 | Orders | A method that copies an order to another date | `orders/application/service/CopyOrdersFromDate.java` | the milestone that builds it |
 | Planning | A default solver of each kind in `PlanningSettings` | `planning/application/service/plan/RequestSolve.java` | M4 |
-| Planning | `SolveJob.succeed` and `fail` keep no objective and no stats, which NFR-11 records | `planning/application/port/out/solvejob/DailyAnswer.java`, `RunSolveJob.java` | M0 |
+| Planning | `SolveJob.succeed` and `fail` keep no objective and no stats, which NFR-11 records | `planning/application/port/out/solvejob/DailyAnswer.java`, `planning/application/service/solvejob/RunSolveJob.java` | M0 |
 | Planning | Retention periods in Planning's domain | `planning/application/service/EraseExpiredLocations.java` | M13 |
 | Access | `UserAccount.dropOldLinks`, and a method that voids every open link | `access/application/service/account/DropOldLinks.java`, `session/SecureAfterRestore.java` | M13 |
-| Access | `AccessError` codes for an unknown address and a wrong password, which the audit refusal needs | `access/application/service/session/SignIn.java` | M5 |
+| Access | `AccessError` codes for an unknown address and a wrong password, which the audit refusal needs (audit only: the answer stays one `SignInRefused`, NFR-145) | `access/application/service/session/SignIn.java` | M5 |
 | Messaging | `Rating.isLow()`; a key version on `PhoneHash` and an `OptOutRecord` factory that copies an entry under a new hash | `messaging/application/service/AlertLowRating.java`, `RehashOptOuts.java` | M12 |
 | Reporting | `PlannedFigures` has a plain `Distance`, so a plan with an untimed route can't say so | `reporting/application/port/out/PlannedVsActualView.java` | M5 |
 
@@ -1823,7 +1853,7 @@ component `CLAUDE.md` files).
 | 9. Planning | `core/planning/domain/plan/SolveJob.java`, `ReoptimizationProposal.java`, then `Plan.java` by section | `planning/domain/plan/SolveJobTest`, `PlanLifecycleTest`, `PlanSequenceTest` |
 | 10. Messaging and reporting | `core/messaging/domain/rating/RatingRequest.java`, `reporting/domain/OnTimeRate.java`, `Baseline.java` | `messaging/domain/rating/RatingRequestTest`, `reporting/domain/BaselineTest` |
 | 11. The solver | `solver/domain/solution.py`, `problem_view.py`, `feasibility.py`, `problem.py`, `factory.py` | `solver-test/domain/test_problem.py`, `test_violation_catalogue.py` |
-| 12. The guards | `core-test/architecture/DomainPurityTest.java`, `DomainShapeTest.java`, `DomainPackageTest.java` | the same files |
+| 12. The guards | The rules: `core-test/architecture/DomainPurityRules.java`, `DomainShapeRules.java`, `DomainPackageRules.java`, `ApplicationRules.java`, which `DomainPurityTest`, `DomainShapeTest`, `DomainPackageTest` and `ApplicationTest` run over the production classes | `DomainPurityRulesTest`, `DomainShapeRulesTest`, `DomainPackageRulesTest`, `ApplicationRulesTest`: each rule must flag its deliberately wrong fixture in `core-test/archfixture/` |
 | 13. What is next | `core/planning/application/service/plan/RequestSolve.java`, then `grep -rn "Built in M0" src/backend` | none: bodies throw |
 
 After step 4 you can read any other aggregate with the §4 pattern in hand. Step 9 is the longest: `Plan.java`
