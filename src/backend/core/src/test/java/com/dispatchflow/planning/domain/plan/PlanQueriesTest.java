@@ -29,7 +29,9 @@ import static org.assertj.core.api.Assertions.tuple;
 import com.dispatchflow.planning.domain.PlanningError.DriverAlreadyHasRoute;
 import com.dispatchflow.planning.domain.PlanningError.NothingToRedo;
 import com.dispatchflow.planning.domain.PlanningError.NothingToUndo;
+import com.dispatchflow.planning.domain.PlanningError.OrderNotPinned;
 import com.dispatchflow.planning.domain.PlanningError.OrderNotRoutable;
+import com.dispatchflow.planning.domain.PlanningError.PlanNotDraftOrReady;
 import com.dispatchflow.planning.domain.PlanningError.PlanNotPublished;
 import com.dispatchflow.planning.domain.PlanningError.PlanNotReady;
 import com.dispatchflow.planning.domain.PlanningError.PositionOutOfRange;
@@ -37,6 +39,7 @@ import com.dispatchflow.planning.domain.PlanningError.RouteLocked;
 import com.dispatchflow.planning.domain.PlanningError.StopNotInPlan;
 import com.dispatchflow.planning.domain.solution.DropReason;
 import com.dispatchflow.planning.domain.solution.DroppedOrder;
+import com.dispatchflow.planning.domain.solution.PinTarget;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
@@ -53,6 +56,7 @@ class PlanQueriesTest {
 
     private static final StopId NEW_STOP = StopId.of(uuid(777));
     private static final DriverStanding D3_STANDS = new DriverStanding(D3, true, true);
+    private static final PinTarget TO_V2 = new PinTarget.ToVehicle(V2);
 
     @Test
     void GivenAReadyPlan_WhenItsLayoutIsRead_ThenItHoldsItsRoutesAndDropsWithoutTimes() {
@@ -158,6 +162,69 @@ class PlanQueriesTest {
         assertThat(after.routes().get(0).driver()).isEqualTo(D3);
         plan.handOver(v1, D3_STANDS, Optional.of(evaluationOf(plan, after).build()), false, DISPATCHER, TODAY, LATER);
         assertThat(plan.layout()).isEqualTo(after);
+    }
+
+    @Test
+    void GivenAReadyPlan_WhenAPinIsQueriedAndThenMade_ThenThePlanHoldsTheQueriedLayout() {
+        Plan plan = aPlan().ready();
+        PlanSnapshot before = plan.snapshot();
+
+        PlanLayout after = plan.afterPin(O4, TO_V2);
+
+        assertUnchanged(plan, before);
+        assertThat(after.pins()).containsExactly(new Pin(O4, TO_V2));
+        assertThat(after.routes()).isEqualTo(plan.layout().routes());
+        plan.pin(O4, TO_V2, evaluationOf(plan, after).build(), TODAY);
+        assertThat(plan.layout()).isEqualTo(after);
+    }
+
+    @Test
+    void GivenADraft_WhenAPinIsQueriedAndThenMade_ThenThePlanHoldsTheQueriedLayout() {
+        Plan plan = aPlan().draft();
+        PlanSnapshot before = plan.snapshot();
+
+        PlanLayout after = plan.afterPin(O1, TO_V2);
+
+        assertUnchanged(plan, before);
+        assertThat(after.pins()).containsExactly(new Pin(O1, TO_V2));
+        plan.pin(O1, TO_V2, evaluationOf(plan, after).build(), TODAY);
+        assertThat(plan.layout()).isEqualTo(after);
+    }
+
+    @Test
+    void GivenAPinnedOrder_WhenAnUnpinIsQueriedAndThenMade_ThenThePlanHoldsTheQueriedLayout() {
+        Plan plan = aPlan().ready();
+        plan.pin(O4, TO_V2, evaluationOf(plan, plan.afterPin(O4, TO_V2)).build(), TODAY);
+        Plan pinned = reload(plan);
+        PlanSnapshot before = pinned.snapshot();
+
+        PlanLayout after = pinned.afterUnpin(O4);
+
+        assertUnchanged(pinned, before);
+        assertThat(after.pins()).isEmpty();
+        pinned.unpin(O4, evaluationOf(pinned, after).build(), TODAY);
+        assertThat(pinned.layout()).isEqualTo(after);
+    }
+
+    @Test
+    void GivenAPublishedPlan_WhenAPinIsQueried_ThenPlanNotDraftOrReady() {
+        Plan plan = aPlan().published();
+
+        assertPlanRefused(plan, () -> plan.afterPin(O4, TO_V2), new PlanNotDraftOrReady(PLAN));
+    }
+
+    @Test
+    void GivenAPublishedPlan_WhenAnUnpinIsQueried_ThenPlanNotDraftOrReady() {
+        Plan plan = aPlan().published();
+
+        assertPlanRefused(plan, () -> plan.afterUnpin(O4), new PlanNotDraftOrReady(PLAN));
+    }
+
+    @Test
+    void GivenAnOrderWithNoPin_WhenAnUnpinIsQueried_ThenOrderNotPinned() {
+        Plan plan = aPlan().ready();
+
+        assertPlanRefused(plan, () -> plan.afterUnpin(O4), new OrderNotPinned(O4));
     }
 
     @Test

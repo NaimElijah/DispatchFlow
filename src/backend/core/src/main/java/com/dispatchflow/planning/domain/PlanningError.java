@@ -257,16 +257,6 @@ public sealed interface PlanningError extends DomainError {
     }
 
     /**
-     * The proposal neither serves nor drops an order and attempt the plan holds, and no route keeps
-     * it, so accepting it would lose the order (BR-07, ADR-112).
-     *
-     * @param proposal the proposal
-     * @param order the order
-     * @param attempt its attempt
-     */
-    record ProposalLosesOrder(ProposalId proposal, OrderId order, Attempt attempt) implements PlanningError {}
-
-    /**
      * Vehicles the proposal keeps driving no longer meet BR-20 (BR-64, BR-65).
      *
      * @param vehicles every such vehicle

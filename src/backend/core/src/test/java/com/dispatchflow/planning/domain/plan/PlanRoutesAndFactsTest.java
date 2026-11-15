@@ -37,6 +37,7 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.uuid;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.violation;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.dispatchflow.planning.domain.PlanningError;
 import com.dispatchflow.planning.domain.RevisionNo;
@@ -51,14 +52,17 @@ import com.dispatchflow.planning.domain.solution.DroppedOrder;
 import com.dispatchflow.planning.domain.solution.Evaluation;
 import com.dispatchflow.planning.domain.solution.PinTarget;
 import com.dispatchflow.planning.domain.solution.SolvedRoute;
+import com.dispatchflow.planning.domain.solution.SolvedStop;
 import com.dispatchflow.planning.domain.solution.ValidatedSolution;
 import com.dispatchflow.planning.domain.solution.ValidationReport;
 import com.dispatchflow.planning.domain.solution.VehicleWithdrawal;
 import com.dispatchflow.planning.domain.solution.Violation;
 import com.dispatchflow.planning.domain.solution.Withdrawal;
 import com.dispatchflow.planning.events.Lane;
+import com.dispatchflow.planning.events.PlanRevised;
 import com.dispatchflow.planning.events.WithdrawalCause;
 import com.dispatchflow.shared.AccountId;
+import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.JobId;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
@@ -269,22 +273,149 @@ class PlanRoutesAndFactsTest {
     }
 
     @Test
-    void GivenAProposalThatNeitherServesNorDropsADroppedOrder_WhenAccepted_ThenProposalLosesOrder() {
+    void GivenAProposalThatNeitherServesNorDropsADroppedOrder_WhenAccepted_ThenTheDropIsCarriedForwardAsItWas() {
         Plan plan = aPlan().published();
 
-        PlanAssertions.assertPlanRefused(
-                plan,
-                () -> plan.accept(
-                        proposal(
-                                RevisionNo.FIRST,
-                                List.of(solved(V1, D1, O1, O2), solved(V2, D2, O3)),
-                                List.of(BOTH_DROPS.get(0))),
-                        noChanges(V1, V2),
-                        freshIds(500),
-                        DISPATCHER,
-                        TODAY,
-                        LATER),
-                new PlanningError.ProposalLosesOrder(PROPOSAL, O5, FIRST));
+        plan.accept(
+                proposal(
+                        RevisionNo.FIRST,
+                        List.of(solved(V1, D1, O1, O2), solved(V2, D2, O3)),
+                        List.of(BOTH_DROPS.get(0))),
+                noChanges(V1, V2),
+                freshIds(500),
+                DISPATCHER,
+                TODAY,
+                LATER);
+
+        assertThat(plan.status()).isEqualTo(new Plan.Status.Published(RevisionNo.of(2)));
+        assertThat(plan.snapshot().dropped()).containsExactlyElementsOf(BOTH_DROPS);
+        assertThatCode(() -> Plan.restore(plan.snapshot())).doesNotThrowAnyException();
+    }
+
+    @Test
+    void GivenADropPutBackOntoTheSameDate_WhenAProposalServesItsNextAttempt_ThenTheOldDropLeavesAndTheNewStopStays() {
+        Plan plan = aPlan().published();
+        Attempt second = FIRST.next();
+        SolvedRoute v2 = new SolvedRoute(
+                V2,
+                D2,
+                PlanningFixtures.routePlan(50_000),
+                List.of(
+                        new SolvedStop(O3, FIRST, PlanningFixtures.stopPlan(28_800)),
+                        new SolvedStop(O4, second, PlanningFixtures.stopPlan(30_000))));
+
+        plan.accept(
+                proposal(RevisionNo.FIRST, List.of(solved(V1, D1, O1, O2), v2), O5_DROPPED),
+                noChanges(V1, V2),
+                freshIds(500),
+                DISPATCHER,
+                TODAY,
+                LATER);
+
+        assertThat(plan.status()).isEqualTo(new Plan.Status.Published(RevisionNo.of(2)));
+        assertThat(routeOf(plan, V2).stops())
+                .extracting(PlanSnapshot.StopSnapshot::order, PlanSnapshot.StopSnapshot::attempt)
+                .containsExactly(tuple(O3, FIRST), tuple(O4, second));
+        assertThat(plan.snapshot().dropped()).containsExactlyElementsOf(O5_DROPPED);
+        assertThat(((PlanRevised) plan.pendingEvents().get(0)).addedOrders()).isEmpty();
+        assertThatCode(() -> Plan.restore(plan.snapshot())).doesNotThrowAnyException();
+    }
+
+    @Test
+    void GivenADropPutBackOntoTheSameDate_WhenAProposalDropsItsNextAttempt_ThenOnlyTheNewDropStays() {
+        Plan plan = aPlan().published();
+        DroppedOrder secondDrop = new DroppedOrder(O4, FIRST.next(), new DropReason.Displaced());
+
+        plan.accept(
+                proposal(
+                        RevisionNo.FIRST,
+                        List.of(solved(V1, D1, O1, O2), solved(V2, D2, O3)),
+                        List.of(secondDrop, O5_DROPPED.get(0))),
+                noChanges(V1, V2),
+                freshIds(500),
+                DISPATCHER,
+                TODAY,
+                LATER);
+
+        assertThat(plan.snapshot().dropped()).containsExactly(secondDrop, O5_DROPPED.get(0));
+    }
+
+    @Test
+    void GivenADropPutBackOntoAnotherDate_WhenEachLaterProposalLeavesItOut_ThenEveryAcceptanceKeepsItAsHistory() {
+        Plan plan = aPlan().published();
+        plan.removePutBackOrder(O4, FIRST);
+        ReoptimizationProposal first =
+                proposal(RevisionNo.FIRST, List.of(solved(V1, D1, O1, O2), solved(V2, D2, O3)), O5_DROPPED);
+        plan.accept(first, noChanges(V1, V2), freshIds(500), DISPATCHER, TODAY, LATER);
+        Plan revised = reload(plan);
+
+        revised.accept(
+                proposal(RevisionNo.of(2), List.of(solved(V1, D1, O2, O1), solved(V2, D2, O3)), O5_DROPPED),
+                noChanges(V1, V2),
+                freshIds(700),
+                DISPATCHER,
+                TODAY,
+                LATER);
+
+        assertThat(revised.status()).isEqualTo(new Plan.Status.Published(RevisionNo.of(3)));
+        assertThat(revised.snapshot().dropped()).containsExactlyElementsOf(BOTH_DROPS);
+        assertThat(ordersOn(revised, V1)).containsExactly(O2, O1);
+    }
+
+    @Test
+    void GivenARouteTheProposalLeavesOutAndEmpties_WhenAccepted_ThenItHasNoPlanAndIsNotYetChecked() {
+        Plan plan = aPlan().published();
+        RouteId v2 = routeId(plan, V2);
+
+        plan.accept(
+                proposal(RevisionNo.FIRST, List.of(solved(V1, D1, O1, O2, O3)), BOTH_DROPS),
+                noChanges(V1),
+                freshIds(500),
+                DISPATCHER,
+                TODAY,
+                LATER);
+
+        PlanSnapshot.RouteSnapshot emptied = route(plan, v2);
+        assertThat(emptied.stops()).isEmpty();
+        assertThat(emptied.plan()).isEmpty();
+        assertThat(emptied.check()).isEqualTo(CheckState.NOT_YET_CHECKED);
+    }
+
+    @Test
+    void GivenARouteTheProposalLeavesOutAndTakesOneStopFrom_WhenAccepted_ThenItKeepsItsPlanAndIsNotYetChecked() {
+        Plan plan = aPlan().published();
+        RouteId v1 = routeId(plan, V1);
+        PlanSnapshot.RouteSnapshot before = route(plan, v1);
+
+        plan.accept(
+                proposal(RevisionNo.FIRST, List.of(solved(V2, D2, O3, O2)), BOTH_DROPS),
+                noChanges(V2),
+                freshIds(500),
+                DISPATCHER,
+                TODAY,
+                LATER);
+
+        PlanSnapshot.RouteSnapshot kept = route(plan, v1);
+        assertThat(kept.stops()).extracting(PlanSnapshot.StopSnapshot::order).containsExactly(O1);
+        assertThat(kept.plan()).isEqualTo(before.plan());
+        assertThat(kept.check()).isEqualTo(CheckState.NOT_YET_CHECKED);
+    }
+
+    @Test
+    void GivenARouteTheProposalLeavesOutAndTakesNoStopFrom_WhenAccepted_ThenItStaysAsItWas() {
+        Plan plan = aPlan().published();
+        RouteId v2 = routeId(plan, V2);
+        PlanSnapshot.RouteSnapshot before = route(plan, v2);
+
+        plan.accept(
+                proposal(RevisionNo.FIRST, List.of(solved(V1, D1, O1, O2)), BOTH_DROPS),
+                noChanges(V1),
+                freshIds(500),
+                DISPATCHER,
+                TODAY,
+                LATER);
+
+        assertThat(route(plan, v2)).isEqualTo(before);
     }
 
     @Test

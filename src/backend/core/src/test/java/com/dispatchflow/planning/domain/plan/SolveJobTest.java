@@ -35,6 +35,7 @@ import com.dispatchflow.planning.domain.PlanningError.ResultForAnotherLane;
 import com.dispatchflow.planning.domain.PlanningError.SolveQueueFull;
 import com.dispatchflow.planning.domain.PlanningError.VehicleRoutedTwice;
 import com.dispatchflow.planning.domain.RevisionNo;
+import com.dispatchflow.planning.domain.RuleCode;
 import com.dispatchflow.planning.domain.SolveLimit;
 import com.dispatchflow.planning.domain.solution.DropReason;
 import com.dispatchflow.planning.domain.solution.SolveFailure;
@@ -264,6 +265,29 @@ class SolveJobTest {
                 List.of()));
 
         assertJobRefused(job, () -> job.succeed(twice, SEARCH.plusSeconds(1)), new OrderAlreadyInPlan(O1, FIRST));
+    }
+
+    @Test
+    void
+            GivenADailySolutionServingAnOrderTwice_WhenTheWorkerFailsTheJobAsTheValidatorWould_ThenItIsValidatorRejected() {
+        SolveJob job = aJob().running();
+        ValidatedSolution twice = ValidatedSolution.of(
+                ValidationReport.of(List.of(), List.of(solved(V1, D1, O1), solved(V2, D2, O1)), List.of(), List.of()));
+        assertThatThrownBy(() -> job.succeed(twice, SEARCH.plusSeconds(1))).isInstanceOf(RuleViolation.class);
+        Violation servedTwice = new Violation(
+                RuleCode.of("BR-07"),
+                Optional.empty(),
+                Optional.of(O1),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+
+        job.fail(SolveFailure.rejected(List.of(servedTwice)), SEARCH.plusSeconds(1));
+
+        assertThat(((SolveFailed) job.pendingEvents().get(0)).reason())
+                .isEqualTo(SolveFailureReason.VALIDATOR_REJECTED);
     }
 
     @Test

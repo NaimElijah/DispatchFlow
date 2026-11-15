@@ -69,12 +69,19 @@ On 2026-11-15 the owner, Naim Elijah, decided:
      the proposal's stops for its vehicle.
    - A route the proposal gives no route stays with its prefix, or with no stops left. It is marked
      withdrawn when the proposal withdraws its vehicle, and otherwise stays in force, so a late fact
-     can still name it.
+     can still name it. When the proposal takes stops from it, it is *not yet checked*, for the
+     re-check job ([FR-395]), and a route left with no stops has no times (point 6).
    - A withdrawn route keeps its ID, its index and its stops, including when its vehicle is
      withdrawn again.
-   - Every order and attempt the plan held is still served or dropped after acceptance. Otherwise
-     acceptance is refused with `ProposalLosesOrder`, which names the proposal, the order and the
-     attempt.
+   - The proposal's drops replace the plan's, and a drop of the plan that the proposal neither
+     serves nor drops is decided by its order. When the proposal serves or drops a later attempt of
+     that order, the old drop leaves: the order was put back onto its own date, and the optimizer
+     knows only its current attempt ([ADR-115] point 3). Otherwise the drop is carried forward as it
+     was, as the day's history: the order was put back onto another date, or the optimizer left it
+     out (point 5).
+   - So every other order and attempt the plan held is still served or dropped after acceptance.
+     Each step above keeps what the proposal doesn't hold, so `accept` checks this as a bug, not as
+     a refusal, and no error names it.
    - A stop reported since the basis stands when the route as accepted, prefix included, keeps it
      on its vehicle after the same stops.
    - The routes keep their order in the plan, and a new route joins the end.
@@ -93,6 +100,10 @@ On 2026-11-15 the owner, Naim Elijah, decided:
      order and attempt once (`OrderAlreadyInPlan`), a vehicle on one route (`VehicleRoutedTwice`),
      and a driver on one route (`DriverRoutedTwice`). A result no plan could hold is refused there,
      and its job fails, instead of the plan refusing it later.
+   - The worker fails that job with `SolveFailure.rejected`, as `VALIDATOR_REJECTED`, naming the
+     broken rule as the validator names it: `BR-07` with the order, or `BR-39` with the vehicle or
+     the driver. The validator reports the same violations for the same faults, and [FR-65] already
+     tells the dispatcher of a validator rejection, so no new reason is added.
 
    This amends [ADR-101] point 18: until the optimizer has a lock rule, Planning names the locks a
    result doesn't keep, and the job fails with `LOCK_NOT_HONOURED`. It amends [ADR-105] point 8:
@@ -109,6 +120,8 @@ On 2026-11-15 the owner, Naim Elijah, decided:
    journal ([FR-145]). Planning's listener calls it on the plan of the date the order left, with the
    attempt that was dropped or failed, when Customers & Orders raises `OrderPutBack`. That event is
    raised only for a put-back to another date.
+   - A published plan keeps the drop, and every re-optimization accepted later carries it forward
+     unchanged, because the old date's problem no longer holds the order (point 1).
    - A stop of that attempt stays where it is. A put-back stop can only have failed, and FR-258
      keeps the earlier stop's outcome as recorded.
    - Every other state changes nothing. A draft holds no orders, a published, completed or
@@ -148,10 +161,10 @@ On 2026-11-15 the owner, Naim Elijah, decided:
    - A *no vehicle available* drop still carries no field: the plan's exclusions are its fact.
 8. **`Plan` answers what a change would leave, and changes nothing** ([ADR-101] point 15,
    [DL §6.3][DL-6.3]).
-   - `afterMove`, `afterTakeOff`, `afterPlacing`, `afterUndo`, `afterRedo` and `afterHandOver`
-     return the plan's routes, drops and pins as the command would leave them, as a read-only
-     `PlanLayout`. `layout()` returns the plan as it is, for the publishing re-check and the route
-     check.
+   - `afterMove`, `afterTakeOff`, `afterPlacing`, `afterPin`, `afterUnpin`, `afterUndo`,
+     `afterRedo` and `afterHandOver` return the plan's routes, drops and pins as the command would
+     leave them, as a read-only `PlanLayout`. `layout()` returns the plan as it is, for the
+     publishing re-check and the route check.
    - Each command builds its layout with the same function its query calls, so the two never
      differ. A query refuses what its command refuses, except what needs `today`, the evaluation
      or the new driver's standing.
@@ -227,8 +240,8 @@ These rules no document settled; the code takes them.
   driver another vehicle is refused under BR-39 until the roster changes.
 - **Cost:** the published plan no longer shows which routes were locked while it was ready.
 - **Risk:** a stop the proposal omits by mistake, not because it was reported, stays on its old
-  route. The validator's rules keep that from happening; the plan doesn't check why a stop was
-  omitted.
+  route, and a drop it omits by mistake is carried forward. The validator's rules keep that from
+  happening; the plan doesn't check why a stop or a drop was omitted.
 - **Easy:** an emptied route, an unreachable stop and a late return are shown with their
   violations, and the next edit still applies.
 - **Easy:** the use case asks the plan for the layout to send to the optimizer, so it repeats no
@@ -256,6 +269,13 @@ These rules no document settled; the code takes them.
   by a re-optimization, which takes no lock, so the lock would bind nothing.
 - **Refuse a command whose `now` is out of order, with a named error.** Not chosen: the callers are
   workers and listeners, which would retry with the same clock until the midnight job.
+- **Refuse a proposal that neither serves nor drops a drop the plan holds** (`ProposalLosesOrder`).
+  Rejected: the optimizer knows no attempts, so after a put-back onto the same date a proposal holds
+  only the new attempt, and after a put-back onto another date it holds neither. Every
+  re-optimization of the date would then be refused, though re-optimizing is how [FR-75] brings the
+  order back.
+- **A failure reason of its own for a result no plan could hold.** Not chosen: the validator reports
+  the same faults as violations, and a new reason would add one to [FR-65]'s list.
 - **Take a put-back order's stop off too.** Not chosen: it would erase a failed stop's recorded
   outcome, against FR-258.
 - **Widen the kernel's `DaySeconds` past the day's end.** Not chosen: every other module relies on
@@ -287,6 +307,7 @@ These rules no document settled; the code takes them.
 [ADR-105]: ADR-105-a-re-optimizations-problem-carries-its-conventions-and-only-a-vehicle-that-is-out-has-no-driver.md
 [ADR-109]: ADR-109-reporting-computes-exact-on-time-shares-from-current-facts-and-keeps-no-personal-data.md
 [ADR-113]: ADR-113-route-stability-is-its-own-cost-the-rules-read-a-problem-through-a-protocol-and-untimed-outputs-are-documented.md
+[ADR-115]: ADR-115-import-rows-keep-their-own-recipient-put-backs-raise-an-event-and-orders-clamp-a-stepped-back-clock.md
 [BR-06]: ../requirements/requirements.md#routing-constraints
 [BR-07]: ../requirements/requirements.md#solving-dropping-and-validation
 [BR-10]: ../requirements/requirements.md#re-optimization
@@ -304,6 +325,7 @@ These rules no document settled; the code takes them.
 [FR-23]: ../requirements/requirements.md#manual-editing
 [FR-36]: ../requirements/requirements.md#live-operations-and-re-optimization
 [FR-39]: ../requirements/requirements.md#reporting-and-baseline
+[FR-65]: ../requirements/requirements.md#daily-planning
 [FR-75]: ../requirements/requirements.md#live-operations-and-re-optimization
 [FR-103]: ../requirements/requirements.md#live-operations-and-re-optimization
 [FR-145]: ../requirements/requirements.md#manual-editing
@@ -322,4 +344,5 @@ These rules no document settled; the code takes them.
 [FR-316]: ../requirements/requirements.md#customers-and-orders
 [FR-334]: ../requirements/requirements.md#live-operations-and-re-optimization
 [FR-394]: ../requirements/requirements.md#fleet-depots-and-shifts
+[FR-395]: ../requirements/requirements.md#fleet-depots-and-shifts
 [NFR-13]: ../requirements/requirements.md#nfr-13

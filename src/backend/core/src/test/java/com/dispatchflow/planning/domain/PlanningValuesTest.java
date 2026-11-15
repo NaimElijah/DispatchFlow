@@ -180,6 +180,16 @@ class PlanningValuesTest {
         assertThat(SolveTime.of(fallBack, 90_001).pastTheDay()).isTrue();
     }
 
+    @Test
+    void GivenASpringForwardDateOf23Hours_WhenTimesAroundItsEndAreAsked_ThenOnlyOnePastItsLengthIsPastTheDay() {
+        DeliveryDate springForward = DeliveryDate.of(LocalDate.of(2027, 3, 26));
+
+        assertThat(SolveTime.of(springForward, 82_799).pastTheDay()).isFalse();
+        assertThat(SolveTime.of(springForward, 82_800).pastTheDay()).isFalse();
+        assertThat(SolveTime.of(springForward, 82_801).pastTheDay()).isTrue();
+        assertThat(SolveTime.of(springForward, 86_400).pastTheDay()).isTrue();
+    }
+
     @ParameterizedTest
     @ValueSource(longs = {Long.MIN_VALUE, -1, 0, Long.MAX_VALUE})
     void GivenAnyLong_WhenASeedIsBuilt_ThenItIsKept(long value) {

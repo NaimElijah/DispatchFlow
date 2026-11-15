@@ -11,6 +11,7 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.V1;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.V2;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.V3;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.aPlan;
+import static com.dispatchflow.planning.domain.plan.PlanningFixtures.checksFor;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.dropped;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.evaluationOf;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.freshIds;
@@ -18,12 +19,16 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.noChanges;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.reload;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.reoptimizationResult;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.roomIn;
+import static com.dispatchflow.planning.domain.plan.PlanningFixtures.routeId;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.solved;
+import static com.dispatchflow.planning.domain.plan.PlanningFixtures.stopId;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.uuid;
+import static com.dispatchflow.planning.domain.plan.PlanningFixtures.violation;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
 import com.dispatchflow.planning.domain.RevisionNo;
+import com.dispatchflow.planning.domain.RuleCode;
 import com.dispatchflow.planning.domain.SolveLimit;
 import com.dispatchflow.planning.domain.reconciliation.LateFact;
 import com.dispatchflow.planning.domain.solution.DropReason;
@@ -68,15 +73,20 @@ import org.junit.jupiter.api.Test;
  * the changes a published plan takes. After every step the invariants are recomputed from the
  * snapshot, in test code: each order and attempt served or dropped once (BR-07), no order lost except
  * by the command that takes it off, one route per vehicle and driver (BR-39), unique IDs and indexes,
- * and a snapshot {@code restore} accepts. A refused step leaves the snapshot and the events as they
- * were. The message names the seed and the step, so a failure replays. Each command must be applied
- * a minimum number of times across the seeds, so a sequence that only exercises refusals fails.
+ * no lock and no journal outside a ready plan, and a snapshot {@code restore} accepts. A refused step
+ * leaves the snapshot and the events as they were, and a step that changes nothing raises no event.
+ * The message names the seed and the step, so a failure replays. Each command must change the plan a
+ * minimum number of times across the seeds; a step that changes nothing is counted apart, so a
+ * sequence that only exercises refusals or no-ops fails.
  */
 class PlanSequenceTest {
 
     private static final long[] SEEDS = {1, 7, 42, 2027, 31_337, 99_991};
-    private static final int STEPS = 120;
-    private static final int MINIMUM_APPLIED = 10;
+    private static final int STEPS = 200;
+    private static final int MINIMUM_APPLIED = 20;
+    /** Removals take orders off for good, so a plan left with fewer starts again. */
+    private static final int FEWEST_HELD = 4;
+
     private static final List<OrderId> ORDERS =
             IntStream.rangeClosed(1, 9).mapToObj(n -> OrderId.of(uuid(400 + n))).toList();
     private static final Map<VehicleId, AccountId> FLEET = new LinkedHashMap<>();
@@ -113,6 +123,7 @@ class PlanSequenceTest {
             "placeDropped",
             "pin",
             "unpin",
+            "unpin",
             "lockRoute",
             "unlockRoute",
             "unlockRoute",
@@ -129,12 +140,13 @@ class PlanSequenceTest {
     @Test
     void GivenSeededSequencesOfEditsOnAReadyPlan_WhenEachStepRuns_ThenTheInvariantsHoldAndEveryEditIsApplied() {
         Map<String, Integer> applied = new HashMap<>();
+        Map<String, Integer> unchanged = new HashMap<>();
         for (long seed : SEEDS) {
             Random random = new Random(seed);
             Supplier<Plan> fresh = () -> aPlan().solvedAs(sequenceSolution()).ready();
-            runSequence(seed, random, fresh, EDITS, PlanSequenceTest::runEdit, applied);
+            runSequence(seed, random, fresh, EDITS, PlanSequenceTest::runEdit, applied, unchanged);
         }
-        assertEveryCommandApplied(EDITS, applied);
+        assertEveryCommandApplied(EDITS, applied, unchanged);
     }
 
     private static String runEdit(String command, Plan plan, Random random, int step) {
@@ -203,7 +215,7 @@ class PlanSequenceTest {
             case "undo" -> plan.undo(expectedAfter(plan, s.undo(), true), TODAY);
             case "redo" -> plan.redo(expectedAfter(plan, s.redo(), false), TODAY);
             case "removeStopOf" -> {
-                OrderId order = pick(ORDERS, random);
+                OrderId order = pickOr(heldOrders(s), random, ORDERS.get(8));
                 plan.removeStopOf(order, FIRST, RemovalCause.ORDER_CANCELLED, LATER);
                 return key(order);
             }
@@ -213,9 +225,19 @@ class PlanSequenceTest {
                 plan.removePutBackOrder(order, FIRST);
                 return key(order);
             }
-            default -> plan.recordRouteCheck(evaluationOf(plan).build());
+            default -> plan.recordRouteCheck(routeCheck(plan, random));
         }
         return "";
+    }
+
+    /** The re-check job's evaluation of the plan as it is, which finds a broken shift half the time. */
+    private static Evaluation routeCheck(Plan plan, Random random) {
+        PlanningFixtures.EvaluationBuilder evaluation = evaluationOf(plan);
+        List<RouteId> routes = routeIds(plan.snapshot());
+        if (!routes.isEmpty() && random.nextBoolean()) {
+            evaluation.withViolation(violation(RuleCode.SHIFTS.value(), pick(routes, random)));
+        }
+        return evaluation.build();
     }
 
     /** The evaluation of the plan after undoing or redoing its last edit, worked out from the edit. */
@@ -265,17 +287,25 @@ class PlanSequenceTest {
             "reconcileLateOutcome",
             "reconcileLateOutcome",
             "recordRouteCheck",
+            "cancel",
             "cancel");
 
     @Test
     void GivenSeededSequencesOfChangesOnAPublishedPlan_WhenEachStepRuns_ThenTheInvariantsHoldAndEveryChangeIsApplied() {
         Map<String, Integer> applied = new HashMap<>();
+        Map<String, Integer> unchanged = new HashMap<>();
         for (long seed : SEEDS) {
             Random random = new Random(seed);
-            Supplier<Plan> fresh = () -> aPlan().solvedAs(sequenceSolution()).published();
-            runSequence(seed, random, fresh, CHANGES, PlanSequenceTest::runChange, applied);
+            runSequence(
+                    seed,
+                    random,
+                    PlanSequenceTest::publishedWithALockAPinAndAnEdit,
+                    CHANGES,
+                    PlanSequenceTest::runChange,
+                    applied,
+                    unchanged);
         }
-        assertEveryCommandApplied(CHANGES, applied);
+        assertEveryCommandApplied(CHANGES, applied, unchanged);
     }
 
     private static String runChange(String command, Plan plan, Random random, int step) {
@@ -303,11 +333,11 @@ class PlanSequenceTest {
                         now);
             }
             case "removeStopOf" -> {
-                OrderId order = pick(ORDERS, random);
+                OrderId order = pickOr(heldOrders(s), random, ORDERS.get(8));
                 plan.removeStopOf(order, FIRST, RemovalCause.ORDER_RESCHEDULED, now);
                 return key(order);
             }
-            case "recordRouteCheck" -> plan.recordRouteCheck(evaluationOf(plan).build());
+            case "recordRouteCheck" -> plan.recordRouteCheck(routeCheck(plan, random));
             case "cancel" -> {
                 StartedRoutes started = random.nextInt(3) == 0
                         ? StartedRoutes.none()
@@ -334,7 +364,8 @@ class PlanSequenceTest {
      * A proposal as the optimizer would make it for the plan's current revision: each active route
      * may keep a reported prefix off every route (BR-10), the remaining stops are dealt to the active
      * vehicles, a vehicle may be withdrawn with no stops (BR-108), and every drop is dropped again.
-     * One in eight leaves a drop out, so acceptance must refuse it.
+     * One in eight leaves a drop out, as after a put-back onto another date, so acceptance must carry
+     * it forward (ADR-112).
      */
     private static ReoptimizationProposal proposalFor(Plan plan, Random random, int step) {
         PlanSnapshot s = plan.snapshot();
@@ -396,6 +427,31 @@ class PlanSequenceTest {
         return job.succeed(ProposalId.of(uuid(50_000 + step)), reoptimizationResult(solution, withdrawals), LATER);
     }
 
+    /**
+     * The published sequence's start: a ready plan given a lock, a pin and an edit, then published,
+     * so the checks that only a ready plan holds a lock or a journal can fail (FR-145, ADR-112).
+     */
+    private static Plan publishedWithALockAPinAndAnEdit() {
+        Plan plan = aPlan().solvedAs(sequenceSolution()).ready();
+        plan.lockRoute(routeId(plan, V3), RouteLock.WHOLE_ROUTE, TODAY);
+        plan = reload(plan);
+        PinTarget toV1 = new PinTarget.ToVehicle(V1);
+        plan.pin(
+                ORDERS.get(0),
+                toV1,
+                evaluationOf(plan, plan.afterPin(ORDERS.get(0), toV1)).build(),
+                TODAY);
+        plan = reload(plan);
+        StopId moved = stopId(plan, ORDERS.get(1));
+        RouteId v2 = routeId(plan, V2);
+        plan.moveStop(
+                moved, v2, 0, evaluationOf(plan, plan.afterMove(moved, v2, 0)).build(), TODAY);
+        plan = reload(plan);
+        assertThat(plan.snapshot().undo()).hasSize(3);
+        plan.publish(checksFor(plan), DISPATCHER, TODAY, LATER);
+        return reload(plan);
+    }
+
     /** An order and attempt a proposal is dealt. */
     private record SolvedStopKey(OrderId order, Attempt attempt) {}
 
@@ -413,7 +469,8 @@ class PlanSequenceTest {
             Supplier<Plan> fresh,
             List<String> commands,
             Step step,
-            Map<String, Integer> applied) {
+            Map<String, Integer> applied,
+            Map<String, Integer> unchanged) {
         Plan plan = fresh.get();
         for (int n = 0; n < STEPS; n++) {
             String command = commands.get(random.nextInt(commands.size()));
@@ -421,9 +478,17 @@ class PlanSequenceTest {
             PlanSnapshot before = plan.snapshot();
             try {
                 String takenOff = step.run(command, plan, random, n);
-                checkNothingLost(before, plan.snapshot(), takenOff, where);
+                PlanSnapshot after = plan.snapshot();
+                checkNothingLost(before, after, takenOff, where);
+                if (after.equals(before)) {
+                    assertThat(plan.pendingEvents())
+                            .as(where + ": no change, no event")
+                            .isEmpty();
+                    unchanged.merge(command, 1, Integer::sum);
+                } else {
+                    applied.merge(command, 1, Integer::sum);
+                }
                 plan = reload(plan);
-                applied.merge(command, 1, Integer::sum);
             } catch (RuleViolation | RuleViolations refused) {
                 assertThat(plan.snapshot()).as(where).isEqualTo(before);
                 assertThat(plan.pendingEvents()).as(where).isEmpty();
@@ -432,17 +497,19 @@ class PlanSequenceTest {
                 throw new AssertionError(where + ": " + unexpected, unexpected);
             }
             checkInvariants(plan.snapshot(), where);
-            if (plan.status() instanceof Plan.Status.Cancelled) {
+            if (plan.status() instanceof Plan.Status.Cancelled
+                    || heldOrders(plan.snapshot()).size() < FEWEST_HELD) {
                 plan = fresh.get();
             }
         }
     }
 
-    private static void assertEveryCommandApplied(List<String> commands, Map<String, Integer> applied) {
+    private static void assertEveryCommandApplied(
+            List<String> commands, Map<String, Integer> applied, Map<String, Integer> unchanged) {
         Stream.of(commands.toArray(String[]::new))
                 .distinct()
                 .forEach(command -> assertThat(applied.getOrDefault(command, 0))
-                        .as(command + " applied across the seeds, of " + applied)
+                        .as(command + " changed the plan across the seeds, of " + applied + "; no change: " + unchanged)
                         .isGreaterThanOrEqualTo(MINIMUM_APPLIED));
     }
 
@@ -498,6 +565,14 @@ class PlanSequenceTest {
         s.routes().forEach(route -> route.stops().forEach(stop -> keys.add(key(stop.order(), stop.attempt()))));
         s.dropped().forEach(drop -> keys.add(key(drop.order(), drop.attempt())));
         return keys;
+    }
+
+    /** The orders the plan serves or drops, so a removal mostly finds one. */
+    private static List<OrderId> heldOrders(PlanSnapshot s) {
+        List<OrderId> held = new ArrayList<>();
+        s.routes().forEach(route -> route.stops().forEach(stop -> held.add(stop.order())));
+        s.dropped().forEach(drop -> held.add(drop.order()));
+        return held;
     }
 
     private static String key(OrderId order) {

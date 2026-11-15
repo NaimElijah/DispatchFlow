@@ -390,21 +390,23 @@ public final class ImportBatch extends AggregateRoot implements PersonalData {
     }
 
     /**
-     * The order's recipient (FR-87, ADR-115). A row whose recipient columns are filled keeps them. A
-     * row that gives none, and whose name or phone differs from its customer's, names someone else at
-     * the address, such as a neighbour in another flat: its name and phone become the recipient, so
-     * that person's messages reach them and not the customer (FR-348).
+     * The order's recipient (FR-87, ADR-115). A row that gives no recipient, and whose name or phone
+     * differs from its customer's, names someone else at the address, such as a neighbour in another
+     * flat: its name and phone become the recipient, so that person's messages reach them and not the
+     * customer (FR-348). A row whose recipient columns are filled keeps them, and a part they leave
+     * empty takes the row's name or phone where that differs from the customer's, so a recipient with
+     * no phone of their own still gets the row's phone and not the customer's.
      */
     private static Recipient recipientOf(ImportLine line, CustomerMatch.Candidate customer) {
         Recipient given = line.order().recipient();
-        if (!given.equals(Recipient.NONE)) {
-            return given;
+        Optional<ContactName> otherName = line.name().filter(name -> !name.equals(customer.name()));
+        Optional<PhoneNumber> otherPhone = line.phone().filter(phone -> !phone.equals(customer.phone()));
+        if (given.equals(Recipient.NONE)) {
+            return otherName.isPresent() || otherPhone.isPresent()
+                    ? new Recipient(line.name(), line.phone())
+                    : Recipient.NONE;
         }
-        boolean otherName =
-                line.name().filter(name -> !name.equals(customer.name())).isPresent();
-        boolean otherPhone =
-                line.phone().filter(phone -> !phone.equals(customer.phone())).isPresent();
-        return otherName || otherPhone ? new Recipient(line.name(), line.phone()) : Recipient.NONE;
+        return new Recipient(given.name().or(() -> otherName), given.phone().or(() -> otherPhone));
     }
 
     /**

@@ -36,10 +36,12 @@ On 2026-11-15 the owner, Naim Elijah, decided:
 1. **An import row that names someone else gives its order that person as the recipient**
    ([FR-87], [FR-348], [FR-311]). When a row gives no recipient, and its name or its phone differs
    from those of the customer it matches or shares, the row's name and phone become its order's
-   recipient. A row whose recipient columns are filled keeps them as they are. A row whose name and
-   phone are the customer's, or that gives neither, gets no recipient of its own. The match a use
-   case builds for an existing customer therefore carries the customer's name and phone beside its
-   defaults (`CustomerMatch.Candidate`). This amends [ADR-102]'s reading that rows sharing a new
+   recipient. A row whose recipient columns are filled keeps them, and a recipient part they leave
+   empty takes the row's name or phone when that differs from the customer's: a row that names its
+   recipient but gives no recipient phone still sends that person's messages to the row's own phone,
+   not the customer's. A row whose name and phone are the customer's, or that gives neither, gets no
+   recipient of its own. The match a use case builds for an existing customer therefore carries the
+   customer's name and phone beside its defaults (`CustomerMatch.Candidate`). This amends [ADR-102]'s reading that rows sharing a new
    customer are made from the first of them: they still share that customer, and each later row
    keeps its own contact as its order's recipient.
 2. **Putting an order back onto another date raises `OrderPutBack`** ([FR-75], [FR-258], [FR-316]).
@@ -61,7 +63,10 @@ On 2026-11-15 the owner, Naim Elijah, decided:
    the date's orders carry the new attempt. Until the plan is solved or re-optimized again, a ready
    plan refuses to publish with `OrderNotAccounted` for the new attempt, which is the refusal the
    dispatcher needs: the new attempt has no stop yet ([BR-72]). The next solve, or the re-optimization
-   that [FR-75] names, replaces the plan's drops, so the old attempt's drop leaves with no event.
+   that [FR-75] names, replaces the plan's drops, so the old attempt's drop leaves with no event. The
+   optimizer knows only the order's current attempt, so an accepted re-optimization that serves or
+   drops a later attempt of the order takes the old attempt's drop off, and one that holds the order
+   under no later attempt carries the drop forward as it was ([ADR-112] point 1).
 4. **Orders' commands clamp a time that a stepped-back clock gives.** `ImportBatch.confirm` and
    `discard` record the preview's time when `now` is earlier, and `Customer.retire` records the
    customer's creation time when `now` is earlier. So the state they save is one `restore` accepts.
@@ -124,6 +129,7 @@ On 2026-11-15 the owner, Naim Elijah, decided:
 [ADR-102]: ADR-102-order-references-are-checked-on-every-move-to-a-date.md
 [ADR-106]: ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md
 [ADR-111]: ADR-111-attempt-is-a-shared-kernel-value-and-names-and-addresses-drop-invisible-fillers.md
+[ADR-112]: ADR-112-a-re-optimization-keeps-every-order-and-route-a-solve-that-breaks-a-lock-fails-and-publishing-clears-locks.md
 [DL-43]: ../architecture/domain_layer/domain_layer_design.md#43-customers--orders
 [DL-72]: ../architecture/domain_layer/domain_layer_design.md#72-the-events
 [DL-73]: ../architecture/domain_layer/domain_layer_design.md#73-shape-and-delivery

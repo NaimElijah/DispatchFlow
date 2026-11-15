@@ -375,6 +375,74 @@ class ImportBatchTest {
                             Optional.of(ContactName.of("דנה לוי")), Optional.of(PhoneNumber.parse("052-345-6789"))));
         }
 
+        @Test
+        void
+                GivenARecipientNameButNoRecipientPhone_WhenTheRowsPhoneDiffersFromTheCustomers_ThenItFillsTheRecipientPhone() {
+            ImportRow namedOnly = new ImportRow.Parsed(
+                    RowNumber.of(1),
+                    new ImportLine(
+                            KNOWN_ADDRESS,
+                            Optional.of(ContactName.of("אבי כהן")),
+                            Optional.of(PhoneNumber.parse("054-222-2222")),
+                            TOMORROW,
+                            details(TOMORROW)
+                                    .withRecipient(
+                                            new Recipient(Optional.of(ContactName.of("אבי כהן")), Optional.empty()))));
+
+            ImportResult result = anImportBatch()
+                    .withRows(namedOnly)
+                    .previewed()
+                    .confirm(context(), false, ids(1), TODAY, HALF_AN_HOUR_LATER);
+
+            assertThat(result.orders().get(0).snapshot().recipient())
+                    .isEqualTo(new Recipient(
+                            Optional.of(ContactName.of("אבי כהן")), Optional.of(PhoneNumber.parse("054-222-2222"))));
+        }
+
+        @Test
+        void
+                GivenARecipientPhoneButNoRecipientName_WhenTheRowsNameDiffersFromTheCustomers_ThenItFillsTheRecipientName() {
+            ImportRow phoneOnly = new ImportRow.Parsed(
+                    RowNumber.of(1),
+                    new ImportLine(
+                            KNOWN_ADDRESS,
+                            Optional.of(ContactName.of("אבי כהן")),
+                            Optional.of(ImportBatchBuilder.PHONE),
+                            TOMORROW,
+                            details(TOMORROW)
+                                    .withRecipient(new Recipient(
+                                            Optional.empty(), Optional.of(PhoneNumber.parse("054-333-3333"))))));
+
+            ImportResult result = anImportBatch()
+                    .withRows(phoneOnly)
+                    .previewed()
+                    .confirm(context(), false, ids(1), TODAY, HALF_AN_HOUR_LATER);
+
+            assertThat(result.orders().get(0).snapshot().recipient())
+                    .isEqualTo(new Recipient(
+                            Optional.of(ContactName.of("אבי כהן")), Optional.of(PhoneNumber.parse("054-333-3333"))));
+        }
+
+        @Test
+        void GivenARecipientNameButNoRecipientPhone_WhenTheRowsPhoneIsTheCustomers_ThenTheRecipientStaysAsGiven() {
+            Recipient namedOnly = new Recipient(Optional.of(ContactName.of("אבי כהן")), Optional.empty());
+            ImportRow customersPhone = new ImportRow.Parsed(
+                    RowNumber.of(1),
+                    new ImportLine(
+                            KNOWN_ADDRESS,
+                            Optional.of(ContactName.of("אבי כהן")),
+                            Optional.of(ImportBatchBuilder.PHONE),
+                            TOMORROW,
+                            details(TOMORROW).withRecipient(namedOnly)));
+
+            ImportResult result = anImportBatch()
+                    .withRows(customersPhone)
+                    .previewed()
+                    .confirm(context(), false, ids(1), TODAY, HALF_AN_HOUR_LATER);
+
+            assertThat(result.orders().get(0).snapshot().recipient()).isEqualTo(namedOnly);
+        }
+
         static Stream<Arguments> rowsNamingTheCustomer() {
             return Stream.of(
                     Arguments.of(

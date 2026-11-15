@@ -25,7 +25,6 @@ import com.dispatchflow.planning.domain.PlanningError.PlanNotReady;
 import com.dispatchflow.planning.domain.PlanningError.PositionOutOfRange;
 import com.dispatchflow.planning.domain.PlanningError.ProposalDeclined;
 import com.dispatchflow.planning.domain.PlanningError.ProposalForAnotherPlan;
-import com.dispatchflow.planning.domain.PlanningError.ProposalLosesOrder;
 import com.dispatchflow.planning.domain.PlanningError.ProposalOutdated;
 import com.dispatchflow.planning.domain.PlanningError.PublishingRefused;
 import com.dispatchflow.planning.domain.PlanningError.RecheckFailed;
@@ -118,7 +117,7 @@ import org.jspecify.annotations.Nullable;
  * <p>Every command checks every rule before it changes anything, so a refused call leaves the state
  * and the pending events as they were. Every command also passes the state it would leave through
  * the same at-rest invariants {@link #restore} checks, so no command can leave a state that would
- * not load again. The rules no document settled are ADR-101's.
+ * not load again. The rules no document settled are ADR-101's, and the readings ADR-112 records.
  */
 public final class Plan extends AggregateRoot {
 
@@ -488,8 +487,7 @@ public final class Plan extends AggregateRoot {
         requireDraftOrReady();
         requireNotPast(today);
         requireCurrentAndAvailable(evaluation);
-        Optional<PinTarget> before = layout.pinOf(order);
-        commitPinEdit(layout.pinning(order, Optional.of(target)), evaluation, new Edit.Pinned(order, before, target));
+        commitPinEdit(pinning(order, target), evaluation);
     }
 
     /**
@@ -505,8 +503,7 @@ public final class Plan extends AggregateRoot {
         requireDraftOrReady();
         requireNotPast(today);
         requireCurrentAndAvailable(evaluation);
-        PinTarget before = layout.pinOf(order).orElseThrow(() -> new RuleViolation(new OrderNotPinned(order)));
-        commitPinEdit(layout.pinning(order, Optional.empty()), evaluation, new Edit.Unpinned(order, before));
+        commitPinEdit(unpinning(order), evaluation);
     }
 
     /**
@@ -649,12 +646,18 @@ public final class Plan extends AggregateRoot {
      *   <li>A vehicle keeps its route's ID and index, and its confirmed return when it keeps its
      *       driver; an order and attempt keeps its stop's ID, from any route, withdrawn ones included.
      *   <li>A route the proposal gives no route stays with its prefix, or with no stops left, and is
-     *       marked withdrawn when the proposal withdraws its vehicle (FR-271).
+     *       marked withdrawn when the proposal withdraws its vehicle (FR-271). When the proposal takes
+     *       stops from it, it is not yet checked (FR-395), and with no stops left it has no times.
      *   <li>A vehicle withdrawn earlier that the proposal withdraws again and routes keeps that
      *       withdrawn route: its ID, index and stops, and takes the proposal's cause.
      *   <li>Any other route withdrawn earlier stays as it is (FR-268), and an order it holds that the
      *       proposal serves or drops elsewhere refuses the acceptance (BR-07, ADR-101).
-     *   <li>Every order and attempt the plan held is still held, on a route or dropped (BR-07).
+     *   <li>The proposal's drops replace the plan's. A drop of the plan that the proposal neither
+     *       serves nor drops leaves when the proposal holds a later attempt of its order, as after a
+     *       put-back onto the same date (ADR-115), and is otherwise carried forward as it was, as
+     *       after a put-back onto another date (ADR-112).
+     *   <li>So every other order and attempt the plan held is still held, on a route or dropped
+     *       (BR-07).
      *   <li>The routes keep their order in the plan, and a new route joins the end. No route takes a
      *       lock, because a published plan holds none.
      * </ul>
@@ -674,9 +677,7 @@ public final class Plan extends AggregateRoot {
      *     ProposalForAnotherPlan}, {@link ProposalDeclined}, {@link ProposalOutdated} naming every
      *     change, including any revision since its basis (BR-25, BR-82), {@link VehicleUnavailable}
      *     naming every vehicle (BR-64, BR-65), {@link OrderAlreadyInPlan}, {@link
-     *     VehicleAlreadyHasRoute}, {@link DriverAlreadyHasRoute}, {@link RouteIndexesUsedUp}, or
-     *     {@link ProposalLosesOrder} for an order and attempt it neither serves nor drops and no route
-     *     keeps
+     *     VehicleAlreadyHasRoute}, {@link DriverAlreadyHasRoute}, or {@link RouteIndexesUsedUp}
      */
     public void accept(
             ReoptimizationProposal proposal,
@@ -713,8 +714,7 @@ public final class Plan extends AggregateRoot {
                 .toList();
         List<Route> leftOut = active.stream()
                 .filter(route -> !routed.contains(route.vehicle()))
-                .map(route -> route.withWithdrawal(withdrawalFor(offer, route.vehicle()))
-                        .withStops(keptStops(route, taken)))
+                .map(route -> leftOutRoute(route, withdrawalFor(offer, route.vehicle()), keptStops(route, taken)))
                 .toList();
         List<Route> rewithdrawn = rewithdrawnRoutes(offer, before, covered);
         List<Route> matchable = new ArrayList<>(covered);
@@ -732,9 +732,10 @@ public final class Plan extends AggregateRoot {
                 vehicle -> withdrawalFor(offer, vehicle),
                 route -> keptStops(route, taken));
         List<Route> next = inPlanOrder(before, placed, leftOut);
-        Layout after = new Layout(next, offer.dropped(), layout.pins());
+        Set<StopKey> superseded = supersededDrops(taken);
+        Layout after = new Layout(next, droppedAfter(offer, taken, superseded), layout.pins());
         requireEachOrderOnce(after);
-        requireNothingLost(offer.id(), after);
+        requireNothingLost(after, superseded);
         List<VehicleWithdrawal> newlyWithdrawn = next.stream()
                 .filter(route -> before.stream().noneMatch(old -> old.id().equals(route.id()) && old.withdrawn()))
                 .flatMap(route -> route.withdrawal().stream()
@@ -773,8 +774,8 @@ public final class Plan extends AggregateRoot {
      * @param today the current date in {@code Asia/Jerusalem}
      * @param now the time of the hand-over
      * @throws RuleViolation with {@link PlanNotPublished}, {@link DateInPast}, {@link RouteNotInPlan},
-     *     {@link RouteWithdrawn}, {@link StaleEvaluation}, {@link NotAnActiveDriver}, {@link
-     *     DriverNotAvailable}, {@link DriverAlreadyHasRoute} (FR-302), or {@link BreakNotConfirmed}
+     *     {@link RouteWithdrawn}, {@link DriverAlreadyHasRoute} (FR-302), {@link StaleEvaluation},
+     *     {@link NotAnActiveDriver}, {@link DriverNotAvailable}, or {@link BreakNotConfirmed}
      */
     public void handOver(
             RouteId route,
@@ -975,7 +976,8 @@ public final class Plan extends AggregateRoot {
 
     /**
      * Cancels the published plan for a day that doesn't run, while no route has started and no stop
-     * is reported (FR-336, BR-103). Its routes stay as they were, and cancelling makes no revision. Raises {@link PlanCancelled}, so its drivers are alerted (FR-337).
+     * is reported (FR-336, BR-103). Its routes stay as they were, and cancelling makes no revision.
+     * Raises {@link PlanCancelled}, so its drivers are alerted (FR-337).
      *
      * @param started what has happened on its routes
      * @param today the current date in {@code Asia/Jerusalem}
@@ -1104,6 +1106,34 @@ public final class Plan extends AggregateRoot {
     public PlanLayout afterPlacing(OrderId order, Attempt attempt, RouteId toRoute, int position, StopId newStop) {
         requireReady();
         return placing(order, attempt, toRoute, position, newStop).after().view();
+    }
+
+    /**
+     * The plan as {@link #pin} would leave it, for the evaluation that command takes. It changes
+     * nothing, and the command leaves exactly this layout (ADR-112).
+     *
+     * @param order the order
+     * @param target the vehicle or driver
+     * @return the layout with the order pinned to the target, replacing any pin it had
+     * @throws RuleViolation with {@link PlanNotDraftOrReady}, as the command would
+     */
+    public PlanLayout afterPin(OrderId order, PinTarget target) {
+        requireDraftOrReady();
+        return pinning(order, target).after().view();
+    }
+
+    /**
+     * The plan as {@link #unpin} would leave it, for the evaluation that command takes. It changes
+     * nothing, and the command leaves exactly this layout (ADR-112).
+     *
+     * @param order the order
+     * @return the layout without the order's pin
+     * @throws RuleViolation with {@link PlanNotDraftOrReady} or {@link OrderNotPinned}, as the command
+     *     would
+     */
+    public PlanLayout afterUnpin(OrderId order) {
+        requireDraftOrReady();
+        return unpinning(order).after().view();
     }
 
     /**
@@ -1492,10 +1522,22 @@ public final class Plan extends AggregateRoot {
         return layout.changing(route, handed -> handed.withDriver(driver));
     }
 
-    private void commitPinEdit(Layout after, Evaluation evaluation, Edit edit) {
-        Next change = next().layout(after.judgedBy(evaluation, version(), true));
+    /** {@link #pin}'s change, which {@link #afterPin} also returns. */
+    private EditedLayout pinning(OrderId order, PinTarget target) {
+        Optional<PinTarget> before = layout.pinOf(order);
+        return new EditedLayout(layout.pinning(order, Optional.of(target)), new Edit.Pinned(order, before, target));
+    }
+
+    /** {@link #unpin}'s change, which {@link #afterUnpin} also returns. */
+    private EditedLayout unpinning(OrderId order) {
+        PinTarget before = layout.pinOf(order).orElseThrow(() -> new RuleViolation(new OrderNotPinned(order)));
+        return new EditedLayout(layout.pinning(order, Optional.empty()), new Edit.Unpinned(order, before));
+    }
+
+    private void commitPinEdit(EditedLayout edited, Evaluation evaluation) {
+        Next change = next().layout(edited.after().judgedBy(evaluation, version(), true));
         if (status instanceof Status.Ready) {
-            change.violations(evaluation.violations()).journaling(edit);
+            change.violations(evaluation.violations()).journaling(edited.edit());
         }
         commit(change);
     }
@@ -1800,12 +1842,67 @@ public final class Plan extends AggregateRoot {
         return next;
     }
 
-    /** BR-07's other half: every order and attempt the plan held, the layout still serves or drops. */
-    private void requireNothingLost(ProposalId proposal, Layout after) {
+    /**
+     * A route the proposal gives no route: it keeps the stops the proposal neither serves nor drops.
+     * When that changes its stops it is not yet checked, for the re-check job (FR-395), and a route
+     * left with no stops has no times, as the validator gives an empty route none (ADR-112).
+     */
+    private static Route leftOutRoute(Route route, Optional<Withdrawal> withdrawal, List<PlannedStop> kept) {
+        Route left = route.withWithdrawal(withdrawal);
+        if (kept.equals(route.stops())) {
+            return left;
+        }
+        Route changed = left.withStops(kept).withCheck(CheckState.NOT_YET_CHECKED);
+        return kept.isEmpty() ? changed.withPlan(Optional.empty()) : changed;
+    }
+
+    /**
+     * The plan's drops that the proposal replaces with a later attempt of the same order, served or
+     * dropped: a dropped order put back onto its own date, whose old attempt the optimizer no longer
+     * knows (ADR-115).
+     */
+    private Set<StopKey> supersededDrops(Set<StopKey> taken) {
+        Set<StopKey> superseded = new HashSet<>();
+        for (DroppedOrder dropped : layout.dropped()) {
+            StopKey drop = new StopKey(dropped.order(), dropped.attempt());
+            boolean later = taken.stream()
+                    .anyMatch(key ->
+                            key.order().equals(drop.order()) && key.attempt().compareTo(drop.attempt()) > 0);
+            if (later && !taken.contains(drop)) {
+                superseded.add(drop);
+            }
+        }
+        return superseded;
+    }
+
+    /**
+     * The drops an acceptance leaves: the proposal's, and each other drop of the plan that the
+     * proposal neither serves nor drops, carried forward as it was, such as an order put back onto
+     * another date, which a published plan keeps as the day's history (ADR-112). A superseded drop
+     * leaves.
+     */
+    private List<DroppedOrder> droppedAfter(
+            ReoptimizationProposalSnapshot offer, Set<StopKey> taken, Set<StopKey> superseded) {
+        List<DroppedOrder> dropped = new ArrayList<>(offer.dropped());
+        layout.dropped().stream()
+                .filter(drop -> {
+                    StopKey key = new StopKey(drop.order(), drop.attempt());
+                    return !taken.contains(key) && !superseded.contains(key);
+                })
+                .forEach(dropped::add);
+        return dropped;
+    }
+
+    /**
+     * BR-07's other half: every order and attempt the plan held, except a superseded drop, the layout
+     * still serves or drops. Every stop and drop the proposal doesn't hold is kept before this point,
+     * so a loss here is a bug in {@link #accept}, not a refusal.
+     */
+    private void requireNothingLost(Layout after, Set<StopKey> superseded) {
         Set<StopKey> held = new HashSet<>(after.keys());
         for (StopKey key : layout.keys()) {
-            if (!held.contains(key)) {
-                throw new RuleViolation(new ProposalLosesOrder(proposal, key.order(), key.attempt()));
+            if (!held.contains(key) && !superseded.contains(key)) {
+                throw new AssertionError("accepting a proposal would lose an order and attempt the plan held");
             }
         }
     }
