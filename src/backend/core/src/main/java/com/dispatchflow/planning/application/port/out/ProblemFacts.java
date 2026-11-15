@@ -27,9 +27,9 @@ import java.util.Optional;
  * from, in Planning's own values (DL §2.3 rule 1, TS §2.1 rule 4): the date's uncancelled orders,
  * the depots, the vehicles that may drive, the rostered drivers, the travel model's settings and the
  * matrix. {@code SolveRequestAssembler} builds it from Customers &amp; Orders' {@code OrdersForDate},
- * Fleet's {@code FleetFacts}, the planning settings and the stored matrix; the optimizer adapter turns
- * it into the {@code optimizer-api} request, and the Python {@code ProblemFactory} applies every rule
- * (DL §10.2, ADR-050).
+ * Fleet's {@code FleetFacts}, the planning settings, the configured {@link SolveConfiguration} and the
+ * stored matrix; the optimizer adapter turns it into the {@code optimizer-api} request, and the Python
+ * {@code ProblemFactory} applies every rule (DL §10.2, ADR-050).
  *
  * <p>Built in M0.
  *
@@ -43,9 +43,11 @@ import java.util.Optional;
  *     requires a driver for every daily vehicle (FR-56, FR-194, ADR-105); for a re-optimization,
  *     every vehicle of the plan, whatever its state, which the request's routes give (ADR-050)
  * @param drivers the date's rostered drivers who are available, each once (FR-54, FR-82)
- * @param travel the travel model's settings (FR-321, FR-322, FR-227, FR-21, FR-67)
+ * @param travel the travel model's settings, and the configured values every solve takes (FR-321,
+ *     FR-322, FR-227, FR-21, FR-67, BR-120, FR-81, ADR-121)
  * @param matrix the base travel matrix over every distinct location of the orders and depots
- *     (ADR-052)
+ *     (ADR-052): the plan's stored matrix, or a new one over the new list of locations when the
+ *     stored one lacks a location (ADR-121)
  */
 public record ProblemFacts(
         DeliveryDate date,
@@ -220,21 +222,34 @@ public record ProblemFacts(
     }
 
     /**
-     * The planning settings the travel model and the objective take (FR-321, FR-322, FR-408, FR-227,
-     * FR-21, FR-67, FR-226).
+     * The planning settings the travel model and the objective take, and the configured values that
+     * every solve, evaluation and re-optimization takes (FR-321, FR-322, FR-408, FR-227, FR-21, FR-67,
+     * FR-226, BR-120, FR-81, BR-105, ADR-121). A re-optimization's request adds its own two values
+     * (see {@code ReoptimizationRequest}).
+     *
+     * <p>The optimizer applies the departure allowance. The core sends it as it is and never folds it
+     * into the shift times, so the Python {@code ProblemFactory} alone decides how a route's start and
+     * its planned times take it (ADR-050, ADR-121). The factory has no input for it yet: a domain gap
+     * that M0 closes, for the daily solve and the re-optimization.
      *
      * <p>Built in M0.
      *
      * @param buckets the travel-time buckets and their factors
      * @param buffer the travel-time buffer
      * @param fixedVehicleCost the fixed cost per vehicle used, or off
-     * @param departureAllowance the time between a shift's start and leaving the depot
+     * @param departureAllowance the time between a shift's start and leaving the depot, which the
+     *     optimizer applies (FR-67, FR-226, ADR-121)
+     * @param doorWindowRate the door-window rate, from {@link SolveConfiguration} (BR-120, ADR-121)
+     * @param breaksReserved whether routes reserve time for breaks, from {@link SolveConfiguration}
+     *     (FR-81, BR-105, ADR-121)
      */
     public record TravelModel(
             TravelBuckets buckets,
             Buffer buffer,
             FixedVehicleCost fixedVehicleCost,
-            DepartureAllowance departureAllowance) {
+            DepartureAllowance departureAllowance,
+            SolveConfiguration.Factor doorWindowRate,
+            boolean breaksReserved) {
 
         /** Checks every part is present. */
         public TravelModel {
@@ -242,6 +257,7 @@ public record ProblemFacts(
             Objects.requireNonNull(buffer, "buffer");
             Objects.requireNonNull(fixedVehicleCost, "fixedVehicleCost");
             Objects.requireNonNull(departureAllowance, "departureAllowance");
+            Objects.requireNonNull(doorWindowRate, "doorWindowRate");
         }
     }
 }

@@ -10,15 +10,16 @@ import java.util.List;
  * DL §9.6) and before it puts an order back (FR-75, FR-258). Planning implements it as its {@code
  * OrderPlacementService} (DL §2.1's dashed arrow).
  *
- * <p>Built in M2 and M9, method by method.
+ * <p>Built in M2, for the order screens and a change's answer (ADR-121).
  */
 public interface OrderPlacement {
 
     /**
      * Where the plan of a date holds one attempt of an order. Planning keeps no order's date, so
-     * the caller names it, and Planning reads that date's plans only.
+     * the caller names it, and Planning reads that date's plans only. It reads the same Planning view
+     * as {@link #placementsOn}, so the order screens and a change's answer agree (FR-396, ADR-121).
      *
-     * <p>Built in M9.
+     * <p>Built in M2.
      *
      * @param order the order
      * @param date the date whose plans are asked, the order's date

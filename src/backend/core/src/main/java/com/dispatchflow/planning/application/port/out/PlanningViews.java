@@ -210,9 +210,10 @@ public interface PlanningViews {
     Optional<PlanId> planOfRoute(RouteId route);
 
     /**
-     * Where the plan of an order's date holds one attempt (BR-33, DL §9.6).
+     * Where the plan of an order's date holds one attempt (BR-33, DL §9.6). It reads the same view as
+     * {@link #placementsOn}, narrowed to the one order and attempt (ADR-121).
      *
-     * <p>Built in M9.
+     * <p>Built in M2.
      *
      * @param order the order
      * @param date the order's delivery date, whose plans are read

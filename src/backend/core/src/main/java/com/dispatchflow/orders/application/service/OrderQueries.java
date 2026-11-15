@@ -44,8 +44,9 @@ public final class OrderQueries {
     }
 
     /**
-     * Every order of a date with its status (FR-76, BR-33). Until Live Operations implements {@link
-     * StopProgress} (M5), no order is delivered or failed.
+     * Every order of a date with its status (FR-76, BR-33). Live Operations' {@link StopProgress}
+     * answers no report for every stop in M2, and in full from M5 (ADR-121), so until M5 no order is
+     * delivered or failed.
      *
      * <p>Built in M2.
      *

@@ -14,7 +14,11 @@ import java.util.List;
 public interface TravelTimes {
 
     /**
-     * The base travel times and road distances between every pair of distinct points (NFR-57).
+     * The base travel times and road distances between every pair of distinct points (NFR-57). A
+     * daily solve asks it when its plan has no stored matrix over its locations. A re-optimization,
+     * an edit check or the publishing re-check asks it, over the whole new list of locations, when
+     * the plan's stored matrix lacks one of them, such as a new or late order's address (FR-35,
+     * ADR-121).
      *
      * <p>Built in M3.
      *
@@ -29,9 +33,10 @@ public interface TravelTimes {
     /**
      * The base travel times and road distances from each source to each target, in one {@code table}
      * call: a re-optimization adds these rows, one from each vehicle's latest position to every
-     * location of the plan's stored matrix, depots included, and asks for no new matrix (ADR-050,
-     * ADR-052). Whether a position is usable is the optimizer's to judge, so every latest position
-     * gets its row (BR-80, ADR-050).
+     * location of its matrix, depots included (ADR-050, ADR-052). Its matrix is the plan's stored
+     * one when that has every location, and otherwise the one {@link #between} answered over the new
+     * list (ADR-121). Whether a position is usable is the optimizer's to judge, so every latest
+     * position gets its row (BR-80, ADR-050).
      *
      * <p>Built in M9.
      *

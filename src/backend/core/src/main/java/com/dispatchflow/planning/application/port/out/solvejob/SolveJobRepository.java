@@ -6,6 +6,7 @@ import com.dispatchflow.planning.events.Lane;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.JobId;
 import com.dispatchflow.shared.application.StaleVersion;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,7 +18,7 @@ import java.util.Optional;
  * <p>M0 builds a first cut, the daily lane's queue; M4 completes it, as the roadmap's M4 builds "the
  * {@code solve_job} queue, one worker per lane" (ADR-051).
  *
- * <p>Built in M0, M4 and M5, method by method.
+ * <p>Built in M0, M4, M5 and M13, method by method.
  */
 public interface SolveJobRepository {
 
@@ -98,4 +99,32 @@ public interface SolveJobRepository {
      * @return the jobs, oldest first
      */
     List<JobId> unfinishedOn(DeliveryDate date);
+
+    /**
+     * Blanks every coordinate in the stored inputs of the solve jobs of every plan dated before a
+     * cutoff, in the caller's transaction: the orders' and the depots' locations, the matrix's list
+     * of locations, and a re-optimization's positions and its position rows' points (NFR-257,
+     * NFR-260, ADR-121). The inputs keep everything else, so a job's result and failure still read. An
+     * input already blanked is left as it is, so a second run blanks nothing.
+     *
+     * <p>Built in M13.
+     *
+     * @param cutoff the first date whose plans' jobs keep their coordinates: today less 90 days
+     * @return how many jobs' inputs were blanked
+     */
+    int blankCoordinatesDatedBefore(DeliveryDate cutoff);
+
+    /**
+     * Blanks every vehicle position received at or before a cutoff in the stored inputs of
+     * re-optimization jobs, with the position rows' points that start from it, in the caller's
+     * transaction, as Live Operations deletes the positions themselves (NFR-184, NFR-260, ADR-121). A
+     * position already blanked is left as it is.
+     *
+     * <p>Built in M13.
+     *
+     * @param cutoff the latest receipt time a blanked position has: now less 7 days, in {@code
+     *     Asia/Jerusalem}
+     * @return how many jobs' inputs had a position blanked
+     */
+    int blankPositionsReceivedBy(Instant cutoff);
 }

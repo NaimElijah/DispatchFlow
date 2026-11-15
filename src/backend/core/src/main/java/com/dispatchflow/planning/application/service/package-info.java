@@ -3,7 +3,9 @@
  * {@link com.dispatchflow.planning.application.service.SolveRequestAssembler}, which gathers what the
  * optimizer is asked, and the midnight job {@link
  * com.dispatchflow.planning.application.service.CloseDeliveryDate}, which ends a date's solve jobs and
- * then its plan.
+ * then its plan, and the retention step {@link
+ * com.dispatchflow.planning.application.service.EraseExpiredLocations}, which ends Planning's copies of
+ * coordinates and positions (ADR-121).
  *
  * <p>The use cases of one aggregate sit in its subpackage: {@code plan}, {@code solvejob}, {@code
  * proposal} and {@code settings} (ADR-118's rule). Each use case is one class: outside calls first,

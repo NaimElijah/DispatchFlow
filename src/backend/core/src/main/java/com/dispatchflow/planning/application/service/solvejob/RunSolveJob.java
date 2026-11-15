@@ -21,13 +21,16 @@ import com.dispatchflow.shared.application.IdGenerator;
  *
  * <ul>
  *   <li>A daily job's validated solution is checked against the plan's locks first ({@code
- *       Plan.locksBrokenBy}): a broken lock fails the job with {@code SolveFailure.lockNotHonoured}
- *       (FR-238). Otherwise {@code SolveJob.succeed} keeps it, and a result no plan could hold
- *       ({@code OrderAlreadyInPlan}, {@code VehicleRoutedTwice}, {@code DriverRoutedTwice}) fails
- *       the job with {@code SolveFailure.rejected} instead (ADR-112).
- *   <li>From M3, a daily job's success transaction also stores the matrix its request was built
- *       with, through {@link StoredMatrices#store}, so a failed job stores none and the assembler
- *       only reads (ADR-052, BR-37). A re-optimization stores none: it reuses the plan's matrix.
+ *       Plan.locksBrokenBy}), because the request doesn't send the locks until the optimizer has a
+ *       lock rule (ADR-112, ADR-121): a broken lock fails the job with {@code
+ *       SolveFailure.lockNotHonoured} (FR-238). Otherwise {@code SolveJob.succeed} keeps it, and a
+ *       result no plan could hold ({@code OrderAlreadyInPlan}, {@code VehicleRoutedTwice}, {@code
+ *       DriverRoutedTwice}) fails the job with {@code SolveFailure.rejected} instead (ADR-112).
+ *   <li>From M3, a job's success transaction also stores the matrix its request was built with,
+ *       through {@link StoredMatrices#store}, so a failed job stores none and the assembler only
+ *       reads (ADR-052, BR-37). For a daily job that is its matrix; for a re-optimization, the new
+ *       matrix the assembler fetched when the stored one lacked a location, which replaces the
+ *       stored one (ADR-121). A matrix over the stored one's list leaves it as it is.
  *   <li>A re-optimization's answer becomes a {@code ReoptimizationResult}, which this step builds from
  *       the answer and the request: the request's fact time, each withdrawn vehicle's cause from its
  *       {@code VehicleState}, and the per-driver changes and goods hand-overs against the request's
@@ -78,7 +81,7 @@ public final class RunSolveJob {
      * @param proposals where a re-optimization's proposal is added
      * @param assembler builds the job's request and matrix
      * @param optimizer the optimization service
-     * @param storedMatrices each plan's stored matrix, which the success transaction writes (ADR-052)
+     * @param storedMatrices each plan's stored matrix, which the success transaction writes (ADR-052, ADR-121)
      * @param clock the time of each phase change
      * @param ids the new proposal's ID
      * @param liveUpdates the dispatchers' open screens (FR-142, FR-222)
