@@ -93,7 +93,7 @@ usability study) and the end-to-end tests ([NFR-83]: end-to-end tests).
 | FR-178 | Changing a password ends every session of that user, as [NFR-90] (role, password or email change revokes sessions) requires, so they sign in again. | Must |  |  |
 | FR-179 | The password policy of [NFR-95] (password policy) applies to the new password. | Must |  |  |
 | FR-180 | An access token issued before a password change is refused at once ([NFR-177]: revoked tokens refused at once). | Must |  |  |
-| FR-387 | An Admin can change a user's email, and a user can change their own by giving their current password. | Must |  |  |
+| FR-387 | An Admin can change a user's email, except another Admin's, which only that Admin can change ([ADR-116]: only an Admin changes their own email), and a user can change their own by giving their current password. | Must |  |  |
 | FR-388 | A new email takes effect only once a link sent to it is used, within 1 hour of sending; the old address is told, without naming the new one. | Must |  |  |
 | FR-392 | Sessions end ([NFR-90]: role, password or email change revokes sessions) when the new email takes effect, and an address another account holds is refused only then, the request being answered the same either way. | Must |  |  |
 | FR-124 | A user can choose their interface language, Hebrew or English ([NFR-27]: Hebrew and English interface). | Should |  |  |
@@ -209,7 +209,7 @@ route included.
 | FR-208 | A driver can call a customer's contact phone from a stop. | Must |  |  |
 | FR-60 | An import resolves each row to exactly one customer. | Must |  |  |
 | FR-310 | A row matches a customer on normalized address text ([FR-398]: normalized address text for matching). | Must |  |  |
-| FR-398 | Normalized address text is Unicode NFC, with whitespace trimmed and collapsed, a single geresh and a single gershayim character, abbreviations expanded from a fixed table, punctuation other than letters and digits dropped, and Latin letters in lower case. | Must |  |  |
+| FR-398 | Normalized address text is Unicode NFC, with whitespace trimmed and collapsed, a single geresh and a single gershayim character, abbreviations expanded from a fixed table, punctuation other than letters, digits, geresh and gershayim replaced by a space, and Latin letters in lower case; matching also ignores invisible format characters and non-spacing combining marks such as niqqud ([ADR-102]: order references and the abbreviation table). | Must |  |  |
 | FR-311 | A row matching no customer creates one from the row's name and phone, flagged for a pin check; a row without them is rejected. | Must |  |  |
 | FR-312 | A row matching several customers is rejected and lists them. | Must |  |  |
 | FR-61 | The import reads Hebrew text in UTF-8, with or without a byte order mark, and in Windows-1255. | Must |  |  |
@@ -271,7 +271,7 @@ route included.
 | FR-222 | The dispatcher is notified when a solve's result is ready, without reloading. | Must |  |  |
 | FR-17 | A solve assigns orders to vehicles, orders the stops of every route, and gives each stop a planned ETA, honouring every rule in [Business rules](#business-rules-and-invariants). | Must |  |  |
 | FR-18 | When not every order fits, the solve still returns a plan and lists every dropped order with the reason it was dropped. | Must |  |  |
-| FR-223 | A dropped order's reason is *capacity*, *time window*, *shift*, *displaced* by other orders, *missing location* for an order whose customer has no coordinates, or one that [FR-66] (unreachable locations are dropped), [FR-146] (take a stop off by hand), [FR-195] (depot-hours drops), [FR-201] (vehicle-limit drops) or [FR-228] (an impossible vehicle or driver pin drops the order) adds. | Must |  |  |
+| FR-223 | A dropped order's reason is *capacity*, *time window*, *shift*, *displaced* by other orders, *missing location* for an order whose customer has no coordinates, *no vehicle available* ([ADR-100]: K's door-window bound and the no-vehicle reason), or one that [FR-66] (unreachable locations are dropped), [FR-146] (take a stop off by hand), [FR-195] (depot-hours drops), [FR-201] (vehicle-limit drops) or [FR-228] (an impossible vehicle or driver pin drops the order) adds. | Must |  |  |
 | FR-19 | The solve time limit is configurable within the range in [NFR-06] (solve time limit range), with a default of 45 seconds; the solve returns the best solution found within it. | Must |  |  |
 | FR-20 | A solve or a re-optimization can be run with either solver: OR-Tools, the default, or the DispatchFlow solver (Clarke-Wright + ALNS). | Must |  |  |
 | FR-224 | Outside the optimization service, a solver is known only by its name, and choosing one changes nothing else. | Must |  |  |
@@ -594,13 +594,13 @@ Rules are grouped by subject.
 | BR-08 | **Dropping.** An order is dropped only when not every order can be served. |  |  |
 | BR-53 | **Priority scale.** Order priority is a whole number from 1, the highest, to 5, and a row without one gets 3. |  |  |
 | BR-54 | **Priority in dropping.** A drop's penalty is proportional to 6 minus the order's priority, so solves prefer to drop lower priorities; several low-priority orders can outweigh one high-priority order. |  |  |
-| BR-126 | **Drop unit.** A drop costs K(6 − priority), K being 5L + 2T + F + 1 seconds: L the date's longest shift, T the largest entry of its unbuffered per-bucket matrix at the highest factor, F the fixed vehicle cost. ([ADR-049]: drop penalty unit, scaled by priority) |  |  |
+| BR-126 | **Drop unit.** A drop costs K(6 − priority), K being 5L + 2T + F + 1 seconds: L the larger of the date's longest shift and the longest a leave-at-door stop can spend outside its window during a shift, T the largest entry of its unbuffered per-bucket matrix at the highest factor, F the fixed vehicle cost; in a re-optimization, L also covers the longest a stop can be served late within a shift, and the rate is the larger of the door-window and lateness rates ([ADR-105]: re-optimization conventions). ([ADR-049]: drop penalty unit, scaled by priority; [ADR-100]: K's door-window bound and the no-vehicle reason) |  |  |
 | BR-55 | **Fewer drops.** Equal penalties make a solve prefer fewer drops among orders of one priority, as best effort, and each penalty is large enough that no order drops just to save travel ([BR-08]: drop only when not every order fits). |  |  |
 | BR-09 | **Objective.** A solve minimizes total travel time plus drop penalties, plus the window penalty of [BR-120] (leave-at-door window penalty), plus the fixed vehicle cost when enabled ([FR-21]: fixed cost per vehicle used). |  |  |
 | BR-56 | **Re-optimization objective.** A re-optimization minimizes the objective of [BR-09] (the solve objective) plus a route-stability penalty ([FR-37]: route stability in re-optimization) and a lateness penalty ([BR-107]: re-optimization may keep late stops), as [BR-115] (the re-optimization penalties) sets them. |  |  |
 | BR-115 | **Re-optimization penalties.** Each stop that leaves its vehicle costs 5 minutes of travel time, and each late minute costs 5 minutes; both are starting values, tuned on a separate seeded set and fixed before the study's measured runs. ([ADR-029](../ADRs/ADR-029-solver-objective-and-re-optimization-rules.md): solver objective and re-optimization rules) Priority: Must. |  |  |
 | BR-120 | **Window penalty.** A leave-at-door stop served outside its window adds 5 times the time outside it to the objective, in solves and re-optimizations, replacing the lateness penalty of [BR-115] (the re-optimization penalties); 5 is a starting value, tuned with it. Priority: Must. |  |  |
-| BR-121 | **No window drops.** The common drop-penalty scale of [BR-54] (drop penalty scales with priority) is set so that every leave-at-door order's drop penalty exceeds the largest window penalty ([BR-120]: leave-at-door window penalty) the longest shift on its date allows, so *time window* is never its drop reason ([FR-223]: the drop reasons). Priority: Must. |  |  |
+| BR-121 | **No window drops.** The common drop-penalty scale of [BR-54] (drop penalty scales with priority) is set so that every leave-at-door order's drop penalty exceeds the largest window penalty ([BR-120]: leave-at-door window penalty) a leave-at-door stop on its date can incur, so *time window* is never its drop reason ([FR-223]: the drop reasons). Priority: Must. |  |  |
 | BR-15 | **Validated solutions only.** No solution, from either solver or from a re-optimization, is stored as a plan or shown as feasible unless the independent feasibility validator accepts it. |  |  |
 | BR-57 | **Rejected solutions.** A solution the validator rejects fails its solve job and lists the violations. |  |  |
 | BR-42 | **One definition of feasibility.** Manual-edit checks ([FR-233]: violations flagged after an edit), the publishing re-check ([BR-21]: re-check at publishing), solver acceptance ([BR-15]: only validator-accepted solutions count) and research scoring ([FR-279]: benchmarks scored by the shared objective, [FR-281]: what the simulation measures) use the same validator, so no solver's own check is the final word on its solution. Priority: Must. |  |  |
@@ -688,7 +688,7 @@ Rules are grouped by subject.
 | BR-133 | **Contact window.** Contact is any request from any session of the reporting account other than a token refresh or an outbox send, made from 2 minutes after the report's corrected time to 2 minutes before the report arrived. |  |  |
 | BR-134 | **Held report overtaken.** While a report is held, an outcome recorded on the stop's current route wins over it. |  |  |
 | BR-135 | **Held report refused.** A held report that the dispatcher refuses is treated as [BR-90] (contradicting reports are refused) treats a contradicting report: refused and shown to the dispatcher. |  |  |
-| BR-136 | **Further late report held.** A further late report for a stop that already has a held report is held too ([BR-132]: backdated report held). |  |  |
+| BR-136 | **Further late report held.** A further late report for a stop that already has a held report is held too ([BR-132]: backdated report held), except one from the same driver and route, which is refused: silently when identical, as a contradiction otherwise. |  |  |
 | BR-29 | **Stops may be done out of order.** A driver can report a route's stops in a different order from the plan, and the system records the actual order. |  |  |
 | BR-91 | **Out-of-order stops in re-optimization.** Re-optimization treats stops reported out of order as done in that order. The start point stays as [BR-79] (re-optimization starts from current locations) and [BR-24] (fallback start without a usable position) set it. |  |  |
 | BR-44 | **Two times on every report.** Every driver report keeps the time the device recorded and the time the server received it. Priority: Must. |  |  |
@@ -745,7 +745,7 @@ Rules are grouped by subject.
 | <a id="nfr-228"></a>NFR-228 | When a team member leaves, their server access is removed that day and every secret they held is rotated. |  |  |
 | <a id="nfr-22"></a>NFR-22 | A signed-in user stays signed in through refresh tokens. Each is exchanged once, for a new access token and the session's next refresh token. |  |  |
 | <a id="nfr-87"></a>NFR-87 | A refresh token lasts 14 days by default from its issue. |  |  |
-| <a id="nfr-88"></a>NFR-88 | Presenting a refresh token that was already exchanged revokes its whole session, except as [NFR-178] (grace for a repeated refresh) says. |  |  |
+| <a id="nfr-88"></a>NFR-88 | Presenting a refresh token that was already exchanged revokes its whole session, except as [NFR-178] (grace for a repeated refresh) says; a token the session no longer keeps is refused as unknown and revokes nothing ([ADR-104]: the company profile and role-matrix capabilities). |  |  |
 | <a id="nfr-178"></a>NFR-178 | While its session is live, a refresh token presented again within 30 seconds of its exchange gets a new token, which replaces the one that exchange issued, and revokes nothing. Presenting a replaced token revokes the session. ([ADR-036](../ADRs/ADR-036-one-account-per-person-signed-in-by-email.md): one account per person, signed in by email) Priority: Must. |  |  |
 | <a id="nfr-89"></a>NFR-89 | A sign-out revokes the session it ends. |  |  |
 | <a id="nfr-90"></a>NFR-90 | A role, password or email change revokes every session of the user. |  |  |
@@ -756,7 +756,7 @@ Rules are grouped by subject.
 | <a id="nfr-212"></a>NFR-212 | The token travels in the link's fragment; the page posts it, sends no referrer, caches nothing, and removes the token from the address bar and history as it loads. Priority: Must. |  |  |
 | <a id="nfr-213"></a>NFR-213 | A recovery, set-password or email-change link opens the web app over HTTPS, or the phone app only through verified app links: Universal Links on iOS, App Links on Android. Priority: Must. |  |  |
 | <a id="nfr-223"></a>NFR-223 | Emails that carry a link token have link and open tracking turned off. Priority: Must. |  |  |
-| <a id="nfr-224"></a>NFR-224 | Only setting the password, or confirming the email, spends a token; a newer link of a kind voids older ones of that kind, and a change of email or password voids every unspent link. Priority: Must. |  |  |
+| <a id="nfr-224"></a>NFR-224 | Only setting the password, or confirming the email, spends a token; a newer link of a kind voids older ones of that kind, and an email or password change, a deactivation or ending a user's sessions voids every unspent link. Priority: Must. |  |  |
 | <a id="nfr-92"></a>NFR-92 | Every refusal of a refresh token looks the same. |  |  |
 | <a id="nfr-23"></a>NFR-23 | Every API call that changes something, and every sign-in, refresh and sign-out, leaves one audit record. Reads are not audited. |  |  |
 | <a id="nfr-229"></a>NFR-229 | AWS Systems Manager (SSM) records who opened each session on the VM and when (CloudTrail), and records no session stream, so the reads made inside a session are not audited. |  |  |
@@ -1773,3 +1773,8 @@ DispatchFlow deliberately does not:
 [ADR-089]: ../ADRs/ADR-089-interface-languages.md
 [ADR-090]: ../ADRs/ADR-090-scope-cuts-for-the-first-release.md
 [ADR-091]: ../ADRs/ADR-091-study-design-for-the-solver-comparison.md
+[ADR-100]: ../ADRs/ADR-100-k-covers-door-windows-outside-a-shift-and-no-vehicle-is-a-drop-reason.md
+[ADR-102]: ../ADRs/ADR-102-order-references-are-checked-on-every-move-to-a-date.md
+[ADR-104]: ../ADRs/ADR-104-the-company-profile-holds-customer-defaults-and-capabilities-follow-the-role-matrix.md
+[ADR-105]: ../ADRs/ADR-105-a-re-optimizations-problem-carries-its-conventions-and-only-a-vehicle-that-is-out-has-no-driver.md
+[ADR-116]: ../ADRs/ADR-116-only-an-admin-changes-their-own-email.md

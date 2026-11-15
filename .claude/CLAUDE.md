@@ -135,6 +135,12 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 - Validate at the boundary; inside it, trust the types.
 - The formatter and linter are authoritative. Never disable a rule inline without a comment
   saying why.
+- A folder of more than 30 source files, not counting `package-info.java`, splits into subfolders of
+  what belongs together. A module's domain splits into one package per aggregate, over a root that
+  holds its error and shared values ([ADR-118]). Files the language binds stay together
+  (package-private access, a sealed hierarchy), and so do files in a dependency cycle. Never widen
+  production visibility or add a package cycle to split. The shared kernel and each `events`
+  package stay flat. Each new package carries `@NullMarked` in its `package-info.java`.
 
 ## Testing
 
@@ -215,5 +221,6 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 [ADR-038]: ../docs/ADRs/ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md
 [ADR-088]: ../docs/ADRs/ADR-088-israel-local-time-for-every-date-and-schedule.md
 [ADR-090]: ../docs/ADRs/ADR-090-scope-cuts-for-the-first-release.md
+[ADR-118]: ../docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md
 [NFR-209]: ../docs/requirements/requirements.md#nfr-209
 [NFR-262]: ../docs/requirements/requirements.md#nfr-262

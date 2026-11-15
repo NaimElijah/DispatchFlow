@@ -1,6 +1,6 @@
 # ADR-048: Travel times come from time-of-day buckets and a buffer, with no live traffic
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-098
 - **Date:** 2026-11-13
 
 ## Context

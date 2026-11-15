@@ -164,7 +164,8 @@ src/
           in/web/  in/job/  in/schedule/  in/callback/
           out/persistence/  out/osrm/  out/optimizer/  out/...
       shared/                     shared kernel: typed IDs, DeliveryDate, IsraelDateTime, DaySeconds, TimeWindow,
-                                  GeoPoint, Weight, Volume, Priority, PhoneNumber
+                                  GeoPoint, Weight, Volume, Priority, PhoneNumber, and the domain's
+                                  building blocks (errors, Version, AggregateRoot, events; ADR-097)
     src/main/resources/db/migration/   Flyway migrations, one PostgreSQL schema per module
   optimizer/                      Python, FastAPI
     dispatchflow_opt/

@@ -40,7 +40,7 @@ report findings.
 
 - **Correctness:** off-by-one, null and empty handling, wrong conditions, races, resource leaks, broken invariants.
 - **Error handling:** errors fail fast and loudly. Every catch handles, enriches or rethrows. Nothing is swallowed and nothing is caught broadly to silence it. Proper exception types are used, not sentinels.
-- **Layering in `core`** (ADR-001; the hexagon is [DL §13][DL-13]): each bounded context is one module. The package shape is in [TS §4][TS-4] and [ADR-040]. Once adopted ([TS §2.2][TS-22]), Spring Modulith's `verify()` ([ADR-040], Accepted) and the ArchUnit rules must pass.
+- **Layering in `core`** (ADR-001; the hexagon is [DL §13][DL-13]): each bounded context is one module. The package shape is in [TS §4][TS-4], [ADR-040] and [ADR-118]: a domain package of more than 30 files splits by aggregate, and each new package carries `@NullMarked`. The ArchUnit purity rules run in `just core-check` and must pass. Once adopted ([TS §2.2][TS-22]), Spring Modulith's `verify()` ([ADR-040], Accepted) must pass too.
   - A module is reached only through its `api`, `spi` and `events` named interfaces ([DL §2.3][DL-23]).
   - An upstream module never imports a downstream type: it owns a port that the downstream module implements ([DL §2.3][DL-23], rule 2).
   - `domain` obeys the six purity rules of [DL §3.9][DL-39].
@@ -51,7 +51,7 @@ report findings.
   - An error that crosses `api` is an `api` type, since no domain object crosses a boundary ([DL §2.3][DL-23], rule 1). Inside a module, every refusal is a named error of the module's sealed type, with a stable code that the web adapter puts in the problem response ([DL §3.8][DL-38]).
   - Outbound adapters implement ports the inside declares, and an adapter reaches another only through a port ([TS §2.1][TS-21]).
   - No Lombok ([TS §6][TS-6]).
-- **Layering in the solver:** `domain` imports no `fastapi`, `pydantic`, `ortools`, `pyvrp` or `numba`, and `application` nothing from FastAPI, Pydantic or OR-Tools. Nothing in the product imports `pyvrp` (FR-286). Every solver implements the one `Solver` port (ADR-004; [ADR-044], Accepted and not in the tree yet, fixes it as `solve(problem, start, budget, seed)`, with `Problem` alone judging).
+- **Layering in the solver:** `domain` imports no `fastapi`, `pydantic`, `ortools`, `pyvrp` or `numba`, and `application` nothing from FastAPI, Pydantic or OR-Tools. Nothing in the product imports `pyvrp` (FR-286). Every solver implements the one `Solver` port (ADR-004; [ADR-044], Accepted, fixes it as `solve(problem, start, budget, seed)`, with `Problem` alone judging; `Problem` with `validate`, `cost` and `explain_drop` is in the tree, and the `Solver` port is not).
 - **Contracts (ADR-006):**
   - An API change updates `contracts/` in the same change.
   - The client API is served under `/api/v1`.
@@ -101,6 +101,7 @@ No praise, and no restating what the code does. End with:
 [ADR-063]: ../../docs/ADRs/ADR-063-a-transaction-changes-one-aggregate-and-every-rule-has-one-owner.md
 [ADR-064]: ../../docs/ADRs/ADR-064-events-only-where-they-earn-their-place-through-the-modulith-registry.md
 [ADR-068]: ../../docs/ADRs/ADR-068-every-web-handler-is-authorized-by-role-from-the-contract.md
+[ADR-118]: ../../docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md
 [TS]: ../../docs/architecture/tech_stack.md
 [TS-21]: ../../docs/architecture/tech_stack.md#21-the-dependency-rule
 [TS-22]: ../../docs/architecture/tech_stack.md#22-enforcement

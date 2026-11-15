@@ -25,15 +25,15 @@ are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 
 > [!NOTE]
 > Most folders below are still empty. A folder listed as a placeholder holds only a `.gitkeep`
-> file. What is real today is the skeleton: each component builds, passes its own checks and
-> runs a first test.
+> file. What is real today is the skeleton, and the domain layer of `core` and `solver`: each
+> component builds, passes its own checks and runs a first test.
 
 ## Top level
 
 | Path | Holds |
 |---|---|
 | `src/backend/core/` | The REST API and system of record: Java 21, Spring Boot 4.1.2, Maven |
-| `src/backend/solver/` | The optimization service: Python 3.14, FastAPI, uv |
+| `src/backend/solver/` | The optimization service: Python 3.14, FastAPI, NumPy, uv |
 | `src/frontend/console/` | The web app, for every role: React, TypeScript, Vite |
 | `src/frontend/driver-app/` | The phone app, for every role: React Native, Expo SDK 58, TypeScript |
 | `src/research/` | Benchmarks, simulation and the order generator: Python, uv. Never deployed |
@@ -94,6 +94,18 @@ src/backend/core/
   .env.example                     the database connection keys, with no values
   src/main/java/com/dispatchflow/
     DispatchFlowApplication.java   the Spring Boot entry point
+    shared/                        the shared kernel: the typed IDs, the shared values, their
+                                   errors, and the building blocks every module's domain uses
+    access/                        a bounded context's module: domain/ (account, session,
+                                   companyprofile) and events/ so far
+    fleet/                         domain/ (register, roster, driver) and events/ so far
+    orders/                        domain/ (flat) and events/ so far
+    planning/                      domain/ (plan, solution, basis, revision, reconciliation, settings)
+                                   and events/ so far
+    audit/                         domain/ (flat) so far; it raises no event
+    reporting/                     domain/ (flat) so far; it raises no event
+    messaging/                     domain/ (message, rating, settings) and events/ so far
+    liveops/                       domain/ (delivery, alert, routerun) and events/ so far
     web/                           application-wide web concerns: the fallback for unexpected errors
       UnexpectedErrorHandler.java  answers an unhandled exception with a 500 problem body
       package-info.java
@@ -101,6 +113,21 @@ src/backend/core/
     application.properties
     db/migration/                  Flyway migrations: none yet
   src/test/java/com/dispatchflow/
+    shared/                        the kernel's tests, and DomainAssertions, the refusal helper
+                                   every module's domain tests use
+    architecture/                  the domain purity, shape and package rules (ArchUnit) and the
+                                   error-code, event-name and refusal-test checks
+    archfixture/                   deliberately wrong classes that each rule must flag, one
+                                   subpackage per rule under alpha/domain/, and epsilon/ for the
+                                   package rules
+    access/                        that module's domain tests, in the package of the type each tests
+    fleet/                         that module's domain tests
+    orders/                        that module's domain tests
+    planning/                      that module's domain tests
+    audit/                         that module's domain tests
+    reporting/                     that module's domain tests
+    messaging/                     that module's domain tests
+    liveops/                       that module's domain tests
     web/UnexpectedErrorHandlerTest.java  the 500 problem body keeps the cause out
     IntegrationTest.java                 the one annotation every *IT uses: the whole app and PostgreSQL
     DispatchFlowApplicationIT.java       the health probe answers UP against PostgreSQL
@@ -108,12 +135,20 @@ src/backend/core/
     TestcontainersConfiguration.java     the PostgreSQL container
 ```
 
-No bounded context exists yet. The decided design is the domain document, the tech stack and the
-ADRs: see the
-[domain layer design](domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts). How a
-context is laid out inside is in [tech stack §4](tech_stack.md#4-repository-layout) and
-[domain layer design §13](domain_layer/domain_layer_design.md#13-inside-each-module-hexagon)
-(the hexagon). New contexts are written to tech stack §4.
+The shared kernel exists
+([ADR-097](../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md)), and so do the
+`domain` packages of `access`, `audit`, `fleet`, `liveops`, `messaging`, `orders`, `planning` and
+`reporting`, and the `events` packages of the six that raise events. A domain package of more than 30
+files splits into one package per aggregate, over a root that holds the module's error
+([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)): `access`,
+`fleet`, `liveops`, `messaging` and `planning` are split, `orders`, `audit` and `reporting` are flat,
+and so are the kernel and every `events` package. A test sits in the package of the type it tests,
+and a refusal test may sit anywhere under its error's package. The decided design is the domain document, the tech stack and the ADRs:
+see the [domain layer
+design](domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts). How a context is
+laid out inside is in [tech stack §4](tech_stack.md#4-repository-layout) and [domain layer design
+§13](domain_layer/domain_layer_design.md#13-inside-each-module-hexagon) (the hexagon). New contexts
+are written to tech stack §4.
 [ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)
 (Accepted) makes each context a Spring Modulith module, and
 [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md)
@@ -131,13 +166,18 @@ src/backend/solver/
   src/dispatchflow_solver/
     __init__.py                    the package marker; one also in adapters/, inbound/ and http/
     py.typed                       marks the package as typed
-    domain/                        problem, solution, objective, validator (placeholder)
-    application/                   use cases, the Solver port, the registry (placeholder)
+    domain/                        Problem (validate, cost, explain_drop), ProblemFactory, Solution,
+                                   TravelTimeModel, PenaltyScale, RuleId; problem_parts (the parts a
+                                   problem holds) and problem_view (the protocol the validator, the
+                                   objective and the drop reasons read a problem through)
+    application/                   use cases, the Solver port, the registry (placeholder: only an
+                                   empty __init__.py)
     solvers/
       ortools/                     the OR-Tools adapter (placeholder)
       alns/                        the DispatchFlow solver (placeholder)
     adapters/inbound/http/app.py   create_app(): the FastAPI app, with GET /health/liveness
   tests/                           mirrors the package path
+    domain/                        the catalogue, properties, Solomon acceptance (data/solomon/)
     adapters/inbound/http/test_app.py
     test_dependency_boundary.py
 ```
@@ -243,10 +283,28 @@ These follow from
 - **PyVRP is never a dependency of `solver`.** Only `src/research` installs it.
 - **The frontends talk only to `core`.** The API client is generated and never edited.
 
-Only the PyVRP rule is checked by a test today. The others are conventions that review
-enforces; no tool such as ArchUnit or import-linter is configured.
-[Tech stack §2.2](tech_stack.md#22-enforcement) plans ArchUnit, Spring Modulith's `verify()` and
-import-linter for the Alpha
+Three sets of rules are checked automatically today:
+- the PyVRP rule;
+- in `core`, the domain's purity rules, the shape rules and the package rules;
+- in `solver`, the import-linter contracts in `pyproject.toml`: the domain imports no framework,
+  solver or standard-library module that reads a clock, draws randomness or does I/O; the validator,
+  the objective and the drop reasons never import `problem`; `application` imports no FastAPI,
+  Pydantic or OR-Tools; the layers point one way; and the product never imports PyVRP. In the
+  domain, ruff's `TID251` also bans `numpy.random`, `datetime64`, `timedelta64`, `numpy.load`,
+  `fromfile`, `loadtxt` and `importlib.import_module`, and `PTH123`, `T20`, `S102` and `S307` ban
+  `open()`, `print()`, `exec()` and `eval()`
+  ([ADR-113](../ADRs/ADR-113-route-stability-is-its-own-cost-the-rules-read-a-problem-through-a-protocol-and-untimed-outputs-are-documented.md)).
+
+The purity rules are ArchUnit tests in `src/test/java/com/dispatchflow/architecture/`, over
+`shared` and every module's `domain` and `events` packages
+([domain layer design §3.9](domain_layer/domain_layer_design.md#39-purity)). The shape rules cover
+who may construct a restricted type and what an error or an event may carry. The package rules are
+three: no cycle between a module's domain packages, a domain root that imports none of its own
+subpackages, and `@NullMarked` on the kernel and on every domain and events package
+([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)). The rest are
+conventions that review enforces.
+[Tech stack §2.2](tech_stack.md#22-enforcement) also plans Spring Modulith's `verify()` for the
+Alpha
 ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md),
 Accepted).
 

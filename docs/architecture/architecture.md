@@ -5,9 +5,10 @@ How DispatchFlow is built, as it is today. What it must do is in
 [ADRs](../ADRs/README.md). Where each file lives is in [code-structure.md](code-structure.md).
 
 > [!NOTE]
-> Only the skeleton exists. Each component builds, passes its checks and runs a first test, and
-> nothing more. The design the team is heading for is in [Target design](#target-design); this
-> file describes none of it as built.
+> Only the skeleton and the domain layer exist. Each component builds, passes its checks and runs a
+> first test, and the domain layers of `core` and `solver` are built and tested, with no application
+> layer or adapter, so nothing calls them. The design the team is heading for is in
+> [Target design](#target-design); this file describes none of it as built beyond that.
 
 ## Architecture overview
 
@@ -34,14 +35,27 @@ today.
 | Component | Is | Does today |
 |---|---|---|
 | `core` (`src/backend/core`) | Spring Boot 4.1.2, Java 21 | Starts, connects to PostgreSQL, answers `GET /actuator/health`, and turns an unhandled exception into a 500 problem body |
-| `solver` (`src/backend/solver`) | FastAPI, Python 3.14 | Answers `GET /health/liveness` with `{"status":"UP"}` |
+| `solver` (`src/backend/solver`) | FastAPI, Python 3.14, NumPy | Answers `GET /health/liveness` with `{"status":"UP"}`, and holds the domain for daily solves and re-optimizations (the validator, the objective and the drop reasons), which nothing calls yet |
 | `console` (`src/frontend/console`) | React, Vite | Renders a heading |
 | `driver-app` (`src/frontend/driver-app`) | React Native, Expo SDK 58 | Renders a heading |
 | `research` (`src/research`) | Python, uv; never deployed | Installs `solver` and PyVRP in one environment, and imports neither yet: `tests/test_environment.py` only checks that both can be found. `benchmark/`, `simulation/`, `generator/`, `instances/` and `results/` hold only `.gitkeep` |
 
 `core` has no controller, entity or Flyway migration: `src/main/resources/db/migration/` holds
-only a `.gitkeep`. `solver`'s `domain`, `application` and `solvers` folders hold only `.gitkeep`.
-There is no bounded context yet.
+only a `.gitkeep`. `solver`'s `application` package holds only an empty `__init__.py` and its
+`solvers` folders only `.gitkeep`; its `domain` holds the domain for daily solves and re-optimizations
+([ADR-098](../ADRs/ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) fixes its
+numbers).
+`core` holds the shared kernel (`com.dispatchflow.shared`): typed IDs, the shared values and the
+domain's building blocks
+([ADR-097](../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md),
+[ADR-106](../ADRs/ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md)). Nothing calls
+it yet. The `domain` packages of `access`, `audit`, `fleet`, `liveops`, `messaging`, `orders`,
+`planning` and `reporting` are built ahead of their milestones, with the `events` packages of the six
+modules that raise events (not `audit` or `reporting`), and nothing calls them yet either.
+
+A module's domain splits into one package per aggregate once it passes 30 files
+([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)). Which modules
+are split, and into what, is in [bounded-contexts.md](bounded-contexts.md).
 
 ## Communication
 
@@ -88,14 +102,21 @@ have a `Dockerfile`, and neither runs as root
 
 - **Dependencies point one way.** Domain code imports no framework, I/O or transport type, and
   adapters depend on the domain ([ADR-001](../ADRs/ADR-001-domain-driven-design-with-hexagonal-architecture.md)).
-  There is no domain code yet, so nothing but review enforces this.
+  In `core`, ArchUnit tests check the domain's purity rules over the shared kernel and every
+  module's `domain` and `events` packages, the shape rules for restricted types, errors and events,
+  and the package rules: no cycle between a module's domain packages, a domain root that imports
+  none of its own subpackages, and `@NullMarked` on the kernel and on every domain and events package
+  (`src/test/java/com/dispatchflow/architecture/`, [ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)).
+  The other dependency rules are enforced by review.
 - **Every solver sits behind one `Solver` port** and is chosen by name
   ([ADR-004](../ADRs/ADR-004-pluggable-solver-port.md), amended by
   [ADR-044](../ADRs/ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md), which
   fixes its call as `solve(problem, start, budget, seed)`). The port does not exist yet.
 - **PyVRP stays out of `solver`.** `src/backend/solver/tests/test_dependency_boundary.py` holds two
   tests. One fails if PyVRP is installed there, and the other if PyVRP is locked in its `uv.lock`.
-  They are the only architecture rule a test checks today.
+  With `core`'s purity, shape and package rules, and `solver`'s import-linter contracts and the ruff
+  bans in its domain (lint steps in `just solver-check`), they are the only architecture rules
+  checked automatically today.
 - **Flyway owns the schema.** `core` sets `spring.jpa.hibernate.ddl-auto=validate`, so Hibernate
   never changes it ([ADR-007](../ADRs/ADR-007-postgresql-with-flyway-migrations.md), superseded by
   [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md),
@@ -121,7 +142,7 @@ the ADRs:
   [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md) (a
   schema per module, read and written through jOOQ) give the target shape. None of them is in the
   tree yet. ADR-039 and ADR-042 to ADR-047 record the other tooling, contract, solver-port, token
-  and image decisions, and ADR-048 to ADR-096 the rest.
+  and image decisions, and ADR-048 onward the rest.
 - [Roadmap](../roadmap.md#2-milestones): the milestones and dates.
 
 The hosting is in [ADR-078](../ADRs/ADR-078-hosting-on-one-aws-vm-in-tel-aviv-built-with-terraform.md)
