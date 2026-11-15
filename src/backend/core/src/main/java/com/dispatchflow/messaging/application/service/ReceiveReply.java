@@ -32,22 +32,23 @@ import java.time.Instant;
  * ADR-108); one that fails is not kept for later.
  *
  * <p>Each answer counts toward the day's cap of 1,000 messages (NFR-196, ADR-108 Risk). In the
- * transaction of the reply's effect, it reads {@link StopMessagesRepository#capOn} for today's Israel
- * date from the {@link Clock}, and, while the cap has room, counts the answer through {@link
- * StopMessagesRepository#countAnswer} before sending it. Once the cap is reached the answer is
- * skipped for good, as an answer due when messages can't go to the phone is (ADR-108), since each is
- * sent once.
+ * transaction of the reply's effect, it counts the answer through {@link
+ * StopMessagesRepository#countAnswer} for today's Israel date from the {@link Clock}, before
+ * sending it. The count is conditional and atomic: it counts only while the cap has room, under the
+ * same per-day lock as the sender's claim, and answers whether it counted. An answer not counted is
+ * skipped for good, as an answer due when messages can't go to the phone is (ADR-108), since each
+ * is sent once.
  *
  * <p><b>Precondition.</b> The callback's adapter has accepted the call only with the provider's
  * signature or header secret, one of two while one is rotated, compared in constant time, before it
  * calls this; any other call is refused there and changes nothing (NFR-192). This use case trusts
  * that its arguments came from the provider.
  *
- * <p>Like every changing call it writes its audit record, a refused attempt's in its own transaction
- * (NFR-23, ADR-110).
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
  *
- * <p>Access's {@link Company#profile()} is empty before the first Admin sets the company up. With no
- * profile there is no sender name, so no message was ever sent and no rating request is open: an
+ * <p>Access's {@link Company#profile()} is empty before the first Admin sets the company up. With
+ * no profile there is no sender name, so no message was ever sent and no rating request is open: an
  * opt-out word still opts the phone out, any other reply is discarded, and no answer is sent.
  *
  * <p>Built in M12. Rows: FR-357 to FR-360, FR-363, FR-371, FR-376, FR-379, NFR-192, NFR-196,
@@ -118,8 +119,8 @@ public final class ReceiveReply {
      * @param text the reply's text, as delivered; a comment is cut to 500 characters (NFR-203)
      * @param receivedAt when the provider says it was received
      * @param call the callback's server step
-     * @throws StaleVersion when another reply saved the rating request meanwhile; the provider sends
-     *     the call again (NFR-201)
+     * @throws StaleVersion when another reply saved the rating request meanwhile; the provider
+     *     sends the call again (NFR-201)
      */
     public void receive(String providerId, PhoneNumber from, String text, Instant receivedAt, CallContext call) {
         throw new UnsupportedOperationException("Built in M12");

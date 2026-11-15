@@ -37,12 +37,12 @@ import com.dispatchflow.shared.application.StaleVersion;
  * every changing call it writes its audit record, a refused attempt's in its own transaction
  * (NFR-23, ADR-110).
  *
- * <p>The alert is stored with its plan's date from {@link PublishedRoutes}. For each alert it raises,
- * it calls {@link PushNotifier#alertStaff} after the commit, so a staff phone app in the background
- * learns of it (FR-405, ADR-083).
+ * <p>The alert is stored with its plan's date from {@link PublishedRoutes}. For each alert it
+ * raises, it calls {@link PushNotifier#alertStaff} after the commit, so a staff phone app in the
+ * background learns of it (FR-405, ADR-083).
  *
- * <p>Built in M5; the request key and the pending-stops alert through {@link AlertRepository} in M8,
- * and the push through {@link PushNotifier} in M10. Rows: FR-68, FR-70, FR-329, BR-28, NFR-65,
+ * <p>Built in M5; the request key and the pending-stops alert through {@link AlertRepository} in
+ * M8, and the push through {@link PushNotifier} in M10. Rows: FR-68, FR-70, FR-329, BR-28, NFR-65,
  * NFR-130, ADR-107.
  */
 public final class FinishRoute {
@@ -110,11 +110,13 @@ public final class FinishRoute {
      * @param key the request key, the outbox row's ID
      * @param digest the request body's hash
      * @throws com.dispatchflow.shared.RuleViolation with Live Operations' {@code
-     *     DeviceTimeOutOfRange}; {@code NotYourRoute} when the driver is not both the route's driver
-     *     at that time and now (BR-02, ADR-114); else {@code RouteAlreadyFinished}
+     *     DeviceTimeOutOfRange}; {@code NotYourRoute} when the driver is not both the route's
+     *     driver at that time and now (BR-02, ADR-114); else {@code RouteAlreadyFinished}
      * @throws NotFound when no plan in force holds the route
      * @throws RouteNotStarted when the route has no run (ADR-107)
-     * @throws IdempotencyKeyReused when the key was used before with another body (NFR-130)
+     * @throws IdempotencyKeyReused when the key was used before with another body, or its stored
+     *     receipt is another call's: a {@code RecordedReport} case other than {@code Finished}
+     *     (NFR-130)
      * @throws StaleVersion when another writer saved the run meanwhile, or a concurrent send
      *     recorded the key first; the web adapter retries the call at once, up to three times, then
      *     answers 503 with {@code Retry-After} (ADR-121), and the phone's outbox backs off and

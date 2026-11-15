@@ -12,18 +12,19 @@ import com.dispatchflow.shared.application.Clock;
  * NFR-257, NFR-260, ADR-121).
  *
  * <ul>
- *   <li>90 days after a plan's date, it drops the plan's stored list of locations through {@link
- *       StoredMatrices#dropLocationsDatedBefore}, keeping the matrix's numbers and the list's hash for
- *       the cache, and blanks the coordinates in its solve jobs' inputs through {@link
- *       SolveJobRepository#blankCoordinatesDatedBefore} (NFR-257, NFR-260).
- *   <li>7 days after a position was received, it blanks it in the re-optimization inputs that hold
- *       it, through {@link SolveJobRepository#blankPositionsReceivedBy} (NFR-184).
+ *   <li>90 Israel calendar days after a plan's date (ADR-088), it drops the plan's stored list of
+ *       locations through {@link StoredMatrices#dropLocationsDatedBefore}, keeping the matrix's
+ *       numbers and the list's hash for the cache, and blanks the coordinates in its solve jobs'
+ *       inputs through {@link SolveJobRepository#blankCoordinatesDatedBefore} (NFR-257, NFR-260).
+ *   <li>7 Israel calendar days after a position was received, it blanks it and its position row in
+ *       the re-optimization inputs that hold it, through {@link
+ *       SolveJobRepository#blankPositionsReceivedBefore} (NFR-184).
  * </ul>
  *
  * <p>Each of the three steps runs in a transaction of its own and writes its audit record there,
  * with the count and no personal data (ADR-110). A step already done finds nothing, so a run
- * repeated after a failure is harmless. The scheduler runs it with the other retention steps at 03:00
- * {@code Asia/Jerusalem} (DL §10.3).
+ * repeated after a failure is harmless. The scheduler runs it with the other retention steps at
+ * 03:00 {@code Asia/Jerusalem} (DL §10.3).
  *
  * <p><b>Domain gap.</b> Planning's domain holds no retention periods: M13 adds them, as Live
  * Operations' {@code RetentionPeriods} holds its own, so the cutoffs come from the domain and not

@@ -3,13 +3,12 @@ package com.dispatchflow.planning.application.service.plan;
 import com.dispatchflow.access.application.api.Actor;
 import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.planning.application.port.out.LiveUpdates;
-import com.dispatchflow.planning.application.port.out.OptimizerUnavailable;
 import com.dispatchflow.planning.application.port.out.Seeds;
 import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
 import com.dispatchflow.planning.application.port.out.settings.PlanningSettingsRepository;
 import com.dispatchflow.planning.application.port.out.solvejob.RouteOptimizer;
 import com.dispatchflow.planning.application.port.out.solvejob.SolveJobRepository;
-import com.dispatchflow.planning.application.port.out.solvejob.SolverNotOffered;
+import com.dispatchflow.planning.application.service.SolverNotOffered;
 import com.dispatchflow.planning.domain.SolveLimit;
 import com.dispatchflow.planning.domain.plan.SolverName;
 import com.dispatchflow.shared.JobId;
@@ -22,18 +21,21 @@ import com.dispatchflow.shared.application.StaleVersion;
 import java.util.Optional;
 
 /**
- * Requests a daily solve of a draft or ready plan: the plan becomes solving, and a job joins the daily
- * lane in the same transaction, read under the lane's lock (FR-15, FR-16, FR-19, FR-20, FR-92,
- * FR-224, FR-225, BR-112, DL §6.1, §6.2). Solving again discards the plan's manual edits, which the
- * screen warns about first (FR-92). With no solver chosen it runs the planning settings' default
- * solver for a daily solve (FR-20, ADR-004), and with no limit the settings' default limit (FR-19,
- * FR-183).
+ * Requests a daily solve of a draft or ready plan: the plan becomes solving, and a job joins the
+ * daily lane in the same transaction, read under the lane's lock (FR-15, FR-16, FR-19, FR-20,
+ * FR-92, FR-224, FR-225, BR-112, DL §6.1, §6.2). Solving again discards the plan's manual edits,
+ * which the screen warns about first (FR-92). With no solver chosen it runs the planning settings'
+ * default solver for a daily solve (FR-20, ADR-004), and with no limit the settings' default limit
+ * (FR-19, FR-183).
  *
  * <p>From M4, before its transaction it checks the chosen solver against {@link
- * RouteOptimizer#solvers()}, which lists only FR-20's solvers, and refuses one the optimizer doesn't
- * offer with {@link SolverNotOffered}, so no job is queued for a solver the optimizer would refuse
- * (FR-224, DL §6.3). Planning's domain has no error for it, because only the optimizer knows its
- * solvers. M0 offers no choice and asks no list: it runs OR-Tools.
+ * RouteOptimizer#solvers()}, which lists only FR-20's solvers, and refuses one the optimizer
+ * doesn't offer with {@link SolverNotOffered}, so no job is queued for a solver the optimizer would
+ * refuse (FR-224, DL §6.3). Planning's domain has no error for it, because only the optimizer knows
+ * its solvers. When the optimizer can't be reached for the list, {@code solvers()} throws {@code
+ * OptimizerUnavailable}, and the request goes on unchecked: the job is queued, and fails as
+ * <em>optimizer unavailable</em> (FR-65), as it did before the check. M0 offers no choice and asks
+ * no list: it runs OR-Tools.
  *
  * <p>{@code PlanningSettings} has no default solver of each kind yet, which ADR-004 puts there: a
  * domain gap that M4 closes. Until M4 adds the field, a request with no solver runs OR-Tools, the
@@ -103,11 +105,10 @@ public final class RequestSolve {
      * @return the new job's ID
      * @throws NotFound when no plan has the ID
      * @throws SolverNotOffered from M4, when the optimizer doesn't offer the chosen solver
-     * @throws OptimizerUnavailable from M4, when the optimizer can't be reached for its solvers
      * @throws StaleVersion when the plan changed since {@code expected}
-     * @throws com.dispatchflow.shared.RuleViolation with Planning's {@code PlanNotDraftOrReady}, {@code
-     *     DateInPast} (BR-118), or {@code SolveQueueFull} when the daily lane holds 5 queued jobs
-     *     (BR-112)
+     * @throws com.dispatchflow.shared.RuleViolation with Planning's {@code PlanNotDraftOrReady},
+     *     {@code DateInPast} (BR-118), or {@code SolveQueueFull} when the daily lane holds 5 queued
+     *     jobs (BR-112)
      */
     public JobId request(
             Actor actor, PlanId plan, Optional<SolverName> solver, Optional<SolveLimit> limit, Version expected) {

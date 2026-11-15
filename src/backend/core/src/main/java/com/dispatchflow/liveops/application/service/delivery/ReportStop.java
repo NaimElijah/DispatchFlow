@@ -24,21 +24,23 @@ import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * A driver reports a stop: arrived, delivered or failed (DL §6.2, §8, ADR-087). The phone's outbox
- * sends each report with a request key, so a retry gets the stored answer (BR-28, NFR-65), and a key
- * reused with another body is refused (NFR-130).
+ * sends each report with a request key, so a retry gets the stored answer (BR-28, NFR-65), and a
+ * key reused with another body is refused (NFR-130).
  *
  * <p>Outside calls first (TS §6.2): the report's {@code CorrectedTime} from the {@link DeviceClock}
  * and the server's {@link Clock} (BR-44, BR-110, BR-114); Planning's {@link
  * RouteMembership#membershipAt} for the stop, the report's route and that corrected time, whose
- * {@code EntitlementFact} becomes the domain's {@code Entitlement} and whose {@code WhereaboutsFact}
- * becomes its {@code StopWhereabouts}; Access's {@link SessionContacts#contactsOf} for the reporting
- * account over the corrected time's {@code ContactWindow}, which joins those whereabouts in a {@code
- * HoldCheck} (DL §8, BR-132, BR-133, ADR-114); and Customers &amp; Orders' {@link StopOrders}, asked
- * for that one order, for its door flag, as a {@code LeaveAtDoor} (FR-366). A first fact's {@code
- * Delivery.firstFact} takes the stop's order and attempt from the membership's {@code
- * EntitlementFact.OnRoute}, the revision in force at the corrected time, so a late report on a stop
- * the plan has since taken off still creates it (BR-110). The stop's plan and its date, which each
- * alert is stored with, come from Planning's {@link PublishedRoutes}.
+ * {@code EntitlementFact} becomes the domain's {@code Entitlement} and whose {@code
+ * WhereaboutsFact} becomes its {@code StopWhereabouts}; Access's {@link SessionContacts#contactsOf}
+ * for the reporting account over the corrected time's {@code ContactWindow}, which joins those
+ * whereabouts in a {@code HoldCheck} (DL §8, BR-132, BR-133, ADR-114); and Customers &amp; Orders'
+ * {@link StopOrders}, asked for that one order, for its door flag, as a {@code LeaveAtDoor}
+ * (FR-366). A first fact's {@code Delivery.firstFact} takes the stop's order and attempt from the
+ * membership's {@code EntitlementFact.OnRoute}, the revision in force at the corrected time, so a
+ * late report on a stop the plan has since taken off still creates it (BR-110). The stop's plan and
+ * its date, which each alert is stored with, come from the same {@code MembershipFact}, read from
+ * the stored revisions, so an alert on a plan cancelled since has both (FR-336). A first report's
+ * {@code RouteRun} is stored with its route's date from Planning's {@link PublishedRoutes}.
  *
  * <p>Then one transaction changes the stop's {@code Delivery} through {@code arrive}, {@code
  * deliver} or {@code fail}, creating it on its first fact. In the same transaction it creates the
@@ -92,7 +94,8 @@ public final class ReportStop {
      *     uploaded file of the stated kind
      * @param pushNotifier the staff's phones, told of each alert raised
      * @param membership Planning's answers on which route held a stop when
-     * @param publishedRoutes Planning's routes in force
+     * @param publishedRoutes Planning's routes in force, for the date a first report's route run is
+     *     stored with
      * @param sessionContacts Access's contact times of an account's sessions
      * @param stopOrders Customers &amp; Orders' door flag of an order
      * @param clock the server's time
@@ -145,15 +148,17 @@ public final class ReportStop {
      * @return what the report did, and whether it is a retry's stored answer
      * @throws com.dispatchflow.shared.RuleViolation with Live Operations' {@code
      *     DeviceTimeOutOfRange} for a device instant outside the years 1 to 9999; for an arrival,
-     *     {@code ReportAfterCancellation}, {@code StopNotOnYourRoute}, {@code ArrivalAfterOutcome} or
-     *     {@code ArrivalAlreadyRecorded}; for a delivered, {@code ProofRequired}, {@code
-     *     ProofHasNoFile} (also for a proof another driver uploaded, or of another kind than stated),
-     *     {@code NotALeaveAtDoorOrder}, {@code LeftAtDoorNeedsPhoto}, {@code
+     *     {@code ReportAfterCancellation}, {@code StopNotOnYourRoute}, {@code ArrivalAfterOutcome}
+     *     or {@code ArrivalAlreadyRecorded}; for a delivered, {@code ProofRequired}, {@code
+     *     ProofHasNoFile} (also for a proof another driver uploaded, or of another kind than
+     *     stated), {@code NotALeaveAtDoorOrder}, {@code LeftAtDoorNeedsPhoto}, {@code
      *     ReportAfterCancellation}, {@code StopNotOnYourRoute}, {@code SameOutcomeAlreadyRecorded}
      *     or {@code OutcomeAlreadyRecorded}; for a failed, {@code ReportAfterCancellation}, {@code
      *     StopNotOnYourRoute}, {@code SameOutcomeAlreadyRecorded} or {@code OutcomeAlreadyRecorded}
      * @throws NotFound when no plan holds the stop or the route
-     * @throws IdempotencyKeyReused when the key was used before with another body (NFR-130)
+     * @throws IdempotencyKeyReused when the key was used before with another body, or its stored
+     *     receipt is another call's: a {@code RecordedReport} case other than {@code Recorded} or
+     *     {@code Held} (NFR-130)
      * @throws StaleVersion when another writer saved the stop's delivery meanwhile; the web adapter
      *     retries the call at once, up to three times, then answers 503 with {@code Retry-After}
      *     (ADR-121), and the phone's outbox backs off and resends it with the same key (ADR-087)

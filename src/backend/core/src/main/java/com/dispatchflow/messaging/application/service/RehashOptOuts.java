@@ -12,9 +12,10 @@ import com.dispatchflow.shared.application.Clock;
  * every key version still in use, and a phone whose history has entries under older keys and none
  * under the current one gets its latest entry appended again under the current key, one phone per
  * transaction, with the audit record. A phone with an entry under the current key is left alone, so
- * an entry made since the rotation is never overtaken by an older one. An
- * opt-out whose phone is no longer stored stays under its older key, which is kept for lookups only:
- * the accepted risk is the key's continued existence, never a lost opt-out (ADR-069).
+ * an entry made since the rotation is never overtaken by an older one, and a second run re-hashes
+ * nothing: the runbook may run the step again after a failure. An opt-out whose phone is no longer
+ * stored stays under its older key, which is kept for lookups only: the accepted risk is the key's
+ * continued existence, never a lost opt-out (ADR-069).
  *
  * <p>Three parts don't exist yet, and M12 adds them:
  *
@@ -25,8 +26,6 @@ import com.dispatchflow.shared.application.Clock;
  *       time and dispatcher (a domain gap);
  *   <li>the key version {@code PhoneHash} records (a domain gap).
  * </ul>
- *
- * <p>So the step is idempotent, and the runbook may run it again after a failure.
  *
  * <p>Built in M12. Rows: NFR-202.
  */

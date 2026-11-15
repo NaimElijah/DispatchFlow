@@ -33,11 +33,16 @@ import com.dispatchflow.shared.application.StaleVersion;
  * whose route is not in the plan; M9 adds it to {@code DriverStanding} and {@code Plan.handOver}'s
  * refusals.
  *
- * <p>It then asks the validator about {@code Plan.afterHandOver}, with the vehicle rostered to the
- * new driver and the shift the assignability answer gives (ADR-112). An unreachable optimizer
- * doesn't stop it: the route shows <em>not yet checked</em> until the re-check job runs (FR-395,
- * ADR-058). It raises {@code PlanRevised}, then {@code RouteHandedOver}, so the roster follows
- * (FR-191).
+ * <p>It then asks the validator about {@code Plan.afterHandOver}. The assembler rosters the route's
+ * vehicle to the new driver, with the new driver's shift on the date's roster, which is the shift
+ * the assignability answer gives, so the validator judges BR-06 by the new driver's shift
+ * (ADR-112). This roster check, through {@code DriverStanding}, is the only one: the evaluation
+ * sends the new driver whatever their availability, and never refuses a problem for BR-20. An
+ * unreachable optimizer doesn't stop the hand-over, and neither does an unreachable road network,
+ * for which the assembler throws {@code RoadNetworkUnavailable} and the use case asks {@code
+ * FeasibilityChecker.unavailableFor} for the plan's version: the route shows <em>not yet
+ * checked</em> until the re-check job runs (BR-70, FR-395, ADR-058). It raises {@code PlanRevised},
+ * then {@code RouteHandedOver}, so the roster follows (FR-191).
  *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
@@ -92,15 +97,18 @@ public final class HandOverRoute {
      * @param plan the plan
      * @param route the route
      * @param toDriver the new driver's account
-     * @param breakConfirmed whether the dispatcher confirmed a hand-over that breaks the new driver's
-     *     shift (FR-304)
+     * @param breakConfirmed whether the dispatcher confirmed a hand-over that breaks the new
+     *     driver's shift (FR-304)
      * @param expected the plan's version the dispatcher saw (BR-76)
      * @throws NotFound when no plan has the ID, or no account has {@code toDriver}
      * @throws StaleVersion when the plan changed since {@code expected}
-     * @throws com.dispatchflow.shared.RuleViolation with Planning's {@code PlanNotPublished}, {@code
-     *     DateInPast}, {@code RouteNotInPlan}, {@code RouteWithdrawn}, {@code DriverAlreadyHasRoute}
-     *     (FR-302), {@code StaleEvaluation}, {@code NotAnActiveDriver}, {@code DriverNotAvailable}, or
-     *     {@code BreakNotConfirmed} (FR-304)
+     * @throws com.dispatchflow.shared.RuleViolation with Planning's {@code PlanNotPublished},
+     *     {@code DateInPast}, {@code RouteNotInPlan}, {@code RouteWithdrawn}, {@code
+     *     DriverAlreadyHasRoute} (FR-302), {@code StaleEvaluation}, {@code NotAnActiveDriver},
+     *     {@code DriverNotAvailable}, or {@code BreakNotConfirmed} (FR-304)
+     * @throws com.dispatchflow.planning.application.port.out.OptimizerRefusedRequest when the
+     *     optimizer refused the evaluation request as invalid, a defect of the request the core
+     *     built, which fails the call
      */
     public void handOver(
             Actor actor, PlanId plan, RouteId route, AccountId toDriver, boolean breakConfirmed, Version expected) {

@@ -6,7 +6,6 @@ import com.dispatchflow.liveops.application.port.out.AlertRepository;
 import com.dispatchflow.liveops.application.port.out.LiveUpdates;
 import com.dispatchflow.liveops.application.port.out.PushNotifier;
 import com.dispatchflow.liveops.events.OutcomeRecorded;
-import com.dispatchflow.planning.application.api.PublishedRoutes;
 import com.dispatchflow.planning.application.api.ReconcileLateOutcome;
 import com.dispatchflow.planning.application.api.RouteMembership;
 import com.dispatchflow.shared.application.Clock;
@@ -19,7 +18,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  * follows it (DL §8 step 2, BR-89, BR-130, ADR-101). It asks Planning's {@link RouteMembership}
  * where the stop is now. When the current revision disagrees with the route that served it, it
  * raises the dispatcher's <em>late report</em> alert first, from the {@code WhereaboutsFact}, in a
- * transaction of its own, stored with its plan's date from {@link PublishedRoutes}: an {@code
+ * transaction of its own, stored with the plan and its date that the same {@code MembershipFact}
+ * gives from the stored revisions, so an alert on a plan cancelled since has both: an {@code
  * OnAnotherRoute} names the route the stop leaves, and a dropped or cancelled stop names none. Then
  * it calls Planning's {@link ReconcileLateOutcome} (ADR-121).
  *
@@ -42,7 +42,6 @@ public final class ReconcileOutcome {
 
     private final RouteMembership membership;
     private final ReconcileLateOutcome reconcileLateOutcome;
-    private final PublishedRoutes publishedRoutes;
     private final AlertRepository alerts;
     private final PushNotifier pushNotifier;
     private final Clock clock;
@@ -55,7 +54,6 @@ public final class ReconcileOutcome {
      *
      * @param membership Planning's answers on where a stop is now
      * @param reconcileLateOutcome Planning's reconciliation of a late outcome
-     * @param publishedRoutes Planning's routes in force, for the alert's plan
      * @param alerts where alerts are kept
      * @param pushNotifier the staff's phones, told of each alert raised
      * @param clock the server's time
@@ -66,7 +64,6 @@ public final class ReconcileOutcome {
     public ReconcileOutcome(
             RouteMembership membership,
             ReconcileLateOutcome reconcileLateOutcome,
-            PublishedRoutes publishedRoutes,
             AlertRepository alerts,
             PushNotifier pushNotifier,
             Clock clock,
@@ -75,7 +72,6 @@ public final class ReconcileOutcome {
             LiveUpdates liveUpdates) {
         this.membership = membership;
         this.reconcileLateOutcome = reconcileLateOutcome;
-        this.publishedRoutes = publishedRoutes;
         this.alerts = alerts;
         this.pushNotifier = pushNotifier;
         this.clock = clock;
@@ -94,8 +90,8 @@ public final class ReconcileOutcome {
      * @param call the listener's server step, which Planning's call and the audit record carry
      * @throws NotFound when no plan holds the stop, so the delivery is retried
      * @throws com.dispatchflow.shared.RuleViolation with Planning's {@code PlanNotPublished} or
-     *     {@code RouteNotInPlan}, which only a bug gives, so the delivery is retried and then alerts
-     *     the team (DL §12)
+     *     {@code RouteNotInPlan}, which only a bug gives, so the delivery is retried and then
+     *     alerts the team (DL §12)
      * @throws StaleVersion when Planning's plan changed meanwhile; the listener adapter retries the
      *     event at once, up to three times (DL §11)
      */

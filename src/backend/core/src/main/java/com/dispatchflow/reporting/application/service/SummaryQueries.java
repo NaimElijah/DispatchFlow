@@ -18,9 +18,9 @@ import com.dispatchflow.shared.application.NotFound;
  *
  * <ul>
  *   <li>{@link ReportingViews} gives every fact of another module, from the views Planning, Live
- *       Operations and Customers &amp; Orders publish (ADR-041): a plan's standing, planned figures,
- *       routes with their planned arrivals, stop results, actual figures, and the orders cancelled
- *       now (BR-30). The class calls no other module's Java API for them;
+ *       Operations and Customers &amp; Orders publish (ADR-041): a plan's standing, planned
+ *       figures, routes with their planned arrivals, stop results, actual figures, and the orders
+ *       cancelled now (BR-30). The class calls no other module's Java API for them;
  *   <li>{@link BaselineRepository} gives the plan's baseline;
  *   <li>Reporting's own domain judges them: {@code OnTimeRate}, {@code PlannedOnTimeRate} through
  *       {@code PlannedFigures}, and {@code Baseline.compareWith}.
@@ -49,9 +49,9 @@ public final class SummaryQueries {
 
     /**
      * A date's daily summary, per route and in total (FR-38, FR-264, FR-265, FR-338 to FR-341,
-     * FR-370, BR-129): the planned distance and driver-hours, the stops by outcome, the on-time
-     * percentage, the vehicles used and the dropped orders. Neither count includes a cancelled
-     * order (BR-30).
+     * FR-370, BR-129): the planned distance, driving time and driver-hours, the stops by outcome,
+     * the on-time percentage, the vehicles used and the dropped orders. Neither count includes a
+     * cancelled order (BR-30).
      *
      * <p>Built in M5.
      *
@@ -81,8 +81,8 @@ public final class SummaryQueries {
     /**
      * A date's planned distance, driving time and arrivals beside the actual ones (FR-106). The
      * actual arrivals come from {@link ReportingViews#stopResultsOf}; the actual distance and
-     * driving time from {@link ReportingViews#actualsOf}, which is unscheduled, so until it is built
-     * both are empty (Q-40, NFR-249).
+     * driving time from {@link ReportingViews#actualsOf}, which is unscheduled, so until it is
+     * built both are empty (Q-40, NFR-249).
      *
      * <p>Built in M5 for the arrivals; the actual distance and driving time in an unscheduled
      * milestone.
@@ -98,6 +98,10 @@ public final class SummaryQueries {
     /**
      * The failed and dropped orders of a range of dates, for the screen to group by reason,
      * customer and driver (FR-161).
+     *
+     * <p>The web adapter bounds the range at the boundary, refusing one longer than a named
+     * maximum, so one call never reads an unbounded span of dates; the bound is set when FR-161 is
+     * scheduled.
      *
      * <p>Built in an unscheduled milestone: FR-161, a Should, is in no milestone of the roadmap.
      *

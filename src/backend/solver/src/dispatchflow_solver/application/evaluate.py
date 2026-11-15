@@ -5,6 +5,10 @@ BR-42, FR-233). It runs in the HTTP process, not in a solver worker (ADR-051). W
 plan's mid-day evaluation uses the daily or the re-optimization rules is decided in M9; until then
 it takes the daily inputs.
 
+The core sends every vehicle the solution routes, each with that route's driver, whatever the
+vehicle's state and the driver's availability, so the factory never refuses the problem for a
+vehicle with no driver (ADR-105). The roster check, BR-20, is the core's.
+
 Built in M1.
 """
 

@@ -19,12 +19,12 @@ import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * A driver reports a problem from either app (breakdown, running late, vehicle full), and the
- * dispatcher is alerted (FR-95). Planning's {@link PublishedRoutes} gives the route's plan, its date
- * and its current driver, who alone may report on it (BR-02). One transaction raises the {@code
- * Alert}, keyed on its own ID so every report alerts (ADR-107), with the receipt {@link
- * com.dispatchflow.liveops.application.port.out.RecordedReport.ProblemReported} and the audit record.
- * Like every changing call it writes its audit record, a refused attempt's in its own transaction
- * (NFR-23, ADR-110).
+ * dispatcher is alerted (FR-95). Planning's {@link PublishedRoutes} gives the route's plan, its
+ * date and its current driver, who alone may report on it (BR-02). One transaction raises the
+ * {@code Alert}, keyed on its own ID so every report alerts (ADR-107), with the receipt {@link
+ * com.dispatchflow.liveops.application.port.out.RecordedReport.ProblemReported} and the audit
+ * record. Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
  *
  * <p>The phone's outbox sends the report with a request key, as it sends a stop's report (ADR-087).
  * The alert's own key can't tell a resend from a second report, so the receipt does: a resend with
@@ -93,7 +93,9 @@ public final class ReportProblem {
      * @throws com.dispatchflow.shared.RuleViolation with Live Operations' {@code NotYourRoute} when
      *     the acting driver does not drive the route now (BR-02)
      * @throws NotFound when no plan in force holds the route
-     * @throws IdempotencyKeyReused when the key was used before with another body (NFR-130)
+     * @throws IdempotencyKeyReused when the key was used before with another body, or its stored
+     *     receipt is another call's: a {@code RecordedReport} case other than {@code
+     *     ProblemReported} (NFR-130)
      * @throws StaleVersion when a concurrent send recorded the key first; the web adapter retries
      *     the call at once, up to three times, then answers 503 with {@code Retry-After} (ADR-121),
      *     and the phone's outbox backs off and resends it with the same key (ADR-087). A retry or a

@@ -16,8 +16,10 @@ import java.util.Optional;
  * @param status what stands at the stop
  * @param arrivedAt when the driver arrived, if an arrival is recorded: the corrected time of the
  *     arrival's report (BR-114)
- * @param outcomeAt for a delivered or failed stop, the corrected time of the first report (BR-114)
- *     of an outcome at the stop; a later correction or a repeated report doesn't move it
+ * @param outcomeAt for a delivered or failed stop, the time of the first outcome at the stop: the
+ *     corrected time of the driver's report (BR-114), or, for an outcome a dispatcher recorded on
+ *     the driver's behalf, the server's time it was recorded (FR-73); a later correction or a
+ *     repeated report doesn't move it
  */
 public record LiveStopFact(StopId stop, Status status, Optional<Instant> arrivedAt, Optional<Instant> outcomeAt) {
 

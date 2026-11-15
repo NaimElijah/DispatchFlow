@@ -1,11 +1,12 @@
-package com.dispatchflow.planning.application.port.out.solvejob;
+package com.dispatchflow.planning.application.service;
 
+import com.dispatchflow.planning.application.port.out.solvejob.RouteOptimizer;
 import com.dispatchflow.planning.domain.plan.SolverName;
 import java.util.Objects;
 
 /**
- * A dispatcher chose a solver that the optimizer doesn't offer, so the solve or the re-optimization is
- * refused before any job is queued (FR-20, FR-224, ADR-004). {@code RequestSolve} and {@code
+ * A dispatcher chose a solver that the optimizer doesn't offer, so the solve or the re-optimization
+ * is refused before any job is queued (FR-20, FR-224, ADR-004). {@code RequestSolve} and {@code
  * RequestReoptimization} check the name against {@link RouteOptimizer#solvers()}, which lists only
  * FR-20's solvers, so the baseline's is refused too. It is not a domain refusal, because only the
  * optimizer knows its solvers, so it is no {@code DomainError}: the web adapter answers it with 422

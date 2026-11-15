@@ -7,6 +7,21 @@ package com.dispatchflow.reporting.application.port.out;
  *
  * <p>Built in M5.
  *
- * @param solutions how many solutions the construction may find
+ * @param solutions how many solutions the construction may find, at least {@value #MIN_SOLUTIONS}
  */
-public record BaselineBudget(int solutions) {}
+public record BaselineBudget(int solutions) {
+
+    /** The fewest solutions a budget allows: a budget of none would end before any baseline. */
+    public static final int MIN_SOLUTIONS = 1;
+
+    /**
+     * Checks the budget allows at least one solution.
+     *
+     * @throws IllegalArgumentException when {@code solutions} is below {@value #MIN_SOLUTIONS}
+     */
+    public BaselineBudget {
+        if (solutions < MIN_SOLUTIONS) {
+            throw new IllegalArgumentException("solutions is below " + MIN_SOLUTIONS);
+        }
+    }
+}

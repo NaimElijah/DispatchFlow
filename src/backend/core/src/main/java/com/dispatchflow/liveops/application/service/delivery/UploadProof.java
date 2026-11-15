@@ -21,22 +21,25 @@ import com.dispatchflow.shared.application.Clock;
  * <p>It passes the acting driver's account and the stated kind to {@link ProofStore#store}, which
  * binds the file to both, so a report names only its own driver's proof of the kind it states
  * (FR-367, BR-02). The web adapter caps the request body at NFR-37's 5 MB while it streams it, so
- * an oversized upload is cut off before it is held in memory. The store then refuses a file whose
- * leading bytes aren't the declared JPEG or PNG ({@link ProofFormatRefused}, 415), reads the pixel
- * dimensions with the declared format's reader alone and refuses an image above its cap before
- * decoding it ({@link ProofImageTooLarge}), and refuses a file that reader can't decode ({@link
+ * an oversized upload is cut off before it is held in memory. The store then runs the cheap checks
+ * before it reads the image: it refuses an ID another upload holds ({@link ProofIdTaken}), answers
+ * a same-ID retry with nothing changed, and refuses one upload more than the uploader's cap ({@link
+ * ProofUploadsCapped}). Only then does it refuse a file whose leading bytes aren't the declared
+ * JPEG or PNG ({@link ProofFormatRefused}, 422), read the pixel dimensions with the declared
+ * format's reader alone and refuse an image above its cap before decoding it ({@link
+ * ProofImageTooLarge}, 422), and refuse a file that reader can't decode ({@link
  * ProofImageUnreadable}, 422), so each refusal names its reason (NFR-37, NFR-205).
  *
  * <p>An upload stays unnamed until the report that names it arrives. The store bounds such uploads:
  * it deletes one that no report names within a window longer than the 14 days a phone may hold its
- * queued reports offline (ADR-087, NFR-235), so a phone's late report still finds its upload, and it
- * caps how many unnamed uploads one driver may hold, refusing one more with {@link
+ * queued reports offline (ADR-087, NFR-235), so a phone's late report still finds its upload, and
+ * it caps how many unnamed uploads one driver may hold, refusing one more with {@link
  * ProofUploadsCapped}, which the web adapter answers with 429 and {@code Retry-After} so the phone
  * waits instead of marking its row refused. Both are the store adapter's named settings, whose
  * values M5 fixes.
  *
- * <p>Like every changing call it writes its audit record, a refused attempt's in its own transaction
- * (NFR-23, ADR-110).
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
  *
  * <p>Built in M5. Rows: FR-30, FR-367, NFR-37, NFR-204, NFR-205, NFR-235.
  */

@@ -11,15 +11,16 @@ import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.application.Clock;
 
 /**
- * The driver's day: their own routes of a date, the stops in order with projected arrivals, windows,
- * coordinates, customer details and notes (FR-27, FR-28, FR-96, FR-154, FR-324, FR-325, placement
- * P6). It picks the driver's routes from Planning's {@link PublishedRoutes}, whose stops carry the
- * windows and door flags their revision took them with, reads every stop's details from Customers
- * &amp; Orders' {@link StopOrders} in one call for all the day's orders, takes each stop's stored
- * coordinates from the order's {@code OrderFact.location} in {@link OrdersForDate#uncancelledOn}, so
- * Navigate honours a corrected pin (FR-325), and projects the arrivals itself; the route-change diff
- * (FR-249) stays Planning's. A stop whose order was cancelled after it was served is not among the
- * uncancelled orders, so it has no coordinates; it has an outcome, so it needs no Navigate.
+ * The driver's day: their own routes of a date, the stops in order with projected arrivals,
+ * windows, coordinates, customer details and notes (FR-27, FR-28, FR-96, FR-154, FR-324, FR-325,
+ * placement P6). It picks the driver's routes from Planning's {@link PublishedRoutes}, whose stops
+ * carry the windows and door flags their revision took them with, reads every stop's details from
+ * Customers &amp; Orders' {@link StopOrders} in one call for all the day's orders, takes each
+ * stop's stored coordinates from the order's {@code OrderFact.location} in {@link
+ * OrdersForDate#uncancelledOn}, so Navigate honours a location placed by hand (FR-325), and
+ * projects the arrivals itself; the route-change diff (FR-249) stays Planning's. A stop whose order
+ * was cancelled after it was served is not among the uncancelled orders, so it has no coordinates;
+ * it has an outcome, so it needs no Navigate.
  *
  * <p>It also lists the driver's routes from today on, each with its date (FR-324), through
  * Planning's {@code PublishedRoutes.inForceFrom}.

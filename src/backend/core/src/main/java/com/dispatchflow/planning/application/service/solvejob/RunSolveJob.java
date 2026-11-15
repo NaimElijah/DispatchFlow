@@ -14,10 +14,11 @@ import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.IdGenerator;
 
 /**
- * A lane's worker step: it claims the lane's oldest queued job, builds its request and matrix, starts
- * the search, calls the optimizer, and ends the job (FR-16, FR-65, FR-142, FR-238, BR-32, BR-75,
- * NFR-11, DL §6.2, §9.2, ADR-051). One worker per lane runs it, one job at a time, on a virtual
- * thread; each phase change is a transaction of its own, and the optimizer call runs outside any.
+ * A lane's worker step: it claims the lane's oldest queued job, builds its request and matrix,
+ * starts the search, calls the optimizer, and ends the job (FR-16, FR-65, FR-142, FR-238, BR-32,
+ * BR-75, NFR-11, DL §6.2, §9.2, ADR-051). One worker per lane runs it, one job at a time, on a
+ * virtual thread; each phase change is a transaction of its own, and the optimizer call runs
+ * outside any.
  *
  * <ul>
  *   <li>A daily job's validated solution is checked against the plan's locks first ({@code
@@ -31,34 +32,35 @@ import com.dispatchflow.shared.application.IdGenerator;
  *       reads (ADR-052, BR-37). For a daily job that is its matrix; for a re-optimization, the new
  *       matrix the assembler fetched when the stored one lacked a location, which replaces the
  *       stored one (ADR-121). A matrix over the stored one's list leaves it as it is.
- *   <li>A re-optimization's answer becomes a {@code ReoptimizationResult}, which this step builds from
- *       the answer and the request: the request's fact time, each withdrawn vehicle's cause from its
- *       {@code VehicleState}, and the per-driver changes and goods hand-overs against the request's
- *       routes (see {@code ReoptimizationAnswer}). {@code SolveJob.succeed} then creates the proposal
- *       in the job's transaction (DL §6.1). A result the proposal refuses, from {@code
+ *   <li>A re-optimization's answer becomes a {@code ReoptimizationResult}, which this step builds
+ *       from the answer and the request: the request's fact time, each withdrawn vehicle's cause
+ *       from its {@code VehicleState}, and the per-driver changes and goods hand-overs against the
+ *       request's routes (see {@code ReoptimizationAnswer}). {@code SolveJob.succeed} then creates
+ *       the proposal in the job's transaction (DL §6.1). A result the proposal refuses, from {@code
  *       ReoptimizationProposal.create} ({@code OrderAlreadyInPlan}, {@code VehicleRoutedTwice} or
- *       {@code DriverRoutedTwice}), fails the job with {@code SolveFailure.rejected} instead, naming
- *       the broken rule as for a daily result (ADR-112).
- *   <li>An optimizer answer of failure, an unreachable road network ({@code RoadNetworkUnavailable})
- *       or a date with no orders fails the job with its reason (FR-65). A request the optimizer
- *       refused ({@code OptimizerRefusedRequest}) fails the job too, with the reason {@code
- *       RouteOptimizer}'s gap waits for, and the step logs it as a defect.
- *   <li>A job the watchdog or the midnight job ended meanwhile refuses with {@code JobAlreadyEnded},
- *       and the worker drops its answer (DL §11).
+ *       {@code DriverRoutedTwice}), fails the job with {@code SolveFailure.rejected} instead,
+ *       naming the broken rule as for a daily result (ADR-112).
+ *   <li>An optimizer answer of failure, an unreachable road network ({@code
+ *       RoadNetworkUnavailable}) or a date with no orders fails the job with its reason (FR-65). A
+ *       request the optimizer refused ({@code OptimizerRefusedRequest}) fails the job too, with the
+ *       reason {@code RouteOptimizer}'s gap waits for, and the step logs it as a defect.
+ *   <li>A job the watchdog or the midnight job ended meanwhile refuses with {@code
+ *       JobAlreadyEnded}, and the worker drops its answer (DL §11).
  *   <li>A lost version race on {@code SolveJobRepository.save} is no error of this step: it reloads
- *       the job, finds it ended ({@code JobAlreadyEnded}), and moves on to the next job (DL §11). It
- *       never retries its own change.
+ *       the job, finds it ended ({@code JobAlreadyEnded}), and moves on to the next job (DL §11).
+ *       It never retries its own change.
  * </ul>
  *
- * <p>The job's events, {@code SolveSucceeded} or {@code SolveFailed}, then end the plan's solve (BR-59).
+ * <p>The job's events, {@code SolveSucceeded} or {@code SolveFailed}, then end the plan's solve
+ * (BR-59).
  *
  * <p><b>Domain gap.</b> {@code SolveJob.succeed} keeps no objective and no stats, which the daily
  * answer carries for NFR-11: M0 adds them to {@code SolveResult} (see {@code DailyAnswer.Solved}).
+ * {@code SolveJob.fail} keeps no stats either, which a {@code Failed} answer carries when the
+ * optimizer answered: M0 adds them beside the failure (see {@code DailyAnswer.Failed}).
  *
- * <p>M0 builds a first cut, the daily lane; M4 completes it, as
- * the roadmap's M4 builds "the {@code solve_job} queue, one worker per lane" (ADR-051).
- *
- * <p>Built in M0.
+ * <p>Built in M0; in full in M4. M0 builds the daily lane, and the roadmap's M4 builds "the {@code
+ * solve_job} queue, one worker per lane" (ADR-051).
  */
 public final class RunSolveJob {
 
@@ -81,7 +83,8 @@ public final class RunSolveJob {
      * @param proposals where a re-optimization's proposal is added
      * @param assembler builds the job's request and matrix
      * @param optimizer the optimization service
-     * @param storedMatrices each plan's stored matrix, which the success transaction writes (ADR-052, ADR-121)
+     * @param storedMatrices each plan's stored matrix, which the success transaction writes
+     *     (ADR-052, ADR-121)
      * @param clock the time of each phase change
      * @param ids the new proposal's ID
      * @param liveUpdates the dispatchers' open screens (FR-142, FR-222)

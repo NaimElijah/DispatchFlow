@@ -28,8 +28,8 @@ import java.util.Objects;
  * @param proposal the proposal
  * @param version the proposal's version, which a decline sends as {@code If-Match} (BR-76)
  * @param plan the plan it would change
- * @param planVersion the plan's version, which an accept sends as {@code If-Match}, because
- *     accepting changes the plan, not the proposal (BR-76)
+ * @param planVersion the plan's version, which an accept sends in its request body, because
+ *     accepting changes the plan while the request's target is the proposal (BR-76)
  * @param job the job that computed it
  * @param basis the revision and fact time it was computed from (BR-25, BR-82)
  * @param createdAt when it was created

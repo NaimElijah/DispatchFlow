@@ -6,7 +6,8 @@ import java.util.Objects;
 /**
  * What a phone request did, as {@link ReportReceipts} stores it and a retry with the same key gets
  * back (BR-28, ADR-087). A refused request changes nothing and stores nothing, so its retry is
- * judged again.
+ * judged again. Each call answers its own cases, so a stored case another call answers is refused
+ * as {@code IdempotencyKeyReused}, whatever the body's hash.
  *
  * <p>Built in M8.
  */

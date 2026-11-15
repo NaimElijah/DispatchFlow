@@ -9,7 +9,7 @@ import com.dispatchflow.shared.PhoneNumber;
  *
  * <p>The keys rotate by version (ADR-069). New hashes use the current key, and an older key stays,
  * for lookups only, while any opt-out remains under it, so a rotation never loses an opt-out
- * (NFR-202). {@code RehashOptOuts} moves the opt-outs whose phone is still stored to the new key.
+ * (NFR-202). {@code RehashOptOuts} copies the opt-outs whose phone is still stored to the new key.
  *
  * <p>Built in M12.
  */

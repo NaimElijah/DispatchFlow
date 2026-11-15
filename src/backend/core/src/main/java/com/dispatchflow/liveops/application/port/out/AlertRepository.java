@@ -26,8 +26,8 @@ public interface AlertRepository {
     Optional<Alert> get(AlertId alert);
 
     /**
-     * Stores a new alert unless an alert with its dedupe key exists, open or acknowledged (ADR-107),
-     * in the caller's transaction.
+     * Stores a new alert unless an alert with its dedupe key exists, open or acknowledged
+     * (ADR-107), in the caller's transaction.
      *
      * <p>An alert names its plan but not the plan's date, and no SQL reads Planning's schema (DL
      * §2.3 rule 3), so the caller passes the date from Planning's answer and the adapter keeps it
@@ -37,7 +37,9 @@ public interface AlertRepository {
      * <p>Built in M8.
      *
      * @param alert the raised alert, at {@code Version.NEW}
-     * @param date the delivery date of the alert's plan, from Planning's {@code PublishedRoutes}
+     * @param date the delivery date of the alert's plan, from Planning's answer: {@code
+     *     PublishedRoutes} for a plan in force, or the {@code MembershipFact} of a reported stop,
+     *     whose plan may since have been cancelled
      * @return {@code true} when it was stored, {@code false} when its key was taken, so nothing
      *     changed
      */

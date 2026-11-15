@@ -54,7 +54,8 @@ public record DriverDayView(DeliveryDate date, AccountId driver, List<DriverRout
      *
      * @param route the route
      * @param vehicle its vehicle
-     * @param planRevision the plan's current revision, which the phone confirms after a change (FR-97)
+     * @param planRevision the plan's current revision, which the phone confirms after a change
+     *     (FR-97)
      * @param run where its run stands (FR-244)
      * @param stops its stops, in planned order
      */
@@ -91,8 +92,8 @@ public record DriverDayView(DeliveryDate date, AccountId driver, List<DriverRout
      * @param eta its projected arrival, or its planned one before the route moves (FR-27, FR-96,
      *     FR-254); empty when it has an outcome or is not timed
      * @param window its time window, whose end the screen counts down to (FR-154)
-     * @param location the stop's stored coordinates, which Navigate sends to Waze or Google Maps, so
-     *     a corrected pin is honoured (FR-28, FR-325); empty when they are not known
+     * @param location the stop's stored coordinates, which Navigate sends to Waze or Google Maps,
+     *     so a location placed by hand is honoured (FR-28, FR-325); empty when they are not known
      * @param leaveAtDoor whether it may be left at the door (FR-364)
      * @param atRisk whether it is at risk, marked as on the dispatcher's list (FR-251)
      * @param details the customer's details and the notes the driver reads (FR-27, FR-86, FR-87,

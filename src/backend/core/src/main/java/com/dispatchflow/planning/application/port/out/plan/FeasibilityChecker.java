@@ -1,6 +1,7 @@
 package com.dispatchflow.planning.application.port.out.plan;
 
 import com.dispatchflow.planning.domain.solution.Evaluation;
+import com.dispatchflow.shared.Version;
 
 /**
  * The optimizer's validator, asked to judge a plan without optimizing it: after an edit (FR-23,
@@ -39,4 +40,19 @@ public interface FeasibilityChecker {
      *     optimizer refused the request as invalid
      */
     Evaluation evaluate(EvaluationRequest request);
+
+    /**
+     * The unavailable evaluation of one version of a plan, for a caller whose request couldn't be
+     * built: {@code SolveRequestAssembler.evaluation} threw {@link
+     * com.dispatchflow.planning.application.port.out.RoadNetworkUnavailable}. Only the adapter
+     * builds an {@link Evaluation} (DL §13), so the caller asks here, and then goes on as it does
+     * for an unreachable optimizer: an edit refuses, publishing refuses, and a hand-over records
+     * <em>not yet checked</em> (BR-70, FR-395, ADR-058). It calls nothing.
+     *
+     * <p>Built in M4.
+     *
+     * @param planVersion the version the layout was read from
+     * @return an unavailable evaluation for that version
+     */
+    Evaluation unavailableFor(Version planVersion);
 }

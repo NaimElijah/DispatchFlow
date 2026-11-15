@@ -15,8 +15,8 @@ import java.util.Optional;
  * (DL §3.6, §9.7, ADR-051, ADR-052). The persistence adapter loads a job through {@code
  * SolveJob.restore}, and stores the events it raised with the change (ADR-064).
  *
- * <p>M0 builds a first cut, the daily lane's queue; M4 completes it, as the roadmap's M4 builds "the
- * {@code solve_job} queue, one worker per lane" (ADR-051).
+ * <p>The queue is built in M0; in full in M4. M0 builds the daily lane's queue, and the roadmap's
+ * M4 builds "the {@code solve_job} queue, one worker per lane" (ADR-051).
  *
  * <p>Built in M0, M4, M5 and M13, method by method.
  */
@@ -46,8 +46,8 @@ public interface SolveJobRepository {
 
     /**
      * Saves a changed job with its version check, and stores the events it raised, in the caller's
-     * transaction (BR-76). Its worker, the watchdog, startup recovery and the midnight job may race;
-     * the loser's save fails (DL §11).
+     * transaction (BR-76). Its worker, the watchdog, startup recovery and the midnight job may
+     * race; the loser's save fails (DL §11).
      *
      * <p>Built in M0.
      *
@@ -90,8 +90,8 @@ public interface SolveJobRepository {
     List<JobId> unfinished();
 
     /**
-     * Every job of a date's plans that is queued, building its matrix or running, which the midnight
-     * job fails first (BR-128).
+     * Every job of a date's plans that is queued, building its matrix or running, which the
+     * midnight job fails first (BR-128).
      *
      * <p>Built in M5.
      *
@@ -103,28 +103,31 @@ public interface SolveJobRepository {
     /**
      * Blanks every coordinate in the stored inputs of the solve jobs of every plan dated before a
      * cutoff, in the caller's transaction: the orders' and the depots' locations, the matrix's list
-     * of locations, and a re-optimization's positions and its position rows' points (NFR-257,
-     * NFR-260, ADR-121). The inputs keep everything else, so a job's result and failure still read. An
-     * input already blanked is left as it is, so a second run blanks nothing.
+     * of locations, and a re-optimization's positions with each of its position rows whole, its
+     * seconds and metres included, because a row's travel times to known places locate its position
+     * (NFR-257, NFR-260, ADR-121). The inputs keep everything else, so a job's result and failure
+     * still read. An input already blanked is left as it is, so a second run blanks nothing.
      *
      * <p>Built in M13.
      *
-     * @param cutoff the first date whose plans' jobs keep their coordinates: today less 90 days
+     * @param cutoff the first date whose plans' jobs keep their coordinates: today less 90 Israel
+     *     calendar days (ADR-088)
      * @return how many jobs' inputs were blanked
      */
     int blankCoordinatesDatedBefore(DeliveryDate cutoff);
 
     /**
-     * Blanks every vehicle position received at or before a cutoff in the stored inputs of
-     * re-optimization jobs, with the position rows' points that start from it, in the caller's
-     * transaction, as Live Operations deletes the positions themselves (NFR-184, NFR-260, ADR-121). A
-     * position already blanked is left as it is.
+     * Blanks every vehicle position received before a cutoff in the stored inputs of
+     * re-optimization jobs, with the position row that starts from it, whole: its point, seconds
+     * and metres, because a row's travel times to known places locate its position. It runs in the
+     * caller's transaction, as Live Operations deletes the positions themselves (NFR-184, NFR-260,
+     * ADR-121). A position already blanked is left as it is.
      *
      * <p>Built in M13.
      *
-     * @param cutoff the latest receipt time a blanked position has: now less 7 days, in {@code
-     *     Asia/Jerusalem}
+     * @param cutoff the first receipt time whose positions are kept: now less 7 Israel calendar
+     *     days, the same wall-clock time on the date 7 days earlier (ADR-088)
      * @return how many jobs' inputs had a position blanked
      */
-    int blankPositionsReceivedBy(Instant cutoff);
+    int blankPositionsReceivedBefore(Instant cutoff);
 }
