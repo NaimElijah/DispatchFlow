@@ -46,8 +46,8 @@ public interface PasswordHasher {
      *
      * <p>Built in M5.
      *
-     * @param presented the password typed for an address no account holds, or for an account with no
-     *     password hash
+     * @param presented the password typed for an address no account holds, or for an account with
+     *     no password hash
      */
     void checkDecoy(PresentedPassword presented);
 }

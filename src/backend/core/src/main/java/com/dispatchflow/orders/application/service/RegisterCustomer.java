@@ -72,8 +72,8 @@ public final class RegisterCustomer {
      * @param actor the dispatcher
      * @param command what the form gives
      * @return the new customer's ID
-     * @throws CompanyNotSetUp when the form gives no defaults and no Admin has set the company profile
-     *     up yet
+     * @throws CompanyNotSetUp when the form gives no defaults and no Admin has set the company
+     *     profile up yet
      */
     public CustomerId register(Actor actor, Command command) {
         throw new UnsupportedOperationException("Built in M2");

@@ -21,8 +21,9 @@ public interface RecordUsage {
      *
      * <p>Built in M2.
      *
-     * @param orders every order of the customer not yet anonymized, cancelled ones included; Planning
-     *     owns whether a plan is completed, so Customers &amp; Orders filters by no date (DL §4.3)
+     * @param orders every order of the customer not yet anonymized, cancelled ones included;
+     *     Planning owns whether a plan is completed, so Customers &amp; Orders filters by no date
+     *     (DL §4.3)
      * @return the plans, each once, in any order; empty when none uses an order
      */
     List<PlanId> plansUsing(List<OrderId> orders);

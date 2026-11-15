@@ -2,13 +2,13 @@ package com.dispatchflow.access.application.api;
 
 /**
  * The actor's roles give the capability only with a limited grant, a cell of the permission matrix
- * that starts "Only", and the call asks for more than that grant covers. The web adapter's role check
- * lets a limited grant through, because the limit depends on what the call asks, so the use case
- * refuses it itself (ADR-068, ADR-104). It is not a domain refusal and not a missing record, so it is
- * no {@code DomainError} and no {@code NotFound}: the web adapter answers it with 403 and
- * {@link #code()}. A call that names a record by its ID, where the limit depends on what that record
- * holds, answers {@code NotFound} instead, as {@code ProofQueries} does, so a 403 never tells a
- * caller which IDs exist.
+ * that starts "Only", and the call asks for more than that grant covers. The web adapter's role
+ * check lets a limited grant through, because the limit depends on what the call asks, so the use
+ * case refuses it itself (ADR-068, ADR-104). It is not a domain refusal and not a missing record,
+ * so it is no {@code DomainError} and no {@code NotFound}: the web adapter answers it with 403 and
+ * {@link #code()}. A call that names a record by its ID, where the limit depends on what that
+ * record holds, answers {@code NotFound} instead, as {@code ProofQueries} does, so a 403 never
+ * tells a caller which IDs exist.
  *
  * <p>Built in M4.
  */

@@ -29,7 +29,8 @@ public interface FleetFacts {
     /**
      * One date's roster, as a solve and a publication read it (FR-54, FR-194). It keeps only the
      * drivers whose standing is active: a driver on a filled roster may since have retired or lost
-     * the Driver role (DL §4.2, ADR-062, ADR-103, FR-193). A date nobody rostered yet has no driver.
+     * the Driver role (DL §4.2, ADR-062, ADR-103, FR-193). A date nobody rostered yet has no
+     * driver.
      *
      * <p>Built in M2.
      *

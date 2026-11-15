@@ -12,8 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Rules 1 and 2: a use case that depends on everything rule 1 allows: the JDK, the kernel and the
  * shared application package, its own domain and ports, another module's api and events, and the
- * spi of a module whose interface it implements, and {@code @Transactional}; and, by rule 2, only on
- * {@code lower}, which the graph allows.
+ * spi of a module whose interface it implements, and {@code @Transactional}; and, by rule 2, only
+ * on {@code lower}, which the graph allows.
  */
 public final class UpperUseCase {
 

@@ -9,7 +9,10 @@ public sealed interface SealedOverAClass {
     /** Does what its one permitted class implements. */
     void act();
 
-    /** The one implementation: a class, not a record, outside the module's {@code application.service}. */
+    /**
+     * The one implementation: a class, not a record, outside the module's {@code
+     * application.service}.
+     */
     final class Plain implements SealedOverAClass {
 
         @Override

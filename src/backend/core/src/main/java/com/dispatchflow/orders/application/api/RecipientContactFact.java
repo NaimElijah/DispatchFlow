@@ -7,8 +7,9 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * The two phones an order's stop messages may go to, which Messaging's {@code RecipientPhone.choose}
- * picks from in this order (FR-348). Both are personal data, so it prints redacted.
+ * The two phones an order's stop messages may go to, which Messaging's {@code
+ * RecipientPhone.choose} picks from in this order (FR-348). Both are personal data, so it prints
+ * redacted.
  *
  * <p>Built in M12.
  *

@@ -16,8 +16,9 @@ public interface OrderPlacement {
 
     /**
      * Where the plan of a date holds one attempt of an order. Planning keeps no order's date, so
-     * the caller names it, and Planning reads that date's plans only. It reads the same Planning view
-     * as {@link #placementsOn}, so the order screens and a change's answer agree (FR-396, ADR-121).
+     * the caller names it, and Planning reads that date's plans only. It reads the same Planning
+     * view as {@link #placementsOn}, so the order screens and a change's answer agree (FR-396,
+     * ADR-121).
      *
      * <p>Built in M2.
      *

@@ -32,9 +32,9 @@ public interface MoveVehicleWithRoute {
      *     failed publication every minute, at most 5 times, which passes only if the roster changed
      *     meanwhile, and then alerts the team with the listener's name (ADR-064, DL §12). The plan
      *     keeps the hand-over, and the roster keeps the vehicle where it was until it is changed
-     * @throws com.dispatchflow.shared.application.StaleVersion when the date's roster changed between its read
-     *     and its save (BR-76); the caller's listener or job adapter retries at once, up to three
-     *     times (DL §11)
+     * @throws com.dispatchflow.shared.application.StaleVersion when the date's roster changed
+     *     between its read and its save (BR-76); the caller's listener or job adapter retries at
+     *     once, up to three times (DL §11)
      */
     void move(DeliveryDate date, VehicleId vehicle, AccountId from, AccountId to, CallContext call);
 }

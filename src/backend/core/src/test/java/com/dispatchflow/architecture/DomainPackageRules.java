@@ -33,10 +33,10 @@ final class DomainPackageRules {
     private DomainPackageRules() {}
 
     /**
-     * One slice per package under {@code <root>.<module>.domain}, the module's domain root included;
-     * every other class is left out. ArchUnit's {@code matching("..domain.(**)")} can't do this: its
-     * {@code (**)} never matches the domain root itself, so a cycle between the root and a
-     * subpackage would go unseen.
+     * One slice per package under {@code <root>.<module>.domain}, the module's domain root
+     * included; every other class is left out. ArchUnit's {@code matching("..domain.(**)")} can't
+     * do this: its {@code (**)} never matches the domain root itself, so a cycle between the root
+     * and a subpackage would go unseen.
      */
     static SliceAssignment domainPackages(String root) {
         PackageMatcher domain = PackageMatcher.of(root + ".*." + DOMAIN + "..");
@@ -66,8 +66,8 @@ final class DomainPackageRules {
 
     /**
      * ADR-118 rule 2: no class directly in {@code <root>.<module>.domain} uses a class in a package
-     * under it. The cycle rule can't see this when the subpackage never names the root, and
-     * {@link DomainPurityRules#onlyAllowedDependencies} lets any class reach its own module's domain
+     * under it. The cycle rule can't see this when the subpackage never names the root, and {@link
+     * DomainPurityRules#onlyAllowedDependencies} lets any class reach its own module's domain
      * subpackages.
      */
     static ArchRule domainRootsUseNoSubpackage(String root) {

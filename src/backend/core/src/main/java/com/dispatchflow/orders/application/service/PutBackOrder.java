@@ -14,14 +14,14 @@ import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 
 /**
- * A dispatcher puts a failed or dropped order back, for today's re-optimization or on another
- * date, as its next attempt (FR-75, FR-258, BR-95): the use case asks Planning's {@link
+ * A dispatcher puts a failed or dropped order back, for today's re-optimization or on another date,
+ * as its next attempt (FR-75, FR-258, BR-95): the use case asks Planning's {@link
  * OrderPlacement#placementOf} where the order's date holds its current attempt and Live Operations'
  * {@link StopProgress} what happened at its stop, translates both, and calls {@code Order.putBack}
  * on the target date's capacity, read under its lock; the target date is the one the new window
  * carries. On its own date it doesn't count again toward the limit (BR-113); on another date the
- * order raises {@code OrderPutBack}, which leaves with the save, so Planning takes the old attempt's
- * drop off the old date's plan (ADR-115).
+ * order raises {@code OrderPutBack}, which leaves with the save, so Planning takes the old
+ * attempt's drop off the old date's plan (ADR-115).
  *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).

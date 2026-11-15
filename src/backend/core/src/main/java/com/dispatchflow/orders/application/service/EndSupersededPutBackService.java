@@ -15,8 +15,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  * corrected to delivered after its order was put back, it returns the order from the put-back's
  * attempt to the earlier one, so the order's status derives <em>delivered</em> from that attempt's
  * {@code Delivery} and no solve plans it again (FR-404, FR-258, ADR-121). An order whose current
- * attempt is no longer the put-back's changes nothing, so a redelivered event is safe. It writes its
- * audit record with the listener's server step (NFR-23, ADR-110).
+ * attempt is no longer the put-back's changes nothing, so a redelivered event is safe. It writes
+ * its audit record with the listener's server step (NFR-23, ADR-110).
  *
  * <p>Domain gap: {@code Order} has no method that ends a put-back attempt. M8 adds {@code
  * Order.endPutBack(Attempt, Instant)}, which returns the order to the attempt before the one given

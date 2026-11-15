@@ -1,6 +1,8 @@
 package com.dispatchflow.archfixture.planning.domain;
 
-/** An Evaluation only the optimizer adapter may build; it and its nested types may use each other. */
+/**
+ * An Evaluation only the optimizer adapter may build; it and its nested types may use each other.
+ */
 public final class Evaluation {
 
     private Evaluation() {}

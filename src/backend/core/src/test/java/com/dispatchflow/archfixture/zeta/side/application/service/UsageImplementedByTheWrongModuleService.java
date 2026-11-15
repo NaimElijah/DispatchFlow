@@ -2,7 +2,10 @@ package com.dispatchflow.archfixture.zeta.side.application.service;
 
 import com.dispatchflow.archfixture.zeta.lower.application.spi.UsageImplementedByTheWrongModule;
 
-/** Rule 4: the one implementation of a {@code lower} spi, outside {@code lower} but not where its arrow points. */
+/**
+ * Rule 4: the one implementation of a {@code lower} spi, outside {@code lower} but not where its
+ * arrow points.
+ */
 public final class UsageImplementedByTheWrongModuleService implements UsageImplementedByTheWrongModule {
 
     @Override

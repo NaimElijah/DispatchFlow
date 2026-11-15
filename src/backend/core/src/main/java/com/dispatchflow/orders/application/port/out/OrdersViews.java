@@ -26,9 +26,9 @@ public interface OrdersViews {
 
     /**
      * Every uncancelled order of a date, with its customer's location, its outside-service-area
-     * flag and defaults applied (FR-15, FR-320, BR-22, BR-49, BR-124). Each order's {@code placedAt}
-     * has no column to read yet: M2 adds the time the order joined its date, set by {@code place},
-     * {@code reschedule} and a put-back to another date (BR-71).
+     * flag and defaults applied (FR-15, FR-320, BR-22, BR-49, BR-124). Each order's {@code
+     * placedAt} has no column to read yet: M2 adds the time the order joined its date, set by
+     * {@code place}, {@code reschedule} and a put-back to another date (BR-71).
      *
      * <p>Built in M2.
      *

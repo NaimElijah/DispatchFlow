@@ -27,8 +27,8 @@ public interface EndSupersededPutBack {
      * @param call the listener's server step, which the audit record carries
      * @throws com.dispatchflow.shared.application.NotFound when no order has the ID
      * @throws com.dispatchflow.shared.application.StaleVersion when the order changed between its
-     *     read and its save (BR-76); the caller's listener adapter retries at once, up to three times
-     *     (DL §11)
+     *     read and its save (BR-76); the caller's listener adapter retries at once, up to three
+     *     times (DL §11)
      */
     void end(OrderId order, Attempt laterAttempt, CallContext call);
 }
