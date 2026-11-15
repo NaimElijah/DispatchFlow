@@ -13,9 +13,10 @@ import org.jspecify.annotations.Nullable;
  * <p>The text is Unicode NFC, with every character that renders as nothing trimmed from both
  * ends: whitespace, space separators such as the no-break space, format characters such as the
  * zero-width space, Unicode's default-ignorable code points such as the Hangul fillers and the
- * combining grapheme joiner, and the blank Braille pattern (ADR-106, ADR-111). A variation selector
- * at the end belongs to the character before it, as an emoji's does. In a name or an address only
- * one selector stays: VS16, right after an emoji that shows as text by default, such as U+2764, so
+ * combining grapheme joiner, and the two symbols that render as blank, the blank Braille pattern
+ * and the musical null notehead U+1D159 (ADR-106, ADR-111). A variation selector at the end
+ * belongs to the character before it, as an emoji's does. In a name or an address only one
+ * selector stays: VS16, right after an emoji that shows as text by default, such as U+2764, so
  * that it shows as an emoji. Every other selector at the end is trimmed: one after a letter or a
  * digit, VS16 after an emoji that already shows as one, VS15, or a second after an emoji. In a note
  * a selector is trimmed only with an invisible character it follows. The interior is kept as
@@ -30,8 +31,8 @@ import org.jspecify.annotations.Nullable;
  *   <li>an interior invisible filler in a name or an address, which would make two names or
  *       addresses look alike (BR-48, ADR-111): a default-ignorable code point that is not a
  *       format character, such as a Hangul filler, the combining grapheme joiner or a Khmer
- *       inherent vowel; the blank Braille pattern; or a variation selector other than VS16 right
- *       after an emoji that shows as text by default;
+ *       inherent vowel; the blank Braille pattern or the musical null notehead; or a variation
+ *       selector other than VS16 right after an emoji that shows as text by default;
  *   <li>a bidi embedding, override or isolate control, in any kind;
  *   <li>an unpaired surrogate, or a private-use or unassigned code point.
  * </ul>
@@ -66,6 +67,9 @@ public final class PlainText {
 
     /** Renders as an empty cell, though Unicode does not class it as ignorable. */
     private static final int BRAILLE_PATTERN_BLANK = 0x2800;
+
+    /** Renders as an empty space in common fonts, though Unicode classes it as a symbol (So). */
+    private static final int MUSICAL_SYMBOL_NULL_NOTEHEAD = 0x1D159;
 
     /**
      * Unicode's variation selectors, as of Unicode 15: the Mongolian free variation selectors, VS1
@@ -311,7 +315,7 @@ public final class PlainText {
         return Character.isWhitespace(codePoint)
                 || Character.isSpaceChar(codePoint)
                 || Character.getType(codePoint) == Character.FORMAT
-                || codePoint == BRAILLE_PATTERN_BLANK
+                || isBlankSymbol(codePoint)
                 || isInAny(codePoint, DEFAULT_IGNORABLE);
     }
 
@@ -320,10 +324,15 @@ public final class PlainText {
      * the variation selectors one that depends on the character before them.
      */
     private static boolean isInvisibleFiller(int codePoint) {
-        return codePoint == BRAILLE_PATTERN_BLANK
+        return isBlankSymbol(codePoint)
                 || (isInAny(codePoint, DEFAULT_IGNORABLE)
                         && Character.getType(codePoint) != Character.FORMAT
                         && !isVariationSelector(codePoint));
+    }
+
+    /** A symbol that renders as nothing, which no Unicode property marks as ignorable. */
+    private static boolean isBlankSymbol(int codePoint) {
+        return codePoint == BRAILLE_PATTERN_BLANK || codePoint == MUSICAL_SYMBOL_NULL_NOTEHEAD;
     }
 
     private static boolean isVariationSelector(int codePoint) {

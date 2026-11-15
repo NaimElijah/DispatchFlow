@@ -321,31 +321,66 @@ class FleetRegisterTest {
     }
 
     /**
-     * "Van 🚚" with a selector that changes nothing, with a left-to-right mark, or with a no-break
-     * space for its space, each looks like "Van 🚚", so BR-48 matches them as one name. The
-     * characters are built from their code points, so none of them hides in the source.
+     * Pairs of names that look alike, so BR-48 matches them as one name: each is a name the kernel
+     * keeps as entered, which only Fleet's matching form folds. Every character outside ASCII and
+     * the Hebrew letters is built from its code point, so none of them hides in the source.
      */
-    static Stream<Arguments> lookalikesOfVanTruck() {
-        String truck = Character.toString(0x1F69A);
+    static Stream<Arguments> lookalikeNames() {
+        String truck = cp(0x1F69A);
+        String heart = cp(0x2764);
+        String precomposedE = "Van " + cp(0x00E9);
+        String alefWithMadda = "Van " + cp(0x0622);
+        String geresh = cp(0x05F3);
+        String gershayim = cp(0x05F4);
         return Stream.of(
-                Arguments.of("an emoji selector after the truck", "Van " + truck + Character.toString(0xFE0F)),
-                Arguments.of("a left-to-right mark after Van", "Van" + Character.toString(0x200E) + " " + truck),
-                Arguments.of("a no-break space for the space", "Van" + Character.toString(0x00A0) + truck));
+                Arguments.of("a left-to-right mark after Van", "Van " + truck, "Van" + cp(0x200E) + " " + truck),
+                Arguments.of("a no-break space for the space", "Van " + truck, "Van" + cp(0x00A0) + truck),
+                Arguments.of("an emoji selector after the heart", "Van " + heart, "Van " + heart + cp(0xFE0F)),
+                Arguments.of("two spaces for one", "Van 1", "Van  1"),
+                Arguments.of("a hair space for the space", "Van 1", "Van" + cp(0x200A) + "1"),
+                Arguments.of("a non-joiner inside a decomposed é", precomposedE, "Van e" + cp(0x200C) + cp(0x0301)),
+                Arguments.of("a joiner inside a decomposed é", precomposedE, "Van e" + cp(0x200D) + cp(0x0301)),
+                Arguments.of(
+                        "a left-to-right mark inside a decomposed é", precomposedE, "Van e" + cp(0x200E) + cp(0x0301)),
+                Arguments.of(
+                        "an Arabic letter mark inside a decomposed alef with madda",
+                        alefWithMadda,
+                        "Van " + cp(0x0627) + cp(0x061C) + cp(0x0653)),
+                Arguments.of("an apostrophe for the geresh", "ג" + geresh + "יפ 1", "ג'יפ 1"),
+                Arguments.of("a left single quote for the geresh", "ג" + geresh + "יפ 1", "ג" + cp(0x2018) + "יפ 1"),
+                Arguments.of("a right single quote for the geresh", "ג" + geresh + "יפ 1", "ג" + cp(0x2019) + "יפ 1"),
+                Arguments.of("a backtick for the geresh", "ג" + geresh + "יפ 1", "ג`יפ 1"),
+                Arguments.of("a double quote for the gershayim", "צה" + gershayim + "ל 1", "צה\"ל 1"),
+                Arguments.of("two apostrophes for the gershayim", "צה" + gershayim + "ל 1", "צה''ל 1"),
+                Arguments.of(
+                        "two gereshes for the gershayim", "צה" + gershayim + "ל 1", "צה" + geresh + geresh + "ל 1"),
+                Arguments.of(
+                        "a left double quote for the gershayim", "צה" + gershayim + "ל 1", "צה" + cp(0x201C) + "ל 1"),
+                Arguments.of(
+                        "a right double quote for the gershayim", "צה" + gershayim + "ל 1", "צה" + cp(0x201D) + "ל 1"),
+                Arguments.of("a hyphen for the hyphen-minus", "Van-1", "Van" + cp(0x2010) + "1"),
+                Arguments.of("a non-breaking hyphen for the hyphen-minus", "Van-1", "Van" + cp(0x2011) + "1"),
+                Arguments.of("a figure dash for the hyphen-minus", "Van-1", "Van" + cp(0x2012) + "1"),
+                Arguments.of("an en dash for the hyphen-minus", "Van-1", "Van" + cp(0x2013) + "1"),
+                Arguments.of("an em dash for the hyphen-minus", "Van-1", "Van" + cp(0x2014) + "1"),
+                Arguments.of("a horizontal bar for the hyphen-minus", "Van-1", "Van" + cp(0x2015) + "1"),
+                Arguments.of("a minus sign for the hyphen-minus", "Van-1", "Van" + cp(0x2212) + "1"),
+                Arguments.of("a small hyphen-minus for the hyphen-minus", "Van-1", "Van" + cp(0xFE63) + "1"),
+                Arguments.of("a fullwidth hyphen-minus for the hyphen-minus", "Van-1", "Van" + cp(0xFF0D) + "1"));
+    }
+
+    private static String cp(int codePoint) {
+        return Character.toString(codePoint);
     }
 
     @ParameterizedTest(name = "{0}")
-    @MethodSource("lookalikesOfVanTruck")
-    void GivenAnActiveVehicleNamedVanTruck_WhenAnotherIsAddedWithALookalikeName_ThenDuplicateVehicleName(
-            String lookalike, String name) {
+    @MethodSource("lookalikeNames")
+    void GivenAnActiveVehicle_WhenAnotherIsAddedWithALookalikeName_ThenDuplicateVehicleName(
+            String lookalike, String existing, String name) {
         FleetRegister register = aRegister()
                 .withVehicle(new VehicleSnapshot(
                         vehicleId(1),
-                        new VehicleDetails(
-                                VehicleName.of("Van " + Character.toString(0x1F69A)),
-                                Plate.of("P1"),
-                                VAN_CAPACITY,
-                                NORTH,
-                                NORTH),
+                        new VehicleDetails(VehicleName.of(existing), Plate.of("P1"), VAN_CAPACITY, NORTH, NORTH),
                         Optional.empty()))
                 .build();
         VehicleDetails sameName = new VehicleDetails(VehicleName.of(name), Plate.of("P2"), VAN_CAPACITY, NORTH, NORTH);

@@ -13,10 +13,13 @@ import org.jspecify.annotations.Nullable;
  * customer when the two normalized texts are equal. The steps:
  *
  * <ol>
+ *   <li>format characters (such as ZWJ, ZWNJ, RLM and LRM) deleted. This comes before NFC,
+ *       because one between a letter and its mark blocks composition: {@code e}, ZWNJ and U+0301
+ *       would otherwise stay apart from {@code é};
  *   <li>Unicode NFC;
- *   <li>format characters (such as ZWJ, ZWNJ, RLM and LRM) and combining marks (such as niqqud)
- *       deleted, so two ways of typing one address match: {@code הֶרְצֵל} matches {@code הרצל}
- *       (ADR-102). Only the matching key drops them; the {@link Address} keeps them;
+ *   <li>the combining marks NFC leaves (such as niqqud) deleted, so two ways of typing one address
+ *       match: {@code הֶרְצֵל} matches {@code הרצל} (ADR-102). Only the matching key drops these and
+ *       the format characters; the {@link Address} keeps them;
  *   <li>one geresh: {@code '}, {@code ‘}, {@code ’} and the backtick become {@code ׳};
  *   <li>one gershayim: two gereshes, {@code "}, {@code “} and {@code ”} become {@code ״}, so
  *       {@code ''} and {@code ’’} count as it too;
@@ -39,7 +42,8 @@ public final class NormalizedAddress implements PersonalData {
 
     private static final String GERESH = "\u05f3";
     private static final String GERSHAYIM = "\u05f4";
-    private static final Pattern INVISIBLE_MARKS = Pattern.compile("[\\p{Cf}\\p{Mn}]");
+    private static final Pattern FORMAT_CHARACTERS = Pattern.compile("\\p{Cf}");
+    private static final Pattern COMBINING_MARKS = Pattern.compile("\\p{Mn}");
     private static final Pattern GERESH_VARIANTS = Pattern.compile("['\u2018\u2019`]");
     private static final Pattern GERSHAYIM_VARIANTS = Pattern.compile(GERESH + GERESH + "|[\"\u201c\u201d]");
     private static final Pattern GERESH_BEFORE_A_LETTER =
@@ -82,8 +86,9 @@ public final class NormalizedAddress implements PersonalData {
 
     /** FR-398's steps, for {@link Address} to check that something is left. */
     static String normalize(String typed) {
-        String composed = Normalizer.normalize(typed, Normalizer.Form.NFC);
-        String visible = INVISIBLE_MARKS.matcher(composed).replaceAll("");
+        String unformatted = FORMAT_CHARACTERS.matcher(typed).replaceAll("");
+        String composed = Normalizer.normalize(unformatted, Normalizer.Form.NFC);
+        String visible = COMBINING_MARKS.matcher(composed).replaceAll("");
         String geresh = GERESH_VARIANTS.matcher(visible).replaceAll(GERESH);
         String gershayim = GERSHAYIM_VARIANTS.matcher(geresh).replaceAll(GERSHAYIM);
         String wordEnds = GERESH_BEFORE_A_LETTER.matcher(gershayim).replaceAll(GERESH + SPACE);

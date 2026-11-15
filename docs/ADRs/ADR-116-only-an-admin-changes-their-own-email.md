@@ -80,8 +80,9 @@ Some choices are this record's own, not the owner's:
 
 ## Consequences
 
-- **Easy:** one Admin can't take over another's account through email and recovery, so [BR-19]'s
-  two Admins stay two people.
+- **Easy:** one Admin can't take over another's account through email and recovery with the
+  Admins the company already has, so [BR-19]'s two Admins stay two people unless an Admin opens an
+  account of their own to act as the second one (the last risk below).
 - **Easy:** the rule lives in the aggregate, at both points where an address can change, so no use
   case can skip it.
 - **Easy:** a session is deleted 30 days after it ended, however it ended ([NFR-258]).
@@ -109,6 +110,15 @@ Some choices are this record's own, not the owner's:
   changes B's address, A may promote B, while A still knows the password A set through recovery.
   This needs C to act on B's address. Keeping the first setter instead would let C alone run the
   whole round trip.
+- **Risk:** one Admin can play the second Admin through a puppet account. With Admins A and B, A
+  opens an account D with the Admin role at a mailbox A controls ([FR-02]). With three Admins,
+  A takes B's role, points B's email at A's own mailbox, confirms the link and recovers B's
+  account. A, signed in as D, gives B the Admin role back: D is not the account the record names,
+  so the promotion is allowed and clears the record. A then deactivates D, and holds both of the
+  two Admins [BR-19] requires. Closing this path means restricting who may create an Admin, which
+  changes [FR-02] and awaits the owner's decision. Until then it is detected, not prevented: every
+  step is an audit record naming its acting account ([NFR-93]), and the confirmation of B's new
+  email tells B's old address ([FR-388]).
 
 ## Alternatives considered
 
@@ -151,10 +161,13 @@ Some choices are this record's own, not the owner's:
 - An account gains a role other than Admin that recovery could hand over to another person.
 - A promotion needs proof that the promoted person is back, beyond a second Admin's word: for
   example a second factor that the Admin who set the address can't hold.
+- The owner decides who may create an Admin ([FR-02]), which closes or accepts the puppet-account
+  path.
 - Session retention moves to the database, where a revocation could date sessions in one statement.
 
 [ADR-104]: ADR-104-the-company-profile-holds-customer-defaults-and-capabilities-follow-the-role-matrix.md
 [BR-19]: ../requirements/requirements.md#access
+[FR-02]: ../requirements/requirements.md#company-users-and-roles
 [FR-292]: ../requirements/requirements.md#company-users-and-roles
 [FR-294]: ../requirements/requirements.md#company-users-and-roles
 [FR-346]: ../requirements/requirements.md#company-users-and-roles
@@ -162,6 +175,7 @@ Some choices are this record's own, not the owner's:
 [FR-387]: ../requirements/requirements.md#company-users-and-roles
 [FR-388]: ../requirements/requirements.md#company-users-and-roles
 [NFR-90]: ../requirements/requirements.md#nfr-90
+[NFR-93]: ../requirements/requirements.md#nfr-93
 [NFR-144]: ../requirements/requirements.md#nfr-144
 [NFR-145]: ../requirements/requirements.md#nfr-145
 [NFR-177]: ../requirements/requirements.md#nfr-177

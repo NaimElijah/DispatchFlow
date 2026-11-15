@@ -16,9 +16,10 @@ import java.util.Objects;
  * <p>It is read through the kernel's text rule as a {@link TextKind#NAME} (ADR-106): Unicode NFC,
  * trimmed of whitespace, no-break spaces and format characters at both ends, at most 100 code
  * points, and without control or bidi characters. The name keeps that text for display. BR-48
- * compares two names in a matching form that also drops variation selectors and format characters
- * and makes every run of whitespace one space, so a lookalike name is the same name; the comparison
- * is case-sensitive.
+ * compares two names in a matching form that also drops variation selectors and format characters,
+ * folds the apostrophe, quote and dash variants to one geresh, gershayim and hyphen, and makes
+ * every run of whitespace one space, so a lookalike name is the same name; the comparison is
+ * case-sensitive (ADR-111).
  *
  * @param value the normalized name
  */

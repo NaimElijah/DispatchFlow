@@ -18,6 +18,10 @@ class NormalizedAddressTest {
     static Stream<Arguments> steps() {
         return Stream.of(
                 Arguments.of("NFC composes a decomposed letter", "cafe\u0301", "caf\u00e9"),
+                Arguments.of(
+                        "a format character inside a decomposed letter is dropped before NFC",
+                        "cafe\u200c\u0301",
+                        "caf\u00e9"),
                 Arguments.of("whitespace is trimmed", "  הרצל 5  ", "הרצל 5"),
                 Arguments.of("whitespace runs collapse to one space", "הרצל \u2003  5", "הרצל 5"),
                 Arguments.of("a no-break space is whitespace", "הרצל\u00a0\u00a05", "הרצל 5"),
@@ -53,6 +57,10 @@ class NormalizedAddressTest {
         return Stream.of(
                 Arguments.of("רח' הרצל 5, ת\"א", "  רחוב  הרצל 5 תל אביב "),
                 Arguments.of("5,תל", "5, תל"),
+                Arguments.of("caf\u00e9 5", "cafe\u200c\u0301 5"),
+                Arguments.of("caf\u00e9 5", "cafe\u200d\u0301 5"),
+                Arguments.of("caf\u00e9 5", "cafe\u200e\u0301 5"),
+                Arguments.of("\u0622 5", "\u0627\u061c\u0653 5"),
                 Arguments.of("רח'הרצל", "רח\u05f3 הרצל"));
     }
 

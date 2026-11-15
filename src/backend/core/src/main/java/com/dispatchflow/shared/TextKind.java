@@ -61,9 +61,10 @@ public enum TextKind {
      * Whether text of this kind may hold, inside it, the invisible fillers that are not format
      * characters: Unicode's default-ignorable code points that are not of category Cf, such as the
      * combining grapheme joiner (U+034F), the Hangul fillers (U+115F, U+1160, U+3164, U+FFA0) and
-     * the Khmer inherent vowels (U+17B4, U+17B5), and the blank Braille pattern (U+2800). In a name
-     * or an address one would make two values look alike (BR-48, ADR-111). Every kind trims them
-     * from its ends.
+     * the Khmer inherent vowels (U+17B4, U+17B5), and the two symbols that render as blank, the
+     * blank Braille pattern (U+2800) and the musical null notehead (U+1D159). In a name or an
+     * address one would make two values look alike (BR-48, ADR-111). Every kind trims them from its
+     * ends.
      *
      * <p>A variation selector is a filler too, unless it is U+FE0F right after an emoji that shows
      * as text by default, which it makes show as an emoji. So a kind that refuses fillers keeps a

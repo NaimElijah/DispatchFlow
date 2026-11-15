@@ -15,7 +15,8 @@ import java.util.Objects;
  *
  * <p>Its contact times are personal data (NFR-280), so it is {@link PersonalData} and {@link
  * #toString()} prints only how many it holds (ADR-106). It prints only how many refresh tokens it
- * holds too, because each token's times are times the device was in use.
+ * holds too, because each token's times are times the device was in use, and it hides the sign-in,
+ * password and revocation times for the same reason.
  *
  * <p>The persistence adapter builds every stored value inside {@link
  * com.dispatchflow.shared.StoredStateInvalid#whileRestoring}, so a stored value the rules now
@@ -45,6 +46,8 @@ public record SessionSnapshot(
         List<RefreshTokenSnapshot> tokens)
         implements PersonalData {
 
+    private static final String REDACTED = "redacted";
+
     /** Checks every part is present, and copies the lists. */
     public SessionSnapshot {
         Objects.requireNonNull(version, "version");
@@ -60,16 +63,24 @@ public record SessionSnapshot(
     }
 
     /**
-     * A form that leaves the contact times and the refresh tokens out and names how many of each
-     * there are.
+     * A form that hides every time the session holds: when it signed in, when it last gave the
+     * password and when it was revoked are times the user was active, as its contact times are. It
+     * names how many contact times and refresh tokens there are.
      *
-     * @return the snapshot without its contact times and tokens
+     * @return the snapshot without its times and tokens
      */
     @Override
     public String toString() {
         return "SessionSnapshot[version=" + version + ", id=" + id + ", account=" + account + ", accountGeneration="
-                + accountGeneration + ", generation=" + generation + ", state=" + state + ", openedAt=" + openedAt
-                + ", lastPasswordAt=" + lastPasswordAt + ", contactTimes=" + contactTimes.size() + " redacted, tokens="
-                + tokens.size() + " redacted]";
+                + accountGeneration + ", generation=" + generation + ", state=" + redacted(state) + ", openedAt="
+                + REDACTED + ", lastPasswordAt=" + REDACTED + ", contactTimes=" + contactTimes.size() + " " + REDACTED
+                + ", tokens=" + tokens.size() + " " + REDACTED + "]";
+    }
+
+    private static String redacted(SessionState state) {
+        return switch (state) {
+            case SessionState.Live live -> live.toString();
+            case SessionState.Revoked revoked -> "Revoked[at=" + REDACTED + "]";
+        };
     }
 }

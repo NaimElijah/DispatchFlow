@@ -113,11 +113,11 @@ class PlainTextTest {
     }
 
     /**
-     * Hangul fillers, the blank Braille pattern, the combining grapheme joiner, a soft hyphen, a
-     * word joiner and two variation selectors: each renders as nothing.
+     * Hangul fillers, the blank Braille pattern, the musical null notehead, the combining grapheme
+     * joiner, a soft hyphen, a word joiner and two variation selectors: each renders as nothing.
      */
     @ParameterizedTest
-    @ValueSource(ints = {0x3164, 0x115F, 0xFFA0, 0x2800, 0x034F, 0x00AD, 0x2060, 0xFE0F, 0xE0100})
+    @ValueSource(ints = {0x3164, 0x115F, 0xFFA0, 0x2800, 0x1D159, 0x034F, 0x00AD, 0x2060, 0xFE0F, 0xE0100})
     void GivenOnlyInvisibleCharacters_WhenBuilt_ThenItIsEmpty(int codePoint) {
         String invisible = Character.toString(codePoint);
 
@@ -130,11 +130,12 @@ class PlainTextTest {
     }
 
     /**
-     * Hangul fillers, the blank Braille pattern, the combining grapheme joiner and the Khmer
-     * inherent vowels, which BR-48's "Van 1" must not hide at either end (ADR-111).
+     * Hangul fillers, the blank Braille pattern, the musical null notehead, the combining grapheme
+     * joiner and the Khmer inherent vowels, which BR-48's "Van 1" must not hide at either end
+     * (ADR-111).
      */
     @ParameterizedTest
-    @ValueSource(ints = {0x3164, 0x115F, 0x1160, 0xFFA0, 0x2800, 0x034F, 0x17B4, 0x17B5})
+    @ValueSource(ints = {0x3164, 0x115F, 0x1160, 0xFFA0, 0x2800, 0x1D159, 0x034F, 0x17B4, 0x17B5})
     void GivenAnInvisibleFillerAtAnEnd_WhenBuilt_ThenItIsTrimmed(int codePoint) {
         String filler = Character.toString(codePoint);
 
@@ -148,7 +149,7 @@ class PlainTextTest {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {0x3164, 0x115F, 0x1160, 0xFFA0, 0x2800, 0x034F, 0x17B4, 0x17B5})
+    @ValueSource(ints = {0x3164, 0x115F, 0x1160, 0xFFA0, 0x2800, 0x1D159, 0x034F, 0x17B4, 0x17B5})
     void GivenAnInteriorInvisibleFillerInANameOrAddress_WhenBuilt_ThenTextHasForbiddenCharacters(int codePoint) {
         String raw = "Van" + Character.toString(codePoint) + "1";
 
@@ -157,7 +158,7 @@ class PlainTextTest {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {0x3164, 0x115F, 0x1160, 0xFFA0, 0x2800, 0x034F, 0x17B4, 0x17B5})
+    @ValueSource(ints = {0x3164, 0x115F, 0x1160, 0xFFA0, 0x2800, 0x1D159, 0x034F, 0x17B4, 0x17B5})
     void GivenAnInteriorInvisibleFillerInANote_WhenBuilt_ThenItIsKept(int codePoint) {
         String raw = "Ring" + Character.toString(codePoint) + "twice";
 

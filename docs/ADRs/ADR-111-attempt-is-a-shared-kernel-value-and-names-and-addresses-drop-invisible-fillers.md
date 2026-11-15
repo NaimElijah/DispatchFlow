@@ -35,6 +35,13 @@ found that U+FE0F after an emoji that already shows as an emoji, such as U+1F600
 U+1F69A, changes nothing either, so "Van" with that emoji and U+FE0F was a second name too; and
 that U+FE0E after an emoji that already shows as text, such as U+2764, changes nothing.
 
+A third review found more of the same. The musical null notehead U+1D159 is a symbol to Unicode,
+but renders as nothing, as U+2800 does. Fleet's matching form ran NFC before it deleted the format
+characters, so a ZWNJ, ZWJ or LRM between a letter and its accent kept "Van e" with U+200C and
+U+0301 apart from "Van é", and U+0627 with U+061C and U+0653 apart from U+0622; Customers & Orders'
+address matching ([FR-398]) had the same order. And the form kept apart names that differ only in
+which apostrophe, quote or dash they use, such as "Van-1" with U+2010 for its hyphen.
+
 ## Decision
 
 On 2026-11-15 the owner, Naim Elijah, decided:
@@ -50,11 +57,12 @@ On 2026-11-15 the owner, Naim Elijah, decided:
    exception to rule 1 that each context models its own copy no longer applies to it.
 2. **Names and addresses drop invisible fillers.** `PlainText` trims from both ends every code
    point it counts as invisible: whitespace, space separators, format characters, Unicode's
-   default-ignorable code points and U+2800. Inside a `NAME` or an `ADDRESS`, `PlainText` refuses
-   with `TextHasForbiddenCharacters` every default-ignorable code point that is not a format
-   character (category Cf), such as U+034F, U+115F, U+1160, U+17B4, U+17B5, U+3164 and U+FFA0, and
-   U+2800. Format characters keep [ADR-106]'s rule, which allows U+061C and U+200C to U+200F inside
-   a name or an address. A `NOTE` keeps them all inside ([BR-48], [FR-398]).
+   default-ignorable code points, and the two symbols that render as blank, U+2800 and U+1D159.
+   Inside a `NAME` or an `ADDRESS`, `PlainText` refuses with `TextHasForbiddenCharacters` every
+   default-ignorable code point that is not a format character (category Cf), such as U+034F,
+   U+115F, U+1160, U+17B4, U+17B5, U+3164 and U+FFA0, and U+2800 and U+1D159. Format characters
+   keep [ADR-106]'s rule, which allows U+061C and U+200C to U+200F inside a name or an address. A
+   `NOTE` keeps them all inside ([BR-48], [FR-398]).
 
    A variation selector belongs to the character before it. In a `NAME` or an `ADDRESS` only one
    selector stays: U+FE0F, right after a base that shows as text unless U+FE0F follows it. That is
@@ -73,10 +81,21 @@ On 2026-11-15 the owner, Naim Elijah, decided:
    every kind a leading selector is trimmed.
 
    The kernel's rule decides only what text is kept. A module that keeps names unique compares
-   them in a matching form of its own, as Fleet does for [BR-48]'s vehicle names: NFC, with
-   every variation selector and format character removed and each run of whitespace one space.
+   them in a matching form of its own, as Fleet does for [BR-48]'s vehicle names, `VehicleNameKey`:
+   - every variation selector and format character removed, before NFC, so that one between a
+     letter and its mark can't block their composition;
+   - NFC;
+   - one geresh and one gershayim, folded as [FR-398]'s address matching folds them ([ADR-102]):
+     `'`, `‘`, `’` and the backtick are the geresh, and two gereshes, `"`, `“` and `”` the
+     gershayim. Fleet keeps its own copy of the rule, because it can't import Customers & Orders'
+     domain and the kernel leaves matching forms to their modules ([ADR-106]);
+   - one hyphen: U+2010 to U+2015, U+2212, U+FE63 and U+FF0D are `-`;
+   - each run of whitespace one space, the no-break space and the hair space U+200A included.
+
    So "Van" with a left-to-right mark, or with a no-break space for its space, is the same vehicle
-   name as "Van" without it, while each keeps its text as entered.
+   name as "Van" without it, while each keeps its text as entered. Customers & Orders' address
+   matching removes the format characters before NFC too, and the combining marks NFC leaves
+   after it ([FR-398]).
 
    This extends [ADR-106], step 4 (what is trimmed) and step 7 (what is refused). Its step 6 needs
    no check of its own any more: text made only of invisible characters is trimmed to empty.
@@ -99,9 +118,18 @@ On 2026-11-15 the owner, Naim Elijah, decided:
 - **Hard:** a name or an address can't ask for the text presentation of an emoji that shows as
   one by default, with U+FE0E inside it. Some platforms draw such a sequence as text, so a real
   name may be refused. A note still takes it.
+- **Hard:** the geresh and gershayim folds exist twice, in Fleet's name key and in Customers &
+  Orders' address matching, so a change to one needs the same change to the other.
 - **Cost:** none. Both rules use only the JDK.
 - **Risk:** stored names and addresses that hold a filler inside fail to load as damaged state once
   this rule ships. No module stores text yet, so there is nothing to migrate.
+- **Risk:** lookalikes remain. Two vehicle names still differ when they mix scripts whose letters
+  look the same, such as a Latin "a" and a Cyrillic "а", or a Latin "O" and a Greek "Ο", and when a
+  mixed-direction name shows its parts in the same visual order as another name, such as "טנדר 1"
+  and "1 טנדר". [ADR-106] puts homoglyphs out of the kernel's scope, and its confusables
+  alternative explains why; the matching forms fold only what a keyboard or a word processor
+  substitutes for a character, not what another script draws alike. Such a pair still differs by
+  its plate, which is unique on its own ([BR-48]).
 
 ## Alternatives considered
 
@@ -140,8 +168,13 @@ On 2026-11-15 the owner, Naim Elijah, decided:
 - A context needs an attempt with a rule of its own, such as a cap on put-backs.
 - The JDK moves to a newer Unicode version, which may add invisible fillers or variation
   selectors.
+- Two active vehicles turn out to share a name that differs only in a lookalike letter from
+  another script, or in the order its parts show in: the matching form then needs Unicode's
+  confusables data, which reopens [ADR-106]'s rejection of it.
+- A third module needs the geresh and gershayim folds, so a shared copy would earn its place.
 
 [ADR-097]: ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md
+[ADR-102]: ADR-102-order-references-are-checked-on-every-move-to-a-date.md
 [ADR-106]: ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md
 [BR-48]: ../requirements/requirements.md#access
 [DL-23]: ../architecture/domain_layer/domain_layer_design.md#23-rules-between-contexts

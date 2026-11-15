@@ -113,6 +113,28 @@ class SessionTest {
     }
 
     @Test
+    void GivenARevokedSession_WhenItsSnapshotIsPrinted_ThenNoneOfItsTimesShows() {
+        Instant passwordGiven = OPENED.plus(Duration.ofMinutes(40));
+        Instant revoked = OPENED.plus(Duration.ofHours(3));
+        SessionSnapshot snapshot = aSession()
+                .withLastPasswordAt(passwordGiven)
+                .withState(new SessionState.Revoked(revoked))
+                .build()
+                .snapshot();
+
+        assertThat(snapshot.toString())
+                .contains("openedAt=redacted", "lastPasswordAt=redacted", "state=Revoked[at=redacted]")
+                .doesNotContain(OPENED.toString(), passwordGiven.toString(), revoked.toString());
+    }
+
+    @Test
+    void GivenALiveSession_WhenItsSnapshotIsPrinted_ThenItNamesItsState() {
+        SessionSnapshot snapshot = aSession().build().snapshot();
+
+        assertThat(snapshot.toString()).contains("state=Live[]").doesNotContain(OPENED.toString());
+    }
+
+    @Test
     void GivenATokenIdTheChainHolds_WhenAnExchangeIssuesItAgain_ThenTheBugIsReported() {
         Session session = aSession().build();
 

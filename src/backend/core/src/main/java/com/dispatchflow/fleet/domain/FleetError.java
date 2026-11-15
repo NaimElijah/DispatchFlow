@@ -27,8 +27,8 @@ public sealed interface FleetError extends DomainError {
 
     /**
      * Another active vehicle already has this display name, or one that looks the same: names are
-     * compared without variation selectors or format characters, and with each run of whitespace
-     * as one space (BR-48).
+     * compared without variation selectors or format characters, with one geresh, one gershayim
+     * and one hyphen, and with each run of whitespace as one space (BR-48, ADR-111).
      *
      * @param usedBy the active vehicle that has it
      */
