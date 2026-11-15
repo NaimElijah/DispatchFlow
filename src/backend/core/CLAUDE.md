@@ -110,8 +110,9 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
   fixture under `archfixture/zeta/`:
   1. The application layer and `shared/application/` import only the JDK, JSpecify, the kernel, their
      own module's `domain`, `events` and `application`, and other modules' `api` and `events`.
-     Another module's `spi` is allowed only to the module that owns it and to the implementer that
-     `SPI_IMPLEMENTERS` names. They import no `adapter`, their own module's included, and no libphonenumber or JTS. From
+     Another module's `spi` interface is allowed only to the module that owns it and to the
+     implementer that `SPI_IMPLEMENTERS` names, and the records beside it to any module that implements
+     one of that owner's interfaces. They import no `adapter`, their own module's included, and no libphonenumber or JTS. From
      Spring they take only `@Transactional` and its enums ([TS §2.2]); Spring Modulith's
      annotations sit on a `package-info` only. `shared/application/` also falls under the kernel's
      purity rules, so it takes no `@Transactional`.

@@ -180,8 +180,9 @@ confirmed the shared package after being told that it amends ADR-118.
 10. **The architecture rules** (ArchUnit, each with negative fixtures):
     1. The application layer's allowed imports ([TS §2.2][TS-2-2]): the JDK, JSpecify, the kernel, its
        own module's domain, events and application, other modules' `api` and `events`, and from
-       Spring only `@Transactional`. Another module's `spi` is allowed only to the module that owns it
-       and to the implementer that `SPI_IMPLEMENTERS` names. It forbids the module's own `adapter`,
+       Spring only `@Transactional`. Another module's `spi` interface is allowed only to the module that
+       owns it and to the implementer that `SPI_IMPLEMENTERS` names, and the records beside it to any
+       module that implements one of that owner's interfaces. It forbids the module's own `adapter`,
        and allows neither libphonenumber nor JTS. Spring Modulith's annotations sit on a
        `package-info` only.
     2. DL §2.1's module graph, and no other arrow.
