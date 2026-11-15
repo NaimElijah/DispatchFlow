@@ -14,8 +14,9 @@ and never restates them.
 | `requirements/ARD/` | The Application Requirements Document (ARD), as a PDF | Built outside the repository; the PDF is the only file here |
 | `presentations/` | The proposal and ARD presentations | The planning material the requirements started from |
 
-`architecture/architecture.md` describes today's system. `bounded-contexts.md`, `data-model.md` and
-`optimization-engine.md` point to the design sections that define their topics until code exists.
+`architecture/architecture.md` describes today's system. `bounded-contexts.md` and
+`optimization-engine.md` describe the domain layers that are built and point to the design sections
+that define their topics. `data-model.md` points to them until a migration exists.
 `code-structure.md` describes the repository layout.
 
 ## Requirements

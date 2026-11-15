@@ -12,8 +12,11 @@ import java.util.Optional;
  * that need the customers, the dates and the other rows.
  *
  * @param address the {@code address} column
- * @param name the {@code customer_name} column, needed only when no customer matches (FR-311)
- * @param phone the {@code phone} column, needed only when no customer matches (FR-311)
+ * @param name the {@code customer_name} column, needed when no customer matches (FR-311); when it
+ *     differs from the customer's and the row gives no recipient, it names the order's recipient
+ *     (ADR-115)
+ * @param phone the {@code phone} column, needed when no customer matches (FR-311); when it differs
+ *     from the customer's and the row gives no recipient, it is the order's recipient's (ADR-115)
  * @param date the {@code date} column
  * @param order the order's columns
  */

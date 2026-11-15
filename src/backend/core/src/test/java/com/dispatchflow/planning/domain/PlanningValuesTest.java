@@ -4,13 +4,19 @@ import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.dispatchflow.planning.domain.PlanningError.InvalidAttempt;
+import com.dispatchflow.planning.domain.PlanningError.InvalidRouteTimes;
 import com.dispatchflow.planning.domain.PlanningError.InvalidSolverName;
 import com.dispatchflow.planning.domain.PlanningError.InvalidStopTimes;
 import com.dispatchflow.planning.domain.PlanningError.InvalidTravelLeg;
 import com.dispatchflow.planning.domain.PlanningError.MalformedRuleCode;
 import com.dispatchflow.planning.domain.PlanningError.SolveLimitOutOfRange;
-import com.dispatchflow.shared.DaySeconds;
+import com.dispatchflow.planning.domain.PlanningError.TimeBeforeTheDay;
+import com.dispatchflow.planning.domain.plan.RouteIndex;
+import com.dispatchflow.planning.domain.plan.Seed;
+import com.dispatchflow.planning.domain.plan.SolverName;
+import com.dispatchflow.planning.domain.solution.RoutePlan;
+import com.dispatchflow.planning.domain.solution.StopTimes;
+import com.dispatchflow.planning.domain.solution.TravelLeg;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.StoredStateInvalid;
 import java.time.Duration;
@@ -23,18 +29,7 @@ class PlanningValuesTest {
 
     private static final DeliveryDate DATE = DeliveryDate.of(LocalDate.of(2027, 6, 15));
     private static final DeliveryDate NEXT_DATE = DeliveryDate.of(LocalDate.of(2027, 6, 16));
-
-    @Test
-    void GivenOneOrMore_WhenAnAttemptIsBuilt_ThenItIsKept() {
-        assertThat(Attempt.of(1).number()).isEqualTo(1);
-        assertThat(Attempt.FIRST.next()).isEqualTo(Attempt.of(2));
-    }
-
-    @ParameterizedTest
-    @ValueSource(ints = {0, -1, Integer.MIN_VALUE})
-    void GivenANumberBelowOne_WhenAnAttemptIsBuilt_ThenInvalidAttempt(int number) {
-        assertRefused(() -> Attempt.of(number), new InvalidAttempt(number));
-    }
+    private static final TravelLeg LEG = TravelLeg.of(Duration.ofSeconds(600), 5_000);
 
     @Test
     void GivenTheFirstRevision_WhenTheNextIsTaken_ThenItIsTwo() {
@@ -134,7 +129,71 @@ class PlanningValuesTest {
 
     @Test
     void GivenTimesOnTwoDates_WhenStopTimesAreBuilt_ThenInvalidStopTimes() {
-        assertRefused(() -> StopTimes.of(at(100), at(100), DaySeconds.of(NEXT_DATE, 200)), new InvalidStopTimes());
+        assertRefused(() -> StopTimes.of(at(100), at(100), SolveTime.of(NEXT_DATE, 200)), new InvalidStopTimes());
+    }
+
+    @Test
+    void GivenTimesPastTheDaysEnd_WhenStopTimesAreBuilt_ThenTheyAreKept() {
+        StopTimes times = StopTimes.of(at(86_000), at(86_400), at(87_000));
+
+        assertThat(times.departure()).isEqualTo(at(87_000));
+    }
+
+    @Test
+    void GivenAReturnBeforeTheDeparture_WhenARoutePlanIsBuilt_ThenInvalidRouteTimes() {
+        assertRefused(() -> new RoutePlan(at(30_000), at(29_999), LEG), new InvalidRouteTimes());
+    }
+
+    @Test
+    void GivenTimesFromTwoDates_WhenARoutePlanIsBuilt_ThenInvalidRouteTimes() {
+        assertRefused(() -> new RoutePlan(at(30_000), SolveTime.of(NEXT_DATE, 40_000), LEG), new InvalidRouteTimes());
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {30_000, 30_001, 88_200})
+    void GivenAReturnAtOrAfterTheDeparture_WhenARoutePlanIsBuilt_ThenItIsKept(long returnsAt) {
+        assertThat(new RoutePlan(at(30_000), at(returnsAt), LEG).returnsAt()).isEqualTo(at(returnsAt));
+    }
+
+    @Test
+    void GivenSecondsBelowZero_WhenASolveTimeIsBuilt_ThenTimeBeforeTheDay() {
+        assertRefused(() -> SolveTime.of(DATE, -1), new TimeBeforeTheDay(DATE, -1));
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {0, 43_200, 86_400})
+    void GivenSecondsWithinTheDay_WhenASolveTimeIsAsked_ThenItIsNotPastTheDay(long seconds) {
+        assertThat(SolveTime.of(DATE, seconds).pastTheDay()).isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {86_401, 90_000})
+    void GivenSecondsPastTheDatesLength_WhenASolveTimeIsAsked_ThenItIsPastTheDay(long seconds) {
+        assertThat(SolveTime.of(DATE, seconds).pastTheDay()).isTrue();
+    }
+
+    @Test
+    void GivenAFallBackDateOf25Hours_WhenATimeAfter24HoursIsAsked_ThenItIsNotPastTheDay() {
+        DeliveryDate fallBack = DeliveryDate.of(LocalDate.of(2027, 10, 31));
+
+        assertThat(SolveTime.of(fallBack, 90_000).pastTheDay()).isFalse();
+        assertThat(SolveTime.of(fallBack, 90_001).pastTheDay()).isTrue();
+    }
+
+    @Test
+    void GivenASpringForwardDateOf23Hours_WhenTimesAroundItsEndAreAsked_ThenOnlyOnePastItsLengthIsPastTheDay() {
+        DeliveryDate springForward = DeliveryDate.of(LocalDate.of(2027, 3, 26));
+
+        assertThat(SolveTime.of(springForward, 82_799).pastTheDay()).isFalse();
+        assertThat(SolveTime.of(springForward, 82_800).pastTheDay()).isFalse();
+        assertThat(SolveTime.of(springForward, 82_801).pastTheDay()).isTrue();
+        assertThat(SolveTime.of(springForward, 86_400).pastTheDay()).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {Long.MIN_VALUE, -1, 0, Long.MAX_VALUE})
+    void GivenAnyLong_WhenASeedIsBuilt_ThenItIsKept(long value) {
+        assertThat(Seed.of(value).value()).isEqualTo(value);
     }
 
     @Test
@@ -152,7 +211,7 @@ class PlanningValuesTest {
         assertRefused(() -> TravelLeg.of(Duration.ofSeconds(1), -10), new InvalidTravelLeg());
     }
 
-    private static DaySeconds at(long seconds) {
-        return DaySeconds.of(DATE, seconds);
+    private static SolveTime at(long seconds) {
+        return SolveTime.of(DATE, seconds);
     }
 }

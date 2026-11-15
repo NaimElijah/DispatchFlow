@@ -4,7 +4,6 @@ import static com.dispatchflow.reporting.domain.ReportingFixtures.BASELINE_FIGUR
 import static com.dispatchflow.reporting.domain.ReportingFixtures.PLAN;
 
 import com.dispatchflow.shared.OrderId;
-import com.dispatchflow.shared.VehicleId;
 import com.dispatchflow.shared.Version;
 import java.time.Instant;
 import java.util.List;
@@ -28,8 +27,8 @@ final class BaselineBuilder {
         return new BaselineBuilder();
     }
 
-    BaselineBuilder withdrawn(VehicleId... vehicles) {
-        this.cause = new BaselineCause.Recomputed(List.of(vehicles), List.of());
+    BaselineBuilder withdrawn(Withdrawal... withdrawals) {
+        this.cause = new BaselineCause.Recomputed(List.of(withdrawals), List.of());
         return this;
     }
 

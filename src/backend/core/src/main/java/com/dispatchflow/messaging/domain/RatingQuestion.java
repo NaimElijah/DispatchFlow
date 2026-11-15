@@ -8,7 +8,7 @@ import java.util.Objects;
 
 /**
  * A "delivered" message that asks for a rating was accepted (DL §6.2): the use case opens a {@link
- * RatingRequest} from it in the same transaction.
+ * com.dispatchflow.messaging.domain.rating.RatingRequest} from it in the same transaction.
  *
  * @param stop the delivered stop
  * @param phone the phone the question went to

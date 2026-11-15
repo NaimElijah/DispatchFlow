@@ -40,14 +40,32 @@ exclude-newer-package = { grimp = "2026-11-13T00:00:00Z" }
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "W", "F", "I", "B", "UP", "N", "SIM", "D"]
+# PTH123 (open), T20 (print), S102 (exec), S307 (eval) and TID251 hold the domain only: see
+# per-file-ignores.
+select = ["E", "W", "F", "I", "B", "UP", "N", "SIM", "D", "TID251", "PTH123", "T20", "S102", "S307"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
+# TS §2.1, rule 3: NumPy is allowed in the domain, but not its randomness, its clock
+# (np.datetime64("now")) or its file readers np.load, np.fromfile and np.loadtxt. import-linter can't forbid a submodule or attribute
+# of an external package the domain may import, nor a function of a standard module it may import,
+# so ruff bans the names, in the domain only (per-file-ignores).
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"numpy.random".msg = "The domain draws no randomness; a seeded generator comes in through a port."
+"numpy.datetime64".msg = "The domain reads no clock; times come in as seconds of the day."
+"numpy.timedelta64".msg = "The domain counts time in float seconds of the day (ADR-098)."
+"numpy.load".msg = "The domain does no I/O; arrays come in through the problem."
+"numpy.fromfile".msg = "The domain does no I/O; arrays come in through the problem."
+"numpy.loadtxt".msg = "The domain does no I/O; arrays come in through the problem."
+"importlib.import_module".msg = "The domain imports nothing by name; import-linter misses that."
+
 [tool.ruff.lint.per-file-ignores]
 # Test names state their purpose; docstrings on them would repeat it.
 "tests/**" = ["D"]
+# The domain's bans hold the domain only: the solvers and the tests may draw seeded randomness,
+# and the adapters and the tests may read files.
+"!src/dispatchflow_solver/domain/**" = ["TID251", "PTH123", "T20", "S102", "S307"]
 
 [tool.mypy]
 strict = true
@@ -91,6 +109,72 @@ forbidden_modules = [
     "structlog",
     "uvicorn",
 ]
+
+# TS §2.1, rule 3: the domain reads no clock, draws no randomness and does no I/O; time and seeds
+# come in through ports. grimp records standard-library imports as external packages, so each
+# module here is caught, a submodule such as os.path or concurrent.futures included. The domain's
+# own imports are math, numbers, dataclasses, typing, enum, collections, bisect and NumPy.
+# import-linter sees modules only, so it can't catch numpy.random, np.datetime64 or np.load
+# through `import numpy as np`, an import by name, nor a builtin such as open() or print(). In the
+# domain, ruff's TID251 bans those NumPy names and importlib.import_module, and PTH123, T20, S102
+# and S307 ban open(), print(), exec() and eval(). Neither tool sees a dtype string, as in
+# np.array("now", "datetime64[s]"), or another builtin such as __import__(), so review catches
+# those. ADR-113 records how the contracts and the bans were proved to fire.
+[[tool.importlinter.contracts]]
+name = "The domain reads no clock, draws no randomness and does no I/O"
+type = "forbidden"
+source_modules = ["dispatchflow_solver.domain"]
+forbidden_modules = [
+    "asyncio",
+    "concurrent",
+    "ctypes",
+    "datetime",
+    "glob",
+    "http",
+    "io",
+    "locale",
+    "logging",
+    "mmap",
+    "multiprocessing",
+    "os",
+    "pathlib",
+    "random",
+    "secrets",
+    "select",
+    "selectors",
+    "shutil",
+    "signal",
+    "socket",
+    "sqlite3",
+    "ssl",
+    "subprocess",
+    "sys",
+    "tempfile",
+    "threading",
+    "time",
+    "urllib",
+    "uuid",
+    "zoneinfo",
+]
+
+# ADR-113: Problem's methods delegate to these modules, which read a problem through the
+# ProblemView protocol, so none of them imports `problem` and no cycle runs through it.
+[[tool.importlinter.contracts]]
+name = "The validator, the objective and the drop reasons never import the problem"
+type = "forbidden"
+source_modules = [
+    "dispatchflow_solver.domain.drops",
+    "dispatchflow_solver.domain.feasibility",
+    "dispatchflow_solver.domain.objective",
+]
+forbidden_modules = ["dispatchflow_solver.domain.problem"]
+
+# ADR-001: the use cases and the Solver port know no transport, no Pydantic and no OR-Tools.
+[[tool.importlinter.contracts]]
+name = "The application imports no FastAPI, Pydantic or OR-Tools"
+type = "forbidden"
+source_modules = ["dispatchflow_solver.application"]
+forbidden_modules = ["fastapi", "ortools", "pydantic", "pydantic_settings", "starlette"]
 
 # FR-286: PyVRP is the study's reference solver and never enters the product, so no part of the
 # service imports it. tests/test_dependency_boundary.py keeps it out of the environment and lock.

@@ -6,14 +6,17 @@ import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dispatchflow.orders.domain.OrdersError.AmbiguousAddress;
+import com.dispatchflow.shared.PhoneNumber;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /** {@link CustomerMatch}: none, one or several active customers for an address (FR-60, FR-310 to FR-312). */
 class CustomerMatchTest {
 
-    private static final CustomerMatch.Candidate FIRST = new CustomerMatch.Candidate(customerId(1), DEFAULTS);
-    private static final CustomerMatch.Candidate SECOND = new CustomerMatch.Candidate(customerId(2), DEFAULTS);
+    private static final CustomerMatch.Candidate FIRST = new CustomerMatch.Candidate(
+            customerId(1), ContactName.of("דנה לוי"), PhoneNumber.parse("052-345-6781"), DEFAULTS);
+    private static final CustomerMatch.Candidate SECOND = new CustomerMatch.Candidate(
+            customerId(2), ContactName.of("אבי כהן"), PhoneNumber.parse("054-222-2222"), DEFAULTS);
 
     @Test
     void GivenNoActiveCustomer_WhenMatched_ThenNoneIsUsedAndTheRowCreatesOne() {

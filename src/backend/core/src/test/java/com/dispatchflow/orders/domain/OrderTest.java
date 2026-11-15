@@ -40,7 +40,9 @@ import com.dispatchflow.orders.domain.OrdersError.StopAlreadyHasFact;
 import com.dispatchflow.orders.domain.OrdersError.WindowNotOnDate;
 import com.dispatchflow.orders.domain.Placement.PlanStanding;
 import com.dispatchflow.orders.events.OrderCancelled;
+import com.dispatchflow.orders.events.OrderPutBack;
 import com.dispatchflow.orders.events.OrderRescheduled;
+import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.DomainError;
 import com.dispatchflow.shared.EventId;
@@ -402,7 +404,7 @@ class OrderTest {
     class PuttingBack {
 
         @Test
-        void GivenAFailedOrder_WhenPutBackOnAnotherDate_ThenItStartsTheNextAttemptThereWithNoEvent() {
+        void GivenAFailedOrder_WhenPutBackOnAnotherDate_ThenItStartsTheNextAttemptThereAndRaisesOrderPutBack() {
             Order order = anOrder().restored();
 
             order.putBack(
@@ -417,17 +419,61 @@ class OrderTest {
             assertThat(order.window()).isEqualTo(tenToNoon(NEXT_WEEK));
             assertThat(order.attempt()).isEqualTo(Attempt.of(2));
             assertThat(order.lastChangedAt()).isEqualTo(LATER);
-            assertThat(order.pendingEvents()).isEmpty();
+            assertThat(order.pendingEvents())
+                    .containsExactly(new OrderPutBack(
+                            new EventId("OrderPutBack", ORDER.value(), Version.of(4), 0),
+                            LATER,
+                            ORDER,
+                            TOMORROW,
+                            NEXT_WEEK,
+                            1));
         }
 
         @Test
-        void GivenADroppedOrder_WhenPutBack_ThenItStartsTheNextAttempt() {
+        void GivenADroppedOrder_WhenPutBackOnAnotherDate_ThenItStartsTheNextAttemptAndRaisesOrderPutBack() {
             Order order = anOrder().restored();
 
             order.putBack(DROPPED_IN_FORCE, NO_FACT, tenToNoon(NEXT_WEEK), emptyDate(NEXT_WEEK), TODAY, LATER);
 
             assertThat(order.attempt()).isEqualTo(Attempt.of(2));
             assertThat(order.date()).isEqualTo(NEXT_WEEK);
+            assertThat(order.pendingEvents())
+                    .containsExactly(new OrderPutBack(
+                            new EventId("OrderPutBack", ORDER.value(), Version.of(4), 0),
+                            LATER,
+                            ORDER,
+                            TOMORROW,
+                            NEXT_WEEK,
+                            1));
+        }
+
+        @Test
+        void GivenAnOrderOnItsSecondAttempt_WhenPutBackOnAnotherDate_ThenOrderPutBackNamesTheSecondAttempt() {
+            Order order = anOrder().atAttempt(2).restored();
+
+            order.putBack(
+                    new Placement.Dropped(Attempt.of(2), PlanStanding.IN_FORCE),
+                    NO_FACT,
+                    tenToNoon(NEXT_WEEK),
+                    emptyDate(NEXT_WEEK),
+                    TODAY,
+                    LATER);
+
+            assertThat(order.attempt()).isEqualTo(Attempt.of(3));
+            assertThat(order.pendingEvents())
+                    .extracting(event -> ((OrderPutBack) event).attempt())
+                    .containsExactly(2);
+        }
+
+        @Test
+        void GivenADroppedOrder_WhenPutBackOnItsOwnDate_ThenItStartsTheNextAttemptWithNoEvent() {
+            Order order = anOrder().restored();
+
+            order.putBack(DROPPED_IN_FORCE, NO_FACT, tenToNoon(TOMORROW), emptyDate(TOMORROW), TODAY, LATER);
+
+            assertThat(order.attempt()).isEqualTo(Attempt.of(2));
+            assertThat(order.date()).isEqualTo(TOMORROW);
+            assertThat(order.pendingEvents()).isEmpty();
         }
 
         @Test
@@ -610,7 +656,14 @@ class OrderTest {
                     (before, order) -> {
                         assertThat(order.attempt()).isEqualTo(Attempt.of(2));
                         assertThat(order.date()).isEqualTo(NEXT_WEEK);
-                        assertThat(order.pendingEvents()).isEmpty();
+                        assertThat(order.pendingEvents())
+                                .containsExactly(new OrderPutBack(
+                                        new EventId("OrderPutBack", ORDER.value(), Version.of(4), 0),
+                                        LATER,
+                                        ORDER,
+                                        OLD,
+                                        NEXT_WEEK,
+                                        1));
                     }),
             ANONYMIZE(order -> order.anonymize(TODAY), (before, order) -> {
                 OrderSnapshot after = order.snapshot();
@@ -797,11 +850,6 @@ class OrderTest {
                             StoredStateInvalid.class,
                             invalid -> assertThat(invalid.detail())
                                     .isEqualTo("the order was cancelled after its last change"));
-        }
-
-        @Test
-        void GivenAStoredAttemptOfZero_WhenRebuilt_ThenStoredStateInvalid() {
-            assertThatThrownBy(() -> Attempt.of(0)).isInstanceOf(StoredStateInvalid.class);
         }
     }
 }

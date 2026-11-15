@@ -2,8 +2,8 @@ package com.dispatchflow.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 
-import com.dispatchflow.shared.AggregateRoot;
 import com.tngtech.archunit.core.domain.AccessTarget;
+import com.tngtech.archunit.core.domain.AccessTarget.CodeUnitAccessTarget;
 import com.tngtech.archunit.core.domain.JavaAccess;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaCodeUnitAccess;
@@ -15,6 +15,7 @@ import com.tngtech.archunit.lang.SimpleConditionEvent;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -45,6 +46,8 @@ final class DomainPurityRules {
     private static final List<String> CLOCK_TYPES = List.of(
             "java.util.Date", "java.util.Calendar", "java.util.TimeZone", "java.time.Clock", "java.time.InstantSource");
 
+    // java.util.prefs reads and writes stored preferences, and java.lang.management reads the
+    // running process.
     private static final List<String> IO_PACKAGES = List.of(
             "java.io",
             "java.nio.file",
@@ -53,14 +56,91 @@ final class DomainPurityRules {
             "java.sql",
             "javax.sql",
             "java.rmi",
-            "javax.net");
+            "javax.net",
+            "java.util.prefs",
+            "java.lang.management");
     // Not I/O: java.net.IDN converts email domains to ASCII (BR-45); Serializable and Serial only
     // mark types.
     private static final Set<String> IO_EXCEPTIONS = Set.of("java.net.IDN", "java.io.Serializable", "java.io.Serial");
-    private static final List<String> IO_CLASSES =
-            List.of("java.lang.ProcessBuilder", "java.lang.Process", "java.lang.ProcessHandle", "java.lang.Runtime");
+    // A ResourceBundle loads its text from the classpath, and a ServiceLoader its providers.
+    private static final List<String> IO_CLASSES = List.of(
+            "java.lang.ProcessBuilder",
+            "java.lang.Process",
+            "java.lang.ProcessHandle",
+            "java.lang.Runtime",
+            "java.util.ResourceBundle",
+            "java.util.ServiceLoader");
     private static final Set<String> IO_SYSTEM_MEMBERS =
             Set.of("in", "out", "err", "console", "getenv", "getProperty", "getProperties", "setProperty");
+    // Each reads a system property by name and parses it.
+    private static final Map<String, String> PROPERTY_READERS = Map.of(
+            "java.lang.Integer", "getInteger",
+            "java.lang.Long", "getLong",
+            "java.lang.Boolean", "getBoolean");
+    // The default locale is the process's environment, as a system property is.
+    private static final Set<String> DEFAULT_LOCALE_MEMBERS = Set.of("getDefault", "setDefault");
+    // Each of these reads the default locale when it is given none: a case change with no argument,
+    // String.format whose first parameter is the template rather than a Locale, and ofPattern with
+    // the pattern alone. String.formatted has no Locale overload at all.
+    private static final Set<String> CASE_CHANGES = Set.of("toUpperCase", "toLowerCase");
+    private static final String FORMAT = "format";
+    private static final String FORMATTED = "formatted";
+    private static final String OF_PATTERN = "ofPattern";
+    private static final String STRING = "java.lang.String";
+    private static final String DATE_TIME_FORMATTER = "java.time.format.DateTimeFormatter";
+    private static final String OF_LOCALIZED = "ofLocalized";
+    private static final String DATE_TIME_FORMATTER_BUILDER = "java.time.format.DateTimeFormatterBuilder";
+    private static final String TO_FORMATTER = "toFormatter";
+    // java.text's number, date and message formats, and the symbols they print with, are built for
+    // the default locale unless one is given: by a Locale, or by symbols built for one. Only their
+    // constructors and static factories choose the locale; Normalizer, also in java.text, reads
+    // none and stays allowed.
+    private static final List<String> LOCALE_FORMATS = List.of(
+            "java.text.NumberFormat",
+            "java.text.DateFormat",
+            "java.text.MessageFormat",
+            "java.text.DecimalFormatSymbols",
+            "java.text.DateFormatSymbols");
+    private static final Set<String> LOCALE_CARRIERS =
+            Set.of("java.util.Locale", "java.text.DecimalFormatSymbols", "java.text.DateFormatSymbols");
+    private static final String FACTORY_SUFFIX = "Instance";
+    // A class, its loader or its module reads a resource from the classpath.
+    private static final List<String> RESOURCE_OWNERS =
+            List.of("java.lang.Class", "java.lang.ClassLoader", "java.lang.Module");
+    private static final Set<String> RESOURCE_MEMBERS = Set.of(
+            "getResource",
+            "getResources",
+            "getResourceAsStream",
+            "getSystemResource",
+            "getSystemResources",
+            "getSystemResourceAsStream",
+            "resources");
+    // A thread the domain starts makes its outcome depend on the scheduler, as a Process it starts
+    // depends on the operating system.
+    private static final String THREAD = "java.lang.Thread";
+    private static final Set<String> THREAD_BUILDERS = Set.of("ofPlatform", "ofVirtual", "startVirtualThread");
+    private static final String EXECUTORS = "java.util.concurrent.Executors";
+    // Every member of these counts, as each exists to run tasks on threads of its own; so does a
+    // subclass, such as ScheduledThreadPoolExecutor.
+    private static final List<String> THREAD_POOLS =
+            List.of("java.util.concurrent.ForkJoinPool", "java.util.concurrent.ThreadPoolExecutor", "java.util.Timer");
+    // An *Async method of a CompletableFuture runs on the common pool, and a parallel stream too.
+    private static final String COMPLETION_STAGE = "java.util.concurrent.CompletionStage";
+    private static final String ASYNC_SUFFIX = "Async";
+    private static final String COLLECTION = "java.util.Collection";
+    private static final String PARALLEL_STREAM = "parallelStream";
+    private static final String BASE_STREAM = "java.util.stream.BaseStream";
+    private static final String PARALLEL = "parallel";
+    // A Cleaner starts the thread that runs its cleaning actions.
+    private static final String CLEANER = "java.lang.ref.Cleaner";
+    private static final String CREATE = "create";
+
+    // Reflection reaches any member by name, so it would step past every rule here; Class.forName
+    // also loads a class from the classpath.
+    private static final List<String> REFLECTION_PACKAGES = List.of("java.lang.reflect");
+    private static final List<String> REFLECTION_CLASSES = List.of("java.lang.invoke.MethodHandles");
+    private static final String CLASS = "java.lang.Class";
+    private static final String FOR_NAME = "forName";
 
     private static final List<String> LOGGING_PACKAGES = List.of(
             "java.util.logging", "org.slf4j", "org.apache.logging", "org.apache.commons.logging", "ch.qos.logback");
@@ -110,7 +190,7 @@ final class DomainPurityRules {
         return classes()
                 .that()
                 .resideInAnyPackage(pureLayers(root))
-                .should(notAccess("read the system clock", DomainPurityRules::readsTheClock)
+                .should(notAccess("read or wait on the system clock", DomainPurityRules::readsTheClock)
                         .and(notDependOn("a legacy date type or a clock", DomainPurityRules::isAClock)))
                 .because("DL §3.9 rule 2: now and today are parameters (NFR-13, NFR-175)");
     }
@@ -140,8 +220,20 @@ final class DomainPurityRules {
                 .that()
                 .resideInAnyPackage(pureLayers(root))
                 .should(notDependOn("an I/O type", DomainPurityRules::isIo)
-                        .and(notAccess("use the process's streams or environment", DomainPurityRules::usesTheProcess)))
-                .because("DL §3.9 rule 4: the domain does no I/O");
+                        .and(notAccess(
+                                "use the process's streams, environment, system properties or default locale",
+                                DomainPurityRules::usesTheProcess))
+                        .and(notAccess(
+                                "change case, format or build a date pattern with the default locale",
+                                DomainPurityRules::readsTheDefaultLocaleImplicitly))
+                        .and(notAccess("read a resource from the classpath", DomainPurityRules::readsAResource))
+                        .and(notDependOn("a reflection type", DomainPurityRules::isReflection))
+                        .and(notAccess("load a class by name", DomainPurityRules::loadsAClassByName))
+                        .and(notAccess(
+                                "start a thread, an executor, a pool or a parallel stream",
+                                DomainPurityRules::startsAThread)))
+                .because("DL §3.9 rule 4: the domain does no I/O; the default locale, system properties, the"
+                        + " classpath, reflection and the process's threads count as I/O, as a Process does");
     }
 
     /** Rule 4: no logging. */
@@ -190,7 +282,8 @@ final class DomainPurityRules {
                 .because("DL §13 and BR-15: no code path can hand Plan an unvalidated solution");
     }
 
-    private static String[] pureLayers(String root) {
+    /** The kernel and every domain and events package under a root, with their subpackages. */
+    static String[] pureLayers(String root) {
         return new String[] {root + "." + KERNEL + "..", root + ".*." + DOMAIN + "..", root + ".*." + EVENTS + ".."};
     }
 
@@ -273,7 +366,9 @@ final class DomainPurityRules {
                 || (owner.equals("java.lang.System") && (name.equals("currentTimeMillis") || name.equals("nanoTime")))
                 || (owner.startsWith("java.time.") && name.equals("dateNow"))
                 || (target.getOwner().isAssignableTo(ZoneId.class) && name.equals("systemDefault"))
-                || (owner.equals("java.util.TimeZone") && name.equals("getDefault"));
+                || (owner.equals("java.util.TimeZone") && name.equals("getDefault"))
+                || (owner.equals("java.lang.Thread") && name.equals("sleep"))
+                || (owner.equals("java.util.concurrent.TimeUnit") && name.equals("sleep"));
     }
 
     private static boolean isAClock(JavaClass type) {
@@ -296,16 +391,89 @@ final class DomainPurityRules {
                 || (owner.equals("java.util.Collections") && name.equals("shuffle"));
     }
 
+    /** A subclass counts too, such as a PropertyResourceBundle. */
     private static boolean isIo(JavaClass type) {
         if (IO_EXCEPTIONS.contains(type.getName())) {
             return false;
         }
-        return isInAny(type.getPackageName(), IO_PACKAGES) || isAnyOf(type, IO_CLASSES);
+        return isInAny(type.getPackageName(), IO_PACKAGES)
+                || isAnyOf(type, IO_CLASSES)
+                || IO_CLASSES.stream().anyMatch(type::isAssignableTo);
     }
 
     private static boolean usesTheProcess(JavaAccess<?> access) {
-        return access.getTarget().getOwner().getName().equals("java.lang.System")
-                && IO_SYSTEM_MEMBERS.contains(access.getTarget().getName());
+        String owner = access.getTarget().getOwner().getName();
+        String name = access.getTarget().getName();
+        return (owner.equals("java.lang.System") && IO_SYSTEM_MEMBERS.contains(name))
+                || name.equals(PROPERTY_READERS.get(owner))
+                || (owner.equals("java.util.Locale") && DEFAULT_LOCALE_MEMBERS.contains(name));
+    }
+
+    private static boolean readsTheDefaultLocaleImplicitly(JavaAccess<?> access) {
+        if (!(access.getTarget() instanceof CodeUnitAccessTarget target)) {
+            return false;
+        }
+        String owner = target.getOwner().getName();
+        String name = target.getName();
+        List<JavaClass> parameters = target.getRawParameterTypes();
+        if (owner.equals(DATE_TIME_FORMATTER)) {
+            return (name.equals(OF_PATTERN) && parameters.size() == 1) || name.startsWith(OF_LOCALIZED);
+        }
+        if (owner.equals(DATE_TIME_FORMATTER_BUILDER)) {
+            return name.equals(TO_FORMATTER) && parameters.isEmpty();
+        }
+        if (LOCALE_FORMATS.stream().anyMatch(target.getOwner()::isAssignableTo)) {
+            return choosesALocale(target)
+                    && parameters.stream().noneMatch(parameter -> LOCALE_CARRIERS.contains(parameter.getName()));
+        }
+        return owner.equals(STRING)
+                && ((CASE_CHANGES.contains(name) && parameters.isEmpty())
+                        || name.equals(FORMATTED)
+                        || (name.equals(FORMAT)
+                                && !parameters.isEmpty()
+                                && parameters.get(0).getName().equals(STRING)));
+    }
+
+    /**
+     * A constructor, a {@code get*Instance} factory, or MessageFormat's static {@code format}: the
+     * members of a java.text format that pick the locale it is built for.
+     */
+    private static boolean choosesALocale(CodeUnitAccessTarget target) {
+        String name = target.getName();
+        return name.equals(CONSTRUCTOR) || (isStatic(target) && (name.endsWith(FACTORY_SUFFIX) || name.equals(FORMAT)));
+    }
+
+    /** A subclass of ClassLoader counts too. */
+    private static boolean readsAResource(JavaAccess<?> access) {
+        JavaClass owner = access.getTarget().getOwner();
+        return RESOURCE_MEMBERS.contains(access.getTarget().getName())
+                && RESOURCE_OWNERS.stream().anyMatch(owner::isAssignableTo);
+    }
+
+    private static boolean isReflection(JavaClass type) {
+        return isInAny(type.getPackageName(), REFLECTION_PACKAGES) || isAnyOf(type, REFLECTION_CLASSES);
+    }
+
+    private static boolean loadsAClassByName(JavaAccess<?> access) {
+        return access.getTarget().getOwner().getName().equals(CLASS)
+                && access.getTarget().getName().equals(FOR_NAME);
+    }
+
+    /**
+     * A subclass of Thread counts too, through its call to Thread's constructor. Every member of
+     * Executors counts, as the class exists to make thread pools.
+     */
+    private static boolean startsAThread(JavaAccess<?> access) {
+        JavaClass owner = access.getTarget().getOwner();
+        String name = access.getTarget().getName();
+        return (owner.isAssignableTo(THREAD) && name.equals(CONSTRUCTOR))
+                || (owner.getName().equals(THREAD) && THREAD_BUILDERS.contains(name))
+                || owner.getName().equals(EXECUTORS)
+                || THREAD_POOLS.stream().anyMatch(owner::isAssignableTo)
+                || (owner.isAssignableTo(COMPLETION_STAGE) && name.endsWith(ASYNC_SUFFIX))
+                || (owner.isAssignableTo(COLLECTION) && name.equals(PARALLEL_STREAM))
+                || (owner.isAssignableTo(BASE_STREAM) && name.equals(PARALLEL))
+                || (owner.getName().equals(CLEANER) && name.equals(CREATE));
     }
 
     private static boolean isLogging(JavaClass type) {
@@ -326,7 +494,7 @@ final class DomainPurityRules {
     private static boolean rebuildsStoredState(JavaAccess<?> access) {
         AccessTarget target = access.getTarget();
         boolean restoresAnAggregate = target.getName().equals(RestrictedTypes.RESTORE)
-                && target.getOwner().isAssignableTo(AggregateRoot.class)
+                && RestrictedTypes.isAggregate(target.getOwner())
                 && isStatic(target);
         return (restoresAnAggregate || target.getName().equals(RestrictedTypes.READ_UNDER_LOCK))
                 && !RestrictedTypes.isWithin(access.getOriginOwner(), access.getTargetOwner());

@@ -38,6 +38,13 @@ final class ReportingFixtures {
     static final StopId STOP_D = stop(4);
     static final VehicleId VEHICLE_1 = vehicle(1);
     static final VehicleId VEHICLE_2 = vehicle(2);
+    static final VehicleId VEHICLE_3 = vehicle(3);
+
+    /** Vehicle 1, marked unavailable mid-route: the baseline leaves it out (FR-271). */
+    static final Withdrawal UNAVAILABLE_1 = new Withdrawal(VEHICLE_1, WithdrawalCause.VEHICLE_UNAVAILABLE);
+
+    /** Vehicle 2, whose driver's shift ran out: the baseline gives it its whole shift (FR-271). */
+    static final Withdrawal SHIFT_RAN_OUT_2 = new Withdrawal(VEHICLE_2, WithdrawalCause.SHIFT_RAN_OUT);
 
     /** The plan: A at 11:00, B a second after its window, C dropped; one of three on time. */
     static final PlannedFigures PLAN_FIGURES = new PlannedFigures(

@@ -69,8 +69,10 @@ public sealed interface MessagingError extends DomainError {
     record MessageNotSending(OutgoingMessageId message) implements MessagingError {}
 
     /**
-     * A rating request's phone and comments removed before 90 days have passed since its last reply
-     * (NFR-184, NFR-193). Other modules declare the same error with the same meaning.
+     * A rating request's personal data removed while some is left and none of it is due: its phone
+     * goes 90 days after its question was accepted, and each comment 90 days after its own reply
+     * was received (NFR-184, NFR-193, ADR-108). Other modules declare the same error with the same
+     * meaning.
      */
     record RetentionNotOver() implements MessagingError {}
 }

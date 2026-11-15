@@ -6,8 +6,9 @@ import com.dispatchflow.shared.StoredStateInvalid;
  * A numbered state of a published plan; publishing makes revision 1 and every later change makes
  * the next (DL §17, BR-77, ADR-059). Not the technical {@code Version}.
  *
- * <p>Only {@link Plan} makes one, from {@link #FIRST} and {@link #next()}, so a number below 1 can
- * only be damaged stored state, as with the kernel's {@code Version}.
+ * <p>Only {@link com.dispatchflow.planning.domain.plan.Plan} makes one, from {@link #FIRST} and
+ * {@link #next()}, so a number below 1 can only be damaged stored state, as with the kernel's {@code
+ * Version}.
  *
  * @param value the revision number, 1 or more
  */

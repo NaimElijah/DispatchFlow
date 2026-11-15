@@ -3,7 +3,6 @@ package com.dispatchflow.architecture;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 
 import com.dispatchflow.shared.AccountId;
-import com.dispatchflow.shared.AggregateRoot;
 import com.dispatchflow.shared.AlertId;
 import com.dispatchflow.shared.CustomerId;
 import com.dispatchflow.shared.DaySeconds;
@@ -95,8 +94,11 @@ final class DomainShapeRules {
             .map(Class::getName)
             .collect(Collectors.toUnmodifiableSet());
 
-    private static final Set<String> EVENT_NUMBERS_AND_FLAGS =
-            Set.of("int", "long", "boolean", "java.lang.Integer", "java.lang.Long", "java.lang.Boolean");
+    private static final Set<String> EVENT_NUMBERS_AND_FLAGS = Set.of("int", "long", "boolean");
+
+    /** A list can't hold a primitive, so a list of numbers or flags holds their boxes. */
+    private static final Set<String> EVENT_LIST_BOXES =
+            Set.of("java.lang.Integer", "java.lang.Long", "java.lang.Boolean");
 
     // An enum's own name and ordinal fields are not parameters the enum's code chose.
     private static final String ENUM = "java.lang.Enum";
@@ -137,7 +139,7 @@ final class DomainShapeRules {
                 .should(new ArchCondition<JavaClass>("live in an events package when a DomainEvent") {
                     @Override
                     public void check(JavaClass item, ConditionEvents events) {
-                        if (isConcrete(item, DomainEvent.class) && !isInEventsPackage(root, item)) {
+                        if (isEvent(item) && !isInEventsPackage(root, item)) {
                             events.add(SimpleConditionEvent.violated(
                                     item, item.getName() + " is a DomainEvent outside an events package"));
                         }
@@ -148,8 +150,9 @@ final class DomainShapeRules {
 
     /**
      * DL §7.3: an event carries the kernel types in {@link #EVENT_KERNEL_TYPES}, enums of its own
-     * events package, {@code Instant}, {@code int}, {@code long}, {@code boolean} and their boxes,
-     * and lists of these; never an array, free text or personal data. A type marked {@link
+     * events package, {@code Instant}, {@code int}, {@code long} and {@code boolean}, and lists of
+     * these, whose numbers and flags are boxed; never a boxed field, which could be null, an array,
+     * free text or personal data. A type marked {@link
      * PersonalData} is refused even where the list would allow it (ADR-106). Fields inherited from a
      * supertype count too.
      */
@@ -160,7 +163,7 @@ final class DomainShapeRules {
                 .should(new ArchCondition<JavaClass>("carry only the field types DL §7.3 allows when a DomainEvent") {
                     @Override
                     public void check(JavaClass item, ConditionEvents events) {
-                        if (!isConcrete(item, DomainEvent.class)) {
+                        if (!isEvent(item)) {
                             return;
                         }
                         instanceFields(item)
@@ -218,7 +221,7 @@ final class DomainShapeRules {
                 .should(new ArchCondition<JavaClass>("declare its own toString() when PersonalData") {
                     @Override
                     public void check(JavaClass item, ConditionEvents events) {
-                        if (isConcrete(item, PersonalData.class) && !declaresItsOwnToString(item)) {
+                        if (isPersonalValue(item) && !declaresItsOwnToString(item)) {
                             events.add(SimpleConditionEvent.violated(
                                     item, item.getName() + " is PersonalData without its own toString()"));
                         }
@@ -271,13 +274,20 @@ final class DomainShapeRules {
                         + " checks");
     }
 
-    private static boolean isRestricted(JavaClass type) {
-        boolean aggregate = type.isAssignableTo(AggregateRoot.class) && !type.isEquivalentTo(AggregateRoot.class);
-        boolean readUnderLock = type.getMethods().stream()
-                .anyMatch(method -> method.getName().equals(RestrictedTypes.READ_UNDER_LOCK)
-                        && method.getModifiers().contains(JavaModifier.STATIC));
-        return aggregate
-                || readUnderLock
+    /** Whether a type is a concrete event, which the event rules check. */
+    static boolean isEvent(JavaClass type) {
+        return isConcrete(type, DomainEvent.class);
+    }
+
+    /** Whether a type is a concrete personal value, which must print redacted. */
+    static boolean isPersonalValue(JavaClass type) {
+        return isConcrete(type, PersonalData.class);
+    }
+
+    /** Whether a type's constructors must be private. */
+    static boolean isRestricted(JavaClass type) {
+        return RestrictedTypes.isAggregate(type)
+                || RestrictedTypes.readsUnderLock(type)
                 || RestrictedTypes.optimizerResultOf(type).isPresent()
                 || RestrictedTypes.isValidatedSolution(type);
     }
@@ -316,6 +326,7 @@ final class DomainShapeRules {
                     && isAllowedEventType(parameterized.getActualTypeArguments().get(0), event, false);
         }
         return EVENT_NUMBERS_AND_FLAGS.contains(raw.getName())
+                || (!listAllowed && EVENT_LIST_BOXES.contains(raw.getName()))
                 || raw.isEquivalentTo(Instant.class)
                 || (raw.isEnum() && raw.getPackageName().equals(event.getPackageName()))
                 || EVENT_KERNEL_TYPES.contains(raw.getName());

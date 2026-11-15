@@ -93,7 +93,7 @@ usability study) and the end-to-end tests ([NFR-83]: end-to-end tests).
 | FR-178 | Changing a password ends every session of that user, as [NFR-90] (role, password or email change revokes sessions) requires, so they sign in again. | Must |  |  |
 | FR-179 | The password policy of [NFR-95] (password policy) applies to the new password. | Must |  |  |
 | FR-180 | An access token issued before a password change is refused at once ([NFR-177]: revoked tokens refused at once). | Must |  |  |
-| FR-387 | An Admin can change a user's email, and a user can change their own by giving their current password. | Must |  |  |
+| FR-387 | An Admin can change a user's email, except another Admin's, which only that Admin can change ([ADR-116]: only an Admin changes their own email), and a user can change their own by giving their current password. | Must |  |  |
 | FR-388 | A new email takes effect only once a link sent to it is used, within 1 hour of sending; the old address is told, without naming the new one. | Must |  |  |
 | FR-392 | Sessions end ([NFR-90]: role, password or email change revokes sessions) when the new email takes effect, and an address another account holds is refused only then, the request being answered the same either way. | Must |  |  |
 | FR-124 | A user can choose their interface language, Hebrew or English ([NFR-27]: Hebrew and English interface). | Should |  |  |
@@ -209,7 +209,7 @@ route included.
 | FR-208 | A driver can call a customer's contact phone from a stop. | Must |  |  |
 | FR-60 | An import resolves each row to exactly one customer. | Must |  |  |
 | FR-310 | A row matches a customer on normalized address text ([FR-398]: normalized address text for matching). | Must |  |  |
-| FR-398 | Normalized address text is Unicode NFC, with whitespace trimmed and collapsed, a single geresh and a single gershayim character, abbreviations expanded from a fixed table, punctuation other than letters, digits, geresh and gershayim replaced by a space, and Latin letters in lower case. | Must |  |  |
+| FR-398 | Normalized address text is Unicode NFC, with whitespace trimmed and collapsed, a single geresh and a single gershayim character, abbreviations expanded from a fixed table, punctuation other than letters, digits, geresh and gershayim replaced by a space, and Latin letters in lower case; matching also ignores invisible format characters and non-spacing combining marks such as niqqud ([ADR-102]: order references and the abbreviation table). | Must |  |  |
 | FR-311 | A row matching no customer creates one from the row's name and phone, flagged for a pin check; a row without them is rejected. | Must |  |  |
 | FR-312 | A row matching several customers is rejected and lists them. | Must |  |  |
 | FR-61 | The import reads Hebrew text in UTF-8, with or without a byte order mark, and in Windows-1255. | Must |  |  |
@@ -745,7 +745,7 @@ Rules are grouped by subject.
 | <a id="nfr-228"></a>NFR-228 | When a team member leaves, their server access is removed that day and every secret they held is rotated. |  |  |
 | <a id="nfr-22"></a>NFR-22 | A signed-in user stays signed in through refresh tokens. Each is exchanged once, for a new access token and the session's next refresh token. |  |  |
 | <a id="nfr-87"></a>NFR-87 | A refresh token lasts 14 days by default from its issue. |  |  |
-| <a id="nfr-88"></a>NFR-88 | Presenting a refresh token that was already exchanged revokes its whole session, except as [NFR-178] (grace for a repeated refresh) says. |  |  |
+| <a id="nfr-88"></a>NFR-88 | Presenting a refresh token that was already exchanged revokes its whole session, except as [NFR-178] (grace for a repeated refresh) says; a token the session no longer keeps is refused as unknown and revokes nothing ([ADR-104]: the company profile and role-matrix capabilities). |  |  |
 | <a id="nfr-178"></a>NFR-178 | While its session is live, a refresh token presented again within 30 seconds of its exchange gets a new token, which replaces the one that exchange issued, and revokes nothing. Presenting a replaced token revokes the session. ([ADR-036](../ADRs/ADR-036-one-account-per-person-signed-in-by-email.md): one account per person, signed in by email) Priority: Must. |  |  |
 | <a id="nfr-89"></a>NFR-89 | A sign-out revokes the session it ends. |  |  |
 | <a id="nfr-90"></a>NFR-90 | A role, password or email change revokes every session of the user. |  |  |
@@ -1774,4 +1774,7 @@ DispatchFlow deliberately does not:
 [ADR-090]: ../ADRs/ADR-090-scope-cuts-for-the-first-release.md
 [ADR-091]: ../ADRs/ADR-091-study-design-for-the-solver-comparison.md
 [ADR-100]: ../ADRs/ADR-100-k-covers-door-windows-outside-a-shift-and-no-vehicle-is-a-drop-reason.md
+[ADR-102]: ../ADRs/ADR-102-order-references-are-checked-on-every-move-to-a-date.md
+[ADR-104]: ../ADRs/ADR-104-the-company-profile-holds-customer-defaults-and-capabilities-follow-the-role-matrix.md
 [ADR-105]: ../ADRs/ADR-105-a-re-optimizations-problem-carries-its-conventions-and-only-a-vehicle-that-is-out-has-no-driver.md
+[ADR-116]: ../ADRs/ADR-116-only-an-admin-changes-their-own-email.md

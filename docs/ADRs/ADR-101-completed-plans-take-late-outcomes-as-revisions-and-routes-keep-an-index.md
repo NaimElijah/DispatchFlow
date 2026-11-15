@@ -1,6 +1,6 @@
 # ADR-101: A completed plan takes late outcomes as revisions, a hand-over takes an optional check, and each route keeps an index from 1 to 30
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-112
 - **Date:** 2026-11-14
 
 ## Context

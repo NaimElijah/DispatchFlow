@@ -110,8 +110,13 @@ REFUSED: list[object] = [
     ),
     pytest.param(
         live_with(lambda live: positioned(live, in_service_area=1)),
-        r"latest_position\.in_service_area must be a bool: 1",
+        r"latest_position\.in_service_area must be a bool$",
         id="in_service_area 1",
+    ),
+    pytest.param(
+        live_with(lambda live: positioned(live, in_service_area="inside")),
+        r"latest_position\.in_service_area must be a bool$",
+        id="in_service_area text",
     ),
     pytest.param(
         live_with(lambda live: setattr(live, "lateness_rate", "5")),

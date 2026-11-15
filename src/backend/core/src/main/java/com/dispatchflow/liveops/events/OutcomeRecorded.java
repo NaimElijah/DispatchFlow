@@ -7,6 +7,7 @@ import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
 import java.time.Instant;
+import java.util.Objects;
 
 /**
  * A stop got its first outcome (DL §7.2, BR-18). Live Operations' own listener reconciles it with
@@ -21,6 +22,9 @@ import java.time.Instant;
  * @param route the route that served it: the one the report came from, or the one the dispatcher
  *     recorded for (DL §8)
  * @param outcome delivered or failed
+ * @param leftAtDoor whether the outcome is *delivered* and left at the door, which the recipient's
+ *     message says (FR-356, FR-366); a correction can't change what the first outcome stated, so the
+ *     event carries it
  * @param factTime when it happened: the report's corrected time (BR-114), or the time a dispatcher
  *     recorded it on a driver's behalf
  * @param onBehalf whether a dispatcher recorded it on the driver's behalf (FR-73, FR-257)
@@ -34,7 +38,29 @@ public record OutcomeRecorded(
         int attempt,
         RouteId route,
         OutcomeKind outcome,
+        boolean leftAtDoor,
         Instant factTime,
         boolean onBehalf,
         AccountId by)
-        implements DomainEvent {}
+        implements DomainEvent {
+
+    /**
+     * Checks the parts are given, and that only a delivered outcome says it was left at the door.
+     *
+     * @throws AssertionError when a failed outcome says it was left at the door: only {@code
+     *     Delivery} raises this event, so that is a bug in it, never a refusal
+     */
+    public OutcomeRecorded {
+        Objects.requireNonNull(eventId, "eventId");
+        Objects.requireNonNull(occurredAt, "occurredAt");
+        Objects.requireNonNull(stop, "stop");
+        Objects.requireNonNull(order, "order");
+        Objects.requireNonNull(route, "route");
+        Objects.requireNonNull(outcome, "outcome");
+        Objects.requireNonNull(factTime, "factTime");
+        Objects.requireNonNull(by, "by");
+        if (leftAtDoor && outcome != OutcomeKind.DELIVERED) {
+            throw new AssertionError("only a delivered outcome is left at the door (FR-366)");
+        }
+    }
+}

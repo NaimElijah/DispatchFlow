@@ -1,7 +1,6 @@
 package com.dispatchflow.reporting.domain;
 
 import com.dispatchflow.shared.OrderId;
-import com.dispatchflow.shared.VehicleId;
 import java.util.List;
 import java.util.Objects;
 
@@ -15,10 +14,11 @@ public sealed interface BaselineCause {
      * Revisions withdrew vehicles mid-route or added orders, so the baseline was solved again after
      * them, on the same orders and fleet as the plan (FR-39, FR-267, FR-270, ADR-109).
      *
-     * @param withdrawn every vehicle withdrawn so far, each once, in the order first withdrawn
+     * @param withdrawn every vehicle withdrawn so far with its cause, each vehicle once, in the
+     *     order first withdrawn (FR-271)
      * @param added every order added so far, each once, in the order first added
      */
-    record Recomputed(List<VehicleId> withdrawn, List<OrderId> added) implements BaselineCause {
+    record Recomputed(List<Withdrawal> withdrawn, List<OrderId> added) implements BaselineCause {
 
         /** Copies the lists; {@link Baseline} checks that at least one names something. */
         public Recomputed {

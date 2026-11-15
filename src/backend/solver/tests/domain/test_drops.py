@@ -207,7 +207,7 @@ def test_given_a_served_order_when_explained_then_refused() -> None:
     day.order(100)
     route = Route(vehicle=0, driver=0, start=DEPOT_LOCATION, end=DEPOT_LOCATION, stops=(0,))
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"^order 0 is served, not dropped$"):
         day.build().explain_drop(0, Solution(routes=(route,), dropped=frozenset()))
 
 
@@ -333,6 +333,17 @@ def test_given_a_door_order_after_a_shift_ending_the_date_when_explained_then_sh
 
     assert day.build().explain_drop(0, NOTHING_SERVED) == Shift(
         latest_return=150, earliest_return=400
+    )
+
+
+def test_given_an_arrival_after_the_dates_end_when_explained_then_the_fact_passes_it() -> None:
+    # ADR-113: a fact's time is never capped at the date's end, 86,400.
+    day = DayBuilder()
+    day.vehicle(shift=(80_000, 86_400))
+    day.order(7_000, window=(0, 85_000))
+
+    assert day.build().explain_drop(0, NOTHING_SERVED) == TimeWindow(
+        window_end=85_000, earliest_arrival=87_000
     )
 
 

@@ -1,5 +1,6 @@
 package com.dispatchflow.orders.domain;
 
+import com.dispatchflow.shared.Attempt;
 import java.util.Objects;
 
 /**

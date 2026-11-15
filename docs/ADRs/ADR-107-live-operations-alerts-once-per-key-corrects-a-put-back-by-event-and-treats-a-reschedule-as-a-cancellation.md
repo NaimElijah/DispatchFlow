@@ -1,6 +1,6 @@
 # ADR-107: Live Operations alerts once per key, corrects a put-back by event, and treats a reschedule as a cancellation
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-114
 - **Date:** 2026-11-14
 
 ## Context

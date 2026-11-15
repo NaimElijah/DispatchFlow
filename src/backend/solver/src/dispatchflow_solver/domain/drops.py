@@ -10,12 +10,14 @@ In a re-optimization a stop that stays on its vehicle is judged on that vehicle 
 is judged only on the vehicles allowed to serve it (ADR-053, BR-106). A stop with a hard window
 may be served late there (BR-107), so *time window* is never a re-optimization's reason.
 
-`Problem` and `Pin` appear here in annotations only, under `TYPE_CHECKING`: `problem` imports
-this module at run time, and this module never imports it.
+A fact's time is in seconds since the date's local midnight, and is never capped: an earliest
+arrival or return may pass the date's end (ADR-101, ADR-113).
+
+It reads its problem as a `ProblemView` and never imports `problem`, which imports it (ADR-113).
 """
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Final, assert_never
+from typing import Final, assert_never
 
 from dispatchflow_solver.domain.exclusions import OrderExclusion
 from dispatchflow_solver.domain.feasibility import (
@@ -25,11 +27,10 @@ from dispatchflow_solver.domain.feasibility import (
     shift_return_limit,
 )
 from dispatchflow_solver.domain.indices import NO_INDEX
+from dispatchflow_solver.domain.problem_parts import Pin
+from dispatchflow_solver.domain.problem_view import ProblemView
 from dispatchflow_solver.domain.rules import RuleId
 from dispatchflow_solver.domain.solution import Route, Solution
-
-if TYPE_CHECKING:
-    from dispatchflow_solver.domain.problem import Pin, Problem
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,7 +99,8 @@ class TimeWindow:
 
     Attributes:
         window_end: When the order's window ends.
-        earliest_arrival: The earliest such arrival, on the validator's buffered times.
+        earliest_arrival: The earliest such arrival, on the validator's buffered times. Finite,
+            and it may pass the date's end (ADR-113).
     """
 
     window_end: float
@@ -113,7 +115,8 @@ class Shift:
         latest_return: The binding limit: the shift end, less the break reserve where one applies
             (BR-105). A door stop served after its shift end is followed by a return after it, so
             the return is the fact for door orders too.
-        earliest_return: The earliest return, serving the order alone.
+        earliest_return: The earliest return, serving the order alone. Finite, and it may pass
+            the date's end (ADR-113).
     """
 
     latest_return: float
@@ -126,7 +129,8 @@ class DepotHours:
 
     Attributes:
         depot_closes: When the end depot closes.
-        earliest_return: The earliest return, serving the order alone.
+        earliest_return: The earliest return, serving the order alone. Finite, and it may pass
+            the date's end (ADR-113).
     """
 
     depot_closes: float
@@ -150,14 +154,15 @@ type DropReason = (
     | DepotHours
     | Displaced
 )
-"""Every reason a daily solve gives for a drop (FR-223). Vehicle limits (FR-201) are not built."""
+"""Every reason a daily solve or a re-optimization gives for a drop (FR-223). A re-optimization
+never gives *time window* (BR-107). Vehicle limits (FR-201) are not built."""
 
 _TIME_LIMITS: Final = {RuleId.BR_06: 2, RuleId.BR_105: 2, RuleId.BR_119: 1, RuleId.BR_46: 0}
 """The rules a lone round trip can break by time, ranked to settle a tie in seconds: a shift
 limit binds before the depot's closing, so equal limits give *shift*."""
 
 
-def explain_drop(problem: Problem, order: int, solution: Solution) -> DropReason:
+def explain_drop(problem: ProblemView, order: int, solution: Solution) -> DropReason:
     """Explains an unserved order; `Problem.explain_drop` delegates here.
 
     The tests run in ADR-053's order, as ADR-100 amends it, and the first that fails is the
@@ -269,7 +274,7 @@ def _severity(violation: Violation) -> tuple[float, int]:
     return (violation.seconds or 0.0, _TIME_LIMITS[violation.rule])
 
 
-def _alone(problem: Problem, order: int, vehicle: int) -> _Alone:
+def _alone(problem: ProblemView, order: int, vehicle: int) -> _Alone:
     vehicles = problem.vehicles
     route = Route(
         vehicle=vehicle,
@@ -282,7 +287,7 @@ def _alone(problem: Problem, order: int, vehicle: int) -> _Alone:
     return _Alone(vehicle=vehicle, violations=violations, timing=timing)
 
 
-def _first_failing_limit(problem: Problem, order: int, trials: list[_Alone]) -> DropReason:
+def _first_failing_limit(problem: ProblemView, order: int, trials: list[_Alone]) -> DropReason:
     reachable = [trial for trial in trials if RuleId.BR_14 not in trial.rules]
     if not reachable:
         # Only a stop that stays on its vehicle gets here: a routable order is reached by some
@@ -312,7 +317,7 @@ def _closeness(trial: _Alone) -> tuple[float, int, float]:
     return (seconds, -rank, float(trial.timing.returns_at))
 
 
-def _time_reason(problem: Problem, trial: _Alone) -> Shift | DepotHours:
+def _time_reason(problem: ProblemView, trial: _Alone) -> Shift | DepotHours:
     returns_at = float(trial.timing.returns_at)
     if trial.binding().rule is RuleId.BR_46:
         closes = float(problem.vehicles.end_depot_closes[trial.vehicle])
@@ -323,13 +328,13 @@ def _time_reason(problem: Problem, trial: _Alone) -> Shift | DepotHours:
     return Shift(latest_return=latest, earliest_return=returns_at)
 
 
-def _honours(problem: Problem, vehicle: int, pin: Pin) -> bool:
+def _honours(problem: ProblemView, vehicle: int, pin: Pin) -> bool:
     if pin.vehicle is not None:
         return vehicle == pin.vehicle
     return int(problem.vehicles.driver[vehicle]) == pin.driver
 
 
-def _capacity(problem: Problem, order: int, vehicles: list[int]) -> Capacity:
+def _capacity(problem: ProblemView, order: int, vehicles: list[int]) -> Capacity:
     # Never empty: the caller returns before it when no trial reaches the order, so max() needs no
     # default.
     capacities = problem.vehicles

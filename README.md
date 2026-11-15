@@ -26,9 +26,10 @@ It deliberately does not use live traffic data, handle payments, provide turn-by
 enterprise-scale fleets.
 
 > [!IMPORTANT]
-> **Pre-alpha: the repository holds working skeletons, not features yet.** Every component builds
-> and passes its tests with `just check`, and CI runs the same recipes on every push and on
-> every pull request into `dev` or `main`. None of the planning capabilities exists in code.
+> **Pre-alpha: the repository holds working skeletons and the domain layer, not features yet.**
+> Every component builds and passes its tests with `just check`, and CI runs the same recipes on
+> every push and on every pull request into `dev` or `main`. The domain layer has no application
+> layer or adapters yet, so none of the planning capabilities can be used.
 > What the system must do is in [requirements.md](docs/requirements/requirements.md); what exists
 > today and what comes next are under [Status and limitations](#status-and-limitations).
 
@@ -95,9 +96,12 @@ flowchart LR
 ```
 
 - **Core backend** (`src/backend/core`) is the system of record and the only API the clients
-  call. It will hold one module per bounded context: Access, Fleet, Customers & Orders, Planning,
+  call. It holds one module per bounded context: Access, Fleet, Customers & Orders, Planning,
   Live Operations, Recipient Messaging, Reporting and Audit
   ([domain design](docs/architecture/domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts)).
+  Each module's domain is built; its application layer and adapters are not. A domain that passes
+  30 files splits into one package per aggregate
+  ([ADR-118](docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)).
 - **Solver** (`src/backend/solver`) turns a routing problem into routes. Every solver sits behind
   one `Solver` port and is chosen by name; every solution passes a shared feasibility validator
   before it leaves the service ([ADR-004](docs/ADRs/ADR-004-pluggable-solver-port.md)).
@@ -113,7 +117,8 @@ dependencies point one way: the domain imports no framework, I/O or transport ty
 adapters depend on the domain.
 
 None of the calls between components exists in code yet. Today the solver answers its liveness
-probe, the core its health probe, and the two apps render a heading.
+probe, the core its health probe, and the two apps render a heading; the domain layers, in the core
+and in the solver, are built and tested but nothing calls them.
 [architecture.md](docs/architecture/architecture.md) describes that system as it is, and
 [code-structure.md](docs/architecture/code-structure.md) the repository layout.
 
@@ -138,13 +143,13 @@ progress to the web app over server-sent events
 
 | Layer | Technology | Version | Why |
 |---|---|---|---|
-| Core backend | Java, Spring Boot, Spring Data JPA; libphonenumber | 21, 4.1.2; 9.0.43 | The team's strongest stack; mature ecosystem for the adapters. libphonenumber parses phone numbers in the pure domain |
+| Core backend | Java, Spring Boot, Spring Data JPA; libphonenumber, JTS, JSpecify | 21, 4.1.2; 9.0.43, 1.20.0, version from the Spring Boot parent | The team's strongest stack; mature ecosystem for the adapters. libphonenumber parses phone numbers and JTS checks the service area, both in the pure domain; JSpecify marks null-safe packages |
 | Database | PostgreSQL 18.6; Flyway (version from the Spring Boot parent) | 18.6 | Relational data with real constraints; versioned SQL migrations |
 | Solver | Python, FastAPI, NumPy | 3.14, 0.162, 2.5.4 | OR-Tools' richest bindings; algorithm work iterates apart from the backend; NumPy holds the validator's arrays |
 | Web app | React, TypeScript, Vite | 19.3, 6.0, 8.3 | Web app for every role; its driver screens also work in a phone's browser |
 | Phone app | React Native, Expo | 0.88, SDK 58 | One codebase for iOS and Android, for every role |
 | Contracts | OpenAPI, Redocly CLI | 3.1, 2.72 | Each side is built against the contract, not against the other side |
-| Tests | JUnit + Testcontainers, ArchUnit, pytest + Hypothesis, import-linter, Vitest, Jest | ArchUnit 1.5.1, Hypothesis 6.170, import-linter 2.16 | Real PostgreSQL in tests, never an in-memory stand-in; ArchUnit and import-linter keep each domain pure |
+| Tests | JUnit + Testcontainers, ArchUnit, pytest + Hypothesis, vrplib, import-linter, Vitest, Jest | ArchUnit 1.5.1, Hypothesis 6.170, vrplib 2.2.0, import-linter 2.16 | Real PostgreSQL in tests, never an in-memory stand-in; ArchUnit, import-linter and ruff keep each domain pure; vrplib reads the Solomon instances the validator is checked against |
 | Tooling | just, uv, npm, OSV-Scanner | 1.59, 0.12, 11, 2.7 | One command set locally and in CI; one audit across every ecosystem |
 
 TypeScript is held at 6.0 because typescript-eslint does not support 7 yet
@@ -214,7 +219,7 @@ comments. The rules apply to people and to coding assistants alike.
 
 | Layer | Covers | Command |
 |---|---|---|
-| Core unit (`*Test`) | Domain and use cases, no I/O. Today: the shared kernel's values, the domain purity rules (ArchUnit) and the web error handler; no bounded context exists yet | `just core-check` |
+| Core unit (`*Test`) | Domain and use cases, no I/O. Today: the shared kernel's values, the eight modules' domains, the ArchUnit rules (purity, shape and package structure) and the web error handler; no use case exists yet | `just core-check` |
 | Core integration (`*IT`) | Against a real PostgreSQL in a container | `just core-check` |
 | Solver | The domain (the validator's crafted-violation catalogue, Hypothesis properties, Solomon best-known solutions accepted), the HTTP adapter, the dependency boundary and import-linter | `just solver-check` |
 | Research | Its environment: the solver and PyVRP are installed | `just research-check` |
@@ -279,7 +284,7 @@ the [ADR index](docs/ADRs/README.md). It also lists ADR-037 to ADR-047, accepted
 supersedes, amends or extends the ADRs its status names, to match the design documents. The code
 does not follow them yet. ADR-094 to ADR-096 settle three points found open afterwards: the
 contract check's base branch, the zod and deepmerge advisories, and the root `CLAUDE.md`. ADR-097
-onward record decisions taken while the domain layer is built.
+to ADR-118 record decisions taken while the domain layer was built, reviewed and split into packages.
 
 ## Status and limitations
 

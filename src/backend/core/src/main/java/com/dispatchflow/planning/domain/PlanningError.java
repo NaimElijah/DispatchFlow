@@ -2,6 +2,7 @@ package com.dispatchflow.planning.domain;
 
 import com.dispatchflow.planning.events.Lane;
 import com.dispatchflow.shared.AccountId;
+import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.DomainError;
 import com.dispatchflow.shared.JobId;
@@ -269,16 +270,16 @@ public sealed interface PlanningError extends DomainError {
     }
 
     /**
-     * A re-optimization's solution gives one vehicle two routes, withdrawn or not, so it can't become
-     * a proposal (BR-39, ADR-101).
+     * A solution gives one vehicle two routes, withdrawn or not, so its daily job can't succeed and a
+     * re-optimization's can't become a proposal (BR-39, ADR-101, ADR-112).
      *
      * @param vehicle the vehicle
      */
     record VehicleRoutedTwice(VehicleId vehicle) implements PlanningError {}
 
     /**
-     * A re-optimization's solution puts one driver on two routes it doesn't withdraw, so it can't
-     * become a proposal (BR-39, ADR-101).
+     * A solution puts one driver on two routes it doesn't withdraw, so its daily job can't succeed
+     * and a re-optimization's can't become a proposal (BR-39, ADR-101, ADR-112).
      *
      * @param driver the driver's account
      */
@@ -415,13 +416,6 @@ public sealed interface PlanningError extends DomainError {
      */
     record SolutionRejected(int violations) implements PlanningError {}
 
-    /**
-     * An attempt number below 1 (FR-258).
-     *
-     * @param attempt the refused number
-     */
-    record InvalidAttempt(int attempt) implements PlanningError {}
-
     /** A rule code that is not a requirement row's ID, such as {@code BR-03} (ADR-101). */
     record MalformedRuleCode() implements PlanningError {}
 
@@ -437,6 +431,18 @@ public sealed interface PlanningError extends DomainError {
 
     /** A stop's times out of order, or on different dates (ADR-101). */
     record InvalidStopTimes() implements PlanningError {}
+
+    /** A route's return before its departure, or on another date (ADR-101, ADR-112). */
+    record InvalidRouteTimes() implements PlanningError {}
+
+    /**
+     * A solve's time before its date's local midnight; a time past the date's end is allowed
+     * (ADR-112, ADR-113).
+     *
+     * @param date the date it counts from
+     * @param seconds the refused seconds, below zero
+     */
+    record TimeBeforeTheDay(DeliveryDate date, long seconds) implements PlanningError {}
 
     /** A travel leg with negative seconds or metres (ADR-101). */
     record InvalidTravelLeg() implements PlanningError {}

@@ -158,5 +158,5 @@ def test_given_timings_of_another_solution_when_costed_then_refused() -> None:
     one = Solution(routes=(route(0, 0),), dropped=frozenset({1}))
     other = Solution(routes=(route(0, 0, 1),), dropped=frozenset())
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"^the timings do not belong to this solution$"):
         problem.cost(other, problem.validate(one).timings)

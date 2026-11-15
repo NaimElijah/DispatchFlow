@@ -89,7 +89,7 @@ public final class PhoneNumber implements PersonalData {
     }
 
     /**
-     * Whether messages may go to this number: only Israeli mobile numbers get them (FR-378).
+     * Whether this is an Israeli mobile number.
      *
      * @return {@code true} for an Israeli mobile number; {@code false} for any other, and for a
      *     stored number the current metadata can't classify
@@ -99,7 +99,7 @@ public final class PhoneNumber implements PersonalData {
         try {
             number = PHONE_NUMBERS.parse(e164, ISRAEL);
         } catch (NumberParseException unclassifiable) {
-            // A stored number the current metadata can't read gets no messages; it still loads.
+            // A stored number the current metadata can't read is not classed as mobile; it still loads.
             return false;
         }
         return ISRAEL.equals(PHONE_NUMBERS.getRegionCodeForNumber(number))

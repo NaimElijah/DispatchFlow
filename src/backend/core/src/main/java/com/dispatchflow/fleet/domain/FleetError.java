@@ -26,7 +26,9 @@ public sealed interface FleetError extends DomainError {
     record FleetFull(int limit) implements FleetError {}
 
     /**
-     * Another active vehicle already has this display name (BR-48).
+     * Another active vehicle already has this display name, or one that looks the same: names are
+     * compared without variation selectors or format characters, with one geresh, one gershayim
+     * and one hyphen, and with each run of whitespace as one space (BR-48, ADR-111).
      *
      * @param usedBy the active vehicle that has it
      */
@@ -108,7 +110,7 @@ public sealed interface FleetError extends DomainError {
 
     /**
      * The person is not an active driver: their account is not active or lacks the Driver role, or
-     * their driver record is retired. The same code means the same in Access and Planning.
+     * their driver record is retired. The same code means the same in Planning.
      *
      * @param driver the driver's account
      */

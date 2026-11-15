@@ -18,7 +18,10 @@ public enum SolveFailureReason {
     DATE_PASSED,
     /** Its date had no uncancelled orders (FR-65). */
     NO_ORDERS,
-    /** The validator rejected the solution (BR-57). */
+    /**
+     * The validator rejected the solution (BR-57), or Planning found one it accepted that no plan
+     * could hold, with an order twice (BR-07) or a vehicle or driver on two routes (BR-39) (ADR-112).
+     */
     VALIDATOR_REJECTED,
     /** A locked route could not be kept (FR-238). */
     LOCK_NOT_HONOURED

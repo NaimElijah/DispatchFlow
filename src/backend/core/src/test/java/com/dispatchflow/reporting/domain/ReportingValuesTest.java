@@ -2,7 +2,7 @@ package com.dispatchflow.reporting.domain;
 
 import static com.dispatchflow.reporting.domain.ReportingFixtures.ORDER_A;
 import static com.dispatchflow.reporting.domain.ReportingFixtures.ORDER_B;
-import static com.dispatchflow.reporting.domain.ReportingFixtures.VEHICLE_1;
+import static com.dispatchflow.reporting.domain.ReportingFixtures.UNAVAILABLE_1;
 import static com.dispatchflow.reporting.domain.ReportingFixtures.served;
 import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -11,7 +11,6 @@ import com.dispatchflow.reporting.domain.ReportingError.NegativeDistance;
 import com.dispatchflow.reporting.domain.ReportingError.NegativeDriverHours;
 import com.dispatchflow.reporting.domain.ReportingError.OrderCountedTwice;
 import com.dispatchflow.shared.OrderId;
-import com.dispatchflow.shared.VehicleId;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -69,11 +68,11 @@ class ReportingValuesTest {
 
     @Test
     void GivenAListThatChangesLater_WhenARecomputedCauseIsMade_ThenItKeepsItsCopy() {
-        List<VehicleId> given = new ArrayList<>(List.of(VEHICLE_1));
+        List<Withdrawal> given = new ArrayList<>(List.of(UNAVAILABLE_1));
         BaselineCause.Recomputed cause = new BaselineCause.Recomputed(given, List.of());
 
         given.clear();
 
-        assertThat(cause.withdrawn()).containsExactly(VEHICLE_1);
+        assertThat(cause.withdrawn()).containsExactly(UNAVAILABLE_1);
     }
 }

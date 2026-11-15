@@ -8,7 +8,10 @@ import com.dispatchflow.shared.Version;
 import java.time.Instant;
 import java.util.List;
 
-/** An event with every allowed field type; a static constant is not a field the rule checks. */
+/**
+ * An event with every allowed field type; a static constant is not a field the rule checks. A list
+ * of numbers holds boxes, because a Java list can't hold an {@code int}.
+ */
 public record CleanEvent(
         EventId eventId,
         Instant occurredAt,
@@ -19,9 +22,6 @@ public record CleanEvent(
         int count,
         long total,
         boolean late,
-        Integer boxedCount,
-        Long boxedTotal,
-        Boolean boxedLate,
         List<StopId> stops,
         List<AlphaEventKind> kinds,
         List<Integer> counts)

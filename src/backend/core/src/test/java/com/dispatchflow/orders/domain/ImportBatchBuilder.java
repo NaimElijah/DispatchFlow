@@ -39,11 +39,13 @@ final class ImportBatchBuilder {
     /** An address two active customers share. */
     static final Address SHARED_ADDRESS = Address.of("שד' בן גוריון 1, חיפה");
 
-    static final CustomerMatch.Candidate KNOWN_CUSTOMER =
-            new CustomerMatch.Candidate(customerId(1), OrdersTestData.NO_DEFAULT_SERVICE_TIME);
-
+    /** The name and phone every row built here gives, and {@link #KNOWN_CUSTOMER}'s own. */
     static final ContactName NAME = ContactName.of("רות ישראלי");
+
     static final PhoneNumber PHONE = PhoneNumber.parse("052-345-6780");
+
+    static final CustomerMatch.Candidate KNOWN_CUSTOMER =
+            new CustomerMatch.Candidate(customerId(1), NAME, PHONE, OrdersTestData.NO_DEFAULT_SERVICE_TIME);
 
     private FileEncoding encoding = FileEncoding.UTF_8;
     private final List<ImportRow> rows = new ArrayList<>();

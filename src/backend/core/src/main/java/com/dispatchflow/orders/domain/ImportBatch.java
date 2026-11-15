@@ -19,6 +19,7 @@ import com.dispatchflow.shared.FreshIds;
 import com.dispatchflow.shared.ImportBatchId;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PersonalData;
+import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.RuleViolations;
 import com.dispatchflow.shared.StoredStateInvalid;
@@ -30,7 +31,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -202,13 +202,15 @@ public final class ImportBatch extends AggregateRoot implements PersonalData {
      *
      * <p>The new IDs are drawn in row order: for each row, first its new customer's, when the row
      * creates one, then its order's. Rows whose addresses normalize alike share one new customer,
-     * made from the first of them.
+     * made from the first of them (ADR-102). A row that gives no recipient, and whose name or phone
+     * differs from the customer it matches or shares, makes them its order's recipient (ADR-115).
      *
      * @param context the matches, date snapshots and company defaults, read again
      * @param encodingConfirmed whether the dispatcher confirmed the decoded preview (FR-313)
      * @param ids new IDs: one per row, plus one per new customer
      * @param today today in {@code Asia/Jerusalem}
-     * @param now the time of the confirmation
+     * @param now the time of the confirmation; a time before the preview, from a clock that stepped
+     *     back, is recorded as the preview's, so the batch still restores (ADR-115)
      * @return the new customers and orders
      * @throws RuleViolation with {@link ImportAlreadyConfirmed}, {@link ImportDiscarded} or {@link
      *     ImportExpired}, for a batch no longer previewed or past its hour, then with {@link
@@ -240,28 +242,30 @@ public final class ImportBatch extends AggregateRoot implements PersonalData {
 
         ImportResult result = create(imported, context, ids, now);
         rows = List.of();
-        state = new State.Confirmed(now);
+        state = new State.Confirmed(notBeforePreview(now));
         return result;
     }
 
     /**
      * Discards the preview at the dispatcher's request; its rows are deleted at once (FR-399).
      *
-     * @param now the time of discarding
+     * @param now the time of discarding; a time before the preview, from a clock that stepped back,
+     *     is recorded as the preview's, so the batch still restores (ADR-115)
      * @throws RuleViolation with {@link ImportAlreadyConfirmed}, {@link ImportDiscarded} or {@link
      *     ImportExpired}
      */
     public void discard(Instant now) {
         refuseUnlessPreviewed();
         rows = List.of();
-        state = new State.Discarded(now);
+        state = new State.Discarded(notBeforePreview(now));
     }
 
     /**
      * Expires a preview whose hour has passed; its rows are deleted (FR-399). The hourly sweep calls
      * it (DL §10.3).
      *
-     * @param now the time of the sweep
+     * @param now the time of the sweep, which is never before the preview: an earlier one is refused
+     *     as not yet expired
      * @throws RuleViolation with {@link ImportAlreadyConfirmed}, {@link ImportDiscarded} or {@link
      *     ImportExpired}, then with {@link ImportNotYetExpired} before the hour has passed
      */
@@ -272,6 +276,15 @@ public final class ImportBatch extends AggregateRoot implements PersonalData {
         }
         rows = List.of();
         state = new State.Expired(now);
+    }
+
+    /**
+     * The time a state change is recorded at: {@code now}, or the preview's time when a clock that
+     * stepped back gives an earlier one, which {@link #restore} would refuse. Expiring needs no such
+     * guard, because it is refused before the hour has passed.
+     */
+    private Instant notBeforePreview(Instant now) {
+        return now.isBefore(previewedAt) ? previewedAt : now;
     }
 
     private boolean isOverdue(Instant now) {
@@ -347,11 +360,13 @@ public final class ImportBatch extends AggregateRoot implements PersonalData {
 
     /**
      * Builds the customers and orders of rows that were all checked and found clean. Rows whose
-     * addresses normalize alike share one new customer, made from the first of them.
+     * addresses normalize alike share one new customer, made from the first of them, and a later row
+     * naming someone else gives its order that person as the recipient.
      */
     private static ImportResult create(List<ImportRow> rows, ImportContext context, FreshIds ids, Instant now) {
-        // Insertion order is kept, so the new customers come in the order of their first row.
-        Map<NormalizedAddress, Customer> created = new LinkedHashMap<>();
+        // Only looked up, never iterated: the new customers keep their first row's order in the list.
+        Map<NormalizedAddress, CustomerMatch.Candidate> createdFor = new HashMap<>();
+        List<Customer> created = new ArrayList<>();
         List<Order> orders = new ArrayList<>();
         for (ImportRow row : rows) {
             // Every row is parsed here: an unreadable row always carries an error, refused above.
@@ -359,22 +374,39 @@ public final class ImportBatch extends AggregateRoot implements PersonalData {
             NormalizedAddress address = NormalizedAddress.of(line.address());
             CustomerMatch.Candidate candidate = context.matchFor(address)
                     .customer()
-                    .orElseGet(() -> {
-                        Customer customer = created.computeIfAbsent(
-                                address,
-                                unused -> Customer.registerFromImport(
-                                        CustomerId.of(ids.next()),
-                                        line.name().orElseThrow(),
-                                        line.phone().orElseThrow(),
-                                        line.address(),
-                                        context.companyDefaults(),
-                                        now));
-                        return new CustomerMatch.Candidate(customer.id(), customer.orderDefaults());
-                    });
+                    .orElseGet(() -> createdFor.computeIfAbsent(address, unused -> {
+                        ContactName name = line.name().orElseThrow();
+                        PhoneNumber phone = line.phone().orElseThrow();
+                        Customer customer = Customer.registerFromImport(
+                                CustomerId.of(ids.next()), name, phone, line.address(), context.companyDefaults(), now);
+                        created.add(customer);
+                        return new CustomerMatch.Candidate(customer.id(), name, phone, customer.orderDefaults());
+                    }));
             OrderId order = OrderId.of(ids.next());
-            orders.add(Order.checked(order, candidate.id(), line.date(), line.order(), candidate.defaults(), now));
+            OrderDetails details = line.order().withRecipient(recipientOf(line, candidate));
+            orders.add(Order.checked(order, candidate.id(), line.date(), details, candidate.defaults(), now));
         }
-        return new ImportResult(List.copyOf(created.values()), orders);
+        return new ImportResult(created, orders);
+    }
+
+    /**
+     * The order's recipient (FR-87, ADR-115). A row that gives no recipient, and whose name or phone
+     * differs from its customer's, names someone else at the address, such as a neighbour in another
+     * flat: its name and phone become the recipient, so that person's messages reach them and not the
+     * customer (FR-348). A row whose recipient columns are filled keeps them, and a part they leave
+     * empty takes the row's name or phone where that differs from the customer's, so a recipient with
+     * no phone of their own still gets the row's phone and not the customer's.
+     */
+    private static Recipient recipientOf(ImportLine line, CustomerMatch.Candidate customer) {
+        Recipient given = line.order().recipient();
+        Optional<ContactName> otherName = line.name().filter(name -> !name.equals(customer.name()));
+        Optional<PhoneNumber> otherPhone = line.phone().filter(phone -> !phone.equals(customer.phone()));
+        if (given.equals(Recipient.NONE)) {
+            return otherName.isPresent() || otherPhone.isPresent()
+                    ? new Recipient(line.name(), line.phone())
+                    : Recipient.NONE;
+        }
+        return new Recipient(given.name().or(() -> otherName), given.phone().or(() -> otherPhone));
     }
 
     /**

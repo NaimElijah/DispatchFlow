@@ -11,13 +11,14 @@ conventions, so the product and the disruption simulation build the same problem
 
 import math
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from typing import Final
 
 import numpy as np
 import numpy.typing as npt
 
+from dispatchflow_solver.domain._arrays import converted
 from dispatchflow_solver.domain.errors import InvalidProblemError
 from dispatchflow_solver.domain.exclusions import OrderExclusion, VehicleExclusion
 from dispatchflow_solver.domain.indices import NO_INDEX, require_float, require_int
@@ -29,10 +30,10 @@ from dispatchflow_solver.domain.problem import (
     Problem,
     ReoptContext,
     Vehicles,
-    converted,
     depots_unconnected,
     require_matrix,
     require_same_roads,
+    servable_where_they_may_go,
     unreachable_locations,
 )
 from dispatchflow_solver.domain.rules import LIMIT_TOLERANCE
@@ -175,6 +176,9 @@ class StopFact:
 class VehiclePosition:
     """A position a vehicle reported (FR-31), with what BR-80 needs to judge it.
 
+    A driver's position is personal data (NFR-19), and so is when it was taken, so the repr leaves
+    out the coordinates and the time.
+
     Attributes:
         latitude: Degrees north, from -90 to 90.
         longitude: Degrees east, from -180 to 180.
@@ -183,9 +187,9 @@ class VehiclePosition:
             computes the flag (ADR-050).
     """
 
-    latitude: float
-    longitude: float
-    received_at: float
+    latitude: float = field(repr=False)
+    longitude: float = field(repr=False)
+    received_at: float = field(repr=False)
     in_service_area: bool
 
 
@@ -254,8 +258,10 @@ class ProblemFactory:
             depots: The depots the vehicles start and end at.
             vehicles: The date's vehicles.
             drivers: The date's drivers.
-            durations: Base durations in seconds between distinct locations; NaN for no road.
-            distances: Metres between distinct locations; NaN exactly where durations are.
+            durations: Base durations in seconds between locations: 0 from a location to itself,
+                and NaN for no road.
+            distances: Metres between locations: 0 from a location to itself, and NaN exactly
+                where durations are.
             travel: The day's buckets, factors and buffer.
             day_length: The date's length in seconds (ADR-088).
             fixed_vehicle_cost: Seconds per vehicle used, 0 when disabled (FR-21).
@@ -349,8 +355,11 @@ class ProblemFactory:
         4. **Relaxes windows** (BR-107): every stop with a hard window may be served past its
            end, which the validator flags and the objective charges at the lateness rate. Its
            start stays hard, and the vehicle's latest return stays the hard limit.
-        5. **Charges for instability** (BR-115, FR-37). A stop that stays on its vehicle adds the
-           moved-stop cost to its drop penalty; each orphan pays it as a constant.
+        5. **Charges for instability** (BR-115, FR-37, FR-256). A stop that stays on its vehicle
+           pays to leave it: the moved-stop cost is added to its drop penalty, and `cost` reports
+           it as `moved_stops`. A stop that stays but cannot be routed there, because it lost its
+           location or its vehicle has no road to it and back, pays nothing for leaving (ADR-105).
+           Each orphan pays the cost as a constant, `orphaned_stops`.
         6. **Builds the warm start** (ADR-044, FR-280): each active vehicle's stops not yet
            reported, in planned order, without the orphans and the orders that cannot be routed.
 
@@ -367,9 +376,9 @@ class ProblemFactory:
                 positions.
             drivers: The date's drivers.
             put_back: The orders whose failed stop a dispatcher put back for today (FR-75).
-            durations: Base durations in seconds, NaN for no road, with a source row for each
-                vehicle's latest position.
-            distances: Metres, NaN exactly where durations are.
+            durations: Base durations in seconds, 0 from a location to itself and NaN for no
+                road, with a source row for each vehicle's latest position.
+            distances: Metres, 0 from a location to itself and NaN exactly where durations are.
             travel: The day's buckets, factors and buffer.
             day_length: The date's length in seconds (ADR-088).
             fixed_vehicle_cost: Seconds per vehicle used, 0 when disabled (FR-21).
@@ -402,8 +411,10 @@ class ProblemFactory:
                 raise InvalidProblemError(
                     f"orders[{index}] is pinned, but a pin applies only before a solve (FR-91)"
                 )
-        for index, live in enumerate(vehicles):
+        vehicles = [
             _require_live_vehicle(index, live, now, orders, len(depots), len(drivers), size)
+            for index, live in enumerate(vehicles)
+        ]
         _require_one_stop_each(vehicles)
         _require_put_back(put_back, vehicles, len(orders))
         locations = _ints("orders.location", [_order_location(order) for order in orders])
@@ -434,12 +445,16 @@ class ProblemFactory:
             lateness_rate=lateness_rate,
             moved_stop_cost=moved_stop_cost,
         )
-        servable = _servable_where_they_may_go(
+        servable = servable_where_they_may_go(
             stays_on, order_struct, vehicle_struct, duration_matrix
         )
+        # Step 5. A stop that stays but that its vehicle cannot serve is dropped whatever the
+        # solver does, so a charge could only shift every solution's score by the same amount, as
+        # the orphans' constant does, without that constant's term to show it (ADR-105).
+        pays_to_leave = (stays_on != NO_INDEX) & servable
         drop_penalties = [
             penalties.drop_penalty(int(priority))
-            + (penalties.moved_stop_cost if _pays_to_leave(order, stays_on, servable) else 0.0)
+            + (penalties.moved_stop_cost if pays_to_leave[order] else 0.0)
             for order, priority in enumerate(order_struct.priority)
         ]
         context = ReoptContext(
@@ -448,6 +463,7 @@ class ProblemFactory:
             locked=locked,
             stays_on=stays_on,
             orphaned=orphaned,
+            pays_to_leave=pays_to_leave,
             no_usable_position=frozenset(
                 vehicle
                 for vehicle, placement in enumerate(placements)
@@ -543,37 +559,6 @@ def _place(
         driver=driver,
         usable_position=usable_position,
     )
-
-
-def _servable_where_they_may_go(
-    stays_on: npt.NDArray[np.int64],
-    orders: Orders,
-    vehicles: Vehicles,
-    durations: npt.NDArray[np.float64],
-) -> npt.NDArray[np.bool_]:
-    # Per order, whether it can be served at all where it may go. A stop that stays on its vehicle
-    # may go only there (BR-106), so it needs a road from that vehicle's start to it and on to that
-    # vehicle's end, whatever other vehicles reach; the rest need only to be routable (FR-66).
-    servable = np.array([orders.is_routable(order) for order in range(len(orders))], dtype=np.bool_)
-    for order in np.flatnonzero(servable & (stays_on != NO_INDEX)):
-        vehicle = int(stays_on[order])
-        servable[order] = not unreachable_locations(
-            orders.location[[order]],
-            vehicles.start_location[[vehicle]],
-            vehicles.end_location[[vehicle]],
-            durations,
-        )[0]
-    return servable
-
-
-def _pays_to_leave(
-    order: int, stays_on: npt.NDArray[np.int64], servable: npt.NDArray[np.bool_]
-) -> bool:
-    # Step 5 charges a stop that stays on its vehicle for leaving it. One its vehicle cannot serve,
-    # because it lost its location or the vehicle has no road to it and back, is dropped whatever
-    # the solver does, so the charge could only shift every solution's score by the same amount, as
-    # the orphans' constant does, without that constant's term to show it (ADR-105).
-    return bool(stays_on[order] != NO_INDEX and servable[order])
 
 
 def _state_exclusion(state: VehicleState, *, made_stops: bool) -> VehicleExclusion | None:
@@ -720,7 +705,9 @@ def _require_live_vehicle(
     depot_count: int,
     driver_count: int,
     size: int,
-) -> None:
+) -> LiveVehicleSpec:
+    # Returns the vehicle with its stops' orders as plain ints, so every later step can use them
+    # as indices and as `Route` stops, whatever integer type the caller gave.
     if not isinstance(live.state, VehicleState):
         raise InvalidProblemError(f"vehicles[{index}].state is not a VehicleState: {live.state!r}")
     _require_vehicle_spec(index, live.vehicle, depot_count, driver_count, driver_required=False)
@@ -729,16 +716,21 @@ def _require_live_vehicle(
         raise InvalidProblemError(f"vehicles[{index}] is active, so it needs a driver")
     if live.state is VehicleState.NO_DRIVER and has_driver:
         raise InvalidProblemError(f"vehicles[{index}] has no driver by its state, but names one")
-    for position, stop in enumerate(live.stops):
+    stops = tuple(
         _require_stop_fact(f"vehicles[{index}].stops[{position}]", stop, now, orders)
-    if live.state is VehicleState.WITHDRAWN and not any(stop.report for stop in live.stops):
+        for position, stop in enumerate(live.stops)
+    )
+    if live.state is VehicleState.WITHDRAWN and not any(stop.report for stop in stops):
         raise InvalidProblemError(
             f"vehicles[{index}] is withdrawn, but a withdrawn vehicle has made a stop (FR-267)"
         )
     _require_positions(index, live, now, size)
+    return replace(live, stops=stops)
 
 
-def _require_stop_fact(name: str, stop: StopFact, now: float, orders: Sequence[OrderSpec]) -> None:
+def _require_stop_fact(
+    name: str, stop: StopFact, now: float, orders: Sequence[OrderSpec]
+) -> StopFact:
     order = require_int(f"{name}.order", stop.order)
     if not 0 <= order < len(orders):
         raise InvalidProblemError(f"{name}.order {order} is not one of {len(orders)}")
@@ -747,7 +739,7 @@ def _require_stop_fact(name: str, stop: StopFact, now: float, orders: Sequence[O
     if (stop.report is None) != (stop.reported_at is None):
         raise InvalidProblemError(f"{name} has a report exactly when it has a report time")
     if stop.reported_at is None:
-        return
+        return replace(stop, order=order)
     reported_at = require_float(f"{name}.reported_at", stop.reported_at)
     if not (math.isfinite(reported_at) and reported_at <= now):
         raise InvalidProblemError(
@@ -757,6 +749,7 @@ def _require_stop_fact(name: str, stop: StopFact, now: float, orders: Sequence[O
         raise InvalidProblemError(
             f"{name} is reported, but orders[{order}] has no location to place the vehicle by"
         )
+    return replace(stop, order=order, reported_at=reported_at)
 
 
 def _require_positions(index: int, live: LiveVehicleSpec, now: float, size: int) -> None:
@@ -784,21 +777,18 @@ def _require_positions(index: int, live: LiveVehicleSpec, now: float, size: int)
 
 
 def _require_position(name: str, position: VehiclePosition, now: float) -> None:
-    latitude = require_float(f"{name}.latitude", position.latitude)
-    longitude = require_float(f"{name}.longitude", position.longitude)
-    received_at = require_float(f"{name}.received_at", position.received_at)
+    # NFR-19: a driver's position is personal data, so each error names the field, never its value.
+    latitude = require_float(f"{name}.latitude", position.latitude, personal=True)
+    longitude = require_float(f"{name}.longitude", position.longitude, personal=True)
+    received_at = require_float(f"{name}.received_at", position.received_at, personal=True)
     if not (math.isfinite(latitude) and abs(latitude) <= _LATITUDE_LIMIT):
-        raise InvalidProblemError(f"{name}.latitude must lie from -90 to 90: {latitude}")
+        raise InvalidProblemError(f"{name}.latitude must lie from -90 to 90")
     if not (math.isfinite(longitude) and abs(longitude) <= _LONGITUDE_LIMIT):
-        raise InvalidProblemError(f"{name}.longitude must lie from -180 to 180: {longitude}")
+        raise InvalidProblemError(f"{name}.longitude must lie from -180 to 180")
     if not (math.isfinite(received_at) and received_at <= now):
-        raise InvalidProblemError(
-            f"{name}.received_at must be finite and no later than now, {now}: {received_at}"
-        )
+        raise InvalidProblemError(f"{name}.received_at must be finite and no later than now")
     if not isinstance(position.in_service_area, bool):
-        raise InvalidProblemError(
-            f"{name}.in_service_area must be a bool: {position.in_service_area!r}"
-        )
+        raise InvalidProblemError(f"{name}.in_service_area must be a bool")
 
 
 def _require_one_stop_each(vehicles: Sequence[LiveVehicleSpec]) -> None:
@@ -1043,6 +1033,8 @@ def _longest_late(
 
 
 def _floats(name: str, values: Sequence[float]) -> npt.NDArray[np.float64]:
+    for index, value in enumerate(values):
+        require_float(f"{name}[{index}]", value)
     return converted(name, values, np.float64)
 
 

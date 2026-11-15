@@ -1,8 +1,14 @@
 package com.dispatchflow.access.domain;
 
+import static com.dispatchflow.access.domain.account.AccountBuilder.ACCOUNT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.access.domain.account.EmailAddress;
+import com.dispatchflow.access.domain.account.EmailHolder;
+import com.dispatchflow.access.domain.account.LinkPurpose;
+import com.dispatchflow.access.domain.account.PasswordHash;
+import com.dispatchflow.access.domain.session.SessionGeneration;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.StoredStateInvalid;
@@ -20,7 +26,7 @@ class OpaqueValuesTest {
                 NewPassword.of("tz7!kw0q", CommonPasswords.of(List.of())),
                 new PasswordHash("stored-hash"),
                 new TokenHash("token-hash"),
-                new LinkPurpose.EmailChange(email),
+                new LinkPurpose.EmailChange(email, ACCOUNT),
                 EmailHolder.nobody(email),
                 EmailHolder.account(email, AccountId.of(UUID.fromString("0190a5e2-7c3b-7def-8a12-000000000001"))));
 

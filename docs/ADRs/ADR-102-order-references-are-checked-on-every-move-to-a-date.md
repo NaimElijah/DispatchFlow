@@ -1,6 +1,6 @@
 # ADR-102: Order references are checked on every move to a date, and the abbreviation table starts with three
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-115
 - **Date:** 2026-11-14
 
 ## Context

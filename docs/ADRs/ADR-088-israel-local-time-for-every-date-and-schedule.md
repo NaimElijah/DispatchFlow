@@ -1,6 +1,6 @@
 # ADR-088: Every date, time window, shift and schedule is Israel local time, held as elapsed seconds in a solve
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-098
 - **Date:** 2026-11-13
 
 ## Context

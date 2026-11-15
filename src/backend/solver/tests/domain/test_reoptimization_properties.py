@@ -13,8 +13,7 @@ from dispatchflow_solver.domain.problem import Problem
 from dispatchflow_solver.domain.rules import RuleId
 from dispatchflow_solver.domain.solution import Route, Solution
 from tests.domain.builders import DAY, DEPOT_LOCATION, DayBuilder, LiveDay, position
-from tests.domain.properties import PROPERTY_SEED, PROPERTY_SETTINGS
-from tests.domain.test_properties import points, travel_models
+from tests.domain.properties import PROPERTY_SEED, PROPERTY_SETTINGS, points, travel_models
 
 
 @st.composite

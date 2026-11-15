@@ -19,6 +19,21 @@ class ErrorCodeTest {
     }
 
     @Test
+    void GivenACodeOfOneHundredCharacters_WhenRead_ThenItIsKept() {
+        String longest = "A".repeat(100);
+
+        assertThat(ErrorCode.of(longest).value()).hasSize(100);
+    }
+
+    @ParameterizedTest(name = "{0} characters")
+    @ValueSource(ints = {101, 1_000_000})
+    void GivenACodeLongerThanOneHundredCharacters_WhenRead_ThenMalformedErrorCode(int length) {
+        String tooLong = "A".repeat(length);
+
+        assertRefused(() -> ErrorCode.of(tooLong), new MalformedErrorCode());
+    }
+
+    @Test
     void GivenADomainError_WhenItsCodeIsTaken_ThenTheCodeIsTheErrorsStableCode() {
         assertThat(ErrorCode.of(new InvalidCoordinates()).value()).isEqualTo("INVALID_COORDINATES");
     }

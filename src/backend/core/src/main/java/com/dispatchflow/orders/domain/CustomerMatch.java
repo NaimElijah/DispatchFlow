@@ -2,6 +2,8 @@ package com.dispatchflow.orders.domain;
 
 import com.dispatchflow.orders.domain.OrdersError.AmbiguousAddress;
 import com.dispatchflow.shared.CustomerId;
+import com.dispatchflow.shared.PersonalData;
+import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.RuleViolation;
 import java.util.Comparator;
 import java.util.List;
@@ -16,17 +18,34 @@ import java.util.Optional;
 public sealed interface CustomerMatch {
 
     /**
-     * An active customer found for an address, with the defaults its new orders take.
+     * An active customer found for an address, with the contact an import row is compared against
+     * and the defaults its new orders take. A row naming someone else makes them its order's
+     * recipient (FR-87, FR-348, ADR-115). The name and phone are personal data.
      *
      * @param id the customer
+     * @param name its name (FR-59)
+     * @param phone its contact phone (FR-59)
      * @param defaults its default window and service time (BR-49, BR-124)
      */
-    record Candidate(CustomerId id, OrderDefaults defaults) {
+    record Candidate(CustomerId id, ContactName name, PhoneNumber phone, OrderDefaults defaults)
+            implements PersonalData {
 
-        /** Checks both parts are given. */
+        /** Checks every part is given. */
         public Candidate {
             Objects.requireNonNull(id, "id");
+            Objects.requireNonNull(name, "name");
+            Objects.requireNonNull(phone, "phone");
             Objects.requireNonNull(defaults, "defaults");
+        }
+
+        /**
+         * A form that hides the customer's contact, because it is personal data.
+         *
+         * @return {@code Candidate[redacted]}
+         */
+        @Override
+        public String toString() {
+            return "Candidate[redacted]";
         }
     }
 
@@ -62,11 +81,12 @@ public sealed interface CustomerMatch {
     }
 
     /**
-     * Exactly one active customer has the address.
+     * Exactly one active customer has the address. It holds the customer's contact, which is
+     * personal data.
      *
      * @param candidate the customer
      */
-    record OneCustomer(Candidate candidate) implements CustomerMatch {
+    record OneCustomer(Candidate candidate) implements CustomerMatch, PersonalData {
 
         /** Checks the customer is given. */
         public OneCustomer {
@@ -76,6 +96,16 @@ public sealed interface CustomerMatch {
         @Override
         public Optional<Candidate> customer() {
             return Optional.of(candidate);
+        }
+
+        /**
+         * A form that hides the customer's contact, because it is personal data.
+         *
+         * @return {@code OneCustomer[redacted]}
+         */
+        @Override
+        public String toString() {
+            return "OneCustomer[redacted]";
         }
     }
 

@@ -50,6 +50,12 @@ public record OrderDetails(
         Objects.requireNonNull(access, "access");
     }
 
+    /** The same details with another recipient, for an import row that names someone else (ADR-115). */
+    OrderDetails withRecipient(Recipient other) {
+        return new OrderDetails(
+                window, weight, volume, serviceTime, priority, leaveAtDoor, reference, other, note, access);
+    }
+
     /**
      * A form that hides the details, because it holds personal data.
      *

@@ -10,14 +10,17 @@ problem holds them (ADR-050, ADR-105): only what follows `now` is timed (BR-23),
 a fact (BR-10), a stop keeps to the vehicles it may go to (BR-106, BR-108), and a stop past its
 window end is a late stop, flagged and not refused (BR-107).
 
-`Problem` appears here in annotations only, under `TYPE_CHECKING`: `problem` imports this module
-at run time, and this module never imports it.
+Every time is in seconds since the date's local midnight (ADR-088). A route that breaks a time
+rule may be timed past the date's end, `Problem.day_length`; the times are reported as computed,
+never capped, so the core carries them as seconds from the date's start (ADR-113).
+
+It reads its problem as a `ProblemView` and never imports `problem`, which imports it (ADR-113).
 """
 
 import math
 from collections import Counter
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Final
+from typing import Final
 
 import numpy as np
 import numpy.typing as npt
@@ -30,14 +33,15 @@ from dispatchflow_solver.domain.exclusions import (
     VehicleExclusion,
 )
 from dispatchflow_solver.domain.indices import NO_INDEX
+from dispatchflow_solver.domain.problem_view import ProblemView
 from dispatchflow_solver.domain.rules import LIMIT_TOLERANCE, RuleId
 from dispatchflow_solver.domain.solution import InvalidSolutionError, Route, Solution
 
-if TYPE_CHECKING:
-    from dispatchflow_solver.domain.problem import Problem
-
 BREAK_SHIFT_THRESHOLD_S: Final = 6 * 3600.0
-"""A shift this long or longer reserves time for a break, where breaks are reserved (BR-105)."""
+"""A shift this long or longer reserves time for a break, where breaks are reserved (BR-105).
+
+Compared exactly: a shift short of it by no more than `LIMIT_TOLERANCE` reserves no break, because
+the tolerance only ever relaxes a rule (ADR-098)."""
 BREAK_RESERVE_S: Final = 45 * 60.0
 """The time such a route keeps free before its shift ends (BR-105)."""
 
@@ -69,20 +73,39 @@ class Violation:
 
 @dataclass(frozen=True, slots=True, eq=False)
 class RouteTiming:
-    """The validator's own times along one route; NaN where a stop could not be timed.
+    """The validator's own times along one route; NaN where something could not be timed.
+
+    Three things are not timed, and their times are NaN (ADR-113):
+
+    - **A route with no stops** is not driven: `leaves_at` and `returns_at` are NaN, and every
+      array is empty.
+    - **A stop the route cannot serve** is skipped: one excluded or out of road reach breaks BR-14,
+      and in a re-optimization a locked one breaks BR-10. Its `arrival`, `start`, `departure`,
+      `late` and `outside_window`, and the leg into it, are NaN, and the route goes on from the
+      last place it reached.
+    - **The return, with no road to the end** from the last place reached: `returns_at` and the
+      last leg are NaN, and the last stop served breaks BR-14.
+
+    Every other time is a finite number of seconds since the date's local midnight. Times are not
+    capped at the date's end: a route that breaks a time rule, such as BR-06, may arrive, serve or
+    return past `Problem.day_length`. A route the validator accepts returns within its driver's
+    shift, which lies on the date (FR-190), so none of its times passes the date's end by more
+    than `LIMIT_TOLERANCE`.
 
     Attributes:
-        leaves_at: When the route leaves its start.
-        arrival: When the vehicle reaches each stop.
-        start: When service starts at each stop.
-        departure: When the vehicle leaves each stop.
-        late: Seconds each service starts after its window ends.
-        outside_window: Seconds each service starts outside its window, early or late.
+        leaves_at: When the route leaves its start; NaN for a route with no stops.
+        arrival: When the vehicle reaches each stop; NaN for a stop not timed.
+        start: When service starts at each stop; NaN for a stop not timed.
+        departure: When the vehicle leaves each stop; NaN for a stop not timed.
+        late: Seconds each service starts after its window ends; NaN for a stop not timed.
+        outside_window: Seconds each service starts outside its window, early or late; NaN for a
+            stop not timed.
         leg_seconds: Buffered travel seconds of the leg into each stop, then of the leg into the
-            end; none for a route with no stops. After a skipped stop, the leg runs from the last
-            place the route reached.
-        leg_metres: Metres of the same legs.
-        returns_at: When the route reaches its end.
+            end; none for a route with no stops, and NaN for a leg not driven. After a skipped
+            stop, the leg runs from the last place the route reached.
+        leg_metres: Metres of the same legs, NaN where `leg_seconds` is.
+        returns_at: When the route reaches its end; NaN for a route with no stops or with no road
+            to its end.
     """
 
     leaves_at: float
@@ -157,7 +180,7 @@ class ValidationReport:
         return frozenset(violation.rule for violation in self.violations)
 
 
-def validate(problem: Problem, solution: Solution) -> ValidationReport:
+def validate(problem: ProblemView, solution: Solution) -> ValidationReport:
     """Judges a solution; `Problem.validate` delegates here.
 
     Args:
@@ -188,7 +211,7 @@ def validate(problem: Problem, solution: Solution) -> ValidationReport:
 
 
 def check_route(
-    problem: Problem, route: Route, *, index: int = 0
+    problem: ProblemView, route: Route, *, index: int = 0
 ) -> tuple[tuple[Violation, ...], RouteTiming]:
     """Checks one route's own rules and times it: everything but BR-07 and BR-39.
 
@@ -200,7 +223,8 @@ def check_route(
     - A stop that is excluded, or that the route cannot reach by road, breaks BR-14. It is
       skipped, its times are NaN, and the route goes on from the last place it reached. With no
       road from the last stop to the end, that stop breaks BR-14 and the return is NaN.
-    - A route with no stops is not driven, so it has no times.
+    - A route with no stops is not driven, so its departure and return are NaN.
+    - Times are never capped at the date's end (`RouteTiming`).
     - In a re-optimization, a locked stop breaks BR-10 and is skipped as an unroutable one is. A
       stop served past its window end is not a violation (BR-107).
 
@@ -217,7 +241,7 @@ def check_route(
     return tuple(check.violations), timing
 
 
-def earliest_departure(problem: Problem, vehicle: int) -> float:
+def earliest_departure(problem: ProblemView, vehicle: int) -> float:
     """When a vehicle's route may leave its start.
 
     In a daily solve it is the later of its rostered driver's shift start and its start depot's
@@ -240,11 +264,12 @@ def earliest_departure(problem: Problem, vehicle: int) -> float:
     )
 
 
-def shift_return_limit(problem: Problem, driver: int) -> tuple[float, RuleId]:
+def shift_return_limit(problem: ProblemView, driver: int) -> tuple[float, RuleId]:
     """The latest return a driver's shift allows, and the rule that sets it.
 
     Where breaks are reserved, a shift of 6 hours or more must end with 45 minutes free (BR-105);
-    otherwise the shift end is the limit (BR-06).
+    otherwise the shift end is the limit (BR-06). A shift short of 6 hours by any amount reserves
+    no break (`BREAK_SHIFT_THRESHOLD_S`).
 
     Args:
         problem: The problem.
@@ -255,13 +280,13 @@ def shift_return_limit(problem: Problem, driver: int) -> tuple[float, RuleId]:
     """
     shift_end = float(problem.drivers.shift_end[driver])
     if problem.breaks_reserved and (
-        problem.drivers.shift_length(driver) >= BREAK_SHIFT_THRESHOLD_S - LIMIT_TOLERANCE
+        problem.drivers.shift_length(driver) >= BREAK_SHIFT_THRESHOLD_S
     ):
         return shift_end - BREAK_RESERVE_S, RuleId.BR_105
     return shift_end, RuleId.BR_06
 
 
-def road(problem: Problem, origin: int, destination: int) -> float | None:
+def road(problem: ProblemView, origin: int, destination: int) -> float | None:
     """A leg's base duration, or None when there is no road route or no location.
 
     Args:
@@ -278,7 +303,7 @@ def road(problem: Problem, origin: int, destination: int) -> float | None:
     return None if math.isnan(base) else base
 
 
-def require_inside(problem: Problem, solution: Solution) -> None:
+def require_inside(problem: ProblemView, solution: Solution) -> None:
     """Refuses a solution with an index that points past the problem.
 
     Args:
@@ -311,7 +336,7 @@ def require_inside(problem: Problem, solution: Solution) -> None:
 
 
 def _check_single_assignment(
-    problem: Problem, solution: Solution, violations: list[Violation]
+    problem: ProblemView, solution: Solution, violations: list[Violation]
 ) -> None:
     # BR-07. An order the problem excluded counts as dropped even when the solution does not list
     # it, because no solver ever saw it. A locked order is served by its report: listing it as
@@ -330,7 +355,7 @@ def _check_single_assignment(
 
 
 def _check_one_route_each(
-    problem: Problem, solution: Solution, violations: list[Violation]
+    problem: ProblemView, solution: Solution, violations: list[Violation]
 ) -> None:
     # BR-39: every route after a vehicle's or a driver's first is a violation of its own. A route
     # withdrawn mid-route does not count: its driver may drive another vehicle now.
@@ -351,7 +376,7 @@ def _check_one_route_each(
 class _RouteCheck:
     """Checks one route's own rules and times it, appending what it finds."""
 
-    problem: Problem
+    problem: ProblemView
     index: int
     route: Route
     violations: list[Violation]
@@ -492,9 +517,12 @@ class _RouteCheck:
         draft.outside[position] = max(late, window_start - start, 0.0)
         if door:
             if self.problem.vehicles.has_driver(self.route.vehicle):
-                # BR-119 asks for the shift and the date. A shift lies on its date (FR-190, which
-                # Problem enforces), and service never starts before the route leaves, so the
-                # shift end is the only limit that can bind.
+                # BR-119 asks for the shift and the date, and only the shift end is checked. A
+                # shift lies on its date (FR-190, which Problem enforces), so its end also keeps
+                # the stop on the date. A daily route leaves no earlier than its shift starts, so
+                # the shift start cannot bind. A re-optimization's route may leave before the
+                # shift starts, when its vehicle is already on the road (BR-23, ADR-105), and a
+                # door stop it serves then is accepted.
                 outside = start - float(self.problem.drivers.shift_end[self.rostered])
                 if outside > LIMIT_TOLERANCE:
                     self._report(RuleId.BR_119, order=order, seconds=outside)
@@ -530,7 +558,7 @@ class _RouteCheck:
 
 
 def _late_stops(
-    problem: Problem, solution: Solution, timings: list[RouteTiming]
+    problem: ProblemView, solution: Solution, timings: list[RouteTiming]
 ) -> tuple[LateStop, ...]:
     # BR-107: in a re-optimization a stop with a hard window may be served late; the preview
     # names it (FR-103). A door window is a preference, charged and never flagged (BR-120).

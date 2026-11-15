@@ -1,5 +1,7 @@
 package com.dispatchflow.liveops.domain;
 
+import com.dispatchflow.liveops.domain.LiveOpsError.DeviceTimeOutOfRange;
+import com.dispatchflow.shared.RuleViolation;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
@@ -20,11 +22,29 @@ public record CorrectedTime(Instant deviceTime, Instant deviceClockAtSend, Insta
     /** How far inside the report's span a contact must fall to hold it (BR-133). */
     public static final Duration CONTACT_MARGIN = Duration.ofMinutes(2);
 
-    /** Checks every part is present. */
+    /**
+     * The earliest device instant accepted: the start of year 1, as for a delivery date. The bound
+     * is chosen, not where arithmetic fails: it keeps the corrected time and its contact window far
+     * inside what an {@code Instant} holds, whatever the device sends (ADR-114).
+     */
+    private static final Instant EARLIEST_DEVICE_TIME = Instant.parse("0001-01-01T00:00:00Z");
+
+    /** The latest device instant accepted: the end of year 9999 (ADR-114). */
+    private static final Instant LATEST_DEVICE_TIME = Instant.parse("9999-12-31T23:59:59.999999999Z");
+
+    /**
+     * Checks every part is present, and that the device's two instants can be corrected.
+     *
+     * @throws RuleViolation with {@link DeviceTimeOutOfRange} when the device time or the device's
+     *     clock lies outside the years 1 to 9999 (ADR-114)
+     */
     public CorrectedTime {
         Objects.requireNonNull(deviceTime, "deviceTime");
         Objects.requireNonNull(deviceClockAtSend, "deviceClockAtSend");
         Objects.requireNonNull(receivedAt, "receivedAt");
+        if (isOutOfRange(deviceTime) || isOutOfRange(deviceClockAtSend)) {
+            throw new RuleViolation(new DeviceTimeOutOfRange());
+        }
     }
 
     /**
@@ -34,6 +54,8 @@ public record CorrectedTime(Instant deviceTime, Instant deviceClockAtSend, Insta
      * @param deviceClockAtSend the device's clock when it sent the report
      * @param receivedAt when the server received it
      * @return the time
+     * @throws RuleViolation with {@link DeviceTimeOutOfRange} when a device instant lies outside the
+     *     years 1 to 9999
      */
     public static CorrectedTime of(Instant deviceTime, Instant deviceClockAtSend, Instant receivedAt) {
         return new CorrectedTime(deviceTime, deviceClockAtSend, receivedAt);
@@ -61,5 +83,9 @@ public record CorrectedTime(Instant deviceTime, Instant deviceClockAtSend, Insta
         Instant from = corrected().plus(CONTACT_MARGIN);
         Instant to = receivedAt.minus(CONTACT_MARGIN);
         return from.isAfter(to) ? Optional.empty() : Optional.of(new ContactWindow(from, to));
+    }
+
+    private static boolean isOutOfRange(Instant deviceInstant) {
+        return deviceInstant.isBefore(EARLIEST_DEVICE_TIME) || deviceInstant.isAfter(LATEST_DEVICE_TIME);
     }
 }

@@ -30,8 +30,8 @@ public record EventId(String eventType, UUID aggregateId, Version version, int o
      * Checks the parts.
      *
      * @throws StoredStateInvalid when the type is not a simple type name of at most 100 characters,
-     *     the version is below 1 or the ordinal is negative; outside {@link #parse} these only come
-     *     from aggregate code, so the only way to meet them is a damaged stored ID
+     *     the version is below 1 or the ordinal is negative. Through {@link #parse} that means a
+     *     damaged stored ID; anywhere else it means a bug in the aggregate code that built the ID
      */
     public EventId {
         Objects.requireNonNull(eventType, "eventType");

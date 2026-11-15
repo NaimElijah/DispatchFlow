@@ -105,8 +105,26 @@ def test_given_buckets_out_of_order_in_a_list_when_built_then_held_sorted_in_a_t
         pytest.param((), 0.0, 0.0, "off_peak_factor", id="zero off-peak factor"),
         pytest.param((), math.nan, 0.0, "off_peak_factor", id="NaN off-peak factor"),
         pytest.param((), 1.0, -0.1, "buffer", id="negative buffer"),
+        pytest.param(
+            (), "1", 0.0, r"^off_peak_factor must be a number: '1'$", id="text off-peak factor"
+        ),
+        pytest.param((), 1.0, "0.1", r"^buffer must be a number: '0.1'$", id="text buffer"),
         pytest.param((), 1.0, math.inf, "buffer", id="infinite buffer"),
         pytest.param(("bucket",), 1.0, 0.0, "buckets", id="not a bucket"),
+        pytest.param(
+            None,
+            1.0,
+            0.0,
+            r"^buckets must be a sequence of TravelBucket, not NoneType$",
+            id="no buckets",
+        ),
+        pytest.param(
+            5,
+            1.0,
+            0.0,
+            r"^buckets must be a sequence of TravelBucket, not int$",
+            id="a number as buckets",
+        ),
     ],
 )
 def test_given_overlapping_buckets_or_bad_values_when_model_built_then_refused(
@@ -124,6 +142,9 @@ def test_given_overlapping_buckets_or_bad_values_when_model_built_then_refused(
         pytest.param(0, math.inf, 1.3, "end after", id="endless"),
         pytest.param(0, 10, 0.0, "factor", id="zero factor"),
         pytest.param(0, 10, math.inf, "factor", id="infinite factor"),
+        pytest.param("0", 10, 1.3, r"^bucket start must be a number: '0'$", id="text start"),
+        pytest.param(0, True, 1.3, r"^bucket end must be a number: True$", id="bool end"),
+        pytest.param(0, 10, "x", r"^bucket factor must be a number: 'x'$", id="text factor"),
     ],
 )
 def test_given_an_empty_bucket_or_bad_factor_when_built_then_refused(
@@ -185,3 +206,24 @@ def test_given_any_buckets_when_factor_read_then_the_containing_buckets_factor(
     containing = [bucket.factor for bucket in model.buckets if bucket.contains(departure)]
 
     assert model.factor_at(departure) == (containing[0] if containing else model.off_peak_factor)
+
+
+@pytest.mark.parametrize("kind", ["buffered", "unbuffered", "upper_bound", "largest_unbuffered"])
+def test_given_a_factor_whose_product_overflows_when_timed_then_refused(kind: str) -> None:
+    model = TravelTimeModel(buckets=(), off_peak_factor=1e308, buffer=0.5)
+    timed = getattr(model, kind)
+    arguments = (10.0, 0.0) if kind in ("buffered", "unbuffered") else (10.0,)
+
+    with pytest.raises(
+        InvalidProblemError, match=r"^a travel time of 10\.0 base seconds is past a float: factor "
+    ):
+        timed(*arguments)
+
+
+def test_given_number_types_when_built_then_held_as_floats() -> None:
+    model = TravelTimeModel(buckets=(TravelBucket(0, 10, 2),), off_peak_factor=1, buffer=0)
+
+    assert isinstance(model.buckets[0].start, float)
+    assert isinstance(model.buckets[0].factor, float)
+    assert isinstance(model.off_peak_factor, float)
+    assert isinstance(model.buffer, float)

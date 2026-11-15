@@ -5,6 +5,7 @@ import com.dispatchflow.shared.EventId;
 import com.dispatchflow.shared.JobId;
 import com.dispatchflow.shared.PlanId;
 import java.time.Instant;
+import java.util.Objects;
 
 /**
  * A solve job ended without a result (DL §7.2). A daily job's plan returns to draft or ready
@@ -19,4 +20,15 @@ import java.time.Instant;
  */
 public record SolveFailed(
         EventId eventId, Instant occurredAt, JobId job, PlanId plan, Lane lane, SolveFailureReason reason)
-        implements DomainEvent {}
+        implements DomainEvent {
+
+    /** Checks every part is present. */
+    public SolveFailed {
+        Objects.requireNonNull(eventId, "eventId");
+        Objects.requireNonNull(occurredAt, "occurredAt");
+        Objects.requireNonNull(job, "job");
+        Objects.requireNonNull(plan, "plan");
+        Objects.requireNonNull(lane, "lane");
+        Objects.requireNonNull(reason, "reason");
+    }
+}

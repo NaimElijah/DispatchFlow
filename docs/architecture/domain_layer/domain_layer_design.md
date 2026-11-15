@@ -102,8 +102,8 @@ Audit without a cycle ([ADR-040]).
 | Audit | Every core module | Open host | `AuditLog.record`, in the same transaction as the change (NFR-23) |
 | Access | Fleet | Customer and supplier; shared identity: a `Driver` has the ID of the driver's account | Fleet asks `Accounts` whether an account is active and holds the Driver role; Fleet's `DriverRetired` listener calls Access's API to remove the Driver role (FR-307, [ADR-103]); Fleet's `AccountAnonymized` listener anonymizes the driver record (NFR-258, [ADR-103]) |
 | Fleet | Planning | Customer and supplier | Planning reads the roster and the fleet register through Fleet's API, translating them into its own values; calls `MoveVehicleWithRoute`; implements Fleet's `RecordUsage` |
-| Customers & Orders | Planning | Customer and supplier | Planning reads `OrdersForDate`; hears `OrderCancelled` and `OrderRescheduled`; implements `OrderPlacement` and `RecordUsage` |
-| Planning | Live Operations | Customer and supplier | Live Operations hears `PlanPublished` and `PlanRevised`; asks `RouteMembership` and `PublishedRoutes`; calls `ReconcileLateOutcome`; implements `ExecutionFacts` |
+| Customers & Orders | Planning | Customer and supplier | Planning reads `OrdersForDate`; hears `OrderCancelled`, `OrderRescheduled` and `OrderPutBack` ([ADR-115]); implements `OrderPlacement` and `RecordUsage` |
+| Planning | Live Operations | Customer and supplier | Live Operations hears `PlanPublished` and `PlanRevised`; asks `RouteMembership` and `PublishedRoutes`; calls `ReconcileLateOutcome`; implements `ExecutionFacts`; from its own listener on `PutBackSuperseded`, calls Planning's API to take a superseded put-back's stop off the plan ([ADR-114]) |
 | Customers & Orders | Live Operations | Customer and supplier | Live Operations reads the order details a report is judged by (leave at the door); implements `StopProgress` |
 | Fleet | Live Operations | Customer and supplier | Live Operations reads shifts, for the start deadline and the tracking cut-off |
 | Live Operations, Planning, Customers & Orders | Recipient Messaging | Customer and supplier | Messaging hears `RouteStarted`, `OutcomeRecorded`, `PlanRevised`, `OrderCancelled` and `OrderRescheduled`; asks `ArrivalProjections` and the recipient's phone; calls Live Operations' `RaiseAlert` |
@@ -129,9 +129,9 @@ Fleet and Customers & Orders have no relationship. Neither does any pair not in 
    `events` (what they hear) and `spi` (the ports it owns for them to implement). Spring Modulith fails
    the build on any other dependency.
 5. **The shared kernel is tiny.** It holds the typed IDs (UUIDv7) of every aggregate and every entity
-   another context names (§3.1), and nine values that mean the same everywhere: `DeliveryDate`,
-   `IsraelDateTime`, `DaySeconds`, `TimeWindow`, `GeoPoint`, `Weight`, `Volume`, `Priority` and
-   `PhoneNumber`, plus the free-text rule `PlainText` ([ADR-106]). It also holds the building blocks
+   another context names (§3.1), and ten values that mean the same everywhere: `DeliveryDate`,
+   `IsraelDateTime`, `DaySeconds`, `TimeWindow`, `GeoPoint`, `Weight`, `Volume`, `Priority`,
+   `PhoneNumber` and `Attempt` ([ADR-111]), plus the free-text rule `PlainText` ([ADR-106]). It also holds the building blocks
    every module's domain uses: `DomainError`, `RuleViolation(s)`, `StoredStateInvalid`, `Version`,
    `AggregateRoot`, `DomainEvent`, `EventId` and `FreshIds` ([ADR-097]), and the `PersonalData` marker
    ([ADR-106]). Nothing with behaviour specific to one context goes there, and a change to it needs the
@@ -187,18 +187,19 @@ kernel's `PersonalData` marker ([ADR-106]).
 | Typed IDs (`PlanId`, `StopId`, `OrderId`, …) | Shared | A UUIDv7 that names one kind of thing; one can't be passed for another | — |
 | `DeliveryDate` | Shared | The calendar day a plan, its orders and its roster are for, in years 1 to 9999; knows whether it is before a given day | `DateOutOfRange` |
 | `IsraelDateTime` | Shared | A local time in `Asia/Jerusalem`; refuses a time in the skipped hour, reads a repeated hour as its first occurrence (BR-31, BR-111) | `NonexistentLocalTime` |
-| `DaySeconds` | Shared | Elapsed seconds since the date's local midnight, within that day's 23, 24 or 25 hours (§10) | `OutsideTheDay` |
+| `DaySeconds` | Shared | Elapsed seconds since the date's local midnight, within that day's 23, 24 or 25 hours (§10). Planning holds an optimizer's time as a `SolveTime` instead, which has no upper bound ([ADR-112]) | `OutsideTheDay` |
 | `TimeWindow` | Shared | A start before an end, both on one date (BR-35) | `InvalidTimeWindow` |
 | `GeoPoint` | Shared | Latitude and longitude in range | `InvalidCoordinates` |
 | `Weight`, `Volume` | Shared | Kilograms and litres, present and positive (BR-50), with at most two decimals and the digits their columns hold ([ADR-061]) | `NonPositiveQuantity`, `QuantityOutOfRange` |
 | `Priority` | Shared | 1 to 5, default 3 (BR-53) | `PriorityOutOfRange` |
 | `PhoneNumber` | Shared | E.164, parsed with region IL, refusing letters and extensions; knows whether it is an Israeli mobile (FR-377, FR-378). A stored number is checked as E.164 only, so a newer phone-number library never refuses it | `InvalidPhoneNumber` |
-| `PlainText` | Shared | A name, an address or a note: NFC, with whitespace, space separators and format characters trimmed from the ends, and at most its `TextKind`'s cap in code points; raw input over 8 UTF-16 units per code point of the cap is refused before NFC. In a `NOTE`, CR and CRLF become a line feed. Refuses control characters, except a line feed in a `NOTE` (a CR in a `NAME` or an `ADDRESS` is refused); U+2028 and U+2029 outside a `NOTE`; interior format characters in a `NAME` or an `ADDRESS` other than U+061C and U+200C to U+200F; bidi embedding, override and isolate controls; unpaired surrogates; and private-use and unassigned code points. Text that renders as nothing counts as empty ([ADR-106]) | `TextTooLong`, `TextHasForbiddenCharacters` |
-| `EmailAddress` | Access | The canonical form one account is keyed by (BR-45) | `InvalidEmail` |
+| `Attempt` | Shared | 1 or more (FR-258); `next()` never wraps past the largest `int` ([ADR-111]) | `InvalidAttempt` |
+| `PlainText` | Shared | A name, an address or a note: NFC, with every character that renders as nothing trimmed from the ends (whitespace, space separators, format characters, default-ignorable code points, U+2800 and U+1D159; a trailing variation selector goes with an invisible character it follows, and in a `NAME` or an `ADDRESS` in every other case too, except U+FE0F right after an emoji that shows as text by default), and at most its `TextKind`'s cap in code points; raw input over 8 UTF-16 units per code point of the cap is refused before NFC. In a `NOTE`, CR and CRLF become a line feed. Refuses control characters, except a line feed in a `NOTE` (a CR in a `NAME` or an `ADDRESS` is refused); U+2028 and U+2029 outside a `NOTE`; interior format characters in a `NAME` or an `ADDRESS` other than U+061C and U+200C to U+200F; in a `NAME` or an `ADDRESS`, also interior default-ignorable code points that are not format characters, such as U+034F, U+115F, U+1160, U+3164 and U+FFA0, interior U+2800 and U+1D159, and a variation selector other than U+FE0F right after an emoji that shows as text by default (`isEmoji`, not `isEmojiPresentation`, and `isExtendedPictographic`, which leaves out the keycap bases); bidi embedding, override and isolate controls; unpaired surrogates; and private-use and unassigned code points. Text trimmed to empty is empty ([ADR-106], [ADR-111]) | `TextTooLong`, `TextHasForbiddenCharacters` |
+| `EmailAddress` | Access | The canonical form one account is keyed by (BR-45); input over 2,032 UTF-16 units is refused before it is normalized | `InvalidEmail` |
 | `RoleSet`, `Capability` | Access | A set of Admin, Dispatcher and Driver; `can(capability)` is the permission matrix (NFR-85). `Capability` has one constant per row of the matrix under FR-03, and a cell that starts "Only" is a limited grant whose limit the use case checks ([ADR-104], [ADR-068]) | — |
-| `NewPassword` | Access | At least 8 characters and not on the bundled list of the 3,000 most common, which arrives as a `CommonPasswords` value (NFR-95) | `PasswordTooShort`, `PasswordTooCommon` |
+| `NewPassword` | Access | At least 8 characters and not on the bundled list of the 3,000 most common, which arrives as a `CommonPasswords` value, and holding no unpaired surrogate (NFR-95) | `PasswordTooShort`, `PasswordTooCommon`, `PasswordHasUnpairedSurrogate` |
 | `AccountGeneration`, `SessionGeneration` | Access | Counters that only grow, one on the account and one on the session, of distinct types so neither is passed for the other; tokens issued under an older one are refused (NFR-177, NFR-227) | — |
-| `ActiveAdmins` | Access | The active Admin accounts, read under row locks; refuses a change that leaves fewer than two (BR-19), and the first Admin while one exists (FR-291) | `TooFewAdmins`, `ActiveAdminExists` |
+| `ActiveAdmins` | Access | The active Admin accounts, read under row locks, or under a table or advisory lock when none is active (FR-291); refuses a change that leaves fewer than two (BR-19), and the first Admin while one exists (FR-291) | `TooFewAdmins`, `ActiveAdminExists` |
 | `PasswordHash`, `TokenHash` | Access | Opaque results of the hashing adapter, printed redacted (NFR-36, NFR-91, NFR-211) | — |
 | `CompanyName`, `DefaultWindow`, `DefaultServiceTime` | Access | The company's name, at most 19 characters (FR-382); the window a new customer starts with, opening before it closes, on no date (FR-125); the service duration a new customer starts with, positive (FR-184) ([ADR-104]) | `BlankCompanyName`, `CompanyNameTooLong`, `InvalidDefaultWindow`, `NonPositiveDefaultServiceTime` |
 | `Capacity`, `Plate`, `ShiftHours`, `Shift`, `DepotHours`, `WeeklyShifts` | Fleet | A vehicle's weight and volume limits; a normalized plate ([ADR-103]); a shift's hours, with the end after the start; those hours placed on a date, where both must exist (FR-190, BR-111); one opening and closing time for every date (FR-129); per weekday an optional shift and no vehicle (FR-79) | `InvalidPlate`, `InvalidShift`, `InvalidDepotHours` |
@@ -210,29 +211,31 @@ kernel's `PersonalData` marker ([ADR-106]).
 | `CustomerMatch` | Customers & Orders | None, one, or several active customers for a normalized address; several can't be used (FR-310 to FR-312) | `AmbiguousAddress` |
 | `Location` | Customers & Orders | None, geocoded (with its quality), or placed by hand; a hand-placed location always wins (BR-13, FR-215) | — |
 | `ServiceArea` | Customers & Orders | The company's area, from the road-data build; `contains(point)` (FR-320) | — |
-| `ServiceTime`, `Attempt`, `ExternalReference` | Customers & Orders | Positive seconds (BR-124); 1 or more (FR-258); a non-blank reference | `NonPositiveServiceTime` |
+| `ServiceTime`, `ExternalReference` | Customers & Orders | Positive seconds (BR-124); a non-blank reference | `NonPositiveServiceTime` |
 | `DateCapacity` | Customers & Orders | A date's uncancelled orders with their references, read under the date's lock, and the limit (BR-101, BR-113, FR-211, [ADR-102]) | `DateFull`, `DuplicateOrderReference` |
 | `StopState` | Customers & Orders | What has happened at an order's stop: nothing, arrived, or an outcome (BR-92) | — |
 | `OrderStatus` | Customers & Orders | Derived from three owners (§9.6) | — |
 | `SolveBasis`, `ProposalBasis` | Planning | What a result was computed from (§17, *basis*) | — |
 | `LaneCapacity` | Planning | A lane's queued and started jobs with their plans, read under the lane's lock, and the limit of 5 (BR-112, BR-38) | `SolveQueueFull`, `ReoptimizationAlreadyRunning` |
-| `Violation`, `DroppedOrder`, `DropReason`, `Pin`, `RouteLock`, `PlanRevision` | Planning | A broken rule with its references; an unserved order with its reason, FR-223's full list (FR-144); an order fixed to a vehicle or a driver (FR-91); a fixed route or stop sequence (FR-147); a published snapshot | — |
+| `Violation`, `DroppedOrder`, `DropReason`, `ExcludedVehicle`, `ExclusionCause`, `Pin`, `RouteLock`, `PlanLayout`, `PlanRevision` | Planning | A broken rule with its references; an unserved order with its reason, FR-223's full list (FR-144); a vehicle a solve left out, with one of seven causes (FR-197, [ADR-112]); an order fixed to a vehicle or a driver (FR-91); a fixed route or stop sequence (FR-147); the plan's routes, drops and pins without times, as it is or as a command would leave it ([ADR-112]); a published snapshot | — |
 | `ValidatedSolution`, `Evaluation` | Planning | Solutions and checks only the optimizer adapter can build (§13); an evaluation names the plan version it checked and describes the plan after the change ([ADR-101]) | `StaleEvaluation`, `SolutionRejected`, `ValidatorUnavailable` |
 | `RouteIndex`, `RuleCode`, `SolverName`, `SolveLimit` | Planning | A route's label and colour slot from 1 to 30 (FR-148); a broken rule's row ID, opaque (BR-42); a solver known only by its name (FR-224); a daily limit of 5 to 60 s, 45 by default, and the re-optimization's 20 s (NFR-06, FR-19, BR-84) | `MalformedRuleCode`, `InvalidSolverName`, `SolveLimitOutOfRange` |
+| `SolveTime` | Planning | A time the optimizer reports: whole seconds from a date's local midnight, 0 or more, with no upper bound, because a route that breaks a time rule may pass the date's end (§10.1, [ADR-112]) | `TimeBeforeTheDay` |
 | `PublishingChecks`, `DriverStanding`, `ChangesSinceBasis`, `StartedRoutes` | Planning | The facts from other modules that `Plan`'s methods judge (§4.4) | — |
-| `CorrectedTime`, `ContactWindow`, `DriverReport` | Live Operations | A report's device time moved by the phone's clock offset, and cut to the server's receipt time if it would be later (BR-44, BR-110, BR-114); the span from 2 minutes after it to 2 minutes before the receipt, both ends included (BR-133, [ADR-107]); who sent a report, for which route, and when, which only a driver's own report has | — |
-| `Entitlement` | Live Operations | Planning's answer that a stop was on the report's route in the revision in force at the report's time (BR-110) | — |
+| `TravelBuckets`, `TravelFactor`, `Buffer`, `FixedVehicleCost`, `DepartureAllowance`, `TravelLeg`, `StopTimes`, `RoutePlan` | Planning | Buckets whose hours are not empty, overlapping or out of order, each with a factor above 0 (FR-321, FR-408); a buffer of 0 or more (FR-227); a fixed vehicle cost, when on, above 0 (FR-21); a departure allowance of 0 or more (FR-67); a leg with no negative seconds or metres; a stop's times in order on one date ([ADR-101]); a route's return not before its departure, both on one date, and none at all for a route the validator couldn't time to its end ([ADR-112]) | `InvalidTravelBuckets`, `NonPositiveTravelFactor`, `NegativeBuffer`, `NonPositiveFixedVehicleCost`, `NegativeDepartureAllowance`, `InvalidTravelLeg`, `InvalidStopTimes`, `InvalidRouteTimes` |
+| `CorrectedTime`, `ContactWindow`, `DriverReport` | Live Operations | A report's device time moved by the phone's clock offset, and cut to the server's receipt time if it would be later; a device time or clock outside the years 1 to 9999 is refused (BR-44, BR-110, BR-114, [ADR-114]); the span from 2 minutes after it to 2 minutes before the receipt, both ends included (BR-133, [ADR-107]); who sent a report, for which route, and when, which only a driver's own report has | `DeviceTimeOutOfRange` |
+| `Entitlement` | Live Operations | Planning's answer that a stop was on the report's route in the revision in force at the report's time (BR-110), who drove that route in that revision, and who drives it now; a report from the driver then who no longer drives the route is held (an outcome) or refused (an arrival) ([ADR-114]) | — |
 | `StopWhereabouts`, `HoldCheck` | Live Operations | Where the stop is now, from Planning's `RouteMembership`: on the route the report came from, on another's, dropped, or gone because its order was cancelled or rescheduled or its plan cancelled ([ADR-107]). `HoldCheck` adds the contact times Access's `SessionContacts` answered for the reporting account; `holds(correctedTime)` is true when the report would move the stop or override a cancellation and a contact falls in its window (BR-132). It doesn't cover a stop that already has a held report: `Delivery` holds a further report for it without asking (BR-136) | — |
 | `Proof`, `ProofNote`, `FailureReason`, `Outcome`, `DispatcherOutcome`, `CorrectionReason` | Live Operations | A signature or a photo, its uploaded file and an optional note, the file and note erased after 90 days (FR-30, FR-367, NFR-184); one of BR-109's six fixed reasons, *other* with its text; delivered (with its proof and whether left at the door) or failed with its reason; the outcome a dispatcher records or corrects to, which can hold no proof; why a dispatcher corrected (FR-333). Reasons, notes and texts are personal data ([ADR-106]); the texts of reasons are erased after 90 days, keeping the reason's kind (NFR-31, [ADR-107]) | `FailureReasonRequired`, `CorrectionReasonRequired`, `TextTooLong`, `TextHasForbiddenCharacters` |
-| `Attempt`, `RevisionNo`, `HeldReportId`, `ProofId`, `LaterAttempt`, `LeaveAtDoor`, `TrackingStanding` | Live Operations | Its own copies of an order's attempt and a plan's revision; the local IDs of a held report and of an uploaded proof; whether the order was put back after a stop, and the new stop's outcome and date (FR-404); Customers & Orders' answer on leaving at the door (FR-366); whether a position's sender drives the route now and is available, and their shift end or confirmed return time (NFR-30, FR-394) ([ADR-107]) | `InvalidRevision` |
-| `ArrivalProjection`, `StartDeadline`, `ConfirmationDeadline`, `TrackingWindow` | Live Operations | Projected arrivals from the route's latest event, the start included, never before now (§10.4, FR-254, FR-383); shift start plus allowance plus 15 minutes (FR-101); 10 minutes after a revision, a starting value (FR-97, [ADR-107]); start to 1 hour after the current driver's shift end, or the finish, built at each check (FR-328, FR-394) | — |
-| `AlertSubject`, `AlertKind`, `DedupeKey`, `DriverProblem` | Live Operations | What an alert is about, one kind per item of FR-157's list plus held reports; the kind plus the IDs the kind names, so it is raised once (FR-157, [ADR-107]); breakdown, running late or vehicle full (FR-95) | — |
-| `MessageText`, `Wording`, `Reply`, `Rating`, `Comment`, `PhoneHash`, `DailySendCap` | Messaging | A text starting with the company name, within 70 characters (FR-382), in its type's fixed wording (FR-349, [ADR-108]); a parsed reply (FR-363, FR-376); 1 to 10; a reply kept as a comment, cut to 500 characters (NFR-203, [ADR-108]); a keyed hash (NFR-202); the day's accepted messages and the cap (NFR-196) | `RatingOutOfRange`, `BlankComment` |
-| `CompanyName`, `DispatchPhone`, `RecipientPhone`, `QuarterHour`, `OptOutRecord`, `OptOutStatus` | Messaging | The company name a message starts with, at most 19 characters (FR-382); the dispatch phone, at most 11 characters in national form (FR-382); the order's recipient phone, otherwise the customer's (FR-348); a projected arrival rounded half up to the quarter hour (FR-351); an opt-out or opt-in entry, and a phone's standing by its latest entry (FR-363, FR-380, [ADR-108]) | `UnusableCompanyName`, `DispatchPhoneTooLong` |
+| `RevisionNo`, `HeldReportId`, `ProofId`, `LaterAttempt`, `LeaveAtDoor`, `TrackingStanding` | Live Operations | Its own copy of a plan's revision; the local IDs of a held report and of an uploaded proof; whether the order was put back after a stop, and the new stop's outcome and date (FR-404); Customers & Orders' answer on leaving at the door (FR-366); whether a position's sender drives the route now and is available, and their shift end or confirmed return time (NFR-30, FR-394) ([ADR-107]) | `InvalidRevision` |
+| `ArrivalProjection`, `StartDeadline`, `ConfirmationDeadline`, `TrackingWindow` | Live Operations | Projected arrivals from the route's latest event, the start included, never before now, and which of them it carried forward: a skipped stop's planned arrival isn't one (§10.4, FR-254, FR-383, [ADR-114]); shift start plus allowance plus 15 minutes (FR-101); 10 minutes after a revision, a starting value (FR-97, [ADR-107]); start to 1 hour after the current driver's shift end, or the finish, built at each check (FR-328, FR-394) | — |
+| `AlertSubject`, `AlertKind`, `DedupeKey`, `RefusedFact`, `DriverProblem` | Live Operations | What an alert is about, one kind per item of FR-157's list plus held reports; the kind plus the IDs the kind names, so it is raised once, a refused report's key adding the reporting driver and the `RefusedFact`, the arrival, the delivery or the failure it stated (FR-157, [ADR-107], [ADR-114]); breakdown, running late or vehicle full (FR-95) | — |
+| `MessageText`, `Wording`, `Reply`, `Rating`, `Comment`, `PhoneHash`, `DailySendCap` | Messaging | A text starting with the company name, within 70 characters (FR-382), in its type's fixed wording (FR-349, [ADR-108]); a parsed reply (FR-363, FR-376); 1 to 10; a reply kept as a comment, cut to 500 characters (NFR-203, [ADR-108]); a keyed hash (NFR-202); the day's claimed messages and the cap (NFR-196, [ADR-108]) | `RatingOutOfRange`, `BlankComment` |
+| `CompanyName`, `DispatchPhone`, `RecipientPhone`, `QuarterHour`, `OptOutRecord`, `OptOutStatus` | Messaging | The company name a message starts with, at most 19 characters (FR-382); the dispatch phone, an Israeli number of at most 11 characters in national form (FR-382); the order's recipient phone, otherwise the customer's (FR-348); a projected arrival rounded half up to the quarter hour (FR-351); an opt-out or opt-in entry, and a phone's standing by its latest entry (FR-363, FR-380, [ADR-108]) | `UnusableCompanyName`, `DispatchPhoneTooLong`, `DispatchPhoneNotIsraeli` |
 | `OnTimeRate` | Reporting | Delivered stops reached on time over delivered stops, as an exact share of two counts: by the window's end, or inside the window for a leave-at-door stop; reached at the arrival, or at the delivery when no arrival was reported; from the effective outcome after any correction, leaving out cancelled orders; *unavailable* when none is delivered (FR-264, FR-265, FR-333, FR-340, FR-370, BR-30, [ADR-109]) | `InvalidOnTimeCounts`, `StopCountedTwice` |
 | `PlannedOnTimeRate` | Reporting | Orders a plan serves inside their windows over every order of the day, as an exact share of two counts: a dropped order counts as not on time and a cancelled one is left out; *unavailable* with no order (FR-266, FR-370, BR-30, [ADR-109]) | `InvalidOnTimeCounts` |
-| `Distance`, `DriverHours`, `PlannedFigures`, `PlannedOrders`, `StopResult`, `CancelledOrders`, `PlanStanding`, `BaselineComparison` | Reporting | A plan's metres and driver-hours, never negative; a plan's figures, with each order of the day once; the facts the rates and the comparison judge, from other modules' views; a comparison on every measure, on kilometres and on-time only after a withdrawal, or none for a cancelled plan (FR-39, FR-269, FR-338, [ADR-109]) | `NegativeDistance`, `NegativeDriverHours`, `OrderCountedTwice` |
-| `AuditRecord`, `AuditOutcome`, `ErrorCode` | Audit | NFR-93's fields, each an ID, a code, an enum, a number or an instant (NFR-94), and its year of retention (NFR-258); succeeded, or refused with the refusal's upper snake case error code, so refusals are audited too (NFR-23) ([ADR-110]) | `MalformedErrorCode` |
+| `Distance`, `DriverHours`, `PlannedFigures`, `PlannedOrders`, `StopResult`, `CancelledOrders`, `PlanStanding`, `BaselineComparison`, `Withdrawal`, `WithdrawalCause`, `WithdrawnFleet` | Reporting | A plan's metres and driver-hours, never negative; a plan's figures, with each order of the day once; the facts the rates and the comparison judge, from other modules' views; a comparison on every measure, on kilometres and on-time only after a withdrawal, or none for a cancelled plan; a withdrawn vehicle with its own cause, and how the baseline's solve treats the withdrawn (FR-39, FR-269, FR-271, FR-338, [ADR-109], [ADR-112]) | `NegativeDistance`, `NegativeDriverHours`, `OrderCountedTwice` |
+| `AuditRecord`, `AuditOutcome`, `ErrorCode` | Audit | NFR-93's fields, each an ID, a code, an enum, a number or an instant (NFR-94), naming at most 500 records, and its year of retention (NFR-258); succeeded, or refused with the refusal's upper snake case error code of at most 100 characters, so refusals are audited too (NFR-23) ([ADR-110], [ADR-114]) | `MalformedErrorCode`, `TooManyNamedRecords` |
 | `OperationName`, `NamedRecord`, `DeclaredApp`, `AppVersion`, `TraceId` | Audit | The `client-api` operation ID or a server step's name, an ASCII identifier of at most 100 characters; a kernel ID with its kind; the app (web or phone) and its version as the client declares them, as three numbers ([ADR-082]); a W3C trace-id (NFR-20) ([ADR-110]) | `MalformedOperationName`, `InvalidAppVersion`, `InvalidTraceId` |
 | `Problem`, `Solution`, `TravelTimeModel`, `PenaltyScale`, `ValidationReport` | Optimization | Everything one solve needs, and what comes back (§4.9) | — |
 
@@ -301,15 +304,29 @@ none of them. None exists in the current requirements.
 
 ### 3.9 Purity
 
-Six ArchUnit tests keep the Java domain pure ([ADR-040]); import-linter does the same in Python.
+Six ArchUnit tests keep the Java domain pure ([ADR-040]). In Python, import-linter does the same, and
+ruff keeps NumPy's randomness, clock and file readers (`load`, `fromfile`, `loadtxt`), imports by name, `open`, `print`, `exec` and
+`eval` out ([ADR-113]).
 
 1. A module's domain imports only the JDK, the shared kernel, its own domain, its own module's `events`
    package (§7.3), JSpecify annotations and pure libraries (libphonenumber, JTS). Not Spring, jOOQ, Jackson, Jakarta or `java.net.http`, not any
    `application` or `adapter` package, and not another module.
-2. No clock: domain code never calls `Instant.now()`, `LocalDate.now()`, `Clock.system…()` or
-   `System.currentTimeMillis()`. `now` and `today` are parameters.
+2. No clock: domain code never calls `Instant.now()`, `LocalDate.now()`, `Clock.system…()`,
+   `System.currentTimeMillis()` or `System.nanoTime()`, and never `Thread.sleep` or `TimeUnit.sleep`.
+   `now` and `today` are parameters.
 3. No ID generation: never `UUID.randomUUID()`. Factories take the new ID.
-4. No randomness, I/O or logging.
+4. No randomness, I/O or logging. These read the process's environment, so they count as I/O: the
+   default locale, named (`Locale.getDefault` and `setDefault`) or implicit (a case change,
+   `String.format` or `formatted`, `DateTimeFormatter.ofPattern`,
+   `DateTimeFormatterBuilder.toFormatter`, and `java.text`'s `NumberFormat`, `DecimalFormat`,
+   `MessageFormat` and `DateFormat`, each without a `Locale`, and `DateTimeFormatter.ofLocalized…`),
+   the system properties (`System.getProperty`, `Integer.getInteger`, `Long.getLong`,
+   `Boolean.getBoolean`), `java.util.prefs`, `java.lang.management`, `ResourceBundle`,
+   `ServiceLoader`, `Class.forName`, and `getResource*` on a class, a class loader or a module.
+   Reflection (`java.lang.reflect`, `MethodHandles`) counts too, as it reaches past every rule here.
+   So does starting a thread: `new Thread` or a subclass, `Thread.ofPlatform`, `ofVirtual` or
+   `startVirtualThread`, `Executors`, `ForkJoinPool`, `ThreadPoolExecutor`, `Timer`,
+   `Cleaner.create`, a `CompletableFuture`'s `…Async` methods, and a parallel stream.
 5. No `new IllegalArgumentException` or `new IllegalStateException` (§3.8).
 6. Only persistence adapters call `restore` (§3.5), and the factories of the snapshots read under a
    lock (`ActiveAdmins`, `DateCapacity`, `LaneCapacity`, §5).
@@ -341,8 +358,8 @@ and every aggregate that holds one inherits them.
 | Aggregate | Holds | Operations | Size and writers |
 |---|---|---|---|
 | `CompanyProfile` | The company's name, language, default window and default service time: the last two are what a new customer starts with (FR-125, FR-184, [ADR-104]) | `create`, `rename`, `changeLanguage`, `changeDefaultWindow`, `changeDefaultServiceTime` | One; Admins |
-| `UserAccount` | `EmailAddress`, `RoleSet`, `PasswordHash`, state (*active*, *deactivated* or *anonymized*), language, its `AccountGeneration`, when it accepted the terms (FR-77), and its credential links (entities: purpose, token hash, expiry, *open*, *spent* or *voided*; an email-change link holds the new address) | `open`, `openFirstAdmin`, `checkSignInAllowed`, `changeRoles`, `removeDriverRole`, `deactivate`, `deactivateOnWrittenRequest`, `reactivate`, `endEverySession`, `changePassword`, `issueLink`, `setPasswordByLink`, `confirmEmailByLink`, `changeLanguage`, `acceptTerms`, `anonymize` | One per person; the person and Admins, rarely. It keeps its open links and those sent in the last 72 hours: `issueLink` drops older links that no longer work ([ADR-104]) |
-| `Session` | Its account, the `AccountGeneration` it began under, its own `SessionGeneration`, state (*live* or *revoked*), when it last gave the password, its contact times (kept 14 days, at most one a minute; NFR-280), and its chain of refresh tokens (entities: hash, issue time, and *current*, *exchanged* with its successor, *replaced* or *superseded*) | `open`, `exchange`, `confirmPassword`, `requireFreshStepUp`, `recordContact`, `dropOldContacts`, `revoke`, `endedAt` | One per signed-in device; that device, and its user from another device (FR-127). It keeps its current token, those issued in the last 14 days and 30 s, and any successor a kept token names: `exchange` and `confirmPassword` drop the rest ([ADR-104]) |
+| `UserAccount` | `EmailAddress`, `RoleSet`, `PasswordHash`, state (*active*, *deactivated* or *anonymized*), language, its `AccountGeneration`, when it accepted the terms (FR-77), which other account's email-change link set its email and when, until another Admin makes it an Admin ([ADR-116]), and its credential links (entities: purpose, token hash, expiry, *open*, *spent* or *voided*; an email-change link holds the new address and the account that asked, [ADR-116]) | `open`, `openFirstAdmin`, `checkSignInAllowed`, `changeRoles`, `removeDriverRole`, `deactivate`, `deactivateOnWrittenRequest`, `reactivate`, `endEverySession`, `changePassword`, `issueLink`, `setPasswordByLink`, `confirmEmailByLink`, `changeLanguage`, `acceptTerms`, `anonymize` | One per person; the person and Admins, rarely. It keeps its open links and those sent in the last 72 hours: `issueLink` drops older links that no longer work ([ADR-104]) |
+| `Session` | Its account, the `AccountGeneration` it began under, its own `SessionGeneration`, state (*live* or *revoked*), when it last gave the password, its contact times (kept 14 days, at most one a minute; NFR-280), and its chain of refresh tokens (entities: hash, issue time, and *current*, *exchanged* with its successor, *replaced* or *superseded*) | `open`, `exchange`, `confirmPassword`, `requireFreshStepUp`, `recordContact`, `dropOldContacts`, `revoke`, `revokeWithAccount`, `endedAt` | One per signed-in device; that device, and its user from another device (FR-127). It keeps its current token, those issued in the last 14 days and 30 s, and any successor a kept token names: `exchange` and `confirmPassword` drop the rest ([ADR-104]) |
 
 | Invariant | Owner | Error |
 |---|---|---|
@@ -353,9 +370,11 @@ and every aggregate that holds one inherits them.
 | Retiring a driver removes only the Driver role, in any state; a repeat changes nothing (FR-307) | `UserAccount.removeDriverRole`, which Fleet's listener calls on `DriverRetired` ([ADR-104]) | — |
 | One account per email (BR-45) | `UserAccount.open`, given the `EmailHolder`, backed by a unique index (§5) | `EmailInUse` |
 | A new email takes effect only when the link sent to it is used, and an address another account holds is refused only then (FR-388, FR-392) | `UserAccount.confirmEmailByLink`, given the `EmailHolder` | `EmailInUse` |
-| A password is at least 8 characters and not a common one (NFR-95) | `NewPassword` | `PasswordTooShort`, `PasswordTooCommon` |
+| Only an Admin changes their own email, whatever other roles the account holds (FR-387, [ADR-116]) | `UserAccount.issueLink`, for another account's request, and `confirmEmailByLink`, again when the link is used, because the account may have become an Admin meanwhile | `EmailOfAnotherAdmin` |
+| The Admin whose email-change link set an account's email can't give that account the Admin role; another Admin can, which clears the record (FR-387, BR-19, [ADR-116]) | `UserAccount.changeRoles(roles, activeAdmins, by, now)` takes the acting Admin; `confirmEmailByLink` records the setter; only anonymization or another Admin's promotion clears it | `EmailSetByAnotherAccount` |
+| A password is at least 8 characters, not a common one, and holds no unpaired surrogate (NFR-95) | `NewPassword` | `PasswordTooShort`, `PasswordTooCommon`, `PasswordHasUnpairedSurrogate` |
 | A role, password or email change, a deactivation, an Admin ending every session (FR-187), or losing the last role revokes every token and session at once (NFR-89, NFR-90, NFR-177, BR-123) | `UserAccount`: each of those methods increments its `AccountGeneration` and raises `SessionsRevoked` with the new generation | — |
-| A deactivated account, or one with no role, can't sign in | `UserAccount.checkSignInAllowed` | `AccountDeactivated`, `AccountAnonymized`, `AccountHasNoRole` |
+| A deactivated account, one with no role, or one with no password yet can't sign in | `UserAccount.checkSignInAllowed` | `AccountDeactivated`, `AccountAnonymized`, `AccountHasNoRole`, `PasswordNotSet` |
 | Only an active account changes; a deactivated one is only reactivated, anonymized or loses its Driver role (FR-53, FR-297, FR-307) | `UserAccount` | `AccountDeactivated`, `AccountAnonymized`, `AccountNotDeactivated` |
 | Every deactivated account, whatever its roles, is anonymized a year after deactivation: its email, password hash and links go. The record stays, because plans and audit records refer to it (NFR-258, NFR-260, [ADR-075]) | `UserAccount.anonymize(now)`, which raises `AccountAnonymized` so Fleet anonymizes the driver record ([ADR-104]) | `RetentionNotOver` |
 | Acceptance of the terms and privacy notice is recorded (FR-77) | `UserAccount.acceptTerms` | — |
@@ -366,7 +385,7 @@ and every aggregate that holds one inherits them.
 | A refresh token lasts 14 days from its issue, with no cap on the session (NFR-87) | `Session.exchange` | `RefreshRefused` |
 | Confirming the password refuses the session's older tokens (NFR-214, NFR-227) | `Session.confirmPassword`: its `SessionGeneration` + 1, and its current refresh token is superseded. A revoked session, or one whose account was revoked since, is refused (NFR-177) | `SessionRevoked` |
 | Admin-only operations need the password confirmed in the last 5 minutes: the Admin-only rows, plus the limited rows used beyond their limit, such as changing another user's email; `Capability.requiresStepUp` names them (NFR-214, NFR-227, [ADR-104]) | `Session.requireFreshStepUp` | `StepUpRequired`, `SessionRevoked` |
-| A session keeps its contact times for 14 days, as long as a late report can arrive (NFR-235, NFR-280): every request from it other than a token refresh or an outbox send, at most one a minute, and only for a session of an account with the Driver role. One time is not enough, because a later request would hide an earlier one inside the window. The endpoint decides which requests count, never a header the client sets (BR-132). The data inventory lists them (NFR-72, NFR-280) | `Session.recordContact(now)`, called only for an account with the Driver role. It appends a time unless the last one is under a minute old, and never moves the `Version` or the `SessionGeneration`, so it can't make a refresh fail `STALE_VERSION`. Times older than 14 days are dropped, here and by `Session.dropOldContacts`, which the retention job calls without waiting for a new contact | `SessionRevoked` |
+| A session keeps its contact times for 14 days, as long as a late report can arrive (NFR-235, NFR-280): every request from it other than a token refresh or an outbox send, at most one a minute, and only for a session of an account with the Driver role. One time is not enough, because a later request would hide an earlier one inside the window. The endpoint decides which requests count, never a header the client sets (BR-132). The data inventory lists them (NFR-72, NFR-280) | `Session.recordContact(now)`, called only for an account with the Driver role. It appends a time unless the last one is under a minute old, so the times never decrease, though two concurrent requests may keep the same instant, and never moves the `Version` or the `SessionGeneration`, so it can't make a refresh fail `STALE_VERSION`. Times older than 14 days are dropped, here and by `Session.dropOldContacts`, which the retention job calls without waiting for a new contact | `SessionRevoked` |
 | The company's name is at most 19 characters, so every message fits one SMS (FR-382) | `CompanyName` | `BlankCompanyName`, `CompanyNameTooLong` |
 | A new customer's default window opens before it closes, and its default service duration is positive (FR-125, FR-184) | `DefaultWindow`, `DefaultServiceTime` | `InvalidDefaultWindow`, `NonPositiveDefaultServiceTime` |
 
@@ -384,7 +403,7 @@ in Semester B.
 | Invariant | Owner | Error |
 |---|---|---|
 | At most 15 active vehicles (BR-36) | `FleetRegister.addVehicle`, `reactivateVehicle` | `FleetFull` |
-| Active vehicles have unique names and plates (BR-48) | `FleetRegister` | `DuplicateVehicleName`, `DuplicatePlate` |
+| Active vehicles have unique names and plates (BR-48); names are compared in Fleet's matching form, `VehicleNameKey`: variation selectors and format characters removed before NFC; one geresh and one gershayim, as FR-398 folds them; U+2010 to U+2015, U+2212, U+FE63 and U+FF0D as `-`; whitespace runs as one space ([ADR-111]) | `FleetRegister` | `DuplicateVehicleName`, `DuplicatePlate` |
 | A vehicle starts and ends at active depots (BR-40) | `FleetRegister.addVehicle`, `changeVehicle`, `reactivateVehicle`, `retireDepot` | `UnknownDepot`, `DepotHasActiveVehicles` |
 | A depot may have no coordinates; such a depot starts and ends no route (FR-197) | `FleetRegister.addDepot`, `changeDepot` | — |
 | Only a vehicle in the register is changed, retired or reactivated, and only an active one is changed or retired | `FleetRegister` | `UnknownVehicle`, `VehicleNotActive` |
@@ -392,7 +411,7 @@ in Semester B.
 | A vehicle, depot or driver that an uncancelled plan for today or a later date uses can't be retired, and the refusal names the plan (FR-305) | `FleetRegister.retire…` and `Driver.retire`, which require `today` and the `PlanUses` answer read through `RecordUsage` | `VehicleInUse`, `DepotInUse`, `DriverInUse` |
 | Retiring a driver removes the Driver role from their account, which keeps its other roles (FR-307) | `Driver.retire` raises `DriverRetired`; Fleet's listener calls Access's API ([ADR-103]) | — |
 | A driver is registered only for an active account with the Driver role | `Driver.register`, which requires the account's standing | `NotAnActiveDriver` |
-| A retired driver is anonymized a year after retirement, in Israel time (BR-98, NFR-152, NFR-184); a driver of any state is anonymized when Access anonymizes their account, a year after its deactivation (NFR-258, [ADR-103]) | `Driver.anonymize(now)`; `Driver.anonymizeWithAccount(now)`, from Fleet's listener on `AccountAnonymized` | `RetentionNotOver`; — |
+| A retired driver is anonymized a year after retirement, in Israel time (BR-98, NFR-152, NFR-184); a driver of any state is anonymized when Access anonymizes their account, a year after its deactivation (NFR-258, [ADR-103]) | `Driver.anonymize(now)`; `Driver.anonymizeWithAccount(now)`, from Fleet's listener on `AccountAnonymized`, which records the later of `now` and the retirement | `RetentionNotOver`; — |
 | A driver has a default shift and vehicle; weekly shifts, when there are any, give each weekday its shift or none, with the default vehicle. A fill sets only the values nobody set: a new driver's shift and vehicle, or an existing driver's vehicle when it is not set; a dispatcher's "no vehicle" stays. A driver whose default can't be used is skipped, every other driver is filled, and the fill reports each skip with its reason (FR-06, FR-79, FR-189, [ADR-103]) | `Driver.rosterDefaultOn`, `DayRoster.fill`, which returns a `RosterFill` | — (reported, not thrown: `NotAnActiveDriver`, `VehicleNotActive`, `VehicleAlreadyAssigned`, `NonexistentLocalTime`) |
 | On a date, a driver drives at most one vehicle and a vehicle has at most one driver (FR-54, FR-190) | `DayRoster.assign`, `moveVehicleWithRoute` | `VehicleAlreadyAssigned`, `DriverAlreadyHasVehicle` |
 | Only active vehicles and active drivers are rostered | `DayRoster.assign`, `changeShift` and `markVehicleUnavailable`, which require their standing; `fill`, which skips non-active drivers and unusable defaults and reports them | `VehicleNotActive`, `NotAnActiveDriver` |
@@ -443,6 +462,7 @@ version check.
 | An order's personal fields are removed 90 days after its date (NFR-257) | `Order.anonymize(today)` | `RetentionNotOver` |
 | An import writes every row or none, and lists every error at once | `ImportBatch.preview` and `confirm`, which run every row through the `Customer` and `Order` rules | `ImportHasErrors`, with a `RowRefused` per error naming its row |
 | A row matching no customer creates one from its name and phone, and is refused without them (FR-311) | `ImportBatch` | `NewCustomerNeedsNameAndPhone` |
+| A row that gives no recipient, and names another person or phone than its customer's, makes them its order's recipient; a row whose recipient columns leave the name or phone empty fills that part from the row where it differs from the customer's (FR-87, FR-348, [ADR-115]) | `ImportBatch.confirm` | — |
 | A file read as Windows-1255 is confirmed only with explicit confirmation (FR-313) | `ImportBatch.confirm` | `EncodingNotConfirmed` |
 | A preview is confirmed once, before it expires, and a discarded one never | `ImportBatch.confirm` | `ImportAlreadyConfirmed`, `ImportExpired`, `ImportDiscarded` |
 | A preview expires only once its hour has passed (FR-399) | `ImportBatch.expire` | `ImportNotYetExpired` |
@@ -452,7 +472,7 @@ version check.
 capacity may have changed since the preview) and returns the new customers and orders, which the use case
 saves with the batch in one transaction (§6.1). The batch then keeps no rows. Rows arrive parsed from the
 file reader, each read whole or with its fields' refusals. Rows whose addresses normalize alike, and match
-no customer, share one new customer, made from the first of them ([ADR-102]).
+no customer, share one new customer, made from the first of them ([ADR-102]). A later row that gives no recipient and names another person or phone keeps them as its order's recipient, and one whose recipient columns leave the name or phone empty fills that part from the row where it differs from the customer's ([ADR-115]).
 
 **In the Alpha:** UTF-8 CSV imports matched to the seeded customers, which already have coordinates
 (FR-310). A new address has no coordinates until geocoding arrives, so its order drops as *missing
@@ -462,16 +482,16 @@ location* (BR-14).
 
 | Aggregate | Holds | Operations | Size and writers |
 |---|---|---|---|
-| `Plan` | For one delivery date: state, routes (entities: vehicle, driver, route index from 1 to 30 as label and colour slot, lock, check state, withdrawal with its cause, the confirmed return time of FR-394, and their stops as `PlannedStop` entities), dropped orders, pins, open violations, the solve its routes came from, the undo and redo journal, the current revision number, and a pending `PlanRevision` snapshot | `open`, `requestSolve`, `requestReoptimization`, `applySolveResult`, `solveFailed`, `moveStop`, `takeOffRoute`, `placeDropped`, `pin`, `unpin`, `lockRoute`, `unlockRoute`, `undo`, `redo`, `publish`, `accept`, `handOver`, `removeStopOf`, `reconcileLateOutcome`, `recordRouteCheck`, `cancel`, `complete`, `abandon` | One per date, up to 15 active routes and 200 stops, and up to 30 routes with the withdrawn ones; dispatchers and six automatic writers (§11) |
+| `Plan` | For one delivery date: state, routes (entities: vehicle, driver, route index from 1 to 30 as label and colour slot, lock, check state, withdrawal with its cause, the confirmed return time of FR-394, and their stops as `PlannedStop` entities, each with its planned times only when the validator timed it, BR-14, [ADR-112]), dropped orders, the vehicles its solve left out with a cause each (FR-197, [ADR-112]), pins, open violations, the solve its routes came from, the undo and redo journal, the current revision number, and a pending `PlanRevision` snapshot | `open`, `requestSolve`, `requestReoptimization`, `applySolveResult`, `solveFailed`, `moveStop`, `takeOffRoute`, `placeDropped`, `pin`, `unpin`, `lockRoute`, `unlockRoute`, `undo`, `redo`, `publish`, `accept`, `handOver`, `removeStopOf`, `removePutBackOrder`, `reconcileLateOutcome`, `recordRouteCheck`, `cancel`, `complete`, `abandon`; the queries `locksBrokenBy`, `layout`, `afterMove`, `afterTakeOff`, `afterPlacing`, `afterPin`, `afterUnpin`, `afterUndo`, `afterRedo` and `afterHandOver` | One per date, up to 15 active routes and 200 stops, and up to 30 routes with the withdrawn ones; dispatchers and eight automatic writers (§11) |
 | `SolveJob` | Plan, lane, solver, limit, seed, phase, the time it was requested, its three deadlines, a re-optimization's basis revision, and a daily job's validated result ([ADR-101]) | `queue`, `claim`, `searchStarted`, `succeed`, `fail`, `expireIfOverdue` | One per solve; its worker, the watchdog, startup recovery and the midnight job |
-| `ReoptimizationProposal` | Plan, job, `ProposalBasis` (revision and fact time), the new routes and drops, the changes per driver, withdrawn vehicles with their causes, the objective by term, the preview's late stops, vehicles without a usable position and goods hand-overs, state (*ready* or *declined*) | `decline` | One per finished re-optimization; written once |
+| `ReoptimizationProposal` | Plan, job, `ProposalBasis` (revision and fact time), the new routes and drops, the changes per driver, withdrawn vehicles with their causes, the objective by its seven terms, the vehicles the solve left out, the preview's late stops, vehicles without a usable position and goods hand-overs, state (*ready* or *declined*) | `decline` | One per finished re-optimization; written once |
 | `PlanningSettings` | Travel buckets and buffer (FR-321, FR-322), the default daily limit (FR-183), the fixed vehicle cost (FR-21), and the departure allowance (FR-67), which starts at 0 minutes ([ADR-101]) | `change…` | One; Admins |
 
 `Plan` is the one large aggregate, deliberately. Its rules cover the whole date: each order is served or
 dropped exactly once (BR-07), each vehicle and driver has at most one route (BR-39), a move takes a stop
 off one route and onto another atomically, and a revision is a consistent snapshot of every route
 (BR-110). Splitting it per route would turn each of these into a rule across aggregates. Its writers are
-few (dispatchers and six automatic writers, at most a few writes a minute), and the high-frequency writers, the
+few (dispatchers and eight automatic writers, at most a few writes a minute), and the high-frequency writers, the
 drivers' phones, are kept out of it on purpose: their facts live in Live Operations.
 
 | Invariant | Owner | Error |
@@ -479,29 +499,30 @@ drivers' phones, are kept out of it on purpose: their facts live in Live Operati
 | One plan per date (BR-34) | `Plan.open`, backed by a partial unique index (§5) | `PlanAlreadyExists` |
 | A plan for a past date isn't solved or changed (BR-118) | `Plan`, given `today` | `DateInPast` |
 | The state moves only along BR-12's transitions (§9.1) | Each `Plan` method | `PlanNotDraftOrReady`, `PlanNotReady`, `PlanNotPublished`, `PlanNotDraftSolvingOrReady` |
-| Each order is served or dropped exactly once (BR-07) | `Plan`, backed by unique (plan, order, attempt) | `OrderAlreadyInPlan` |
-| Each vehicle and each driver has at most one route; a route withdrawn mid-route doesn't count, and a re-optimization's proposal gives a vehicle one route, withdrawn or not, and a driver one route that isn't withdrawn (BR-39, [ADR-101]) | `Plan.applySolveResult`, `accept`, `handOver`; `SolveJob.succeed`, which creates the proposal and refuses what its `restore` would | `VehicleAlreadyHasRoute`, `DriverAlreadyHasRoute`, `VehicleRoutedTwice`, `DriverRoutedTwice` |
+| Each order is served or dropped exactly once (BR-07) | `Plan`, and `SolveJob.succeed` for a daily result ([ADR-112]), backed by unique (plan, order, attempt) | `OrderAlreadyInPlan` |
+| Each vehicle and each driver has at most one route; a route withdrawn mid-route doesn't count, and a re-optimization's proposal gives a vehicle one route, withdrawn or not, and a driver one route that isn't withdrawn (BR-39, [ADR-101], [ADR-112]) | `Plan.applySolveResult`, `accept`, `handOver`; `SolveJob.succeed`, which checks a daily result, creates a proposal, and refuses what its `restore` would | `VehicleAlreadyHasRoute`, `DriverAlreadyHasRoute`, `VehicleRoutedTwice`, `DriverRoutedTwice` |
 | Only a validated solution replaces the routes (BR-15) | `SolveJob.succeed`, which takes only a `ValidatedSolution`; `Plan.applySolveResult` reads the job's result, and `Plan.accept` takes the `ReoptimizationProposal` itself, which only a succeeded job or persistence builds ([ADR-101]) | — (by type) |
 | Only the plan's own basis job may end its solve; a result or failure from any other job, or in any other state, is ignored (BR-59) | `Plan.applySolveResult`, `solveFailed` | — |
 | A failed solve keeps the routes the plan had, or returns it to *draft* (BR-57, BR-59) | `Plan.solveFailed` | — |
-| Every edit is judged by the validator on the version it was made from, by an evaluation that describes the plan after the edit; its violations stay open until fixed (FR-23, FR-233). An edit while the optimizer is down is refused ([ADR-101]) | `Plan.moveStop`, `takeOffRoute`, `placeDropped`, `pin`, `unpin`, `undo`, `redo`, which require an `Evaluation` of the current version | `StaleEvaluation`, `ValidatorUnavailable` |
+| Every edit is judged by the validator on the version it was made from, by an evaluation that describes the plan after the edit; its violations stay open until fixed (FR-23, FR-233). An edit while the optimizer is down is refused ([ADR-101]). The plan's `after…` queries give the layout that evaluation must describe, so a use case never repeats an edit ([ADR-112]) | `Plan.moveStop`, `takeOffRoute`, `placeDropped`, `pin`, `unpin`, `undo`, `redo`, which require an `Evaluation` of the current version; `Plan.afterMove`, `afterTakeOff`, `afterPlacing`, `afterPin`, `afterUnpin`, `afterUndo`, `afterRedo` and `afterHandOver` | `StaleEvaluation`, `ValidatorUnavailable` |
 | A stop taken off by hand is dropped as *removed by dispatcher*; only a dropped order is placed by hand, and not one dropped for a missing or unreachable location (FR-146, FR-235, FR-237) | `Plan.takeOffRoute`, `placeDropped` | `StopNotInPlan`, `OrderNotDropped`, `OrderNotRoutable` |
-| A locked route, or locked stop sequence, doesn't change by an edit or a solve, and a lock the solve can't keep fails it (FR-147, FR-238, [ADR-101]). A cancellation overrides a lock | `Plan`; the optimizer | `RouteLocked` |
-| Undo and redo cover moves, removals, placements, pins and locks since the last solve; a new edit clears redo, and an applied solve or a removed stop clears the journal (FR-145, [ADR-101]) | `Plan.undo`, `redo` | `NothingToUndo`, `NothingToRedo` |
+| A locked route, or locked stop sequence, doesn't change by an edit or a daily solve, and a solve that breaks a lock fails with `LOCK_NOT_HONOURED`. Publishing clears every lock, and a re-optimization takes none (FR-147, FR-238, [ADR-101], [ADR-112]) | `Plan`: `locksBrokenBy` names the locks a result breaks, and `RouteLocked` is a backstop | `RouteLocked` |
+| An edit names a route the plan holds, a lock is removed only from a locked route, and a move's position lies within its route ([ADR-101]) | `Plan` | `RouteNotInPlan`, `RouteNotLocked`, `PositionOutOfRange` |
+| Undo and redo cover moves, removals, placements, pins and locks since the last solve; a new edit clears redo, and an applied solve, a removed stop or a removed put-back drop clears the journal. The journal holds at most 100 edits and forgets the oldest, and locking a route with the lock it already has changes nothing (FR-145, [ADR-101], [ADR-112]) | `Plan.undo`, `redo` | `NothingToUndo`, `NothingToRedo` |
 | A pinned order is served by its vehicle or driver, or dropped; pins are set in *draft* or *ready* (FR-91, FR-228) | `Plan.pin`; the validator | `OrderNotPinned` |
 | Each route keeps a stable index from 1 to 30, its label and colour slot; a re-solve keeps a vehicle's index (FR-148, [ADR-101]) | `Plan` | `RouteIndexesUsedUp` |
 | Publishing passes BR-72's four checks in order: vehicles and drivers (BR-20, BR-63), every order accounted for, none placed after the solve was requested or changed while it ran (BR-22, BR-71, FR-317), no open violation (BR-17), and the optimizer's re-check of this version (BR-21, BR-67 to BR-70). It stops at the first step that refuses and lists every refusal at that step. It publishes the re-checked times (BR-68) | `Plan.publish`, given `PublishingChecks` | `PublishingRefused(step, refusals)`: `RouteNotStaffed`, `OrderNotAccounted`, `OrderChangedSinceSolve`, `OpenViolation`, `RecheckFailed`, `RecheckUnavailable` |
 | A published plan changes only by a new revision, which records its cause (BR-77, FR-104) | Every change to a published `Plan` | — |
 | A re-optimization is requested only for a published plan, with a 20 s limit; a daily limit is 5 to 60 s, 45 by default (FR-35, NFR-06, FR-19, BR-84) | `Plan.requestReoptimization`; `SolveLimit` | `PlanNotPublished`, `SolveLimitOutOfRange` |
-| A proposal is accepted only for this plan, undeclined, if nothing it moves, drops or relies on changed since its basis, a revision since it included, and if every vehicle it keeps driving still meets BR-20, each one named (BR-25, BR-64, BR-65, BR-82, BR-83) | `Plan.accept`, given `ChangesSinceBasis` | `ProposalForAnotherPlan`, `ProposalDeclined`, `ProposalOutdated(changes)`, `VehicleUnavailable(vehicles)` |
-| A route is handed over only to an active, available driver with the Driver role and no other route that date; a broken shift (BR-06) needs the dispatcher's confirmation; reported stops keep their deliveries (FR-302 to FR-304). With no evaluation from the optimizer, the route is *not yet checked* (FR-395, [ADR-101]). When a confirmed hand-over puts the route past the shift, the confirmed return time, held on the route, becomes that day's shift end, and a re-optimization can't stretch it (FR-304, FR-394, Q-94 #3). A withdrawn route isn't handed over | `Plan.handOver`, given `DriverStanding` and an optional `Evaluation` | `NotAnActiveDriver`, `DriverNotAvailable`, `DriverAlreadyHasRoute`, `BreakNotConfirmed`, `RouteWithdrawn` |
+| A proposal is accepted only for this plan, undeclined, if nothing it moves, drops or relies on changed since its basis, a revision since it included, and if every vehicle it keeps driving still meets BR-20, each one named (BR-25, BR-64, BR-65, BR-82, BR-83). On accept, every route keeps its unserved, undropped stops ahead of the proposal's and no route leaves; a drop the proposal neither serves nor drops leaves when the proposal holds a later attempt of the order, and is otherwise carried forward; a left-out route whose stops change is *not yet checked*, and an emptied one has no times (BR-07, BR-10, [ADR-112], [ADR-115]) | `Plan.accept`, given `ChangesSinceBasis` | `ProposalForAnotherPlan`, `ProposalDeclined`, `ProposalOutdated(changes)`, `VehicleUnavailable(vehicles)` |
+| A route is handed over only to an active, available driver with the Driver role and no other route that date; a broken shift (BR-06) needs the dispatcher's confirmation, which also waives BR-105 for the route, and is evaluated with the vehicle already rostered to the new driver ([ADR-112]); reported stops keep their deliveries (FR-302 to FR-304). With no evaluation from the optimizer, the route is *not yet checked* (FR-395, [ADR-101]). When a confirmed hand-over puts the route past the shift, the confirmed return time, held on the route, becomes that day's shift end, and a re-optimization can't stretch it (FR-304, FR-394, Q-94 #3). A withdrawn route isn't handed over | `Plan.handOver`, given `DriverStanding` and an optional `Evaluation` | `NotAnActiveDriver`, `DriverNotAvailable`, `DriverAlreadyHasRoute`, `BreakNotConfirmed`, `RouteWithdrawn` |
 | A late fact puts its stop on the route that served it (BR-89; §8). A completed plan takes it as a new revision and is not republished; a cancelled plan stays as it is ([ADR-101]) | `Plan.reconcileLateOutcome` | — |
 | A plan is cancelled only while no route has started and no stop is reported (FR-336); its drivers are alerted (FR-337) | `Plan.cancel`, given `StartedRoutes` | `RouteAlreadyStarted`, `StopAlreadyReported` |
 | A published plan completes at the midnight after its date (BR-102) | `Plan.complete(today)` | `DateNotOver` |
 | A plan that is still unpublished (*draft*, *solving* or *ready*) is abandoned at the midnight after its date, and is then final and read-only (BR-12, BR-102, BR-127, [ADR-053]) | `Plan.abandon(today)` | `DateNotOver`, `PlanNotDraftSolvingOrReady` |
 | Every queued or running solve job of a date that has passed is failed with the reason *its date passed*, before its plan completes or is abandoned (BR-128). A `SolveFailed` or `SolveSucceeded` that reaches an *abandoned* plan changes nothing ([ADR-053], [ADR-101]) | `SolveJob.fail(failure, now)`, called by the midnight job; `Plan.solveFailed`, `applySolveResult` | — |
 | One queued or running re-optimization per plan (BR-38, [ADR-101]) | `SolveJob.queue`, given a `LaneCapacity` that names its jobs' plans; backed by a partial unique index | `ReoptimizationAlreadyRunning` |
-| At most 5 jobs queued in a lane (BR-112) | `SolveJob.queue`, which requires a `LaneCapacity` with room | `SolveQueueFull` |
+| At most 5 jobs queued in a lane (BR-112) | `SolveJob.queue`, which requires a `LaneCapacity` with room, read for its own lane | `SolveQueueFull`, `CapacityForAnotherLane` |
 | A job waits at most 5 minutes in its queue (BR-112), builds its matrix within 2 minutes ([ADR-101]), and runs at most its limit plus 30 s (BR-32) | `SolveJob.expireIfOverdue(now)` | — (it fails the job as *queued too long*, *matrix took too long* or *overran*) |
 | A job that has ended never changes again; its phases follow §9.2 | `SolveJob` | `JobAlreadyEnded`, `JobNotQueued`, `JobNotBuildingMatrix`, `JobNotRunning`, `ResultForAnotherLane` |
 | A proposal never changes, except to be declined once | `ReoptimizationProposal` | `ProposalAlreadyDeclined` |
@@ -520,6 +541,7 @@ classDiagram
     List~Route~ routes
     List~DroppedOrder~ dropped
     List~Violation~ openViolations
+    List~ExcludedVehicle~ excluded
     AppliedSolve applied
     EditJournal journal
     requestSolve(jobId, solver, limit, seed, LaneCapacity, today, now) SolveJob
@@ -531,6 +553,17 @@ classDiagram
     accept(ReoptimizationProposal, ChangesSinceBasis, FreshIds, by, today, now)
     handOver(routeId, DriverStanding, Optional~Evaluation~, breakConfirmed, by, today, now)
     removeStopOf(orderId, attempt, cause, now)
+    removePutBackOrder(orderId, attempt)
+    locksBrokenBy(ValidatedSolution) List~Violation~
+    layout() PlanLayout
+    afterMove(stopId, routeId, position) PlanLayout
+    afterTakeOff(stopId) PlanLayout
+    afterPlacing(orderId, attempt, routeId, position, newStopId) PlanLayout
+    afterPin(orderId, PinTarget) PlanLayout
+    afterUnpin(orderId) PlanLayout
+    afterUndo() PlanLayout
+    afterRedo() PlanLayout
+    afterHandOver(routeId, driver) PlanLayout
     reconcileLateOutcome(LateFact, now) Reconciliation
     cancel(StartedRoutes, today, now)
     complete(today)
@@ -545,7 +578,7 @@ classDiagram
     RouteLock lock
     CheckState check
     Withdrawal withdrawal
-    DaySeconds confirmedReturn
+    SolveTime confirmedReturn
     List~PlannedStop~ stops
   }
   class PlannedStop {
@@ -553,7 +586,7 @@ classDiagram
     StopId id
     OrderId order
     Attempt attempt
-    DaySeconds plannedArrival
+    SolveTime plannedArrival
     TravelLeg leg
     LateOutcome lateOutcome
   }
@@ -595,6 +628,7 @@ classDiagram
     List~OutcomeRecord~ outcomes
     List~HeldReport~ heldReports
     status() DeliveryStatus
+    hasArrival() boolean
     arrive(DriverReport, Entitlement, StopWhereabouts)
     deliver(DriverReport, proof, leftAtDoor, LeaveAtDoor, Entitlement, HoldCheck, heldId, now) ReportAnswer
     fail(DriverReport, FailureReason, Entitlement, HoldCheck, heldId, now) ReportAnswer
@@ -609,9 +643,9 @@ classDiagram
     RunStatus status
     Instant startedAt
     RevisionNo confirmed
-    start(routeId, DriverReport, cause, now) RouteRun
-    finish(DriverReport, pendingStops)
-    acknowledge(seen, current)
+    start(routeId, DriverReport, routeDriver, currentDriver, cause, now) RouteRun
+    finish(DriverReport, routeDriver, currentDriver, pendingStops)
+    acknowledge(driver, currentDriver, seen, current)
     checkPositionAt(time, TrackingStanding)
     acceptsPositionAt(time, TrackingStanding) boolean
   }
@@ -666,8 +700,10 @@ plan's own revisions since it count too), `DriverStanding` (the new driver's acc
 availability; whether the shift breaks comes from the optimizer's `Evaluation`) and `StartedRoutes`
 (started routes and reported stops). An `Evaluation` names the plan version it was read for and
 describes the plan after the change, and `Plan` refuses one read for another version or another
-change (`StaleEvaluation`, [ADR-101]). A solve's validated result reaches the plan on its job, never
-rebuilt from storage, because only the optimizer adapter builds a `ValidationReport` (§13).
+change (`StaleEvaluation`, [ADR-101]). The routes, drops and pins it describes come from the plan: `layout()` for the plan as it is, and an `after…` query for the plan after a command ([ADR-112]). A solve's validated result reaches the plan on its job: only
+`SolveJob.succeed` takes one from a `ValidatedSolution`, and only persistence rebuilds it, through
+`SolveJob.restore`, so the plan applies what the validator accepted, and only the optimizer adapter builds
+a `ValidationReport` (§13).
 
 **In the Alpha:** `Plan` (solve, view, publish) and `SolveJob` in the daily lane. Proposals, hand-overs
 and manual edits come later; edits are in if M4 finishes early.
@@ -677,7 +713,7 @@ and manual edits come later; edits are in if M4 finishes early.
 | Aggregate | Holds | Operations | Size and writers |
 |---|---|---|---|
 | `Delivery` | Its stop's ID, order and attempt; the driver's arrival; the outcomes (the original, then each correction, each with what it says, by whom, the time it counts from, and how it came: a driver's report with the revision that entitled it, a confirmed held report, a record on a driver's behalf, or a correction with its reason); and every held report (entities: what it states, the driver, route, revision, `CorrectedTime`, the cancellation it would override, and its state: *open*, *confirmed*, *refused* by a dispatcher or *overtaken*). Its state (*pending*, *arrived*, *held*, *delivered* or *failed*) is derived from these, the effective outcome first ([ADR-107]) | `firstFact`, `arrive`, `deliver`, `fail`, `recordOnBehalf`, `correct`, `confirmHeld`, `refuseHeld`, `eraseExpired` | One per stop, created by its first fact; the driver's phone and dispatchers |
-| `RouteRun` | Its route's ID, who started it and how, when it started, state (*started* or *finished*, with pending stops), the last revision the driver confirmed | `start`, `finish`, `acknowledge` (*Seen*, FR-97), and the queries `checkPositionAt`, `acceptsPositionAt` and `isConfirmationOverdue` | One per route, created when it starts: by the driver's start, the first report, or a confirmed held report that was its first. A record on a driver's behalf starts none ([ADR-107]) |
+| `RouteRun` | Its route's ID, who started it and how, when it started, state (*started* or *finished*, with pending stops), the last revision the driver confirmed | `start`, `finish`, `acknowledge` (*Seen*, FR-97), and the queries `checkPositionAt`, `acceptsPositionAt` and `isConfirmationOverdue` | One per route, created when it starts: by the driver's start, the first report, or a confirmed held report that was its first, from the route's current driver; a start or report from a driver the route was handed away from starts none ([ADR-114]). A record on a driver's behalf starts none ([ADR-107]) |
 | `Alert` | Its subject (kind and references, including the plan), dedupe key, raise time, state (*open*, or *acknowledged* with who and when) | `raise`, `acknowledge` (FR-260) | One per alert; any module through `RaiseAlert`, a driver's problem report (FR-95), dispatchers |
 
 Positions are records (§3.2), appended through `PositionLog` after `RouteRun.acceptsPositionAt` says yes.
@@ -688,7 +724,7 @@ fetches the details (Q-97, [ADR-083]).
 
 | Invariant | Owner | Error |
 |---|---|---|
-| A driver reports only a stop that was on their route in the revision in force at the report's corrected time (BR-02, BR-110, BR-114) | `Delivery`, which requires an `Entitlement` for a driver's report | `StopNotOnYourRoute` |
+| A driver reports only a stop that was on their route in the revision in force at the report's corrected time, so a report from anyone else is refused; a report from the driver then who no longer drives the route is never recorded directly: an outcome is held, an arrival refused (BR-02, BR-110, BR-114, [ADR-114]) | `Delivery`, which requires an `Entitlement` for a driver's report | `StopNotOnYourRoute` |
 | A report timed at or after its order was cancelled or rescheduled, or its plan cancelled, is refused and shown to the dispatcher (BR-88, BR-90, [ADR-107]) | `Delivery.arrive`, `deliver`, `fail`, given where the stop is now | `ReportAfterCancellation` |
 | The first outcome wins (BR-18). A report that contradicts it is refused and shown to the dispatcher (BR-90); one that repeats it is refused without telling anyone (BR-88, [ADR-107]). A dispatcher's record on a driver's behalf follows the same rule (FR-73) | `Delivery` | `OutcomeAlreadyRecorded`, `SameOutcomeAlreadyRecorded` |
 | An arrival is recorded once, and not after an outcome (BR-87) | `Delivery.arrive` | `ArrivalAlreadyRecorded`, `ArrivalAfterOutcome` |
@@ -701,14 +737,14 @@ fetches the details (Q-97, [ADR-083]).
 | A driver's stop left at the door needs a photo as its proof; without a camera, a dispatcher records it (FR-368) | `Delivery.deliver` | `LeftAtDoorNeedsPhoto` |
 | A *failed* report needs one of BR-109's six reasons, and *other* needs its text (BR-109, FR-242) | `FailureReason` | `FailureReasonRequired` |
 | *Left at the door* is recorded only for a leave-at-door order (FR-366) | `Delivery.deliver`, `recordOnBehalf`, `correct`, given whether the order may be left at the door | `NotALeaveAtDoorOrder` |
-| A correction keeps the original, gives a reason, and changes the outcome, or just a failure's reason; the corrected outcome counts from the time the correction states, no later than the correction, else from the original's (FR-333, [ADR-107]) | `Delivery.correct`; `CorrectionReason` | `NoOutcomeToCorrect`, `CorrectionChangesNothing`, `CorrectionTimeInFuture`, `CorrectionReasonRequired` |
-| A failed stop is corrected to delivered after a put-back only while the new stop has no outcome, and the new stop then leaves its route through `PutBackSuperseded`; otherwise the correction is refused, naming the new stop and its outcome (FR-404, [ADR-107]) | `Delivery.correct`, given a `LaterAttempt` | `LaterAttemptHasOutcome` |
+| A correction keeps the original, gives a reason, and changes the kind, the reason or its text, or only *left at the door* ([ADR-114]); the corrected outcome counts from the time the correction states, no later than the correction, else from the original's (FR-333, [ADR-107]) | `Delivery.correct`; `CorrectionReason` | `NoOutcomeToCorrect`, `CorrectionChangesNothing`, `CorrectionTimeInFuture`, `CorrectionReasonRequired` |
+| A failed stop is corrected to delivered after a put-back only while the new stop has no outcome, and the new stop then leaves its route through `PutBackSuperseded`, which Live Operations' own listener passes to Planning's API ([ADR-114]); otherwise the correction is refused, naming the new stop and its outcome (FR-404, [ADR-107]) | `Delivery.correct`, given a `LaterAttempt` | `LaterAttemptHasOutcome` |
 | A dispatcher is alerted when a driver's *failed* is recorded (FR-102), and when a report is refused and shown (BR-90) | The report use case, from the error or the `ReportAnswer` | — |
-| A route run starts once, with the driver's start or the route's first report (FR-327), or a confirmed held report that was its first; a record on a driver's behalf starts none. It finishes once, and a late report after *finished* is accepted and changes no run ([ADR-107]) | `RouteRun.start`, `finish`; `Delivery` takes no run | `RunAlreadyStarted`, `RouteAlreadyFinished` |
+| A route run starts once, with the driver's start or the route's first report (FR-327), or a confirmed held report that was its first, from the route's current driver; a record on a driver's behalf starts none. It finishes once, and a late report after *finished* is accepted and changes no run ([ADR-107]). Only the route's driver at the report's time who still drives it starts or finishes it ([ADR-114]) | `RouteRun.start`, `finish`; `Delivery` takes no run | `RunAlreadyStarted`, `RouteAlreadyFinished`, `NotYourRoute` |
 | A position is kept from the run's start, included, until its finish, included, or until one hour after the current driver's shift end or confirmed return time, read when the position is checked, excluded (FR-328, FR-394), and only from the route's current driver while available; after a hand-over or once the driver is marked unavailable, the old driver's positions are refused (NFR-30, [ADR-107]) | `RouteRun.checkPositionAt`; `acceptsPositionAt` answers the same rule | `TrackingClosed` |
-| A driver's confirmation of a revision never goes backwards (FR-97, FR-250), and never names a revision the plan doesn't have yet ([ADR-107]) | `RouteRun.acknowledge` | `UnknownRevision`, `InvalidRevision`; an older one is ignored |
+| A driver's confirmation of a revision never goes backwards (FR-97, FR-250), and never names a revision the plan doesn't have yet ([ADR-107]); it comes only from the route's current driver ([ADR-114]) | `RouteRun.acknowledge` | `UnknownRevision`, `InvalidRevision`, `NotYourRoute`; an older one is ignored |
 | A route change the driver hasn't confirmed alerts the dispatcher 10 minutes after its revision took effect, a starting value; only a run in progress counts, and a revision before its start counts as seen (FR-97, FR-157, [ADR-107]) | `RouteRun.isConfirmationOverdue`, `ConfirmationDeadline` | — |
-| An alert is raised once per dedupe key, its kind plus the IDs its kind names; acknowledging it silences the key for good. Where a new fact should alert again, the key includes it: a stop at risk and an unconfirmed change key on the revision, a problem report on its own alert (FR-157, FR-260, [ADR-107]) | `AlertSubject.dedupeKey`; `Alert.raise`, backed by a unique key | — (raising it again does nothing) |
+| An alert is raised once per dedupe key, its kind plus the IDs its kind names; acknowledging it silences the key for good. Where a new fact should alert again, the key includes it: a stop at risk and an unconfirmed change key on the revision, a problem report on its own alert, and a refused report on its stop, route, driver and the refused fact: arrived, delivered or failed (FR-157, FR-260, [ADR-107], [ADR-114]) | `AlertSubject.dedupeKey`; `Alert.raise`, backed by a unique key | — (raising it again does nothing) |
 | An alert is acknowledged once, recording who and when (FR-260) | `Alert.acknowledge` | `AlertAlreadyAcknowledged` |
 | A proof's file and note are erased 90 days after its report arrived, and the text of an *other* reason or a correction reason 90 days after it was recorded; the kinds stay (NFR-31, NFR-184, [ADR-107]) | `Delivery.eraseExpired`, `RetentionPeriods` | — |
 
@@ -719,7 +755,7 @@ positions and alerts come later.
 
 | Aggregate | Holds | Operations | Size and writers |
 |---|---|---|---|
-| `StopMessages` | For one stop: the recipient's phone, and every message to it (entities: type, sequence, `MessageText`, the arrival it gave, trigger time, state, provider reference) | Triggers: `onRouteStarted`, `onJoinedStartedRoute`, `onArrivalProjected`, `onDeliveryChanged`, `onOutcome`. Sender: `claim`, `accepted`, `refused`, `outcomeUnknown`, `dropStale` | One per stop, a handful of messages; triggers and the sender |
+| `StopMessages` | For one stop: every message to its recipient (entities: type, sequence, the phone it goes to, `MessageText`, the arrival it gave, trigger time, state, provider reference) ([ADR-117]) | Triggers: `onRouteStarted`, `onJoinedStartedRoute`, `onArrivalProjected`, `onDeliveryChanged`, `onOutcome`. Sender: `claim`, `accepted`, `refused`, `outcomeUnknown`, `dropStale` | One per stop, a handful of messages; triggers and the sender |
 | `RatingRequest` | The stop, the phone, when the question was accepted, state (*open*, *rated* or *closed*), comments, whether a reminder and a thank-you were sent | `open`, `answer`, `removePersonalData` ([ADR-108]) | One per *delivered* message carrying the rating question; replies |
 | `MessagingSettings` | Messages on or off (FR-350), the rating question on or off, the dispatch phone | `change…` | One; Admins |
 
@@ -727,12 +763,13 @@ Opt-outs and inbound replies are records (§3.2).
 
 | Invariant | Owner | Error |
 |---|---|---|
-| A message is added only while messages are on when it is triggered (FR-350), to the order's recipient phone, otherwise the customer's (FR-348), when that is an Israeli mobile (FR-378), and never to a phone that opted out (FR-363, NFR-202) | `StopMessages`, given the messaging settings and the opt-out answer | — (no message) |
+| A message is added only while messages are on when it is triggered (FR-350), to the order's recipient phone, otherwise the customer's (FR-348), when that is an Israeli mobile (FR-378), and never to a phone that opted out (FR-363, NFR-202). Each message keeps the phone it was added for, whatever a later trigger names ([ADR-117]) | `StopMessages`, given the messaging settings and the opt-out answer | — (no message) |
 | Each type is sent at most once per stop, except *time changed*: at most twice, each when the projection is 30 or more minutes from the arrival last sent (NFR-191, FR-353, FR-384) | `StopMessages`, backed by unique (stop, type, sequence) | — |
-| No *out for delivery*, *arriving soon*, *time changed* or *your delivery changed* for a stop arrived at or with an outcome (FR-373); *time changed* and *your delivery changed* only once the route has started (FR-353, FR-354); *arriving soon* only when it is 15 minutes away or less on a route in progress and the stop before it has an outcome (FR-352); *delivered* or *missed you* only for the first outcome, and a correction sends none (FR-374) | `StopMessages` | — |
+| No *out for delivery*, *arriving soon*, *time changed* or *your delivery changed* for a stop arrived at or with an outcome (FR-373); *time changed* and *your delivery changed* only once the route has started (FR-353, FR-354); *arriving soon* only when it is 15 minutes away or less on a route in progress and the stop before it has an outcome (FR-352); *arriving soon* and *time changed* only on an arrival carried forward, never on a skipped stop's planned arrival ([ADR-114]); *delivered* or *missed you* only for the first outcome, and a correction sends none (FR-374) | `StopMessages` | — |
 | Any message not accepted within 15 minutes of its trigger, whether pending, sending or of unknown outcome, is dropped (NFR-190) | `StopMessages.dropStale(now)` and `claim` | — |
 | A send whose outcome is unknown is retried only if the provider drops repeats by DispatchFlow's reference (NFR-198) | `StopMessages.outcomeUnknown` | — |
-| At most 1,000 messages accepted a day (NFR-196) | `DailySendCap`, which the sender reads before each claim | — (sending waits for midnight) |
+| At most 1,000 messages claimed a day, a claim counting while the message may have left (NFR-196, [ADR-108]) | `DailySendCap`, which the sender reads before each claim | — (sending waits for midnight) |
+| The sender claims only a message that is waiting, or retryable after an unknown outcome, and reports a provider's answer only for one it claimed and that is still sending (§9.5, NFR-190) | `StopMessages.claim`, `accepted`, `refused`, `outcomeUnknown` | `UnknownMessage`, `MessageNotClaimable`, `MessageNotSending` |
 | A reply counts as a rating only within 48 hours of the question, and only once; within those 48 hours every reply but a bare rating or an opt-out is kept as a comment, after the rating too, cut to 500 characters (NFR-203), up to 20 comments per request ([ADR-108]); the first reply that is not a rating, before the rating, gets one format reminder (FR-357 to FR-360, FR-371) | `RatingRequest.answer` | — (a reply with no request in the last 48 hours is discarded, FR-379) |
 | An opt-out word opts the phone out at once, confirmed once if the phone was messaged in the last 48 hours (FR-363); a dispatcher records an opt-out, or removes one by appending an opt-in, and the latest entry wins (FR-380, [ADR-108]) | `Reply` and `OptOutStatus`, over the opt-out records | — |
 
@@ -742,12 +779,12 @@ Opt-outs and inbound replies are records (§3.2).
 
 | Aggregate | Holds | Operations | Size and writers |
 |---|---|---|---|
-| `Baseline` | Its plan, the nearest-neighbour result (distance, driver-hours, and each order's planned service or drop), its cause (*published*, or *recomputed* with every vehicle withdrawn and every order added so far), when it was computed | `compute`, `recompute`, and the query `compareWith` | One per published plan; Reporting's listeners |
+| `Baseline` | Its plan, the nearest-neighbour result (distance, driver-hours, and each order's planned service or drop), its cause (*published*, or *recomputed* with every vehicle withdrawn, with its cause, and every order added so far), when it was computed | `compute`, `recompute`, and the queries `compareWith` and `withdrawnFleetAfter` | One per published plan; Reporting's listeners |
 
 | Invariant | Owner | Error |
 |---|---|---|
 | A plan has one baseline, computed when it is published (FR-39, FR-342) | `Baseline.compute`, keyed by plan | — |
-| The baseline is recomputed only when a revision withdraws a vehicle or adds orders, so both sides cover the same orders and fleet (FR-39, [ADR-109]); once a vehicle is withdrawn, the comparison uses kilometres and on-time only and names every vehicle withdrawn so far (FR-267 to FR-271). A cancellation only leaves the order out (BR-30) | `Baseline.recompute`, `compareWith` | — (a revision that did neither changes nothing) |
+| The baseline is recomputed only when a revision withdraws a vehicle or adds orders, so both sides cover the same orders and fleet (FR-39, [ADR-109]); once a vehicle is withdrawn, the comparison uses kilometres and on-time only and names every vehicle withdrawn so far (FR-267 to FR-271). The next solve leaves out an unavailable or driverless vehicle and gives a shift-ran-out one its whole shift (FR-271). A cancellation only leaves the order out (BR-30) | `Baseline.recompute`, `compareWith`, `withdrawnFleetAfter`; `WithdrawnFleet` | — (a revision that did neither changes nothing) |
 | A cancelled plan has no baseline comparison (FR-338) | `Baseline.compareWith`, given the plan's standing | — (the answer is *not compared*) |
 | An on-time rate with no delivered stops is *unavailable*, never 0 (FR-265) | `OnTimeRate` | — |
 | A stop is on time when it is reached by its window's end, or inside its window for a leave-at-door stop; the delivery time stands in for a missing arrival; the effective outcome counts, and a cancelled order doesn't (FR-264, FR-370, FR-340, FR-333, BR-30) | `OnTimeRate` | — |
@@ -786,17 +823,22 @@ methods are the rules:
   - `validate(solution) -> ValidationReport`: feasibility, one rule per `RuleId` named after its BR
     (BR-15, BR-16). In a re-optimization a stop served past its window end is a *late stop* the report
     flags, never a violation (BR-107).
-  - `cost(solution, timings)`: the objective (BR-09, BR-56, BR-115, BR-120).
+  - `cost(solution, timings)`: the objective, in seven terms: `travel`, `drops`, `door_window`,
+    `fixed_vehicles`, `lateness`, `orphaned_stops` and `moved_stops`. The last two together are the
+    route-stability cost the objective charges (BR-09, BR-56, BR-115, BR-120, FR-256, [ADR-113]). It
+    leaves out a stop that stays on its vehicle but can't be routed there, which FR-256 counts and
+    [ADR-105] charges nothing. Planning's `ObjectiveTerms` holds the same seven ([ADR-112]).
   - `explain_drop(order, solution) -> DropReason`: why an order was dropped, from no location, then
-    no vehicle available on the date, to displaced by others (FR-144, FR-223, [ADR-100]).
+    no vehicle available on the date, to displaced by others (FR-144, FR-223, [ADR-100]). The fact of a
+    *no vehicle available* drop is the vehicles the solve left out, which the plan keeps ([ADR-112]).
 - **`ProblemFactory`** builds a `Problem` from a daily request, or from a live state with every
   re-optimization convention applied (BR-10, BR-23, BR-24, BR-51, BR-52, BR-79, BR-80, BR-81, BR-91,
   BR-106 to BR-108, BR-115, BR-117; [ADR-050]). It writes each convention into the `Problem` once
   ([ADR-105]):
   - each vehicle's start and end, and a vehicle that is out as excluded for its state;
   - a `ReoptContext` with `now`, each vehicle's start time, the locked stops, the vehicle each stop
-    stays on, the orphans, the vehicles with no usable position (`no_usable_position`, BR-81) and the
-    warm start.
+    stays on, the orphans, the vehicles with no usable position (`no_usable_position`, BR-81), which stops pay to leave
+    their vehicle (`pays_to_leave`, [ADR-113]) and the warm start.
 
   A daily `Problem` has no context. Only a vehicle that is out may have no driver.
 - **`Solution`**, **`TravelTimeModel`** (the only place bucket factors and the buffer are applied:
@@ -811,7 +853,8 @@ methods are the rules:
   (BR-121) or to save a vehicle (BR-08) ([ADR-049], [ADR-100], Q-93 #1).
 
 The modules are split by size (`feasibility.py`, `objective.py`, `drops.py`), and `Problem`'s methods
-delegate to them. Every solver, edit check, publishing re-check and research score goes through them.
+delegate to them. They read the problem through the `ProblemView` protocol and never import `problem`;
+the parts a problem holds are in `problem_parts.py` ([ADR-113]). Every solver, edit check, publishing re-check and research score goes through them.
 
 **In the Alpha:** the daily-solve rules only. The re-optimization conventions come in M9.
 
@@ -831,7 +874,7 @@ code path can break it.
 | The first Admin only while no active Admin exists (FR-291) | Accounts are independent, and with no active Admin there is no row for `FOR UPDATE` to lock | `ActiveAdmins`, which `UserAccount.openFirstAdmin` requires | A transaction-scoped advisory lock, taken before `ActiveAdmins` is read | `ActiveAdminExists` |
 | At most 200 uncancelled orders a date (BR-101, BR-113) | Orders move between dates (FR-258, FR-315), so a per-date aggregate would change two aggregates per move | `DateCapacity`, which every method that adds an order to a date requires | `DateCapacity` is read under a transaction-scoped advisory lock on the date | `DateFull` |
 | A reference is unique on its date (FR-211) | Same | `Order.place`, `reschedule` and `putBack`, through the `DateCapacity`; `ImportBatch` | Partial unique index on (date, reference), excluding cancelled orders ([ADR-102]) | `DuplicateOrderReference` |
-| One running re-optimization per plan (BR-38) | Jobs end independently, and the plan must not be written for every job's phase | `SolveJob.queue` | Partial unique index on running re-optimization jobs per plan | `ReoptimizationAlreadyRunning` |
+| One queued or running re-optimization per plan (BR-38) | Jobs end independently, and the plan must not be written for every job's phase | `SolveJob.queue` | Partial unique index on queued or running re-optimization jobs per plan | `ReoptimizationAlreadyRunning` |
 | At most 5 jobs queued in a lane (BR-112) | Same | `LaneCapacity`, which `SolveJob.queue` requires | `LaneCapacity` is read under an advisory lock on the lane | `SolveQueueFull` |
 | An alert per dedupe key, which acknowledging doesn't free (FR-157, [ADR-107]) | Alerts are independent | `Alert.raise`, with the key its `AlertSubject` defines | Unique index on the key; the insert does nothing on conflict | — |
 
@@ -876,14 +919,14 @@ call, never in the same transaction.
 | Place or change an order | `Order`, or creates it | — | — |
 | Cancel an order | `Order` → *cancelled* | — | `OrderCancelled` → `Plan.removeStopOf` (FR-207, FR-316) |
 | Reschedule an order | `Order` | — | `OrderRescheduled` → `Plan.removeStopOf` (FR-315) |
-| Put back a failed or dropped order | `Order` → the next attempt (FR-75, FR-258) | — | — |
+| Put back a failed or dropped order | `Order` → the next attempt (FR-75, FR-258) | — | On another date: `OrderPutBack` → `Plan.removePutBackOrder` on the old date's plan (FR-316, [ADR-112], [ADR-115]). On its own date: nothing |
 | Upload a file | — | `ImportBatch` (*previewed*) | — |
 | Confirm an import | `ImportBatch` → *confirmed* | Its `Customer`s and `Order`s; geocoding requests | — |
 | A driver reports a stop | `Delivery`, or creates it. A report that BR-132 holds is stored as *held* and records no outcome | The `RouteRun`, on the route's first report (FR-327); a held report doesn't count until confirmed, and a report after *finished* changes no run. An `Alert` for the dispatcher when the report is held, and when a *failed* is recorded (FR-102) or a held report is overtaken (BR-134). A refused report changes nothing, so its *report refused* alert is raised in its own transaction (BR-90); a repeated one raises none ([ADR-107]) | `OutcomeRecorded` for an outcome; `RouteStarted` when the run was created. Nothing for a held report: the phone's outbox gets an acknowledgement (§8) |
 | A dispatcher records an outcome on a driver's behalf (FR-73) | `Delivery`, or creates it; held reports are overtaken (BR-134) | No `RouteRun` ([ADR-107]) | `OutcomeRecorded` → reconciliation through Planning (§8) |
-| A dispatcher confirms a held report | `Delivery` → the outcome the report states | The `RouteRun`, if this is the reporting route's first report | `OutcomeRecorded` → reconciliation through Planning (§8) |
+| A dispatcher confirms a held report | `Delivery` → the outcome the report states | The `RouteRun`, if this is the reporting route's first report and the reporting driver still drives the route ([ADR-114]) | `OutcomeRecorded` → reconciliation through Planning (§8) |
 | A dispatcher refuses a held report | `Delivery` → the report *refused* (BR-90) | — | — |
-| A dispatcher corrects an outcome | `Delivery` | — | Nothing, except after a put-back whose stop has no outcome: `PutBackSuperseded` → Planning's `Plan.removeStopOf` on the put-back's date, with the FR-404 cause ([ADR-107]) |
+| A dispatcher corrects an outcome | `Delivery` | — | Nothing, except after a put-back whose stop has no outcome: `PutBackSuperseded` → Live Operations' own listener calls Planning's API, which calls `Plan.removeStopOf` on the put-back's date, with the FR-404 cause ([ADR-114]) |
 | The driver starts the route | — | `RouteRun` | `RouteStarted` |
 | The driver finishes the route | `RouteRun` → *finished* | An `Alert` when stops are pending (FR-329) | — |
 | The driver confirms a route change: *Seen* (FR-97) | `RouteRun`; with no run, nothing is stored ([ADR-107]) | — | — |
@@ -906,7 +949,9 @@ call, never in the same transaction.
 A use case calls the optimizer, OSRM or the geocoder **before** it opens its transaction. It then loads,
 changes and saves the aggregate with the version it read. If the version moved in the meantime, the save
 fails with `STALE_VERSION`, and only the call is lost. No database transaction ever waits on HTTP, so a
-slow optimizer can't hold a connection or a row.
+slow optimizer can't hold a connection or a row. For an edit, the use case reads the layout to send from
+the plan's `after…` queries (`afterMove`, `afterTakeOff`, `afterPlacing`, `afterPin`, `afterUnpin`, `afterUndo`, `afterRedo` and
+`afterHandOver`), and the command later leaves exactly that layout ([ADR-112]).
 
 ---
 
@@ -936,17 +981,18 @@ one may call anyway**: a direct call is simpler, unless it must be retried (reas
 |---|---|---|---|---|
 | `SolveSucceeded`, `SolveFailed` | A solve job ended, with routes or with a reason | `SolveJob` | Planning → `Plan.applySolveResult` or `solveFailed`; dispatchers are told on screen | Three paths end a job (reason 3), and the plan must follow in its own transaction (reason 2) |
 | `PlanPublished` | A plan became the drivers' plan | `Plan` | Live Operations → "route ready" push to each driver (FR-152); Reporting → computes the `Baseline` (FR-39, FR-342) | Both are downstream of Planning (reason 1) |
-| `PlanRevised` | A published or completed plan has a new revision, with its cause, the routes it changed and the vehicles it withdrew | `Plan` | Live Operations → change notice and push to each affected driver (FR-71, FR-97, FR-249); Messaging → messages for stops that joined, moved or dropped (FR-354, FR-372); Reporting → recomputes the `Baseline` if a vehicle was withdrawn (FR-267 to FR-271) | All three are downstream (reason 1) |
+| `PlanRevised` | A published or completed plan has a new revision, with its cause, the routes it changed, the vehicles it withdrew with each one's cause, and the orders an accepted re-optimization added | `Plan` | Live Operations → change notice and push to each affected driver (FR-71, FR-97, FR-249); Messaging → messages for stops that joined, moved or dropped (FR-354, FR-372); Reporting → recomputes the `Baseline` if a vehicle was withdrawn or an order was added, and maps each withdrawal's cause to Reporting's own `WithdrawalCause` (FR-39, FR-267 to FR-271, [ADR-112]) | All three are downstream (reason 1) |
 | `RouteHandedOver` | A route moved to another driver | `Plan` | Planning's own listener → calls Fleet's `MoveVehicleWithRoute`, so the roster follows (FR-191) | Fleet's `DayRoster` must change reliably after the plan (reason 2) |
 | `PlanCancelled` | A published plan was cancelled for a day that doesn't run; it names the plan and its routes | `Plan` | Live Operations → alerts each driver with a route (FR-337) ([ADR-101]) | Downstream (reason 1) |
 | `OrderCancelled` | An order was cancelled | `Order` | Planning → `Plan.removeStopOf` (FR-207, FR-316); Messaging → the "your delivery changed" message (FR-354) | Both are downstream (reason 1) |
 | `OrderRescheduled` | An order moved to another date | `Order` | Planning → `Plan.removeStopOf` on the old date's plan (FR-315); Messaging → the "your delivery changed" message (FR-354) | Both are downstream (reason 1) |
+| `OrderPutBack` | A failed or dropped order was put back onto another date; a put-back onto its own date raises nothing ([ADR-115]) | `Order` | Planning → `Plan.removePutBackOrder` on the plan of the date the order left: the attempt's drop leaves a ready plan, and a failed stop keeps its outcome (FR-316, FR-258, [ADR-112]) | Downstream (reason 1), and the plan must follow reliably (reason 2) |
 | `RouteStarted` | A driver started a route | `RouteRun` | Messaging → "out for delivery" for each stop not yet arrived (FR-351, FR-373) | Downstream (reason 1) |
-| `OutcomeRecorded` | A stop was delivered or failed (the first outcome) | `Delivery` | Live Operations' own listener → late-outcome reconciliation through Planning (§8); Messaging → "delivered" or "missed you" (FR-355, FR-356, FR-374) | Planning is upstream, so the call must come from a retried listener (reason 2); Messaging is downstream (reason 1) |
-| `PutBackSuperseded` | A failed stop was corrected to delivered after a put-back, so the put-back's stop is no longer needed (FR-404) | `Delivery` | Planning → `Plan.removeStopOf` on the plan of the date the event names, with the FR-404 cause, `CORRECTED_AFTER_PUT_BACK` ([ADR-107]) | Planning is upstream, so it must hear an event (reason 1), and its plan must follow reliably (reason 2) |
+| `OutcomeRecorded` | A stop was delivered or failed (the first outcome), with whether it was left at the door ([ADR-114]) | `Delivery` | Live Operations' own listener → late-outcome reconciliation through Planning (§8); Messaging → "delivered" or "missed you" (FR-355, FR-356, FR-374) | Planning is upstream, so the call must come from a retried listener (reason 2); Messaging is downstream (reason 1) |
+| `PutBackSuperseded` | A failed stop was corrected to delivered after a put-back, so the put-back's stop is no longer needed (FR-404) | `Delivery` | Live Operations' own listener → Planning's API → `Plan.removeStopOf` on the plan of the date the event names, with the FR-404 cause, `CORRECTED_AFTER_PUT_BACK` ([ADR-107], [ADR-114]) | Planning is upstream, so the call must come from a retried listener on Live Operations' side (reason 2) |
 | `RatingReceived` | A recipient rated a delivery | `RatingRequest` | Messaging's own listener → a 1 to 4 rating raises a Live Operations alert (FR-361) | The alert must follow reliably (reason 2) |
 | `DriverRetired` | A driver was retired | `Driver` | Fleet's own listener → calls Access's API to remove the Driver role, keeping the account's other roles (FR-307, [ADR-103]) | Fleet is downstream of Access, so the call must come from a retried listener (reason 2; §2.3, rule 2) |
-| `SessionsRevoked` | Every token and session of an account stopped being valid | `UserAccount` | The live-updates adapter → closes that account's streams opened under an older generation, which the event carries (NFR-188) | Several commands revoke (reason 3); the revocation cache itself is evicted at once, in the same thread, so "refused at once" doesn't wait for an event (NFR-177) |
+| `SessionsRevoked` | Every token and session of an account stopped being valid | `UserAccount` | The live-updates adapter → closes that account's streams opened under an older generation, which the event carries (NFR-188); Access's own listener → `Session.revokeWithAccount` for the account's sessions begun under an older generation, where a revoked one keeps the earlier of the two revocations (NFR-258, [ADR-116]) | Several commands revoke (reason 3); the revocation cache itself is evicted at once, in the same thread, so "refused at once" doesn't wait for an event (NFR-177) |
 | `AccountAnonymized` | An account's personal data was removed, a year after its deactivation (NFR-258) | `UserAccount` | Fleet → anonymizes the driver record keyed by the account ([ADR-104]) | Fleet depends on Access, so Access can't call it (reason 1) |
 
 ### 7.3 Shape and delivery
@@ -954,7 +1000,7 @@ one may call anyway**: a direct call is simpler, unless it must be retried (reas
 - **A past-tense, immutable record** in the raising module's `<module>/events/` package, which is its
   `events` named interface: its own ID, `occurredAt`, the aggregate's ID and version, and the fact's key
   data. It holds only IDs, shared-kernel values and small enums defined in its own `events` package (a
-  revision cause, an outcome kind), never a copy of the aggregate's state; a listener
+  revision cause, a withdrawal cause, an outcome kind), never a copy of the aggregate's state; a listener
   that needs more asks the owner. The module's own domain may import its `events` package (§3.9); no
   other module's domain may.
 - **The events package is published language.** A field is added, never renamed or removed, so a
@@ -996,7 +1042,9 @@ delivery has already happened on the street. The design accepts the fact and cor
    A report that would move a stop off another driver's route, or override a cancellation, is *held*
    for the dispatcher's confirmation if any session of the reporting account was in contact with the
    server between 2 minutes after the report's corrected time and 2 minutes before the report arrived,
-   both ends included (BR-132, BR-133, [ADR-107]). A further late report for a stop that already has a held report is held too, unless it
+   both ends included (BR-132, BR-133, [ADR-107]). A report from a driver the route was handed away from
+   is held whatever the contacts, and their arrival is refused, because an arrival can't be held
+   ([ADR-114]). A further late report for a stop that already has a held report is held too, unless it
    comes from the same driver and route, which is refused (BR-136). A phone that was
    in contact after the time it claims was not offline, so its corrected time is in doubt. A token
    refresh and an outbox send are not contact, because the phone makes them while it empties its queue.
@@ -1072,6 +1120,8 @@ that change nothing where they have nothing to do ([ADR-101]):
   after that ([ADR-053], BR-128).
 - `Plan.removeStopOf` and `recordRouteCheck` act only on a *ready* or *published* plan, and do
   nothing in any other state.
+- `Plan.removePutBackOrder` acts only on a *ready* plan, and does nothing in any other state
+  ([ADR-112]).
 - `Plan.reconcileLateOutcome` on a *cancelled* plan changes nothing and answers that the plan is
   cancelled; Live Operations records the fact as *served after cancellation*. On a plan never
   published it is refused.
@@ -1178,7 +1228,7 @@ outcome, and every other report held for it is refused as BR-90 says (BR-18).
 A dispatcher may correct a failed stop to delivered after a put-back (FR-258) while the new attempt's
 stop has no outcome. The new stop then leaves its route, and the change is audited. Once the new stop has
 an outcome, the correction is refused and the conflict is named (FR-404, FR-333, Q-94 #2). The
-correction raises `PutBackSuperseded`, and Planning's listener takes the new stop off ([ADR-107]). A
+correction raises `PutBackSuperseded`, and Live Operations' own listener calls Planning's API, which takes the new stop off ([ADR-114]). A
 corrected outcome counts from the time the correction states, else from the original's.
 
 ### 9.4 ImportBatch
@@ -1253,14 +1303,14 @@ Nothing the business keeps history about is deleted. It ends in a named state, a
 | Stop with no report at midnight | Its order stays *planned*; a late report or a dispatcher's record settles it (BR-129, Q-94 #1) | The stop, shown as *not reported* in the summary |
 | Route | *withdrawn* by a re-optimization, or handed over | The revision history |
 | Route run | *finished* | The run |
-| Customer, driver | *retired*, then *anonymized* a year later; a customer never retired is anonymized a year after the last order (BR-98, NFR-152) | The figures, without personal data |
+| Customer, driver | *retired*, then *anonymized* a year later; a customer never retired is anonymized a year after the later of its creation and its last order (BR-98, NFR-152) | The figures, without personal data |
 | Vehicle, depot | *retired* (BR-43) | The record |
 | Account, of any role | *deactivated*, then *anonymized* a year later (NFR-258, NFR-260) | The record, without personal data: plans and audit records refer to it |
-| Session | *revoked*, or its current token expired: `Session.endedAt` is the earlier | The record, until retention |
+| Session | *revoked*, or its current token expired: `Session.endedAt` is the earlier. An account's revocation dates it through `Session.revokeWithAccount`, which Access's own listener on `SessionsRevoked` calls ([ADR-116]) | The record, until retention |
 | Credential link | *spent*, *voided* or expired | The record, until a later link drops it 72 hours after it was sent ([ADR-104]) |
 | Alert | *acknowledged* | The alert |
 | Message | *accepted* or *dropped* | The message, until retention |
-| Rating request | *rated*, or closed after 48 hours | The rating; its phone and comments go 90 days after its last reply ([ADR-108]) |
+| Rating request | *rated*, or closed after 48 hours | The rating; its phone goes 90 days after its question was accepted, and each comment 90 days after its own receipt ([ADR-108]) |
 | Import | *confirmed*, *discarded* or *expired* | The batch; a discarded or expired one without its rows |
 
 Deletion happens only where retention requires it (NFR-31, NFR-184, NFR-257 to NFR-260, [ADR-075]).
@@ -1268,10 +1318,10 @@ A row that other records refer to is anonymized in place instead.
 
 - **Deleted:** positions after 7 days; proofs, messages and replies after 90 days; audit records after
   1 year, by the purge function that `dispatchflow_owner` owns and the core's nightly retention job calls
-  (§4.8); sessions 30 days after `Session.endedAt`; contact times 14 days after they are made, by `Session.dropOldContacts` (NFR-280); geocode cache
+  (§4.8); sessions 30 days after `Session.endedAt` (dated by `Session.revokeWithAccount` when the account's revocation ended it); contact times 14 days after they are made, by `Session.dropOldContacts` (NFR-280); geocode cache
   entries unused for 1 year; research instances 1 year after the project ends; backups, which age out of the bucket after 35 days.
 - **Anonymized:** an order's personal fields 90 days after its date; a customer 1 year after retirement,
-  or after the last order if never retired; a driver 1 year after retirement; every account, whatever its
+  or after the later of its creation and its last order if never retired; a driver 1 year after retirement; every account, whatever its
   roles, 1 year after deactivation.
 
 The rows of a discarded or expired import preview are also deleted (§9.4).
@@ -1288,7 +1338,12 @@ The rows of a discarded or expired import preview are also deleted (§9.4).
   rule itself is in the owner and is tested with a fixed time.
 - **`DaySeconds`** are elapsed seconds since the delivery date's local midnight in `Asia/Jerusalem`. On a
   clock-change day a 09:00 window is 8 or 10 hours after midnight, which is what travel durations need
-  (BR-31, BR-111).
+  (BR-31, BR-111). A time that must lie in the day, such as a window's end, a shift's or a depot's closing,
+  stays a `DaySeconds`.
+- **`SolveTime`** is an optimizer's time in Planning: the same seconds from the date's local midnight, with
+  no upper bound. The validator caps no time at the date's end, so a route that breaks a time rule may arrive,
+  serve or return after it, and the plan holds that time to show its violations (FR-23, FR-233, [ADR-112],
+  [ADR-113]). A negative one is refused.
 
 ### 10.2 One travel-time model, in Python
 
@@ -1357,7 +1412,9 @@ the legs the optimizer stored for the current revision ([ADR-067]):
 
 Stops reported out of planned order (BR-29) follow one reading ([ADR-107]): a later stop that already
 has a fact is passed on its leg with no service time, and a stop skipped before the latest event gets
-no projection, because no leg runs to it from where the vehicle is.
+its planned arrival, never earlier than now ([ADR-114]), and is never at risk on that basis, because nothing
+observed carries delay to it. That arrival isn't carried forward, so its recipient hears *out for delivery*
+with it but never *arriving soon* or *time changed*.
 
 If a delay pushes a departure into another bucket, the projection keeps the planned bucket; exact
 re-timing happens whenever the optimizer produces a new revision. A projection informs messages and
@@ -1373,14 +1430,14 @@ than one writer may change at once.
 
 | Aggregate | Who may change it at the same moment | How a conflict ends |
 |---|---|---|
-| `Plan` | Dispatchers (edit, publish, accept, hand over), and six automatic writers: the solve-result listener, the listeners for cancelled and for rescheduled orders, Live Operations' late-outcome call, the route re-check job, and the midnight job (`complete`, `abandon`) | A dispatcher gets `STALE_VERSION` (412) and refetches. A listener retries at once, up to three times, then the event registry resubmits it. The version check refuses whichever of a dispatcher and the midnight job saves second, as it does for the other writers; a refused dispatcher then reads a completed or abandoned plan, which no longer changes (BR-118). When the version check refuses the midnight job, it reloads the plan and retries, up to three times like a listener, then alerts the team |
+| `Plan` | Dispatchers (edit, publish, accept, hand over), and eight automatic writers: the solve-result listener, the listeners for cancelled, for rescheduled and for put-back orders, Live Operations' two calls (the late outcome and a superseded put-back), the route re-check job, and the midnight job (`complete`, `abandon`) | A dispatcher gets `STALE_VERSION` (412) and refetches. A listener retries at once, up to three times, then the event registry resubmits it. The version check refuses whichever of a dispatcher and the midnight job saves second, as it does for the other writers; a refused dispatcher then reads a completed or abandoned plan, which no longer changes (BR-118). When the version check refuses the midnight job, it reloads the plan and retries, up to three times like a listener, then alerts the team |
 | `DayRoster` | Dispatchers, and the hand-over listener | The same |
 | `SolveJob` | Its worker, the watchdog, startup recovery and the midnight job | The version check refuses the loser, which finds the job ended (`JobAlreadyEnded`) and stops |
 | `Delivery` | The driver, a dispatcher correcting, reporting on behalf, or confirming or refusing a held report, and the phone's own retries | A retry carries the same idempotency key and gets the stored answer (NFR-65, NFR-130); otherwise the version decides, and the first outcome wins. A dispatcher who confirms a held report that an outcome on the stop's current route has overtaken meanwhile is refused, because the report is no longer held (`ReportNotHeld`) |
 | `RouteRun` | Two first reports from one route at once | The second insert fails on the key, and the report is retried as a change |
 | `StopMessages` | Message triggers and the sender | The sender retries its claim |
 | `Session` | Two tabs refreshing at once | The version decides; within the 30 s grace the second gets a new token that replaces the first one's successor (NFR-178) |
-| `UserAccount` | The person and an Admin | The version decides; `ActiveAdmins` is read under row locks |
+| `UserAccount` | The person and an Admin | The version decides; `ActiveAdmins` is read under row locks, or a table or advisory lock when none is active (FR-291) |
 | `Order`, `Customer` | Dispatchers, imports, geocoding results | The version decides; a geocoding result that arrives after a hand-placed location is ignored |
 | `ImportBatch` | A double-clicked confirm | The second gets `ImportAlreadyConfirmed` |
 | `FleetRegister`, the settings | Admins | The version decides |
@@ -1444,6 +1501,9 @@ flowchart LR
   other modules call), `events` (`<module>/events/`, a package beside `domain`, holding only IDs,
   shared-kernel values and its own enums, so the module's own domain may import it, §3.9), and `spi` (the
   ports it owns for others to implement).
+- **A module's domain splits by aggregate once a package passes 30 files**: `<module>.domain` keeps the
+  module's error and what several packages use, and each aggregate gets `<module>.domain.<aggregate>`.
+  The shared kernel and each `events` package stay flat ([ADR-118]).
 - **An interface only where it earns its place.** Use cases that only the module's own adapters call are
   plain classes. A use case another module calls gets an interface in `api`, because that is the seam a
   remote client replaces if the module is split out. Secondary ports are interfaces because tests replace
@@ -1478,7 +1538,7 @@ flowchart LR
 - **Python** uses Hypothesis for generated instances, and the violation catalogue names the `RuleId` each
   crafted case must trigger (NFR-169).
 - **The architecture is tested too**: Spring Modulith's `verify()`, the purity rules of §3.9, and
-  import-linter in Python.
+  import-linter in Python, with ruff's domain bans: `TID251` for NumPy's randomness, clock and file readers (`load`, `fromfile`, `loadtxt`) and `importlib.import_module`, and `PTH123`, `T20`, `S102` and `S307` ([ADR-113]).
 
 ---
 
@@ -1567,7 +1627,7 @@ where the company's own word differs. "—" in the Hebrew column marks a design 
 | Location | Customers & Orders | A customer's coordinates, geocoded or placed by hand. Not "pin" | מיקום | `Location` |
 | Address flag | Customers & Orders | A doubt about a customer's location (FR-63) | סימון כתובת | `AddressFlag` |
 | Order | Customers & Orders, Planning, Optimization | Goods to deliver to a customer on a date | הזמנה | `Order` |
-| Attempt | Customers & Orders, Live Operations | Which try at delivering an order this is; a put-back starts the next one | ניסיון מסירה | `Attempt` |
+| Attempt | Customers & Orders, Planning, Live Operations (shared kernel) | Which try at delivering an order this is; a put-back starts the next one | ניסיון מסירה | `Attempt` |
 | Put back | Customers & Orders | Returning a failed or dropped order for a new attempt (FR-75, FR-258) | החזרה לתכנון | `Order.putBack` |
 | Reschedule | Customers & Orders | Moving an order to another date (FR-315) | שינוי תאריך | `Order.reschedule` |
 | Leave-at-door order | Customers & Orders | An order the recipient allows to be left at the door; its window is a preference (BR-119) | השארה ליד הדלת | `leaveAtDoor` |
@@ -1578,7 +1638,7 @@ where the company's own word differs. "—" in the Hebrew column marks a design 
 | Route | Planning | One vehicle's and driver's ordered stops in a plan | מסלול | `Route` |
 | Stop | Planning, Live Operations, Messaging | An order's place on a route. Its ID stays the same while it moves between routes | תחנה | `PlannedStop`, `StopId` |
 | Drop | Planning, Optimization | An order a plan leaves unserved, with its reason (FR-144) | לא שובצה | `DroppedOrder` |
-| Solve | Planning | Computing a date's routes from scratch | חישוב מסלולים | `RequestSolve` |
+| Solve | Planning | Computing a date's routes from scratch | חישוב מסלולים | `Plan.requestSolve` |
 | Solve job | Planning | One queued or running call to the optimizer | — | `SolveJob` |
 | Lane | Planning | One of two job queues: daily solves and re-optimizations | — | `Lane` |
 | Basis | Planning | What a result was computed from: for a plan, the solve that made its routes; for a proposal, the revision and time it started from | — | `SolveBasis`, `ProposalBasis` |
@@ -1589,12 +1649,13 @@ where the company's own word differs. "—" in the Hebrew column marks a design 
 | Abandoned plan | Planning | A plan never published by the midnight after its date: final and read-only (BR-12, BR-102, BR-127). Not a *drop*, which is an unserved order | נזנחה | `Plan.Status.Abandoned` |
 | Revision | Planning | A numbered state of a published plan; every change makes one. Not "version" | גרסת תוכנית | `PlanRevision` |
 | Version | All | The technical counter that optimistic locking checks. Never shown | — | `Version` |
-| Re-optimization | Planning, Optimization | Solving the rest of a day from what has happened. Not "re-opt" in text | חישוב מחדש | `RequestReoptimization` |
+| Re-optimization | Planning, Optimization | Solving the rest of a day from what has happened. Not "re-opt" in text | חישוב מחדש | `Plan.requestReoptimization` |
 | Proposal | Planning | A re-optimization's result, waiting for a dispatcher | הצעה | `ReoptimizationProposal` |
 | Hand-over | Planning | Moving a route to another driver during the day | העברת מסלול | `Plan.handOver` |
 | Withdrawn vehicle | Planning, Reporting | A vehicle a re-optimization took off its route after it had served stops (FR-267) | רכב שהוצא | `Withdrawal` |
+| Excluded vehicle | Planning, Optimization | A vehicle a solve left out, with its cause; the fact of a *no vehicle available* drop (FR-197, [ADR-100], [ADR-112]) | — | `ExcludedVehicle` |
 | Served late | Planning | A stop whose fact arrived after the plan moved, dropped or cancelled it (§8) | — | `LateOutcome` |
-| Report | Live Operations | What a driver sends about a stop: arrived, delivered or failed | דיווח | `StopReport` |
+| Report | Live Operations | What a driver sends about a stop: arrived, delivered or failed | דיווח | `DriverReport` |
 | Fact | Live Operations, Planning | Something that happened on the street: an arrival or an outcome | — | — |
 | Delivery | Live Operations | The facts recorded for one stop | מסירה | `Delivery` |
 | Outcome | Live Operations, Customers & Orders | Delivered or failed; the first one wins | תוצאת מסירה | `Outcome` |
@@ -1680,3 +1741,11 @@ Nothing. These ADRs record the decisions of this document:
 [ADR-108]: ../../ADRs/ADR-108-messaging-appends-opt-ins-holds-its-fixed-wording-and-cuts-comments-to-500-characters.md
 [ADR-109]: ../../ADRs/ADR-109-reporting-computes-exact-on-time-shares-from-current-facts-and-keeps-no-personal-data.md
 [ADR-110]: ../../ADRs/ADR-110-audit-records-hold-only-ids-codes-enums-numbers-and-instants-record-refusals-and-are-kept-a-year.md
+[ADR-111]: ../../ADRs/ADR-111-attempt-is-a-shared-kernel-value-and-names-and-addresses-drop-invisible-fillers.md
+[ADR-112]: ../../ADRs/ADR-112-a-re-optimization-keeps-every-order-and-route-a-solve-that-breaks-a-lock-fails-and-publishing-clears-locks.md
+[ADR-113]: ../../ADRs/ADR-113-route-stability-is-its-own-cost-the-rules-read-a-problem-through-a-protocol-and-untimed-outputs-are-documented.md
+[ADR-114]: ../../ADRs/ADR-114-live-operations-reaches-planning-from-its-own-listener-and-names-every-fact-it-judges.md
+[ADR-115]: ../../ADRs/ADR-115-import-rows-keep-their-own-recipient-put-backs-raise-an-event-and-orders-clamp-a-stepped-back-clock.md
+[ADR-116]: ../../ADRs/ADR-116-only-an-admin-changes-their-own-email.md
+[ADR-117]: ../../ADRs/ADR-117-each-outgoing-message-keeps-the-phone-it-goes-to.md
+[ADR-118]: ../../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md

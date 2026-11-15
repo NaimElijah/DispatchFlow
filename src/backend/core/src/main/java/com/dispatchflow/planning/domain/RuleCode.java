@@ -8,8 +8,9 @@ import java.util.regex.Pattern;
 /**
  * The rule a violation breaks, as the optimizer names it: a requirement row's ID such as {@code
  * BR-03} or {@code FR-91} (BR-16, BR-57). It is opaque, because the rules exist once, in the Python
- * validator (BR-42): Planning compares codes and shows them, and knows one, {@link #SHIFTS}, for the
- * hand-over check (FR-304).
+ * validator (BR-42): Planning compares codes and shows them. It knows the two a hand-over reads,
+ * {@link #SHIFTS} and {@link #BREAK_RESERVE} (FR-304), and the one it reports itself, {@link #LOCKS}
+ * (FR-238).
  *
  * @param value the row ID
  */
@@ -19,6 +20,19 @@ public record RuleCode(String value) {
 
     /** BR-06, routes stay within the driver's shift: the rule a hand-over may break (FR-304). */
     public static final RuleCode SHIFTS = new RuleCode("BR-06");
+
+    /**
+     * BR-105, the break reserve: a late return that breaks a shift breaks it too, so a confirmed
+     * hand-over waives both (FR-304, ADR-112).
+     */
+    public static final RuleCode BREAK_RESERVE = new RuleCode("BR-105");
+
+    /**
+     * FR-147, a locked route kept as its lock says: the rule {@code Plan.locksBrokenBy} reports for
+     * a lock a daily solve didn't keep, until the optimizer has a lock rule of its own (FR-238,
+     * ADR-105, ADR-112).
+     */
+    public static final RuleCode LOCKS = new RuleCode("FR-147");
 
     /**
      * Checks the code.

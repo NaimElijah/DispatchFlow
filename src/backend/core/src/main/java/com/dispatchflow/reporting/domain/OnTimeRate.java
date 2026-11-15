@@ -21,8 +21,9 @@ import java.util.Set;
  * (FR-264, BR-03). A leave-at-door stop is served on arrival, so it is on time only when it is
  * reached inside its window, both ends included (FR-370, BR-122). A stop of a cancelled order is
  * left out, delivered or not (BR-30), and a failed or unreported stop counts in neither part
- * (FR-339). The rate is computed from the effective outcomes each time it is asked, so a correction
- * made later changes it (FR-333).
+ * (FR-264), while the summary shows failed stops beside the rate (FR-339). The rate is computed
+ * from the effective outcomes each time it is asked, so a correction made later changes it
+ * (FR-333).
  */
 public sealed interface OnTimeRate {
 

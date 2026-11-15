@@ -19,29 +19,34 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-029](ADR-029-solver-objective-and-re-optimization-rules.md) | How both solvers trade drops, moved stops, lateness and travel time | Accepted; extended by ADR-032, ADR-048, ADR-049, ADR-053 and ADR-091 |
 | [ADR-030](ADR-030-admin-issued-credentials-and-token-revocation.md) | Admins issue drivers' credentials, and a revoked access token is refused at once | Superseded by ADR-036 |
 | [ADR-031](ADR-031-sms-through-an-israeli-provider-for-recipient-messages.md) | Messages to recipients go by SMS through an Israeli provider, from a two-way virtual number | Accepted |
-| [ADR-108](ADR-108-messaging-appends-opt-ins-holds-its-fixed-wording-and-cuts-comments-to-500-characters.md) | Messaging appends opt-ins to the opt-out history, holds its fixed wording, and cuts comments to 500 characters | Accepted |
+| [ADR-108](ADR-108-messaging-appends-opt-ins-holds-its-fixed-wording-and-cuts-comments-to-500-characters.md) | Messaging appends opt-ins to the opt-out history, holds its fixed wording, and cuts comments to 500 characters | Accepted; amended by ADR-117 |
+| [ADR-117](ADR-117-each-outgoing-message-keeps-the-phone-it-goes-to.md) | Each outgoing message keeps the phone it goes to, and the opt-out word is read from a reply's first 500 code points | Accepted |
 | [ADR-032](ADR-032-leave-at-door-windows-are-preferences.md) | A leave-at-door order's time window is a preference, priced into the objective | Accepted; extended by ADR-048; amended by ADR-100 |
 | [ADR-035](ADR-035-both-apps-serve-every-role.md) | Both apps serve Admins, Dispatchers and Drivers | Accepted; extended by ADR-076 and ADR-083; amended by ADR-037 and ADR-039 |
 | [ADR-036](ADR-036-one-account-per-person-signed-in-by-email.md) | Each person has one account, signed in with their email, holding one or more roles | Accepted; extended by ADR-069; amended by ADR-045 |
-| [ADR-040](ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md) | The core is a Spring Modulith monolith with one module per bounded context, checked in CI | Accepted; extended by ADR-097 |
-| [ADR-097](ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md) | The shared kernel also holds the building blocks every module's domain uses | Accepted; extended by ADR-106 |
-| [ADR-106](ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md) | Free text is normalized and capped by one kernel rule, and personal values carry a marker | Accepted |
+| [ADR-040](ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md) | The core is a Spring Modulith monolith with one module per bounded context, checked in CI | Accepted; extended by ADR-097 and ADR-118 |
+| [ADR-118](ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md) | A domain package above 30 files splits into one package per aggregate, over a root that holds the module's error | Accepted |
+| [ADR-097](ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md) | The shared kernel also holds the building blocks every module's domain uses | Accepted; extended by ADR-106 and ADR-111 |
+| [ADR-106](ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md) | Free text is normalized and capped by one kernel rule, and personal values carry a marker | Accepted; extended by ADR-111 |
+| [ADR-111](ADR-111-attempt-is-a-shared-kernel-value-and-names-and-addresses-drop-invisible-fillers.md) | Attempt is a shared-kernel value, and names and addresses drop invisible fillers | Accepted |
 | [ADR-041](ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md) | Each module owns a PostgreSQL schema, read and written through jOOQ by a role that owns no table | Accepted |
 | [ADR-043](ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md) | Code is generated from both contracts on both sides, and errors are RFC 9457 Problem Details | Accepted; extended by ADR-068, ADR-073, ADR-087 and ADR-094 |
 | [ADR-094](ADR-094-each-pull-requests-contract-check-compares-against-its-base-branch.md) | Each pull request's contract check compares against its base branch | Accepted |
 | [ADR-044](ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md) | The solver port takes a start, a budget and a seed, and `Problem` alone judges a solution | Accepted; extended by ADR-050 and ADR-099; amended by ADR-105 |
-| [ADR-045](ADR-045-generation-counters-revoke-tokens.md) | Generation counters on the user and the session revoke tokens | Accepted |
+| [ADR-045](ADR-045-generation-counters-revoke-tokens.md) | Generation counters on the user and the session revoke tokens | Accepted; amended by ADR-104 |
 | [ADR-048](ADR-048-travel-times-from-buckets-and-a-buffer-with-no-live-traffic.md) | Travel times come from time-of-day buckets and a buffer, with no live traffic | Accepted; amended by ADR-098 |
 | [ADR-098](ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) | The validator works in double precision, compares limits within 1e-6, and rounds only product travel times | Accepted |
 | [ADR-099](ADR-099-a-route-may-carry-the-starts-its-solver-claims.md) | A route may carry the service starts its solver claims, and the validator checks them | Accepted |
 | [ADR-049](ADR-049-drop-penalty-unit-k-scaled-by-priority.md) | An order's drop penalty is K times 6 minus its priority, with K = 5L + 2T + F + 1 | Accepted; amended by ADR-100 and ADR-105 |
 | [ADR-100](ADR-100-k-covers-door-windows-outside-a-shift-and-no-vehicle-is-a-drop-reason.md) | K's L covers door windows outside a shift, and *no vehicle available* is a drop reason | Accepted; amended by ADR-105 |
 | [ADR-050](ADR-050-re-optimization-conventions-live-only-in-the-python-problem-factory.md) | Re-optimization conventions live only in the Python problem factory | Accepted; extended by ADR-105 |
-| [ADR-105](ADR-105-a-re-optimizations-problem-carries-its-conventions-and-only-a-vehicle-that-is-out-has-no-driver.md) | A re-optimization's problem carries its conventions, and only a vehicle that is out has no driver | Accepted |
+| [ADR-105](ADR-105-a-re-optimizations-problem-carries-its-conventions-and-only-a-vehicle-that-is-out-has-no-driver.md) | A re-optimization's problem carries its conventions, and only a vehicle that is out has no driver | Accepted; amended by ADR-112 and ADR-113 |
+| [ADR-113](ADR-113-route-stability-is-its-own-cost-the-rules-read-a-problem-through-a-protocol-and-untimed-outputs-are-documented.md) | Route stability is a cost of its own, the rules read a problem through a protocol, and untimed and past-the-day outputs are documented | Accepted |
 | [ADR-051](ADR-051-one-solver-worker-per-lane-killed-30-seconds-past-its-limit.md) | Each lane has one solver worker process, killed 30 seconds past its limit | Accepted |
 | [ADR-052](ADR-052-each-plan-stores-the-matrix-and-values-it-was-solved-with.md) | Each plan stores the travel-time matrix and the values it was solved with | Accepted |
 | [ADR-053](ADR-053-plan-lifecycle-publishing-stability-drop-reasons-and-abandoned-plans.md) | A plan follows one lifecycle that ends in completed, cancelled or abandoned, and every drop has a reason | Accepted; amended by ADR-100 and ADR-101 |
-| [ADR-101](ADR-101-completed-plans-take-late-outcomes-as-revisions-and-routes-keep-an-index.md) | A completed plan takes late outcomes as revisions, a hand-over takes an optional check, and each route keeps an index from 1 to 30 | Accepted |
+| [ADR-101](ADR-101-completed-plans-take-late-outcomes-as-revisions-and-routes-keep-an-index.md) | A completed plan takes late outcomes as revisions, a hand-over takes an optional check, and each route keeps an index from 1 to 30 | Accepted; amended by ADR-112 |
+| [ADR-112](ADR-112-a-re-optimization-keeps-every-order-and-route-a-solve-that-breaks-a-lock-fails-and-publishing-clears-locks.md) | A re-optimization keeps every order and route, a solve that breaks a lock fails, and publishing clears locks | Accepted |
 | [ADR-054](ADR-054-publishing-re-checks-every-route-against-the-current-fleet.md) | Publishing re-checks every route against the current fleet and orders | Accepted |
 | [ADR-055](ADR-055-accepting-a-re-optimization-checks-the-vehicles-it-keeps-driving.md) | Accepting a re-optimization checks the vehicles it keeps driving | Accepted |
 | [ADR-056](ADR-056-accepting-a-re-optimization-checks-changes-recorded-since-its-basis.md) | Accepting a re-optimization re-checks every change recorded since its preview | Accepted |
@@ -53,7 +58,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-062](ADR-062-fleet-checks-the-driver-role-when-it-reads.md) | Fleet asks Access for the Driver role each time it reads a driver, and keeps no copy | Accepted |
 | [ADR-103](ADR-103-fleet-normalizes-plates-keeps-one-pair-of-depot-hours-holds-no-vehicle-in-weekly-shifts-and-retires-and-anonymizes-drivers-through-events.md) | Fleet normalizes plates, keeps one pair of depot hours, holds no vehicle in weekly shifts, and retires and anonymizes drivers through events | Accepted |
 | [ADR-063](ADR-063-a-transaction-changes-one-aggregate-and-every-rule-has-one-owner.md) | A transaction changes one existing aggregate, and every business rule has exactly one owner | Accepted |
-| [ADR-064](ADR-064-events-only-where-they-earn-their-place-through-the-modulith-registry.md) | Events exist only where they earn their place, and Spring Modulith's registry delivers them | Accepted; amended by ADR-107 |
+| [ADR-064](ADR-064-events-only-where-they-earn-their-place-through-the-modulith-registry.md) | Events exist only where they earn their place, and Spring Modulith's registry delivers them | Accepted; amended by ADR-101, ADR-103, ADR-104, ADR-107 and ADR-115 |
 | [ADR-065](ADR-065-facts-outrank-intent.md) | Facts outrank intent: an accepted report stands, the plan is corrected, and a person is told | Accepted |
 | [ADR-066](ADR-066-every-asynchronous-step-has-a-watcher.md) | Every asynchronous step that crosses a commit has a watcher | Accepted |
 | [ADR-067](ADR-067-live-arrivals-propagate-delay-along-stored-legs-when-asked.md) | Live arrival times propagate delay along the stored legs, and are computed when asked | Accepted |
@@ -63,11 +68,13 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-084](ADR-084-maplibre-in-both-apps-with-self-hosted-protomaps-tiles.md) | Both apps draw maps with MapLibre, from self-hosted Protomaps tiles | Accepted |
 | [ADR-085](ADR-085-govmap-geocodes-addresses-with-nominatim-as-the-fallback.md) | GovMap geocodes addresses, and self-hosted Nominatim replaces it only if GovMap's terms fail | Accepted |
 | [ADR-086](ADR-086-csv-imports-upload-then-confirm-within-an-hour.md) | An order import is two calls, upload then confirm within an hour, and writes every row or none | Accepted; extended by ADR-102 |
-| [ADR-102](ADR-102-order-references-are-checked-on-every-move-to-a-date.md) | Order references are checked on every move to a date, and the abbreviation table starts with three | Accepted |
+| [ADR-102](ADR-102-order-references-are-checked-on-every-move-to-a-date.md) | Order references are checked on every move to a date, and the abbreviation table starts with three | Accepted; amended by ADR-115 |
+| [ADR-115](ADR-115-import-rows-keep-their-own-recipient-put-backs-raise-an-event-and-orders-clamp-a-stepped-back-clock.md) | An import row keeps its own recipient, a put-back onto another date raises `OrderPutBack`, and Orders' commands clamp a clock that stepped back | Accepted |
 | [ADR-087](ADR-087-driver-reports-sync-through-an-idempotent-outbox.md) | Driver reports wait in an outbox on the phone and reach the server with a user-scoped idempotency key | Accepted |
-| [ADR-107](ADR-107-live-operations-alerts-once-per-key-corrects-a-put-back-by-event-and-treats-a-reschedule-as-a-cancellation.md) | Live Operations alerts once per key, corrects a put-back by event, and treats a reschedule as a cancellation | Accepted |
-| [ADR-109](ADR-109-reporting-computes-exact-on-time-shares-from-current-facts-and-keeps-no-personal-data.md) | Reporting computes exact on-time shares from current facts and keeps no personal data | Accepted |
-| [ADR-088](ADR-088-israel-local-time-for-every-date-and-schedule.md) | Every date, time window, shift and schedule is Israel local time, held as elapsed seconds in a solve | Accepted |
+| [ADR-107](ADR-107-live-operations-alerts-once-per-key-corrects-a-put-back-by-event-and-treats-a-reschedule-as-a-cancellation.md) | Live Operations alerts once per key, corrects a put-back by event, and treats a reschedule as a cancellation | Accepted; amended by ADR-114 |
+| [ADR-114](ADR-114-live-operations-reaches-planning-from-its-own-listener-and-names-every-fact-it-judges.md) | Live Operations reaches Planning from its own listener, and names every fact it judges | Accepted |
+| [ADR-109](ADR-109-reporting-computes-exact-on-time-shares-from-current-facts-and-keeps-no-personal-data.md) | Reporting computes exact on-time shares from current facts and keeps no personal data | Accepted; extended by ADR-112 |
+| [ADR-088](ADR-088-israel-local-time-for-every-date-and-schedule.md) | Every date, time window, shift and schedule is Israel local time, held as elapsed seconds in a solve | Accepted; amended by ADR-098 |
 | [ADR-089](ADR-089-interface-languages.md) | Both apps are available in Hebrew, right to left, and in English only | Accepted |
 | [ADR-090](ADR-090-scope-cuts-for-the-first-release.md) | The first release cuts ten capabilities, and each has its own trigger to reopen | Accepted |
 | [ADR-091](ADR-091-study-design-for-the-solver-comparison.md) | The solver comparison follows eleven fixed design choices, and a mutation run checks the validator first | Accepted |
@@ -113,12 +120,13 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-079](ADR-079-client-errors-and-crashes-go-to-self-hosted-glitchtip.md) | Client errors and crashes go to GlitchTip on the VM, through the Sentry SDKs | Accepted |
 | **Security and personal data** | | |
 | [ADR-068](ADR-068-every-web-handler-is-authorized-by-role-from-the-contract.md) | Every web handler is authorized by role, from the `x-capability` of its contract operation | Accepted; amended by ADR-104 |
-| [ADR-104](ADR-104-the-company-profile-holds-customer-defaults-and-capabilities-follow-the-role-matrix.md) | The company profile holds a new customer's defaults, and capabilities follow the role matrix | Accepted |
+| [ADR-104](ADR-104-the-company-profile-holds-customer-defaults-and-capabilities-follow-the-role-matrix.md) | The company profile holds a new customer's defaults, and capabilities follow the role matrix | Accepted; amended by ADR-116 |
+| [ADR-116](ADR-116-only-an-admin-changes-their-own-email.md) | Only an Admin changes their own email | Accepted |
 | [ADR-069](ADR-069-sign-in-and-transport-security.md) | Sign-in uses signed access tokens, rotating refresh tokens and Argon2id, over HTTPS through Caddy | Accepted |
 | [ADR-070](ADR-070-security-and-accessibility-standards.md) | We self-check against OWASP ASVS 5.0 Level 1 and build to WCAG 2.2 AA, with no separate target for IS 5568 | Accepted |
 | [ADR-071](ADR-071-api-rate-limits-in-process-with-bucket4j.md) | API rate limits run in the core's process, with Bucket4j | Accepted |
 | [ADR-075](ADR-075-retention-deletes-records-and-anonymizes-people-in-place.md) | Retention deletes positions, proofs and messages, and anonymizes customers and drivers in place | Accepted; amended by ADR-102 |
-| [ADR-110](ADR-110-audit-records-hold-only-ids-codes-enums-numbers-and-instants-record-refusals-and-are-kept-a-year.md) | Audit records hold only IDs, codes, enums, numbers and instants, record refusals, and are kept a year | Accepted |
+| [ADR-110](ADR-110-audit-records-hold-only-ids-codes-enums-numbers-and-instants-record-refusals-and-are-kept-a-year.md) | Audit records hold only IDs, codes, enums, numbers and instants, record refusals, and are kept a year | Accepted; extended by ADR-114 |
 | [ADR-076](ADR-076-admin-and-dispatcher-data-stays-in-memory-on-devices.md) | Admin and Dispatcher data stays in memory on devices, and sign-out wipes it | Accepted |
 | [ADR-077](ADR-077-push-builds-and-app-stores-are-accepted-exceptions-to-hosting-in-israel.md) | Push, app builds, the app stores and map-app links are accepted exceptions to hosting in Israel, on conditions | Accepted |
 
@@ -131,6 +139,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > requirements and the design documents for the team. ADR-037 to ADR-047 were accepted then, and
 > ADR-048 to ADR-093 record the rest, including every decision the requirements marked
 > `ADR pending`. ADR-094 to ADR-096, on 2026-11-14, settle three points that were found still open
-> afterwards. ADR-097 onward, from 2026-11-14, record decisions taken while the domain layer was
-> being built. The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what
-> is still open.
+> afterwards. ADR-097 to ADR-110, from 2026-11-14, record decisions taken while the domain layer was
+> being built. ADR-111 to ADR-118, on 2026-11-15, record the owner's decisions on the review of that
+> layer, and the split of its packages. The tech stack's
+> [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.

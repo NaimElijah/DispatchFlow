@@ -359,6 +359,21 @@ REFUSED = [
     ),
     pytest.param({"durations": [[0, NAN], [100, 0]]}, r"no road.*\[0, 1\]", id="roads disagree"),
     pytest.param(
+        {"durations": [[NAN, 10], [10, NAN]], "distances": [[NAN, 100], [100, NAN]]},
+        r"^durations\[0, 0\] must be 0, from a location to itself: nan$",
+        id="no road on the diagonal",
+    ),
+    pytest.param(
+        {"durations": [[0, 100], [100, 5]]},
+        r"^durations\[1, 1\] must be 0, from a location to itself: 5\.0$",
+        id="a duration on the diagonal",
+    ),
+    pytest.param(
+        {"distances": [[0, 1_000], [1_000, 1e-9]]},
+        r"^distances\[1, 1\] must be 0, from a location to itself: 1e-09$",
+        id="a distance on the diagonal",
+    ),
+    pytest.param(
         {"orders": [an_order(priority=2.7)]}, r"priority\[0\].*int.*2\.7", id="priority 2.7"
     ),
     pytest.param(
@@ -404,6 +419,16 @@ REFUSED = [
     ),
     pytest.param({"orders": [an_order(weight_kg=-1)]}, r"weight_kg\[0\]", id="negative weight"),
     pytest.param({"orders": [an_order(weight_kg=10**400)]}, "weight_kg", id="weight overflow"),
+    pytest.param(
+        {"orders": [an_order(weight_kg=True), an_order(weight_kg=2.5)]},
+        r"^orders\.weight_kg\[0\] must be a number: True$",
+        id="a bool among weights",
+    ),
+    pytest.param(
+        {"orders": [an_order(), an_order(service_s=np.True_)]},
+        r"^orders\.service_s\[1\] must be a number: np\.True_$",
+        id="a NumPy bool among service times",
+    ),
     pytest.param({"orders": [an_order(service_s=-5)]}, r"service_s\[0\]", id="negative service"),
     pytest.param({"orders": [an_order(location=7)]}, r"location.*7", id="order location"),
     pytest.param({"orders": [an_order(location=2**64)]}, "location", id="location overflow"),

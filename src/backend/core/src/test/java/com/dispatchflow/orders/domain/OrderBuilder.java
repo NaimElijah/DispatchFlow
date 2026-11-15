@@ -13,6 +13,7 @@ import static com.dispatchflow.orders.domain.OrdersTestData.kilograms;
 import static com.dispatchflow.orders.domain.OrdersTestData.litres;
 import static com.dispatchflow.orders.domain.OrdersTestData.tenToNoon;
 
+import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.Priority;
 import com.dispatchflow.shared.Version;

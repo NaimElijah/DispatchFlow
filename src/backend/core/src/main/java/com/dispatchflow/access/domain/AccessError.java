@@ -15,6 +15,22 @@ public sealed interface AccessError extends DomainError {
     /** Another account already holds the address (BR-45, FR-392). It names neither. */
     record EmailInUse() implements AccessError {}
 
+    /**
+     * Another account asked to change an Admin's email, which only that Admin may do (FR-387,
+     * ADR-116). It is refused when the link would be sent, and when it is used if the account became
+     * an Admin in between. When the link is used, the link page answers it as it answers {@link
+     * LinkVoided}, so the holder of the new mailbox learns nothing about the account's roles.
+     */
+    record EmailOfAnotherAdmin() implements AccessError {}
+
+    /**
+     * The Admin giving the account the Admin role is the one whose email-change link set its
+     * email; another Admin must give it (ADR-116). Otherwise an Admin could take another's Admin
+     * role, point the address at their own mailbox, recover the account and give the role back,
+     * and hold two of BR-19's Admins.
+     */
+    record EmailSetByAnotherAccount() implements AccessError {}
+
     /** An Admin gave a user no role (FR-02). */
     record NoRoleGiven() implements AccessError {}
 
@@ -40,6 +56,19 @@ public sealed interface AccessError extends DomainError {
 
     /** A new password on the list of the most common ones (NFR-95). */
     record PasswordTooCommon() implements AccessError {}
+
+    /**
+     * A new password holding half of a surrogate pair without the other half, which no encoding
+     * represents reliably, so the hash of what was typed could differ from the hash of what is
+     * checked later (NFR-95).
+     */
+    record PasswordHasUnpairedSurrogate() implements AccessError {}
+
+    /**
+     * The account has no password yet: its set-password link was never used, so it can't sign in
+     * (FR-294). The sign-in endpoint answers it as it answers a wrong password (NFR-145).
+     */
+    record PasswordNotSet() implements AccessError {}
 
     /**
      * The account is deactivated, so it can't sign in, and only reactivating it, anonymizing it or

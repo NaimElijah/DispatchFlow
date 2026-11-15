@@ -69,6 +69,9 @@ class RuleId(StrEnum):
     """A re-optimization adds no stop to a finished route, and a withdrawn route counts as
     finished."""
     BR_119 = "BR-119"
-    """A leave-at-door stop is served within its driver's shift and on its date."""
+    """A leave-at-door stop is served within its driver's shift and on its date. Only the shift
+    end is checked: it lies on the date (FR-190), and a daily route leaves no earlier than the
+    shift starts. A re-optimization's route may leave before the shift starts, when its vehicle is
+    already on the road, and a door stop served then is accepted (BR-23, ADR-105)."""
     FR_91 = "FR-91"
     """A pinned order is served by its pinned vehicle or driver, or dropped (FR-91, FR-228)."""
