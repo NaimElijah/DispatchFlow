@@ -171,8 +171,9 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
   table ([ADR-041], [TS §6.3]). Not in the tree yet: today Spring Boot runs Flyway when the core
   starts.
 - Optimistic locking is `UPDATE … WHERE id = ? AND version = ?` on the root table. Zero rows updated
-  answers 412 `STALE_VERSION`, through `ETag` and `If-Match`. Child tables carry no version
-  ([ADR-057], [TS §6.3]).
+  answers 412 `STALE_VERSION`, through `ETag` and `If-Match`, on a call that sent a version. A call
+  that sent none is retried at once, up to three times, then answered 503 with `Retry-After`
+  ([ADR-121]). Child tables carry no version ([ADR-057], [TS §6.3]).
 - The `e2e` profile's test-only endpoints exist only in that profile, and the profile refuses to
   boot when the SMS credential is present, with a test for each (NFR-206, [TS §17.1]).
 - No Lombok: records and plain classes ([TS §6]).
@@ -249,6 +250,7 @@ Windows).
 [ADR-118]: ../../../docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md
 [ADR-119]: ../../../docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md
 [ADR-120]: ../../../docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md
+[ADR-121]: ../../../docs/ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md
 [NFR-176]: ../../../docs/requirements/requirements.md#nfr-176
 [DL §1]: ../../../docs/architecture/domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts
 [DL §2.1]: ../../../docs/architecture/domain_layer/domain_layer_design.md#21-module-graph
