@@ -130,6 +130,16 @@ On 2026-11-15 the owner, Naim Elijah, decided:
   alternative explains why; the matching forms fold only what a keyboard or a word processor
   substitutes for a character, not what another script draws alike. Such a pair still differs by
   its plate, which is unique on its own ([BR-48]).
+- **Risk:** the matching forms use NFC, not NFKC, so compatibility forms still differ from their
+  plain letters: the "ﬁ" ligature (U+FB01) from "fi", a fullwidth "１" (U+FF11) or a mathematical
+  bold "𝟏" (U+1D7CF) from "1". Some substitutes are not folded yet either:
+  - the Hebrew maqaf (U+05BE), U+02D7, U+2043 and U+FE58 against "-";
+  - the modifier-letter apostrophe U+02BC against the geresh;
+  - a hair space (U+200A) between two characters against none, because the key folds it into a
+    space rather than removing it.
+
+  Folding these, for example with NFKC in the keys only, is the next change if a lookalike pair
+  appears in use.
 
 ## Alternatives considered
 
