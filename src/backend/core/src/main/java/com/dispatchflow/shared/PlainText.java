@@ -14,8 +14,10 @@ import org.jspecify.annotations.Nullable;
  * ends: whitespace, space separators such as the no-break space, format characters such as the
  * zero-width space, Unicode's default-ignorable code points such as the Hangul fillers and the
  * combining grapheme joiner, and the blank Braille pattern (ADR-106, ADR-111). A variation selector
- * at the end belongs to the character before it, as an emoji's does, so it is trimmed only with an
- * invisible character it follows. The interior is kept as entered, except that a {@link
+ * at the end belongs to the character before it, as an emoji's does. In a name or an address it
+ * stays only after an emoji, a character that {@link Character#isExtendedPictographic} accepts,
+ * and is trimmed after anything else, such as a letter or a digit; in a note it is trimmed only
+ * with an invisible character it follows. The interior is kept as entered, except that a {@link
  * TextKind#NOTE}'s carriage returns become line feeds. It holds at most its {@link TextKind}'s cap
  * in code points, and none of these:
  *
@@ -24,8 +26,11 @@ import org.jspecify.annotations.Nullable;
  *   <li>a line or paragraph separator (U+2028, U+2029), other than in a note;
  *   <li>an interior format character in a name or an address, other than U+061C and U+200C to
  *       U+200F;
- *   <li>an interior invisible filler in a name or an address: U+034F, U+115F, U+1160, U+2800,
- *       U+3164 or U+FFA0, which would make two names or addresses look alike (BR-48, ADR-111);
+ *   <li>an interior invisible filler in a name or an address, which would make two names or
+ *       addresses look alike (BR-48, ADR-111): a default-ignorable code point that is not a
+ *       format character, such as a Hangul filler, the combining grapheme joiner or a Khmer
+ *       inherent vowel; the blank Braille pattern; or a variation selector that follows neither
+ *       an emoji nor another selector that follows one;
  *   <li>a bidi embedding, override or isolate control, in any kind;
  *   <li>an unpaired surrogate, or a private-use or unassigned code point.
  * </ul>
@@ -60,15 +65,6 @@ public final class PlainText {
 
     /** Renders as an empty cell, though Unicode does not class it as ignorable. */
     private static final int BRAILLE_PATTERN_BLANK = 0x2800;
-
-    /**
-     * The invisible characters a name or an address refuses inside it: the combining grapheme
-     * joiner, the Hangul choseong, jungseong, compatibility and halfwidth fillers, and the blank
-     * Braille pattern. Each renders as nothing, so "Van 1" with one inside looks like "Van 1" with
-     * none. Most other zero-width characters are format characters, which these kinds refuse
-     * already; the variation selectors are kept, because emoji need them.
-     */
-    private static final int[] INVISIBLE_FILLERS = {0x034F, 0x115F, 0x1160, BRAILLE_PATTERN_BLANK, 0x3164, 0xFFA0};
 
     /**
      * Unicode's variation selectors, as of Unicode 15: the Mongolian free variation selectors, VS1
@@ -116,11 +112,11 @@ public final class PlainText {
             throw new RuleViolation(new TextTooLong(kind, kind.maxLength()));
         }
         String lines = kind.allowsLineFeed() ? withLineFeeds(raw) : raw;
-        String normal = trimmed(Normalizer.normalize(lines, Normalizer.Form.NFC));
+        String normal = trimmed(Normalizer.normalize(lines, Normalizer.Form.NFC), kind);
         if (normal.codePointCount(0, normal.length()) > kind.maxLength()) {
             throw new RuleViolation(new TextTooLong(kind, kind.maxLength()));
         }
-        if (normal.codePoints().anyMatch(codePoint -> isForbidden(codePoint, kind))) {
+        if (holdsForbidden(normal, kind)) {
             throw new RuleViolation(new TextHasForbiddenCharacters(kind));
         }
         return new PlainText(kind, normal);
@@ -193,10 +189,10 @@ public final class PlainText {
 
     /**
      * At the start nothing comes before a variation selector, so it goes with the rest. At the end
-     * a run of selectors stays when a visible character comes before it, so an emoji keeps its
-     * presentation.
+     * a run of selectors stays when the character before it carries selectors, so an emoji keeps
+     * its presentation.
      */
-    private static String trimmed(String text) {
+    private static String trimmed(String text, TextKind kind) {
         int start = 0;
         int end = text.length();
         while (start < end && isInvisible(text.codePointAt(start))) {
@@ -206,7 +202,7 @@ public final class PlainText {
             int last = text.codePointBefore(end);
             if (isVariationSelector(last)) {
                 int runStart = startOfSelectorRun(text, start, end);
-                if (runStart > start && !isInvisible(text.codePointBefore(runStart))) {
+                if (runStart > start && carriesSelectors(text.codePointBefore(runStart), kind)) {
                     break;
                 }
                 end = runStart;
@@ -225,6 +221,38 @@ public final class PlainText {
             runStart -= Character.charCount(text.codePointBefore(runStart));
         }
         return runStart;
+    }
+
+    /**
+     * A name or an address keeps a variation selector only after an emoji, or after a selector that
+     * follows one: after a letter or a digit it renders as nothing, so "Van 1" with one would look
+     * like "Van 1" without (BR-48).
+     */
+    private static boolean holdsForbidden(String text, TextKind kind) {
+        boolean selectorBelongs = false;
+        int index = 0;
+        while (index < text.length()) {
+            int codePoint = text.codePointAt(index);
+            if (isVariationSelector(codePoint)) {
+                if (!(selectorBelongs || kind.allowsInvisibleFillers())) {
+                    return true;
+                }
+            } else if (isForbidden(codePoint, kind)) {
+                return true;
+            } else {
+                selectorBelongs = Character.isExtendedPictographic(codePoint);
+            }
+            index += Character.charCount(codePoint);
+        }
+        return false;
+    }
+
+    /**
+     * Whether a run of variation selectors at the end stays with the character before it. A note
+     * keeps the run after any visible character, as it keeps every selector inside it.
+     */
+    private static boolean carriesSelectors(int base, TextKind kind) {
+        return kind.allowsInvisibleFillers() ? !isInvisible(base) : Character.isExtendedPictographic(base);
     }
 
     /**
@@ -258,13 +286,15 @@ public final class PlainText {
                 || isInAny(codePoint, DEFAULT_IGNORABLE);
     }
 
+    /**
+     * The format characters among the default-ignorable code points have a rule of their own, and
+     * the variation selectors one that depends on the character before them.
+     */
     private static boolean isInvisibleFiller(int codePoint) {
-        for (int filler : INVISIBLE_FILLERS) {
-            if (codePoint == filler) {
-                return true;
-            }
-        }
-        return false;
+        return codePoint == BRAILLE_PATTERN_BLANK
+                || (isInAny(codePoint, DEFAULT_IGNORABLE)
+                        && Character.getType(codePoint) != Character.FORMAT
+                        && !isVariationSelector(codePoint));
     }
 
     private static boolean isVariationSelector(int codePoint) {

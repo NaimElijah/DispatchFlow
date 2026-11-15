@@ -27,7 +27,10 @@ fillers U+115F, U+1160, U+3164 and U+FFA0, the combining grapheme joiner U+034F,
 Braille pattern U+2800. They were neither trimmed nor refused, so "Van 1" followed by U+3164 was
 accepted beside "Van 1" as a second vehicle ([BR-48]), and an address ending in U+3164 made a
 duplicate customer. Access's `EmailAddress` already refuses the Hangul fillers, because two
-addresses would look alike.
+addresses would look alike. A security review of the first fix found two more holes of the same
+kind: the Khmer inherent vowels U+17B4 and U+17B5, default-ignorable but not format characters,
+passed inside a name; and a variation selector after a letter or a digit was kept, so "Van 1"
+followed by U+FE0F was a second name beside "Van 1", though both look the same.
 
 ## Decision
 
@@ -44,11 +47,21 @@ On 2026-11-15 the owner, Naim Elijah, decided:
    exception to rule 1 that each context models its own copy no longer applies to it.
 2. **Names and addresses drop invisible fillers.** `PlainText` trims from both ends every code
    point it counts as invisible: whitespace, space separators, format characters, Unicode's
-   default-ignorable code points and U+2800. A variation selector belongs to the character before
-   it, so at the end it is trimmed only together with an invisible character it follows, and an
-   emoji keeps its presentation. Inside a `NAME` or an `ADDRESS`, `PlainText` refuses U+034F,
-   U+115F, U+1160, U+2800, U+3164 and U+FFA0 with `TextHasForbiddenCharacters`. A `NOTE` keeps them
-   inside, and no kind refuses a variation selector, because emoji need them ([BR-48], [FR-398]).
+   default-ignorable code points and U+2800. Inside a `NAME` or an `ADDRESS`, `PlainText` refuses
+   with `TextHasForbiddenCharacters` every default-ignorable code point that is not a format
+   character (category Cf), such as U+034F, U+115F, U+1160, U+17B4, U+17B5, U+3164 and U+FFA0, and
+   U+2800. Format characters keep [ADR-106]'s rule, which allows U+061C and U+200C to U+200F inside
+   a name or an address. A `NOTE` keeps them all inside ([BR-48], [FR-398]).
+
+   A variation selector belongs to the character before it. In a `NAME` or an `ADDRESS` it stays
+   only right after an emoji, a base for which the JDK's `Character.isExtendedPictographic` is
+   true, or after another variation selector that follows one, so "Dana ❤️" keeps its emoji
+   presentation. After anything else, such as a letter or a digit, it renders as nothing: it is
+   refused inside the text and trimmed at the ends, so "Van 1" followed by U+FE0F equals "Van 1"
+   ([BR-48]). A `NOTE` keeps every variation selector inside it, and one at its end after any
+   visible character; at its end a selector is trimmed only together with an invisible character
+   it follows. In every kind a leading selector is trimmed.
+
    This extends [ADR-106], step 4 (what is trimmed) and step 7 (what is refused). Its step 6 needs
    no check of its own any more: text made only of invisible characters is trimmed to empty.
 
@@ -64,6 +77,9 @@ On 2026-11-15 the owner, Naim Elijah, decided:
 - **Hard:** a name or an address that really uses a filler or the grapheme joiner inside it, such
   as old Hangul written with conjoining jamo, or Hebrew with the joiner between two marks, is
   refused. A note still takes it.
+- **Hard:** a name or an address with a variation selector after a base that is not an emoji is
+  refused: a keycap emoji such as "1️⃣" (a digit, U+FE0F, U+20E3), a Mongolian free variation
+  selector, or an ideographic variation selector after a CJK ideograph. A note still takes it.
 - **Cost:** none. Both rules use only the JDK.
 - **Risk:** stored names and addresses that hold a filler inside fail to load as damaged state once
   this rule ships. No module stores text yet, so there is nothing to migrate.
@@ -77,16 +93,21 @@ On 2026-11-15 the owner, Naim Elijah, decided:
   stored state, and every other kernel value refuses with a `SharedKernelError` and leaves stored
   paths to `whileRestoring`.
 - **Refuse every default-ignorable code point inside a name or an address.** Rejected: the variation
-  selectors are default-ignorable, and an emoji in a name needs them.
-- **Trim a trailing variation selector too.** Rejected: "Dana ❤️" would lose its emoji
-  presentation.
+  selectors are default-ignorable, and an emoji in a name needs them. Only the selectors that follow
+  an emoji are kept.
+- **Trim every trailing variation selector too.** Rejected: "Dana ❤️" would lose its emoji
+  presentation. Only one that follows no emoji is trimmed.
+- **Keep a variation selector after any visible character in a name or an address.** Rejected:
+  after a letter or a digit it renders as nothing, so "Van 1" with U+FE0F was a second vehicle
+  beside "Van 1" ([BR-48]).
 - **Fold the fillers into the format-character rule.** Not chosen: they are not format characters,
   and a note allows format characters for reasons of its own. `TextKind` names the filler rule on
   its own, `allowsInvisibleFillers()`.
 
 ## Revisit when
 
-- A real name or address is refused for a filler or a grapheme joiner inside it.
+- A real name or address is refused for a filler or a grapheme joiner inside it, or for a
+  variation selector after a base that is not an emoji, such as a keycap.
 - A context needs an attempt with a rule of its own, such as a cap on put-backs.
 - The JDK moves to a newer Unicode version, which may add invisible fillers or variation
   selectors.

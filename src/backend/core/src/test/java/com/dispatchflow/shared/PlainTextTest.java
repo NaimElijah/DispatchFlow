@@ -130,11 +130,11 @@ class PlainTextTest {
     }
 
     /**
-     * Hangul fillers, the blank Braille pattern and the combining grapheme joiner, which BR-48's
-     * "Van 1" must not hide at either end (ADR-111).
+     * Hangul fillers, the blank Braille pattern, the combining grapheme joiner and the Khmer
+     * inherent vowels, which BR-48's "Van 1" must not hide at either end (ADR-111).
      */
     @ParameterizedTest
-    @ValueSource(ints = {0x3164, 0x115F, 0x1160, 0xFFA0, 0x2800, 0x034F})
+    @ValueSource(ints = {0x3164, 0x115F, 0x1160, 0xFFA0, 0x2800, 0x034F, 0x17B4, 0x17B5})
     void GivenAnInvisibleFillerAtAnEnd_WhenBuilt_ThenItIsTrimmed(int codePoint) {
         String filler = Character.toString(codePoint);
 
@@ -148,7 +148,7 @@ class PlainTextTest {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {0x3164, 0x115F, 0x1160, 0xFFA0, 0x2800, 0x034F})
+    @ValueSource(ints = {0x3164, 0x115F, 0x1160, 0xFFA0, 0x2800, 0x034F, 0x17B4, 0x17B5})
     void GivenAnInteriorInvisibleFillerInANameOrAddress_WhenBuilt_ThenTextHasForbiddenCharacters(int codePoint) {
         String raw = "Van" + Character.toString(codePoint) + "1";
 
@@ -157,7 +157,7 @@ class PlainTextTest {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {0x3164, 0x115F, 0x1160, 0xFFA0, 0x2800, 0x034F})
+    @ValueSource(ints = {0x3164, 0x115F, 0x1160, 0xFFA0, 0x2800, 0x034F, 0x17B4, 0x17B5})
     void GivenAnInteriorInvisibleFillerInANote_WhenBuilt_ThenItIsKept(int codePoint) {
         String raw = "Ring" + Character.toString(codePoint) + "twice";
 
@@ -173,6 +173,62 @@ class PlainTextTest {
         for (TextKind kind : TextKind.values()) {
             assertThat(PlainText.of(kind, raw)).isEqualTo(PlainText.of(kind, "Van 1"));
         }
+    }
+
+    /**
+     * VS16, VS15, an ideographic variation selector and a Mongolian free variation selector: after a
+     * digit each renders as nothing, so BR-48's "Van 1" must not hide one at its end (ADR-111).
+     */
+    @ParameterizedTest
+    @ValueSource(ints = {0xFE0F, 0xFE0E, 0xE0100, 0x180B})
+    void GivenAVariationSelectorAfterADigitAtTheEndOfANameOrAddress_WhenBuilt_ThenItIsTrimmed(int codePoint) {
+        String raw = "Van 1" + Character.toString(codePoint);
+
+        assertThat(PlainText.of(TextKind.NAME, raw)).isEqualTo(PlainText.of(TextKind.NAME, "Van 1"));
+        assertThat(PlainText.of(TextKind.ADDRESS, raw)).isEqualTo(PlainText.of(TextKind.ADDRESS, "Van 1"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0xFE0F, 0xFE0E, 0xE0100, 0x180B})
+    void GivenAVariationSelectorAfterALetterInsideANameOrAddress_WhenBuilt_ThenTextHasForbiddenCharacters(
+            int codePoint) {
+        String raw = "Van" + Character.toString(codePoint) + " 1";
+
+        assertRefused(() -> PlainText.of(TextKind.NAME, raw), new TextHasForbiddenCharacters(TextKind.NAME));
+        assertRefused(() -> PlainText.of(TextKind.ADDRESS, raw), new TextHasForbiddenCharacters(TextKind.ADDRESS));
+    }
+
+    @Test
+    void GivenAVariationSelectorAfterASpaceInsideAName_WhenBuilt_ThenTextHasForbiddenCharacters() {
+        String raw = "Van " + Character.toString(0xFE0F) + "1";
+
+        assertRefused(() -> PlainText.of(TextKind.NAME, raw), new TextHasForbiddenCharacters(TextKind.NAME));
+    }
+
+    @Test
+    void GivenAnEmojiWithAVariationSelectorInsideANameOrAddress_WhenBuilt_ThenItIsUnchanged() {
+        String raw = "Dana " + Character.toString(0x2764) + Character.toString(0xFE0F) + " Levi";
+
+        assertThat(PlainText.of(TextKind.NAME, raw).text()).isEqualTo(raw);
+        assertThat(PlainText.of(TextKind.ADDRESS, raw).text()).isEqualTo(raw);
+    }
+
+    /** A selector that follows an emoji's selector still belongs to the emoji. */
+    @Test
+    void GivenTwoVariationSelectorsAfterAnEmojiInAName_WhenBuilt_ThenBothAreKept() {
+        String emoji = Character.toString(0x2764) + Character.toString(0xFE0E) + Character.toString(0xFE0F);
+
+        assertThat(PlainText.of(TextKind.NAME, "Dana " + emoji + " Levi").text())
+                .isEqualTo("Dana " + emoji + " Levi");
+        assertThat(PlainText.of(TextKind.NAME, "Dana " + emoji).text()).isEqualTo("Dana " + emoji);
+    }
+
+    @Test
+    void GivenAVariationSelectorAfterALetterInANote_WhenBuilt_ThenItIsKept() {
+        String selector = Character.toString(0xFE0F);
+
+        assertThat(PlainText.of(TextKind.NOTE, "Van" + selector + " 1").text()).isEqualTo("Van" + selector + " 1");
+        assertThat(PlainText.of(TextKind.NOTE, "Van 1" + selector).text()).isEqualTo("Van 1" + selector);
     }
 
     @Test

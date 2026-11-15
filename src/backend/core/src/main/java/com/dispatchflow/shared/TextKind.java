@@ -59,10 +59,17 @@ public enum TextKind {
 
     /**
      * Whether text of this kind may hold, inside it, the invisible fillers that are not format
-     * characters: the combining grapheme joiner (U+034F), the Hangul fillers (U+115F, U+1160,
-     * U+3164, U+FFA0) and the blank Braille pattern (U+2800). In a name or an address one would
-     * make two values look alike (BR-48, ADR-111). Every kind trims them from its ends, and none
-     * refuses a variation selector, which emoji need.
+     * characters: Unicode's default-ignorable code points that are not of category Cf, such as the
+     * combining grapheme joiner (U+034F), the Hangul fillers (U+115F, U+1160, U+3164, U+FFA0) and
+     * the Khmer inherent vowels (U+17B4, U+17B5), and the blank Braille pattern (U+2800). In a name
+     * or an address one would make two values look alike (BR-48, ADR-111). Every kind trims them
+     * from its ends.
+     *
+     * <p>A variation selector is a filler too, unless it follows an emoji (a character that {@link
+     * Character#isExtendedPictographic} accepts) or another selector that follows one. So a kind
+     * that refuses fillers keeps a heart emoji, U+2764 U+FE0F, but refuses a selector after a
+     * letter or a digit inside it, and trims one at its end. A kind that allows fillers keeps every
+     * selector inside it, and one at its end after any visible character.
      *
      * @return {@code true} for {@link #NOTE} only
      */
