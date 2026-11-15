@@ -4,8 +4,9 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Names a report held for a dispatcher's decision (BR-132). A local ID: only its {@link Delivery}
- * and the dispatcher's screen name it, so it is not in the shared kernel.
+ * Names a report held for a dispatcher's decision (BR-132). A local ID: only its {@link
+ * com.dispatchflow.liveops.domain.delivery.Delivery} and the dispatcher's screen name it, so it is
+ * not in the shared kernel.
  *
  * @param value the UUID
  */
