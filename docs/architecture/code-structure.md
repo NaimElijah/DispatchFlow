@@ -149,8 +149,8 @@ and so are the kernel's domain types and every `events` package. `shared/applica
 of its own, beside them
 ([ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
 The 30-file threshold applies to every source folder, so an application package above it splits by
-aggregate too: Planning's `service` and `port/out`, Access's `service` and Live Operations'
-`service` are split. A test sits in the package of the type it tests, and a refusal test may sit
+aggregate too: Planning's `service` and `port/out`, Access's `service`, and Live Operations'
+`service` and `port/out` are split. A test sits in the package of the type it tests, and a refusal test may sit
 anywhere under its error's package.
 
 Each module also has an `application` package, declared ahead of its milestone and not built
@@ -330,7 +330,7 @@ conventions that review enforces.
 The application rules are ArchUnit tests too, in `ApplicationRules`, listed in
 [`core/CLAUDE.md`](../../src/backend/core/CLAUDE.md#rules); rules 1 to 7 are
 [ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)'s
-decision 10.
+decision 10, with rule 4 extended and rule 8 added by [ADR-121](../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md).
 
 [Tech stack §2.2](tech_stack.md#22-enforcement) also plans Spring Modulith's `verify()` for the
 Alpha

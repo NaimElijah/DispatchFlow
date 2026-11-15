@@ -1,6 +1,6 @@
 # ADR-087: Driver reports wait in an outbox on the phone and reach the server with a user-scoped idempotency key
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-121
 - **Date:** 2026-11-13
 
 ## Context

@@ -22,8 +22,9 @@ places:
 - **in rules the requirements already state:** views without the version their writes need, a
   sign-out that needs an access token, and phone writes without a request key.
 
-Most fixes follow an accepted row or ADR. Thirteen needed a decision. Naim took each on 2026-11-15,
-all as recommended.
+Most fixes follow an accepted row or ADR. Eighteen needed a decision: thirteen after the review
+(decisions 1 to 13), and five after a seven-reviewer re-review of the fixes (decisions 14 to 18). Naim
+took each on 2026-11-15, all as recommended.
 
 ## Decision
 
@@ -37,6 +38,8 @@ all as recommended.
    - They are fixed named values, which no screen edits.
    - A Planning port answers them, and the core sends them in every problem, as [ADR-029] asks ("from
      `core`'s settings").
+   - Reporting's baseline needs the same values. It reads them through a port of its own, bound to the
+     same configuration, when M5 settles the baseline's travel inputs.
 2. **The optimizer applies the departure allowance and a handed-over route's confirmed return.**
    - Python's `ProblemFactory` gains `departure_allowance` in M0 and a per-driver `confirmed_return`
      in M9, as [ADR-050] keeps every convention there.
@@ -48,18 +51,31 @@ all as recommended.
      in the job's success transaction.
    - When every location is already there, a re-optimization adds only the position rows, as before.
 
-   This amends [ADR-052]'s "a re-optimization adds rows only".
+   This amends [ADR-052]'s "a re-optimization adds rows only", and the same rule in [ADR-120]
+   decision 8.
 4. **A conflict on a call that sends no version is retried, then answered 503.**
    - The web adapter retries the call at once, up to three times, as a listener does ([DL §11][DL-11]).
      It then answers 503 with `Retry-After`, so a phone's outbox backs off and sends again ([ADR-087]).
    - 412 stays only for a call that sent `If-Match`.
-   - Fourteen calls are of this kind: the driver's reports, positions, start, finish and problems; the
-     link pages; and the own-account changes.
+   - Fourteen calls are of this kind:
+     - the driver's reports, positions, start, finish, problems and acknowledgement of a route change;
+     - a dispatcher's fill of the roster, and an outcome recorded on a driver's behalf;
+     - the two link pages;
+     - the own-account changes: the terms, the language, the password and the step-up.
+   - The SMS provider's callback (`ReceiveReply`) gets the same answer, and the provider sends it again.
+   - A use case hands an email over only after its commit, so a retry never repeats one.
+
+   This amends [ADR-057]'s "a stale version answers 412" for calls that send no version.
 5. **Before M5's sign-in,** the web adapter builds the `Actor` from a stand-in session of a seeded
-   account, in the dev and test profiles only. Every other profile refuses it. The `web` ADR records
-   how.
+   account.
+   - The stand-in exists only when `dev` or `test` is the only active profile, and the core refuses to
+     boot otherwise. A test checks the refusal, and M5 deletes the stand-in.
+   - The `web` ADR records how.
 6. **The Alpha's access token.** Until M6 builds refresh, the dev profile alone sets a longer
-   access-token lifetime. Every other profile keeps [NFR-86]'s 15 minutes.
+   access-token lifetime.
+   - Outside `dev`, the core refuses to boot with any lifetime but [NFR-86]'s 15 minutes, which M5
+     tests.
+   - This extends [ADR-069]'s 15-minute token.
 7. **M2 builds two calls that its order screens use.**
    - `OrderPlacement.placementOf` reads the Planning view `placementsOn` reads.
    - `StopProgress` answers "no report" for every stop until M5 completes it.
@@ -71,10 +87,15 @@ all as recommended.
      after the plan's date ([NFR-257], [NFR-260]).
    - The positions in a re-optimization job's input are blanked after 7 days ([NFR-184]).
    - A Planning retention job does both.
+
+   This also amends [ADR-052]'s "each plan stores its own matrix with its location list", and extends
+   [ADR-075]'s table of what retention removes.
 9. **The nightly retention run is built in M13,** before real data arrives. That covers every
    retention, anonymization, purge and erase job, and the roadmap's M13 row lists it.
-10. **Email-change links are limited to 5 an hour per account** ([FR-411], new).
-    - The web adapter counts them with Bucket4j, as [ADR-071] counts [FR-172]'s recovery attempts.
+10. **Email-change links are limited to 5 an hour per account that requests them** ([FR-411], new;
+    decision 15 settles the key).
+    - The web adapter counts them with Bucket4j, as [ADR-071]'s buckets count every limit, and as
+      [ADR-120] P13 leaves [FR-172]'s per-account limit to the adapter.
     - Without the limit, enough bounced links would get the company's sending suspended, and recovery
       emails would stop for everyone.
 11. **A late report's alert is raised before the stop moves.**
@@ -83,17 +104,43 @@ all as recommended.
       `ReconcileLateOutcome`.
     - The alert's key makes a repeat harmless. So a failure between the two steps can't lose the alert
       ([BR-89]), as it could when the move came first.
+    - This amends [ADR-065], whose listener raised the alert after the move.
 12. **A superseded put-back ends the order's put-back attempt.**
     - After Planning removes the later stop ([FR-404]), Live Operations calls a new Customers & Orders
-      `api`, which returns the order to its earlier attempt. Its status then derives *delivered*, and
-      no solve plans it again.
+      `api`, which returns the order to its earlier attempt, with that attempt's date and window
+      (decision 18). Its status then derives *delivered*, and no solve plans it again.
     - The domain method is a gap for M8.
+    - This extends [ADR-114], whose listener made only the Planning call.
 13. **Route locks and personal-data requests.**
     - `LockRoute` and `UnlockRoute` stay, marked "Built in an unscheduled milestone". This is an
       exception to [ADR-120]'s P11, because the domain already holds locks ([ADR-112]). The locks are
       not sent until the optimizer has a lock rule.
     - Correcting and deleting a person's data on request ([NFR-49], [NFR-185]) is left out until M13
       and the legal advice ([Q-42]), with the exports [ADR-120] decision 9 leaves out.
+    - Fleet's depot-geocoding port is not declared until M7, as [ADR-120] P4 already says. It is listed
+      with those left-out items.
+14. **Three new solve failure reasons** ([FR-65]):
+    - *search failed* (`SOLVER_FAILED`);
+    - *no solution within the limit* (`NO_SOLUTION_WITHIN_BUDGET`);
+    - *request refused* (`REQUEST_REFUSED`): an unknown solver, an unsupported budget or an invalid
+      problem, which is a fault for the team.
+
+    `SolveFailureReason` gains them. The optimizer adapter maps `SearchFailure` and
+    `OptimizerRefusedRequest` to them, so the dispatcher can tell "try a longer limit" from "the system
+    is broken".
+15. **FR-411 counts the account that asks.** The bucket is keyed by the signed-in requester, so a user
+    who aims requests at another account can't spend that account's limit.
+16. **A 404 on a phone write marks the outbox row refused,** as 409 and 422 do. A report on a route no
+    plan holds any more then no longer blocks the route's later reports. This extends [ADR-087]'s
+    sender rules.
+17. **Each revision's stops keep the window, service time and door flag their solve took,** as
+    [ADR-052] keeps the legs.
+    - `PublishedStopFact` reads them from there. So the projections build every leg, including a
+      put-back's, a rescheduled order's, and a stop served after a cancellation.
+    - This is a Planning domain change for M5.
+18. **A put-back keeps the earlier attempt's date and window.** Ending it (decision 12) restores both,
+    frees the later date's capacity ([BR-101]) and skips the past-date check. This is an Orders domain
+    change for M8.
 
 ### Settled by following accepted rows and ADRs
 
@@ -101,8 +148,8 @@ These continue [ADR-120]'s placements.
 
 - **P16. The optimizer's failures carry a kind.**
   - A failed search is `SearchFailedError`, with a closed `SearchFailure`: solver failed, or no
-    solution within the budget. Its value is the contract's code, which Reporting's `RefusalCause` maps
-    without reading text.
+    solution within the budget. Its value is the code the contract will carry. Planning maps it to
+    decision 14's reasons, and Reporting's `RefusalCause` maps it without reading text.
   - An unknown solver or an unsupported budget is a refused request. The core gets it as
     `OptimizerRefusedRequest`.
   - Planning refuses a solver the optimizer doesn't offer, before its transaction (`SolverNotOffered`,
@@ -121,9 +168,12 @@ These continue [ADR-120]'s placements.
   - position rows to every location, depots included, with Python judging which positions are usable.
 - **P19. Phone writes take a request key** ([ADR-087]): starting a route, finishing it and reporting a
   problem, as stop reports and positions already do.
-- **P20. Sign-out needs only the refresh token** ([NFR-01]). A revocation is written without a version
-  check: a session only moves from live to revoked, so no conflict can lose a sign-out or a reuse
-  revocation.
+- **P20. Sign-out needs only the refresh token** ([NFR-01]). A revocation is saved without a version
+  check.
+  - The domain revokes the session (`Session.revoke`, or `exchange` on a reused token). The repository
+    writes the revoked state only over a live row, since a session only moves from live to revoked.
+  - So no conflict can lose a sign-out or a reuse revocation.
+  - This amends [ADR-057]'s "`save` checks the version" for that one write.
 - **P21. The roster that feeds a solve keeps only drivers whose standing is active** ([ADR-062]).
   - A hand-over asks Fleet's `assignability` before its transaction ([DL §4.2][DL-42]).
   - A late report finds its order and attempt from the revision in force at the corrected time.
@@ -137,6 +187,7 @@ These continue [ADR-120]'s placements.
   `OptimizerUnavailable`, `GeocoderUnavailable` and `RoadSnapUnavailable`.
   - The geocoder answers a point and a match quality, or nothing. Ambiguity is a quality, and the
     distance to the nearest road is a port of its own, because OSRM reports it.
+  - Reporting names its own outage error for the baseline, since it can't import Planning's.
   - This amends [ADR-085]'s four-case port shape.
 - **P26. Refusals outside a use case.** The web adapter's file reader writes the refused-attempt record
   for a file it can't read. This extends [ADR-120] decision 1's list of refusals made before a use case
@@ -147,8 +198,23 @@ These continue [ADR-120]'s placements.
 
   Each check has a unit test. They are the only tests besides the architecture rules.
 - **P28. Two rules join [ADR-120] decision 10:**
-  - rule 4 also checks each implementation's package and name;
-  - a new rule 8 keeps Reporting to the other modules' events (P5).
+  - rule 4 also checks each implementation's package and name. It skips a sealed interface only when
+    every permitted subclass is a record or an enum, so a sealed port is refused;
+  - a new rule 8 keeps Reporting to the events of Live Operations, Planning and Customers & Orders,
+    and to Access's `Actor` (P5).
+- **P29. The application errors the review added, with their statuses,** join [ADR-120] decision 7's
+  list:
+  - `SolverNotOffered` 422;
+  - `RouteNotStarted` 409, the *not started* answer [ADR-107] gives the application;
+  - `ProofFormatRefused` and `ProofImageUnreadable`, both 422, so the phone's outbox marks the row
+    refused.
+
+  `OptimizerRefusedRequest` and the outage errors never reach a client as themselves.
+- **P30. Two of [ADR-120]'s settled shapes change:**
+  - Planning reads `StopOrders` for the printable route only; the loading list takes weight and volume
+    from the plan.
+  - Live Operations reads each stop's window, service time and door flag from `PublishedRoutes`
+    (decision 17), and only locations and last change times from `OrdersForDate`.
 
 ## Consequences
 
@@ -158,17 +224,19 @@ These continue [ADR-120]'s placements.
   - The phone's outbox has a rule for every answer it can get.
   - No retention job is unscheduled.
 - **Hard:**
-  - Python's `ProblemFactory` gains three inputs, at M0, M7 and M9.
-  - Planning gains a retention job.
-  - The domain document changes in §6.2, §8, §9.6 and §9.7.
+  - Python's `ProblemFactory` gains three inputs: the departure allowance at M0, the service-area flag
+    at M7, and the confirmed return at M9.
+  - Planning gains a retention job and three failure reasons.
+  - The domain document changes in §4.3 (`Order`), §4.4 (`PlannedStop`), §6.2, §8, §9.6 and §9.7.
 - **Cost:**
-  - One new requirement row.
+  - One new requirement row (FR-411), and FR-65's three new reasons.
   - A configuration block for four values.
   - A full matrix fetch when a re-optimization meets a new address: one OSRM call, under 5 s for 216
     points ([NFR-57]).
 - **Risk:**
-  - The dev profile's stand-in session or its longer token reaches another profile. The web adapter
-    refuses both outside dev and test, and M0's tests check it.
+  - The dev profile's stand-in session or its longer token reaches another profile. The core refuses to
+    boot with the stand-in unless `dev` or `test` is the only active profile, and with the longer token
+    outside `dev`. M0 and M5 test both refusals.
   - A full re-fetch gives an existing pair a different time than the plan was solved with, after
     OSRM's monthly refresh. The stored legs keep the times each revision was planned with ([ADR-052]).
 
@@ -193,8 +261,8 @@ These continue [ADR-120]'s placements.
 
 ## Revisit when
 
-- M0 writes the `web` ADR: the stand-in session, the longer token, and the retry-then-503 answer are
-  checked there.
+- M0 writes the `web` ADR. It checks the stand-in session, the longer token and the retry-then-503
+  answer, and it settles which HTTP status each domain error gets and the 401 challenge.
 - The optimizer has a lock rule, or [FR-147] is scheduled.
 - The legal advice ([Q-42]) arrives, which sets M13's personal-data steps and the retention periods.
 - Re-fetching whole matrices for re-optimizations costs more than [NFR-07]'s limit allows.
@@ -203,22 +271,29 @@ These continue [ADR-120]'s placements.
 [ADR-029]: ADR-029-solver-objective-and-re-optimization-rules.md
 [ADR-050]: ADR-050-re-optimization-conventions-live-only-in-the-python-problem-factory.md
 [ADR-052]: ADR-052-each-plan-stores-the-matrix-and-values-it-was-solved-with.md
+[ADR-057]: ADR-057-concurrent-changes-to-a-plan-use-optimistic-locking.md
 [ADR-062]: ADR-062-fleet-checks-the-driver-role-when-it-reads.md
+[ADR-065]: ADR-065-facts-outrank-intent.md
 [ADR-069]: ADR-069-sign-in-and-transport-security.md
 [ADR-071]: ADR-071-api-rate-limits-in-process-with-bucket4j.md
+[ADR-075]: ADR-075-retention-deletes-records-and-anonymizes-people-in-place.md
 [ADR-085]: ADR-085-govmap-geocodes-addresses-with-nominatim-as-the-fallback.md
 [ADR-087]: ADR-087-driver-reports-sync-through-an-idempotent-outbox.md
+[ADR-107]: ADR-107-live-operations-alerts-once-per-key-corrects-a-put-back-by-event-and-treats-a-reschedule-as-a-cancellation.md
 [ADR-108]: ADR-108-messaging-appends-opt-ins-holds-its-fixed-wording-and-cuts-comments-to-500-characters.md
 [ADR-110]: ADR-110-audit-records-hold-only-ids-codes-enums-numbers-and-instants-record-refusals-and-are-kept-a-year.md
 [ADR-112]: ADR-112-a-re-optimization-keeps-every-order-and-route-a-solve-that-breaks-a-lock-fails-and-publishing-clears-locks.md
+[ADR-114]: ADR-114-live-operations-reaches-planning-from-its-own-listener-and-names-every-fact-it-judges.md
 [ADR-119]: ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md
 [ADR-120]: ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md
 [BR-89]: ../requirements/requirements.md#driver-reports-and-outcomes
+[BR-101]: ../requirements/requirements.md#time-and-limits
 [BR-105]: ../requirements/requirements.md#routing-constraints
 [BR-115]: ../requirements/requirements.md#solving-dropping-and-validation
 [BR-120]: ../requirements/requirements.md#solving-dropping-and-validation
 [FR-20]: ../requirements/requirements.md#daily-planning
 [FR-35]: ../requirements/requirements.md#live-operations-and-re-optimization
+[FR-65]: ../requirements/requirements.md#daily-planning
 [FR-75]: ../requirements/requirements.md#live-operations-and-re-optimization
 [FR-81]: ../requirements/requirements.md#fleet-depots-and-shifts
 [FR-146]: ../requirements/requirements.md#manual-editing
