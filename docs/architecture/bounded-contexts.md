@@ -16,7 +16,9 @@ several packages use, once it passes 30 files
 root and `plan`, `solution`, `basis`, `revision`, `reconciliation` and `settings`; Live Operations
 `delivery`, `alert` and `routerun`; Recipient Messaging `message`, `rating` and `settings`; Access
 `account`, `session` and `companyprofile`; Fleet `register`, `roster` and `driver`. Customers &
-Orders, Reporting and Audit, the shared kernel and every `events` package stay flat.
+Orders, Reporting and Audit, the kernel's domain types and every `events` package stay flat.
+`shared/application/` is a package of its own, beside the kernel's domain types
+([ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
 
 The decided design is in the
 [domain layer design](domain_layer/domain_layer_design.md): the contexts in
@@ -28,5 +30,7 @@ the layout inside a module is in [tech stack §4](tech_stack.md#4-repository-lay
 [domain layer design §13](domain_layer/domain_layer_design.md#13-inside-each-module-hexagon).
 
 This file will describe the contexts as built once their application layers are built and their
-adapters exist. What each module's `application` package declares, and the conventions it follows
-(the `Actor` and the `CallContext`, `shared/application`, query ports), is in [ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md).
+adapters exist.
+[ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)
+holds the conventions the application layers follow (the `Actor` and the `CallContext`,
+`shared/application`, query ports), not what each module declares: each package lists that itself.

@@ -139,8 +139,10 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
   what belongs together. A module's domain splits into one package per aggregate, over a root that
   holds its error and shared values ([ADR-118]). Files the language binds stay together
   (package-private access, a sealed hierarchy), and so do files in a dependency cycle. Never widen
-  production visibility or add a package cycle to split. The shared kernel and each `events`
-  package stay flat. Each new package carries `@NullMarked` in its `package-info.java`.
+  production visibility or add a package cycle to split. The same threshold applies to an
+  application package, which splits by aggregate too. The kernel's domain types and each `events`
+  package stay flat; `shared/application/` is a package of its own ([ADR-120]). Each new package
+  carries `@NullMarked` in its `package-info.java`.
 
 ## Testing
 
@@ -222,5 +224,6 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 [ADR-088]: ../docs/ADRs/ADR-088-israel-local-time-for-every-date-and-schedule.md
 [ADR-090]: ../docs/ADRs/ADR-090-scope-cuts-for-the-first-release.md
 [ADR-118]: ../docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md
+[ADR-120]: ../docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md
 [NFR-209]: ../docs/requirements/requirements.md#nfr-209
 [NFR-262]: ../docs/requirements/requirements.md#nfr-262

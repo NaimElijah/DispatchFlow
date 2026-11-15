@@ -44,8 +44,10 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
   A module's domain splits into `domain/<aggregate>/` packages over a root, `domain/`, that holds
   the module's error and what several packages use ([ADR-118]). `access`, `fleet`, `liveops`,
   `messaging` and `planning` are split; `orders`, `reporting` and `audit` are flat, and so are
-  `shared/` and every `events/`. Planning's packages are `plan`, `solution`, `basis`, `revision`,
-  `reconciliation` and `settings`.
+  the kernel's domain types and every `events/`. Planning's packages are `plan`, `solution`,
+  `basis`, `revision`, `reconciliation` and `settings`. The threshold applies to every source
+  folder, so an application package above 30 files splits by aggregate too: Planning's `service` and
+  `port/out`, Access's `service` and Live Operations' `service` are split.
 - `src/main/resources/db/migration/` holds the Flyway migrations, which [ADR-041] keeps from
   ADR-007.
 - `src/test/java/com/dispatchflow/` holds the tests, `TestcontainersConfiguration` (PostgreSQL
@@ -108,14 +110,20 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
   fixture under `archfixture/zeta/`:
   1. The application layer and `shared/application/` import only the JDK, JSpecify, the kernel, their
      own module's `domain`, `events` and `application`, and other modules' `api`, `spi` and `events`.
-     From Spring they take only `@Transactional` and its enums ([TS §2.2]).
+     They import no `adapter`, their own module's included, and no libphonenumber or JTS. From
+     Spring they take only `@Transactional` and its enums ([TS §2.2]); Spring Modulith's
+     annotations sit on a `package-info` only. `shared/application/` also falls under the kernel's
+     purity rules, so it takes no `@Transactional`.
   2. Modules depend on each other along [DL §2.1]'s arrows and no others.
   3. No `api` or `spi` type uses a domain type.
   4. Each `api` interface has exactly one implementation, in its own module. Each `spi` interface has
-     exactly one, in another module.
+     exactly one, in the module that DL §2.1's dashed arrow names (`SPI_IMPLEMENTERS`). Sealed
+     interfaces are skipped.
   5. Every application package is `@NullMarked`.
   6. No class in a `domain` or `events` package, or in the kernel root, imports
      `shared.application`, so a domain can't reach the `Clock` port.
+  7. No cycle between a module's application packages, and the `service` and `port/out` roots import
+     none of their own subpackages ([ADR-118]'s rules, carried to the application).
 - Package rules (`DomainPackageRules`, [ADR-118]): no cycle between a module's domain packages, a
   domain root that imports none of its own subpackages, and every kernel, domain and `events`
   package is `@NullMarked`. A module's domain never gets a subpackage to dodge a rule: nothing is

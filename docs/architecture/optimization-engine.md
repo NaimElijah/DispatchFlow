@@ -21,8 +21,10 @@ the `ProblemView` protocol and never import `problem`; the parts a problem holds
 ([ADR-113](../ADRs/ADR-113-route-stability-is-its-own-cost-the-rules-read-a-problem-through-a-protocol-and-untimed-outputs-are-documented.md)).
 
 Nothing calls it yet. The `application` package is declared ahead of its milestones and not built
-([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)): the `Solver` port, `SolverRegistry`, `Budget` and `Stopwatch` in `ports.py`, the requests
-and outcomes, and five use cases, `Solve`, `Reoptimize`, `Evaluate`, `Baseline` and `ListSolvers`.
+([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)):
+the `Solver` protocol, `SolverRegistry`, `Budget` (the alias over `TimeLimit | IterationLimit |
+SolutionLimit`) and the `Stopwatch` protocol in `ports.py`, the requests and outcomes, and five use
+cases, `Solve`, `Reoptimize`, `Evaluate`, `Baseline` and `ListSolvers`.
 Every body that would do work raises `NotImplementedError("Built in M<n>")`. No solver implements
 the port, and each `solvers` folder holds only a `.gitkeep`.
 [ADR-098](../ADRs/ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) fixes the

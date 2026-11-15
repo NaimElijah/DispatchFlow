@@ -145,8 +145,13 @@ The shared kernel exists
 files splits into one package per aggregate, over a root that holds the module's error
 ([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)): `access`,
 `fleet`, `liveops`, `messaging` and `planning` are split, `orders`, `audit` and `reporting` are flat,
-and so are the kernel and every `events` package. A test sits in the package of the type it tests,
-and a refusal test may sit anywhere under its error's package.
+and so are the kernel's domain types and every `events` package. `shared/application/` is a package
+of its own, beside them
+([ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
+The 30-file threshold applies to every source folder, so an application package above it splits by
+aggregate too: Planning's `service` and `port/out`, Access's `service` and Live Operations'
+`service` are split. A test sits in the package of the type it tests, and a refusal test may sit
+anywhere under its error's package.
 
 Each module also has an `application` package, declared ahead of its milestone and not built
 ([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)).
@@ -324,8 +329,10 @@ The application rules are ArchUnit tests too, in `ApplicationRules`
 [ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
 They cover the application's allowed imports, the module graph of [domain layer design
 §2.1](domain_layer/domain_layer_design.md#21-module-graph), the domain types an `api` or `spi` may
-not use, one implementation per `api` and `spi`, `@NullMarked` application packages, and no domain,
-`events` or kernel-root class importing `shared.application`.
+not use, one implementation per `api` in its module and per `spi` in the module its dashed arrow names,
+`@NullMarked` application packages, and no domain, `events` or kernel-root class importing
+`shared.application`. A last rule forbids a cycle between a module's application packages, and a
+`service` or `port/out` root importing its own subpackages.
 
 [Tech stack §2.2](tech_stack.md#22-enforcement) also plans Spring Modulith's `verify()` for the
 Alpha

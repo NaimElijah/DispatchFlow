@@ -9,7 +9,7 @@ The domain layer of every context is built ahead of its milestone ([roadmap §2]
 above it yet:
 - the core has no `application` package;
 - the optimizer's `application` package holds only a docstring;
-- both contracts declare only liveness.
+- the client contract declares no operation, and the optimization contract only liveness.
 
 [TS §6.2][TS-62] and [DL §13][DL-13] say what the application layer is: one class per use case; an
 `api` for what other modules call; an `spi` for the ports a module owns for others to implement; and
@@ -44,8 +44,9 @@ answers this ADR records ([#81]).
      - constructors that store their fields;
      - records' compact constructors, which only check for null and copy collections;
      - the redacted `toString` of a record that holds personal data;
-     - the codes and accessors of `NotFound` and `StaleVersion`, and the accessors of `ProofUpload`,
-       a class because a record would compare its bytes by identity.
+     - the constructors and `code()` of the application error types named in [ADR-120] decision 7;
+     - `Actor`'s check of its `CallContext`;
+     - the accessors of `ProofUpload`, a class because a record would compare its bytes by identity.
 3. **A use case's constructor declares its dependencies:** its ports, `AuditLog` and other modules'
    `api`. So the ArchUnit rules of [ADR-120] check the module graph now, not at each milestone.
 4. **Nothing is wired.** The skeleton carries no Spring annotation and registers no bean, so no request,
