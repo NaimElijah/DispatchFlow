@@ -12,7 +12,7 @@ import java.util.Optional;
  * <p>Built in M8.
  *
  * @param kind what was done
- * @param from the route the stop left, for {@link Kind#MOVED_FROM_ROUTE}; empty otherwise
+ * @param from the route the stop left, present exactly for {@link Kind#MOVED_FROM_ROUTE}
  */
 public record ReconciliationFact(Kind kind, Optional<RouteId> from) {
 
@@ -34,9 +34,19 @@ public record ReconciliationFact(Kind kind, Optional<RouteId> from) {
         PLAN_CANCELLED
     }
 
-    /** Checks both parts are present, possibly empty. */
+    /**
+     * Checks both parts are present, and that {@code from} is present exactly for a moved stop.
+     *
+     * @throws IllegalArgumentException when {@code from} is present for another kind, or empty for
+     *     {@link Kind#MOVED_FROM_ROUTE}
+     */
     public ReconciliationFact {
         Objects.requireNonNull(kind, "kind");
         Objects.requireNonNull(from, "from");
+        // Live Operations' alert names the route a stop left, so only a move may carry one, and a
+        // move must.
+        if (from.isPresent() != (kind == Kind.MOVED_FROM_ROUTE)) {
+            throw new IllegalArgumentException("from is present exactly for MOVED_FROM_ROUTE");
+        }
     }
 }

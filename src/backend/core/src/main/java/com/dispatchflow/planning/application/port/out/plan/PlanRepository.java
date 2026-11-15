@@ -15,7 +15,7 @@ import java.util.Optional;
  * saves it, and stores the events it raised with the change, in the same transaction (DL §3.6,
  * ADR-064). A partial unique index on the date backs one uncancelled plan per date (BR-34).
  *
- * <p>Built in M0, M5 and M9, method by method.
+ * <p>Built in M0, M5, M8 and M9, method by method.
  */
 public interface PlanRepository {
 
@@ -56,7 +56,8 @@ public interface PlanRepository {
      * The date's uncancelled plan, which a listener on an order's event and Live Operations' calls
      * change (FR-207, FR-315, FR-316, FR-404).
      *
-     * <p>Built in M9.
+     * <p>Built in M8, with its first user, {@code RemoveSupersededPutBackService} (FR-404); the M9
+     * listeners reuse it.
      *
      * @param date the date
      * @return the plan, or empty when the date has none

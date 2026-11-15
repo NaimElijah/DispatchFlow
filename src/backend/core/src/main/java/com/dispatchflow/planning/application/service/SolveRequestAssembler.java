@@ -29,6 +29,10 @@ import java.time.Instant;
  * (ADR-050), the settings, and the matrix. The optimizer adapter then turns each request into {@code
  * optimizer-api}'s, so no outside model reaches Planning (TS §2.1 rule 4).
  *
+ * <p>Each {@code ProblemFacts.Order} copies its {@code OrderFact}'s location and service-area flag
+ * as they are, so an order outside the service area drops as <em>unreachable location</em>, unless
+ * its pin is fixed (FR-320).
+ *
  * <p>A daily solve builds its matrix here, which is its job's <em>building matrix</em> phase (BR-75):
  * it reuses the plan's stored matrix when the locations are the same, and otherwise asks {@code
  * TravelTimes} for a new one (ADR-052). It only reads: {@code RunSolveJob} stores the request's

@@ -39,6 +39,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  * ADR-058). It raises {@code PlanRevised}, then {@code RouteHandedOver}, so the roster follows
  * (FR-191).
  *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
+ *
  * <p>Built in M9.
  */
 public final class HandOverRoute {

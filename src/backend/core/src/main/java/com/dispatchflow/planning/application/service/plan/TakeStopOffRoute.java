@@ -18,6 +18,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  * dispatcher</em>, an exception to BR-08 (FR-146, FR-236). It asks the validator about {@code
  * Plan.afterTakeOff} before its transaction (DL §6.3, ADR-112).
  *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
+ *
  * <p>Built in M4.
  */
 public final class TakeStopOffRoute {

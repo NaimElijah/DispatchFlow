@@ -23,6 +23,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  * current version (BR-21). {@code Plan.publish} then runs BR-72's four steps in order. It raises
  * {@code PlanPublished}.
  *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
+ *
  * <p>Built in M5.
  */
 public final class PublishPlan {

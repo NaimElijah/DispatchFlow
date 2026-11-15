@@ -69,7 +69,12 @@ public record ProblemFacts(
 
     /**
      * One order to serve or drop, as Customers &amp; Orders answered (FR-15, BR-14, BR-49, BR-50,
-     * BR-53, BR-124, FR-364). Its location is a customer's place, so it prints redacted.
+     * BR-53, BR-124, FR-364, FR-320). Its location is a customer's place, so it prints redacted.
+     *
+     * <p><b>Gap until M7.</b> The Python {@code OrderSpec} has no input for {@code
+     * outsideServiceArea}, so the optimizer adapter has nowhere to send it until M7, when the domain
+     * adds the input and the factory drops such an order as <em>unreachable location</em>
+     * (FR-320, FR-66).
      *
      * <p>Built in M0.
      *
@@ -77,6 +82,9 @@ public record ProblemFacts(
      * @param attempt its current attempt
      * @param location its customer's coordinates, or empty, so it drops as <em>missing location</em>
      *     (BR-14, FR-223)
+     * @param outsideServiceArea whether Customers &amp; Orders flagged its location as outside the
+     *     service area, so it drops as <em>unreachable location</em>; never for a fixed pin or a
+     *     missing location (FR-320)
      * @param window its time window on the date
      * @param weight its weight demand
      * @param volume its volume demand
@@ -88,6 +96,7 @@ public record ProblemFacts(
             OrderId order,
             Attempt attempt,
             Optional<GeoPoint> location,
+            boolean outsideServiceArea,
             TimeWindow window,
             Weight weight,
             Volume volume,

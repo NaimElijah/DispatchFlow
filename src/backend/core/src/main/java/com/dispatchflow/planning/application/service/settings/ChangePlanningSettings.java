@@ -30,6 +30,9 @@ import java.util.Objects;
  * default solver to change, and a solve with no solver runs OR-Tools, the default that ADR-004 and
  * FR-20 name. M4 adds the daily and the re-optimization defaults to the command with the field.
  *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
+ *
  * <p>Built in M4.
  */
 public final class ChangePlanningSettings {

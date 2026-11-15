@@ -4,6 +4,10 @@ The HTTP adapter builds these from the contract, so no transport type reaches a 
 rule 4). The inputs are `ProblemFactory`'s keyword arguments, which the use case hands it
 unchanged, so the factory alone decides each convention (ADR-050).
 
+Gap until M7: the core sends each order's outside-service-area flag (FR-320), and `OrderSpec` has no
+input for it. M7's geocoding adds that input to the domain, and the factory then drops such an order
+as *unreachable location* (FR-66).
+
 Built in M0; the evaluation and baseline requests in M1, the re-optimization request in M9.
 """
 

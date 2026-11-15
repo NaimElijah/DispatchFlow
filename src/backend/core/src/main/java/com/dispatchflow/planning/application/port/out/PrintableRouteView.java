@@ -33,7 +33,8 @@ public record PrintableRouteView(RouteView route, List<Stop> stops) {
      * <p>Built in an unscheduled milestone.
      *
      * @param stop the stop
-     * @param order the order's address, phones and notes, as a driver sees them (FR-86, FR-87, FR-135)
+     * @param order the order, its ID included, with its address, phones and notes as a driver sees
+     *     them (FR-86, FR-87, FR-135)
      * @param weight the order's weight
      * @param volume the order's volume
      */

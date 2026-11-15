@@ -39,6 +39,9 @@ import java.util.Optional;
  * domain gap that M4 closes. Until M4 adds the field, a request with no solver runs OR-Tools, the
  * default that ADR-004 and FR-20 name.
  *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
+ *
  * <p>Built in M0.
  */
 public final class RequestSolve {

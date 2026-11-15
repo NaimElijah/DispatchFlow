@@ -26,6 +26,12 @@ import com.dispatchflow.shared.application.StaleVersion;
  * roster and Access's Driver role. It changes the plan, not the proposal, and raises {@code
  * PlanRevised}.
  *
+ * <p>Because the operation acts on the plan, its {@code If-Match} carries the plan's ETag, not the
+ * proposal's: the preview gives it as {@code ProposalPreviewView.planVersion} (BR-76, ADR-057).
+ *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
+ *
  * <p>Built in M9.
  */
 public final class AcceptProposal {
@@ -87,7 +93,8 @@ public final class AcceptProposal {
      *
      * @param actor the dispatcher, recorded as who accepted it (FR-104)
      * @param proposal the proposal
-     * @param planVersion the plan's version the dispatcher saw, the aggregate this changes (BR-76)
+     * @param planVersion the plan's version the dispatcher saw, the aggregate this changes, from the
+     *     preview's {@code planVersion} and sent as the plan's ETag (BR-76)
      * @throws NotFound when no proposal has the ID, or its plan doesn't exist
      * @throws StaleVersion when the plan changed since {@code planVersion}
      * @throws com.dispatchflow.shared.RuleViolation with Planning's {@code PlanNotPublished}, {@code

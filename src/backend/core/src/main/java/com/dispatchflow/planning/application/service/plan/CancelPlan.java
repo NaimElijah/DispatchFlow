@@ -18,6 +18,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  * reported. Its routes stay as they were, and it makes no revision. It raises {@code PlanCancelled},
  * so the drivers are alerted and the orders return to unplanned (FR-337).
  *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
+ *
  * <p>Built in M9.
  */
 public final class CancelPlan {

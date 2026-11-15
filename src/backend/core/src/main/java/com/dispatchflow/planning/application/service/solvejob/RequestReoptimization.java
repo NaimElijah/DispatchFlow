@@ -34,6 +34,13 @@ import java.util.Optional;
  * domain gap that M4 closes. Until M4 adds the field, a request with no solver runs OR-Tools, the
  * default that ADR-004 and FR-20 name.
  *
+ * <p>It sends no chosen routes: FR-159, re-optimizing only chosen routes, is left out, because ADR-101
+ * point 32 deferred it while no rule of the domain needs it. Every route of the plan's current
+ * revision goes to the optimizer.
+ *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
+ *
  * <p>Built in M9.
  */
 public final class RequestReoptimization {

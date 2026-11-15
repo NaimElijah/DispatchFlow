@@ -16,6 +16,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  * Undoes the last manual edit of a ready plan since its last solve (FR-145). It asks the validator
  * about {@code Plan.afterUndo} before its transaction (DL §6.3, ADR-112).
  *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
+ *
  * <p>Built in M4.
  */
 public final class UndoEdit {

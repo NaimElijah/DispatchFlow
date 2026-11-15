@@ -21,6 +21,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  * validator about {@code Plan.afterPlacing} with it before its transaction (DL §6.3, ADR-112). The
  * order's attempt is the one the plan drops.
  *
+ * <p>Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110).
+ *
  * <p>Built in M4.
  */
 public final class PlaceDroppedOrder {
