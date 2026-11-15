@@ -13,13 +13,18 @@ import java.util.Objects;
 public sealed interface PlacementFact {
 
     /**
-     * Whether the plan holding the order still counts for its status (DL §9.6).
+     * Whether the plan holding the order still counts for its status (DL §9.6), and whether its
+     * routes are the drivers' yet. Customers &amp; Orders maps both {@link #UNPUBLISHED} and {@link
+     * #PUBLISHED} to its domain's in-force standing, and tells a dispatcher who changes an order on
+     * a {@link #PUBLISHED} plan so at once (FR-396).
      *
      * <p>Built in M2.
      */
     enum PlanStanding {
-        /** A plan that is draft, solving, ready, published or completed. */
-        IN_FORCE,
+        /** A plan in force that is draft, solving or ready. */
+        UNPUBLISHED,
+        /** A plan in force that is published or completed: its routes are the drivers'. */
+        PUBLISHED,
         /** A plan abandoned at the midnight after its date: its orders are unplanned (BR-131). */
         ABANDONED,
         /** A cancelled plan: its orders return to unplanned (FR-337, BR-96). */
