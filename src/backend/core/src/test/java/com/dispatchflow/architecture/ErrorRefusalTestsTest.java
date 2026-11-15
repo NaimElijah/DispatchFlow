@@ -75,11 +75,27 @@ class ErrorRefusalTestsTest {
                         "com.dispatchflow.archfixture.alpha.domain.AlphaError$DateFull",
                         "com.dispatchflow.archfixture.beta.domain.BetaError$BetaOnly",
                         "com.dispatchflow.archfixture.beta.domain.BetaError$Scheduling$SlotGone",
-                        "com.dispatchflow.archfixture.alpha.domain.ErrorWithAText",
-                        "com.dispatchflow.archfixture.alpha.domain.ErrorInheritingAText")
+                        "com.dispatchflow.archfixture.alpha.domain.error.ErrorWithAText",
+                        "com.dispatchflow.archfixture.alpha.domain.error.ErrorInheritingAText")
                 .doesNotContain(
                         "com.dispatchflow.archfixture.beta.domain.BetaError$DateFull",
                         "com.dispatchflow.archfixture.beta.domain.BetaError$DateInPast",
                         "com.dispatchflow.archfixture.beta.domain.BetaError$Scheduling$SlotTaken");
+    }
+
+    @Test
+    void GivenARefusalTestInASubpackageOfItsErrorsPackage_WhenLookedUp_ThenItCounts() {
+        JavaClasses fixtures = FixtureClasses.all();
+
+        assertThat(untestedErrors(fixtures, fixtures))
+                .doesNotContain("com.dispatchflow.archfixture.beta.domain.BetaError$Scheduling$SlotHeld");
+    }
+
+    @Test
+    void GivenARefusalTestInASiblingPackageWhoseNameExtendsItsErrorsPackage_WhenLookedUp_ThenItDoesNotCount() {
+        JavaClasses fixtures = FixtureClasses.all();
+
+        assertThat(untestedErrors(fixtures, fixtures))
+                .contains("com.dispatchflow.archfixture.beta.domain.BetaError$Scheduling$SlotMissed");
     }
 }

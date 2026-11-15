@@ -202,7 +202,8 @@ final class DomainPurityRules {
                 .because("DL §13 and BR-15: no code path can hand Plan an unvalidated solution");
     }
 
-    private static String[] pureLayers(String root) {
+    /** The kernel and every domain and events package under a root, with their subpackages. */
+    static String[] pureLayers(String root) {
         return new String[] {root + "." + KERNEL + "..", root + ".*." + DOMAIN + "..", root + ".*." + EVENTS + ".."};
     }
 

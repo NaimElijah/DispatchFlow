@@ -1,6 +1,6 @@
 package com.dispatchflow.archfixture.alpha.events;
 
-import com.dispatchflow.archfixture.alpha.domain.ContactName;
+import com.dispatchflow.archfixture.alpha.domain.personal.ContactName;
 import com.dispatchflow.shared.DomainEvent;
 import com.dispatchflow.shared.EventId;
 import java.time.Instant;
