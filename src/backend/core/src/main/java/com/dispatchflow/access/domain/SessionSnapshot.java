@@ -1,6 +1,7 @@
 package com.dispatchflow.access.domain;
 
 import com.dispatchflow.shared.AccountId;
+import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.SessionId;
 import com.dispatchflow.shared.Version;
 import java.time.Instant;
@@ -10,6 +11,13 @@ import java.util.Objects;
 /**
  * A session as stored: what {@link Session#snapshot()} gives and {@link Session#restore} takes.
  * Its values are already checked; {@code restore} checks how they fit together.
+ *
+ * <p>Its contact times are personal data (NFR-280), so it is {@link PersonalData} and {@link
+ * #toString()} prints only how many it holds (ADR-106).
+ *
+ * <p>The persistence adapter builds every stored value inside {@link
+ * com.dispatchflow.shared.StoredStateInvalid#whileRestoring}, so a stored value the rules now
+ * refuse is an incident, never a user-facing refusal.
  *
  * @param version the stored version
  * @param id the session's ID
@@ -32,7 +40,8 @@ public record SessionSnapshot(
         Instant openedAt,
         Instant lastPasswordAt,
         List<Instant> contactTimes,
-        List<RefreshTokenSnapshot> tokens) {
+        List<RefreshTokenSnapshot> tokens)
+        implements PersonalData {
 
     /** Checks every part is present, and copies the lists. */
     public SessionSnapshot {
@@ -46,5 +55,18 @@ public record SessionSnapshot(
         Objects.requireNonNull(lastPasswordAt, "lastPasswordAt");
         contactTimes = List.copyOf(contactTimes);
         tokens = List.copyOf(tokens);
+    }
+
+    /**
+     * A form that leaves the contact times out and names how many there are.
+     *
+     * @return the snapshot without its contact times
+     */
+    @Override
+    public String toString() {
+        return "SessionSnapshot[version=" + version + ", id=" + id + ", account=" + account + ", accountGeneration="
+                + accountGeneration + ", generation=" + generation + ", state=" + state + ", openedAt=" + openedAt
+                + ", lastPasswordAt=" + lastPasswordAt + ", contactTimes=" + contactTimes.size() + " redacted, tokens="
+                + tokens + "]";
     }
 }

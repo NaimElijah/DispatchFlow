@@ -10,6 +10,12 @@ import java.util.Objects;
  * One date's roster as stored: what {@link DayRoster#snapshot()} returns and {@link
  * DayRoster#restore} rebuilds from.
  *
+ * <p>The persistence adapter builds every stored value inside {@link
+ * com.dispatchflow.shared.StoredStateInvalid#whileRestoring}, so a value that the rules now refuse
+ * is an incident, never a user-facing refusal. Here that covers every shift: a change to the
+ * time-zone rules can move a stored shift into an hour the clock skips, which {@link Shift}
+ * refuses.
+ *
  * @param date the delivery date, which keys the roster
  * @param version the version it was loaded at
  * @param entries one per rostered driver, in the order they were rostered

@@ -10,6 +10,7 @@ import static com.dispatchflow.fleet.domain.DriverBuilder.RETIRED_AT;
 import static com.dispatchflow.fleet.domain.DriverBuilder.aDriver;
 import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dispatchflow.fleet.domain.FleetError.DriverInUse;
@@ -290,6 +291,25 @@ class DriverTest {
         driver.anonymizeWithAccount(soon);
 
         assertThat(driver.snapshot().status()).isEqualTo(new DriverStatus.Anonymized(Optional.of(RETIRED_AT), soon));
+        assertThat(driver.snapshot().contact()).isEmpty();
+    }
+
+    @Test
+    void GivenADriverRetiredAfterTheirAccountWasAnonymized_WhenTheLateEventIsHeard_ThenTheSavedStateRestores() {
+        Driver driver = aDriver().retired().build();
+        driver.anonymizeWithAccount(RETIRED_AT.minusSeconds(3_600));
+        assertThatCode(() -> Driver.restore(driver.snapshot())).doesNotThrowAnyException();
+    }
+
+    @Test
+    void
+            GivenADriverRetiredAfterTheirAccountWasAnonymized_WhenTheLateEventIsHeard_ThenTheyAreAnonymizedAtTheirRetirement() {
+        Driver driver = aDriver().retired().build();
+
+        driver.anonymizeWithAccount(RETIRED_AT.minusSeconds(3_600));
+
+        assertThat(driver.snapshot().status())
+                .isEqualTo(new DriverStatus.Anonymized(Optional.of(RETIRED_AT), RETIRED_AT));
         assertThat(driver.snapshot().contact()).isEmpty();
     }
 

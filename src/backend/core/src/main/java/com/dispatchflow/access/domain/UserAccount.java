@@ -4,12 +4,14 @@ import com.dispatchflow.access.domain.AccessError.AccountDeactivated;
 import com.dispatchflow.access.domain.AccessError.AccountHasNoRole;
 import com.dispatchflow.access.domain.AccessError.AccountNotDeactivated;
 import com.dispatchflow.access.domain.AccessError.EmailInUse;
+import com.dispatchflow.access.domain.AccessError.EmailOfAnotherAdmin;
 import com.dispatchflow.access.domain.AccessError.LinkAlreadyUsed;
 import com.dispatchflow.access.domain.AccessError.LinkExpired;
 import com.dispatchflow.access.domain.AccessError.LinkVoided;
 import com.dispatchflow.access.domain.AccessError.NoRoleGiven;
 import com.dispatchflow.access.domain.AccessError.NotAnAdmin;
 import com.dispatchflow.access.domain.AccessError.PasswordAlreadySet;
+import com.dispatchflow.access.domain.AccessError.PasswordNotSet;
 import com.dispatchflow.access.domain.AccessError.RetentionNotOver;
 import com.dispatchflow.access.domain.AccessError.UnknownLink;
 import com.dispatchflow.access.events.AccountAnonymized;
@@ -230,18 +232,23 @@ public final class UserAccount extends AggregateRoot {
     }
 
     /**
-     * Checks the account may sign in (BR-123, FR-53). The password itself is checked by the
-     * hashing adapter. The sign-in endpoint answers each refusal here as it answers a wrong
-     * password, after the same hash work, so no caller learns the account's state (NFR-145).
+     * Checks the account may sign in (BR-123, FR-53, FR-294). The password itself is checked by
+     * the hashing adapter, which has no hash to check for an account whose set-password link was
+     * never used, so that account is refused here rather than left to the adapter. The sign-in
+     * endpoint answers each refusal here as it answers a wrong password, after the same hash work,
+     * so no caller learns the account's state (NFR-145).
      *
      * @throws RuleViolation with {@link AccessError.AccountAnonymized} or {@link
-     *     AccountDeactivated} when it is not active, or with {@link AccountHasNoRole} when it holds
-     *     no role
+     *     AccountDeactivated} when it is not active; with {@link AccountHasNoRole} when it holds no
+     *     role; or with {@link PasswordNotSet} when it has no password yet
      */
     public void checkSignInAllowed() {
         requireActive();
         if (roles.isEmpty()) {
             throw new RuleViolation(new AccountHasNoRole());
+        }
+        if (passwordHash == null) {
+            throw new RuleViolation(new PasswordNotSet());
         }
     }
 
@@ -376,24 +383,37 @@ public final class UserAccount extends AggregateRoot {
      * Links that no longer work and were sent more than {@link #LINK_KEPT_FOR} ago are dropped
      * (ADR-104).
      *
+     * <p>An Admin's email is changed only at that Admin's own request (FR-387, ADR-116): Admin
+     * step-up alone would let one Admin point another's address at a mailbox they control, recover
+     * that account and hold both of BR-19's Admins.
+     *
      * <p>The recovery endpoint answers every refusal here as "sent", after the same work, so no
      * caller learns the account's state (NFR-145).
      *
      * @param purpose what the link lets its holder do
-     * @param linkId the new link's ID
-     * @param tokenHash the hash of the link's token
+     * @param linkId the new link's ID, which no link of the account holds
+     * @param tokenHash the hash of the link's token, which no link of the account holds
      * @param now when it is sent
      * @throws RuleViolation with {@link AccessError.AccountAnonymized} or {@link
      *     AccountDeactivated} when it is not active; with {@link PasswordAlreadySet} for a
-     *     set-password link to an account with a password (FR-294, FR-345); or with {@link
+     *     set-password link to an account with a password (FR-294, FR-345); with {@link
      *     AccountHasNoRole} for a recovery link to an account with no role, to which recovery sends
-     *     nothing (BR-123)
+     *     nothing (BR-123); or with {@link EmailOfAnotherAdmin} for an email change another account
+     *     asked for, to an account holding the Admin role (FR-387)
+     * @throws AssertionError when a link of the account already holds the ID or the hash: the use
+     *     case reused one, a programming error rather than a refusal
      */
     public void issueLink(LinkPurpose purpose, CredentialLinkId linkId, TokenHash tokenHash, Instant now) {
         Objects.requireNonNull(purpose, "purpose");
         Objects.requireNonNull(linkId, "linkId");
         Objects.requireNonNull(tokenHash, "tokenHash");
         Objects.requireNonNull(now, "now");
+        if (links.stream().anyMatch(link -> link.id().equals(linkId))) {
+            throw new AssertionError("a new link needs a new ID");
+        }
+        if (links.stream().anyMatch(link -> link.tokenHash().equals(tokenHash))) {
+            throw new AssertionError("a new link needs a new hash");
+        }
         requireActive();
         if (purpose.kind() == LinkKind.SET_PASSWORD && passwordHash != null) {
             throw new RuleViolation(new PasswordAlreadySet());
@@ -401,6 +421,7 @@ public final class UserAccount extends AggregateRoot {
         if (purpose.kind() == LinkKind.RECOVERY && roles.isEmpty()) {
             throw new RuleViolation(new AccountHasNoRole());
         }
+        requireOwnEmailChangeForAnAdmin(purpose);
         Instant keptSince = now.minus(LINK_KEPT_FOR);
         links.removeIf(link -> !worksAt(link, now) && link.issuedAt().isBefore(keptSince));
         links.stream()
@@ -412,6 +433,14 @@ public final class UserAccount extends AggregateRoot {
 
     private static boolean worksAt(CredentialLink link, Instant now) {
         return link.isOpen() && now.isBefore(link.expiresAt());
+    }
+
+    private void requireOwnEmailChangeForAnAdmin(LinkPurpose purpose) {
+        if (purpose instanceof LinkPurpose.EmailChange change
+                && roles.contains(Role.ADMIN)
+                && !change.requestedBy().equals(id)) {
+            throw new RuleViolation(new EmailOfAnotherAdmin());
+        }
     }
 
     /**
@@ -439,7 +468,9 @@ public final class UserAccount extends AggregateRoot {
     /**
      * Confirms a new email address through the link sent to it: the address takes effect, the
      * link is spent, every other open link is voided and every session revoked (FR-388, FR-392,
-     * NFR-224). An address another account holds is refused only now (FR-392).
+     * NFR-224). An address another account holds is refused only now (FR-392). An Admin's own
+     * request is checked again here, because the account may have gained the Admin role since
+     * another account asked for the change (FR-387, ADR-116).
      *
      * @param presented the hash of the token the link carried
      * @param holder which account holds the new address now
@@ -447,8 +478,9 @@ public final class UserAccount extends AggregateRoot {
      * @throws RuleViolation with {@link AccessError.AccountAnonymized} or {@link
      *     AccountDeactivated} when it is not active; with {@link UnknownLink} when no email-change
      *     link has the token; with {@link LinkAlreadyUsed}, {@link LinkVoided} or {@link
-     *     LinkExpired} when the link no longer works; or with {@link EmailInUse} when another
-     *     account holds the address
+     *     LinkExpired} when the link no longer works; with {@link EmailOfAnotherAdmin} when the
+     *     account holds the Admin role and another account asked for the change; or with {@link
+     *     EmailInUse} when another account holds the address
      * @throws AssertionError when {@code holder} was read for another address than the link's
      */
     public void confirmEmailByLink(TokenHash presented, EmailHolder holder, Instant now) {
@@ -457,6 +489,7 @@ public final class UserAccount extends AggregateRoot {
         Objects.requireNonNull(now, "now");
         requireActive();
         CredentialLink link = spendable(presented, EMAIL_LINKS, now);
+        requireOwnEmailChangeForAnAdmin(link.purpose());
         LinkPurpose.EmailChange change = (LinkPurpose.EmailChange) link.purpose();
         holder.checkIsFor(change.newEmail());
         if (holder.isHeldByAnotherThan(id)) {

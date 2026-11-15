@@ -5,7 +5,9 @@ import java.util.Objects;
 
 /**
  * A credential link as stored: what {@link UserAccount#snapshot()} gives and {@link
- * UserAccount#restore} takes for each link. Only the token's hash is kept (NFR-211).
+ * UserAccount#restore} takes for each link. Only the token's hash is kept (NFR-211). The adapter
+ * builds its values as {@link UserAccountSnapshot} says, inside {@code
+ * StoredStateInvalid.whileRestoring}.
  *
  * @param id the link's ID
  * @param purpose what the link lets its holder do

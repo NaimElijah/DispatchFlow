@@ -8,9 +8,9 @@ import java.util.Objects;
 
 /**
  * A driver was retired (BR-43, ADR-103). Fleet's own listener calls Access's API to remove the
- * Driver role from the account, which keeps its other roles (FR-307, DL §2.3 rule 2); the call is
- * retried until it succeeds (DL §7.1, reason 2). It carries the account's ID only, never the
- * driver's name or phone.
+ * Driver role from the account, which keeps its other roles (FR-307, DL §2.3 rule 2). A failed call
+ * is resubmitted at most 5 times, then the team is alerted (DL §7.1 reason 2, DL §12). It carries
+ * the account's ID only, never the driver's name or phone.
  *
  * @param eventId the event's ID
  * @param occurredAt when the driver was retired

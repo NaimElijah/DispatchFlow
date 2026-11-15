@@ -20,13 +20,17 @@ import com.dispatchflow.access.events.SessionsRevoked;
 import com.dispatchflow.shared.DomainError;
 import com.dispatchflow.shared.DomainEvent;
 import com.dispatchflow.shared.EventId;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -194,7 +198,7 @@ class UserAccountLifecycleTest {
         builder.withRoles(Role.ADMIN, Role.DRIVER);
         if (state != State.ANONYMIZED) {
             builder.withLink(openLink("1", new LinkPurpose.SetPassword(), SET_PASSWORD_TOKEN.value()))
-                    .withLink(openLink("2", new LinkPurpose.EmailChange(NEW_EMAIL), EMAIL_TOKEN.value()));
+                    .withLink(openLink("2", new LinkPurpose.EmailChange(NEW_EMAIL, ACCOUNT), EMAIL_TOKEN.value()));
         }
         return builder.build();
     }
@@ -269,6 +273,20 @@ class UserAccountLifecycleTest {
     @MethodSource("everyCommand")
     void GivenEveryCommand_WhenTheMatrixIsListed_ThenEachStateCoversIt(Command command) {
         assertThat(stateAndCommand().filter(row -> row.get()[1] == command)).hasSize(State.values().length);
+    }
+
+    /** A query takes nothing and returns a value; every other public method is a command. */
+    @Test
+    void GivenTheAccountsPublicMethods_WhenTheCommandsAreListed_ThenTheMatrixListsEveryCommand() {
+        List<String> commands = Arrays.stream(UserAccount.class.getDeclaredMethods())
+                .filter(method -> Modifier.isPublic(method.getModifiers())
+                        && !Modifier.isStatic(method.getModifiers())
+                        && !method.isSynthetic())
+                .filter(method -> method.getParameterCount() > 0 || method.getReturnType() == void.class)
+                .map(Method::getName)
+                .toList();
+
+        assertThat(everyCommand().map(Command::name)).containsExactlyInAnyOrderElementsOf(commands);
     }
 
     static Stream<Command> everyCommand() {

@@ -487,6 +487,20 @@ class DayRosterTest {
     }
 
     @Test
+    void GivenNoVehicle_WhenMarkedAvailableOrAskedAbout_ThenTheMissingArgumentIsNamed() {
+        DayRoster roster = aRoster().withUnavailableVehicle(V1).build();
+
+        assertThatThrownBy(() -> roster.markVehicleAvailable(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("vehicle");
+        assertThatThrownBy(() -> roster.isUnavailable(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("vehicle");
+        assertThat(roster.snapshot())
+                .isEqualTo(aRoster().withUnavailableVehicle(V1).snapshot());
+    }
+
+    @Test
     void GivenAVehicleTheRegisterDoesNotHoldAsActive_WhenMarkedUnavailable_ThenVehicleNotActive() {
         DayRoster roster = aRoster().build();
 

@@ -25,10 +25,10 @@ import java.util.stream.Stream;
  * of refresh tokens. Its writers are that device, and the same user signing it out from another
  * device (FR-127).
  *
- * <p>Every rule is checked before the state changes, so a refused call changes nothing. Two calls
- * change state while they refuse: a reused refresh token revokes the session, and an exchange drops
- * tokens too old to matter. So {@link #exchange} answers with a {@link RefreshOutcome} instead of
- * throwing, and the caller saves the session either way.
+ * <p>Every rule is checked before the state changes, so a refused call changes nothing. One call
+ * changes state while it refuses: {@link #exchange}, where a reused refresh token revokes the
+ * session, and the tokens too old to matter are dropped before the token is judged. So it answers
+ * with a {@link RefreshOutcome} instead of throwing, and the caller saves the session either way.
  *
  * <p>The chain keeps only the current token, the tokens issued in the last {@link
  * #TOKEN_KEPT_FOR}, and any successor a kept token names. A replayed token older than that is
@@ -127,22 +127,24 @@ public final class Session extends AggregateRoot {
 
     /**
      * Rebuilds a stored session. Only the persistence adapter calls it (DL §3.5). It checks no
-     * order between the stored times, so a server clock that stepped back can't make a stored
-     * session unreadable.
+     * order between the token times, so a server clock that stepped back can't make a stored
+     * session unreadable. Contact times may repeat, because {@link #recordContact} moves no
+     * version and two requests that loaded the session before either saved can keep one instant
+     * twice; they never decrease.
      *
      * @param stored the stored session
      * @return the session at its stored version
      * @throws StoredStateInvalid when it has no token; two tokens share an ID or a hash; a live
      *     session has not exactly one current token, or a revoked one has more than one; an
-     *     exchanged token's successor is itself or not in the chain; or its contact times are not
-     *     in strictly rising order
+     *     exchanged token's successor is itself or not in the chain; or a contact time is earlier
+     *     than the one before it
      */
     public static Session restore(SessionSnapshot stored) {
         checkTokens(stored);
         List<Instant> contacts = stored.contactTimes();
         for (int i = 1; i < contacts.size(); i++) {
-            if (!contacts.get(i).isAfter(contacts.get(i - 1))) {
-                throw invalid("contact times rise strictly");
+            if (contacts.get(i).isBefore(contacts.get(i - 1))) {
+                throw invalid("contact times never decrease");
             }
         }
         return new Session(
@@ -215,11 +217,14 @@ public final class Session extends AggregateRoot {
      *
      * @param presented the hash of the token presented
      * @param currentAccountGeneration the account's generation now
-     * @param newTokenId the ID for the token a granted exchange issues
-     * @param newTokenHash that token's hash
+     * @param newTokenId the ID for the token a granted exchange issues, which no token of the chain
+     *     holds
+     * @param newTokenHash that token's hash, which no token of the chain holds
      * @param now when
      * @return {@link RefreshOutcome.Issued} with the new token, or {@link RefreshOutcome.Refused};
      *     save the session after either, because a refusal may have changed it
+     * @throws AssertionError when a token of the chain already holds the new ID or hash: the use
+     *     case reused one, a programming error rather than a refusal
      */
     public RefreshOutcome exchange(
             TokenHash presented,
@@ -229,9 +234,8 @@ public final class Session extends AggregateRoot {
             Instant now) {
         Objects.requireNonNull(presented, "presented");
         Objects.requireNonNull(currentAccountGeneration, "currentAccountGeneration");
-        Objects.requireNonNull(newTokenId, "newTokenId");
-        Objects.requireNonNull(newTokenHash, "newTokenHash");
         Objects.requireNonNull(now, "now");
+        requireNewToken(newTokenId, newTokenHash);
         if (!(state instanceof SessionState.Live) || accountGeneration.isOlderThan(currentAccountGeneration)) {
             return RefreshOutcome.refused();
         }
@@ -275,6 +279,18 @@ public final class Session extends AggregateRoot {
         successor.get().moveTo(new TokenState.Replaced(now));
         token.moveTo(new TokenState.Exchanged(exchanged.at(), newTokenId));
         return issue(newTokenId, newTokenHash, now);
+    }
+
+    /** {@link #restore} refuses a repeated ID or hash, so a reuse fails before it is saved. */
+    private void requireNewToken(RefreshTokenId newTokenId, TokenHash newTokenHash) {
+        Objects.requireNonNull(newTokenId, "newTokenId");
+        Objects.requireNonNull(newTokenHash, "newTokenHash");
+        if (tokenNamed(newTokenId).isPresent()) {
+            throw new AssertionError("a new token needs a new ID");
+        }
+        if (tokenHashed(newTokenHash).isPresent()) {
+            throw new AssertionError("a new token needs a new hash");
+        }
     }
 
     private RefreshOutcome issue(RefreshTokenId newTokenId, TokenHash newTokenHash, Instant now) {
@@ -322,20 +338,21 @@ public final class Session extends AggregateRoot {
      * current are dropped.
      *
      * @param currentAccountGeneration the account's generation now
-     * @param newTokenId the new refresh token's ID
-     * @param newTokenHash its hash
+     * @param newTokenId the new refresh token's ID, which no token of the chain holds
+     * @param newTokenHash its hash, which no token of the chain holds
      * @param now when
      * @throws RuleViolation with {@link SessionRevoked} when the session is revoked, or the
      *     account's sessions were revoked after it began (NFR-177)
+     * @throws AssertionError when a token of the chain already holds the new ID or hash: the use
+     *     case reused one, a programming error rather than a refusal
      */
     public void confirmPassword(
             AccountGeneration currentAccountGeneration,
             RefreshTokenId newTokenId,
             TokenHash newTokenHash,
             Instant now) {
-        Objects.requireNonNull(newTokenId, "newTokenId");
-        Objects.requireNonNull(newTokenHash, "newTokenHash");
         Objects.requireNonNull(now, "now");
+        requireNewToken(newTokenId, newTokenHash);
         requireLive(currentAccountGeneration);
         dropOldTokens(now);
         tokens.stream()
@@ -368,12 +385,15 @@ public final class Session extends AggregateRoot {
     /**
      * Keeps the time of a request from the session, which BR-133's contact window reads (NFR-280).
      * The caller calls it only for an account with the Driver role, and only for a request other
-     * than a token refresh or an outbox send. It keeps the time unless the last one kept is under
-     * a minute old, after {@link #dropOldContacts dropping} the times older than 14 days.
+     * than a token refresh or an outbox send. After {@link #dropOldContacts dropping} the times
+     * older than 14 days, it keeps the time unless it is less than a minute after the last one
+     * kept, which includes a time before it once a clock stepped back. So it never makes the times
+     * decrease.
      *
      * <p>It is the one save that doesn't move the version, and it raises no event (DL §4.1): the
      * adapter writes the contact times alone, so recording a contact can never make a refresh
-     * fail on a stale version.
+     * fail on a stale version. Two requests that loaded the session before either saved can each
+     * keep a time, the same instant included, which {@link #restore} accepts.
      *
      * @param now when the request arrived
      * @throws RuleViolation with {@link SessionRevoked} when the session is revoked, because no
@@ -417,6 +437,28 @@ public final class Session extends AggregateRoot {
         }
     }
 
+    /**
+     * Ends the session because its account's sessions were revoked (NFR-90, NFR-177), dated by
+     * that revocation, so the retention job deletes it 30 days after the revocation rather than
+     * after its token's expiry (NFR-258). Access's listener on {@code SessionsRevoked} calls it for
+     * the account's live sessions. The token check refuses the session's tokens from the
+     * revocation on, whether or not this has run.
+     *
+     * <p>Delivery is at least once, so it changes nothing on a revoked session, which keeps its
+     * first revocation, or on a session begun under the generation the revocation left, which a
+     * redelivered event must not end.
+     *
+     * @param revokedTo the account's generation after the revocation, which the event carries
+     * @param revokedAt when the account's sessions were revoked
+     */
+    public void revokeWithAccount(AccountGeneration revokedTo, Instant revokedAt) {
+        Objects.requireNonNull(revokedTo, "revokedTo");
+        Objects.requireNonNull(revokedAt, "revokedAt");
+        if (state instanceof SessionState.Live && accountGeneration.isOlderThan(revokedTo)) {
+            state = new SessionState.Revoked(revokedAt);
+        }
+    }
+
     private void requireLive(AccountGeneration currentAccountGeneration) {
         Objects.requireNonNull(currentAccountGeneration, "currentAccountGeneration");
         if (state instanceof SessionState.Revoked || accountGeneration.isOlderThan(currentAccountGeneration)) {
@@ -435,8 +477,8 @@ public final class Session extends AggregateRoot {
     /**
      * When the session ended, or ends unless it refreshes first: the earlier of its revocation and
      * its current token's expiry. The retention job deletes a session 30 days after this (NFR-258).
-     * A session its account's revocation ended is not seen here; its current token's expiry bounds
-     * it.
+     * A session its account's revocation ended is dated by that revocation once {@link
+     * #revokeWithAccount} has run; until then its current token's expiry bounds it.
      *
      * @return the end time
      */

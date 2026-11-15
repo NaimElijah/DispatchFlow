@@ -7,7 +7,8 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * A depot as the fleet register stores it (DL §4.2).
+ * A depot as the fleet register stores it (DL §4.2). The adapter builds its name, hours and point
+ * as {@link FleetRegisterSnapshot} says, inside {@code StoredStateInvalid.whileRestoring}.
  *
  * @param id the depot
  * @param name its name

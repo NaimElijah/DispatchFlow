@@ -8,7 +8,7 @@ import java.util.Collection;
 import java.util.Set;
 
 /**
- * The company's active Admin accounts, read under row locks (DL §5): the snapshot the methods that
+ * The company's active Admin accounts, read under lock (DL §5): the snapshot the methods that
  * could break BR-19 require, so none of them runs without the lock taken. Only the repository
  * query that takes the lock builds it, which an ArchUnit rule checks (DL §3.9 rule 6).
  *
@@ -28,6 +28,11 @@ public final class ActiveAdmins {
 
     /**
      * Builds the snapshot from the rows the lock covers.
+     *
+     * <p>Row locks cover only rows that exist. With no active Admin they cover nothing, so two
+     * concurrent first-Admin steps (FR-291) would both read an empty snapshot and both pass {@code
+     * checkNoneActive}. The adapter therefore takes a table lock or a transaction-scoped advisory
+     * lock, not row locks alone, whenever the read can find no active Admin.
      *
      * @param activeAdmins the active accounts holding the Admin role; repeats count once
      * @return the snapshot
@@ -65,7 +70,8 @@ public final class ActiveAdmins {
     }
 
     /**
-     * Checks no active Admin exists, before the server step creates the first one (FR-291).
+     * Checks no active Admin exists, before the server step creates the first one (FR-291). It is
+     * only as safe as the lock {@link #readUnderLock} names for an empty read.
      *
      * @throws RuleViolation with {@link ActiveAdminExists} when one does
      */

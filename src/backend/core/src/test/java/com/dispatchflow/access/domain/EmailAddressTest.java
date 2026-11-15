@@ -4,16 +4,26 @@ import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import com.dispatchflow.access.domain.AccessError.InvalidEmail;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StoredStateInvalid;
+import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class EmailAddressTest {
+
+    /** Alternating marks, which no normalizer composes, at the size that once took minutes. */
+    private static final String MILLION_MARKS = "\u0301\u0316".repeat(500_000);
+
+    /** Far longer than a refusal before normalizing takes, and far shorter than normalizing. */
+    private static final Duration NO_NORMALIZER_WORK = Duration.ofSeconds(5);
+
+    private static final String SOFT_HYPHEN = "\u00AD";
 
     @ParameterizedTest
     @CsvSource({
@@ -152,6 +162,46 @@ class EmailAddressTest {
 
         assertThat(address).hasSize(255);
         assertRefused(() -> EmailAddress.parse(address), new InvalidEmail());
+    }
+
+    @Test
+    void GivenAMillionCombiningMarksInTheLocalPart_WhenParsed_ThenInvalidEmailAtOnce() {
+        String address = MILLION_MARKS + "@example.com";
+
+        assertTimeoutPreemptively(
+                NO_NORMALIZER_WORK, () -> assertRefused(() -> EmailAddress.parse(address), new InvalidEmail()));
+    }
+
+    @Test
+    void GivenAMillionCombiningMarksInTheDomain_WhenParsed_ThenInvalidEmailAtOnce() {
+        String address = "dana@example" + MILLION_MARKS + ".com";
+
+        assertTimeoutPreemptively(
+                NO_NORMALIZER_WORK, () -> assertRefused(() -> EmailAddress.parse(address), new InvalidEmail()));
+    }
+
+    /** IDNA maps a soft hyphen to nothing, so a padded domain shows where the raw bound falls. */
+    @Test
+    void GivenAnAddressOf2032CharactersThatNormalizesToAShortOne_WhenParsed_ThenItIsAccepted() {
+        String address = "dana@ex" + SOFT_HYPHEN.repeat(2016) + "ample.com";
+
+        assertThat(address).hasSize(2032);
+        assertThat(EmailAddress.parse(address).value()).isEqualTo("dana@example.com");
+    }
+
+    @Test
+    void GivenAnAddressOf2033CharactersThatNormalizesToAShortOne_WhenParsed_ThenInvalidEmail() {
+        String address = "dana@ex" + SOFT_HYPHEN.repeat(2017) + "ample.com";
+
+        assertThat(address).hasSize(2033);
+        assertRefused(() -> EmailAddress.parse(address), new InvalidEmail());
+    }
+
+    @Test
+    void GivenSurroundingSpacesBeyondTheRawBound_WhenParsed_ThenTheyAreTrimmedFirst() {
+        String padded = " ".repeat(3000) + "dana@example.com" + " ".repeat(3000);
+
+        assertThat(EmailAddress.parse(padded).value()).isEqualTo("dana@example.com");
     }
 
     private static String domainOfLastLabel(int lastLabelLength) {

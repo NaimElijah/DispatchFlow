@@ -300,6 +300,7 @@ public final class DayRoster extends AggregateRoot {
      * @param vehicle the vehicle
      */
     public void markVehicleAvailable(VehicleId vehicle) {
+        Objects.requireNonNull(vehicle, "vehicle");
         unavailableVehicles.remove(vehicle);
     }
 
@@ -310,6 +311,7 @@ public final class DayRoster extends AggregateRoot {
      * @return {@code true} once marked, until marked available again
      */
     public boolean isUnavailable(VehicleId vehicle) {
+        Objects.requireNonNull(vehicle, "vehicle");
         return unavailableVehicles.contains(vehicle);
     }
 

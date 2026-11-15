@@ -12,16 +12,20 @@ import static com.dispatchflow.access.domain.SessionBuilder.token;
 import static com.dispatchflow.access.domain.SessionBuilder.tokenId;
 import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dispatchflow.access.domain.AccessError.AccountDeactivated;
 import com.dispatchflow.access.domain.AccessError.AccountHasNoRole;
+import com.dispatchflow.access.domain.AccessError.PasswordNotSet;
 import com.dispatchflow.access.domain.AccessError.SessionRevoked;
 import com.dispatchflow.access.domain.AccessError.StepUpRequired;
 import com.dispatchflow.shared.DomainError;
+import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.Version;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.Test;
 
@@ -71,11 +75,64 @@ class SessionTest {
                         token("2", "second", EXCHANGED, new TokenState.Current()));
     }
 
+    /** Asserts the call fails as a programming error with the message, and changed nothing. */
+    private static void assertBugUnchanged(Session session, ThrowingCallable call, String message) {
+        SessionSnapshot before = session.snapshot();
+
+        assertThatThrownBy(call).isInstanceOf(AssertionError.class).hasMessage(message);
+
+        assertThat(session.snapshot()).isEqualTo(before);
+        assertThat(session.pendingEvents()).isEmpty();
+    }
+
     @Test
     void GivenASessionWithAChainOfTokens_WhenItsSnapshotIsPrinted_ThenNoTokenHashShows() {
         Session session = exchangedOnce().build();
 
         assertThat(session.snapshot().toString()).doesNotContain(FIRST_HASH.value(), SECOND_HASH.value());
+    }
+
+    @Test
+    void GivenASessionWithContactTimes_WhenItsSnapshotIsPrinted_ThenNoContactTimeShows() {
+        Instant contact = Instant.parse("2027-06-01T07:13:00Z");
+        SessionSnapshot snapshot = aSession().withContactTimes(contact).build().snapshot();
+
+        assertThat(snapshot).isInstanceOf(PersonalData.class);
+        assertThat(snapshot.toString()).contains("redacted").doesNotContain("07:13");
+    }
+
+    @Test
+    void GivenATokenIdTheChainHolds_WhenAnExchangeIssuesItAgain_ThenTheBugIsReported() {
+        Session session = aSession().build();
+
+        assertBugUnchanged(
+                session,
+                () -> session.exchange(FIRST_HASH, ACCOUNT_GENERATION, FIRST, SECOND_HASH, EXCHANGED),
+                "a new token needs a new ID");
+    }
+
+    @Test
+    void GivenATokenHashTheChainHolds_WhenAnExchangeIssuesItAgain_ThenTheBugIsReported() {
+        Session session = aSession().build();
+
+        assertBugUnchanged(
+                session,
+                () -> session.exchange(FIRST_HASH, ACCOUNT_GENERATION, SECOND, FIRST_HASH, EXCHANGED),
+                "a new token needs a new hash");
+    }
+
+    @Test
+    void GivenATokenIdOrHashTheChainHolds_WhenThePasswordIsConfirmedWithIt_ThenTheBugIsReported() {
+        Session session = aSession().build();
+
+        assertBugUnchanged(
+                session,
+                () -> session.confirmPassword(ACCOUNT_GENERATION, FIRST, SECOND_HASH, NOW),
+                "a new token needs a new ID");
+        assertBugUnchanged(
+                session,
+                () -> session.confirmPassword(ACCOUNT_GENERATION, SECOND, FIRST_HASH, NOW),
+                "a new token needs a new hash");
     }
 
     // Opening
@@ -109,6 +166,14 @@ class SessionTest {
                 .build();
 
         assertRefused(() -> Session.open(SESSION, account, FIRST, FIRST_HASH, OPENED), new AccountDeactivated());
+    }
+
+    @Test
+    void GivenAnAccountWithNoPasswordYet_WhenASessionOpens_ThenPasswordNotSet() {
+        UserAccount account =
+                AccountBuilder.anAccount().withPassword(Optional.empty()).build();
+
+        assertRefused(() -> Session.open(SESSION, account, FIRST, FIRST_HASH, OPENED), new PasswordNotSet());
     }
 
     @Test
@@ -294,17 +359,18 @@ class SessionTest {
         Instant second = EXCHANGED.plusSeconds(10);
         Instant third = EXCHANGED.plusSeconds(20);
         session.exchange(FIRST_HASH, ACCOUNT_GENERATION, THIRD, THIRD_HASH, second);
+        Session reloaded = Session.restore(session.snapshot());
 
-        RefreshOutcome outcome = session.exchange(FIRST_HASH, ACCOUNT_GENERATION, FOURTH, FOURTH_HASH, third);
+        RefreshOutcome outcome = reloaded.exchange(FIRST_HASH, ACCOUNT_GENERATION, FOURTH, FOURTH_HASH, third);
 
         assertThat(outcome).isEqualTo(new RefreshOutcome.Issued(FOURTH));
-        assertThat(session.snapshot().tokens())
+        assertThat(reloaded.snapshot().tokens())
                 .containsExactly(
                         token("1", "first", OPENED, new TokenState.Exchanged(EXCHANGED, FOURTH)),
                         token("2", "second", EXCHANGED, new TokenState.Replaced(second)),
                         token("3", "third", second, new TokenState.Replaced(third)),
                         token("4", "fourth", third, new TokenState.Current()));
-        assertThat(session.state()).isEqualTo(new SessionState.Live());
+        assertThat(reloaded.state()).isEqualTo(new SessionState.Live());
     }
 
     // Pruning the chain
@@ -554,6 +620,26 @@ class SessionTest {
     }
 
     @Test
+    void GivenTwoContactTimesSavedAtOneInstant_WhenContactIsRecordedAfterIt_ThenItIsKeptAndTheSessionStillRestores() {
+        // Two requests that loaded the session before either saved can each keep the same instant.
+        Session session = aSession().withContactTimes(NOW, NOW).build();
+
+        session.recordContact(NOW.plusSeconds(60));
+
+        assertThat(session.snapshot().contactTimes()).containsExactly(NOW, NOW, NOW.plusSeconds(60));
+        assertThat(Session.restore(session.snapshot()).snapshot()).isEqualTo(session.snapshot());
+    }
+
+    @Test
+    void GivenTwoContactTimesSavedAtOneInstant_WhenContactIsRecordedAtThatInstant_ThenNoTimeIsAdded() {
+        Session session = aSession().withContactTimes(NOW, NOW).build();
+
+        session.recordContact(NOW);
+
+        assertThat(session.snapshot().contactTimes()).containsExactly(NOW, NOW);
+    }
+
+    @Test
     void GivenARevokedSession_WhenContactIsRecorded_ThenSessionRevoked() {
         Session session = aSession().withState(new SessionState.Revoked(OPENED)).build();
 
@@ -572,7 +658,45 @@ class SessionTest {
         assertThat(session.pendingEvents()).isEmpty();
     }
 
+    @Test
+    void GivenALiveSessionBegunBeforeItsAccountsRevocation_WhenTheRevocationIsHeard_ThenItIsRevokedAtThatTime() {
+        Session session = aSession().build();
+
+        session.revokeWithAccount(ACCOUNT_GENERATION.next(), NOW);
+
+        assertThat(session.state()).isEqualTo(new SessionState.Revoked(NOW));
+        assertThat(session.snapshot().tokens()).isEqualTo(aSession().snapshot().tokens());
+        assertThat(session.pendingEvents()).isEmpty();
+    }
+
+    @Test
+    void GivenASessionBegunUnderTheGenerationARevocationLeft_WhenThatRevocationIsHeard_ThenItStaysLive() {
+        Session session = aSession().build();
+
+        session.revokeWithAccount(ACCOUNT_GENERATION, NOW);
+
+        assertThat(session.snapshot()).isEqualTo(aSession().snapshot());
+    }
+
+    @Test
+    void GivenARevokedSession_WhenItsAccountsRevocationIsHeard_ThenItKeepsItsFirstRevocation() {
+        Session session = aSession().withState(new SessionState.Revoked(OPENED)).build();
+
+        session.revokeWithAccount(ACCOUNT_GENERATION.next(), NOW);
+
+        assertThat(session.state()).isEqualTo(new SessionState.Revoked(OPENED));
+    }
+
     // When it ended
+
+    @Test
+    void GivenASessionItsAccountsRevocationEnded_WhenAskedWhenItEnded_ThenItIsTheRevocationNotItsTokensExpiry() {
+        Session session = aSession().build();
+
+        session.revokeWithAccount(ACCOUNT_GENERATION.next(), NOW);
+
+        assertThat(session.endedAt()).isEqualTo(NOW);
+    }
 
     @Test
     void GivenALiveSession_WhenAskedWhenItEnds_ThenItIsItsCurrentTokensExpiry() {

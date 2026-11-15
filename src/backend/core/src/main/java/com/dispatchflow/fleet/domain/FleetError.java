@@ -108,7 +108,7 @@ public sealed interface FleetError extends DomainError {
 
     /**
      * The person is not an active driver: their account is not active or lacks the Driver role, or
-     * their driver record is retired. The same code means the same in Access and Planning.
+     * their driver record is retired. The same code means the same in Planning.
      *
      * @param driver the driver's account
      */

@@ -22,12 +22,14 @@ import com.dispatchflow.access.domain.AccessError.AccountHasNoRole;
 import com.dispatchflow.access.domain.AccessError.AccountNotDeactivated;
 import com.dispatchflow.access.domain.AccessError.ActiveAdminExists;
 import com.dispatchflow.access.domain.AccessError.EmailInUse;
+import com.dispatchflow.access.domain.AccessError.EmailOfAnotherAdmin;
 import com.dispatchflow.access.domain.AccessError.LinkAlreadyUsed;
 import com.dispatchflow.access.domain.AccessError.LinkExpired;
 import com.dispatchflow.access.domain.AccessError.LinkVoided;
 import com.dispatchflow.access.domain.AccessError.NoRoleGiven;
 import com.dispatchflow.access.domain.AccessError.NotAnAdmin;
 import com.dispatchflow.access.domain.AccessError.PasswordAlreadySet;
+import com.dispatchflow.access.domain.AccessError.PasswordNotSet;
 import com.dispatchflow.access.domain.AccessError.RetentionNotOver;
 import com.dispatchflow.access.domain.AccessError.TooFewAdmins;
 import com.dispatchflow.access.domain.AccessError.UnknownLink;
@@ -90,34 +92,70 @@ class UserAccountTest {
     @Test
     void GivenAnAccountWithAPasswordAndAnEmailChangeLink_WhenItsSnapshotIsPrinted_ThenNoAddressHashOrTokenShows() {
         UserAccount account = anAccount()
-                .withLink(openLink("1", new LinkPurpose.EmailChange(NEW_EMAIL), EMAIL_TOKEN.value()))
+                .withLink(openLink("1", new LinkPurpose.EmailChange(NEW_EMAIL, ACCOUNT), EMAIL_TOKEN.value()))
                 .build();
 
         assertThat(account.snapshot().toString())
                 .doesNotContain(EMAIL.value(), NEW_EMAIL.value(), AccountBuilder.PASSWORD.value(), EMAIL_TOKEN.value());
     }
 
+    /** Asserts the call fails as a programming error with the message, and changed nothing. */
+    private static void assertBugUnchanged(UserAccount account, ThrowingCallable call, String message) {
+        UserAccountSnapshot before = account.snapshot();
+
+        assertThatThrownBy(call).isInstanceOf(AssertionError.class).hasMessage(message);
+
+        assertThat(account.snapshot()).isEqualTo(before);
+        assertThat(account.pendingEvents()).isEmpty();
+    }
+
     @Test
     void GivenASnapshotOfActiveAdminsThatLacksTheAccount_WhenItStopsBeingAnAdmin_ThenTheBugIsReported() {
         UserAccount account = anAccount().withRoles(Role.ADMIN).build();
         ActiveAdmins others = ActiveAdmins.readUnderLock(List.of(OTHER_ADMIN, THIRD_ADMIN));
+        String message = "the active Admins read under lock must include the active Admin that changes";
 
-        assertThatThrownBy(() -> account.changeRoles(RoleSet.of(Role.DISPATCHER), others, NOW))
-                .isInstanceOf(AssertionError.class);
-        assertThatThrownBy(() -> account.deactivate(others, NOW)).isInstanceOf(AssertionError.class);
+        assertBugUnchanged(account, () -> account.changeRoles(RoleSet.of(Role.DISPATCHER), others, NOW), message);
+        assertBugUnchanged(account, () -> account.deactivate(others, NOW), message);
     }
 
     @Test
     void GivenAnEmailHolderReadForAnotherAddress_WhenOpenedOrConfirmed_ThenTheBugIsReported() {
         UserAccount account = anAccount()
-                .withLink(openLink("1", new LinkPurpose.EmailChange(NEW_EMAIL), EMAIL_TOKEN.value()))
+                .withLink(openLink("1", new LinkPurpose.EmailChange(NEW_EMAIL, ACCOUNT), EMAIL_TOKEN.value()))
                 .build();
+        String message = "the email holder was read for another address";
 
         assertThatThrownBy(() -> UserAccount.open(
                         NEW_ACCOUNT, EMAIL, RoleSet.of(Role.DRIVER), Language.HEBREW, EmailHolder.nobody(NEW_EMAIL)))
-                .isInstanceOf(AssertionError.class);
-        assertThatThrownBy(() -> account.confirmEmailByLink(EMAIL_TOKEN, EmailHolder.nobody(EMAIL), NOW))
-                .isInstanceOf(AssertionError.class);
+                .isInstanceOf(AssertionError.class)
+                .hasMessage(message);
+        assertBugUnchanged(
+                account, () -> account.confirmEmailByLink(EMAIL_TOKEN, EmailHolder.nobody(EMAIL), NOW), message);
+    }
+
+    @Test
+    void GivenALinkIdTheAccountHolds_WhenANewLinkIsIssuedWithIt_ThenTheBugIsReported() {
+        UserAccount account = anAccount()
+                .withLink(link("1", new LinkPurpose.Recovery(), "spent", LinkStatus.SPENT))
+                .build();
+
+        assertBugUnchanged(
+                account,
+                () -> account.issueLink(new LinkPurpose.Recovery(), linkId("1"), RECOVERY_TOKEN, NOW),
+                "a new link needs a new ID");
+    }
+
+    @Test
+    void GivenATokenHashALinkOfTheAccountHolds_WhenANewLinkIsIssuedWithIt_ThenTheBugIsReported() {
+        UserAccount account = anAccount()
+                .withLink(link("1", new LinkPurpose.Recovery(), RECOVERY_TOKEN.value(), LinkStatus.SPENT))
+                .build();
+
+        assertBugUnchanged(
+                account,
+                () -> account.issueLink(new LinkPurpose.Recovery(), linkId("2"), RECOVERY_TOKEN, NOW),
+                "a new link needs a new hash");
     }
 
     // Opening an account
@@ -200,6 +238,13 @@ class UserAccountTest {
         UserAccount account = anAccount().withRoles().build();
 
         assertRefusedUnchanged(account, account::checkSignInAllowed, new AccountHasNoRole());
+    }
+
+    @Test
+    void GivenAnActiveAccountWithNoPasswordYet_WhenSignInIsChecked_ThenPasswordNotSet() {
+        UserAccount account = anAccount().withPassword(Optional.empty()).build();
+
+        assertRefusedUnchanged(account, account::checkSignInAllowed, new PasswordNotSet());
     }
 
     @Test
@@ -451,7 +496,7 @@ class UserAccountTest {
         UserAccount account = anAccount()
                 .withPassword(Optional.empty())
                 .withLink(openLink("1", new LinkPurpose.SetPassword(), SET_PASSWORD_TOKEN.value()))
-                .withLink(openLink("2", new LinkPurpose.EmailChange(NEW_EMAIL), EMAIL_TOKEN.value()))
+                .withLink(openLink("2", new LinkPurpose.EmailChange(NEW_EMAIL, ACCOUNT), EMAIL_TOKEN.value()))
                 .build();
 
         account.setPasswordByLink(SET_PASSWORD_TOKEN, NEW_PASSWORD, NOW);
@@ -486,7 +531,7 @@ class UserAccountTest {
                         LinkStatus.SPENT))
                 .withLink(new CredentialLinkSnapshot(
                         linkId("2"),
-                        new LinkPurpose.EmailChange(NEW_EMAIL),
+                        new LinkPurpose.EmailChange(NEW_EMAIL, ACCOUNT),
                         new TokenHash("old-expired"),
                         sent,
                         sent.plus(Duration.ofHours(1)),
@@ -530,7 +575,7 @@ class UserAccountTest {
     @Test
     void GivenAnEmailChangeLink_WhenAnAdminEndsEverySession_ThenTheLinkIsVoided() {
         UserAccount account = anAccount()
-                .withLink(openLink("1", new LinkPurpose.EmailChange(NEW_EMAIL), EMAIL_TOKEN.value()))
+                .withLink(openLink("1", new LinkPurpose.EmailChange(NEW_EMAIL, ACCOUNT), EMAIL_TOKEN.value()))
                 .build();
 
         account.endEverySession(NOW);
@@ -600,7 +645,7 @@ class UserAccountTest {
     @Test
     void GivenAnEmailChangeLink_WhenUsedToSetAPassword_ThenUnknownLink() {
         UserAccount account = anAccount()
-                .withLink(openLink("1", new LinkPurpose.EmailChange(NEW_EMAIL), EMAIL_TOKEN.value()))
+                .withLink(openLink("1", new LinkPurpose.EmailChange(NEW_EMAIL, ACCOUNT), EMAIL_TOKEN.value()))
                 .build();
 
         assertRefusedUnchanged(
@@ -611,7 +656,7 @@ class UserAccountTest {
     void
             GivenAnEmailChangeLinkToAFreeAddress_WhenUsed_ThenTheNewAddressTakesEffectEveryOtherLinkIsVoidedAndSessionsAreRevoked() {
         UserAccount account = anAccount()
-                .withLink(openLink("1", new LinkPurpose.EmailChange(NEW_EMAIL), EMAIL_TOKEN.value()))
+                .withLink(openLink("1", new LinkPurpose.EmailChange(NEW_EMAIL, ACCOUNT), EMAIL_TOKEN.value()))
                 .withLink(openLink("2", new LinkPurpose.Recovery(), RECOVERY_TOKEN.value()))
                 .build();
 
@@ -625,9 +670,70 @@ class UserAccountTest {
     }
 
     @Test
+    void GivenAnAdmin_WhenAnotherAdminSendsAnEmailChangeLinkForThem_ThenEmailOfAnotherAdmin() {
+        UserAccount account = anAccount().withRoles(Role.ADMIN).build();
+
+        assertRefusedUnchanged(
+                account,
+                () -> account.issueLink(
+                        new LinkPurpose.EmailChange(NEW_EMAIL, OTHER_ADMIN), linkId("1"), EMAIL_TOKEN, NOW),
+                new EmailOfAnotherAdmin());
+    }
+
+    @Test
+    void GivenAnAdmin_WhenTheyAskToChangeTheirOwnEmail_ThenTheLinkIsSentToTheNewAddress() {
+        UserAccount account = anAccount().withRoles(Role.ADMIN).build();
+
+        account.issueLink(new LinkPurpose.EmailChange(NEW_EMAIL, ACCOUNT), linkId("1"), EMAIL_TOKEN, NOW);
+
+        assertThat(account.snapshot().links())
+                .containsExactly(new CredentialLinkSnapshot(
+                        linkId("1"),
+                        new LinkPurpose.EmailChange(NEW_EMAIL, ACCOUNT),
+                        EMAIL_TOKEN,
+                        NOW,
+                        NOW.plus(Duration.ofHours(1)),
+                        LinkStatus.OPEN));
+    }
+
+    @Test
+    void GivenADispatcher_WhenAnAdminSendsAnEmailChangeLinkForThem_ThenTheLinkIsSent() {
+        UserAccount account = anAccount().build();
+
+        account.issueLink(new LinkPurpose.EmailChange(NEW_EMAIL, OTHER_ADMIN), linkId("1"), EMAIL_TOKEN, NOW);
+
+        assertAllLinks(account, LinkStatus.OPEN);
+    }
+
+    @Test
+    void GivenAnEmailChangeAnotherAccountAskedForBeforeThisOneBecameAnAdmin_WhenUsed_ThenEmailOfAnotherAdmin() {
+        UserAccount account = anAccount()
+                .withRoles(Role.ADMIN, Role.DISPATCHER)
+                .withLink(openLink("1", new LinkPurpose.EmailChange(NEW_EMAIL, OTHER_ADMIN), EMAIL_TOKEN.value()))
+                .build();
+
+        assertRefusedUnchanged(
+                account,
+                () -> account.confirmEmailByLink(EMAIL_TOKEN, EmailHolder.nobody(NEW_EMAIL), NOW),
+                new EmailOfAnotherAdmin());
+    }
+
+    @Test
+    void GivenAnAdminsOwnEmailChange_WhenUsed_ThenTheNewAddressTakesEffect() {
+        UserAccount account = anAccount()
+                .withRoles(Role.ADMIN)
+                .withLink(openLink("1", new LinkPurpose.EmailChange(NEW_EMAIL, ACCOUNT), EMAIL_TOKEN.value()))
+                .build();
+
+        account.confirmEmailByLink(EMAIL_TOKEN, EmailHolder.nobody(NEW_EMAIL), NOW);
+
+        assertThat(account.email()).contains(NEW_EMAIL);
+    }
+
+    @Test
     void GivenAnEmailChangeLinkToAnAddressAnotherAccountTookMeanwhile_WhenUsed_ThenEmailInUse() {
         UserAccount account = anAccount()
-                .withLink(openLink("1", new LinkPurpose.EmailChange(NEW_EMAIL), EMAIL_TOKEN.value()))
+                .withLink(openLink("1", new LinkPurpose.EmailChange(NEW_EMAIL, ACCOUNT), EMAIL_TOKEN.value()))
                 .build();
 
         assertRefusedUnchanged(
@@ -639,7 +745,7 @@ class UserAccountTest {
     @Test
     void GivenAnEmailChangeLinkOneSecondBeforeItsHour_WhenUsed_ThenTheNewAddressTakesEffect() {
         UserAccount account = anAccount()
-                .withLink(openLink("1", new LinkPurpose.EmailChange(NEW_EMAIL), EMAIL_TOKEN.value()))
+                .withLink(openLink("1", new LinkPurpose.EmailChange(NEW_EMAIL, ACCOUNT), EMAIL_TOKEN.value()))
                 .build();
 
         account.confirmEmailByLink(
@@ -653,7 +759,7 @@ class UserAccountTest {
     @Test
     void GivenAnEmailChangeLinkAtItsHour_WhenUsed_ThenLinkExpired() {
         UserAccount account = anAccount()
-                .withLink(openLink("1", new LinkPurpose.EmailChange(NEW_EMAIL), EMAIL_TOKEN.value()))
+                .withLink(openLink("1", new LinkPurpose.EmailChange(NEW_EMAIL, ACCOUNT), EMAIL_TOKEN.value()))
                 .build();
 
         assertRefusedUnchanged(
@@ -681,7 +787,7 @@ class UserAccountTest {
     void GivenOpenLinks_WhenThePasswordIsChanged_ThenEveryLinkIsVoidedAndSessionsAreRevoked() {
         UserAccount account = anAccount()
                 .withLink(openLink("1", new LinkPurpose.Recovery(), RECOVERY_TOKEN.value()))
-                .withLink(openLink("2", new LinkPurpose.EmailChange(NEW_EMAIL), EMAIL_TOKEN.value()))
+                .withLink(openLink("2", new LinkPurpose.EmailChange(NEW_EMAIL, ACCOUNT), EMAIL_TOKEN.value()))
                 .build();
 
         account.changePassword(NEW_PASSWORD, NOW);
@@ -731,7 +837,7 @@ class UserAccountTest {
         UserAccount account = anAccount()
                 .withRoles(Role.DRIVER)
                 .withState(new AccountState.Deactivated(deactivated))
-                .withLink(openLink("1", new LinkPurpose.EmailChange(NEW_EMAIL), EMAIL_TOKEN.value()))
+                .withLink(openLink("1", new LinkPurpose.EmailChange(NEW_EMAIL, ACCOUNT), EMAIL_TOKEN.value()))
                 .build();
 
         account.anonymize(aYearLater);

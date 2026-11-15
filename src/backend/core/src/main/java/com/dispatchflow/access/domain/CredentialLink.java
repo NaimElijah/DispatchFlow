@@ -36,6 +36,10 @@ final class CredentialLink {
         this(stored.id(), stored.purpose(), stored.tokenHash(), stored.issuedAt(), stored.expiresAt(), stored.status());
     }
 
+    CredentialLinkId id() {
+        return id;
+    }
+
     LinkPurpose purpose() {
         return purpose;
     }

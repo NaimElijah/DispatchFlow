@@ -11,6 +11,13 @@ import java.util.Optional;
  * An account as stored: what {@link UserAccount#snapshot()} gives and {@link UserAccount#restore}
  * takes. Its values are already checked; {@code restore} checks how they fit together.
  *
+ * <p>The persistence adapter builds every stored value inside {@link
+ * com.dispatchflow.shared.StoredStateInvalid#whileRestoring}, so a value that the rules now refuse
+ * is an incident, never a user-facing refusal. Here that covers the email addresses, the account's
+ * and those its email-change links hold, which {@link EmailAddress#ofStored} rebuilds by the input
+ * rule inside that call. A value has its own {@code ofStored} factory where the stored rule differs
+ * from the input rule, or where, as here, it already wraps the input rule.
+ *
  * @param version the stored version
  * @param id the account's ID
  * @param email the address it signs in with; absent once anonymized

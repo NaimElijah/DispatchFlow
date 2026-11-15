@@ -10,8 +10,15 @@ import java.util.Optional;
 /**
  * A driver's stored state: what {@link Driver#snapshot()} returns and {@link Driver#restore}
  * rebuilds from. It holds the driver's name and phone until they are anonymized, so it is personal
- * data (ADR-106), and {@link #toString()} leaves the contact out. The persistence adapter rebuilds
- * the name with {@link DriverName#ofStored} and the phone with {@code PhoneNumber.ofStored}.
+ * data (ADR-106), and {@link #toString()} leaves the contact out.
+ *
+ * <p>The persistence adapter builds every stored value inside {@link
+ * com.dispatchflow.shared.StoredStateInvalid#whileRestoring}, so a value that the rules now refuse
+ * is an incident, never a user-facing refusal. Here that covers the default shift and the weekly
+ * shifts, and the name and phone, which {@link DriverName#ofStored} and {@code
+ * PhoneNumber.ofStored} rebuild. A value has an {@code ofStored} factory where the stored rule
+ * differs from the input rule, as {@code PhoneNumber.ofStored} accepts any E.164 text, or where it
+ * already wraps the input rule this way, as the names' factories do.
  *
  * @param id the driver's account, which keys the driver
  * @param version the version it was loaded at

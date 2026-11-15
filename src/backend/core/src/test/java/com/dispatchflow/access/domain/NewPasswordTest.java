@@ -3,6 +3,7 @@ package com.dispatchflow.access.domain;
 import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.dispatchflow.access.domain.AccessError.PasswordHasUnpairedSurrogate;
 import com.dispatchflow.access.domain.AccessError.PasswordTooCommon;
 import com.dispatchflow.access.domain.AccessError.PasswordTooShort;
 import java.util.List;
@@ -27,6 +28,21 @@ class NewPasswordTest {
     void GivenCharactersOutsideTheBasicPlane_WhenChecked_ThenEachCountsAsOneCharacter() {
         assertThat(NewPassword.of(TRUCK.repeat(8), COMMON).text()).isEqualTo(TRUCK.repeat(8));
         assertRefused(() -> NewPassword.of(TRUCK.repeat(7), COMMON), new PasswordTooShort(8));
+    }
+
+    @Test
+    void GivenALoneHighSurrogate_WhenChecked_ThenPasswordHasUnpairedSurrogate() {
+        assertRefused(() -> NewPassword.of("tz7!kw0q\uD83D", COMMON), new PasswordHasUnpairedSurrogate());
+    }
+
+    @Test
+    void GivenALoneLowSurrogate_WhenChecked_ThenPasswordHasUnpairedSurrogate() {
+        assertRefused(() -> NewPassword.of("\uDE9Atz7!kw0q", COMMON), new PasswordHasUnpairedSurrogate());
+    }
+
+    @Test
+    void GivenSurrogatesInTheWrongOrder_WhenChecked_ThenPasswordHasUnpairedSurrogate() {
+        assertRefused(() -> NewPassword.of("tz7!\uDE9A\uD83Dkw0q", COMMON), new PasswordHasUnpairedSurrogate());
     }
 
     @Test

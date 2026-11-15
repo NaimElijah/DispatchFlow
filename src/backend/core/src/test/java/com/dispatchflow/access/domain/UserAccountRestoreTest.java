@@ -1,5 +1,6 @@
 package com.dispatchflow.access.domain;
 
+import static com.dispatchflow.access.domain.AccountBuilder.ACCOUNT;
 import static com.dispatchflow.access.domain.AccountBuilder.EMAIL;
 import static com.dispatchflow.access.domain.AccountBuilder.NEW_EMAIL;
 import static com.dispatchflow.access.domain.AccountBuilder.PASSWORD;
@@ -36,7 +37,7 @@ class UserAccountRestoreTest {
                 anAccount()
                         .withLink(openLink("1", new LinkPurpose.SetPassword(), "a"))
                         .withLink(openLink("2", new LinkPurpose.Recovery(), "b"))
-                        .withLink(openLink("3", new LinkPurpose.EmailChange(NEW_EMAIL), "c"))
+                        .withLink(openLink("3", new LinkPurpose.EmailChange(NEW_EMAIL, ACCOUNT), "c"))
                         .withLink(link("4", new LinkPurpose.Recovery(), "d", LinkStatus.VOIDED))
                         .withLink(link("5", new LinkPurpose.SetPassword(), "e", LinkStatus.SPENT)),
                 anAccount().withState(new AccountState.Deactivated(DEACTIVATED_AT)),
@@ -53,68 +54,89 @@ class UserAccountRestoreTest {
         assertThat(account.pendingEvents()).isEmpty();
     }
 
-    private static void assertStoredStateInvalid(AccountBuilder builder) {
+    private static void assertStoredStateInvalid(AccountBuilder builder, String detail) {
         UserAccountSnapshot stored = builder.snapshot();
 
         assertThatThrownBy(() -> UserAccount.restore(stored))
-                .isInstanceOfSatisfying(
-                        StoredStateInvalid.class,
-                        invalid -> assertThat(invalid.subject()).isEqualTo("UserAccount"));
+                .isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
+                    assertThat(invalid.subject()).isEqualTo("UserAccount");
+                    assertThat(invalid.detail()).isEqualTo(detail);
+                });
     }
 
     @Test
     void GivenAnActiveAccountWithNoEmail_WhenRestored_ThenStoredStateInvalid() {
-        assertStoredStateInvalid(anAccount().withEmail(Optional.empty()));
+        assertStoredStateInvalid(
+                anAccount().withEmail(Optional.empty()),
+                "an anonymized account holds no email, and every other account holds one");
     }
 
     @Test
     void GivenAnAnonymizedAccountStillHoldingItsEmail_WhenRestored_ThenStoredStateInvalid() {
         assertStoredStateInvalid(
-                anAnonymizedAccount(DEACTIVATED_AT, ANONYMIZED_AT).withEmail(Optional.of(EMAIL)));
+                anAnonymizedAccount(DEACTIVATED_AT, ANONYMIZED_AT).withEmail(Optional.of(EMAIL)),
+                "an anonymized account holds no email, and every other account holds one");
     }
 
     @Test
     void GivenAnAnonymizedAccountStillHoldingAPassword_WhenRestored_ThenStoredStateInvalid() {
         assertStoredStateInvalid(
-                anAnonymizedAccount(DEACTIVATED_AT, ANONYMIZED_AT).withPassword(Optional.of(PASSWORD)));
+                anAnonymizedAccount(DEACTIVATED_AT, ANONYMIZED_AT).withPassword(Optional.of(PASSWORD)),
+                "an anonymized account holds no password and no link");
     }
 
     @Test
     void GivenAnAnonymizedAccountStillHoldingALink_WhenRestored_ThenStoredStateInvalid() {
-        assertStoredStateInvalid(anAnonymizedAccount(DEACTIVATED_AT, ANONYMIZED_AT)
-                .withLink(link("1", new LinkPurpose.Recovery(), "a", LinkStatus.VOIDED)));
+        assertStoredStateInvalid(
+                anAnonymizedAccount(DEACTIVATED_AT, ANONYMIZED_AT)
+                        .withLink(link("1", new LinkPurpose.Recovery(), "a", LinkStatus.VOIDED)),
+                "an anonymized account holds no password and no link");
     }
 
     @Test
     void GivenAnAccountAnonymizedBeforeItWasDeactivated_WhenRestored_ThenStoredStateInvalid() {
-        assertStoredStateInvalid(anAnonymizedAccount(ANONYMIZED_AT, DEACTIVATED_AT));
+        assertStoredStateInvalid(
+                anAnonymizedAccount(ANONYMIZED_AT, DEACTIVATED_AT), "an account is anonymized after it is deactivated");
     }
 
     @Test
     void GivenTwoLinksWithOneId_WhenRestored_ThenStoredStateInvalid() {
-        assertStoredStateInvalid(anAccount()
-                .withLink(link("1", new LinkPurpose.Recovery(), "a", LinkStatus.VOIDED))
-                .withLink(openLink("1", new LinkPurpose.SetPassword(), "b")));
+        assertStoredStateInvalid(
+                anAccount()
+                        .withLink(link("1", new LinkPurpose.Recovery(), "a", LinkStatus.VOIDED))
+                        .withLink(openLink("1", new LinkPurpose.SetPassword(), "b")),
+                "two links share an ID");
     }
 
     @Test
     void GivenTwoLinksWithOneTokenHash_WhenRestored_ThenStoredStateInvalid() {
-        assertStoredStateInvalid(anAccount()
-                .withLink(link("1", new LinkPurpose.Recovery(), "same", LinkStatus.VOIDED))
-                .withLink(openLink("2", new LinkPurpose.SetPassword(), "same")));
+        assertStoredStateInvalid(
+                anAccount()
+                        .withLink(link("1", new LinkPurpose.Recovery(), "same", LinkStatus.VOIDED))
+                        .withLink(openLink("2", new LinkPurpose.SetPassword(), "same")),
+                "two links share a token hash");
     }
 
     @Test
     void GivenTwoOpenLinksOfOneKind_WhenRestored_ThenStoredStateInvalid() {
-        assertStoredStateInvalid(anAccount()
-                .withLink(openLink("1", new LinkPurpose.EmailChange(EMAIL), "a"))
-                .withLink(openLink("2", new LinkPurpose.EmailChange(NEW_EMAIL), "b")));
+        assertStoredStateInvalid(
+                anAccount()
+                        .withLink(openLink("1", new LinkPurpose.EmailChange(EMAIL, ACCOUNT), "a"))
+                        .withLink(openLink("2", new LinkPurpose.EmailChange(NEW_EMAIL, ACCOUNT), "b")),
+                "a newer link voids older open links of its kind");
     }
 
     @Test
     void GivenALinkThatExpiresWhenItIsSent_WhenRestored_ThenStoredStateInvalid() {
-        assertStoredStateInvalid(anAccount()
-                .withLink(new CredentialLinkSnapshot(
-                        linkId("1"), new LinkPurpose.Recovery(), new TokenHash("a"), SENT, SENT, LinkStatus.OPEN)));
+        assertStoredStateInvalid(
+                anAccount()
+                        .withLink(new CredentialLinkSnapshot(
+                                linkId("1"),
+                                new LinkPurpose.Recovery(),
+                                new TokenHash("a"),
+                                SENT,
+                                SENT,
+                                LinkStatus.OPEN)),
+                "a link expires after it is sent");
     }
 }

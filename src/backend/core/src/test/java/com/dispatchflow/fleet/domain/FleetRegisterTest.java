@@ -126,8 +126,10 @@ class FleetRegisterTest {
         FleetRegister register = aRegister().build();
 
         assertThatThrownBy(() -> register.addDepot(NORTH, DepotName.of("Again"), Optional.empty(), Optional.empty()))
-                .isInstanceOf(AssertionError.class);
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("a new depot needs a new ID");
         assertThat(register.snapshot()).isEqualTo(aRegister().snapshot());
+        assertThat(register.pendingEvents()).isEmpty();
     }
 
     @Test
@@ -232,6 +234,18 @@ class FleetRegisterTest {
                 register,
                 () -> register.retireDepot(SOUTH, usedOn(TODAY), TODAY, NOW),
                 new DepotInUse(SOUTH, PLAN, DeliveryDate.of(TODAY)));
+    }
+
+    @Test
+    void GivenOnlyAPastPlanAndACancelledOneUseADepot_WhenRetired_ThenItIsRetired() {
+        FleetRegister register = aRegister().build();
+        PlanUses uses = PlanUses.of(List.of(
+                PlanUse.uncancelled(PLAN, DeliveryDate.of(TODAY.minusDays(1))),
+                PlanUse.cancelled(PLAN, DeliveryDate.of(TODAY))));
+
+        register.retireDepot(SOUTH, uses, TODAY, NOW);
+
+        assertThat(depotIn(register, SOUTH).retiredAt()).contains(NOW);
     }
 
     // --- adding vehicles: BR-36, BR-40, BR-48
@@ -363,7 +377,12 @@ class FleetRegisterTest {
     void GivenAVehicleIdAlreadyInTheRegister_WhenAddedAgain_ThenItFailsAsAProgrammingError() {
         FleetRegister register = aRegister().withVehicle(retiredVehicle(1)).build();
 
-        assertThatThrownBy(() -> register.addVehicle(vehicleId(1), details(2))).isInstanceOf(AssertionError.class);
+        assertThatThrownBy(() -> register.addVehicle(vehicleId(1), details(2)))
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("a new vehicle needs a new ID");
+        assertThat(register.snapshot())
+                .isEqualTo(aRegister().withVehicle(retiredVehicle(1)).snapshot());
+        assertThat(register.pendingEvents()).isEmpty();
     }
 
     // --- changing vehicles

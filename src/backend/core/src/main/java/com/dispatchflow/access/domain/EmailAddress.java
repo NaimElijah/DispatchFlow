@@ -32,6 +32,14 @@ public final class EmailAddress implements PersonalData {
     // angle brackets.
     private static final int MAX_LOCAL_PART = 64;
     private static final int MAX_ADDRESS = 254;
+    /**
+     * The most UTF-16 units of trimmed input per character of the longest address, the bound
+     * {@code PlainText} uses for the same reason: the JDK's {@link Normalizer} takes time quadratic
+     * in a run of combining marks, here in the local part's NFC and the domain's IDNA mapping. So
+     * input this far past the cap is refused before either runs.
+     */
+    private static final int MAX_RAW_UNITS_PER_CHARACTER = 8;
+
     private static final String DOT = ".";
     private static final int MIN_LABELS = 2;
     private static final int ASCII_LIMIT = 0x80;
@@ -53,13 +61,17 @@ public final class EmailAddress implements PersonalData {
      *
      * @param text the address, with any surrounding spaces
      * @return the address in canonical form
-     * @throws RuleViolation with {@link InvalidEmail} when the text has no single {@code @} with
-     *     text on both sides; the local part is over 64 characters or not a dot-atom; the domain
-     *     is not a valid host name of two or more labels, or holds an IDNA deviation character; or
-     *     the address is over 254 characters in canonical form, its domain in Punycode
+     * @throws RuleViolation with {@link InvalidEmail} when the trimmed text is over 2,032 UTF-16
+     *     units (eight per character of the longest address); it has no single {@code @} with text
+     *     on both sides; the local part is over 64 characters or not a dot-atom; the domain is not
+     *     a valid host name of two or more labels, or holds an IDNA deviation character; or the
+     *     address is over 254 characters in canonical form, its domain in Punycode
      */
     public static EmailAddress parse(String text) {
         String trimmed = Objects.requireNonNull(text, "text").strip();
+        if (trimmed.length() > MAX_ADDRESS * MAX_RAW_UNITS_PER_CHARACTER) {
+            throw invalid();
+        }
         int at = trimmed.indexOf(AT);
         if (at <= 0 || at != trimmed.lastIndexOf(AT) || at == trimmed.length() - 1) {
             throw invalid();

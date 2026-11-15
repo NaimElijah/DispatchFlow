@@ -210,13 +210,19 @@ public final class Driver extends AggregateRoot {
      * on is not active. Access has checked the year, so nothing is checked here. An anonymized driver
      * stays as they are, so a repeated delivery changes nothing.
      *
-     * @param now when the account was anonymized
+     * <p>A late, redelivered event can reach a driver a dispatcher retired after the account was
+     * anonymized. The driver is then recorded as anonymized at the retirement, never before it, so
+     * the saved state keeps {@link #restore}'s order.
+     *
+     * @param now when the account was anonymized, from the event; for a driver retired later, the
+     *     retirement is recorded instead
      */
     public void anonymizeWithAccount(Instant now) {
         Objects.requireNonNull(now, "now");
         switch (status) {
             case DriverStatus.Active active -> removePersonalFields(Optional.empty(), now);
-            case DriverStatus.Retired(Instant retiredAt) -> removePersonalFields(Optional.of(retiredAt), now);
+            case DriverStatus.Retired(Instant retiredAt) ->
+                removePersonalFields(Optional.of(retiredAt), now.isBefore(retiredAt) ? retiredAt : now);
             case DriverStatus.Anonymized anonymized -> {
                 // Already done: the event is delivered at least once.
             }

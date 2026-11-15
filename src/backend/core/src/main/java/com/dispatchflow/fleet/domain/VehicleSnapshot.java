@@ -6,7 +6,8 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * A vehicle as the fleet register stores it (DL §4.2).
+ * A vehicle as the fleet register stores it (DL §4.2). The adapter builds its details as {@link
+ * FleetRegisterSnapshot} says, inside {@code StoredStateInvalid.whileRestoring}.
  *
  * @param id the vehicle
  * @param details its name, plate, capacity and depots

@@ -26,6 +26,7 @@ class SessionRestoreTest {
                 aSession(),
                 aSession().withState(new SessionState.Revoked(LATER)),
                 aSession().withContactTimes(OPENED, LATER, LATEST),
+                aSession().withContactTimes(OPENED, LATER, LATER),
                 aSession().withLastPasswordAt(LATER),
                 aSession()
                         .withTokens(
@@ -50,81 +51,90 @@ class SessionRestoreTest {
         assertThat(session.pendingEvents()).isEmpty();
     }
 
-    private static void assertStoredStateInvalid(SessionBuilder builder) {
+    private static void assertStoredStateInvalid(SessionBuilder builder, String detail) {
         SessionSnapshot stored = builder.snapshot();
 
-        assertThatThrownBy(() -> Session.restore(stored))
-                .isInstanceOfSatisfying(
-                        StoredStateInvalid.class,
-                        invalid -> assertThat(invalid.subject()).isEqualTo("Session"));
+        assertThatThrownBy(() -> Session.restore(stored)).isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
+            assertThat(invalid.subject()).isEqualTo("Session");
+            assertThat(invalid.detail()).isEqualTo(detail);
+        });
     }
 
     @Test
     void GivenASessionWithNoToken_WhenRestored_ThenStoredStateInvalid() {
-        assertStoredStateInvalid(aSession().withTokens());
+        assertStoredStateInvalid(aSession().withTokens(), "a session holds at least one refresh token");
     }
 
     @Test
     void GivenTwoTokensWithOneId_WhenRestored_ThenStoredStateInvalid() {
-        assertStoredStateInvalid(aSession()
-                .withTokens(
-                        token("1", "a", OPENED, new TokenState.Superseded(LATER)),
-                        token("1", "b", LATER, new TokenState.Current())));
+        assertStoredStateInvalid(
+                aSession()
+                        .withTokens(
+                                token("1", "a", OPENED, new TokenState.Superseded(LATER)),
+                                token("1", "b", LATER, new TokenState.Current())),
+                "two refresh tokens share an ID");
     }
 
     @Test
     void GivenTwoTokensWithOneHash_WhenRestored_ThenStoredStateInvalid() {
-        assertStoredStateInvalid(aSession()
-                .withTokens(
-                        token("1", "same", OPENED, new TokenState.Superseded(LATER)),
-                        token("2", "same", LATER, new TokenState.Current())));
+        assertStoredStateInvalid(
+                aSession()
+                        .withTokens(
+                                token("1", "same", OPENED, new TokenState.Superseded(LATER)),
+                                token("2", "same", LATER, new TokenState.Current())),
+                "two refresh tokens share a hash");
     }
 
     @Test
     void GivenALiveSessionWithNoCurrentToken_WhenRestored_ThenStoredStateInvalid() {
-        assertStoredStateInvalid(aSession().withTokens(token("1", "a", OPENED, new TokenState.Superseded(LATER))));
+        assertStoredStateInvalid(
+                aSession().withTokens(token("1", "a", OPENED, new TokenState.Superseded(LATER))),
+                "a live session holds exactly one current token, a revoked one at most one");
     }
 
     @Test
     void GivenALiveSessionWithTwoCurrentTokens_WhenRestored_ThenStoredStateInvalid() {
-        assertStoredStateInvalid(aSession()
-                .withTokens(
-                        token("1", "a", OPENED, new TokenState.Current()),
-                        token("2", "b", LATER, new TokenState.Current())));
+        assertStoredStateInvalid(
+                aSession()
+                        .withTokens(
+                                token("1", "a", OPENED, new TokenState.Current()),
+                                token("2", "b", LATER, new TokenState.Current())),
+                "a live session holds exactly one current token, a revoked one at most one");
     }
 
     @Test
     void GivenARevokedSessionWithTwoCurrentTokens_WhenRestored_ThenStoredStateInvalid() {
-        assertStoredStateInvalid(aSession()
-                .withState(new SessionState.Revoked(LATEST))
-                .withTokens(
-                        token("1", "a", OPENED, new TokenState.Current()),
-                        token("2", "b", LATER, new TokenState.Current())));
+        assertStoredStateInvalid(
+                aSession()
+                        .withState(new SessionState.Revoked(LATEST))
+                        .withTokens(
+                                token("1", "a", OPENED, new TokenState.Current()),
+                                token("2", "b", LATER, new TokenState.Current())),
+                "a live session holds exactly one current token, a revoked one at most one");
     }
 
     @Test
     void GivenAnExchangedTokenWhoseSuccessorIsNotInTheChain_WhenRestored_ThenStoredStateInvalid() {
-        assertStoredStateInvalid(aSession()
-                .withTokens(
-                        token("1", "a", OPENED, new TokenState.Exchanged(LATER, tokenId("9"))),
-                        token("2", "b", LATER, new TokenState.Current())));
+        assertStoredStateInvalid(
+                aSession()
+                        .withTokens(
+                                token("1", "a", OPENED, new TokenState.Exchanged(LATER, tokenId("9"))),
+                                token("2", "b", LATER, new TokenState.Current())),
+                "an exchanged token's successor is another token of the chain");
     }
 
     @Test
     void GivenAnExchangedTokenThatIsItsOwnSuccessor_WhenRestored_ThenStoredStateInvalid() {
-        assertStoredStateInvalid(aSession()
-                .withTokens(
-                        token("1", "a", OPENED, new TokenState.Exchanged(LATER, tokenId("1"))),
-                        token("2", "b", LATER, new TokenState.Current())));
+        assertStoredStateInvalid(
+                aSession()
+                        .withTokens(
+                                token("1", "a", OPENED, new TokenState.Exchanged(LATER, tokenId("1"))),
+                                token("2", "b", LATER, new TokenState.Current())),
+                "an exchanged token's successor is another token of the chain");
     }
 
     @Test
     void GivenContactTimesOutOfOrder_WhenRestored_ThenStoredStateInvalid() {
-        assertStoredStateInvalid(aSession().withContactTimes(LATER, OPENED));
-    }
-
-    @Test
-    void GivenARepeatedContactTime_WhenRestored_ThenStoredStateInvalid() {
-        assertStoredStateInvalid(aSession().withContactTimes(LATER, LATER));
+        assertStoredStateInvalid(aSession().withContactTimes(LATER, OPENED), "contact times never decrease");
     }
 }
