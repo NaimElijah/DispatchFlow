@@ -64,3 +64,5 @@ the hexagon and the process model). The ADRs cover:
 
 Only the domain is described as built. The application's bodies, the solvers and the contract's
 operations arrive with their milestones.
+[The domain layer visual guide](domain_layer/domain_layer_visual_guide.md#8-the-python-optimization-domain)
+draws the domain's modules and which imports which.
