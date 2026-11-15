@@ -32,6 +32,11 @@ import com.dispatchflow.shared.application.StaleVersion;
  * cap. The residual risk: about 20 real addresses, each at FR-172's 5 an hour, can still spend the
  * day's cap within an hour; ADR-036 revisits the limits on a day the cap is reached.
  *
+ * <p><b>The order.</b> The use case calls {@code UserAccount.issueLink} first, then {@link
+ * RecoveryEmailCap#take}, and saves the account and sends the link only when the take succeeds. On a
+ * refused take the account isn't saved, so the link issued in memory is dropped and the account's
+ * earlier open link, if it has one, stays valid.
+ *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *

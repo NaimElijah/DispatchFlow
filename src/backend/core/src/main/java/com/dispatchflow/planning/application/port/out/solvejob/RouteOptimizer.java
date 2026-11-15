@@ -9,6 +9,13 @@ import java.util.List;
  * anti-corruption layer, with plain synchronous HTTP and a client timeout of the limit plus 30
  * seconds (BR-32, BR-84, ADR-051). A job's worker calls it outside any transaction (DL §6.3).
  *
+ * <p><b>Gap: the optimizer's own failure.</b> The optimizer answers {@code Failed} when its solver
+ * failed, or found no solution within its budget (ADR-004). No {@code SolveFailureReason} names that
+ * yet: M0 adds one, which is a domain change and an edit to FR-65's list, and so the owner's
+ * decision. Until then the adapter must not map {@code Failed} to {@code VALIDATOR_REJECTED} with no
+ * violations, because that reason means the validator rejected a solution with every violation
+ * (BR-57).
+ *
  * <p>Built in M0, M4 and M9, method by method.
  */
 public interface RouteOptimizer {
@@ -20,7 +27,8 @@ public interface RouteOptimizer {
      *
      * @param request the daily solve
      * @return the validated solution, or the failure: the optimizer unreachable, the call past its
-     *     timeout, or the validator's rejection (FR-65)
+     *     timeout, the validator's rejection (FR-65), or the optimizer's own failure, whose reason M0
+     *     adds (see the gap above)
      */
     DailyAnswer solve(SolveRequest request);
 

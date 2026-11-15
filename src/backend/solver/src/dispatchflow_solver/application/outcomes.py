@@ -11,7 +11,7 @@ Built in M0; the evaluation and baseline outcomes in M1, the re-optimization out
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from dispatchflow_solver.application.ports import Budget
+from dispatchflow_solver.application.ports import Budget, IterationLimit, SolutionLimit
 from dispatchflow_solver.domain.drops import DropReason
 from dispatchflow_solver.domain.feasibility import ValidationReport
 from dispatchflow_solver.domain.objective import Cost
@@ -28,8 +28,9 @@ class SolveStats:
         seed: The seed it searched with.
         budget: The budget it searched under.
         search_seconds: How long the search ran, by the stopwatch.
-        reached: The iterations or the solutions the search reached, from its `SearchResult`
-            (ADR-004, NFR-13, NFR-115); None in a failed solve, whose search returned none.
+        reached: The budget that replays the search, the iterations or the solutions it reached,
+            from its `SearchResult` (ADR-004, NFR-13, NFR-115); None in a `Failed` outcome, whose
+            search returned none.
     """
 
     solver: str
@@ -37,7 +38,7 @@ class SolveStats:
     seed: int
     budget: Budget
     search_seconds: float
-    reached: int | None
+    reached: IterationLimit | SolutionLimit | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,8 +90,9 @@ class Failed:
 type SolveOutcome = Solved | Rejected | Failed
 """A solve's answer: the validated solution, the validator's refusal, or the solver's failure.
 
-The core records a rejection and a failure alike as a failed solve that names the solver (BR-15,
-ADR-004).
+The core records a rejection as a failed solve with the validator's violations (BR-15, BR-57).
+A failure is no rejection: the core needs a failure reason of its own for it, which FR-65 does
+not list yet, and never records it as a rejection with no violations (ADR-004).
 """
 
 

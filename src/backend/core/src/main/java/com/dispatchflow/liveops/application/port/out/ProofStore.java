@@ -13,6 +13,15 @@ import java.util.Optional;
  * the proof's kind (NFR-184, ADR-107). Each file is bound to the account that uploaded it and to its
  * kind, so a report can name only its own driver's proof (FR-367, BR-02).
  *
+ * <p><b>Retired IDs.</b> When a file is deleted, its ID's binding to the uploader and kind stays, as
+ * a tombstone. So a retired ID is never stored again, and an old report can never come to name
+ * another upload's file.
+ *
+ * <p><b>Uploads no report names.</b> The phone uploads a proof before the report that names it
+ * (ADR-087), so an upload can stay unnamed. The adapter bounds them: it deletes an upload that no
+ * report names within a window, keeping its binding as above, and caps how many unnamed uploads one
+ * uploader may hold. The window and the cap are the adapter's named settings, whose values M5 fixes.
+ *
  * <p>Built in M5.
  */
 public interface ProofStore {
@@ -33,8 +42,8 @@ public interface ProofStore {
      * @param proof the proof's ID
      * @param kind a signature or a photo
      * @param upload the uploaded image
-     * @throws ProofIdTaken when another uploader holds the ID, or the same uploader holds it under
-     *     the other kind
+     * @throws ProofIdTaken when another uploader holds the ID, the same uploader holds it under the
+     *     other kind, or the ID is retired because its file was deleted
      * @throws ProofImageTooLarge when the image's header gives pixel dimensions above the cap
      */
     void store(AccountId uploader, ProofId proof, ProofKind kind, ProofUpload upload);
@@ -45,7 +54,7 @@ public interface ProofStore {
      * <p>Built in M5.
      *
      * @param proof the proof's ID
-     * @return the uploader and the kind, or empty when none was uploaded or retention deleted it
+     * @return the uploader and the kind, or empty when none was uploaded or the ID is retired
      */
     Optional<StoredProof> find(ProofId proof);
 
@@ -55,12 +64,14 @@ public interface ProofStore {
      * <p>Built in M5.
      *
      * @param proof the proof's ID
-     * @return the stored file, or empty when none was uploaded or retention deleted it
+     * @return the stored file, or empty when none was uploaded or the ID is retired
      */
     Optional<ProofUpload> open(ProofId proof);
 
     /**
-     * Deletes every file stored before a cutoff (NFR-184, ADR-075).
+     * Deletes every file stored before a cutoff (NFR-184, ADR-075). Each deleted file's ID keeps its
+     * binding to its uploader and kind, as a tombstone: {@link #store} refuses the ID from then on,
+     * and {@link #find} and {@link #open} answer empty for it.
      *
      * <p>Built in M8.
      *

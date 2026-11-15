@@ -264,7 +264,7 @@ public interface PlanningViews {
     /**
      * The route of a plan in force that holds a stop now, for {@code PublishedRoutes.routeOf}.
      *
-     * <p>Built in M8.
+     * <p>Built in M5.
      *
      * @param stop the stop
      * @return the route, or empty

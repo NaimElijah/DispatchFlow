@@ -14,7 +14,7 @@ import java.util.Optional;
  * is in force once published, until it is cancelled; a completed plan still is, so late reports
  * and corrections find its routes.
  *
- * <p>Built in M5, M8 and M12, method by method.
+ * <p>Built in M5 and M12, method by method.
  */
 public interface PublishedRoutes {
 
@@ -41,9 +41,10 @@ public interface PublishedRoutes {
 
     /**
      * The route of a plan in force that holds a stop now. Live Operations projects one stop's
-     * arrival, and Recipient Messaging explains why a stop gets no message (FR-378), from it.
+     * arrival, Live Operations checks a driver's access to a proof (BR-02), and Recipient Messaging
+     * explains why a stop gets no message (FR-378), from it.
      *
-     * <p>Built in M8.
+     * <p>Built in M5, for Live Operations' {@code ProofQueries}.
      *
      * @param stop the stop
      * @return the route, or empty when no plan in force holds the stop now

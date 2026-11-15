@@ -32,6 +32,11 @@ public sealed interface DailyAnswer {
      * The solve failed: the optimizer was unreachable, overran, or its validator rejected the solution
      * with every violation (FR-65, BR-57).
      *
+     * <p>The optimizer's own {@code Failed} outcome, its solver failed or found no solution within
+     * its budget, needs a {@code SolveFailureReason} that M0 adds: a domain change and an FR-65 edit,
+     * which is the owner's decision. Until then the adapter must not map it to {@code
+     * VALIDATOR_REJECTED} with no violations.
+     *
      * <p>Built in M0.
      *
      * @param failure why

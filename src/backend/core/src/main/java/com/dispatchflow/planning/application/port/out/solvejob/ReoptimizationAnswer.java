@@ -31,6 +31,11 @@ public sealed interface ReoptimizationAnswer {
     /**
      * The re-optimization failed (BR-26, BR-84).
      *
+     * <p>The optimizer's own {@code Failed} outcome, its solver failed or found no solution within
+     * its budget, needs a {@code SolveFailureReason} that M0 adds: a domain change and an FR-65 edit,
+     * which is the owner's decision. Until then the adapter must not map it to {@code
+     * VALIDATOR_REJECTED} with no violations.
+     *
      * <p>Built in M9.
      *
      * @param failure why

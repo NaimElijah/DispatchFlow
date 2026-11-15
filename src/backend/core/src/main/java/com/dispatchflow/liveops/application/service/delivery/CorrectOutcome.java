@@ -71,7 +71,8 @@ public final class CorrectOutcome {
      * <p>Built in M8.
      *
      * @param actor the dispatcher
-     * @param command the stop, the corrected outcome, the reason and the stated time
+     * @param stop the stop whose outcome is corrected
+     * @param command the corrected outcome, the reason and the stated time
      * @param expected the delivery's version the dispatcher saw (BR-76)
      * @throws com.dispatchflow.shared.RuleViolation with Live Operations' {@code
      *     NotALeaveAtDoorOrder}, {@code CorrectionTimeInFuture}, {@code NoOutcomeToCorrect}, {@code
@@ -79,7 +80,7 @@ public final class CorrectOutcome {
      * @throws NotFound when nothing is recorded for the stop
      * @throws StaleVersion when the delivery changed since {@code expected}
      */
-    public void correct(Actor actor, Command command, Version expected) {
+    public void correct(Actor actor, StopId stop, Command command, Version expected) {
         throw new UnsupportedOperationException("Built in M8");
     }
 
@@ -89,32 +90,29 @@ public final class CorrectOutcome {
      *
      * <p>Built in M8.
      *
-     * @param stop the stop
      * @param corrected the outcome the stop now has, which carries no proof (FR-367)
      * @param reason why (FR-333)
      * @param statedTime when the corrected outcome happened, if the dispatcher states it, no later
      *     than now; else it counts from the original's time (ADR-107)
      */
-    public record Command(
-            StopId stop, DispatcherOutcome corrected, CorrectionReason reason, Optional<Instant> statedTime)
+    public record Command(DispatcherOutcome corrected, CorrectionReason reason, Optional<Instant> statedTime)
             implements PersonalData {
 
         /** Checks every part is present, possibly empty. */
         public Command {
-            Objects.requireNonNull(stop, "stop");
             Objects.requireNonNull(corrected, "corrected");
             Objects.requireNonNull(reason, "reason");
             Objects.requireNonNull(statedTime, "statedTime");
         }
 
         /**
-         * A form that names the stop and hides the outcome and the reason.
+         * A form that hides the outcome and the reason.
          *
-         * @return the stop, redacted
+         * @return the redacted form
          */
         @Override
         public String toString() {
-            return "Command[stop=" + stop + ", redacted]";
+            return "Command[redacted]";
         }
     }
 }

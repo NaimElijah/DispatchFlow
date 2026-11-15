@@ -4,8 +4,9 @@ import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.application.NotFound;
 
 /**
- * The order details Live Operations judges a stop's report by and shows the driver (DL §2.2,
- * FR-27, FR-86, FR-87, FR-135, FR-366).
+ * The order details at a stop (DL §2.2): Live Operations judges a stop's report by them and shows
+ * them to the driver (FR-27, FR-86, FR-87, FR-135, FR-366), and Planning's {@code RouteQueries}
+ * prints them on the printable route and the loading list (FR-72, FR-153).
  *
  * <p>Built in M5.
  */

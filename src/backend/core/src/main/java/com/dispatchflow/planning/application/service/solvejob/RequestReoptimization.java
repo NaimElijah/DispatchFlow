@@ -23,7 +23,8 @@ import java.util.Optional;
  * planning settings' default solver for a re-optimization (FR-20, ADR-004).
  *
  * <p>{@code PlanningSettings} has no default solver of each kind yet, which ADR-004 puts there: a
- * domain gap that M4 closes.
+ * domain gap that M4 closes. Until M4 adds the field, a request with no solver runs OR-Tools, the
+ * default that ADR-004 and FR-20 name.
  *
  * <p>Built in M9.
  */

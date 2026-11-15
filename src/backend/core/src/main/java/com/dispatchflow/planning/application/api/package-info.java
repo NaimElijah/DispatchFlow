@@ -1,9 +1,11 @@
 /**
- * Planning's published API (DL §2.2, §2.3 rule 4): what Live Operations asks about the routes in
- * force and their history ({@link com.dispatchflow.planning.application.api.RouteMembership},
- * {@link com.dispatchflow.planning.application.api.PublishedRoutes}, {@link
- * com.dispatchflow.planning.application.api.PlanningSettingsFacts}) and the changes it asks
- * Planning to make ({@link com.dispatchflow.planning.application.api.ReconcileLateOutcome}, {@link
+ * Planning's published API (DL §2.2, §2.3 rule 4): what Live Operations and Recipient Messaging ask
+ * about the routes in force and their history ({@link
+ * com.dispatchflow.planning.application.api.RouteMembership}, {@link
+ * com.dispatchflow.planning.application.api.PublishedRoutes}, {@link
+ * com.dispatchflow.planning.application.api.PlanningSettingsFacts}), and the changes Live
+ * Operations asks Planning to make ({@link
+ * com.dispatchflow.planning.application.api.ReconcileLateOutcome}, {@link
  * com.dispatchflow.planning.application.api.RemoveSupersededPutBack}). Reporting reads no Java API
  * of Planning's: it reads the views Planning publishes (ADR-041, ADR-109).
  *

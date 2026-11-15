@@ -3,6 +3,7 @@ package com.dispatchflow.reporting.application.service;
 import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.planning.events.PlanRevised;
+import com.dispatchflow.reporting.application.port.out.BaselineAnswer;
 import com.dispatchflow.reporting.application.port.out.BaselinePlanner;
 import com.dispatchflow.reporting.application.port.out.BaselineRepository;
 import com.dispatchflow.reporting.application.port.out.ReportingViews;
@@ -27,6 +28,10 @@ import com.dispatchflow.shared.application.StaleVersion;
  * <p>Delivery is at least once (ADR-064), and a recompute is not idempotent by nature, because it
  * stores a new solve: the use case records the {@code (listener, event ID)} pair in {@link
  * ProcessedEvents} in its transaction, and a repeated delivery changes nothing.
+ *
+ * <p>When the planner answers {@link BaselineAnswer.Refused}, the use case stores no new baseline
+ * and completes, so the delivery isn't resubmitted forever for an answer that asking again repeats.
+ * What the plan's summary shows then is open for M5.
  *
  * <p>Built in M9.
  */

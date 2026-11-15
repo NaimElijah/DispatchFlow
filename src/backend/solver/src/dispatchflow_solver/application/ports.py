@@ -69,12 +69,13 @@ class SearchResult:
 
     Attributes:
         solution: The routes and the dropped orders it proposes, not yet validated.
-        reached: The iterations or the solutions the search reached, whichever its budget counts,
-            so a time-limited result can be replayed under that budget (NFR-13, NFR-115).
+        reached: The budget that replays the search: the iterations or the solutions it reached,
+            as an `IterationLimit` or a `SolutionLimit` of the kind the solver counts, so a
+            time-limited result can be replayed under that budget (NFR-13, NFR-115).
     """
 
     solution: Solution
-    reached: int
+    reached: IterationLimit | SolutionLimit
 
 
 class Solver(Protocol):
@@ -104,8 +105,8 @@ class Solver(Protocol):
             seed: The seed of every random choice, so a run can be replayed (NFR-13, ADR-005).
 
         Returns:
-            The routes and the dropped orders it proposes, not yet validated, and the iterations or
-            solutions the search reached.
+            The routes and the dropped orders it proposes, not yet validated, and the budget that
+            replays the search: the iterations or the solutions it reached.
 
         Raises:
             SolverError: If the solver fails, cannot honour the budget's kind, or finds no solution

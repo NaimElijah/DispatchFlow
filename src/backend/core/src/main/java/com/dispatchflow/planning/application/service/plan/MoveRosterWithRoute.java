@@ -3,6 +3,7 @@ package com.dispatchflow.planning.application.service.plan;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.fleet.application.api.MoveVehicleWithRoute;
 import com.dispatchflow.planning.events.RouteHandedOver;
+import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * Moves the route's vehicle on the date's roster to the driver it was handed to, so the roster follows
@@ -34,6 +35,8 @@ public final class MoveRosterWithRoute {
      * @param call the listener's server step, which Fleet's call takes and audits (ADR-110)
      * @throws com.dispatchflow.shared.RuleViolation with Fleet's errors from {@code
      *     DayRoster.moveVehicleWithRoute} when the roster refuses the move
+     * @throws StaleVersion when the roster changed between Fleet's read and its save; the listener's
+     *     adapter retries the event at once, up to three times (DL §11)
      */
     public void on(RouteHandedOver event, CallContext call) {
         throw new UnsupportedOperationException("Built in M9");

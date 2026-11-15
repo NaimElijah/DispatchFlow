@@ -11,16 +11,20 @@ import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.StaleVersion;
 
 /**
- * The server step a restore runs before the core serves again (NFR-252, NFR-253, NFR-272, ADR-045):
- * it revokes every session, voids every open credential link, rotates the access-token signing key,
- * and removes the old key from the accepted set at once, with no overlap. A restored database holds
- * its snapshot's generations and links, so without this a token issued or revoked after the
+ * The server step a restore runs before the core serves again (ADR-045): it revokes every session
+ * (NFR-252), voids every open credential link (NFR-275), rotates the access-token signing key, and
+ * removes the old key from the accepted set at once, with no overlap (NFR-272). A restored database
+ * holds its snapshot's generations and links, so without this a token issued or revoked after the
  * snapshot could read as valid, and a link sent before the snapshot could still be used.
  *
  * <p>It revokes each session {@code SessionRepository.allLive} names, and voids the links of each
  * account {@code UserAccountRepository.withOpenLinks} names, each in its own transaction, and
- * rotates the key through {@code TokenSigner.rotateKey}. The restore runbook's other steps re-apply
- * the changes NFR-253 names and send the Admins their set-password links.
+ * rotates the key through {@code TokenSigner.rotateKey}.
+ *
+ * <p>The restore runbook's other steps are not declared yet: re-applying the changes made since the
+ * backup (NFR-253), blanking the passwords and voiding the links of the accounts whose password or
+ * email changed since it (NFR-274), and issuing the Admins their set-password links (NFR-282). They
+ * follow ADR-045 and are built in M13.
  *
  * <p>Domain gap: {@code UserAccount} has no method that voids every open link yet; M13 adds it.
  *

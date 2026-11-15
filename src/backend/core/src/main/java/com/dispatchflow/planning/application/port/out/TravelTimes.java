@@ -9,7 +9,7 @@ import java.util.List;
  * buffer (FR-321, FR-322). Building a solve's matrix counts toward the response time but not toward
  * the search limit (BR-75, NFR-07).
  *
- * <p>Built in M3.
+ * <p>Built in M3 and M9, method by method.
  */
 public interface TravelTimes {
 

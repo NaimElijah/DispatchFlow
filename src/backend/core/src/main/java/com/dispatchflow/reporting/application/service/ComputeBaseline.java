@@ -3,6 +3,7 @@ package com.dispatchflow.reporting.application.service;
 import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.planning.events.PlanPublished;
+import com.dispatchflow.reporting.application.port.out.BaselineAnswer;
 import com.dispatchflow.reporting.application.port.out.BaselinePlanner;
 import com.dispatchflow.reporting.application.port.out.BaselineRepository;
 import com.dispatchflow.reporting.application.port.out.ReportingViews;
@@ -18,6 +19,10 @@ import com.dispatchflow.shared.application.NotFound;
  * asks the {@link BaselinePlanner} for the nearest-neighbour solve (DL §6.3); then {@code
  * Baseline.compute} stores it. It reads no other module's Java API. Delivery is at least once
  * (ADR-064): the plan keys the baseline, so a repeated delivery finds it stored and changes nothing.
+ *
+ * <p>When the planner answers {@link BaselineAnswer.Refused}, the use case stores no baseline and
+ * completes, so the delivery isn't resubmitted forever for an answer that asking again repeats. What
+ * the plan's summary shows then is open for M5.
  *
  * <p>Built in M5.
  */

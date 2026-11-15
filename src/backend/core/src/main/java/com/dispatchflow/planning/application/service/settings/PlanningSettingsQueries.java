@@ -1,6 +1,7 @@
 package com.dispatchflow.planning.application.service.settings;
 
 import com.dispatchflow.access.application.api.Actor;
+import com.dispatchflow.access.application.api.GrantLimitExceeded;
 import com.dispatchflow.planning.application.port.out.PlanningSettingsView;
 import com.dispatchflow.planning.application.port.out.PlanningViews;
 import com.dispatchflow.planning.application.port.out.SolversView;
@@ -10,10 +11,10 @@ import com.dispatchflow.planning.application.port.out.solvejob.RouteOptimizer;
  * The planning settings an Admin sees and changes (FR-183, placement P7), and the solvers a dispatcher
  * may choose for a solve or a re-optimization (FR-20, FR-224).
  *
- * <p>The settings are Admin and Dispatcher only (FR-183, the permission matrix's <em>Read the
- * company's settings</em> row). The handler's role check from the operation's {@code x-capability}
- * refuses a Driver (ADR-068), and {@link #settings(Actor)} refuses one again once its milestone builds
- * it.
+ * <p>The settings are Admin and Dispatcher only (FR-183). The permission matrix's <em>Read the
+ * company's settings</em> row grants a Driver only the company's name and dispatch phone. That grant
+ * is limited, not empty, so the web adapter's role check lets a Driver through (ADR-068), and {@link
+ * #settings(Actor)} refuses a Driver itself with {@link GrantLimitExceeded}.
  *
  * <p>Built in M4.
  */
@@ -35,12 +36,14 @@ public final class PlanningSettingsQueries {
 
     /**
      * The planning settings, or their starting values when an Admin never changed any. Only an Admin
-     * or a Dispatcher reads them; a Driver is refused (FR-183).
+     * or a Dispatcher reads them (FR-183).
      *
      * <p>Built in M4.
      *
      * @param actor the Admin or the Dispatcher
      * @return the settings, with their version
+     * @throws GrantLimitExceeded when the actor's roles give only the Driver's limited grant, which
+     *     covers the company's name and dispatch phone and not these settings
      */
     public PlanningSettingsView settings(Actor actor) {
         throw new UnsupportedOperationException("Built in M4");

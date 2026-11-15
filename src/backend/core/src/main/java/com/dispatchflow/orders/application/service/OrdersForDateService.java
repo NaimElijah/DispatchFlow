@@ -13,7 +13,7 @@ import java.util.List;
  * its own read port, so Planning and Live Operations never read its schema (DL §2.3
  * rules 1 and 3, BR-22, ADR-109).
  *
- * <p>Built in M2, M5 and M9, method by method.
+ * <p>Built in M2 and M9, method by method.
  */
 public final class OrdersForDateService implements OrdersForDate {
 

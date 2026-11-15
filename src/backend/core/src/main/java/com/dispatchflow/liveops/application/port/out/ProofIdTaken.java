@@ -4,10 +4,11 @@ import com.dispatchflow.liveops.domain.delivery.ProofId;
 import java.util.Objects;
 
 /**
- * An upload names a proof ID that another account already holds, or that its own uploader holds
- * under the other kind, so the upload is refused and the stored file stays as it was (FR-367,
- * BR-02, ADR-087). It is not a domain refusal, so it is no {@code DomainError}: the web adapter
- * answers it with 409 and {@link #code()}. The message names the ID only, never the uploader.
+ * An upload names a proof ID that another account already holds, that its own uploader holds under
+ * the other kind, or that is retired because its file was deleted, so the upload is refused and the
+ * stored file, if any, stays as it was (FR-367, BR-02, ADR-087). It is not a domain refusal, so it
+ * is no {@code DomainError}: the web adapter answers it with 409 and {@link #code()}. The message
+ * names the ID only, never the uploader.
  *
  * <p>Built in M5.
  */
@@ -24,7 +25,7 @@ public final class ProofIdTaken extends RuntimeException {
      * @param proof the ID the upload named
      */
     public ProofIdTaken(ProofId proof) {
-        super("proof " + Objects.requireNonNull(proof, "proof").value() + " is held by another upload");
+        super("proof " + Objects.requireNonNull(proof, "proof").value() + " is held by another upload or retired");
         this.proof = proof;
     }
 

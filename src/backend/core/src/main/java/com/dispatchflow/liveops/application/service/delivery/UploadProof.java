@@ -21,6 +21,10 @@ import com.dispatchflow.shared.application.Clock;
  * an oversized upload is cut off before it is held in memory; the store then refuses an image whose
  * header gives pixel dimensions above its cap, before decoding it.
  *
+ * <p>An upload stays unnamed until the report that names it arrives. The store bounds such uploads:
+ * it deletes one that no report names within a window, and caps how many unnamed uploads one driver
+ * may hold. Both are the store adapter's named settings, whose values M5 fixes.
+ *
  * <p>Live Operations' domain has no error for a proof in another format yet, so the refusal this
  * use case raises for one waits for that error.
  *
@@ -54,8 +58,8 @@ public final class UploadProof {
      * @param proof the proof's ID, the outbox row's
      * @param kind a signature or a photo
      * @param upload the image, within the 5 MB the web adapter let through
-     * @throws ProofIdTaken when another driver holds the ID, or this driver holds it under the
-     *     other kind
+     * @throws ProofIdTaken when another driver holds the ID, this driver holds it under the other
+     *     kind, or the ID is retired because its file was deleted
      * @throws ProofImageTooLarge when the image's pixel dimensions are above the store's cap
      */
     public void upload(Actor actor, ProofId proof, ProofKind kind, ProofUpload upload) {

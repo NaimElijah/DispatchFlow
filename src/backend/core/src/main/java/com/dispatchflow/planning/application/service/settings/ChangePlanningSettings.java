@@ -23,7 +23,7 @@ import java.util.Objects;
  *
  * <p>The change is Admin-only, so it first asks Access's {@link StepUp} whether the acting session
  * gave its password within the step-up window, before it reads the settings (NFR-214, ADR-068,
- * ADR-104).
+ * ADR-104). The step-up arrives in M6.
  *
  * <p>Built in M4.
  */
@@ -57,8 +57,8 @@ public final class ChangePlanningSettings {
      * @param actor the Admin
      * @param command the new values
      * @param expected the settings' version the Admin saw (BR-76)
-     * @throws com.dispatchflow.shared.RuleViolation with Access's {@code SessionRevoked} or {@code
-     *     StepUpRequired}, in that order, before any change (NFR-214)
+     * @throws com.dispatchflow.shared.RuleViolation from M6, with Access's {@code SessionRevoked} or
+     *     {@code StepUpRequired}, in that order, before any change (NFR-214)
      * @throws StaleVersion when the settings changed since {@code expected}
      */
     public void change(Actor actor, Command command, Version expected) {
