@@ -17,9 +17,9 @@ import com.dispatchflow.access.domain.account.LinkKind;
 public interface EmailSender {
 
     /**
-     * Sends a set-password, recovery or email-change link (FR-294, FR-386, FR-388). The recovery
-     * limits of FR-172 and NFR-215 are the web adapter's Bucket4j limits (ADR-071), so a refused
-     * recovery never reaches this port.
+     * Sends a set-password, recovery or email-change link (FR-294, FR-386, FR-388). A recovery
+     * link reaches this port only once FR-172's limit, the web adapter's Bucket4j limit (ADR-071),
+     * let the request through, and the use case took it from NFR-215's {@link RecoveryEmailCap}.
      *
      * <p>Built in M6.
      *

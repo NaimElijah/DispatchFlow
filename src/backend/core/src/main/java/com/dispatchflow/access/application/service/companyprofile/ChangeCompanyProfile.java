@@ -12,7 +12,6 @@ import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
-import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.util.Objects;
 import java.util.Optional;
@@ -26,6 +25,11 @@ import java.util.Optional;
  * <p>The operation is Admin-only in the permission matrix, so the acting session must have given
  * its password in the last 5 minutes, which {@code Session.requireFreshStepUp} checks (NFR-214,
  * NFR-227). The step-up arrives in M6.
+ *
+ * <p><b>The first save creates the profile.</b> While no profile exists, the use case creates it
+ * with {@code CompanyProfile.create} from the command's name, language and window, sets the
+ * service time when one is given, and adds it; the caller, having read none, passes {@code
+ * Version.NEW}. From then on it changes the stored profile.
  *
  * <p>{@code CompanyProfile} can't clear the default service time yet, so an empty one leaves the
  * current value; M2 adds the clearing method.
@@ -69,12 +73,13 @@ public final class ChangeCompanyProfile {
      *
      * @param actor the signed-in user acting
      * @param command the settings
-     * @param expected the version of the profile the caller last read (BR-76)
+     * @param expected the version of the profile the caller last read, or {@code Version.NEW} when
+     *     it read none (BR-76)
      * @throws RuleViolation from M6, with {@code StepUpRequired} when the acting session gave its
      *     password more than 5 minutes ago, or {@code SessionRevoked} when it is revoked (NFR-214)
-     * @throws NotFound when no profile exists yet
-     * @throws StaleVersion when the profile is no longer at {@code expected}, or changed before the
-     *     save (BR-76)
+     * @throws StaleVersion when the profile is no longer at {@code expected}, a profile exists and
+     *     {@code expected} is {@code Version.NEW}, or another Admin stored one before the save
+     *     (BR-76)
      */
     public void change(Actor actor, Command command, Version expected) {
         throw new UnsupportedOperationException("Built in M2");

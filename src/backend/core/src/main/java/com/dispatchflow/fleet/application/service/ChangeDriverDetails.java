@@ -48,7 +48,8 @@ public final class ChangeDriverDetails {
      * <p>Built in M2.
      *
      * @param actor the signed-in user acting
-     * @param command the driver and their new details
+     * @param driver the driver's account
+     * @param command the driver's new details
      * @param expected the version of the driver record the caller last read (BR-76)
      * @throws RuleViolation with Fleet's {@code NotAnActiveDriver} when the driver is retired or
      *     anonymized
@@ -56,7 +57,7 @@ public final class ChangeDriverDetails {
      * @throws StaleVersion when the driver record is no longer at {@code expected}, or changed
      *     before the save (BR-76)
      */
-    public void change(Actor actor, Command command, Version expected) {
+    public void change(Actor actor, AccountId driver, Command command, Version expected) {
         throw new UnsupportedOperationException("Built in M2");
     }
 
@@ -65,17 +66,15 @@ public final class ChangeDriverDetails {
      *
      * <p>Built in M2.
      *
-     * @param driver the driver's account
      * @param contact their name and phone
      * @param defaultShift the shift hours a date gets by default
      * @param defaultVehicle the vehicle a date gets by default
      */
-    public record Command(AccountId driver, DriverContact contact, ShiftHours defaultShift, VehicleId defaultVehicle)
+    public record Command(DriverContact contact, ShiftHours defaultShift, VehicleId defaultVehicle)
             implements PersonalData {
 
         /** Checks every part is present. */
         public Command {
-            Objects.requireNonNull(driver, "driver");
             Objects.requireNonNull(contact, "contact");
             Objects.requireNonNull(defaultShift, "defaultShift");
             Objects.requireNonNull(defaultVehicle, "defaultVehicle");

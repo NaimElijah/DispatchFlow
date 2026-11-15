@@ -11,8 +11,9 @@ import com.dispatchflow.shared.application.StaleVersion;
 /**
  * Access's listener on its own {@code SessionsRevoked}: it ends each live session of the account
  * begun under an older generation, through {@code Session.revokeWithAccount}, dated by the
- * revocation, so the retention job deletes it 30 days later (NFR-258, ADR-116). It removes the
- * account's push addresses (NFR-263).
+ * revocation, so the retention job deletes it 30 days later (NFR-258, ADR-116). It removes the push
+ * address of each session it ends, through {@code PushTokens.removeFor}, and no other: a session
+ * begun after the revocation keeps its address (NFR-263).
  *
  * <p>The token check refuses those sessions from the revocation on, whether or not this has run
  * (NFR-177). Delivery is at least once, and a redelivered event changes nothing, so the reaction is
@@ -51,8 +52,8 @@ public final class RevokeSessionsWithAccount {
      *
      * @param event the revocation, with the account's new generation
      * @param call the listener's server step
-     * @throws StaleVersion when the session changed between its read and its save (BR-76); the
-     *     redelivery tries again
+     * @throws StaleVersion when a session changed between its read and its save (BR-76); the
+     *     listener adapter retries at once, up to three times (DL §11)
      */
     public void on(SessionsRevoked event, CallContext call) {
         throw new UnsupportedOperationException("Built in M6");

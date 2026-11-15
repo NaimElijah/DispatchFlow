@@ -3,7 +3,7 @@ package com.dispatchflow.access.application.service.companyprofile;
 import com.dispatchflow.access.application.api.Actor;
 import com.dispatchflow.access.application.port.out.AccessViews;
 import com.dispatchflow.access.application.port.out.CompanyView;
-import com.dispatchflow.shared.application.NotFound;
+import java.util.Optional;
 
 /**
  * The company settings page's query (FR-125, FR-184).
@@ -27,15 +27,15 @@ public final class CompanyQueries {
     }
 
     /**
-     * The company's details.
+     * The company's details. Before an Admin first saves the settings there is no profile, and the
+     * answer is empty, so the settings page opens with no values for the Admin to fill in.
      *
      * <p>Built in M2.
      *
      * @param actor the signed-in user acting
-     * @return the details
-     * @throws NotFound when no profile exists yet
+     * @return the details, or empty while no profile is set up
      */
-    public CompanyView details(Actor actor) {
+    public Optional<CompanyView> details(Actor actor) {
         throw new UnsupportedOperationException("Built in M2");
     }
 }

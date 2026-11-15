@@ -26,22 +26,14 @@ public interface PushTokens {
     void register(SessionId session, AccountId account, PushAddress address);
 
     /**
-     * Removes a session's address, at sign-out (NFR-263). Removing a missing one changes nothing.
+     * Removes a session's address, at sign-out and when the session is revoked (NFR-263). Removing
+     * a missing one changes nothing.
      *
      * <p>Built in M10.
      *
      * @param session the session
      */
     void removeFor(SessionId session);
-
-    /**
-     * Removes every address of an account's sessions, at revocation (NFR-263).
-     *
-     * <p>Built in M10.
-     *
-     * @param account the account
-     */
-    void removeAllFor(AccountId account);
 
     /**
      * The addresses of an account's live sessions.

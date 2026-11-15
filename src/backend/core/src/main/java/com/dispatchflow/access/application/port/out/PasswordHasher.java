@@ -8,8 +8,8 @@ import com.dispatchflow.access.domain.account.PasswordHash;
  * §6.4). Hashing needs a salt and is slow on purpose, so it stays out of the domain, which only
  * holds the {@code PasswordHash} (DL §3.9).
  *
- * <p>Sign-in runs the same hash work for an address no account holds as for a known one, through
- * {@link #checkDecoy} (NFR-225).
+ * <p>Sign-in runs the same hash work for an address no account holds, and for an account with no
+ * password hash yet, as for an account with one, through {@link #checkDecoy} (NFR-145, NFR-225).
  *
  * <p>Built in M5.
  */
@@ -39,12 +39,15 @@ public interface PasswordHasher {
 
     /**
      * Checks a presented password against a decoy hash the adapter keeps, with the same hash work
-     * as {@link #matches}, and never matches. Sign-in calls it for an address no account holds, so
-     * its answer takes as long as for a known one (NFR-225).
+     * as {@link #matches}, and never matches. Sign-in calls it for an address no account holds and
+     * for an account with no password hash, whose set-password link was never used (FR-294), so its
+     * answer takes as long as for an account with a password, and a pending account can't be told
+     * from an unknown address (NFR-145, NFR-225).
      *
      * <p>Built in M5.
      *
-     * @param presented the password typed for an address no account holds
+     * @param presented the password typed for an address no account holds, or for an account with no
+     *     password hash
      */
     void checkDecoy(PresentedPassword presented);
 }

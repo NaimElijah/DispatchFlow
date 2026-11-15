@@ -9,7 +9,6 @@ import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.IdGenerator;
-import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * Exchanges a refresh token for new tokens through {@code Session.exchange} (NFR-86 to NFR-88,
@@ -20,6 +19,13 @@ import com.dispatchflow.shared.application.StaleVersion;
  * <p>Every refusal looks the same (NFR-92): an unknown token, one the chain no longer keeps, an
  * expired, superseded or reused one, a revoked session, and a session begun before its account's
  * last revocation (NFR-177). Every refresh leaves an audit record (NFR-23).
+ *
+ * <p><b>A version conflict.</b> Two refreshes of one session can race, as when a device retries on
+ * weak signal. When the save meets a {@code StaleVersion}, the use case reloads the session and
+ * exchanges the presented token once more. When the other change exchanged the same token moments
+ * ago, the second exchange lands in NFR-178's 30-second grace and gets the token that replaces the
+ * one the other exchange issued, revoking nothing. A second conflict answers the one refusal,
+ * unsaved. So no conflict leaves this use case.
  *
  * <p>Built in M6.
  */
@@ -69,7 +75,6 @@ public final class RefreshSession {
      * @param token the refresh token the device presented
      * @param call the call's context: the client and the trace, and no user yet (ADR-110)
      * @return new tokens, or the one refusal
-     * @throws StaleVersion when the session changed between its read and its save (BR-76)
      */
     public RefreshAnswer refresh(PresentedToken token, CallContext call) {
         throw new UnsupportedOperationException("Built in M6");

@@ -7,6 +7,8 @@ import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.application.Clock;
+import com.dispatchflow.shared.application.NotFound;
+import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * Access's implementation of {@code RemoveDriverRole}: it takes the Driver role off a retired
@@ -45,6 +47,10 @@ public final class RemoveDriverRoleService implements RemoveDriverRole {
      * {@inheritDoc}
      *
      * <p>Built in M2.
+     *
+     * @throws NotFound when no account has the ID
+     * @throws StaleVersion when the account changed between its read and its save (BR-76); Fleet's
+     *     listener adapter retries at once, up to three times (DL §11)
      */
     @Override
     public void remove(AccountId driver, CallContext call) {

@@ -87,6 +87,17 @@ public interface UserAccountRepository {
     List<AccountId> deactivatedBefore(Instant cutoff);
 
     /**
+     * The accounts that hold an open credential link, of any kind, which the restore's server step
+     * voids (ADR-045, NFR-252). It answers IDs, so each account is loaded, changed and saved in its
+     * own transaction.
+     *
+     * <p>Built in M13.
+     *
+     * @return their IDs, in any order
+     */
+    List<AccountId> withOpenLinks();
+
+    /**
      * Stores a new account and publishes the events it raised (DL §3.6).
      *
      * <p>Built in M6.

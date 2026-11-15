@@ -21,12 +21,12 @@ public interface CompanyProfileRepository {
     Optional<CompanyProfile> get();
 
     /**
-     * Stores the profile when the system is deployed. Whether the first Admin's setup creates it is
-     * decided in M6.
+     * Stores the profile the first time an Admin saves the company's settings (FR-125).
      *
-     * <p>Built in M6.
+     * <p>Built in M2.
      *
      * @param profile the new profile, at {@code Version.NEW}
+     * @throws StaleVersion when a profile was stored after {@link #get} read none (BR-76)
      */
     void add(CompanyProfile profile);
 
