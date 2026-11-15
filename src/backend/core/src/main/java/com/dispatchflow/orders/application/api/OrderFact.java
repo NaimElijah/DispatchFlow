@@ -16,9 +16,12 @@ import java.util.Optional;
 /**
  * One uncancelled order of a date, as Customers &amp; Orders answers (DL §2.2, BR-22). Planning
  * builds its {@code PublishingChecks.DateOrder} from it and the optimizer's order inputs; Live
- * Operations takes each stop's window and door flag from it for its projections (ADR-067). Its
- * location is a kernel
- * {@link GeoPoint}, so it prints redacted.
+ * Operations takes its locations and last change times for the live map (FR-397). Its location is
+ * a kernel {@link GeoPoint}, so it prints redacted.
+ *
+ * <p>{@code Order} holds only its last change time, so {@code placedAt} has no source yet: M2 adds
+ * the time the order joined its date, set by {@code place}, {@code reschedule} and a put-back to
+ * another date (BR-71).
  *
  * <p>Built in M2.
  *
@@ -26,6 +29,9 @@ import java.util.Optional;
  * @param attempt its current attempt (FR-258)
  * @param location its customer's coordinates, or empty when they are not known yet, so the order
  *     drops as missing location (BR-14)
+ * @param outsideServiceArea whether its customer's location was geocoded outside the service area
+ *     and carries that flag, so the order drops as an unreachable location (FR-320); never for a
+ *     hand-placed location, whose pin is fixed, or a missing one
  * @param window its time window on the date, its own or its customer's default (BR-49)
  * @param weight its weight demand (BR-50)
  * @param volume its volume demand (BR-50)
@@ -33,13 +39,15 @@ import java.util.Optional;
  * @param priority its priority (BR-53)
  * @param leaveAtDoor whether it may be left at the door, so its window is a preference (FR-364,
  *     BR-119)
- * @param placedAt when it was placed on the date (BR-71)
+ * @param placedAt when it joined the date: placed on it, rescheduled to it, or put back to it from
+ *     another date, which a publication compares with the solve's request (BR-71)
  * @param lastChangedAt when it last changed, placing included (FR-397, BR-82)
  */
 public record OrderFact(
         OrderId order,
         Attempt attempt,
         Optional<GeoPoint> location,
+        boolean outsideServiceArea,
         TimeWindow window,
         Weight weight,
         Volume volume,

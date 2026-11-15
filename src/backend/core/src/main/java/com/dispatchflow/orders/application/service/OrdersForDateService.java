@@ -13,6 +13,10 @@ import java.util.List;
  * its own read port, so Planning and Live Operations never read its schema (DL §2.3
  * rules 1 and 3, BR-22, ADR-109).
  *
+ * <p>{@link OrderFact#placedAt} has no source yet, because {@code Order} holds only its last change
+ * time: M2 adds the time the order joined its date, set by {@code place}, {@code reschedule} and a
+ * put-back to another date (BR-71).
+ *
  * <p>Built in M2 and M9, method by method.
  */
 public final class OrdersForDateService implements OrdersForDate {

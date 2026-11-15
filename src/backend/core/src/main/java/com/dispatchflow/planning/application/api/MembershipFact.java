@@ -4,9 +4,11 @@ import java.util.Objects;
 
 /**
  * Planning's answer on a stop and a report's route (DL §8, ADR-114): whether the report is
- * entitled, with the route's drivers then and now, and where the stop is now. Live Operations
- * builds its {@code Entitlement} and the {@code StopWhereabouts} of its {@code HoldCheck} from it,
- * and passes the drivers to {@code RouteRun} for a first stop report.
+ * entitled, with the route's drivers then and now and the stop's order and attempt then, and where
+ * the stop is now. Live Operations builds its {@code Entitlement} and the {@code StopWhereabouts} of
+ * its {@code HoldCheck} from it, passes the drivers to {@code RouteRun} for a first stop report, and
+ * creates a first fact's {@code Delivery} with the order and attempt of {@link
+ * EntitlementFact.OnRoute}.
  *
  * <p>Built in M5.
  *

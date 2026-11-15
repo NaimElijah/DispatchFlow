@@ -1,8 +1,8 @@
 package com.dispatchflow.planning.application.service.plan;
 
-import com.dispatchflow.access.application.api.Accounts;
 import com.dispatchflow.access.application.api.Actor;
 import com.dispatchflow.audit.application.api.AuditLog;
+import com.dispatchflow.fleet.application.api.AssignabilityFact;
 import com.dispatchflow.fleet.application.api.FleetFacts;
 import com.dispatchflow.planning.application.port.out.LiveUpdates;
 import com.dispatchflow.planning.application.port.out.plan.FeasibilityChecker;
@@ -19,9 +19,22 @@ import com.dispatchflow.shared.application.StaleVersion;
 /**
  * Hands a route of a published plan to another driver; its stops and times stay, no optimization
  * runs, and its reported stops keep their deliveries (FR-55, FR-191, FR-192, FR-302 to FR-304,
- * FR-394, FR-395). Before its transaction it reads the new driver's {@code DriverStanding} from
- * Access's Driver role and Fleet's roster (FR-302), and asks the validator about {@code
- * Plan.afterHandOver}, with the vehicle rostered to the new driver (ADR-112). An unreachable optimizer
+ * FR-394, FR-395).
+ *
+ * <p>Before its transaction it asks Fleet's {@link FleetFacts#assignability} whether the new driver
+ * can take the route's vehicle that date: {@code DayRoster.checkAssignable}, given the standing
+ * Fleet combines from Access's Driver role and the driver record (DL §4.2, ADR-062). So Fleet's
+ * listener on {@code RouteHandedOver} doesn't refuse after Planning has committed. The answer
+ * becomes the domain's {@code DriverStanding}: {@link AssignabilityFact.Assignable} an active,
+ * available driver; {@code NOT_AN_ACTIVE_DRIVER} one not active, which {@code Plan.handOver}
+ * refuses as {@code NotAnActiveDriver}; {@code DRIVER_NOT_ROSTERED} and {@code
+ * DRIVER_MARKED_UNAVAILABLE} one not available, refused as {@code DriverNotAvailable}. Planning's
+ * domain has no error for {@code DRIVER_ALREADY_HAS_VEHICLE}, a driver rostered to another vehicle
+ * whose route is not in the plan; M9 adds it to {@code DriverStanding} and {@code Plan.handOver}'s
+ * refusals.
+ *
+ * <p>It then asks the validator about {@code Plan.afterHandOver}, with the vehicle rostered to the
+ * new driver and the shift the assignability answer gives (ADR-112). An unreachable optimizer
  * doesn't stop it: the route shows <em>not yet checked</em> until the re-check job runs (FR-395,
  * ADR-058). It raises {@code PlanRevised}, then {@code RouteHandedOver}, so the roster follows
  * (FR-191).
@@ -33,7 +46,6 @@ public final class HandOverRoute {
     private final PlanRepository plans;
     private final SolveRequestAssembler assembler;
     private final FeasibilityChecker checker;
-    private final Accounts accounts;
     private final FleetFacts fleetFacts;
     private final Clock clock;
     private final LiveUpdates liveUpdates;
@@ -45,8 +57,8 @@ public final class HandOverRoute {
      * @param plans where plans are kept
      * @param assembler builds the evaluation request
      * @param checker the optimizer's validator
-     * @param accounts Access's answer on whether the new driver is active and holds the Driver role
-     * @param fleetFacts Fleet's roster, for whether the new driver is available that date
+     * @param fleetFacts Fleet's hand-over check, which also asks Access whether the new driver is
+     *     active and holds the Driver role
      * @param clock the time, for {@code today} and {@code now}
      * @param liveUpdates the dispatchers' open screens
      * @param auditLog the audit trail, written in the change's transaction (TS §6.2)
@@ -55,7 +67,6 @@ public final class HandOverRoute {
             PlanRepository plans,
             SolveRequestAssembler assembler,
             FeasibilityChecker checker,
-            Accounts accounts,
             FleetFacts fleetFacts,
             Clock clock,
             LiveUpdates liveUpdates,
@@ -63,7 +74,6 @@ public final class HandOverRoute {
         this.plans = plans;
         this.assembler = assembler;
         this.checker = checker;
-        this.accounts = accounts;
         this.fleetFacts = fleetFacts;
         this.clock = clock;
         this.liveUpdates = liveUpdates;

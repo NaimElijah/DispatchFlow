@@ -7,7 +7,6 @@ import com.dispatchflow.liveops.application.port.out.DeliveryRepository;
 import com.dispatchflow.liveops.application.port.out.LiveUpdates;
 import com.dispatchflow.liveops.application.port.out.PushNotifier;
 import com.dispatchflow.liveops.application.port.out.RouteRunRepository;
-import com.dispatchflow.orders.application.api.OrdersForDate;
 import com.dispatchflow.planning.application.api.PublishedRoutes;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.IdGenerator;
@@ -16,7 +15,7 @@ import com.dispatchflow.shared.application.IdGenerator;
  * The minute job that alerts the dispatcher on stops at risk of missing their window: projected
  * later than the window end less 15 minutes, never a leave-at-door stop (FR-34, FR-253, FR-369,
  * ADR-067). For today's routes in force it builds the {@code PlannedLegs} from Planning's {@link
- * PublishedRoutes} and Customers &amp; Orders' {@link OrdersForDate}, the {@code StopFact}s from the
+ * PublishedRoutes}, whose stops carry their windows and door flags, the {@code StopFact}s from the
  * deliveries and the runs' starts, asks {@code ArrivalProjection.isAtRisk}, and raises a <em>stop at
  * risk</em> alert keyed on the revision, so a new revision can alert again (ADR-107).
  *
@@ -28,7 +27,6 @@ import com.dispatchflow.shared.application.IdGenerator;
 public final class AlertStopsAtRisk {
 
     private final PublishedRoutes publishedRoutes;
-    private final OrdersForDate ordersForDate;
     private final DeliveryRepository deliveries;
     private final RouteRunRepository runs;
     private final AlertRepository alerts;
@@ -41,8 +39,7 @@ public final class AlertStopsAtRisk {
     /**
      * Creates the job.
      *
-     * @param publishedRoutes Planning's routes in force and their stored legs
-     * @param ordersForDate Customers &amp; Orders' windows and door flags
+     * @param publishedRoutes Planning's routes in force, their stored legs and their stops' windows
      * @param deliveries where deliveries are kept
      * @param runs where route runs are kept
      * @param alerts where alerts are kept
@@ -54,7 +51,6 @@ public final class AlertStopsAtRisk {
      */
     public AlertStopsAtRisk(
             PublishedRoutes publishedRoutes,
-            OrdersForDate ordersForDate,
             DeliveryRepository deliveries,
             RouteRunRepository runs,
             AlertRepository alerts,
@@ -64,7 +60,6 @@ public final class AlertStopsAtRisk {
             AuditLog auditLog,
             LiveUpdates liveUpdates) {
         this.publishedRoutes = publishedRoutes;
-        this.ordersForDate = ordersForDate;
         this.deliveries = deliveries;
         this.runs = runs;
         this.alerts = alerts;

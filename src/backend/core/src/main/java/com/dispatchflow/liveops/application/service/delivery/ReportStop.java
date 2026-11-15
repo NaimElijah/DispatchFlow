@@ -33,9 +33,12 @@ import com.dispatchflow.shared.application.StaleVersion;
  * {@code EntitlementFact} becomes the domain's {@code Entitlement} and whose {@code WhereaboutsFact}
  * becomes its {@code StopWhereabouts}; Access's {@link SessionContacts#contactsOf} for the reporting
  * account over the corrected time's {@code ContactWindow}, which joins those whereabouts in a {@code
- * HoldCheck} (DL §8, BR-132, BR-133, ADR-114); and Customers &amp; Orders' {@link StopOrders} for
- * the order's door flag, as a {@code LeaveAtDoor} (FR-366). The stop's order and attempt, for a first
- * fact, and its plan, for the alerts, come from Planning's {@link PublishedRoutes}.
+ * HoldCheck} (DL §8, BR-132, BR-133, ADR-114); and Customers &amp; Orders' {@link StopOrders}, asked
+ * for that one order, for its door flag, as a {@code LeaveAtDoor} (FR-366). A first fact's {@code
+ * Delivery.firstFact} takes the stop's order and attempt from the membership's {@code
+ * EntitlementFact.OnRoute}, the revision in force at the corrected time, so a late report on a stop
+ * the plan has since taken off still creates it (BR-110). The stop's plan, for the alerts, comes
+ * from Planning's {@link PublishedRoutes}.
  *
  * <p>Then one transaction changes the stop's {@code Delivery} through {@code arrive}, {@code
  * deliver} or {@code fail}, creating it on its first fact. In the same transaction it creates the

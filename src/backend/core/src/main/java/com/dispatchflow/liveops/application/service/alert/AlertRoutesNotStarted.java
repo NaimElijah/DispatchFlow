@@ -15,9 +15,11 @@ import com.dispatchflow.shared.application.IdGenerator;
 /**
  * The minute job that alerts the dispatcher when a route has not started 15 minutes after its
  * driver's shift start plus the departure allowance (FR-101, FR-67, DL §10.3). For today's routes in
- * force with no run, it builds each {@code StartDeadline} from Fleet's {@link FleetFacts#rosterOn}
- * shift and Planning's {@link PlanningSettingsFacts#departureAllowance}, and raises a <em>route not
- * started</em> alert once per route.
+ * force with no run, it builds each {@code StartDeadline} from the route driver's shift, read
+ * through Fleet's {@link FleetFacts#driverOn}, and Planning's {@link
+ * PlanningSettingsFacts#departureAllowance}, and raises a <em>route not started</em> alert once per
+ * route. It reads {@code driverOn}, not {@code rosterOn}, which keeps only active drivers: a route
+ * published before its driver lost the Driver role still has a deadline (ADR-062).
  *
  * <p>For each alert it raises, it calls {@link PushNotifier#alertStaff} after the commit, so a
  * staff phone app in the background learns of it (FR-405, ADR-083).

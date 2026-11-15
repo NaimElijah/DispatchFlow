@@ -30,7 +30,10 @@ public interface FleetViews {
     List<DriverView> drivers();
 
     /**
-     * One date's roster (FR-54, FR-79).
+     * One date's roster (FR-54, FR-79). Each line's standing is the driver record's alone: {@code
+     * RETIRED}, {@code ANONYMIZED}, or {@code ACTIVE} for an active record, which {@code
+     * RosterQueries} turns into {@code NOT_A_DRIVER} when Access answers that the account is not an
+     * active Driver (ADR-062). The role lives in Access, so this port can't read it.
      *
      * <p>Built in M2.
      *

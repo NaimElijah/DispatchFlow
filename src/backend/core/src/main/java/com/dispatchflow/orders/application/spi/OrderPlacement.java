@@ -15,15 +15,17 @@ import java.util.List;
 public interface OrderPlacement {
 
     /**
-     * Where the plan of an order's date holds one attempt.
+     * Where the plan of a date holds one attempt of an order. Planning keeps no order's date, so
+     * the caller names it, and Planning reads that date's plans only.
      *
      * <p>Built in M9.
      *
      * @param order the order
+     * @param date the date whose plans are asked, the order's date
      * @param attempt the attempt asked about
      * @return the placement, or {@link PlacementFact.NotPlaced} when no plan of the date holds it
      */
-    PlacementFact placementOf(OrderId order, Attempt attempt);
+    PlacementFact placementOf(OrderId order, DeliveryDate date, Attempt attempt);
 
     /**
      * Where the plans of a date hold its orders, for the order list's statuses (FR-76, BR-33).

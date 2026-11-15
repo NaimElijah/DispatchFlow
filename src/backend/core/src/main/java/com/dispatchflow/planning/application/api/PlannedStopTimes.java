@@ -7,8 +7,8 @@ import java.util.Objects;
 /**
  * One stop's planned times and the leg into it, as the optimizer timed them and the plan stores
  * them (FR-17, FR-23, ADR-052, ADR-067). Live Operations builds its {@code PlannedStopLeg} from the
- * leg and the service, {@code departure} less {@code serviceStart}, and propagates delay along them
- * without re-applying a factor (DL §10.4).
+ * leg and the stop's {@link PublishedStopFact#serviceTime}, and propagates delay along them without
+ * re-applying a factor (DL §10.4).
  *
  * <p>Built in M5.
  *

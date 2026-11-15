@@ -17,7 +17,9 @@ import java.util.List;
  * plan, accepts a proposal or re-optimizes (FR-336, BR-25, BR-82, ADR-050, ADR-101). Planning names
  * its own routes and stops, so this reads only Live Operations' records: the stops' deliveries, the
  * routes' runs and their last positions. It never asks Planning back. A held report counts as no
- * fact until it is confirmed (BR-132).
+ * fact until it is confirmed (BR-132). Each {@code LiveStopFact}'s {@code outcomeAt} is the
+ * corrected time of the first report of an outcome at the stop (BR-114), which a dispatcher's
+ * correction keeps.
  *
  * <p>Built in M9.
  */

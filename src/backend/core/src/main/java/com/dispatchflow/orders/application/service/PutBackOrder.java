@@ -16,11 +16,12 @@ import com.dispatchflow.shared.application.StaleVersion;
 /**
  * A dispatcher puts a failed or dropped order back, for today's re-optimization or on another
  * date, as its next attempt (FR-75, FR-258, BR-95): the use case asks Planning's {@link
- * OrderPlacement} where the current attempt is placed and Live Operations' {@link StopProgress}
- * what happened at its stop, translates both, and calls {@code Order.putBack} on the target date's
- * capacity, read under its lock; the target date is the one the new window carries. On its own date it doesn't count again toward the limit (BR-113);
- * on another date the order raises {@code OrderPutBack}, which leaves with the save, so Planning
- * takes the old attempt's drop off the old date's plan (ADR-115).
+ * OrderPlacement#placementOf} where the order's date holds its current attempt and Live Operations'
+ * {@link StopProgress} what happened at its stop, translates both, and calls {@code Order.putBack}
+ * on the target date's capacity, read under its lock; the target date is the one the new window
+ * carries. On its own date it doesn't count again toward the limit (BR-113); on another date the
+ * order raises {@code OrderPutBack}, which leaves with the save, so Planning takes the old attempt's
+ * drop off the old date's plan (ADR-115).
  *
  * <p>Built in M9.
  */

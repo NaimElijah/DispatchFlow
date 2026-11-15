@@ -1,5 +1,6 @@
 package com.dispatchflow.orders.application.api;
 
+import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.PlainText;
@@ -14,6 +15,7 @@ import java.util.Optional;
  *
  * <p>Built in M5.
  *
+ * @param order the order the fields are for
  * @param leaveAtDoor whether the order may be left at the door (FR-364)
  * @param address the customer's address as typed, or empty once anonymized
  * @param floor the order's floor, if given (FR-86)
@@ -28,6 +30,7 @@ import java.util.Optional;
  * @param customerPhone the customer's contact phone (FR-59, FR-87)
  */
 public record StopOrderFact(
+        OrderId order,
         boolean leaveAtDoor,
         Optional<PlainText> address,
         Optional<PlainText> floor,
@@ -43,6 +46,7 @@ public record StopOrderFact(
 
     /** Checks every part is present, possibly empty. */
     public StopOrderFact {
+        Objects.requireNonNull(order, "order");
         Objects.requireNonNull(address, "address");
         Objects.requireNonNull(floor, "floor");
         Objects.requireNonNull(apartment, "apartment");

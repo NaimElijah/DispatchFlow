@@ -19,9 +19,10 @@ import java.time.Duration;
 /**
  * The dispatcher's live screens: the map, a route's progress, the stops at risk, the unconfirmed
  * route changes and a stop's history (FR-33, FR-34, FR-74, FR-158, FR-250, FR-251, FR-253, FR-333,
- * FR-369, FR-397). It joins Planning's {@link PublishedRoutes} and Customers &amp; Orders' {@link
- * OrdersForDate} with Live Operations' own rows from {@link LiveOpsViews}, and projects arrivals with
- * the domain's {@code ArrivalProjection} at the {@link Clock}'s now, never stored (DL §10.4).
+ * FR-369, FR-397). It joins Planning's {@link PublishedRoutes}, whose stops carry their windows and
+ * door flags, and Customers &amp; Orders' {@link OrdersForDate}, for the orders' locations and last
+ * changes, with Live Operations' own rows from {@link LiveOpsViews}, and projects arrivals with the
+ * domain's {@code ArrivalProjection} at the {@link Clock}'s now, never stored (DL §10.4).
  *
  * <p>Built in M5 and M8, method by method.
  */
@@ -40,8 +41,8 @@ public final class LiveQueries {
      *
      * @param views Live Operations' read port
      * @param publishedRoutes Planning's routes in force
-     * @param ordersForDate Customers &amp; Orders' orders of a date, for windows, door flags,
-     *     locations and last changes
+     * @param ordersForDate Customers &amp; Orders' orders of a date, for their locations and last
+     *     changes
      * @param clock the server's time
      */
     public LiveQueries(LiveOpsViews views, PublishedRoutes publishedRoutes, OrdersForDate ordersForDate, Clock clock) {

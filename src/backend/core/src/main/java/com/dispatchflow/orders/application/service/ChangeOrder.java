@@ -23,7 +23,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>The answer says at once whether the order is on a published route, so the dispatcher knows
  * the driver sees the change only after a re-optimization (FR-396). The use case learns it from
- * Planning, through the {@link OrderPlacement} port Planning implements.
+ * Planning, through the {@link OrderPlacement#placementOf} port Planning implements, asked with the
+ * order's date and current attempt.
  *
  * <p>Built in M2.
  */

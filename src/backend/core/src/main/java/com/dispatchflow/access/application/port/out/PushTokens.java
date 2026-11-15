@@ -36,6 +36,17 @@ public interface PushTokens {
     void removeFor(SessionId session);
 
     /**
+     * Removes an address from every session that holds it, when the push service reports the device
+     * gone (NFR-263). Removing one no session holds changes nothing.
+     *
+     * <p>Built in M10.
+     *
+     * @param address the address reported gone
+     * @return the sessions it was removed from, each once; empty when none held it
+     */
+    List<SessionId> removeAddress(PushAddress address);
+
+    /**
      * The addresses of an account's live sessions.
      *
      * <p>Built in M10.
@@ -44,4 +55,14 @@ public interface PushTokens {
      * @return the addresses, possibly none
      */
     List<PushAddress> of(AccountId account);
+
+    /**
+     * The addresses of the live sessions of every active account that holds the Admin or the
+     * Dispatcher role, read in one query over Access's own accounts and sessions (FR-405, ADR-083).
+     *
+     * <p>Built in M10.
+     *
+     * @return the addresses, each once, possibly none
+     */
+    List<PushAddress> ofActiveStaff();
 }

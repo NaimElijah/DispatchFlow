@@ -20,14 +20,18 @@ public interface RouteMembership {
 
     /**
      * Whether a stop was on a report's route at the report's corrected time, who drove the route
-     * then and now, and where the stop is now (BR-02, BR-27, BR-110, BR-132, ADR-114).
+     * then and now, which order and attempt the stop served in the revision in force then, and
+     * where the stop is now (BR-02, BR-27, BR-110, BR-132, ADR-114). The order and attempt come from
+     * that revision, not the current plan, so a late report on a stop the plan has since taken off
+     * still creates its {@code Delivery}.
      *
      * <p>Built in M5.
      *
      * @param stop the reported stop
      * @param route the route the report came from
      * @param correctedTime the report's corrected time (BR-114)
-     * @return the entitlement and the stop's whereabouts
+     * @return the entitlement, with the stop's order and attempt when it was on the route, and the
+     *     stop's whereabouts
      * @throws NotFound when no plan holds the stop
      */
     MembershipFact membershipAt(StopId stop, RouteId route, Instant correctedTime);
