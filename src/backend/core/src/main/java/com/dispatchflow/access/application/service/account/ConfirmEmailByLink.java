@@ -31,9 +31,13 @@ import com.dispatchflow.shared.application.StaleVersion;
  *   <li>{@code EmailOfAnotherAdmin}, so the holder learns nothing about the account's roles
  *       (ADR-116);
  *   <li>{@code AccountDeactivated} and {@code AccountAnonymized}, so the holder learns nothing
- *       about the account's state. A deactivation voids every unspent link (NFR-224), so {@code
- *       LinkVoided} is what happened to the link.
+ *       about the account's state. A deactivation voids every unspent link (NFR-224), so for an
+ *       unspent link {@code LinkVoided} is what happened to it.
  * </ul>
+ *
+ * <p><b>Gap for M6.</b> {@code UserAccount} checks the account's state before the link's, so a spent
+ * link would tell an active account from a deactivated one. M6 checks the link's state first, so a
+ * spent link answers alike in every state (NFR-145).
  *
  * <p>{@code EmailInUse} is answered as itself: FR-392 refuses an address another account holds at
  * this step, and only here. Like every changing call it writes its audit record, a refused

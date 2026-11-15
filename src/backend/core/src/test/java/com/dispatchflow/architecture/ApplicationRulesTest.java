@@ -88,8 +88,8 @@ class ApplicationRulesTest {
     private static final String PACKAGE_INFO = ".package-info";
     private static final String LOOPED_USE_CASES = ROOT + ".upper.application.service.looped";
     private static final String LOOPED_PORTS = ROOT + ".upper.application.port.out.looped";
-    // One line of a cycle's header: "Cycle detected: Slice a -> ", then " Slice b -> ", then "
-    // Slice a".
+    // One line of a cycle's header: "Cycle detected: Slice a -> ", then "  Slice b -> ", then
+    // "  Slice a".
     private static final Pattern CYCLE_STEP = Pattern.compile("^(?:Cycle detected: |\\s*)Slice (\\S+)(?: -> )?\\s*$");
     // Two slices and the first again, which closes the loop.
     private static final int CLOSED_LOOP_OF_TWO = 3;

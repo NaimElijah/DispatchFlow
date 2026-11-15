@@ -119,8 +119,9 @@ public final class ReceiveReply {
      * @param text the reply's text, as delivered; a comment is cut to 500 characters (NFR-203)
      * @param receivedAt when the provider says it was received
      * @param call the callback's server step
-     * @throws StaleVersion when another reply saved the rating request meanwhile; the provider
-     *     sends the call again (NFR-201)
+     * @throws StaleVersion when another reply saved the rating request meanwhile; the web adapter
+     *     retries the call at once, up to three times, then answers 503 with {@code Retry-After},
+     *     and the provider sends the call again (ADR-121, NFR-201)
      */
     public void receive(String providerId, PhoneNumber from, String text, Instant receivedAt, CallContext call) {
         throw new UnsupportedOperationException("Built in M12");

@@ -52,7 +52,10 @@ public interface ProofStore {
      *       bitmap never reaches the decoder;
      *   <li>it decodes with that reader, and a file it can't decode is {@link
      *       ProofImageUnreadable};
-     *   <li>it re-encodes the image and strips its metadata, and writes the result.
+     *   <li>it re-encodes the image and strips its metadata, and writes the result. In the
+     *       transaction that records the ID's binding it checks the binding and the per-uploader
+     *       cap again, as one atomic step, so parallel uploads can't pass the cap or bind one ID
+     *       twice.
      * </ol>
      *
      * <p>Both caps are the adapter's settings, whose values M5 fixes.

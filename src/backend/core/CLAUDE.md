@@ -179,9 +179,9 @@ JPA ([ADR-041], Accepted). The layout, jOOQ and module rules below are the desig
 - The `e2e` profile's test-only endpoints exist only in that profile, and the profile refuses to
   boot when the SMS credential is present, with a test for each (NFR-206, [TS §17.1]).
 - Until M5's sign-in, the stand-in session exists only when `dev` or `test` is the only active
-  profile, and the core refuses to boot otherwise. Outside `dev`, the core refuses to boot with an
-  access-token lifetime other than 15 minutes. Each refusal has a test, and M5 deletes the stand-in
-  ([ADR-121]).
+  profile, and the core refuses to boot with the stand-in and any other profile active. Unless `dev`
+  is the only active profile, the core refuses to boot with an access-token lifetime other than 15
+  minutes. Each refusal has a test. M5 deletes the stand-in, and M6 the dev allowance ([ADR-121]).
 - No Lombok: records and plain classes ([TS §6]).
 - The schema changes only through a new migration, `V<n>__<what_it_does>.sql`. Never edit a
   migration that has been applied anywhere; add the next one.

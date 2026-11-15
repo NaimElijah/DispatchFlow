@@ -194,9 +194,11 @@ public final class SolveRequestAssembler {
      * and no {@code now}. Whether evaluating a published plan mid-day takes the daily or the
      * re-optimization rules is open, and M9 decides it (see {@code FeasibilityChecker}).
      *
-     * <p><b>Open for M4.</b> A layout driver with no entry on the date's roster has no shift to
-     * send. A solve or a hand-over never leaves one, but a later roster change can; M4 decides what
-     * the evaluation sends for that driver.
+     * <p><b>Open for M4.</b> A layout driver with no shift on the date's roster has none to send.
+     * A solve or a hand-over never leaves one, but a later roster change can, and so can a driver
+     * who retired or lost the Driver role since, whom {@code FleetFacts.rosterOn} leaves out. The
+     * evaluation reads the driver's shift through {@code FleetFacts.driverOn}, which reports the
+     * standing; M4 decides what it sends for a driver with no shift.
      *
      * <p>Built in M4.
      *

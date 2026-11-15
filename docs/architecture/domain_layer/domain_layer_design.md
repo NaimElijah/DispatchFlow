@@ -1305,7 +1305,7 @@ Nothing the business keeps history about is deleted. It ends in a named state, a
 |---|---|---|
 | Plan | *completed*, or *cancelled* | Every revision (BR-37), and its matrix's numbers with its location list's hash; the location list itself is dropped 90 days after the plan's date (NFR-257, [ADR-121]) |
 | Plan never published | *abandoned*, at the midnight after its date (BR-12, BR-102, BR-127) | The plan as it was, read-only; its orders show *unplanned* (BR-131) |
-| Solve job | *succeeded* or *failed* | Its input, result and failure code. The customers' coordinates in its input are blanked 90 days after the plan's date, and a re-optimization's vehicle positions after 7 days (NFR-257, NFR-184, [ADR-121]) |
+| Solve job | *succeeded* or *failed* | Its input, result and failure code. The customers' coordinates in its input are blanked 90 days after the plan's date, and a re-optimization's vehicle positions, with their whole travel-time rows, after 7 days (NFR-257, NFR-184, [ADR-121]) |
 | Proposal | *declined*; accepted (a revision cites it); or refused as outdated when someone tries to accept it | The proposal |
 | Order | *cancelled*; or put back, starting a new attempt, which ends if the earlier stop is corrected to *delivered* (FR-404, [ADR-121]) | The order and every attempt's facts |
 | Delivery | Corrected | The original outcome, beside the correction (FR-333) |
@@ -1317,7 +1317,7 @@ Nothing the business keeps history about is deleted. It ends in a named state, a
 | Vehicle, depot | *retired* (BR-43) | The record |
 | Account, of any role | *deactivated*, then *anonymized* a year later (NFR-258, NFR-260) | The record, without personal data: plans and audit records refer to it |
 | Session | *revoked*, or its current token expired: `Session.endedAt` is the earlier. An account's revocation dates it through `Session.revokeWithAccount`, which Access's own listener on `SessionsRevoked` calls ([ADR-116]) | The record, until retention |
-| Credential link | *spent*, *voided* or expired | The record, until a later link drops it 72 hours after it was sent ([ADR-104]) |
+| Credential link | *spent*, *voided* or expired | The record, until a later link or the nightly retention run drops it, 72 hours after it was sent ([ADR-104], [ADR-121]) |
 | Alert | *acknowledged* | The alert |
 | Message | *accepted* or *dropped* | The message, until retention |
 | Rating request | *rated*, or closed after 48 hours | The rating; its phone goes 90 days after its question was accepted, and each comment 90 days after its own receipt ([ADR-108]) |

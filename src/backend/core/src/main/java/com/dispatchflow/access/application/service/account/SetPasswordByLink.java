@@ -33,8 +33,13 @@ import com.dispatchflow.shared.application.StaleVersion;
  * case catches {@code UserAccount.setPasswordByLink}'s {@code AccountDeactivated} and {@code
  * AccountAnonymized}, writes {@code AuditLog.refused} with the domain's specific code in its own
  * transaction (ADR-110), and then throws a {@code RuleViolation} with Access's {@code LinkVoided}
- * in its place. A deactivation voids every unspent link (NFR-224), so {@code LinkVoided} is what
- * happened to the link.
+ * in its place. A deactivation voids every unspent link (NFR-224), so for an unspent link {@code
+ * LinkVoided} is what happened to it.
+ *
+ * <p><b>Gap for M6.</b> {@code UserAccount} checks the account's state before the link's, so a
+ * spent link answers {@code LinkAlreadyUsed} on an active account and {@code LinkVoided} on a
+ * deactivated one. M6 checks the link's state first, so a spent link answers alike in every state
+ * (NFR-145).
  *
  * <p>Built in M6.
  */

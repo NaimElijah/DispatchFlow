@@ -120,11 +120,11 @@ public interface SessionRepository {
      * Stores a session the domain revoked, with no version check, so a version conflict never loses
      * the revocation: the one {@code Session.exchange} makes on a reused token (NFR-88), and a
      * sign-out's through {@code Session.revoke} (NFR-89). The domain decides the revocation and its
-     * instant; the adapter applies no rule of its own. It writes the session's revoked state only
-     * over a stored row that is still live, so a revocation already stored is kept, and moves the
-     * version, so a concurrent save of a copy read before fails its own check rather than writing
-     * the session live again. It writes nothing else: the rest of a refused exchange, the old
-     * tokens it dropped, is housekeeping a revoked session never needs.
+     * instant; the adapter applies no rule but the live-row guard. It writes the session's revoked
+     * state only over a stored row that is still live, so a revocation already stored is kept, and
+     * moves the version, so a concurrent save of a copy read before fails its own check rather than
+     * writing the session live again. It writes nothing else: the rest of a refused exchange, the
+     * old tokens it dropped, is housekeeping a revoked session never needs.
      *
      * <p>No version check is needed because a session only ever moves from live to revoked, and
      * nothing un-revokes one, so the write can't overwrite a change it should have seen. A retry of

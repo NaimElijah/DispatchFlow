@@ -41,8 +41,8 @@ Both are OpenAPI 3.1. Today `client-api`, served under `/api/v1`, declares no op
   - a new error `code` is a public name: it needs a contract entry, and Hebrew and English text with
     a next step ([ADR-043], NFR-144);
   - a validation failure lists every field or row at once ([ADR-043]);
-  - `ETag` and `If-Match`, answering 412 `STALE_VERSION` on a stale version a call sent; a call
-    that sent no version is retried, then answered 503 with `Retry-After` ([ADR-057], [ADR-121]);
+  - `ETag` and `If-Match`, answering 412 `STALE_VERSION` on a stale `If-Match`; a call that sent no
+    version is retried, then answered 503 with `Retry-After` ([ADR-057], [ADR-121]);
   - `Idempotency-Key` on driver reports, route starts and finishes, problem reports ([ADR-087],
     [ADR-121]) and position batches ([NFR-285]),
     and the client headers ([ADR-082]).

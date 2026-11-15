@@ -6,8 +6,9 @@ import com.dispatchflow.shared.OrderId;
 
 /**
  * Ends an order's put-back attempt after the failed stop before it was corrected to delivered
- * (FR-404, FR-258, ADR-121). The order goes back to its earlier attempt, so its status derives
- * <em>delivered</em> from that attempt's {@code Delivery}, and no solve plans it again. Live
+ * (FR-404, FR-258, ADR-121). The order goes back to its earlier attempt, on that attempt's date
+ * and window, which the put-back kept, so its status derives <em>delivered</em> from that attempt's
+ * {@code Delivery}, and no solve plans it again. Live
  * Operations' own listener on {@code PutBackSuperseded} calls it after Planning's {@code
  * RemoveSupersededPutBack} has taken the put-back's stop off its plan (DL §2.1).
  *

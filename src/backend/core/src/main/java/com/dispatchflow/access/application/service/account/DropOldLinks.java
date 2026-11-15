@@ -19,7 +19,9 @@ import com.dispatchflow.shared.application.Clock;
  * save doesn't hold back the rest; the next night retries it.
  *
  * <p>Domain gap: {@code UserAccount} drops old links only inside {@code issueLink}. M13 adds {@code
- * UserAccount.dropOldLinks(now)}, the same pruning without a new link.
+ * UserAccount.dropOldLinks(now)}, the same pruning without a new link, in any state of the
+ * account, as {@code Session.dropOldContacts} works on any session; it moves no generation and
+ * raises no event.
  *
  * <p>Built in M13, with the whole nightly retention run (ADR-121).
  */

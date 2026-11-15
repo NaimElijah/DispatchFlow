@@ -37,8 +37,8 @@ import com.dispatchflow.shared.application.IdGenerator;
  *
  * <p>The access token's lifetime is configuration: NFR-86's 15 minutes. Until M6 builds refresh,
  * the {@code dev} profile alone may set a longer lifetime, so an Alpha session outlasts 15 minutes
- * (ADR-121). Outside the {@code dev} profile, the core refuses to boot with a lifetime other than
- * NFR-86's 15 minutes, which M5 tests.
+ * (ADR-121). Unless {@code dev} is the only active profile, the core refuses to boot with a
+ * lifetime other than NFR-86's 15 minutes, which M5 tests. M6 deletes the dev allowance.
  *
  * <p>This use case replaces the stand-in session that the web adapter builds the {@code Actor} from
  * before M5. The stand-in exists only when {@code dev} or {@code test} is the only active profile,

@@ -19,7 +19,7 @@ import java.util.List;
  *       violation (BR-57);
  *   <li>its own failure, its solver failed or found no solution within its budget, which the
  *       optimizer sends as a closed kind, {@code SOLVER_FAILED} or {@code NO_SOLUTION_WITHIN_BUDGET}
- *       (ADR-004): {@code Failed}, with the reason the gap below waits for;
+ *       (ADR-004): {@code Failed}, with the reason of the same name (ADR-121);
  *   <li>no answer, the optimizer unreachable or past the client timeout: {@code Failed} as
  *       <em>optimizer unavailable</em> or <em>overran</em> (FR-65, BR-32);
  *   <li>a refused request, a solver the optimizer doesn't hold, a budget it can't honour or a problem
@@ -30,9 +30,11 @@ import java.util.List;
  * </ul>
  *
  * <p><b>The optimizer's own failure.</b> The adapter maps the optimizer's kind to the {@code
- * SolveFailureReason} of the same name, {@code SOLVER_FAILED} or {@code NO_SOLUTION_WITHIN_BUDGET},
- * and a refused request to {@code REQUEST_REFUSED} (FR-65, ADR-121). It never maps either to {@code
- * VALIDATOR_REJECTED}, which means the validator rejected a solution with every violation (BR-57).
+ * SolveFailureReason} of the same name, {@code SOLVER_FAILED} or {@code NO_SOLUTION_WITHIN_BUDGET}
+ * (FR-65, ADR-121), and never to {@code VALIDATOR_REJECTED}, which means the validator rejected a
+ * solution with every violation (BR-57). A refused request is not an answer: the adapter throws
+ * {@link OptimizerRefusedRequest}, and {@code RunSolveJob} fails the job with {@code
+ * REQUEST_REFUSED} and logs it as a defect.
  *
  * <p>Built in M0, M4 and M9, method by method.
  */
@@ -46,7 +48,7 @@ public interface RouteOptimizer {
      * @param request the daily solve
      * @return the validated solution with its objective and stats, or the failure: the optimizer
      *     unreachable, the call past its timeout, the validator's rejection (FR-65), or the
-     *     optimizer's own failure, whose reason M0 adds (see the gap above)
+     *     optimizer's own failure, with the reason of the same name
      * @throws OptimizerRefusedRequest when the optimizer refuses the request
      */
     DailyAnswer solve(SolveRequest request);
