@@ -10,15 +10,41 @@ import java.util.Objects;
  *
  * <p>Built in M5.
  *
- * @param mediaType the image's format
- * @param content the image's bytes, copied when the record is made
+ * <p>A class, not a record: a record holding an array compares it by identity and hands out
+ * the array itself.
  */
-public record ProofUpload(ProofMediaType mediaType, byte[] content) implements PersonalData {
+public final class ProofUpload implements PersonalData {
 
-    /** Checks both parts are present, and copies the bytes. */
-    public ProofUpload {
-        Objects.requireNonNull(mediaType, "mediaType");
-        content = Objects.requireNonNull(content, "content").clone();
+    private final ProofMediaType mediaType;
+    private final byte[] content;
+
+    /**
+     * Creates the upload, keeping its own copy of the bytes.
+     *
+     * @param mediaType the image's declared type
+     * @param content the image's bytes
+     */
+    public ProofUpload(ProofMediaType mediaType, byte[] content) {
+        this.mediaType = Objects.requireNonNull(mediaType, "mediaType");
+        this.content = Objects.requireNonNull(content, "content").clone();
+    }
+
+    /**
+     * The image's declared type.
+     *
+     * @return the media type
+     */
+    public ProofMediaType mediaType() {
+        return mediaType;
+    }
+
+    /**
+     * The image's bytes, as a copy, so no caller can change the upload.
+     *
+     * @return a copy of the bytes
+     */
+    public byte[] content() {
+        return content.clone();
     }
 
     /**

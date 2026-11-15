@@ -1,6 +1,7 @@
 package com.dispatchflow.liveops.application.port.out;
 
 import com.dispatchflow.shared.AccountId;
+import com.dispatchflow.shared.AlertId;
 
 /**
  * Sends a visible push to a driver's phone through Expo's push service (ADR-026, TS §6.4). The
@@ -21,4 +22,15 @@ public interface PushNotifier {
      * @param notice what changed
      */
     void tellDriver(AccountId driver, DriverNotice notice);
+
+    /**
+     * Tells every Admin and Dispatcher with a registered phone that an alert was raised, so a
+     * phone app in the background learns of it; the app fetches the alert itself (FR-405, ADR-083).
+     * The push names nothing about the alert (NFR-218).
+     *
+     * <p>Built in M10.
+     *
+     * @param alert the alert raised
+     */
+    void alertStaff(AlertId alert);
 }

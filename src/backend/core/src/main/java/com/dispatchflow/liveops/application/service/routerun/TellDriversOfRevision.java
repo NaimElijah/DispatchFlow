@@ -5,6 +5,7 @@ import com.dispatchflow.liveops.application.port.out.LiveUpdates;
 import com.dispatchflow.liveops.application.port.out.PushNotifier;
 import com.dispatchflow.planning.application.api.PublishedRoutes;
 import com.dispatchflow.planning.events.PlanRevised;
+import com.dispatchflow.planning.events.RouteHandedOver;
 
 /**
  * Live Operations' listener on {@code PlanRevised}: the driver of each route the revision changed
@@ -12,8 +13,9 @@ import com.dispatchflow.planning.events.PlanRevised;
  * (FR-71, FR-97, FR-249). The drivers come from Planning's {@link PublishedRoutes}; the screens are
  * told the routes changed, so the unconfirmed list follows (FR-250).
  *
- * <p>A route handed over has a new driver in the current revision; the driver it left is not in the
- * current revision, so Planning's API has to name that driver for them to be told too.
+ * <p>A route handed over has a new driver in the current revision. The driver it left is in no
+ * route of that revision, so {@link #on(RouteHandedOver, CallContext)} tells them from Planning's
+ * {@code RouteHandedOver}, which names both drivers (FR-71).
  *
  * <p>Delivery is at least once (ADR-064), and a repeated notice carries no data (NFR-218), so it
  * records no {@code ProcessedEvents} pair.
@@ -49,5 +51,17 @@ public final class TellDriversOfRevision {
      */
     public void on(PlanRevised event, CallContext call) {
         throw new UnsupportedOperationException("Built in M8");
+    }
+
+    /**
+     * Tells the driver a handed-over route left that it is no longer theirs (FR-71).
+     *
+     * <p>Built in M9.
+     *
+     * @param event the hand-over, naming the driver the route left
+     * @param call the listener's server step
+     */
+    public void on(RouteHandedOver event, CallContext call) {
+        throw new UnsupportedOperationException("Built in M9");
     }
 }
