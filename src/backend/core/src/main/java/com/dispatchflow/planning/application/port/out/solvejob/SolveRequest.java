@@ -17,7 +17,7 @@ import java.util.Objects;
  * NFR-13, ADR-044): the job's solver, limit and seed, the date's facts, the plan's pins, and the
  * routes a lock keeps. {@code SolveRequestAssembler.daily} builds it.
  *
- * <p>Built in M0.
+ * <p>Built in M0; its locked routes in M4.
  *
  * @param job the job
  * @param plan the plan it solves

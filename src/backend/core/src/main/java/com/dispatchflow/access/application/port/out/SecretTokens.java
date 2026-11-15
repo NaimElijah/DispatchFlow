@@ -7,7 +7,7 @@ import com.dispatchflow.access.domain.TokenHash;
  * (NFR-91, NFR-211, ADR-045): 256 bits from a secure random source, hashed with SHA-256. Randomness
  * stays out of the domain, which only compares {@code TokenHash}es (DL §3.9).
  *
- * <p>Built in M5.
+ * <p>Built in M5 and M6, method by method.
  */
 public interface SecretTokens {
 

@@ -14,7 +14,7 @@ import java.util.Optional;
  * delivery is pending; its first fact creates one (DL §6.2). Adding or saving a delivery publishes
  * the events it raised, in the caller's transaction (ADR-064).
  *
- * <p>Built in M5.
+ * <p>Built in M5 and M8, method by method.
  */
 public interface DeliveryRepository {
 

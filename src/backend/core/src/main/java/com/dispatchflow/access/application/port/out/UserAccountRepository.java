@@ -16,7 +16,7 @@ import java.util.Optional;
  * Where user accounts are kept, whole, with their credential links (DL §3.6, §4.1). The unique
  * index on the canonical email backs BR-45 when two requests race (DL §5).
  *
- * <p>Built in M2.
+ * <p>Built in M2, M5, M6, M13 and an unscheduled milestone, method by method.
  */
 public interface UserAccountRepository {
 

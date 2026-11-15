@@ -18,11 +18,14 @@ import com.dispatchflow.shared.application.NotFound;
  * (ADR-041, ADR-109), builds the {@code BaselineRequest} from them with no vehicle withdrawn, and
  * asks the {@link BaselinePlanner} for the nearest-neighbour solve (DL §6.3); then {@code
  * Baseline.compute} stores it. It reads no other module's Java API. Delivery is at least once
- * (ADR-064): the plan keys the baseline, so a repeated delivery finds it stored and changes nothing.
+ * (ADR-064): the plan keys the baseline and the refusal, so a repeated delivery finds one stored and
+ * changes nothing.
  *
- * <p>When the planner answers {@link BaselineAnswer.Refused}, the use case stores no baseline and
- * completes, so the delivery isn't resubmitted forever for an answer that asking again repeats. What
- * the plan's summary shows then is open for M5.
+ * <p>When the planner answers {@link BaselineAnswer.Refused}, the use case stores no baseline: it
+ * records the refusal's cause through {@link BaselineRepository#recordRefusal} and completes, so the
+ * delivery isn't resubmitted 5 times and then alerted (ADR-064) for a refusal that asking again
+ * may repeat, and a later recompute finds the plan settled. What the plan's summary shows then is
+ * open for M5.
  *
  * <p>Built in M5.
  */

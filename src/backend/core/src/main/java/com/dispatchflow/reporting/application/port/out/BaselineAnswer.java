@@ -5,9 +5,10 @@ import java.util.Objects;
 
 /**
  * The optimizer's answer to a baseline solve (FR-39, FR-342): the baseline's figures, or the
- * optimizer's refusal when its solver failed, found no solution within its budget, or its validator
- * rejected the solution (ADR-004, BR-15). An optimizer that can't be reached is no answer: the call
- * fails with an unchecked exception instead (see {@link BaselinePlanner}).
+ * optimizer's refusal, with its {@link RefusalCause}, when its solver failed, found no solution
+ * within its budget, or its validator rejected the solution (ADR-004, BR-15). An optimizer that
+ * can't be reached, or answers what the adapter doesn't know, is no answer: the call fails with an
+ * unchecked exception instead (see {@link BaselinePlanner}).
  *
  * <p>Built in M5.
  */
@@ -29,18 +30,20 @@ public sealed interface BaselineAnswer {
     }
 
     /**
-     * The optimizer answered, and found no baseline. Asking again with the same request gets the
-     * same answer, so the listener completes instead of failing its delivery.
+     * The optimizer answered, and found no baseline. For a cause that is deterministic under a seed
+     * and an iteration budget, asking again with the same request gets the same answer; the M5
+     * contract of {@code optimizer-api} v1 settles which causes are. The listener records the
+     * refusal and completes instead of failing its delivery.
      *
      * <p>Built in M5.
      *
-     * @param reasonCode the optimizer's stable code for why, as {@code optimizer-api} v1 names it
+     * @param cause why, as the adapter maps the optimizer's refusal code
      */
-    record Refused(String reasonCode) implements BaselineAnswer {
+    record Refused(RefusalCause cause) implements BaselineAnswer {
 
-        /** Checks the code is present. */
+        /** Checks the cause is present. */
         public Refused {
-            Objects.requireNonNull(reasonCode, "reasonCode");
+            Objects.requireNonNull(cause, "cause");
         }
     }
 }

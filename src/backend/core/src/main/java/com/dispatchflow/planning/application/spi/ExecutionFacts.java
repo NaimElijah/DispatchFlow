@@ -6,9 +6,10 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * What has happened on a date's routes, which Planning asks before it cancels a plan, accepts a
- * proposal or re-optimizes (DL §2.3 rule 2, FR-336, BR-25, BR-82, ADR-050, ADR-101). Live
- * Operations implements it as its {@code ExecutionFactsService} (DL §2.1's dashed arrow).
+ * What has happened on a plan's routes and stops, among those given, which Planning asks before it
+ * cancels a plan, accepts a proposal or re-optimizes (DL §2.3 rule 2, FR-336, BR-25, BR-82,
+ * ADR-050, ADR-101). Live Operations implements it as its {@code ExecutionFactsService} (DL §2.1's
+ * dashed arrow).
  *
  * <p>Built in M9.
  */

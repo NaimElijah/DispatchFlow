@@ -10,7 +10,7 @@ import java.util.Optional;
  * §4.7, FR-39). A baseline holds no personal data, so it stays as long as its plan (NFR-152,
  * ADR-109).
  *
- * <p>Built in M5.
+ * <p>Built in M5 and M9, method by method.
  */
 public interface BaselineRepository {
 
@@ -44,4 +44,27 @@ public interface BaselineRepository {
      * @throws StaleVersion when another recompute was saved since it was loaded
      */
     void save(Baseline baseline);
+
+    /**
+     * Records that the optimizer refused the baseline of a plan's publication, in the caller's
+     * transaction, so a repeated delivery and a later recompute find the plan settled (FR-39). The
+     * plan keys it, as it keys a baseline, so the store refuses a second record of one plan, and a
+     * plan holds a baseline or a refusal, never both.
+     *
+     * <p>Built in M5.
+     *
+     * @param plan the plan
+     * @param cause why the optimizer found no baseline
+     */
+    void recordRefusal(PlanId plan, RefusalCause cause);
+
+    /**
+     * Loads the refusal recorded for a plan's publication baseline.
+     *
+     * <p>Built in M5.
+     *
+     * @param plan the plan
+     * @return the refusal's cause, or empty when none was recorded
+     */
+    Optional<RefusalCause> refusalOf(PlanId plan);
 }

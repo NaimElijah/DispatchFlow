@@ -1,6 +1,7 @@
 package com.dispatchflow.access.application.service.account;
 
 import com.dispatchflow.access.application.api.Actor;
+import com.dispatchflow.access.application.api.GrantLimitExceeded;
 import com.dispatchflow.access.application.port.out.EmailSender;
 import com.dispatchflow.access.application.port.out.PasswordHasher;
 import com.dispatchflow.access.application.port.out.PresentedPassword;
@@ -25,9 +26,11 @@ import java.util.Optional;
  *
  * <p>An Admin can change a user's email, except another Admin's, which only that Admin can change
  * (FR-387, ADR-116); a Dispatcher or a Driver can change only their own (the permission matrix).
- * Used on another account, the operation is Admin-only, so the acting session must have given its
- * password in the last 5 minutes (NFR-214, {@code Capability.requiresStepUp}). On the actor's own
- * account it needs the current password instead, which it checks through {@code
+ * Only an Admin may act on another account, and then only after a fresh step-up: the acting session
+ * must have given its password in the last 5 minutes (NFR-214, {@code Capability.requiresStepUp}).
+ * An actor whose roles give only the limited grant is refused with {@link GrantLimitExceeded} when
+ * the account isn't their own, before the account is read, so the 403 confirms no ID. On the
+ * actor's own account it needs the current password instead, which it checks through {@code
  * PasswordHasher.matches} (FR-387); a wrong one counts toward the sign-in limits, in the rate-limit
  * adapter (FR-177, ADR-071). Access's domain has no error for a missing or wrong password yet; M6
  * adds it. Like every changing call it writes its audit record, a refused attempt's in its own
@@ -94,6 +97,9 @@ public final class RequestEmailChange {
      *     refusal M6 adds when the current password is missing or wrong (FR-387); on another
      *     account, {@code StepUpRequired} when the acting session gave its password more than 5
      *     minutes ago, or {@code SessionRevoked} when it is revoked (NFR-214)
+     * @throws GrantLimitExceeded when the actor's roles give only the limited grant, a Dispatcher's
+     *     or a Driver's "only their own", and {@code account} isn't the actor's own; checked before
+     *     the account is read, so it answers alike for an ID no account has (the permission matrix)
      * @throws NotFound when no account has the ID
      * @throws StaleVersion when the account is no longer at {@code expected}, or changed before the
      *     save (BR-76)

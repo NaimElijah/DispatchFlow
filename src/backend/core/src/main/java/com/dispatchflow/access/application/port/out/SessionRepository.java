@@ -13,7 +13,7 @@ import java.util.Optional;
  * Where sessions are kept, whole, with their contact times and refresh-token chains (DL §3.6,
  * §4.1).
  *
- * <p>Built in M5.
+ * <p>Built in M5, M6, M8, M13 and an unscheduled milestone, method by method.
  */
 public interface SessionRepository {
 

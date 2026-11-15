@@ -10,7 +10,7 @@ import com.dispatchflow.shared.ProposalId;
  * then reads it through Planning's queries. A use case calls it after its transaction commits, so a
  * screen never reads a change that rolled back.
  *
- * <p>Built in M4.
+ * <p>Built in M4 and M9, method by method.
  */
 public interface LiveUpdates {
 

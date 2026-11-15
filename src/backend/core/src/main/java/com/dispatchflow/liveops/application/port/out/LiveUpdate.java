@@ -9,7 +9,7 @@ import java.util.Objects;
  * What changed on the live screens, which the event stream tells the open clients so they refetch
  * (DL §7.1, ADR-026). It names IDs only, never personal data (NFR-218).
  *
- * <p>Built in M5.
+ * <p>Built in M5 and M8, case by case.
  */
 public sealed interface LiveUpdate {
 

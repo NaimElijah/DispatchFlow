@@ -10,7 +10,6 @@ import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.IdGenerator;
-import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * A user who forgot their password asks for a recovery link at their address (FR-386). The link
@@ -20,9 +19,11 @@ import com.dispatchflow.shared.application.StaleVersion;
  * <p><b>Refusals answered alike</b> (NFR-145): an address no account holds, which returns normally
  * and sends nothing; the refusals of {@code UserAccount.issueLink} for a recovery link: {@code
  * AccountDeactivated}, {@code AccountAnonymized} and {@code AccountHasNoRole} (BR-123); FR-172's
- * limit of 5 recoveries an hour per account; and NFR-215's cap of 100 recovery emails a day. The
- * recovery endpoint answers every one as "sent", after the same work, so no caller learns whether
- * the address has an account or why nothing was sent.
+ * limit of 5 recoveries an hour per account; NFR-215's cap of 100 recovery emails a day; and a
+ * version conflict on the save, where a concurrent request for the same account won and is issuing
+ * the link, so no {@code StaleVersion} leaves the use case. The recovery endpoint answers every one
+ * as "sent", after the same work, so no caller learns whether the address has an account or why
+ * nothing was sent.
  *
  * <p><b>The two limits.</b> FR-172's limit is the web adapter's Bucket4j limit, keyed by the
  * canonical address (ADR-071), so a request over it never reaches this use case. NFR-215's cap is
@@ -35,7 +36,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  * <p><b>The order.</b> The use case calls {@code UserAccount.issueLink} first, then {@link
  * RecoveryEmailCap#take}, and saves the account and sends the link only when the take succeeds. On a
  * refused take the account isn't saved, so the link issued in memory is dropped and the account's
- * earlier open link, if it has one, stays valid.
+ * earlier open link, if it has one, stays valid. The take is in the same transaction as the save, so
+ * a version conflict on the save rolls the take back and a lost race spends none of the cap.
  *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
@@ -90,7 +92,6 @@ public final class RequestPasswordRecovery {
      * @param call the call's context: no user or session, the client and the trace (ADR-110)
      * @throws RuleViolation with a refusal of {@code UserAccount.issueLink} named above, which the
      *     endpoint answers as "sent"
-     * @throws StaleVersion when the account changed between its read and its save (BR-76)
      */
     public void request(EmailAddress email, CallContext call) {
         throw new UnsupportedOperationException("Built in M6");

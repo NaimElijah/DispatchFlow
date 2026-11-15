@@ -8,7 +8,7 @@ import java.util.Optional;
  * The read models of Access's screens: the signed-in user, the users list and the company's details
  * (DL §3.6, CQRS-lite). It never returns an aggregate; the query classes check who may read what.
  *
- * <p>Built in M2.
+ * <p>Built in M2, M5 and M6, method by method.
  */
 public interface AccessViews {
 

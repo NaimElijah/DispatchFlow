@@ -99,13 +99,15 @@ confirmed the shared package after being told that it amends ADR-118.
    - **Errors:** application errors that reach the web adapter are unchecked exceptions with a stable
      `code()` and a status: `NotFound` (404), `StaleVersion` (412), `CompanyNotSetUp` (409),
      `SignInRefused` (401), `IdempotencyKeyReused` (409), `ProofIdTaken` (409), `ProofImageTooLarge`
-     (422) and `GrantLimitExceeded` (403, code `GRANT_LIMIT_EXCEEDED`, in Access's `api`).
+     (422), `ProofUploadsCapped` (429, with `Retry-After`, in Live Operations' `port.out`) and
+     `GrantLimitExceeded` (403, code `GRANT_LIMIT_EXCEEDED`, in Access's `api`).
      `NotFound` and `StaleVersion` carry a kind and an ID for the problem's `params`.
      `GeocoderUnavailable` is internal to the geocoding job: it has no `code()` and no status.
    - **Retries:** a version conflict in a listener or job is retried by its adapter, up to three times
-     ([DL §11][DL-11]), or, where DL §11 says so, left for the job's next run (the sender,
-     `ProjectArrivals`). A use case doesn't retry; it declares `StaleVersion`. The one exception is
-     `RefreshSession`, which retries once on a stale version, for [NFR-178]'s grace.
+     ([DL §11][DL-11]). A few jobs leave a conflict for their next run instead: the sender, which DL
+     §11 names, and `ProjectArrivals` and the retention jobs, by their own contracts. A use case
+     doesn't retry; it declares `StaleVersion`. The one exception is `RefreshSession`, which retries
+     once on a stale version, for [NFR-178]'s grace.
 8. **Placements where the docs leave the owner open** (for the owner's veto):
    - **P1:** Access owns push tokens. Sign-out and revocation remove them ([NFR-263]).
    - **P2:** Live Operations owns the phone's request-key record (`ReportReceipts`, [ADR-087]). The
@@ -136,7 +138,10 @@ confirmed the shared package after being told that it amends ADR-118.
      limit ([ADR-071]).
    - **P14:** a proof is stored under its uploader and kind, and a delivered report may name only the
      driver's own proof of the stated kind ([BR-02], [FR-367], [FR-368]). Its pixel size is checked
-     before decoding ([NFR-205]).
+     before decoding ([NFR-205]). An upload that no report names is swept after a window longer than
+     [ADR-087]'s 14-day offline hold ([NFR-235]), so a phone's late report still finds it. One
+     uploader's unnamed uploads are capped, and one over the cap is refused with `ProofUploadsCapped`
+     (429, `Retry-After`), so ADR-087's sender waits instead of marking the row refused.
    - **P15:** sign-in answers one `SignInRefused` after the same hash work, with a decoy for an unknown
      address or an account with no password. The specific code goes only to the audit record
      ([NFR-145], [NFR-225]).
@@ -194,14 +199,20 @@ confirmed the shared package after being told that it amends ADR-118.
     - the optimizer's `Solver.solve` returns `SearchResult(solution, reached)`, not a bare `Solution`.
       `reached` is the iterations or solutions the search reached ([ADR-004], ADR-044's own Risk line,
       [NFR-13], [NFR-115]);
-    - `reached` is the replay budget, an `IterationLimit` or a `SolutionLimit`, and `None` in a
-      `Failed` outcome;
+    - `SearchResult.reached` is the replay budget, an `IterationLimit` or a `SolutionLimit`, and is
+      never `None`. Only `SolveStats.reached` is `None`, in a `Failed` outcome;
     - a solver failure becomes a `Failed` outcome in `Solve`, `Reoptimize` and `Baseline` ([ADR-004]).
-      The core has no reason to carry it: M0 adds a `SolveFailureReason` for it. That is a domain
+      The core has no failure reason for it: M0 adds a `SolveFailureReason` for it. That is a domain
       change and an edit to [FR-65], so it is the owner's call;
     - Reporting's `BaselinePlanner` answers a sealed `BaselineAnswer`: `Planned` with the figures, or
-      `Refused` with a reason code. On `Refused` no baseline is stored and the listener completes, so
-      the event is not resubmitted. What the summary then shows is open for M5.
+      `BaselineAnswer.Refused(RefusalCause)`. `RefusalCause` is Reporting's own enum
+      (`SOLVER_FAILED`, `NO_SOLUTION_WITHIN_BUDGET`, `VALIDATOR_REJECTED`); the optimizer adapter
+      maps the optimizer's code into it, and treats a code it doesn't know like an unreachable
+      optimizer. On `Refused` no baseline is stored: the listener records the refusal
+      (`BaselineRepository.recordRefusal`) and completes, so the event is not resubmitted, and a
+      later recompute finds the refusal and completes. A recompute with neither a baseline nor a
+      refusal recorded throws `NotFound`, so it is resubmitted until the publication's listener has
+      run. What the summary then shows is open for M5.
 
 ## Consequences
 
@@ -219,8 +230,11 @@ confirmed the shared package after being told that it amends ADR-118.
   - A placement in decision 8 turns out wrong at its milestone. Each one is listed so the milestone
     can reopen it.
   - Spring Modulith must expose `shared.application`. M0 checks it with `verify()`.
-  - A flood of refused calls grows the audit table. [ADR-071]'s limits bound it. Whether a limiter's
-    repeated 429s for one key are coalesced is decided when the limiter is built (M6).
+  - A flood of refused calls grows the audit table. [ADR-071]'s limits bound most of it, but not the
+    401s: no bucket counts a 401 on an operation that needs a token. Whether a limiter's repeated
+    429s for one key are coalesced is decided when the limiter is built (M6). **Owner item for M6:**
+    either count 401s per source address in a bucket like [NFR-102]'s, which extends [ADR-071], or
+    write at most one 401 record per source address and operation per window.
   - The `web` adapter is exempt from rule 2 until the pending `web` ADR ([ADR-040]) settles it. Its
     security filter will depend on Access's `SessionValidity`, which is an input to that ADR.
 
@@ -281,6 +295,7 @@ confirmed the shared package after being told that it amends ADR-118.
 [NFR-13]: ../requirements/requirements.md#nfr-13
 [NFR-23]: ../requirements/requirements.md#nfr-23
 [NFR-93]: ../requirements/requirements.md#nfr-93
+[NFR-102]: ../requirements/requirements.md#nfr-102
 [NFR-115]: ../requirements/requirements.md#nfr-115
 [NFR-145]: ../requirements/requirements.md#nfr-145
 [NFR-205]: ../requirements/requirements.md#nfr-205
@@ -288,6 +303,7 @@ confirmed the shared package after being told that it amends ADR-118.
 [NFR-214]: ../requirements/requirements.md#nfr-214
 [NFR-215]: ../requirements/requirements.md#nfr-215
 [NFR-225]: ../requirements/requirements.md#nfr-225
+[NFR-235]: ../requirements/requirements.md#nfr-235
 [NFR-253]: ../requirements/requirements.md#nfr-253
 [NFR-263]: ../requirements/requirements.md#nfr-263
 [NFR-274]: ../requirements/requirements.md#nfr-274

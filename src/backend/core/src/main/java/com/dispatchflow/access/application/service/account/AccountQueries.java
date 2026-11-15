@@ -16,7 +16,7 @@ import java.util.List;
  * only it, and {@link #show} answers {@code NotFound} for any other, so it learns nothing of the
  * rest (the permission matrix; BR-02).
  *
- * <p>Its methods are built in M5 and M6, as each says.
+ * <p>Built in M5 and M6, method by method.
  */
 public final class AccountQueries {
 

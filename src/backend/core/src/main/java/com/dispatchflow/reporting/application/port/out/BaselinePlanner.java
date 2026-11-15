@@ -7,11 +7,12 @@ import com.dispatchflow.reporting.domain.PlannedFigures;
  * and shifts, drops what doesn't fit, and passes the validator (FR-39, FR-342, BR-15, TS §6.4).
  * The optimizer's HTTP client implements it, an anti-corruption layer over {@code optimizer-api}
  * v1, and translates the answer into a {@link BaselineAnswer}: Reporting's {@link PlannedFigures},
- * or the optimizer's refusal.
+ * or the optimizer's refusal with its code mapped into a {@link RefusalCause}.
  *
  * <p>A listener calls it before its transaction opens (DL §6.3). An optimizer that can't be
  * reached fails the call with an unchecked exception, which fails the listener's delivery, so
- * Spring Modulith resubmits it (ADR-064, DL §12).
+ * Spring Modulith resubmits it (ADR-064, DL §12). An answer the adapter doesn't know, such as a
+ * refusal code with no {@link RefusalCause}, is treated the same way.
  *
  * <p>Built in M5.
  */

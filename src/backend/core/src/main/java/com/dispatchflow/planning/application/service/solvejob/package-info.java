@@ -4,8 +4,8 @@
  * recovery, and the progress query.
  *
  * <p>A job's writers race: its worker, the watchdog, startup recovery and the midnight job. The
- * version check refuses the loser, which reloads the job, finds it ended ({@code JobAlreadyEnded})
- * and stops (DL §11).
+ * version check refuses the loser, which doesn't retry its change: it re-reads the job, finds it
+ * ended ({@code JobAlreadyEnded}) and stops (DL §11).
  */
 @NullMarked
 package com.dispatchflow.planning.application.service.solvejob;

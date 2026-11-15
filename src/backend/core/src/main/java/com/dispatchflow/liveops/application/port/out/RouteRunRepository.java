@@ -16,7 +16,7 @@ import java.util.Optional;
  * 3), so {@link #add} takes the date from Planning's answer and the adapter keeps it beside the run
  * for {@link #startedOn}.
  *
- * <p>Built in M5.
+ * <p>Built in M5 and M8, method by method.
  */
 public interface RouteRunRepository {
 

@@ -11,7 +11,7 @@ import com.dispatchflow.access.domain.account.PasswordHash;
  * <p>Sign-in runs the same hash work for an address no account holds, and for an account with no
  * password hash yet, as for an account with one, through {@link #checkDecoy} (NFR-145, NFR-225).
  *
- * <p>Built in M5.
+ * <p>Built in M5 and M6, method by method.
  */
 public interface PasswordHasher {
 

@@ -6,7 +6,9 @@ package com.dispatchflow.access.application.api;
  * lets a limited grant through, because the limit depends on what the call asks, so the use case
  * refuses it itself (ADR-068, ADR-104). It is not a domain refusal and not a missing record, so it is
  * no {@code DomainError} and no {@code NotFound}: the web adapter answers it with 403 and
- * {@link #code()}.
+ * {@link #code()}. A call that names a record by its ID, where the limit depends on what that record
+ * holds, answers {@code NotFound} instead, as {@code ProofQueries} does, so a 403 never tells a
+ * caller which IDs exist.
  *
  * <p>Built in M4.
  */

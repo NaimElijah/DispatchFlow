@@ -20,9 +20,12 @@ import java.util.Optional;
  * <p><b>Uploads no report names.</b> The phone uploads a proof before the report that names it
  * (ADR-087), so an upload can stay unnamed. The adapter bounds them: it deletes an upload that no
  * report names within a window, keeping its binding as above, and caps how many unnamed uploads one
- * uploader may hold. The window and the cap are the adapter's named settings, whose values M5 fixes.
+ * uploader may hold, refusing one more with {@link ProofUploadsCapped}. The window is longer than
+ * the 14 days a phone may hold its queued reports offline (ADR-087, NFR-235), so a phone's late
+ * report still finds its upload. The window and the cap are the adapter's named settings, whose
+ * values M5 fixes.
  *
- * <p>Built in M5.
+ * <p>Built in M5 and M8, method by method.
  */
 public interface ProofStore {
 
@@ -45,6 +48,8 @@ public interface ProofStore {
      * @throws ProofIdTaken when another uploader holds the ID, the same uploader holds it under the
      *     other kind, or the ID is retired because its file was deleted
      * @throws ProofImageTooLarge when the image's header gives pixel dimensions above the cap
+     * @throws ProofUploadsCapped when the uploader already holds as many uploads that no report
+     *     names as the cap allows, and this one isn't a retry of one of them
      */
     void store(AccountId uploader, ProofId proof, ProofKind kind, ProofUpload upload);
 

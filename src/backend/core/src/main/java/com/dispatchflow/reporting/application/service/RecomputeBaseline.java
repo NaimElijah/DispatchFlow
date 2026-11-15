@@ -29,9 +29,14 @@ import com.dispatchflow.shared.application.StaleVersion;
  * stores a new solve: the use case records the {@code (listener, event ID)} pair in {@link
  * ProcessedEvents} in its transaction, and a repeated delivery changes nothing.
  *
+ * <p>For a plan whose publication baseline was refused, which {@link
+ * BaselineRepository#refusalOf} answers, there is nothing to recompute, and the use case completes.
+ * With neither a baseline nor a refusal recorded, the publication's listener hasn't run yet, so the
+ * use case throws {@link NotFound} and the delivery is resubmitted until it has.
+ *
  * <p>When the planner answers {@link BaselineAnswer.Refused}, the use case stores no new baseline
- * and completes, so the delivery isn't resubmitted forever for an answer that asking again repeats.
- * What the plan's summary shows then is open for M5.
+ * and completes, so the delivery isn't resubmitted 5 times and then alerted (ADR-064) for a refusal
+ * that asking again may repeat. What the plan's summary shows then is open for M5.
  *
  * <p>Built in M9.
  */
@@ -77,8 +82,8 @@ public final class RecomputeBaseline {
      * @param event the revision
      * @param call the listener's server step, which the audit record is written with
      * @throws NotFound when Planning's view has no published plan with the event's ID, or the plan
-     *     has no baseline yet, so the delivery fails and is resubmitted after the publication's
-     *     listener
+     *     has neither a baseline nor a recorded refusal yet, so the delivery fails and is resubmitted
+     *     until the publication's listener has run
      * @throws RuleViolation with Reporting's {@code NegativeDistance}, {@code NegativeDriverHours}
      *     or {@code OrderCountedTwice} when the optimizer's answer translates into no valid figures
      * @throws StaleVersion when another recompute of the plan was saved since the baseline was

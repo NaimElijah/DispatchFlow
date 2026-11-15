@@ -6,6 +6,7 @@ import com.dispatchflow.liveops.application.port.out.ProofIdTaken;
 import com.dispatchflow.liveops.application.port.out.ProofImageTooLarge;
 import com.dispatchflow.liveops.application.port.out.ProofStore;
 import com.dispatchflow.liveops.application.port.out.ProofUpload;
+import com.dispatchflow.liveops.application.port.out.ProofUploadsCapped;
 import com.dispatchflow.liveops.domain.delivery.ProofId;
 import com.dispatchflow.liveops.domain.delivery.ProofKind;
 import com.dispatchflow.shared.application.Clock;
@@ -22,13 +23,17 @@ import com.dispatchflow.shared.application.Clock;
  * header gives pixel dimensions above its cap, before decoding it.
  *
  * <p>An upload stays unnamed until the report that names it arrives. The store bounds such uploads:
- * it deletes one that no report names within a window, and caps how many unnamed uploads one driver
- * may hold. Both are the store adapter's named settings, whose values M5 fixes.
+ * it deletes one that no report names within a window longer than the 14 days a phone may hold its
+ * queued reports offline (ADR-087, NFR-235), so a phone's late report still finds its upload, and it
+ * caps how many unnamed uploads one driver may hold, refusing one more with {@link
+ * ProofUploadsCapped}, which the web adapter answers with 429 and {@code Retry-After} so the phone
+ * waits instead of marking its row refused. Both are the store adapter's named settings, whose
+ * values M5 fixes.
  *
  * <p>Live Operations' domain has no error for a proof in another format yet, so the refusal this
  * use case raises for one waits for that error.
  *
- * <p>Built in M5. Rows: FR-30, FR-367, NFR-37, NFR-204, NFR-205.
+ * <p>Built in M5. Rows: FR-30, FR-367, NFR-37, NFR-204, NFR-205, NFR-235.
  */
 public final class UploadProof {
 
@@ -61,6 +66,8 @@ public final class UploadProof {
      * @throws ProofIdTaken when another driver holds the ID, this driver holds it under the other
      *     kind, or the ID is retired because its file was deleted
      * @throws ProofImageTooLarge when the image's pixel dimensions are above the store's cap
+     * @throws ProofUploadsCapped when the driver already holds as many uploads that no report names
+     *     as the store's cap allows
      */
     public void upload(Actor actor, ProofId proof, ProofKind kind, ProofUpload upload) {
         throw new UnsupportedOperationException("Built in M5");

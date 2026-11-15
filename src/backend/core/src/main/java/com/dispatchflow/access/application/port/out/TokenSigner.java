@@ -4,7 +4,7 @@ package com.dispatchflow.access.application.port.out;
  * Signs access tokens as ES256 JWTs with Nimbus JOSE + JWT (ADR-045, ADR-069, TS §6.4). The signing
  * key is a secret and stays in the adapter.
  *
- * <p>Built in M5.
+ * <p>Built in M5 and M13, method by method.
  */
 public interface TokenSigner {
 
