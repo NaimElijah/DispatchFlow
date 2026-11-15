@@ -1,21 +1,26 @@
 package com.dispatchflow.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaModifier;
 import com.tngtech.archunit.core.domain.JavaPackage;
+import com.tngtech.archunit.core.domain.PackageMatcher;
 import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
+import com.tngtech.archunit.library.dependencies.SliceAssignment;
+import com.tngtech.archunit.library.dependencies.SliceIdentifier;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.jspecify.annotations.NullMarked;
@@ -37,11 +42,10 @@ final class ApplicationRules {
     private static final String APPLICATION = "application";
     private static final String API = "api";
     private static final String SPI = "spi";
+    private static final String SERVICE = "service";
+    private static final String PORT_OUT = "port.out";
     private static final String PACKAGE_INFO = "package-info";
     private static final List<String> ALWAYS_ALLOWED = List.of("java", "org.jspecify");
-    // The pure domain libraries reach the application through the domain types it handles.
-    private static final List<String> DOMAIN_LIBRARIES =
-            List.of("com.google.i18n.phonenumbers", "org.locationtech.jts");
     // TS §2.2: the one Spring annotation the application may carry, so a use case can mark its
     // transaction. ArchUnit counts an annotation's members, defaults included, as dependencies, so
     // even a bare @Transactional names Propagation and Isolation; ADR-110's REQUIRES_NEW needs them too.
@@ -67,6 +71,19 @@ final class ApplicationRules {
             "messaging", Set.of("liveops", "planning", "orders", "access", "audit"),
             "reporting", Set.of("liveops", "planning", "orders", "access", "audit"));
 
+    /**
+     * DL §2.1's dashed arrows: each {@code spi} interface, by its name below the root, and the module
+     * that implements it. An interface missing here fails {@link
+     * #eachSpiHasOneImplementationInItsArrowsModule}, so a new {@code spi} joins the context map on
+     * purpose.
+     */
+    static final Map<String, String> SPI_IMPLEMENTERS = Map.of(
+            "planning.application.spi.ExecutionFacts", "liveops",
+            "orders.application.spi.StopProgress", "liveops",
+            "orders.application.spi.OrderPlacement", "planning",
+            "orders.application.spi.RecordUsage", "planning",
+            "fleet.application.spi.RecordUsage", "planning");
+
     /** The top-level packages under the root that are no module: the kernel and the web concerns. */
     static final Set<String> NOT_MODULES = Set.of(KERNEL, WEB);
 
@@ -75,7 +92,12 @@ final class ApplicationRules {
     /**
      * Rule 1: each module's application layer and the shared application package depend only on
      * what TS §2.2 and DL §2.3 allow, with Spring Modulith's annotations allowed on their {@code
-     * package-info} only.
+     * package-info} only. A module's own {@code adapter} is not among them: dependencies point from
+     * the adapters to the application, never back.
+     *
+     * <p>{@code @Transactional} is allowed here for a module's use cases. The shared application
+     * package can't take it all the same: it sits under the kernel, so {@link DomainPurityRules}
+     * holds it to the kernel's purity rules too, and they allow no Spring.
      */
     static ArchRule onlyAllowedDependencies(String root) {
         return onlyAllowedDependencies(root, MODULITH);
@@ -94,8 +116,7 @@ final class ApplicationRules {
                         "the packages TS §2.2 allows the application",
                         (item, target) -> isAllowedInTheApplication(root, moduleAnnotations, item, target)))
                 .because("TS §2.2 and DL §2.3: the application imports the JDK, JSpecify, the kernel, its own"
-                        + " module, other modules' api, spi and events, the domain's libraries, and from"
-                        + " Spring only @Transactional");
+                        + " module, other modules' api, spi and events, and from Spring only @Transactional");
     }
 
     /** Rule 2: a module depends on another module only along DL §2.1's arrows. */
@@ -164,20 +185,34 @@ final class ApplicationRules {
         return classes()
                 .that()
                 .resideInAPackage(root + ".*." + APPLICATION + "." + API + "..")
-                .should(haveOneImplementation(root, true))
+                .should(haveOneImplementation(root, "in its own module", item -> topLevelPackage(root, item)))
                 .because("TS §4: an api interface X is implemented once, by its own module's XService");
     }
 
+    /** Rule 4, for {@code spi}, with production's dashed arrows, {@link #SPI_IMPLEMENTERS}. */
+    static ArchRule eachSpiHasOneImplementationInItsArrowsModule(String root) {
+        return eachSpiHasOneImplementationInItsArrowsModule(root, SPI_IMPLEMENTERS);
+    }
+
     /**
-     * Rule 4, for {@code spi}: every non-sealed interface in a module's {@code application.spi} has
-     * exactly one concrete implementation, outside its own module. Sealed interfaces are skipped.
+     * Rule 4, for {@code spi}, with the dashed arrows given, as rule 2 takes its graph: every
+     * non-sealed interface in a module's {@code application.spi} has exactly one concrete
+     * implementation, in the module its arrow names. An interface with no arrow fails. Sealed
+     * interfaces are skipped.
+     *
+     * @param implementers each {@code spi} interface, by its name below the root, and the module that
+     *     implements it
      */
-    static ArchRule eachSpiHasOneImplementationOutsideItsModule(String root) {
+    static ArchRule eachSpiHasOneImplementationInItsArrowsModule(String root, Map<String, String> implementers) {
         return classes()
                 .that()
                 .resideInAPackage(root + ".*." + APPLICATION + "." + SPI + "..")
-                .should(haveOneImplementation(root, false))
-                .because("DL §2.3 and TS §4: a module owns an spi for exactly one other module to implement");
+                .should(haveOneImplementation(
+                        root,
+                        "in the module its dashed arrow names",
+                        item -> Optional.ofNullable(implementers.get(nameBelow(root, item)))))
+                .because("DL §2.1 and DL §2.3: a module owns an spi for exactly the one module its dashed"
+                        + " arrow names to implement");
     }
 
     /**
@@ -217,6 +252,67 @@ final class ApplicationRules {
                         + " the application reads them from the shared ports");
     }
 
+    /**
+     * One slice per package under {@code <root>.<module>.application}, the shared application package
+     * included; every other class is left out, as {@link DomainPackageRules#domainPackages} does for
+     * the domain.
+     */
+    static SliceAssignment applicationPackageSlices(String root) {
+        PackageMatcher application = PackageMatcher.of(applicationLayers(root));
+        return new SliceAssignment() {
+            @Override
+            public SliceIdentifier getIdentifierOf(JavaClass type) {
+                return application.matches(type.getPackageName())
+                        ? SliceIdentifier.of(type.getPackageName())
+                        : SliceIdentifier.ignore();
+            }
+
+            @Override
+            public String getDescription() {
+                return "the packages under " + root + ".<module>." + APPLICATION;
+            }
+        };
+    }
+
+    /**
+     * Rule 7, for cycles: no cycle between application packages. Each package is a slice of its own,
+     * so a cycle across modules would show too, which rule 2's acyclic graph already forbids.
+     */
+    static ArchRule applicationPackagesAreFreeOfCycles(String root) {
+        return slices().assignedFrom(applicationPackageSlices(root))
+                .should()
+                .beFreeOfCycles()
+                .because("ADR-118 rule 7, carried to the application: the use-case and port packages of"
+                        + " each aggregate use the roots and each other one way only");
+    }
+
+    /**
+     * Rule 7, for the roots: no class directly in a module's {@code application.service} or {@code
+     * application.port.out} uses a class in a package under its own. The cycle rule can't see this
+     * when the subpackage never names the root, and rule 1 lets any class reach its own module's
+     * application.
+     */
+    static ArchRule serviceAndPortRootsUseNoSubpackage(String root) {
+        String layer = root + ".*." + APPLICATION + ".";
+        return classes()
+                .that()
+                .resideInAnyPackage(layer + SERVICE, layer + PORT_OUT)
+                .should(new ArchCondition<>("use no class in a package under its own") {
+                    @Override
+                    public void check(JavaClass item, ConditionEvents events) {
+                        String below = item.getPackageName() + ".";
+                        item.getDirectDependenciesFromSelf().stream()
+                                .filter(dependency -> baseType(dependency.getTargetClass())
+                                        .getPackageName()
+                                        .startsWith(below))
+                                .forEach(dependency ->
+                                        events.add(SimpleConditionEvent.violated(item, dependency.getDescription())));
+                    }
+                })
+                .because("ADR-118 rule 2, carried to the application: the service and port.out roots hold what"
+                        + " several aggregates' packages use, and import none of them");
+    }
+
     /** Each module's application layer, with the shared application package. */
     private static String applicationLayers(String root) {
         return root + ".*." + APPLICATION + "..";
@@ -236,7 +332,6 @@ final class ApplicationRules {
             String root, String moduleAnnotations, JavaClass item, JavaClass target) {
         String targetPackage = target.getPackageName();
         if (isInAny(targetPackage, ALWAYS_ALLOWED)
-                || isInAny(targetPackage, DOMAIN_LIBRARIES)
                 || isIn(targetPackage, root + "." + KERNEL)
                 || TRANSACTIONAL.contains(target.getName())
                 || (item.getSimpleName().equals(PACKAGE_INFO) && isIn(targetPackage, moduleAnnotations))) {
@@ -260,8 +355,12 @@ final class ApplicationRules {
                         && (segments[2].equals(API) || segments[2].equals(SPI)));
     }
 
-    private static ArchCondition<JavaClass> haveOneImplementation(String root, boolean inItsOwnModule) {
-        String where = inItsOwnModule ? "in its own module" : "outside its own module";
+    /**
+     * Exactly one concrete implementation of each non-sealed interface, in the module {@code
+     * expectedModule} names for it; an interface it names no module for fails.
+     */
+    private static ArchCondition<JavaClass> haveOneImplementation(
+            String root, String where, Function<JavaClass, Optional<String>> expectedModule) {
         return new ArchCondition<>(
                 "have exactly one concrete implementation " + where + " when a non-sealed interface") {
             @Override
@@ -271,6 +370,12 @@ final class ApplicationRules {
                         || item.isAnnotation()
                         || item.isSealed()
                         || item.getSimpleName().equals(PACKAGE_INFO)) {
+                    return;
+                }
+                Optional<String> expected = expectedModule.apply(item);
+                if (expected.isEmpty()) {
+                    events.add(SimpleConditionEvent.violated(
+                            item, item.getName() + " names no module to implement it, so none is " + where));
                     return;
                 }
                 List<JavaClass> implementations = item.getAllSubclasses().stream()
@@ -288,11 +393,11 @@ final class ApplicationRules {
                     return;
                 }
                 JavaClass implementation = implementations.get(0);
-                boolean sameModule = topLevelPackage(root, implementation).equals(topLevelPackage(root, item));
-                if (sameModule != inItsOwnModule) {
+                if (!topLevelPackage(root, implementation).equals(expected)) {
                     events.add(SimpleConditionEvent.violated(
                             item,
-                            item.getName() + " is implemented by " + implementation.getName() + ", not " + where));
+                            item.getName() + " is implemented by " + implementation.getName() + ", not in module "
+                                    + expected.get()));
                 }
             }
         };
@@ -324,6 +429,11 @@ final class ApplicationRules {
     private static Optional<String> topLevelPackage(String root, JavaClass type) {
         String[] segments = segmentsBelow(root, type.getPackageName());
         return segments.length == 0 ? Optional.empty() : Optional.of(segments[0]);
+    }
+
+    /** The class's name below the root, such as {@code planning.application.spi.ExecutionFacts}. */
+    private static String nameBelow(String root, JavaClass type) {
+        return type.getName().substring(root.length() + 1);
     }
 
     private static JavaClass baseType(JavaClass type) {

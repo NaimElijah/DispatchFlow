@@ -35,20 +35,26 @@ class Reoptimize:
         reported, in planned order (ADR-044, FR-280). Only what follows `now` is judged, a
         reported stop is a fact, and a stop past its window end is a late stop, flagged and not
         refused (BR-23, BR-10, BR-107). Route stability is part of the cost (FR-37, BR-115), and
-        validation runs inside the limit (NFR-119).
+        validation runs inside the limit (NFR-119). The solver's `SearchResult.reached` goes into
+        the stats (NFR-13).
+
+        It catches the `SolverError` the solver raises, failing or finding no solution within its
+        budget, and answers `Failed` as its result; no other solver is tried in its place
+        (ADR-004).
 
         Args:
             request: The live day's facts, and the solver, budget and seed.
 
         Returns:
-            The validated, scored solution or the validator's refusal, with the vehicles that
-            have no usable position (BR-81).
+            The validated, scored solution, the validator's refusal or the solver's failure, with
+            the vehicles that have no usable position (BR-81).
 
         Raises:
             InvalidProblemError: If an input is malformed or contradicts another, such as a
                 report timed after now.
             InvalidSolutionError: If the solver returns a solution of the wrong shape.
-            SolverError: If the registry holds no solver of that name, or the solver fails.
+            SolverError: If the registry holds no solver of that name, which is a refused request,
+                not a failed search (ADR-004).
             NotImplementedError: Until M9 builds it.
         """
         raise NotImplementedError("Built in M9")

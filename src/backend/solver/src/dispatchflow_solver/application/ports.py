@@ -54,10 +54,27 @@ type Budget = TimeLimit | IterationLimit | SolutionLimit
 
 
 class SolverError(Exception):
-    """A solve that cannot run: a solver name the registry does not hold, or a solver that failed.
+    """A solve that cannot run or found nothing (ADR-004).
+
+    A solver name the registry does not hold, a solver that failed, or one that found no solution
+    within its budget.
 
     The message names the solver, never the problem's contents.
     """
+
+
+@dataclass(frozen=True, slots=True)
+class SearchResult:
+    """What a search returns: its routes, and how far it got (ADR-004, ADR-044).
+
+    Attributes:
+        solution: The routes and the dropped orders it proposes, not yet validated.
+        reached: The iterations or the solutions the search reached, whichever its budget counts,
+            so a time-limited result can be replayed under that budget (NFR-13, NFR-115).
+    """
+
+    solution: Solution
+    reached: int
 
 
 class Solver(Protocol):
@@ -77,7 +94,7 @@ class Solver(Protocol):
 
     def solve(
         self, problem: Problem, start: Solution | None, budget: Budget, seed: int
-    ) -> Solution:
+    ) -> SearchResult:
         """Searches for routes until the budget ends the search (ADR-044).
 
         Args:
@@ -87,10 +104,12 @@ class Solver(Protocol):
             seed: The seed of every random choice, so a run can be replayed (NFR-13, ADR-005).
 
         Returns:
-            The routes and the dropped orders it proposes, not yet validated.
+            The routes and the dropped orders it proposes, not yet validated, and the iterations or
+            solutions the search reached.
 
         Raises:
-            SolverError: If the solver fails or cannot honour the budget's kind.
+            SolverError: If the solver fails, cannot honour the budget's kind, or finds no solution
+                within its budget.
         """
 
 

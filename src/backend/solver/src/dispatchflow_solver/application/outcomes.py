@@ -1,8 +1,9 @@
-"""What each use case answers: a validated, scored solution or a rejection, with its stats.
+"""What each use case answers: a validated, scored solution, a rejection or a failure, with stats.
 
 Every solution leaves the service only after `Problem.validate` has judged it and `Problem.cost`
 has scored it, whichever solver produced it (BR-09, BR-15, BR-42). A solver's own objective value
-is never reported (ADR-004).
+is never reported (ADR-004). A solver that fails, or finds no solution within its budget, is a
+failed solve that names the solver (ADR-004).
 
 Built in M0; the evaluation and baseline outcomes in M1, the re-optimization outcome in M9.
 """
@@ -27,6 +28,8 @@ class SolveStats:
         seed: The seed it searched with.
         budget: The budget it searched under.
         search_seconds: How long the search ran, by the stopwatch.
+        reached: The iterations or the solutions the search reached, from its `SearchResult`
+            (ADR-004, NFR-13, NFR-115); None in a failed solve, whose search returned none.
     """
 
     solver: str
@@ -34,6 +37,7 @@ class SolveStats:
     seed: int
     budget: Budget
     search_seconds: float
+    reached: int | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,8 +73,25 @@ class Rejected:
     stats: SolveStats
 
 
-type SolveOutcome = Solved | Rejected
-"""A solve's answer: the validated solution, or the validator's refusal (BR-15)."""
+@dataclass(frozen=True, slots=True)
+class Failed:
+    """A search that raised a `SolverError`, which is never stored as a plan (ADR-004).
+
+    Attributes:
+        error: The error's message, which names the solver, never the problem's contents.
+        stats: How the search ran, up to its failure.
+    """
+
+    error: str
+    stats: SolveStats
+
+
+type SolveOutcome = Solved | Rejected | Failed
+"""A solve's answer: the validated solution, the validator's refusal, or the solver's failure.
+
+The core records a rejection and a failure alike as a failed solve that names the solver (BR-15,
+ADR-004).
+"""
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,7 +99,7 @@ class ReoptimizationOutcome:
     """A re-optimization's answer, with what the dispatcher's preview names (ADR-050).
 
     Attributes:
-        result: The validated solution, or the validator's refusal.
+        result: The validated solution, the validator's refusal, or the solver's failure.
         no_usable_position: The vehicles with no usable position, which the preview names
             (BR-80, BR-81).
     """

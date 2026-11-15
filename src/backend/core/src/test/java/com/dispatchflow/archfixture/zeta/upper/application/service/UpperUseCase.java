@@ -7,16 +7,12 @@ import com.dispatchflow.archfixture.zeta.shared.ZetaKernelValue;
 import com.dispatchflow.archfixture.zeta.shared.application.ZetaClock;
 import com.dispatchflow.archfixture.zeta.upper.application.port.out.UpperRecords;
 import com.dispatchflow.archfixture.zeta.upper.domain.UpperValue;
-import com.google.i18n.phonenumbers.Phonenumber.PhoneNumber;
-import java.util.Optional;
-import org.locationtech.jts.geom.Point;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Rules 1 and 2: a use case that depends on everything rule 1 allows: the JDK, the kernel and the
- * shared application package, its own domain and ports, another module's api, spi and events, the
- * domain's libraries and {@code @Transactional}; and, by rule 2, only on {@code lower}, which the
- * graph allows.
+ * shared application package, its own domain and ports, another module's api, spi and events, and
+ * {@code @Transactional}; and, by rule 2, only on {@code lower}, which the graph allows.
  */
 public final class UpperUseCase {
 
@@ -33,7 +29,7 @@ public final class UpperUseCase {
     }
 
     @Transactional
-    void on(LowerHappened event, Optional<PhoneNumber> phone, Optional<Point> point) {
+    void on(LowerHappened event) {
         if (lowerUsage.inUse(lowerFacts.fact(event.value()).value().amount())) {
             records.append(new UpperValue(clock.now().getNano()));
         }

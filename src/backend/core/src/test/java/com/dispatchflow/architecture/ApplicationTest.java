@@ -9,13 +9,18 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * The application rules, checked against the production classes. The guards below fail when the
- * module graph and the modules in the tree drift apart, or when a rule's subject picks no
- * production type, which would let the rule pass on nothing.
+ * The application rules, checked against the production classes.
+ *
+ * <p>A rule whose subject picks no class can't pass on nothing: ArchUnit's {@code
+ * archRule.failOnEmptyShould} is on by default, and no {@code archunit.properties} turns it off.
+ * Rule 4 skips every type that is not an interface, though, so the api and spi guard checks that
+ * its subjects hold the ports themselves, not only the records beside them. The other guards fail
+ * when the module graph, the dashed arrows and the tree drift apart.
  */
 class ApplicationTest {
 
     private static final String ROOT = ProductionClasses.ROOT;
+    private static final String SPI_PACKAGE = ".application.spi";
 
     private static Set<String> topLevelPackages() {
         return ProductionClasses.ALL.stream()
@@ -23,6 +28,11 @@ class ApplicationTest {
                 .filter(name -> name.startsWith(ROOT + "."))
                 .map(name -> name.substring(ROOT.length() + 1).split("\\.")[0])
                 .collect(Collectors.toSet());
+    }
+
+    /** The module that owns an spi interface named below the root: its first segment. */
+    private static String ownerOf(String nameBelowTheRoot) {
+        return nameBelowTheRoot.substring(0, nameBelowTheRoot.indexOf('.'));
     }
 
     private static Stream<String> interfacesIn(String layer) {
@@ -45,6 +55,26 @@ class ApplicationTest {
     void GivenTheModuleGraph_WhenItsArrowsAreRead_ThenEachPointsAtAModuleOfTheGraph() {
         assertThat(ApplicationRules.MODULE_GRAPH.values().stream().flatMap(Set::stream))
                 .allMatch(ApplicationRules.MODULE_GRAPH::containsKey);
+    }
+
+    @Test
+    void GivenTheDashedArrows_WhenTheirInterfacesAreLookedUp_ThenEachIsAProductionSpiInterface() {
+        assertThat(ApplicationRules.SPI_IMPLEMENTERS.keySet()).allSatisfy(name -> {
+            assertThat(ProductionClasses.ALL.contain(ROOT + "." + name))
+                    .as("%s is a production class", name)
+                    .isTrue();
+            JavaClass port = ProductionClasses.ALL.get(ROOT + "." + name);
+            assertThat(port.isInterface()).as("%s is an interface", name).isTrue();
+            assertThat(port.getPackageName()).isEqualTo(ROOT + "." + ownerOf(name) + SPI_PACKAGE);
+        });
+    }
+
+    @Test
+    void GivenTheDashedArrows_WhenTheirModulesAreRead_ThenEachImplementerHasAnArrowToTheOwner() {
+        assertThat(ApplicationRules.SPI_IMPLEMENTERS)
+                .allSatisfy((name, implementer) -> assertThat(ApplicationRules.MODULE_GRAPH.get(implementer))
+                        .as("the arrows of %s, which implements %s", implementer, name)
+                        .contains(ownerOf(name)));
     }
 
     @Test
@@ -74,8 +104,8 @@ class ApplicationTest {
     }
 
     @Test
-    void GivenTheProductionClasses_WhenRule4IsCheckedForSpis_ThenEachHasOneImplementationOutsideItsModule() {
-        ApplicationRules.eachSpiHasOneImplementationOutsideItsModule(ROOT).check(ProductionClasses.ALL);
+    void GivenTheProductionClasses_WhenRule4IsCheckedForSpis_ThenEachHasOneImplementationWhereItsArrowPoints() {
+        ApplicationRules.eachSpiHasOneImplementationInItsArrowsModule(ROOT).check(ProductionClasses.ALL);
     }
 
     @Test
@@ -98,5 +128,15 @@ class ApplicationTest {
     @Test
     void GivenTheProductionClasses_WhenRule6IsChecked_ThenNoDomainEventOrKernelRootClassUsesTheSharedPorts() {
         ApplicationRules.domainReachesNoApplicationPort(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenRule7ChecksCycles_ThenTheApplicationPackagesAreFreeOfThem() {
+        ApplicationRules.applicationPackagesAreFreeOfCycles(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenRule7ChecksTheRoots_ThenNoServiceOrPortRootUsesItsSubpackages() {
+        ApplicationRules.serviceAndPortRootsUseNoSubpackage(ROOT).check(ProductionClasses.ALL);
     }
 }
