@@ -8,6 +8,7 @@ import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.VehicleId;
 import com.dispatchflow.shared.application.Clock;
+import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * Fleet's implementation of {@code MoveVehicleWithRoute}: after Planning hands a route over, {@code
@@ -39,6 +40,9 @@ public final class MoveVehicleWithRouteService implements MoveVehicleWithRoute {
      * {@inheritDoc}
      *
      * <p>Built in M9.
+     *
+     * @throws StaleVersion when the date's roster changed between its read and its save; Planning's
+     *     listener adapter on {@code RouteHandedOver} retries at once, up to three times (DL §11)
      */
     @Override
     public void move(DeliveryDate date, VehicleId vehicle, AccountId from, AccountId to, CallContext call) {

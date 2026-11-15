@@ -14,9 +14,9 @@ import com.dispatchflow.shared.application.StaleVersion;
 /**
  * Cancels a published plan for a day that doesn't run, while no route has started and no stop is
  * reported (FR-336 to FR-338, BR-103). Before its transaction it asks Live Operations, through {@code
- * ExecutionFacts}, what happened on the routes. Its routes stay as they were, and it makes no
- * revision. It raises {@code PlanCancelled}, so the drivers are alerted and the orders return to
- * unplanned (FR-337).
+ * ExecutionFacts.startedAmong} with the plan's own routes and stops, which have started or are
+ * reported. Its routes stay as they were, and it makes no revision. It raises {@code PlanCancelled},
+ * so the drivers are alerted and the orders return to unplanned (FR-337).
  *
  * <p>Built in M9.
  */
@@ -32,7 +32,7 @@ public final class CancelPlan {
      * Creates the use case.
      *
      * @param plans where plans are kept
-     * @param executionFacts Live Operations' started routes and reported stops
+     * @param executionFacts Live Operations' started routes and reported stops, among the plan's own
      * @param clock the time, for {@code today} and {@code now}
      * @param liveUpdates the dispatchers' open screens
      * @param auditLog the audit trail, written in the change's transaction (TS §6.2)

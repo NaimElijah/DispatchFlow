@@ -18,7 +18,9 @@ public interface RouteShapes {
      *
      * @param waypoints the route's start depot, its stops in order and its end depot
      * @return the line along the roads
-     * @throws java.io.UncheckedIOException when the road network can't be reached
+     * @throws java.io.UncheckedIOException when the road network can't be reached. Its message and its
+     *     cause carry no point (NFR-19): the adapter wraps the I/O error without the HTTP client's
+     *     message, which holds the URL's coordinates
      */
     RouteShape along(List<GeoPoint> waypoints);
 }

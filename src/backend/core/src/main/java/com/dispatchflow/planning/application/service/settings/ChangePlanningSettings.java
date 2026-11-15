@@ -1,6 +1,7 @@
 package com.dispatchflow.planning.application.service.settings;
 
 import com.dispatchflow.access.application.api.Actor;
+import com.dispatchflow.access.application.api.StepUp;
 import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.planning.application.port.out.settings.PlanningSettingsRepository;
 import com.dispatchflow.planning.domain.SolveLimit;
@@ -20,11 +21,16 @@ import java.util.Objects;
  * evaluation or re-optimization; a plan already solved keeps the values it was solved with (BR-37,
  * ADR-052).
  *
+ * <p>The change is Admin-only, so it first asks Access's {@link StepUp} whether the acting session
+ * gave its password within the step-up window, before it reads the settings (NFR-214, ADR-068,
+ * ADR-104).
+ *
  * <p>Built in M4.
  */
 public final class ChangePlanningSettings {
 
     private final PlanningSettingsRepository settings;
+    private final StepUp stepUp;
     private final Clock clock;
     private final AuditLog auditLog;
 
@@ -32,11 +38,13 @@ public final class ChangePlanningSettings {
      * Creates the use case.
      *
      * @param settings where the settings are kept
+     * @param stepUp Access's recent-password check (NFR-214)
      * @param clock the time, for the audit record
      * @param auditLog the audit trail, written in the change's transaction (TS §6.2)
      */
-    public ChangePlanningSettings(PlanningSettingsRepository settings, Clock clock, AuditLog auditLog) {
+    public ChangePlanningSettings(PlanningSettingsRepository settings, StepUp stepUp, Clock clock, AuditLog auditLog) {
         this.settings = settings;
+        this.stepUp = stepUp;
         this.clock = clock;
         this.auditLog = auditLog;
     }
@@ -49,6 +57,8 @@ public final class ChangePlanningSettings {
      * @param actor the Admin
      * @param command the new values
      * @param expected the settings' version the Admin saw (BR-76)
+     * @throws com.dispatchflow.shared.RuleViolation with Access's {@code SessionRevoked} or {@code
+     *     StepUpRequired}, in that order, before any change (NFR-214)
      * @throws StaleVersion when the settings changed since {@code expected}
      */
     public void change(Actor actor, Command command, Version expected) {

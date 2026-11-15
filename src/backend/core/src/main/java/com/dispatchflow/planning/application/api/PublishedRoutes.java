@@ -14,7 +14,7 @@ import java.util.Optional;
  * is in force once published, until it is cancelled; a completed plan still is, so late reports
  * and corrections find its routes.
  *
- * <p>Built in M5.
+ * <p>Built in M5, M8 and M12, method by method.
  */
 public interface PublishedRoutes {
 

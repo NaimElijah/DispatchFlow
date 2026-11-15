@@ -85,14 +85,14 @@ public interface OrderRepository {
     List<Order> uncancelledOn(DeliveryDate date);
 
     /**
-     * A customer's uncancelled orders dated on or after a day, which retiring the customer asks
-     * Planning about (BR-43).
+     * Every order of a customer not yet anonymized, cancelled ones and every date included, which
+     * retiring the customer asks Planning about. Planning owns whether a plan is completed, so this
+     * filters by no date (BR-43, DL §4.3).
      *
      * <p>Built in M2.
      *
      * @param customer the customer
-     * @param from the first date to include, today when retiring
      * @return the orders' IDs, each once; empty when the customer has none
      */
-    List<OrderId> uncancelledOfCustomerFrom(CustomerId customer, LocalDate from);
+    List<OrderId> notAnonymizedOf(CustomerId customer);
 }

@@ -15,7 +15,7 @@ import java.util.Optional;
  * Planning's implementation of {@link PublishedRoutes}: it reads the current revisions of the plans in
  * force through {@link PlanningViews} (ADR-059, ADR-067, ADR-101).
  *
- * <p>Built in M5.
+ * <p>Built in M5, M8 and M12, method by method.
  */
 public final class PublishedRoutesService implements PublishedRoutes {
 

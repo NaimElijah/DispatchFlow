@@ -7,6 +7,7 @@ import com.dispatchflow.orders.events.OrderRescheduled;
 import com.dispatchflow.planning.application.port.out.LiveUpdates;
 import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
 import com.dispatchflow.shared.application.Clock;
+import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * Takes a cancelled or rescheduled order's stop off the plan of its date at once, without optimizing
@@ -49,6 +50,8 @@ public final class RemoveStopOfOrder {
      *
      * @param event the cancellation
      * @param call the listener's server step, which the audit record names (ADR-110)
+     * @throws StaleVersion when the plan changed between its read and its save; the listener's
+     *     adapter retries at once, up to three times (DL §11)
      */
     public void on(OrderCancelled event, CallContext call) {
         throw new UnsupportedOperationException("Built in M9");
@@ -62,6 +65,8 @@ public final class RemoveStopOfOrder {
      *
      * @param event the reschedule
      * @param call the listener's server step, which the audit record names (ADR-110)
+     * @throws StaleVersion when the plan changed between its read and its save; the listener's
+     *     adapter retries at once, up to three times (DL §11)
      */
     public void on(OrderRescheduled event, CallContext call) {
         throw new UnsupportedOperationException("Built in M9");

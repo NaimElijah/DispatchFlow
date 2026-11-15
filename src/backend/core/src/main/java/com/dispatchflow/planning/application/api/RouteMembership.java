@@ -14,7 +14,7 @@ import java.util.Optional;
  * §8, ADR-059, ADR-114). Live Operations judges a report, starts and finishes a route run, and
  * checks a correction after a put-back by them.
  *
- * <p>Built in M5 and M8, method by method.
+ * <p>Built in M5, M8 and M12, method by method.
  */
 public interface RouteMembership {
 

@@ -6,6 +6,7 @@ import com.dispatchflow.planning.application.port.out.LiveUpdates;
 import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
 import com.dispatchflow.planning.events.SolveFailed;
 import com.dispatchflow.shared.application.Clock;
+import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * Returns a plan whose daily solve failed to ready if it was solved before, and otherwise to draft,
@@ -46,6 +47,8 @@ public final class RecordSolveFailure {
      *
      * @param event the job's failure
      * @param call the listener's server step, which the audit record names (ADR-110)
+     * @throws StaleVersion when the plan changed between its read and its save; the listener's
+     *     adapter retries at once, up to three times (DL §11)
      */
     public void on(SolveFailed event, CallContext call) {
         throw new UnsupportedOperationException("Built in M0");

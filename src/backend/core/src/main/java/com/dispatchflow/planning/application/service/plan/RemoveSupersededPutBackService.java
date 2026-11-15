@@ -9,6 +9,7 @@ import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.application.Clock;
+import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * Planning's implementation of {@link RemoveSupersededPutBack}: it loads the date's uncancelled plan
@@ -44,6 +45,9 @@ public final class RemoveSupersededPutBackService implements RemoveSupersededPut
      * {@inheritDoc}
      *
      * <p>Built in M8.
+     *
+     * @throws StaleVersion when the plan changed between its read and its save; Live Operations'
+     *     listener adapter retries at once, up to three times (DL §11)
      */
     @Override
     public void remove(OrderId order, Attempt laterAttempt, DeliveryDate date, CallContext call) {

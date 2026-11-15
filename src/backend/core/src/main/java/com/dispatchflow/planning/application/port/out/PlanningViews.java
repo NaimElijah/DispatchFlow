@@ -218,11 +218,12 @@ public interface PlanningViews {
     List<OrderPlacementFact> placementsOn(DeliveryDate date);
 
     /**
-     * The plans not yet completed that serve or drop any of the given orders (BR-43).
+     * The plans not yet completed that serve or drop any of the given orders (BR-43). The orders carry
+     * no date filter, so this is where "not yet completed" is decided (DL §4.3).
      *
      * <p>Built in M2.
      *
-     * @param orders the orders, a customer's as Customers &amp; Orders names them
+     * @param orders every order of a customer not yet anonymized, as Customers &amp; Orders names them
      * @return the plans, each once
      */
     List<PlanId> unfinishedPlansUsing(List<OrderId> orders);

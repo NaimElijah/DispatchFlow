@@ -22,8 +22,12 @@ import java.util.Optional;
  * Requests a daily solve of a draft or ready plan: the plan becomes solving, and a job joins the daily
  * lane in the same transaction, read under the lane's lock (FR-15, FR-16, FR-19, FR-20, FR-92,
  * FR-224, FR-225, BR-112, DL §6.1, §6.2). Solving again discards the plan's manual edits, which the
- * screen warns about first (FR-92). With no solver chosen it runs {@link SolverName#OR_TOOLS}
- * (placement P3), and with no limit the settings' default (FR-19, FR-183).
+ * screen warns about first (FR-92). With no solver chosen it runs the planning settings' default
+ * solver for a daily solve (FR-20, ADR-004), and with no limit the settings' default limit (FR-19,
+ * FR-183).
+ *
+ * <p>{@code PlanningSettings} has no default solver of each kind yet, which ADR-004 puts there: a
+ * domain gap that M4 closes.
  *
  * <p>Built in M0.
  */
@@ -43,7 +47,7 @@ public final class RequestSolve {
      *
      * @param plans where plans are kept
      * @param jobs where solve jobs are kept, and the daily lane's capacity under its lock
-     * @param settings the planning settings, for the default limit
+     * @param settings the planning settings, for the default solver and the default limit
      * @param seeds the new job's seed (NFR-13)
      * @param clock the time, for {@code today} and {@code now}
      * @param ids the new job's ID
@@ -76,7 +80,7 @@ public final class RequestSolve {
      *
      * @param actor the dispatcher
      * @param plan the plan
-     * @param solver the solver, or empty for the default (FR-20)
+     * @param solver the solver, or empty for the settings' daily default (FR-20, ADR-004)
      * @param limit the search limit, or empty for the settings' default (FR-19)
      * @param expected the plan's version the dispatcher saw (BR-76)
      * @return the new job's ID

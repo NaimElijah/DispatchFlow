@@ -19,7 +19,7 @@ import java.util.Optional;
  * PlanningViews}, never by loading a plan, because a plan doesn't load its past revisions (DL §4.4,
  * ADR-059, ADR-114).
  *
- * <p>Built in M5 and M8, method by method.
+ * <p>Built in M5, M8 and M12, method by method.
  */
 public final class RouteMembershipService implements RouteMembership {
 

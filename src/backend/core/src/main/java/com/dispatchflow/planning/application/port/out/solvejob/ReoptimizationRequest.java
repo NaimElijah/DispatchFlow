@@ -1,7 +1,7 @@
 package com.dispatchflow.planning.application.port.out.solvejob;
 
 import com.dispatchflow.planning.application.port.out.ProblemFacts;
-import com.dispatchflow.planning.application.port.out.TravelMatrix;
+import com.dispatchflow.planning.application.port.out.TravelRows;
 import com.dispatchflow.planning.domain.RevisionNo;
 import com.dispatchflow.planning.domain.SolveLimit;
 import com.dispatchflow.planning.domain.SolveTime;
@@ -37,8 +37,9 @@ import java.util.Optional;
  *     matrix
  * @param routes the routes of the plan's current revision, each with what happened on it
  * @param dropped the plan's dropped orders
- * @param positionRows the base travel times from each usable latest position to every location of
- *     {@code facts}, the extra source rows ADR-050 and ADR-052 ask for
+ * @param positionRows the base travel times and distances from each usable latest position to every
+ *     stop location of {@code facts}, the extra source rows ADR-050 and ADR-052 ask for; the stored
+ *     matrix itself isn't rebuilt
  */
 public record ReoptimizationRequest(
         JobId job,
@@ -51,7 +52,7 @@ public record ReoptimizationRequest(
         ProblemFacts facts,
         List<LiveRoute> routes,
         List<DroppedOrder> dropped,
-        TravelMatrix positionRows) {
+        TravelRows positionRows) {
 
     /** Checks every part is present, and copies the lists. */
     public ReoptimizationRequest {

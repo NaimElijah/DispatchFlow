@@ -21,9 +21,10 @@ import com.dispatchflow.shared.application.StaleVersion;
  * revision that cites it, and the drivers on the road receive the change (FR-32, FR-36, FR-104,
  * FR-255, BR-25, BR-62, BR-64, BR-65, BR-82, BR-83, ADR-055, ADR-056). Before its transaction it reads
  * what was recorded since the proposal's basis, as {@code ChangesSinceBasis}: the reported stops from
- * Live Operations, the cancelled and changed orders, the changed vehicles and drivers, and each
- * vehicle's BR-20 standing from Fleet's roster and Access's Driver role. It changes the plan, not the
- * proposal, and raises {@code PlanRevised}.
+ * Live Operations' {@code ExecutionFacts.changesSince}, asked with the plan's own stops, the cancelled
+ * and changed orders, the changed vehicles and drivers, and each vehicle's BR-20 standing from Fleet's
+ * roster and Access's Driver role. It changes the plan, not the proposal, and raises {@code
+ * PlanRevised}.
  *
  * <p>Built in M9.
  */
@@ -45,7 +46,8 @@ public final class AcceptProposal {
      *
      * @param proposals where proposals are kept
      * @param plans where plans are kept
-     * @param executionFacts Live Operations' stops reported since the basis (BR-25, BR-132)
+     * @param executionFacts Live Operations' stops reported since the basis, among the plan's own
+     *     (BR-25, BR-132)
      * @param ordersForDate the orders cancelled or changed since the basis (BR-82)
      * @param fleetFacts the vehicles and drivers changed since the basis, and the roster (BR-64)
      * @param accounts Access's answer on whether each driver holds the Driver role (BR-20, BR-64)

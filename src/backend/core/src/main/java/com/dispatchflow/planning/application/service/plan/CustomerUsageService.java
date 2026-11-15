@@ -11,8 +11,9 @@ import java.util.List;
  * Orders asks before it retires a customer (BR-43, DL §2.1's dashed arrow, placement P9). It reads
  * the plans through {@link PlanningViews}.
  *
- * <p>Customers &amp; Orders names the customer's orders, so Planning answers from the orders its
- * plans hold and keeps no customer of its own.
+ * <p>Customers &amp; Orders names every order of the customer not yet anonymized, whatever its date,
+ * so Planning answers from the orders its plans hold and keeps no customer of its own. Planning alone
+ * decides which plans are not yet completed (DL §4.3).
  *
  * <p>Built in M2.
  */

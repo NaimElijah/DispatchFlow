@@ -6,6 +6,7 @@ import com.dispatchflow.orders.events.OrderPutBack;
 import com.dispatchflow.planning.application.port.out.LiveUpdates;
 import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
 import com.dispatchflow.shared.application.Clock;
+import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * Takes a dropped order and attempt off the ready plan of its old date after it was put back onto
@@ -47,6 +48,8 @@ public final class RemovePutBackOrder {
      *
      * @param event the put-back
      * @param call the listener's server step, which the audit record names (ADR-110)
+     * @throws StaleVersion when the plan changed between its read and its save; the listener's
+     *     adapter retries at once, up to three times (DL §11)
      */
     public void on(OrderPutBack event, CallContext call) {
         throw new UnsupportedOperationException("Built in M9");

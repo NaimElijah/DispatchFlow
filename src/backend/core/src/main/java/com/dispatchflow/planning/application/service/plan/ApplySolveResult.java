@@ -8,6 +8,7 @@ import com.dispatchflow.planning.application.port.out.solvejob.SolveJobRepositor
 import com.dispatchflow.planning.events.SolveSucceeded;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.IdGenerator;
+import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * Applies a succeeded daily solve to its plan: the job's validated routes, drops and excluded vehicles
@@ -67,6 +68,8 @@ public final class ApplySolveResult {
      *     OrderAlreadyInPlan} (BR-07), {@code VehicleAlreadyHasRoute} or {@code DriverAlreadyHasRoute}
      *     (BR-39); each means a check upstream was skipped, so the event registry retries and then
      *     alerts the team (DL §12)
+     * @throws StaleVersion when the plan changed between its read and its save; the listener's
+     *     adapter retries at once, up to three times (DL §11)
      */
     public void on(SolveSucceeded event, CallContext call) {
         throw new UnsupportedOperationException("Built in M0");

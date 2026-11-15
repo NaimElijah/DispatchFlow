@@ -5,6 +5,7 @@ import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.planning.application.port.out.LiveUpdates;
 import com.dispatchflow.planning.application.port.out.Seeds;
 import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
+import com.dispatchflow.planning.application.port.out.settings.PlanningSettingsRepository;
 import com.dispatchflow.planning.application.port.out.solvejob.SolveJobRepository;
 import com.dispatchflow.planning.domain.plan.SolverName;
 import com.dispatchflow.shared.JobId;
@@ -18,8 +19,11 @@ import java.util.Optional;
  * Requests a re-optimization of a published plan's remaining stops, after a disruption (FR-35, FR-332,
  * BR-38, BR-84, DL §6.2). Only a person starts one (FR-332). {@code Plan.requestReoptimization} checks
  * the plan and isn't saved, so the request takes no plan version; the new job, with a 20-second limit,
- * joins the re-optimization lane, read under its lock (ADR-101). With no solver chosen it runs {@link
- * SolverName#OR_TOOLS} (placement P3).
+ * joins the re-optimization lane, read under its lock (ADR-101). With no solver chosen it runs the
+ * planning settings' default solver for a re-optimization (FR-20, ADR-004).
+ *
+ * <p>{@code PlanningSettings} has no default solver of each kind yet, which ADR-004 puts there: a
+ * domain gap that M4 closes.
  *
  * <p>Built in M9.
  */
@@ -27,6 +31,7 @@ public final class RequestReoptimization {
 
     private final PlanRepository plans;
     private final SolveJobRepository jobs;
+    private final PlanningSettingsRepository settings;
     private final Seeds seeds;
     private final Clock clock;
     private final IdGenerator ids;
@@ -38,6 +43,7 @@ public final class RequestReoptimization {
      *
      * @param plans where plans are kept
      * @param jobs where solve jobs are kept, and the re-optimization lane's capacity under its lock
+     * @param settings the planning settings, for the default solver
      * @param seeds the new job's seed (NFR-13)
      * @param clock the time, for {@code today} and {@code now}
      * @param ids the new job's ID
@@ -47,6 +53,7 @@ public final class RequestReoptimization {
     public RequestReoptimization(
             PlanRepository plans,
             SolveJobRepository jobs,
+            PlanningSettingsRepository settings,
             Seeds seeds,
             Clock clock,
             IdGenerator ids,
@@ -54,6 +61,7 @@ public final class RequestReoptimization {
             AuditLog auditLog) {
         this.plans = plans;
         this.jobs = jobs;
+        this.settings = settings;
         this.seeds = seeds;
         this.clock = clock;
         this.ids = ids;
@@ -68,7 +76,7 @@ public final class RequestReoptimization {
      *
      * @param actor the dispatcher
      * @param plan the published plan
-     * @param solver the solver, or empty for the default (FR-20)
+     * @param solver the solver, or empty for the settings' re-optimization default (FR-20, ADR-004)
      * @return the new job's ID
      * @throws NotFound when no plan has the ID
      * @throws com.dispatchflow.shared.RuleViolation with Planning's {@code PlanNotPublished}, {@code

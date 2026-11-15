@@ -2,6 +2,7 @@ package com.dispatchflow.orders.application.service;
 
 import com.dispatchflow.access.application.api.Actor;
 import com.dispatchflow.access.application.api.Company;
+import com.dispatchflow.access.application.api.CompanyNotSetUp;
 import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.orders.application.port.out.CustomerRepository;
 import com.dispatchflow.orders.application.port.out.GeocodeRequests;
@@ -14,7 +15,6 @@ import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.IdGenerator;
-import com.dispatchflow.shared.application.NotFound;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -69,7 +69,8 @@ public final class RegisterCustomer {
      * @param actor the dispatcher
      * @param command what the form gives
      * @return the new customer's ID
-     * @throws NotFound when the form gives no defaults and no company profile exists yet
+     * @throws CompanyNotSetUp when the form gives no defaults and no Admin has set the company profile
+     *     up yet
      */
     public CustomerId register(Actor actor, Command command) {
         throw new UnsupportedOperationException("Built in M2");

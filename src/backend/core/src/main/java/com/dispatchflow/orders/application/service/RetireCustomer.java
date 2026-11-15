@@ -13,8 +13,8 @@ import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 
 /**
- * A dispatcher retires a customer, which is never deleted (FR-56, BR-43): the use case reads the
- * customer's uncancelled orders dated today or later, asks Planning, through the {@link
+ * A dispatcher retires a customer, which is never deleted (FR-56, BR-43): the use case reads every
+ * order of the customer not yet anonymized, with no date filter, asks Planning, through the {@link
  * RecordUsage} port it implements, which plans not yet completed use them, translates the answer
  * into the domain's {@code InUse}, and calls {@code Customer.retire}. A retired customer is no
  * longer matched by imports.

@@ -7,6 +7,7 @@ import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
 import com.dispatchflow.planning.application.port.out.solvejob.SolveJobRepository;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.application.Clock;
+import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * The midnight job, at 00:00 {@code Asia/Jerusalem} after a date: it first fails every queued or
@@ -15,8 +16,9 @@ import com.dispatchflow.shared.application.Clock;
  * ADR-053). Each job and the plan change in a transaction of their own (DL §6.1).
  *
  * <p>A job that ended meanwhile refuses with {@code JobAlreadyEnded}, and the job moves on to the next
- * (DL §11). A save the version check refuses reloads the plan and retries, up to three times, and then
- * fails loudly for the team's alert (DL §11, §12).
+ * (DL §11). It doesn't retry a save the version check refuses: it throws {@link StaleVersion}, and the
+ * midnight job's adapter calls it again, which reloads the plan, up to three times, and then fails
+ * loudly for the team's alert (DL §11, §12).
  *
  * <p>It lives in the service root because it changes two aggregates, the jobs and the plan.
  *
@@ -57,8 +59,8 @@ public final class CloseDeliveryDate {
      * @param call the job's server step
      * @throws com.dispatchflow.shared.RuleViolation with Planning's {@code DateNotOver} when called
      *     before the midnight after the date
-     * @throws com.dispatchflow.shared.application.StaleVersion when the plan's save is still refused
-     *     after three retries
+     * @throws StaleVersion when the plan changed between its read and its save; the midnight job's
+     *     adapter retries at once, up to three times (DL §11)
      */
     public void close(DeliveryDate date, CallContext call) {
         throw new UnsupportedOperationException("Built in M5");

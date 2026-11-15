@@ -2,6 +2,7 @@ package com.dispatchflow.orders.application.service;
 
 import com.dispatchflow.access.application.api.Actor;
 import com.dispatchflow.access.application.api.Company;
+import com.dispatchflow.access.application.api.CompanyNotSetUp;
 import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.orders.application.port.out.CustomerRepository;
 import com.dispatchflow.orders.application.port.out.GeocodeRequests;
@@ -82,7 +83,8 @@ public final class ConfirmOrderImport {
      * @param encodingConfirmed whether the dispatcher confirmed the decoded preview (FR-313)
      * @param expected the version of the preview the dispatcher confirmed (BR-76)
      * @return the orders and the customers the import created
-     * @throws NotFound when no import has the ID, or no company profile exists yet
+     * @throws NotFound when no import has the ID
+     * @throws CompanyNotSetUp when no Admin has set the company profile up yet
      * @throws RuleViolation with {@code ImportAlreadyConfirmed}, {@code ImportDiscarded} or {@code
      *     ImportExpired}, then with {@code EncodingNotConfirmed} (FR-313)
      * @throws RuleViolations with the summary {@code ImportHasErrors} and a {@code RowRefused} for

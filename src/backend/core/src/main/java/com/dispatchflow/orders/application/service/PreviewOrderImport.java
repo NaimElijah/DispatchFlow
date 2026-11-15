@@ -2,6 +2,7 @@ package com.dispatchflow.orders.application.service;
 
 import com.dispatchflow.access.application.api.Actor;
 import com.dispatchflow.access.application.api.Company;
+import com.dispatchflow.access.application.api.CompanyNotSetUp;
 import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.orders.application.port.out.CustomerRepository;
 import com.dispatchflow.orders.application.port.out.ImportBatchRepository;
@@ -12,7 +13,6 @@ import com.dispatchflow.orders.domain.ImportRow;
 import com.dispatchflow.shared.ImportBatchId;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.IdGenerator;
-import com.dispatchflow.shared.application.NotFound;
 import java.util.List;
 
 /**
@@ -76,7 +76,7 @@ public final class PreviewOrderImport {
      * @param encoding how the reader decoded it
      * @param rows every row the reader parsed, each read whole or with its fields' refusals
      * @return the new preview's ID
-     * @throws NotFound when no company profile exists yet
+     * @throws CompanyNotSetUp when no Admin has set the company profile up yet
      */
     public ImportBatchId preview(Actor actor, FileHash hash, FileEncoding encoding, List<ImportRow> rows) {
         throw new UnsupportedOperationException("Built in M2");
