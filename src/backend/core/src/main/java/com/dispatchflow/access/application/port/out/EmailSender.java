@@ -9,8 +9,17 @@ import com.dispatchflow.access.domain.account.LinkKind;
  * development and tests (TS §6.4). No answer waits for an email to be sent (NFR-225); whether
  * emails get an outbox is decided in M6.
  *
- * <p>Every email goes to the account's own address (BR-125) and carries no secret but a link's
- * token, which never enters a log (NFR-19, NFR-211).
+ * <p>Where each email goes:
+ *
+ * <ul>
+ *   <li>a set-password or recovery link, to the address stored on the account, never to one typed
+ *       in the request (BR-125);
+ *   <li>an email-change link, to the new address, which only that link can confirm (FR-388);
+ *   <li>the email-changed notice, to the old address (FR-388);
+ *   <li>the Admin notice, to every active Admin's address (FR-389).
+ * </ul>
+ *
+ * <p>No email carries a secret but a link's token, which never enters a log (NFR-19, NFR-211).
  *
  * <p>Built in M6.
  */

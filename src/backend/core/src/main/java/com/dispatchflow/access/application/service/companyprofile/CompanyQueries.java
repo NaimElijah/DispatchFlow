@@ -27,8 +27,13 @@ public final class CompanyQueries {
     }
 
     /**
-     * The company's details. Before an Admin first saves the settings there is no profile, and the
-     * answer is empty, so the settings page opens with no values for the Admin to fill in.
+     * The company's details, with the version the next change sends as {@code If-Match} (BR-76).
+     * Before an Admin first saves the settings there is no profile, and the answer is empty, so the
+     * settings page opens with no values for the Admin to fill in, and its first save sends {@code
+     * Version.NEW}.
+     *
+     * <p>It never throws {@code CompanyNotSetUp}: that error is for a use case that needs the
+     * profile, and this page is where the profile is set up, so no profile is an answer here.
      *
      * <p>Built in M2.
      *

@@ -1,7 +1,9 @@
 /**
- * The shared kernel: the typed IDs every context names, the nine values that mean the same
- * everywhere, the one rule for free text ({@link PlainText}, ADR-106), and the building blocks
- * every module's domain is made of (DL §2.3 rule 5, §3).
+ * The shared kernel: the typed IDs every context names, the ten values that mean the same
+ * everywhere, {@link Attempt} among them (ADR-111), the one rule for free text ({@link PlainText},
+ * ADR-106), and the building blocks every module's domain is made of (DL §2.3 rule 5, §3). The
+ * ports and errors every module's application layer shares live in their own package, {@code
+ * shared.application}, which no domain type may import (ADR-120).
  *
  * <p>It is pure: it imports only the JDK, JSpecify and libphonenumber, and the ArchUnit purity
  * rules check it with every module's domain (DL §3.9). A change here needs the agreement of every

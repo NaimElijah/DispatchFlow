@@ -20,7 +20,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  * other open link (NFR-224), and ends every session of the user (FR-345). The change moves the
  * account's generation and raises {@code SessionsRevoked}, so every token issued before is refused
  * at once (NFR-90, NFR-177); the use case evicts the account from the revocation cache after its
- * commit (ADR-045). Every active Admin is emailed when it is an Admin's password (FR-389).
+ * commit (ADR-045). Every active Admin is emailed when it is an Admin's password (FR-389): the use
+ * case reads them through {@code UserAccountRepository.activeAdminRecipients} and sends {@code
+ * EmailSender.sendAdminNotice}.
  *
  * <p>A token no account's link holds is refused as {@code UnknownLink}, the same as a token the
  * account holds no such link for, so the page learns nothing more. Like every changing call it

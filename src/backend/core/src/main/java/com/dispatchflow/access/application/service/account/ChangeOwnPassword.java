@@ -20,11 +20,13 @@ import com.dispatchflow.shared.application.StaleVersion;
  * (FR-180). The change moves the account's generation and raises {@code SessionsRevoked}, so every
  * token issued before is refused at once (NFR-90, NFR-177); the use case evicts the account from
  * the revocation cache after its commit (ADR-045). Every active Admin is emailed when it is an
- * Admin's password (FR-389).
+ * Admin's password (FR-389): the use case reads them through {@code
+ * UserAccountRepository.activeAdminRecipients} and sends {@code EmailSender.sendAdminNotice}.
  *
  * <p>A wrong current password counts toward the sign-in limits, in the rate-limit adapter (FR-177,
- * ADR-071). Access's domain has no error for a wrong password yet; M6 adds it. Like every changing
- * call it writes its audit record, a refused attempt's in its own transaction (NFR-23, ADR-110).
+ * ADR-071). Access's domain has no error for a wrong password yet; M5 adds it, with {@code SignIn}.
+ * Like every changing call it writes its audit record, a refused attempt's in its own transaction
+ * (NFR-23, ADR-110).
  *
  * <p>Built in M6.
  */
@@ -77,7 +79,7 @@ public final class ChangeOwnPassword {
      * @throws RuleViolation with {@code NewPassword}'s {@code PasswordHasUnpairedSurrogate}, {@code
      *     PasswordTooShort} or {@code PasswordTooCommon} for a new password the policy refuses
      *     (NFR-95); {@code AccountDeactivated} or {@code AccountAnonymized} when the account is not
-     *     active; the wrong-password refusal M6 adds
+     *     active; the wrong-password refusal M5 adds
      * @throws NotFound when the actor's account no longer exists
      * @throws StaleVersion when the account changed between its read and its save (BR-76)
      */

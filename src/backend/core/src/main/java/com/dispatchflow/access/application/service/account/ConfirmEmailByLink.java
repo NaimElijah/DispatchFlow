@@ -17,11 +17,27 @@ import com.dispatchflow.shared.application.StaleVersion;
  * address is told, without naming the new one (FR-388). The change moves the account's generation
  * and raises {@code SessionsRevoked}, so every token issued before is refused at once (NFR-90,
  * NFR-177); the use case evicts the account from the revocation cache after its commit (ADR-045).
- * Every active Admin is emailed when it is an Admin's new email (FR-389).
+ * Every active Admin is emailed when it is an Admin's new email (FR-389): the use case reads them
+ * through {@code UserAccountRepository.activeAdminRecipients} and sends {@code
+ * EmailSender.sendAdminNotice}.
  *
- * <p>The link page answers {@code EmailOfAnotherAdmin} as it answers {@code LinkVoided}, so the
- * holder of the new mailbox learns nothing about the account's roles (ADR-116). Like every changing
- * call it writes its audit record, a refused attempt's in its own transaction (NFR-23, ADR-110).
+ * <p><b>Refusals answered as a voided link.</b> The holder of the new mailbox may not be the
+ * account's user, so three of {@code UserAccount.confirmEmailByLink}'s refusals must not tell them
+ * more than that the link no longer works. The use case catches each, writes {@code
+ * AuditLog.refused} with the domain's specific code in its own transaction (ADR-110), and then
+ * throws a {@code RuleViolation} with Access's {@code LinkVoided} in its place:
+ *
+ * <ul>
+ *   <li>{@code EmailOfAnotherAdmin}, so the holder learns nothing about the account's roles
+ *       (ADR-116);
+ *   <li>{@code AccountDeactivated} and {@code AccountAnonymized}, so the holder learns nothing
+ *       about the account's state. A deactivation voids every unspent link (NFR-224), so {@code
+ *       LinkVoided} is what happened to the link.
+ * </ul>
+ *
+ * <p>{@code EmailInUse} is answered as itself: FR-392 refuses an address another account holds at
+ * this step, and only here. Like every changing call it writes its audit record, a refused
+ * attempt's in its own transaction (NFR-23, ADR-110).
  *
  * <p>Built in M6.
  */
@@ -67,11 +83,11 @@ public final class ConfirmEmailByLink {
      * @param token the token the link carried
      * @param call the call's context: no user or session, the client and the trace (ADR-110)
      * @throws RuleViolation with Access's {@code UnknownLink} when no email-change link has the
-     *     token; {@code LinkAlreadyUsed}, {@code LinkVoided} or {@code LinkExpired} when the link
-     *     no longer works; {@code EmailOfAnotherAdmin} when the account holds the Admin role and
-     *     another account asked (FR-387, ADR-116); {@code EmailInUse} when another account holds
-     *     the address (FR-392); {@code AccountDeactivated} or {@code AccountAnonymized} when the
-     *     account is not active
+     *     token; {@code LinkAlreadyUsed} or {@code LinkExpired} when the link no longer works;
+     *     {@code LinkVoided} when it was voided, and in place of {@code EmailOfAnotherAdmin} (the
+     *     account holds the Admin role and another account asked; FR-387, ADR-116), {@code
+     *     AccountDeactivated} or {@code AccountAnonymized}, as above; {@code EmailInUse} when
+     *     another account holds the address (FR-392)
      * @throws StaleVersion when the account changed between its read and its save (BR-76)
      */
     public void confirm(PresentedToken token, CallContext call) {

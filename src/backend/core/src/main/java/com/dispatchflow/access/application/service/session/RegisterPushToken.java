@@ -5,7 +5,6 @@ import com.dispatchflow.access.application.api.PushAddress;
 import com.dispatchflow.access.application.port.out.PushTokens;
 import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.shared.application.Clock;
-import com.dispatchflow.shared.application.NotFound;
 
 /**
  * The acting phone registers the push service's token for its device, so notices reach it (ADR-026,
@@ -39,9 +38,9 @@ public final class RegisterPushToken {
      *
      * <p>Built in M10.
      *
-     * @param actor the signed-in user acting
+     * @param actor the signed-in user acting, whose call always names its session, since {@code
+     *     Actor} refuses one that names none
      * @param address the push service's token for the device
-     * @throws NotFound when the actor's call names no session
      */
     public void register(Actor actor, PushAddress address) {
         throw new UnsupportedOperationException("Built in M10");

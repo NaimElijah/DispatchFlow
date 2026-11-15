@@ -15,7 +15,9 @@ import com.dispatchflow.shared.application.StaleVersion;
 /**
  * An Admin reactivates a deactivated user, whose history stays intact (FR-297); a deactivated Admin
  * counts toward BR-19 again (FR-174). Its sessions stay ended and its links voided: the person
- * signs in again, or recovers. Every active Admin is emailed when it is an Admin account (FR-389).
+ * signs in again, or recovers. Every active Admin is emailed when it is an Admin account (FR-389):
+ * the use case reads them through {@code UserAccountRepository.activeAdminRecipients} and sends
+ * {@code EmailSender.sendAdminNotice}.
  *
  * <p>The operation is Admin-only in the permission matrix, so the acting session must have given
  * its password in the last 5 minutes, which {@code Session.requireFreshStepUp} checks (NFR-214,

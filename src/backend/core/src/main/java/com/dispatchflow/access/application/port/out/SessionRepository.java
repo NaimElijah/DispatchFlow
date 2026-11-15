@@ -1,7 +1,9 @@
 package com.dispatchflow.access.application.port.out;
 
+import com.dispatchflow.access.domain.AccountGeneration;
 import com.dispatchflow.access.domain.TokenHash;
 import com.dispatchflow.access.domain.session.Session;
+import com.dispatchflow.access.domain.session.SessionGeneration;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.SessionId;
 import com.dispatchflow.shared.application.StaleVersion;
@@ -28,10 +30,25 @@ public interface SessionRepository {
     Optional<Session> get(SessionId id);
 
     /**
-     * The session whose chain holds a refresh token with the hash, current or not, which {@code
-     * Session.exchange} judges (NFR-88, NFR-178).
+     * A session's state and generation in one answer, which the token check compares with a token's
+     * {@code sgen} on every request and the stream's heartbeat reads (ADR-045, NFR-177, NFR-267).
+     * It reads no aggregate. The adapter answers it through the revocation cache's atomic loader,
+     * so the cache sits in the adapter and {@code SessionValidity} keeps one implementation; {@link
+     * RevocationCache#evict(SessionId)} drops the entry after a change.
      *
      * <p>Built in M6.
+     *
+     * @param session the token's session
+     * @return the session's generation while it is live, or empty when no session has the ID or it
+     *     is revoked
+     */
+    Optional<SessionGeneration> liveGenerationOf(SessionId session);
+
+    /**
+     * The session whose chain holds a refresh token with the hash, current or not, which {@code
+     * Session.exchange} judges (NFR-88, NFR-178), and which a sign-out revokes (NFR-89).
+     *
+     * <p>Built in M5.
      *
      * @param token the hash of the presented refresh token
      * @return the session, or empty when no chain keeps the token
@@ -39,15 +56,21 @@ public interface SessionRepository {
     Optional<Session> withRefreshToken(TokenHash token);
 
     /**
-     * The account's live sessions, which the listener on {@code SessionsRevoked} ends (NFR-90,
-     * ADR-116).
+     * The sessions an account's revocation ended, which the listener on {@code SessionsRevoked}
+     * dates through {@code Session.revokeWithAccount} (NFR-90, NFR-258, ADR-116): those begun under
+     * a generation older than {@code revokedTo} that are live, or that were revoked after {@code
+     * revokedAt}, as a session signed out after its account's revocation but before the listener
+     * ran. A session revoked earlier, or begun under {@code revokedTo} or later, is left out, since
+     * {@code revokeWithAccount} would change nothing on it.
      *
      * <p>Built in M6.
      *
      * @param account the account
-     * @return its live sessions, possibly none
+     * @param revokedTo the account's generation after the revocation, which the event carries
+     * @param revokedAt when the account's sessions were revoked
+     * @return those sessions, possibly none
      */
-    List<Session> liveOf(AccountId account);
+    List<Session> endedByRevocation(AccountId account, AccountGeneration revokedTo, Instant revokedAt);
 
     /**
      * Every live session of every account, which the restore's server step revokes (NFR-252). It
@@ -94,15 +117,36 @@ public interface SessionRepository {
     void save(Session session);
 
     /**
+     * Writes a revocation that {@code Session.exchange} made, with no version check, so a version
+     * conflict never loses it (NFR-88). It moves a live session to revoked at {@code at}, as {@code
+     * Session.revoke} does, and moves its version, so a concurrent save of a copy read before fails
+     * its own check rather than writing the session live again. A session already revoked keeps its
+     * revocation. It writes nothing else: the rest of the refused exchange, the old tokens it
+     * dropped, is housekeeping a revoked session never needs.
+     *
+     * <p>No version check is needed because a session only ever moves from live to revoked, and
+     * nothing un-revokes one, so the write can't overwrite a change it should have seen. A retry of
+     * the whole exchange could meet a conflict each time, and lose the revocation in the end.
+     *
+     * <p>Built in M6.
+     *
+     * @param session the session the exchange revoked
+     * @param at when it was revoked
+     */
+    void writeRevocation(SessionId session, Instant at);
+
+    /**
      * Deletes every session that ended before an instant, by {@code Session.endedAt}: sessions are
-     * deleted 30 days after they end (NFR-258).
+     * deleted 30 days after they end (NFR-258). A session that ended by its token's expiry was
+     * never revoked, so it may still hold a push address, which the caller removes by the IDs
+     * answered.
      *
      * <p>Built in an unscheduled milestone.
      *
      * @param cutoff the latest end that is due
-     * @return how many sessions were deleted
+     * @return the IDs of the sessions deleted, each once, in any order
      */
-    int deleteEndedBefore(Instant cutoff);
+    List<SessionId> deleteEndedBefore(Instant cutoff);
 
     /**
      * The sessions holding a contact time older than an instant, whose old times the retention job

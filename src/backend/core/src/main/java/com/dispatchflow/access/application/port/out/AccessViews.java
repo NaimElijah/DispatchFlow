@@ -47,7 +47,7 @@ public interface AccessViews {
      *
      * <p>Built in M2.
      *
-     * @return the details, or empty before the profile exists
+     * @return the details with the profile's version, or empty before the profile exists
      */
     Optional<CompanyView> company();
 

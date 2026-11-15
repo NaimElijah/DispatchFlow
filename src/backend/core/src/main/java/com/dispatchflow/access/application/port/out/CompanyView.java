@@ -4,6 +4,7 @@ import com.dispatchflow.access.domain.Language;
 import com.dispatchflow.access.domain.companyprofile.CompanyName;
 import com.dispatchflow.access.domain.companyprofile.DefaultServiceTime;
 import com.dispatchflow.access.domain.companyprofile.DefaultWindow;
+import com.dispatchflow.shared.Version;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -12,6 +13,10 @@ import java.util.Optional;
  * language, and what a new customer starts with. The dispatch phone is Messaging's setting
  * (placement P7).
  *
+ * <p>A view exists only once the profile does. Before an Admin first saves the settings there is no
+ * view, and that first save sends {@code Version.NEW} as its {@code If-Match}, which {@code
+ * ChangeCompanyProfile} reads as "no profile yet".
+ *
  * <p>Built in M2.
  *
  * @param name the company's name (FR-382)
@@ -19,12 +24,15 @@ import java.util.Optional;
  * @param defaultWindow the time window a new customer starts with (FR-125)
  * @param defaultServiceTime the service duration a new customer starts with; empty until an Admin
  *     sets one (FR-184)
+ * @param version the profile's version, never {@code Version.NEW}, which the next change sends
+ *     back as {@code If-Match} (BR-76)
  */
 public record CompanyView(
         CompanyName name,
         Language language,
         DefaultWindow defaultWindow,
-        Optional<DefaultServiceTime> defaultServiceTime) {
+        Optional<DefaultServiceTime> defaultServiceTime,
+        Version version) {
 
     /** Checks every part is present, possibly empty. */
     public CompanyView {
@@ -32,5 +40,6 @@ public record CompanyView(
         Objects.requireNonNull(language, "language");
         Objects.requireNonNull(defaultWindow, "defaultWindow");
         Objects.requireNonNull(defaultServiceTime, "defaultServiceTime");
+        Objects.requireNonNull(version, "version");
     }
 }

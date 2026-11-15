@@ -28,6 +28,9 @@ import com.dispatchflow.shared.application.IdGenerator;
  * code goes only to {@code AuditLog.refused}, so no caller learns whether an address has an account
  * or why it can't sign in.
  *
+ * <p>Domain gap: {@code AccessError} has no code for an address no account holds or for a wrong
+ * password, which {@code AuditLog.refused} needs; M5 adds both.
+ *
  * <p>The attempt limits of NFR-35, NFR-216 and NFR-226 belong to the rate-limit adapter (ADR-071),
  * which counts typed addresses whether or not an account holds them (NFR-225). FR-299's warning is
  * read from {@code AccountQueries.me} after sign-in.
