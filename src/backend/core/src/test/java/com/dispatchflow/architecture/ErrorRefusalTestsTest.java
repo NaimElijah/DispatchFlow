@@ -17,7 +17,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 
 /**
  * Every named error has a refusal test (DL §14): for each concrete error, a test class in its
- * package has a {@code @Test} or {@code @ParameterizedTest} method ending in {@code
+ * package, or in a package under it (ADR-118), has a {@code @Test} or {@code @ParameterizedTest} method ending in {@code
  * _Then<ErrorName>}. A helper with such a name runs nothing, so it doesn't count. It looks at every class assignable to
  * {@link DomainError}, not only those under a sealed interface, so a module's error added later is
  * checked without a test of its own.
@@ -26,7 +26,7 @@ class ErrorRefusalTestsTest {
 
     private static final String REFUSAL_SUFFIX = "_Then";
 
-    /** The concrete errors, by binary name, that have no refusal test in their package. */
+    /** The concrete errors, by binary name, that have no refusal test in or under their package. */
     private static SortedSet<String> untestedErrors(JavaClasses errorTypes, JavaClasses tests) {
         SortedSet<String> untested = new TreeSet<>();
         errorTypes.stream()
@@ -41,7 +41,8 @@ class ErrorRefusalTestsTest {
 
     private static List<String> testMethodNames(JavaClasses tests, String packageName) {
         return tests.stream()
-                .filter(test -> test.getPackageName().equals(packageName))
+                .filter(test -> test.getPackageName().equals(packageName)
+                        || test.getPackageName().startsWith(packageName + "."))
                 .flatMap(test -> test.getMethods().stream())
                 .filter(method -> method.isAnnotatedWith(Test.class) || method.isAnnotatedWith(ParameterizedTest.class))
                 .map(JavaMethod::getName)
