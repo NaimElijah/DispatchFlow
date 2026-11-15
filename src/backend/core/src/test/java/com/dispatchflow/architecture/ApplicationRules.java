@@ -93,8 +93,10 @@ final class ApplicationRules {
      * Rule 1: each module's application layer and the shared application package depend only on
      * what TS §2.2 and DL §2.3 allow, with Spring Modulith's annotations allowed on their {@code
      * package-info} only. A module's own {@code adapter} is not among them: dependencies point from
-     * the adapters to the application, never back. Another module's {@code spi} is open only to the
-     * module a dashed arrow of {@link #SPI_IMPLEMENTERS} names to implement one of its interfaces.
+     * the adapters to the application, never back. An interface of another module's {@code spi} that
+     * a dashed arrow of {@link #SPI_IMPLEMENTERS} names is open only to the module that arrow names to
+     * implement it; the rest of that {@code spi}, the records beside the interfaces, is open to every
+     * module an arrow names to implement one of its interfaces.
      *
      * <p>{@code @Transactional} is allowed here for a module's use cases. The shared application
      * package can't take it all the same: it sits under the kernel, so {@link DomainPurityRules}
@@ -121,8 +123,8 @@ final class ApplicationRules {
                         (item, target) ->
                                 isAllowedInTheApplication(root, moduleAnnotations, implementers, item, target)))
                 .because("TS §2.2 and DL §2.3: the application imports the JDK, JSpecify, the kernel, its own"
-                        + " module, other modules' api and events, the spi of a module whose dashed arrow it"
-                        + " implements, and from Spring only @Transactional");
+                        + " module, other modules' api and events, the spi interfaces whose dashed arrows it"
+                        + " implements and the records beside them, and from Spring only @Transactional");
     }
 
     /** Rule 2: a module depends on another module only along DL §2.1's arrows. */
@@ -332,7 +334,7 @@ final class ApplicationRules {
     /**
      * What a class of {@code <root>.<module>.application} may depend on. Another module's {@code api}
      * and {@code events} are allowed here whatever the module, and rule 2 decides which modules.
-     * Another module's {@code spi} is allowed only to a module that implements one of its interfaces.
+     * Another module's {@code spi} is allowed only as {@link #isPublishedToTheModule} says.
      */
     private static boolean isAllowedInTheApplication(
             String root, String moduleAnnotations, Map<String, String> implementers, JavaClass item, JavaClass target) {
@@ -350,26 +352,38 @@ final class ApplicationRules {
                 || isIn(targetPackage, module + "." + APPLICATION)) {
             return true;
         }
-        return isPublishedToTheModule(root, targetPackage, itemModule, implementers);
+        return isPublishedToTheModule(root, target, itemModule, implementers);
     }
 
     /**
-     * A module's {@code application.api} or {@code events}, or below one; or its {@code
-     * application.spi}, or below it, when a dashed arrow names {@code itemModule} to implement one of
-     * that spi's interfaces. The arrow opens the whole package, because an implementation also uses
-     * the records beside the interface.
+     * A module's {@code application.api} or {@code events}, or below one; or a class of its {@code
+     * application.spi}, or below it, published to {@code itemModule} by a dashed arrow. An interface
+     * an arrow names is published only to the module that arrow names, so an implementer of one
+     * interface can't call another module's. Every other class there, such as a record beside the
+     * interfaces, is published to each module an arrow names for one of that spi's interfaces,
+     * because an implementation uses the records its interface takes and returns.
      */
     private static boolean isPublishedToTheModule(
-            String root, String targetPackage, String itemModule, Map<String, String> implementers) {
-        String[] segments = segmentsBelow(root, targetPackage);
+            String root, JavaClass target, String itemModule, Map<String, String> implementers) {
+        String[] segments = segmentsBelow(root, target.getPackageName());
         if (segments.length >= 2 && segments[1].equals(EVENTS)) {
             return true;
         }
         if (segments.length < 3 || !segments[1].equals(APPLICATION)) {
             return false;
         }
-        return segments[2].equals(API)
-                || (segments[2].equals(SPI) && implementsAnSpiOf(segments[0], itemModule, implementers));
+        if (segments[2].equals(API)) {
+            return true;
+        }
+        if (!segments[2].equals(SPI)) {
+            return false;
+        }
+        Optional<String> arrowsImplementer = target.isInterface()
+                ? Optional.ofNullable(implementers.get(nameBelow(root, target)))
+                : Optional.empty();
+        return arrowsImplementer
+                .map(itemModule::equals)
+                .orElseGet(() -> implementsAnSpiOf(segments[0], itemModule, implementers));
     }
 
     /** Whether a dashed arrow names {@code module} to implement an interface of {@code owner}'s spi. */

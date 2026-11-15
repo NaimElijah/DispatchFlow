@@ -22,6 +22,8 @@ import com.dispatchflow.archfixture.zeta.lower.application.spi.UsageUnimplemente
 import com.dispatchflow.archfixture.zeta.lower.domain.LowerDomainUsesTheClock;
 import com.dispatchflow.archfixture.zeta.lower.events.LowerEventUsesTheClock;
 import com.dispatchflow.archfixture.zeta.lower.events.LowerHappened;
+import com.dispatchflow.archfixture.zeta.peer.application.service.CallsAnSpiInterfaceNamedForAnotherModule;
+import com.dispatchflow.archfixture.zeta.peer.application.service.PeerUsageService;
 import com.dispatchflow.archfixture.zeta.shared.KernelRootUsesTheClock;
 import com.dispatchflow.archfixture.zeta.shared.application.SharedPortUsesSpring;
 import com.dispatchflow.archfixture.zeta.side.application.service.CallsAnSpiItDoesNotImplement;
@@ -58,7 +60,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Proves each application rule fires on the fixtures under {@code archfixture.zeta}, which is the
- * rules' root here: its {@code lower}, {@code upper} and {@code side} are modules, {@code stray} is a
+ * rules' root here: its {@code lower}, {@code upper}, {@code side} and {@code peer} are modules, {@code stray} is a
  * top-level package missing from the fixture graph, and {@code shared} and {@code web} are no
  * modules. Every test names the exact classes a rule flags, by their fully qualified names, so a rule
  * that flags too much fails as surely as one that flags nothing, and two fixtures of one simple name
@@ -76,16 +78,17 @@ class ApplicationRulesTest {
     private static final Pattern CYCLE_STEP = Pattern.compile("^(?:Cycle detected: |\\s*)Slice (\\S+)(?: -> )?\\s*$");
     // Two slices and the first again, which closes the loop.
     private static final int CLOSED_LOOP_OF_TWO = 3;
-    // upper and side may depend on lower; lower on nothing. stray is left out on purpose.
+    // upper, side and peer may depend on lower; lower on nothing. stray is left out on purpose.
     private static final Map<String, Set<String>> GRAPH =
-            Map.of("lower", Set.of(), "upper", Set.of("lower"), "side", Set.of("lower"));
-    // Every arrow points at upper. UsageImplementedByTheWrongModule is implemented in side instead,
-    // and UsageMissingFromTheMap is left out on purpose.
+            Map.of("lower", Set.of(), "upper", Set.of("lower"), "side", Set.of("lower"), "peer", Set.of("lower"));
+    // Every arrow but PeerUsage's points at upper. UsageImplementedByTheWrongModule is implemented in
+    // side instead, and UsageMissingFromTheMap is left out on purpose.
     private static final Map<String, String> SPI_IMPLEMENTERS = Map.of(
             "lower.application.spi.LowerUsage", "upper",
             "lower.application.spi.UsageImplementedAtHome", "upper",
             "lower.application.spi.UsageUnimplemented", "upper",
-            "lower.application.spi.UsageImplementedByTheWrongModule", "upper");
+            "lower.application.spi.UsageImplementedByTheWrongModule", "upper",
+            "lower.application.spi.PeerUsage", "peer");
 
     private static ArchRule rule1() {
         return ApplicationRules.onlyAllowedDependencies(ROOT, FIXTURE_MODULE_ANNOTATIONS, SPI_IMPLEMENTERS);
@@ -146,6 +149,7 @@ class ApplicationRulesTest {
                         AnnotatedAsASpringComponent.class.getName(),
                         AnnotatedAsANamedInterface.class.getName(),
                         CallsAnSpiItDoesNotImplement.class.getName(),
+                        CallsAnSpiInterfaceNamedForAnotherModule.class.getName(),
                         // No arrow names side for lower's spi, so rule 1 refuses its implementation too.
                         WrongModuleUsageService.class.getName(),
                         ROOT + ".upper.application.configured" + PACKAGE_INFO);
@@ -161,6 +165,18 @@ class ApplicationRulesTest {
     void GivenAModuleThatNeitherOwnsNorImplementsAnotherModulesSpi_WhenRule1Evaluates_ThenItsUseOfTheSpiIsFlagged() {
         assertThat(violators(rule1(), FixtureClasses.only(CallsAnSpiItDoesNotImplement.class)))
                 .containsExactly(CallsAnSpiItDoesNotImplement.class.getName());
+    }
+
+    @Test
+    void GivenAModuleThatImplementsAnotherOfTheOwnersSpiInterfaces_WhenRule1Evaluates_ThenItsUseOfThisOneIsFlagged() {
+        assertThat(violators(rule1(), FixtureClasses.only(CallsAnSpiInterfaceNamedForAnotherModule.class)))
+                .containsExactly(CallsAnSpiInterfaceNamedForAnotherModule.class.getName());
+    }
+
+    @Test
+    void GivenAnImplementerUsingItsSpiInterfaceAndTheRecordBesideIt_WhenRule1Evaluates_ThenNothingIsFlagged() {
+        assertThat(violators(rule1(), FixtureClasses.only(PeerUsageService.class)))
+                .isEmpty();
     }
 
     @Test
@@ -375,6 +391,7 @@ class ApplicationRulesTest {
                         ROOT + ".lower.application.api",
                         ROOT + ".lower.application.service",
                         ROOT + ".lower.application.spi",
+                        ROOT + ".peer.application.service",
                         ROOT + ".shared.application",
                         ROOT + ".side.application.service",
                         ROOT + ".upper.application.api",
