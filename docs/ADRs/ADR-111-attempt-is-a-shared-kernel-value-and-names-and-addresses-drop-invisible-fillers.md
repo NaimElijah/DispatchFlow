@@ -30,7 +30,10 @@ duplicate customer. Access's `EmailAddress` already refuses the Hangul fillers, 
 addresses would look alike. A security review of the first fix found two more holes of the same
 kind: the Khmer inherent vowels U+17B4 and U+17B5, default-ignorable but not format characters,
 passed inside a name; and a variation selector after a letter or a digit was kept, so "Van 1"
-followed by U+FE0F was a second name beside "Van 1", though both look the same.
+followed by U+FE0F was a second name beside "Van 1", though both look the same. A second review
+found that U+FE0F after an emoji that already shows as an emoji, such as U+1F600 or the truck
+U+1F69A, changes nothing either, so "Van" with that emoji and U+FE0F was a second name too; and
+that U+FE0E after an emoji that already shows as text, such as U+2764, changes nothing.
 
 ## Decision
 
@@ -53,15 +56,27 @@ On 2026-11-15 the owner, Naim Elijah, decided:
    U+2800. Format characters keep [ADR-106]'s rule, which allows U+061C and U+200C to U+200F inside
    a name or an address. A `NOTE` keeps them all inside ([BR-48], [FR-398]).
 
-   A variation selector belongs to the character before it. In a `NAME` or an `ADDRESS` it stays
-   only as an emoji's one presentation selector: text (U+FE0E) or emoji (U+FE0F), right after a
-   base for which the JDK's `Character.isExtendedPictographic` is true. So "Dana ❤️" keeps its
-   emoji presentation. Any other selector renders as nothing, whether after a letter or a digit, a
-   second after an emoji, or VS1 to VS14, a Mongolian or an ideographic selector after an emoji.
-   It is refused inside the text and trimmed at the ends, so "Van 1" followed by U+FE0F equals
-   "Van 1", and an emoji with two selectors equals the emoji with its first ([BR-48]). A `NOTE` keeps every variation selector inside it, and one at its end after any
-   visible character; at its end a selector is trimmed only together with an invisible character
-   it follows. In every kind a leading selector is trimmed.
+   A variation selector belongs to the character before it. In a `NAME` or an `ADDRESS` only one
+   selector stays: U+FE0F, right after a base that shows as text unless U+FE0F follows it. That is
+   a base for which the JDK's `Character.isEmoji` is true and `Character.isEmojiPresentation` is
+   false, and, to leave out the keycap bases, `Character.isExtendedPictographic` is true. So
+   "Dana ❤️" keeps its emoji presentation, and so does "©️". Every other selector changes nothing a
+   reader sees: one after a letter or a digit; U+FE0F after an emoji that already shows as one,
+   such as U+1F600; U+FE0E, the text selector, after any base; a second after an emoji; or VS1 to
+   VS14, a Mongolian or an ideographic selector. It is refused inside the text and trimmed at the
+   ends, so "Van 1" followed by U+FE0F equals "Van 1", "Van" with U+1F69A and U+FE0F equals it
+   without the selector, and an emoji with two selectors equals the emoji with its first
+   ([BR-48]). The digits, `#` and `*` are emoji to `Character.isEmoji` only as keycap bases: with
+   U+FE0F and no keycap mark they show as themselves, so they keep no selector. A `NOTE` keeps
+   every variation selector inside it, and the whole run at its end after any visible character;
+   at its end a selector run is trimmed only together with an invisible character it follows. In
+   every kind a leading selector is trimmed.
+
+   The kernel's rule decides only what text is kept. A module that keeps names unique compares
+   them in a matching form of its own, as Fleet does for [BR-48]'s vehicle names: NFC, with
+   every variation selector and format character removed and each run of whitespace one space.
+   So "Van" with a left-to-right mark, or with a no-break space for its space, is the same vehicle
+   name as "Van" without it, while each keeps its text as entered.
 
    This extends [ADR-106], step 4 (what is trimmed) and step 7 (what is refused). Its step 6 needs
    no check of its own any more: text made only of invisible characters is trimmed to empty.
@@ -81,6 +96,9 @@ On 2026-11-15 the owner, Naim Elijah, decided:
 - **Hard:** a name or an address with a variation selector after a base that is not an emoji is
   refused: a keycap emoji such as "1️⃣" (a digit, U+FE0F, U+20E3), a Mongolian free variation
   selector, or an ideographic variation selector after a CJK ideograph. A note still takes it.
+- **Hard:** a name or an address can't ask for the text presentation of an emoji that shows as
+  one by default, with U+FE0E inside it. Some platforms draw such a sequence as text, so a real
+  name may be refused. A note still takes it.
 - **Cost:** none. Both rules use only the JDK.
 - **Risk:** stored names and addresses that hold a filler inside fail to load as damaged state once
   this rule ships. No module stores text yet, so there is nothing to migrate.
@@ -101,6 +119,15 @@ On 2026-11-15 the owner, Naim Elijah, decided:
 - **Keep a variation selector after any visible character in a name or an address.** Rejected:
   after a letter or a digit it renders as nothing, so "Van 1" with U+FE0F was a second vehicle
   beside "Van 1" ([BR-48]).
+- **Keep U+FE0E and U+FE0F after any base that `Character.isExtendedPictographic` accepts,** as
+  this decision first had it. Rejected: U+FE0F after an emoji that already shows as one, and
+  U+FE0E after one that already shows as text, change nothing, so each made a second name.
+- **Keep U+FE0F after every base for which `Character.isEmoji` is true and
+  `Character.isEmojiPresentation` false.** Rejected: that set holds the digits, so "Van 1"
+  followed by U+FE0F would again be a second name beside "Van 1".
+- **Make the kernel's text the uniqueness key.** Rejected: the left-to-right mark and the no-break
+  space are needed in Hebrew and mixed-direction text, so the kernel keeps them, and only a
+  module's matching form drops them.
 - **Fold the fillers into the format-character rule.** Not chosen: they are not format characters,
   and a note allows format characters for reasons of its own. `TextKind` names the filler rule on
   its own, `allowsInvisibleFillers()`.
@@ -108,7 +135,8 @@ On 2026-11-15 the owner, Naim Elijah, decided:
 ## Revisit when
 
 - A real name or address is refused for a filler or a grapheme joiner inside it, or for a
-  variation selector after a base that is not an emoji, such as a keycap.
+  variation selector after a base that is not an emoji, such as a keycap, or for U+FE0E after an
+  emoji.
 - A context needs an attempt with a rule of its own, such as a cap on put-backs.
 - The JDK moves to a newer Unicode version, which may add invisible fillers or variation
   selectors.

@@ -320,6 +320,51 @@ class FleetRegisterTest {
                 register, () -> register.addVehicle(NEW_VEHICLE, sameName), new DuplicateVehicleName(vehicleId(1)));
     }
 
+    /**
+     * "Van 🚚" with a selector that changes nothing, with a left-to-right mark, or with a no-break
+     * space for its space, each looks like "Van 🚚", so BR-48 matches them as one name. The
+     * characters are built from their code points, so none of them hides in the source.
+     */
+    static Stream<Arguments> lookalikesOfVanTruck() {
+        String truck = Character.toString(0x1F69A);
+        return Stream.of(
+                Arguments.of("an emoji selector after the truck", "Van " + truck + Character.toString(0xFE0F)),
+                Arguments.of("a left-to-right mark after Van", "Van" + Character.toString(0x200E) + " " + truck),
+                Arguments.of("a no-break space for the space", "Van" + Character.toString(0x00A0) + truck));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("lookalikesOfVanTruck")
+    void GivenAnActiveVehicleNamedVanTruck_WhenAnotherIsAddedWithALookalikeName_ThenDuplicateVehicleName(
+            String lookalike, String name) {
+        FleetRegister register = aRegister()
+                .withVehicle(new VehicleSnapshot(
+                        vehicleId(1),
+                        new VehicleDetails(
+                                VehicleName.of("Van " + Character.toString(0x1F69A)),
+                                Plate.of("P1"),
+                                VAN_CAPACITY,
+                                NORTH,
+                                NORTH),
+                        Optional.empty()))
+                .build();
+        VehicleDetails sameName = new VehicleDetails(VehicleName.of(name), Plate.of("P2"), VAN_CAPACITY, NORTH, NORTH);
+
+        assertRefusedUnchanged(
+                register, () -> register.addVehicle(NEW_VEHICLE, sameName), new DuplicateVehicleName(vehicleId(1)));
+    }
+
+    @Test
+    void GivenANameWithALeftToRightMarkAndNoClash_WhenAdded_ThenTheVehicleKeepsTheNameAsEntered() {
+        FleetRegister register = aRegister().build();
+        String entered = "Van" + Character.toString(0x200E) + " 1";
+
+        register.addVehicle(
+                NEW_VEHICLE, new VehicleDetails(VehicleName.of(entered), Plate.of("P2"), VAN_CAPACITY, NORTH, NORTH));
+
+        assertThat(vehicleIn(register, NEW_VEHICLE).details().name().value()).isEqualTo(entered);
+    }
+
     @Test
     void
             GivenAnActiveVehicleNamedVan1_WhenAnotherIsAddedAsLowerCaseVan1_ThenItIsAcceptedBecauseNamesAreCaseSensitive() {
@@ -766,6 +811,15 @@ class FleetRegisterTest {
                 vehicleId(2),
                 new VehicleDetails(VehicleName.of("Vehicle 1"), Plate.of("P2"), VAN_CAPACITY, NORTH, NORTH),
                 Optional.empty());
+        VehicleSnapshot lookalikeName = new VehicleSnapshot(
+                vehicleId(2),
+                new VehicleDetails(
+                        VehicleName.of("Vehicle" + Character.toString(0x00A0) + "1"),
+                        Plate.of("P2"),
+                        VAN_CAPACITY,
+                        NORTH,
+                        NORTH),
+                Optional.empty());
         VehicleSnapshot duplicatePlate = new VehicleSnapshot(
                 vehicleId(2),
                 new VehicleDetails(VehicleName.of("Vehicle 2"), Plate.of("P1"), VAN_CAPACITY, NORTH, NORTH),
@@ -787,6 +841,9 @@ class FleetRegisterTest {
                 Arguments.of(
                         "two active vehicles share a name",
                         aRegister().withActiveVehicles(1).withVehicle(duplicateName)),
+                Arguments.of(
+                        "two active vehicles share a name",
+                        aRegister().withActiveVehicles(1).withVehicle(lookalikeName)),
                 Arguments.of(
                         "two active vehicles share a plate",
                         aRegister().withActiveVehicles(1).withVehicle(duplicatePlate)),

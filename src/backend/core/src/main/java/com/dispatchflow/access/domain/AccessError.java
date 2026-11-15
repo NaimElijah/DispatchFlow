@@ -18,9 +18,18 @@ public sealed interface AccessError extends DomainError {
     /**
      * Another account asked to change an Admin's email, which only that Admin may do (FR-387,
      * ADR-116). It is refused when the link would be sent, and when it is used if the account became
-     * an Admin in between.
+     * an Admin in between. When the link is used, the link page answers it as it answers {@link
+     * LinkVoided}, so the holder of the new mailbox learns nothing about the account's roles.
      */
     record EmailOfAnotherAdmin() implements AccessError {}
+
+    /**
+     * The account's current email was set by another account's email-change link, so it is not
+     * given the Admin role until its user confirms an email change of their own (ADR-116).
+     * Otherwise an Admin could take another's Admin role, point the address at their own mailbox,
+     * recover the account and give the role back, and hold two of BR-19's Admins.
+     */
+    record EmailSetByAnotherAccount() implements AccessError {}
 
     /** An Admin gave a user no role (FR-02). */
     record NoRoleGiven() implements AccessError {}

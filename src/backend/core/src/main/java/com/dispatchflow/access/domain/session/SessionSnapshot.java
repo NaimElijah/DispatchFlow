@@ -14,7 +14,8 @@ import java.util.Objects;
  * Its values are already checked; {@code restore} checks how they fit together.
  *
  * <p>Its contact times are personal data (NFR-280), so it is {@link PersonalData} and {@link
- * #toString()} prints only how many it holds (ADR-106).
+ * #toString()} prints only how many it holds (ADR-106). It prints only how many refresh tokens it
+ * holds too, because each token's times are times the device was in use.
  *
  * <p>The persistence adapter builds every stored value inside {@link
  * com.dispatchflow.shared.StoredStateInvalid#whileRestoring}, so a stored value the rules now
@@ -59,15 +60,16 @@ public record SessionSnapshot(
     }
 
     /**
-     * A form that leaves the contact times out and names how many there are.
+     * A form that leaves the contact times and the refresh tokens out and names how many of each
+     * there are.
      *
-     * @return the snapshot without its contact times
+     * @return the snapshot without its contact times and tokens
      */
     @Override
     public String toString() {
         return "SessionSnapshot[version=" + version + ", id=" + id + ", account=" + account + ", accountGeneration="
                 + accountGeneration + ", generation=" + generation + ", state=" + state + ", openedAt=" + openedAt
                 + ", lastPasswordAt=" + lastPasswordAt + ", contactTimes=" + contactTimes.size() + " redacted, tokens="
-                + tokens + "]";
+                + tokens.size() + " redacted]";
     }
 }

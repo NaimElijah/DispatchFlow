@@ -26,8 +26,9 @@ import java.util.stream.Stream;
 /**
  * One signed-in device of an account (DL §4.1): the account generation it began under, its own
  * generation, whether it is live, when it last gave the password, its contact times and its chain
- * of refresh tokens. Its writers are that device, and the same user signing it out from another
- * device (FR-127).
+ * of refresh tokens. Its writers are that device, the same user signing it out from another device
+ * (FR-127), and Access's own listener on {@code SessionsRevoked}, which ends it with its account's
+ * revocation ({@link #revokeWithAccount}).
  *
  * <p>Every rule is checked before the state changes, so a refused call changes nothing. One call
  * changes state while it refuses: {@link #exchange}, where a reused refresh token revokes the
@@ -36,7 +37,7 @@ import java.util.stream.Stream;
  *
  * <p>The chain keeps only the current token, the tokens issued in the last {@link
  * #TOKEN_KEPT_FOR}, and any successor a kept token names. A replayed token older than that is
- * unknown, and refused without revoking the session: the one narrowing of NFR-88 (ADR-104).
+ * unknown, and refused without revoking the session (NFR-88, ADR-104).
  */
 public final class Session extends AggregateRoot {
 
@@ -107,7 +108,8 @@ public final class Session extends AggregateRoot {
      * @return the live session, under the account's current generation, raising no event
      * @throws RuleViolation with {@link AccessError.AccountAnonymized}, {@link
      *     AccessError.AccountDeactivated} or {@link AccessError.AccountHasNoRole} when the account
-     *     may not sign in (BR-123, FR-53)
+     *     may not sign in (BR-123, FR-53), or with {@link AccessError.PasswordNotSet} when it has no
+     *     password yet (FR-294)
      */
     public static Session open(
             SessionId id, UserAccount account, RefreshTokenId tokenId, TokenHash tokenHash, Instant now) {
@@ -448,9 +450,10 @@ public final class Session extends AggregateRoot {
      * the account's live sessions. The token check refuses the session's tokens from the
      * revocation on, whether or not this has run.
      *
-     * <p>Delivery is at least once, so it changes nothing on a revoked session, which keeps its
-     * first revocation, or on a session begun under the generation the revocation left, which a
-     * redelivered event must not end.
+     * <p>Delivery is at least once, so it changes nothing on a session begun under the generation
+     * the revocation left, which a redelivered event must not end. A session already revoked keeps
+     * the earlier of its own revocation and this one: one signed out after its account's revocation,
+     * but before this ran, ended when the account's sessions were revoked.
      *
      * @param revokedTo the account's generation after the revocation, which the event carries
      * @param revokedAt when the account's sessions were revoked
@@ -458,7 +461,10 @@ public final class Session extends AggregateRoot {
     public void revokeWithAccount(AccountGeneration revokedTo, Instant revokedAt) {
         Objects.requireNonNull(revokedTo, "revokedTo");
         Objects.requireNonNull(revokedAt, "revokedAt");
-        if (state instanceof SessionState.Live && accountGeneration.isOlderThan(revokedTo)) {
+        if (!accountGeneration.isOlderThan(revokedTo)) {
+            return;
+        }
+        if (!(state instanceof SessionState.Revoked revoked) || revokedAt.isBefore(revoked.at())) {
             state = new SessionState.Revoked(revokedAt);
         }
     }

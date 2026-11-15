@@ -26,7 +26,9 @@ public sealed interface FleetError extends DomainError {
     record FleetFull(int limit) implements FleetError {}
 
     /**
-     * Another active vehicle already has this display name (BR-48).
+     * Another active vehicle already has this display name, or one that looks the same: names are
+     * compared without variation selectors or format characters, and with each run of whitespace
+     * as one space (BR-48).
      *
      * @param usedBy the active vehicle that has it
      */

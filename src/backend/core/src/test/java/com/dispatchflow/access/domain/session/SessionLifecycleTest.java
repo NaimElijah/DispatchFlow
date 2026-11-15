@@ -182,7 +182,8 @@ class SessionLifecycleTest {
     @ParameterizedTest
     @MethodSource("everyCommand")
     void GivenEveryCommand_WhenTheMatrixIsListed_ThenEachStateCoversIt(Command command) {
-        assertThat(stateAndCommand().filter(row -> row.get()[1] == command)).hasSize(State.values().length);
+        assertThat(stateAndCommand().filter(row -> row.get()[1] == command).map(row -> row.get()[0]))
+                .containsExactlyInAnyOrder((Object[]) State.values());
     }
 
     static Stream<Command> everyCommand() {

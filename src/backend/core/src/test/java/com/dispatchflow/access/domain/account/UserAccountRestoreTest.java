@@ -35,6 +35,7 @@ class UserAccountRestoreTest {
                 anAccount().withRoles(Role.ADMIN, Role.DISPATCHER, Role.DRIVER),
                 anAccount().withPassword(Optional.empty()),
                 anAccount().withTermsAcceptedAt(SENT),
+                anAccount().withEmailSetByAnotherAt(SENT),
                 anAccount()
                         .withLink(openLink("1", new LinkPurpose.SetPassword(), "a"))
                         .withLink(openLink("2", new LinkPurpose.Recovery(), "b"))
@@ -92,6 +93,20 @@ class UserAccountRestoreTest {
                 anAnonymizedAccount(DEACTIVATED_AT, ANONYMIZED_AT)
                         .withLink(link("1", new LinkPurpose.Recovery(), "a", LinkStatus.VOIDED)),
                 "an anonymized account holds no password and no link");
+    }
+
+    @Test
+    void GivenAnAdminWhoseEmailAnotherAccountSet_WhenRestored_ThenStoredStateInvalid() {
+        assertStoredStateInvalid(
+                anAccount().withRoles(Role.ADMIN).withEmailSetByAnotherAt(SENT),
+                "an email another account set belongs to an account that holds it and no Admin role");
+    }
+
+    @Test
+    void GivenAnAnonymizedAccountStillRecordingWhoSetItsEmail_WhenRestored_ThenStoredStateInvalid() {
+        assertStoredStateInvalid(
+                anAnonymizedAccount(DEACTIVATED_AT, ANONYMIZED_AT).withEmailSetByAnotherAt(SENT),
+                "an email another account set belongs to an account that holds it and no Admin role");
     }
 
     @Test

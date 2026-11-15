@@ -274,7 +274,8 @@ class UserAccountLifecycleTest {
     @ParameterizedTest
     @MethodSource("everyCommand")
     void GivenEveryCommand_WhenTheMatrixIsListed_ThenEachStateCoversIt(Command command) {
-        assertThat(stateAndCommand().filter(row -> row.get()[1] == command)).hasSize(State.values().length);
+        assertThat(stateAndCommand().filter(row -> row.get()[1] == command).map(row -> row.get()[0]))
+                .containsExactlyInAnyOrder((Object[]) State.values());
     }
 
     /** A query takes nothing and returns a value; every other public method is a command. */

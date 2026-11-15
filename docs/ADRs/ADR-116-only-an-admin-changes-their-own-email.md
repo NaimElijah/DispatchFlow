@@ -51,9 +51,19 @@ Some choices are this record's own, not the owner's:
 - **A session its account's revocation ended is dated by that revocation.**
   `Session.revokeWithAccount(generation, at)` revokes a live session begun under an older account
   generation, at the time `SessionsRevoked` carries. Access's own listener on that event calls it,
-  and a redelivered event changes nothing, because a revoked session keeps its first revocation and
-  a session begun under the new generation is not ended. The token check still refuses the
-  session's tokens at once, whether or not the listener has run ([NFR-177]).
+  and a redelivered event changes nothing, because a revoked session keeps the earlier of its own
+  revocation and the account's, and a session begun under the new generation is not ended. The
+  token check still refuses the session's tokens at once, whether or not the listener has run
+  ([NFR-177]).
+- **An Admin role can't come back to an account whose address another account set.** With three
+  or more active Admins, [BR-19] lets Admin A take Admin B's role. B's email is then not an
+  Admin's, so A points it at A's own mailbox, recovers the account and gives the role back. The
+  account records when another account's email-change link set its current email, and
+  `changeRoles` refuses to add the Admin role to it with a new error, `EmailSetByAnotherAccount`,
+  until its user confirms an email change of their own, which clears the record. The address an
+  Admin chooses when opening an account doesn't count: that is a new identity, not a takeover.
+  When `confirmEmailByLink` refuses a link with `EmailOfAnotherAdmin`, the link page answers as it
+  answers `LinkVoided`, so the holder of the new mailbox learns nothing about the account's roles.
 - **An account with no password is refused at sign-in by the domain,** with a new error,
   `PasswordNotSet`. The sign-in endpoint answers it as it answers a wrong password, after the same
   hash work, as it already answers a deactivated or role-less account ([NFR-145]). No existing
@@ -69,11 +79,17 @@ Some choices are this record's own, not the owner's:
 - **Hard:** an Admin who has lost access to their own mailbox can't be helped by another Admin.
   They recover through the written-request server step ([FR-346], [FR-292]), which takes longer.
 - **Hard:** a stored email-change link holds one more field, the account that asked, which the
-  adapter stores and rebuilds.
+  adapter stores and rebuilds. A stored account holds one more too: when another account's link
+  set its email.
+- **Hard:** a Dispatcher whose address an Admin corrected can't be made an Admin until they confirm
+  a change of address themselves, to the same mailbox or another.
 - **Cost:** Access needs a listener on its own `SessionsRevoked` event, which updates every live
   session of the account, when the application layer arrives.
 - **Risk:** until that listener has run, the retention job still dates such a session by its
   token's expiry, so a failed listener keeps it up to 14 days longer.
+- **Risk:** the round trip through a demotion is closed only for the Admin role. An Admin who
+  takes another's Admin role and recovers the account through its email can still use it with its
+  other roles until its user confirms an address of their own.
 
 ## Alternatives considered
 
@@ -89,6 +105,11 @@ Some choices are this record's own, not the owner's:
   same path around the first check, and needs no new field. Not chosen: it adds a voiding rule to
   [NFR-224]'s list, which the owner did not decide, while recording who asked keeps the rule in one
   predicate checked where an address takes effect.
+- **Refuse another account's email change while the account held the Admin role recently.** Not
+  chosen: "recently" needs a window that no requirement sets, and the account would have to keep
+  its role history; recording who set the current address needs neither.
+- **Accept the round trip through a demotion as a residual risk.** Not chosen: it hands one Admin
+  two of [BR-19]'s Admins, which is what this record exists to stop.
 - **Date a session by its account's revocation through `endedAt(generation, at)`.** Not chosen: the
   account doesn't keep the time of each revocation, so the retention job would have nothing to pass.
 

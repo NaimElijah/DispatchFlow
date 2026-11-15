@@ -31,6 +31,7 @@ class AccessErrorTest {
                         "COMPANY_NAME_TOO_LONG",
                         "EMAIL_IN_USE",
                         "EMAIL_OF_ANOTHER_ADMIN",
+                        "EMAIL_SET_BY_ANOTHER_ACCOUNT",
                         "INVALID_DEFAULT_WINDOW",
                         "INVALID_EMAIL",
                         "LINK_ALREADY_USED",

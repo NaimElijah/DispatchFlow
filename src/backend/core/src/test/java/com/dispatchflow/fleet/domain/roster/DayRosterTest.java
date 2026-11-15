@@ -664,6 +664,28 @@ class DayRosterTest {
         assertRefusedUnchanged(roster, () -> roster.moveVehicleWithRoute(V1, DANA, OMER), new DriverNotRostered(OMER));
     }
 
+    @Test
+    void GivenAMissingArgument_WhenAVehicleMovesWithARouteOrAnEntryIsAskedFor_ThenTheMissingArgumentIsNamed() {
+        DayRoster roster =
+                aRoster().withDriverDriving(DANA, V1).withDriver(OMER).build();
+
+        assertThatThrownBy(() -> roster.moveVehicleWithRoute(null, DANA, OMER))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("vehicle");
+        assertThatThrownBy(() -> roster.moveVehicleWithRoute(V1, null, OMER))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("from");
+        assertThatThrownBy(() -> roster.moveVehicleWithRoute(V1, DANA, null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("to");
+        assertThatThrownBy(() -> roster.entryOf(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("driver");
+        assertThat(roster.snapshot())
+                .isEqualTo(
+                        aRoster().withDriverDriving(DANA, V1).withDriver(OMER).snapshot());
+    }
+
     // --- the lifecycle of one driver's entry
 
     enum EntryState {

@@ -62,7 +62,8 @@ public final class FleetRegister extends AggregateRoot {
      * Rebuilds the register from storage, checking the invariants that hold at rest: each depot and
      * vehicle appears once, every vehicle's depots are in the register, and among active vehicles
      * there are at most {@value #MAX_ACTIVE_VEHICLES}, each name and plate is used once, and every
-     * depot they use is active. Only persistence adapters call it (DL §3.5).
+     * depot they use is active, where names are compared as BR-48 compares them. Only persistence
+     * adapters call it (DL §3.5).
      *
      * @param stored the stored state
      * @return the register at the stored version
@@ -89,7 +90,11 @@ public final class FleetRegister extends AggregateRoot {
         if (active.size() > MAX_ACTIVE_VEHICLES) {
             throw invalid("more active vehicles than the limit");
         }
-        if (active.stream().map(vehicle -> vehicle.details().name()).distinct().count() < active.size()) {
+        if (active.stream()
+                        .map(vehicle -> nameKey(vehicle.details()))
+                        .distinct()
+                        .count()
+                < active.size()) {
             throw invalid("two active vehicles share a name");
         }
         if (active.stream().map(vehicle -> vehicle.details().plate()).distinct().count() < active.size()) {
@@ -314,12 +319,17 @@ public final class FleetRegister extends AggregateRoot {
     private void checkDetails(VehicleDetails details, VehicleId self) {
         activeDepot(details.startDepot());
         activeDepot(details.endDepot());
-        activeOtherThan(self, details, VehicleDetails::name).ifPresent(other -> {
+        activeOtherThan(self, details, FleetRegister::nameKey).ifPresent(other -> {
             throw new RuleViolation(new DuplicateVehicleName(other));
         });
         activeOtherThan(self, details, VehicleDetails::plate).ifPresent(other -> {
             throw new RuleViolation(new DuplicatePlate(other));
         });
+    }
+
+    /** BR-48 compares names by their matching form, so a lookalike is the same name. */
+    private static VehicleNameKey nameKey(VehicleDetails details) {
+        return VehicleNameKey.of(details.name());
     }
 
     private Optional<VehicleId> activeOtherThan(

@@ -336,6 +336,9 @@ public final class DayRoster extends AggregateRoot {
      *     date, or {@link DriverAlreadyHasVehicle} when {@code to} drives another vehicle
      */
     public void moveVehicleWithRoute(VehicleId vehicle, AccountId from, AccountId to) {
+        Objects.requireNonNull(vehicle, "vehicle");
+        Objects.requireNonNull(from, "from");
+        Objects.requireNonNull(to, "to");
         Optional<AccountId> holder = holderOf(vehicle);
         if (holder.filter(to::equals).isPresent()) {
             return;
@@ -392,7 +395,7 @@ public final class DayRoster extends AggregateRoot {
      * @return their entry, or empty when they are not on the roster
      */
     public Optional<RosterEntry> entryOf(AccountId driver) {
-        return Optional.ofNullable(entries.get(driver));
+        return Optional.ofNullable(entries.get(Objects.requireNonNull(driver, "driver")));
     }
 
     private Optional<AccountId> holderOf(VehicleId vehicle) {

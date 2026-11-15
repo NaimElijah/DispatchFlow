@@ -213,14 +213,74 @@ class PlainTextTest {
         assertThat(PlainText.of(TextKind.ADDRESS, raw).text()).isEqualTo(raw);
     }
 
-    /** An emoji takes one presentation selector, text (VS15) or emoji (VS16), and no more. */
-    @ParameterizedTest
-    @ValueSource(ints = {0xFE0E, 0xFE0F})
-    void GivenAnEmojiWithOnePresentationSelectorInANameOrAddress_WhenBuilt_ThenItIsUnchanged(int selector) {
-        String raw = "Dana " + Character.toString(0x2764) + Character.toString(selector) + " Levi";
+    /**
+     * VS15 asks for the text presentation an emoji such as U+2764 already has by default, so it
+     * changes nothing a reader sees (BR-48, ADR-111).
+     */
+    @Test
+    void GivenAnEmojiWithTheTextPresentationSelectorInsideANameOrAddress_WhenBuilt_ThenTextHasForbiddenCharacters() {
+        String raw = "Dana " + Character.toString(0x2764) + Character.toString(0xFE0E) + " Levi";
 
-        assertThat(PlainText.of(TextKind.NAME, raw).text()).isEqualTo(raw);
-        assertThat(PlainText.of(TextKind.ADDRESS, raw).text()).isEqualTo(raw);
+        assertRefused(() -> PlainText.of(TextKind.NAME, raw), new TextHasForbiddenCharacters(TextKind.NAME));
+        assertRefused(() -> PlainText.of(TextKind.ADDRESS, raw), new TextHasForbiddenCharacters(TextKind.ADDRESS));
+    }
+
+    @Test
+    void GivenAnEmojiWithTheTextPresentationSelectorAtTheEndOfANameOrAddress_WhenBuilt_ThenTheSelectorIsTrimmed() {
+        String heart = "Dana " + Character.toString(0x2764);
+
+        assertThat(PlainText.of(TextKind.NAME, heart + Character.toString(0xFE0E)))
+                .isEqualTo(PlainText.of(TextKind.NAME, heart));
+        assertThat(PlainText.of(TextKind.ADDRESS, heart + Character.toString(0xFE0E)))
+                .isEqualTo(PlainText.of(TextKind.ADDRESS, heart));
+    }
+
+    /**
+     * A grinning face (U+1F600) and a delivery truck (U+1F69A) show as emoji without VS16, so VS16
+     * after either changes nothing and "Van" with it would be a second name (BR-48, ADR-111).
+     */
+    @ParameterizedTest
+    @ValueSource(ints = {0x1F600, 0x1F69A})
+    void GivenAnEmojiShownAsAnEmojiByDefaultWithVs16InsideANameOrAddress_WhenBuilt_ThenTextHasForbiddenCharacters(
+            int emoji) {
+        String raw = "Van " + Character.toString(emoji) + Character.toString(0xFE0F) + " 1";
+
+        assertRefused(() -> PlainText.of(TextKind.NAME, raw), new TextHasForbiddenCharacters(TextKind.NAME));
+        assertRefused(() -> PlainText.of(TextKind.ADDRESS, raw), new TextHasForbiddenCharacters(TextKind.ADDRESS));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0x1F600, 0x1F69A})
+    void GivenAnEmojiShownAsAnEmojiByDefaultWithVs16AtTheEndOfANameOrAddress_WhenBuilt_ThenTheSelectorIsTrimmed(
+            int emoji) {
+        String van = "Van " + Character.toString(emoji);
+
+        assertThat(PlainText.of(TextKind.NAME, van + Character.toString(0xFE0F)))
+                .isEqualTo(PlainText.of(TextKind.NAME, van));
+        assertThat(PlainText.of(TextKind.ADDRESS, van + Character.toString(0xFE0F)))
+                .isEqualTo(PlainText.of(TextKind.ADDRESS, van));
+    }
+
+    /** The copyright sign is text by default, so VS16 makes it an emoji, which a reader sees. */
+    @Test
+    void GivenAnEmojiShownAsTextByDefaultWithVs16InANameOrAddress_WhenBuilt_ThenItIsUnchanged() {
+        String copyright = Character.toString(0x00A9) + Character.toString(0xFE0F);
+
+        assertThat(PlainText.of(TextKind.NAME, copyright + " Levi Ltd").text()).isEqualTo(copyright + " Levi Ltd");
+        assertThat(PlainText.of(TextKind.ADDRESS, "Levi Ltd " + copyright).text())
+                .isEqualTo("Levi Ltd " + copyright);
+    }
+
+    /**
+     * A digit is an emoji base only in a keycap, and with VS16 but no keycap mark it shows as the
+     * digit, so a keycap stays refused in a name, and "Van 1" keeps no selector (ADR-111).
+     */
+    @Test
+    void GivenAKeycapEmojiInsideAName_WhenBuilt_ThenTextHasForbiddenCharacters() {
+        String keycap = "1" + Character.toString(0xFE0F) + Character.toString(0x20E3);
+
+        assertRefused(
+                () -> PlainText.of(TextKind.NAME, "Van " + keycap), new TextHasForbiddenCharacters(TextKind.NAME));
     }
 
     /** A second selector after an emoji renders as nothing, so two names would look alike (BR-48). */

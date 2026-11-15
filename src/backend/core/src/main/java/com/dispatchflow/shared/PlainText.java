@@ -15,12 +15,12 @@ import org.jspecify.annotations.Nullable;
  * zero-width space, Unicode's default-ignorable code points such as the Hangul fillers and the
  * combining grapheme joiner, and the blank Braille pattern (ADR-106, ADR-111). A variation selector
  * at the end belongs to the character before it, as an emoji's does. In a name or an address only
- * an emoji's one presentation selector stays: text (VS15) or emoji (VS16), right after a character
- * that {@link Character#isExtendedPictographic} accepts. Every other selector at the end is
- * trimmed, such as one after a letter or a digit, or a second after an emoji. In a note a selector
- * is trimmed only with an invisible character it follows. The interior is kept as entered, except that a {@link
- * TextKind#NOTE}'s carriage returns become line feeds. It holds at most its {@link TextKind}'s cap
- * in code points, and none of these:
+ * one selector stays: VS16, right after an emoji that shows as text by default, such as U+2764, so
+ * that it shows as an emoji. Every other selector at the end is trimmed: one after a letter or a
+ * digit, VS16 after an emoji that already shows as one, VS15, or a second after an emoji. In a note
+ * a selector is trimmed only with an invisible character it follows. The interior is kept as
+ * entered, except that a {@link TextKind#NOTE}'s carriage returns become line feeds. It holds at
+ * most its {@link TextKind}'s cap in code points, and none of these:
  *
  * <ul>
  *   <li>a control character, other than a line feed in a note;
@@ -30,8 +30,8 @@ import org.jspecify.annotations.Nullable;
  *   <li>an interior invisible filler in a name or an address, which would make two names or
  *       addresses look alike (BR-48, ADR-111): a default-ignorable code point that is not a
  *       format character, such as a Hangul filler, the combining grapheme joiner or a Khmer
- *       inherent vowel; the blank Braille pattern; or a variation selector other than an emoji's
- *       one presentation selector;
+ *       inherent vowel; the blank Braille pattern; or a variation selector other than VS16 right
+ *       after an emoji that shows as text by default;
  *   <li>a bidi embedding, override or isolate control, in any kind;
  *   <li>an unpaired surrogate, or a private-use or unassigned code point.
  * </ul>
@@ -75,9 +75,6 @@ public final class PlainText {
     private static final int[][] VARIATION_SELECTORS = {
         {0x180B, 0x180D}, {0x180F, 0x180F}, {0xFE00, 0xFE0F}, {0xE0100, 0xE01EF}
     };
-
-    /** VS15, which asks for an emoji's text presentation. */
-    private static final int TEXT_PRESENTATION_SELECTOR = 0xFE0E;
 
     /** VS16, which asks for an emoji's emoji presentation. */
     private static final int EMOJI_PRESENTATION_SELECTOR = 0xFE0F;
@@ -233,24 +230,25 @@ public final class PlainText {
     }
 
     /**
-     * A name or an address keeps a variation selector only as an emoji's one presentation selector:
-     * text (VS15) or emoji (VS16), right after it. Anywhere else, a selector renders as nothing, so
-     * "Van 1" with one, or an emoji with a second, would look like the text without it (BR-48).
+     * A name or an address keeps a variation selector only as VS16 right after an emoji that shows
+     * as text by default. Anywhere else a selector changes nothing a reader sees, so "Van 1" with
+     * one, an emoji with a second, or the truck emoji U+1F69A with VS16 would look like the text
+     * without it (BR-48).
      */
     private static boolean holdsForbidden(String text, TextKind kind) {
-        boolean afterEmoji = false;
+        boolean afterTextEmoji = false;
         int index = 0;
         while (index < text.length()) {
             int codePoint = text.codePointAt(index);
             if (isVariationSelector(codePoint)) {
-                if (!(kind.allowsInvisibleFillers() || (afterEmoji && isPresentationSelector(codePoint)))) {
+                if (!(kind.allowsInvisibleFillers() || (afterTextEmoji && codePoint == EMOJI_PRESENTATION_SELECTOR))) {
                     return true;
                 }
-                afterEmoji = false;
+                afterTextEmoji = false;
             } else if (isForbidden(codePoint, kind)) {
                 return true;
             } else {
-                afterEmoji = Character.isExtendedPictographic(codePoint);
+                afterTextEmoji = showsAsTextByDefault(codePoint);
             }
             index += Character.charCount(codePoint);
         }
@@ -260,8 +258,8 @@ public final class PlainText {
     /**
      * Where a run of variation selectors at the end of the text should end, keeping what the
      * character before it carries. A note keeps the whole run after any visible character, as it
-     * keeps every selector inside it. A name or an address keeps only an emoji's one presentation
-     * selector, and trims the rest.
+     * keeps every selector inside it. A name or an address keeps only VS16 after an emoji that
+     * shows as text by default, and trims the rest.
      */
     private static int endOfCarriedSelectors(String text, int runStart, int end, TextKind kind) {
         int base = text.codePointBefore(runStart);
@@ -269,13 +267,21 @@ public final class PlainText {
             return isInvisible(base) ? runStart : end;
         }
         int first = text.codePointAt(runStart);
-        return Character.isExtendedPictographic(base) && isPresentationSelector(first)
+        return showsAsTextByDefault(base) && first == EMOJI_PRESENTATION_SELECTOR
                 ? runStart + Character.charCount(first)
                 : runStart;
     }
 
-    private static boolean isPresentationSelector(int codePoint) {
-        return codePoint == TEXT_PRESENTATION_SELECTOR || codePoint == EMOJI_PRESENTATION_SELECTOR;
+    /**
+     * An emoji that shows as text unless VS16 follows it, such as U+2764 or U+00A9, so VS16 changes
+     * what a reader sees. One that already shows as an emoji, such as U+1F600, is left out. So are
+     * the keycap bases, the digits, {@code #} and {@code *}, which Unicode counts as emoji though
+     * they are not pictographs: with VS16 but no keycap mark, U+20E3, they show as themselves.
+     */
+    private static boolean showsAsTextByDefault(int codePoint) {
+        return Character.isEmoji(codePoint)
+                && !Character.isEmojiPresentation(codePoint)
+                && Character.isExtendedPictographic(codePoint);
     }
 
     /**

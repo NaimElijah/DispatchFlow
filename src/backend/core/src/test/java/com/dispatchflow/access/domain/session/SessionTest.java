@@ -106,6 +106,13 @@ class SessionTest {
     }
 
     @Test
+    void GivenASessionWithAChainOfTokens_WhenItsSnapshotIsPrinted_ThenItNamesHowManyAndNoTokenTime() {
+        SessionSnapshot snapshot = exchangedOnce().build().snapshot();
+
+        assertThat(snapshot.toString()).contains("tokens=2 redacted").doesNotContain(EXCHANGED.toString());
+    }
+
+    @Test
     void GivenATokenIdTheChainHolds_WhenAnExchangeIssuesItAgain_ThenTheBugIsReported() {
         Session session = aSession().build();
 
@@ -680,6 +687,27 @@ class SessionTest {
         session.revokeWithAccount(ACCOUNT_GENERATION, NOW);
 
         assertThat(session.snapshot()).isEqualTo(aSession().snapshot());
+    }
+
+    /** Signed out after its account's revocation, before the listener ran: the revocation came first. */
+    @Test
+    void GivenASessionSignedOutAfterItsAccountsRevocation_WhenTheRevocationIsHeard_ThenItIsDatedByTheRevocation() {
+        Instant accountRevokedAt = NOW.minus(Duration.ofMinutes(5));
+        Session session = aSession().withState(new SessionState.Revoked(NOW)).build();
+
+        session.revokeWithAccount(ACCOUNT_GENERATION.next(), accountRevokedAt);
+
+        assertThat(session.state()).isEqualTo(new SessionState.Revoked(accountRevokedAt));
+        assertThat(session.endedAt()).isEqualTo(accountRevokedAt);
+    }
+
+    @Test
+    void GivenASessionBegunUnderTheGenerationARevocationLeft_WhenThatEarlierRevocationIsHeard_ThenItKeepsItsSignOut() {
+        Session session = aSession().withState(new SessionState.Revoked(NOW)).build();
+
+        session.revokeWithAccount(ACCOUNT_GENERATION, NOW.minus(Duration.ofMinutes(5)));
+
+        assertThat(session.state()).isEqualTo(new SessionState.Revoked(NOW));
     }
 
     @Test
