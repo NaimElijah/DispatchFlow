@@ -5,7 +5,6 @@ import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.VehicleId;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
@@ -24,9 +23,6 @@ import java.util.Optional;
  *   <li>its alerts' plan, and each driver's routes on a date (FR-27).
  * </ul>
  *
- * <p>Reporting reads the planned travel for the daily summary's per-route distance and driving
- * time (FR-38, FR-106).
- *
  * <p>Built in M5.
  *
  * @param plan the plan
@@ -40,8 +36,6 @@ import java.util.Optional;
  * @param plannedDeparture when the route is planned to leave its start, or empty when the
  *     validator couldn't time it (ADR-112)
  * @param confirmedReturn the return time a confirmed hand-over set, if one did (FR-394)
- * @param plannedTravel the route's planned distance and driving time, or empty when the
- *     validator couldn't time it (ADR-112)
  * @param stops its stops, in planned order
  */
 public record PublishedRouteFact(
@@ -55,7 +49,6 @@ public record PublishedRouteFact(
         Instant changedAt,
         Optional<Instant> plannedDeparture,
         Optional<Instant> confirmedReturn,
-        Optional<PlannedTravel> plannedTravel,
         List<PublishedStopFact> stops) {
 
     /** Checks every part is present, possibly empty, and copies the stops. */
@@ -68,21 +61,6 @@ public record PublishedRouteFact(
         Objects.requireNonNull(changedAt, "changedAt");
         Objects.requireNonNull(plannedDeparture, "plannedDeparture");
         Objects.requireNonNull(confirmedReturn, "confirmedReturn");
-        Objects.requireNonNull(plannedTravel, "plannedTravel");
         stops = List.copyOf(stops);
-    }
-
-    /**
-     * A route's planned travel, summed over its legs, the leg back to its end included.
-     *
-     * @param metres the planned distance, 0 or more
-     * @param driving the planned driving time, without service or waiting
-     */
-    public record PlannedTravel(long metres, Duration driving) {
-
-        /** Checks the driving time is present. */
-        public PlannedTravel {
-            Objects.requireNonNull(driving, "driving");
-        }
     }
 }

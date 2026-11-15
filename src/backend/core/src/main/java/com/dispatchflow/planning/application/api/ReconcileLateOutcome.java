@@ -25,6 +25,9 @@ public interface ReconcileLateOutcome {
      * @throws NotFound when no plan holds the stop
      * @throws com.dispatchflow.shared.RuleViolation with Planning's {@code PlanNotPublished} for a
      *     plan never published, or {@code RouteNotInPlan} for an unknown serving route
+     * @throws com.dispatchflow.shared.application.StaleVersion when the plan changed between its read
+     *     and its save (BR-76); the caller's listener or job adapter retries at once, up to three
+     *     times (DL §11)
      */
     ReconciliationFact reconcile(LateOutcomeFact fact, CallContext call);
 }

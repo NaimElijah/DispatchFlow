@@ -1,7 +1,7 @@
 /**
  * Customers &amp; Orders' published API (DL §2.2, §2.3 rule 4): {@link
  * com.dispatchflow.orders.application.api.OrdersForDate}, a date's orders as Planning, Live
- * Operations and Reporting read them; {@link com.dispatchflow.orders.application.api.StopOrders},
+ * Operations read them; {@link com.dispatchflow.orders.application.api.StopOrders},
  * what a driver sees and is judged by at a stop; and {@link
  * com.dispatchflow.orders.application.api.RecipientContacts}, the phones Messaging chooses from.
  *

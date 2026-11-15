@@ -15,8 +15,9 @@ import java.util.Optional;
 
 /**
  * One uncancelled order of a date, as Customers &amp; Orders answers (DL §2.2, BR-22). Planning
- * builds its {@code PublishingChecks.DateOrder} from it and the optimizer's order inputs; Reporting
- * takes each {@code StopResult}'s window and door flag from it (ADR-109). Its location is a kernel
+ * builds its {@code PublishingChecks.DateOrder} from it and the optimizer's order inputs; Live
+ * Operations takes each stop's window and door flag from it for its projections (ADR-067). Its
+ * location is a kernel
  * {@link GeoPoint}, so it prints redacted.
  *
  * <p>Built in M2.

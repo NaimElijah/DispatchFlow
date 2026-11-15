@@ -1,5 +1,6 @@
 package com.dispatchflow.access.application.service.session;
 
+import com.dispatchflow.access.application.port.out.PushTokens;
 import com.dispatchflow.access.application.port.out.RevocationCache;
 import com.dispatchflow.access.application.port.out.SessionRepository;
 import com.dispatchflow.access.application.port.out.TokenSigner;
@@ -31,6 +32,7 @@ public final class SecureAfterRestore {
     private final UserAccountRepository accounts;
     private final TokenSigner tokenSigner;
     private final RevocationCache revocationCache;
+    private final PushTokens pushTokens;
     private final Clock clock;
     private final AuditLog auditLog;
 
@@ -41,6 +43,7 @@ public final class SecureAfterRestore {
      * @param accounts where accounts are kept, with their credential links
      * @param tokenSigner signs access tokens
      * @param revocationCache the token check's cache, evicted after a change
+     * @param pushTokens the phones' push addresses, each revoked session's removed (NFR-263)
      * @param clock the time
      * @param auditLog where the audit record is written
      */
@@ -49,12 +52,14 @@ public final class SecureAfterRestore {
             UserAccountRepository accounts,
             TokenSigner tokenSigner,
             RevocationCache revocationCache,
+            PushTokens pushTokens,
             Clock clock,
             AuditLog auditLog) {
         this.sessions = sessions;
         this.accounts = accounts;
         this.tokenSigner = tokenSigner;
         this.revocationCache = revocationCache;
+        this.pushTokens = pushTokens;
         this.clock = clock;
         this.auditLog = auditLog;
     }

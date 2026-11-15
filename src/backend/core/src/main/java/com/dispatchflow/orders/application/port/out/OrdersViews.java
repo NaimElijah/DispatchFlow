@@ -35,16 +35,6 @@ public interface OrdersViews {
     List<OrderFact> uncancelledOn(DeliveryDate date);
 
     /**
-     * The orders of a date that are cancelled now (BR-30, ADR-109).
-     *
-     * <p>Built in M5.
-     *
-     * @param date the date
-     * @return the cancelled orders, each once
-     */
-    List<OrderId> cancelledOn(DeliveryDate date);
-
-    /**
      * What changed among a date's orders since an instant, from each order's last change time
      * (BR-25, BR-82, ADR-056).
      *

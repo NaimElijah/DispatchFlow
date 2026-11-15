@@ -25,6 +25,9 @@ public interface RemoveSupersededPutBack {
      * @param laterAttempt the put-back's attempt, whose stop leaves
      * @param date the delivery date the put-back's stop is on
      * @param call the listener's server step
+     * @throws com.dispatchflow.shared.application.StaleVersion when the plan changed between its read
+     *     and its save (BR-76); the caller's listener or job adapter retries at once, up to three
+     *     times (DL §11)
      */
     void remove(OrderId order, Attempt laterAttempt, DeliveryDate date, CallContext call);
 }

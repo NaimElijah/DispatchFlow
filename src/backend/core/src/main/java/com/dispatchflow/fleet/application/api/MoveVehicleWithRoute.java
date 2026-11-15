@@ -27,6 +27,9 @@ public interface MoveVehicleWithRoute {
      * @param call the listener's server step
      * @throws com.dispatchflow.shared.RuleViolation with Fleet's errors from {@code
      *     DayRoster.moveVehicleWithRoute} when the roster refuses the move
+     * @throws com.dispatchflow.shared.application.StaleVersion when the date's roster changed between its read
+     *     and its save (BR-76); the caller's listener or job adapter retries at once, up to three
+     *     times (DL §11)
      */
     void move(DeliveryDate date, VehicleId vehicle, AccountId from, AccountId to, CallContext call);
 }

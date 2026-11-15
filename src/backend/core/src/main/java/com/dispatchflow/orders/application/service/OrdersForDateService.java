@@ -5,13 +5,12 @@ import com.dispatchflow.orders.application.api.OrderFact;
 import com.dispatchflow.orders.application.api.OrdersForDate;
 import com.dispatchflow.orders.application.port.out.OrdersViews;
 import com.dispatchflow.shared.DeliveryDate;
-import com.dispatchflow.shared.OrderId;
 import java.time.Instant;
 import java.util.List;
 
 /**
  * Customers &amp; Orders' implementation of {@link OrdersForDate}: it reads a date's orders from
- * its own read port, so Planning, Live Operations and Reporting never read its schema (DL §2.3
+ * its own read port, so Planning and Live Operations never read its schema (DL §2.3
  * rules 1 and 3, BR-22, ADR-109).
  *
  * <p>Built in M2, M5 and M9, method by method.
@@ -37,16 +36,6 @@ public final class OrdersForDateService implements OrdersForDate {
     @Override
     public List<OrderFact> uncancelledOn(DeliveryDate date) {
         throw new UnsupportedOperationException("Built in M2");
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * <p>Built in M5.
-     */
-    @Override
-    public List<OrderId> cancelledOn(DeliveryDate date) {
-        throw new UnsupportedOperationException("Built in M5");
     }
 
     /**
