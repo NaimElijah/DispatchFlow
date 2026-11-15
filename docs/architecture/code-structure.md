@@ -96,16 +96,18 @@ src/backend/core/
     DispatchFlowApplication.java   the Spring Boot entry point
     shared/                        the shared kernel: the typed IDs, the shared values, their
                                    errors, and the building blocks every module's domain uses
+      application/                 the ports every module uses: Clock, IdGenerator,
+                                   ProcessedEvents, NotFound, StaleVersion (declared)
     access/                        a bounded context's module: domain/ (account, session,
-                                   companyprofile) and events/ so far
-    fleet/                         domain/ (register, roster, driver) and events/ so far
-    orders/                        domain/ (flat) and events/ so far
-    planning/                      domain/ (plan, solution, basis, revision, reconciliation, settings)
-                                   and events/ so far
-    audit/                         domain/ (flat) so far; it raises no event
-    reporting/                     domain/ (flat) so far; it raises no event
-    messaging/                     domain/ (message, rating, settings) and events/ so far
-    liveops/                       domain/ (delivery, alert, routerun) and events/ so far
+                                   companyprofile), events/ and application/ (declared) so far
+    fleet/                         domain/ (register, roster, driver), events/ and application/
+    orders/                        domain/ (flat), events/ and application/
+    planning/                      domain/ (plan, solution, basis, revision, reconciliation,
+                                   settings), events/ and application/
+    audit/                         domain/ (flat) and application/; it raises no event
+    reporting/                     domain/ (flat) and application/; it raises no event
+    messaging/                     domain/ (message, rating, settings), events/ and application/
+    liveops/                       domain/ (delivery, alert, routerun), events/ and application/
     web/                           application-wide web concerns: the fallback for unexpected errors
       UnexpectedErrorHandler.java  answers an unhandled exception with a 500 problem body
       package-info.java
@@ -115,11 +117,12 @@ src/backend/core/
   src/test/java/com/dispatchflow/
     shared/                        the kernel's tests, and DomainAssertions, the refusal helper
                                    every module's domain tests use
-    architecture/                  the domain purity, shape and package rules (ArchUnit) and the
-                                   error-code, event-name and refusal-test checks
+    architecture/                  the domain purity, shape and package rules and the application
+                                   rules (ArchUnit), and the error-code, event-name and
+                                   refusal-test checks
     archfixture/                   deliberately wrong classes that each rule must flag, one
-                                   subpackage per rule under alpha/domain/, and epsilon/ for the
-                                   package rules
+                                   subpackage per rule under alpha/domain/, epsilon/ for the
+                                   package rules, and zeta/ for the application rules
     access/                        that module's domain tests, in the package of the type each tests
     fleet/                         that module's domain tests
     orders/                        that module's domain tests
@@ -143,7 +146,18 @@ files splits into one package per aggregate, over a root that holds the module's
 ([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)): `access`,
 `fleet`, `liveops`, `messaging` and `planning` are split, `orders`, `audit` and `reporting` are flat,
 and so are the kernel and every `events` package. A test sits in the package of the type it tests,
-and a refusal test may sit anywhere under its error's package. The decided design is the domain document, the tech stack and the ADRs:
+and a refusal test may sit anywhere under its error's package.
+
+Each module also has an `application` package, declared ahead of its milestone and not built
+([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)).
+It holds whichever of `api`, `spi`, `port/out` and `service` the module has something for: `messaging`
+and `reporting` have no `api` or `spi`, and `audit` has no `spi`. Every body that would do work throws
+`UnsupportedOperationException("Built in M<n>")`. Nothing is wired: no Spring annotation, no bean and
+no adapter, so no `adapter/` package exists yet. The ports every module uses sit in
+`shared/application`, and the caller is an `Actor` and a `CallContext`
+([ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
+
+The decided design is the domain document, the tech stack and the ADRs:
 see the [domain layer
 design](domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts). How a context is
 laid out inside is in [tech stack §4](tech_stack.md#4-repository-layout) and [domain layer design
@@ -170,8 +184,8 @@ src/backend/solver/
                                    TravelTimeModel, PenaltyScale, RuleId; problem_parts (the parts a
                                    problem holds) and problem_view (the protocol the validator, the
                                    objective and the drop reasons read a problem through)
-    application/                   use cases, the Solver port, the registry (placeholder: only an
-                                   empty __init__.py)
+    application/                   declared, bodies not built (ADR-119): the Solver port, the
+                                   registry, the requests and outcomes, and five use cases
     solvers/
       ortools/                     the OR-Tools adapter (placeholder)
       alns/                        the DispatchFlow solver (placeholder)
@@ -285,11 +299,12 @@ These follow from
 
 Three sets of rules are checked automatically today:
 - the PyVRP rule;
-- in `core`, the domain's purity rules, the shape rules and the package rules;
+- in `core`, the domain's purity rules, the shape rules, the package rules and the application
+  rules;
 - in `solver`, the import-linter contracts in `pyproject.toml`: the domain imports no framework,
   solver or standard-library module that reads a clock, draws randomness or does I/O; the validator,
   the objective and the drop reasons never import `problem`; `application` imports no FastAPI,
-  Pydantic or OR-Tools; the layers point one way; and the product never imports PyVRP. In the
+  Pydantic, OR-Tools, Numba, `alns` or `multiprocessing`; the layers point one way; and the product never imports PyVRP. In the
   domain, ruff's `TID251` also bans `numpy.random`, `datetime64`, `timedelta64`, `numpy.load`,
   `fromfile`, `loadtxt` and `importlib.import_module`, and `PTH123`, `T20`, `S102` and `S307` ban
   `open()`, `print()`, `exec()` and `eval()`
@@ -303,6 +318,15 @@ three: no cycle between a module's domain packages, a domain root that imports n
 subpackages, and `@NullMarked` on the kernel and on every domain and events package
 ([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)). The rest are
 conventions that review enforces.
+
+The application rules are ArchUnit tests too, in `ApplicationRules`
+([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md),
+[ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
+They cover the application's allowed imports, the module graph of [domain layer design
+§2.1](domain_layer/domain_layer_design.md#21-module-graph), the domain types an `api` or `spi` may
+not use, one implementation per `api` and `spi`, `@NullMarked` application packages, and no domain,
+`events` or kernel-root class importing `shared.application`.
+
 [Tech stack §2.2](tech_stack.md#22-enforcement) also plans Spring Modulith's `verify()` for the
 Alpha
 ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md),

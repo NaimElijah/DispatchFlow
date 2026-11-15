@@ -47,7 +47,8 @@ Each milestone ends with something that runs, and a check that proves it. M0 to 
 M6 to M13 make the **pilot**, in Semester B.
 
 The domain layer of every context, Java and Python, is built ahead of its milestone, from November
-2026. Each milestone then builds its context's application layer and adapters on that domain.
+2026. The application layer is declared ahead too, as signatures whose bodies throw (ADR-119). Each
+milestone then fills its context's application bodies and builds its adapters on that domain.
 
 ### 2.1 Lanes
 

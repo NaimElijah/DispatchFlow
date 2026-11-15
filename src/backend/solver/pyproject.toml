@@ -199,5 +199,6 @@ forbidden_modules = ["pyvrp"]
 name = "Adapters and solvers sit on the application, which sits on the domain"
 type = "layers"
 containers = ["dispatchflow_solver"]
-# Parentheses mark a layer that may not exist yet: application and solvers are placeholders.
+# Parentheses mark a layer that may not exist yet. The application now exists, declared ahead
+# (ADR-119), and keeps its parentheses; the solvers are still placeholders.
 layers = ["adapters | (solvers)", "(application)", "domain"]
