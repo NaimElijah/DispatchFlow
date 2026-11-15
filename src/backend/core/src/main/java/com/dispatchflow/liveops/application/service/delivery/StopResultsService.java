@@ -13,8 +13,8 @@ import java.util.List;
  * delivery, a held report counting as no outcome (BR-132), and translates them into {@link
  * StopResultFact}s.
  *
- * <p>Planning's API answers a plan's routes by date, not by plan, so {@link #of(PlanId)} waits for a
- * lookup from a plan to its stops.
+ * <p>{@link #of(PlanId)} reads the plan's stops through {@code PublishedRoutes.routesOf}, which
+ * answers a completed or cancelled plan too.
  *
  * <p>Built in M5.
  */

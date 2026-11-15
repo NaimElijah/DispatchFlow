@@ -19,8 +19,7 @@ import com.dispatchflow.shared.application.NotFound;
  * settings and the stop's phone, chosen from Customers &amp; Orders' {@link RecipientContacts} as
  * {@code RecipientPhone.choose} does (FR-348).
  *
- * <p>Planning's API has no lookup from a stop to its order yet, so {@link #whyNoMessages} waits for
- * one.
+ * <p>{@link #whyNoMessages} finds the stop's order through {@code PublishedRoutes.routeOf}.
  *
  * <p>Built in M12. Rows: FR-378, FR-380.
  */

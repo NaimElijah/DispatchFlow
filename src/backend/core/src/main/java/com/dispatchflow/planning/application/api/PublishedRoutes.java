@@ -1,7 +1,10 @@
 package com.dispatchflow.planning.application.api;
 
 import com.dispatchflow.shared.DeliveryDate;
+import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.RouteId;
+import com.dispatchflow.shared.StopId;
+import com.dispatchflow.shared.application.NotFound;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,4 +38,40 @@ public interface PublishedRoutes {
      * @return the route, or empty when no plan in force holds it now
      */
     Optional<PublishedRouteFact> route(RouteId route);
+
+    /**
+     * The route of a plan in force that holds a stop now. Live Operations projects one stop's
+     * arrival, and Recipient Messaging explains why a stop gets no message (FR-378), from it.
+     *
+     * <p>Built in M8.
+     *
+     * @param stop the stop
+     * @return the route, or empty when no plan in force holds the stop now
+     */
+    Optional<PublishedRouteFact> routeOf(StopId stop);
+
+    /**
+     * Every route of one plan as its latest revision has it, whether the plan is published,
+     * completed or cancelled. Live Operations answers Reporting's stop results from it (FR-38,
+     * ADR-109).
+     *
+     * <p>Built in M5.
+     *
+     * @param plan the plan
+     * @return the routes, in the plan's order; empty for a plan never published
+     * @throws NotFound when no plan has the ID
+     */
+    List<PublishedRouteFact> routesOf(PlanId plan);
+
+    /**
+     * What one revision did to the plan's stops: which joined a route, moved, or left (ADR-059).
+     *
+     * <p>Built in M12.
+     *
+     * @param plan the plan
+     * @param revision the revision's number, 1 or more
+     * @return the revision's stop changes
+     * @throws NotFound when the plan has no such revision
+     */
+    RevisionChangesFact changesIn(PlanId plan, int revision);
 }

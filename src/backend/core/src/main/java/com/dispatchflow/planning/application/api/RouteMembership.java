@@ -1,6 +1,7 @@
 package com.dispatchflow.planning.application.api;
 
 import com.dispatchflow.shared.Attempt;
+import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
@@ -55,4 +56,18 @@ public interface RouteMembership {
      * @return the next attempt's stop, or empty when the order was not put back after it
      */
     Optional<LaterStopFact> laterStopOf(OrderId order, Attempt attempt);
+
+    /**
+     * The stop that served an order's attempt on a date, and the route that last held it, even
+     * after Planning took the stop off (ADR-059). Recipient Messaging tells a recipient their
+     * delivery changed from it (FR-354).
+     *
+     * <p>Built in M12.
+     *
+     * @param order the order
+     * @param attempt the attempt
+     * @param date the date whose plan held it
+     * @return the stop and its route, or empty when no revision of that date's plan held the attempt
+     */
+    Optional<OrderStopFact> stopOf(OrderId order, Attempt attempt, DeliveryDate date);
 }

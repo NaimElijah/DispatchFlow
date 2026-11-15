@@ -6,9 +6,11 @@ import com.dispatchflow.orders.application.spi.PlacementFact;
 import com.dispatchflow.planning.application.api.BaselineInputsFact;
 import com.dispatchflow.planning.application.api.LaterStopFact;
 import com.dispatchflow.planning.application.api.MembershipFact;
+import com.dispatchflow.planning.application.api.OrderStopFact;
 import com.dispatchflow.planning.application.api.PlanStandingFact;
 import com.dispatchflow.planning.application.api.PlannedFiguresFact;
 import com.dispatchflow.planning.application.api.PublishedRouteFact;
+import com.dispatchflow.planning.application.api.RevisionChangesFact;
 import com.dispatchflow.planning.application.api.RouteDriversFact;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.Attempt;
@@ -290,4 +292,48 @@ public interface PlanningViews {
      * @return the plans, cancelled ones included
      */
     List<PlanUseFact> plansUsingDriver(AccountId driver, LocalDate from);
+
+    /**
+     * The route of a plan in force that holds a stop now, for {@code PublishedRoutes.routeOf}.
+     *
+     * <p>Built in M8.
+     *
+     * @param stop the stop
+     * @return the route, or empty
+     */
+    Optional<PublishedRouteFact> routeInForceHolding(StopId stop);
+
+    /**
+     * Every route of one plan as its latest revision has it, for {@code PublishedRoutes.routesOf}.
+     *
+     * <p>Built in M5.
+     *
+     * @param plan the plan
+     * @return the routes; empty for a plan never published
+     */
+    List<PublishedRouteFact> latestRoutesOf(PlanId plan);
+
+    /**
+     * One revision's stop changes, for {@code PublishedRoutes.changesIn}.
+     *
+     * <p>Built in M12.
+     *
+     * @param plan the plan
+     * @param revision the revision's number
+     * @return the changes, or empty when the plan has no such revision
+     */
+    Optional<RevisionChangesFact> changesIn(PlanId plan, int revision);
+
+    /**
+     * The stop that served an order's attempt on a date, and its last route, for {@code
+     * RouteMembership.stopOf}.
+     *
+     * <p>Built in M12.
+     *
+     * @param order the order
+     * @param attempt the attempt
+     * @param date the date
+     * @return the stop and its route, or empty
+     */
+    Optional<OrderStopFact> stopOf(OrderId order, Attempt attempt, DeliveryDate date);
 }

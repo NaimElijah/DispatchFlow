@@ -11,7 +11,7 @@ import com.dispatchflow.messaging.application.port.out.StopMessagesRepository;
 import com.dispatchflow.orders.application.api.RecipientContacts;
 import com.dispatchflow.orders.events.OrderCancelled;
 import com.dispatchflow.orders.events.OrderRescheduled;
-import com.dispatchflow.planning.application.api.PublishedRoutes;
+import com.dispatchflow.planning.application.api.RouteMembership;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.IdGenerator;
 import com.dispatchflow.shared.application.NotFound;
@@ -25,8 +25,8 @@ import com.dispatchflow.shared.application.NotFound;
  * ArrivalProjections}, and the audit record.
  *
  * <p>Planning's own listener takes the stop off the plan on the same event, so the stop may already
- * be gone from {@link PublishedRoutes} when this runs; it waits for a Planning lookup of an order's
- * stop on a date that still answers after the stop left, with the route that held it.
+ * be gone from the plan when this runs; {@code RouteMembership.stopOf} finds it, and the route that
+ * held it, in the stored revisions.
  *
  * <p>Delivery is at least once (ADR-064); the message goes at most once per stop (NFR-191), so it
  * records no {@code ProcessedEvents} pair.
@@ -41,7 +41,7 @@ public final class MessageDeliveryChanged {
     private final PhoneHasher phoneHasher;
     private final Company company;
     private final RecipientContacts recipientContacts;
-    private final PublishedRoutes publishedRoutes;
+    private final RouteMembership routeMembership;
     private final ArrivalProjections arrivalProjections;
     private final Clock clock;
     private final IdGenerator ids;
@@ -56,7 +56,7 @@ public final class MessageDeliveryChanged {
      * @param phoneHasher the keyed phone hash
      * @param company Access's company profile, for the name and language
      * @param recipientContacts Customers &amp; Orders' recipient phones
-     * @param publishedRoutes Planning's routes, for the order's stop on the date
+     * @param routeMembership Planning's stored revisions, for the order's stop on the date and its route
      * @param arrivalProjections Live Operations' route and stop progress
      * @param clock the server's time
      * @param ids new IDs, for the message
@@ -69,7 +69,7 @@ public final class MessageDeliveryChanged {
             PhoneHasher phoneHasher,
             Company company,
             RecipientContacts recipientContacts,
-            PublishedRoutes publishedRoutes,
+            RouteMembership routeMembership,
             ArrivalProjections arrivalProjections,
             Clock clock,
             IdGenerator ids,
@@ -80,7 +80,7 @@ public final class MessageDeliveryChanged {
         this.phoneHasher = phoneHasher;
         this.company = company;
         this.recipientContacts = recipientContacts;
-        this.publishedRoutes = publishedRoutes;
+        this.routeMembership = routeMembership;
         this.arrivalProjections = arrivalProjections;
         this.clock = clock;
         this.ids = ids;

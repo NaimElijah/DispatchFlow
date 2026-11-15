@@ -18,8 +18,7 @@ import java.util.List;
  * StopFact} from its delivery and the run's start, and asks the domain's {@code ArrivalProjection},
  * then translates its answer into {@link StopArrivalFact}s (DL §2.3 rule 1).
  *
- * <p>Planning's API has no lookup from a stop to its route yet, so {@link #of(StopId, Instant)}
- * waits for one.
+ * <p>{@link #of(StopId, Instant)} finds the stop's route through {@code PublishedRoutes.routeOf}.
  *
  * <p>Built in M8.
  */

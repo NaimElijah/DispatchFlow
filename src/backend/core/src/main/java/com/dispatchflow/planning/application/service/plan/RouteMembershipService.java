@@ -2,10 +2,12 @@ package com.dispatchflow.planning.application.service.plan;
 
 import com.dispatchflow.planning.application.api.LaterStopFact;
 import com.dispatchflow.planning.application.api.MembershipFact;
+import com.dispatchflow.planning.application.api.OrderStopFact;
 import com.dispatchflow.planning.application.api.RouteDriversFact;
 import com.dispatchflow.planning.application.api.RouteMembership;
 import com.dispatchflow.planning.application.port.out.PlanningViews;
 import com.dispatchflow.shared.Attempt;
+import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
@@ -60,5 +62,15 @@ public final class RouteMembershipService implements RouteMembership {
     @Override
     public Optional<LaterStopFact> laterStopOf(OrderId order, Attempt attempt) {
         throw new UnsupportedOperationException("Built in M8");
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Built in M12.
+     */
+    @Override
+    public Optional<OrderStopFact> stopOf(OrderId order, Attempt attempt, DeliveryDate date) {
+        throw new UnsupportedOperationException("Built in M12");
     }
 }

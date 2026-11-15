@@ -2,9 +2,12 @@ package com.dispatchflow.planning.application.service.plan;
 
 import com.dispatchflow.planning.application.api.PublishedRouteFact;
 import com.dispatchflow.planning.application.api.PublishedRoutes;
+import com.dispatchflow.planning.application.api.RevisionChangesFact;
 import com.dispatchflow.planning.application.port.out.PlanningViews;
 import com.dispatchflow.shared.DeliveryDate;
+import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.RouteId;
+import com.dispatchflow.shared.StopId;
 import java.util.List;
 import java.util.Optional;
 
@@ -45,5 +48,35 @@ public final class PublishedRoutesService implements PublishedRoutes {
     @Override
     public Optional<PublishedRouteFact> route(RouteId route) {
         throw new UnsupportedOperationException("Built in M5");
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Built in M8.
+     */
+    @Override
+    public Optional<PublishedRouteFact> routeOf(StopId stop) {
+        throw new UnsupportedOperationException("Built in M8");
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Built in M5.
+     */
+    @Override
+    public List<PublishedRouteFact> routesOf(PlanId plan) {
+        throw new UnsupportedOperationException("Built in M5");
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Built in M12.
+     */
+    @Override
+    public RevisionChangesFact changesIn(PlanId plan, int revision) {
+        throw new UnsupportedOperationException("Built in M12");
     }
 }

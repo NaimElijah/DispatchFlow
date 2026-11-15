@@ -23,8 +23,7 @@ import com.dispatchflow.shared.application.NotFound;
  * come from Planning's {@link PublishedRoutes}, and the arrivals and progress from Live Operations'
  * {@link ArrivalProjections}; each stop changes in a transaction of its own, with the audit record.
  *
- * <p>Planning's API answers the current routes only, so the stops a revision took off a route wait
- * for a Planning lookup that names them.
+ * <p>The stops the revision added, moved or took off come from {@code PublishedRoutes.changesIn}.
  *
  * <p>Delivery is at least once (ADR-064); each message goes at most once per stop (NFR-191), so a
  * repeat adds nothing and it records no {@code ProcessedEvents} pair.
