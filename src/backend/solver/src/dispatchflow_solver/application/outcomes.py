@@ -123,8 +123,9 @@ class EvaluationOutcome:
     drop_reasons: Mapping[int, DropReason]
 
 
-type BaselineOutcome = Solved | Rejected
-"""The baseline's answer: it passes the validator like every other solution (FR-342, BR-15)."""
+type BaselineOutcome = Solved | Rejected | Failed
+"""The baseline's answer: it passes the validator like every other solution (FR-342, BR-15),
+and a failure of its solver is loud like any other (ADR-004)."""
 
 
 @dataclass(frozen=True, slots=True)

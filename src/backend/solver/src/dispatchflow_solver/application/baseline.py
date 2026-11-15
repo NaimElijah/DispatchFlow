@@ -43,12 +43,13 @@ class Baseline:
             request: The plan's inputs, and the budget and seed.
 
         Returns:
-            The validated, scored baseline with its drop reasons, or the validator's refusal.
+            The validated, scored baseline with its drop reasons, the validator's refusal, or the
+            failure of the baseline solver, which the use case catches as `Failed` (ADR-004).
 
         Raises:
             InvalidProblemError: If an input is malformed or contradicts another.
             InvalidSolutionError: If the baseline solver returns a solution of the wrong shape.
-            SolverError: If the registry holds no baseline solver, or it fails.
+            SolverError: If the registry holds no baseline solver.
             NotImplementedError: Until M1 builds it.
         """
         raise NotImplementedError("Built in M1")
