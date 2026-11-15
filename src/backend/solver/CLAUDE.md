@@ -8,7 +8,7 @@ and it hosts every solver behind one port ([ADR-004]). Python 3.14, FastAPI, Uvi
 | Package under `src/dispatchflow_solver/` | Holds |
 |---|---|
 | `domain/` | `Problem` (`validate`, `cost`, `explain_drop`), `ProblemFactory` (`daily`, `reoptimization`), `Solution`, `TravelTimeModel`, `PenaltyScale` and `RuleId`: the problem, the solution, the shared objective, the feasibility validator and the drop reasons, for daily solves and re-optimizations. `problem_parts` holds the parts a problem is made of, and `problem_view` the `ProblemView` protocol that the validator, the objective and the drop reasons read it through ([ADR-113]) |
-| `application/` | Declared ahead, bodies not built ([ADR-119]): the `Solver` protocol, `SolverRegistry`, `Budget` (the alias over `TimeLimit | IterationLimit | SolutionLimit`) and the `Stopwatch` protocol (`ports.py`), the requests and outcomes (`requests.py`, `outcomes.py`) and five use cases, `Solve`, `Reoptimize`, `Evaluate`, `Baseline` and `ListSolvers` |
+| `application/` | Declared ahead, bodies not built ([ADR-119]): the `Solver` protocol, `SolverRegistry`, `Budget` (the alias over a `TimeLimit`, `IterationLimit` or `SolutionLimit`) and the `Stopwatch` protocol (`ports.py`), the requests and outcomes (`requests.py`, `outcomes.py`) and five use cases, `Solve`, `Reoptimize`, `Evaluate`, `Baseline` and `ListSolvers` |
 | `solvers/ortools/`, `solvers/alns/` | One adapter per solver: OR-Tools, and ours. Ours runs the `alns` package (MIT) as its outer loop, and the Clarke-Wright construction, the operators, the route state and the Numba kernels are ours ([ADR-092]) |
 | `adapters/inbound/http/` | `create_app()`: the FastAPI app and its request and response models |
 
@@ -74,8 +74,9 @@ draws it, where `nearest_neighbour` joins them. Neither is in the tree yet.
 - Every solver implements the one `Solver` port, `solve(problem, start, budget, seed)`: `start` is
   an optional warm start, and `budget` is a time limit, an iteration budget or a solution limit
   ([ADR-044], Accepted). It returns a `SearchResult(solution, reached)`, where `reached` is the
-  iterations or solutions the search reached ([ADR-120] amends ADR-044). A solver is chosen by name for each solve. The registry has no default,
-  and a name it does not hold is rejected ([ADR-004]).
+  replay budget, an `IterationLimit` or a `SolutionLimit` ([ADR-120] amends ADR-044). A solver is
+  chosen by name for each solve. The registry has no default, and a name it does not hold is
+  rejected ([ADR-004]).
 - Every solution passes `Problem.validate` and is scored by `Problem.cost` before it leaves the
   service, whichever solver produced it. A solver's own objective value is never reported.
 - A solve takes a seed, and nothing draws unseeded randomness, so a run can be replayed

@@ -117,10 +117,12 @@ have a `Dockerfile`, and neither runs as root
   and the package rules: no cycle between a module's domain packages, a domain root that imports
   none of its own subpackages, and `@NullMarked` on the kernel and on every domain and events package
   (`src/test/java/com/dispatchflow/architecture/`, [ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)).
-  The application rules there check the application layer's imports, the module graph, the domain
-  types an `api` or `spi` may not use, one implementation per `api` and `spi`, `@NullMarked`
-  application packages, and that no domain, `events` or kernel-root class imports
-  `shared.application` ([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md), [ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
+  The application rules there check the application layer's imports (another module's `spi` only
+  for its owner and the implementer its dashed arrow names), the module graph, the domain types an
+  `api` or `spi` may not use, one implementation per `api` and, in the module its dashed arrow
+  names, per `spi`, `@NullMarked` application packages, that no domain, `events` or kernel-root
+  class imports `shared.application`, and that no application packages form a cycle and no `service`
+  or `port.out` root imports its own subpackages ([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md), [ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
   The other dependency rules are enforced by review.
 - **Every solver sits behind one `Solver` port** and is chosen by name
   ([ADR-004](../ADRs/ADR-004-pluggable-solver-port.md), amended by

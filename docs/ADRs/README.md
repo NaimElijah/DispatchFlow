@@ -121,7 +121,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-078](ADR-078-hosting-on-one-aws-vm-in-tel-aviv-built-with-terraform.md) | DispatchFlow runs on one AWS VM in Tel Aviv, built with Terraform and capped at ₪550 a month | Accepted |
 | [ADR-079](ADR-079-client-errors-and-crashes-go-to-self-hosted-glitchtip.md) | Client errors and crashes go to GlitchTip on the VM, through the Sentry SDKs | Accepted |
 | **Security and personal data** | | |
-| [ADR-068](ADR-068-every-web-handler-is-authorized-by-role-from-the-contract.md) | Every web handler is authorized by role, from the `x-capability` of its contract operation | Accepted; amended by ADR-104 |
+| [ADR-068](ADR-068-every-web-handler-is-authorized-by-role-from-the-contract.md) | Every web handler is authorized by role, from the `x-capability` of its contract operation | Accepted; amended by ADR-104 and ADR-120 |
 | [ADR-104](ADR-104-the-company-profile-holds-customer-defaults-and-capabilities-follow-the-role-matrix.md) | The company profile holds a new customer's defaults, and capabilities follow the role matrix | Accepted; amended by ADR-116 |
 | [ADR-116](ADR-116-only-an-admin-changes-their-own-email.md) | Only an Admin changes their own email | Accepted |
 | [ADR-069](ADR-069-sign-in-and-transport-security.md) | Sign-in uses signed access tokens, rotating refresh tokens and Argon2id, over HTTPS through Caddy | Accepted |

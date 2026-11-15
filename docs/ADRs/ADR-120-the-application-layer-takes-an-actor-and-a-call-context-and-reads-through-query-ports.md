@@ -49,6 +49,9 @@ confirmed the shared package after being told that it amends ADR-118.
    - A refusal that happens before any use case runs is written by the interceptor or limiter that
      refuses: [ADR-068]'s role check, [ADR-071]'s limits, a 401. It writes through `AuditLog.refused`,
      in its own transaction.
+   - That record exists only for the operations [NFR-23] audits: a changing call, sign-in, refresh and
+     sign-out. A refused read leaves none. A 401's record names no user and no session, because the
+     credential is not proven.
    - `Actor` refuses a `CallContext` that names another user or no session.
    - `AuditLog` takes a `CallContext` and never an `Actor`, so Access still depends only on Audit
      ([ADR-040]).
@@ -92,25 +95,30 @@ confirmed the shared package after being told that it amends ADR-118.
      - a method answers `Optional`, or an empty list, when absence is an expected answer;
      - it throws `NotFound` when the ID should exist;
      - a caller that gets `NotFound` from another module's `api` translates it, because it isn't a 404
-       about the caller's resource.
-   - **Errors:** application errors are unchecked exceptions with a stable `code()`: `NotFound` (404),
-     `StaleVersion` (412), `CompanyNotSetUp` (409), `SignInRefused` (401), `IdempotencyKeyReused`
-     (409), `ProofIdTaken` (409), `ProofImageTooLarge` (422) and `GeocoderUnavailable`. `NotFound` and
-     `StaleVersion` carry a kind and an ID for the problem's `params`.
+       about the caller's resource, unless the missing ID is one the caller's own request named.
+   - **Errors:** application errors that reach the web adapter are unchecked exceptions with a stable
+     `code()` and a status: `NotFound` (404), `StaleVersion` (412), `CompanyNotSetUp` (409),
+     `SignInRefused` (401), `IdempotencyKeyReused` (409), `ProofIdTaken` (409), `ProofImageTooLarge`
+     (422) and `GrantLimitExceeded` (403, code `GRANT_LIMIT_EXCEEDED`, in Access's `api`).
+     `NotFound` and `StaleVersion` carry a kind and an ID for the problem's `params`.
+     `GeocoderUnavailable` is internal to the geocoding job: it has no `code()` and no status.
    - **Retries:** a version conflict in a listener or job is retried by its adapter, up to three times
-     ([DL §11][DL-11]). A use case doesn't retry; it declares `StaleVersion`.
+     ([DL §11][DL-11]), or, where DL §11 says so, left for the job's next run (the sender,
+     `ProjectArrivals`). A use case doesn't retry; it declares `StaleVersion`. The one exception is
+     `RefreshSession`, which retries once on a stale version, for [NFR-178]'s grace.
 8. **Placements where the docs leave the owner open** (for the owner's veto):
    - **P1:** Access owns push tokens. Sign-out and revocation remove them ([NFR-263]).
    - **P2:** Live Operations owns the phone's request-key record (`ReportReceipts`, [ADR-087]). The
      shared `ProcessedEvents` holds the listeners' records.
    - **P3:** with no solver named, `RequestSolve` and `RequestReoptimization` use the planning
      settings' default for their kind, as [ADR-004] decides. `PlanningSettings` gains that field at M4,
-     and `SolversView` shows both defaults.
+     and `SolversView` shows both defaults. Until M4 adds the field, a request with no solver runs
+     OR-Tools, the default that [ADR-004] and [FR-20] name.
    - **P4:** depot geocoding gets a port of Fleet's own at M7, because Fleet and Orders have no
      relationship.
    - **P5:** Reporting reads every other module only through the read-only views they publish
      ([ADR-041], [ADR-109]), through its own `ReportingViews` port. It calls no other module's Java
-     API. Planning's `PlanFigures` and Live Operations' `StopResults` were removed.
+     API.
    - **P6:** the driver's day is Live Operations' query, and the route diff is Planning's.
    - **P7:** the settings page is three use cases, one per settings aggregate.
    - **P8:** `SessionContacts` returns contact times, as [DL §3.3][DL-33] and [ADR-107] have it.
@@ -119,6 +127,10 @@ confirmed the shared package after being told that it amends ADR-118.
    - **P11:** Could-priority rows get no class until they are scheduled.
    - **P12:** admin-only changes outside Access ask Access's `StepUp` API for a recent password
      ([NFR-214], [ADR-068]). Access's own use cases call `Session.requireFreshStepUp` directly.
+     The use case makes the check, not the interceptor, because whether a step-up is needed can depend
+     on the data: `Capability.requiresStepUp(actingOnOwnAccount)`, and a limited row used beyond its
+     limit ([ADR-104]). [ADR-068]'s mapping still marks the capabilities, and a refusal answers
+     `403 STEP_UP_REQUIRED`. This amends [ADR-068] on where the check sits.
    - **P13:** [NFR-215]'s daily recovery-email cap is counted on the send path (`RecoveryEmailCap`), so
      an unknown address can't spend it. [FR-172]'s per-account limit stays the web adapter's Bucket4j
      limit ([ADR-071]).
@@ -141,7 +153,8 @@ confirmed the shared package after being told that it amends ADR-118.
    - `PushNotifier` reaches staff as well as drivers ([ADR-083]), and every alert-raising use case also
      pushes to staff (`PushNotifier.alertStaff`, [FR-405]).
    - Live Operations also hears `RouteHandedOver`, to tell the driver a route left ([FR-71]).
-   - Messaging reads Planning's `PublishedRoutes` and `RouteMembership`.
+   - Messaging reads Planning's `PublishedRoutes` and `RouteMembership`, and Access's `Company`.
+   - Planning reads Orders' `StopOrders` (the printable route and the loading list).
    - Live Operations reads Orders' `OrdersForDate` (windows and door flags for projections, [ADR-067])
      and Planning's `PlanningSettingsFacts` (the departure allowance).
    - Planning's `ExecutionFacts` is asked with the plan's own routes and stops, so Live Operations
@@ -150,6 +163,10 @@ confirmed the shared package after being told that it amends ADR-118.
      "not yet completed".
    - A re-optimization adds rows only (`TravelTimes.from`, `TravelRows`, [ADR-052]).
    - `Company.profile()` answers `Optional`, and its callers refuse with `CompanyNotSetUp`.
+   - The restore is two steps that the runbook runs one after the other: Access's `SecureAfterRestore`
+     and Messaging's `TurnMessagesOffAfterRestore`. They are separate because Access → Messaging is not
+     an arrow in DL §2.1. The runbook's other steps ([NFR-253], [NFR-274], [NFR-282]) are not declared
+     yet, for M13.
 9. **Left out until a design exists:**
    - customer import, historical manual routes, order history, and ratings in the daily summary (which
      needs a Reporting → Messaging arrow);
@@ -157,9 +174,11 @@ confirmed the shared package after being told that it amends ADR-118.
    - SMS delivery reports.
 10. **The architecture rules** (ArchUnit, each with negative fixtures):
     1. The application layer's allowed imports ([TS §2.2][TS-2-2]): the JDK, JSpecify, the kernel, its
-       own module's domain, events and application, other modules' `api`, `spi` and `events`, and from
-       Spring only `@Transactional`. It forbids the module's own `adapter`, and allows neither
-       libphonenumber nor JTS. Spring Modulith's annotations sit on a `package-info` only.
+       own module's domain, events and application, other modules' `api` and `events`, and from
+       Spring only `@Transactional`. Another module's `spi` is allowed only to the module that owns it
+       and to the implementer that `SPI_IMPLEMENTERS` names. It forbids the module's own `adapter`,
+       and allows neither libphonenumber nor JTS. Spring Modulith's annotations sit on a
+       `package-info` only.
     2. DL §2.1's module graph, and no other arrow.
     3. No domain type in an `api` or `spi`. The rule enforces only this ban; the allow-list in decision
        4 is the convention.
@@ -175,7 +194,14 @@ confirmed the shared package after being told that it amends ADR-118.
     - the optimizer's `Solver.solve` returns `SearchResult(solution, reached)`, not a bare `Solution`.
       `reached` is the iterations or solutions the search reached ([ADR-004], ADR-044's own Risk line,
       [NFR-13], [NFR-115]);
+    - `reached` is the replay budget, an `IterationLimit` or a `SolutionLimit`, and `None` in a
+      `Failed` outcome;
     - a solver failure becomes a `Failed` outcome in `Solve`, `Reoptimize` and `Baseline` ([ADR-004]).
+      The core has no reason to carry it: M0 adds a `SolveFailureReason` for it. That is a domain
+      change and an edit to [FR-65], so it is the owner's call;
+    - Reporting's `BaselinePlanner` answers a sealed `BaselineAnswer`: `Planned` with the figures, or
+      `Refused` with a reason code. On `Refused` no baseline is stored and the listener completes, so
+      the event is not resubmitted. What the summary then shows is open for M5.
 
 ## Consequences
 
@@ -193,6 +219,10 @@ confirmed the shared package after being told that it amends ADR-118.
   - A placement in decision 8 turns out wrong at its milestone. Each one is listed so the milestone
     can reopen it.
   - Spring Modulith must expose `shared.application`. M0 checks it with `verify()`.
+  - A flood of refused calls grows the audit table. [ADR-071]'s limits bound it. Whether a limiter's
+    repeated 429s for one key are coalesced is decided when the limiter is built (M6).
+  - The `web` adapter is exempt from rule 2 until the pending `web` ADR ([ADR-040]) settles it. Its
+    security filter will depend on Access's `SessionValidity`, which is an input to that ADR.
 
 ## Alternatives considered
 
@@ -203,6 +233,9 @@ confirmed the shared package after being told that it amends ADR-118.
 - **An `Actor` without the call context, and a second parameter for audit.** Rejected: every web-called
   method would take two context parameters.
 - **Domain types in module APIs.** Rejected: [DL §2.3][DL-23], rule 1.
+- **Reporting calls Planning's and Live Operations' Java APIs.** Rejected: [ADR-041] and [ADR-109] have
+  Reporting read the views the owning modules publish, so each of them would carry a second way to
+  answer the same question.
 - **Screens read jOOQ from the web adapter directly.** Rejected: an adapter reaches another only through
   a port ([TS §2.1][TS-21]), and the data-scoped checks need a use case.
 
@@ -211,6 +244,8 @@ confirmed the shared package after being told that it amends ADR-118.
 - M0 adopts Spring Modulith, and `verify()` can't expose `shared.application` as a named interface.
 - The client contract reshapes most of a milestone's view records.
 - A placement in decision 8 is reopened at its milestone.
+- The `web` ADR ([ADR-040]) is written: it settles `web`'s exemption from rule 2 and its use of
+  `SessionValidity`.
 
 [#81]: https://github.com/NaimElijah/DispatchFlow/issues/81
 [ADR-004]: ADR-004-pluggable-solver-port.md
@@ -227,6 +262,7 @@ confirmed the shared package after being told that it amends ADR-118.
 [ADR-087]: ADR-087-driver-reports-sync-through-an-idempotent-outbox.md
 [ADR-097]: ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md
 [ADR-109]: ADR-109-reporting-computes-exact-on-time-shares-from-current-facts-and-keeps-no-personal-data.md
+[ADR-104]: ADR-104-the-company-profile-holds-customer-defaults-and-capabilities-follow-the-role-matrix.md
 [ADR-107]: ADR-107-live-operations-alerts-once-per-key-corrects-a-put-back-by-event-and-treats-a-reschedule-as-a-cancellation.md
 [ADR-110]: ADR-110-audit-records-hold-only-ids-codes-enums-numbers-and-instants-record-refusals-and-are-kept-a-year.md
 [ADR-112]: ADR-112-a-re-optimization-keeps-every-order-and-route-a-solve-that-breaks-a-lock-fails-and-publishing-clears-locks.md
@@ -234,6 +270,8 @@ confirmed the shared package after being told that it amends ADR-118.
 [ADR-119]: ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md
 [BR-02]: ../requirements/requirements.md#access
 [BR-76]: ../requirements/requirements.md#plan-lifecycle-and-publishing
+[FR-20]: ../requirements/requirements.md#daily-planning
+[FR-65]: ../requirements/requirements.md#daily-planning
 [FR-71]: ../requirements/requirements.md#publishing-and-the-phone-app
 [FR-172]: ../requirements/requirements.md#company-users-and-roles
 [FR-367]: ../requirements/requirements.md#publishing-and-the-phone-app
@@ -241,14 +279,19 @@ confirmed the shared package after being told that it amends ADR-118.
 [FR-396]: ../requirements/requirements.md#customers-and-orders
 [FR-405]: ../requirements/requirements.md#live-operations-and-re-optimization
 [NFR-13]: ../requirements/requirements.md#nfr-13
+[NFR-23]: ../requirements/requirements.md#nfr-23
 [NFR-93]: ../requirements/requirements.md#nfr-93
 [NFR-115]: ../requirements/requirements.md#nfr-115
 [NFR-145]: ../requirements/requirements.md#nfr-145
 [NFR-205]: ../requirements/requirements.md#nfr-205
+[NFR-178]: ../requirements/requirements.md#nfr-178
 [NFR-214]: ../requirements/requirements.md#nfr-214
 [NFR-215]: ../requirements/requirements.md#nfr-215
 [NFR-225]: ../requirements/requirements.md#nfr-225
+[NFR-253]: ../requirements/requirements.md#nfr-253
 [NFR-263]: ../requirements/requirements.md#nfr-263
+[NFR-274]: ../requirements/requirements.md#nfr-274
+[NFR-282]: ../requirements/requirements.md#nfr-282
 [DL-11]: ../architecture/domain_layer/domain_layer_design.md#11-concurrency
 [DL-13]: ../architecture/domain_layer/domain_layer_design.md#13-inside-each-module-hexagon
 [DL-21]: ../architecture/domain_layer/domain_layer_design.md#21-module-graph

@@ -44,7 +44,8 @@ answers this ADR records ([#81]).
      - constructors that store their fields;
      - records' compact constructors, which only check for null and copy collections;
      - the redacted `toString` of a record that holds personal data;
-     - the constructors and `code()` of the application error types named in [ADR-120] decision 7;
+     - the constructors and `code()` of the application error types named in [ADR-120] decision 7
+       that reach the web adapter;
      - `Actor`'s check of its `CallContext`;
      - the accessors of `ProofUpload`, a class because a record would compare its bytes by identity.
 3. **A use case's constructor declares its dependencies:** its ports, `AuditLog` and other modules'

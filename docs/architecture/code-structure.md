@@ -309,7 +309,8 @@ Three sets of rules are checked automatically today:
 - in `solver`, the import-linter contracts in `pyproject.toml`: the domain imports no framework,
   solver or standard-library module that reads a clock, draws randomness or does I/O; the validator,
   the objective and the drop reasons never import `problem`; `application` imports no FastAPI,
-  Pydantic, OR-Tools, Numba, `alns` or `multiprocessing`; the layers point one way; and the product never imports PyVRP. In the
+  Pydantic, OR-Tools, Numba, `alns`, `concurrent`, `multiprocessing` or `subprocess`; the layers
+  point one way; and the product never imports PyVRP. In the
   domain, ruff's `TID251` also bans `numpy.random`, `datetime64`, `timedelta64`, `numpy.load`,
   `fromfile`, `loadtxt` and `importlib.import_module`, and `PTH123`, `T20`, `S102` and `S307` ban
   `open()`, `print()`, `exec()` and `eval()`
@@ -327,7 +328,8 @@ conventions that review enforces.
 The application rules are ArchUnit tests too, in `ApplicationRules`
 ([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md),
 [ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
-They cover the application's allowed imports, the module graph of [domain layer design
+They cover the application's allowed imports (another module's `spi` only for the module that owns
+it and the implementer its dashed arrow names), the module graph of [domain layer design
 §2.1](domain_layer/domain_layer_design.md#21-module-graph), the domain types an `api` or `spi` may
 not use, one implementation per `api` in its module and per `spi` in the module its dashed arrow names,
 `@NullMarked` application packages, and no domain, `events` or kernel-root class importing
