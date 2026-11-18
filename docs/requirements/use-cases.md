@@ -954,10 +954,10 @@ FR-361, FR-369, FR-383
    demand, service duration, priority or date, until its current stop is marked *arrived* or has an
    outcome. Or they put a failed or dropped order back, for today's re-optimization or another date.
    (FR-07, FR-82, FR-194, FR-11, FR-57, FR-75)
-2. When the Dispatcher changes an order on a published plan, DispatchFlow says at once that the
-   order is on a published route and that the driver sees the change only after a re-optimization.
-   The stop is marked *changed since publishing* until a re-optimization applies the change or the
-   stop has an outcome. (FR-396, FR-397)
+2. When the Dispatcher changes anything but an order's date on a published plan, DispatchFlow says at
+   once that the order is on a published route and that the driver sees the change only after a
+   re-optimization. The stop is marked *changed since publishing* until a re-optimization applies
+   the change or the stop has an outcome. (FR-396, FR-397)
 3. On a published plan, a change to an order reaches the routes through re-optimization, except a
    date change. A date change takes the stop off at once, as cancelling does, and a route the change
    breaks is shown as broken until it is re-optimized. A put-back order gets a new current stop, and
