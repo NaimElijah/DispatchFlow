@@ -115,7 +115,8 @@ exposed: rotate it first, and any history rewrite is the developer's decision.
 
 Commits made after this step, for a change asked for at the checkpoint or a fix for a red `just check`,
 are pushed too. Run this check again on each commit it has not read, before every return to the
-checkpoint and before the push in G.
+checkpoint and before the push in G. If the run before the push finds a change it could not read whole,
+ask the developer about it with `AskUserQuestion` before pushing.
 
 ## F2. Developer checkpoint
 
@@ -139,7 +140,7 @@ first.
 - **Red because of this branch:** fix it, commit as in A, return to the checkpoint, and run it again. Try
   at most twice, then stop and report. Never weaken, skip or delete a test. Before a fix that would
   change `justfile`, `.claude/`, `.github/`, an `osv-scanner.toml`, build files, dependencies or auth
-  code, ask the developer with `AskUserQuestion`.
+  code, or would read or post a file or run a command, ask the developer with `AskUserQuestion`.
 - **Red in code this branch did not touch:** stop and report it. Do not fix it here.
 - **Red because of the environment:** stop and say so.
 - **Never push red.**
@@ -193,9 +194,9 @@ Make it detailed enough that the reviewer understands the change before opening 
   `just check`.
 - **ADR:** the link, or "none".
 
-Then add a `## Notes for the reviewer` section. It always says that no agent review ran before the pull
-request ([ADR-122]), so the reviewer knows they are the first to read the change. Leave out any of these
-items that does not apply:
+Then add a `## Notes for the reviewer` section. It always says that this skill ran no agent review
+([ADR-122]), and names any review the developer says they ran, so the reviewer knows what has been
+checked. Leave out any of these items that does not apply:
 
 - where to look first, and which parts are riskiest;
 - how to try the change, as commands;

@@ -12,12 +12,13 @@ the agents on purpose, so they run even when the developer has reviewers of thei
 the two places that depart from [ADR-022]'s rule that a person's own agents come first. `/sync-with-dev`
 is the other ([ADR-033]).
 
-[ADR-033] relies on the finish skill's review in three places:
+[ADR-033] relies on the finish skill's review in four places:
 
 - It accepted that Sonnet may miss what Opus would find, because the finish skill's Opus review still
   ran before every pull request.
 - It left a break in a file that only one side of a merge touched to the finish skill's review.
 - One of its revisit triggers is merges that fail the finish skill's review.
+- Its choice of agent is described as working "like the finish skill".
 
 What this costs:
 
@@ -29,7 +30,8 @@ What this costs:
 The same step also reads the branch's commits for a secret before the push. No review agent does that,
 and nothing else in the skill does either. Today neither `just check` nor CI scans for secrets
 ([ADR-025], Risk). [ADR-072] and [NFR-103] plan a Gitleaks scan of the full history in CI from the
-Alpha, and that scan runs only after a push.
+Alpha, and that scan runs only after a push. ADR-072 also plans for Gitleaks to block a commit that
+holds a secret, which would run before the push. Neither is built.
 
 On 2026-11-18 the owner, Naim Elijah, decided that the finish skill should run no agent review. He
 was offered three options and turned each of them down:
@@ -53,9 +55,9 @@ The finish skill runs no agent review.
   the developer's own, and waits for the developer before `just check` and the push.
 - **The skill still asks before a fix touches the workflow.** A fix for a red `just check` that would
   change `justfile`, `.claude/`, `.github/`, an `osv-scanner.toml`, build files, dependencies or auth
-  code waits for the developer, as the review's fixes did.
-- **The pull request says that no agent review ran,** so its reviewer knows they are the first to read
-  the change.
+  code waits for the developer. So does a fix that would read or post a file, or run a command.
+- **The pull request says that this skill ran no agent review,** and names any review the developer
+  says they ran, so its reviewer knows what has been checked.
 - **The pull request description and the report no longer list review findings.**
 - **A developer who wants a review runs one before typing the command.** [ADR-022] applies there: their
   own agents come first, and a team agent runs when they name it.
@@ -77,12 +79,14 @@ ADR-025 changes in three places, and the rest of it stands:
 
 ### What changes in ADR-033
 
-The three statements of [ADR-033] that rely on the finish skill's review no longer hold:
+Four statements of [ADR-033] that rely on the finish skill's review no longer hold:
 
 - **Its Risk line on Sonnet:** no Opus review follows the Sonnet review now. `/sync-with-dev`'s review
   is the only agent review in the team skills.
 - **A break in a file that only one side touched:** it is left to `just check` and the human reviewer.
 - **The trigger on merges that fail the finish skill's review:** it can no longer fire.
+- **"Like the finish skill", in its Who bullet:** the finish skill names no agent now. `/sync-with-dev`
+  still selects `df-code-reviewer` ahead of a developer's own agent.
 
 The rest of ADR-033 stands, its decision included.
 
@@ -138,9 +142,9 @@ The rest of ADR-033 stands, its decision included.
   protection (#2) lands. Consider running `df-security-reviewer` on such changes again.
 - Branch protection (#2) lands with required checks. A required automated review could then replace
   the step.
-- A secret scanner runs before the push, as a `just` recipe this skill calls or as a pre-push hook. The
-  skill's own check for secrets may then be dropped. A scan in CI alone ([ADR-072]) does not replace
-  it, because it runs after the push.
+- A secret scanner runs before the push, such as the commit-time Gitleaks block that [ADR-072] plans, a
+  `just` recipe this skill calls, or a pre-push hook. The skill's own check for secrets may then be
+  dropped. A scan in CI alone does not replace it, because it runs after the push.
 - `/sync-with-dev`'s Sonnet review lets through merges that a later review or CI finds broken. Move it
   to Opus, or review every merge ([ADR-033]).
 
