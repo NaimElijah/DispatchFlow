@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>DispatchFlow Core Layers</title>
 <style>
@@ -232,7 +233,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); out
 <div class="wrap">
   <header>
     <h1>DispatchFlow core, layer by layer</h1>
-    <p class="lede">Every Java type in the core service, <code>src/backend/core</code>, placed in its hexagonal layer and its bounded context. Read it top to bottom: a request enters at a web adapter, runs a use case in the application layer, changes aggregates in the domain, and is stored by a persistence adapter.</p>
+    <p class="lede">Every Java type in the core service, <code>src/backend/core</code>, except its entry point <code>DispatchFlowApplication</code>, placed in its hexagonal layer and its bounded context. Read it top to bottom: a request enters at a web adapter, runs a use case in the application layer, changes aggregates in the domain, and is stored by a persistence adapter.</p>
     <div class="meta" id="meta"></div>
   </header>
 
@@ -338,7 +339,7 @@ const BANDS = [
   },
   {
     id: "db", title: "Persistence and outbound adapters", path: "<context>/adapter/out/…", status: ["off", "Not built"],
-    desc: "Secondary adapters implement the port/out interfaces above. Persistence uses jOOQ with hand-written mappers on PostgreSQL 18, one schema per module (ADR-041). Milestone M0 adds Flyway V1 and jOOQ code generation.",
+    desc: "Secondary adapters will implement the port/out interfaces above. The database lane holds the repositories and read views, which jOOQ adapters with hand-written mappers implement on PostgreSQL 18, one schema per module (ADR-041). The next lane holds the ports tech_stack.md §6.4 pairs with an adapter, and the last lane every other port, whose adapter no document names yet. Milestone M0 adds Flyway V1 and jOOQ code generation.",
     render: renderDb,
   },
 ];
@@ -481,9 +482,23 @@ function renderDb(band) {
   } else {
     outBody.classList.add("empty-lane"); outBody.textContent = "This context has no port to an outside service.";
   }
+  const named = new Set(OUTBOUND.flatMap(row => row.ports));
+  const isOtherPort = r => r.k === "interface" && !named.has(r.n) && !isDbPort(r)
+    && (r.l === "port" || (r.c === "shared" && r.l === "application"));
+  const otherBody = el("div", { class: "lane-body" });
+  for (const c of visibleContexts()) {
+    const ports = DATA.filter(r => r.c === c.id && isOtherPort(r));
+    if (ports.length) otherBody.append(group(`db:other:${c.id}`, c.name, c.id, ports, () => true, { planned: true, subOf: () => "" }));
+  }
+  if (state.ctx === "all") {
+    const shared = DATA.filter(r => r.c === "shared" && isOtherPort(r));
+    if (shared.length) otherBody.append(group("db:other:shared", "Shared (shared.application)", null, shared, () => true, { planned: true, subOf: () => "" }));
+  }
+  if (!otherBody.children.length) { otherBody.classList.add("empty-lane"); otherBody.textContent = "Every port of this context has a planned adapter above."; }
   return [
     laneShell(band, { label: "database", hint: "jOOQ repositories and read views" }, dbBody),
-    laneShell(band, { label: "outside services", hint: "Other secondary adapters" }, outBody),
+    laneShell(band, { label: "outside services", hint: "Ports that tech_stack.md §6.4 pairs with an adapter" }, outBody),
+    laneShell(band, { label: "other ports", hint: "No document names their adapter yet" }, otherBody),
   ];
 }
 
