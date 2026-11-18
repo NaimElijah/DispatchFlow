@@ -19,10 +19,12 @@ is the other ([ADR-033]).
 - It left a break in a file that only one side of a merge touched to the finish skill's review.
 - One of its revisit triggers is merges that fail the finish skill's review.
 
-ADR-025 records what this costs:
+What this costs:
 
-- **Usage:** each finish runs one or two rounds of the Opus reviewers ([ADR-020]), on that person's usage.
-- **Time:** the review rounds come on top of `just check`, which needs Docker and runs every component.
+- **Usage:** ADR-025 records that each finish runs one or two rounds of the Opus reviewers ([ADR-020]),
+  on that person's usage.
+- **Time:** ADR-025 records that `just check` already makes finishing take longer, because it needs
+  Docker and runs every component. The review rounds run before it, and add to that time.
 
 The same step also reads the branch's commits for a secret before the push. No review agent does that,
 and nothing else in the skill does either. Today neither `just check` nor CI scans for secrets
@@ -44,8 +46,9 @@ The finish skill runs no agent review.
   and no personal agent takes their place. The fix rounds driven by findings go with them.
 - **The check for secrets stays.** Before the developer checkpoint, the skill reads every commit of
   `origin/dev..HEAD` and its message, one commit and one file at a time. It names each change too long
-  to read whole, such as a generated page, and asks the developer to confirm it. It stops before the
-  push if a commit or a message holds a secret.
+  to read whole, such as a generated page, and asks the developer to confirm it. It runs again on every
+  commit made after it, before the push. It stops before the push if a commit or a message holds a
+  secret.
 - **The developer checkpoint stays.** The skill still shows the diff stat and every commit it made after
   the developer's own, and waits for the developer before `just check` and the push.
 - **The skill still asks before a fix touches the workflow.** A fix for a red `just check` that would

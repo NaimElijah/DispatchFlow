@@ -113,6 +113,10 @@ If any commit or commit message holds a secret, stop before the push. A later co
 The developer rewrites the unpushed commit and rotates the secret. If it is already pushed, treat it as
 exposed: rotate it first, and any history rewrite is the developer's decision.
 
+Commits made after this step, for a change asked for at the checkpoint or a fix for a red `just check`,
+are pushed too. Run this check again on each commit it has not read, before every return to the
+checkpoint and before the push in G.
+
 ## F2. Developer checkpoint
 
 Do this on every run.
