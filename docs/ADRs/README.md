@@ -110,7 +110,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-021](ADR-021-dependabot-targets-dev-and-skips-pinned-majors.md) | Dependabot opens its updates against `dev`, and skips the versions other ADRs pin | Superseded by ADR-046 |
 | [ADR-022](ADR-022-personal-subagents-come-before-team-subagents.md) | Each person's own subagents come before the team's | Accepted; extended by ADR-025 and ADR-033 |
 | [ADR-025](ADR-025-team-skills-in-the-repository.md) | Team skills live in `.claude/skills/`, and only a person can start them | Accepted; extended by ADR-033 and ADR-034; amended by ADR-122 |
-| [ADR-033](ADR-033-sync-with-dev-reviews-the-merge-on-sonnet.md) | `/sync-with-dev` reviews a merge with df-code-reviewer on Sonnet, and fixes what it finds | Accepted |
+| [ADR-033](ADR-033-sync-with-dev-reviews-the-merge-on-sonnet.md) | `/sync-with-dev` reviews a merge with df-code-reviewer on Sonnet, and fixes what it finds | Accepted; amended by ADR-122 |
 | [ADR-034](ADR-034-ask-before-merging-changes-to-the-assistant-setup.md) | Both team skills ask before merging a `dev` change to the assistant's setup | Accepted |
 | [ADR-122](ADR-122-the-finish-skill-runs-no-agent-review.md) | The finish skill runs no agent review, and keeps its check for secrets | Accepted |
 | [ADR-093](ADR-093-the-implementation-plan-is-retired-and-a-roadmap-holds-the-dates.md) | The implementation plan is retired, and a roadmap holds the dates | Accepted |

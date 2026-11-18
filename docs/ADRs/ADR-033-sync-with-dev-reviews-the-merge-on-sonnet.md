@@ -1,6 +1,6 @@
 # ADR-033: `/sync-with-dev` reviews a merge with df-code-reviewer on Sonnet, and fixes what it finds
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-122
 - **Date:** 2026-11-11
 
 ## Context
