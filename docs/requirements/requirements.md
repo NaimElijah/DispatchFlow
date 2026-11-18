@@ -39,6 +39,8 @@ result against a baseline. The [README](../../README.md#what-and-why) has the fu
 
 The main processes, each traced to the rows it exercises. They anchor the usability study ([FR-48]:
 usability study) and the end-to-end tests ([NFR-83]: end-to-end tests).
+[`use-cases.md`](use-cases.md) walks through each use case step by step, with diagrams; this table
+stays the authority.
 
 | ID | Actor | Goal | Main flow | Alternatives and failures | Requirements |
 |---|---|---|---|---|---|
