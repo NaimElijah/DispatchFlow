@@ -6,9 +6,12 @@ and never restates them.
 | Path | States | Rule |
 |---|---|---|
 | `requirements/requirements.md` | What the system must do | Intent, not observation |
+| `requirements/use-cases.md` | Each use case step by step: actors, flows, failures, diagrams | Expands the `UC-` rows; cites rows by ID and copies none of their text; changes in the same pull request as the row it expands |
+| `requirements/use-cases.html` | The same use cases as a visual page | Built from `use-cases.md` by a script not in the repository; kept in step with it, by hand until the script is committed, and its Content-Security-Policy meta stays |
 | `architecture/` | How it is built, as it is today | Descriptive, never aspirational; the two decided designs below are the exception |
 | `architecture/tech_stack.md` | The decided tools and versions, and when each is adopted | Tools and versions only |
 | `architecture/domain_layer/` | The decided domain model: contexts, aggregates, events, language | The one home of the model |
+| `architecture/layers_visual.html` | The core's Java types by layer and bounded context, as a visual page | Generated from the source at the commit it names, by a script not in the repository; adapters not built yet are drawn as `tech_stack.md` plans them and marked so; decides nothing |
 | `roadmap.md` | When each part is built: the course calendar, the milestones, the Alpha and its demo script, and who the team waits on | Dates and schedule only; it names the rows and ADRs it schedules and copies none of them |
 | `ADRs/` | Why each decision was taken | Append-only |
 | `requirements/ARD/` | The Application Requirements Document (ARD), as a PDF | Built outside the repository; the PDF is the only file here |
