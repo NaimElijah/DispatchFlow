@@ -1,6 +1,6 @@
 # ADR-025: Team skills live in `.claude/skills/`, and only a person can start them
 
-- **Status:** Accepted; extended by ADR-033 and ADR-034
+- **Status:** Accepted; extended by ADR-033 and ADR-034; amended by ADR-122
 - **Date:** 2026-11-04
 
 ## Context
