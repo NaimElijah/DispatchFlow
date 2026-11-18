@@ -1005,7 +1005,7 @@ sequenceDiagram
     participant Phone as Phone app
     Dispatcher->>App: Mark a vehicle or driver unavailable, or add or change orders
     App->>DF: Record the disruption
-    DF-->>App: Saved, the driver sees changes only after re-optimization
+    DF-->>App: Saved; a change other than a date waits for re-optimization
     Dispatcher->>App: Start a re-optimization
     App->>DF: Re-optimize the remaining stops
     alt The re-optimization returns a proposal
@@ -1215,9 +1215,8 @@ FR-271, FR-339, FR-340, FR-341, FR-342, FR-362, FR-370, BR-129
    solver, which sits behind the same solver interface, and PyVRP as a reference. Both solvers get
    the same time limit on the same hardware. The Gehring-Homberger runs are offline, never in CI;
    CI runs only a small Solomon smoke run (Q-22). None of this reaches the product: no product
-   capability depends on the DispatchFlow solver, only the harness
-   uses PyVRP, and solver logging is off in the product. (FR-42, FR-272, FR-51, FR-278, FR-275,
-   FR-274, FR-286, FR-287)
+   capability depends on the DispatchFlow solver, only the harness uses PyVRP, and solver logging
+   is off in the product. (FR-42, FR-272, FR-51, FR-278, FR-275, FR-274, FR-286, FR-287)
 4. The scaling study reports solve time and solution quality at several stop counts, each run
    repeated. (FR-44, FR-406)
 5. In the static study, the shared objective scores each result once the validator accepts it, with

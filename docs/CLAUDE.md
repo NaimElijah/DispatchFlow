@@ -7,7 +7,7 @@ and never restates them.
 |---|---|---|
 | `requirements/requirements.md` | What the system must do | Intent, not observation |
 | `requirements/use-cases.md` | Each use case step by step: actors, flows, failures, diagrams | Expands the `UC-` rows; cites rows by ID and copies none of their text; changes in the same pull request as the row it expands |
-| `requirements/use-cases.html` | The same use cases as a visual page | Built from `use-cases.md` by a script not in the repository; rebuilt whenever it changes |
+| `requirements/use-cases.html` | The same use cases as a visual page | Built from `use-cases.md` by a script not in the repository; kept in step with it, by hand until the script is committed, and its Content-Security-Policy meta stays |
 | `architecture/` | How it is built, as it is today | Descriptive, never aspirational; the two decided designs below are the exception |
 | `architecture/tech_stack.md` | The decided tools and versions, and when each is adopted | Tools and versions only |
 | `architecture/domain_layer/` | The decided domain model: contexts, aggregates, events, language | The one home of the model |
