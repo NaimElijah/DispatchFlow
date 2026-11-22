@@ -1598,7 +1598,7 @@ flowchart LR
 | `SolveFailed` | `SolveJob.fail`, `expireIfOverdue` | `plan/RecordSolveFailure` (Planning) |
 | `PlanPublished` | `Plan.publish` | `routerun/TellDriversRoutesReady` (Live Operations); `ComputeBaseline` (Reporting) |
 | `PlanRevised` | `Plan.accept`, `handOver`, `removeStopOf`, `reconcileLateOutcome` | `routerun/TellDriversOfRevision` (Live Operations); `MessagePlanRevised` (Messaging); `RecomputeBaseline` (Reporting) |
-| `RouteHandedOver` | `Plan.handOver` | `plan/MoveRosterWithRoute` (Planning); `routerun/TellDriversOfRevision` (Live Operations) |
+| `RouteHandedOver` | `Plan.handOver` | `plan/route/MoveRosterWithRoute` (Planning); `routerun/TellDriversOfRevision` (Live Operations) |
 | `PlanCancelled` | `Plan.cancel` | `routerun/TellDriversPlanCancelled` (Live Operations) |
 | `OrderCancelled` | `Order.cancel` | `plan/RemoveStopOfOrder` (Planning); `MessageDeliveryChanged` (Messaging) |
 | `OrderRescheduled` | `Order.reschedule` | `plan/RemoveStopOfOrder` (Planning); `MessageDeliveryChanged` (Messaging) |

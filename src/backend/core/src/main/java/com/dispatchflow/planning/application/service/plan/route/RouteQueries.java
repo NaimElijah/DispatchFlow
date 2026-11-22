@@ -1,4 +1,4 @@
-package com.dispatchflow.planning.application.service.plan;
+package com.dispatchflow.planning.application.service.plan.route;
 
 import com.dispatchflow.access.application.api.Actor;
 import com.dispatchflow.fleet.application.api.FleetFacts;

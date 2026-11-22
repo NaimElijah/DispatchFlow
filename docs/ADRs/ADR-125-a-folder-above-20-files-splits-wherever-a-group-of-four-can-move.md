@@ -100,7 +100,7 @@ Applied now, this splits:
 |---|---|---|
 | `orders.application.service` | 27 | `customer` 8, `order` 12, `importbatch` 5; 2 stay |
 | `fleet.application.service` | 25 | `driver` 7, `register` 8, `roster` 8; 2 stay |
-| `planning.application.service.plan` | 29 | `edit` 7; 22 stay |
+| `planning.application.service.plan` | 29 | `edit` 7, `route` 6; 16 stay |
 | `planning.application.port.out` | 27 | 6 to its `plan`, 1 to its `settings`; 20 stay |
 | `liveops.application.port.out` | 24 | `routerun` 6; 18 stay |
 | `access.application.service.account` | 21 | `credentiallink` 6; 15 stay |
