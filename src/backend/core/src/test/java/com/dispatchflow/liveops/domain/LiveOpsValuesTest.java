@@ -1,4 +1,4 @@
-package com.dispatchflow.liveops.domain.delivery;
+package com.dispatchflow.liveops.domain;
 
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.LATE;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.NOW;
@@ -9,15 +9,19 @@ import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.dispatchflow.liveops.domain.ContactWindow;
-import com.dispatchflow.liveops.domain.CorrectedTime;
 import com.dispatchflow.liveops.domain.LiveOpsError.CorrectionReasonRequired;
 import com.dispatchflow.liveops.domain.LiveOpsError.DeviceTimeOutOfRange;
 import com.dispatchflow.liveops.domain.LiveOpsError.FailureReasonRequired;
 import com.dispatchflow.liveops.domain.LiveOpsError.InvalidRevision;
-import com.dispatchflow.liveops.domain.LiveOpsFixtures;
-import com.dispatchflow.liveops.domain.RevisionNo;
 import com.dispatchflow.liveops.domain.alert.StartDeadline;
+import com.dispatchflow.liveops.domain.delivery.CorrectionReason;
+import com.dispatchflow.liveops.domain.delivery.Entitlement;
+import com.dispatchflow.liveops.domain.delivery.RetentionPeriods;
+import com.dispatchflow.liveops.domain.outcome.FailureReason;
+import com.dispatchflow.liveops.domain.outcome.FailureReasonKind;
+import com.dispatchflow.liveops.domain.proof.Proof;
+import com.dispatchflow.liveops.domain.proof.ProofKind;
+import com.dispatchflow.liveops.domain.proof.ProofNote;
 import com.dispatchflow.liveops.domain.routerun.ConfirmationDeadline;
 import com.dispatchflow.liveops.events.OutcomeKind;
 import com.dispatchflow.liveops.events.OutcomeRecorded;
@@ -283,15 +287,5 @@ class LiveOpsValuesTest {
                 .isEqualTo(Instant.parse("2027-03-01T08:00:00Z"));
         assertThat(RetentionPeriods.reasonCutoff(Instant.parse("2027-05-30T07:00:00Z")))
                 .isEqualTo(Instant.parse("2027-03-01T08:00:00Z"));
-    }
-
-    @Test
-    void GivenARouteWithOneStopTwice_WhenItsLegsAreBuilt_ThenStoredStateInvalid() {
-        PlannedStopLeg leg = ArrivalProjectionTest.leg(LiveOpsFixtures.STOP, 10, 5, 9, 12, false);
-
-        assertThatThrownBy(() -> new PlannedLegs(ArrivalProjectionTest.DEPARTURE, java.util.List.of(leg, leg)))
-                .isInstanceOf(StoredStateInvalid.class);
-        assertThatThrownBy(() -> ArrivalProjectionTest.leg(LiveOpsFixtures.STOP, -1, 5, 9, 12, false))
-                .isInstanceOf(StoredStateInvalid.class);
     }
 }

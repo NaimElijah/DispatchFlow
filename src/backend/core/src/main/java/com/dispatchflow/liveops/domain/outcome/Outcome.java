@@ -1,5 +1,6 @@
-package com.dispatchflow.liveops.domain.delivery;
+package com.dispatchflow.liveops.domain.outcome;
 
+import com.dispatchflow.liveops.domain.proof.Proof;
 import com.dispatchflow.liveops.events.OutcomeKind;
 import com.dispatchflow.shared.PersonalData;
 import java.util.Objects;

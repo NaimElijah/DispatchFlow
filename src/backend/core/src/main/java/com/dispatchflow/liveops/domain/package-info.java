@@ -3,7 +3,8 @@
  * its own package: {@link com.dispatchflow.liveops.domain.delivery.Delivery} holds one stop's facts,
  * {@link com.dispatchflow.liveops.domain.routerun.RouteRun} a route being driven, and {@link
  * com.dispatchflow.liveops.domain.alert.Alert} something a dispatcher must look at, each with its
- * values. This package holds the named errors ({@link
+ * values. A stop's outcomes and its proofs have a package each, {@code outcome} and {@code proof}
+ * (ADR-125). This package holds the named errors ({@link
  * com.dispatchflow.liveops.domain.LiveOpsError}), the types they name, and the values that more than
  * one aggregate uses (ADR-118). ADR-107 records the rules DL left open.
  *

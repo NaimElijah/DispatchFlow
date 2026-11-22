@@ -9,8 +9,8 @@ import com.dispatchflow.liveops.application.port.out.proof.ProofImageUnreadable;
 import com.dispatchflow.liveops.application.port.out.proof.ProofStore;
 import com.dispatchflow.liveops.application.port.out.proof.ProofUpload;
 import com.dispatchflow.liveops.application.port.out.proof.ProofUploadsCapped;
-import com.dispatchflow.liveops.domain.delivery.ProofId;
-import com.dispatchflow.liveops.domain.delivery.ProofKind;
+import com.dispatchflow.liveops.domain.proof.ProofId;
+import com.dispatchflow.liveops.domain.proof.ProofKind;
 import com.dispatchflow.shared.application.Clock;
 
 /**

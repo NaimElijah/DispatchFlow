@@ -152,7 +152,7 @@ arrows (or to Access or Audit), and `audit/` imports no other module.
 | `access` | root, `account`, `session`, `companyprofile` | 38 | 2 |
 | `audit` | flat | 11 | none |
 | `fleet` | root, `driver`, `register`, `roster` | 34 | 1 |
-| `liveops` | root, `delivery`, `alert`, `routerun` | 47 | 3 |
+| `liveops` | root, `delivery`, `outcome`, `proof`, `alert`, `routerun` | 47 | 3 |
 | `messaging` | root, `message`, `rating`, `settings` | 42 | 1 |
 | `orders` | flat | 41 | 3 |
 | `planning` | root, `plan`, `solution`, `drop`, `basis`, `revision`, `reconciliation`, `settings` | 81 | 6 |
@@ -346,7 +346,7 @@ Every ID is a record wrapping a UUID, so one kind can't be passed for another (D
 
 Ids that only one module names stay in that module: `RefreshTokenId` in `core/access/domain/session/`,
 `CredentialLinkId` in `core/access/domain/account/`, `OutgoingMessageId` in `core/messaging/domain/`,
-`HeldReportId` in `core/liveops/domain/` and `ProofId` in `core/liveops/domain/delivery/`.
+`HeldReportId` in `core/liveops/domain/` and `ProofId` in `core/liveops/domain/proof/`.
 
 ### Shared values
 
@@ -1140,8 +1140,9 @@ classDiagram
 
 - **Packages** (`core/liveops/domain/`): the root (8 files) holds `LiveOpsError`, `CorrectedTime`,
   `DriverReport`, `ContactWindow`, `RevisionNo`, `HeldReportId`, `CancellationKind`, `TrackingRefusal`;
-  `delivery/` (24) holds `Delivery`, its snapshot types, `Outcome`, `Proof`, `FailureReason`,
-  `ArrivalProjection`, `RetentionPeriods`; `alert/` (9) holds `Alert`, `AlertSubject`, `AlertKind`,
+  `delivery/` (16) holds `Delivery`, its snapshot types, `ArrivalProjection`, `RetentionPeriods`;
+  `outcome/` (4) holds `Outcome`, `FailureReason`, `FailureReasonKind`, `DispatcherOutcome`, and uses
+  `proof/` (4), which holds `Proof`, `ProofId`, `ProofKind`, `ProofNote`; `alert/` (9) holds `Alert`, `AlertSubject`, `AlertKind`,
   `DedupeKey`; `routerun/` (6) holds `RouteRun`, `RunStatus`, `TrackingWindow`, `ConfirmationDeadline`.
 - **`Delivery`'s status is derived.** `DeliveryStatus` (`PENDING`, `ARRIVED`, `HELD`, `DELIVERED`,
   `FAILED`) is computed from the outcomes and held reports, effective outcome first; it is not stored.

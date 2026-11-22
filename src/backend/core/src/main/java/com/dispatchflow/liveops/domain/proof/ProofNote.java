@@ -1,4 +1,4 @@
-package com.dispatchflow.liveops.domain.delivery;
+package com.dispatchflow.liveops.domain.proof;
 
 import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.PlainText;

@@ -4,7 +4,7 @@ import com.dispatchflow.access.application.api.Actor;
 import com.dispatchflow.liveops.application.port.out.LiveOpsViews;
 import com.dispatchflow.liveops.application.port.out.proof.ProofStore;
 import com.dispatchflow.liveops.application.port.out.proof.ProofUpload;
-import com.dispatchflow.liveops.domain.delivery.ProofId;
+import com.dispatchflow.liveops.domain.proof.ProofId;
 import com.dispatchflow.planning.application.api.PublishedRoutes;
 import com.dispatchflow.shared.application.NotFound;
 

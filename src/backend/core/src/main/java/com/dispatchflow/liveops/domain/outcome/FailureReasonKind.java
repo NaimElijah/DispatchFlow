@@ -1,4 +1,4 @@
-package com.dispatchflow.liveops.domain.delivery;
+package com.dispatchflow.liveops.domain.outcome;
 
 /** BR-109's fixed list of failure reasons for the first release. */
 public enum FailureReasonKind {

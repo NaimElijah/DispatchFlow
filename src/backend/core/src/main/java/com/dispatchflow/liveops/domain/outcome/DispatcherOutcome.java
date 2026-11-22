@@ -1,4 +1,4 @@
-package com.dispatchflow.liveops.domain.delivery;
+package com.dispatchflow.liveops.domain.outcome;
 
 import com.dispatchflow.shared.PersonalData;
 import java.util.Objects;

@@ -1,4 +1,4 @@
-package com.dispatchflow.liveops.domain.delivery;
+package com.dispatchflow.liveops.domain.proof;
 
 /** The kinds of proof of delivery (FR-30, FR-367). */
 public enum ProofKind {

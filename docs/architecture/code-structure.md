@@ -106,7 +106,8 @@ src/backend/core/
     audit/                         domain/ (flat) and application/; it raises no event
     reporting/                     domain/ (flat) and application/; it raises no event
     messaging/                     domain/ (message, rating, settings), events/ and application/
-    liveops/                       domain/ (delivery, alert, routerun), events/ and application/
+    liveops/                       domain/ (delivery, outcome, proof, alert, routerun), events/
+                                   and application/
     web/                           application-wide web concerns: the fallback for unexpected errors
       UnexpectedErrorHandler.java  answers an unhandled exception with a 500 problem body
       package-info.java

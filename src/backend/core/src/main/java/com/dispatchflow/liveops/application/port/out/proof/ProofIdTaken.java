@@ -1,6 +1,6 @@
 package com.dispatchflow.liveops.application.port.out.proof;
 
-import com.dispatchflow.liveops.domain.delivery.ProofId;
+import com.dispatchflow.liveops.domain.proof.ProofId;
 import java.util.Objects;
 
 /**

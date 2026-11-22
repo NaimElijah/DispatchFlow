@@ -1,6 +1,7 @@
-package com.dispatchflow.liveops.domain.delivery;
+package com.dispatchflow.liveops.domain.outcome;
 
 import com.dispatchflow.liveops.domain.LiveOpsError.FailureReasonRequired;
+import com.dispatchflow.liveops.domain.delivery.RetentionPeriods;
 import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.PlainText;
 import com.dispatchflow.shared.RuleViolation;

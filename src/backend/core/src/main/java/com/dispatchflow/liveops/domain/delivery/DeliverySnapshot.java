@@ -4,6 +4,7 @@ import com.dispatchflow.liveops.domain.CancellationKind;
 import com.dispatchflow.liveops.domain.CorrectedTime;
 import com.dispatchflow.liveops.domain.HeldReportId;
 import com.dispatchflow.liveops.domain.RevisionNo;
+import com.dispatchflow.liveops.domain.outcome.Outcome;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.OrderId;
