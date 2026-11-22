@@ -21,9 +21,9 @@ and [`optimization-engine.md`](../optimization-engine.md) are the short prose ve
 | `solver/` | `src/backend/solver/src/dispatchflow_solver/` |
 | `solver-test/` | `src/backend/solver/tests/` |
 
-[ADR-037](../../ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md) moves this tree in the M0
-restructure (`src/core`, `src/optimizer`, and so on). Until then these are the real paths, and the pull
-request that moves the code should update the prefixes here.
+[ADR-123](../../ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md) keeps this tree and renames `src/backend/solver` to
+`src/backend/optimizer`, with the package `dispatchflow_optimizer`. Until then these are the real
+paths, and the pull request that renames them should update the prefixes here.
 
 **Reading the diagrams.** They use no colour. In a class diagram, `<<root>>` is an aggregate root,
 `<<entity>>` an object held inside a root, `<<value>>` a value object, `<<fact>>` a value the use case

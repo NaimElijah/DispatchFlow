@@ -101,7 +101,7 @@ calls exist.
 
 | Dependency | Used by | For |
 |---|---|---|
-| PostgreSQL 18.6 | `core` | The database. In a Testcontainers container for `*IT` tests and `just core-run`, which need Docker ([ADR-014](../ADRs/ADR-014-real-dependencies-in-containers-for-tests-and-local-runs.md), superseded by [ADR-042](../ADRs/ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md): local runs start their services from `compose.dev.yaml`, the tests keep Testcontainers, and the M0 restructure decides whether `just core-run` stays. Not in the code yet). Elsewhere `core` reads `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` from the environment |
+| PostgreSQL 18.6 | `core` | The database. In a Testcontainers container for `*IT` tests and `just core-run`, which need Docker ([ADR-014](../ADRs/ADR-014-real-dependencies-in-containers-for-tests-and-local-runs.md), superseded by [ADR-042](../ADRs/ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md): local runs start their services from `compose.dev.yaml`, the tests keep Testcontainers, and M0 decides whether `just core-run` stays. Not in the code yet). Elsewhere `core` reads `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` from the environment |
 | PyVRP | `research` | A reference solver for benchmarks. Never installed in `solver` |
 
 No other outside service is called. The repository has no Compose file; `core` and `solver` each
@@ -148,7 +148,7 @@ the ADRs:
   module graph.
 - [Tech stack](tech_stack.md): the tools, and what each beat.
 - [ADR index](../ADRs/README.md):
-  [ADR-037](../ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md) (the layout),
+  [ADR-123](../ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md) (the layout, and three renames),
   [ADR-038](../ADRs/ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md) (`mise`, and
   Java 25),
   [ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md) (a

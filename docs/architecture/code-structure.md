@@ -3,14 +3,15 @@
 Where each kind of code and test lives, and which way dependencies point. It describes the
 repository as it is today. What the system must do is in
 [requirements.md](../requirements/requirements.md); why the repository is laid out this way is in
-[ADR-008](../ADRs/ADR-008-monorepo-layout-under-src.md) (superseded by ADR-037, not in the code
-yet), and why it is built and checked the way
+[ADR-008](../ADRs/ADR-008-monorepo-layout-under-src.md) and
+[ADR-123](../ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md), and why it is built and checked the way
 it is in [ADR-009](../ADRs/ADR-009-just-as-the-single-entry-point.md) to
 [ADR-016](../ADRs/ADR-016-dependency-audit-with-osv-scanner.md).
 
-[ADR-037](../ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md) (Accepted) moves
-this tree to a flat layout, in the M0 restructure. The pull request that moves the code rewrites
-this file.
+ADR-123 (Accepted) keeps this tree and renames three components: `src/backend/solver` becomes
+`src/backend/optimizer`, `src/frontend/console` becomes `src/frontend/web`, and
+`src/frontend/driver-app` becomes `src/frontend/mobile`. This file keeps today's names until the
+pull request that renames them rewrites it.
 
 Also Accepted and not in the tree yet:
 [ADR-038](../ADRs/ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md) (`mise` pins every

@@ -10,8 +10,8 @@ with its layout, rules and commands.
 | `driver-app/`, the phone app | Admins, dispatchers and drivers, with every capability | iOS and Android, from one codebase; its web build is a development aid and a test target | React Native, Expo SDK 58, TypeScript, npm |
 
 Accepted, and not in the tree yet: [ADR-039] replaces npm with a pnpm workspace and shared
-`@dispatchflow/*` packages, from the Alpha; [ADR-037] renames `console/` to `src/web` and
-`driver-app/` to `src/mobile`, and adds `src/packages`, in the M0 restructure.
+`@dispatchflow/*` packages, from the Alpha, in `src/frontend/packages/`; [ADR-123] renames
+`console/` to `web/` and `driver-app/` to `mobile/`.
 
 ## Rules
 
@@ -40,7 +40,7 @@ Accepted, and not in the tree yet: [ADR-039] replaces npm with a pnpm workspace 
 - Maps use MapLibre with the Protomaps tiles that Caddy serves, and show the attribution
   OpenStreetMap's licence requires ([ADR-084], [TS §9]).
 - The two apps share no code yet. Add a shared package once hand-written code, not generated
-  code, would otherwise be copied between them ([ADR-008], superseded by ADR-037, not in the code yet).
+  code, would otherwise be copied between them ([ADR-008], which stands through [ADR-123]).
   [ADR-039] (Accepted) sets those packages up at the Alpha.
 - TypeScript is held at 6.0 in both apps, because typescript-eslint does not support 7 yet
   ([ADR-039], [TS §10]).
@@ -52,8 +52,7 @@ Accepted, and not in the tree yet: [ADR-039] replaces npm with a pnpm workspace 
 - Query the screen by role, label or text, and assert on what the user sees, never on component
   internals or state.
 - Browser end-to-end tests for both apps will live in `/tests/e2e`, run on the web app and on
-  the phone app's web build (NFR-83). No end-to-end tool exists yet; [ADR-037] (Accepted) puts
-  the end-to-end tests in a root `e2e/`, in the M0 restructure. Native builds get no automated UI
+  the phone app's web build (NFR-83). No end-to-end tool exists yet. Native builds get no automated UI
   tests: they are checked by hand on real phones (ADR-028, NFR-140).
 
 ## Format and lint
@@ -64,7 +63,7 @@ installs ([ADR-039]).
 
 [ADR-035]: ../../docs/ADRs/ADR-035-both-apps-serve-every-role.md
 [ADR-008]: ../../docs/ADRs/ADR-008-monorepo-layout-under-src.md
-[ADR-037]: ../../docs/ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md
+[ADR-123]: ../../docs/ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md
 [ADR-039]: ../../docs/ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md
 [ADR-070]: ../../docs/ADRs/ADR-070-security-and-accessibility-standards.md
 [ADR-081]: ../../docs/ADRs/ADR-081-eas-update-for-javascript-only-fixes-during-the-pilot.md

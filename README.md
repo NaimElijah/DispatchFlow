@@ -163,8 +163,9 @@ not in the code yet).
 This table is what the code uses today. [tech_stack.md](docs/architecture/tech_stack.md) decides
 the stack for the Alpha and after, and ADR-037 to ADR-047 (Accepted, in the
 [ADR index](docs/ADRs/README.md)) record where it departs from today's: Java 25, jOOQ in place of
-Spring Data JPA, Spring Modulith, pnpm, mise, and a flatter layout. None of it is in the tree yet.
-Each change lands with the milestone that needs it.
+Spring Data JPA, Spring Modulith, pnpm and mise. [ADR-123](docs/ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md)
+keeps the layout and renames three components. None of it is in the tree yet. Each change lands with
+the milestone that needs it.
 
 ## Configuration
 
@@ -253,9 +254,9 @@ docs/                  requirements, architecture and design, ADRs, the roadmap,
 justfile               every command, the same locally and in CI
 ```
 
-ADR-037 (Accepted) flattens this tree to `src/core`, `src/optimizer`, `src/web`, `src/mobile`
-and `src/packages`, with `deploy/` and `e2e/` at the root, in the M0 restructure. The pull request
-that moves the code updates this section.
+[ADR-123](docs/ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md) (Accepted) keeps this tree and renames three
+components: `solver` to `optimizer`, `console` to `web` and `driver-app` to `mobile`. The pull
+request that renames them updates this section.
 
 ## Design decisions
 

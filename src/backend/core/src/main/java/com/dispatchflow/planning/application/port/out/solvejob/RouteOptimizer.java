@@ -7,7 +7,7 @@ import java.util.List;
 
 /**
  * The optimization service, asked to solve a day or re-optimize a published plan (DL §2.1, TS §6.4,
- * TS §6.5, ADR-002). The optimizer adapter implements it over {@code optimizer-api} v1 as an
+ * TS §6.5, ADR-002). The optimizer adapter implements it over {@code optimization-api} v1 as an
  * anti-corruption layer, with plain synchronous HTTP and a client timeout of the limit plus 30
  * seconds (BR-32, BR-84, ADR-051). A job's worker calls it outside any transaction (DL §6.3).
  *

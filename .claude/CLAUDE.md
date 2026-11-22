@@ -27,10 +27,10 @@ under Documentation.
 | `infra/` | Road-network data and deployment |
 | `logs/` | Local log output; git ignores its contents |
 
-[ADR-037] (Accepted) moves this tree to `src/core`, `src/optimizer`, `src/web`, `src/mobile`
-and `src/packages`, with `e2e/` and `deploy/` at the root and Terraform in `infra/`. [ADR-038]
-(Accepted) moves Java to 25. Both are in the M0 restructure, and not in the tree yet. The pull
-request that moves the code updates this table.
+[ADR-123] (Accepted) keeps this tree and renames three components: `src/backend/solver` becomes
+`src/backend/optimizer`, `src/frontend/console` becomes `src/frontend/web`, and
+`src/frontend/driver-app` becomes `src/frontend/mobile`. [ADR-038] (Accepted) moves Java to 25.
+Neither is in the tree yet. The pull request that makes a change updates this table.
 
 This file holds the rules for the whole repository. Narrower rules live next to the code and load
 when you work there ([ADR-018](../docs/ADRs/ADR-018-ai-assistant-context-in-the-repository.md)):
@@ -220,11 +220,11 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 [ADR-093]: ../docs/ADRs/ADR-093-the-implementation-plan-is-retired-and-a-roadmap-holds-the-dates.md
 [ADR-024]: ../docs/ADRs/ADR-024-one-delivery-company-no-multi-tenancy.md
 [ADR-025]: ../docs/ADRs/ADR-025-team-skills-in-the-repository.md
-[ADR-037]: ../docs/ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md
 [ADR-038]: ../docs/ADRs/ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md
 [ADR-088]: ../docs/ADRs/ADR-088-israel-local-time-for-every-date-and-schedule.md
 [ADR-090]: ../docs/ADRs/ADR-090-scope-cuts-for-the-first-release.md
 [ADR-118]: ../docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md
 [ADR-120]: ../docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md
+[ADR-123]: ../docs/ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md
 [NFR-209]: ../docs/requirements/requirements.md#nfr-209
 [NFR-262]: ../docs/requirements/requirements.md#nfr-262

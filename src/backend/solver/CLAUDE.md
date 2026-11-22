@@ -18,8 +18,8 @@ replace the `raise`, then build the adapter. It may change a declared signature,
 in the same pull request, and it drops the docstring's "Built in M<n>" when the body is built
 ([ADR-119]). `solvers/` holds only `.gitkeep` files. `tests/` mirrors the package path.
 
-[ADR-037] (Accepted) renames the service to `src/optimizer` with the package `dispatchflow_opt`,
-in the M0 restructure. [ADR-040] puts the solvers under `adapters/outbound/solvers/`, as [TS §4]
+[ADR-123] (Accepted) renames the service to `src/backend/optimizer`, with the package
+`dispatchflow_optimizer`. [ADR-040] puts the solvers under `adapters/outbound/solvers/`, as [TS §4]
 draws it, where `nearest_neighbour` joins them. Neither is in the tree yet.
 
 ## Rules
@@ -133,7 +133,6 @@ Run `just` recipes from the repository root, and `uv` from this folder.
 [ADR-001]: ../../../docs/ADRs/ADR-001-domain-driven-design-with-hexagonal-architecture.md
 [ADR-004]: ../../../docs/ADRs/ADR-004-pluggable-solver-port.md
 [ADR-005]: ../../../docs/ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md
-[ADR-037]: ../../../docs/ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md
 [ADR-040]: ../../../docs/ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md
 [ADR-043]: ../../../docs/ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md
 [ADR-044]: ../../../docs/ADRs/ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md
@@ -147,6 +146,7 @@ Run `just` recipes from the repository root, and `uv` from this folder.
 [ADR-113]: ../../../docs/ADRs/ADR-113-route-stability-is-its-own-cost-the-rules-read-a-problem-through-a-protocol-and-untimed-outputs-are-documented.md
 [ADR-119]: ../../../docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md
 [ADR-120]: ../../../docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md
+[ADR-123]: ../../../docs/ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md
 [TS §2.1]: ../../../docs/architecture/tech_stack.md#21-the-dependency-rule
 [TS §4]: ../../../docs/architecture/tech_stack.md#4-repository-layout
 [TS §7]: ../../../docs/architecture/tech_stack.md#7-optimization-service-python

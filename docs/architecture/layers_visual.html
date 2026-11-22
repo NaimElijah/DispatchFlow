@@ -303,7 +303,7 @@ const isDbPort = r => r.l === "port" && (/Repository$|Views$/.test(r.n) || RECOR
 
 // The secondary ports tech_stack.md §6.4 pairs with an adapter, in its own words; §6.4 wins where they differ.
 const OUTBOUND = [
-  { ports: ["RouteOptimizer", "FeasibilityChecker", "BaselinePlanner"], adapter: "Optimizer HTTP client, generated from optimizer-api; the anti-corruption layer" },
+  { ports: ["RouteOptimizer", "FeasibilityChecker", "BaselinePlanner"], adapter: "Optimizer HTTP client, generated from optimization-api; the anti-corruption layer" },
   { ports: ["TravelTimes", "RouteShapes"], adapter: "OSRM table and route services; base durations only" },
   { ports: ["Geocoder"], adapter: "GovMap adapter, fake; Nominatim only if GovMap's terms fail (ADR-085)" },
   { ports: ["SmsGateway"], adapter: "Israeli provider adapter (Q-96); fake in every environment except production (NFR-206)" },

@@ -79,7 +79,7 @@ flowchart BT
   RP --> LO
   RP --> PL
   RP --> CO
-  PL -->|"RouteOptimizer, FeasibilityChecker<br/>optimizer-api v1"| OPT
+  PL -->|"RouteOptimizer, FeasibilityChecker<br/>optimization-api v1"| OPT
   RP -->|BaselinePlanner| OPT
   LO -.->|"implements ExecutionFacts"| PL
   LO -.->|"implements StopProgress"| CO
@@ -108,7 +108,7 @@ Audit without a cycle ([ADR-040]).
 | Fleet | Live Operations | Customer and supplier | Live Operations reads shifts, for the start deadline and the tracking cut-off |
 | Live Operations, Planning, Customers & Orders | Recipient Messaging | Customer and supplier | Messaging hears `RouteStarted`, `OutcomeRecorded`, `PlanRevised`, `OrderCancelled` and `OrderRescheduled`; asks `ArrivalProjections` and the recipient's phone; calls Live Operations' `RaiseAlert` |
 | Planning, Live Operations, Customers & Orders | Reporting | Customer and supplier | Reporting hears `PlanPublished` and `PlanRevised`, and reads the read-only views each module publishes |
-| Optimization | Planning, Reporting | Customer and supplier with a published language: `optimizer-api` v1 (OpenAPI). The core's optimizer adapter is an anti-corruption layer | HTTP. The optimizer knows nothing about the core |
+| Optimization | Planning, Reporting | Customer and supplier with a published language: `optimization-api` v1 (OpenAPI). The core's optimizer adapter is an anti-corruption layer | HTTP. The optimizer knows nothing about the core |
 | OSRM, the geocoders, the SMS provider, Expo push, Amazon SES | The module that uses each | Conformist, behind an anti-corruption adapter | Each sits behind a port named in DispatchFlow's language |
 
 Fleet and Customers & Orders have no relationship. Neither does any pair not in the table.
@@ -1481,7 +1481,7 @@ Each step that crosses a commit has a watcher, so a lost step can't leave someth
 ```mermaid
 flowchart LR
   subgraph IN["adapter/in"]
-    WEB["web (generated from core-api)"]
+    WEB["web (generated from client-api)"]
     SSE["event stream"]
     JOB["job workers, schedulers, watchers"]
     LIS["listeners on events"]

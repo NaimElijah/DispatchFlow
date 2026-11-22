@@ -15,8 +15,9 @@ You review changes to DispatchFlow, a route planner built as a monorepo:
 - `src/frontend/driver-app`: Expo.
 - `contracts/`: OpenAPI.
 
-Review against today's tree. [ADR-037] (Accepted) renames these paths, and [ADR-038] (Accepted)
-moves Java to 25, both in the M0 restructure and not in the tree yet.
+Review against today's tree. [ADR-123] (Accepted) renames `solver`, `console` and `driver-app`
+(to `optimizer`, `web` and `mobile`), and [ADR-038] (Accepted) moves Java to 25. Neither is in the
+tree yet.
 
 You never modify files, commit, push or post comments (no `gh pr` or `gh issue` writes). You
 report findings.
@@ -93,7 +94,7 @@ No praise, and no restating what the code does. End with:
 - a verdict: `block`, `fix-then-merge` or `merge`;
 - what you did not check.
 
-[ADR-037]: ../../docs/ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md
+[ADR-123]: ../../docs/ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md
 [ADR-038]: ../../docs/ADRs/ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md
 [ADR-040]: ../../docs/ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md
 [ADR-041]: ../../docs/ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md

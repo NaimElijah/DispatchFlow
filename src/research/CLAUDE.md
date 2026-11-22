@@ -20,8 +20,8 @@ optimizer's code directly, with no HTTP and no `core`.
 ## How it uses the solver
 
 - It depends on `src/backend/solver` as an editable path dependency, so it always runs the
-  solver's current code. [ADR-037] (Accepted) moves that project to `src/optimizer`, package
-  `dispatchflow_opt`, in the M0 restructure.
+  solver's current code. [ADR-123] (Accepted) renames that project to `src/backend/optimizer`, package
+  `dispatchflow_optimizer`.
 - It uses the solver's `domain`, `application` and solver adapter packages, the last to build its
   own registry. It never imports the solver's HTTP adapter, `adapters/inbound/http`. Today the
   solver adapters sit in `solvers/`. [ADR-040] puts them under
@@ -84,7 +84,7 @@ Google-style docstring, which ruff enforces; tests are exempt.
 
 [ADR-004]: ../../docs/ADRs/ADR-004-pluggable-solver-port.md
 [ADR-005]: ../../docs/ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md
-[ADR-037]: ../../docs/ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md
+[ADR-123]: ../../docs/ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md
 [ADR-040]: ../../docs/ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md
 [ADR-091]: ../../docs/ADRs/ADR-091-study-design-for-the-solver-comparison.md
 [NFR-115]: ../../docs/requirements/requirements.md#nfr-115
