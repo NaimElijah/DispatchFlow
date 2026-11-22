@@ -343,8 +343,6 @@ route included.
 | FR-241 | Selecting a stop shows its window, ETA, load, waiting time and any violation. | Should |  |  |
 | FR-151 | A dispatcher sees every route and stop of a plan in a table that can be sorted and filtered, as an alternative to the map and timeline. | Should |  |  |
 
-<a id="publishing-and-the-phone-app"></a>
-
 ### Publishing and the phone app
 
 | ID | Requirement | Priority | Size | Enforced by |
