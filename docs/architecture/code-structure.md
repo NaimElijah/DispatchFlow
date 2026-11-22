@@ -244,9 +244,7 @@ src/research/
 
 A Vite project. `src/main.tsx` mounts `src/App.tsx`, which renders a heading. `src/test/setup.ts`
 configures Vitest. The configuration files (`vite.config.ts`, `tsconfig*.json`,
-`eslint.config.js`, `.prettierrc.json`) sit at the project root. `osv-scanner.toml` lists the
-vulnerability the audit ignores there, with its reason and an expiry date
-([ADR-023](../ADRs/ADR-023-accept-minimatch-and-glob-advisories.md)).
+`eslint.config.js`, `.prettierrc.json`) sit at the project root.
 
 ### `src/frontend/mobile`
 

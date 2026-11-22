@@ -19,8 +19,6 @@ React 19, TypeScript 6.0, Vite 8, npm.
   from files (NFR-204).
 - Read the event stream with `fetch` and eventsource-parser, not the browser's `EventSource`, which
   cannot send an `Authorization` header ([TS §10]).
-- `osv-scanner.toml` holds the one vulnerability the audit ignores here, until 2027-01-31
-  ([ADR-023]).
 - Server data lives only in TanStack Query's in-memory cache, never persisted, and a refused refresh
   or an ended session drops it (NFR-269). Sign-out's answer sends `Clear-Site-Data` and deletes the
   refresh cookie, which is HttpOnly, so the app never reads it (NFR-233, [ADR-076]).
@@ -45,6 +43,5 @@ Run `just` recipes from the repository root, and `npm` or `npx` from this folder
 
 [ADR-026]: ../../../docs/ADRs/ADR-026-server-sent-events-and-push-for-live-updates.md
 [ADR-035]: ../../../docs/ADRs/ADR-035-both-apps-serve-every-role.md
-[ADR-023]: ../../../docs/ADRs/ADR-023-accept-minimatch-and-glob-advisories.md
 [ADR-076]: ../../../docs/ADRs/ADR-076-admin-and-dispatcher-data-stays-in-memory-on-devices.md
 [TS §10]: ../../../docs/architecture/tech_stack.md#10-web-app

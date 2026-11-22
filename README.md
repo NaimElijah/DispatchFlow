@@ -311,10 +311,9 @@ Known limitations:
 - Nothing is deployed; there is no staging or production environment yet.
 - `docker compose` is not set up; each component runs on its own. `compose.dev.yaml` is part of
   the M0 walking skeleton (ADR-042, Accepted).
-- Four vulnerabilities in the frontends' build, lint and test tooling are ignored by the audit
+- Four vulnerabilities in the phone app's build, lint and test tooling are ignored by the audit
   until 2027-01-31. The owner accepted all four: minimatch and glob in ADR-023, zod and deepmerge
-  in ADR-095. The reasons are in `src/frontend/web/osv-scanner.toml` and
-  `src/frontend/mobile/osv-scanner.toml`
+  in ADR-095. The reasons are in `src/frontend/mobile/osv-scanner.toml`
   ([ADR-016](docs/ADRs/ADR-016-dependency-audit-with-osv-scanner.md),
   [ADR-023](docs/ADRs/ADR-023-accept-minimatch-and-glob-advisories.md),
   [ADR-095](docs/ADRs/ADR-095-accept-the-zod-and-deepmerge-advisories-until-2027-01-31.md)).
