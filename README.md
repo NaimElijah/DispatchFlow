@@ -49,6 +49,8 @@ This README is ordered for contributors, so Quick start comes before Architectur
 | Docker | running daemon | core's integration tests, `just core-run`, `just audit` |
 | just | 1.59 | every command below |
 
+Point `JAVA_HOME`, and your IDE's Java SDK, at that JDK 25: the core does not build on an older one.
+
 Install `just` through uv, which you already have:
 
 ```bash
@@ -147,7 +149,7 @@ progress to the web app over server-sent events
 
 | Layer | Technology | Version | Why |
 |---|---|---|---|
-| Core backend | Java, Spring Boot, Spring Data JPA; libphonenumber, JTS, JSpecify | 21, 4.1.2; 9.0.43, 1.20.0, version from the Spring Boot parent | The team's strongest stack; mature ecosystem for the adapters. libphonenumber parses phone numbers and JTS checks the service area, both in the pure domain; JSpecify marks null-safe packages |
+| Core backend | Java, Spring Boot, Spring Data JPA; libphonenumber, JTS, JSpecify | 25, 4.1.2; 9.0.43, 1.20.0, version from the Spring Boot parent | The team's strongest stack; mature ecosystem for the adapters. libphonenumber parses phone numbers and JTS checks the service area, both in the pure domain; JSpecify marks null-safe packages |
 | Database | PostgreSQL 18.6; Flyway (version from the Spring Boot parent) | 18.6 | Relational data with real constraints; versioned SQL migrations |
 | Optimizer | Python, FastAPI, NumPy | 3.14, 0.162, 2.5.4 | OR-Tools' richest bindings; algorithm work iterates apart from the backend; NumPy holds the validator's arrays |
 | Web app | React, TypeScript, Vite | 19.3, 6.0, 8.3 | Web app for every role; its driver screens also work in a phone's browser |
@@ -161,7 +163,7 @@ TypeScript is held at 6.0 because typescript-eslint does not support 7 yet
 not in the code yet).
 
 This table is what the code uses today. [tech_stack.md](docs/architecture/tech_stack.md) decides
-the stack for the Alpha and after, and ADR-037 to ADR-047 (Accepted, in the
+the stack for the Alpha and after, and ADR-038 to ADR-047 (Accepted, in the
 [ADR index](docs/ADRs/README.md)) record where it departs from today's: jOOQ in place of
 Spring Data JPA, Spring Modulith, pnpm and mise. None of it is in the tree yet; each change lands
 with the milestone that needs it. ADR-038's Java 25 is already in the tree, and
@@ -255,9 +257,7 @@ docs/                  requirements, architecture and design, ADRs, the roadmap,
 justfile               every command, the same locally and in CI
 ```
 
-[ADR-123](docs/ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md) (Accepted) keeps this tree and renames three
-components: `solver` to `optimizer`, `console` to `web` and `driver-app` to `mobile`. The tree above
-has the new names.
+[ADR-123](docs/ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md) (Accepted) decides this tree and its component names.
 
 ## Design decisions
 
@@ -286,12 +286,13 @@ hangs. Cost: every contributor installs `just`, and CI builds every component on
 
 The other decisions, including the repository layout, the two clients and the tooling, are in
 the [ADR index](docs/ADRs/README.md). It also lists ADR-037 to ADR-047, accepted in this round, on
-2026-11-13 and 2026-11-14, and ADR-048 to ADR-093, which record the rest of the decisions. Each
+2026-11-13 and 2026-11-14 (ADR-123 has since superseded ADR-037), and ADR-048 to ADR-093, which record the rest of the decisions. Each
 supersedes, amends or extends the ADRs its status names, to match the design documents. The code
 does not follow them yet. ADR-094 to ADR-096 settle three points found open afterwards: the
 contract check's base branch, the zod and deepmerge advisories, and the root `CLAUDE.md`. ADR-097
 to ADR-118 record decisions taken while the domain layer was built, reviewed and split into packages,
-and ADR-119 and ADR-120 the declaration of the application layer.
+ADR-119 and ADR-120 the declaration of the application layer, ADR-121 its review, ADR-122 the
+finish skill without an agent review, and ADR-123 the grouped layout with three renamed components.
 
 ## Status and limitations
 

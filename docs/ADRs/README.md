@@ -120,7 +120,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-019](ADR-019-container-images-run-as-non-root.md) | Each service ships as a container image that runs as a non-root user | Accepted; amended by ADR-047 |
 | [ADR-027](ADR-027-proof-files-on-the-vm-disk-with-hourly-backups.md) | Proof files stay on the VM's disk, and backups run hourly during operating hours | Accepted |
 | [ADR-028](ADR-028-driver-app-through-test-tracks-with-a-device-checklist.md) | The phone app ships through test tracks, and real phones are checked by hand | Accepted; extended by ADR-035 and ADR-081; amended by ADR-080 |
-| [ADR-047](ADR-047-images-pinned-by-digest-and-core-on-temurin-25-jre.md) | Images are pinned by digest, and the core runs on the Temurin 25 JRE | Accepted |
+| [ADR-047](ADR-047-images-pinned-by-digest-and-core-on-temurin-25-jre.md) | Images are pinned by digest, and the core runs on the Temurin 25 JRE | Accepted; amended by ADR-123 |
 | [ADR-078](ADR-078-hosting-on-one-aws-vm-in-tel-aviv-built-with-terraform.md) | DispatchFlow runs on one AWS VM in Tel Aviv, built with Terraform and capped at ₪550 a month | Accepted |
 | [ADR-079](ADR-079-client-errors-and-crashes-go-to-self-hosted-glitchtip.md) | Client errors and crashes go to GlitchTip on the VM, through the Sentry SDKs | Accepted |
 | **Security and personal data** | | |

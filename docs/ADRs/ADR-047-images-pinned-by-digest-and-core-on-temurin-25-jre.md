@@ -1,6 +1,6 @@
 # ADR-047: Images are pinned by digest, and the core runs on the Temurin 25 JRE
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-123
 - **Date:** 2026-11-13
 
 ## Context

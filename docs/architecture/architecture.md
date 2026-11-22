@@ -147,8 +147,8 @@ the ADRs:
   and [§2](domain_layer/domain_layer_design.md#2-context-map): the bounded contexts and the
   module graph.
 - [Tech stack](tech_stack.md): the tools, and what each beat.
-- [ADR index](../ADRs/README.md):
-  [ADR-123](../ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md) (the layout, and three renames),
+- [ADR index](../ADRs/README.md): the layout is
+  [ADR-123](../ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md)'s (the grouped tree and three renames), in the tree;
   [ADR-038](../ADRs/ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md) (`mise`; the core
   already runs its Java 25),
   [ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md) (a

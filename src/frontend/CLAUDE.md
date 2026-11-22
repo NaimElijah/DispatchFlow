@@ -40,7 +40,7 @@ Accepted, and not in the tree yet: [ADR-039] replaces npm with a pnpm workspace 
 - Maps use MapLibre with the Protomaps tiles that Caddy serves, and show the attribution
   OpenStreetMap's licence requires ([ADR-084], [TS §9]).
 - The two apps share no code yet. Add a shared package once hand-written code, not generated
-  code, would otherwise be copied between them ([ADR-008], which stands through [ADR-123]).
+  code, would otherwise be copied between them ([ADR-008], restated by [ADR-123]).
   [ADR-039] (Accepted) sets those packages up at the Alpha.
 - TypeScript is held at 6.0 in both apps, because typescript-eslint does not support 7 yet
   ([ADR-039], [TS §10]).

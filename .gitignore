@@ -16,6 +16,10 @@
 logs/*
 !logs/.gitkeep
 
+# Built data files (the OSM extract, OSRM files, PMTiles and benchmark instances): large, and
+# rebuilt from their sources, so never committed (ADR-123)
+/data/
+
 # OS files
 .DS_Store
 Thumbs.db

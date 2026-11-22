@@ -76,7 +76,7 @@ The phone app now has four entries and the web app one.
 ## Consequences
 
 - **Easy:** `audit` passes again, so a red job means a new problem. `just audit` printed
-  `Loaded filter from: /src/src/frontend/web/osv-scanner.toml` and ended `No issues found` with
+  `Loaded filter from: /src/src/frontend/console/osv-scanner.toml` and ended `No issues found` with
   exit 0.
 - **Easy:** no tooling runs on a major outside its declared range.
 - **Hard:** the flagged versions stay in the lockfiles until upstream moves.

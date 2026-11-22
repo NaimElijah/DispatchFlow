@@ -137,7 +137,7 @@ screens and documents use the same words.
 
 ## 4. Repository layout
 
-**Decided ([ADR-123](../ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md)) · Alpha.** The grouped tree stays, and the three renames in ADR-123 were the only move: `solver` became `optimizer`, `console` became `web`, and `driver-app` became `mobile`. The code already has these names.
+**Decided ([ADR-123](../ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md)) · Alpha.** The grouped tree with ADR-123's component names. Inside `core` and `optimizer` it draws the target packages ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)), not today's.
 `src/research` already exists (NFR-50).
 
 ```text
@@ -169,7 +169,7 @@ src/
                                     building blocks (errors, Version, AggregateRoot, events; ADR-097)
       src/main/resources/db/migration/   Flyway migrations, one PostgreSQL schema per module
     optimizer/                    Python, FastAPI
-      dispatchflow_optimizer/
+      src/dispatchflow_optimizer/
         domain/  application/
         adapters/inbound/http/
         adapters/outbound/solvers/{ortools,alns,nearest_neighbour}/

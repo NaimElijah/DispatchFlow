@@ -24,7 +24,7 @@ under Documentation.
 | `contracts/` | Versioned OpenAPI contracts between the components |
 | `docs/` | Requirements, the decided design, the ADRs and the roadmap |
 | `tests/` | Tests that span components: `e2e/`, `load/` |
-| `infra/` | Road-network data and deployment |
+| `infra/` | Deployment, OSRM configuration and, from M13, Terraform |
 | `logs/` | Local log output; git ignores its contents |
 
 [ADR-123] (Accepted) keeps this tree and renames three components, which now carry their new

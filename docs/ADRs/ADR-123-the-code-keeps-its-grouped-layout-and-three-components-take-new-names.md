@@ -114,17 +114,22 @@ logs/                    local log output; git ignores its contents
   also replaces the old component names inside the text of accepted ADRs, including the titles of
   [ADR-003] and [ADR-028], so the record reads with today's names.
   - It replaces a name only where the text names the component, never where "solver" means an
-    algorithm.
+    algorithm. That includes paths an ADR decided: ADR-003, ADR-008 and ADR-035 now show
+    `src/backend/optimizer`, `src/frontend/web` and `src/frontend/mobile`, while ADR-035's "The
+    folders keep their names" kept the names of its day, `console` and `driver-app`. The Context
+    above and the git history keep the old names, so the reversal can still be traced.
+  - Quoted tool output stays verbatim, old paths included, as in ADR-023's scanner log.
   - It changes no decision and no ADR file name, so every link still resolves.
   - It leaves ADR-037 and this ADR as written, because each names the old and the new names side by
     side.
   - The rule stands for everything else.
 - **Not affected:** [ADR-038] stands, with mise and Java 25. M0 keeps every item except the
-  restructure to ADR-037's layout.
+  restructure to ADR-037's layout, and the details ADR-038 and ADR-039 left to the restructure's
+  pull request are settled in M0.
 
 ### What changes in the accepted ADRs
 
-[ADR-037] is superseded whole. Seven others change in one part each, and the rest of each stands:
+[ADR-037] is superseded whole. Eight others change in one part each, and the rest of each stands:
 
 | ADR | What changes | What stands |
 |---|---|---|
@@ -133,9 +138,10 @@ logs/                    local log output; git ignores its contents
 | [ADR-009] | The recipe names follow the new folders: `optimizer-*`, `web-*`, `mobile-*` | The `justfile` as the only entry point, and CI running the same recipes |
 | [ADR-018] | Nothing of its own: the side-level files keep their folders, which ADR-037 left open | Narrower rules live next to the code, and each file repeats no rule of its parent |
 | [ADR-035] | Line 63, "The folders keep their names", no longer holds; the phone app's name on the phone is "DispatchFlow", while its orientation stays open | Both apps serve every role, and the rest of that ADR |
-| [ADR-039] | The shared packages live in `src/frontend/packages/`, not `src/packages` | One pnpm workspace for both apps and the packages, and the rest of that ADR |
+| [ADR-039] | The shared packages live in `src/frontend/packages/`, not `src/packages`, and `@dispatchflow/api-client` is generated from `client-api`, not `core-api` | One pnpm workspace for both apps and the packages, and the rest of that ADR |
 | [ADR-042] | `compose.dev.yaml` lives in `infra/deploy/`, not `deploy/`; the optimizer service builds from `src/backend/optimizer` | Local runs from Compose, Testcontainers for tests, the services and ports, and `data/` |
 | [ADR-043] | The contract file names are [ADR-006]'s, not ADR-037's | The generators, the version scheme, the error shape and the checks |
+| [ADR-047] | The production `compose.yaml` whose images are pinned by digest lives in `infra/deploy/`, not `deploy/` | Digest pins from January, the core on the Temurin 25 JRE, and the rest of that ADR |
 
 [ADR-008] stays `Superseded by ADR-037`. This ADR restates its tree with the new names, so the tree
 above is the one in force, and a reader need not follow the chain from ADR-008 through ADR-037.
@@ -204,6 +210,7 @@ above is the one in force, and a reader need not follow the chain from ADR-008 t
 [ADR-039]: ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md
 [ADR-042]: ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md
 [ADR-043]: ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md
+[ADR-047]: ADR-047-images-pinned-by-digest-and-core-on-temurin-25-jre.md
 [DL-17]: ../architecture/domain_layer/domain_layer_design.md#17-ubiquitous-language
 [RM]: ../roadmap.md
 [TS-4]: ../architecture/tech_stack.md#4-repository-layout
