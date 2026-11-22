@@ -10,7 +10,9 @@ import com.dispatchflow.archfixture.epsilon.domain.cycle.SubpackageInACycle;
 import com.dispatchflow.archfixture.epsilon.domain.layer.LayerAbove;
 import com.dispatchflow.archfixture.epsilon.domain.unmarked.UnmarkedValue;
 import com.dispatchflow.archfixture.epsilon.domain.used.UsedByTheRoot;
+import com.dispatchflow.archfixture.epsilon.events.below.BelowTheEvents;
 import com.dispatchflow.archfixture.shared.KernelValue;
+import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.library.dependencies.Slices;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -168,8 +170,10 @@ class DomainPackageRulesTest {
                                 root + ".alpha.application.spi",
                                 root + ".alpha.application.spi.usage",
                                 root + ".alpha.application.service.plan.edit",
+                                root + ".alpha.application.service.api.x",
                                 root + ".alpha.application.port.out.plan",
                                 root + ".alpha.domain.plan",
+                                root + ".alpha.domain.events.x",
                                 root + ".web",
                                 "org.other.alpha.events.kind")))
                 .containsExactly(
@@ -178,5 +182,16 @@ class DomainPackageRulesTest {
                         root + ".alpha.events.kind",
                         root + ".shared.application.port",
                         root + ".shared.id");
+    }
+
+    @Test
+    void GivenAFixtureBelowAnEventsPackage_WhenTheFlatGuardChecksItsImportedClasses_ThenItsPackageIsReported() {
+        List<String> packages = FixtureClasses.only(BelowTheEvents.class).stream()
+                .map(JavaClass::getPackageName)
+                .distinct()
+                .toList();
+
+        assertThat(DomainPackageRules.packagesBelowAFlatOne(FIXTURE_ROOT, packages))
+                .containsExactly(FIXTURE_ROOT + ".epsilon.events.below");
     }
 }
