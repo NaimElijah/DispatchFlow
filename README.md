@@ -292,7 +292,8 @@ does not follow them yet. ADR-094 to ADR-096 settle three points found open afte
 contract check's base branch, the zod and deepmerge advisories, and the root `CLAUDE.md`. ADR-097
 to ADR-118 record decisions taken while the domain layer was built, reviewed and split into packages,
 ADR-119 and ADR-120 the declaration of the application layer, ADR-121 its review, ADR-122 the
-finish skill without an agent review, and ADR-123 the grouped layout with three renamed components.
+finish skill without an agent review, ADR-123 the grouped layout with three renamed components,
+and ADR-124 what a `CLAUDE.md` holds.
 
 ## Status and limitations
 

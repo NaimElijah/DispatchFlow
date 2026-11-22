@@ -105,9 +105,10 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-081](ADR-081-eas-update-for-javascript-only-fixes-during-the-pilot.md) | JavaScript-only fixes reach the phone app through EAS Update during the pilot | Accepted |
 | **Project and team** | | |
 | [ADR-017](ADR-017-proprietary-licence.md) | Release the code under a proprietary licence, all rights reserved | Accepted |
-| [ADR-018](ADR-018-ai-assistant-context-in-the-repository.md) | The AI assistant's context lives in the repository | Accepted; extended by ADR-020, ADR-025 and ADR-096; amended by ADR-037 and ADR-123 |
+| [ADR-018](ADR-018-ai-assistant-context-in-the-repository.md) | The AI assistant's context lives in the repository | Accepted; extended by ADR-020, ADR-025, ADR-096 and ADR-124; amended by ADR-037 and ADR-123 |
 | [ADR-096](ADR-096-the-root-claude-md-is-agreed-and-no-longer-a-draft.md) | The root CLAUDE.md is agreed, and is no longer a draft | Accepted |
-| [ADR-020](ADR-020-team-subagents-in-the-repository.md) | Specialised team subagents live in `.claude/agents/`, beside each person's own | Accepted; extended by ADR-022 and ADR-033 |
+| [ADR-124](ADR-124-a-claude-md-holds-only-what-a-session-would-otherwise-get-wrong.md) | A CLAUDE.md holds only what a session would otherwise get wrong, in the narrowest folder its rule governs | Accepted |
+| [ADR-020](ADR-020-team-subagents-in-the-repository.md) | Specialised team subagents live in `.claude/agents/`, beside each person's own | Accepted; extended by ADR-022, ADR-033 and ADR-124 |
 | [ADR-021](ADR-021-dependabot-targets-dev-and-skips-pinned-majors.md) | Dependabot opens its updates against `dev`, and skips the versions other ADRs pin | Superseded by ADR-046 |
 | [ADR-022](ADR-022-personal-subagents-come-before-team-subagents.md) | Each person's own subagents come before the team's | Accepted; extended by ADR-025 and ADR-033 |
 | [ADR-025](ADR-025-team-skills-in-the-repository.md) | Team skills live in `.claude/skills/`, and only a person can start them | Accepted; extended by ADR-033 and ADR-034; amended by ADR-122 |
@@ -148,5 +149,6 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > being built. ADR-111 to ADR-118, on 2026-11-15, record the owner's decisions on the review of that
 > layer, and the split of its packages. ADR-119 to ADR-121, on 2026-11-15, record the
 > application layer's skeleton and its review. ADR-122, on 2026-11-18, drops the finish skill's agent
-> review. ADR-123, on 2026-11-22, drops ADR-037's flat tree and renames three components. The tech
-> stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.
+> review. ADR-123, on 2026-11-22, drops ADR-037's flat tree and renames three components. ADR-124,
+> on 2026-11-22, cuts each `CLAUDE.md` to what a session would otherwise get wrong. The tech stack's
+> [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.
