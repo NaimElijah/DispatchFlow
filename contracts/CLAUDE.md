@@ -8,8 +8,7 @@ each contract depend on it, and neither side owns it.
 | `client-api/v1/openapi.yaml` | `src/backend/core` | `src/frontend/web`, `src/frontend/mobile` |
 | `optimization-api/v1/openapi.yaml` | `src/backend/optimizer` | `src/backend/core` |
 
-Both are OpenAPI 3.1. Today `client-api`, served under `/api/v1`, declares no operation yet, and
-`optimization-api` has only `GET /health/liveness`.
+Both are OpenAPI 3.1. `client-api` is served under `/api/v1`.
 
 ## Rules
 
@@ -27,8 +26,10 @@ Both are OpenAPI 3.1. Today `client-api`, served under `/api/v1`, declares no op
   released ([NFR-134]; [ADR-043], [ADR-094]). Until then, the reviewer catches them.
 - Keep the `info.license` block: proprietary, all rights reserved ([ADR-017]).
 - Code is generated on both sides of every contract, so no hand-written type crosses a boundary
-  ([TS §1][TS-1], rule 5; [ADR-043], Accepted). Neither frontend has a generator yet; they will
-  generate their client from `client-api` once it has operations. Nobody edits generated code.
+  ([TS §1][TS-1], rule 5; [ADR-043]). Nobody edits generated code. No generator is set up yet,
+  and the optimizer's health-check models are hand-written: the next operation either contract
+  gains adds the generator, and the validation generated from it, to the provider and every
+  consumer in the same pull request.
 - Every `client-api` operation follows these conventions:
   - `x-capability` on every operation ([ADR-068]);
   - RFC 9457 errors with `code`, `params` and `traceId` ([ADR-043]; today's `Problem` lacks them);

@@ -117,7 +117,7 @@ have a `Dockerfile`, and neither runs as root
   and the package rules: no cycle between a module's domain packages, a domain root that imports
   none of its own subpackages, and `@NullMarked` on the kernel and on every domain and events package
   (`src/test/java/com/dispatchflow/architecture/`, [ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)).
-  The application rules there are listed in [`core/CLAUDE.md`](../../src/backend/core/CLAUDE.md#rules);
+  The application rules there are listed in [`ApplicationRules`](../../src/backend/core/src/test/java/com/dispatchflow/architecture/ApplicationRules.java);
   rules 1 to 7 are [ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)'s
   decision 10, with rule 4 extended and rule 8 added by [ADR-121](../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md).
   The other dependency rules are enforced by review.

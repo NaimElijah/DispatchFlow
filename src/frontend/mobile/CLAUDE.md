@@ -6,12 +6,14 @@ Expo SDK 58, React Native 0.88, React 19, TypeScript 6.0, npm.
 
 ## Layout
 
-- `index.ts` registers `App.tsx`, which today renders only a heading.
+- `index.ts` registers `App.tsx`.
 - `app.json` holds the Expo configuration (name "DispatchFlow", slug `dispatchflow-mobile`).
   `assets/` holds the icons and the splash image.
 
 ## Rules
 
+- Direction switches with `I18nManager.forceRTL` ([TS §11]).
+- From the Pilot this app also sends its over-the-air update ID ([ADR-081], [TS §11]).
 - Add a dependency with `npx expo install <package>`, so its version matches SDK 58. Put
   tooling under `devDependencies`.
 - The web build (`expo export --platform web`) is a development aid and an end-to-end test target,
@@ -50,8 +52,6 @@ Expo SDK 58, React Native 0.88, React 19, TypeScript 6.0, npm.
 - Jest through `jest-expo`, with React Native Testing Library.
 - In React Native Testing Library 14, `render`, `rerender`, `unmount`, `renderHook`, `act` and
   every `fireEvent` call return a promise: `await` each, as `App.test.tsx` does with `render`.
-- End-to-end tests will run the same use cases on this app's web build as on the web app (NFR-83).
-  Native behaviour is checked by hand on real phones ([ADR-028], NFR-140).
 
 ## Commands
 
@@ -64,12 +64,12 @@ Run `just` recipes from the repository root, and `npm` or `npx` from this folder
 | `just mobile-run`       | Expo dev server for phones and the browser               |
 | `npx jest App.test.tsx` | One test file                                            |
 
-[ADR-026]: ../../../docs/ADRs/ADR-026-server-sent-events-and-push-for-live-updates.md
 [ADR-016]: ../../../docs/ADRs/ADR-016-dependency-audit-with-osv-scanner.md
 [ADR-023]: ../../../docs/ADRs/ADR-023-accept-minimatch-and-glob-advisories.md
-[ADR-028]: ../../../docs/ADRs/ADR-028-driver-app-through-test-tracks-with-a-device-checklist.md
+[ADR-026]: ../../../docs/ADRs/ADR-026-server-sent-events-and-push-for-live-updates.md
 [ADR-035]: ../../../docs/ADRs/ADR-035-both-apps-serve-every-role.md
 [ADR-076]: ../../../docs/ADRs/ADR-076-admin-and-dispatcher-data-stays-in-memory-on-devices.md
+[ADR-081]: ../../../docs/ADRs/ADR-081-eas-update-for-javascript-only-fixes-during-the-pilot.md
 [ADR-095]: ../../../docs/ADRs/ADR-095-accept-the-zod-and-deepmerge-advisories-until-2027-01-31.md
 [TS §11]: ../../../docs/architecture/tech_stack.md#11-phone-app
 [TS §23]: ../../../docs/architecture/tech_stack.md#23-alternatives-rejected-across-the-stack

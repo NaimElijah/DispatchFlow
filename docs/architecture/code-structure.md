@@ -273,9 +273,8 @@ API client.
 | End-to-end and load | `tests/e2e`, `tests/load` | No tool is configured yet |
 
 Unit and integration tests stay inside their component, where each tool looks for them. Root
-`tests/` holds only tests that span components. No end-to-end tool is configured
-([`src/frontend/CLAUDE.md`](../../src/frontend/CLAUDE.md)), and [NFR-10] calls for k6 for load
-tests. [Tech stack §17](tech_stack.md#17-testing) decides on Playwright for end-to-end tests and k6
+`tests/` holds only tests that span components. No end-to-end tool is configured, and [NFR-10]
+calls for k6 for load tests. [Tech stack §17](tech_stack.md#17-testing) decides on Playwright for end-to-end tests and k6
 for load tests.
 
 The rule is that each side of a contract is tested against it ([NFR-162]). No test does that
@@ -324,8 +323,8 @@ subpackages, and `@NullMarked` on the kernel and on every domain and events pack
 ([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)). The rest are
 conventions that review enforces.
 
-The application rules are ArchUnit tests too, in `ApplicationRules`, listed in
-[`core/CLAUDE.md`](../../src/backend/core/CLAUDE.md#rules); rules 1 to 7 are
+The application rules are ArchUnit tests too, in `ApplicationRules`, numbered in
+[the Javadoc of its rule methods](../../src/backend/core/src/test/java/com/dispatchflow/architecture/ApplicationRules.java); rules 1 to 7 are
 [ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)'s
 decision 10, with rule 4 extended and rule 8 added by [ADR-121](../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md).
 

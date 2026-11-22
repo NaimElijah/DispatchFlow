@@ -5,11 +5,13 @@ React 19, TypeScript 6.0, Vite 8, npm.
 
 ## Layout
 
-- `src/main.tsx` mounts `src/App.tsx`, which today renders only a heading.
+- `src/main.tsx` mounts `src/App.tsx`.
 - `src/test/setup.ts` configures Vitest; `vite.config.ts` sets the jsdom environment.
 
 ## Rules
 
+- Feature folders, `src/features/<context>`, mirror the bounded contexts ([TS §10]).
+- Mixed-direction text sits in `<bdi>` (NFR-136), and fonts come through Fontsource ([TS §10]).
 - Lay it out for a desktop screen, except the driver screens, which must also work in a phone's
   browser (NFR-15, NFR-219).
 - While a route is in progress and the page is open and visible, the app reports the driver's

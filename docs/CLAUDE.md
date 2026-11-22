@@ -17,11 +17,9 @@ and never restates them.
 | `requirements/ARD/` | The Application Requirements Document (ARD), as a PDF | Built outside the repository; the PDF is the only file here |
 | `presentations/` | The proposal and ARD presentations | The planning material the requirements started from |
 
-`architecture/architecture.md` describes today's system. `bounded-contexts.md` and
-`optimization-engine.md` describe the domain layers that are built and point to the design sections
-that define their topics. They also say that each application layer is declared, not built
-([ADR-119]). `data-model.md` points to them until a migration exists.
-`code-structure.md` describes the repository layout.
+`bounded-contexts.md` and `optimization-engine.md` describe the domain layers that are built and
+point to the design sections that define their topics. `data-model.md` points to them until a
+migration exists. `code-structure.md` describes the repository layout.
 `architecture/domain_layer/domain_layer_visual_guide.md` is the one file in its folder that decides
 nothing: a visual map of the domain layer as built, for reading the code. The domain document wins
 wherever the two differ.
@@ -65,20 +63,18 @@ wherever the two differ.
     - `Superseded by ADR-NNN`.
 
     *Extended* means the later ADR adds to this one without changing course. *Amended* means it
-    replaces part of this one and the rest stands. *Superseded* means it replaces this one whole;
+    replaces part of this one and the rest stands. *Superseded* means it replaces this one whole.
+    A Proposed ADR that would change an accepted one takes the matching `would …` form. One
+    Status may combine relations, for example
+    `Proposed; would supersede ADR-008 and amend ADR-006`. The accepted ADR keeps its status until
+    the new one is accepted. Then one commit changes both statuses (the old one takes the matching
+    status above), the `ADR pending` markers the new ADR settles, and the `ADRs/README.md` rows;
   - Context, Decision, Consequences (**Easy:**, **Hard:**, **Cost:**, **Risk:**), Alternatives
     considered, and Revisit when.
 - Record a decision *not* to adopt something too, with the trigger that would reopen it.
 - Never rewrite an accepted ADR. To change course, write a new one and mark the old one
   `Superseded by ADR-NNN`, or `Accepted; amended by ADR-NNN` when only part of it changes.
 - Add a row to `ADRs/README.md` in the same change.
-- A Proposed ADR that would change an accepted one says so in its Status: `Proposed; would
-  extend ADR-NNN`, `Proposed; would amend ADR-NNN` or `Proposed; would supersede ADR-NNN`. One
-  Status may combine relations, for example `Proposed; would supersede ADR-008 and amend
-  ADR-006`. The accepted ADR keeps its status until the new one is accepted. Then one commit
-  changes both statuses (the old one becomes `Accepted; extended by`, `Accepted; amended by` or
-  `Superseded by ADR-NNN`), the `ADR pending` markers the new ADR settles, and the `ADRs/README.md`
-  rows.
 - Links to other ADRs and to requirements go at the bottom, reference-style. Requirement links
   copy the row's definition at the bottom of `requirements.md`. An NFR has its own anchor
   (`../requirements/requirements.md#nfr-21`). An FR, BR, Q or UC row links to the section that
@@ -98,4 +94,3 @@ wherever the two differ.
 - Before naming a version, a flag or a file, check it in the repository.
 
 [TS-19]: architecture/tech_stack.md#19-documentation-and-diagrams
-[ADR-119]: ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md
