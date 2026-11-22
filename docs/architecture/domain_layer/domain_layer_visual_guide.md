@@ -460,7 +460,7 @@ The pattern, with where `Driver` shows each part:
    why no domain test needs a mock or a clock.
 
 A call to `Driver.retire`, from a use case that is declared but not built (`RetireDriver`,
-`core/fleet/application/service/RetireDriver.java`):
+`core/fleet/application/service/driver/RetireDriver.java`):
 
 ```mermaid
 sequenceDiagram

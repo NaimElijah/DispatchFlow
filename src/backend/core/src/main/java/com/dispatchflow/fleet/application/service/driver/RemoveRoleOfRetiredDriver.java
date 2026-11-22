@@ -1,4 +1,4 @@
-package com.dispatchflow.fleet.application.service;
+package com.dispatchflow.fleet.application.service.driver;
 
 import com.dispatchflow.access.application.api.RemoveDriverRole;
 import com.dispatchflow.audit.application.api.CallContext;

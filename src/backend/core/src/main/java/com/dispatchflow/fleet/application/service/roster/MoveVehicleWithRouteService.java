@@ -1,4 +1,4 @@
-package com.dispatchflow.fleet.application.service;
+package com.dispatchflow.fleet.application.service.roster;
 
 import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;

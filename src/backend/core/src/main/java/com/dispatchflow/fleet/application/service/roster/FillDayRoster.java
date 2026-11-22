@@ -1,4 +1,4 @@
-package com.dispatchflow.fleet.application.service;
+package com.dispatchflow.fleet.application.service.roster;
 
 import com.dispatchflow.access.application.api.Accounts;
 import com.dispatchflow.access.application.api.Actor;
@@ -6,28 +6,29 @@ import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.fleet.application.port.out.DayRosterRepository;
 import com.dispatchflow.fleet.application.port.out.DriverRepository;
 import com.dispatchflow.fleet.application.port.out.FleetRegisterRepository;
-import com.dispatchflow.shared.AccountId;
+import com.dispatchflow.fleet.domain.roster.RosterFill;
 import com.dispatchflow.shared.DeliveryDate;
-import com.dispatchflow.shared.RuleViolation;
-import com.dispatchflow.shared.VehicleId;
-import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 
 /**
- * A dispatcher gives a rostered driver a vehicle for a date (FR-54). On the date a driver drives at
- * most one vehicle and a vehicle has at most one driver; both are active (FR-190). Giving the
- * vehicle they already drive changes nothing. A date with no roster yet is opened empty, at {@code
- * Version.NEW}, so the domain answers a driver who is not on it.
+ * Fills a date's roster from each driver's defaults and weekly shifts, setting only the values
+ * nobody set (FR-54, FR-79, FR-189, ADR-103). A date with no roster yet is opened. A driver whose
+ * default can't be used is skipped and reported with the reason, and every other driver is still
+ * filled; filling again changes nothing.
+ *
+ * <p>It takes no version the caller read, unlike the roster's other changes (BR-76): a fill sets
+ * only values nobody set, so it overwrites no one's change. The save's own version check still
+ * catches a change made between the fill's read and its save.
  *
  * <p>The driver's standing combines Access's answer on the account with the driver record's own
- * state, read now (ADR-062). The vehicle's standing is the fleet register's. Like every changing
- * call it writes its audit record, a refused attempt's in its own transaction (NFR-23, ADR-110).
+ * state, read now (ADR-062). Like every changing call it writes its audit record, a refused
+ * attempt's in its own transaction (NFR-23, ADR-110).
  *
  * <p>Built in M2.
  */
-public final class AssignVehicle {
+public final class FillDayRoster {
 
     private final DayRosterRepository rosters;
     private final DriverRepository drivers;
@@ -46,7 +47,7 @@ public final class AssignVehicle {
      * @param clock the time
      * @param auditLog where the audit record is written
      */
-    public AssignVehicle(
+    public FillDayRoster(
             DayRosterRepository rosters,
             DriverRepository drivers,
             FleetRegisterRepository registers,
@@ -62,25 +63,19 @@ public final class AssignVehicle {
     }
 
     /**
-     * Assigns the vehicle.
+     * Fills the roster.
      *
      * <p>Built in M2.
      *
      * @param actor the signed-in user acting
-     * @param date the roster's date
-     * @param driver the driver's account
-     * @param vehicle the vehicle
-     * @param expected the version of the date's roster the caller last read, {@code Version.NEW}
-     *     for a date with none yet (BR-76)
-     * @throws RuleViolation with Fleet's {@code NotAnActiveDriver} or {@code VehicleNotActive} when
-     *     either is not active; {@code DriverNotRostered} when the driver has no shift that date;
-     *     {@code VehicleAlreadyAssigned} when another driver drives the vehicle; {@code
-     *     DriverAlreadyHasVehicle} when the driver drives another vehicle
-     * @throws NotFound when no account has the driver's ID
-     * @throws StaleVersion when the roster is no longer at {@code expected}, or changed before the
-     *     save (BR-76)
+     * @param date the date to fill
+     * @return the drivers filled, and the drivers skipped with their reasons
+     * @throws NotFound when an account of a driver record no longer exists
+     * @throws StaleVersion when the roster changed between its read and its save (BR-76); the web
+     *     adapter retries the call at once, up to three times, then answers 503 with {@code
+     *     Retry-After} (ADR-121)
      */
-    public void assign(Actor actor, DeliveryDate date, AccountId driver, VehicleId vehicle, Version expected) {
+    public RosterFill fill(Actor actor, DeliveryDate date) {
         throw new UnsupportedOperationException("Built in M2");
     }
 }
