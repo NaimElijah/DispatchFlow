@@ -72,9 +72,9 @@ public final class PlainText {
     private static final int MUSICAL_SYMBOL_NULL_NOTEHEAD = 0x1D159;
 
     /**
-     * Unicode's variation selectors, as of Unicode 15: the Mongolian free variation selectors, VS1
-     * to VS16 and VS17 to VS256. Each selects the presentation of the character before it, as
-     * U+FE0F makes U+2764 an emoji.
+     * Unicode's variation selectors, as of Unicode 16, the same as in 15.0: the Mongolian free
+     * variation selectors, VS1 to VS16 and VS17 to VS256. Each selects the presentation of the
+     * character before it, as U+FE0F makes U+2764 an emoji.
      */
     private static final int[][] VARIATION_SELECTORS = {
         {0x180B, 0x180D}, {0x180F, 0x180F}, {0xFE00, 0xFE0F}, {0xE0100, 0xE01EF}
@@ -84,9 +84,11 @@ public final class PlainText {
     private static final int EMOJI_PRESENTATION_SELECTOR = 0xFE0F;
 
     /**
-     * Unicode's Default_Ignorable_Code_Point ranges, as of Unicode 15 (DerivedCoreProperties.txt),
-     * which the JDK does not expose: what a renderer shows as nothing, such as the soft hyphen, the
-     * combining grapheme joiner, Hangul fillers and variation selectors.
+     * Unicode's Default_Ignorable_Code_Point ranges, as of Unicode 16, the same as in 15.0
+     * (DerivedCoreProperties.txt), which the JDK does not expose: what a renderer shows as nothing,
+     * such as the soft hyphen, the combining grapheme joiner, Hangul fillers and variation
+     * selectors. Both tables follow the JDK's Unicode version by hand, so a canary in PlainTextTest
+     * fails when that version moves on (ADR-106).
      */
     private static final int[][] DEFAULT_IGNORABLE = {
         {0x00AD, 0x00AD}, {0x034F, 0x034F}, {0x061C, 0x061C}, {0x115F, 0x1160}, {0x17B4, 0x17B5},
