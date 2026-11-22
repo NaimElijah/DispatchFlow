@@ -1,6 +1,6 @@
 # ADR-009: The root `justfile` is the single entry point, and CI runs the same recipes
 
-- **Status:** Accepted; amended by ADR-037 and ADR-038
+- **Status:** Accepted; amended by ADR-037, ADR-038 and ADR-123
 - **Date:** 2026-10-30
 
 ## Context

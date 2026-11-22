@@ -1,6 +1,6 @@
 # ADR-035: Both apps serve Admins, Dispatchers and Drivers
 
-- **Status:** Accepted; extended by ADR-076 and ADR-083; amended by ADR-037 and ADR-039
+- **Status:** Accepted; extended by ADR-076 and ADR-083; amended by ADR-037, ADR-039 and ADR-123
 - **Date:** 2026-11-11
 
 ## Context
