@@ -120,8 +120,9 @@ src/backend/core/
                                    rules (ArchUnit), and the error-code, event-name and
                                    refusal-test checks
     archfixture/                   deliberately wrong classes that each rule must flag, one
-                                   subpackage per rule under alpha/domain/, epsilon/ for the
-                                   package rules, and zeta/ for the application rules
+                                   subpackage per rule under alpha/domain/ (split by kind above
+                                   20 files), epsilon/ for the package rules, and zeta/ for the
+                                   application rules
     access/                        that module's domain tests, in the package of the type each tests
     fleet/                         that module's domain tests
     orders/                        that module's domain tests

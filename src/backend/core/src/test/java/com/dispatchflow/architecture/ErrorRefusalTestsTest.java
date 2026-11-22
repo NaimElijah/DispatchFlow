@@ -75,8 +75,8 @@ class ErrorRefusalTestsTest {
                         "com.dispatchflow.archfixture.alpha.domain.AlphaError$DateFull",
                         "com.dispatchflow.archfixture.beta.domain.BetaError$BetaOnly",
                         "com.dispatchflow.archfixture.beta.domain.BetaError$Scheduling$SlotGone",
-                        "com.dispatchflow.archfixture.alpha.domain.error.ErrorWithAText",
-                        "com.dispatchflow.archfixture.alpha.domain.error.ErrorInheritingAText")
+                        "com.dispatchflow.archfixture.alpha.domain.error.text.ErrorWithAText",
+                        "com.dispatchflow.archfixture.alpha.domain.error.text.ErrorInheritingAText")
                 .doesNotContain(
                         "com.dispatchflow.archfixture.beta.domain.BetaError$DateFull",
                         "com.dispatchflow.archfixture.beta.domain.BetaError$DateInPast",
