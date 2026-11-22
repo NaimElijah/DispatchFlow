@@ -1,4 +1,4 @@
-package com.dispatchflow.reporting.domain;
+package com.dispatchflow.reporting.domain.baseline;
 
 /**
  * Where a published plan is now, as Planning's view gives it: the states a plan with a baseline can

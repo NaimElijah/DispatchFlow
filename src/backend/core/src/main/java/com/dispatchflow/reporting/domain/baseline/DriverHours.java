@@ -1,4 +1,4 @@
-package com.dispatchflow.reporting.domain;
+package com.dispatchflow.reporting.domain.baseline;
 
 import com.dispatchflow.reporting.domain.ReportingError.NegativeDriverHours;
 import com.dispatchflow.shared.RuleViolation;

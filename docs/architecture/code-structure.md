@@ -104,7 +104,7 @@ src/backend/core/
     planning/                      domain/ (plan, solution, drop, basis, revision,
                                    reconciliation, settings), events/ and application/
     audit/                         domain/ (flat) and application/; it raises no event
-    reporting/                     domain/ (flat) and application/; it raises no event
+    reporting/                     domain/ (baseline) and application/; it raises no event
     messaging/                     domain/ (message, rating, settings), events/ and application/
     liveops/                       domain/ (delivery, outcome, proof, alert, routerun), events/
                                    and application/
@@ -147,7 +147,7 @@ files splits into one package per aggregate, over a root that holds the module's
 concept packages, wherever a group of 4 files can move
 ([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md),
 [ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)): `access`,
-`fleet`, `liveops`, `messaging` and `planning` are split, `orders`, `audit` and `reporting` are flat,
+`fleet`, `liveops`, `messaging`, `planning` and `reporting` are split, `orders` and `audit` are flat,
 and so are the kernel's domain types and every `api`, `spi` and `events` package.
 `shared/application/` is a package of its own, beside them
 ([ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).

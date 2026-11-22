@@ -1,4 +1,4 @@
-package com.dispatchflow.reporting.domain;
+package com.dispatchflow.reporting.domain.baseline;
 
 import com.dispatchflow.shared.OrderId;
 import java.util.List;

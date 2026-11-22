@@ -1,4 +1,4 @@
-package com.dispatchflow.reporting.domain;
+package com.dispatchflow.reporting.domain.baseline;
 
 /**
  * Why a revision withdrew a vehicle mid-route, as the baseline reads it (FR-267, FR-271). Reporting

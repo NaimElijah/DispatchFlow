@@ -11,12 +11,14 @@ application-wide web concerns, and the shared kernel `shared`, which every conte
 optimizer's `domain` package ([optimization-engine.md](optimization-engine.md)).
 
 A module's domain splits into one package per aggregate over a root that holds its error and what
-several packages use, once it passes 30 files
-([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)). Planning has the
-root and `plan`, `solution`, `basis`, `revision`, `reconciliation` and `settings`; Live Operations
-`delivery`, `alert` and `routerun`; Recipient Messaging `message`, `rating` and `settings`; Access
-`account`, `session` and `companyprofile`; Fleet `register`, `roster` and `driver`. Customers &
-Orders, Reporting and Audit, the kernel's domain types and every `events` package stay flat.
+several packages use, then into concept packages, once a package passes 20 files and a group of 4
+can move ([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md),
+[ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)).
+Planning has the root and `plan`, `solution`, `drop`, `basis`, `revision`, `reconciliation` and
+`settings`; Live Operations `delivery`, `outcome`, `proof`, `alert` and `routerun`; Recipient
+Messaging `message`, `rating` and `settings`; Access `account`, `session` and `companyprofile`;
+Fleet `register`, `roster` and `driver`; Reporting `baseline`. Customers & Orders and Audit, the
+kernel's domain types and every `api`, `spi` and `events` package stay flat.
 `shared/application/` is a package of its own, beside the kernel's domain types
 ([ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
 

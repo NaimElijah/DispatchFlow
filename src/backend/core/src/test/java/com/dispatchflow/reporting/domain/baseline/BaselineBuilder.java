@@ -1,8 +1,9 @@
-package com.dispatchflow.reporting.domain;
+package com.dispatchflow.reporting.domain.baseline;
 
 import static com.dispatchflow.reporting.domain.ReportingFixtures.BASELINE_FIGURES;
 import static com.dispatchflow.reporting.domain.ReportingFixtures.PLAN;
 
+import com.dispatchflow.reporting.domain.ReportingFixtures;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.Version;
 import java.time.Instant;

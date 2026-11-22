@@ -1,4 +1,4 @@
-package com.dispatchflow.reporting.domain;
+package com.dispatchflow.reporting.domain.baseline;
 
 import static com.dispatchflow.reporting.domain.ReportingFixtures.SHIFT_RAN_OUT_2;
 import static com.dispatchflow.reporting.domain.ReportingFixtures.UNAVAILABLE_1;

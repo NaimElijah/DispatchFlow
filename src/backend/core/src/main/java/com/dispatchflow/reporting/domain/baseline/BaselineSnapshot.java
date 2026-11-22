@@ -1,4 +1,4 @@
-package com.dispatchflow.reporting.domain;
+package com.dispatchflow.reporting.domain.baseline;
 
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.Version;

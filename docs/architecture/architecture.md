@@ -63,9 +63,11 @@ context starts as before. Why they are declared now is in [ADR-119](../ADRs/ADR-
 is an `Actor` and a `CallContext`, the shared ports are in `shared/application`, and screens read
 through query ports ([ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
 
-A module's domain splits into one package per aggregate once it passes 30 files
-([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)). Which modules
-are split, and into what, is in [bounded-contexts.md](bounded-contexts.md).
+A package of more than 20 files splits wherever a group of 4 can move: a module's domain into one
+package per aggregate, then into concept packages, and an application package the same way
+([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md),
+[ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)).
+Which modules are split, and into what, is in [bounded-contexts.md](bounded-contexts.md).
 
 ## Communication
 

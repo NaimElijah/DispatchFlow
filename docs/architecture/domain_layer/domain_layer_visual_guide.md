@@ -156,7 +156,7 @@ arrows (or to Access or Audit), and `audit/` imports no other module.
 | `messaging` | root, `message`, `rating`, `settings` | 42 | 1 |
 | `orders` | flat | 41 | 3 |
 | `planning` | root, `plan`, `solution`, `drop`, `basis`, `revision`, `reconciliation`, `settings` | 81 | 6 |
-| `reporting` | flat | 21 | none |
+| `reporting` | root, `baseline` | 21 | none |
 
 "Domain files" counts `.java` files under `<module>/domain/`, not counting `package-info.java`.
 A package above 20 files splits by aggregate, then by concept, wherever a group of 4 files can move
@@ -1321,17 +1321,19 @@ classDiagram
   BaselineComparison --> PlannedOnTimeRate
 ```
 
-- **Package:** one flat package, `core/reporting/domain/` (21 files). Besides `Baseline`: the two rate
-  types, `Distance`, `DriverHours`, `WithdrawnFleet`, `Withdrawal`, `WithdrawalCause`, `PlanStanding`
-  and the input facts `StopResult` and `StopOutcome`.
+- **Packages** (`core/reporting/domain/`, 21 files): the root (10) holds `ReportingError`, the two rate
+  types and the input facts `StopResult` and `StopOutcome`; `baseline/` (11) holds `Baseline`, its
+  snapshot, `Distance`, `DriverHours`, `WithdrawnFleet`, `Withdrawal`, `WithdrawalCause` and
+  `PlanStanding`, and uses the root one way
+  ([ADR-125](../../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)).
 - **The rates are exact shares of two counts.** `PlannedOnTimeRate` (in the diagram) and `OnTimeRate`
   (the actual rate, from `StopResult`s) are each `Measured` with two integers, or `Unavailable`; only a
   screen rounds. With no delivered stop the answer is `Unavailable`, never 0.
 - **`WithdrawalCause` here is Reporting's own copy**, mapped from Planning's `WithdrawalCause` event enum
   when `PlanRevised` is heard (§11).
 - **No events and no personal data.**
-- **Start reading:** `OnTimeRate.java` (87), then `Baseline.java` (238). Tests: `core-test/reporting/domain/`
-  (`BaselineTest`, `OnTimeRateTest`, `PlannedOnTimeRateTest`, `WithdrawnFleetTest`).
+- **Start reading:** `OnTimeRate.java` (87), then `baseline/Baseline.java` (238). Tests: `core-test/reporting/domain/`
+  (`OnTimeRateTest`, `PlannedOnTimeRateTest`, and in `baseline/`, `BaselineTest` and `WithdrawnFleetTest`).
 
 ### 5.8 Audit
 
@@ -1827,10 +1829,10 @@ domain and `events/` packages finds.
 |---|---|
 | `CompanyName` | `access/domain/companyprofile/` and `messaging/domain/`: two types, two rules |
 | `RevisionNo` | `planning/domain/` and `liveops/domain/`: Live Operations keeps its own copy (DL §3.3) |
-| `WithdrawalCause` | `planning/events/` and `reporting/domain/`: Reporting maps Planning's into its own |
-| `Withdrawal` | `planning/domain/solution/` and `reporting/domain/` |
+| `WithdrawalCause` | `planning/events/` and `reporting/domain/baseline/`: Reporting maps Planning's into its own |
+| `Withdrawal` | `planning/domain/solution/` and `reporting/domain/baseline/` |
 | `AccountAnonymized` | an event in `access/events/`, and an error record in `AccessError` |
-| `PlanStanding` | `orders/domain/Placement.java` (a nested enum) and `reporting/domain/PlanStanding.java` |
+| `PlanStanding` | `orders/domain/Placement.java` (a nested enum) and `reporting/domain/baseline/PlanStanding.java` |
 | `Published` | `Plan.Status.Published` and `BaselineCause.Published` |
 | `Capacity`, `Shift`, `TimeWindow`, `DepotHours` | the Fleet and kernel values, and records of the same name nested in Planning's `DropReason` |
 | `Delivered`, `Failed`, `Dropped` | variants of `Outcome`, `DispatcherOutcome`, `StopState`, `StopOutcome`, `ReportedOutcome`, `Placement`, `StopWhereabouts`, `MessageState` and `PlannedService` |
@@ -1861,7 +1863,7 @@ component `CLAUDE.md` files).
 | 7. A register and a roster | `core/fleet/domain/register/FleetRegister.java`, `roster/DayRoster.java` | `fleet/domain/register/FleetRegisterTest`, `roster/DayRosterTest` |
 | 8. Facts from the street | `core/liveops/domain/delivery/Delivery.java`, `routerun/RouteRun.java` | `liveops/domain/delivery/DeliveryLifecycleTest`, `DeliverySequenceTest` |
 | 9. Planning | `core/planning/domain/plan/SolveJob.java`, `ReoptimizationProposal.java`, then `Plan.java` by section | `planning/domain/plan/SolveJobTest`, `PlanLifecycleTest`, `PlanSequenceTest` |
-| 10. Messaging and reporting | `core/messaging/domain/rating/RatingRequest.java`, `reporting/domain/OnTimeRate.java`, `Baseline.java` | `messaging/domain/rating/RatingRequestTest`, `reporting/domain/BaselineTest` |
+| 10. Messaging and reporting | `core/messaging/domain/rating/RatingRequest.java`, `reporting/domain/OnTimeRate.java`, `baseline/Baseline.java` | `messaging/domain/rating/RatingRequestTest`, `reporting/domain/baseline/BaselineTest` |
 | 11. The optimizer | `optimizer/domain/solution.py`, `problem_view.py`, `feasibility.py`, `problem.py`, `factory.py` | `optimizer-test/domain/test_problem.py`, `test_violation_catalogue.py` |
 | 12. The guards | The rules: `core-test/architecture/DomainPurityRules.java`, `DomainShapeRules.java`, `DomainPackageRules.java`, `ApplicationRules.java`, which `DomainPurityTest`, `DomainShapeTest`, `DomainPackageTest` and `ApplicationTest` run over the production classes | `DomainPurityRulesTest`, `DomainShapeRulesTest`, `DomainPackageRulesTest`, `ApplicationRulesTest`: each rule must flag its deliberately wrong fixture in `core-test/archfixture/` |
 | 13. What is next | `core/planning/application/service/plan/RequestSolve.java`, then `grep -rn "Built in M0" src/backend` | none: bodies throw |

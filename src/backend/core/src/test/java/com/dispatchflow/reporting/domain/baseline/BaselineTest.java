@@ -1,8 +1,5 @@
-package com.dispatchflow.reporting.domain;
+package com.dispatchflow.reporting.domain.baseline;
 
-import static com.dispatchflow.reporting.domain.BaselineBuilder.COMPUTED_AT;
-import static com.dispatchflow.reporting.domain.BaselineBuilder.LOADED;
-import static com.dispatchflow.reporting.domain.BaselineBuilder.aBaseline;
 import static com.dispatchflow.reporting.domain.ReportingFixtures.BASELINE_FIGURES;
 import static com.dispatchflow.reporting.domain.ReportingFixtures.BASELINE_WITH_ADDED_ORDER;
 import static com.dispatchflow.reporting.domain.ReportingFixtures.ORDER_C;
@@ -15,9 +12,14 @@ import static com.dispatchflow.reporting.domain.ReportingFixtures.SHIFT_RAN_OUT_
 import static com.dispatchflow.reporting.domain.ReportingFixtures.UNAVAILABLE_1;
 import static com.dispatchflow.reporting.domain.ReportingFixtures.VEHICLE_1;
 import static com.dispatchflow.reporting.domain.ReportingFixtures.VEHICLE_2;
+import static com.dispatchflow.reporting.domain.baseline.BaselineBuilder.COMPUTED_AT;
+import static com.dispatchflow.reporting.domain.baseline.BaselineBuilder.LOADED;
+import static com.dispatchflow.reporting.domain.baseline.BaselineBuilder.aBaseline;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.reporting.domain.CancelledOrders;
+import com.dispatchflow.reporting.domain.PlannedOnTimeRate;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.StoredStateInvalid;

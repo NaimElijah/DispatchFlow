@@ -1,6 +1,6 @@
 package com.dispatchflow.reporting.application.port.out;
 
-import com.dispatchflow.reporting.domain.PlannedFigures;
+import com.dispatchflow.reporting.domain.baseline.PlannedFigures;
 
 /**
  * The optimizer's baseline: a nearest-neighbour solve of a plan's day that meets windows, capacity

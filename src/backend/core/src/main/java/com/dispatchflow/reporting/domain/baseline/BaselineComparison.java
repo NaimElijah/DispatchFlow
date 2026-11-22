@@ -1,5 +1,6 @@
-package com.dispatchflow.reporting.domain;
+package com.dispatchflow.reporting.domain.baseline;
 
+import com.dispatchflow.reporting.domain.PlannedOnTimeRate;
 import com.dispatchflow.shared.VehicleId;
 import java.util.List;
 import java.util.Objects;

@@ -1,5 +1,7 @@
-package com.dispatchflow.reporting.domain;
+package com.dispatchflow.reporting.domain.baseline;
 
+import com.dispatchflow.reporting.domain.CancelledOrders;
+import com.dispatchflow.reporting.domain.PlannedOnTimeRate;
 import com.dispatchflow.shared.AggregateRoot;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PlanId;

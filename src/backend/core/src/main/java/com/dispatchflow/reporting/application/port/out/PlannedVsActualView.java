@@ -1,7 +1,7 @@
 package com.dispatchflow.reporting.application.port.out;
 
-import com.dispatchflow.reporting.domain.Distance;
-import com.dispatchflow.reporting.domain.DriverHours;
+import com.dispatchflow.reporting.domain.baseline.Distance;
+import com.dispatchflow.reporting.domain.baseline.DriverHours;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PlanId;

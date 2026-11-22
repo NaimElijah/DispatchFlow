@@ -1,9 +1,9 @@
 package com.dispatchflow.reporting.application.port.out;
 
 import com.dispatchflow.reporting.domain.CancelledOrders;
-import com.dispatchflow.reporting.domain.PlanStanding;
-import com.dispatchflow.reporting.domain.PlannedFigures;
 import com.dispatchflow.reporting.domain.StopResult;
+import com.dispatchflow.reporting.domain.baseline.PlanStanding;
+import com.dispatchflow.reporting.domain.baseline.PlannedFigures;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.PlanId;
 import java.util.List;
