@@ -55,6 +55,7 @@ import com.dispatchflow.archfixture.zeta.upper.application.service.LowerUsageSer
 import com.dispatchflow.archfixture.zeta.upper.application.service.ServiceRootUsingASubpackage;
 import com.dispatchflow.archfixture.zeta.upper.application.service.UpperUseCase;
 import com.dispatchflow.archfixture.zeta.upper.application.service.looped.LoopedUseCase;
+import com.dispatchflow.archfixture.zeta.upper.application.service.nested.NestedPackageUsingASubpackage;
 import com.dispatchflow.archfixture.zeta.upper.application.service.used.UsedByTheServiceRoot;
 import com.dispatchflow.archfixture.zeta.web.ZetaWebHandler;
 import com.tngtech.archunit.core.domain.JavaClass;
@@ -480,6 +481,8 @@ class ApplicationRulesTest {
                         ROOT + ".upper.application.port.out.used",
                         ROOT + ".upper.application.service",
                         ROOT + ".upper.application.service.looped",
+                        ROOT + ".upper.application.service.nested",
+                        ROOT + ".upper.application.service.nested.below",
                         ROOT + ".upper.application.service.used");
     }
 
@@ -536,15 +539,18 @@ class ApplicationRulesTest {
     }
 
     @Test
-    void GivenTheZetaFixtures_WhenRule7ChecksTheRoots_ThenExactlyTheServiceAndPortRootsUsingASubpackageAreFlagged() {
-        assertThat(violators(ApplicationRules.serviceAndPortRootsUseNoSubpackage(ROOT), zeta()))
-                .containsExactlyInAnyOrder(namesOf(ServiceRootUsingASubpackage.class, PortRootUsingASubpackage.class));
+    void GivenTheZetaFixtures_WhenRule7ChecksTheRoots_ThenExactlyThePackagesUsingTheirOwnSubpackageAreFlagged() {
+        assertThat(violators(ApplicationRules.applicationPackagesUseNoSubpackage(ROOT), zeta()))
+                .containsExactlyInAnyOrder(namesOf(
+                        ServiceRootUsingASubpackage.class,
+                        PortRootUsingASubpackage.class,
+                        NestedPackageUsingASubpackage.class));
     }
 
     @Test
     void GivenRootsThatUseOnlyTheirOwnPackageAndOtherLayers_WhenRule7ChecksTheRoots_ThenNothingIsFlagged() {
         assertThat(violators(
-                        ApplicationRules.serviceAndPortRootsUseNoSubpackage(ROOT),
+                        ApplicationRules.applicationPackagesUseNoSubpackage(ROOT),
                         FixtureClasses.only(UpperUseCase.class, UpperRecords.class, LoopedUseCase.class)))
                 .isEmpty();
     }

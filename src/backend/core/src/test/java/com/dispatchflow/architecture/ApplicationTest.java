@@ -148,8 +148,8 @@ class ApplicationTest {
     }
 
     @Test
-    void GivenTheProductionClasses_WhenRule7ChecksTheRoots_ThenNoServiceOrPortRootUsesItsSubpackages() {
-        ApplicationRules.serviceAndPortRootsUseNoSubpackage(ROOT).check(ProductionClasses.ALL);
+    void GivenTheProductionClasses_WhenRule7ChecksTheRoots_ThenNoApplicationPackageUsesItsSubpackages() {
+        ApplicationRules.applicationPackagesUseNoSubpackage(ROOT).check(ProductionClasses.ALL);
     }
 
     @Test
