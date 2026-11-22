@@ -6,26 +6,26 @@ How DispatchFlow is built, as it is today. What it must do is in
 
 > [!NOTE]
 > Only the skeleton, the domain layer and the declared application layer exist. Each component
-> builds, passes its checks and runs a first test. The domain layers of `core` and `solver` are
+> builds, passes its checks and runs a first test. The domain layers of `core` and `optimizer` are
 > built and tested. Their application layers are declared, not built: every body that would do work
 > throws, and no adapter calls them. The design the team is heading for is in
 > [Target design](#target-design); this file describes none of it as built beyond that.
 
 ## Architecture overview
 
-DispatchFlow is five components in one repository: a Java core backend, a Python solver service,
+DispatchFlow is five components in one repository: a Java core backend, a Python optimization service,
 two TypeScript frontends and a Python research harness. Two OpenAPI contracts define how they
 will meet. The core is meant to be the system of record, with PostgreSQL as its database, and the
-only client of the solver ([ADR-002](../ADRs/ADR-002-core-backend-and-separate-optimization-service.md)).
-Today the core and the solver each start and answer a health probe. No component calls another.
+only client of the optimizer ([ADR-002](../ADRs/ADR-002-core-backend-and-separate-optimization-service.md)).
+Today the core and the optimizer each start and answer a health probe. No component calls another.
 
 ```mermaid
 flowchart LR
-    console["console"] -.->|"client API"| core["core"]
-    driver["driver-app"] -.->|"client API"| core
-    core -.->|"optimization API"| solver["solver"]
+    web["web"] -.->|"client API"| core["core"]
+    mobile["mobile"] -.->|"client API"| core
+    core -.->|"optimization API"| optimizer["optimizer"]
     core -->|"JDBC"| pg[("PostgreSQL")]
-    research["research"] -->|"path dependency"| solver
+    research["research"] -->|"path dependency"| optimizer
 ```
 
 A dotted arrow is a contract that is defined but that no code calls yet. A solid arrow exists
@@ -35,14 +35,14 @@ today.
 
 | Component | Is | Does today |
 |---|---|---|
-| `core` (`src/backend/core`) | Spring Boot 4.1.2, Java 21 | Starts, connects to PostgreSQL, answers `GET /actuator/health`, and turns an unhandled exception into a 500 problem body |
-| `solver` (`src/backend/solver`) | FastAPI, Python 3.14, NumPy | Answers `GET /health/liveness` with `{"status":"UP"}`, and holds the domain for daily solves and re-optimizations (the validator, the objective and the drop reasons), and a declared application layer; nothing calls either yet |
-| `console` (`src/frontend/console`) | React, Vite | Renders a heading |
-| `driver-app` (`src/frontend/driver-app`) | React Native, Expo SDK 58 | Renders a heading |
-| `research` (`src/research`) | Python, uv; never deployed | Installs `solver` and PyVRP in one environment, and imports neither yet: `tests/test_environment.py` only checks that both can be found. `benchmark/`, `simulation/`, `generator/`, `instances/` and `results/` hold only `.gitkeep` |
+| `core` (`src/backend/core`) | Spring Boot 4.1.2, Java 25 | Starts, connects to PostgreSQL, answers `GET /actuator/health`, and turns an unhandled exception into a 500 problem body |
+| `optimizer` (`src/backend/optimizer`) | FastAPI, Python 3.14, NumPy | Answers `GET /health/liveness` with `{"status":"UP"}`, and holds the domain for daily solves and re-optimizations (the validator, the objective and the drop reasons), and a declared application layer; nothing calls either yet |
+| `web` (`src/frontend/web`) | React, Vite | Renders a heading |
+| `mobile` (`src/frontend/mobile`) | React Native, Expo SDK 58 | Renders a heading |
+| `research` (`src/research`) | Python, uv; never deployed | Installs `optimizer` and PyVRP in one environment, and imports neither yet: `tests/test_environment.py` only checks that both can be found. `benchmark/`, `simulation/`, `generator/`, `instances/` and `results/` hold only `.gitkeep` |
 
 `core` has no controller, entity or Flyway migration: `src/main/resources/db/migration/` holds
-only a `.gitkeep`. `solver`'s `solvers` folders hold only `.gitkeep`; its `domain` holds the
+only a `.gitkeep`. `optimizer`'s `solvers` folders hold only `.gitkeep`; its `domain` holds the
 domain for daily solves and re-optimizations
 ([ADR-098](../ADRs/ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) fixes its
 numbers), and its `application` package declares the `Solver` port, the registry, the requests and
@@ -63,9 +63,11 @@ context starts as before. Why they are declared now is in [ADR-119](../ADRs/ADR-
 is an `Actor` and a `CallContext`, the shared ports are in `shared/application`, and screens read
 through query ports ([ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
 
-A module's domain splits into one package per aggregate once it passes 30 files
-([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)). Which modules
-are split, and into what, is in [bounded-contexts.md](bounded-contexts.md).
+A package of more than 20 files splits wherever a group of 4 can move: a module's domain into one
+package per aggregate, then into concept packages, and an application package the same way
+([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md),
+[ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)).
+Which modules are split, and into what, is in [bounded-contexts.md](bounded-contexts.md).
 
 ## Communication
 
@@ -75,12 +77,12 @@ Components meet only at the two contracts under `contracts/`
 - `contracts/client-api/v1/openapi.yaml` has `/api/v1` as its `servers` entry. Its `paths` is
   empty, so `core` serves no operation from it yet. It defines the `Problem` schema (RFC 9457) and
   the `UnexpectedProblem` response.
-- `contracts/optimization-api/v1/openapi.yaml` is served by `solver`. It defines one operation,
+- `contracts/optimization-api/v1/openapi.yaml` is served by `optimizer`. It defines one operation,
   `getLiveness`, which is `GET /health/liveness`.
 
 No source file in `src/` holds an HTTP client, and the frontends make no request. The `core`
 health probe at `/actuator/health` is in neither contract. The one link between components that
-exists is in the build: `research` installs `solver` as an editable path dependency
+exists is in the build: `research` installs `optimizer` as an editable path dependency
 ([code-structure.md](code-structure.md#how-the-components-depend-on-each-other)).
 
 ## Data flow
@@ -90,21 +92,21 @@ No request crosses a component today. Two probes are tested, each inside its own
 - The `core` health probe: a request to `/actuator/health` reaches Spring Boot, and
   `src/backend/core/src/test/java/com/dispatchflow/DispatchFlowApplicationIT.java` asserts that
   the answer is `UP` while a PostgreSQL container runs.
-- The `solver` liveness probe: `src/backend/solver/tests/adapters/inbound/http/test_app.py` asserts
+- The `optimizer` liveness probe: `src/backend/optimizer/tests/adapters/inbound/http/test_app.py` asserts
   through `TestClient(create_app())` that `GET /health/liveness` answers 200 with
   `{"status":"UP"}`.
 
-A request traced from a frontend through `core` and `solver` and back can be written once those
+A request traced from a frontend through `core` and `optimizer` and back can be written once those
 calls exist.
 
 ## External dependencies and integration points
 
 | Dependency | Used by | For |
 |---|---|---|
-| PostgreSQL 18.6 | `core` | The database. In a Testcontainers container for `*IT` tests and `just core-run`, which need Docker ([ADR-014](../ADRs/ADR-014-real-dependencies-in-containers-for-tests-and-local-runs.md), superseded by [ADR-042](../ADRs/ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md): local runs start their services from `compose.dev.yaml`, the tests keep Testcontainers, and the M0 restructure decides whether `just core-run` stays. Not in the code yet). Elsewhere `core` reads `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` from the environment |
-| PyVRP | `research` | A reference solver for benchmarks. Never installed in `solver` |
+| PostgreSQL 18.6 | `core` | The database. In a Testcontainers container for `*IT` tests and `just core-run`, which need Docker ([ADR-014](../ADRs/ADR-014-real-dependencies-in-containers-for-tests-and-local-runs.md), superseded by [ADR-042](../ADRs/ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md): local runs start their services from `compose.dev.yaml`, the tests keep Testcontainers, and M0 decides whether `just core-run` stays. Not in the code yet). Elsewhere `core` reads `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` from the environment |
+| PyVRP | `research` | A reference solver for benchmarks. Never installed in `optimizer` |
 
-No other outside service is called. The repository has no Compose file; `core` and `solver` each
+No other outside service is called. The repository has no Compose file; `core` and `optimizer` each
 have a `Dockerfile`, and neither runs as root
 ([ADR-019](../ADRs/ADR-019-container-images-run-as-non-root.md)).
 
@@ -115,21 +117,24 @@ have a `Dockerfile`, and neither runs as root
   In `core`, ArchUnit tests check the domain's purity rules over the shared kernel and every
   module's `domain` and `events` packages, the shape rules for restricted types, errors and events,
   and the package rules: no cycle between a module's domain packages, a domain root that imports
-  none of its own subpackages, and `@NullMarked` on the kernel and on every domain and events package
-  (`src/test/java/com/dispatchflow/architecture/`, [ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)).
-  The application rules there are listed in [`core/CLAUDE.md`](../../src/backend/core/CLAUDE.md#rules);
+  none of its own subpackages, `@NullMarked` on the kernel and on every domain and events package,
+  and no package below a module's `api`, `spi` or `events` or below the kernel
+  (`src/test/java/com/dispatchflow/architecture/`, [ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md),
+  [ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)).
+  The application rules there are listed in [`ApplicationRules`](../../src/backend/core/src/test/java/com/dispatchflow/architecture/ApplicationRules.java);
   rules 1 to 7 are [ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)'s
-  decision 10, with rule 4 extended and rule 8 added by [ADR-121](../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md).
+  decision 10, with rule 4 extended and rule 8 added by [ADR-121](../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md),
+  and rule 7 widened to every application package by [ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md).
   The other dependency rules are enforced by review.
 - **Every solver sits behind one `Solver` port** and is chosen by name
   ([ADR-004](../ADRs/ADR-004-pluggable-solver-port.md), amended by
   [ADR-044](../ADRs/ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md), which
   fixes its call as `solve(problem, start, budget, seed)`). The port and the registry are declared in
   `application/ports.py` ([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)); no solver implements the port yet.
-- **PyVRP stays out of `solver`.** `src/backend/solver/tests/test_dependency_boundary.py` holds two
+- **PyVRP stays out of `optimizer`.** `src/backend/optimizer/tests/test_dependency_boundary.py` holds two
   tests. One fails if PyVRP is installed there, and the other if PyVRP is locked in its `uv.lock`.
-  With `core`'s purity, shape, package and application rules, and `solver`'s import-linter contracts and the ruff
-  bans in its domain (lint steps in `just solver-check`), they are the only architecture rules
+  With `core`'s purity, shape, package and application rules, and `optimizer`'s import-linter contracts and the ruff
+  bans in its domain (lint steps in `just optimizer-check`), they are the only architecture rules
   checked automatically today.
 - **Flyway owns the schema.** `core` sets `spring.jpa.hibernate.ddl-auto=validate`, so Hibernate
   never changes it ([ADR-007](../ADRs/ADR-007-postgresql-with-flyway-migrations.md), superseded by
@@ -147,15 +152,15 @@ the ADRs:
   and [§2](domain_layer/domain_layer_design.md#2-context-map): the bounded contexts and the
   module graph.
 - [Tech stack](tech_stack.md): the tools, and what each beat.
-- [ADR index](../ADRs/README.md):
-  [ADR-037](../ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md) (the layout),
-  [ADR-038](../ADRs/ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md) (`mise`, and
-  Java 25),
+- [ADR index](../ADRs/README.md): the layout is
+  [ADR-123](../ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md)'s (the grouped tree and three renames), in the tree;
+  [ADR-038](../ADRs/ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md) (`mise`; the core
+  already runs its Java 25),
   [ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md) (a
   Spring Modulith monolith, one module per context) and
   [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md) (a
-  schema per module, read and written through jOOQ) give the target shape. None of them is in the
-  tree yet. ADR-039 and ADR-042 to ADR-047 record the other tooling, contract, solver-port, token
+  schema per module, read and written through jOOQ) give the target shape. Apart from that Java 25, none of them is
+  in the tree yet. ADR-039 and ADR-042 to ADR-047 record the other tooling, contract, solver-port, token
   and image decisions, and ADR-048 onward the rest.
 - [Roadmap](../roadmap.md#2-milestones): the milestones and dates.
 

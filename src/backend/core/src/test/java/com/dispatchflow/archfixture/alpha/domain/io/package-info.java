@@ -1,9 +1,7 @@
 /**
- * Rule 4's I/O fixtures in a subpackage of a module's domain: files, the network, the process's
- * streams, environment, system properties and threads (pools, timers, cleaners, async futures and
- * parallel streams among them), preferences, the classpath (resource bundles, services, resources
- * and classes loaded by name), reflection, and the default locale, read directly or by a case
- * change, a format, a java.text format or a date formatter that takes none.
+ * Rule 4's I/O fixtures in a subpackage of a module's domain: files and the network. The rest sit
+ * beneath it by the kind of API each exercises (ADR-125): {@code locale}, {@code thread}, {@code
+ * classpath} and {@code process}.
  */
 @NullMarked
 package com.dispatchflow.archfixture.alpha.domain.io;

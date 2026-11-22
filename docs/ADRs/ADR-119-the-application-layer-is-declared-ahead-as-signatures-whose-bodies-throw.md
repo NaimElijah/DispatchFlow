@@ -32,7 +32,7 @@ answers this ADR records ([#81]).
    `spi` and secondary port that the requirements, the domain document, the tech stack and the ADRs name.
    - In the core, they go in each module's `application.api`, `application.spi`, `application.port.out`
      and `application.service`, and in `shared.application` ([ADR-120]).
-   - In the optimizer, they go in `dispatchflow_solver/application`.
+   - In the optimizer, they go in `dispatchflow_optimizer/application`.
 
    [ADR-120] fixes the conventions and lists what is left out.
 2. **A body that would do work throws, naming its milestone.**

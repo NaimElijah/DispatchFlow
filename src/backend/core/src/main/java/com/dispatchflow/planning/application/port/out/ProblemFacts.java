@@ -28,7 +28,7 @@ import java.util.Optional;
  * the depots, the request's vehicles and their drivers, the travel model's settings and the matrix.
  * {@code SolveRequestAssembler} builds it from Customers &amp; Orders' {@code OrdersForDate},
  * Fleet's {@code FleetFacts}, the planning settings, the configured {@link SolveConfiguration} and
- * the stored matrix; the optimizer adapter turns it into the {@code optimizer-api} request, and the
+ * the stored matrix; the optimizer adapter turns it into the {@code optimization-api} request, and the
  * Python {@code ProblemFactory} applies every rule (DL §10.2, ADR-050).
  *
  * <p>Built in M0.

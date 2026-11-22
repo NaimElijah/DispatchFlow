@@ -1,6 +1,6 @@
 package com.dispatchflow.reporting.application.port.out;
 
-import com.dispatchflow.reporting.domain.WithdrawnFleet;
+import com.dispatchflow.reporting.domain.baseline.WithdrawnFleet;
 import com.dispatchflow.shared.PersonalData;
 import java.util.Objects;
 

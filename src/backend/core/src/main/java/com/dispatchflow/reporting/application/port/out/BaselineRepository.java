@@ -1,6 +1,6 @@
 package com.dispatchflow.reporting.application.port.out;
 
-import com.dispatchflow.reporting.domain.Baseline;
+import com.dispatchflow.reporting.domain.baseline.Baseline;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.util.Optional;

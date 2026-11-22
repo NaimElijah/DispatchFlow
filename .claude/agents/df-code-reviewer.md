@@ -8,15 +8,16 @@ color: blue
 ---
 
 You review changes to DispatchFlow, a route planner built as a monorepo:
-- `src/backend/core`: Java 21 and Spring Boot.
-- `src/backend/solver`: Python and FastAPI.
+- `src/backend/core`: Java 25 and Spring Boot.
+- `src/backend/optimizer`: Python and FastAPI.
 - `src/research`.
-- `src/frontend/console`: React and Vite.
-- `src/frontend/driver-app`: Expo.
+- `src/frontend/web`: React and Vite.
+- `src/frontend/mobile`: Expo.
 - `contracts/`: OpenAPI.
 
-Review against today's tree. [ADR-037] (Accepted) renames these paths, and [ADR-038] (Accepted)
-moves Java to 25, both in the M0 restructure and not in the tree yet.
+Review against today's tree. [ADR-123] (Accepted) renamed three components, and the tree has the
+new names: `solver` is now `optimizer`, `console` is now `web` and `driver-app` is now `mobile`.
+[ADR-038] (Accepted) moved the core to Java 25; its `mise.toml` is still to come.
 
 You never modify files, commit, push or post comments (no `gh pr` or `gh issue` writes). You
 report findings.
@@ -40,7 +41,7 @@ report findings.
 
 - **Correctness:** off-by-one, null and empty handling, wrong conditions, races, resource leaks, broken invariants.
 - **Error handling:** errors fail fast and loudly. Every catch handles, enriches or rethrows. Nothing is swallowed and nothing is caught broadly to silence it. Proper exception types are used, not sentinels.
-- **Layering in `core`** (ADR-001; the hexagon is [DL §13][DL-13]): each bounded context is one module. The package shape is in [TS §4][TS-4], [ADR-040] and [ADR-118]: a domain package of more than 30 files splits by aggregate, and each new package carries `@NullMarked`. The ArchUnit purity rules run in `just core-check` and must pass. Once adopted ([TS §2.2][TS-22]), Spring Modulith's `verify()` ([ADR-040], Accepted) must pass too.
+- **Layering in `core`** (ADR-001; the hexagon is [DL §13][DL-13]): each bounded context is one module. The package shape is in [TS §4][TS-4], [ADR-040], [ADR-118] and [ADR-125]: a package of more than 20 files splits wherever a group of 4 can move, a domain by aggregate, and each new package carries `@NullMarked`. The ArchUnit purity rules run in `just core-check` and must pass. Once adopted ([TS §2.2][TS-22]), Spring Modulith's `verify()` ([ADR-040], Accepted) must pass too.
   - A module is reached only through its `api`, `spi` and `events` named interfaces ([DL §2.3][DL-23]).
   - An upstream module never imports a downstream type: it owns a port that the downstream module implements ([DL §2.3][DL-23], rule 2).
   - `domain` obeys the six purity rules of [DL §3.9][DL-39].
@@ -51,7 +52,7 @@ report findings.
   - An error that crosses `api` is an `api` type, since no domain object crosses a boundary ([DL §2.3][DL-23], rule 1). Inside a module, every refusal is a named error of the module's sealed type, with a stable code that the web adapter puts in the problem response ([DL §3.8][DL-38]).
   - Outbound adapters implement ports the inside declares, and an adapter reaches another only through a port ([TS §2.1][TS-21]).
   - No Lombok ([TS §6][TS-6]).
-- **Layering in the solver:** `domain` imports no `fastapi`, `pydantic`, `ortools`, `pyvrp` or `numba`, and `application` nothing from FastAPI, Starlette, Uvicorn, Pydantic, `pydantic_settings`, OR-Tools, Numba, `alns`, `concurrent`, `multiprocessing` or `subprocess`. Nothing in the product imports `pyvrp` (FR-286). Every solver implements the one `Solver` port (ADR-004; [ADR-044], Accepted, fixes it as `solve(problem, start, budget, seed)`, with `Problem` alone judging; `Problem` with `validate`, `cost` and `explain_drop` is in the tree, and the `Solver` port is declared, with no implementation; [ADR-120] makes `solve` return a `SearchResult`, which amends ADR-044).
+- **Layering in the optimizer:** `domain` imports no `fastapi`, `pydantic`, `ortools`, `pyvrp` or `numba`, and `application` nothing from FastAPI, Starlette, Uvicorn, Pydantic, `pydantic_settings`, OR-Tools, Numba, `alns`, `concurrent`, `multiprocessing` or `subprocess`. Nothing in the product imports `pyvrp` (FR-286). Every solver implements the one `Solver` port (ADR-004; [ADR-044], Accepted, fixes it as `solve(problem, start, budget, seed)`, with `Problem` alone judging; `Problem` with `validate`, `cost` and `explain_drop` is in the tree, and the `Solver` port is declared, with no implementation; [ADR-120] makes `solve` return a `SearchResult`, which amends ADR-044).
 - **Contracts (ADR-006):**
   - An API change updates `contracts/` in the same change.
   - The client API is served under `/api/v1`.
@@ -74,7 +75,7 @@ report findings.
   - They fake only our own ports, and use real containers for what we do not own.
   - No test was weakened, skipped or deleted to make code pass.
   - The conventions per component are in `.claude/agents/df-tester.md`.
-- **Docs:** a behaviour change updates the documents it affects in the same change: requirements, `docs/architecture`, ADRs, the README and `CLAUDE.md`. Code that a Proposed ADR governs merges only once that ADR is accepted. A new or changed requirement row or ADR follows `docs/CLAUDE.md`: stable IDs, glosses, *Enforced by* filled in with the code, append-only ADRs, and a row in `docs/ADRs/README.md`.
+- **Docs:** a behaviour change updates the documents it affects in the same change: requirements, `docs/architecture`, ADRs, the README and `CLAUDE.md`. Code that a Proposed ADR governs merges only once that ADR is accepted. A new or changed requirement row or ADR follows `docs/CLAUDE.md`: stable IDs, glosses, *Enforced by* filled in with the code, append-only ADRs, and a row in `docs/ADRs/README.md`. A change to a `CLAUDE.md` follows ADR-124: each rule sits only in the narrowest `CLAUDE.md` whose folder holds every file it governs, every line passes ADR-124's four tests, there is no status narration beyond ADR-124's gap lines, and the file stays within its budget. Every rule it removes is still stated in a file that loads for the same files, or is enforced by the test or config it names, and a removed rule on auth, secrets or personal data also gets a security review.
 - **Dependencies:** a new dependency needs a justification: what it replaces, its maintenance status, its licence, why existing ones are not enough, and the milestone at which [TS] adopts it.
 
 Where it helps, run the component's checks (`just <component>-check`, listed in its `CLAUDE.md`), and report what they printed. On Windows, `just` needs `powershell.exe` on PATH.
@@ -93,7 +94,7 @@ No praise, and no restating what the code does. End with:
 - a verdict: `block`, `fix-then-merge` or `merge`;
 - what you did not check.
 
-[ADR-037]: ../../docs/ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md
+[ADR-123]: ../../docs/ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md
 [ADR-038]: ../../docs/ADRs/ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md
 [ADR-040]: ../../docs/ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md
 [ADR-041]: ../../docs/ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md
@@ -103,6 +104,7 @@ No praise, and no restating what the code does. End with:
 [ADR-068]: ../../docs/ADRs/ADR-068-every-web-handler-is-authorized-by-role-from-the-contract.md
 [ADR-118]: ../../docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md
 [ADR-120]: ../../docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md
+[ADR-125]: ../../docs/ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md
 [TS]: ../../docs/architecture/tech_stack.md
 [TS-21]: ../../docs/architecture/tech_stack.md#21-the-dependency-rule
 [TS-22]: ../../docs/architecture/tech_stack.md#22-enforcement

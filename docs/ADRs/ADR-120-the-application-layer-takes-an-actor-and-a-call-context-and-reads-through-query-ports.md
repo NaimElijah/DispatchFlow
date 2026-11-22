@@ -1,6 +1,6 @@
 # ADR-120: The application layer takes an Actor and a CallContext, keeps its shared ports in shared.application, and reads through query ports
 
-- **Status:** Accepted; amended by ADR-121
+- **Status:** Accepted; extended by ADR-125; amended by ADR-121
 - **Date:** 2026-11-15
 
 ## Context

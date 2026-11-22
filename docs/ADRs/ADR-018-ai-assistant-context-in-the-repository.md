@@ -1,6 +1,6 @@
 # ADR-018: The AI assistant's context lives in the repository
 
-- **Status:** Accepted; extended by ADR-020, ADR-025 and ADR-096; amended by ADR-037
+- **Status:** Accepted; extended by ADR-020, ADR-025, ADR-096 and ADR-124; amended by ADR-037 and ADR-123
 - **Date:** 2026-10-30
 
 ## Context
@@ -12,7 +12,7 @@ how safe it is.
   skills on their own machine. Without a shared file, each assistant works from a different
   idea of the project: its commands, its layout, its rules.
 - **The project has rules the assistant must not miss.** Run `just check` before a push. Never
-  edit a generated API client. Never let PyVRP into the solver. Never put a secret in a file
+  edit a generated API client. Never let PyVRP into the optimizer. Never put a secret in a file
   that git tracks.
 - **Context has a cost.** A rule file is read at the start of every session. A long one fills
   the context with rules that do not apply to the task.
@@ -31,8 +31,8 @@ them as code.
 - **Nested `CLAUDE.md` files hold the rules for one folder,** so they arrive only when the
   assistant works there:
   - `src/backend/CLAUDE.md` and `src/frontend/CLAUDE.md`, for each side;
-  - one per component: `src/backend/core/`, `src/backend/solver/`, `src/research/`,
-    `src/frontend/console/` and `src/frontend/driver-app/`;
+  - one per component: `src/backend/core/`, `src/backend/optimizer/`, `src/research/`,
+    `src/frontend/web/` and `src/frontend/mobile/`;
   - `contracts/CLAUDE.md` and `docs/CLAUDE.md`.
 - **`.claude/settings.json` is shared.** It denies reading `.env`.
   `.claude/settings.local.json` is personal, and `.gitignore` excludes it.

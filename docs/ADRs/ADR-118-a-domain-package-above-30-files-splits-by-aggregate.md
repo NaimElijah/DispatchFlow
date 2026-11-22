@@ -1,6 +1,6 @@
 # ADR-118: A domain package above 30 files splits into one package per aggregate, over a root that holds the module's error
 
-- **Status:** Accepted; amended by ADR-120
+- **Status:** Accepted; amended by ADR-120 and ADR-125
 - **Date:** 2026-11-15
 
 ## Context
@@ -104,7 +104,7 @@ Applied now, this splits:
 | The ArchUnit fixtures | one package per rule each exercises |
 
 Customers & Orders stays flat until its cycle is broken. So do Reporting, Audit, the kernel, the
-`events` packages and the solver's Python `domain`, which holds 16 files.
+`events` packages and the optimizer's Python `domain`, which holds 16 files.
 
 ## Consequences
 

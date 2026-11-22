@@ -4,7 +4,7 @@ import com.dispatchflow.access.application.api.Actor;
 import com.dispatchflow.access.application.api.GrantLimitExceeded;
 import com.dispatchflow.planning.application.port.out.PlanningSettingsView;
 import com.dispatchflow.planning.application.port.out.PlanningViews;
-import com.dispatchflow.planning.application.port.out.SolversView;
+import com.dispatchflow.planning.application.port.out.settings.SolversView;
 import com.dispatchflow.planning.application.port.out.solvejob.RouteOptimizer;
 
 /**

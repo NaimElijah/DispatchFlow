@@ -1,6 +1,6 @@
 package com.dispatchflow.planning.domain.plan;
 
-import com.dispatchflow.planning.domain.solution.PinTarget;
+import com.dispatchflow.planning.domain.PinTarget;
 import com.dispatchflow.shared.OrderId;
 import java.util.Objects;
 

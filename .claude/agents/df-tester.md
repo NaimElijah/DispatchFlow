@@ -64,15 +64,15 @@ Cover each one that the change touches. The sources say how:
   - Module and event tests (`@ApplicationModuleTest`, the `Scenario` API) boot Spring, and a module with persistence needs the database, so they are not Surefire unit tests. The suffix and the container wiring are decided with the first module (M0). Publish each event twice: after the second delivery the state equals the state after the first. Wait through `Scenario`, never `sleep`.
   - Integration tests `*IT` (Failsafe): annotate them with `@IntegrationTest` so they share one Spring context and one PostgreSQL 18.6 container. Drive HTTP with `MockMvcTester` under `/api/v1/…`, and check the response against `contracts/client-api/v1`: status, fields, `Location`, and `application/problem+json` errors with `status` and `title`.
   - Method names: `GivenX_WhenY_ThenZ`.
-- **`src/backend/solver` and `src/research`:**
+- **`src/backend/optimizer` and `src/research`:**
   - pytest; names `test_given_x_when_y_then_z`; tests mirror the package path.
   - HTTP through `TestClient(create_app())`, which needs `httpx2`.
   - Use Hypothesis property tests (`tests/domain/properties.py`): every generated instance's solution passes the validator. They run from a recorded seed ([NFR-82][NFR-82]).
   - Once the DispatchFlow solver exists, a property test checks that the same input, seed and iteration budget give the same solution in separate processes ([NFR-174][NFR-174]). No solver exists yet, so no such test does.
   - Solver and property tests run on iteration or solution budgets, never wall-clock limits ([NFR-82][NFR-82], [NFR-175][NFR-175]). The Solvers row of [TS §17.1][TS-171] cites NFR-170 to NFR-174: cover each one the change touches.
-- **`src/frontend/console`:** Vitest with Testing Library in jsdom. Tests sit next to the code as `*.test.tsx` and query by role, label or text. From the Alpha, MSW answers API calls ([TS §17.1][TS-171]).
-- **`src/frontend/driver-app`:** Jest through `jest-expo`, with React Native Testing Library; `toBeOnTheScreen()`. In React Native Testing Library 14, `render`, `rerender`, `unmount`, `renderHook`, `act` and every `fireEvent` call return a promise: `await` each, as `App.test.tsx` does with `render`.
-- **End to end:** `tests/e2e` is a placeholder, and no end-to-end tool is configured. [TS §17.1][TS-171] decides on Playwright, which [ADR-037][ADR-037] (Accepted) puts in a root `e2e/` in the M0 restructure. Don't add it without the team. When it exists, the tests run under the `e2e` profile ([NFR-175][NFR-175], [TS §17.1][TS-171]): a controllable clock, solves under an iteration budget, fake push, SMS and email, a fixed OSRM extract and no outside network. The profile's own tests are in the failure list above.
+- **`src/frontend/web`:** Vitest with Testing Library in jsdom. Tests sit next to the code as `*.test.tsx` and query by role, label or text. From the Alpha, MSW answers API calls ([TS §17.1][TS-171]).
+- **`src/frontend/mobile`:** Jest through `jest-expo`, with React Native Testing Library; `toBeOnTheScreen()`. In React Native Testing Library 14, `render`, `rerender`, `unmount`, `renderHook`, `act` and every `fireEvent` call return a promise: `await` each, as `App.test.tsx` does with `render`.
+- **End to end:** `tests/e2e` is a placeholder, and no end-to-end tool is configured. [TS §17.1][TS-171] decides on Playwright, which [ADR-123][ADR-123] (Accepted) keeps in `tests/e2e/`. Don't add it without the team. When it exists, the tests run under the `e2e` profile ([NFR-175][NFR-175], [TS §17.1][TS-171]): a controllable clock, solves under an iteration budget, fake push, SMS and email, a fixed OSRM extract and no outside network. The profile's own tests are in the failure list above.
 
 ## Finish
 
@@ -107,6 +107,6 @@ Report:
 [NFR-175]: ../../docs/requirements/requirements.md#nfr-175
 [NFR-176]: ../../docs/requirements/requirements.md#nfr-176
 [NFR-210]: ../../docs/requirements/requirements.md#nfr-210
-[ADR-037]: ../../docs/ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md
+[ADR-123]: ../../docs/ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md
 [ADR-088]: ../../docs/ADRs/ADR-088-israel-local-time-for-every-date-and-schedule.md
 [NFR-83]: ../../docs/requirements/requirements.md#nfr-83

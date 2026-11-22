@@ -1,6 +1,6 @@
 package com.dispatchflow.reporting.application.port.out;
 
-import com.dispatchflow.reporting.domain.Distance;
+import com.dispatchflow.reporting.domain.baseline.Distance;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;

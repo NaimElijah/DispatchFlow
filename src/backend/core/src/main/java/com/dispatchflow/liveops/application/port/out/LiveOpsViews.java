@@ -2,8 +2,8 @@ package com.dispatchflow.liveops.application.port.out;
 
 import com.dispatchflow.liveops.domain.RevisionNo;
 import com.dispatchflow.liveops.domain.delivery.DeliveryStatus;
-import com.dispatchflow.liveops.domain.delivery.ProofId;
 import com.dispatchflow.liveops.domain.delivery.StopFact;
+import com.dispatchflow.liveops.domain.proof.ProofId;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.GeoPoint;
 import com.dispatchflow.shared.PersonalData;

@@ -1,74 +1,58 @@
 # DispatchFlow — Project Instructions
 
-DispatchFlow plans and re-plans daily delivery routes for one delivery company. What it must do is in
-`docs/requirements/requirements.md`; how it is built is in `docs/architecture/`; why each
-decision was taken is in `docs/ADRs/`. Read the relevant parts before proposing work.
-
-Two design documents set the direction, and each owns one topic:
-
-- [`domain_layer_design.md`][DL] (in `docs/architecture/domain_layer/`): the domain model.
-- [`tech_stack.md`][TS] (in `docs/architecture/`): the tools and versions, and when each is adopted.
-
-[`docs/roadmap.md`][RM] says when each part is built. Which document wins is the precedence rule
-under Documentation.
+DispatchFlow plans and re-plans daily delivery routes for one delivery company.
+`docs/requirements/requirements.md` states what it must do; `docs/architecture/` how it is built
+([`tech_stack.md`][TS] and [`domain_layer/`][DL] hold the decided design, the rest describes what is
+built); `docs/ADRs/` why; [`docs/roadmap.md`][RM] when. Point across; never restate. Read the
+relevant parts before proposing work. Which document wins is the precedence rule under
+Documentation.
 
 ## Layout
 
 | Path | What lives there |
 |---|---|
-| `src/backend/core` | REST API and system of record (Java 21, Spring Boot) |
-| `src/backend/solver` | Solver service (Python, FastAPI) |
-| `src/frontend/console` | Web app, for every role (React, TypeScript) |
-| `src/frontend/driver-app` | Phone app, for every role (React Native, Expo) |
+| `src/backend/core` | REST API and system of record (Java 25, Spring Boot) |
+| `src/backend/optimizer` | Optimization service (Python, FastAPI) |
+| `src/frontend/web` | Web app, for every role (React, TypeScript) |
+| `src/frontend/mobile` | Phone app, for every role (React Native, Expo) |
 | `src/research` | Benchmarks, simulation, order generator; never deployed |
 | `contracts/` | Versioned OpenAPI contracts between the components |
 | `docs/` | Requirements, the decided design, the ADRs and the roadmap |
 | `tests/` | Tests that span components: `e2e/`, `load/` |
-| `infra/` | Road-network data and deployment |
+| `infra/` | Deployment, OSRM configuration and, from M13, Terraform |
 | `logs/` | Local log output; git ignores its contents |
 
-[ADR-037] (Accepted) moves this tree to `src/core`, `src/optimizer`, `src/web`, `src/mobile`
-and `src/packages`, with `e2e/` and `deploy/` at the root and Terraform in `infra/`. [ADR-038]
-(Accepted) moves Java to 25. Both are in the M0 restructure, and not in the tree yet. The pull
-request that moves the code updates this table.
+## Where rules live
 
-This file holds the rules for the whole repository. Narrower rules live next to the code and load
-when you work there ([ADR-018](../docs/ADRs/ADR-018-ai-assistant-context-in-the-repository.md)):
+A folder's `CLAUDE.md` loads once you read or edit a file in it or below ([ADR-018], [ADR-124]). The
+two side files (`src/backend`, `src/frontend`) hold what each side's components share; each
+component has one for its rules, gotchas and commands; `contracts/` and `docs/` have one each.
 
-- `src/backend/CLAUDE.md` and `src/frontend/CLAUDE.md`: the rules for each side.
-- A `CLAUDE.md` in each component (`core`, `solver`, `research`, `console`, `driver-app`): its
-  layout, rules, gotchas and commands, including how to run one test.
-- `contracts/CLAUDE.md`: how a contract changes. `docs/CLAUDE.md`: how to write requirements and
-  ADRs.
-
-Keep each file to what an assistant needs in that folder, and never repeat a rule that a parent
-file already states.
+- A rule goes in the narrowest `CLAUDE.md` whose folder holds every file it governs, and nowhere
+  else.
+- A `CLAUDE.md` holds commands, gotchas, conventions you would get wrong by default and rules no
+  test checks. A rule a test or linter enforces gets one line naming the enforcer, plus only what
+  goes against the defaults.
+- No status notes, and no layout `ls` shows. A coming change is a directive. Where the tree still
+  differs from an accepted decision, so that a rule would read as already true, one line says so,
+  and the change that closes the gap deletes it.
+- Budgets: this file at most 200 lines and 12,000 characters, `core`'s under 200 lines,
+  `optimizer`'s 150, every other 100. A rule that passes these tests is never cut to meet one.
+- Whoever reviews a `CLAUDE.md` change checks it against this section.
 
 ## Team agents
 
-`.claude/agents/` holds four subagents, available to everyone
-([ADR-020](../docs/ADRs/ADR-020-team-subagents-in-the-repository.md)). None of them commits or
-pushes.
-
-**Each person's own agents come first**
-([ADR-022](../docs/ADRs/ADR-022-personal-subagents-come-before-team-subagents.md)). When an agent
-in the user's `~/.claude/agents/` does the same job as a team agent, use the user's agent: for
-example, their `code-reviewer` instead of `df-code-reviewer`. Use a team agent only for a job that
-none of the user's own agents covers, or when the user names it. Never give a personal agent a
-`df-` name: Claude Code would load the team agent in its place.
-
-| Agent | Use it to |
-|---|---|
-| `df-code-reviewer` | Review a change before it is committed or opened as a pull request |
-| `df-security-reviewer` | Review a change to auth, API operations, personal data, input, secrets, dependencies, CI or images |
-| `df-debugger` | Find the root cause of a bug, a failing test or a red CI job, with a failing test |
-| `df-tester` | Write tests for new or untested behaviour |
+`.claude/agents/` holds four subagents, available to everyone: `df-code-reviewer`,
+`df-security-reviewer`, `df-debugger` and `df-tester` ([ADR-020]). None of them commits or pushes.
+When an agent in the user's `~/.claude/agents/` does the same job as a team agent, use the user's
+agent first: their `code-reviewer` instead of `df-code-reviewer` ([ADR-022]). Use a team agent only
+for a job none of theirs covers, or when the user names it. Never give a personal agent a `df-`
+name: Claude Code would load the team agent in its place.
 
 ## Team skills
 
-`.claude/skills/` holds three skills for the branch workflow, available to everyone
-([ADR-025](../docs/ADRs/ADR-025-team-skills-in-the-repository.md)). Only a person can start one, by
-typing its command.
+`.claude/skills/` holds three skills for the branch workflow, available to everyone ([ADR-025]).
+Only a person can start one, by typing its command.
 
 | Command | Use it to |
 |---|---|
@@ -76,13 +60,8 @@ typing its command.
 | `/sync-with-dev` | Merge the latest `dev` into your branch in the middle of work, review the merge and fix what the review finds |
 | `/fix-pr-feedback` | Act on the review comments on your pull request, push, and reply to them |
 
-`/finished-work-on-branch-and-making-pr-to-dev` runs no agent review
-([ADR-122](../docs/ADRs/ADR-122-the-finish-skill-runs-no-agent-review.md)): if you want one, run it
-before you type the command. `/sync-with-dev` runs `df-code-reviewer`, even if you have agents of your
-own, on Sonnet at high effort, when a merge has conflicts or files both sides changed
-([ADR-033](../docs/ADRs/ADR-033-sync-with-dev-reviews-the-merge-on-sonnet.md)). Both skills ask before
-merging a `dev` change to `.claude/`, `.github/`, `justfile` or a `CLAUDE.md`
-([ADR-034](../docs/ADRs/ADR-034-ask-before-merging-changes-to-the-assistant-setup.md)).
+The finish skill runs no agent review: if you want one, run it before you type the command
+([ADR-122]). Each skill's own file says what else it does.
 
 ## Commands
 
@@ -91,20 +70,40 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 - `just setup`: install every component's dependencies.
 - `just check`: everything CI checks. Run it before every push.
 - `just format`: reformat every component.
-- `just <component>-check`: one component's checks (`core`, `solver`, `research`, `console`,
-  `driver-app`, `contracts`).
-- `just <component>-run`: start `core`, `solver`, `console` or `driver-app`.
+- `just <component>-check`: one component's checks (`core`, `optimizer`, `research`, `web`,
+  `mobile`, `contracts`).
+- `just <component>-run`: start `core`, `optimizer`, `web` or `mobile`.
 
 ## How we work
 
 - Be direct. Disagree when something is wrong and say why.
-- If a request is ambiguous, ask before building. One good question beats a confidently wrong
-  implementation.
+- If a request is ambiguous, ask before building.
 - Before a non-trivial change, state the plan and the trade-off in a few lines and wait for
   confirmation. Mechanical changes: just do them.
 - Never claim something works without running it. Say which checks ran and what they printed.
 - Say "I don't know" instead of guessing. Never invent APIs, flags, config keys or library
   behaviour: check the lockfile, the installed version or the docs.
+- Comments explain why, never what. Every public type, function and module gets a doc comment:
+  purpose, contract, errors, and any non-obvious precondition or side effect.
+- No dead code, no commented-out code, no debug prints, no magic values. `TODO` only with an owner
+  and an issue reference.
+- Fail fast and loudly. Never swallow an error; every catch handles, enriches or rethrows. Validate
+  at the boundary; inside it, trust the types.
+- The formatter and linter are authoritative. Never disable a rule inline without a comment
+  saying why.
+- A folder of more than 20 source files splits wherever a group of 4 or more can move ([ADR-125]);
+  `src/backend/core/CLAUDE.md` has the Java rules.
+
+## Testing
+
+- Tests are the executable specification, named Given/When/Then. Test through the public boundary:
+  the API, the port, the CLI. Never assert on internals.
+- Every bug fix starts with a failing test that reproduces it. Cover failure paths: invalid input,
+  timeouts, partial failure, empty and boundary cases.
+- Deterministic always: inject the clock, seed the randomness, no `sleep`, no real network.
+- Real dependencies in containers (Testcontainers) for things we do not own; mock only our own
+  ports.
+- Never weaken, skip or delete a test to make code pass.
 
 ## Engineering judgment
 
@@ -124,37 +123,6 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 - Use the words of [DL §17][DL-17] in code, screens and new text, and avoid its "words not used".
   The existing text of `requirements.md` keeps its other wording until it is aligned with the
   domain document, and a new link copies the row's existing gloss.
-
-## Code style
-
-- Names carry the meaning. Comments explain why, never what.
-- Every public type, function and module gets a doc comment: purpose, contract, errors, and any
-  non-obvious precondition or side effect.
-- No dead code, no commented-out code, no debug prints, no magic values.
-- `TODO` only with an owner and an issue reference.
-- Fail fast and loudly. Never swallow an error; every catch handles, enriches or rethrows.
-- Validate at the boundary; inside it, trust the types.
-- The formatter and linter are authoritative. Never disable a rule inline without a comment
-  saying why.
-- A folder of more than 30 source files, not counting `package-info.java`, splits into subfolders of
-  what belongs together. A module's domain splits into one package per aggregate, over a root that
-  holds its error and shared values ([ADR-118]). Files the language binds stay together
-  (package-private access, a sealed hierarchy), and so do files in a dependency cycle. Never widen
-  production visibility or add a package cycle to split. The same threshold applies to an
-  application package, which splits by aggregate too. The kernel's domain types and each `events`
-  package stay flat; `shared/application/` is a package of its own ([ADR-120]). Each new package
-  carries `@NullMarked` in its `package-info.java`.
-
-## Testing
-
-- Tests are the executable specification, named Given/When/Then.
-- Test through the public boundary: the API, the port, the CLI. Never assert on internals.
-- Every bug fix starts with a failing test that reproduces it.
-- Cover failure paths: invalid input, timeouts, partial failure, empty and boundary cases.
-- Deterministic always: inject the clock, seed the randomness, no `sleep`, no real network.
-- Real dependencies in containers (Testcontainers) for things we do not own; mock only our own
-  ports.
-- Never weaken, skip or delete a test to make code pass.
 
 ## Security
 
@@ -187,11 +155,6 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 
 ## Documentation
 
-- `docs/requirements/requirements.md` states what the system must do, `docs/architecture/`
-  how it is built, and `docs/ADRs/` why. Point across; never restate.
-- `docs/architecture/tech_stack.md` and `docs/architecture/domain_layer/` hold the decided
-  design, and `docs/roadmap.md` the milestones and dates. The rest of `docs/architecture/`
-  describes what is built.
 - Precedence: `requirements.md`, then the domain document, then the tech stack. An accepted ADR
   stands until a new ADR supersedes it: where it and a design document disagree, build from the
   ADR and correct the document. On when a tool is adopted, [TS §20][TS-20] wins over the roadmap; on
@@ -205,8 +168,6 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
   [TS §22][TS-22] lists the decisions still open, and the [roadmap][RM] names the ADRs still to be
   written before their milestone's code merges.
 - A change that alters behaviour updates the documents it affects in the same pull request.
-- Requirements are intent, not observation. Behaviour found in code is not a requirement until
-  the team agrees it is.
 - Diagrams live in the repo as code (Mermaid), never as pasted images.
 
 [TS]: ../docs/architecture/tech_stack.md
@@ -217,14 +178,16 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 [DL-17]: ../docs/architecture/domain_layer/domain_layer_design.md#17-ubiquitous-language
 [RM]: ../docs/roadmap.md
 [ADRS]: ../docs/ADRs/README.md
-[ADR-093]: ../docs/ADRs/ADR-093-the-implementation-plan-is-retired-and-a-roadmap-holds-the-dates.md
+[ADR-018]: ../docs/ADRs/ADR-018-ai-assistant-context-in-the-repository.md
+[ADR-020]: ../docs/ADRs/ADR-020-team-subagents-in-the-repository.md
+[ADR-022]: ../docs/ADRs/ADR-022-personal-subagents-come-before-team-subagents.md
 [ADR-024]: ../docs/ADRs/ADR-024-one-delivery-company-no-multi-tenancy.md
 [ADR-025]: ../docs/ADRs/ADR-025-team-skills-in-the-repository.md
-[ADR-037]: ../docs/ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md
-[ADR-038]: ../docs/ADRs/ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md
 [ADR-088]: ../docs/ADRs/ADR-088-israel-local-time-for-every-date-and-schedule.md
 [ADR-090]: ../docs/ADRs/ADR-090-scope-cuts-for-the-first-release.md
-[ADR-118]: ../docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md
-[ADR-120]: ../docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md
+[ADR-093]: ../docs/ADRs/ADR-093-the-implementation-plan-is-retired-and-a-roadmap-holds-the-dates.md
+[ADR-122]: ../docs/ADRs/ADR-122-the-finish-skill-runs-no-agent-review.md
+[ADR-124]: ../docs/ADRs/ADR-124-a-claude-md-holds-only-what-a-session-would-otherwise-get-wrong.md
+[ADR-125]: ../docs/ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md
 [NFR-209]: ../docs/requirements/requirements.md#nfr-209
 [NFR-262]: ../docs/requirements/requirements.md#nfr-262

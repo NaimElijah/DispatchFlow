@@ -5,21 +5,21 @@
 
 ## Context
 
-Two projects are written in Python 3.14 ([ADR-010]): the solver service in `src/backend/solver`,
+Two projects are written in Python 3.14 ([ADR-010]): the optimizer service in `src/backend/optimizer`,
 which is deployed, and the research project in `src/research`, which never is ([ADR-008]). Each
 has its own `pyproject.toml` and lockfile.
 
 The forces:
 
 - **Every environment must resolve to the same packages.** Three people work on Windows and
-  Linux, and CI and the solver's `Dockerfile` run on Linux ([NFR-16]). A lockfile that has gone
+  Linux, and CI and the optimizer's `Dockerfile` run on Linux ([NFR-16]). A lockfile that has gone
   stale must fail the build, not install different versions quietly.
 - **The project rules ask for a doc comment on every public item**, and for the formatter and
   linter to be authoritative (`.claude/CLAUDE.md`). A rule that only a reviewer enforces is
   forgotten.
-- **The solver's contract is typed data**: problem, solution, objective and validator
+- **The optimizer's contract is typed data**: problem, solution, objective and validator
   ([ADR-004]). A type checker is the cheapest check that the pieces fit.
-- **The solver's HTTP tests use Starlette's `TestClient`** through `fastapi.testclient`. The
+- **The optimizer's HTTP tests use Starlette's `TestClient`** through `fastapi.testclient`. The
   installed Starlette (1.10.0) imports `httpx2` first. It falls back to `httpx` with a
   `StarletteDeprecationWarning` that says to install `httpx2` instead.
 
@@ -41,12 +41,12 @@ them ([ADR-009]).
 - **mypy runs in strict mode** on `src` and `tests`.
 - **pytest runs the tests** from `tests/`, with `--import-mode=importlib`, `--strict-markers`
   and `--strict-config`. A mistyped marker or setting is an error.
-- **The solver's dev dependencies include `httpx2`** (locked at 2.16.0), not `httpx`. The test
+- **The optimizer's dev dependencies include `httpx2`** (locked at 2.16.0), not `httpx`. The test
   client needs one of them, and `httpx2` is the one Starlette prefers.
-- **The research project's editable dependency on the solver**, and the `uv lock` it needs
-  after a solver change, are described in [ADR-008].
+- **The research project's editable dependency on the optimizer**, and the `uv lock` it needs
+  after an optimizer change, are described in [ADR-008].
 
-The recipes are `solver-check` and `research-check`. Each runs, in order:
+The recipes are `optimizer-check` and `research-check`. Each runs, in order:
 
 ```text
 uv run --locked ruff format --check .
@@ -55,7 +55,7 @@ uv run --locked mypy src tests
 uv run --locked pytest
 ```
 
-`solver-format` and `research-format` run `ruff format .` and `ruff check --fix .`.
+`optimizer-format` and `research-format` run `ruff format .` and `ruff check --fix .`.
 
 ## Consequences
 
@@ -63,9 +63,9 @@ uv run --locked pytest
   fails fast, locally and in CI.
 - **Easy:** one tool formats and lints, so there is one configuration and one command. The
   docstring rule makes "every public item gets a doc comment" a failing check.
-- **Easy:** strict typing catches a mismatch between the solver's domain types and its adapters
+- **Easy:** strict typing catches a mismatch between the optimizer's domain types and its adapters
   before a test runs.
-- **Hard:** a change to the solver's `pyproject.toml` needs `uv lock` in `src/research` as
+- **Hard:** a change to the optimizer's `pyproject.toml` needs `uv lock` in `src/research` as
   well, or `just research-check` fails ([ADR-008]).
 - **Hard:** the same ruff and mypy settings are written in two `pyproject.toml` files and must
   change together.

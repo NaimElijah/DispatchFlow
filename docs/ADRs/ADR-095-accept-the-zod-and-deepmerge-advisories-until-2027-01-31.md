@@ -5,7 +5,7 @@
 
 ## Context
 
-[ADR-016] listed two advisories in `src/frontend/driver-app/osv-scanner.toml` that the owner had not
+[ADR-016] listed two advisories in `src/frontend/mobile/osv-scanner.toml` that the owner had not
 yet confirmed, and [ADR-023] left them open:
 
 - `GHSA-mrhx-c7xc-m3w5`, zod 3.25.76: memory exhaustion while validating oversized constrained

@@ -2,6 +2,7 @@ package com.dispatchflow.architecture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.library.dependencies.Slices;
 import java.util.List;
 import java.util.Map;
@@ -17,9 +18,10 @@ import org.junit.jupiter.api.Test;
 class DomainPackageTest {
 
     private static final String ROOT = ProductionClasses.ROOT;
-    // ADR-118's table: these modules' domains are split by aggregate; the others stay flat.
-    private static final List<String> SPLIT_MODULES = List.of("access", "fleet", "liveops", "messaging", "planning");
-    private static final List<String> FLAT_MODULES = List.of("audit", "orders", "reporting");
+    // The tables of ADR-118 and ADR-125: these modules' domains are split; the others stay flat.
+    private static final List<String> SPLIT_MODULES =
+            List.of("access", "fleet", "liveops", "messaging", "planning", "reporting");
+    private static final List<String> FLAT_MODULES = List.of("audit", "orders");
     private static final List<String> MODULES =
             Stream.concat(SPLIT_MODULES.stream(), FLAT_MODULES.stream()).toList();
 
@@ -66,7 +68,7 @@ class DomainPackageTest {
     void GivenTheProductionClasses_WhenTheirDomainPackagesAreSliced_ThenEachFlatModuleYieldsExactlyOneSlice() {
         assertThat(slicesPerModule(FLAT_MODULES))
                 .as("domain slices per flat module")
-                .containsExactlyInAnyOrderEntriesOf(Map.of("audit", 1L, "orders", 1L, "reporting", 1L));
+                .containsExactlyInAnyOrderEntriesOf(Map.of("audit", 1L, "orders", 1L));
     }
 
     @Test
@@ -89,5 +91,16 @@ class DomainPackageTest {
     void GivenTheProductionClasses_WhenTheNullMarkedGuardChecks_ThenEveryKernelDomainAndEventsPackageCarriesIt() {
         assertThat(DomainPackageRules.packagesNotNullMarked(ROOT, ProductionClasses.ALL))
                 .isEmpty();
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenTheFlatGuardChecks_ThenNoPackageLiesBelowAnApiAnSpiAnEventsOrTheKernel() {
+        List<String> packages = ProductionClasses.ALL.stream()
+                .map(JavaClass::getPackageName)
+                .distinct()
+                .toList();
+
+        assertThat(packages).contains(ROOT + ".planning.application.api", ROOT + ".planning.events");
+        assertThat(DomainPackageRules.packagesBelowAFlatOne(ROOT, packages)).isEmpty();
     }
 }

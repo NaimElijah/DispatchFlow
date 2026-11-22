@@ -10,8 +10,11 @@ import com.dispatchflow.archfixture.epsilon.domain.cycle.SubpackageInACycle;
 import com.dispatchflow.archfixture.epsilon.domain.layer.LayerAbove;
 import com.dispatchflow.archfixture.epsilon.domain.unmarked.UnmarkedValue;
 import com.dispatchflow.archfixture.epsilon.domain.used.UsedByTheRoot;
+import com.dispatchflow.archfixture.epsilon.events.below.BelowTheEvents;
 import com.dispatchflow.archfixture.shared.KernelValue;
+import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.library.dependencies.Slices;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -100,9 +103,15 @@ class DomainPackageRulesTest {
                         ALPHA_DOMAIN + ".clock",
                         ALPHA_DOMAIN + ".dependency",
                         ALPHA_DOMAIN + ".error",
+                        ALPHA_DOMAIN + ".error.personalvalue",
+                        ALPHA_DOMAIN + ".error.text",
                         ALPHA_DOMAIN + ".exception",
                         ALPHA_DOMAIN + ".id",
                         ALPHA_DOMAIN + ".io",
+                        ALPHA_DOMAIN + ".io.classpath",
+                        ALPHA_DOMAIN + ".io.locale",
+                        ALPHA_DOMAIN + ".io.process",
+                        ALPHA_DOMAIN + ".io.thread",
                         ALPHA_DOMAIN + ".logging",
                         ALPHA_DOMAIN + ".personal",
                         ALPHA_DOMAIN + ".randomness",
@@ -140,5 +149,49 @@ class DomainPackageRulesTest {
     void GivenAnApplicationPackageWithNoPackageInfo_WhenTheNullMarkedGuardChecks_ThenItIsNotChecked() {
         assertThat(DomainPackageRules.nullMarkedSubjects(FIXTURE_ROOT, FixtureClasses.only(AlphaUseCase.class)))
                 .isEmpty();
+    }
+
+    @Test
+    void GivenPackagesBelowAnApiAnSpiAnEventsAndTheKernel_WhenTheFlatGuardChecks_ThenExactlyThoseAreReported() {
+        String root = "com.example";
+
+        assertThat(DomainPackageRules.packagesBelowAFlatOne(
+                        root,
+                        List.of(
+                                root,
+                                root + ".shared",
+                                root + ".shared.application",
+                                root + ".shared.id",
+                                root + ".shared.application.port",
+                                root + ".alpha.events",
+                                root + ".alpha.events.kind",
+                                root + ".alpha.application.api",
+                                root + ".alpha.application.api.plan",
+                                root + ".alpha.application.spi",
+                                root + ".alpha.application.spi.usage",
+                                root + ".alpha.application.service.plan.edit",
+                                root + ".alpha.application.service.api.x",
+                                root + ".alpha.application.port.out.plan",
+                                root + ".alpha.domain.plan",
+                                root + ".alpha.domain.events.x",
+                                root + ".web",
+                                "org.other.alpha.events.kind")))
+                .containsExactly(
+                        root + ".alpha.application.api.plan",
+                        root + ".alpha.application.spi.usage",
+                        root + ".alpha.events.kind",
+                        root + ".shared.application.port",
+                        root + ".shared.id");
+    }
+
+    @Test
+    void GivenAFixtureBelowAnEventsPackage_WhenTheFlatGuardChecksItsImportedClasses_ThenItsPackageIsReported() {
+        List<String> packages = FixtureClasses.only(BelowTheEvents.class).stream()
+                .map(JavaClass::getPackageName)
+                .distinct()
+                .toList();
+
+        assertThat(DomainPackageRules.packagesBelowAFlatOne(FIXTURE_ROOT, packages))
+                .containsExactly(FIXTURE_ROOT + ".epsilon.events.below");
     }
 }

@@ -79,7 +79,7 @@ flowchart BT
   RP --> LO
   RP --> PL
   RP --> CO
-  PL -->|"RouteOptimizer, FeasibilityChecker<br/>optimizer-api v1"| OPT
+  PL -->|"RouteOptimizer, FeasibilityChecker<br/>optimization-api v1"| OPT
   RP -->|BaselinePlanner| OPT
   LO -.->|"implements ExecutionFacts"| PL
   LO -.->|"implements StopProgress"| CO
@@ -108,7 +108,7 @@ Audit without a cycle ([ADR-040]).
 | Fleet | Live Operations | Customer and supplier | Live Operations reads shifts, for the start deadline and the tracking cut-off |
 | Live Operations, Planning, Customers & Orders | Recipient Messaging | Customer and supplier | Messaging hears `RouteStarted`, `OutcomeRecorded`, `PlanRevised`, `OrderCancelled` and `OrderRescheduled`; asks `ArrivalProjections` and the recipient's phone; calls Live Operations' `RaiseAlert` |
 | Planning, Live Operations, Customers & Orders | Reporting | Customer and supplier | Reporting hears `PlanPublished` and `PlanRevised`, and reads the read-only views each module publishes |
-| Optimization | Planning, Reporting | Customer and supplier with a published language: `optimizer-api` v1 (OpenAPI). The core's optimizer adapter is an anti-corruption layer | HTTP. The optimizer knows nothing about the core |
+| Optimization | Planning, Reporting | Customer and supplier with a published language: `optimization-api` v1 (OpenAPI). The core's optimizer adapter is an anti-corruption layer | HTTP. The optimizer knows nothing about the core |
 | OSRM, the geocoders, the SMS provider, Expo push, Amazon SES | The module that uses each | Conformist, behind an anti-corruption adapter | Each sits behind a port named in DispatchFlow's language |
 
 Fleet and Customers & Orders have no relationship. Neither does any pair not in the table.
@@ -1481,7 +1481,7 @@ Each step that crosses a commit has a watcher, so a lost step can't leave someth
 ```mermaid
 flowchart LR
   subgraph IN["adapter/in"]
-    WEB["web (generated from core-api)"]
+    WEB["web (generated from client-api)"]
     SSE["event stream"]
     JOB["job workers, schedulers, watchers"]
     LIS["listeners on events"]
@@ -1511,9 +1511,9 @@ flowchart LR
   other modules call), `events` (`<module>/events/`, a package beside `domain`, holding only IDs,
   shared-kernel values and its own enums, so the module's own domain may import it, §3.9), and `spi` (the
   ports it owns for others to implement).
-- **A module's domain splits by aggregate once a package passes 30 files**: `<module>.domain` keeps the
+- **A module's domain splits by aggregate once a package passes 20 files and a group of 4 can move**: `<module>.domain` keeps the
   module's error and what several packages use, and each aggregate gets `<module>.domain.<aggregate>`.
-  The shared kernel and each `events` package stay flat ([ADR-118]).
+  The shared kernel and each `api`, `spi` and `events` package stay flat ([ADR-118], [ADR-125]).
 - **An interface only where it earns its place.** Use cases that only the module's own adapters call are
   plain classes. A use case another module calls gets an interface in `api`, because that is the seam a
   remote client replaces if the module is split out. Secondary ports are interfaces because tests replace
@@ -1760,3 +1760,4 @@ Nothing. These ADRs record the decisions of this document:
 [ADR-117]: ../../ADRs/ADR-117-each-outgoing-message-keeps-the-phone-it-goes-to.md
 [ADR-118]: ../../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md
 [ADR-121]: ../../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md
+[ADR-125]: ../../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md

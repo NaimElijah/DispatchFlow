@@ -35,9 +35,9 @@ import java.util.regex.Pattern;
 record VehicleNameKey(String text) {
 
     /**
-     * Format characters, and Unicode's variation selectors as of Unicode 15: the Mongolian free
-     * variation selectors, VS1 to VS16 and VS17 to VS256, for which the JDK's regular expressions
-     * have no property.
+     * Format characters, and Unicode's variation selectors as of Unicode 16, the same as in 15.0:
+     * the Mongolian free variation selectors, VS1 to VS16 and VS17 to VS256, for which the JDK's
+     * regular expressions have no property.
      */
     private static final Pattern INVISIBLE =
             Pattern.compile("[\\p{Cf}\\x{180B}-\\x{180D}\\x{180F}\\x{FE00}-\\x{FE0F}\\x{E0100}-\\x{E01EF}]");

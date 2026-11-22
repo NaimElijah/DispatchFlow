@@ -1,9 +1,9 @@
 package com.dispatchflow.planning.domain.plan;
 
 import com.dispatchflow.planning.domain.SolveTime;
+import com.dispatchflow.planning.domain.drop.DroppedOrder;
+import com.dispatchflow.planning.domain.drop.ExcludedVehicle;
 import com.dispatchflow.planning.domain.reconciliation.LateOutcome;
-import com.dispatchflow.planning.domain.solution.DroppedOrder;
-import com.dispatchflow.planning.domain.solution.ExcludedVehicle;
 import com.dispatchflow.planning.domain.solution.RoutePlan;
 import com.dispatchflow.planning.domain.solution.StopPlan;
 import com.dispatchflow.planning.domain.solution.Violation;

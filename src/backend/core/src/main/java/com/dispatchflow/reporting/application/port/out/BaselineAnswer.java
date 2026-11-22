@@ -1,6 +1,6 @@
 package com.dispatchflow.reporting.application.port.out;
 
-import com.dispatchflow.reporting.domain.PlannedFigures;
+import com.dispatchflow.reporting.domain.baseline.PlannedFigures;
 import java.util.Objects;
 
 /**

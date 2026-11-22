@@ -46,7 +46,6 @@ final class ApplicationRules {
     private static final String API = "api";
     private static final String SPI = "spi";
     private static final String SERVICE = "service";
-    private static final String PORT_OUT = "port.out";
     private static final String SERVICE_SUFFIX = "Service";
     private static final String PACKAGE_INFO = "package-info";
     private static final List<String> ALWAYS_ALLOWED = List.of("java", "org.jspecify");
@@ -394,16 +393,16 @@ final class ApplicationRules {
     }
 
     /**
-     * Rule 7, for the roots: no class directly in a module's {@code application.service} or {@code
-     * application.port.out} uses a class in a package under its own. The cycle rule can't see this
-     * when the subpackage never names the root, and rule 1 lets any class reach its own module's
-     * application.
+     * Rule 7, for each package: no class in a module's application uses a class in a package under
+     * its own. This covers the {@code service} and {@code port.out} roots, and an aggregate's package
+     * that has a concept package beneath it, such as {@code service.plan} over {@code
+     * service.plan.edit} (ADR-125). The cycle rule can't see this when the subpackage never names the
+     * package above it, and rule 1 lets any class reach its own module's application.
      */
-    static ArchRule serviceAndPortRootsUseNoSubpackage(String root) {
-        String layer = root + ".*." + APPLICATION + ".";
+    static ArchRule applicationPackagesUseNoSubpackage(String root) {
         return classes()
                 .that()
-                .resideInAnyPackage(layer + SERVICE, layer + PORT_OUT)
+                .resideInAPackage(applicationLayers(root))
                 .should(new ArchCondition<>("use no class in a package under its own") {
                     @Override
                     public void check(JavaClass item, ConditionEvents events) {
@@ -416,8 +415,8 @@ final class ApplicationRules {
                                         events.add(SimpleConditionEvent.violated(item, dependency.getDescription())));
                     }
                 })
-                .because("ADR-118 rule 2, carried to the application: the service and port.out roots hold what"
-                        + " several aggregates' packages use, and import none of them");
+                .because("ADR-118 rule 2, carried to the application by ADR-125: a package holds what the"
+                        + " packages beneath it share, and imports none of them");
     }
 
     /** Each module's application layer, with the shared application package. */

@@ -20,7 +20,6 @@ import com.dispatchflow.access.domain.Language;
 import com.dispatchflow.access.domain.TokenHash;
 import com.dispatchflow.access.events.SessionsRevoked;
 import com.dispatchflow.shared.DomainError;
-import com.dispatchflow.shared.DomainEvent;
 import com.dispatchflow.shared.EventId;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -186,8 +185,8 @@ class UserAccountLifecycleTest {
                 assertThat(after.email()).isEmpty();
                 assertThat(after.snapshot().links()).isEmpty();
                 assertThat(after.pendingEvents())
-                        .extracting(DomainEvent::getClass)
-                        .containsExactly(com.dispatchflow.access.events.AccountAnonymized.class);
+                        .singleElement()
+                        .isExactlyInstanceOf(com.dispatchflow.access.events.AccountAnonymized.class);
             });
 
     /** An Admin and Driver, with an open set-password link and an open email-change link. */

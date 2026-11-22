@@ -18,12 +18,11 @@ and [`optimization-engine.md`](../optimization-engine.md) are the short prose ve
 |---|---|
 | `core/` | `src/backend/core/src/main/java/com/dispatchflow/` |
 | `core-test/` | `src/backend/core/src/test/java/com/dispatchflow/` |
-| `solver/` | `src/backend/solver/src/dispatchflow_solver/` |
-| `solver-test/` | `src/backend/solver/tests/` |
+| `optimizer/` | `src/backend/optimizer/src/dispatchflow_optimizer/` |
+| `optimizer-test/` | `src/backend/optimizer/tests/` |
 
-[ADR-037](../../ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md) moves this tree in the M0
-restructure (`src/core`, `src/optimizer`, and so on). Until then these are the real paths, and the pull
-request that moves the code should update the prefixes here.
+[ADR-123](../../ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md) keeps this tree and gave the optimizer its name: `src/backend/optimizer`, with the
+package `dispatchflow_optimizer`. The prefixes above use those names.
 
 **Reading the diagrams.** They use no colour. In a class diagram, `<<root>>` is an aggregate root,
 `<<entity>>` an object held inside a root, `<<value>>` a value object, `<<fact>>` a value the use case
@@ -52,7 +51,7 @@ that explain the shape, not every member.
 
 ## 1. Where the domain sits
 
-The domain is the only layer that is built. Each Java module and the Python solver has three layers on
+The domain is the only layer that is built. Each Java module and the Python optimizer has three layers on
 paper, but only the inner one holds working code.
 
 ```mermaid
@@ -67,7 +66,7 @@ flowchart TB
     CAPP --> CKER
     CDOM --> CKER
   end
-  subgraph SOLVER["solver (Python): the Optimization context"]
+  subgraph OPTIMIZER["optimizer (Python): the Optimization context"]
     SADP["adapters/inbound/http<br/>a liveness probe only"]
     SAPP["application<br/>declared, not built"]
     SDOM["domain<br/>built and tested"]
@@ -80,18 +79,18 @@ flowchart TB
 An arrow means *depends on*. The sources for each box:
 
 - **Built and tested.** Every module's `domain/` and `events/`, and the kernel `shared/`, under `core/`;
-  `solver/domain/`. Their tests are in `core-test/` and `solver-test/domain/`.
+  `optimizer/domain/`. Their tests are in `core-test/` and `optimizer-test/domain/`.
 - **Declared, not built** ([ADR-119](../../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)).
   Each module's `application/` holds the use cases, ports and module APIs as signatures with Javadoc.
   A body that would do work throws `UnsupportedOperationException("Built in M<n>")`. At this commit
   there are 243 such bodies in 181 files under `core/`, and 7 `NotImplementedError("Built in M<n>")`
-  in `solver/application/`. `grep -rn "Built in M5" src/backend` lists one milestone's remaining work.
+  in `optimizer/application/`. `grep -rn "Built in M5" src/backend` lists one milestone's remaining work.
   The two kernel errors in `shared/application/` (`NotFound`, `StaleVersion`) are complete classes; its
   three ports (`Clock`, `IdGenerator`, `ProcessedEvents`) are interfaces with no implementation.
 - **Absent.** No use case, port or adapter is wired, and there is no `adapter/` package under `core/`.
   The only Spring annotations are `@SpringBootApplication` on the entry point
   `core/DispatchFlowApplication.java` and `@RestControllerAdvice` on the one error handler in
-  `core/web/`. The solver's only adapter is the liveness probe in `solver/adapters/inbound/http/app.py`.
+  `core/web/`. The optimizer's only adapter is the liveness probe in `optimizer/adapters/inbound/http/app.py`.
 
 **Dependency direction.** Dependencies point inwards, as DL [§13](domain_layer_design.md#13-inside-each-module-hexagon)
 draws. The rules that keep the domain pure are DL [§2.3](domain_layer_design.md#23-rules-between-contexts)
@@ -99,13 +98,13 @@ and [§3.9](domain_layer_design.md#39-purity), and ArchUnit tests in `core-test/
 build when one breaks (`DomainPurityTest`, `DomainShapeTest`, `DomainPackageTest`, `ApplicationTest`). A
 scan of every `import` at this commit finds no file under any `domain/` or `events/` package that imports
 another module. The only cross-module imports are in `application/` packages. In Python,
-import-linter does the same job (`src/backend/solver/pyproject.toml`, section `[tool.importlinter]`).
+import-linter does the same job (`src/backend/optimizer/pyproject.toml`, section `[tool.importlinter]`).
 
 ---
 
 ## 2. The nine contexts on one map
 
-Eight contexts are Java modules in `core`. The ninth, Optimization, is the Python solver. DL
+Eight contexts are Java modules in `core`. The ninth, Optimization, is the Python optimizer. DL
 [§1](domain_layer_design.md#1-subdomains-and-bounded-contexts) defines them; DL
 [§2.1](domain_layer_design.md#21-module-graph) draws the module graph. The diagram below is the same
 graph with each module's aggregates inside it, which the DL does not show. An arrow points upstream and
@@ -153,18 +152,20 @@ arrows (or to Access or Audit), and `audit/` imports no other module.
 | `access` | root, `account`, `session`, `companyprofile` | 38 | 2 |
 | `audit` | flat | 11 | none |
 | `fleet` | root, `driver`, `register`, `roster` | 34 | 1 |
-| `liveops` | root, `delivery`, `alert`, `routerun` | 47 | 3 |
+| `liveops` | root, `delivery`, `outcome`, `proof`, `alert`, `routerun` | 47 | 3 |
 | `messaging` | root, `message`, `rating`, `settings` | 42 | 1 |
 | `orders` | flat | 41 | 3 |
-| `planning` | root, `plan`, `solution`, `basis`, `revision`, `reconciliation`, `settings` | 81 | 6 |
-| `reporting` | flat | 21 | none |
+| `planning` | root, `plan`, `solution`, `drop`, `basis`, `revision`, `reconciliation`, `settings` | 81 | 6 |
+| `reporting` | root, `baseline` | 21 | none |
 
 "Domain files" counts `.java` files under `<module>/domain/`, not counting `package-info.java`.
-A package above 30 files splits by aggregate ([ADR-118](../../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)):
+A package above 20 files splits by aggregate, then by concept, wherever a group of 4 files can move
+([ADR-118](../../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md), [ADR-125](../../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)):
 the root `domain/` keeps the module's error type and what several packages use, and imports none of its
 subpackages. `orders` has 41 files and stays flat, because its types form a cycle (`OrderStatus`,
 `OrdersError` and `Order` name each other) and `ImportBatch` calls package-private methods of `Customer`
-and `Order`; ADR-118 records it. The kernel and every `events/` package stay flat by the same ADR.
+and `Order`; ADR-118 records it. The kernel and every `api/`, `spi/` and `events/` package stay flat
+(ADR-118, ADR-125).
 
 ### Every aggregate root
 
@@ -345,7 +346,7 @@ Every ID is a record wrapping a UUID, so one kind can't be passed for another (D
 
 Ids that only one module names stay in that module: `RefreshTokenId` in `core/access/domain/session/`,
 `CredentialLinkId` in `core/access/domain/account/`, `OutgoingMessageId` in `core/messaging/domain/`,
-`HeldReportId` in `core/liveops/domain/` and `ProofId` in `core/liveops/domain/delivery/`.
+`HeldReportId` in `core/liveops/domain/` and `ProofId` in `core/liveops/domain/proof/`.
 
 ### Shared values
 
@@ -459,7 +460,7 @@ The pattern, with where `Driver` shows each part:
    why no domain test needs a mock or a clock.
 
 A call to `Driver.retire`, from a use case that is declared but not built (`RetireDriver`,
-`core/fleet/application/service/RetireDriver.java`):
+`core/fleet/application/service/driver/RetireDriver.java`):
 
 ```mermaid
 sequenceDiagram
@@ -831,13 +832,17 @@ The root imports none of its subpackages.
 ```mermaid
 flowchart LR
   PLAN["plan (30 files)<br/>Plan, SolveJob,<br/>ReoptimizationProposal"]
-  SOL["solution (25)<br/>results, drop reasons,<br/>ValidatedSolution"]
+  SOL["solution (20)<br/>results, ValidationReport,<br/>ValidatedSolution"]
+  DROP["drop (4)<br/>DroppedOrder, DropReason,<br/>ExcludedVehicle"]
   BAS["basis (4)<br/>SolveBasis, ProposalBasis,<br/>ChangesSinceBasis"]
   REV["revision (3)<br/>PlanRevision"]
   REC["reconciliation (4)<br/>LateFact, Reconciliation"]
   SET["settings (8)<br/>PlanningSettings,<br/>TravelBuckets, Buffer"]
-  ROOT["root domain (7)<br/>PlanningError, RevisionNo,<br/>SolveTime, SolveLimit, RuleCode"]
+  ROOT["root domain (8)<br/>PlanningError, RevisionNo,<br/>SolveTime, SolveLimit, RuleCode, PinTarget"]
   PLAN --> SOL
+  PLAN --> DROP
+  SOL --> DROP
+  DROP --> ROOT
   PLAN --> BAS
   PLAN --> REV
   PLAN --> REC
@@ -975,9 +980,13 @@ classDiagram
 |---|---|
 | What a solve returns | `SolveResult`, `SolvedRoute`, `SolvedStop`, `StopPlan`, `StopTimes`, `RoutePlan`, `TravelLeg`, `RouteTimes`, `StopTiming` |
 | Gate types only the optimizer adapter builds | `ValidatedSolution`, `ValidationReport`, `Evaluation` |
-| Why an order or vehicle is out | `DropReason` (a sealed interface of eleven records), `DroppedOrder`, `ExcludedVehicle`, `ExclusionCause` |
 | What a re-optimization previews | `ReoptimizationResult`, `ObjectiveTerms`, `LateStop`, `DriverChange`, `VehicleWithdrawal`, `Withdrawal` |
-| Other | `Violation`, `SolveFailure`, `PinTarget` |
+| Other | `Violation`, `SolveFailure` |
+
+Why an order or a vehicle is out sits in `drop/`: `DropReason` (a sealed interface of eleven
+records), `DroppedOrder`, `ExcludedVehicle` and `ExclusionCause`, which `solution` and `plan` use
+([ADR-125](../../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)).
+`PinTarget` sits in the root, because `plan` and `drop` both use it.
 
 - **Events** (`core/planning/events/`): `PlanPublished`, `PlanRevised`, `RouteHandedOver`, `PlanCancelled`
   from `Plan`; `SolveSucceeded`, `SolveFailed` from `SolveJob`. The package also holds the enums these
@@ -1131,8 +1140,9 @@ classDiagram
 
 - **Packages** (`core/liveops/domain/`): the root (8 files) holds `LiveOpsError`, `CorrectedTime`,
   `DriverReport`, `ContactWindow`, `RevisionNo`, `HeldReportId`, `CancellationKind`, `TrackingRefusal`;
-  `delivery/` (24) holds `Delivery`, its snapshot types, `Outcome`, `Proof`, `FailureReason`,
-  `ArrivalProjection`, `RetentionPeriods`; `alert/` (9) holds `Alert`, `AlertSubject`, `AlertKind`,
+  `delivery/` (16) holds `Delivery`, its snapshot types, `ArrivalProjection`, `RetentionPeriods`;
+  `outcome/` (4) holds `Outcome`, `FailureReason`, `FailureReasonKind`, `DispatcherOutcome`, and uses
+  `proof/` (4), which holds `Proof`, `ProofId`, `ProofKind`, `ProofNote`; `alert/` (9) holds `Alert`, `AlertSubject`, `AlertKind`,
   `DedupeKey`; `routerun/` (6) holds `RouteRun`, `RunStatus`, `TrackingWindow`, `ConfirmationDeadline`.
 - **`Delivery`'s status is derived.** `DeliveryStatus` (`PENDING`, `ARRIVED`, `HELD`, `DELIVERED`,
   `FAILED`) is computed from the outcomes and held reports, effective outcome first; it is not stored.
@@ -1311,17 +1321,19 @@ classDiagram
   BaselineComparison --> PlannedOnTimeRate
 ```
 
-- **Package:** one flat package, `core/reporting/domain/` (21 files). Besides `Baseline`: the two rate
-  types, `Distance`, `DriverHours`, `WithdrawnFleet`, `Withdrawal`, `WithdrawalCause`, `PlanStanding`
-  and the input facts `StopResult` and `StopOutcome`.
+- **Packages** (`core/reporting/domain/`, 21 files): the root (10) holds `ReportingError`, the two rate
+  types and the input facts `StopResult` and `StopOutcome`; `baseline/` (11) holds `Baseline`, its
+  snapshot, `Distance`, `DriverHours`, `WithdrawnFleet`, `Withdrawal`, `WithdrawalCause` and
+  `PlanStanding`, and uses the root one way
+  ([ADR-125](../../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)).
 - **The rates are exact shares of two counts.** `PlannedOnTimeRate` (in the diagram) and `OnTimeRate`
   (the actual rate, from `StopResult`s) are each `Measured` with two integers, or `Unavailable`; only a
   screen rounds. With no delivered stop the answer is `Unavailable`, never 0.
 - **`WithdrawalCause` here is Reporting's own copy**, mapped from Planning's `WithdrawalCause` event enum
   when `PlanRevised` is heard (§11).
 - **No events and no personal data.**
-- **Start reading:** `OnTimeRate.java` (87), then `Baseline.java` (238). Tests: `core-test/reporting/domain/`
-  (`BaselineTest`, `OnTimeRateTest`, `PlannedOnTimeRateTest`, `WithdrawnFleetTest`).
+- **Start reading:** `OnTimeRate.java` (87), then `baseline/Baseline.java` (238). Tests: `core-test/reporting/domain/`
+  (`OnTimeRateTest`, `PlannedOnTimeRateTest`, and in `baseline/`, `BaselineTest` and `WithdrawnFleetTest`).
 
 ### 5.8 Audit
 
@@ -1377,7 +1389,7 @@ classDiagram
 
 ### 5.9 Optimization (Python)
 
-DL [§4.9](domain_layer_design.md#49-optimization-python). The solver's domain has no aggregates and keeps
+DL [§4.9](domain_layer_design.md#49-optimization-python). The optimizer's domain has no aggregates and keeps
 no state between calls. It is value objects whose methods are the rules. §8 maps its modules.
 
 ---
@@ -1586,7 +1598,7 @@ flowchart LR
 | `SolveFailed` | `SolveJob.fail`, `expireIfOverdue` | `plan/RecordSolveFailure` (Planning) |
 | `PlanPublished` | `Plan.publish` | `routerun/TellDriversRoutesReady` (Live Operations); `ComputeBaseline` (Reporting) |
 | `PlanRevised` | `Plan.accept`, `handOver`, `removeStopOf`, `reconcileLateOutcome` | `routerun/TellDriversOfRevision` (Live Operations); `MessagePlanRevised` (Messaging); `RecomputeBaseline` (Reporting) |
-| `RouteHandedOver` | `Plan.handOver` | `plan/MoveRosterWithRoute` (Planning); `routerun/TellDriversOfRevision` (Live Operations) |
+| `RouteHandedOver` | `Plan.handOver` | `plan/route/MoveRosterWithRoute` (Planning); `routerun/TellDriversOfRevision` (Live Operations) |
 | `PlanCancelled` | `Plan.cancel` | `routerun/TellDriversPlanCancelled` (Live Operations) |
 | `OrderCancelled` | `Order.cancel` | `plan/RemoveStopOfOrder` (Planning); `MessageDeliveryChanged` (Messaging) |
 | `OrderRescheduled` | `Order.reschedule` | `plan/RemoveStopOfOrder` (Planning); `MessageDeliveryChanged` (Messaging) |
@@ -1612,9 +1624,9 @@ the listeners:
 
 ## 8. The Python Optimization domain
 
-DL [§4.9](domain_layer_design.md#49-optimization-python) and `optimization-engine.md`. The solver's
-domain is `solver/domain/`: 15 modules plus `__init__.py`, about 4,100 lines, with about 5,300 lines of
-tests in `solver-test/domain/`. It is pure: import-linter
+DL [§4.9](domain_layer_design.md#49-optimization-python) and `optimization-engine.md`. The optimizer's
+domain is `optimizer/domain/`: 15 modules plus `__init__.py`, about 4,100 lines, with about 5,300 lines of
+tests in `optimizer-test/domain/`. It is pure: import-linter
 forbids frameworks, clocks, randomness and I/O in it (`pyproject.toml`).
 
 ```mermaid
@@ -1667,19 +1679,19 @@ flowchart LR
 ```
 
 An arrow means *imports*. An arrow to a grouped node means the module imports at least one module in the
-group. The arrows come from the `import` lines of each file in `solver/domain/`.
+group. The arrows come from the `import` lines of each file in `optimizer/domain/`.
 
 - **Why `feasibility`, `objective` and `drops` never import `problem`.** `Problem`'s methods delegate to
   them, so if they imported `problem` there would be a cycle. Each types its argument as `ProblemView`, a
   `typing.Protocol` in `problem_view.py`, which `Problem` satisfies by shape. The module docstrings say so
   and import-linter enforces it (ADR-113). `problem` is imported in the domain by `factory` only.
-- **`Problem`** (`solver/domain/problem.py`, 511 lines) is a frozen dataclass holding the orders,
+- **`Problem`** (`optimizer/domain/problem.py`, 511 lines) is a frozen dataclass holding the orders,
   vehicles, drivers, the two matrices (`durations`, `distances`), the `TravelTimeModel`, the
   `PenaltyScale`, `drop_penalties`, `day_length`, `breaks_reserved`, `removed_by_dispatcher` and an
   optional `ReoptContext`. Its three rule methods are `validate(solution) -> ValidationReport`,
   `cost(solution, timings) -> Cost` and `explain_drop(order, solution) -> DropReason`. It also has two
   small helpers, `unserved(solution)` and `is_locked(order)`, which the `ProblemView` protocol requires.
-- **`ProblemFactory`** (`solver/domain/factory.py`, 1,060 lines) has two static methods:
+- **`ProblemFactory`** (`optimizer/domain/factory.py`, 1,060 lines) has two static methods:
   `daily(...)` builds a `Problem` from the date's orders, depots, vehicles and drivers, and
   `reoptimization(...)` builds one from a live day. The conventions for a re-optimization are decided
   once there and written into the `Problem` (ADR-050, ADR-105). The inputs are small dataclasses in the
@@ -1691,10 +1703,10 @@ group. The arrows come from the `import` lines of each file in `solver/domain/`.
   and `VehicleExclusion` (`exclusions.py`). `rules.py` holds `RuleId`, one member per rule named after its
   requirement row. Two errors guard input: `InvalidProblemError` and `InvalidSolutionError`.
 - **Start reading:** `solution.py` (117), `rules.py` (77), `problem_view.py` (74), `feasibility.py` (611),
-  `problem.py`, then `factory.py`. Tests in `solver-test/domain/` include `test_solution.py`, `test_problem.py`,
+  `problem.py`, then `factory.py`. Tests in `optimizer-test/domain/` include `test_solution.py`, `test_problem.py`,
   `test_violation_catalogue.py` (the `RuleId` each crafted case must trigger), `test_objective.py`,
   `test_drops.py`, `test_factory.py`, `test_reoptimization.py`, and `test_properties.py` (Hypothesis).
-  `solver-test/test_dependency_boundary.py` keeps PyVRP out.
+  `optimizer-test/test_dependency_boundary.py` keeps PyVRP out.
 
 ---
 
@@ -1792,13 +1804,13 @@ pull request closes each one. The ones below are the ones a reader is most likel
 
 | Module | What is missing in the domain | Written in | Closed by |
 |---|---|---|---|
-| Orders | `Order.endPutBack`, and a put-back keeping the earlier attempt's date and window ([ADR-121](../../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md)) | `orders/application/service/EndSupersededPutBackService.java` | M8 |
-| Orders | A `Customer` method that changes the customer's fields; `Customer.activeDefaults()` | `orders/application/service/ChangeCustomer.java`, `PlaceOrder.java` | M2 |
-| Orders | A method that copies an order to another date | `orders/application/service/CopyOrdersFromDate.java` | the milestone that builds it |
+| Orders | `Order.endPutBack`, and a put-back keeping the earlier attempt's date and window ([ADR-121](../../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md)) | `orders/application/service/order/EndSupersededPutBackService.java` | M8 |
+| Orders | A `Customer` method that changes the customer's fields; `Customer.activeDefaults()` | `orders/application/service/customer/ChangeCustomer.java`, `order/PlaceOrder.java` | M2 |
+| Orders | A method that copies an order to another date | `orders/application/service/order/CopyOrdersFromDate.java` | the milestone that builds it |
 | Planning | A default solver of each kind in `PlanningSettings` | `planning/application/service/plan/RequestSolve.java` | M4 |
 | Planning | `SolveJob.succeed` and `fail` keep no objective and no stats, which NFR-11 records | `planning/application/port/out/solvejob/DailyAnswer.java`, `planning/application/service/solvejob/RunSolveJob.java` | M0 |
 | Planning | Retention periods in Planning's domain | `planning/application/service/EraseExpiredLocations.java` | M13 |
-| Access | `UserAccount.dropOldLinks`, and a method that voids every open link | `access/application/service/account/DropOldLinks.java`, `session/SecureAfterRestore.java` | M13 |
+| Access | `UserAccount.dropOldLinks`, and a method that voids every open link | `access/application/service/account/credentiallink/DropOldLinks.java`, `access/application/service/session/SecureAfterRestore.java` | M13 |
 | Access | `AccessError` codes for an unknown address and a wrong password, which the audit refusal needs (audit only: the answer stays one `SignInRefused`, NFR-145) | `access/application/service/session/SignIn.java` | M5 |
 | Messaging | `Rating.isLow()`; a key version on `PhoneHash` and an `OptOutRecord` factory that copies an entry under a new hash | `messaging/application/service/AlertLowRating.java`, `RehashOptOuts.java` | M12 |
 | Reporting | `PlannedFigures` has a plain `Distance`, so a plan with an untimed route can't say so | `reporting/application/port/out/PlannedVsActualView.java` | M5 |
@@ -1817,10 +1829,10 @@ domain and `events/` packages finds.
 |---|---|
 | `CompanyName` | `access/domain/companyprofile/` and `messaging/domain/`: two types, two rules |
 | `RevisionNo` | `planning/domain/` and `liveops/domain/`: Live Operations keeps its own copy (DL §3.3) |
-| `WithdrawalCause` | `planning/events/` and `reporting/domain/`: Reporting maps Planning's into its own |
-| `Withdrawal` | `planning/domain/solution/` and `reporting/domain/` |
+| `WithdrawalCause` | `planning/events/` and `reporting/domain/baseline/`: Reporting maps Planning's into its own |
+| `Withdrawal` | `planning/domain/solution/` and `reporting/domain/baseline/` |
 | `AccountAnonymized` | an event in `access/events/`, and an error record in `AccessError` |
-| `PlanStanding` | `orders/domain/Placement.java` (a nested enum) and `reporting/domain/PlanStanding.java` |
+| `PlanStanding` | `orders/domain/Placement.java` (a nested enum) and `reporting/domain/baseline/PlanStanding.java` |
 | `Published` | `Plan.Status.Published` and `BaselineCause.Published` |
 | `Capacity`, `Shift`, `TimeWindow`, `DepotHours` | the Fleet and kernel values, and records of the same name nested in Planning's `DropReason` |
 | `Delivered`, `Failed`, `Dropped` | variants of `Outcome`, `DispatcherOutcome`, `StopState`, `StopOutcome`, `ReportedOutcome`, `Placement`, `StopWhereabouts`, `MessageState` and `PlannedService` |
@@ -1837,7 +1849,7 @@ name. Both are in `core-test/architecture/`.
 
 Read in this order. Each step names the tests to open beside the code. To run one Java test class, use
 `./mvnw -Dtest=<ClassName> test` from `src/backend/core`; to run one Python test, use
-`uv run --locked pytest tests/path/test_x.py::test_name` from `src/backend/solver` (both from the
+`uv run --locked pytest tests/path/test_x.py::test_name` from `src/backend/optimizer` (both from the
 component `CLAUDE.md` files).
 
 | Step | Read | With the tests |
@@ -1851,8 +1863,8 @@ component `CLAUDE.md` files).
 | 7. A register and a roster | `core/fleet/domain/register/FleetRegister.java`, `roster/DayRoster.java` | `fleet/domain/register/FleetRegisterTest`, `roster/DayRosterTest` |
 | 8. Facts from the street | `core/liveops/domain/delivery/Delivery.java`, `routerun/RouteRun.java` | `liveops/domain/delivery/DeliveryLifecycleTest`, `DeliverySequenceTest` |
 | 9. Planning | `core/planning/domain/plan/SolveJob.java`, `ReoptimizationProposal.java`, then `Plan.java` by section | `planning/domain/plan/SolveJobTest`, `PlanLifecycleTest`, `PlanSequenceTest` |
-| 10. Messaging and reporting | `core/messaging/domain/rating/RatingRequest.java`, `reporting/domain/OnTimeRate.java`, `Baseline.java` | `messaging/domain/rating/RatingRequestTest`, `reporting/domain/BaselineTest` |
-| 11. The solver | `solver/domain/solution.py`, `problem_view.py`, `feasibility.py`, `problem.py`, `factory.py` | `solver-test/domain/test_problem.py`, `test_violation_catalogue.py` |
+| 10. Messaging and reporting | `core/messaging/domain/rating/RatingRequest.java`, `reporting/domain/OnTimeRate.java`, `baseline/Baseline.java` | `messaging/domain/rating/RatingRequestTest`, `reporting/domain/baseline/BaselineTest` |
+| 11. The optimizer | `optimizer/domain/solution.py`, `problem_view.py`, `feasibility.py`, `problem.py`, `factory.py` | `optimizer-test/domain/test_problem.py`, `test_violation_catalogue.py` |
 | 12. The guards | The rules: `core-test/architecture/DomainPurityRules.java`, `DomainShapeRules.java`, `DomainPackageRules.java`, `ApplicationRules.java`, which `DomainPurityTest`, `DomainShapeTest`, `DomainPackageTest` and `ApplicationTest` run over the production classes | `DomainPurityRulesTest`, `DomainShapeRulesTest`, `DomainPackageRulesTest`, `ApplicationRulesTest`: each rule must flag its deliberately wrong fixture in `core-test/archfixture/` |
 | 13. What is next | `core/planning/application/service/plan/RequestSolve.java`, then `grep -rn "Built in M0" src/backend` | none: bodies throw |
 

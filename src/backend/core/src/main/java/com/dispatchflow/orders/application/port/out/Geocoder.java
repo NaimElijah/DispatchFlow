@@ -11,7 +11,7 @@ import java.util.Optional;
  * records each entry's last use, so an entry unused for a year can be deleted (NFR-259, ADR-075).
  *
  * <p>A use case calls it before its transaction opens (DL §6.3), so no transaction waits on HTTP.
- * It answers the point and the match's quality only; the distance to the nearest road is {@link
+ * It answers the point and the match's quality only; the distance to the nearest road is {@code
  * RoadSnap}'s.
  *
  * <p>Built in M7, and in M13 for the cache's retention.

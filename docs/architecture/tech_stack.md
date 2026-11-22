@@ -137,7 +137,7 @@ screens and documents use the same words.
 
 ## 4. Repository layout
 
-**Decided ([ADR-037](../ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md)) · Alpha.** The pull request that moves the code brings it to this tree.
+**Decided ([ADR-123](../ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md)) · Alpha.** The grouped tree with ADR-123's component names. Inside `core` and `optimizer` it draws the target packages ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)), not today's.
 `src/research` already exists (NFR-50).
 
 ```text
@@ -146,40 +146,46 @@ screens and documents use the same words.
   workflows/                      CI pipelines
   CODEOWNERS  pull_request_template.md  ISSUE_TEMPLATE/
 contracts/
-  core-api.v1.yaml                OpenAPI: web and phone apps ↔ core (ADR-006)
-  optimizer-api.v1.yaml           OpenAPI: core ↔ optimization service
+  client-api/v1/openapi.yaml      OpenAPI: web and phone apps ↔ core (ADR-006)
+  optimization-api/v1/openapi.yaml  OpenAPI: core ↔ optimization service
 src/
-  core/                           Java, Spring Boot, one deployable
-    src/main/java/.../dispatchflow/
-      access/ fleet/ orders/ planning/ liveops/ messaging/ reporting/ audit/
-        domain/                   aggregates, entities, value objects, sealed states, named errors
-        events/                   the module's events (the `events` named interface): IDs,
-                                  shared-kernel values and the package's own enums only
-        application/
-          api/                    use cases and queries other modules call
-          spi/                    ports this module owns for other modules to implement
-          port/out/               repositories, logs and outside services
-          service/                one class per use case, and application services
-        adapter/
-          in/web/  in/job/  in/schedule/  in/callback/
-          out/persistence/  out/osrm/  out/optimizer/  out/...
-      shared/                     shared kernel: typed IDs, DeliveryDate, IsraelDateTime, DaySeconds, TimeWindow,
-                                  GeoPoint, Weight, Volume, Priority, PhoneNumber, and the domain's
-                                  building blocks (errors, Version, AggregateRoot, events; ADR-097)
-    src/main/resources/db/migration/   Flyway migrations, one PostgreSQL schema per module
-  optimizer/                      Python, FastAPI
-    dispatchflow_opt/
-      domain/  application/
-      adapters/inbound/http/
-      adapters/outbound/solvers/{ortools,alns,nearest_neighbour}/
+  backend/
+    core/                         Java, Spring Boot, one deployable
+      src/main/java/.../dispatchflow/
+        access/ fleet/ orders/ planning/ liveops/ messaging/ reporting/ audit/
+          domain/                   aggregates, entities, value objects, sealed states, named errors
+          events/                   the module's events (the `events` named interface): IDs,
+                                    shared-kernel values and the package's own enums only
+          application/
+            api/                    use cases and queries other modules call
+            spi/                    ports this module owns for other modules to implement
+            port/out/               repositories, logs and outside services
+            service/                one class per use case, and application services
+          adapter/
+            in/web/  in/job/  in/schedule/  in/callback/
+            out/persistence/  out/osrm/  out/optimizer/  out/...
+        shared/                     shared kernel: typed IDs, DeliveryDate, IsraelDateTime, DaySeconds, TimeWindow,
+                                    GeoPoint, Weight, Volume, Priority, PhoneNumber, and the domain's
+                                    building blocks (errors, Version, AggregateRoot, events; ADR-097)
+      src/main/resources/db/migration/   Flyway migrations, one PostgreSQL schema per module
+    optimizer/                    Python, FastAPI
+      src/dispatchflow_optimizer/
+        domain/  application/
+        adapters/inbound/http/
+        adapters/outbound/solvers/{ortools,alns,nearest_neighbour}/
+  frontend/
+    web/                          React web app
+    mobile/                       Expo phone app (from Semester B)
+    packages/                     api-client, schemas, i18n, map-style, formatters, eslint-config, tsconfig
   research/                       harness, study configs, results (no pilot-derived data, NFR-50)
-  web/                            React web app
-  mobile/                         Expo phone app (from Semester B)
-  packages/                       api-client, schemas, i18n, map-style, formatters, eslint-config, tsconfig
-e2e/                              Playwright: the Alpha demo script and the use-case flows
-deploy/
-  compose.yaml  compose.dev.yaml  Caddyfile  osrm/  tiles/  backup/  observability/
-infra/                            Terraform: AWS account resources
+tests/
+  e2e/                            Playwright: the Alpha demo script and the use-case flows
+  load/                           k6 scripts (NFR-10, NFR-59)
+infra/
+  deploy/                         compose.yaml  compose.dev.yaml  Caddyfile  backup/  observability/
+  osrm/                           OSRM configuration
+  terraform/                      AWS account resources (from M13)
+data/                             git-ignored: OSM extract, OSRM files, PMTiles, benchmark instances
 docs/
   architecture/  ADRs/  operations/  guides/{he,en}/  research/
 ```
@@ -203,7 +209,7 @@ atomic contract changes, and four copies of CI.
 | IDEs | **IntelliJ IDEA** (free JetBrains educational licence) for Java; **PyCharm** or **VS Code** for Python; **VS Code** for TypeScript; **Android Studio** and **Xcode** for phone builds and emulators (Semester B) | Decided · Alpha | The best tool per language, all free for students | **One IDE for everything:** Java refactoring is weak outside IntelliJ |
 | API client | **Bruno**, with collections in the repository | Decided · Alpha | Requests are versioned with the code and need no account | **Postman:** collections live in its cloud by default and need an account. **IntelliJ HTTP files:** good, but only for IntelliJ users |
 | Database client | **DBeaver**, or IntelliJ's database tools | Decided · Alpha | Free, works with every OS | — |
-| Contract-first mocks | **MSW** in the web app and tests; **Prism** serves a mock of `core-api` | Optional · Alpha | Front-end work can start before an endpoint exists | — |
+| Contract-first mocks | **MSW** in the web app and tests; **Prism** serves a mock of `client-api` | Optional · Alpha | Front-end work can start before an endpoint exists | — |
 | Source control | **Git** on **GitHub**: private repository, protected `main` and `dev`, required reviews and checks, `CODEOWNERS` per area | Decided · Alpha | The code is proprietary (ADR-017); GitHub Projects holds the Gantt chart the course asks for | **GitLab:** equally capable; the team is already on GitHub |
 | Branching | Short-lived branches off `dev`, squash-merged into `dev`; `dev` reaches `main` by merge commit; **Conventional Commits** (checked by commitlint in lefthook and CI) | Decided · Alpha | Small merges keep four people out of each other's way; history stays readable, and release notes can be generated | **GitFlow:** long-lived branches and painful merges for a four-person team |
 | Releases | Semantic versions with Git tags. Phone app versions follow NFR-44 (the previous version stays supported) | Decided · B | — | — |
@@ -314,7 +320,7 @@ adapter tests need anyway.
 
 | Secondary port | Adapter | Notes |
 |---|---|---|
-| `RouteOptimizer`, `FeasibilityChecker`, `BaselinePlanner` | Optimizer HTTP client, generated from `optimizer-api` | Anti-corruption layer. Also used for edit checks (FR-233) and the publishing re-check (BR-21). While the optimizer is down, hand-overs and cancellations complete and their routes show *not yet checked* until it returns; publishing refuses (BR-70, [ADR-058](../ADRs/ADR-058-routes-changed-while-the-optimizer-is-down-are-checked-when-it-returns.md)) |
+| `RouteOptimizer`, `FeasibilityChecker`, `BaselinePlanner` | Optimizer HTTP client, generated from `optimization-api` | Anti-corruption layer. Also used for edit checks (FR-233) and the publishing re-check (BR-21). While the optimizer is down, hand-overs and cancellations complete and their routes show *not yet checked* until it returns; publishing refuses (BR-70, [ADR-058](../ADRs/ADR-058-routes-changed-while-the-optimizer-is-down-are-checked-when-it-returns.md)) |
 | `TravelTimes`, `RouteShapes` | OSRM `table` and `route` services | **Base durations only.** The Python `TravelTimeModel` applies the bucket factors and the buffer (FR-321, FR-322); the core never does |
 | `Geocoder` | GovMap adapter, fake; Nominatim only if GovMap's terms fail | Decided in [ADR-085](../ADRs/ADR-085-govmap-geocodes-addresses-with-nominatim-as-the-fallback.md) |
 | `SmsGateway` | Israeli provider adapter (Q-96); fake in every environment except production (NFR-206) | Callbacks verified by signature or header secret (NFR-192) |
@@ -344,7 +350,7 @@ adapter tests need anyway.
 | Packaging and environments | **uv** (lock file committed) | Decided · Alpha | Fast, one tool for Python versions, environments and locking; the lock hash goes in every run manifest | **Poetry:** slower, and doesn't manage Python versions. **pip-tools + pyenv:** two tools. **conda:** heavy, for nothing that wheels don't already provide |
 | Lint and format | **Ruff** | Decided · Alpha | One fast tool for linting and formatting | **flake8 + isort + black:** three tools to configure, and slower |
 | Types | **mypy** (strict) | Decided · Alpha | One type authority in CI, with Pydantic's mypy plugin | **pyright:** faster, and fine in editors through Pylance, but CI needs one checker, and mypy has the Pydantic plugin |
-| HTTP adapter | **FastAPI** + **Uvicorn**; **Pydantic v2** models generated from `optimizer-api` by **datamodel-code-generator**, used only in the adapter; **orjson** for responses | Decided · Alpha | Async handlers for the pipe to the solver workers; validation and OpenAPI built in; generated models can't drift from the contract | **Flask:** no async, no built-in validation. **Litestar:** similar features, smaller community. **gRPC:** ADR-006 chose OpenAPI, and gRPC is harder to inspect with curl or Bruno |
+| HTTP adapter | **FastAPI** + **Uvicorn**; **Pydantic v2** models generated from `optimization-api` by **datamodel-code-generator**, used only in the adapter; **orjson** for responses | Decided · Alpha | Async handlers for the pipe to the solver workers; validation and OpenAPI built in; generated models can't drift from the contract | **Flask:** no async, no built-in validation. **Litestar:** similar features, smaller community. **gRPC:** ADR-006 chose OpenAPI, and gRPC is harder to inspect with curl or Bruno |
 | Settings | **pydantic-settings** (environment variables only, NFR-03) | Decided · Alpha | Typed settings, validated at startup | — |
 | Domain numerics | **NumPy** | Decided · Alpha | Structs of arrays for the validator and for Numba | — |
 | Product solver | **OR-Tools** Routing, pinned to an exact version: a time dimension and two capacity dimensions (weight, volume), disjunctions with priority-based drop penalties (BR-54), a fixed vehicle cost (FR-21), guided local search. Matrices registered with `RegisterTransitMatrix`, not Python callbacks ([plan §8](https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#8-or-tools-model)) | Decided ([ADR-005](../ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md)) · Alpha | Every DispatchFlow rule maps to a standard construct, warm start is built in, and it's free. Registered matrices measured about 4.5 times faster than callbacks for the same search | **VROOM:** a fast C++ engine with OSRM built in, but its time windows are hard constraints and its objective has no terms for re-optimization stability or priority-weighted drops. **PyVRP in the product:** FR-286 keeps it as the study's reference solver. **Timefold:** Java, outside the Python research stack and its validator. **Hexaly or Gurobi:** commercial licences |
@@ -507,7 +513,7 @@ Reports stay queued until the server acknowledges them (FR-248). The sync is rec
 | Concern | Choice | Status | Why | Over |
 |---|---|---|---|---|
 | Workspaces | **pnpm** workspaces; the hoisted linker if Metro has trouble resolving dependencies | Decided ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)) · Alpha | Strict dependencies catch undeclared imports; fast installs | **npm or Yarn workspaces:** looser, so an undeclared dependency works by accident until it doesn't. **Nx or Turborepo:** build caching that a repository this size doesn't need yet |
-| API client | `@dispatchflow/api-client`: types and client generated from `core-api` with **openapi-typescript** and **openapi-fetch** | Decided · Alpha | Types only, with a tiny runtime | **orval:** generates hooks and more code. **openapi-generator's TypeScript output:** bulky classes |
+| API client | `@dispatchflow/api-client`: types and client generated from `client-api` with **openapi-typescript** and **openapi-fetch** | Decided · Alpha | Types only, with a tiny runtime | **orval:** generates hooks and more code. **openapi-generator's TypeScript output:** bulky classes |
 | Other packages | `@dispatchflow/schemas` (Zod forms for both apps), `@dispatchflow/i18n` (Hebrew and English strings, with text and a next step for every error code, NFR-144), `@dispatchflow/map-style` (one MapLibre style and the route colours, FR-148, FR-240), `@dispatchflow/formatters` (dates, times, distances, weights, volumes and shekels, NFR-68), `@dispatchflow/eslint-config`, `@dispatchflow/tsconfig` | Decided · Alpha (all but the phone-only parts) | One definition of each, used by both apps | **Copies in each app:** they drift |
 
 ---
@@ -583,7 +589,7 @@ All of this is adopted before the pilot (M13), not before the Alpha.
 | Correlation | W3C trace context across web app → core → optimizer; the trace ID in every log line, audit record and client error report (NFR-20, NFR-93, NFR-74) | Decided · Alpha (log IDs), Pilot (traces) | One ID finds everything about one request | — |
 | Pipeline | **OpenTelemetry Collector**, with a redaction processor as a backstop against personal data (NFR-19) | Decided · Pilot | One place to scrub | — |
 | Backend | **Prometheus** + **Alertmanager**, **Loki**, **Tempo**, **Grafana**, on the 16 GB VM, with 7-day retention (NFR-76) | Decided ([ADR-078](../ADRs/ADR-078-hosting-on-one-aws-vm-in-tel-aviv-built-with-terraform.md)) · Pilot | Self-hosted, so telemetry stays in Israel and the plan sets retention | **OpenObserve** (one program for logs, metrics, traces and alerts) on an 8 GB VM: rejected with that size (§15, §23). **SigNoz:** ClickHouse underneath, heavy on one VM. **Hosted** (Grafana Cloud, Datadog): telemetry leaves Israel, and the vendor sets retention |
-| Dashboards and alert rules | Stored as code in `deploy/observability/` (NFR-75, NFR-197) | Decided · Pilot | Reviewed like code | — |
+| Dashboards and alert rules | Stored as code in `infra/deploy/observability/` (NFR-75, NFR-197) | Decided · Pilot | Reviewed like code | — |
 | Alerts | Solve failures above 10% of a day, a preview over 30 s, 5 queued jobs, disk above 80% (NFR-75); failed backups (NFR-164); the message cap or more than 10% dropped (NFR-197); the recovery-email cap (NFR-215); an event publication still failing after 5 resubmissions; a job the watchdog had to fail. Delivered by email through Amazon SNS in `il-central-1` and to the team's chat channel; alert text carries no personal data (NFR-268) | Decided · Pilot | A watcher that repairs silently should still tell someone | — |
 | Client errors | **GlitchTip**, self-hosted on the VM, through the Sentry SDKs in both apps (NFR-74) | Decided ([ADR-079](../ADRs/ADR-079-client-errors-and-crashes-go-to-self-hosted-glitchtip.md)) · Pilot | §10 | §10 |
 | Uptime | A **Route 53 health check** over HTTPS on the health endpoint, with a CloudWatch alarm that emails a named team member through SNS, in Terraform; about $1.60 a month (estimate, not measured). Healthchecks.io's backup pings, from outside AWS, are a second and slower warning (NFR-128) | Decided ([ADR-078](../ADRs/ADR-078-hosting-on-one-aws-vm-in-tel-aviv-built-with-terraform.md)) · Pilot | The VM can't report its own outage | — |
@@ -766,7 +772,7 @@ other two from their projects' release pages.
 
 ## 22. Open decisions
 
-Three decisions are open. Every other row of this file is decided, and its reasoning is in its ADR. Some details are deferred to the M0 restructure PR: ADR-038's Node major; ADR-039's ESLint, Prettier and Renovate pins; ADR-042's `TestDispatchFlowApplication` and `just core-run`.
+Three decisions are open. Every other row of this file is decided, and its reasoning is in its ADR. Some details are deferred to M0: ADR-038's Node major; ADR-039's ESLint, Prettier and Renovate pins; ADR-042's `TestDispatchFlowApplication` and `just core-run`.
 
 | Decision | Proposed answer | Refs |
 |---|---|---|
