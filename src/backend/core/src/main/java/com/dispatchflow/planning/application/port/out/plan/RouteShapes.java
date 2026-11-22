@@ -1,5 +1,6 @@
-package com.dispatchflow.planning.application.port.out;
+package com.dispatchflow.planning.application.port.out.plan;
 
+import com.dispatchflow.planning.application.port.out.RoadNetworkUnavailable;
 import com.dispatchflow.shared.GeoPoint;
 import java.util.List;
 

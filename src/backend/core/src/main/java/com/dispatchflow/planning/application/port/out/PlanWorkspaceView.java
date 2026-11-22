@@ -1,9 +1,9 @@
 package com.dispatchflow.planning.application.port.out;
 
+import com.dispatchflow.planning.domain.drop.DroppedOrder;
+import com.dispatchflow.planning.domain.drop.ExcludedVehicle;
 import com.dispatchflow.planning.domain.plan.Pin;
 import com.dispatchflow.planning.domain.plan.Plan;
-import com.dispatchflow.planning.domain.solution.DroppedOrder;
-import com.dispatchflow.planning.domain.solution.ExcludedVehicle;
 import com.dispatchflow.planning.domain.solution.Violation;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.PlanId;

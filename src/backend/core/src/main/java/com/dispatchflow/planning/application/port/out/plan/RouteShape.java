@@ -1,4 +1,4 @@
-package com.dispatchflow.planning.application.port.out;
+package com.dispatchflow.planning.application.port.out.plan;
 
 import com.dispatchflow.shared.GeoPoint;
 import com.dispatchflow.shared.PersonalData;

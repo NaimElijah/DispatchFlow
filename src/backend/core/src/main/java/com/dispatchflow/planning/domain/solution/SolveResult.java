@@ -1,5 +1,7 @@
 package com.dispatchflow.planning.domain.solution;
 
+import com.dispatchflow.planning.domain.drop.DroppedOrder;
+import com.dispatchflow.planning.domain.drop.ExcludedVehicle;
 import java.util.List;
 
 /**

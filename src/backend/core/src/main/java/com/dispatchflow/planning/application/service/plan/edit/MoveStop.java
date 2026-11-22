@@ -1,4 +1,4 @@
-package com.dispatchflow.planning.application.service.plan;
+package com.dispatchflow.planning.application.service.plan.edit;
 
 import com.dispatchflow.access.application.api.Actor;
 import com.dispatchflow.audit.application.api.AuditLog;
@@ -7,6 +7,7 @@ import com.dispatchflow.planning.application.port.out.plan.FeasibilityChecker;
 import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
 import com.dispatchflow.planning.application.service.SolveRequestAssembler;
 import com.dispatchflow.shared.PlanId;
+import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
@@ -14,9 +15,10 @@ import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 
 /**
- * Takes a stop of a ready plan off its route into the drops, with the reason <em>removed by
- * dispatcher</em>, an exception to BR-08 (FR-146, FR-236). It asks the validator about {@code
- * Plan.afterTakeOff} before its transaction (DL §6.3, ADR-112).
+ * Moves a stop of a ready plan to another position in its route or to another route; no
+ * optimization runs, and the validator re-times the plan and flags every violation (FR-22, FR-23,
+ * FR-196, FR-233). It asks the validator about {@code Plan.afterMove} before its transaction (DL
+ * §6.3, ADR-112).
  *
  * <p>When the road network can't be reached for the evaluation's matrix, the assembler throws
  * {@code RoadNetworkUnavailable}, and the use case asks {@code FeasibilityChecker.unavailableFor}
@@ -29,7 +31,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>Built in M4.
  */
-public final class TakeStopOffRoute {
+public final class MoveStop {
 
     private final PlanRepository plans;
     private final SolveRequestAssembler assembler;
@@ -48,7 +50,7 @@ public final class TakeStopOffRoute {
      * @param liveUpdates the dispatchers' open screens
      * @param auditLog the audit trail, written in the change's transaction (TS §6.2)
      */
-    public TakeStopOffRoute(
+    public MoveStop(
             PlanRepository plans,
             SolveRequestAssembler assembler,
             FeasibilityChecker checker,
@@ -64,24 +66,27 @@ public final class TakeStopOffRoute {
     }
 
     /**
-     * Takes the stop off.
+     * Moves the stop.
      *
      * <p>Built in M4.
      *
      * @param actor the dispatcher
      * @param plan the plan
      * @param stop the stop
+     * @param toRoute the route it goes to
+     * @param position its position there, from 0, counted in the route without it
      * @param expected the plan's version the dispatcher saw (BR-76)
      * @throws NotFound when no plan has the ID
      * @throws StaleVersion when the plan changed since {@code expected}
      * @throws com.dispatchflow.shared.RuleViolation with Planning's {@code PlanNotReady}, {@code
      *     DateInPast}, {@code StaleEvaluation}, {@code ValidatorUnavailable}, {@code
-     *     StopNotInPlan}, or {@code RouteLocked}
+     *     StopNotInPlan}, {@code RouteNotInPlan}, {@code PositionOutOfRange}, or {@code
+     *     RouteLocked} for either route (FR-147)
      * @throws com.dispatchflow.planning.application.port.out.OptimizerRefusedRequest when the
      *     optimizer refused the evaluation request as invalid, a defect of the request the core
      *     built, which fails the call
      */
-    public void takeOff(Actor actor, PlanId plan, StopId stop, Version expected) {
+    public void move(Actor actor, PlanId plan, StopId stop, RouteId toRoute, int position, Version expected) {
         throw new UnsupportedOperationException("Built in M4");
     }
 }

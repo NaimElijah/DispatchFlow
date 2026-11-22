@@ -1,4 +1,4 @@
-package com.dispatchflow.planning.domain.solution;
+package com.dispatchflow.planning.domain;
 
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.VehicleId;

@@ -101,8 +101,8 @@ src/backend/core/
                                    companyprofile), events/ and application/ (declared) so far
     fleet/                         domain/ (register, roster, driver), events/ and application/
     orders/                        domain/ (flat), events/ and application/
-    planning/                      domain/ (plan, solution, basis, revision, reconciliation,
-                                   settings), events/ and application/
+    planning/                      domain/ (plan, solution, drop, basis, revision,
+                                   reconciliation, settings), events/ and application/
     audit/                         domain/ (flat) and application/; it raises no event
     reporting/                     domain/ (flat) and application/; it raises no event
     messaging/                     domain/ (message, rating, settings), events/ and application/

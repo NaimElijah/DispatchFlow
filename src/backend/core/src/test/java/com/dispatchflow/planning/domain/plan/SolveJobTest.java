@@ -37,7 +37,7 @@ import com.dispatchflow.planning.domain.PlanningError.VehicleRoutedTwice;
 import com.dispatchflow.planning.domain.RevisionNo;
 import com.dispatchflow.planning.domain.RuleCode;
 import com.dispatchflow.planning.domain.SolveLimit;
-import com.dispatchflow.planning.domain.solution.DropReason;
+import com.dispatchflow.planning.domain.drop.DropReason;
 import com.dispatchflow.planning.domain.solution.SolveFailure;
 import com.dispatchflow.planning.domain.solution.SolveResult;
 import com.dispatchflow.planning.domain.solution.ValidatedSolution;

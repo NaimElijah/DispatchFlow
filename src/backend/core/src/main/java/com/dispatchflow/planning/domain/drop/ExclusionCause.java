@@ -1,4 +1,4 @@
-package com.dispatchflow.planning.domain.solution;
+package com.dispatchflow.planning.domain.drop;
 
 /**
  * Why a solve left a vehicle out, so that it drives no route the solve could change (FR-197). It

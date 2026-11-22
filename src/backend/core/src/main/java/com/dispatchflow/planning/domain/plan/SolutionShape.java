@@ -4,7 +4,7 @@ import com.dispatchflow.planning.domain.PlanningError;
 import com.dispatchflow.planning.domain.PlanningError.DriverRoutedTwice;
 import com.dispatchflow.planning.domain.PlanningError.OrderAlreadyInPlan;
 import com.dispatchflow.planning.domain.PlanningError.VehicleRoutedTwice;
-import com.dispatchflow.planning.domain.solution.DroppedOrder;
+import com.dispatchflow.planning.domain.drop.DroppedOrder;
 import com.dispatchflow.planning.domain.solution.SolvedRoute;
 import com.dispatchflow.planning.domain.solution.VehicleWithdrawal;
 import com.dispatchflow.shared.AccountId;

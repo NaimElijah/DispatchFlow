@@ -1,4 +1,4 @@
-package com.dispatchflow.planning.application.port.out;
+package com.dispatchflow.planning.application.port.out.settings;
 
 import com.dispatchflow.planning.domain.plan.SolverName;
 import java.util.List;

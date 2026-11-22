@@ -1,6 +1,8 @@
 package com.dispatchflow.planning.domain.solution;
 
 import com.dispatchflow.planning.domain.PlanningError.SolutionRejected;
+import com.dispatchflow.planning.domain.drop.DroppedOrder;
+import com.dispatchflow.planning.domain.drop.ExcludedVehicle;
 import com.dispatchflow.shared.RuleViolation;
 import java.util.List;
 

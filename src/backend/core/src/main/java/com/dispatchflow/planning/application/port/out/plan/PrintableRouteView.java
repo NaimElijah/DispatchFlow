@@ -1,6 +1,7 @@
-package com.dispatchflow.planning.application.port.out;
+package com.dispatchflow.planning.application.port.out.plan;
 
 import com.dispatchflow.orders.application.api.StopOrderFact;
+import com.dispatchflow.planning.application.port.out.RouteView;
 import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.Volume;

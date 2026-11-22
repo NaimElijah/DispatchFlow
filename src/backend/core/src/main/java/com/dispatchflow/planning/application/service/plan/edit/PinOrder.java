@@ -1,4 +1,4 @@
-package com.dispatchflow.planning.application.service.plan;
+package com.dispatchflow.planning.application.service.plan.edit;
 
 import com.dispatchflow.access.application.api.Actor;
 import com.dispatchflow.audit.application.api.AuditLog;
@@ -6,6 +6,8 @@ import com.dispatchflow.planning.application.port.out.LiveUpdates;
 import com.dispatchflow.planning.application.port.out.plan.FeasibilityChecker;
 import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
 import com.dispatchflow.planning.application.service.SolveRequestAssembler;
+import com.dispatchflow.planning.domain.PinTarget;
+import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
@@ -13,8 +15,9 @@ import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 
 /**
- * Makes the last undone edit of a ready plan again (FR-145). It asks the validator about {@code
- * Plan.afterRedo} before its transaction (DL §6.3, ADR-112).
+ * Pins an order to a vehicle or a driver in a draft or ready plan, so the next solve serves it
+ * there or drops it with that reason (FR-91, FR-228). It replaces any pin the order had, and asks
+ * the validator about {@code Plan.afterPin} before its transaction (DL §6.3, ADR-112).
  *
  * <p>When the road network can't be reached for the evaluation's matrix, the assembler throws
  * {@code RoadNetworkUnavailable}, and the use case asks {@code FeasibilityChecker.unavailableFor}
@@ -27,7 +30,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>Built in M4.
  */
-public final class RedoEdit {
+public final class PinOrder {
 
     private final PlanRepository plans;
     private final SolveRequestAssembler assembler;
@@ -46,7 +49,7 @@ public final class RedoEdit {
      * @param liveUpdates the dispatchers' open screens
      * @param auditLog the audit trail, written in the change's transaction (TS §6.2)
      */
-    public RedoEdit(
+    public PinOrder(
             PlanRepository plans,
             SolveRequestAssembler assembler,
             FeasibilityChecker checker,
@@ -62,23 +65,24 @@ public final class RedoEdit {
     }
 
     /**
-     * Redoes the edit.
+     * Pins the order.
      *
      * <p>Built in M4.
      *
      * @param actor the dispatcher
      * @param plan the plan
+     * @param order the order
+     * @param target the vehicle or driver
      * @param expected the plan's version the dispatcher saw (BR-76)
      * @throws NotFound when no plan has the ID
      * @throws StaleVersion when the plan changed since {@code expected}
-     * @throws com.dispatchflow.shared.RuleViolation with Planning's {@code PlanNotReady}, {@code
-     *     DateInPast}, {@code NothingToRedo}, {@code StaleEvaluation}, or {@code
-     *     ValidatorUnavailable}
+     * @throws com.dispatchflow.shared.RuleViolation with Planning's {@code PlanNotDraftOrReady},
+     *     {@code DateInPast}, {@code StaleEvaluation}, or {@code ValidatorUnavailable}
      * @throws com.dispatchflow.planning.application.port.out.OptimizerRefusedRequest when the
      *     optimizer refused the evaluation request as invalid, a defect of the request the core
      *     built, which fails the call
      */
-    public void redo(Actor actor, PlanId plan, Version expected) {
+    public void pin(Actor actor, PlanId plan, OrderId order, PinTarget target, Version expected) {
         throw new UnsupportedOperationException("Built in M4");
     }
 }

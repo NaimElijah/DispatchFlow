@@ -155,7 +155,7 @@ arrows (or to Access or Audit), and `audit/` imports no other module.
 | `liveops` | root, `delivery`, `alert`, `routerun` | 47 | 3 |
 | `messaging` | root, `message`, `rating`, `settings` | 42 | 1 |
 | `orders` | flat | 41 | 3 |
-| `planning` | root, `plan`, `solution`, `basis`, `revision`, `reconciliation`, `settings` | 81 | 6 |
+| `planning` | root, `plan`, `solution`, `drop`, `basis`, `revision`, `reconciliation`, `settings` | 81 | 6 |
 | `reporting` | flat | 21 | none |
 
 "Domain files" counts `.java` files under `<module>/domain/`, not counting `package-info.java`.
@@ -832,13 +832,17 @@ The root imports none of its subpackages.
 ```mermaid
 flowchart LR
   PLAN["plan (30 files)<br/>Plan, SolveJob,<br/>ReoptimizationProposal"]
-  SOL["solution (25)<br/>results, drop reasons,<br/>ValidatedSolution"]
+  SOL["solution (20)<br/>results, ValidationReport,<br/>ValidatedSolution"]
+  DROP["drop (4)<br/>DroppedOrder, DropReason,<br/>ExcludedVehicle"]
   BAS["basis (4)<br/>SolveBasis, ProposalBasis,<br/>ChangesSinceBasis"]
   REV["revision (3)<br/>PlanRevision"]
   REC["reconciliation (4)<br/>LateFact, Reconciliation"]
   SET["settings (8)<br/>PlanningSettings,<br/>TravelBuckets, Buffer"]
-  ROOT["root domain (7)<br/>PlanningError, RevisionNo,<br/>SolveTime, SolveLimit, RuleCode"]
+  ROOT["root domain (8)<br/>PlanningError, RevisionNo,<br/>SolveTime, SolveLimit, RuleCode, PinTarget"]
   PLAN --> SOL
+  PLAN --> DROP
+  SOL --> DROP
+  DROP --> ROOT
   PLAN --> BAS
   PLAN --> REV
   PLAN --> REC
@@ -976,9 +980,13 @@ classDiagram
 |---|---|
 | What a solve returns | `SolveResult`, `SolvedRoute`, `SolvedStop`, `StopPlan`, `StopTimes`, `RoutePlan`, `TravelLeg`, `RouteTimes`, `StopTiming` |
 | Gate types only the optimizer adapter builds | `ValidatedSolution`, `ValidationReport`, `Evaluation` |
-| Why an order or vehicle is out | `DropReason` (a sealed interface of eleven records), `DroppedOrder`, `ExcludedVehicle`, `ExclusionCause` |
 | What a re-optimization previews | `ReoptimizationResult`, `ObjectiveTerms`, `LateStop`, `DriverChange`, `VehicleWithdrawal`, `Withdrawal` |
-| Other | `Violation`, `SolveFailure`, `PinTarget` |
+| Other | `Violation`, `SolveFailure` |
+
+Why an order or a vehicle is out sits in `drop/`: `DropReason` (a sealed interface of eleven
+records), `DroppedOrder`, `ExcludedVehicle` and `ExclusionCause`, which `solution` and `plan` use
+([ADR-125](../../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)).
+`PinTarget` sits in the root, because `plan` and `drop` both use it.
 
 - **Events** (`core/planning/events/`): `PlanPublished`, `PlanRevised`, `RouteHandedOver`, `PlanCancelled`
   from `Plan`; `SolveSucceeded`, `SolveFailed` from `SolveJob`. The package also holds the enums these

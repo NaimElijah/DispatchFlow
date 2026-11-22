@@ -1,5 +1,6 @@
-package com.dispatchflow.planning.domain.solution;
+package com.dispatchflow.planning.domain.drop;
 
+import com.dispatchflow.planning.domain.PinTarget;
 import com.dispatchflow.planning.domain.SolveTime;
 import com.dispatchflow.shared.DaySeconds;
 import com.dispatchflow.shared.Volume;

@@ -1,4 +1,4 @@
-package com.dispatchflow.planning.application.port.out;
+package com.dispatchflow.planning.application.port.out.plan;
 
 import com.dispatchflow.planning.domain.plan.RouteIndex;
 import com.dispatchflow.shared.RouteId;

@@ -41,11 +41,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dispatchflow.planning.domain.RevisionNo;
 import com.dispatchflow.planning.domain.SolveTime;
-import com.dispatchflow.planning.domain.solution.DropReason;
-import com.dispatchflow.planning.domain.solution.DroppedOrder;
+import com.dispatchflow.planning.domain.drop.DropReason;
+import com.dispatchflow.planning.domain.drop.DroppedOrder;
+import com.dispatchflow.planning.domain.drop.ExcludedVehicle;
+import com.dispatchflow.planning.domain.drop.ExclusionCause;
 import com.dispatchflow.planning.domain.solution.Evaluation;
-import com.dispatchflow.planning.domain.solution.ExcludedVehicle;
-import com.dispatchflow.planning.domain.solution.ExclusionCause;
 import com.dispatchflow.planning.domain.solution.SolvedRoute;
 import com.dispatchflow.planning.domain.solution.ValidatedSolution;
 import com.dispatchflow.planning.domain.solution.ValidationReport;

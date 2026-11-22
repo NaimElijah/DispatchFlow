@@ -4,12 +4,12 @@ import com.dispatchflow.access.application.api.Actor;
 import com.dispatchflow.fleet.application.api.FleetFacts;
 import com.dispatchflow.orders.application.api.OrdersForDate;
 import com.dispatchflow.orders.application.api.StopOrders;
-import com.dispatchflow.planning.application.port.out.LoadingListView;
 import com.dispatchflow.planning.application.port.out.PlanningViews;
-import com.dispatchflow.planning.application.port.out.PrintableRouteView;
 import com.dispatchflow.planning.application.port.out.RouteChangesView;
-import com.dispatchflow.planning.application.port.out.RouteShapeView;
-import com.dispatchflow.planning.application.port.out.RouteShapes;
+import com.dispatchflow.planning.application.port.out.plan.LoadingListView;
+import com.dispatchflow.planning.application.port.out.plan.PrintableRouteView;
+import com.dispatchflow.planning.application.port.out.plan.RouteShapeView;
+import com.dispatchflow.planning.application.port.out.plan.RouteShapes;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.application.NotFound;
 

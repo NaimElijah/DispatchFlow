@@ -1,4 +1,4 @@
-package com.dispatchflow.planning.domain.solution;
+package com.dispatchflow.planning.domain.drop;
 
 import com.dispatchflow.shared.VehicleId;
 import java.util.Objects;

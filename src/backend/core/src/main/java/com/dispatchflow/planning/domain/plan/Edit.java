@@ -1,7 +1,7 @@
 package com.dispatchflow.planning.domain.plan;
 
-import com.dispatchflow.planning.domain.solution.DropReason;
-import com.dispatchflow.planning.domain.solution.PinTarget;
+import com.dispatchflow.planning.domain.PinTarget;
+import com.dispatchflow.planning.domain.drop.DropReason;
 import com.dispatchflow.planning.domain.solution.StopPlan;
 import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.OrderId;

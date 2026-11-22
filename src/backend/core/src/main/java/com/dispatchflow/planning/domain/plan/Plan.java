@@ -1,6 +1,7 @@
 package com.dispatchflow.planning.domain.plan;
 
 import com.dispatchflow.planning.domain.BasisChange;
+import com.dispatchflow.planning.domain.PinTarget;
 import com.dispatchflow.planning.domain.PlanningError;
 import com.dispatchflow.planning.domain.PlanningError.BreakNotConfirmed;
 import com.dispatchflow.planning.domain.PlanningError.DateInPast;
@@ -49,17 +50,16 @@ import com.dispatchflow.planning.domain.SolveLimit;
 import com.dispatchflow.planning.domain.SolveTime;
 import com.dispatchflow.planning.domain.basis.ChangesSinceBasis;
 import com.dispatchflow.planning.domain.basis.SolveBasis;
+import com.dispatchflow.planning.domain.drop.DropReason;
+import com.dispatchflow.planning.domain.drop.DroppedOrder;
+import com.dispatchflow.planning.domain.drop.ExcludedVehicle;
 import com.dispatchflow.planning.domain.plan.Layout.Located;
 import com.dispatchflow.planning.domain.reconciliation.LateFact;
 import com.dispatchflow.planning.domain.reconciliation.LateOutcome;
 import com.dispatchflow.planning.domain.reconciliation.Reconciliation;
 import com.dispatchflow.planning.domain.reconciliation.ReconciliationKind;
 import com.dispatchflow.planning.domain.revision.PlanRevision;
-import com.dispatchflow.planning.domain.solution.DropReason;
-import com.dispatchflow.planning.domain.solution.DroppedOrder;
 import com.dispatchflow.planning.domain.solution.Evaluation;
-import com.dispatchflow.planning.domain.solution.ExcludedVehicle;
-import com.dispatchflow.planning.domain.solution.PinTarget;
 import com.dispatchflow.planning.domain.solution.SolveResult;
 import com.dispatchflow.planning.domain.solution.SolvedRoute;
 import com.dispatchflow.planning.domain.solution.ValidatedSolution;
