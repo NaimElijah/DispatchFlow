@@ -8,10 +8,10 @@ repository as it is today. What the system must do is in
 it is in [ADR-009](../ADRs/ADR-009-just-as-the-single-entry-point.md) to
 [ADR-016](../ADRs/ADR-016-dependency-audit-with-osv-scanner.md).
 
-ADR-123 (Accepted) keeps this tree and renames three components: `src/backend/solver` becomes
-`src/backend/optimizer`, `src/frontend/console` becomes `src/frontend/web`, and
-`src/frontend/driver-app` becomes `src/frontend/mobile`. This file keeps today's names until the
-pull request that renames them rewrites it.
+ADR-123 (Accepted) keeps this tree and renames three components. The optimizer has its new name,
+`src/backend/optimizer`, already; `src/frontend/console` becomes `src/frontend/web`, and
+`src/frontend/driver-app` becomes `src/frontend/mobile`. This file keeps the two apps' current
+names until the pull request that renames them rewrites it.
 
 Also Accepted and not in the tree yet:
 [ADR-038](../ADRs/ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md) (`mise` pins every
@@ -26,7 +26,7 @@ are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 
 > [!NOTE]
 > Most folders below are still empty. A folder listed as a placeholder holds only a `.gitkeep`
-> file. What is real today is the skeleton, and the domain layer of `core` and `solver`: each
+> file. What is real today is the skeleton, and the domain layer of `core` and `optimizer`: each
 > component builds, passes its own checks and runs a first test.
 
 ## Top level
@@ -34,7 +34,7 @@ are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 | Path | Holds |
 |---|---|
 | `src/backend/core/` | The REST API and system of record: Java 21, Spring Boot 4.1.2, Maven |
-| `src/backend/solver/` | The optimization service: Python 3.14, FastAPI, NumPy, uv |
+| `src/backend/optimizer/` | The optimization service: Python 3.14, FastAPI, NumPy, uv |
 | `src/frontend/console/` | The web app, for every role: React, TypeScript, Vite |
 | `src/frontend/driver-app/` | The phone app, for every role: React Native, Expo SDK 58, TypeScript |
 | `src/research/` | Benchmarks, simulation and the order generator: Python, uv. Never deployed |
@@ -51,7 +51,7 @@ are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 | `LICENSE` | Proprietary, all rights reserved ([ADR-017](../ADRs/ADR-017-proprietary-licence.md)) |
 
 Each component has its own manifest, and each except `core` (Maven) has a lockfile. The one link
-at build time is `research`'s path dependency on `solver`, below.
+at build time is `research`'s path dependency on `optimizer`, below.
 
 `src/backend`, `src/frontend`, each component, `contracts/` and `docs/` also hold a `CLAUDE.md` with
 the rules for that folder.
@@ -62,8 +62,8 @@ the rules for that folder.
 flowchart LR
     console["console"] -.->|"client API"| core["core"]
     driver["driver-app"] -.->|"client API"| core
-    core -.->|"optimization API"| solver["solver"]
-    research["research"] -->|"editable path dependency"| solver
+    core -.->|"optimization API"| optimizer["optimizer"]
+    research["research"] -->|"editable path dependency"| optimizer
 ```
 
 A dotted arrow is a contract that is defined but that no code calls yet. The solid arrow is a
@@ -71,17 +71,17 @@ build dependency that exists today.
 
 - The two frontends talk only to `core`, through `contracts/client-api/v1`. `core` serves that
   contract.
-- `core` is the only client of `solver`, through `contracts/optimization-api/v1`. `solver` serves
+- `core` is the only client of `optimizer`, through `contracts/optimization-api/v1`. `optimizer` serves
   that contract.
 - Neither side owns a contract, so the contracts sit at the root, outside every component.
 - Today `contracts/client-api/v1`, served under `/api/v1`, declares no operation yet, and
   `contracts/optimization-api/v1` declares one: `GET /health/liveness`. `core` has no client for
   the optimization API yet.
-- `research` installs `solver` from `../backend/solver` as an editable path dependency, and adds
-  PyVRP. The solver's environment never contains PyVRP:
-  `src/backend/solver/tests/test_dependency_boundary.py` fails if PyVRP is installed there or locked
+- `research` installs `optimizer` from `../backend/optimizer` as an editable path dependency, and adds
+  PyVRP. The optimizer's environment never contains PyVRP:
+  `src/backend/optimizer/tests/test_dependency_boundary.py` fails if PyVRP is installed there or locked
   in its `uv.lock` ([ADR-004](../ADRs/ADR-004-pluggable-solver-port.md)).
-- A change to `src/backend/solver/pyproject.toml` also needs `uv lock` in `src/research`.
+- A change to `src/backend/optimizer/pyproject.toml` also needs `uv lock` in `src/research`.
 
 ## Inside each component
 
@@ -178,13 +178,13 @@ are written to tech stack §4.
 per context, split into `api`, `domain`, `application` and `adapter`) is amended by ADR-040, which
 is accepted.
 
-### `src/backend/solver`
+### `src/backend/optimizer`
 
 ```text
-src/backend/solver/
+src/backend/optimizer/
   pyproject.toml, uv.lock, Dockerfile, .dockerignore
   CLAUDE.md                        the rules for this folder
-  src/dispatchflow_solver/
+  src/dispatchflow_optimizer/
     __init__.py                    the package marker; one also in adapters/, inbound/ and http/
     py.typed                       marks the package as typed
     domain/                        Problem (validate, cost, explain_drop), ProblemFactory, Solution,
@@ -239,7 +239,7 @@ src/research/
   tests/test_environment.py
 ```
 
-`test_environment.py` checks that the research environment holds both `dispatchflow_solver` and
+`test_environment.py` checks that the research environment holds both `dispatchflow_optimizer` and
 `pyvrp`.
 
 ### `src/frontend/console`
@@ -270,7 +270,7 @@ API client.
 |---|---|---|
 | `core`, unit (`*Test`) | `src/backend/core/src/test/java` | Maven Surefire |
 | `core`, integration (`*IT`) | `src/backend/core/src/test/java` | Failsafe, with a PostgreSQL container |
-| `solver` | `src/backend/solver/tests`, mirroring the package path | pytest |
+| `optimizer` | `src/backend/optimizer/tests`, mirroring the package path | pytest |
 | `research` | `src/research/tests` | pytest |
 | `console` | next to the code, in `src/` (`App.test.tsx`) | Vitest, in jsdom |
 | `driver-app` | next to the code (`App.test.tsx`) | Jest, through `jest-expo` |
@@ -299,16 +299,16 @@ These follow from
 - **In `core`, a context reaches another only through that context's `api`, `spi` and `events`
   packages** ([domain layer design §2.3](domain_layer/domain_layer_design.md#23-rules-between-contexts)).
   ADR-001 names `api` only.
-- **In `solver`, every solver implements the one `Solver` port** and is chosen by name. The
+- **In `optimizer`, every solver implements the one `Solver` port** and is chosen by name. The
   registry has no default, and a name it does not hold is rejected.
-- **PyVRP is never a dependency of `solver`.** Only `src/research` installs it.
+- **PyVRP is never a dependency of `optimizer`.** Only `src/research` installs it.
 - **The frontends talk only to `core`.** The API client is generated and never edited.
 
 Three sets of rules are checked automatically today:
 - the PyVRP rule;
 - in `core`, the domain's purity rules, the shape rules, the package rules and the application
   rules;
-- in `solver`, the import-linter contracts in `pyproject.toml`: the domain imports no framework,
+- in `optimizer`, the import-linter contracts in `pyproject.toml`: the domain imports no framework,
   solver or standard-library module that reads a clock, draws randomness or does I/O; the validator,
   the objective and the drop reasons never import `problem`; `application` imports no FastAPI,
   Starlette, Uvicorn, Pydantic, OR-Tools, Numba, `alns`, `concurrent`, `multiprocessing` or

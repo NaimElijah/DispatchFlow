@@ -67,7 +67,7 @@ Start a component:
 
 ```bash
 just core-run         # core backend on :8080, against a throwaway PostgreSQL container
-just solver-run       # solver on :8000, reloading on change
+just optimizer-run    # optimizer on :8000, reloading on change
 just console-run      # web app (Vite dev server; it prints the URL)
 just driver-app-run   # phone app (Expo dev server for phones and the browser)
 ```
@@ -92,8 +92,8 @@ flowchart LR
     Console[Web app<br/>React] -->|client-api v1| Core[Core backend<br/>Spring Boot]
     Driver[Phone app<br/>Expo] -->|client-api v1| Core
     Core --> DB[(PostgreSQL)]
-    Core -->|optimization-api v1| Solver[Solver<br/>FastAPI]
-    Research[Research harness] -.->|imports| Solver
+    Core -->|optimization-api v1| Optimizer[Optimizer<br/>FastAPI]
+    Research[Research harness] -.->|imports| Optimizer
 ```
 
 - **Core backend** (`src/backend/core`) is the system of record and the only API the clients
@@ -105,7 +105,7 @@ flowchart LR
   [ADR-120](docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)), and its adapters do not exist. A domain that passes
   30 files splits into one package per aggregate
   ([ADR-118](docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)).
-- **Solver** (`src/backend/solver`) turns a routing problem into routes. Every solver sits behind
+- **Optimizer** (`src/backend/optimizer`) turns a routing problem into routes. Every solver sits behind
   one `Solver` port and is chosen by name; every solution passes a shared feasibility validator
   before it leaves the service ([ADR-004](docs/ADRs/ADR-004-pluggable-solver-port.md)).
 - **Web app** (`src/frontend/console`) and **phone app** (`src/frontend/driver-app`, iOS and
@@ -119,9 +119,9 @@ Components meet only at the versioned OpenAPI contracts in `contracts/`. Inside 
 dependencies point one way: the domain imports no framework, I/O or transport types, and
 adapters depend on the domain.
 
-None of the calls between components exists in code yet. Today the solver answers its liveness
+None of the calls between components exists in code yet. Today the optimizer answers its liveness
 probe, the core its health probe, and the two apps render a heading; the domain layers, in the core
-and in the solver, are built and tested, and their application layers are declared but not built.
+and in the optimizer, are built and tested, and their application layers are declared but not built.
 Nothing calls any of them.
 [architecture.md](docs/architecture/architecture.md) describes that system as it is, and
 [code-structure.md](docs/architecture/code-structure.md) the repository layout.
@@ -149,7 +149,7 @@ progress to the web app over server-sent events
 |---|---|---|---|
 | Core backend | Java, Spring Boot, Spring Data JPA; libphonenumber, JTS, JSpecify | 21, 4.1.2; 9.0.43, 1.20.0, version from the Spring Boot parent | The team's strongest stack; mature ecosystem for the adapters. libphonenumber parses phone numbers and JTS checks the service area, both in the pure domain; JSpecify marks null-safe packages |
 | Database | PostgreSQL 18.6; Flyway (version from the Spring Boot parent) | 18.6 | Relational data with real constraints; versioned SQL migrations |
-| Solver | Python, FastAPI, NumPy | 3.14, 0.162, 2.5.4 | OR-Tools' richest bindings; algorithm work iterates apart from the backend; NumPy holds the validator's arrays |
+| Optimizer | Python, FastAPI, NumPy | 3.14, 0.162, 2.5.4 | OR-Tools' richest bindings; algorithm work iterates apart from the backend; NumPy holds the validator's arrays |
 | Web app | React, TypeScript, Vite | 19.3, 6.0, 8.3 | Web app for every role; its driver screens also work in a phone's browser |
 | Phone app | React Native, Expo | 0.88, SDK 58 | One codebase for iOS and Android, for every role |
 | Contracts | OpenAPI, Redocly CLI | 3.1, 2.72 | Each side is built against the contract, not against the other side |
@@ -198,9 +198,9 @@ commit, never a squash.
 | `just <component>-setup` | Install that component's dependencies |
 | `just <component>-check` | Everything CI checks for it |
 | `just <component>-format` | Reformat its code |
-| `just <component>-run` | Start it (core, solver, console, driver-app) |
+| `just <component>-run` | Start it (core, optimizer, console, driver-app) |
 
-The components are `core`, `solver`, `research`, `console` and `driver-app`. `just` lists every
+The components are `core`, `optimizer`, `research`, `console` and `driver-app`. `just` lists every
 recipe; `just check` and `just format` run them all.
 
 **Adding a feature end to end:** start from the requirement it delivers in
@@ -209,7 +209,7 @@ recipe; `just check` and `just format` run them all.
 and the milestone it belongs to in the
 [roadmap](docs/roadmap.md#2-milestones);
 change the contract in `contracts/` first;
-implement the domain, then the use case, then the adapter in `src/backend/core` (and in the solver
+implement the domain, then the use case, then the adapter in `src/backend/core` (and in the optimizer
 if it needs new solving behaviour); then the client screens; tests at each layer; and update the
 requirements, architecture and ADRs in the same pull request.
 
@@ -226,8 +226,8 @@ comments. The rules apply to people and to coding assistants alike.
 |---|---|---|
 | Core unit (`*Test`) | Domain and use cases, no I/O. Today: the shared kernel's values, the eight modules' domains, the ArchUnit rules (purity, shape, package structure and the application layer's shape) and the web error handler; every use case is declared and none is built, so none has a behaviour test yet | `just core-check` |
 | Core integration (`*IT`) | Against a real PostgreSQL in a container | `just core-check` |
-| Solver | The domain (the validator's crafted-violation catalogue, Hypothesis properties, Solomon best-known solutions accepted), the HTTP adapter, the dependency boundary and import-linter | `just solver-check` |
-| Research | Its environment: the solver and PyVRP are installed | `just research-check` |
+| Optimizer | The domain (the validator's crafted-violation catalogue, Hypothesis properties, Solomon best-known solutions accepted), the HTTP adapter, the dependency boundary and import-linter | `just optimizer-check` |
+| Research | Its environment: the optimizer and PyVRP are installed | `just research-check` |
 | Web app | Components in jsdom (Vitest + Testing Library) | `just console-check` |
 | Phone app | Components (Jest + React Native Testing Library) | `just driver-app-check` |
 | Contracts | Both OpenAPI documents lint clean | `just contracts-check` |
@@ -242,7 +242,7 @@ and load tests (`tests/load`) have folders but no tests yet. There is no coverag
 ```text
 src/
   backend/core/        REST API and system of record (Spring Boot)
-  backend/solver/      solver service (FastAPI)
+  backend/optimizer/   optimization service (FastAPI)
   frontend/console/    web app (React + Vite)
   frontend/driver-app/ phone app (Expo)
   research/            benchmarks, simulation, order generator; never deployed
@@ -255,8 +255,8 @@ justfile               every command, the same locally and in CI
 ```
 
 [ADR-123](docs/ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md) (Accepted) keeps this tree and renames three
-components: `solver` to `optimizer`, `console` to `web` and `driver-app` to `mobile`. The pull
-request that renames them updates this section.
+components: `solver` to `optimizer`, `console` to `web` and `driver-app` to `mobile`. The optimizer
+has its new name; the pull request that renames the two apps updates this section.
 
 ## Design decisions
 
@@ -295,12 +295,12 @@ and ADR-119 and ADR-120 the declaration of the application layer.
 ## Status and limitations
 
 **Pre-alpha.** Shipped: a skeleton for each of the five components, with its build, formatter,
-linter, tests and CI job; the two contracts; and the solver's and the core backend's health probes.
+linter, tests and CI job; the two contracts; and the optimizer's and the core backend's health probes.
 The domain layer is being built ahead of its milestones: the core's shared kernel with its purity
 rules, the domains of `access`, `audit`, `fleet`, `liveops`, `messaging`, `orders`, `planning` and
-`reporting`, and the solver's domain for daily solves and re-optimizations (the validator, the
+`reporting`, and the optimizer's domain for daily solves and re-optimizations (the validator, the
 objective and the drop reasons). The application layer is declared ahead too, in the core and in
-the solver: every use case, query, port and module API has its signature, and every body that would
+the optimizer: every use case, query, port and module API has its signature, and every body that would
 do work throws "Built in M<n>" ([ADR-119](docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)). Nothing calls any of it yet.
 
 Planned: the [roadmap](docs/roadmap.md) has the course calendar, the milestones M0 to M13, and the

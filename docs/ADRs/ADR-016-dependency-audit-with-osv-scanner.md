@@ -6,7 +6,7 @@
 ## Context
 
 The repository pins its dependencies in four lockfiles and one `pom.xml`: `uv.lock` in the
-solver and in the research project, `package-lock.json` in the console and in the driver app,
+optimizer and in the research project, `package-lock.json` in the console and in the driver app,
 and the core's pom ([ADR-008]). The project rules require pinned dependencies and a failing
 build on a known vulnerability (`.claude/CLAUDE.md`, Security).
 

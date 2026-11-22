@@ -25,7 +25,7 @@ it in parallel.
   ownership keeps their changes apart.
 
 No real context is built yet. `core` holds its entry point and a placeholder context,
-`example`, that shows the layering with dummy names. The solver's `domain`, `application` and
+`example`, that shows the layering with dummy names. The optimizer's `domain`, `application` and
 `solvers` packages hold only placeholders
 ([code-structure.md](../architecture/code-structure.md)).
 
@@ -38,12 +38,12 @@ of each service.
   - In `core`, each context is one package under `com.dispatchflow`, split into `api`,
     `domain`, `application` and `adapter`.
   - A context reaches another context only through that context's `api` package.
-  - The solver service is one context, split into `domain`, `application`, `solvers` and
+  - The optimizer service is one context, split into `domain`, `application`, `solvers` and
     `adapters`.
 - **Tactical design.** Inside a context, the business rules live in the `domain` package, in
   entities, value objects and aggregates that guard their own invariants. A use case in
   `application` loads a domain object, calls it and saves it.
-- **Ports and adapters.** Inside each context and in the solver:
+- **Ports and adapters.** Inside each context and in the optimizer:
   - the `domain` package imports no framework, I/O or transport type;
   - a port is an interface declared on the inside, never in `adapter`;
   - an adapter implements a port, or calls a use case, and depends inward;
@@ -57,7 +57,7 @@ of each service.
   how a context is built, not which ones exist.
 - **Enforcement.** Only the PyVRP boundary is checked by a test today. The rules above are
   conventions that review enforces. ArchUnit or Spring Modulith tests in `core` and
-  import-linter in the solver are the options. We choose when the first context lands (see
+  import-linter in the optimizer are the options. We choose when the first context lands (see
   *Revisit when*).
 
 ## Consequences
@@ -67,7 +67,7 @@ of each service.
   OSRM or the optimization service with a fake of our own port.
 - **Easy:** a context's `api` package shows what other contexts depend on, so the boundary is
   visible in a pull request.
-- **Easy:** the backend and the solver share one vocabulary: port, adapter, domain.
+- **Easy:** the backend and the optimizer share one vocabulary: port, adapter, domain.
 - **Hard:** a persisted concept can exist as three classes: a domain object, a JPA entity and a
   transport DTO. Adding a field means touching each of them and the mappers between them.
 - **Hard:** each context carries four packages, and a simple context carries the same
@@ -96,7 +96,7 @@ of each service.
 
 - **The first bounded context lands in `core`.** Add an architecture test in the same pull
   request: ArchUnit or Spring Modulith tests for the package rules. Record the choice in a new
-  ADR. Do the same for import-linter in the solver when its `domain` package gets its first
+  ADR. Do the same for import-linter in the optimizer when its `domain` package gets its first
   module.
 - **The context map is decided.** Update [bounded-contexts.md](../architecture/bounded-contexts.md)
   and check the rules above against it.

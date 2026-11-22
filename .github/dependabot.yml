@@ -30,7 +30,7 @@ updates:
 
   - package-ecosystem: uv
     directories:
-      - /src/backend/solver
+      - /src/backend/optimizer
       - /src/research
     target-branch: dev
     schedule:
@@ -41,7 +41,7 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
-    # uv_build moves together with uv itself, which ci.yml and the solver Dockerfile pin and
+    # uv_build moves together with uv itself, which ci.yml and the optimizer Dockerfile pin and
     # Dependabot cannot see (ADR-010, ADR-021).
     ignore:
       - dependency-name: uv-build
@@ -91,7 +91,7 @@ updates:
   - package-ecosystem: docker
     directories:
       - /src/backend/core
-      - /src/backend/solver
+      - /src/backend/optimizer
     target-branch: dev
     schedule:
       interval: weekly

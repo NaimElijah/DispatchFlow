@@ -46,7 +46,7 @@ flowchart LR
     console["Dispatcher console"] -->|"client API"| core["core<br/>Java, Spring Boot"]
     driver["Driver app"] -->|"client API"| core
     core -->|"SQL"| db[("PostgreSQL")]
-    core -->|"optimization API"| solver["Optimization service<br/>Python, FastAPI"]
+    core -->|"optimization API"| optimizer["Optimization service<br/>Python, FastAPI"]
 ```
 
 ### Not decided here
@@ -84,11 +84,11 @@ boundary between the services, not the mechanism that crosses it.
 - **An all-Python backend.** Rejected: it removes the second language, but the team chose Java
   and Spring for familiarity and for the ecosystem. The system of record is the larger part of
   the code.
-- **Running the Python solver inside the Java process.** Rejected: it needs an embedded Python
+- **Running the Python optimizer inside the Java process.** Rejected: it needs an embedded Python
   runtime or a subprocess per solve. Either way the interface is not the OpenAPI contract
-  ([NFR-21]), and the solver's runtime and release are tied to the JVM's.
+  ([NFR-21]), and the optimizer's runtime and release are tied to the JVM's.
 - **One service per bounded context.** Rejected for the reasons in [ADR-001]: three people, one
-  VM ([NFR-14]) and an undecided context map. Only the solver has a reason to run apart, which
+  VM ([NFR-14]) and an undecided context map. Only the optimizer has a reason to run apart, which
   is its language and its research pace.
 - **One service per solver.** Already rejected in [ADR-004].
 

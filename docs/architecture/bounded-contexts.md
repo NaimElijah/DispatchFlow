@@ -8,7 +8,7 @@ holds a module for each: `access`, `audit`, `fleet`, `liveops`, `messaging`, `or
 `audit` and `reporting`, which raise no event. It also holds the application entry point, a `web` package for
 application-wide web concerns, and the shared kernel `shared`, which every context uses
 ([code-structure.md](code-structure.md#srcbackendcore)). The ninth context, Optimization, is the
-solver's `domain` package ([optimization-engine.md](optimization-engine.md)).
+optimizer's `domain` package ([optimization-engine.md](optimization-engine.md)).
 
 A module's domain splits into one package per aggregate over a root that holds its error and what
 several packages use, once it passes 30 files

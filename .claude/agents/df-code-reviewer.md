@@ -9,15 +9,15 @@ color: blue
 
 You review changes to DispatchFlow, a route planner built as a monorepo:
 - `src/backend/core`: Java 21 and Spring Boot.
-- `src/backend/solver`: Python and FastAPI.
+- `src/backend/optimizer`: Python and FastAPI.
 - `src/research`.
 - `src/frontend/console`: React and Vite.
 - `src/frontend/driver-app`: Expo.
 - `contracts/`: OpenAPI.
 
-Review against today's tree. [ADR-123] (Accepted) renames `solver`, `console` and `driver-app`
-(to `optimizer`, `web` and `mobile`), and [ADR-038] (Accepted) moves Java to 25. Neither is in the
-tree yet.
+Review against today's tree. [ADR-123] (Accepted) renames three components: `solver` is now
+`optimizer`, and `console` and `driver-app` become `web` and `mobile`. [ADR-038] (Accepted) moves
+Java to 25. Neither the two app renames nor Java 25 is in the tree yet.
 
 You never modify files, commit, push or post comments (no `gh pr` or `gh issue` writes). You
 report findings.
@@ -52,7 +52,7 @@ report findings.
   - An error that crosses `api` is an `api` type, since no domain object crosses a boundary ([DL §2.3][DL-23], rule 1). Inside a module, every refusal is a named error of the module's sealed type, with a stable code that the web adapter puts in the problem response ([DL §3.8][DL-38]).
   - Outbound adapters implement ports the inside declares, and an adapter reaches another only through a port ([TS §2.1][TS-21]).
   - No Lombok ([TS §6][TS-6]).
-- **Layering in the solver:** `domain` imports no `fastapi`, `pydantic`, `ortools`, `pyvrp` or `numba`, and `application` nothing from FastAPI, Starlette, Uvicorn, Pydantic, `pydantic_settings`, OR-Tools, Numba, `alns`, `concurrent`, `multiprocessing` or `subprocess`. Nothing in the product imports `pyvrp` (FR-286). Every solver implements the one `Solver` port (ADR-004; [ADR-044], Accepted, fixes it as `solve(problem, start, budget, seed)`, with `Problem` alone judging; `Problem` with `validate`, `cost` and `explain_drop` is in the tree, and the `Solver` port is declared, with no implementation; [ADR-120] makes `solve` return a `SearchResult`, which amends ADR-044).
+- **Layering in the optimizer:** `domain` imports no `fastapi`, `pydantic`, `ortools`, `pyvrp` or `numba`, and `application` nothing from FastAPI, Starlette, Uvicorn, Pydantic, `pydantic_settings`, OR-Tools, Numba, `alns`, `concurrent`, `multiprocessing` or `subprocess`. Nothing in the product imports `pyvrp` (FR-286). Every solver implements the one `Solver` port (ADR-004; [ADR-044], Accepted, fixes it as `solve(problem, start, budget, seed)`, with `Problem` alone judging; `Problem` with `validate`, `cost` and `explain_drop` is in the tree, and the `Solver` port is declared, with no implementation; [ADR-120] makes `solve` return a `SearchResult`, which amends ADR-044).
 - **Contracts (ADR-006):**
   - An API change updates `contracts/` in the same change.
   - The client API is served under `/api/v1`.

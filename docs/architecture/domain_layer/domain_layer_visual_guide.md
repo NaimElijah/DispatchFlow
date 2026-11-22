@@ -18,12 +18,11 @@ and [`optimization-engine.md`](../optimization-engine.md) are the short prose ve
 |---|---|
 | `core/` | `src/backend/core/src/main/java/com/dispatchflow/` |
 | `core-test/` | `src/backend/core/src/test/java/com/dispatchflow/` |
-| `solver/` | `src/backend/solver/src/dispatchflow_solver/` |
-| `solver-test/` | `src/backend/solver/tests/` |
+| `optimizer/` | `src/backend/optimizer/src/dispatchflow_optimizer/` |
+| `optimizer-test/` | `src/backend/optimizer/tests/` |
 
-[ADR-123](../../ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md) keeps this tree and renames `src/backend/solver` to
-`src/backend/optimizer`, with the package `dispatchflow_optimizer`. Until then these are the real
-paths, and the pull request that renames them should update the prefixes here.
+[ADR-123](../../ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md) keeps this tree and gave the optimizer its name: `src/backend/optimizer`, with the
+package `dispatchflow_optimizer`. The prefixes above use those names.
 
 **Reading the diagrams.** They use no colour. In a class diagram, `<<root>>` is an aggregate root,
 `<<entity>>` an object held inside a root, `<<value>>` a value object, `<<fact>>` a value the use case
@@ -52,7 +51,7 @@ that explain the shape, not every member.
 
 ## 1. Where the domain sits
 
-The domain is the only layer that is built. Each Java module and the Python solver has three layers on
+The domain is the only layer that is built. Each Java module and the Python optimizer has three layers on
 paper, but only the inner one holds working code.
 
 ```mermaid
@@ -67,7 +66,7 @@ flowchart TB
     CAPP --> CKER
     CDOM --> CKER
   end
-  subgraph SOLVER["solver (Python): the Optimization context"]
+  subgraph OPTIMIZER["optimizer (Python): the Optimization context"]
     SADP["adapters/inbound/http<br/>a liveness probe only"]
     SAPP["application<br/>declared, not built"]
     SDOM["domain<br/>built and tested"]
@@ -80,18 +79,18 @@ flowchart TB
 An arrow means *depends on*. The sources for each box:
 
 - **Built and tested.** Every module's `domain/` and `events/`, and the kernel `shared/`, under `core/`;
-  `solver/domain/`. Their tests are in `core-test/` and `solver-test/domain/`.
+  `optimizer/domain/`. Their tests are in `core-test/` and `optimizer-test/domain/`.
 - **Declared, not built** ([ADR-119](../../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)).
   Each module's `application/` holds the use cases, ports and module APIs as signatures with Javadoc.
   A body that would do work throws `UnsupportedOperationException("Built in M<n>")`. At this commit
   there are 243 such bodies in 181 files under `core/`, and 7 `NotImplementedError("Built in M<n>")`
-  in `solver/application/`. `grep -rn "Built in M5" src/backend` lists one milestone's remaining work.
+  in `optimizer/application/`. `grep -rn "Built in M5" src/backend` lists one milestone's remaining work.
   The two kernel errors in `shared/application/` (`NotFound`, `StaleVersion`) are complete classes; its
   three ports (`Clock`, `IdGenerator`, `ProcessedEvents`) are interfaces with no implementation.
 - **Absent.** No use case, port or adapter is wired, and there is no `adapter/` package under `core/`.
   The only Spring annotations are `@SpringBootApplication` on the entry point
   `core/DispatchFlowApplication.java` and `@RestControllerAdvice` on the one error handler in
-  `core/web/`. The solver's only adapter is the liveness probe in `solver/adapters/inbound/http/app.py`.
+  `core/web/`. The optimizer's only adapter is the liveness probe in `optimizer/adapters/inbound/http/app.py`.
 
 **Dependency direction.** Dependencies point inwards, as DL [§13](domain_layer_design.md#13-inside-each-module-hexagon)
 draws. The rules that keep the domain pure are DL [§2.3](domain_layer_design.md#23-rules-between-contexts)
@@ -99,13 +98,13 @@ and [§3.9](domain_layer_design.md#39-purity), and ArchUnit tests in `core-test/
 build when one breaks (`DomainPurityTest`, `DomainShapeTest`, `DomainPackageTest`, `ApplicationTest`). A
 scan of every `import` at this commit finds no file under any `domain/` or `events/` package that imports
 another module. The only cross-module imports are in `application/` packages. In Python,
-import-linter does the same job (`src/backend/solver/pyproject.toml`, section `[tool.importlinter]`).
+import-linter does the same job (`src/backend/optimizer/pyproject.toml`, section `[tool.importlinter]`).
 
 ---
 
 ## 2. The nine contexts on one map
 
-Eight contexts are Java modules in `core`. The ninth, Optimization, is the Python solver. DL
+Eight contexts are Java modules in `core`. The ninth, Optimization, is the Python optimizer. DL
 [§1](domain_layer_design.md#1-subdomains-and-bounded-contexts) defines them; DL
 [§2.1](domain_layer_design.md#21-module-graph) draws the module graph. The diagram below is the same
 graph with each module's aggregates inside it, which the DL does not show. An arrow points upstream and
@@ -1377,7 +1376,7 @@ classDiagram
 
 ### 5.9 Optimization (Python)
 
-DL [§4.9](domain_layer_design.md#49-optimization-python). The solver's domain has no aggregates and keeps
+DL [§4.9](domain_layer_design.md#49-optimization-python). The optimizer's domain has no aggregates and keeps
 no state between calls. It is value objects whose methods are the rules. §8 maps its modules.
 
 ---
@@ -1612,9 +1611,9 @@ the listeners:
 
 ## 8. The Python Optimization domain
 
-DL [§4.9](domain_layer_design.md#49-optimization-python) and `optimization-engine.md`. The solver's
-domain is `solver/domain/`: 15 modules plus `__init__.py`, about 4,100 lines, with about 5,300 lines of
-tests in `solver-test/domain/`. It is pure: import-linter
+DL [§4.9](domain_layer_design.md#49-optimization-python) and `optimization-engine.md`. The optimizer's
+domain is `optimizer/domain/`: 15 modules plus `__init__.py`, about 4,100 lines, with about 5,300 lines of
+tests in `optimizer-test/domain/`. It is pure: import-linter
 forbids frameworks, clocks, randomness and I/O in it (`pyproject.toml`).
 
 ```mermaid
@@ -1667,19 +1666,19 @@ flowchart LR
 ```
 
 An arrow means *imports*. An arrow to a grouped node means the module imports at least one module in the
-group. The arrows come from the `import` lines of each file in `solver/domain/`.
+group. The arrows come from the `import` lines of each file in `optimizer/domain/`.
 
 - **Why `feasibility`, `objective` and `drops` never import `problem`.** `Problem`'s methods delegate to
   them, so if they imported `problem` there would be a cycle. Each types its argument as `ProblemView`, a
   `typing.Protocol` in `problem_view.py`, which `Problem` satisfies by shape. The module docstrings say so
   and import-linter enforces it (ADR-113). `problem` is imported in the domain by `factory` only.
-- **`Problem`** (`solver/domain/problem.py`, 511 lines) is a frozen dataclass holding the orders,
+- **`Problem`** (`optimizer/domain/problem.py`, 511 lines) is a frozen dataclass holding the orders,
   vehicles, drivers, the two matrices (`durations`, `distances`), the `TravelTimeModel`, the
   `PenaltyScale`, `drop_penalties`, `day_length`, `breaks_reserved`, `removed_by_dispatcher` and an
   optional `ReoptContext`. Its three rule methods are `validate(solution) -> ValidationReport`,
   `cost(solution, timings) -> Cost` and `explain_drop(order, solution) -> DropReason`. It also has two
   small helpers, `unserved(solution)` and `is_locked(order)`, which the `ProblemView` protocol requires.
-- **`ProblemFactory`** (`solver/domain/factory.py`, 1,060 lines) has two static methods:
+- **`ProblemFactory`** (`optimizer/domain/factory.py`, 1,060 lines) has two static methods:
   `daily(...)` builds a `Problem` from the date's orders, depots, vehicles and drivers, and
   `reoptimization(...)` builds one from a live day. The conventions for a re-optimization are decided
   once there and written into the `Problem` (ADR-050, ADR-105). The inputs are small dataclasses in the
@@ -1691,10 +1690,10 @@ group. The arrows come from the `import` lines of each file in `solver/domain/`.
   and `VehicleExclusion` (`exclusions.py`). `rules.py` holds `RuleId`, one member per rule named after its
   requirement row. Two errors guard input: `InvalidProblemError` and `InvalidSolutionError`.
 - **Start reading:** `solution.py` (117), `rules.py` (77), `problem_view.py` (74), `feasibility.py` (611),
-  `problem.py`, then `factory.py`. Tests in `solver-test/domain/` include `test_solution.py`, `test_problem.py`,
+  `problem.py`, then `factory.py`. Tests in `optimizer-test/domain/` include `test_solution.py`, `test_problem.py`,
   `test_violation_catalogue.py` (the `RuleId` each crafted case must trigger), `test_objective.py`,
   `test_drops.py`, `test_factory.py`, `test_reoptimization.py`, and `test_properties.py` (Hypothesis).
-  `solver-test/test_dependency_boundary.py` keeps PyVRP out.
+  `optimizer-test/test_dependency_boundary.py` keeps PyVRP out.
 
 ---
 
@@ -1837,7 +1836,7 @@ name. Both are in `core-test/architecture/`.
 
 Read in this order. Each step names the tests to open beside the code. To run one Java test class, use
 `./mvnw -Dtest=<ClassName> test` from `src/backend/core`; to run one Python test, use
-`uv run --locked pytest tests/path/test_x.py::test_name` from `src/backend/solver` (both from the
+`uv run --locked pytest tests/path/test_x.py::test_name` from `src/backend/optimizer` (both from the
 component `CLAUDE.md` files).
 
 | Step | Read | With the tests |
@@ -1852,7 +1851,7 @@ component `CLAUDE.md` files).
 | 8. Facts from the street | `core/liveops/domain/delivery/Delivery.java`, `routerun/RouteRun.java` | `liveops/domain/delivery/DeliveryLifecycleTest`, `DeliverySequenceTest` |
 | 9. Planning | `core/planning/domain/plan/SolveJob.java`, `ReoptimizationProposal.java`, then `Plan.java` by section | `planning/domain/plan/SolveJobTest`, `PlanLifecycleTest`, `PlanSequenceTest` |
 | 10. Messaging and reporting | `core/messaging/domain/rating/RatingRequest.java`, `reporting/domain/OnTimeRate.java`, `Baseline.java` | `messaging/domain/rating/RatingRequestTest`, `reporting/domain/BaselineTest` |
-| 11. The solver | `solver/domain/solution.py`, `problem_view.py`, `feasibility.py`, `problem.py`, `factory.py` | `solver-test/domain/test_problem.py`, `test_violation_catalogue.py` |
+| 11. The optimizer | `optimizer/domain/solution.py`, `problem_view.py`, `feasibility.py`, `problem.py`, `factory.py` | `optimizer-test/domain/test_problem.py`, `test_violation_catalogue.py` |
 | 12. The guards | The rules: `core-test/architecture/DomainPurityRules.java`, `DomainShapeRules.java`, `DomainPackageRules.java`, `ApplicationRules.java`, which `DomainPurityTest`, `DomainShapeTest`, `DomainPackageTest` and `ApplicationTest` run over the production classes | `DomainPurityRulesTest`, `DomainShapeRulesTest`, `DomainPackageRulesTest`, `ApplicationRulesTest`: each rule must flag its deliberately wrong fixture in `core-test/archfixture/` |
 | 13. What is next | `core/planning/application/service/plan/RequestSolve.java`, then `grep -rn "Built in M0" src/backend` | none: bodies throw |
 

@@ -16,7 +16,7 @@ several of them against decisions already recorded:
   ([ADR-012]).
 - **#10:** `@types/node` 24 to 26. The Node line is 24 ([ADR-010]).
 - **#8:** React 19.3.0 to 19.3.1 in the driver app, a version the Expo SDK pins exactly.
-- **#7 and #9:** `uv_build` up to below 0.14. uv is pinned to 0.12.7 in `ci.yml` and in the solver
+- **#7 and #9:** `uv_build` up to below 0.14. uv is pinned to 0.12.7 in `ci.yml` and in the optimizer
   `Dockerfile`, which Dependabot does not read, and the three pins change together ([ADR-010]).
 
 The team works on `dev`, and `main` is production: every pull request goes into `dev`.
@@ -66,7 +66,7 @@ We keep Dependabot, and constrain it to the decisions above (`.github/dependabot
   checks for one each month, because Dependabot stays silent.
 - **The team moves to another Java LTS, Python or Node line.** Change the ignore in the same pull
   request as the pin ([ADR-010]).
-- **uv is upgraded** in `ci.yml` and the solver `Dockerfile`. Raise the `uv-build` bound with it.
+- **uv is upgraded** in `ci.yml` and the optimizer `Dockerfile`. Raise the `uv-build` bound with it.
 
 [ADR-010]: ADR-010-toolchain-pins-in-version-files.md
 [ADR-012]: ADR-012-javascript-tooling-npm-eslint-prettier.md

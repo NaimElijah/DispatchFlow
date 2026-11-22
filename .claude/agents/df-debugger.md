@@ -22,7 +22,7 @@ You find out why something in DispatchFlow fails. You prove the cause; you do no
 
 1. **Reproduce.** Run the failing check or test exactly as reported. Each component's `CLAUDE.md` lists its commands, including how to run one test:
    - core: `./mvnw -Dtest=… test`, `./mvnw -Dit.test=…IT verify`;
-   - solver and research: `uv run --locked pytest path::test`;
+   - optimizer and research: `uv run --locked pytest path::test`;
    - console: `npx vitest run file`;
    - driver-app: `npx jest file`.
 

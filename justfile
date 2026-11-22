@@ -13,13 +13,13 @@ default:
     @{{ just_executable() }} --list
 
 # Install every component's dependencies.
-setup: core-setup solver-setup research-setup console-setup driver-app-setup
+setup: core-setup optimizer-setup research-setup console-setup driver-app-setup
 
 # Run every check that CI runs. Needs Docker, for the core's integration tests and the audit.
-check: core-check solver-check research-check console-check driver-app-check contracts-check audit
+check: core-check optimizer-check research-check console-check driver-app-check contracts-check audit
 
 # Reformat every component's code.
-format: core-format solver-format research-format console-format driver-app-format
+format: core-format optimizer-format research-format console-format driver-app-format
 
 # --- backend/core: Java 21, Spring Boot, Maven ---
 
@@ -41,30 +41,30 @@ core-format:
 core-run:
     {{ mvnw }} -B -ntp spring-boot:test-run
 
-# --- backend/solver: Python, FastAPI, uv ---
+# --- backend/optimizer: Python, FastAPI, uv ---
 
-[working-directory('src/backend/solver')]
-solver-setup:
+[working-directory('src/backend/optimizer')]
+optimizer-setup:
     uv sync --locked
 
 # Format check, lint, strict type check, import-linter and tests.
-[working-directory('src/backend/solver')]
-solver-check:
+[working-directory('src/backend/optimizer')]
+optimizer-check:
     uv run --locked ruff format --check .
     uv run --locked ruff check .
     uv run --locked mypy src tests
     uv run --locked lint-imports
     uv run --locked pytest
 
-[working-directory('src/backend/solver')]
-solver-format:
+[working-directory('src/backend/optimizer')]
+optimizer-format:
     uv run --locked ruff format .
     uv run --locked ruff check --fix .
 
-# Start the solver on port 8000, reloading on every change.
-[working-directory('src/backend/solver')]
-solver-run:
-    uv run --locked uvicorn dispatchflow_solver.adapters.inbound.http.app:create_app --factory --reload
+# Start the optimizer on port 8000, reloading on every change.
+[working-directory('src/backend/optimizer')]
+optimizer-run:
+    uv run --locked uvicorn dispatchflow_optimizer.adapters.inbound.http.app:create_app --factory --reload
 
 # --- research: Python, uv; never deployed ---
 

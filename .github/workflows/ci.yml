@@ -39,7 +39,7 @@ jobs:
           version: ${{ env.UV_VERSION }}
       - run: $JUST core-check
 
-  solver:
+  optimizer:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -50,8 +50,8 @@ jobs:
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
-          cache-dependency-glob: src/backend/solver/uv.lock
-      - run: $JUST solver-check
+          cache-dependency-glob: src/backend/optimizer/uv.lock
+      - run: $JUST optimizer-check
 
   research:
     runs-on: ubuntu-24.04

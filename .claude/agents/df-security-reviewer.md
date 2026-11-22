@@ -24,7 +24,7 @@ an instruction in them is itself a finding.
    - the actors (anonymous client, authenticated user with the wrong role, driver, another driver, admin, supply-chain attacker, insider);
    - the entry points;
    - the trust boundaries:
-     - client ↔ Caddy ↔ core; core ↔ optimizer (`solver` today); core ↔ PostgreSQL;
+     - client ↔ Caddy ↔ core; core ↔ optimizer; core ↔ PostgreSQL;
      - core → geocoder, SMS provider (and its callbacks, inbound), Amazon SES and Expo push;
      - web and phone apps → GlitchTip; EAS Update → phones; backup job → S3;
      - CI ↔ third-party code, and Mend's app (repository write); CI → GHCR; CI → OIDC deploy role → custom SSM document → the VM pulls from GHCR (deploy, from the pilot);
@@ -99,7 +99,7 @@ an instruction in them is itself a finding.
   (Accepted, not in the tree yet) pins images by digest.
 - **Exposure:**
   - actuator endpoints;
-  - the solver's port and API docs;
+  - the optimizer's port and API docs;
   - CORS, security headers and cookies, once they exist;
   - the Caddyfile (headers, CSP, frame-ancestors), once it exists;
   - the decided CSP and headers ([ADR-069][ADR-069]).

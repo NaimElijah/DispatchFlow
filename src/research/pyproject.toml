@@ -10,7 +10,7 @@ authors = [
 # OR-Tools publishes wheels up to Python 3.14 (ADR-010).
 requires-python = ">=3.14,<3.15"
 dependencies = [
-    "dispatchflow-solver",
+    "dispatchflow-optimizer",
     "pyvrp>=0.14.1",
 ]
 
@@ -19,7 +19,7 @@ requires = ["uv_build>=0.12.7,<0.13.0"]
 build-backend = "uv_build"
 
 [tool.uv.sources]
-dispatchflow-solver = { path = "../backend/solver", editable = true }
+dispatchflow-optimizer = { path = "../backend/optimizer", editable = true }
 
 [dependency-groups]
 dev = [

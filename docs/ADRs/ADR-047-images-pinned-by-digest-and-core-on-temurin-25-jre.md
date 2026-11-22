@@ -9,7 +9,7 @@
 
 - **The core** builds on `eclipse-temurin:21-jdk-noble` and runs on `eclipse-temurin:21-jre-noble`.
   Its entry point is a plain `java -jar`, with no heap setting.
-- **The solver** runs on `python:3.14-slim`, with uv 0.12.7 copied from
+- **The optimizer** runs on `python:3.14-slim`, with uv 0.12.7 copied from
   `ghcr.io/astral-sh/uv:0.12.7`.
 - **Both run as `dispatchflow`, uid 10001**, and expose ports 8080 and 8000.
 - **Every base image is pinned by tag.** ADR-019 deferred digests: "nothing is deployed yet, and

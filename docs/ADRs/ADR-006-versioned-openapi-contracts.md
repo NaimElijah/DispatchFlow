@@ -10,7 +10,7 @@ DispatchFlow's components are written in three languages and meet at two HTTP bo
 
 - **The client API** between the core backend and both frontends, the dispatcher console and
   the driver app.
-- **The optimization API** between the core backend and the solver service.
+- **The optimization API** between the core backend and the optimizer service.
 
 [NFR-21] requires every such API to be described by a versioned OpenAPI contract, with both
 sides tested against it. Four forces shape how:
@@ -31,7 +31,7 @@ repository root.
 
 - **Two contracts, each at the root.**
   - `contracts/client-api/v1/openapi.yaml` sits between the core and both clients.
-  - `contracts/optimization-api/v1/openapi.yaml` sits between the core and the solver.
+  - `contracts/optimization-api/v1/openapi.yaml` sits between the core and the optimizer.
   - Both files declare `openapi: 3.1.0`. Neither side owns a contract, so they belong to no
     component ([ADR-008]).
 - **Contract-first.** A contract changes in the same pull request as every side it touches: the
@@ -40,7 +40,7 @@ repository root.
 - **The URL carries the major version.** The client API is served under `/api/v1`, its
   `servers` entry, so a `v2` can be served beside it and an installed driver app keeps calling
   the version it was built against. The optimization API has only a health probe today, and
-  core and the solver deploy together, so it has no prefix yet.
+  core and the optimizer deploy together, so it has no prefix yet.
 - **A breaking change gets a new major-version folder.** `v2/` sits beside `v1/`, so both
   can exist at once.
 - **Frontends generate their client from the contract.** They never write or edit it by hand

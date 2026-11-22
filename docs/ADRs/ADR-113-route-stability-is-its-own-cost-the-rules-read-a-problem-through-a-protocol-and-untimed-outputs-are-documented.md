@@ -70,7 +70,7 @@ On 2026-11-15 the owner, Naim Elijah, decided:
    No test plants a forbidden import to show that this contract, or the domain's contract against
    the clock, randomness and I/O ([TS §2.1], rule 3), fires: import-linter's one public Python
    function, `importlinter.api.read_configuration`, reads the configuration and checks nothing.
-   Both were proved by hand on 2026-11-15, on a copy of the solver run with `lint-imports
+   Both were proved by hand on 2026-11-15, on a copy of the optimizer run with `lint-imports
    --no-cache`:
    - a line in `objective` importing `problem` broke the first contract, naming that import;
    - a domain module importing `asyncio`, `concurrent.futures`, `ctypes`, `glob`, `http.client`,

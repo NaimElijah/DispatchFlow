@@ -27,7 +27,7 @@ flowchart LR
     dev["Developer:<br/>just check"] --> just["Root justfile"]
     ci["CI: one job<br/>per component"] --> just
     just --> core["core-check<br/>Maven wrapper"]
-    just --> solver["solver-check<br/>uv"]
+    just --> optimizer["optimizer-check<br/>uv"]
     just --> research["research-check<br/>uv"]
     just --> console["console-check<br/>npm"]
     just --> driver["driver-app-check<br/>npm"]
@@ -40,7 +40,7 @@ flowchart LR
 - **Recipe names follow one pattern.**
   - `setup`, `check` and `format` run across the components.
   - Each component has `<component>-setup`, `<component>-check` and `<component>-format`, and
-    where it runs, `<component>-run`. The components are `core`, `solver`, `research`,
+    where it runs, `<component>-run`. The components are `core`, `optimizer`, `research`,
     `console` and `driver-app`.
   - `contracts-check` ([ADR-006]) and `audit` ([ADR-016]) stand alone. `just` with no argument
     lists the recipes.

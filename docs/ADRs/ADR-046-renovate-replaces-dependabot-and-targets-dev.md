@@ -12,9 +12,9 @@ all against `main`, several against versions other ADRs pin.
 Today `.github/dependabot.yml` has six entries, all weekly and all with `target-branch: dev`:
 
 - `github-actions` at the root;
-- `maven` for the core, `uv` for the solver and the research project, and `npm` for each of the two
+- `maven` for the core, `uv` for the optimizer and the research project, and `npm` for each of the two
   apps;
-- `docker` for the core's and the solver's `Dockerfile` folders.
+- `docker` for the core's and the optimizer's `Dockerfile` folders.
 
 Each opens commits as `chore(scope)`. Minor and patch updates are grouped, except Docker's. The
 ADR-021 ignores are in the file:

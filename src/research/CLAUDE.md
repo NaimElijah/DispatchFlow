@@ -15,27 +15,26 @@ optimizer's code directly, with no HTTP and no `core`.
 | `src/dispatchflow_research/generator/` | The order generator (placeholder) |
 | `instances/` | Benchmark instances (placeholder) |
 | `results/` | Benchmark results (placeholder) |
-| `tests/` | pytest; `test_environment.py` checks that both the solver and PyVRP import |
+| `tests/` | pytest; `test_environment.py` checks that both the optimizer and PyVRP import |
 
-## How it uses the solver
+## How it uses the optimizer
 
-- It depends on `src/backend/solver` as an editable path dependency, so it always runs the
-  solver's current code. [ADR-123] (Accepted) renames that project to `src/backend/optimizer`, package
-  `dispatchflow_optimizer`.
-- It uses the solver's `domain`, `application` and solver adapter packages, the last to build its
-  own registry. It never imports the solver's HTTP adapter, `adapters/inbound/http`. Today the
+- It depends on `src/backend/optimizer`, package `dispatchflow_optimizer` (names from [ADR-123],
+  Accepted), as an editable path dependency, so it always runs the optimizer's current code.
+- It uses the optimizer's `domain`, `application` and solver adapter packages, the last to build its
+  own registry. It never imports the optimizer's HTTP adapter, `adapters/inbound/http`. Today the
   solver adapters sit in `solvers/`. [ADR-040] puts them under
   `adapters/outbound/solvers/`, as [TS §4] draws it, and this rule holds either way.
 - The harness builds its own solver registry, which adds a PyVRP adapter. PyVRP and its adapter
   stay in this project ([ADR-004]).
-- After any change to the solver's `pyproject.toml`, run `uv lock` here.
+- After any change to the optimizer's `pyproject.toml`, run `uv lock` here.
 
 ## Benchmark rules ([ADR-005])
 
 - Every solver gets the same time limit on the same hardware, and runs alone on it.
 - Every run records its seed, the iterations or solutions it reached and the solver versions
   ([NFR-115]), so it can be replayed under that budget.
-- Every result is validated and scored by the solver's shared validator and objective, never by
+- Every result is validated and scored by the optimizer's shared validator and objective, never by
   the objective a solver reports about itself.
 - In re-optimization, our solver is compared with OR-Tools warm-started from the current plan.
 - The CI regression gate uses fixed seeds and a fixed search budget, never a wall-clock limit.

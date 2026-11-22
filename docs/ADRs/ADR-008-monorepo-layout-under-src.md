@@ -9,14 +9,14 @@ DispatchFlow has five pieces of code in three languages, written by a team of th
 
 - **The core backend**, in Java and Spring Boot: the REST API and the system of record
   ([ADR-002]).
-- **The solver service**, in Python and FastAPI ([ADR-002], [ADR-004]).
+- **The optimizer service**, in Python and FastAPI ([ADR-002], [ADR-004]).
 - **The dispatcher console**, in React ([ADR-003]).
 - **The driver app**, in React Native and Expo ([ADR-003], [NFR-15]).
 - **The research code**: the benchmark harness, the disruption simulation and the order
   generator. It is never deployed ([FR-51]).
 
 The pieces meet at two versioned OpenAPI contracts: the client API between the backend and
-both frontends, and the optimization API between the backend and the solver ([ADR-006],
+both frontends, and the optimization API between the backend and the optimizer ([ADR-006],
 [NFR-21]). Both sides of each contract depend on it, and neither side owns it.
 
 Four forces shape where things go:
@@ -25,8 +25,8 @@ Four forces shape where things go:
   affects, and each side is tested against the contract.
 - **Each toolchain has its own convention for where tests live.** Maven finds `src/test/java`,
   pytest finds the `tests` folder, Vitest and Jest find `*.test.tsx` files next to the code.
-- **PyVRP must never reach the solver service.** It is a benchmark reference only, and the
-  service never installs it ([ADR-004]). The benchmark harness needs both PyVRP and the solver.
+- **PyVRP must never reach the optimizer service.** It is a benchmark reference only, and the
+  service never installs it ([ADR-004]). The benchmark harness needs both PyVRP and the optimizer.
 - **Some tests span components.** An end-to-end test drives a browser against the whole system,
   and a load test drives the API. Neither belongs to one component.
 
@@ -36,7 +36,7 @@ We keep everything in one repository and put the code under `src/`.
 
 ```text
 src/backend/core          Java 21, Spring Boot: REST API and system of record
-src/backend/solver        Python, FastAPI: the optimization service
+src/backend/optimizer     Python, FastAPI: the optimization service
 src/frontend/console      React: the console for admins and dispatchers
 src/frontend/driver-app   Expo: the driver app for iOS, Android and the browser
 src/research              benchmarks, simulation, order generator; never deployed
@@ -57,9 +57,9 @@ docs/                     requirements, architecture, ADRs
   repository shares: the toolchain pins ([ADR-010]), the `justfile` ([ADR-009]), the CI
   workflow ([ADR-015]), the editor and Git settings, the licence and the README.
 - **The research code is a separate Python project**, `src/research`, with its own
-  `pyproject.toml` and lockfile. It depends on the solver as an editable path dependency and
-  adds PyVRP. The solver's environment cannot contain PyVRP, and
-  `src/backend/solver/tests/test_dependency_boundary.py` fails if it ever can.
+  `pyproject.toml` and lockfile. It depends on the optimizer as an editable path dependency and
+  adds PyVRP. The optimizer's environment cannot contain PyVRP, and
+  `src/backend/optimizer/tests/test_dependency_boundary.py` fails if it ever can.
 - **`backend/` and `frontend/` group the components by side.** The code, `contracts/`, `tests/`
   and `infra/` each have one place.
 
@@ -75,8 +75,8 @@ component.
 - **Easy:** the PyVRP boundary is enforced by the project layout and checked by a test, instead
   of relying on a convention.
 - **Easy:** a new contributor finds the code under one root, with one place for the contracts.
-- **Hard:** the research project depends on the solver as an editable path dependency. Any change
-  to `src/backend/solver/pyproject.toml` also needs `uv lock` in `src/research`; otherwise
+- **Hard:** the research project depends on the optimizer as an editable path dependency. Any change
+  to `src/backend/optimizer/pyproject.toml` also needs `uv lock` in `src/research`; otherwise
   `just research-check` fails on the stale lockfile.
 - **Hard:** a new component needs entries in three places: the root `justfile` ([ADR-009]), a CI
   job ([ADR-015]) and `.github/dependabot.yml` ([ADR-015]).
@@ -97,8 +97,8 @@ component.
 - **A root `tests/unit`, with every component's tests moved into it.** Rejected: it fights the
   convention of every tool in use. Maven, pytest, Vitest and Jest would each need configuration
   to find tests outside their project.
-- **The research code inside the solver's package.** Rejected: PyVRP would then be installable
-  in the solver, against [ADR-004]. A separate `pyproject.toml` with its own lockfile keeps it
+- **The research code inside the optimizer's package.** Rejected: PyVRP would then be installable
+  in the optimizer, against [ADR-004]. A separate `pyproject.toml` with its own lockfile keeps it
   out, and the boundary test fails the build if it ever gets in.
 - **A separate manager app.** Rejected: no requirement asks for one. The console serves both
   admins and dispatchers, and the server decides what each role may do ([ADR-003]).

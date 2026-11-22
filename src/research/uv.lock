@@ -162,7 +162,7 @@ name = "dispatchflow-research"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "dispatchflow-solver" },
+    { name = "dispatchflow-optimizer" },
     { name = "pyvrp" },
 ]
 
@@ -175,7 +175,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "dispatchflow-solver", editable = "../backend/solver" },
+    { name = "dispatchflow-optimizer", editable = "../backend/optimizer" },
     { name = "pyvrp", specifier = ">=0.14.1" },
 ]
 
@@ -187,9 +187,9 @@ dev = [
 ]
 
 [[package]]
-name = "dispatchflow-solver"
+name = "dispatchflow-optimizer"
 version = "0.1.0"
-source = { editable = "../backend/solver" }
+source = { editable = "../backend/optimizer" }
 dependencies = [
     { name = "fastapi" },
     { name = "numpy" },

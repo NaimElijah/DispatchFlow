@@ -26,7 +26,7 @@ The forces:
 We run one workflow, `.github/workflows/ci.yml`, with one job per component. Each job calls
 a `just` recipe. Dependabot proposes the updates.
 
-- **Seven jobs**: `core`, `solver`, `research`, `console`, `driver-app`, `contracts` and
+- **Seven jobs**: `core`, `optimizer`, `research`, `console`, `driver-app`, `contracts` and
   `audit`. Each runs on `ubuntu-24.04` and calls its component's recipes (`core-check`;
   `console-setup` then `console-check`; `audit`; and so on), through
   `uvx --from rust-just==1.59.0 just`.
@@ -44,7 +44,7 @@ a `just` recipe. Dependabot proposes the updates.
   followed by the pull request number, or the ref for a push. Pushes to `dev` and `main` are
   never cancelled, so every commit there keeps its own result.
 - **Dependabot runs weekly** (`.github/dependabot.yml`) for `github-actions`, `maven`, `uv`,
-  `npm` and `docker`. It covers the core, the solver, the research project and both frontend
+  `npm` and `docker`. It covers the core, the optimizer, the research project and both frontend
   apps. Minor and patch updates are grouped, except for Docker. A major update gets its own
   pull request. Commit messages start with `chore` and the scope.
 - **Branch protection is not configured yet.** Making the CI jobs a required check is tracked in

@@ -104,7 +104,7 @@ Applied now, this splits:
 | The ArchUnit fixtures | one package per rule each exercises |
 
 Customers & Orders stays flat until its cycle is broken. So do Reporting, Audit, the kernel, the
-`events` packages and the solver's Python `domain`, which holds 16 files.
+`events` packages and the optimizer's Python `domain`, which holds 16 files.
 
 ## Consequences
 
