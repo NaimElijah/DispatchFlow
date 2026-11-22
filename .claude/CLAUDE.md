@@ -16,7 +16,7 @@ under Documentation.
 
 | Path | What lives there |
 |---|---|
-| `src/backend/core` | REST API and system of record (Java 21, Spring Boot) |
+| `src/backend/core` | REST API and system of record (Java 25, Spring Boot) |
 | `src/backend/optimizer` | Optimization service (Python, FastAPI) |
 | `src/frontend/web` | Web app, for every role (React, TypeScript) |
 | `src/frontend/mobile` | Phone app, for every role (React Native, Expo) |
@@ -29,8 +29,7 @@ under Documentation.
 
 [ADR-123] (Accepted) keeps this tree and renames three components, which now carry their new
 names: `solver` became `optimizer`, `console` became `web` and `driver-app` became `mobile`.
-[ADR-038] (Accepted) moves Java to 25, which is not in the tree yet. The pull request that makes
-the change updates this table.
+[ADR-038] (Accepted) moved the core to Java 25; its `mise.toml` is still to come.
 
 This file holds the rules for the whole repository. Narrower rules live next to the code and load
 when you work there ([ADR-018](../docs/ADRs/ADR-018-ai-assistant-context-in-the-repository.md)):

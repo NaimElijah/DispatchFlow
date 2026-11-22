@@ -14,7 +14,7 @@
 	<name>DispatchFlow core</name>
 	<description>DispatchFlow core backend: the REST API and the system of record</description>
 	<properties>
-		<java.version>21</java.version>
+		<java.version>25</java.version>
 		<archunit.version>1.5.1</archunit.version>
 		<jts.version>1.20.0</jts.version>
 		<libphonenumber.version>9.0.43</libphonenumber.version>

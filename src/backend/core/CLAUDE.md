@@ -1,7 +1,7 @@
 # Core
 
 The REST API that both clients call (`contracts/client-api/v1`) and DispatchFlow's system of
-record. It is the only client of the optimizer (`contracts/optimization-api/v1`). Java 21, Spring
+record. It is the only client of the optimizer (`contracts/optimization-api/v1`). Java 25, Spring
 Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
 
 Accepted changes, not in the tree yet: Spring Modulith ([ADR-040], Accepted) and jOOQ in place of

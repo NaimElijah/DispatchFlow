@@ -98,7 +98,7 @@ updates:
     commit-message:
       prefix: chore
       include: scope
-    # The runtimes stay on the versions ADR-010 pins: Java 21, today's LTS in the pom, and Python
+    # The runtimes stay on the versions ADR-038 pins: Java 25, today's LTS in the pom, and Python
     # 3.14, the newest OR-Tools ships wheels for. Moving either is a decision, not a bump (ADR-021).
     ignore:
       - dependency-name: eclipse-temurin

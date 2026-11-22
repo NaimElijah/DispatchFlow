@@ -13,7 +13,7 @@ ADR-123 (Accepted) keeps this tree and gives three components the names they hav
 
 Also Accepted and not in the tree yet:
 [ADR-038](../ADRs/ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md) (`mise` pins every
-toolchain, and the core moves to Java 25),
+toolchain; the core already runs its Java 25),
 [ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md) (one pnpm
 workspace for both apps),
 [ADR-042](../ADRs/ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md) (`compose.dev.yaml`
@@ -31,7 +31,7 @@ are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 
 | Path | Holds |
 |---|---|
-| `src/backend/core/` | The REST API and system of record: Java 21, Spring Boot 4.1.2, Maven |
+| `src/backend/core/` | The REST API and system of record: Java 25, Spring Boot 4.1.2, Maven |
 | `src/backend/optimizer/` | The optimization service: Python 3.14, FastAPI, NumPy, uv |
 | `src/frontend/web/` | The web app, for every role: React, TypeScript, Vite |
 | `src/frontend/mobile/` | The phone app, for every role: React Native, Expo SDK 58, TypeScript |
@@ -45,7 +45,7 @@ are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 | `.github/` | The CI workflow, Dependabot configuration, and issue and pull request templates |
 | `justfile` | Every command. CI runs the same recipes |
 | `README.md`, `.editorconfig`, `.gitattributes`, `.gitignore` | The readme, and the editor, line-ending and ignore settings |
-| `.java-version`, `.python-version`, `.nvmrc` | Toolchain pins: Java 21, Python 3.14, Node 24 |
+| `.java-version`, `.python-version`, `.nvmrc` | Toolchain pins: Java 25, Python 3.14, Node 24 |
 | `LICENSE` | Proprietary, all rights reserved ([ADR-017](../ADRs/ADR-017-proprietary-licence.md)) |
 
 Each component has its own manifest, and each except `core` (Maven) has a lockfile. The one link

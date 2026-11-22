@@ -21,7 +21,7 @@ check: core-check optimizer-check research-check web-check mobile-check contract
 # Reformat every component's code.
 format: core-format optimizer-format research-format web-format mobile-format
 
-# --- backend/core: Java 21, Spring Boot, Maven ---
+# --- backend/core: Java 25, Spring Boot, Maven ---
 
 [working-directory('src/backend/core')]
 core-setup:

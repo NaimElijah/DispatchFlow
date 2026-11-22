@@ -35,7 +35,7 @@ today.
 
 | Component | Is | Does today |
 |---|---|---|
-| `core` (`src/backend/core`) | Spring Boot 4.1.2, Java 21 | Starts, connects to PostgreSQL, answers `GET /actuator/health`, and turns an unhandled exception into a 500 problem body |
+| `core` (`src/backend/core`) | Spring Boot 4.1.2, Java 25 | Starts, connects to PostgreSQL, answers `GET /actuator/health`, and turns an unhandled exception into a 500 problem body |
 | `optimizer` (`src/backend/optimizer`) | FastAPI, Python 3.14, NumPy | Answers `GET /health/liveness` with `{"status":"UP"}`, and holds the domain for daily solves and re-optimizations (the validator, the objective and the drop reasons), and a declared application layer; nothing calls either yet |
 | `web` (`src/frontend/web`) | React, Vite | Renders a heading |
 | `mobile` (`src/frontend/mobile`) | React Native, Expo SDK 58 | Renders a heading |
@@ -149,13 +149,13 @@ the ADRs:
 - [Tech stack](tech_stack.md): the tools, and what each beat.
 - [ADR index](../ADRs/README.md):
   [ADR-123](../ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md) (the layout, and three renames),
-  [ADR-038](../ADRs/ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md) (`mise`, and
-  Java 25),
+  [ADR-038](../ADRs/ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md) (`mise`; the core
+  already runs its Java 25),
   [ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md) (a
   Spring Modulith monolith, one module per context) and
   [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md) (a
-  schema per module, read and written through jOOQ) give the target shape. None of them is in the
-  tree yet. ADR-039 and ADR-042 to ADR-047 record the other tooling, contract, solver-port, token
+  schema per module, read and written through jOOQ) give the target shape. Apart from that Java 25, none of them is
+  in the tree yet. ADR-039 and ADR-042 to ADR-047 record the other tooling, contract, solver-port, token
   and image decisions, and ADR-048 onward the rest.
 - [Roadmap](../roadmap.md#2-milestones): the milestones and dates.
 

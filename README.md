@@ -43,7 +43,7 @@ This README is ordered for contributors, so Quick start comes before Architectur
 | Tool | Version | Used for |
 |---|---|---|
 | Git | any recent | |
-| JDK | 21 (`.java-version`) | `src/backend/core` |
+| JDK | 25 (`.java-version`) | `src/backend/core` |
 | Node.js | 24 LTS (`.nvmrc`) | both frontends, contract lint |
 | uv | 0.12+ | both Python projects; installs Python 3.14 (`.python-version`) by itself |
 | Docker | running daemon | core's integration tests, `just core-run`, `just audit` |
@@ -162,10 +162,11 @@ not in the code yet).
 
 This table is what the code uses today. [tech_stack.md](docs/architecture/tech_stack.md) decides
 the stack for the Alpha and after, and ADR-037 to ADR-047 (Accepted, in the
-[ADR index](docs/ADRs/README.md)) record where it departs from today's: Java 25, jOOQ in place of
-Spring Data JPA, Spring Modulith, pnpm and mise. None of it is in the tree yet. Each change lands
-with the milestone that needs it. [ADR-123](docs/ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md)
-keeps the layout and renames three components, and the tree has their new names.
+[ADR index](docs/ADRs/README.md)) record where it departs from today's: jOOQ in place of
+Spring Data JPA, Spring Modulith, pnpm and mise. None of it is in the tree yet; each change lands
+with the milestone that needs it. ADR-038's Java 25 is already in the tree, and
+[ADR-123](docs/ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md)
+keeps the layout and renames three components, which the tree already uses.
 
 ## Configuration
 

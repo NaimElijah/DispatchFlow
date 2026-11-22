@@ -5,7 +5,7 @@ Each service has its own `CLAUDE.md` with its layout, rules and commands.
 
 | Folder | What it does | Stack today |
 |---|---|---|
-| `core/` | The REST API for the web app and the phone app, and the system of record | Java 21, Spring Boot 4, Spring Data JPA, Flyway, PostgreSQL, Maven |
+| `core/` | The REST API for the web app and the phone app, and the system of record | Java 25, Spring Boot 4, Spring Data JPA, Flyway, PostgreSQL, Maven |
 | `optimizer/` | Solves the routing problems `core` sends it | Python 3.14, FastAPI, NumPy, uv |
 
 Google OR-Tools, our own Clarke-Wright + ALNS solver and the `nearest_neighbour` baseline arrive in
