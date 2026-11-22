@@ -137,7 +137,7 @@ screens and documents use the same words.
 
 ## 4. Repository layout
 
-**Decided ([ADR-123](../ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md)) · Alpha.** The grouped tree stays, and the three renames in ADR-123 are the only move: `solver` becomes `optimizer`, `console` becomes `web`, and `driver-app` becomes `mobile`. The pull request that renames them brings the code to this tree.
+**Decided ([ADR-123](../ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md)) · Alpha.** The grouped tree stays, and the three renames in ADR-123 were the only move: `solver` became `optimizer`, `console` became `web`, and `driver-app` became `mobile`. The code already has these names.
 `src/research` already exists (NFR-50).
 
 ```text

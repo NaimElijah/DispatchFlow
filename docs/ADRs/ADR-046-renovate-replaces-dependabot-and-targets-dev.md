@@ -20,9 +20,9 @@ Each opens commits as `chore(scope)`. Minor and patch updates are grouped, excep
 ADR-021 ignores are in the file:
 
 - `uv-build` 0.13 and later;
-- TypeScript and `@types/node` majors, in the console;
+- TypeScript and `@types/node` majors, in the web app;
 - every major and minor update, plus `react`, `react-dom`, `react-native` and `react-native-web`,
-  in the driver app;
+  in the phone app;
 - a new Java major or Python minor, for the images.
 
 Today's pins:

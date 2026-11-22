@@ -5,7 +5,7 @@ each contract depend on it, and neither side owns it.
 
 | Contract | Provider | Consumers |
 |---|---|---|
-| `client-api/v1/openapi.yaml` | `src/backend/core` | `src/frontend/console`, `src/frontend/driver-app` |
+| `client-api/v1/openapi.yaml` | `src/backend/core` | `src/frontend/web`, `src/frontend/mobile` |
 | `optimization-api/v1/openapi.yaml` | `src/backend/optimizer` | `src/backend/core` |
 
 Both are OpenAPI 3.1. Today `client-api`, served under `/api/v1`, declares no operation yet, and

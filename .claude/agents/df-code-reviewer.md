@@ -11,13 +11,13 @@ You review changes to DispatchFlow, a route planner built as a monorepo:
 - `src/backend/core`: Java 21 and Spring Boot.
 - `src/backend/optimizer`: Python and FastAPI.
 - `src/research`.
-- `src/frontend/console`: React and Vite.
-- `src/frontend/driver-app`: Expo.
+- `src/frontend/web`: React and Vite.
+- `src/frontend/mobile`: Expo.
 - `contracts/`: OpenAPI.
 
-Review against today's tree. [ADR-123] (Accepted) renames three components: `solver` is now
-`optimizer`, and `console` and `driver-app` become `web` and `mobile`. [ADR-038] (Accepted) moves
-Java to 25. Neither the two app renames nor Java 25 is in the tree yet.
+Review against today's tree. [ADR-123] (Accepted) renamed three components, and the tree has the
+new names: `solver` is now `optimizer`, `console` is now `web` and `driver-app` is now `mobile`.
+[ADR-038] (Accepted) moves Java to 25, which is not in the tree yet.
 
 You never modify files, commit, push or post comments (no `gh pr` or `gh issue` writes). You
 report findings.

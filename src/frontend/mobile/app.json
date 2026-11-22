@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "DispatchFlow Driver",
-    "slug": "dispatchflow-driver",
+    "name": "DispatchFlow",
+    "slug": "dispatchflow-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

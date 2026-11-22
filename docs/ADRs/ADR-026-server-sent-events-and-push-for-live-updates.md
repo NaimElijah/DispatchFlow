@@ -5,40 +5,40 @@
 
 ## Context
 
-The console must show solve results, positions and stop statuses without reloading ([FR-222],
-[FR-33]), within the targets of [NFR-09] and [NFR-180]. The driver app must alert a driver even in
+The web app must show solve results, positions and stop statuses without reloading ([FR-222],
+[FR-33]), within the targets of [NFR-09] and [NFR-180]. The phone app must alert a driver even in
 the background ([FR-71]). [ADR-003] left the channel open ([Q-04]).
 
-A driver and a console never share a connection: the phone talks to the server, and the server talks
-to the console. A driver's report must wait offline until the server acknowledges it ([FR-248]), and
+A driver and a web app never share a connection: the phone talks to the server, and the server talks
+to the web app. A driver's report must wait offline until the server acknowledges it ([FR-248]), and
 a repeat must take effect once ([BR-28]). The contract ([ADR-006]), the audit record ([NFR-23]) and
 the rate limits ([NFR-53]) are all written per HTTP call.
 
 ## Decision
 
-- **Server to console:** server-sent events. The console reads the stream with a fetch-based reader,
+- **Server to web app:** server-sent events. The web app reads the stream with a fetch-based reader,
   because the browser's built-in `EventSource` cannot send an `Authorization` header. After a
   reconnect it reads the current state again. The stream ends when its access token expires or its
   user's sessions are revoked ([NFR-188]).
 - **Contract:** `client-api` stays on OpenAPI 3.1.0, which cannot type a stream's events ([ADR-006]). The
   stream is one operation with an opaque `text/event-stream` response, its event payloads are named
   schemas, and the reader is a hand-written exception to generated clients. An error after the stream
-  starts ends the stream, and the console reconnects.
-- **Driver and console actions:** ordinary HTTP POST, including every driver report.
+  starts ends the stream, and the web app reconnects.
+- **Driver and web app actions:** ordinary HTTP POST, including every driver report.
 - **Route change to a backgrounded app:** a visible push through Expo's push service, sent through an
   outbound port in `core`. The push carries no personal data. It says that a route changed, and the app
   fetches the route with its own token when it opens. Registering a device's push token is a contract
   operation.
-- **The driver app's web build** gets no push, so it reads its route every 30 seconds while open
+- **The phone app's web build** gets no push, so it reads its route every 30 seconds while open
   ([FR-347]).
-- **An alert raised while the console is closed** waits in the alert list ([FR-335]).
+- **An alert raised while the web app is closed** waits in the alert list ([FR-335]).
 
 ## Consequences
 
 - **Easy:** every action stays one contract operation, with its status code, audit record and rate
   limit. The stream has one direction, so there is no socket protocol to define.
-- **Hard:** each open console holds a connection, and a reconnect can miss events, which is why the
-  console reads the state again. At OpenAPI 3.1.0 a stream's events are untyped, so tests check them
+- **Hard:** each open web app holds a connection, and a reconnect can miss events, which is why the
+  web app reads the state again. At OpenAPI 3.1.0 a stream's events are untyped, so tests check them
   against the named schemas.
 - **Cost:** a new dependency, `expo-notifications`, and Expo's push service as a third party. Both
   need the usual justification when they are added, and the service belongs in the privacy review
@@ -48,7 +48,7 @@ the rate limits ([NFR-53]) are all written per HTTP call.
 
 ## Alternatives considered
 
-- **A WebSocket to the console.** Rejected: its upward direction would stay unused, it adds reconnect
+- **A WebSocket to the web app.** Rejected: its upward direction would stay unused, it adds reconnect
   and heartbeat handling, and OpenAPI cannot describe its messages.
 - **WebSockets for everything.** Rejected: we would build acknowledgements, retries, audit and rate
   limits ourselves, and a backgrounded app has no open socket, so it would still need a push.
@@ -64,11 +64,11 @@ the rate limits ([NFR-53]) are all written per HTTP call.
 [ADR-006]: ADR-006-versioned-openapi-contracts.md
 [BR-28]: ../requirements/requirements.md#driver-reports-and-outcomes
 [FR-33]: ../requirements/requirements.md#live-operations-and-re-optimization
-[FR-71]: ../requirements/requirements.md#publishing-and-the-driver-app
+[FR-71]: ../requirements/requirements.md#publishing-and-the-phone-app
 [FR-222]: ../requirements/requirements.md#daily-planning
-[FR-248]: ../requirements/requirements.md#publishing-and-the-driver-app
+[FR-248]: ../requirements/requirements.md#publishing-and-the-phone-app
 [FR-335]: ../requirements/requirements.md#live-operations-and-re-optimization
-[FR-347]: ../requirements/requirements.md#publishing-and-the-driver-app
+[FR-347]: ../requirements/requirements.md#publishing-and-the-phone-app
 [NFR-09]: ../requirements/requirements.md#nfr-09
 [NFR-23]: ../requirements/requirements.md#nfr-23
 [NFR-53]: ../requirements/requirements.md#nfr-53

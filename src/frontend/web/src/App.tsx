@@ -1,4 +1,4 @@
-/** The dispatcher console's root component. */
+/** The web app's root component. */
 function App() {
   return (
     <main>

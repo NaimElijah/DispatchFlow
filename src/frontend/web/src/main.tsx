@@ -4,7 +4,7 @@ import App from './App.tsx'
 
 const root = document.getElementById('root')
 if (root === null) {
-  throw new Error('index.html has no element with id "root" to render the console into')
+  throw new Error('index.html has no element with id "root" to render the web app into')
 }
 
 createRoot(root).render(

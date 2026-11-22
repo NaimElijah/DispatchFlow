@@ -8,8 +8,8 @@
 DispatchFlow's components are written in three languages and meet at two HTTP boundaries
 ([ADR-002], [ADR-003]):
 
-- **The client API** between the core backend and both frontends, the dispatcher console and
-  the driver app.
+- **The client API** between the core backend and both frontends, the web app and
+  the phone app.
 - **The optimization API** between the core backend and the optimizer service.
 
 [NFR-21] requires every such API to be described by a versioned OpenAPI contract, with both
@@ -38,7 +38,7 @@ repository root.
   provider, and each consumer. The provider implements what the contract says. The contract
   does not follow the code.
 - **The URL carries the major version.** The client API is served under `/api/v1`, its
-  `servers` entry, so a `v2` can be served beside it and an installed driver app keeps calling
+  `servers` entry, so a `v2` can be served beside it and an installed phone app keeps calling
   the version it was built against. The optimization API has only a health probe today, and
   core and the optimizer deploy together, so it has no prefix yet.
 - **A breaking change gets a new major-version folder.** `v2/` sits beside `v1/`, so both
@@ -81,7 +81,7 @@ repository root.
   the implementation. The contract would follow the code instead of being reviewed first.
 - **gRPC or GraphQL.** Rejected: both contracts use one REST and JSON style, and nothing in
   [requirements.md](../requirements/requirements.md) asks for streaming RPC or graph queries.
-  Real-time push to the dispatcher console and the driver app is a separate decision that is
+  Real-time push to the web app and the phone app is a separate decision that is
   still open ([Q-04]): a WebSocket or server-sent events channel would be described beside
   these contracts, or in a third one. This ADR does not settle it.
 - **The contracts inside the provider's folder.** Rejected in [ADR-008]: both sides depend on a

@@ -1,4 +1,4 @@
-# Driver app: the phone app
+# Phone app
 
 The phone app for admins, dispatchers and drivers, with every capability of each role
 ([ADR-035]). It is built from one codebase for iOS and Android.
@@ -7,8 +7,8 @@ Expo SDK 58, React Native 0.88, React 19, TypeScript 6.0, npm.
 ## Layout
 
 - `index.ts` registers `App.tsx`, which today renders only a heading.
-- `app.json` holds the Expo configuration (name "DispatchFlow Driver", slug
-  `dispatchflow-driver`). `assets/` holds the icons and the splash image.
+- `app.json` holds the Expo configuration (name "DispatchFlow", slug `dispatchflow-mobile`).
+  `assets/` holds the icons and the splash image.
 
 ## Rules
 
@@ -57,12 +57,12 @@ Expo SDK 58, React Native 0.88, React 19, TypeScript 6.0, npm.
 
 Run `just` recipes from the repository root, and `npm` or `npx` from this folder.
 
-| Command                  | What it does                                             |
-| ------------------------ | -------------------------------------------------------- |
-| `just driver-app-check`  | ESLint, Prettier check, `tsc --noEmit`, Jest, web export |
-| `just driver-app-format` | Prettier                                                 |
-| `just driver-app-run`    | Expo dev server for phones and the browser               |
-| `npx jest App.test.tsx`  | One test file                                            |
+| Command                 | What it does                                             |
+| ----------------------- | -------------------------------------------------------- |
+| `just mobile-check`     | ESLint, Prettier check, `tsc --noEmit`, Jest, web export |
+| `just mobile-format`    | Prettier                                                 |
+| `just mobile-run`       | Expo dev server for phones and the browser               |
+| `npx jest App.test.tsx` | One test file                                            |
 
 [ADR-026]: ../../../docs/ADRs/ADR-026-server-sent-events-and-push-for-live-updates.md
 [ADR-016]: ../../../docs/ADRs/ADR-016-dependency-audit-with-osv-scanner.md

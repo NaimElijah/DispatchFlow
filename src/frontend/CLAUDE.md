@@ -6,12 +6,12 @@ with its layout, rules and commands.
 
 | Folder | Who uses it | Runs on | Stack |
 |---|---|---|---|
-| `console/`, the web app | Admins, dispatchers and drivers (drivers online only) | Desktop browsers; its driver screens also phone browsers | React, TypeScript, Vite, npm |
-| `driver-app/`, the phone app | Admins, dispatchers and drivers, with every capability | iOS and Android, from one codebase; its web build is a development aid and a test target | React Native, Expo SDK 58, TypeScript, npm |
+| `web/`, the web app | Admins, dispatchers and drivers (drivers online only) | Desktop browsers; its driver screens also phone browsers | React, TypeScript, Vite, npm |
+| `mobile/`, the phone app | Admins, dispatchers and drivers, with every capability | iOS and Android, from one codebase; its web build is a development aid and a test target | React Native, Expo SDK 58, TypeScript, npm |
 
 Accepted, and not in the tree yet: [ADR-039] replaces npm with a pnpm workspace and shared
-`@dispatchflow/*` packages, from the Alpha, in `src/frontend/packages/`; [ADR-123] renames
-`console/` to `web/` and `driver-app/` to `mobile/`.
+`@dispatchflow/*` packages, from the Alpha, in `src/frontend/packages/`. The folders have
+[ADR-123]'s names: `console/` became `web/` and `driver-app/` became `mobile/`.
 
 ## Rules
 

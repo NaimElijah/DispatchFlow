@@ -21,8 +21,8 @@ Today the core and the optimizer each start and answer a health probe. No compon
 
 ```mermaid
 flowchart LR
-    console["console"] -.->|"client API"| core["core"]
-    driver["driver-app"] -.->|"client API"| core
+    web["web"] -.->|"client API"| core["core"]
+    mobile["mobile"] -.->|"client API"| core
     core -.->|"optimization API"| optimizer["optimizer"]
     core -->|"JDBC"| pg[("PostgreSQL")]
     research["research"] -->|"path dependency"| optimizer
@@ -37,8 +37,8 @@ today.
 |---|---|---|
 | `core` (`src/backend/core`) | Spring Boot 4.1.2, Java 21 | Starts, connects to PostgreSQL, answers `GET /actuator/health`, and turns an unhandled exception into a 500 problem body |
 | `optimizer` (`src/backend/optimizer`) | FastAPI, Python 3.14, NumPy | Answers `GET /health/liveness` with `{"status":"UP"}`, and holds the domain for daily solves and re-optimizations (the validator, the objective and the drop reasons), and a declared application layer; nothing calls either yet |
-| `console` (`src/frontend/console`) | React, Vite | Renders a heading |
-| `driver-app` (`src/frontend/driver-app`) | React Native, Expo SDK 58 | Renders a heading |
+| `web` (`src/frontend/web`) | React, Vite | Renders a heading |
+| `mobile` (`src/frontend/mobile`) | React Native, Expo SDK 58 | Renders a heading |
 | `research` (`src/research`) | Python, uv; never deployed | Installs `optimizer` and PyVRP in one environment, and imports neither yet: `tests/test_environment.py` only checks that both can be found. `benchmark/`, `simulation/`, `generator/`, `instances/` and `results/` hold only `.gitkeep` |
 
 `core` has no controller, entity or Flyway migration: `src/main/resources/db/migration/` holds

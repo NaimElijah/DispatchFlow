@@ -6,7 +6,7 @@
 ## Context
 
 The repository pins its dependencies in four lockfiles and one `pom.xml`: `uv.lock` in the
-optimizer and in the research project, `package-lock.json` in the console and in the driver app,
+optimizer and in the research project, `package-lock.json` in the web app and in the phone app,
 and the core's pom ([ADR-008]). The project rules require pinned dependencies and a failing
 build on a known vulnerability (`.claude/CLAUDE.md`, Security).
 
@@ -37,7 +37,7 @@ known vulnerability fails the audit.
 - **An accepted vulnerability goes into that folder's `osv-scanner.toml`**, as an
   `[[IgnoredVulns]]` entry with its `id`, a `reason` and an `ignoreUntil` date. When the date
   passes, the audit fails again, and the entry must be fixed, justified again or removed.
-- **Two vulnerabilities are accepted today**, both in `src/frontend/driver-app/osv-scanner.toml`
+- **Two vulnerabilities are accepted today**, both in `src/frontend/mobile/osv-scanner.toml`
   and both until 2027-01-31:
 
 | ID | Package | Why it is accepted |

@@ -63,7 +63,7 @@ The versions are repeated where a file cannot read the version files. They chang
   from CI.
 - **Hard:** Python 3.14 is the newest version the optimizer can use, so it cannot move ahead of
   OR-Tools. The research code, which also needs PyVRP, is held to the same version.
-- **Hard:** Node 24 is not the newest long-term-support line. The driver app can move to
+- **Hard:** Node 24 is not the newest long-term-support line. The phone app can move to
   Node 26 only after Expo supports it.
 - **Cost:** the version files, the uv pin and the Maven wrapper are each a pin to maintain.
 

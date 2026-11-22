@@ -1,7 +1,7 @@
 import { StatusBar } from 'expo-status-bar'
 import { StyleSheet, Text, View } from 'react-native'
 
-/** The driver app's root component. */
+/** The phone app's root component. */
 export default function App() {
   return (
     <View style={styles.container}>

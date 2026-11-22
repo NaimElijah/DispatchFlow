@@ -5,8 +5,8 @@
 
 ## Context
 
-Two apps are written in TypeScript and React: the dispatcher console in `src/frontend/console`
-(Vite, for desktop browsers) and the driver app in `src/frontend/driver-app` (React Native and
+Two apps are written in TypeScript and React: the web app in `src/frontend/web`
+(Vite, for desktop browsers) and the phone app in `src/frontend/mobile` (React Native and
 Expo SDK 58, for iOS, Android and the browser). See [ADR-003]. Each has its own `package.json`
 and `package-lock.json`, and the two share no code yet ([ADR-008]).
 
@@ -31,40 +31,40 @@ We use npm, ESLint and Prettier in both apps, and hold TypeScript at `~6.0.3` in
   templates default to it. The recipes run `npm ci`.
 - **ESLint and Prettier run in both apps.** Prettier's settings are the same in both
   `.prettierrc.json` files: no semicolons, single quotes, 100 columns.
-  - The console uses `@eslint/js`, typescript-eslint, `eslint-plugin-react-hooks` and
+  - The web app uses `@eslint/js`, typescript-eslint, `eslint-plugin-react-hooks` and
     `eslint-plugin-react-refresh`.
-  - The driver app uses Expo's `eslint-config-expo` (`~58.0.4`), which brings its own
+  - The phone app uses Expo's `eslint-config-expo` (`~58.0.4`), which brings its own
     typescript-eslint.
-- **The console tests with Vitest** (`^5.0.5`), Testing Library for React and jsdom.
-- **The driver app tests with Jest** (`~30.5.2`) through the `jest-expo` preset (`~58.0.13`),
+- **The web app tests with Vitest** (`^5.0.5`), Testing Library for React and jsdom.
+- **The phone app tests with Jest** (`~30.5.2`) through the `jest-expo` preset (`~58.0.13`),
   and React Native Testing Library (`^14.1.0`).
 - **TypeScript stays at `~6.0.3`** in both `package.json` files, until typescript-eslint
   supports TypeScript 7.
-- **The two apps run different ESLint majors.** The console has ESLint `^10.13.0`, which is what
-  create-vite installed. The driver app has `^9.39.5`, which is what `npx expo install` chooses
+- **The two apps run different ESLint majors.** The web app has ESLint `^10.13.0`, which is what
+  create-vite installed. The phone app has `^9.39.5`, which is what `npx expo install` chooses
   for Expo SDK 58. They converge when an Expo SDK moves to ESLint 10.
-- **In the driver app, a dependency is added with `npx expo install`**, so its version matches
+- **In the phone app, a dependency is added with `npx expo install`**, so its version matches
   the SDK. Tooling (ESLint, Prettier, Jest, the type definitions) goes under `devDependencies`.
-  Both rules are in `src/frontend/driver-app/CLAUDE.md`.
+  Both rules are in `src/frontend/mobile/CLAUDE.md`.
 
-The recipes `console-check` and `driver-app-check` run the scripts in each `package.json`:
+The recipes `web-check` and `mobile-check` run the scripts in each `package.json`:
 
 | App | Runs, in order |
 |---|---|
-| Console | `npm run lint`, `format:check`, `npm test`, `npm run build` (`tsc -b && vite build`) |
-| Driver app | `lint`, `format:check`, `typecheck` (`tsc --noEmit`), `npm test`, `build` (`expo export --platform web`) |
+| Web app | `npm run lint`, `format:check`, `npm test`, `npm run build` (`tsc -b && vite build`) |
+| Phone app | `lint`, `format:check`, `typecheck` (`tsc --noEmit`), `npm test`, `build` (`expo export --platform web`) |
 
 ## Consequences
 
 - **Easy:** one package manager and one lockfile format across the repository's JavaScript, and
   the same Prettier output in both apps.
-- **Easy:** Expo's own lint config and `npx expo install` keep the driver app inside what the SDK
+- **Easy:** Expo's own lint config and `npx expo install` keep the phone app inside what the SDK
   supports.
 - **Hard:** TypeScript stays one major version behind. TypeScript 7 features and fixes wait for
   typescript-eslint.
 - **Hard:** the two apps do not use the same ESLint major version, so a rule can behave
   differently between them. A shared lint rule has to be checked in both.
-- **Hard:** the driver app's versions are not ours to pick. A package added with `npm install`
+- **Hard:** the phone app's versions are not ours to pick. A package added with `npm install`
   instead of `npx expo install` can differ from what the SDK expects, and nothing in CI checks
   for that.
 - **Hard:** the apps share no tooling configuration. The Prettier settings are written twice and
@@ -85,7 +85,7 @@ The recipes `console-check` and `driver-app-check` run the scripts in each `pack
 
 - **typescript-eslint supports TypeScript 7.** Move both apps to it, and remove the `~6.0.3`
   pin.
-- **An Expo SDK moves to ESLint 10.** Move the driver app to it, so both apps run one major.
+- **An Expo SDK moves to ESLint 10.** Move the phone app to it, so both apps run one major.
 - **The apps would copy hand-written code between them.** Add a shared package ([ADR-008]), and
   put the Prettier and ESLint settings in it.
 - **Oxlint supports what `eslint-config-expo` provides**, and Expo recommends it. Reconsider it

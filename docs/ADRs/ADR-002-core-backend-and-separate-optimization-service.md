@@ -8,7 +8,7 @@
 The backend has two jobs that differ in kind.
 
 - **The system of record and the API.** It stores organizations, fleets, orders and plans,
-  enforces the business rules, and serves the REST API to the dispatcher console and the driver
+  enforces the business rules, and serves the REST API to the web app and the phone
   app. The team knows Java and Spring, and the ecosystem around them is mature (the
   implementation plan's stated reason).
 - **Solving.** It turns a routing problem into routes. A solve runs for 5 to 60 seconds
@@ -43,8 +43,8 @@ We run two services, and they meet only at a versioned OpenAPI contract ([NFR-21
 
 ```mermaid
 flowchart LR
-    console["Dispatcher console"] -->|"client API"| core["core<br/>Java, Spring Boot"]
-    driver["Driver app"] -->|"client API"| core
+    web["Web app"] -->|"client API"| core["core<br/>Java, Spring Boot"]
+    mobile["Phone app"] -->|"client API"| core
     core -->|"SQL"| db[("PostgreSQL")]
     core -->|"optimization API"| optimizer["Optimization service<br/>Python, FastAPI"]
 ```

@@ -12,10 +12,10 @@ several of them against decisions already recorded:
 - **#6:** the core image from Java 21 to 24. [ADR-010] keeps Java 21, the LTS the plan names.
 - **#11 and #13:** TypeScript 6 to 7, in both apps. [ADR-012] holds TypeScript at 6.0 until
   typescript-eslint supports 7.
-- **#12:** ESLint 9 to 10 in the driver app. The Expo SDK fixes the driver app's versions
+- **#12:** ESLint 9 to 10 in the phone app. The Expo SDK fixes the phone app's versions
   ([ADR-012]).
 - **#10:** `@types/node` 24 to 26. The Node line is 24 ([ADR-010]).
-- **#8:** React 19.3.0 to 19.3.1 in the driver app, a version the Expo SDK pins exactly.
+- **#8:** React 19.3.0 to 19.3.1 in the phone app, a version the Expo SDK pins exactly.
 - **#7 and #9:** `uv_build` up to below 0.14. uv is pinned to 0.12.7 in `ci.yml` and in the optimizer
   `Dockerfile`, which Dependabot does not read, and the three pins change together ([ADR-010]).
 
@@ -28,8 +28,8 @@ We keep Dependabot, and constrain it to the decisions above (`.github/dependabot
 - **Every update targets `dev`** (`target-branch: dev`), like any other pull request.
 - **The Docker updates** skip a new Java major (`eclipse-temurin`) and a new Python minor or major
   (`python`).
-- **The console** skips TypeScript and `@types/node` majors.
-- **The driver app** has its own entry and skips:
+- **The web app** skips TypeScript and `@types/node` majors.
+- **The phone app** has its own entry and skips:
   - every major and minor update;
   - every update to `react`, `react-dom`, `react-native` and `react-native-web`.
 
@@ -53,8 +53,8 @@ We keep Dependabot, and constrain it to the decisions above (`.github/dependabot
 
 - **Leave Dependabot as it was, and close the unwanted pull requests as they come.** Rejected: it
   turns every weekly scan into triage, and a green pull request can be merged by mistake.
-- **Turn Dependabot off for the frontends.** Rejected: patch and minor updates to the console, and
-  patch updates to the driver app's other packages, are worth having.
+- **Turn Dependabot off for the frontends.** Rejected: patch and minor updates to the web app, and
+  patch updates to the phone app's other packages, are worth having.
 - **Make `dev` the default branch instead of setting `target-branch`.** Not instead, but as well:
   it is still to do, and it also makes pull requests target `dev` by default.
 
@@ -62,7 +62,7 @@ We keep Dependabot, and constrain it to the decisions above (`.github/dependabot
 
 - **typescript-eslint supports TypeScript 7.** Remove the TypeScript ignore together with the
   `~6.0.3` pin ([ADR-012]).
-- **A new Expo SDK is released.** Upgrade the driver app with `npx expo install --fix`. The team
+- **A new Expo SDK is released.** Upgrade the phone app with `npx expo install --fix`. The team
   checks for one each month, because Dependabot stays silent.
 - **The team moves to another Java LTS, Python or Node line.** Change the ignore in the same pull
   request as the pin ([ADR-010]).

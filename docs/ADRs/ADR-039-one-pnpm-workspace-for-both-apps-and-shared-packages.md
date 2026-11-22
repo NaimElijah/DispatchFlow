@@ -9,8 +9,8 @@ Two TypeScript apps exist today, and each is its own npm project ([ADR-012]):
 
 | App | Today | Lint and format | Tests |
 |---|---|---|---|
-| `src/frontend/console` | Vite, `eslint` `^10.13.0` | ESLint, Prettier | Vitest |
-| `src/frontend/driver-app` | Expo SDK 58, `eslint` `^9.39.5` | ESLint with `eslint-config-expo`, Prettier | Jest through `jest-expo` |
+| `src/frontend/web` | Vite, `eslint` `^10.13.0` | ESLint, Prettier | Vitest |
+| `src/frontend/mobile` | Expo SDK 58, `eslint` `^9.39.5` | ESLint with `eslint-config-expo`, Prettier | Jest through `jest-expo` |
 
 Each has its own `package.json` and `package-lock.json`, the `justfile` runs `npm ci` in each, and
 both hold `typescript` at `~6.0.3`. The two apps share no code. [ADR-008] and [ADR-012] chose npm
@@ -72,8 +72,8 @@ We put both apps and the shared packages in one pnpm workspace.
   - **In the phone app, a dependency is added with `npx expo install`,** so its version matches the
     Expo SDK. Not checked under pnpm.
 - **Decided in the M0 restructure pull request** (the owner, 2026-11-14), against the real tree:
-  - whether the workspace keeps two ESLint majors, as [ADR-012] records (10 in the console, 9 in
-    the driver app), and how `@dispatchflow/eslint-config` then loads under both;
+  - whether the workspace keeps two ESLint majors, as [ADR-012] records (10 in the web app, 9 in
+    the phone app), and how `@dispatchflow/eslint-config` then loads under both;
   - where Prettier's settings live: they are not among the packages;
   - how Renovate keeps the pins [ADR-021] kept: TypeScript majors, and the versions the Expo SDK
     fixes. [ADR-046] covers Renovate.
@@ -96,8 +96,8 @@ We put both apps and the shared packages in one pnpm workspace.
   dependencies differently and has its own override mechanism, not tested here. Its five
   `[[IgnoredVulns]]` entries expire on 2027-01-31 whatever happens. Not checked: that OSV-Scanner
   ([ADR-016]) reads pnpm's lockfile.
-- **Hard:** the `console-setup` and `driver-app-setup` recipes run `npm ci`, and the `console`
-  and `driver-app` CI jobs cache npm. `.claude/skills/sync-with-dev/update-from-dev.md` names
+- **Hard:** the `web-setup` and `mobile-setup` recipes run `npm ci`, and the `web`
+  and `mobile` CI jobs cache npm. `.claude/skills/sync-with-dev/update-from-dev.md` names
   `npm install --package-lock-only`. [ADR-021]'s npm rules in `.github/dependabot.yml` have no
   equivalent in the new setup until [ADR-046] is settled.
 - **Cost:** two lockfiles are replaced and every dependency is re-resolved once. The generated

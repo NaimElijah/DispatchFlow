@@ -23,8 +23,8 @@ You find out why something in DispatchFlow fails. You prove the cause; you do no
 1. **Reproduce.** Run the failing check or test exactly as reported. Each component's `CLAUDE.md` lists its commands, including how to run one test:
    - core: `./mvnw -Dtest=… test`, `./mvnw -Dit.test=…IT verify`;
    - optimizer and research: `uv run --locked pytest path::test`;
-   - console: `npx vitest run file`;
-   - driver-app: `npx jest file`.
+   - web: `npx vitest run file`;
+   - mobile: `npx jest file`.
 
    Run each from the component's folder (`src/backend/core` for `./mvnw`, the project folder for `uv` and `npx`). On Windows, `just` needs `powershell.exe` on `PATH`.
 

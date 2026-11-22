@@ -1,4 +1,4 @@
-# Console: the web app
+# Web app
 
 The web app for admins, dispatchers and drivers ([ADR-035]). Drivers work in it online only.
 React 19, TypeScript 6.0, Vite 8, npm.
@@ -38,9 +38,9 @@ Run `just` recipes from the repository root, and `npm` or `npx` from this folder
 
 | Command                           | What it does                                                   |
 | --------------------------------- | -------------------------------------------------------------- |
-| `just console-check`              | ESLint, Prettier check, Vitest, then `tsc -b` and `vite build` |
-| `just console-format`             | Prettier                                                       |
-| `just console-run`                | Vite dev server                                                |
+| `just web-check`                  | ESLint, Prettier check, Vitest, then `tsc -b` and `vite build` |
+| `just web-format`                 | Prettier                                                       |
+| `just web-run`                    | Vite dev server                                                |
 | `npx vitest run src/App.test.tsx` | One test file                                                  |
 
 [ADR-026]: ../../../docs/ADRs/ADR-026-server-sent-events-and-push-for-live-updates.md

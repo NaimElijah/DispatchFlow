@@ -48,7 +48,7 @@ solution, and both solvers are scored by one objective ([BR-42], [BR-09]).
   well. How OR-Tools' routing model expresses "serve on arrival, penalise time outside" has not
   been checked.
 - **Cost:** changes to both solvers, the validator, the baseline ([FR-342]), the order form and
-  import, and the driver app. The optimization contract's problem and the client contract's orders
+  import, and the phone app. The optimization contract's problem and the client contract's orders
   each gain the mark ([ADR-006]).
 - **Risk:** the penalty is the only brake. A package left at 07:00 for a customer who asked for
   17:00 waits outside all day.
@@ -91,8 +91,8 @@ solution, and both solvers are scored by one objective ([BR-42], [BR-09]).
 [FR-322]: ../requirements/requirements.md#daily-planning
 [FR-342]: ../requirements/requirements.md#reporting-and-baseline
 [FR-364]: ../requirements/requirements.md#customers-and-orders
-[FR-366]: ../requirements/requirements.md#publishing-and-the-driver-app
-[FR-368]: ../requirements/requirements.md#publishing-and-the-driver-app
+[FR-366]: ../requirements/requirements.md#publishing-and-the-phone-app
+[FR-368]: ../requirements/requirements.md#publishing-and-the-phone-app
 [FR-369]: ../requirements/requirements.md#live-operations-and-re-optimization
 [FR-370]: ../requirements/requirements.md#reporting-and-baseline
 [NFR-24]: ../requirements/requirements.md#nfr-24

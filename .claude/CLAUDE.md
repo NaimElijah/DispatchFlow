@@ -18,8 +18,8 @@ under Documentation.
 |---|---|
 | `src/backend/core` | REST API and system of record (Java 21, Spring Boot) |
 | `src/backend/optimizer` | Optimization service (Python, FastAPI) |
-| `src/frontend/console` | Web app, for every role (React, TypeScript) |
-| `src/frontend/driver-app` | Phone app, for every role (React Native, Expo) |
+| `src/frontend/web` | Web app, for every role (React, TypeScript) |
+| `src/frontend/mobile` | Phone app, for every role (React Native, Expo) |
 | `src/research` | Benchmarks, simulation, order generator; never deployed |
 | `contracts/` | Versioned OpenAPI contracts between the components |
 | `docs/` | Requirements, the decided design, the ADRs and the roadmap |
@@ -27,17 +27,16 @@ under Documentation.
 | `infra/` | Road-network data and deployment |
 | `logs/` | Local log output; git ignores its contents |
 
-[ADR-123] (Accepted) keeps this tree and renames three components. The optimizer has its new name
-already (it was `solver`); `src/frontend/console` becomes `src/frontend/web` and
-`src/frontend/driver-app` becomes `src/frontend/mobile`, which are not in the tree yet.
-[ADR-038] (Accepted) moves Java to 25, which is not in the tree yet either. The pull request that
-makes a change updates this table.
+[ADR-123] (Accepted) keeps this tree and renames three components, which now carry their new
+names: `solver` became `optimizer`, `console` became `web` and `driver-app` became `mobile`.
+[ADR-038] (Accepted) moves Java to 25, which is not in the tree yet. The pull request that makes
+the change updates this table.
 
 This file holds the rules for the whole repository. Narrower rules live next to the code and load
 when you work there ([ADR-018](../docs/ADRs/ADR-018-ai-assistant-context-in-the-repository.md)):
 
 - `src/backend/CLAUDE.md` and `src/frontend/CLAUDE.md`: the rules for each side.
-- A `CLAUDE.md` in each component (`core`, `optimizer`, `research`, `console`, `driver-app`): its
+- A `CLAUDE.md` in each component (`core`, `optimizer`, `research`, `web`, `mobile`): its
   layout, rules, gotchas and commands, including how to run one test.
 - `contracts/CLAUDE.md`: how a contract changes. `docs/CLAUDE.md`: how to write requirements and
   ADRs.
@@ -92,9 +91,9 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 - `just setup`: install every component's dependencies.
 - `just check`: everything CI checks. Run it before every push.
 - `just format`: reformat every component.
-- `just <component>-check`: one component's checks (`core`, `optimizer`, `research`, `console`,
-  `driver-app`, `contracts`).
-- `just <component>-run`: start `core`, `optimizer`, `console` or `driver-app`.
+- `just <component>-check`: one component's checks (`core`, `optimizer`, `research`, `web`,
+  `mobile`, `contracts`).
+- `just <component>-run`: start `core`, `optimizer`, `web` or `mobile`.
 
 ## How we work
 

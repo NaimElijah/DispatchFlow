@@ -32,7 +32,7 @@ them as code.
   assistant works there:
   - `src/backend/CLAUDE.md` and `src/frontend/CLAUDE.md`, for each side;
   - one per component: `src/backend/core/`, `src/backend/optimizer/`, `src/research/`,
-    `src/frontend/console/` and `src/frontend/driver-app/`;
+    `src/frontend/web/` and `src/frontend/mobile/`;
   - `contracts/CLAUDE.md` and `docs/CLAUDE.md`.
 - **`.claude/settings.json` is shared.** It denies reading `.env`.
   `.claude/settings.local.json` is personal, and `.gitignore` excludes it.

@@ -1,4 +1,4 @@
-# ADR-028: The driver app ships through test tracks, and real phones are checked by hand
+# ADR-028: The phone app ships through test tracks, and real phones are checked by hand
 
 - **Status:** Accepted; extended by ADR-035 and ADR-081; amended by ADR-080
 - **Date:** 2026-11-04
@@ -43,8 +43,8 @@ and its own drivers, so nothing needs a public store listing.
 - The app is released beyond one company's drivers.
 
 [ADR-003]: ADR-003-dispatcher-console-and-driver-app.md
-[FR-31]: ../requirements/requirements.md#publishing-and-the-driver-app
-[FR-326]: ../requirements/requirements.md#publishing-and-the-driver-app
+[FR-31]: ../requirements/requirements.md#publishing-and-the-phone-app
+[FR-326]: ../requirements/requirements.md#publishing-and-the-phone-app
 [NFR-83]: ../requirements/requirements.md#nfr-83
 [NFR-132]: ../requirements/requirements.md#nfr-132
 [NFR-140]: ../requirements/requirements.md#nfr-140

@@ -26,9 +26,9 @@ The forces:
 We run one workflow, `.github/workflows/ci.yml`, with one job per component. Each job calls
 a `just` recipe. Dependabot proposes the updates.
 
-- **Seven jobs**: `core`, `optimizer`, `research`, `console`, `driver-app`, `contracts` and
+- **Seven jobs**: `core`, `optimizer`, `research`, `web`, `mobile`, `contracts` and
   `audit`. Each runs on `ubuntu-24.04` and calls its component's recipes (`core-check`;
-  `console-setup` then `console-check`; `audit`; and so on), through
+  `web-setup` then `web-check`; `audit`; and so on), through
   `uvx --from rust-just==1.59.0 just`.
 - **Triggers**: every push, and every pull request into `dev` or `main`.
 - **No path filters.** A workflow that path filtering skips never reports its check, and a

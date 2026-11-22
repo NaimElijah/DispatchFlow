@@ -29,8 +29,8 @@ flowchart LR
     just --> core["core-check<br/>Maven wrapper"]
     just --> optimizer["optimizer-check<br/>uv"]
     just --> research["research-check<br/>uv"]
-    just --> console["console-check<br/>npm"]
-    just --> driver["driver-app-check<br/>npm"]
+    just --> web["web-check<br/>npm"]
+    just --> mobile["mobile-check<br/>npm"]
     just --> contracts["contracts-check<br/>Redocly CLI"]
     just --> audit["audit<br/>OSV-Scanner"]
 ```
@@ -41,7 +41,7 @@ flowchart LR
   - `setup`, `check` and `format` run across the components.
   - Each component has `<component>-setup`, `<component>-check` and `<component>-format`, and
     where it runs, `<component>-run`. The components are `core`, `optimizer`, `research`,
-    `console` and `driver-app`.
+    `web` and `mobile`.
   - `contracts-check` ([ADR-006]) and `audit` ([ADR-016]) stand alone. `just` with no argument
     lists the recipes.
 - **`just check` runs everything CI runs**, and CI jobs call the same recipes. A green local

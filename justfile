@@ -13,13 +13,13 @@ default:
     @{{ just_executable() }} --list
 
 # Install every component's dependencies.
-setup: core-setup optimizer-setup research-setup console-setup driver-app-setup
+setup: core-setup optimizer-setup research-setup web-setup mobile-setup
 
 # Run every check that CI runs. Needs Docker, for the core's integration tests and the audit.
-check: core-check optimizer-check research-check console-check driver-app-check contracts-check audit
+check: core-check optimizer-check research-check web-check mobile-check contracts-check audit
 
 # Reformat every component's code.
-format: core-format optimizer-format research-format console-format driver-app-format
+format: core-format optimizer-format research-format web-format mobile-format
 
 # --- backend/core: Java 21, Spring Boot, Maven ---
 
@@ -85,51 +85,51 @@ research-format:
     uv run --locked ruff format .
     uv run --locked ruff check --fix .
 
-# --- frontend/console: React, TypeScript, Vite, npm ---
+# --- frontend/web: React, TypeScript, Vite, npm ---
 
-[working-directory('src/frontend/console')]
-console-setup:
+[working-directory('src/frontend/web')]
+web-setup:
     npm ci
 
 # Lint, format check, tests and a production build.
-[working-directory('src/frontend/console')]
-console-check:
+[working-directory('src/frontend/web')]
+web-check:
     npm run lint
     npm run format:check
     npm test
     npm run build
 
-[working-directory('src/frontend/console')]
-console-format:
+[working-directory('src/frontend/web')]
+web-format:
     npm run format
 
-# Start the console's dev server.
-[working-directory('src/frontend/console')]
-console-run:
+# Start the web app's dev server.
+[working-directory('src/frontend/web')]
+web-run:
     npm run dev
 
-# --- frontend/driver-app: React Native, Expo, npm ---
+# --- frontend/mobile: React Native, Expo, npm ---
 
-[working-directory('src/frontend/driver-app')]
-driver-app-setup:
+[working-directory('src/frontend/mobile')]
+mobile-setup:
     npm ci
 
 # Lint, format check, type check, tests and a web export.
-[working-directory('src/frontend/driver-app')]
-driver-app-check:
+[working-directory('src/frontend/mobile')]
+mobile-check:
     npm run lint
     npm run format:check
     npm run typecheck
     npm test
     npm run build
 
-[working-directory('src/frontend/driver-app')]
-driver-app-format:
+[working-directory('src/frontend/mobile')]
+mobile-format:
     npm run format
 
 # Start Expo's dev server for phones and the browser.
-[working-directory('src/frontend/driver-app')]
-driver-app-run:
+[working-directory('src/frontend/mobile')]
+mobile-run:
     npm start
 
 # --- contracts and dependencies ---

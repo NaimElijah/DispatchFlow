@@ -48,7 +48,7 @@ updates:
         versions: [">= 0.13"]
 
   - package-ecosystem: npm
-    directory: /src/frontend/console
+    directory: /src/frontend/web
     target-branch: dev
     schedule:
       interval: weekly
@@ -67,7 +67,7 @@ updates:
         update-types: [version-update:semver-major]
 
   - package-ecosystem: npm
-    directory: /src/frontend/driver-app
+    directory: /src/frontend/mobile
     target-branch: dev
     schedule:
       interval: weekly

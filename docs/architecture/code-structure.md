@@ -8,10 +8,8 @@ repository as it is today. What the system must do is in
 it is in [ADR-009](../ADRs/ADR-009-just-as-the-single-entry-point.md) to
 [ADR-016](../ADRs/ADR-016-dependency-audit-with-osv-scanner.md).
 
-ADR-123 (Accepted) keeps this tree and renames three components. The optimizer has its new name,
-`src/backend/optimizer`, already; `src/frontend/console` becomes `src/frontend/web`, and
-`src/frontend/driver-app` becomes `src/frontend/mobile`. This file keeps the two apps' current
-names until the pull request that renames them rewrites it.
+ADR-123 (Accepted) keeps this tree and gives three components the names they have today:
+`src/backend/optimizer`, `src/frontend/web` and `src/frontend/mobile`.
 
 Also Accepted and not in the tree yet:
 [ADR-038](../ADRs/ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md) (`mise` pins every
@@ -35,8 +33,8 @@ are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 |---|---|
 | `src/backend/core/` | The REST API and system of record: Java 21, Spring Boot 4.1.2, Maven |
 | `src/backend/optimizer/` | The optimization service: Python 3.14, FastAPI, NumPy, uv |
-| `src/frontend/console/` | The web app, for every role: React, TypeScript, Vite |
-| `src/frontend/driver-app/` | The phone app, for every role: React Native, Expo SDK 58, TypeScript |
+| `src/frontend/web/` | The web app, for every role: React, TypeScript, Vite |
+| `src/frontend/mobile/` | The phone app, for every role: React Native, Expo SDK 58, TypeScript |
 | `src/research/` | Benchmarks, simulation and the order generator: Python, uv. Never deployed |
 | `contracts/` | `client-api/v1` and `optimization-api/v1` (OpenAPI), and the Redocly lint setup |
 | `tests/` | Tests that span components: `e2e/` and `load/`. Both are placeholders |
@@ -60,8 +58,8 @@ the rules for that folder.
 
 ```mermaid
 flowchart LR
-    console["console"] -.->|"client API"| core["core"]
-    driver["driver-app"] -.->|"client API"| core
+    web["web"] -.->|"client API"| core["core"]
+    mobile["mobile"] -.->|"client API"| core
     core -.->|"optimization API"| optimizer["optimizer"]
     research["research"] -->|"editable path dependency"| optimizer
 ```
@@ -242,7 +240,7 @@ src/research/
 `test_environment.py` checks that the research environment holds both `dispatchflow_optimizer` and
 `pyvrp`.
 
-### `src/frontend/console`
+### `src/frontend/web`
 
 A Vite project. `src/main.tsx` mounts `src/App.tsx`, which renders a heading. `src/test/setup.ts`
 configures Vitest. The configuration files (`vite.config.ts`, `tsconfig*.json`,
@@ -250,7 +248,7 @@ configures Vitest. The configuration files (`vite.config.ts`, `tsconfig*.json`,
 vulnerability the audit ignores there, with its reason and an expiry date
 ([ADR-023](../ADRs/ADR-023-accept-minimatch-and-glob-advisories.md)).
 
-### `src/frontend/driver-app`
+### `src/frontend/mobile`
 
 An Expo project. `index.ts` registers `App.tsx`, which renders a heading. `app.json`
 and `assets/` hold the Expo configuration and icons. `osv-scanner.toml` lists the vulnerabilities
@@ -272,8 +270,8 @@ API client.
 | `core`, integration (`*IT`) | `src/backend/core/src/test/java` | Failsafe, with a PostgreSQL container |
 | `optimizer` | `src/backend/optimizer/tests`, mirroring the package path | pytest |
 | `research` | `src/research/tests` | pytest |
-| `console` | next to the code, in `src/` (`App.test.tsx`) | Vitest, in jsdom |
-| `driver-app` | next to the code (`App.test.tsx`) | Jest, through `jest-expo` |
+| `web` | next to the code, in `src/` (`App.test.tsx`) | Vitest, in jsdom |
+| `mobile` | next to the code (`App.test.tsx`) | Jest, through `jest-expo` |
 | End-to-end and load | `tests/e2e`, `tests/load` | No tool is configured yet |
 
 Unit and integration tests stay inside their component, where each tool looks for them. Root

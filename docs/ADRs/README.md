@@ -9,7 +9,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | **Architecture** | | |
 | [ADR-001](ADR-001-domain-driven-design-with-hexagonal-architecture.md) | Domain-driven design, with every service built as ports and adapters | Accepted; amended by ADR-040 |
 | [ADR-002](ADR-002-core-backend-and-separate-optimization-service.md) | A Java core backend and a separate Python optimization service | Accepted; amended by ADR-038 |
-| [ADR-003](ADR-003-dispatcher-console-and-driver-app.md) | Two clients: a React web console and a React Native driver app | Superseded by ADR-035 |
+| [ADR-003](ADR-003-dispatcher-console-and-driver-app.md) | Two clients: a React web app and a React Native phone app | Superseded by ADR-035 |
 | [ADR-004](ADR-004-pluggable-solver-port.md) | Every solver behind one solver port | Accepted; extended by ADR-029; amended by ADR-044 |
 | [ADR-005](ADR-005-or-tools-first-research-solver-for-re-optimization.md) | OR-Tools first, with our own solver as a measured research track aimed at re-optimization | Accepted; extended by ADR-029; amended by ADR-091 |
 | [ADR-006](ADR-006-versioned-openapi-contracts.md) | Every API between components is a versioned OpenAPI contract, written first | Accepted; extended by ADR-026 and ADR-043; amended by ADR-037 and ADR-123 |
@@ -119,7 +119,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | **Deployment** | | |
 | [ADR-019](ADR-019-container-images-run-as-non-root.md) | Each service ships as a container image that runs as a non-root user | Accepted; amended by ADR-047 |
 | [ADR-027](ADR-027-proof-files-on-the-vm-disk-with-hourly-backups.md) | Proof files stay on the VM's disk, and backups run hourly during operating hours | Accepted |
-| [ADR-028](ADR-028-driver-app-through-test-tracks-with-a-device-checklist.md) | The driver app ships through test tracks, and real phones are checked by hand | Accepted; extended by ADR-035 and ADR-081; amended by ADR-080 |
+| [ADR-028](ADR-028-driver-app-through-test-tracks-with-a-device-checklist.md) | The phone app ships through test tracks, and real phones are checked by hand | Accepted; extended by ADR-035 and ADR-081; amended by ADR-080 |
 | [ADR-047](ADR-047-images-pinned-by-digest-and-core-on-temurin-25-jre.md) | Images are pinned by digest, and the core runs on the Temurin 25 JRE | Accepted |
 | [ADR-078](ADR-078-hosting-on-one-aws-vm-in-tel-aviv-built-with-terraform.md) | DispatchFlow runs on one AWS VM in Tel Aviv, built with Terraform and capped at ₪550 a month | Accepted |
 | [ADR-079](ADR-079-client-errors-and-crashes-go-to-self-hosted-glitchtip.md) | Client errors and crashes go to GlitchTip on the VM, through the Sentry SDKs | Accepted |

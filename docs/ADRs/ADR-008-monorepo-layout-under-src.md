@@ -10,8 +10,8 @@ DispatchFlow has five pieces of code in three languages, written by a team of th
 - **The core backend**, in Java and Spring Boot: the REST API and the system of record
   ([ADR-002]).
 - **The optimizer service**, in Python and FastAPI ([ADR-002], [ADR-004]).
-- **The dispatcher console**, in React ([ADR-003]).
-- **The driver app**, in React Native and Expo ([ADR-003], [NFR-15]).
+- **The web app**, in React ([ADR-003]).
+- **The phone app**, in React Native and Expo ([ADR-003], [NFR-15]).
 - **The research code**: the benchmark harness, the disruption simulation and the order
   generator. It is never deployed ([FR-51]).
 
@@ -37,8 +37,8 @@ We keep everything in one repository and put the code under `src/`.
 ```text
 src/backend/core          Java 21, Spring Boot: REST API and system of record
 src/backend/optimizer     Python, FastAPI: the optimization service
-src/frontend/console      React: the console for admins and dispatchers
-src/frontend/driver-app   Expo: the driver app for iOS, Android and the browser
+src/frontend/web          React: the web app for admins and dispatchers
+src/frontend/mobile       Expo: the phone app for iOS, Android and the browser
 src/research              benchmarks, simulation, order generator; never deployed
 contracts/                client-api/v1 and optimization-api/v1
 tests/                    cross-component tests only: e2e/, load/
@@ -100,7 +100,7 @@ component.
 - **The research code inside the optimizer's package.** Rejected: PyVRP would then be installable
   in the optimizer, against [ADR-004]. A separate `pyproject.toml` with its own lockfile keeps it
   out, and the boundary test fails the build if it ever gets in.
-- **A separate manager app.** Rejected: no requirement asks for one. The console serves both
+- **A separate manager app.** Rejected: no requirement asks for one. The web app serves both
   admins and dispatchers, and the server decides what each role may do ([ADR-003]).
 - **A shared JavaScript package for the two frontend apps.** Deferred, not rejected: today the
   two apps share only the contract, and the API client in each is generated from it. A shared
@@ -111,7 +111,7 @@ component.
 - A component needs its own release cadence, or another team takes it over. Splitting that
   component into its own repository, with the contract published as a versioned artefact,
   becomes worth its cost then.
-- Hand-written, non-generated code would be copied between the console and the driver app.
+- Hand-written, non-generated code would be copied between the web app and the phone app.
   Add a shared package.
 
 [ADR-002]: ADR-002-core-backend-and-separate-optimization-service.md

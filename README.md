@@ -68,8 +68,8 @@ Start a component:
 ```bash
 just core-run         # core backend on :8080, against a throwaway PostgreSQL container
 just optimizer-run    # optimizer on :8000, reloading on change
-just console-run      # web app (Vite dev server; it prints the URL)
-just driver-app-run   # phone app (Expo dev server for phones and the browser)
+just web-run          # web app (Vite dev server; it prints the URL)
+just mobile-run       # phone app (Expo dev server for phones and the browser)
 ```
 
 Success looks like this:
@@ -89,8 +89,8 @@ curl http://localhost:8000/health/liveness   # {"status":"UP"}
 
 ```mermaid
 flowchart LR
-    Console[Web app<br/>React] -->|client-api v1| Core[Core backend<br/>Spring Boot]
-    Driver[Phone app<br/>Expo] -->|client-api v1| Core
+    Web[Web app<br/>React] -->|client-api v1| Core[Core backend<br/>Spring Boot]
+    Mobile[Phone app<br/>Expo] -->|client-api v1| Core
     Core --> DB[(PostgreSQL)]
     Core -->|optimization-api v1| Optimizer[Optimizer<br/>FastAPI]
     Research[Research harness] -.->|imports| Optimizer
@@ -108,7 +108,7 @@ flowchart LR
 - **Optimizer** (`src/backend/optimizer`) turns a routing problem into routes. Every solver sits behind
   one `Solver` port and is chosen by name; every solution passes a shared feasibility validator
   before it leaves the service ([ADR-004](docs/ADRs/ADR-004-pluggable-solver-port.md)).
-- **Web app** (`src/frontend/console`) and **phone app** (`src/frontend/driver-app`, iOS and
+- **Web app** (`src/frontend/web`) and **phone app** (`src/frontend/mobile`, iOS and
   Android from one codebase) each serve Admins, Dispatchers and Drivers
   ([ADR-035](docs/ADRs/ADR-035-both-apps-serve-every-role.md)). A driver in the web app works
   online only.
@@ -163,9 +163,9 @@ not in the code yet).
 This table is what the code uses today. [tech_stack.md](docs/architecture/tech_stack.md) decides
 the stack for the Alpha and after, and ADR-037 to ADR-047 (Accepted, in the
 [ADR index](docs/ADRs/README.md)) record where it departs from today's: Java 25, jOOQ in place of
-Spring Data JPA, Spring Modulith, pnpm and mise. [ADR-123](docs/ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md)
-keeps the layout and renames three components. None of it is in the tree yet. Each change lands with
-the milestone that needs it.
+Spring Data JPA, Spring Modulith, pnpm and mise. None of it is in the tree yet. Each change lands
+with the milestone that needs it. [ADR-123](docs/ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md)
+keeps the layout and renames three components, and the tree has their new names.
 
 ## Configuration
 
@@ -198,9 +198,9 @@ commit, never a squash.
 | `just <component>-setup` | Install that component's dependencies |
 | `just <component>-check` | Everything CI checks for it |
 | `just <component>-format` | Reformat its code |
-| `just <component>-run` | Start it (core, optimizer, console, driver-app) |
+| `just <component>-run` | Start it (core, optimizer, web, mobile) |
 
-The components are `core`, `optimizer`, `research`, `console` and `driver-app`. `just` lists every
+The components are `core`, `optimizer`, `research`, `web` and `mobile`. `just` lists every
 recipe; `just check` and `just format` run them all.
 
 **Adding a feature end to end:** start from the requirement it delivers in
@@ -228,8 +228,8 @@ comments. The rules apply to people and to coding assistants alike.
 | Core integration (`*IT`) | Against a real PostgreSQL in a container | `just core-check` |
 | Optimizer | The domain (the validator's crafted-violation catalogue, Hypothesis properties, Solomon best-known solutions accepted), the HTTP adapter, the dependency boundary and import-linter | `just optimizer-check` |
 | Research | Its environment: the optimizer and PyVRP are installed | `just research-check` |
-| Web app | Components in jsdom (Vitest + Testing Library) | `just console-check` |
-| Phone app | Components (Jest + React Native Testing Library) | `just driver-app-check` |
+| Web app | Components in jsdom (Vitest + Testing Library) | `just web-check` |
+| Phone app | Components (Jest + React Native Testing Library) | `just mobile-check` |
 | Contracts | Both OpenAPI documents lint clean | `just contracts-check` |
 | Dependencies | Known vulnerabilities in every lockfile and the pom | `just audit` |
 
@@ -243,8 +243,8 @@ and load tests (`tests/load`) have folders but no tests yet. There is no coverag
 src/
   backend/core/        REST API and system of record (Spring Boot)
   backend/optimizer/   optimization service (FastAPI)
-  frontend/console/    web app (React + Vite)
-  frontend/driver-app/ phone app (Expo)
+  frontend/web/        web app (React + Vite)
+  frontend/mobile/     phone app (Expo)
   research/            benchmarks, simulation, order generator; never deployed
 contracts/             versioned OpenAPI contracts between the components
 tests/                 cross-component tests only: e2e/, load/
@@ -255,8 +255,8 @@ justfile               every command, the same locally and in CI
 ```
 
 [ADR-123](docs/ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md) (Accepted) keeps this tree and renames three
-components: `solver` to `optimizer`, `console` to `web` and `driver-app` to `mobile`. The optimizer
-has its new name; the pull request that renames the two apps updates this section.
+components: `solver` to `optimizer`, `console` to `web` and `driver-app` to `mobile`. The tree above
+has the new names.
 
 ## Design decisions
 
@@ -313,8 +313,8 @@ Known limitations:
   the M0 walking skeleton (ADR-042, Accepted).
 - Four vulnerabilities in the frontends' build, lint and test tooling are ignored by the audit
   until 2027-01-31. The owner accepted all four: minimatch and glob in ADR-023, zod and deepmerge
-  in ADR-095. The reasons are in `src/frontend/console/osv-scanner.toml` and
-  `src/frontend/driver-app/osv-scanner.toml`
+  in ADR-095. The reasons are in `src/frontend/web/osv-scanner.toml` and
+  `src/frontend/mobile/osv-scanner.toml`
   ([ADR-016](docs/ADRs/ADR-016-dependency-audit-with-osv-scanner.md),
   [ADR-023](docs/ADRs/ADR-023-accept-minimatch-and-glob-advisories.md),
   [ADR-095](docs/ADRs/ADR-095-accept-the-zod-and-deepmerge-advisories-until-2027-01-31.md)).
