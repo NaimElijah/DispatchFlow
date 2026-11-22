@@ -7,7 +7,7 @@ authors = [
     { name = "Shai Manor" },
     { name = "Bentzion Hadad" },
 ]
-# OR-Tools publishes wheels up to Python 3.14 (ADR-010).
+# OR-Tools publishes wheels up to Python 3.14 (ADR-038).
 requires-python = ">=3.14,<3.15"
 dependencies = [
     "dispatchflow-optimizer",

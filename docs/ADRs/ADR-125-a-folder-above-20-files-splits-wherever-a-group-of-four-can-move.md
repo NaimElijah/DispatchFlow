@@ -70,7 +70,8 @@ domain now splits. It extends [ADR-120] decision 10, rule 7. The rest of both st
    TypeScript folder, or a test folder. Java counts leave out `package-info.java`, and Python counts
    leave out `__init__.py`.
    - A folder of 20 or fewer stays flat.
-   - A group of fewer than 4 files stays where it is.
+   - A group of fewer than 4 files opens no new package. It may join its aggregate's existing
+     package, or the root by ADR-118 rule 2, as `SolversView` and `PinTarget` do below.
    - What is left in the folder may hold fewer than 4 files.
    - A package that is already split stays split.
    - The count is taken once, on the folder before it splits, and every group that can move does,
@@ -99,15 +100,17 @@ domain now splits. It extends [ADR-120] decision 10, rule 7. The rest of both st
 4. **What stays flat whatever its size:**
    - a module's `api`, `spi` and `events` packages, which are its contract ([ADR-040], DL §2.3
      rule 4);
-   - the shared kernel's domain types, and their tests, until M0 decides how Spring Modulith exposes
-     `shared` (ADR-118 rule 9, the owner's choice);
+   - the shared kernel's domain types, its `shared.application` ports ([ADR-120] decision 2) and
+     their tests, until M0 decides how Spring Modulith exposes `shared` (ADR-118 rule 9, the owner's
+     choice);
    - files a tool reads from a fixed place: `package.json`, the `tsconfig` files, `pom.xml`, the
      Maven wrapper, `Dockerfile` and `.dockerignore`, and the dotfiles at the root;
    - `docs/ADRs`, which is not a source folder. It stays one folder, numbered, with
      `docs/ADRs/README.md` grouping the ADRs by topic (the owner's choice).
 
    `DomainPackageRules.packagesBelowAFlatOne` fails the build on a package below a module's `api`,
-   `spi` or `events`, or below the kernel other than `shared.application`.
+   `spi` or `events`, and on any kernel package but its root and `shared.application`. It reads the
+   production classes only, so review keeps the kernel's tests flat.
 5. **Source apart from configuration.** A frontend app keeps its source in `src/`, beside the
    configuration its tools read at the app's root, whatever the root's size. The web app already
    did. The phone app's `index.ts`, `App.tsx` and `App.test.tsx` move there, and its 10 other files

@@ -129,14 +129,15 @@ logs/                    local log output; git ignores its contents
 
 ### What changes in the accepted ADRs
 
-[ADR-037] is superseded whole. Eight others change in one part each, and the rest of each stands:
+[ADR-037] is superseded whole. Eight others change in one part each, and the rest of each stands.
+For two of them, ADR-006 and ADR-018, the change is that ADR-037's amendment no longer holds:
 
 | ADR | What changes | What stands |
 |---|---|---|
 | [ADR-037] | Superseded whole | Nothing; this ADR replaces it |
-| [ADR-006] | Nothing of its own: ADR-037's single contract files are dropped, so its `v1/` folders stand again | Contract-first, OpenAPI 3.1, the major version in the URL, a `v2/` folder for a breaking change |
+| [ADR-006] | ADR-037's amendment no longer holds: its single contract files are dropped, so ADR-006's `v1/` folders stand again | Contract-first, OpenAPI 3.1, the major version in the URL, a `v2/` folder for a breaking change |
 | [ADR-009] | The recipe names follow the new folders: `optimizer-*`, `web-*`, `mobile-*` | The `justfile` as the only entry point, and CI running the same recipes |
-| [ADR-018] | Nothing of its own: the side-level files keep their folders, which ADR-037 left open | Narrower rules live next to the code, and each file repeats no rule of its parent |
+| [ADR-018] | ADR-037's amendment no longer holds: the side-level files keep their folders, which ADR-037 left open | Narrower rules live next to the code, and each file repeats no rule of its parent |
 | [ADR-035] | Line 63, "The folders keep their names", no longer holds; the phone app's name on the phone is "DispatchFlow", while its orientation stays open | Both apps serve every role, and the rest of that ADR |
 | [ADR-039] | The shared packages live in `src/frontend/packages/`, not `src/packages`, and `@dispatchflow/api-client` is generated from `client-api`, not `core-api` | One pnpm workspace for both apps and the packages, and the rest of that ADR |
 | [ADR-042] | `compose.dev.yaml` lives in `infra/deploy/`, not `deploy/`; the optimizer service builds from `src/backend/optimizer` | Local runs from Compose, Testcontainers for tests, the services and ports, and `data/` |

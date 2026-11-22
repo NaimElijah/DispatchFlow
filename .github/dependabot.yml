@@ -42,7 +42,7 @@ updates:
       minor-and-patch:
         update-types: [minor, patch]
     # uv_build moves together with uv itself, which ci.yml and the optimizer Dockerfile pin and
-    # Dependabot cannot see (ADR-010, ADR-021).
+    # Dependabot cannot see (ADR-038, ADR-021).
     ignore:
       - dependency-name: uv-build
         versions: [">= 0.13"]
@@ -59,7 +59,7 @@ updates:
       minor-and-patch:
         update-types: [minor, patch]
     # TypeScript stays on 6 until typescript-eslint supports 7 (ADR-012), and @types/node follows
-    # the Node line in .nvmrc (ADR-010). See ADR-021.
+    # the Node line in .nvmrc (ADR-038). See ADR-021.
     ignore:
       - dependency-name: typescript
         update-types: [version-update:semver-major]

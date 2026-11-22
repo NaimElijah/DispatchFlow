@@ -323,9 +323,11 @@ The purity rules are ArchUnit tests in `src/test/java/com/dispatchflow/architect
 `shared` and every module's `domain` and `events` packages
 ([domain layer design §3.9](domain_layer/domain_layer_design.md#39-purity)). The shape rules cover
 who may construct a restricted type and what an error or an event may carry. The package rules are
-three: no cycle between a module's domain packages, a domain root that imports none of its own
-subpackages, and `@NullMarked` on the kernel and on every domain and events package
-([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)). The rest are
+four: no cycle between a module's domain packages, a domain root that imports none of its own
+subpackages, `@NullMarked` on the kernel and on every domain and events package
+([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)), and no package
+below a module's `api`, `spi` or `events` or below the kernel
+([ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)). The rest are
 conventions that review enforces.
 
 The application rules are ArchUnit tests too, in `ApplicationRules`, numbered in

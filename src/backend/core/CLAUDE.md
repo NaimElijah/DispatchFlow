@@ -20,14 +20,14 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   <module>/adapter/{in/web,in/job,in/listen,...,out/persistence,...}
   modules: access fleet orders planning liveops messaging reporting audit
   ```
-- Package size ([ADR-125], which amends ADR-118): the root's 20-file threshold counts Java files,
+- Package size ([ADR-125], which amends ADR-118): its 20-file threshold counts Java files,
   not `package-info.java`. A domain splits by aggregate over a root, `domain/`, that holds its error
   and shared values, then by concept; an application package splits by aggregate, then by a concept
   beneath it (`service/plan/edit`). Files the language binds (package-private access, a sealed
   hierarchy) or a dependency cycle holds stay together: never widen production visibility or add a
   cycle to split. The kernel's domain types and every `api`, `spi` and `events` package stay flat.
   Each new package carries `@NullMarked`. `DomainPackageRules` and `ApplicationRules` check the
-  cycles, the root imports and `@NullMarked`.
+  cycles, the root imports, `@NullMarked` and that the flat packages have no subpackage.
 - `src/test/java/com/dispatchflow/` holds the tests, `TestcontainersConfiguration` (PostgreSQL
   18.6 in a container) and `TestDispatchFlowApplication`, which `just core-run` starts.
 
