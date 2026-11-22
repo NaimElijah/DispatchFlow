@@ -253,7 +253,7 @@ configures Vitest. The configuration files (`vite.config.ts`, `tsconfig*.json`,
 
 ### `src/frontend/mobile`
 
-An Expo project. `index.ts` registers `App.tsx`, which renders a heading. `app.json`
+An Expo project. `src/index.ts` registers `src/App.tsx`, which renders a heading. `app.json`
 and `assets/` hold the Expo configuration and icons. `osv-scanner.toml` lists the vulnerabilities
 the audit ignores, each with a reason and an expiry date. The owner accepted the minimatch and glob
 entries in [ADR-023](../ADRs/ADR-023-accept-minimatch-and-glob-advisories.md), and the zod and
@@ -274,7 +274,7 @@ API client.
 | `optimizer` | `src/backend/optimizer/tests`, mirroring the package path | pytest |
 | `research` | `src/research/tests` | pytest |
 | `web` | next to the code, in `src/` (`App.test.tsx`) | Vitest, in jsdom |
-| `mobile` | next to the code (`App.test.tsx`) | Jest, through `jest-expo` |
+| `mobile` | next to the code, in `src/` (`App.test.tsx`) | Jest, through `jest-expo` |
 | End-to-end and load | `tests/e2e`, `tests/load` | No tool is configured yet |
 
 Unit and integration tests stay inside their component, where each tool looks for them. Root

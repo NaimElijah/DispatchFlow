@@ -6,7 +6,7 @@ Expo SDK 58, React Native 0.88, React 19, TypeScript 6.0, npm.
 
 ## Layout
 
-- `index.ts` registers `App.tsx`.
+- `src/index.ts`, which `package.json`'s `main` names, registers `src/App.tsx`.
 - `app.json` holds the Expo configuration (name "DispatchFlow", slug `dispatchflow-mobile`).
   `assets/` holds the icons and the splash image.
 
