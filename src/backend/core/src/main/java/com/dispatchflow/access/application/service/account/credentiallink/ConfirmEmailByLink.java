@@ -1,4 +1,4 @@
-package com.dispatchflow.access.application.service.account;
+package com.dispatchflow.access.application.service.account.credentiallink;
 
 import com.dispatchflow.access.application.port.out.EmailSender;
 import com.dispatchflow.access.application.port.out.PresentedToken;

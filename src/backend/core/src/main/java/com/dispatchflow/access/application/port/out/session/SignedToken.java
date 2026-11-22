@@ -1,4 +1,4 @@
-package com.dispatchflow.access.application.port.out;
+package com.dispatchflow.access.application.port.out.session;
 
 import com.dispatchflow.shared.PersonalData;
 import java.time.Instant;

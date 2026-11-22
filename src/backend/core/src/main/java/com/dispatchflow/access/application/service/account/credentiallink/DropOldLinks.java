@@ -1,4 +1,4 @@
-package com.dispatchflow.access.application.service.account;
+package com.dispatchflow.access.application.service.account.credentiallink;
 
 import com.dispatchflow.access.application.port.out.UserAccountRepository;
 import com.dispatchflow.audit.application.api.AuditLog;

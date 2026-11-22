@@ -1,4 +1,4 @@
-package com.dispatchflow.access.application.port.out;
+package com.dispatchflow.access.application.port.out.session;
 
 import com.dispatchflow.access.domain.AccountGeneration;
 import com.dispatchflow.access.domain.account.RoleSet;

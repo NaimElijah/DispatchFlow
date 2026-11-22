@@ -2,7 +2,7 @@ package com.dispatchflow.access.application.service.session;
 
 import com.dispatchflow.access.application.api.PushAddress;
 import com.dispatchflow.access.application.api.PushTargets;
-import com.dispatchflow.access.application.port.out.PushTokens;
+import com.dispatchflow.access.application.port.out.session.PushTokens;
 import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.shared.AccountId;

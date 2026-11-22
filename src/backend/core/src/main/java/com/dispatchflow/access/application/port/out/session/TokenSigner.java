@@ -1,4 +1,4 @@
-package com.dispatchflow.access.application.port.out;
+package com.dispatchflow.access.application.port.out.session;
 
 /**
  * Signs access tokens as ES256 JWTs with Nimbus JOSE + JWT (ADR-045, ADR-069, TS §6.4). The signing

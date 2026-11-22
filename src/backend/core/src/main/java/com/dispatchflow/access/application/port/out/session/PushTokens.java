@@ -1,4 +1,4 @@
-package com.dispatchflow.access.application.port.out;
+package com.dispatchflow.access.application.port.out.session;
 
 import com.dispatchflow.access.application.api.PushAddress;
 import com.dispatchflow.shared.AccountId;

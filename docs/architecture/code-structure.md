@@ -153,8 +153,8 @@ and so are the kernel's domain types and every `api`, `spi` and `events` package
 ([ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
 The 20-file threshold applies to every source folder, so an application package above it splits by
 aggregate too, and an aggregate's package by a concept beneath it: Planning's `service` and
-`port/out`, Access's `service`, Live Operations' `service` and `port/out`, and Customers & Orders'
-`service` and `port/out` are split. A test sits in the package of the type it tests, and a refusal
+`port/out`, Access's `service` and `port/out`, Live Operations' `service` and `port/out`, and
+Customers & Orders' `service` and `port/out` are split. A test sits in the package of the type it tests, and a refusal
 test may sit anywhere under its error's package.
 
 Each module also has an `application` package, declared ahead of its milestone and not built

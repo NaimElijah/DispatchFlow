@@ -1,7 +1,7 @@
 package com.dispatchflow.access.application.service.session;
 
 import com.dispatchflow.access.application.port.out.IssuedToken;
-import com.dispatchflow.access.application.port.out.SignedToken;
+import com.dispatchflow.access.application.port.out.session.SignedToken;
 import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.SessionId;
 import java.util.Objects;

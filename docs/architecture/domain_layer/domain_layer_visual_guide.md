@@ -1808,7 +1808,7 @@ pull request closes each one. The ones below are the ones a reader is most likel
 | Planning | A default solver of each kind in `PlanningSettings` | `planning/application/service/plan/RequestSolve.java` | M4 |
 | Planning | `SolveJob.succeed` and `fail` keep no objective and no stats, which NFR-11 records | `planning/application/port/out/solvejob/DailyAnswer.java`, `planning/application/service/solvejob/RunSolveJob.java` | M0 |
 | Planning | Retention periods in Planning's domain | `planning/application/service/EraseExpiredLocations.java` | M13 |
-| Access | `UserAccount.dropOldLinks`, and a method that voids every open link | `access/application/service/account/DropOldLinks.java`, `session/SecureAfterRestore.java` | M13 |
+| Access | `UserAccount.dropOldLinks`, and a method that voids every open link | `access/application/service/account/credentiallink/DropOldLinks.java`, `access/application/service/session/SecureAfterRestore.java` | M13 |
 | Access | `AccessError` codes for an unknown address and a wrong password, which the audit refusal needs (audit only: the answer stays one `SignInRefused`, NFR-145) | `access/application/service/session/SignIn.java` | M5 |
 | Messaging | `Rating.isLow()`; a key version on `PhoneHash` and an `OptOutRecord` factory that copies an entry under a new hash | `messaging/application/service/AlertLowRating.java`, `RehashOptOuts.java` | M12 |
 | Reporting | `PlannedFigures` has a plain `Distance`, so a plan with an untimed route can't say so | `reporting/application/port/out/PlannedVsActualView.java` | M5 |
