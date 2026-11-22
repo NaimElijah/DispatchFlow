@@ -1793,9 +1793,9 @@ pull request closes each one. The ones below are the ones a reader is most likel
 
 | Module | What is missing in the domain | Written in | Closed by |
 |---|---|---|---|
-| Orders | `Order.endPutBack`, and a put-back keeping the earlier attempt's date and window ([ADR-121](../../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md)) | `orders/application/service/EndSupersededPutBackService.java` | M8 |
-| Orders | A `Customer` method that changes the customer's fields; `Customer.activeDefaults()` | `orders/application/service/ChangeCustomer.java`, `PlaceOrder.java` | M2 |
-| Orders | A method that copies an order to another date | `orders/application/service/CopyOrdersFromDate.java` | the milestone that builds it |
+| Orders | `Order.endPutBack`, and a put-back keeping the earlier attempt's date and window ([ADR-121](../../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md)) | `orders/application/service/order/EndSupersededPutBackService.java` | M8 |
+| Orders | A `Customer` method that changes the customer's fields; `Customer.activeDefaults()` | `orders/application/service/customer/ChangeCustomer.java`, `order/PlaceOrder.java` | M2 |
+| Orders | A method that copies an order to another date | `orders/application/service/order/CopyOrdersFromDate.java` | the milestone that builds it |
 | Planning | A default solver of each kind in `PlanningSettings` | `planning/application/service/plan/RequestSolve.java` | M4 |
 | Planning | `SolveJob.succeed` and `fail` keep no objective and no stats, which NFR-11 records | `planning/application/port/out/solvejob/DailyAnswer.java`, `planning/application/service/solvejob/RunSolveJob.java` | M0 |
 | Planning | Retention periods in Planning's domain | `planning/application/service/EraseExpiredLocations.java` | M13 |

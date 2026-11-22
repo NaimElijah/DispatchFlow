@@ -5,7 +5,7 @@
  * com.dispatchflow.orders.application.port.out.ImportBatchRepository}), the {@link
  * com.dispatchflow.orders.application.port.out.Geocoder} and its outbox {@link
  * com.dispatchflow.orders.application.port.out.GeocodeRequests}, the road network's {@link
- * com.dispatchflow.orders.application.port.out.RoadSnap}, the {@link
+ * com.dispatchflow.orders.application.port.out.customer.RoadSnap}, the {@link
  * com.dispatchflow.orders.application.port.out.ServiceAreas}, and the read port {@link
  * com.dispatchflow.orders.application.port.out.OrdersViews} with the view records the queries
  * answer with.

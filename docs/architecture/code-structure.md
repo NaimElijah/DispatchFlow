@@ -147,13 +147,14 @@ concept packages, wherever a group of 4 files can move
 ([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md),
 [ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)): `access`,
 `fleet`, `liveops`, `messaging` and `planning` are split, `orders`, `audit` and `reporting` are flat,
-and so are the kernel's domain types and every `api`, `spi` and `events` package. `shared/application/` is a package
-of its own, beside them
+and so are the kernel's domain types and every `api`, `spi` and `events` package.
+`shared/application/` is a package of its own, beside them
 ([ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
 The 20-file threshold applies to every source folder, so an application package above it splits by
-aggregate too, and an aggregate's package by a concept beneath it: Planning's `service` and `port/out`, Access's `service`, and Live Operations'
-`service` and `port/out` are split. A test sits in the package of the type it tests, and a refusal test may sit
-anywhere under its error's package.
+aggregate too, and an aggregate's package by a concept beneath it: Planning's `service` and
+`port/out`, Access's `service`, Live Operations' `service` and `port/out`, and Customers & Orders'
+`service` and `port/out` are split. A test sits in the package of the type it tests, and a refusal
+test may sit anywhere under its error's package.
 
 Each module also has an `application` package, declared ahead of its milestone and not built
 ([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)).
