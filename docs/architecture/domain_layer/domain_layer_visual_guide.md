@@ -159,11 +159,13 @@ arrows (or to Access or Audit), and `audit/` imports no other module.
 | `reporting` | flat | 21 | none |
 
 "Domain files" counts `.java` files under `<module>/domain/`, not counting `package-info.java`.
-A package above 30 files splits by aggregate ([ADR-118](../../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)):
+A package above 20 files splits by aggregate, then by concept, wherever a group of 4 files can move
+([ADR-118](../../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md), [ADR-125](../../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)):
 the root `domain/` keeps the module's error type and what several packages use, and imports none of its
 subpackages. `orders` has 41 files and stays flat, because its types form a cycle (`OrderStatus`,
 `OrdersError` and `Order` name each other) and `ImportBatch` calls package-private methods of `Customer`
-and `Order`; ADR-118 records it. The kernel and every `events/` package stay flat by the same ADR.
+and `Order`; ADR-118 records it. The kernel and every `api/`, `spi/` and `events/` package stay flat
+(ADR-118, ADR-125).
 
 ### Every aggregate root
 

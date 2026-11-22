@@ -41,7 +41,7 @@ report findings.
 
 - **Correctness:** off-by-one, null and empty handling, wrong conditions, races, resource leaks, broken invariants.
 - **Error handling:** errors fail fast and loudly. Every catch handles, enriches or rethrows. Nothing is swallowed and nothing is caught broadly to silence it. Proper exception types are used, not sentinels.
-- **Layering in `core`** (ADR-001; the hexagon is [DL §13][DL-13]): each bounded context is one module. The package shape is in [TS §4][TS-4], [ADR-040] and [ADR-118]: a domain package of more than 30 files splits by aggregate, and each new package carries `@NullMarked`. The ArchUnit purity rules run in `just core-check` and must pass. Once adopted ([TS §2.2][TS-22]), Spring Modulith's `verify()` ([ADR-040], Accepted) must pass too.
+- **Layering in `core`** (ADR-001; the hexagon is [DL §13][DL-13]): each bounded context is one module. The package shape is in [TS §4][TS-4], [ADR-040], [ADR-118] and [ADR-125]: a package of more than 20 files splits wherever a group of 4 can move, a domain by aggregate, and each new package carries `@NullMarked`. The ArchUnit purity rules run in `just core-check` and must pass. Once adopted ([TS §2.2][TS-22]), Spring Modulith's `verify()` ([ADR-040], Accepted) must pass too.
   - A module is reached only through its `api`, `spi` and `events` named interfaces ([DL §2.3][DL-23]).
   - An upstream module never imports a downstream type: it owns a port that the downstream module implements ([DL §2.3][DL-23], rule 2).
   - `domain` obeys the six purity rules of [DL §3.9][DL-39].
@@ -103,6 +103,7 @@ No praise, and no restating what the code does. End with:
 [ADR-064]: ../../docs/ADRs/ADR-064-events-only-where-they-earn-their-place-through-the-modulith-registry.md
 [ADR-068]: ../../docs/ADRs/ADR-068-every-web-handler-is-authorized-by-role-from-the-contract.md
 [ADR-118]: ../../docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md
+[ADR-125]: ../../docs/ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md
 [ADR-120]: ../../docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md
 [TS]: ../../docs/architecture/tech_stack.md
 [TS-21]: ../../docs/architecture/tech_stack.md#21-the-dependency-rule

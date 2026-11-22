@@ -1,6 +1,6 @@
 # ADR-118: A domain package above 30 files splits into one package per aggregate, over a root that holds the module's error
 
-- **Status:** Accepted; amended by ADR-120
+- **Status:** Accepted; amended by ADR-120 and ADR-125
 - **Date:** 2026-11-15
 
 ## Context

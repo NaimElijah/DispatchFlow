@@ -25,7 +25,8 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-035](ADR-035-both-apps-serve-every-role.md) | Both apps serve Admins, Dispatchers and Drivers | Accepted; extended by ADR-076 and ADR-083; amended by ADR-037, ADR-039 and ADR-123 |
 | [ADR-036](ADR-036-one-account-per-person-signed-in-by-email.md) | Each person has one account, signed in with their email, holding one or more roles | Accepted; extended by ADR-069; amended by ADR-045 |
 | [ADR-040](ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md) | The core is a Spring Modulith monolith with one module per bounded context, checked in CI | Accepted; extended by ADR-097, ADR-118 and ADR-120 |
-| [ADR-118](ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md) | A domain package above 30 files splits into one package per aggregate, over a root that holds the module's error | Accepted; amended by ADR-120 |
+| [ADR-118](ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md) | A domain package above 30 files splits into one package per aggregate, over a root that holds the module's error | Accepted; amended by ADR-120 and ADR-125 |
+| [ADR-125](ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md) | A source folder above 20 files splits wherever a group of four files can move | Accepted |
 | [ADR-097](ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md) | The shared kernel also holds the building blocks every module's domain uses | Accepted; extended by ADR-106 and ADR-111 |
 | [ADR-106](ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md) | Free text is normalized and capped by one kernel rule, and personal values carry a marker | Accepted; extended by ADR-111 |
 | [ADR-111](ADR-111-attempt-is-a-shared-kernel-value-and-names-and-addresses-drop-invisible-fillers.md) | Attempt is a shared-kernel value, and names and addresses drop invisible fillers | Accepted |
@@ -150,5 +151,6 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > layer, and the split of its packages. ADR-119 to ADR-121, on 2026-11-15, record the
 > application layer's skeleton and its review. ADR-122, on 2026-11-18, drops the finish skill's agent
 > review. ADR-123, on 2026-11-22, drops ADR-037's flat tree and renames three components. ADR-124,
-> on 2026-11-22, cuts each `CLAUDE.md` to what a session would otherwise get wrong. The tech stack's
-> [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.
+> on 2026-11-22, cuts each `CLAUDE.md` to what a session would otherwise get wrong. ADR-125, on
+> 2026-11-22, splits a source folder above 20 files wherever four of its files can move. The tech
+> stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.

@@ -140,15 +140,17 @@ src/backend/core/
 The shared kernel exists
 ([ADR-097](../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md)), and so do the
 `domain` packages of `access`, `audit`, `fleet`, `liveops`, `messaging`, `orders`, `planning` and
-`reporting`, and the `events` packages of the six that raise events. A domain package of more than 30
-files splits into one package per aggregate, over a root that holds the module's error
-([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)): `access`,
+`reporting`, and the `events` packages of the six that raise events. A domain package of more than 20
+files splits into one package per aggregate, over a root that holds the module's error, then into
+concept packages, wherever a group of 4 files can move
+([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md),
+[ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)): `access`,
 `fleet`, `liveops`, `messaging` and `planning` are split, `orders`, `audit` and `reporting` are flat,
-and so are the kernel's domain types and every `events` package. `shared/application/` is a package
+and so are the kernel's domain types and every `api`, `spi` and `events` package. `shared/application/` is a package
 of its own, beside them
 ([ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
-The 30-file threshold applies to every source folder, so an application package above it splits by
-aggregate too: Planning's `service` and `port/out`, Access's `service`, and Live Operations'
+The 20-file threshold applies to every source folder, so an application package above it splits by
+aggregate too, and an aggregate's package by a concept beneath it: Planning's `service` and `port/out`, Access's `service`, and Live Operations'
 `service` and `port/out` are split. A test sits in the package of the type it tests, and a refusal test may sit
 anywhere under its error's package.
 

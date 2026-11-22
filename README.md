@@ -104,9 +104,10 @@ flowchart LR
   ([domain design](docs/architecture/domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts)).
   Each module's domain is built. Its application layer is declared, with bodies that throw
   ([ADR-119](docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md); the conventions are in
-  [ADR-120](docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)), and its adapters do not exist. A domain that passes
-  30 files splits into one package per aggregate
-  ([ADR-118](docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)).
+  [ADR-120](docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)), and its adapters do not exist. A folder that passes
+  20 files splits wherever four of its files can move, a domain by aggregate
+  ([ADR-118](docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md),
+  [ADR-125](docs/ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)).
 - **Optimizer** (`src/backend/optimizer`) turns a routing problem into routes. Every solver sits behind
   one `Solver` port and is chosen by name; every solution passes a shared feasibility validator
   before it leaves the service ([ADR-004](docs/ADRs/ADR-004-pluggable-solver-port.md)).
@@ -293,7 +294,7 @@ contract check's base branch, the zod and deepmerge advisories, and the root `CL
 to ADR-118 record decisions taken while the domain layer was built, reviewed and split into packages,
 ADR-119 and ADR-120 the declaration of the application layer, ADR-121 its review, ADR-122 the
 finish skill without an agent review, ADR-123 the grouped layout with three renamed components,
-and ADR-124 what a `CLAUDE.md` holds.
+ADR-124 what a `CLAUDE.md` holds, and ADR-125 when a folder splits into subfolders.
 
 ## Status and limitations
 

@@ -91,7 +91,7 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
   at the boundary; inside it, trust the types.
 - The formatter and linter are authoritative. Never disable a rule inline without a comment
   saying why.
-- A folder of more than 30 source files splits into subfolders of what belongs together ([ADR-118]);
+- A folder of more than 20 source files splits wherever a group of 4 or more can move ([ADR-125]);
   `src/backend/core/CLAUDE.md` has the Java rules.
 
 ## Testing
@@ -186,8 +186,8 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 [ADR-088]: ../docs/ADRs/ADR-088-israel-local-time-for-every-date-and-schedule.md
 [ADR-090]: ../docs/ADRs/ADR-090-scope-cuts-for-the-first-release.md
 [ADR-093]: ../docs/ADRs/ADR-093-the-implementation-plan-is-retired-and-a-roadmap-holds-the-dates.md
-[ADR-118]: ../docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md
 [ADR-122]: ../docs/ADRs/ADR-122-the-finish-skill-runs-no-agent-review.md
 [ADR-124]: ../docs/ADRs/ADR-124-a-claude-md-holds-only-what-a-session-would-otherwise-get-wrong.md
+[ADR-125]: ../docs/ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md
 [NFR-209]: ../docs/requirements/requirements.md#nfr-209
 [NFR-262]: ../docs/requirements/requirements.md#nfr-262

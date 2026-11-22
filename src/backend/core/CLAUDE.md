@@ -20,14 +20,14 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   <module>/adapter/{in/web,in/job,in/listen,...,out/persistence,...}
   modules: access fleet orders planning liveops messaging reporting audit
   ```
-- Package size ([ADR-118]): the root's 30-file threshold counts Java files, not `package-info.java`.
-  A module's domain splits into one package per aggregate, over a root, `domain/`, that holds its
-  error and shared values, and an application package splits by aggregate too. Files the language
-  binds stay together (package-private access, a sealed hierarchy), and so do files in a dependency
-  cycle. Never widen production visibility or add a package cycle to split. The kernel's domain
-  types and each `events` package stay flat. Each new package carries `@NullMarked` in its
-  `package-info.java`. `DomainPackageRules` and `ApplicationRules` check the cycles, the root
-  imports and `@NullMarked`.
+- Package size ([ADR-125], which amends ADR-118): the root's 20-file threshold counts Java files,
+  not `package-info.java`. A domain splits by aggregate over a root, `domain/`, that holds its error
+  and shared values, then by concept; an application package splits by aggregate, then by a concept
+  beneath it (`service/plan/edit`). Files the language binds (package-private access, a sealed
+  hierarchy) or a dependency cycle holds stay together: never widen production visibility or add a
+  cycle to split. The kernel's domain types and every `api`, `spi` and `events` package stay flat.
+  Each new package carries `@NullMarked`. `DomainPackageRules` and `ApplicationRules` check the
+  cycles, the root imports and `@NullMarked`.
 - `src/test/java/com/dispatchflow/` holds the tests, `TestcontainersConfiguration` (PostgreSQL
   18.6 in a container) and `TestDispatchFlowApplication`, which `just core-run` starts.
 
@@ -183,7 +183,7 @@ Run `just` recipes from the repository root, and `mvnw` from this folder (`.\mvn
 [ADR-097]: ../../../docs/ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md
 [ADR-106]: ../../../docs/ADRs/ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md
 [ADR-111]: ../../../docs/ADRs/ADR-111-attempt-is-a-shared-kernel-value-and-names-and-addresses-drop-invisible-fillers.md
-[ADR-118]: ../../../docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md
+[ADR-125]: ../../../docs/ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md
 [ADR-119]: ../../../docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md
 [ADR-120]: ../../../docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md
 [ADR-121]: ../../../docs/ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md
