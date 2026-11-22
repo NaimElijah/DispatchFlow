@@ -5,10 +5,12 @@
 
 ## Context
 
-[ADR-118] splits a Java package of more than 30 files: a domain by aggregate, and an application
-package by aggregate too. Its threshold binds every source folder. It keeps the shared kernel, each
-`events` package and `orders/domain` flat. On 2026-11-22 only one other folder was over 30, the
-ArchUnit `io` fixtures at 47 files, so a folder could still open onto 29 loose files.
+[ADR-118] splits a Java package of more than 30 files, a domain by aggregate, and its threshold
+binds every source folder. [ADR-120] decision 10 carries its rules to the application layer, where
+rule 7 keeps the `service` and `port.out` roots from importing their subpackages. ADR-118 keeps the
+shared kernel, each `events` package and `orders/domain` flat. On 2026-11-22 only one other folder
+was over 30, the ArchUnit `io` fixtures at 47 files, so a folder could still open onto 29 loose
+files.
 
 On 2026-11-22 the owner, Naim Elijah, asked that no folder open onto a long list of loose files,
 wherever its files can be grouped into subfolders.
@@ -60,7 +62,8 @@ They found:
 
 ## Decision
 
-This amends rules 1, 5 and 7 of [ADR-118]. The rest of ADR-118 stands.
+This amends rules 1, 5, 7 and 9 of [ADR-118], and its list of what stays flat, since Reporting's
+domain now splits. It extends [ADR-120] decision 10, rule 7. The rest of both stands.
 
 1. **The threshold.** A source folder of more than 20 files splits wherever a group of at least 4 of
    its files can move under ADR-118 and this ADR. A source folder is a Java or Python package, a
@@ -70,6 +73,11 @@ This amends rules 1, 5 and 7 of [ADR-118]. The rest of ADR-118 stands.
    - A group of fewer than 4 files stays where it is.
    - What is left in the folder may hold fewer than 4 files.
    - A package that is already split stays split.
+   - The count is taken once, on the folder before it splits, and every group that can move does,
+     even after earlier groups have brought the folder to 20 or fewer.
+   - In the domain, a group is an aggregate's package or a concept package (ADR-118 rules 3 to 5).
+     In the application, it is the use cases or the ports of one aggregate, or of one DL §17
+     concept beneath it.
 2. **Concept packages.** ADR-118 rule 5 applies to any domain package over 20 files, not only over
    30.
    - A concept package may hold two [DL §17][DL-17] concepts when one is the fact of the other.
@@ -78,9 +86,13 @@ This amends rules 1, 5 and 7 of [ADR-118]. The rest of ADR-118 stands.
    - One concept package may use another, one way, with no cycle: `liveops.domain.outcome` uses
      `liveops.domain.proof`, because a delivered outcome carries its proof. The rest of ADR-118
      rule 7 stands.
-3. **Inside an aggregate's application package.** The package may split by a concept beneath it, as
-   `<module>.application.<layer>.<aggregate>.<concept>`. It takes its name by ADR-118 rule 6, for
-   example `plan.edit` (from `Edit`, which has no §17 row) and `account.credentiallink`.
+3. **Inside an aggregate's application package.** Past 20 files, it splits by a concept beneath it,
+   as `<module>.application.<layer>.<aggregate>.<concept>`: `plan.edit`, `plan.route` and
+   `account.credentiallink`.
+   - An application package takes its name by ADR-118 rule 6, from the aggregate or the concept
+     whose use cases or ports it holds, not from a type it holds: `service.plan` holds no `Plan`,
+     and `plan.edit` is named for `Edit`, which has no §17 row. Where the §17 term is a Java
+     keyword, the class name serves: `importbatch`, for Import.
    - A package imports none of its own subpackages.
    - ApplicationRules rule 7 checks every application package that has subpackages, not only the
      `service` and `port.out` roots.
@@ -93,6 +105,13 @@ This amends rules 1, 5 and 7 of [ADR-118]. The rest of ADR-118 stands.
      Maven wrapper, `Dockerfile` and `.dockerignore`, and the dotfiles at the root;
    - `docs/ADRs`, which is not a source folder. It stays one folder, numbered, with
      `docs/ADRs/README.md` grouping the ADRs by topic (the owner's choice).
+
+   `DomainPackageRules.packagesBelowAFlatOne` fails the build on a package below a module's `api`,
+   `spi` or `events`, or below the kernel other than `shared.application`.
+5. **Source apart from configuration.** A frontend app keeps its source in `src/`, beside the
+   configuration its tools read at the app's root, whatever the root's size. The web app already
+   did. The phone app's `index.ts`, `App.tsx` and `App.test.tsx` move there, and its 10 other files
+   stay. The owner chose this with the split.
 
 Applied now, this splits:
 
@@ -111,7 +130,6 @@ Applied now, this splits:
 | `reporting.domain` | 21 | `baseline` 11; 10 stay |
 | The `io` ArchUnit fixtures | 47 | by the kind of API each exercises: `locale` 14, `thread` 13, `classpath` 8, `process` 8; 4 stay |
 | The `error` ArchUnit fixtures | 25 | `text` 8, `personalvalue` 10; 7 stay |
-| `src/frontend/mobile` | 13 | `index.ts`, `App.tsx` and `App.test.tsx` into `src/`, as in the web app; 10 configuration files stay |
 
 The tests of a moved type move with it (ADR-118 rule 10).
 
@@ -123,7 +141,7 @@ These stay flat:
 - **The kernel (38)**, and its tests (21).
 - **Groups under 4:** Orders' ports for `order` (3) and `importbatch` (2), Access's ports for
   `account` (3), and Solution's withdrawn-vehicle values (2).
-- **Folders of 20 or fewer:** every other folder, the optimizer's `domain` (16) among them.
+- **Folders of 20 or fewer:** every other folder, the optimizer's `domain` (15) among them.
 
 ## Consequences
 
@@ -133,9 +151,12 @@ These stay flat:
   several use it.
 - **Hard:** the tree is deeper, and a type moves when its users change, as under ADR-118.
 - **Hard:** a group of 3 next to a folder of 21 stays, so a few folders remain just over 20.
+- **Hard:** the ArchUnit rules read bytecode. They catch a cycle, a root that imports its
+  subpackage and a package below a flat one, but not an import that only Javadoc uses, nor a
+  concept package that uses its aggregate package without a cycle. Review checks those.
 - **Cost:** about 110 production files, 61 fixtures and 3 frontend files move, with the tests of the
-  moved types. One ArchUnit rule is widened. The documents that name the moved paths change with
-  them.
+  moved types. One ArchUnit rule is widened, and a guard keeps the flat packages flat. The documents
+  that name the moved paths change with them.
 - **Risk:** a branch open during the move conflicts on imports, and a file it adds lands in the old
   package. Each module moves in its own commit, with nothing in it but the move and the paths that
   name it.
@@ -145,7 +166,7 @@ These stay flat:
 - **Keep ADR-118's 30.** Rejected: folders of 21 to 30 loose files, against the owner's request.
 - **A threshold of 15.** Rejected by the owner. It adds groups of 3 to 4 files to folders that
   already read well, such as Access's `role` values and Messaging's services, and splits the
-  optimizer's 16-file `domain`.
+  optimizer's 16-file `tests/domain`.
 - **Every aggregate gets its subpackage, however small,** as Planning's one-file
   `port.out.proposal` does. Rejected: it makes folders of 2 and 3 files.
 - **Split the `api` packages.** Rejected: DL §2.3 makes a module's contract three packages, and
@@ -162,14 +183,16 @@ These stay flat:
 
 - M0 decides how Spring Modulith exposes `shared`, or whether a named interface covers its
   subpackages. Then reconsider the kernel's IDs and the `api` packages.
-- DL §9.6 drops the `OrderStatus.derive(Order, …)` overload. ADR-118's trigger for Customers & Orders
-  stands.
-- A folder this ADR leaves over 20, such as `planning.domain.plan`, passes 30 with no group of 4 free.
+- DL §9.6 drops the `OrderStatus.derive(Order, …)` overload. ADR-118's trigger for Customers &
+  Orders stands.
+- A folder this ADR leaves over 20, such as `planning.domain.plan`, passes 30 with no group of 4
+  free.
 - A published package passes 20 files.
 - The team finds 20 wrong in practice.
 
 [ADR-040]: ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md
 [ADR-118]: ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md
+[ADR-120]: ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md
 [ADR-123]: ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md
 [DL-17]: ../architecture/domain_layer/domain_layer_design.md#17-ubiquitous-language
 [DL-23]: ../architecture/domain_layer/domain_layer_design.md#23-rules-between-contexts

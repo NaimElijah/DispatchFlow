@@ -103,8 +103,8 @@ No praise, and no restating what the code does. End with:
 [ADR-064]: ../../docs/ADRs/ADR-064-events-only-where-they-earn-their-place-through-the-modulith-registry.md
 [ADR-068]: ../../docs/ADRs/ADR-068-every-web-handler-is-authorized-by-role-from-the-contract.md
 [ADR-118]: ../../docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md
-[ADR-125]: ../../docs/ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md
 [ADR-120]: ../../docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md
+[ADR-125]: ../../docs/ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md
 [TS]: ../../docs/architecture/tech_stack.md
 [TS-21]: ../../docs/architecture/tech_stack.md#21-the-dependency-rule
 [TS-22]: ../../docs/architecture/tech_stack.md#22-enforcement

@@ -9,8 +9,9 @@ import java.util.List;
 /**
  * The geocoding outbox (FR-12, FR-64, DL §6.1 point 2, DL §12): a use case that registers a
  * customer or changes its address writes a request in its own transaction, and the geocoding job
- * calls the {@link Geocoder} and {@link com.dispatchflow.orders.application.port.out.customer.RoadSnap} for each request outside any transaction. So a
- * provider that is down never stops a customer being saved (FR-64).
+ * calls the {@link Geocoder} and {@link
+ * com.dispatchflow.orders.application.port.out.customer.RoadSnap} for each request outside any
+ * transaction. So a provider that is down never stops a customer being saved (FR-64).
  *
  * <p>Built in M7.
  */

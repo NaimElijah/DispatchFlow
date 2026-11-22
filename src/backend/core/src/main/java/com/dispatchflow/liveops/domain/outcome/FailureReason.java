@@ -1,7 +1,6 @@
 package com.dispatchflow.liveops.domain.outcome;
 
 import com.dispatchflow.liveops.domain.LiveOpsError.FailureReasonRequired;
-import com.dispatchflow.liveops.domain.delivery.RetentionPeriods;
 import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.PlainText;
 import com.dispatchflow.shared.RuleViolation;
@@ -16,8 +15,8 @@ import org.jspecify.annotations.Nullable;
 /**
  * Why a stop failed: one of BR-109's six fixed reasons, where *other* carries its text (FR-242,
  * FR-73). The text can say anything about a person, so it is personal data: {@link #toString()}
- * hides it, and no error or event carries it. Retention erases the text after {@link
- * RetentionPeriods#REASONS} and keeps the kind, so an erased *other* has no text (NFR-31,
+ * hides it, and no error or event carries it. Retention erases the text after {@code
+ * RetentionPeriods.REASONS} and keeps the kind, so an erased *other* has no text (NFR-31,
  * ADR-107).
  */
 public final class FailureReason implements PersonalData {
