@@ -148,7 +148,7 @@ class ApplicationTest {
     }
 
     @Test
-    void GivenTheProductionClasses_WhenRule7ChecksTheRoots_ThenNoApplicationPackageUsesItsSubpackages() {
+    void GivenTheProductionClasses_WhenRule7ChecksEachApplicationPackage_ThenNoneUsesItsSubpackages() {
         ApplicationRules.applicationPackagesUseNoSubpackage(ROOT).check(ProductionClasses.ALL);
     }
 

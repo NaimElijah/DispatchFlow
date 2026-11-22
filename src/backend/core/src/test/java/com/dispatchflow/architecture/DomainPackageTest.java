@@ -2,6 +2,7 @@ package com.dispatchflow.architecture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.library.dependencies.Slices;
 import java.util.List;
 import java.util.Map;
@@ -90,5 +91,16 @@ class DomainPackageTest {
     void GivenTheProductionClasses_WhenTheNullMarkedGuardChecks_ThenEveryKernelDomainAndEventsPackageCarriesIt() {
         assertThat(DomainPackageRules.packagesNotNullMarked(ROOT, ProductionClasses.ALL))
                 .isEmpty();
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenTheFlatGuardChecks_ThenNoPackageLiesBelowAnApiAnSpiAnEventsOrTheKernel() {
+        List<String> packages = ProductionClasses.ALL.stream()
+                .map(JavaClass::getPackageName)
+                .distinct()
+                .toList();
+
+        assertThat(packages).contains(ROOT + ".planning.application.api", ROOT + ".planning.events");
+        assertThat(DomainPackageRules.packagesBelowAFlatOne(ROOT, packages)).isEmpty();
     }
 }

@@ -393,8 +393,8 @@ final class ApplicationRules {
     }
 
     /**
-     * Rule 7, for the roots: no class in a module's application uses a class in a package under its
-     * own. This covers the {@code service} and {@code port.out} roots, and an aggregate's package
+     * Rule 7, for each package: no class in a module's application uses a class in a package under
+     * its own. This covers the {@code service} and {@code port.out} roots, and an aggregate's package
      * that has a concept package beneath it, such as {@code service.plan} over {@code
      * service.plan.edit} (ADR-125). The cycle rule can't see this when the subpackage never names the
      * package above it, and rule 1 lets any class reach its own module's application.

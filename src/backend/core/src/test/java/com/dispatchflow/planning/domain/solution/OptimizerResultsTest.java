@@ -6,7 +6,6 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.V1;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.V2;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.V3;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.at;
-import static com.dispatchflow.planning.domain.plan.PlanningFixtures.dayAt;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.routePlan;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.solved;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.uuid;
@@ -15,7 +14,6 @@ import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dispatchflow.planning.domain.PlanningError.SolutionRejected;
-import com.dispatchflow.planning.domain.drop.DropReason;
 import com.dispatchflow.planning.domain.drop.ExcludedVehicle;
 import com.dispatchflow.planning.domain.drop.ExclusionCause;
 import com.dispatchflow.shared.RouteId;
@@ -63,14 +61,6 @@ class OptimizerResultsTest {
         assertThat(evaluation.breaksShift(other)).isFalse();
         assertThat(evaluation.returnOf(ROUTE)).contains(at(60_000));
         assertThat(evaluation.returnOf(other)).isEmpty();
-    }
-
-    @Test
-    void GivenALateShift_WhenADropsEarliestReturnPassesTheDay_ThenItKeepsTheSecondsFromTheDaysStart() {
-        DropReason.Shift shift = new DropReason.Shift(dayAt(84_600), at(88_200));
-
-        assertThat(shift.earliestReturn().seconds()).isEqualTo(88_200);
-        assertThat(shift.earliestReturn().pastTheDay()).isTrue();
     }
 
     @Test

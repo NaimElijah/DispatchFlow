@@ -44,4 +44,12 @@ class DropReasonTest {
                     .isEqualTo(locationReasons.contains(variant));
         }
     }
+
+    @Test
+    void GivenALateShift_WhenADropsEarliestReturnPassesTheDay_ThenItKeepsTheSecondsFromTheDaysStart() {
+        DropReason.Shift shift = new DropReason.Shift(dayAt(84_600), at(88_200));
+
+        assertThat(shift.earliestReturn().seconds()).isEqualTo(88_200);
+        assertThat(shift.earliestReturn().pastTheDay()).isTrue();
+    }
 }

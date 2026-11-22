@@ -56,6 +56,7 @@ import com.dispatchflow.archfixture.zeta.upper.application.service.ServiceRootUs
 import com.dispatchflow.archfixture.zeta.upper.application.service.UpperUseCase;
 import com.dispatchflow.archfixture.zeta.upper.application.service.looped.LoopedUseCase;
 import com.dispatchflow.archfixture.zeta.upper.application.service.nested.NestedPackageUsingASubpackage;
+import com.dispatchflow.archfixture.zeta.upper.application.service.upward.UsesTheServiceRoot;
 import com.dispatchflow.archfixture.zeta.upper.application.service.used.UsedByTheServiceRoot;
 import com.dispatchflow.archfixture.zeta.web.ZetaWebHandler;
 import com.tngtech.archunit.core.domain.JavaClass;
@@ -483,6 +484,7 @@ class ApplicationRulesTest {
                         ROOT + ".upper.application.service.looped",
                         ROOT + ".upper.application.service.nested",
                         ROOT + ".upper.application.service.nested.below",
+                        ROOT + ".upper.application.service.upward",
                         ROOT + ".upper.application.service.used");
     }
 
@@ -539,7 +541,8 @@ class ApplicationRulesTest {
     }
 
     @Test
-    void GivenTheZetaFixtures_WhenRule7ChecksTheRoots_ThenExactlyThePackagesUsingTheirOwnSubpackageAreFlagged() {
+    void
+            GivenTheZetaFixtures_WhenRule7ChecksEachApplicationPackage_ThenExactlyThoseUsingTheirOwnSubpackageAreFlagged() {
         assertThat(violators(ApplicationRules.applicationPackagesUseNoSubpackage(ROOT), zeta()))
                 .containsExactlyInAnyOrder(namesOf(
                         ServiceRootUsingASubpackage.class,
@@ -548,10 +551,12 @@ class ApplicationRulesTest {
     }
 
     @Test
-    void GivenRootsThatUseOnlyTheirOwnPackageAndOtherLayers_WhenRule7ChecksTheRoots_ThenNothingIsFlagged() {
+    void
+            GivenPackagesUsingThemselvesThePackageAboveOrOtherLayers_WhenRule7ChecksEachApplicationPackage_ThenNothingIsFlagged() {
         assertThat(violators(
                         ApplicationRules.applicationPackagesUseNoSubpackage(ROOT),
-                        FixtureClasses.only(UpperUseCase.class, UpperRecords.class, LoopedUseCase.class)))
+                        FixtureClasses.only(
+                                UpperUseCase.class, UpperRecords.class, LoopedUseCase.class, UsesTheServiceRoot.class)))
                 .isEmpty();
     }
 
