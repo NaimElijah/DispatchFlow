@@ -27,7 +27,7 @@ public interface PositionLog {
     List<KeptPosition> lastTwo(RouteId route);
 
     /**
-     * Deletes every position received before a cutoff (NFR-31, ADR-075).
+     * Deletes every position received at or before the cutoff (NFR-31, ADR-075).
      *
      * @param cutoff the cutoff, from {@code RetentionPeriods.positionCutoff}
      * @return how many positions were deleted

@@ -40,18 +40,18 @@ import com.dispatchflow.liveops.domain.CancellationKind;
 import com.dispatchflow.liveops.domain.CorrectedTime;
 import com.dispatchflow.liveops.domain.DriverReport;
 import com.dispatchflow.liveops.domain.HeldReportId;
-import com.dispatchflow.liveops.domain.delivery.ArrivalRecord;
 import com.dispatchflow.liveops.domain.delivery.Delivery;
-import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot;
+import com.dispatchflow.liveops.domain.delivery.DeliveryDescription;
 import com.dispatchflow.liveops.domain.delivery.DeliveryStatus;
-import com.dispatchflow.liveops.domain.delivery.HeldReport;
-import com.dispatchflow.liveops.domain.delivery.HeldState;
 import com.dispatchflow.liveops.domain.delivery.HoldCheck;
 import com.dispatchflow.liveops.domain.delivery.LaterAttempt;
 import com.dispatchflow.liveops.domain.delivery.LeaveAtDoor;
-import com.dispatchflow.liveops.domain.delivery.Origin;
-import com.dispatchflow.liveops.domain.delivery.OutcomeRecord;
 import com.dispatchflow.liveops.domain.delivery.StopWhereabouts;
+import com.dispatchflow.liveops.domain.delivery.history.ArrivalRecord;
+import com.dispatchflow.liveops.domain.delivery.history.HeldReport;
+import com.dispatchflow.liveops.domain.delivery.history.HeldState;
+import com.dispatchflow.liveops.domain.delivery.history.Origin;
+import com.dispatchflow.liveops.domain.delivery.history.OutcomeRecord;
 import com.dispatchflow.liveops.domain.outcome.DispatcherOutcome;
 import com.dispatchflow.liveops.domain.outcome.FailureReason;
 import com.dispatchflow.liveops.domain.outcome.Outcome;
@@ -109,7 +109,7 @@ class DeliveryPersistenceIT {
     @Autowired
     private RecordedEvents events;
 
-    // --- round trips (ADR-127 decision 1), mirroring the domain's restore round trips
+    // --- round trips (ADR-127 decision 1)
 
     /** The states a delivery stores and loads in, reached through commands. */
     enum Scenario {
@@ -128,13 +128,16 @@ class DeliveryPersistenceIT {
         OVERTAKEN_ON_THE_CURRENT_ROUTE,
         ON_BEHALF,
         SERVED_AFTER_CANCELLATION,
-        ERASED
+        ERASED,
+        DELIVERED_THEN_CORRECTED_TO_THE_DOOR,
+        OTHER_REASON_CORRECTED_TO_ANOTHER_TEXT,
+        REASONS_ERASED
     }
 
     @ParameterizedTest
     @EnumSource(Scenario.class)
     void GivenADelivery_WhenAddedAndLoadedInAnotherTransaction_ThenEveryPartComesBackAsAdded(Scenario scenario) {
-        int n = 1 + scenario.ordinal();
+        int n = 50 + scenario.ordinal();
         Delivery added = transactions.inTransaction(() -> {
             Delivery delivery = switch (scenario) {
                 case FRESH -> fresh(n);
@@ -165,6 +168,24 @@ class DeliveryPersistenceIT {
                     erased.eraseExpired(NINETY_DAYS_AFTER_NOW);
                     yield erased;
                 }
+                case DELIVERED_THEN_CORRECTED_TO_THE_DOOR -> {
+                    Delivery corrected = delivered(n);
+                    corrected.correct(
+                            new DispatcherOutcome.Delivered(true),
+                            TYPO,
+                            Optional.empty(),
+                            DISPATCHER,
+                            new LaterAttempt.None(),
+                            LeaveAtDoor.ALLOWED,
+                            LATER);
+                    yield corrected;
+                }
+                case OTHER_REASON_CORRECTED_TO_ANOTHER_TEXT -> correctedToAnotherText(n);
+                case REASONS_ERASED -> {
+                    Delivery erased = correctedToAnotherText(n);
+                    erased.eraseExpired(NINETY_DAYS_AFTER_NOW.plus(Duration.ofHours(1)));
+                    yield erased;
+                }
             };
             repository.add(delivery);
             return delivery;
@@ -173,7 +194,7 @@ class DeliveryPersistenceIT {
         Delivery loaded =
                 transactions.inTransaction(() -> repository.get(stop(n)).orElseThrow());
 
-        assertThat(loaded.snapshot()).isEqualTo(added.snapshot());
+        assertThat(DeliveryDescription.of(loaded)).isEqualTo(DeliveryDescription.of(added));
         assertThat(loaded.stop()).isEqualTo(stop(n));
         assertThat(loaded.status()).isEqualTo(added.status());
         assertThat(loaded.effectiveOutcome()).isEqualTo(added.effectiveOutcome());
@@ -339,9 +360,9 @@ class DeliveryPersistenceIT {
         Delivery loaded =
                 transactions.inTransaction(() -> repository.get(stop(n)).orElseThrow());
 
-        assertThat(loaded.snapshot())
-                .isEqualTo(
-                        new DeliverySnapshot(stop(n), order(n), FIRST, Version.of(0), arrival, outcomes, heldReports));
+        assertThat(DeliveryDescription.of(loaded))
+                .isEqualTo(new DeliveryDescription(stop(n), order(n), FIRST, arrival, outcomes, heldReports));
+        assertThat(loaded.version()).isEqualTo(Version.of(0));
     }
 
     /** Builds a delivery for stop {@code s} through its commands. */
@@ -462,8 +483,8 @@ class DeliveryPersistenceIT {
                 .filter(delivery -> delivery.stop().equals(stop(100 + n)))
                 .findFirst()
                 .orElseThrow();
-        assertThat(heldOne.snapshot().heldReports()).hasSize(1);
-        assertThat(corrected.snapshot().outcomes()).hasSize(2);
+        assertThat(heldOne.heldReports()).hasSize(1);
+        assertThat(corrected.outcomes()).hasSize(2);
     }
 
     @Test
@@ -482,7 +503,7 @@ class DeliveryPersistenceIT {
         Optional<Delivery> otherOrder = transactions.inTransaction(() -> repository.ofAttempt(order(100 + n), FIRST));
 
         assertThat(first).map(Delivery::stop).contains(stop(n));
-        assertThat(first.orElseThrow().snapshot().heldReports()).hasSize(1);
+        assertThat(first.orElseThrow().heldReports()).hasSize(1);
         assertThat(second).isEmpty();
         assertThat(otherOrder).isEmpty();
     }
@@ -542,7 +563,7 @@ class DeliveryPersistenceIT {
         assertThat(stated.proof()).map(Proof::isErased).contains(true);
     }
 
-    // --- the load check (ADR-127 decision 1), mirroring the domain's damaged snapshots
+    // --- the load check (ADR-127 decision 1): one case per invariant at rest
 
     static Stream<Arguments> damagedRows() {
         String original = "the first outcome is the original and every later one a correction (FR-333)";
@@ -819,6 +840,20 @@ class DeliveryPersistenceIT {
     private static Delivery failedForAnotherReason(int s, CorrectedTime time) {
         Delivery delivery = fresh(s);
         delivery.fail(byA(time), FailureReason.other("gate locked"), ON_ROUTE, NO_HOLD, held(s, 1), NOW);
+        return delivery;
+    }
+
+    /** Failed for another reason, then corrected to another text of it (FR-333). */
+    private static Delivery correctedToAnotherText(int s) {
+        Delivery delivery = failedForAnotherReason(s, ONLINE);
+        delivery.correct(
+                new DispatcherOutcome.Failed(FailureReason.other("dog in the yard")),
+                TYPO,
+                Optional.empty(),
+                DISPATCHER,
+                new LaterAttempt.None(),
+                LeaveAtDoor.NOT_ALLOWED,
+                NOW);
         return delivery;
     }
 

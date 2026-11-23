@@ -13,8 +13,8 @@ import com.dispatchflow.Transactions;
 import com.dispatchflow.liveops.application.port.out.AlertRepository;
 import com.dispatchflow.liveops.domain.HeldReportId;
 import com.dispatchflow.liveops.domain.alert.Alert;
+import com.dispatchflow.liveops.domain.alert.AlertDescription;
 import com.dispatchflow.liveops.domain.alert.AlertKind;
-import com.dispatchflow.liveops.domain.alert.AlertSnapshot;
 import com.dispatchflow.liveops.domain.alert.AlertState;
 import com.dispatchflow.liveops.domain.alert.AlertSubject;
 import com.dispatchflow.liveops.domain.alert.DriverProblem;
@@ -65,7 +65,7 @@ class AlertPersistenceIT {
     @Autowired
     private JdbcClient jdbc;
 
-    // --- round trips (ADR-127 decision 1), mirroring the domain's restore round trips
+    // --- round trips (ADR-127 decision 1)
 
     @ParameterizedTest
     @EnumSource(AlertKind.class)
@@ -78,8 +78,7 @@ class AlertPersistenceIT {
         Alert loaded = transactions.inTransaction(() -> repository.get(alert(n)).orElseThrow());
 
         // The subject raised, not the added instance's, which keeps whatever its columns kept.
-        assertThat(loaded.snapshot())
-                .isEqualTo(new AlertSnapshot(alert(n), Version.of(0), subjectOf(kind, n), NOW, OPEN));
+        assertThat(AlertDescription.of(loaded)).isEqualTo(written(n, subjectOf(kind, n), OPEN));
         assertThat(loaded.id()).isEqualTo(alert(n));
         assertThat(loaded.kind()).isEqualTo(kind);
         assertThat(loaded.dedupeKey()).isEqualTo(subjectOf(kind, n).dedupeKey(alert(n)));
@@ -96,10 +95,9 @@ class AlertPersistenceIT {
         transactions.inTransaction(
                 () -> repository.addUnlessKeyTaken(Alert.raise(alert(n), noRouteLeft, NOW), dateOf(n)));
 
-        assertThat(transactions
-                        .inTransaction(() -> repository.get(alert(n)).orElseThrow())
-                        .snapshot())
-                .isEqualTo(new AlertSnapshot(alert(n), Version.of(0), noRouteLeft, NOW, OPEN));
+        assertThat(AlertDescription.of(transactions.inTransaction(
+                        () -> repository.get(alert(n)).orElseThrow())))
+                .isEqualTo(written(n, noRouteLeft, OPEN));
     }
 
     @Test
@@ -114,13 +112,12 @@ class AlertPersistenceIT {
 
         Alert loaded = transactions.inTransaction(() -> repository.get(alert(n)).orElseThrow());
 
-        assertThat(loaded.snapshot())
-                .isEqualTo(new AlertSnapshot(
-                        alert(n),
-                        Version.of(1),
+        assertThat(AlertDescription.of(loaded))
+                .isEqualTo(written(
+                        n,
                         new AlertSubject.StopFailed(plan(n), route(n), stop(n)),
-                        NOW,
                         new AlertState.Acknowledged(DISPATCHER, LATER)));
+        assertThat(loaded.version()).isEqualTo(Version.of(1));
         assertThat(loaded.isOpen()).isFalse();
     }
 
@@ -317,6 +314,11 @@ class AlertPersistenceIT {
             case ROUTE_FINISHED_WITH_PENDING_STOPS -> new AlertSubject.RouteFinishedWithPendingStops(plan(n), route(n));
             case LOW_RATING -> new AlertSubject.LowRating(plan(n), stop(n), ratingRequest(n));
         };
+    }
+
+    /** What alert {@code a}, raised at {@code NOW}, must load as: written out, not read back. */
+    private static AlertDescription written(int a, AlertSubject subject, AlertState state) {
+        return new AlertDescription(alert(a), subject.kind(), subject, subject.dedupeKey(alert(a)), NOW, state);
     }
 
     /** Alert {@code a}, about stop {@code s} failing: its key is the stop's. */

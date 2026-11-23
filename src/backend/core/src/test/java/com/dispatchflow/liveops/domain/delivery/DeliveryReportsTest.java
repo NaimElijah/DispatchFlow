@@ -29,13 +29,16 @@ import static com.dispatchflow.liveops.domain.LiveOpsFixtures.T_0800;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.aDelivery;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.byA;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.byC;
-import static com.dispatchflow.liveops.domain.LiveOpsFixtures.reload;
+import static com.dispatchflow.shared.AsSaved.asSaved;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.groups.Tuple.tuple;
 
 import com.dispatchflow.liveops.domain.CancellationKind;
 import com.dispatchflow.liveops.domain.DriverReport;
 import com.dispatchflow.liveops.domain.LiveOpsFixtures;
+import com.dispatchflow.liveops.domain.delivery.history.HeldReport;
+import com.dispatchflow.liveops.domain.delivery.history.HeldState;
+import com.dispatchflow.liveops.domain.delivery.history.Origin;
 import com.dispatchflow.liveops.domain.outcome.DispatcherOutcome;
 import com.dispatchflow.liveops.domain.outcome.FailureReason;
 import com.dispatchflow.liveops.domain.outcome.Outcome;
@@ -115,7 +118,7 @@ class DeliveryReportsTest {
                 .isInstanceOfSatisfying(
                         OutcomeRecorded.class,
                         recorded -> assertThat(recorded.leftAtDoor()).isTrue());
-        Delivery reloaded = reload(delivery);
+        Delivery reloaded = asSaved(delivery);
 
         reloaded.correct(
                 new DispatcherOutcome.Failed(ABSENT),
@@ -160,7 +163,7 @@ class DeliveryReportsTest {
                         NOW,
                         true,
                         DISPATCHER));
-        assertThat(delivery.snapshot().outcomes().get(0).origin()).isEqualTo(new Origin.OnBehalf(ROUTE_A));
+        assertThat(delivery.outcomes().get(0).origin()).isEqualTo(new Origin.OnBehalf(ROUTE_A));
     }
 
     @Test
@@ -209,7 +212,7 @@ class DeliveryReportsTest {
 
         delivery.fail(byA(LATE), ABSENT, ON_ROUTE, HoldCheck.of(cancelled, List.of()), HELD_1, NOW);
 
-        assertThat(delivery.snapshot().outcomes().get(0).origin())
+        assertThat(delivery.outcomes().get(0).origin())
                 .isEqualTo(new Origin.Reported(ROUTE_A, REV_1, LATE, Optional.of(CancellationKind.ORDER_RESCHEDULED)));
     }
 
@@ -228,7 +231,7 @@ class DeliveryReportsTest {
                 NOW);
 
         assertThat(answer).isEqualTo(new ReportAnswer.Held(HELD_1));
-        assertThat(delivery.snapshot().heldReports().get(0).overrides()).contains(CancellationKind.PLAN_CANCELLED);
+        assertThat(delivery.heldReports().get(0).overrides()).contains(CancellationKind.PLAN_CANCELLED);
     }
 
     @Test
@@ -254,20 +257,20 @@ class DeliveryReportsTest {
         ReportAnswer answer = delivery.fail(byC(LATE), ABSENT, ON_ROUTE_C, NOW_ON_A_NO_CONTACT, HELD_2, NOW);
 
         assertThat(answer).isEqualTo(new ReportAnswer.Held(HELD_2));
-        assertThat(delivery.snapshot().heldReports()).extracting(HeldReport::id).containsExactly(HELD_1, HELD_2);
+        assertThat(delivery.heldReports()).extracting(HeldReport::id).containsExactly(HELD_1, HELD_2);
     }
 
     @Test
     void GivenTwoHeldReports_WhenTheStopsCurrentDriverDelivers_ThenBothAreOvertakenAndTheOutcomeStands() {
         Delivery delivery = aDelivery().held();
         DeliveryReportsTest.holdAnother(delivery);
-        Delivery reloaded = reload(delivery);
+        Delivery reloaded = asSaved(delivery);
 
         ReportAnswer answer = reloaded.deliver(
                 byA(ONLINE), Optional.of(SIGNATURE), false, LeaveAtDoor.NOT_ALLOWED, ON_ROUTE, NO_HOLD, HELD_3, LATER);
 
         assertThat(answer).isEqualTo(new ReportAnswer.Recorded(List.of(HELD_1, HELD_2)));
-        assertThat(reloaded.snapshot().heldReports())
+        assertThat(reloaded.heldReports())
                 .extracting(HeldReport::state)
                 .containsExactly(new HeldState.Overtaken(LATER), new HeldState.Overtaken(LATER));
         assertThat(reloaded.status()).isEqualTo(DeliveryStatus.DELIVERED);
@@ -277,14 +280,14 @@ class DeliveryReportsTest {
     void GivenTwoHeldReports_WhenOneIsConfirmed_ThenItIsTheOutcomeAndTheOtherIsOvertaken() {
         Delivery delivery = aDelivery().held();
         DeliveryReportsTest.holdAnother(delivery);
-        Delivery reloaded = reload(delivery);
+        Delivery reloaded = asSaved(delivery);
 
         ReportAnswer answer = reloaded.confirmHeld(HELD_2, DISPATCHER, LATER);
 
         assertThat(answer).isEqualTo(new ReportAnswer.Recorded(List.of(HELD_1)));
         assertThat(reloaded.status()).isEqualTo(DeliveryStatus.FAILED);
         assertThat(reloaded.outcomeTime()).contains(T_0800);
-        assertThat(reloaded.snapshot().heldReports())
+        assertThat(reloaded.heldReports())
                 .extracting(HeldReport::state)
                 .containsExactly(new HeldState.Overtaken(LATER), new HeldState.Confirmed(DISPATCHER, LATER));
         assertThat(reloaded.pendingEvents())
@@ -306,12 +309,12 @@ class DeliveryReportsTest {
     void GivenTwoHeldReports_WhenOneIsRefused_ThenTheStopStaysHeld() {
         Delivery delivery = aDelivery().held();
         DeliveryReportsTest.holdAnother(delivery);
-        Delivery reloaded = reload(delivery);
+        Delivery reloaded = asSaved(delivery);
 
         reloaded.refuseHeld(HELD_1, DISPATCHER, LATER);
 
         assertThat(reloaded.status()).isEqualTo(DeliveryStatus.HELD);
-        assertThat(reloaded.snapshot().heldReports().get(0).state())
+        assertThat(reloaded.heldReports().get(0).state())
                 .isEqualTo(new HeldState.RefusedByDispatcher(DISPATCHER, LATER));
         assertThat(reloaded.pendingEvents()).isEmpty();
     }
@@ -324,7 +327,7 @@ class DeliveryReportsTest {
 
         assertThat(delivery.status()).isEqualTo(DeliveryStatus.HELD);
         assertThat(delivery.arrivedAt()).contains(T_0800);
-        assertThat(delivery.snapshot().arrival().orElseThrow().driver()).isEqualTo(DRIVER_A);
+        assertThat(delivery.arrival().orElseThrow().driver()).isEqualTo(DRIVER_A);
     }
 
     @Test
@@ -356,7 +359,7 @@ class DeliveryReportsTest {
 
         assertThat(answer).isEqualTo(new ReportAnswer.Held(HELD_1));
         assertThat(delivery.status()).isEqualTo(DeliveryStatus.HELD);
-        assertThat(delivery.snapshot().heldReports())
+        assertThat(delivery.heldReports())
                 .extracting(HeldReport::driver, HeldReport::route)
                 .containsExactly(tuple(DRIVER_A, ROUTE_A));
         assertThat(delivery.pendingEvents()).isEmpty();
@@ -377,7 +380,7 @@ class DeliveryReportsTest {
     void GivenAsReportHeldAfterTheHandOver_WhenBDeliversOnTheRoute_ThenBsOutcomeOvertakesIt() {
         Delivery delivery = aDelivery().fresh();
         delivery.fail(byA(LATE), ABSENT, HANDED_FROM_A_TO_B, NO_HOLD, HELD_1, NOW);
-        Delivery reloaded = reload(delivery);
+        Delivery reloaded = asSaved(delivery);
 
         ReportAnswer answer = reloaded.deliver(
                 new DriverReport(DRIVER_B, ROUTE_A, LiveOpsFixtures.ONLINE),
@@ -391,19 +394,19 @@ class DeliveryReportsTest {
 
         assertThat(answer).isEqualTo(new ReportAnswer.Recorded(List.of(HELD_1)));
         assertThat(reloaded.status()).isEqualTo(DeliveryStatus.DELIVERED);
-        assertThat(reloaded.snapshot().outcomes().get(0).by()).isEqualTo(DRIVER_B);
+        assertThat(reloaded.outcomes().get(0).by()).isEqualTo(DRIVER_B);
     }
 
     @Test
     void GivenAsReportHeldAfterTheHandOver_WhenTheDispatcherConfirmsIt_ThenItIsTheOutcome() {
         Delivery delivery = aDelivery().fresh();
         delivery.fail(byA(LATE), ABSENT, HANDED_FROM_A_TO_B, NO_HOLD, HELD_1, NOW);
-        Delivery reloaded = reload(delivery);
+        Delivery reloaded = asSaved(delivery);
 
         reloaded.confirmHeld(HELD_1, DISPATCHER, LATER);
 
         assertThat(reloaded.status()).isEqualTo(DeliveryStatus.FAILED);
-        assertThat(reloaded.snapshot().outcomes().get(0).by()).isEqualTo(DRIVER_A);
+        assertThat(reloaded.outcomes().get(0).by()).isEqualTo(DRIVER_A);
     }
 
     @Test
@@ -412,8 +415,7 @@ class DeliveryReportsTest {
         delivery.fail(byA(ONLINE), FailureReason.other("neighbour said moved away"), ON_ROUTE, NO_HOLD, HELD_1, NOW);
 
         assertThat(delivery.toString()).doesNotContain("neighbour");
-        assertThat(delivery.snapshot().toString()).doesNotContain("neighbour");
-        assertThat(delivery.snapshot().outcomes().toString()).doesNotContain("neighbour");
+        assertThat(delivery.outcomes().toString()).doesNotContain("neighbour");
     }
 
     /** Driver C's late *failed*, held as HELD_2 beside B's because a report is already held (BR-136). */

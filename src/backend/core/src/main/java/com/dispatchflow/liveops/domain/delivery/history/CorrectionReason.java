@@ -1,4 +1,4 @@
-package com.dispatchflow.liveops.domain.delivery;
+package com.dispatchflow.liveops.domain.delivery.history;
 
 import com.dispatchflow.liveops.domain.LiveOpsError.CorrectionReasonRequired;
 import com.dispatchflow.shared.PersonalData;
@@ -15,7 +15,8 @@ import org.jspecify.annotations.Nullable;
 /**
  * Why a dispatcher corrected an outcome; every correction gives one (FR-333). It can say anything
  * about a person, so it is personal data: {@link #toString()} hides it, and no error or event
- * carries it. Retention erases its text after {@link RetentionPeriods#REASONS}, and the correction
+ * carries it. Retention erases its text after {@link
+ * com.dispatchflow.liveops.domain.delivery.RetentionPeriods#REASONS}, and the correction
  * stays on record without it (NFR-31, ADR-107).
  */
 public final class CorrectionReason implements PersonalData {

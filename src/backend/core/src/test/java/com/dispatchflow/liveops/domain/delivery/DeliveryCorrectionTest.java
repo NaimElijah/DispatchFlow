@@ -19,10 +19,12 @@ import static com.dispatchflow.liveops.domain.LiveOpsFixtures.T_0900;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.aDelivery;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.assertRefusedUnchanged;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.byA;
-import static com.dispatchflow.liveops.domain.LiveOpsFixtures.reload;
+import static com.dispatchflow.shared.AsSaved.asSaved;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dispatchflow.liveops.domain.LiveOpsError.CorrectionChangesNothing;
+import com.dispatchflow.liveops.domain.delivery.history.Origin;
+import com.dispatchflow.liveops.domain.delivery.history.OutcomeRecord;
 import com.dispatchflow.liveops.domain.outcome.DispatcherOutcome;
 import com.dispatchflow.liveops.domain.outcome.FailureReason;
 import com.dispatchflow.liveops.domain.outcome.FailureReasonKind;
@@ -73,7 +75,7 @@ class DeliveryCorrectionTest {
     private static Delivery failedWithOther(String text) {
         Delivery delivery = aDelivery().fresh();
         delivery.fail(byA(ONLINE), FailureReason.other(text), ON_ROUTE, NO_HOLD, HELD_1, NOW);
-        return reload(delivery);
+        return asSaved(delivery);
     }
 
     @Test
@@ -84,10 +86,10 @@ class DeliveryCorrectionTest {
 
         assertThat(delivery.status()).isEqualTo(DeliveryStatus.DELIVERED);
         assertThat(delivery.outcomeTime()).contains(T_0800);
-        assertThat(delivery.snapshot().outcomes()).hasSize(2);
-        assertThat(delivery.snapshot().outcomes().get(0).outcome().kind()).isEqualTo(OutcomeKind.FAILED);
-        assertThat(delivery.snapshot().outcomes().get(1).origin()).isEqualTo(new Origin.Correction(TYPO, LATER));
-        assertThat(delivery.snapshot().outcomes().get(1).outcome()).isEqualTo(Outcome.Delivered.withoutProof(false));
+        assertThat(delivery.outcomes()).hasSize(2);
+        assertThat(delivery.outcomes().get(0).outcome().kind()).isEqualTo(OutcomeKind.FAILED);
+        assertThat(delivery.outcomes().get(1).origin()).isEqualTo(new Origin.Correction(TYPO, LATER));
+        assertThat(delivery.outcomes().get(1).outcome()).isEqualTo(Outcome.Delivered.withoutProof(false));
         assertThat(delivery.pendingEvents()).isEmpty();
     }
 
@@ -108,7 +110,7 @@ class DeliveryCorrectionTest {
 
         assertThat(delivery.status()).isEqualTo(DeliveryStatus.FAILED);
         assertThat(delivery.outcomeTime()).contains(T_0800);
-        assertThat(delivery.snapshot().outcomes()).hasSize(3);
+        assertThat(delivery.outcomes()).hasSize(3);
     }
 
     @Test
@@ -136,9 +138,8 @@ class DeliveryCorrectionTest {
                 LATER);
 
         assertThat(delivery.effectiveOutcome()).contains(Outcome.Delivered.withoutProof(true));
-        assertThat(delivery.snapshot().outcomes()).hasSize(2);
+        assertThat(delivery.outcomes()).hasSize(2);
         assertThat(delivery.pendingEvents()).isEmpty();
-        assertThat(Delivery.restore(delivery.snapshot()).snapshot()).isEqualTo(delivery.snapshot());
     }
 
     @Test
@@ -146,7 +147,7 @@ class DeliveryCorrectionTest {
         Delivery delivery = aDelivery().fresh();
         delivery.recordOnBehalf(
                 DISPATCHER, ROUTE_A, new DispatcherOutcome.Delivered(true), LeaveAtDoor.ALLOWED, T_0900);
-        Delivery reloaded = reload(delivery);
+        Delivery reloaded = asSaved(delivery);
 
         reloaded.correct(
                 new DispatcherOutcome.Delivered(false),
@@ -174,8 +175,7 @@ class DeliveryCorrectionTest {
                 LATER);
 
         assertThat(delivery.effectiveOutcome()).contains(new Outcome.Failed(FailureReason.other("dog in the yard")));
-        assertThat(delivery.snapshot().outcomes()).hasSize(2);
-        assertThat(Delivery.restore(delivery.snapshot()).snapshot()).isEqualTo(delivery.snapshot());
+        assertThat(delivery.outcomes()).hasSize(2);
     }
 
     @Test
@@ -217,16 +217,15 @@ class DeliveryCorrectionTest {
                 new LaterAttempt.None(),
                 LeaveAtDoor.NOT_ALLOWED,
                 LATER);
-        Delivery reloaded = reload(delivery);
+        Delivery reloaded = asSaved(delivery);
 
         reloaded.eraseExpired(Instant.parse("2027-07-01T00:00:00Z"));
 
-        List<OutcomeRecord> outcomes = reloaded.snapshot().outcomes();
+        List<OutcomeRecord> outcomes = reloaded.outcomes();
         assertThat(((Outcome.Failed) outcomes.get(0).outcome()).reason().isErased())
                 .isTrue();
         assertThat(((Outcome.Failed) outcomes.get(1).outcome()).reason().isErased())
                 .isTrue();
-        assertThat(Delivery.restore(reloaded.snapshot()).snapshot()).isEqualTo(reloaded.snapshot());
     }
 
     @Test

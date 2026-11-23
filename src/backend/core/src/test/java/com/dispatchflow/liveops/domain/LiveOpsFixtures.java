@@ -1,15 +1,16 @@
 package com.dispatchflow.liveops.domain;
 
+import static com.dispatchflow.shared.AsSaved.asSaved;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.dispatchflow.liveops.domain.delivery.CorrectionReason;
 import com.dispatchflow.liveops.domain.delivery.Delivery;
-import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot;
+import com.dispatchflow.liveops.domain.delivery.DeliveryDescription;
 import com.dispatchflow.liveops.domain.delivery.Entitlement;
 import com.dispatchflow.liveops.domain.delivery.HoldCheck;
 import com.dispatchflow.liveops.domain.delivery.LaterAttempt;
 import com.dispatchflow.liveops.domain.delivery.LeaveAtDoor;
 import com.dispatchflow.liveops.domain.delivery.StopWhereabouts;
+import com.dispatchflow.liveops.domain.delivery.history.CorrectionReason;
 import com.dispatchflow.liveops.domain.outcome.DispatcherOutcome;
 import com.dispatchflow.liveops.domain.outcome.FailureReason;
 import com.dispatchflow.liveops.domain.outcome.FailureReasonKind;
@@ -17,8 +18,6 @@ import com.dispatchflow.liveops.domain.proof.Proof;
 import com.dispatchflow.liveops.domain.proof.ProofId;
 import com.dispatchflow.liveops.domain.proof.ProofKind;
 import com.dispatchflow.liveops.domain.proof.ProofNote;
-import com.dispatchflow.liveops.domain.routerun.RouteRun;
-import com.dispatchflow.liveops.domain.routerun.RouteRunSnapshot;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.DeliveryDate;
@@ -29,7 +28,6 @@ import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
-import com.dispatchflow.shared.StoredVersions;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -40,7 +38,7 @@ import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 /**
  * Shared test data for Live Operations: fixed IDs and instants on Monday 1 March 2027 (UTC+2), and
  * one builder per aggregate. Each builder state is reached through the aggregate's own commands and
- * then reloaded, so every state is one {@code restore} accepts.
+ * then saved with {@code AsSaved}, so every state is one the commands reach (ADR-127 decision 2).
  */
 public final class LiveOpsFixtures {
 
@@ -116,44 +114,20 @@ public final class LiveOpsFixtures {
 
     /** Asserts a refusal, and that it changed neither the state nor the pending events. */
     public static void assertRefusedUnchanged(Delivery delivery, ThrowingCallable call, DomainError expected) {
-        DeliverySnapshot before = delivery.snapshot();
+        DeliveryDescription before = DeliveryDescription.of(delivery);
         List<DomainEvent> events = delivery.pendingEvents();
 
         DomainAssertions.assertRefused(call, expected);
 
-        assertThat(delivery.snapshot()).isEqualTo(before);
+        assertThat(DeliveryDescription.of(delivery)).isEqualTo(before);
         assertThat(delivery.pendingEvents()).isEqualTo(events);
-    }
-
-    public static Delivery reload(Delivery delivery) {
-        DeliverySnapshot s = delivery.snapshot();
-        return Delivery.restore(new DeliverySnapshot(
-                s.stop(),
-                s.order(),
-                s.attempt(),
-                StoredVersions.afterSave(delivery),
-                s.arrival(),
-                s.outcomes(),
-                s.heldReports()));
-    }
-
-    public static RouteRun reload(RouteRun run) {
-        RouteRunSnapshot s = run.snapshot();
-        return RouteRun.restore(new RouteRunSnapshot(
-                s.route(),
-                StoredVersions.afterSave(run),
-                s.startedBy(),
-                s.cause(),
-                s.startedAt(),
-                s.status(),
-                s.confirmed()));
     }
 
     public static DeliveryBuilder aDelivery() {
         return new DeliveryBuilder();
     }
 
-    /** Builds a delivery in each state of DL §9.3 through its commands, saved and reloaded. */
+    /** Builds a delivery in each state of DL §9.3 through its commands, and saves it. */
     public static final class DeliveryBuilder {
 
         private DeliveryBuilder() {}
@@ -165,7 +139,7 @@ public final class LiveOpsFixtures {
         public Delivery arrived() {
             Delivery delivery = fresh();
             delivery.arrive(byA(ONLINE), ON_ROUTE, SERVING);
-            return reload(delivery);
+            return asSaved(delivery);
         }
 
         public Delivery delivered() {
@@ -179,13 +153,13 @@ public final class LiveOpsFixtures {
                     NO_HOLD,
                     HELD_1,
                     NOW);
-            return reload(delivery);
+            return asSaved(delivery);
         }
 
         public Delivery failed() {
             Delivery delivery = fresh();
             delivery.fail(byA(ONLINE), ABSENT, ON_ROUTE, NO_HOLD, HELD_1, NOW);
-            return reload(delivery);
+            return asSaved(delivery);
         }
 
         /**
@@ -195,21 +169,21 @@ public final class LiveOpsFixtures {
         public Delivery held() {
             Delivery delivery = fresh();
             holdLate(delivery, HELD_1);
-            return reload(delivery);
+            return asSaved(delivery);
         }
 
         public Delivery heldAfterArrival() {
             Delivery delivery = fresh();
             delivery.arrive(byA(ONLINE), ON_ROUTE, SERVING);
             holdLate(delivery, HELD_1);
-            return reload(delivery);
+            return asSaved(delivery);
         }
 
         /** Held, then refused by a dispatcher: pending, with the refused report on record. */
         public Delivery pendingAfterRefusal() {
             Delivery delivery = held();
             delivery.refuseHeld(HELD_1, DISPATCHER, NOW);
-            return reload(delivery);
+            return asSaved(delivery);
         }
 
         public Delivery failedThenCorrected() {
@@ -222,7 +196,7 @@ public final class LiveOpsFixtures {
                     new LaterAttempt.None(),
                     LeaveAtDoor.NOT_ALLOWED,
                     NOW);
-            return reload(delivery);
+            return asSaved(delivery);
         }
 
         static void holdLate(Delivery delivery, HeldReportId id) {

@@ -1,4 +1,4 @@
-package com.dispatchflow.liveops.domain.delivery;
+package com.dispatchflow.liveops.domain.delivery.history;
 
 import com.dispatchflow.liveops.domain.CancellationKind;
 import com.dispatchflow.liveops.domain.CorrectedTime;

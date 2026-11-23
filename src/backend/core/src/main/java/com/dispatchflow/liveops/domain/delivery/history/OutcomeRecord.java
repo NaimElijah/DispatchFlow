@@ -1,4 +1,4 @@
-package com.dispatchflow.liveops.domain.delivery;
+package com.dispatchflow.liveops.domain.delivery.history;
 
 import com.dispatchflow.liveops.domain.outcome.Outcome;
 import com.dispatchflow.shared.AccountId;

@@ -17,7 +17,7 @@ import com.dispatchflow.liveops.application.port.out.RouteRunRepository;
 import com.dispatchflow.liveops.domain.CorrectedTime;
 import com.dispatchflow.liveops.domain.RevisionNo;
 import com.dispatchflow.liveops.domain.routerun.RouteRun;
-import com.dispatchflow.liveops.domain.routerun.RouteRunSnapshot;
+import com.dispatchflow.liveops.domain.routerun.RouteRunDescription;
 import com.dispatchflow.liveops.domain.routerun.RunStatus;
 import com.dispatchflow.liveops.events.RouteStarted;
 import com.dispatchflow.liveops.events.RunStartCause;
@@ -69,7 +69,7 @@ class RouteRunPersistenceIT {
     @Autowired
     private RecordedEvents events;
 
-    // --- round trips (ADR-127 decision 1), mirroring the domain's restore round trips
+    // --- round trips (ADR-127 decision 1)
 
     /** The states a run stores and loads in, reached through commands. */
     enum Scenario {
@@ -109,10 +109,10 @@ class RouteRunPersistenceIT {
             case FINISHED_WITH_NONE_PENDING -> new RunStatus.Finished(FINISHED_AT, DRIVER_A, List.of());
         };
         Optional<RevisionNo> confirmed = scenario == Scenario.CONFIRMED ? Optional.of(REV_2) : Optional.empty();
-        assertThat(loaded.snapshot())
-                .isEqualTo(new RouteRunSnapshot(
-                        route(n), Version.of(0), DRIVER_A, RunStartCause.DRIVER_STARTED, T_0800, status, confirmed));
-        assertThat(loaded.snapshot()).isEqualTo(added.snapshot());
+        assertThat(RouteRunDescription.of(loaded))
+                .isEqualTo(new RouteRunDescription(
+                        route(n), DRIVER_A, RunStartCause.DRIVER_STARTED, T_0800, status, confirmed));
+        assertThat(RouteRunDescription.of(loaded)).isEqualTo(RouteRunDescription.of(added));
         assertThat(loaded.route()).isEqualTo(route(n));
         assertThat(loaded.isFinished()).isEqualTo(added.isFinished());
         assertThat(loaded.confirmed()).isEqualTo(added.confirmed());
@@ -209,7 +209,6 @@ class RouteRunPersistenceIT {
 
         assertThat(transactions
                         .inTransaction(() -> repository.get(route(n)).orElseThrow())
-                        .snapshot()
                         .cause())
                 .isEqualTo(RunStartCause.FIRST_REPORT);
         assertThat(storedDate(n)).isEqualTo(dateOf(n).value());
@@ -232,10 +231,8 @@ class RouteRunPersistenceIT {
         assertThat(runs)
                 .filteredOn(RouteRun::isFinished)
                 .singleElement()
-                .satisfies(finished -> assertThat(finished.snapshot().status())
-                        .isEqualTo(finished(100 + n, List.of(stop(100 + n, 1)))
-                                .snapshot()
-                                .status()));
+                .satisfies(finished -> assertThat(finished.status())
+                        .isEqualTo(new RunStatus.Finished(FINISHED_AT, DRIVER_A, List.of(stop(100 + n, 1)))));
     }
 
     @Test
@@ -244,7 +241,7 @@ class RouteRunPersistenceIT {
                 .isEmpty();
     }
 
-    // --- the load check (ADR-127 decision 1), mirroring the domain's damaged snapshot
+    // --- the load check (ADR-127 decision 1)
 
     @Test
     void GivenAFinishedRunNamingAPendingStopTwice_WhenLoaded_ThenStoredStateInvalid() {

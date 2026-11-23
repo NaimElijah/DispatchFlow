@@ -20,6 +20,12 @@ import com.dispatchflow.liveops.domain.LiveOpsError.ReportNotHeld;
 import com.dispatchflow.liveops.domain.LiveOpsError.SameOutcomeAlreadyRecorded;
 import com.dispatchflow.liveops.domain.LiveOpsError.StopNotOnYourRoute;
 import com.dispatchflow.liveops.domain.RevisionNo;
+import com.dispatchflow.liveops.domain.delivery.history.ArrivalRecord;
+import com.dispatchflow.liveops.domain.delivery.history.CorrectionReason;
+import com.dispatchflow.liveops.domain.delivery.history.HeldReport;
+import com.dispatchflow.liveops.domain.delivery.history.HeldState;
+import com.dispatchflow.liveops.domain.delivery.history.Origin;
+import com.dispatchflow.liveops.domain.delivery.history.OutcomeRecord;
 import com.dispatchflow.liveops.domain.outcome.DispatcherOutcome;
 import com.dispatchflow.liveops.domain.outcome.FailureReason;
 import com.dispatchflow.liveops.domain.outcome.Outcome;
@@ -119,17 +125,6 @@ public class Delivery extends AggregateRoot implements PersonalData {
         this.attempt = attempt;
     }
 
-    /** Builds the delivery {@link #restore} checks; it goes with {@code restore} (ADR-126). */
-    private Delivery(DeliverySnapshot stored) {
-        super(stored.version());
-        this.id = stored.stop().value();
-        this.order = stored.order();
-        this.attempt = stored.attempt();
-        stored.arrival().ifPresent(this::arriveAs);
-        stored.outcomes().forEach(record -> outcomes.add(new StoredOutcomeRecord(record)));
-        stored.heldReports().forEach(report -> heldReports.add(new StoredHeldReport(report)));
-    }
-
     /**
      * A stop's delivery before its first fact, which the caller records next (DL §3.5). Saved only
      * once a command records something; with nothing recorded it is *pending*, as no delivery is.
@@ -147,32 +142,18 @@ public class Delivery extends AggregateRoot implements PersonalData {
     }
 
     /**
-     * Rebuilds a stored delivery; only the persistence adapter calls it (DL §3.5). It checks the
-     * invariants that hold at rest, never one that needs an outside fact.
+     * Checks the delivery as Hibernate loaded it against the invariants that hold at rest (ADR-126
+     * decision 8), never one that needs an outside fact.
      *
-     * @param stored the stored state
-     * @return the delivery at the stored version
      * @throws StoredStateInvalid when the state breaks an invariant: a correction comes first or
      *     changes nothing, a report stays held beside an outcome, a held report is overtaken with no
      *     outcome, two held reports share an ID, a confirmed held report is not the original
      *     outcome, a reported outcome doesn't count from its report's time, or a driver's delivered
      *     lacks its proof
      */
-    public static Delivery restore(DeliverySnapshot stored) {
-        Delivery restored = new Delivery(stored);
-        restored.checkStored();
-        return restored;
-    }
-
-    /**
-     * Checks the delivery as Hibernate loaded it against the invariants at rest that {@link
-     * #restore} checks (ADR-126 decision 8).
-     *
-     * @throws StoredStateInvalid when the stored state breaks one of them
-     */
     @PostLoad
     void checkStored() {
-        DeliveryInvariants.brokenBy(outcomeRecords(), heldReportList()).ifPresent(broken -> {
+        DeliveryInvariants.brokenBy(outcomes(), heldReports()).ifPresent(broken -> {
             throw new StoredStateInvalid(Delivery.class, broken);
         });
     }
@@ -184,19 +165,9 @@ public class Delivery extends AggregateRoot implements PersonalData {
      * back.
      */
     private void requireInvariants() {
-        DeliveryInvariants.brokenBy(outcomeRecords(), heldReportList()).ifPresent(broken -> {
+        DeliveryInvariants.brokenBy(outcomes(), heldReports()).ifPresent(broken -> {
             throw new AssertionError("a delivery command left a state that breaks: " + broken);
         });
-    }
-
-    /**
-     * The delivery's state, for the repository to store.
-     *
-     * @return the stored form
-     */
-    public DeliverySnapshot snapshot() {
-        return new DeliverySnapshot(
-                stop(), order, attempt, savedVersion().orElse(null), arrival(), outcomeRecords(), heldReportList());
     }
 
     /**
@@ -206,6 +177,59 @@ public class Delivery extends AggregateRoot implements PersonalData {
      */
     public StopId stop() {
         return StopId.of(id);
+    }
+
+    /**
+     * The stop's order.
+     *
+     * @return the order
+     */
+    public OrderId order() {
+        return order;
+    }
+
+    /**
+     * Which attempt at the order the stop is.
+     *
+     * @return the attempt
+     */
+    public Attempt attempt() {
+        return attempt;
+    }
+
+    /**
+     * The driver's arrival (FR-29, BR-87).
+     *
+     * @return the arrival, or empty when none is recorded
+     */
+    public Optional<ArrivalRecord> arrival() {
+        if (arrivalTime == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new ArrivalRecord(
+                Objects.requireNonNull(arrivalDriver, "an arrival names its driver"),
+                Objects.requireNonNull(arrivalRoute, "an arrival names its route"),
+                arrivalTime));
+    }
+
+    /**
+     * The outcomes on record: the original first, then each correction in order (FR-333). They hold
+     * reasons, proofs and notes, so they are personal data and print redacted.
+     *
+     * @return an unmodifiable copy, empty while the stop has no outcome
+     */
+    public List<OutcomeRecord> outcomes() {
+        return outcomes.stream().map(StoredOutcomeRecord::record).toList();
+    }
+
+    /**
+     * Every report held for a dispatcher, open or decided, in the order held (BR-132). They hold
+     * reasons, proofs and notes, so they are personal data and print redacted.
+     *
+     * @return an unmodifiable copy
+     */
+    public List<HeldReport> heldReports() {
+        return heldReports.stream().map(StoredHeldReport::report).toList();
     }
 
     /**
@@ -549,7 +573,7 @@ public class Delivery extends AggregateRoot implements PersonalData {
         Instant proofCutoff = RetentionPeriods.proofCutoff(now);
         Instant reasonCutoff = RetentionPeriods.reasonCutoff(now);
         // Erasure keeps every receipt time, so the reports read here date the outcomes too.
-        List<HeldReport> held = heldReportList();
+        List<HeldReport> held = heldReports();
         for (StoredHeldReport stored : heldReports) {
             HeldReport each = stored.report();
             Outcome erased = erased(each.outcome(), each.time().receivedAt(), proofCutoff, reasonCutoff);
@@ -690,7 +714,7 @@ public class Delivery extends AggregateRoot implements PersonalData {
      * silently, and a different one as a contradiction.
      */
     private void refuseIfOwnReportHeld(DriverReport report, Outcome incoming) {
-        Optional<HeldReport> own = heldReportList().stream()
+        Optional<HeldReport> own = heldReports().stream()
                 .filter(each -> each.isOpen()
                         && each.driver().equals(report.driver())
                         && each.route().equals(report.route()))
@@ -752,24 +776,6 @@ public class Delivery extends AggregateRoot implements PersonalData {
         arrivalDriver = record.driver();
         arrivalRoute = record.route();
         arrivalTime = record.time();
-    }
-
-    private Optional<ArrivalRecord> arrival() {
-        if (arrivalTime == null) {
-            return Optional.empty();
-        }
-        return Optional.of(new ArrivalRecord(
-                Objects.requireNonNull(arrivalDriver, "an arrival names its driver"),
-                Objects.requireNonNull(arrivalRoute, "an arrival names its route"),
-                arrivalTime));
-    }
-
-    private List<OutcomeRecord> outcomeRecords() {
-        return outcomes.stream().map(StoredOutcomeRecord::record).toList();
-    }
-
-    private List<HeldReport> heldReportList() {
-        return heldReports.stream().map(StoredHeldReport::report).toList();
     }
 
     /** When an outcome's personal data reached the server, which its retention counts from. */

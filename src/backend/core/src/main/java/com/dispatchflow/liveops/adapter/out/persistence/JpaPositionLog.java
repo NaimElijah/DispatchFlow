@@ -11,13 +11,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Keeps the positions routes kept in {@code liveops.kept_position}, one row each.
- *
- * <p>{@link #deleteOlderThan} deletes a position received exactly at the cutoff too, because the
- * cutoff it is given, {@code RetentionPeriods.positionCutoff}, is the receipt time at or before which
- * a position is due, as the proofs and reasons are erased at theirs.
- */
+/** Keeps the positions routes kept in {@code liveops.kept_position}, one row each. */
 @Component
 @Transactional
 class JpaPositionLog implements PositionLog {

@@ -1,6 +1,10 @@
 package com.dispatchflow.liveops.domain.delivery;
 
 import com.dispatchflow.liveops.domain.HeldReportId;
+import com.dispatchflow.liveops.domain.delivery.history.HeldReport;
+import com.dispatchflow.liveops.domain.delivery.history.HeldState;
+import com.dispatchflow.liveops.domain.delivery.history.Origin;
+import com.dispatchflow.liveops.domain.delivery.history.OutcomeRecord;
 import com.dispatchflow.liveops.domain.outcome.Outcome;
 import com.dispatchflow.liveops.domain.proof.Proof;
 import com.dispatchflow.liveops.domain.proof.ProofKind;
@@ -10,9 +14,9 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * The invariants a {@link Delivery} holds at rest, checked in one place: by the load check and
- * {@code restore}, which throw {@code StoredStateInvalid}, and at the end of every command, which
- * throws {@code AssertionError}, so no command can leave a state that loading refuses (ADR-126
+ * The invariants a {@link Delivery} holds at rest, checked in one place: by the load check, which
+ * throws {@code StoredStateInvalid}, and at the end of every command, which throws {@code
+ * AssertionError}, so no command can leave a state that loading refuses (ADR-126
  * decisions 8 and 11).
  */
 final class DeliveryInvariants {

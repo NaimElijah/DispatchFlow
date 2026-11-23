@@ -103,17 +103,6 @@ public class RouteRun extends AggregateRoot {
         this.status = StatusKind.STARTED;
     }
 
-    /** Builds the run {@link #restore} checks; it goes with {@code restore} (ADR-126). */
-    private RouteRun(RouteRunSnapshot stored) {
-        super(stored.version());
-        this.id = stored.route().value();
-        this.startedBy = stored.startedBy();
-        this.cause = stored.cause();
-        this.startedAt = stored.startedAt();
-        moveTo(stored.status());
-        this.confirmed = stored.confirmed().orElse(null);
-    }
-
     /**
      * Starts a route that has no run, and raises {@link RouteStarted} (FR-68, FR-327). Only the
      * route's driver at the report's time who still drives it may start it, so a driver the route
@@ -156,21 +145,8 @@ public class RouteRun extends AggregateRoot {
     }
 
     /**
-     * Rebuilds a stored run; only the persistence adapter calls it (DL §3.5).
-     *
-     * @param stored the stored state
-     * @return the run at the stored version
-     * @throws StoredStateInvalid when a finished run names a pending stop twice
-     */
-    public static RouteRun restore(RouteRunSnapshot stored) {
-        RouteRun restored = new RouteRun(stored);
-        restored.checkStored();
-        return restored;
-    }
-
-    /**
-     * Checks the run as Hibernate loaded it against the invariant at rest that {@link #restore}
-     * checks (ADR-126 decision 8).
+     * Checks the run as Hibernate loaded it against the invariant that holds at rest (ADR-126
+     * decision 8).
      *
      * @throws StoredStateInvalid when a finished run names a pending stop twice
      */
@@ -182,22 +158,55 @@ public class RouteRun extends AggregateRoot {
     }
 
     /**
-     * The run's state, for the repository to store.
-     *
-     * @return the stored form
-     */
-    public RouteRunSnapshot snapshot() {
-        return new RouteRunSnapshot(
-                route(), savedVersion().orElse(null), startedBy, cause, startedAt, status(), confirmed());
-    }
-
-    /**
      * The run's key.
      *
      * @return the route
      */
     public RouteId route() {
         return RouteId.of(id);
+    }
+
+    /**
+     * The driver whose report started the run.
+     *
+     * @return the driver
+     */
+    public AccountId startedBy() {
+        return startedBy;
+    }
+
+    /**
+     * What started the run (FR-327, DL §6.2).
+     *
+     * @return the cause
+     */
+    public RunStartCause cause() {
+        return cause;
+    }
+
+    /**
+     * When the run started: its start report's corrected time.
+     *
+     * @return the start
+     */
+    public Instant startedAt() {
+        return startedAt;
+    }
+
+    /**
+     * Where the run stands (FR-244).
+     *
+     * @return started, or finished with its time, its driver and the stops it left pending
+     */
+    public RunStatus status() {
+        return switch (status) {
+            case STARTED -> new RunStatus.Started();
+            case FINISHED ->
+                new RunStatus.Finished(
+                        Objects.requireNonNull(finishedAt, "a finished run has its finish time"),
+                        Objects.requireNonNull(finishedBy, "a finished run names its driver"),
+                        pendingStops);
+        };
     }
 
     /**
@@ -260,7 +269,7 @@ public class RouteRun extends AggregateRoot {
         Objects.requireNonNull(pending, "pending");
         refuseUnlessDrivingThenAndNow(route(), report, routeDriver, currentDriver);
         refuseIfFinished();
-        moveTo(new RunStatus.Finished(report.time().corrected(), report.driver(), pending));
+        finishAs(new RunStatus.Finished(report.time().corrected(), report.driver(), pending));
         requireInvariants();
     }
 
@@ -404,30 +413,11 @@ public class RouteRun extends AggregateRoot {
         return Optional.empty();
     }
 
-    /** Moves the run to a status, in place, clearing what the old one carried. */
-    private void moveTo(RunStatus next) {
-        finishedAt = null;
-        finishedBy = null;
-        pendingStops.clear();
-        status = switch (next) {
-            case RunStatus.Started started -> StatusKind.STARTED;
-            case RunStatus.Finished finished -> {
-                finishedAt = finished.at();
-                finishedBy = finished.by();
-                pendingStops.addAll(finished.pending());
-                yield StatusKind.FINISHED;
-            }
-        };
-    }
-
-    private RunStatus status() {
-        return switch (status) {
-            case STARTED -> new RunStatus.Started();
-            case FINISHED ->
-                new RunStatus.Finished(
-                        Objects.requireNonNull(finishedAt, "a finished run has its finish time"),
-                        Objects.requireNonNull(finishedBy, "a finished run names its driver"),
-                        pendingStops);
-        };
+    /** Finishes the run in place: a run finishes once, so a started run's columns are empty. */
+    private void finishAs(RunStatus.Finished finished) {
+        status = StatusKind.FINISHED;
+        finishedAt = finished.at();
+        finishedBy = finished.by();
+        pendingStops.addAll(finished.pending());
     }
 }
