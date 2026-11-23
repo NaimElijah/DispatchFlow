@@ -2,6 +2,7 @@ package com.dispatchflow.fleet.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.Transactions;
@@ -31,6 +32,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -260,6 +262,24 @@ class FleetRegisterPersistenceIT {
                     assertThat(invalid.subject()).isEqualTo("FleetRegister");
                     assertThat(invalid.detail()).isEqualTo(detail);
                 });
+    }
+
+    /**
+     * No {@code CHECK} keeps a depot's hours in order, so only the registered instantiator stands
+     * between the row and a {@code RuleViolation} that would read as the caller's mistake.
+     */
+    @Test
+    void GivenAStoredDepotWhoseHoursCloseBeforeTheyOpen_WhenTheRegisterIsLoaded_ThenStoredStateInvalidNamesTheHours() {
+        transactions.inTransaction(() -> repository.add(Base.TWO_ACTIVE_VEHICLES.build()));
+        new Rows(jdbc).updateDepot(NORTH, "opens = '20:00', closes = '06:00'");
+
+        Throwable thrown = catchThrowable(() -> transactions.inTransaction(() -> repository.get()));
+
+        assertThat(Stream.iterate(thrown, Objects::nonNull, Throwable::getCause))
+                .anySatisfy(cause -> assertThat(cause).isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
+                    assertThat(invalid.subject()).isEqualTo("DepotHours");
+                    assertThat(invalid.detail()).isEqualTo("a stored value is refused with INVALID_DEPOT_HOURS");
+                }));
     }
 
     static Stream<Arguments> damageTheSchemaForbids() {
