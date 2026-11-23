@@ -8,9 +8,8 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
 
 - `src/main/java/com/dispatchflow/` holds `DispatchFlowApplication`, `web/` (the error handler that
   belongs to no context), and:
-  - `shared/`, the shared kernel: the typed IDs, the shared values with their errors (`Attempt` is
-    one, [ADR-111]), and the building blocks ([ADR-097], [ADR-106]). Never add a type that holds one
-    context's rule.
+  - `shared/`, the shared kernel: typed IDs, shared values with their errors (`Attempt` is one,
+    [ADR-111]) and building blocks ([ADR-097], [ADR-106]). Never add a type holding one context's rule.
   - `shared/application/`, the application ports every module uses: `Clock`, `IdGenerator`,
     `ProcessedEvents`, `NotFound` and `StaleVersion` ([ADR-120]), a package of its own under the
     kernel's purity rules: no Spring, but `@NamedInterface` on its `package-info` ([ADR-121]).
@@ -165,6 +164,7 @@ Run `just` recipes from the repository root, and `mvnw` from this folder (`.\mvn
 | `just core-check` | `mvnw verify`: Spotless check, unit tests, integration tests |
 | `just core-format` | `mvnw spotless:apply` |
 | `just core-run` | Starts the core on port 8080 against a throwaway PostgreSQL container |
+| `just core-schema-draft` | Writes the DDL Hibernate would generate to `target/schema-draft.sql`, a draft to copy into a migration; touches no database |
 | `./mvnw -Dtest=FooTest test` | One unit test class |
 | `./mvnw -Dit.test=FooIT verify` | One integration test class, after the unit tests and the format check |
 
