@@ -8,6 +8,7 @@ import com.dispatchflow.access.domain.TokenHash;
 import com.dispatchflow.access.domain.account.UserAccount;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.AggregateRoot;
+import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.SessionId;
 import com.dispatchflow.shared.StoredStateInvalid;
@@ -56,6 +57,9 @@ import org.jspecify.annotations.Nullable;
  * #TOKEN_KEPT_FOR}, and any successor a kept token names. A replayed token older than that is
  * unknown, and refused without revoking the session (NFR-88, ADR-104).
  *
+ * <p>Its contact times are personal data (NFR-280), and its other times say when its user was
+ * active, so {@link #toString()} prints none of them.
+ *
  * <p>It is mapped for JPA (ADR-126): its key is its ID's UUID, its {@link SessionState} a kind and
  * the revocation's time, its refresh tokens child entities in the order they were issued, and its
  * contact times a set of instants ordered by value that leaves the version alone (DL §4.1,
@@ -64,7 +68,7 @@ import org.jspecify.annotations.Nullable;
  */
 @Entity
 @Table(schema = "access", name = "session")
-public class Session extends AggregateRoot {
+public class Session extends AggregateRoot implements PersonalData {
 
     /** How long a refresh token lasts from its issue; the session itself has no cap (NFR-87). */
     public static final Duration REFRESH_TOKEN_LIFETIME = Duration.ofDays(14);
@@ -148,21 +152,6 @@ public class Session extends AggregateRoot {
         this.changedBeyondContactTimes = true;
     }
 
-    /** Builds the session {@link #restore} checks; it goes with {@code restore} (ADR-126). */
-    private Session(SessionSnapshot stored) {
-        super(stored.version());
-        this.id = stored.id().value();
-        this.account = stored.account();
-        this.accountGeneration = stored.accountGeneration();
-        this.generation = stored.generation();
-        this.state = stored.state() instanceof SessionState.Revoked ? StateKind.REVOKED : StateKind.LIVE;
-        this.revokedAt = stored.state() instanceof SessionState.Revoked(Instant at) ? at : null;
-        this.openedAt = stored.openedAt();
-        this.lastPasswordAt = stored.lastPasswordAt();
-        this.contactTimes.addAll(stored.contactTimes());
-        stored.tokens().forEach(token -> tokens.add(new RefreshToken(token)));
-    }
-
     /**
      * Signs a device in, once the sign-in adapter has checked the password (NFR-22). Giving the
      * password to sign in counts as giving it for Admin-only operations (NFR-214).
@@ -193,38 +182,15 @@ public class Session extends AggregateRoot {
     }
 
     /**
-     * Rebuilds a stored session. Only the persistence adapter calls it (DL §3.5). It checks no
-     * order between the token times, so a server clock that stepped back can't make a stored
-     * session unreadable. The contact times are a set: two at one instant are kept once.
+     * Checks the session as Hibernate loaded it against the invariants at rest (ADR-126 decision 8).
+     * Only Hibernate rebuilds a session, and it runs this check on every load. It checks no order
+     * between the token times, so a server clock that stepped back can't make a stored session
+     * unreadable. The contact times are a set ordered by value, which can't decrease, so it checks
+     * nothing of them (ADR-127 decision 10).
      *
-     * <p>A snapshot's contact times are a list, so it still checks that they never decrease. The
-     * stored set is ordered by value and can't decrease, so the load check has no such check, and
-     * this one goes with {@code restore} (ADR-127 decision 10).
-     *
-     * @param stored the stored session
-     * @return the session at its stored version
      * @throws StoredStateInvalid when it has no token; two tokens share an ID or a hash; a live
-     *     session has not exactly one current token, or a revoked one has more than one; an
-     *     exchanged token's successor is itself or not in the chain; or a snapshot's contact time is
-     *     earlier than the one before it
-     */
-    public static Session restore(SessionSnapshot stored) {
-        Session restored = new Session(stored);
-        restored.checkStored();
-        List<Instant> contacts = stored.contactTimes();
-        for (int i = 1; i < contacts.size(); i++) {
-            if (contacts.get(i).isBefore(contacts.get(i - 1))) {
-                throw new StoredStateInvalid(Session.class, "contact times never decrease");
-            }
-        }
-        return restored;
-    }
-
-    /**
-     * Checks the session as Hibernate loaded it against the invariants at rest that {@link
-     * #restore} checks (ADR-126 decision 8).
-     *
-     * @throws StoredStateInvalid when the stored state breaks one of them
+     *     session has not exactly one current token, or a revoked one has more than one; or an
+     *     exchanged token's successor is itself or not in the chain
      */
     @PostLoad
     void checkStored() {
@@ -373,7 +339,7 @@ public class Session extends AggregateRoot {
         return issue(newTokenId, newTokenHash, now);
     }
 
-    /** {@link #restore} refuses a repeated ID or hash, so a reuse fails before it is saved. */
+    /** The load check refuses a repeated ID or hash, so a reuse fails before it is saved. */
     private void requireNewToken(RefreshTokenId newTokenId, TokenHash newTokenHash) {
         Objects.requireNonNull(newTokenId, "newTokenId");
         Objects.requireNonNull(newTokenHash, "newTokenHash");
@@ -399,7 +365,7 @@ public class Session extends AggregateRoot {
     /**
      * Drops the tokens that are not current and were issued more than {@link #TOKEN_KEPT_FOR} ago,
      * except a successor that a kept token names. A clock that steps back can issue a successor
-     * before the token it succeeds, and dropping it would leave a saved chain that {@link #restore}
+     * before the token it succeeds, and dropping it would leave a chain that the load check
      * refuses.
      */
     private void dropOldTokens(Instant now) {
@@ -673,22 +639,55 @@ public class Session extends AggregateRoot {
     }
 
     /**
-     * The session as it would be stored.
+     * When the session signed in.
      *
-     * @return a snapshot of every field, the contact times oldest first and the tokens in the order
-     *     they were issued
+     * @return the time
      */
-    public SessionSnapshot snapshot() {
-        return new SessionSnapshot(
-                savedVersion().orElse(null),
-                id(),
-                account,
-                accountGeneration,
-                generation,
-                state(),
-                openedAt,
-                lastPasswordAt,
-                contactTimes.stream().sorted().toList(),
-                tokens.stream().map(RefreshToken::snapshot).toList());
+    public Instant openedAt() {
+        return openedAt;
+    }
+
+    /**
+     * When the session last gave the password: at sign-in, or for a step-up (NFR-214).
+     *
+     * @return the time
+     */
+    public Instant lastPasswordAt() {
+        return lastPasswordAt;
+    }
+
+    /**
+     * The session's contact times, which BR-133's contact window reads (NFR-280).
+     *
+     * @return an unmodifiable copy, oldest first, each instant once
+     */
+    public List<Instant> contactTimes() {
+        return contactTimes.stream().sorted().toList();
+    }
+
+    /**
+     * The session's chain of refresh tokens (DL §4.1). Only the session changes them: a token's
+     * own method that changes it is not public.
+     *
+     * @return an unmodifiable copy, in the order the tokens were issued
+     */
+    public List<RefreshToken> tokens() {
+        return List.copyOf(tokens);
+    }
+
+    /**
+     * A form that hides every time the session holds: when it signed in, when it last gave the
+     * password and when it was revoked are times the user was active, as its contact times are. It
+     * names how many contact times and refresh tokens there are, and no token's hash.
+     *
+     * @return the session without its times and tokens
+     */
+    @Override
+    public String toString() {
+        return "Session[id=" + id() + ", account=" + account + ", accountGeneration=" + accountGeneration
+                + ", generation=" + generation + ", state="
+                + (state == StateKind.LIVE ? state() : "Revoked[at=redacted]")
+                + ", openedAt=redacted, lastPasswordAt=redacted, contactTimes=" + contactTimes.size()
+                + " redacted, tokens=" + tokens.size() + " redacted]";
     }
 }

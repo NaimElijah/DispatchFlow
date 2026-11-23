@@ -63,16 +63,6 @@ public class CompanyProfile extends AggregateRoot {
         this.defaultWindow = Objects.requireNonNull(defaultWindow, "defaultWindow");
     }
 
-    /** Builds the profile {@link #restore} returns; it goes with {@code restore} (ADR-126). */
-    private CompanyProfile(CompanyProfileSnapshot stored) {
-        super(stored.version());
-        this.id = KEY;
-        this.name = stored.name();
-        this.language = stored.language();
-        this.defaultWindow = stored.defaultWindow();
-        this.defaultServiceTime = stored.defaultServiceTime().orElse(null);
-    }
-
     /**
      * Creates the profile when the system is deployed. A default service duration is set later,
      * where FR-89 is built (FR-184).
@@ -87,21 +77,8 @@ public class CompanyProfile extends AggregateRoot {
     }
 
     /**
-     * Rebuilds the stored profile. Only the persistence adapter calls it (DL §3.5). Its values
-     * checked themselves when the adapter built them, and no rule ties them together, so there is
-     * nothing more to check.
-     *
-     * @param stored the stored profile
-     * @return the profile at its stored version
-     */
-    public static CompanyProfile restore(CompanyProfileSnapshot stored) {
-        return new CompanyProfile(stored);
-    }
-
-    /**
-     * The load check every root has (ADR-126 decision 8). Like {@link #restore}, it checks nothing:
-     * each value checked itself when its converter or instantiator rebuilt it, and no rule ties them
-     * together.
+     * The load check every root has (ADR-126 decision 8). It checks nothing: each value checked
+     * itself when its converter or instantiator rebuilt it, and no rule ties them together.
      */
     @PostLoad
     void checkStored() {
@@ -181,15 +158,5 @@ public class CompanyProfile extends AggregateRoot {
      */
     public Optional<DefaultServiceTime> defaultServiceTime() {
         return Optional.ofNullable(defaultServiceTime);
-    }
-
-    /**
-     * The profile as it would be stored.
-     *
-     * @return a snapshot of every field
-     */
-    public CompanyProfileSnapshot snapshot() {
-        return new CompanyProfileSnapshot(
-                savedVersion().orElse(null), name, language, defaultWindow, Optional.ofNullable(defaultServiceTime));
     }
 }

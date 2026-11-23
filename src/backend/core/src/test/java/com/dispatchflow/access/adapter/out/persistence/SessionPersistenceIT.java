@@ -18,8 +18,10 @@ import com.dispatchflow.access.domain.account.UserAccount;
 import com.dispatchflow.access.domain.session.RefreshOutcome;
 import com.dispatchflow.access.domain.session.RefreshTokenId;
 import com.dispatchflow.access.domain.session.Session;
+import com.dispatchflow.access.domain.session.SessionDescription;
 import com.dispatchflow.access.domain.session.SessionGeneration;
 import com.dispatchflow.access.domain.session.SessionState;
+import com.dispatchflow.access.domain.session.TokenState;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.SessionId;
 import com.dispatchflow.shared.StoredStateInvalid;
@@ -71,9 +73,9 @@ class SessionPersistenceIT {
     @Autowired
     private JdbcClient jdbc;
 
-    // --- round trips, mirroring the domain's restore round trips
+    // --- round trips (ADR-127 decision 1)
 
-    /** The states the domain's restore round trip covers, reached through commands. */
+    /** The states a session stores and loads in, reached through commands. */
     enum Scenario {
         LIVE,
         REVOKED,
@@ -121,7 +123,7 @@ class SessionPersistenceIT {
         Session loaded =
                 transactions.inTransaction(() -> repository.get(session(n)).orElseThrow());
 
-        assertThat(loaded.snapshot()).isEqualTo(added.snapshot());
+        assertThat(SessionDescription.of(loaded)).isEqualTo(SessionDescription.of(added));
         assertThat(loaded.id()).isEqualTo(session(n));
         assertThat(loaded.account()).isEqualTo(account(n));
         assertThat(loaded.accountGeneration()).isEqualTo(FIRST);
@@ -416,8 +418,8 @@ class SessionPersistenceIT {
             Session found = transactions.inTransaction(
                     () -> repository.withRefreshToken(hash(n, tokenNumber)).orElseThrow());
             assertThat(found.id()).isEqualTo(session(n));
-            assertThat(found.snapshot().contactTimes()).containsExactly(at(41));
-            assertThat(found.snapshot().tokens()).hasSize(4);
+            assertThat(found.contactTimes()).containsExactly(at(41));
+            assertThat(found.tokens()).hasSize(4);
         }
         assertThat(transactions.inTransaction(() -> repository.withRefreshToken(hash(n, 9))))
                 .isEmpty();
@@ -441,8 +443,7 @@ class SessionPersistenceIT {
                 transactions.inTransaction(() -> repository.endedByRevocation(account(n), revokedTo, revokedAt));
 
         assertThat(ended).extracting(Session::id).containsExactlyInAnyOrder(session(n), session(100 + n));
-        assertThat(ended)
-                .allSatisfy(session -> assertThat(session.snapshot().tokens()).hasSize(1));
+        assertThat(ended).allSatisfy(session -> assertThat(session.tokens()).hasSize(1));
     }
 
     @Test
@@ -547,7 +548,27 @@ class SessionPersistenceIT {
         assertThat(due).filteredOn(ours::contains).containsExactly(session(n));
     }
 
-    // --- the load check (ADR-127 decision 1), mirroring the domain's damaged snapshots
+    // --- a stored state the load check accepts and no command reaches
+
+    /**
+     * A revoked session whose last token is no longer current: no command leaves one, since a
+     * revocation leaves the chain as it is, but the load check accepts at most one current token
+     * on a revoked session, so the session's end is its revocation.
+     */
+    @Test
+    void GivenAStoredRevokedSessionWithNoCurrentToken_WhenAskedWhenItEnded_ThenItIsTheRevocation() {
+        int n = 26;
+        transactions.inTransaction(() -> repository.add(Base.REVOKED_EXCHANGED.build(n)));
+        new Rows(jdbc, n).setOnToken(2, "state = 'REPLACED', state_at = issued_at");
+
+        Session stored =
+                transactions.inTransaction(() -> repository.get(session(n)).orElseThrow());
+
+        assertThat(stored.tokens()).noneMatch(token -> token.state() instanceof TokenState.Current);
+        assertThat(stored.endedAt()).isEqualTo(at(30));
+    }
+
+    // --- the load check (ADR-127 decision 1)
 
     static Stream<Arguments> damagedRows() {
         String current = "a live session holds exactly one current token, a revoked one at most one";

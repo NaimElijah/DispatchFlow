@@ -9,7 +9,6 @@ import com.dispatchflow.access.application.port.out.CompanyProfileRepository;
 import com.dispatchflow.access.domain.Language;
 import com.dispatchflow.access.domain.companyprofile.CompanyName;
 import com.dispatchflow.access.domain.companyprofile.CompanyProfile;
-import com.dispatchflow.access.domain.companyprofile.CompanyProfileSnapshot;
 import com.dispatchflow.access.domain.companyprofile.DefaultServiceTime;
 import com.dispatchflow.access.domain.companyprofile.DefaultWindow;
 import com.dispatchflow.shared.StoredStateInvalid;
@@ -53,6 +52,32 @@ class CompanyProfilePersistenceIT {
     @Autowired
     private JdbcClient jdbc;
 
+    /**
+     * What a profile stores, read through its getters, with the version it was stored at.
+     *
+     * @param version the stored version
+     * @param name the company's name
+     * @param language the default language
+     * @param defaultWindow the default time window
+     * @param defaultServiceTime the default service time, once set
+     */
+    private record Stored(
+            Version version,
+            CompanyName name,
+            Language language,
+            DefaultWindow defaultWindow,
+            Optional<DefaultServiceTime> defaultServiceTime) {
+
+        static Stored of(CompanyProfile profile) {
+            return new Stored(
+                    profile.version(),
+                    profile.name(),
+                    profile.language(),
+                    profile.defaultWindow(),
+                    profile.defaultServiceTime());
+        }
+    }
+
     @BeforeEach
     void startWithNoProfile() {
         jdbc.sql("DELETE FROM access.company_profile").update();
@@ -63,7 +88,7 @@ class CompanyProfilePersistenceIT {
         assertThat(transactions.inTransaction(() -> repository.get())).isEmpty();
     }
 
-    /** The two states the domain's restore round trip covers, reached through commands. */
+    /** The two states a profile stores and loads in: with and without a default service time. */
     static Stream<Optional<DefaultServiceTime>> serviceTimes() {
         return Stream.of(Optional.empty(), Optional.of(new DefaultServiceTime(240)));
     }
@@ -72,19 +97,19 @@ class CompanyProfilePersistenceIT {
     @MethodSource("serviceTimes")
     void GivenAProfile_WhenAddedAndLoadedInAnotherTransaction_ThenEveryValueComesBackUnderTheConstantKey(
             Optional<DefaultServiceTime> serviceTime) {
-        CompanyProfileSnapshot added = transactions.inTransaction(() -> {
+        Stored added = transactions.inTransaction(() -> {
             CompanyProfile profile = CompanyProfile.create(NAME, Language.HEBREW, NINE_TO_FIVE);
             serviceTime.ifPresent(profile::changeDefaultServiceTime);
             repository.add(profile);
-            return profile.snapshot();
+            return Stored.of(profile);
         });
 
         CompanyProfile loaded =
                 transactions.inTransaction(() -> repository.get().orElseThrow());
 
-        assertThat(loaded.snapshot()).isEqualTo(added);
-        assertThat(loaded.snapshot())
-                .isEqualTo(new CompanyProfileSnapshot(Version.of(0), NAME, Language.HEBREW, NINE_TO_FIVE, serviceTime));
+        assertThat(Stored.of(loaded)).isEqualTo(added);
+        assertThat(Stored.of(loaded))
+                .isEqualTo(new Stored(Version.of(0), NAME, Language.HEBREW, NINE_TO_FIVE, serviceTime));
         assertThat(jdbc.sql("SELECT id FROM access.company_profile")
                         .query(UUID.class)
                         .single())
@@ -126,10 +151,8 @@ class CompanyProfilePersistenceIT {
                     assertThat(stale.id()).isEqualTo(CompanyProfile.KEY);
                 });
 
-        assertThat(transactions.inTransaction(
-                        () -> repository.get().orElseThrow().snapshot()))
-                .isEqualTo(new CompanyProfileSnapshot(
-                        Version.of(1), NAME, Language.ENGLISH, NINE_TO_FIVE, Optional.empty()));
+        assertThat(transactions.inTransaction(() -> Stored.of(repository.get().orElseThrow())))
+                .isEqualTo(new Stored(Version.of(1), NAME, Language.ENGLISH, NINE_TO_FIVE, Optional.empty()));
     }
 
     @Test
@@ -145,10 +168,8 @@ class CompanyProfilePersistenceIT {
                     assertThat(stale.id()).isEqualTo(CompanyProfile.KEY);
                 });
 
-        assertThat(transactions.inTransaction(
-                        () -> repository.get().orElseThrow().snapshot()))
-                .isEqualTo(new CompanyProfileSnapshot(
-                        Version.of(0), NAME, Language.ENGLISH, EIGHT_TO_NOON, Optional.empty()));
+        assertThat(transactions.inTransaction(() -> Stored.of(repository.get().orElseThrow())))
+                .isEqualTo(new Stored(Version.of(0), NAME, Language.ENGLISH, EIGHT_TO_NOON, Optional.empty()));
     }
 
     /** Each damage done to a stored value, and the value that refuses it when the profile loads. */

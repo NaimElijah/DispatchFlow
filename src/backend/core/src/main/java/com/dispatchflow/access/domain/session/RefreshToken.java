@@ -13,14 +13,15 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * One refresh token of a session's chain, an entity inside {@link Session} (DL §4.1): its hash,
- * when it was issued and where it stands. Only the session changes it.
+ * when it was issued and where it stands. Only the session changes it: its getters are public, and
+ * its method that changes it is not.
  *
  * <p>It is mapped for JPA (ADR-126): its {@link TokenState} is stored as a kind, the time every
  * state but current carries, and the successor only an exchanged token names.
  */
 @Entity
 @Table(schema = "access", name = "refresh_token")
-class RefreshToken {
+public class RefreshToken {
 
     /** Which {@link TokenState} a token is in. */
     private enum StateKind {
@@ -54,24 +55,39 @@ class RefreshToken {
         moveTo(state);
     }
 
-    /** Builds a token {@link Session#restore} rebuilds; it goes with the snapshots (ADR-126). */
-    RefreshToken(RefreshTokenSnapshot stored) {
-        this(stored.id(), stored.tokenHash(), stored.issuedAt(), stored.state());
-    }
-
-    RefreshTokenId id() {
+    /**
+     * The token's ID.
+     *
+     * @return the ID
+     */
+    public RefreshTokenId id() {
         return RefreshTokenId.of(id);
     }
 
-    TokenHash tokenHash() {
+    /**
+     * The token's hash, all that is kept of it (NFR-91).
+     *
+     * @return the hash, which prints redacted
+     */
+    public TokenHash tokenHash() {
         return tokenHash;
     }
 
-    Instant issuedAt() {
+    /**
+     * When the token was issued, which its 14 days count from (NFR-87).
+     *
+     * @return the time
+     */
+    public Instant issuedAt() {
         return issuedAt;
     }
 
-    TokenState state() {
+    /**
+     * Where the token stands.
+     *
+     * @return current, exchanged, replaced or superseded
+     */
+    public TokenState state() {
         return switch (state) {
             case CURRENT -> new TokenState.Current();
             case EXCHANGED ->
@@ -106,8 +122,14 @@ class RefreshToken {
         };
     }
 
-    RefreshTokenSnapshot snapshot() {
-        return new RefreshTokenSnapshot(id(), tokenHash, issuedAt, state());
+    /**
+     * A form that leaves out the token's hash and its times, which say when its device was used.
+     *
+     * @return the token's ID and state kind alone
+     */
+    @Override
+    public String toString() {
+        return "RefreshToken[id=" + id() + ", state=" + state + "]";
     }
 
     private Instant stateTime() {

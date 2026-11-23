@@ -12,6 +12,7 @@ import com.dispatchflow.access.domain.AccessError.EmailInUse;
 import com.dispatchflow.access.domain.AccountGeneration;
 import com.dispatchflow.access.domain.Language;
 import com.dispatchflow.access.domain.TokenHash;
+import com.dispatchflow.access.domain.account.AccountDescription;
 import com.dispatchflow.access.domain.account.ActiveAdmins;
 import com.dispatchflow.access.domain.account.CredentialLinkId;
 import com.dispatchflow.access.domain.account.EmailAddress;
@@ -75,9 +76,9 @@ class UserAccountPersistenceIT {
     @Autowired
     private JdbcClient jdbc;
 
-    // --- round trips, mirroring the domain's restore round trips
+    // --- round trips (ADR-127 decision 1)
 
-    /** The states the domain's restore round trip covers, reached through commands. */
+    /** The states an account stores and loads in, reached through commands. */
     enum Scenario {
         WITH_PASSWORD,
         NO_ROLE,
@@ -128,7 +129,7 @@ class UserAccountPersistenceIT {
         UserAccount loaded =
                 transactions.inTransaction(() -> repository.get(account(n)).orElseThrow());
 
-        assertThat(loaded.snapshot()).isEqualTo(added.snapshot());
+        assertThat(AccountDescription.of(loaded)).isEqualTo(AccountDescription.of(added));
         assertThat(loaded.id()).isEqualTo(account(n));
         assertThat(loaded.email()).isEqualTo(added.email());
         assertThat(loaded.roles()).isEqualTo(added.roles());
@@ -194,7 +195,7 @@ class UserAccountPersistenceIT {
                 transactions.inTransaction(() -> repository.get(account(n)).orElseThrow());
         assertThat(stored.version()).isEqualTo(Version.of(1));
         assertThat(stored.language()).isEqualTo(Language.ENGLISH);
-        assertThat(stored.snapshot().termsAcceptedAt()).isEmpty();
+        assertThat(stored.termsAcceptedAt()).isEmpty();
     }
 
     // --- the unique email (BR-45)
@@ -262,7 +263,7 @@ class UserAccountPersistenceIT {
 
         assertThat(found.id()).isEqualTo(account(n));
         assertThat(found.roles()).isEqualTo(RoleSet.of(Role.DISPATCHER));
-        assertThat(found.snapshot().links()).hasSize(4);
+        assertThat(found.links()).hasSize(4);
         assertThat(transactions.inTransaction(() -> repository.holderOf(email(n))))
                 .isEqualTo(EmailHolder.account(email(n), account(n)));
     }
@@ -453,7 +454,7 @@ class UserAccountPersistenceIT {
                         new AdminNotice.Recipient(email(300 + n), Language.HEBREW));
     }
 
-    // --- the load check (ADR-127 decision 1), mirroring the domain's damaged snapshots
+    // --- the load check (ADR-127 decision 1)
 
     static Stream<Arguments> damagedRows() {
         String emailHeld = "an anonymized account holds no email, and every other account holds one";

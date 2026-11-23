@@ -25,6 +25,7 @@ import com.dispatchflow.access.events.SessionsRevoked;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.AggregateRoot;
 import com.dispatchflow.shared.IsraelDateTime;
+import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StoredStateInvalid;
 import jakarta.persistence.AttributeOverride;
@@ -84,7 +85,7 @@ import org.jspecify.annotations.Nullable;
  */
 @Entity
 @Table(schema = "access", name = "user_account")
-public class UserAccount extends AggregateRoot {
+public class UserAccount extends AggregateRoot implements PersonalData {
 
     /** How long after deactivation an account is anonymized, in Israel's calendar (NFR-258). */
     public static final Period RETENTION = Period.ofYears(1);
@@ -157,21 +158,6 @@ public class UserAccount extends AggregateRoot {
         this.generation = AccountGeneration.INITIAL;
     }
 
-    /** Builds the account {@link #restore} checks; it goes with {@code restore} (ADR-126). */
-    private UserAccount(UserAccountSnapshot stored) {
-        super(stored.version());
-        this.id = stored.id().value();
-        this.email = stored.email().orElse(null);
-        this.emailSetByAnother = stored.emailSetByAnother().orElse(null);
-        this.roles.addAll(stored.roles().roles());
-        this.passwordHash = stored.passwordHash().orElse(null);
-        moveTo(stored.state());
-        this.language = stored.language();
-        this.generation = stored.generation();
-        this.termsAcceptedAt = stored.termsAcceptedAt().orElse(null);
-        stored.links().forEach(link -> links.add(new CredentialLink(link)));
-    }
-
     /**
      * Opens an account an Admin creates, or the written-request server step creates (FR-02,
      * FR-292). It has no password until its set-password link is used (FR-294). FR-02's "a user
@@ -228,28 +214,15 @@ public class UserAccount extends AggregateRoot {
     }
 
     /**
-     * Rebuilds a stored account. Only the persistence adapter calls it (DL §3.5).
+     * Checks the account as Hibernate loaded it against the invariants at rest (ADR-126 decision 8).
+     * Only Hibernate rebuilds an account, and it runs this check on every load.
      *
-     * @param stored the stored account
-     * @return the account at its stored version
      * @throws StoredStateInvalid when an anonymized account still holds an email, a password or a
      *     link, or any other account holds no email; when an anonymized account or an Admin records
      *     that another account set its email; when it records the account itself as the one that
      *     set its email; when it was anonymized before it was deactivated; when two links share an
      *     ID or a token hash, or two open links share a kind; or when a link expires no later than
      *     it was sent
-     */
-    public static UserAccount restore(UserAccountSnapshot stored) {
-        UserAccount restored = new UserAccount(stored);
-        restored.checkStored();
-        return restored;
-    }
-
-    /**
-     * Checks the account as Hibernate loaded it against the invariants at rest that {@link
-     * #restore} checks (ADR-126 decision 8).
-     *
-     * @throws StoredStateInvalid when the stored state breaks one of them
      */
     @PostLoad
     void checkStored() {
@@ -837,22 +810,44 @@ public class UserAccount extends AggregateRoot {
     }
 
     /**
-     * The account as it would be stored.
+     * Which other account's email-change link set the account's address, and when (ADR-116).
      *
-     * @return a snapshot of every field, the links in the order they were sent
+     * @return the record; empty when the address is the one the account was opened with or chose
+     *     itself, once another Admin gave it the Admin role, and once anonymized
      */
-    public UserAccountSnapshot snapshot() {
-        return new UserAccountSnapshot(
-                savedVersion().orElse(null),
-                id(),
-                Optional.ofNullable(email),
-                Optional.ofNullable(emailSetByAnother),
-                roles(),
-                Optional.ofNullable(passwordHash),
-                state(),
-                language,
-                generation,
-                Optional.ofNullable(termsAcceptedAt),
-                links.stream().map(CredentialLink::snapshot).toList());
+    public Optional<EmailSetByAnother> emailSetByAnother() {
+        return Optional.ofNullable(emailSetByAnother);
+    }
+
+    /**
+     * When the user accepted the terms and the privacy notice (FR-77).
+     *
+     * @return the first acceptance; empty until the user accepts
+     */
+    public Optional<Instant> termsAcceptedAt() {
+        return Optional.ofNullable(termsAcceptedAt);
+    }
+
+    /**
+     * The account's credential links (DL §4.1). Only the account changes them: a link's own
+     * methods that change it are not public.
+     *
+     * @return an unmodifiable copy, in the order the links were sent; empty once anonymized
+     */
+    public List<CredentialLink> links() {
+        return List.copyOf(links);
+    }
+
+    /**
+     * A form that names the account and its standing, and leaves out its address, its password
+     * hash and its links, which hold token hashes and perhaps a new address (NFR-19).
+     *
+     * @return the account without personal data or credentials
+     */
+    @Override
+    public String toString() {
+        return "UserAccount[id=" + id() + ", email=" + (email == null ? "none" : "redacted") + ", roles=" + roles()
+                + ", password=" + (passwordHash == null ? "none" : "redacted") + ", state=" + state
+                + ", language=" + language + ", generation=" + generation + ", links=" + links.size() + "]";
     }
 }
