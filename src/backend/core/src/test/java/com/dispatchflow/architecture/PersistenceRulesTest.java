@@ -14,6 +14,9 @@ import com.dispatchflow.archfixture.alpha.domain.entity.MappedWithoutASchema;
 import com.dispatchflow.archfixture.alpha.domain.entity.RelatesToAnotherAggregate;
 import com.dispatchflow.archfixture.alpha.domain.entity.RelatesToAnotherModule;
 import com.dispatchflow.archfixture.alpha.domain.entity.RootWithoutALoadCheck;
+import com.dispatchflow.archfixture.alpha.domain.entity.RootsRelatingToEachOtherFirst;
+import com.dispatchflow.archfixture.alpha.domain.entity.RootsRelatingToEachOtherSecond;
+import com.dispatchflow.archfixture.alpha.domain.entity.SharesAnotherAggregatesChild;
 import com.dispatchflow.archfixture.alpha.domain.entity.StoresAnEnumAsAnOrdinal;
 import com.dispatchflow.archfixture.alpha.domain.entity.StoresAnEnumByPosition;
 import com.dispatchflow.archfixture.alpha.domain.entity.StoresEnumsByPositionInAList;
@@ -37,6 +40,26 @@ class PersistenceRulesTest {
     @ValueSource(classes = {RelatesToAnotherAggregate.class, RelatesToAnotherModule.class})
     void GivenARelationshipOutsideItsAggregate_WhenChecked_ThenItIsFlagged(Class<?> fixture) {
         assertThat(flags(PersistenceRules.relationshipsStayInsideTheAggregate(FIXTURE_ROOT), fixture))
+                .isTrue();
+    }
+
+    @Test
+    void GivenTwoRootsThatMapEachOther_WhenChecked_ThenBothSidesAreFlagged() {
+        assertThat(PersistenceRules.relationshipsStayInsideTheAggregate(FIXTURE_ROOT)
+                        .evaluate(FixtureClasses.only(
+                                RootsRelatingToEachOtherFirst.class, RootsRelatingToEachOtherSecond.class))
+                        .getFailureReport()
+                        .getDetails())
+                .hasSize(2);
+    }
+
+    @Test
+    void GivenARootThatRelatesToAnotherAggregatesChild_WhenChecked_ThenItIsFlagged() {
+        assertThat(flags(
+                        PersistenceRules.relationshipsStayInsideTheAggregate(FIXTURE_ROOT),
+                        MappedRoot.class,
+                        MappedChild.class,
+                        SharesAnotherAggregatesChild.class))
                 .isTrue();
     }
 

@@ -28,8 +28,15 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 import jakarta.persistence.Version;
 import java.lang.annotation.Annotation;
+import java.util.ArrayDeque;
+import java.util.Collection;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.repository.CrudRepository;
@@ -54,20 +61,29 @@ final class PersistenceRules {
     private PersistenceRules() {}
 
     /**
-     * Relationships stay inside one aggregate: no relationship's target is another aggregate root
-     * or a class of another module. A child's reference back to the root that holds it is inside
-     * its aggregate, so it is allowed.
+     * Relationships stay inside one aggregate: no relationship's target is in another module, or is
+     * another aggregate's root or child. The rule first works out each entity's owners, the roots
+     * that reach it through relationships without passing another root. A child's reference back to
+     * the root that owns it is inside its aggregate, so it is allowed; two roots that refer to each
+     * other are not, and neither is an entity two roots reach.
      */
     static ArchRule relationshipsStayInsideTheAggregate(String root) {
         return classes()
                 .that()
                 .resideInAPackage(root + "..")
                 .should(new ArchCondition<JavaClass>("relate only to entities of its own aggregate") {
+                    private Map<JavaClass, Set<JavaClass>> owners = Map.of();
+
+                    @Override
+                    public void init(Collection<JavaClass> allClasses) {
+                        owners = ownersOf(root, allClasses);
+                    }
+
                     @Override
                     public void check(JavaClass item, ConditionEvents events) {
                         relationshipFields(item)
                                 .forEach(field -> targetsOf(root, field)
-                                        .filter(target -> !insideTheAggregate(root, item, target))
+                                        .filter(target -> !insideTheAggregate(root, item, target, owners))
                                         .forEach(target -> events.add(SimpleConditionEvent.violated(
                                                 field,
                                                 field.getFullName() + " relates to " + target.getName()
@@ -224,20 +240,46 @@ final class PersistenceRules {
     }
 
     /**
-     * Whether a relationship from {@code item} to {@code target} stays inside one aggregate: the
-     * target is in the same module and is no aggregate root, unless it is the root that holds
-     * {@code item} through a relationship of its own.
+     * Each entity's owners: the aggregate roots that reach it through relationship fields without
+     * passing another root.
      */
-    private static boolean insideTheAggregate(String root, JavaClass item, JavaClass target) {
+    private static Map<JavaClass, Set<JavaClass>> ownersOf(String root, Collection<JavaClass> allClasses) {
+        Map<JavaClass, Set<JavaClass>> owners = new HashMap<>();
+        allClasses.stream().filter(RestrictedTypes::isAggregate).forEach(aggregate -> {
+            Deque<JavaClass> toVisit = new ArrayDeque<>(List.of(aggregate));
+            Set<JavaClass> reached = new HashSet<>();
+            while (!toVisit.isEmpty()) {
+                relationshipFields(toVisit.pop())
+                        .flatMap(field -> targetsOf(root, field))
+                        .filter(target -> !RestrictedTypes.isAggregate(target))
+                        .filter(reached::add)
+                        .forEach(target -> {
+                            owners.computeIfAbsent(target, ignored -> new HashSet<>())
+                                    .add(aggregate);
+                            toVisit.push(target);
+                        });
+            }
+        });
+        return owners;
+    }
+
+    /**
+     * Whether a relationship from {@code item} to {@code target} stays inside one aggregate. The
+     * target is in the same module, and either it is the root that owns {@code item}, a child, or
+     * it is a child owned by {@code item}'s aggregate alone.
+     */
+    private static boolean insideTheAggregate(
+            String root, JavaClass item, JavaClass target, Map<JavaClass, Set<JavaClass>> owners) {
         if (!moduleOf(root, target.getPackageName()).equals(moduleOf(root, item.getPackageName()))) {
             return false;
         }
-        if (!RestrictedTypes.isAggregate(target)) {
-            return true;
+        Set<JavaClass> itemsAggregate =
+                RestrictedTypes.isAggregate(item) ? Set.of(item) : owners.getOrDefault(item, Set.of());
+        if (RestrictedTypes.isAggregate(target)) {
+            return !RestrictedTypes.isAggregate(item) && itemsAggregate.contains(target);
         }
-        return !target.equals(item)
-                && relationshipFields(target)
-                        .anyMatch(field -> erasuresIn(field.getType()).anyMatch(item::equals));
+        Set<JavaClass> targetsOwners = owners.getOrDefault(target, Set.of());
+        return targetsOwners.size() <= 1 && itemsAggregate.containsAll(targetsOwners);
     }
 
     private static boolean isMapped(JavaClass item) {
