@@ -248,7 +248,8 @@ class FleetRegisterPersistenceIT {
                         rows -> rows.updateVehicle(2, "start_depot = '" + depot(9).value() + "'")),
                 Arguments.of("an active vehicle uses a retired depot", Base.A_RETIRED_DEPOT, (Damage)
                         rows -> rows.updateVehicle(2, "end_depot = '" + EAST.value() + "'")),
-                Arguments.of(StoredLists.GAP, Base.TWO_ACTIVE_VEHICLES, (Damage) Rows::shiftDepotPositions));
+                Arguments.of(StoredLists.GAP, Base.TWO_ACTIVE_VEHICLES, (Damage) Rows::shiftDepotPositions),
+                Arguments.of(StoredLists.GAP, Base.TWO_ACTIVE_VEHICLES, (Damage) Rows::shiftVehiclePositions));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -359,6 +360,11 @@ class FleetRegisterPersistenceIT {
         /** Moves every depot one position on, so no depot holds the first. */
         void shiftDepotPositions() {
             jdbc.sql("UPDATE fleet.depot SET position = position + 1").update();
+        }
+
+        /** Moves every vehicle one position on, so no vehicle holds the first. */
+        void shiftVehiclePositions() {
+            jdbc.sql("UPDATE fleet.vehicle SET position = position + 1").update();
         }
 
         /** Adds vehicle {@code n} at the end, a copy of vehicle {@code from} under its own name and plate. */

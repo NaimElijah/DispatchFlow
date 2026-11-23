@@ -228,17 +228,18 @@ final class PersistenceRules {
         return classes()
                 .that()
                 .resideInAPackage(root + "..")
-                .should(new ArchCondition<JavaClass>(
-                        "not extend CrudRepository, ListCrudRepository, JpaRepository or JpaSpecificationExecutor") {
-                    @Override
-                    public void check(JavaClass item, ConditionEvents events) {
-                        WIDE_REPOSITORIES.stream()
-                                .filter(item::isAssignableTo)
-                                .findFirst()
-                                .ifPresent(wide -> events.add(SimpleConditionEvent.violated(
-                                        item, item.getName() + " extends " + wide.getSimpleName())));
-                    }
-                })
+                .should(
+                        new ArchCondition<JavaClass>(
+                                "not extend CrudRepository, ListCrudRepository, JpaRepository or JpaSpecificationExecutor") {
+                            @Override
+                            public void check(JavaClass item, ConditionEvents events) {
+                                WIDE_REPOSITORIES.stream()
+                                        .filter(item::isAssignableTo)
+                                        .findFirst()
+                                        .ifPresent(wide -> events.add(SimpleConditionEvent.violated(
+                                                item, item.getName() + " extends " + wide.getSimpleName())));
+                            }
+                        })
                 .because("ADR-126 decision 6: no saveAll, deleteAll or batch delete on an aggregate");
     }
 

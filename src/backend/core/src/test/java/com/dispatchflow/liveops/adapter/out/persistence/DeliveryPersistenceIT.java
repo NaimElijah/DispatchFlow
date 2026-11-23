@@ -400,13 +400,18 @@ class DeliveryPersistenceIT {
     @Test
     void GivenAReportWhoseDeviceTimesHaveNanoseconds_WhenItsDeliveryIsAddedAndLoaded_ThenItLoadsWithItsCorrectedTime() {
         int n = 42;
+        // Sub-microsecond parts that round apart, 600 ns up and 400 ns down, on microsecond digits
+        // that a cut to the millisecond would lose.
         CorrectedTime time = CorrectedTime.of(
-                T_0800.minusSeconds(5).plusNanos(600), T_0800.minusSeconds(4).plusNanos(400), T_0800);
+                T_0800.minusSeconds(5).plusNanos(123_456_600),
+                T_0800.minusSeconds(4).plusNanos(654_321_400),
+                T_0800);
 
         transactions.inTransaction(() -> repository.add(failedForAnotherReason(n, time)));
         Delivery loaded =
                 transactions.inTransaction(() -> repository.get(stop(n))).orElseThrow();
 
+        assertThat(time.corrected()).isEqualTo(Instant.parse("2027-03-01T07:59:58.469135Z"));
         assertThat(loaded.outcomes().getFirst().factTime()).isEqualTo(time.corrected());
     }
 
@@ -698,6 +703,12 @@ class DeliveryPersistenceIT {
                         1_021,
                         Base.FAILED_THEN_CORRECTED,
                         (Damage) Rows::shiftOutcomePositions,
+                        StoredLists.GAP),
+                Arguments.of(
+                        "held reports whose positions start past the first",
+                        1_022,
+                        Base.CONFIRMED,
+                        (Damage) Rows::shiftHeldReportPositions,
                         StoredLists.GAP));
     }
 
@@ -830,6 +841,13 @@ class DeliveryPersistenceIT {
         /** Moves every outcome record one position on, so no record holds the first. */
         void shiftOutcomePositions() {
             jdbc.sql("UPDATE liveops.delivery_outcome SET position = position + 1 WHERE delivery_id = ?")
+                    .param(stop(s).value())
+                    .update();
+        }
+
+        /** Moves every held report one position on, so no report holds the first. */
+        void shiftHeldReportPositions() {
+            jdbc.sql("UPDATE liveops.held_report SET position = position + 1 WHERE delivery_id = ?")
                     .param(stop(s).value())
                     .update();
         }

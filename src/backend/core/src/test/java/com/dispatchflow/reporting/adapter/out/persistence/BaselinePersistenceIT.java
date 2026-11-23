@@ -333,6 +333,20 @@ class BaselinePersistenceIT {
                         Scenario.PUBLISHED,
                         (Damage) rows -> rows.update("baseline_planned_order", "position = position + 1"),
                         "Baseline",
+                        StoredLists.GAP),
+                Arguments.of(
+                        "withdrawals whose positions start past the first",
+                        1_008,
+                        Scenario.TWO_VEHICLES_WITHDRAWN,
+                        (Damage) rows -> rows.update("baseline_withdrawal", "position = position + 1"),
+                        "Baseline",
+                        StoredLists.GAP),
+                Arguments.of(
+                        "added orders whose positions start past the first",
+                        1_009,
+                        Scenario.AN_ORDER_ADDED,
+                        (Damage) rows -> rows.update("baseline_added_order", "position = position + 1"),
+                        "Baseline",
                         StoredLists.GAP));
     }
 

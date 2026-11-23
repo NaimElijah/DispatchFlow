@@ -289,7 +289,8 @@ class DayRosterPersistenceIT {
                         1_004,
                         (Damage) rows -> rows.updateUnavailable(1, "vehicle = '" + V1.value() + "'"),
                         "DayRoster"),
-                Arguments.of(StoredLists.GAP, 1_011, (Damage) Rows::shiftEntryPositions, "DayRoster"));
+                Arguments.of(StoredLists.GAP, 1_011, (Damage) Rows::shiftEntryPositions, "DayRoster"),
+                Arguments.of(StoredLists.GAP, 1_012, (Damage) Rows::shiftUnavailablePositions, "DayRoster"));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -372,6 +373,13 @@ class DayRosterPersistenceIT {
         /** Moves every entry one position on, so no entry holds the first. */
         void shiftEntryPositions() {
             jdbc.sql("UPDATE fleet.roster_entry SET position = position + 1 WHERE day_roster_id = ?")
+                    .param(rosterId(n))
+                    .update();
+        }
+
+        /** Moves every unavailable vehicle one position on, so none holds the first. */
+        void shiftUnavailablePositions() {
+            jdbc.sql("UPDATE fleet.unavailable_vehicle SET position = position + 1 WHERE day_roster_id = ?")
                     .param(rosterId(n))
                     .update();
         }

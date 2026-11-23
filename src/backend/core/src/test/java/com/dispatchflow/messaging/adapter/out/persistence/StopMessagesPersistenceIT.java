@@ -219,6 +219,36 @@ class StopMessagesPersistenceIT {
         assertThat(storedMessages(n)).isEqualTo(2L);
     }
 
+    /**
+     * The trigger adds a message to the root's own list, so the flush that the day's cap runs moves
+     * the root's version before the save, which then has no step of its own to take.
+     */
+    @Test
+    void GivenATriggerOnStoredMessages_WhenTheDaysCapIsReadBeforeTheSave_ThenAssertionErrorAndNothingIsStored() {
+        int n = 41;
+        Instant ten = tenOn(n);
+        RecipientPhone to = new RecipientPhone.Known(phone(n));
+        transactions.inTransaction(() -> repository.add(pendingOutForDelivery(n, ten, phone(n))));
+
+        assertThatThrownBy(() -> transactions.inTransaction(() -> {
+                    StopMessages messages = repository.get(stop(n)).orElseThrow();
+                    messages.onDeliveryChanged(
+                            messageId(n, 2),
+                            to,
+                            MESSAGES_ON,
+                            RouteProgress.IN_PROGRESS,
+                            StopProgress.NOT_REACHED,
+                            at(ten, 1));
+                    repository.capOn(dayOf(n));
+                    repository.save(messages);
+                }))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageStartingWith("a save must move the version");
+
+        assertThat(storedVersion(n)).isZero();
+        assertThat(storedMessages(n)).isEqualTo(1L);
+    }
+
     @Test
     void GivenAnotherTriggerStoredTheStopsMessagesFirst_WhenTheyAreAdded_ThenStaleVersionAndTheFirstStands() {
         int n = 7;

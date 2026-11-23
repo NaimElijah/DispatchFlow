@@ -627,7 +627,22 @@ class SolveJobPersistenceIT {
                         Scenario.DAILY_SUCCEEDED,
                         (Damage) rows -> rows.update("solve_job_route", "position = position + 1"),
                         "SolveJob",
-                        StoredLists.GAP));
+                        StoredLists.GAP),
+                shifted("failure violations", 1018, Scenario.DAILY_REJECTED, "solve_job_violation"),
+                shifted("result stops", 1019, Scenario.DAILY_SUCCEEDED, "solve_job_stop"),
+                shifted("result drops", 1020, Scenario.DAILY_SUCCEEDED, "solve_job_drop"),
+                shifted("result excluded vehicles", 1021, Scenario.DAILY_SUCCEEDED, "solve_job_excluded_vehicle"));
+    }
+
+    /** A gap case: every row of one of the job's lists moved one position on, so none holds the first. */
+    private static Arguments shifted(String list, int n, Scenario scenario, String table) {
+        return Arguments.of(
+                list + " whose positions start past the first",
+                n,
+                scenario,
+                (Damage) rows -> rows.update(table, "position = position + 1"),
+                "SolveJob",
+                StoredLists.GAP);
     }
 
     @ParameterizedTest(name = "{0}")

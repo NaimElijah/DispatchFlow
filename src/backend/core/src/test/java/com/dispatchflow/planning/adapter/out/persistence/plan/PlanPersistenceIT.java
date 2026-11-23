@@ -7,6 +7,7 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.O2;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.O3;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.V1;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.V2;
+import static com.dispatchflow.planning.domain.plan.PlanningFixtures.V3;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.aPlan;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.evaluationOf;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.routeId;
@@ -24,6 +25,8 @@ import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
 import com.dispatchflow.planning.domain.PinTarget;
 import com.dispatchflow.planning.domain.PlanningError.PlanAlreadyExists;
 import com.dispatchflow.planning.domain.SolveLimit;
+import com.dispatchflow.planning.domain.drop.ExcludedVehicle;
+import com.dispatchflow.planning.domain.drop.ExclusionCause;
 import com.dispatchflow.planning.domain.plan.Edit;
 import com.dispatchflow.planning.domain.plan.LaneCapacity;
 import com.dispatchflow.planning.domain.plan.Plan;
@@ -167,7 +170,14 @@ class PlanPersistenceIT {
                         evaluationOf(plan)
                                 .withViolation(violation("BR-03", routeId(plan, V2)))
                                 .build(),
-                        today)));
+                        today))),
+        /** Ready, then solved again with V3 excluded from the solve. */
+        SOLVED_AGAIN_EXCLUDING_V3((KeyedBuilder keyed) -> solvedAgain(
+                keyed,
+                keyed.builder().ready(),
+                List.of(new ExcludedVehicle(V3, ExclusionCause.VEHICLE_UNAVAILABLE)),
+                solved(V1, D1, O1, O2),
+                solved(V2, D2, O3)));
 
         private final Function<KeyedBuilder, Plan> build;
 
@@ -818,7 +828,19 @@ class PlanPersistenceIT {
                         rows -> rows.run("UPDATE planning.planned_stop SET position = position + 1 WHERE route_id = "
                                 + FIRST_ROUTE),
                         "Plan",
-                        StoredLists.GAP));
+                        StoredLists.GAP),
+                shifted("drops", State.READY, "plan_drop"),
+                shifted("excluded vehicles", State.SOLVED_AGAIN_EXCLUDING_V3, "plan_excluded_vehicle"),
+                shifted("pins", State.READY_WITH_PINS_A_LOCK_A_VIOLATION_AND_BOTH_JOURNALS, "plan_pin"),
+                shifted("violations", State.READY_WITH_PINS_A_LOCK_A_VIOLATION_AND_BOTH_JOURNALS, "plan_violation"),
+                shifted(
+                        "undo journal entries",
+                        State.READY_WITH_PINS_A_LOCK_A_VIOLATION_AND_BOTH_JOURNALS,
+                        "plan_undo"),
+                shifted(
+                        "redo journal entries",
+                        State.READY_WITH_PINS_A_LOCK_A_VIOLATION_AND_BOTH_JOURNALS,
+                        "plan_redo"));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -1001,6 +1023,16 @@ class PlanPersistenceIT {
         return Arguments.of(broken, state, damage, subject, detail);
     }
 
+    /** A gap case: every row of one of the plan's lists moved one position on, so none holds the first. */
+    private static Arguments shifted(String list, State state, String table) {
+        return damaged(
+                list + " whose positions start past the first",
+                state,
+                rows -> rows.update(table, "position = position + 1"),
+                "Plan",
+                StoredLists.GAP);
+    }
+
     private static Arguments forbidden(String broken, State state, Damage damage) {
         return Arguments.of(broken, state, damage);
     }
@@ -1142,7 +1174,13 @@ class PlanPersistenceIT {
      * Solves a ready plan again with the given routes, through the repository: the plan requests a
      * solve, whose job succeeds with them in memory, and then applies its result.
      */
-    private Plan solvedAgain(KeyedBuilder builder, Plan ready, SolvedRoute... routes) {
+    private static Plan solvedAgain(KeyedBuilder builder, Plan ready, SolvedRoute... routes) {
+        return solvedAgain(builder, ready, List.of(), routes);
+    }
+
+    /** Solves a ready plan again as {@link #solvedAgain(KeyedBuilder, Plan, SolvedRoute...)} does, excluding vehicles. */
+    private static Plan solvedAgain(
+            KeyedBuilder builder, Plan ready, List<ExcludedVehicle> excluded, SolvedRoute... routes) {
         long keys = ready.id().value().getMostSignificantBits();
         JobId job = JobId.of(new UUID(keys, 50));
         List<SolveJob> requested = new ArrayList<>();
@@ -1161,7 +1199,7 @@ class PlanPersistenceIT {
         succeeded.claim(SOLVED_AGAIN);
         succeeded.searchStarted(SOLVED_AGAIN);
         succeeded.succeed(
-                ValidatedSolution.of(ValidationReport.of(List.of(), List.of(routes), List.of(), List.of())),
+                ValidatedSolution.of(ValidationReport.of(List.of(), List.of(routes), List.of(), excluded)),
                 SOLVED_AGAIN);
         FreshIds ids = FreshIds.of(
                 IntStream.range(0, 10).mapToObj(i -> new UUID(keys, 20_000 + i)).toList());

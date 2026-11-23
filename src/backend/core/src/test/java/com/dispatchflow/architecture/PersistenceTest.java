@@ -4,25 +4,32 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.tngtech.archunit.core.domain.JavaClass;
 import jakarta.persistence.Embeddable;
+import jakarta.persistence.Entity;
 import jakarta.persistence.MappedSuperclass;
 import org.junit.jupiter.api.Test;
 
 /**
  * The JPA mapping rules of ADR-126, checked against the production classes. The guard below fails if
- * the kernel's {@code AggregateRoot} and embeddable values stop being picked, which would let the
- * rules pass on nothing mapped.
+ * the kernel's {@code AggregateRoot} and embeddable values, or a module's entity root, stop being
+ * picked, which would let the rules pass on nothing mapped.
  */
 class PersistenceTest {
 
     private static final String ROOT = ProductionClasses.ROOT;
 
     @Test
-    void GivenTheProductionClasses_WhenTheMappedKernelTypesArePicked_ThenTheRootAndTheEmbeddablesAreAmongThem() {
+    void GivenTheProductionClasses_WhenTheMappedTypesArePicked_ThenTheKernelsTypesAndAModulesRootAreAmongThem() {
         assertThat(ProductionClasses.ALL.stream()
-                        .filter(type ->
-                                type.isAnnotatedWith(MappedSuperclass.class) || type.isAnnotatedWith(Embeddable.class))
-                        .map(JavaClass::getSimpleName))
-                .contains("AggregateRoot", "TimeWindow", "GeoPoint", "DaySeconds");
+                        .filter(type -> type.isAnnotatedWith(Entity.class)
+                                || type.isAnnotatedWith(MappedSuperclass.class)
+                                || type.isAnnotatedWith(Embeddable.class))
+                        .map(JavaClass::getName))
+                .contains(
+                        "com.dispatchflow.shared.AggregateRoot",
+                        "com.dispatchflow.shared.TimeWindow",
+                        "com.dispatchflow.shared.GeoPoint",
+                        "com.dispatchflow.shared.DaySeconds",
+                        "com.dispatchflow.planning.domain.plan.Plan");
     }
 
     @Test

@@ -28,11 +28,14 @@ import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.StaleVersion;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -369,23 +372,28 @@ class SessionPersistenceIT {
      * whether its save must check the version. {@code JpaSessionRepository.save} skips the check
      * when {@link Session#changedBeyondContactTimes()} is unset, so a command that forgot to set it
      * would save its change unchecked. Only a load leaves the flag unset, so this runs on loaded
-     * sessions rather than in a domain test. A new command belongs here. {@code
-     * requireFreshStepUp} is left out: it only checks, and changes nothing.
+     * sessions rather than in a domain test. A new command belongs here, which {@link
+     * SessionPersistenceIT#GivenSessionsPublicMethods_WhenEachIsClassified_ThenEveryOneThatIsNoQueryHasACommandRow}
+     * enforces. {@code requireFreshStepUp} is left out: it only checks, and changes nothing.
      */
     enum Command {
         EXCHANGE(
+                "exchange",
                 SessionPersistenceIT::opened,
                 true,
                 (session, n) -> session.exchange(hash(n, 1), FIRST, token(n, 2), hash(n, 2), at(20))),
         EXCHANGE_AGAIN_WITHIN_THE_GRACE(
+                "exchange",
                 SessionPersistenceIT::exchanged,
                 true,
                 (session, n) -> session.exchange(hash(n, 1), FIRST, token(n, 3), hash(n, 3), at(20).plusSeconds(5))),
         EXCHANGE_REUSED_AFTER_THE_GRACE(
+                "exchange",
                 SessionPersistenceIT::exchanged,
                 true,
                 (session, n) -> session.exchange(hash(n, 1), FIRST, token(n, 3), hash(n, 3), at(30))),
         EXCHANGE_REFUSED_AFTER_DROPPING_OLD_TOKENS(
+                "exchange",
                 SessionPersistenceIT::exchanged,
                 true,
                 (session, n) -> session.exchange(
@@ -395,30 +403,71 @@ class SessionPersistenceIT {
                         hash(n, 3),
                         T.plus(Session.TOKEN_KEPT_FOR).plusSeconds(1))),
         CONFIRM_PASSWORD(
+                "confirmPassword",
                 SessionPersistenceIT::opened,
                 true,
                 (session, n) -> session.confirmPassword(FIRST, token(n, 2), hash(n, 2), at(20))),
-        REVOKE(SessionPersistenceIT::opened, true, (session, n) -> session.revoke(at(20))),
+        REVOKE("revoke", SessionPersistenceIT::opened, true, (session, n) -> session.revoke(at(20))),
         REVOKE_WITH_ACCOUNT(
+                "revokeWithAccount",
                 SessionPersistenceIT::opened,
                 true,
                 (session, n) -> session.revokeWithAccount(AccountGeneration.of(2), at(20))),
-        RECORD_CONTACT(SessionPersistenceIT::opened, false, (session, n) -> session.recordContact(at(20))),
+        RECORD_CONTACT(
+                "recordContact", SessionPersistenceIT::opened, false, (session, n) -> session.recordContact(at(20))),
         DROP_OLD_CONTACTS(
+                "dropOldContacts",
                 SessionPersistenceIT::contactedAtT,
                 false,
                 (session, n) -> session.dropOldContacts(
                         T.plus(Session.CONTACT_RETENTION).plusSeconds(1)));
 
+        private final String method;
         private final IntFunction<Session> stored;
         private final boolean versioned;
         private final ObjIntConsumer<Session> run;
 
-        Command(IntFunction<Session> stored, boolean versioned, ObjIntConsumer<Session> run) {
+        Command(String method, IntFunction<Session> stored, boolean versioned, ObjIntConsumer<Session> run) {
+            this.method = method;
             this.stored = stored;
             this.versioned = versioned;
             this.run = run;
         }
+    }
+
+    /**
+     * The public methods of {@link Session} that change nothing. Any other public method is a command,
+     * and fails this test until it has a {@link Command} row.
+     */
+    private static final Set<String> SESSION_QUERIES = Set.of(
+            "requireFreshStepUp",
+            "changedBeyondContactTimes",
+            "endedAt",
+            "id",
+            "account",
+            "accountGeneration",
+            "generation",
+            "state",
+            "openedAt",
+            "lastPasswordAt",
+            "contactTimes",
+            "tokens",
+            "toString");
+
+    @Test
+    void GivenSessionsPublicMethods_WhenEachIsClassified_ThenEveryOneThatIsNoQueryHasACommandRow() {
+        Set<String> commands = Arrays.stream(Session.class.getDeclaredMethods())
+                .filter(method -> Modifier.isPublic(method.getModifiers()))
+                .filter(method -> !Modifier.isStatic(method.getModifiers()) && !method.isSynthetic())
+                .map(Method::getName)
+                .filter(name -> !SESSION_QUERIES.contains(name))
+                .collect(Collectors.toSet());
+
+        assertThat(commands)
+                .as("each public Session method that changes it needs a Command row, or is a query")
+                .isSubsetOf(Arrays.stream(Command.values())
+                        .map(command -> command.method)
+                        .collect(Collectors.toSet()));
     }
 
     @ParameterizedTest
