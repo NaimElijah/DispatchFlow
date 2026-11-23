@@ -53,13 +53,18 @@ public final class AddDepot {
      * @param name the depot's name
      * @param location its location, if known (FR-130)
      * @param hours its opening hours, if it has any (FR-129)
-     * @param expected the version of the register the caller last read (BR-76)
+     * @param expected the version of the register the caller last read, or empty before the
+     *     register is first stored, which sends {@code If-None-Match: *} (BR-76)
      * @return the new depot's ID
      * @throws StaleVersion when the register is no longer at {@code expected}, or changed before
      *     the save (BR-76)
      */
     public DepotId add(
-            Actor actor, DepotName name, Optional<GeoPoint> location, Optional<DepotHours> hours, Version expected) {
+            Actor actor,
+            DepotName name,
+            Optional<GeoPoint> location,
+            Optional<DepotHours> hours,
+            Optional<Version> expected) {
         throw new UnsupportedOperationException("Built in M2");
     }
 }

@@ -26,7 +26,6 @@ import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.SharedKernelError.NonexistentLocalTime;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.TimeWindow;
-import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.Volume;
 import com.dispatchflow.shared.Weight;
 import java.time.Instant;
@@ -129,7 +128,7 @@ public final class Order extends AggregateRoot implements PersonalData {
      *     date
      * @param today today in {@code Asia/Jerusalem}
      * @param now the time of placing, its first change time
-     * @return the order, at {@link Version#NEW}, with no event
+     * @return the order, never saved, with no event
      * @throws RuleViolation with the first of, in this order: {@link DateInPast} (BR-116); {@link
      *     NonexistentLocalTime} when the default window falls in the hour the clock skips on the date
      *     (BR-111), or {@link WindowNotOnDate} (BR-35); {@link NoServiceTime} (BR-124); {@link
@@ -224,7 +223,7 @@ public final class Order extends AggregateRoot implements PersonalData {
                 new State.Active(),
                 false,
                 now,
-                Version.NEW));
+                null));
     }
 
     private static TimeWindow windowOf(OrderDetails details, OrderDefaults defaults, DeliveryDate date) {
@@ -532,7 +531,7 @@ public final class Order extends AggregateRoot implements PersonalData {
                 state,
                 anonymized,
                 lastChangedAt,
-                version());
+                savedVersion());
     }
 
     /**

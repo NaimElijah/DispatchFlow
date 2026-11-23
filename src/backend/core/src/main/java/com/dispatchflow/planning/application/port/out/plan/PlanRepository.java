@@ -34,7 +34,7 @@ public interface PlanRepository {
      *
      * <p>Built in M0.
      *
-     * @param plan the plan, at {@code Version.NEW}
+     * @param plan the plan, never saved
      * @throws com.dispatchflow.shared.RuleViolation with Planning's {@code PlanAlreadyExists} when
      *     the unique index finds another uncancelled plan for the date, a race the read missed
      *     (BR-34)

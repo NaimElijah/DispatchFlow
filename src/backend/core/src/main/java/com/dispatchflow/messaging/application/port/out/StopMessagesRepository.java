@@ -34,7 +34,7 @@ public interface StopMessagesRepository {
      *
      * <p>Built in M12.
      *
-     * @param messages the stop's messages, at {@code Version.NEW}
+     * @param messages the stop's messages, never saved
      * @throws StaleVersion when another trigger stored the stop's messages first; the caller
      *     retries the trigger as a change
      */

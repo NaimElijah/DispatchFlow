@@ -13,6 +13,7 @@ import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Changes the planning settings, all in one place, from the Admin's settings page (FR-183, FR-19,
@@ -64,12 +65,13 @@ public final class ChangePlanningSettings {
      *
      * @param actor the Admin
      * @param command the new values
-     * @param expected the settings' version the Admin saw (BR-76)
+     * @param expected the settings' version the Admin saw, or empty while they are the starting
+     *     values, never saved (BR-76)
      * @throws com.dispatchflow.shared.RuleViolation from M6, with Access's {@code SessionRevoked} or
      *     {@code StepUpRequired}, in that order, before any change (NFR-214)
      * @throws StaleVersion when the settings changed since {@code expected}
      */
-    public void change(Actor actor, Command command, Version expected) {
+    public void change(Actor actor, Command command, Optional<Version> expected) {
         throw new UnsupportedOperationException("Built in M4");
     }
 

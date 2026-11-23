@@ -138,7 +138,7 @@ public final class SolveJob extends AggregateRoot {
     private Phase phase;
     private @Nullable SolveResult result;
 
-    private SolveJob(Version version, SolveJobSnapshot state) {
+    private SolveJob(@Nullable Version version, SolveJobSnapshot state) {
         super(version);
         this.id = state.id();
         this.plan = state.plan();
@@ -191,10 +191,10 @@ public final class SolveJob extends AggregateRoot {
             throw new RuleViolation(new SolveQueueFull(lane, LaneCapacity.QUEUE_LIMIT));
         }
         return new SolveJob(
-                Version.NEW,
+                null,
                 new SolveJobSnapshot(
                         id,
-                        Version.NEW,
+                        null,
                         plan,
                         lane,
                         solver,
@@ -390,7 +390,7 @@ public final class SolveJob extends AggregateRoot {
     public SolveJobSnapshot snapshot() {
         return new SolveJobSnapshot(
                 id,
-                version(),
+                savedVersion(),
                 plan,
                 lane,
                 solver,

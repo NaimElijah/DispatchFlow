@@ -33,7 +33,7 @@ public interface DeliveryRepository {
      *
      * <p>Built in M5.
      *
-     * @param delivery the delivery, at {@code Version.NEW}
+     * @param delivery the delivery, never saved
      * @throws StaleVersion when another writer stored the stop's delivery first; the caller retries
      *     the command as a change (DL §11)
      */

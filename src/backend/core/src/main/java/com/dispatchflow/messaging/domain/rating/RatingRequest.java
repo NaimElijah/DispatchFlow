@@ -14,7 +14,6 @@ import com.dispatchflow.shared.RatingRequestId;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.StoredStateInvalid;
-import com.dispatchflow.shared.Version;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -115,14 +114,14 @@ public final class RatingRequest extends AggregateRoot implements PersonalData {
      *
      * @param id the new request's ID
      * @param question the accepted question
-     * @return the request, open, at {@link Version#NEW}
+     * @return the request, open, never saved
      */
     public static RatingRequest open(RatingRequestId id, RatingQuestion question) {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(question, "question");
         return new RatingRequest(new RatingRequestSnapshot(
                 id,
-                Version.NEW,
+                null,
                 question.stop(),
                 Optional.of(question.phone()),
                 question.acceptedAt(),
@@ -249,7 +248,7 @@ public final class RatingRequest extends AggregateRoot implements PersonalData {
     public RatingRequestSnapshot snapshot() {
         return new RatingRequestSnapshot(
                 id,
-                version(),
+                savedVersion(),
                 stop,
                 Optional.ofNullable(phone),
                 acceptedAt,
@@ -333,7 +332,7 @@ public final class RatingRequest extends AggregateRoot implements PersonalData {
             @Nullable Instant nextRemovedAt) {
         RatingRequestSnapshot candidate = new RatingRequestSnapshot(
                 id,
-                version(),
+                savedVersion(),
                 stop,
                 Optional.ofNullable(nextPhone),
                 acceptedAt,

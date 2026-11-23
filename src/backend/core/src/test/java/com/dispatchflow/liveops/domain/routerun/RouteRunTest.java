@@ -89,7 +89,7 @@ class RouteRunTest {
         assertThat(run.isFinished()).isFalse();
         assertThat(run.pendingEvents())
                 .containsExactly(new RouteStarted(
-                        new EventId("RouteStarted", ROUTE_A.value(), Version.of(1), 0),
+                        new EventId("RouteStarted", ROUTE_A.value(), Version.of(0), 0),
                         NOW,
                         ROUTE_A,
                         DRIVER_A,
@@ -161,7 +161,7 @@ class RouteRunTest {
         assertThat(run.snapshot().startedBy()).isEqualTo(DRIVER_B);
         assertThat(run.pendingEvents())
                 .containsExactly(new RouteStarted(
-                        new EventId("RouteStarted", ROUTE_A.value(), Version.of(1), 0),
+                        new EventId("RouteStarted", ROUTE_A.value(), Version.of(0), 0),
                         NOW,
                         ROUTE_A,
                         DRIVER_B,

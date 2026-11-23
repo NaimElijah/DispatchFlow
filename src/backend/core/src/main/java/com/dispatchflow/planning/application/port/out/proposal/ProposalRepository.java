@@ -29,7 +29,7 @@ public interface ProposalRepository {
      *
      * <p>Built in M9.
      *
-     * @param proposal the proposal, at {@code Version.NEW}
+     * @param proposal the proposal, never saved
      */
     void add(ReoptimizationProposal proposal);
 

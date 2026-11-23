@@ -30,7 +30,7 @@ public interface ImportBatchRepository {
      *
      * <p>Built in M2.
      *
-     * @param batch the import, previewed, at {@code Version.NEW}
+     * @param batch the import, previewed, never saved
      */
     void add(ImportBatch batch);
 

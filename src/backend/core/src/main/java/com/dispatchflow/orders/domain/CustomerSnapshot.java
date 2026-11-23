@@ -10,6 +10,7 @@ import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Everything a {@link Customer} holds, as the persistence adapter stores and reloads it. {@link
@@ -26,7 +27,8 @@ import java.util.Set;
  * @param defaults its default window and service time
  * @param state active, retired or anonymized
  * @param createdAt when it was registered, from which a customer with no order counts its retention
- * @param version the version it was saved at
+ * @param version the version it was loaded at, or null for an aggregate never saved
+ *     (ADR-126)
  */
 public record CustomerSnapshot(
         CustomerId id,
@@ -39,7 +41,7 @@ public record CustomerSnapshot(
         OrderDefaults defaults,
         Customer.State state,
         Instant createdAt,
-        Version version)
+        @Nullable Version version)
         implements PersonalData {
 
     /** Checks every part is given, and copies the flags in their declared order. */
@@ -53,7 +55,6 @@ public record CustomerSnapshot(
         Objects.requireNonNull(defaults, "defaults");
         Objects.requireNonNull(state, "state");
         Objects.requireNonNull(createdAt, "createdAt");
-        Objects.requireNonNull(version, "version");
         EnumSet<AddressFlag> copied = EnumSet.noneOf(AddressFlag.class);
         copied.addAll(flags);
         flags = Collections.unmodifiableSet(copied);

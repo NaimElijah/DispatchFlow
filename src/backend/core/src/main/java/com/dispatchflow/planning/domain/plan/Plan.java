@@ -88,7 +88,6 @@ import com.dispatchflow.shared.RuleViolations;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.VehicleId;
-import com.dispatchflow.shared.Version;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -230,7 +229,7 @@ public final class Plan extends AggregateRoot {
      * @param plansOnDate the date's uncancelled plan, as the use case read it
      * @param today the current date in {@code Asia/Jerusalem}
      * @param now the time of opening
-     * @return the plan, at {@code Version.NEW}
+     * @return the plan, never saved
      * @throws RuleViolation with {@link DateInPast} for a past date (BR-118), or {@link
      *     PlanAlreadyExists} when the date has an uncancelled plan (BR-34)
      */
@@ -244,7 +243,7 @@ public final class Plan extends AggregateRoot {
         }
         return new Plan(new PlanSnapshot(
                 id,
-                Version.NEW,
+                null,
                 date,
                 now,
                 new Status.Draft(),
@@ -1307,7 +1306,7 @@ public final class Plan extends AggregateRoot {
             List<Edit> redone) {
         return new PlanSnapshot(
                 id,
-                version(),
+                savedVersion(),
                 date,
                 openedAt,
                 state,

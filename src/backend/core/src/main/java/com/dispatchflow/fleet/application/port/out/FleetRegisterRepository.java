@@ -26,7 +26,7 @@ public interface FleetRegisterRepository {
      *
      * <p>Built in M2.
      *
-     * @param register the new register, at {@code Version.NEW}
+     * @param register the new register, never saved
      * @throws StaleVersion when another call stored the register first
      */
     void add(FleetRegister register);

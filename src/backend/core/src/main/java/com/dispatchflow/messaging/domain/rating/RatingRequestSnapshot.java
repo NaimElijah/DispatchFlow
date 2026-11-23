@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * {@link RatingRequest}'s whole state: what {@code snapshot()} gives and {@code restore} takes. The
@@ -17,7 +18,8 @@ import java.util.Optional;
  * #toString()} leaves them out.
  *
  * @param id the request's ID
- * @param version the version it was loaded at
+ * @param version the version it was loaded at, or null for an aggregate never saved
+ *     (ADR-126)
  * @param stop the delivered stop the request is about
  * @param phone the phone the question went to; empty once removed (NFR-184)
  * @param acceptedAt when the provider accepted the question, from which the 48 hours run (FR-357)
@@ -29,7 +31,7 @@ import java.util.Optional;
  */
 public record RatingRequestSnapshot(
         RatingRequestId id,
-        Version version,
+        @Nullable Version version,
         StopId stop,
         Optional<PhoneNumber> phone,
         Instant acceptedAt,
@@ -43,7 +45,6 @@ public record RatingRequestSnapshot(
     /** Checks every part is present and copies the list. */
     public RatingRequestSnapshot {
         Objects.requireNonNull(id, "id");
-        Objects.requireNonNull(version, "version");
         Objects.requireNonNull(stop, "stop");
         Objects.requireNonNull(phone, "phone");
         Objects.requireNonNull(acceptedAt, "acceptedAt");

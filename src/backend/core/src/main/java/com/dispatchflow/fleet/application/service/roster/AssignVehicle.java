@@ -14,12 +14,13 @@ import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
+import java.util.Optional;
 
 /**
  * A dispatcher gives a rostered driver a vehicle for a date (FR-54). On the date a driver drives at
  * most one vehicle and a vehicle has at most one driver; both are active (FR-190). Giving the
- * vehicle they already drive changes nothing. A date with no roster yet is opened empty, at {@code
- * Version.NEW}, so the domain answers a driver who is not on it.
+ * vehicle they already drive changes nothing. A date with no roster yet is opened empty, never saved,
+ * so the domain answers a driver who is not on it.
  *
  * <p>The driver's standing combines Access's answer on the account with the driver record's own
  * state, read now (ADR-062). The vehicle's standing is the fleet register's. Like every changing
@@ -70,8 +71,8 @@ public final class AssignVehicle {
      * @param date the roster's date
      * @param driver the driver's account
      * @param vehicle the vehicle
-     * @param expected the version of the date's roster the caller last read, {@code Version.NEW}
-     *     for a date with none yet (BR-76)
+     * @param expected the version of the date's roster the caller last read, or empty for a date
+     *     with none yet, which sends {@code If-None-Match: *} (BR-76)
      * @throws RuleViolation with Fleet's {@code NotAnActiveDriver} or {@code VehicleNotActive} when
      *     either is not active; {@code DriverNotRostered} when the driver has no shift that date;
      *     {@code VehicleAlreadyAssigned} when another driver drives the vehicle; {@code
@@ -80,7 +81,8 @@ public final class AssignVehicle {
      * @throws StaleVersion when the roster is no longer at {@code expected}, or changed before the
      *     save (BR-76)
      */
-    public void assign(Actor actor, DeliveryDate date, AccountId driver, VehicleId vehicle, Version expected) {
+    public void assign(
+            Actor actor, DeliveryDate date, AccountId driver, VehicleId vehicle, Optional<Version> expected) {
         throw new UnsupportedOperationException("Built in M2");
     }
 }

@@ -20,10 +20,10 @@ import java.util.Optional;
  *
  * @param depots every depot, in the order they were added
  * @param vehicles every vehicle, in the order they were added
- * @param version the version the register was read at, for {@code If-Match} (BR-76); {@code
- *     Version.NEW} before the register is first stored
+ * @param version the version the register was read at, for {@code If-Match} (BR-76); empty
+ *     before the register is first stored, when the first change sends {@code If-None-Match: *}
  */
-public record RegisterView(List<DepotRow> depots, List<VehicleRow> vehicles, Version version) {
+public record RegisterView(List<DepotRow> depots, List<VehicleRow> vehicles, Optional<Version> version) {
 
     /** Checks the version is present, and copies the lists. */
     public RegisterView {

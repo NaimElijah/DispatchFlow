@@ -16,7 +16,6 @@ import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.StoredStateInvalid;
-import com.dispatchflow.shared.Version;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
@@ -68,7 +67,7 @@ public final class RouteRun extends AggregateRoot {
      * @param currentDriver the route's driver in the current revision
      * @param cause what started it
      * @param now when the server records it
-     * @return the run, started, at {@link Version#NEW}
+     * @return the run, started, never saved
      * @throws RuleViolation with {@link NotYourRoute} when the report's driver is not both {@code
      *     routeDriver} and {@code currentDriver}, as after a hand-over (BR-02, ADR-114)
      */
@@ -88,7 +87,7 @@ public final class RouteRun extends AggregateRoot {
         refuseUnlessDrivingThenAndNow(route, report, routeDriver, currentDriver);
         Instant startedAt = report.time().corrected();
         RouteRun run = new RouteRun(new RouteRunSnapshot(
-                route, Version.NEW, report.driver(), cause, startedAt, new RunStatus.Started(), Optional.empty()));
+                route, null, report.driver(), cause, startedAt, new RunStatus.Started(), Optional.empty()));
         run.raise(
                 RouteStarted.class,
                 route.value(),
@@ -327,7 +326,7 @@ public final class RouteRun extends AggregateRoot {
     }
 
     private RouteRunSnapshot snapshotOf(RunStatus nextStatus, Optional<RevisionNo> nextConfirmed) {
-        return new RouteRunSnapshot(route, version(), startedBy, cause, startedAt, nextStatus, nextConfirmed);
+        return new RouteRunSnapshot(route, savedVersion(), startedBy, cause, startedAt, nextStatus, nextConfirmed);
     }
 
     private static Optional<String> brokenBy(RouteRunSnapshot state) {

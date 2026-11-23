@@ -36,7 +36,7 @@ public interface AlertRepository {
      *
      * <p>Built in M8.
      *
-     * @param alert the raised alert, at {@code Version.NEW}
+     * @param alert the raised alert, never saved
      * @param date the delivery date of the alert's plan, from Planning's answer: {@code
      *     PublishedRoutes} for a plan in force, or the {@code MembershipFact} of a reported stop,
      *     whose plan may since have been cancelled

@@ -2,7 +2,6 @@ package com.dispatchflow.planning.domain.settings;
 
 import com.dispatchflow.planning.domain.SolveLimit;
 import com.dispatchflow.shared.AggregateRoot;
-import com.dispatchflow.shared.Version;
 import java.util.Objects;
 
 /**
@@ -31,11 +30,11 @@ public final class PlanningSettings extends AggregateRoot {
      * The settings before an Admin changes any: FR-321's buckets, a 10% buffer (FR-227), a 45-second
      * daily limit (FR-19), no fixed vehicle cost (FR-21), and no departure allowance (ADR-101).
      *
-     * @return the new settings, at {@code Version.NEW}
+     * @return the new settings, never saved
      */
     public static PlanningSettings startingValues() {
         return new PlanningSettings(new PlanningSettingsSnapshot(
-                Version.NEW,
+                null,
                 TravelBuckets.STARTING,
                 Buffer.STARTING,
                 SolveLimit.DEFAULT_DAILY,
@@ -106,6 +105,6 @@ public final class PlanningSettings extends AggregateRoot {
      */
     public PlanningSettingsSnapshot snapshot() {
         return new PlanningSettingsSnapshot(
-                version(), travelBuckets, buffer, defaultSolveLimit, fixedVehicleCost, departureAllowance);
+                savedVersion(), travelBuckets, buffer, defaultSolveLimit, fixedVehicleCost, departureAllowance);
     }
 }

@@ -14,7 +14,6 @@ import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.ProposalId;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StoredStateInvalid;
-import com.dispatchflow.shared.Version;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
@@ -83,7 +82,7 @@ public final class ReoptimizationProposal extends AggregateRoot {
         }
         return new ReoptimizationProposal(new ReoptimizationProposalSnapshot(
                 id,
-                Version.NEW,
+                null,
                 plan,
                 job,
                 basis,
@@ -159,7 +158,7 @@ public final class ReoptimizationProposal extends AggregateRoot {
     public ReoptimizationProposalSnapshot snapshot() {
         return new ReoptimizationProposalSnapshot(
                 content.id(),
-                version(),
+                savedVersion(),
                 content.plan(),
                 content.job(),
                 content.basis(),

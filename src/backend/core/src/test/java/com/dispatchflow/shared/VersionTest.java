@@ -8,14 +8,14 @@ import org.junit.jupiter.api.Test;
 class VersionTest {
 
     @Test
-    void GivenANewAggregate_WhenItsVersionIsRead_ThenItIsZero() {
-        assertThat(Version.NEW.value()).isZero();
+    void GivenTheVersionAFirstSaveStores_WhenRebuilt_ThenItIsKeptAtZero() {
+        assertThat(Version.of(0).value()).isZero();
     }
 
     @Test
     void GivenAVersion_WhenTheNextIsTaken_ThenItIsOneMore() {
         assertThat(Version.of(4).next()).isEqualTo(Version.of(5));
-        assertThat(Version.NEW.next()).isEqualTo(Version.of(1));
+        assertThat(Version.of(0).next()).isEqualTo(Version.of(1));
     }
 
     @Test

@@ -24,7 +24,7 @@ public interface PlanningSettingsRepository {
 
     /**
      * Saves changed settings with their version check, in the caller's transaction (BR-76). Settings
-     * at {@code Version.NEW} are stored for the first time.
+     * never saved are stored for the first time, at version 0.
      *
      * <p>Built in M4.
      *

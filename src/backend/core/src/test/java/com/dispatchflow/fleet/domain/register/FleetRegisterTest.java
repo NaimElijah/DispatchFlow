@@ -37,7 +37,6 @@ import com.dispatchflow.shared.DomainError;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.VehicleId;
-import com.dispatchflow.shared.Version;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -96,7 +95,7 @@ class FleetRegisterTest {
     void GivenNothing_WhenAnEmptyRegisterIsCreated_ThenItIsNewWithNoDepotsOrVehiclesAndNoEvent() {
         FleetRegister register = FleetRegister.empty();
 
-        assertThat(register.version()).isEqualTo(Version.NEW);
+        assertThat(register.snapshot().version()).isNull();
         assertThat(register.snapshot().depots()).isEmpty();
         assertThat(register.snapshot().vehicles()).isEmpty();
         assertThat(register.pendingEvents()).isEmpty();

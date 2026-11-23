@@ -38,7 +38,7 @@ public interface SolveJobRepository {
      *
      * <p>Built in M0.
      *
-     * @param job the job, at {@code Version.NEW}
+     * @param job the job, never saved
      * @throws com.dispatchflow.shared.RuleViolation with Planning's {@code
      *     ReoptimizationAlreadyRunning} when the index finds another, a race the lock missed
      */

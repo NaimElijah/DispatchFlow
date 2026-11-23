@@ -29,12 +29,14 @@ import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
+import com.dispatchflow.shared.Version;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Shared test data for Live Operations: fixed IDs and instants on Monday 1 March 2027 (UTC+2), and
@@ -127,19 +129,13 @@ public final class LiveOpsFixtures {
     public static Delivery reload(Delivery delivery) {
         DeliverySnapshot s = delivery.snapshot();
         return Delivery.restore(new DeliverySnapshot(
-                s.stop(),
-                s.order(),
-                s.attempt(),
-                delivery.version().next(),
-                s.arrival(),
-                s.outcomes(),
-                s.heldReports()));
+                s.stop(), s.order(), s.attempt(), savedAt(s.version()), s.arrival(), s.outcomes(), s.heldReports()));
     }
 
     public static RouteRun reload(RouteRun run) {
         RouteRunSnapshot s = run.snapshot();
         return RouteRun.restore(new RouteRunSnapshot(
-                s.route(), run.version().next(), s.startedBy(), s.cause(), s.startedAt(), s.status(), s.confirmed()));
+                s.route(), savedAt(s.version()), s.startedBy(), s.cause(), s.startedAt(), s.status(), s.confirmed()));
     }
 
     public static DeliveryBuilder aDelivery() {
@@ -229,5 +225,10 @@ public final class LiveOpsFixtures {
                     id,
                     NOW);
         }
+    }
+
+    /** The version a save stores: 0 for an aggregate never saved, the loaded one plus 1 otherwise. */
+    private static Version savedAt(@Nullable Version loaded) {
+        return loaded == null ? Version.of(0) : loaded.next();
     }
 }

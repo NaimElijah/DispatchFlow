@@ -109,7 +109,7 @@ class OrderTest {
             assertThat(placed.attempt()).isEqualTo(Attempt.FIRST);
             assertThat(placed.state()).isEqualTo(new Order.State.Active());
             assertThat(placed.lastChangedAt()).isEqualTo(NOW);
-            assertThat(placed.version()).isEqualTo(Version.NEW);
+            assertThat(placed.version()).isNull();
             assertThat(order.pendingEvents()).isEmpty();
         }
 

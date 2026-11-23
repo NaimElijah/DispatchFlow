@@ -42,7 +42,6 @@ import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.StoredStateInvalid;
-import com.dispatchflow.shared.Version;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -89,14 +88,13 @@ public final class Delivery extends AggregateRoot implements PersonalData {
      * @param stop the stop, which keys the delivery
      * @param order its order
      * @param attempt its attempt
-     * @return the delivery, empty, at {@link Version#NEW}
+     * @return the delivery, empty, never saved
      */
     public static Delivery firstFact(StopId stop, OrderId order, Attempt attempt) {
         Objects.requireNonNull(stop, "stop");
         Objects.requireNonNull(order, "order");
         Objects.requireNonNull(attempt, "attempt");
-        return new Delivery(
-                new DeliverySnapshot(stop, order, attempt, Version.NEW, Optional.empty(), List.of(), List.of()));
+        return new Delivery(new DeliverySnapshot(stop, order, attempt, null, Optional.empty(), List.of(), List.of()));
     }
 
     /**
@@ -737,6 +735,6 @@ public final class Delivery extends AggregateRoot implements PersonalData {
     private DeliverySnapshot snapshotOf(
             @Nullable ArrivalRecord nextArrival, List<OutcomeRecord> nextOutcomes, List<HeldReport> nextHeld) {
         return new DeliverySnapshot(
-                stop, order, attempt, version(), Optional.ofNullable(nextArrival), nextOutcomes, nextHeld);
+                stop, order, attempt, savedVersion(), Optional.ofNullable(nextArrival), nextOutcomes, nextHeld);
     }
 }

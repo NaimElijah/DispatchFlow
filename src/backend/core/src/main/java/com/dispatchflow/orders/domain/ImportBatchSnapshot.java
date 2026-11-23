@@ -6,6 +6,7 @@ import com.dispatchflow.shared.Version;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Everything an {@link ImportBatch} holds, as the persistence adapter stores and reloads it. {@link
@@ -17,7 +18,8 @@ import java.util.Objects;
  * @param rows its rows with their errors; empty once confirmed, discarded or expired
  * @param previewedAt when the preview was made, from which its hour counts
  * @param state previewed, confirmed, discarded or expired
- * @param version the version it was saved at
+ * @param version the version it was loaded at, or null for an aggregate never saved
+ *     (ADR-126)
  */
 public record ImportBatchSnapshot(
         ImportBatchId id,
@@ -26,7 +28,7 @@ public record ImportBatchSnapshot(
         List<PreviewRow> rows,
         Instant previewedAt,
         ImportBatch.State state,
-        Version version)
+        @Nullable Version version)
         implements PersonalData {
 
     /** Checks every part is given, and copies the rows. */
@@ -37,7 +39,6 @@ public record ImportBatchSnapshot(
         rows = List.copyOf(rows);
         Objects.requireNonNull(previewedAt, "previewedAt");
         Objects.requireNonNull(state, "state");
-        Objects.requireNonNull(version, "version");
     }
 
     /**

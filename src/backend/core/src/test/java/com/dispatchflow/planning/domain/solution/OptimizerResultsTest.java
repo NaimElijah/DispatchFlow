@@ -53,7 +53,7 @@ class OptimizerResultsTest {
     void GivenABr06ViolationOnARoute_WhenTheEvaluationIsAsked_ThenItBreaksThatRoutesShiftOnly() {
         RouteId other = RouteId.of(uuid(43));
         Evaluation evaluation = Evaluation.checked(
-                Version.NEW,
+                Version.of(0),
                 List.of(violation("BR-06", ROUTE), violation("BR-105", other)),
                 List.of(new RouteTimes(ROUTE, V1, D1, routePlan(60_000), List.of())));
 
@@ -66,7 +66,7 @@ class OptimizerResultsTest {
     @Test
     void GivenARouteTheValidatorCouldntTime_WhenItsReturnIsAsked_ThenThereIsNone() {
         Evaluation evaluation = Evaluation.checked(
-                Version.NEW, List.of(), List.of(new RouteTimes(ROUTE, V1, D1, Optional.empty(), List.of())));
+                Version.of(0), List.of(), List.of(new RouteTimes(ROUTE, V1, D1, Optional.empty(), List.of())));
 
         assertThat(evaluation.returnOf(ROUTE)).isEmpty();
     }
@@ -99,7 +99,7 @@ class OptimizerResultsTest {
 
     @Test
     void GivenAnUnreachableOptimizer_WhenAnEvaluationSaysSo_ThenItJudgedNothing() {
-        Evaluation evaluation = Evaluation.unavailable(Version.NEW);
+        Evaluation evaluation = Evaluation.unavailable(Version.of(0));
 
         assertThat(evaluation.available()).isFalse();
         assertThat(evaluation.violations()).isEmpty();

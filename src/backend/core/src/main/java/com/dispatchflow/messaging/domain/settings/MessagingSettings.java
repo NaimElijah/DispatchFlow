@@ -7,7 +7,6 @@ import com.dispatchflow.messaging.domain.PhoneConsent;
 import com.dispatchflow.messaging.domain.SendingConditions;
 import com.dispatchflow.messaging.domain.Switch;
 import com.dispatchflow.shared.AggregateRoot;
-import com.dispatchflow.shared.Version;
 import java.util.Objects;
 
 /**
@@ -36,11 +35,11 @@ public final class MessagingSettings extends AggregateRoot {
      * messages can't be written without it (FR-354, FR-355; ADR-108).
      *
      * @param dispatchPhone the company's dispatch phone
-     * @return the new settings, at {@link Version#NEW}
+     * @return the new settings, never saved
      */
     public static MessagingSettings create(DispatchPhone dispatchPhone) {
         return new MessagingSettings(new MessagingSettingsSnapshot(
-                Version.NEW, Switch.OFF, Switch.OFF, Objects.requireNonNull(dispatchPhone, "dispatchPhone")));
+                null, Switch.OFF, Switch.OFF, Objects.requireNonNull(dispatchPhone, "dispatchPhone")));
     }
 
     /**
@@ -99,6 +98,6 @@ public final class MessagingSettings extends AggregateRoot {
      * @return a snapshot that {@link #restore} rebuilds
      */
     public MessagingSettingsSnapshot snapshot() {
-        return new MessagingSettingsSnapshot(version(), messages, ratingQuestion, dispatchPhone);
+        return new MessagingSettingsSnapshot(savedVersion(), messages, ratingQuestion, dispatchPhone);
     }
 }

@@ -15,14 +15,13 @@ import java.util.regex.Pattern;
  *
  * @param eventType the event record's simple name, at most 100 characters
  * @param aggregateId the raising aggregate's UUID
- * @param version the version the raising change is saved at, at least 1
+ * @param version the version the raising change is saved at: 0 for an aggregate's first save
  * @param ordinal the event's position among the change's events, from 0
  */
 public record EventId(String eventType, UUID aggregateId, Version version, int ordinal) {
 
     private static final String SEPARATOR = ":";
     private static final int PARTS = 4;
-    private static final long FIRST_SAVED_VERSION = 1;
     private static final Pattern TYPE_NAME = Pattern.compile("[A-Z][A-Za-z0-9]{0,99}");
     private static final Pattern COUNT = Pattern.compile("0|[1-9][0-9]*");
 
@@ -30,8 +29,9 @@ public record EventId(String eventType, UUID aggregateId, Version version, int o
      * Checks the parts.
      *
      * @throws StoredStateInvalid when the type is not a simple type name of at most 100 characters,
-     *     the version is below 1 or the ordinal is negative. Through {@link #parse} that means a
-     *     damaged stored ID; anywhere else it means a bug in the aggregate code that built the ID
+     *     or the ordinal is negative. Through {@link #parse} that means a damaged stored ID;
+     *     anywhere else it means a bug in the aggregate code that built the ID. A negative version
+     *     is refused by {@link Version} itself
      */
     public EventId {
         Objects.requireNonNull(eventType, "eventType");
@@ -39,9 +39,6 @@ public record EventId(String eventType, UUID aggregateId, Version version, int o
         Objects.requireNonNull(version, "version");
         if (!TYPE_NAME.matcher(eventType).matches()) {
             throw new StoredStateInvalid(EventId.class, "the event type is not a simple type name");
-        }
-        if (version.value() < FIRST_SAVED_VERSION) {
-            throw new StoredStateInvalid(EventId.class, "an event carries a saved version, 1 or more");
         }
         if (ordinal < 0) {
             throw new StoredStateInvalid(EventId.class, "an ordinal is never below zero");

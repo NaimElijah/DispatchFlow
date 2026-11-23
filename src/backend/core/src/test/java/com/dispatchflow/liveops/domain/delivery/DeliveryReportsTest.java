@@ -79,7 +79,7 @@ class DeliveryReportsTest {
         assertThat(answer).isEqualTo(new ReportAnswer.Recorded(List.of()));
         assertThat(delivery.pendingEvents())
                 .containsExactly(new OutcomeRecorded(
-                        new EventId("OutcomeRecorded", STOP.value(), Version.of(1), 0),
+                        new EventId("OutcomeRecorded", STOP.value(), Version.of(0), 0),
                         NOW,
                         STOP,
                         ORDER,
@@ -151,7 +151,7 @@ class DeliveryReportsTest {
 
         assertThat(delivery.pendingEvents())
                 .containsExactly(new OutcomeRecorded(
-                        new EventId("OutcomeRecorded", STOP.value(), Version.of(1), 0),
+                        new EventId("OutcomeRecorded", STOP.value(), Version.of(0), 0),
                         NOW,
                         STOP,
                         ORDER,
@@ -293,7 +293,7 @@ class DeliveryReportsTest {
                 .containsExactly(new HeldState.Overtaken(LATER), new HeldState.Confirmed(DISPATCHER, LATER));
         assertThat(reloaded.pendingEvents())
                 .containsExactly(new OutcomeRecorded(
-                        new EventId("OutcomeRecorded", STOP.value(), Version.of(3), 0),
+                        new EventId("OutcomeRecorded", STOP.value(), Version.of(2), 0),
                         LATER,
                         STOP,
                         ORDER,

@@ -52,6 +52,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.IntStream;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Test data for Planning: fixed IDs, times and the one builder per aggregate ({@link #aPlan()},
@@ -158,7 +159,7 @@ public final class PlanningFixtures {
         PlanSnapshot s = plan.snapshot();
         return Plan.restore(new PlanSnapshot(
                 s.id(),
-                plan.version().next(),
+                savedAt(s.version()),
                 s.date(),
                 s.openedAt(),
                 s.status(),
@@ -176,7 +177,7 @@ public final class PlanningFixtures {
         SolveJobSnapshot s = job.snapshot();
         return SolveJob.restore(new SolveJobSnapshot(
                 s.id(),
-                job.version().next(),
+                savedAt(s.version()),
                 s.plan(),
                 s.lane(),
                 s.solver(),
@@ -323,7 +324,7 @@ public final class PlanningFixtures {
     static SolveJob storedSucceededJob(JobId id, List<SolvedRoute> routes, List<DroppedOrder> dropped) {
         return SolveJob.restore(new SolveJobSnapshot(
                 id,
-                Version.NEW.next(),
+                Version.of(1),
                 PLAN,
                 Lane.DAILY,
                 SolverName.OR_TOOLS,
@@ -508,5 +509,10 @@ public final class PlanningFixtures {
         Evaluation unavailable() {
             return Evaluation.unavailable(version);
         }
+    }
+
+    /** The version a save stores: 0 for an aggregate never saved, the loaded one plus 1 otherwise. */
+    private static Version savedAt(@Nullable Version loaded) {
+        return loaded == null ? Version.of(0) : loaded.next();
     }
 }

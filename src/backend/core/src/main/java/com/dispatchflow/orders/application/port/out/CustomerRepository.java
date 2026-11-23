@@ -33,7 +33,7 @@ public interface CustomerRepository {
      *
      * <p>Built in M2.
      *
-     * @param customer the customer, at {@code Version.NEW}
+     * @param customer the customer, never saved
      */
     void add(Customer customer);
 

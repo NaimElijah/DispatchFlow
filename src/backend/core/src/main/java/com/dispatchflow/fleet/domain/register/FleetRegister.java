@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The company's depots and vehicles (DL §4.2): one register, with no ID, because two of its rules
@@ -45,17 +46,17 @@ public final class FleetRegister extends AggregateRoot {
     private final Map<DepotId, Depot> depots = new LinkedHashMap<>();
     private final Map<VehicleId, Vehicle> vehicles = new LinkedHashMap<>();
 
-    private FleetRegister(Version version) {
+    private FleetRegister(@Nullable Version version) {
         super(version);
     }
 
     /**
      * Creates the company's register, before any depot or vehicle is added.
      *
-     * @return an empty register at {@link Version#NEW}
+     * @return an empty register, never saved
      */
     public static FleetRegister empty() {
-        return new FleetRegister(Version.NEW);
+        return new FleetRegister(null);
     }
 
     /**
@@ -125,7 +126,7 @@ public final class FleetRegister extends AggregateRoot {
      */
     public FleetRegisterSnapshot snapshot() {
         return new FleetRegisterSnapshot(
-                version(),
+                savedVersion(),
                 depots.values().stream().map(Depot::snapshot).toList(),
                 vehicles.values().stream().map(Vehicle::snapshot).toList());
     }

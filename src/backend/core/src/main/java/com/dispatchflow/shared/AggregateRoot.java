@@ -5,48 +5,74 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The base of every aggregate root (DL §3.1, §3.6): it holds the {@link Version} the aggregate was
  * loaded at and the events its methods raised since. It needs no ID type, because aggregates are
  * keyed differently: most by a typed ID, some by another ID or a date, and singletons by nothing.
  *
- * <p>An instance is saved once: the repository saves it at {@code version().next()} and publishes
- * {@link #pullEvents()} in the same transaction. To change it again, reload it. A save that only
- * keeps bookkeeping no business rule reads, and raises no event, may leave the version where it is,
- * as a session's contact times do (DL §4.1).
+ * <p>A never-saved aggregate has no version. Its first save stores 0, and every save after moves
+ * the version by exactly 1 (ADR-126), so every event a change raises carries the version that
+ * change is saved at. The repository publishes {@link #pullEvents()} in the same transaction. A
+ * save that only keeps bookkeeping no business rule reads, and raises no event, may leave the
+ * version where it is, as a session's contact times do (DL §4.1).
  */
 public abstract class AggregateRoot {
 
-    private final Version version;
+    /** The version the first save stores (ADR-126). */
+    private static final Version FIRST_SAVE = Version.of(0);
+
+    private @Nullable Long version;
     private final List<DomainEvent> pendingEvents = new ArrayList<>();
 
+    /** Starts an aggregate that has never been saved, so it has no version yet. */
+    protected AggregateRoot() {}
+
     /**
-     * Sets the version: {@link Version#NEW} from a creation factory, the stored one from {@code
-     * restore}.
+     * Sets the version a stored aggregate was loaded at, or none for one never saved. Only the
+     * factories and {@code restore} methods that still build through a snapshot call it; it goes
+     * with the last {@code restore} (ADR-126).
      *
-     * @param version the version this instance was created or loaded at
+     * @param stored the version this instance was loaded at, or null when it was never saved
      */
-    protected AggregateRoot(Version version) {
-        this.version = Objects.requireNonNull(version, "version");
+    protected AggregateRoot(@Nullable Version stored) {
+        this.version = stored == null ? null : stored.value();
     }
 
     /**
-     * The version this instance was created or loaded at, which the save checks.
+     * The version this instance was loaded at, which the save checks and a view sends as its
+     * {@code ETag}.
      *
      * @return the loaded version; raising events doesn't move it
+     * @throws AssertionError when the aggregate was never saved, so it has no version: a bug in the
+     *     caller, which reads the version of a creation only after its save
      */
     public final Version version() {
-        return version;
+        if (version == null) {
+            throw new AssertionError("an aggregate has no version before its first save");
+        }
+        return Version.of(version);
+    }
+
+    /**
+     * The version this instance was loaded at, or none, for a {@code snapshot()} to carry. It goes
+     * with the last snapshot that holds a version (ADR-126).
+     *
+     * @return the loaded version, or null when the aggregate was never saved
+     */
+    protected final @Nullable Version savedVersion() {
+        return version == null ? null : Version.of(version);
     }
 
     /**
      * Records an event, to be published when this change is saved. Call it only after every rule
      * of the method has been checked, so a refused call records nothing (DL §3.10).
      *
-     * <p>The event's ID carries {@code version().next()}, the version this change is saved at, and
-     * its position among this change's events, from 0. A call that throws records nothing, so a
-     * later call on the same instance still numbers from where the recorded events end.
+     * <p>The event's ID carries the version this change is saved at: 0 for an aggregate never
+     * saved, and the loaded version plus 1 otherwise. It also carries its position among this
+     * change's events, from 0. A call that throws records nothing, so a later call on the same
+     * instance still numbers from where the recorded events end.
      *
      * @param type the event's own record type, never a supertype
      * @param aggregateId this aggregate's UUID
@@ -57,7 +83,8 @@ public abstract class AggregateRoot {
      *     the ID it was given: a bug in the raising method, not a refusal
      */
     protected final <E extends DomainEvent> E raise(Class<E> type, UUID aggregateId, Function<EventId, E> build) {
-        EventId id = new EventId(type.getSimpleName(), aggregateId, version.next(), pendingEvents.size());
+        Version savedAt = version == null ? FIRST_SAVE : Version.of(version).next();
+        EventId id = new EventId(type.getSimpleName(), aggregateId, savedAt, pendingEvents.size());
         E event = Objects.requireNonNull(build.apply(id), "event");
         // The ID names the type given, so a supertype such as a sealed event interface is refused.
         if (event.getClass() != type) {

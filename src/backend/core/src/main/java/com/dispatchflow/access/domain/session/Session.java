@@ -22,6 +22,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One signed-in device of an account (DL §4.1): the account generation it began under, its own
@@ -70,7 +71,7 @@ public final class Session extends AggregateRoot {
     private final List<RefreshToken> tokens;
 
     private Session(
-            Version version,
+            @Nullable Version version,
             SessionId id,
             AccountId account,
             AccountGeneration accountGeneration,
@@ -119,7 +120,7 @@ public final class Session extends AggregateRoot {
         Objects.requireNonNull(now, "now");
         account.checkSignInAllowed();
         return new Session(
-                Version.NEW,
+                null,
                 id,
                 account.id(),
                 account.generation(),
@@ -559,7 +560,7 @@ public final class Session extends AggregateRoot {
      */
     public SessionSnapshot snapshot() {
         return new SessionSnapshot(
-                version(),
+                savedVersion(),
                 id,
                 account,
                 accountGeneration,

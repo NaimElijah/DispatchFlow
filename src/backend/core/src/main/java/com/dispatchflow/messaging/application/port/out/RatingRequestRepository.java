@@ -32,7 +32,7 @@ public interface RatingRequestRepository {
      *
      * <p>Built in M12.
      *
-     * @param request the request, at {@code Version.NEW}
+     * @param request the request, never saved
      */
     void add(RatingRequest request);
 

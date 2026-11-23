@@ -240,7 +240,7 @@ class DeliveryCorrectionTest {
 
         assertThat(delivery.pendingEvents())
                 .containsExactly(new PutBackSuperseded(
-                        new EventId("PutBackSuperseded", STOP.value(), Version.of(2), 0),
+                        new EventId("PutBackSuperseded", STOP.value(), Version.of(1), 0),
                         LATER,
                         STOP,
                         ORDER,

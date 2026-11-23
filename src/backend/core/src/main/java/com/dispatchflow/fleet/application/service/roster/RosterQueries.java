@@ -37,7 +37,7 @@ public final class RosterQueries {
      *
      * @param actor the signed-in user acting
      * @param date the date
-     * @return the roster, empty and at {@code Version.NEW} for a date nobody rostered
+     * @return the roster, empty and with no version for a date nobody rostered
      */
     public RosterView roster(Actor actor, DeliveryDate date) {
         throw new UnsupportedOperationException("Built in M2");

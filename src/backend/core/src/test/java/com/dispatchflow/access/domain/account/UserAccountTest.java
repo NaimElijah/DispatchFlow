@@ -174,7 +174,7 @@ class UserAccountTest {
         UserAccount account = UserAccount.open(
                 NEW_ACCOUNT, EMAIL, RoleSet.of(Role.DRIVER), Language.ENGLISH, EmailHolder.nobody(EMAIL));
 
-        assertThat(account.version()).isEqualTo(Version.NEW);
+        assertThat(account.snapshot().version()).isNull();
         assertThat(account.state()).isEqualTo(new AccountState.Active());
         assertThat(account.email()).contains(EMAIL);
         assertThat(account.roles()).isEqualTo(RoleSet.of(Role.DRIVER));

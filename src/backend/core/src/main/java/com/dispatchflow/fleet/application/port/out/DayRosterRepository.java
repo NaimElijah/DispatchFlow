@@ -27,7 +27,7 @@ public interface DayRosterRepository {
      *
      * <p>Built in M2.
      *
-     * @param roster the new roster, at {@code Version.NEW}
+     * @param roster the new roster, never saved
      * @throws StaleVersion when another call stored a roster for the date first
      */
     void add(DayRoster roster);
