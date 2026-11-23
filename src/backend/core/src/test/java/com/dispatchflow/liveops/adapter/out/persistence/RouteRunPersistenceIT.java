@@ -260,6 +260,22 @@ class RouteRunPersistenceIT {
     }
 
     @Test
+    void GivenAStartedRunWithAPendingStop_WhenLoaded_ThenStoredStateInvalid() {
+        int n = 15;
+        transactions.inTransaction(() -> repository.add(started(n), dateOf(n)));
+
+        jdbc.sql("INSERT INTO liveops.route_run_pending_stop (route_run_id, position, stop) VALUES (?, 0, ?)")
+                .params(route(n).value(), stop(n, 1).value())
+                .update();
+
+        assertThatThrownBy(() -> transactions.inTransaction(() -> repository.get(route(n))))
+                .isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
+                    assertThat(invalid.subject()).isEqualTo("RouteRun");
+                    assertThat(invalid.detail()).isEqualTo("only a finished run has pending stops (FR-329)");
+                });
+    }
+
+    @Test
     void GivenAStoredRun_WhenItIsMarkedFinishedWithNoFinish_ThenTheDatabaseRefusesTheWrite() {
         int n = 13;
         transactions.inTransaction(() -> repository.add(started(n), dateOf(n)));

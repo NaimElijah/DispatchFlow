@@ -769,7 +769,19 @@ class PlanPersistenceIT {
                         State.LAST_TOOK_OFF_O3,
                         rows -> rows.update("plan_undo", "start_seconds = arrival_seconds - 1"),
                         "StopPlan",
-                        REFUSED + "INVALID_STOP_TIMES"));
+                        REFUSED + "INVALID_STOP_TIMES"),
+                damaged(
+                        "two drops out of drop order",
+                        State.READY,
+                        rows -> rows.update("plan_drop", "position = 1 - position"),
+                        "Plan",
+                        "drops are in drop order"),
+                damaged(
+                        "two pins out of pin order",
+                        State.REDONE_AFTER_A_SAVE,
+                        rows -> rows.update("plan_pin", "position = 1 - position"),
+                        "Plan",
+                        "pins are in pin order"));
     }
 
     @ParameterizedTest(name = "{0}")

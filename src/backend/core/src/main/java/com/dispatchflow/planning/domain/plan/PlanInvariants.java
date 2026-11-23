@@ -7,6 +7,7 @@ import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.VehicleId;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -67,6 +68,14 @@ final class PlanInvariants {
         List<Pin> pins = plan.pins();
         if (pins.stream().map(Pin::order).distinct().count() != pins.size()) {
             return Optional.of("an order has at most one pin");
+        }
+        // The commands insert into these lists in place, where the layout queries' sort puts each
+        // entry, so a list stored out of order would make every later edit leave another layout.
+        if (!inOrder(dropped, PlanLayout.DROP_ORDER)) {
+            return Optional.of("drops are in drop order");
+        }
+        if (!inOrder(pins, PlanLayout.PIN_ORDER)) {
+            return Optional.of("pins are in pin order");
         }
         Set<RouteId> known = new HashSet<>(routeIds);
         boolean violationsKnown = plan.violations().stream()
@@ -235,6 +244,15 @@ final class PlanInvariants {
         List<StopId> stops = routes.get(into);
         int size = stops == null ? -1 : stops.size() - (leaving.equals(into) ? 1 : 0);
         return stops != null && position >= 0 && position <= size;
+    }
+
+    private static <T> boolean inOrder(List<T> list, Comparator<? super T> order) {
+        for (int at = 1; at < list.size(); at++) {
+            if (order.compare(list.get(at - 1), list.get(at)) > 0) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static List<RouteId> routesOf(Edit edit) {

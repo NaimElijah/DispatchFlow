@@ -11,6 +11,7 @@ import com.dispatchflow.shared.RatingRequestId;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StopId;
+import com.dispatchflow.shared.StoredStateInvalid;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -74,7 +75,8 @@ public class Alert extends AggregateRoot {
 
     private @Nullable RatingRequestId ratingRequest;
 
-    // Derived from the subject and the ID, which never change, so the stored copy never drifts.
+    // Derived from the subject and the ID, which never change; the load check refuses a stored copy
+    // that drifted from them, since the unique index and existsByDedupeKey read this column alone.
     @Column(updatable = false)
     private DedupeKey dedupeKey;
 
@@ -110,18 +112,43 @@ public class Alert extends AggregateRoot {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(subject, "subject");
         Objects.requireNonNull(now, "now");
-        return new Alert(id, subject, now);
+        Alert alert = new Alert(id, subject, now);
+        alert.requireInvariants();
+        return alert;
     }
 
     /**
-     * The load check every root has (ADR-126 decision 8). It checks nothing: each value checked
-     * itself when its converter rebuilt it, the migration's {@code CHECK} constraints keep each
-     * kind's columns whole, and the kind and the key are derived from the subject, so no rule ties
-     * the values together.
+     * Checks the alert as Hibernate loaded it against the invariant that holds at rest (ADR-126
+     * decision 8): its stored dedupe key is the one its subject defines. Each value checked itself
+     * when its converter rebuilt it, and the migration's {@code CHECK} constraints keep each kind's
+     * columns whole.
+     *
+     * @throws StoredStateInvalid when the stored key is not its subject's
      */
     @PostLoad
     void checkStored() {
-        // Deliberately empty: see the Javadoc.
+        brokenRule().ifPresent(broken -> {
+            throw new StoredStateInvalid(Alert.class, broken);
+        });
+    }
+
+    /**
+     * Checks the state a command left against the invariant at rest (ADR-126 decision 11). No caller
+     * can break it, so a broken one here is a bug in the command, and the error rolls its
+     * transaction back.
+     */
+    private void requireInvariants() {
+        brokenRule().ifPresent(broken -> {
+            throw new AssertionError("an alert command left a state that breaks: " + broken);
+        });
+    }
+
+    /** The one check of the invariant at rest, shared by the load check and every command. */
+    private Optional<String> brokenRule() {
+        if (!dedupeKey.equals(subject().dedupeKey(id()))) {
+            return Optional.of("the dedupe key is the one its subject defines");
+        }
+        return Optional.empty();
     }
 
     /**
@@ -233,6 +260,7 @@ public class Alert extends AggregateRoot {
         state = StateKind.ACKNOWLEDGED;
         acknowledgedBy = by;
         acknowledgedAt = now;
+        requireInvariants();
     }
 
     /** Sets the subject's columns: the kind, and the parts that kind names. */

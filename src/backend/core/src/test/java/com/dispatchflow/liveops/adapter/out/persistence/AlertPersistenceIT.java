@@ -32,9 +32,12 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.PessimisticLockingFailureException;
@@ -281,6 +284,32 @@ class AlertPersistenceIT {
                     assertThat(invalid.subject()).isEqualTo("RevisionNo");
                     assertThat(invalid.detail()).isEqualTo("a stored value is refused with INVALID_REVISION");
                 }));
+    }
+
+    static Stream<Arguments> keysOffTheirSubject() {
+        return Stream.of(
+                Arguments.of("a key the subject doesn't define", 32, "dedupe_key = 'STOP_FAILED:damaged'"),
+                Arguments.of(
+                        "a stop the key doesn't name",
+                        33,
+                        "stop = '" + stop(133).value() + "'"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("keysOffTheirSubject")
+    void GivenAStoredAlertWhoseKeyIsNotItsSubjects_WhenLoaded_ThenStoredStateInvalid(
+            String broken, int n, String damage) {
+        transactions.inTransaction(() -> repository.addUnlessKeyTaken(stopFailed(n, n), dateOf(n)));
+
+        jdbc.sql("UPDATE liveops.alert SET " + damage + " WHERE id = ?")
+                .param(alert(n).value())
+                .update();
+
+        assertThatThrownBy(() -> transactions.inTransaction(() -> repository.get(alert(n))))
+                .isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
+                    assertThat(invalid.subject()).isEqualTo("Alert");
+                    assertThat(invalid.detail()).isEqualTo("the dedupe key is the one its subject defines");
+                });
     }
 
     @Test

@@ -51,7 +51,7 @@ import org.jspecify.annotations.Nullable;
  * <p>It is mapped for JPA (ADR-126): its key is its route's UUID (ADR-127 decision 5), its {@link
  * RunStatus} a kind plus the finish's time and driver, with the pending stops an ordered element
  * collection, and its confirmed revision a nullable column. Every command changes those in place
- * and ends by checking the invariant at rest that the load check runs. The route's delivery date,
+ * and ends by checking the invariants at rest that the load check runs. The route's delivery date,
  * which the run does not hold, is kept beside it by the persistence adapter.
  */
 @Entity
@@ -145,10 +145,11 @@ public class RouteRun extends AggregateRoot {
     }
 
     /**
-     * Checks the run as Hibernate loaded it against the invariant that holds at rest (ADR-126
-     * decision 8).
+     * Checks the run as Hibernate loaded it against the invariants that hold at rest (ADR-126
+     * decision 8). The pending stops are rows of their own, which no constraint ties to the status.
      *
-     * @throws StoredStateInvalid when a finished run names a pending stop twice
+     * @throws StoredStateInvalid when a started run has pending stops, or a finished run names a
+     *     pending stop twice
      */
     @PostLoad
     void checkStored() {
@@ -395,7 +396,7 @@ public class RouteRun extends AggregateRoot {
     }
 
     /**
-     * Checks the state a command left against the invariant at rest (ADR-126 decision 11). Every
+     * Checks the state a command left against the invariants at rest (ADR-126 decision 11). Every
      * rule a caller can break was checked before the command changed anything, so a broken one here
      * is a bug in the command, not a refusal, and the error rolls its transaction back.
      */
@@ -405,8 +406,11 @@ public class RouteRun extends AggregateRoot {
         });
     }
 
-    /** The one check of the invariant at rest, shared by the load check and every command. */
+    /** The one check of the invariants at rest, shared by the load check and every command. */
     private Optional<String> brokenRule() {
+        if (status == StatusKind.STARTED && !pendingStops.isEmpty()) {
+            return Optional.of("only a finished run has pending stops (FR-329)");
+        }
         if (status == StatusKind.FINISHED && new HashSet<>(pendingStops).size() != pendingStops.size()) {
             return Optional.of("a finished run names each pending stop once (FR-329)");
         }

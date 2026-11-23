@@ -362,8 +362,9 @@ public class Plan extends AggregateRoot {
      *
      * @throws StoredStateInvalid when the stored state breaks an invariant: a status's fields don't
      *     match it, an order and attempt appears twice (BR-07), a vehicle or driver drives two routes
-     *     (BR-39), an ID or route index repeats, an order has two pins, a violation or journal entry
-     *     names a route or stop the plan doesn't hold as it should, or a stored value is refused
+     *     (BR-39), an ID or route index repeats, an order has two pins, the drops or pins are out of
+     *     the order the commands keep them in, a violation or journal entry names a route or stop
+     *     the plan doesn't hold as it should, or a stored value is refused
      */
     @PostLoad
     void checkStored() {
