@@ -19,8 +19,7 @@ import java.util.Optional;
  * <p>The queue is built in M0; in full in M4. M0 builds the daily lane's queue, and the roadmap's
  * M4 builds "the {@code solve_job} queue, one worker per lane" (ADR-051).
  *
- * <p>{@link #unfinishedOn} is built in M5, and the two that blank a job's input in M13; every other
- * method is built.
+ * <p>The two that blank a job's input are built in M13; every other method is built.
  */
 public interface SolveJobRepository {
 
@@ -82,8 +81,6 @@ public interface SolveJobRepository {
     /**
      * Every job of a date's plans that is queued, building its matrix or running, which the
      * midnight job fails first (BR-128).
-     *
-     * <p>Built in M5.
      *
      * @param date the date that just ended
      * @return the jobs, oldest first

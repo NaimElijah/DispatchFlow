@@ -37,7 +37,7 @@ cannot follow:
 
 ## Decision
 
-We map the 20 roots as ADR-126 decides, with these ten decisions where it is silent or cannot be
+We map the 20 roots as ADR-126 decides, with these eleven decisions where it is silent or cannot be
 followed.
 
 1. **A stored-state check is tested where it runs: when the aggregate loads.** Each repository's
@@ -97,12 +97,23 @@ followed.
     would number every row, so two concurrent contacts would take the same position, and dropping
     the oldest would renumber up to two weeks of them. Two contacts at the very same instant are
     kept once, which BR-133's contact window reads the same way.
+11. **A child entity that moves between parents inside one aggregate is owned by the root.** A
+    `Plan`'s stops move between its routes and keep their IDs (DL §3.1). The root holds every stop
+    in a collection of its own, mapped `cascade = ALL, orphanRemoval = true`, which alone creates and
+    deletes them. Each route's ordered list holds only which stops it serves, in order: it cascades
+    `PERSIST` and `MERGE` and has no orphan removal. A composite foreign key from a stop's route and
+    plan to the route's ID and plan, `DEFERRABLE INITIALLY DEFERRED`, keeps a stop on a route of its
+    own plan, and the plan's end check keeps the two collections holding the same stops. Jakarta
+    Persistence forbids moving an orphan-removed entity to another relationship, and Hibernate
+    deletes each list's orphans as it flushes that list, so with ADR-126's mapping on the routes'
+    lists, whether a moved stop survived depended on the order the flush visited the routes.
 
 **What this amends.**
 
 - **[ADR-126]:** `DayRoster`'s entries are values, not entities (3). The records are `@Immutable`
   entities in their adapters, not the record types themselves (6). A preview row's errors are JSON
-  text (7). A session's contact times are a set, not an ordered list (10).
+  text (7). A session's contact times are a set, not an ordered list (10). A child that moves
+  between parents has its lifecycle in the root's collection, not in its parent's list (11).
 - **[ADR-041]:** a migration grants from the change that adds the roles, not before (8).
 
 ## Consequences
@@ -121,6 +132,8 @@ followed.
   its setter code must match the record.
 - **Hard:** the preview's errors are the one stored form a Java type does not check.
   Their converter's tests are what check it.
+- **Hard:** a `Plan` keeps its stops in two collections, the root's and their route's, so each
+  command that adds or takes off a stop changes both. The end check catches the two drifting apart.
 - **Cost:** until the roles change lands, the core reads and writes its tables as one user, as it
   does today.
 
@@ -147,6 +160,13 @@ followed.
 - **Give each record an ID in the domain and map the record type itself.** Rejected: two of the
   types are Java records and two live in the application layer, so they can't carry the mapping,
   and an ID only the table uses would change every caller that builds one.
+- **Keep ADR-126's `cascade = ALL, orphanRemoval = true` on each route's list of stops.** Rejected:
+  a stop moved from a later route to an earlier one was deleted when the flush came at commit,
+  because Hibernate visits each list in turn, and the specification calls the move unportable. Its
+  tests passed only because the shared save flushes in one particular order.
+- **Make a moved stop a new entity with the same ID.** Rejected: an entity deleted and inserted
+  again under one ID in one flush is refused by the persistence context, and the stop's identity is
+  what the domain says a move keeps.
 - **Create the roles in `V1`.** Rejected: a role is cluster-wide, so creating it needs a privilege
   the migration's owner should not hold, and the `migrate` step that ADR-041 gives the owner
   credential to is not built.

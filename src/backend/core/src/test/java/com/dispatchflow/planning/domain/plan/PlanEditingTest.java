@@ -19,13 +19,14 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.V2;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.aPlan;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.evaluationOf;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.ordersOn;
-import static com.dispatchflow.planning.domain.plan.PlanningFixtures.reload;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.routeId;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.routeOf;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.stopId;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.uuid;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.violation;
+import static com.dispatchflow.shared.AsSaved.asSaved;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 import com.dispatchflow.planning.domain.PinTarget;
 import com.dispatchflow.planning.domain.PlanningError.DateInPast;
@@ -74,8 +75,8 @@ class PlanEditingTest {
         assertThat(ordersOn(plan, V2)).containsExactly(O3, O1);
         assertThat(stopId(plan, O1)).isEqualTo(o1);
         assertThat(routeOf(plan, V2).stops().get(1).plan()).isPresent();
-        assertThat(plan.snapshot().violations()).containsExactly(late);
-        assertThat(plan.snapshot().undo()).hasSize(1);
+        assertThat(plan.violations()).containsExactly(late);
+        assertThat(plan.undo()).hasSize(1);
         assertThat(plan.status()).isEqualTo(new Plan.Status.Ready());
         assertThat(plan.pendingEvents()).isEmpty();
     }
@@ -244,8 +245,7 @@ class PlanEditingTest {
         plan.takeOffRoute(o3, evaluationOf(plan).removing(o3).build(), TODAY);
 
         assertThat(ordersOn(plan, V2)).isEmpty();
-        assertThat(plan.snapshot().dropped())
-                .contains(new DroppedOrder(O3, FIRST, new DropReason.RemovedByDispatcher()));
+        assertThat(plan.dropped()).contains(new DroppedOrder(O3, FIRST, new DropReason.RemovedByDispatcher()));
     }
 
     @Test
@@ -285,7 +285,7 @@ class PlanEditingTest {
 
         assertThat(ordersOn(plan, V2)).containsExactly(O3, O4);
         assertThat(stopId(plan, O4)).isEqualTo(NEW_STOP);
-        assertThat(plan.snapshot().dropped()).extracting(DroppedOrder::order).containsExactly(O5);
+        assertThat(plan.dropped()).extracting(DroppedOrder::order).containsExactly(O5);
     }
 
     @Test
@@ -325,8 +325,8 @@ class PlanEditingTest {
 
         plan.pin(O4, toD1, evaluationOf(plan).build(), TODAY);
 
-        assertThat(plan.snapshot().pins()).containsExactly(new Pin(O4, toD1));
-        assertThat(plan.snapshot().undo()).containsExactly(new Edit.Pinned(O4, Optional.empty(), toD1));
+        assertThat(plan.pins()).containsExactly(new Pin(O4, toD1));
+        assertThat(plan.undo()).containsExactly(new Edit.Pinned(O4, Optional.empty(), toD1));
     }
 
     @Test
@@ -336,8 +336,8 @@ class PlanEditingTest {
 
         plan.pin(O1, toV1, evaluationOf(plan).build(), TODAY);
 
-        assertThat(plan.snapshot().pins()).containsExactly(new Pin(O1, toV1));
-        assertThat(plan.snapshot().undo()).isEmpty();
+        assertThat(plan.pins()).containsExactly(new Pin(O1, toV1));
+        assertThat(plan.undo()).isEmpty();
     }
 
     @Test
@@ -347,7 +347,7 @@ class PlanEditingTest {
 
         plan.pin(O1, new PinTarget.ToDriver(D1), evaluationOf(plan).build(), TODAY);
 
-        assertThat(plan.snapshot().pins()).containsExactly(new Pin(O1, new PinTarget.ToDriver(D1)));
+        assertThat(plan.pins()).containsExactly(new Pin(O1, new PinTarget.ToDriver(D1)));
     }
 
     @Test
@@ -368,7 +368,7 @@ class PlanEditingTest {
 
         plan.unpin(O1, evaluationOf(plan).build(), TODAY);
 
-        assertThat(plan.snapshot().pins()).isEmpty();
+        assertThat(plan.pins()).isEmpty();
     }
 
     @Test
@@ -386,19 +386,18 @@ class PlanEditingTest {
         plan.lockRoute(v1, RouteLock.WHOLE_ROUTE, TODAY);
 
         assertThat(routeOf(plan, V1).lock()).contains(RouteLock.WHOLE_ROUTE);
-        assertThat(plan.snapshot().undo())
-                .containsExactly(new Edit.Locked(v1, Optional.empty(), RouteLock.WHOLE_ROUTE));
+        assertThat(plan.undo()).containsExactly(new Edit.Locked(v1, Optional.empty(), RouteLock.WHOLE_ROUTE));
     }
 
     @Test
     void GivenALockedRoute_WhenItIsLockedAgainWithTheSameLock_ThenNothingChangesAndNothingIsJournaled() {
         Plan plan = lockedReady(V1, RouteLock.WHOLE_ROUTE);
-        PlanSnapshot before = plan.snapshot();
+        PlanDescription before = PlanDescription.of(plan);
 
         plan.lockRoute(routeId(plan, V1), RouteLock.WHOLE_ROUTE, TODAY);
 
         assertUnchanged(plan, before);
-        assertThat(plan.snapshot().undo()).hasSize(1);
+        assertThat(plan.undo()).hasSize(1);
     }
 
     @Test
@@ -409,7 +408,7 @@ class PlanEditingTest {
         plan.lockRoute(v1, RouteLock.STOP_SEQUENCE, TODAY);
 
         assertThat(routeOf(plan, V1).lock()).contains(RouteLock.STOP_SEQUENCE);
-        assertThat(plan.snapshot().undo())
+        assertThat(plan.undo())
                 .last()
                 .isEqualTo(new Edit.Locked(v1, Optional.of(RouteLock.WHOLE_ROUTE), RouteLock.STOP_SEQUENCE));
     }
@@ -420,20 +419,18 @@ class PlanEditingTest {
         RouteId v1 = routeId(plan, V1);
         for (int edit = 0; edit < 50; edit++) {
             plan.lockRoute(v1, RouteLock.WHOLE_ROUTE, TODAY);
-            plan = reload(plan);
+            plan = asSaved(plan);
             plan.unlockRoute(v1, TODAY);
-            plan = reload(plan);
+            plan = asSaved(plan);
         }
-        assertThat(plan.snapshot().undo()).hasSize(100);
+        assertThat(plan.undo()).hasSize(100);
 
         plan.lockRoute(v1, RouteLock.STOP_SEQUENCE, TODAY);
 
-        assertThat(plan.snapshot().undo()).hasSize(100);
-        assertThat(plan.snapshot().undo().get(0)).isEqualTo(new Edit.Unlocked(v1, RouteLock.WHOLE_ROUTE));
-        assertThat(plan.snapshot().undo())
-                .last()
-                .isEqualTo(new Edit.Locked(v1, Optional.empty(), RouteLock.STOP_SEQUENCE));
-        assertThat(reload(plan).snapshot().undo()).hasSize(100);
+        assertThat(plan.undo()).hasSize(100);
+        assertThat(plan.undo().get(0)).isEqualTo(new Edit.Unlocked(v1, RouteLock.WHOLE_ROUTE));
+        assertThat(plan.undo()).last().isEqualTo(new Edit.Locked(v1, Optional.empty(), RouteLock.STOP_SEQUENCE));
+        assertThat(plan.undo()).hasSize(100);
     }
 
     @Test
@@ -460,21 +457,21 @@ class PlanEditingTest {
         StopId o1 = stopId(ready, O1);
         RouteId v2 = routeId(ready, V2);
         ready.moveStop(o1, v2, 0, evaluationOf(ready).moving(o1, v2, 0).build(), TODAY);
-        Plan plan = reload(ready);
+        Plan plan = asSaved(ready);
         RouteId v1 = routeId(plan, V1);
 
         plan.undo(evaluationOf(plan).moving(o1, v1, 0).build(), TODAY);
 
         assertThat(ordersOn(plan, V1)).containsExactly(O1, O2);
-        assertThat(plan.snapshot().undo()).isEmpty();
-        assertThat(plan.snapshot().redo()).hasSize(1);
+        assertThat(plan.undo()).isEmpty();
+        assertThat(plan.redo()).hasSize(1);
 
-        Plan undone = reload(plan);
+        Plan undone = asSaved(plan);
         undone.redo(evaluationOf(undone).moving(o1, v2, 0).build(), TODAY);
 
         assertThat(ordersOn(undone, V2)).containsExactly(O1, O3);
-        assertThat(undone.snapshot().redo()).isEmpty();
-        assertThat(undone.snapshot().undo()).hasSize(1);
+        assertThat(undone.redo()).isEmpty();
+        assertThat(undone.undo()).hasSize(1);
     }
 
     @Test
@@ -482,14 +479,14 @@ class PlanEditingTest {
         Plan ready = aPlan().ready();
         StopId o1 = stopId(ready, O1);
         ready.takeOffRoute(o1, evaluationOf(ready).removing(o1).build(), TODAY);
-        Plan plan = reload(ready);
+        Plan plan = asSaved(ready);
         RouteId v1 = routeId(plan, V1);
 
         plan.undo(evaluationOf(plan).inserting(v1, 0, o1).build(), TODAY);
 
         assertThat(stopId(plan, O1)).isEqualTo(o1);
         assertThat(ordersOn(plan, V1)).containsExactly(O1, O2);
-        assertThat(plan.snapshot().dropped()).extracting(DroppedOrder::order).containsExactlyInAnyOrder(O4, O5);
+        assertThat(plan.dropped()).extracting(DroppedOrder::order).containsExactlyInAnyOrder(O4, O5);
     }
 
     @Test
@@ -504,11 +501,11 @@ class PlanEditingTest {
                 NEW_STOP,
                 evaluationOf(ready).inserting(v2, 0, NEW_STOP).build(),
                 TODAY);
-        Plan plan = reload(ready);
+        Plan plan = asSaved(ready);
 
         plan.undo(evaluationOf(plan).removing(NEW_STOP).build(), TODAY);
 
-        assertThat(plan.snapshot().dropped()).contains(new DroppedOrder(O4, FIRST, new DropReason.Displaced()));
+        assertThat(plan.dropped()).contains(new DroppedOrder(O4, FIRST, new DropReason.Displaced()));
     }
 
     @Test
@@ -516,20 +513,20 @@ class PlanEditingTest {
         Plan ready = aPlan().ready();
         RouteId v1 = routeId(ready, V1);
         ready.pin(O4, new PinTarget.ToVehicle(V1), evaluationOf(ready).build(), TODAY);
-        Plan pinned = reload(ready);
+        Plan pinned = asSaved(ready);
         pinned.lockRoute(v1, RouteLock.WHOLE_ROUTE, TODAY);
-        Plan locked = reload(pinned);
+        Plan locked = asSaved(pinned);
         locked.undo(evaluationOf(locked).build(), TODAY);
-        Plan plan = reload(locked);
+        Plan plan = asSaved(locked);
 
         plan.undo(evaluationOf(plan).build(), TODAY);
 
         assertThat(routeOf(plan, V1).lock()).isEmpty();
-        assertThat(plan.snapshot().pins()).isEmpty();
-        assertThat(plan.snapshot().redo()).hasSize(2);
-        Plan undone = reload(plan);
+        assertThat(plan.pins()).isEmpty();
+        assertThat(plan.redo()).hasSize(2);
+        Plan undone = asSaved(plan);
         undone.redo(evaluationOf(undone).build(), TODAY);
-        assertThat(undone.snapshot().pins()).containsExactly(new Pin(O4, new PinTarget.ToVehicle(V1)));
+        assertThat(undone.pins()).containsExactly(new Pin(O4, new PinTarget.ToVehicle(V1)));
         assertThat(routeOf(undone, V1).lock()).isEmpty();
     }
 
@@ -538,13 +535,29 @@ class PlanEditingTest {
         Plan ready = aPlan().ready();
         RouteId v1 = routeId(ready, V1);
         ready.lockRoute(v1, RouteLock.WHOLE_ROUTE, TODAY);
-        Plan locked = reload(ready);
+        Plan locked = asSaved(ready);
         locked.undo(evaluationOf(locked).build(), TODAY);
-        Plan plan = reload(locked);
+        Plan plan = asSaved(locked);
 
         plan.lockRoute(v1, RouteLock.STOP_SEQUENCE, TODAY);
 
-        assertThat(plan.snapshot().redo()).isEmpty();
+        assertThat(plan.redo()).isEmpty();
+    }
+
+    @Test
+    void GivenASavedPlanWithAnUndoneEdit_WhenItIsRedone_ThenTheEditIsBack() {
+        Plan plan = aPlan().readyEdited();
+
+        plan.redo(
+                evaluationOf(plan)
+                        .withViolation(violation("BR-03", routeId(plan, V2)))
+                        .build(),
+                TODAY);
+
+        assertThat(plan.pins())
+                .containsExactly(new Pin(O4, new PinTarget.ToVehicle(V2)), new Pin(O5, new PinTarget.ToVehicle(V1)));
+        assertThat(plan.redo()).isEmpty();
+        assertThatCode(plan::checkStored).doesNotThrowAnyException();
     }
 
     @Test
@@ -567,7 +580,7 @@ class PlanEditingTest {
         StopId o1 = stopId(ready, O1);
         RouteId v2 = routeId(ready, V2);
         ready.moveStop(o1, v2, 0, evaluationOf(ready).moving(o1, v2, 0).build(), TODAY);
-        Plan plan = reload(ready);
+        Plan plan = asSaved(ready);
 
         assertPlanRefused(
                 plan,
@@ -578,6 +591,6 @@ class PlanEditingTest {
     private static Plan lockedReady(VehicleId vehicle, RouteLock lock) {
         Plan plan = aPlan().ready();
         plan.lockRoute(routeId(plan, vehicle), lock, TODAY);
-        return reload(plan);
+        return asSaved(plan);
     }
 }

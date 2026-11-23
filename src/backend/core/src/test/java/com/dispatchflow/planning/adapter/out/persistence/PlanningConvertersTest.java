@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.dispatchflow.planning.domain.RevisionNo;
 import com.dispatchflow.planning.domain.RuleCode;
 import com.dispatchflow.planning.domain.SolveLimit;
+import com.dispatchflow.planning.domain.plan.RouteIndex;
 import com.dispatchflow.planning.domain.plan.Seed;
 import com.dispatchflow.planning.domain.plan.SolverName;
 import com.dispatchflow.planning.domain.settings.Buffer;
@@ -36,7 +37,8 @@ class PlanningConvertersTest {
                 Arguments.of(new BufferConverter(), Buffer.percent(new BigDecimal("12.5")), new BigDecimal("12.5")),
                 Arguments.of(
                         new TravelFactorConverter(), TravelFactor.of(new BigDecimal("1.3")), new BigDecimal("1.3")),
-                Arguments.of(new DepartureAllowanceConverter(), DepartureAllowance.ofMinutes(15), 15));
+                Arguments.of(new DepartureAllowanceConverter(), DepartureAllowance.ofMinutes(15), 15),
+                Arguments.of(new RouteIndexConverter(), RouteIndex.of(30), 30));
     }
 
     /** Each converter with a stored value its type refuses. */
@@ -50,7 +52,9 @@ class PlanningConvertersTest {
                 Arguments.of(new RuleCodeConverter(), "BR05", "RuleCode"),
                 Arguments.of(new BufferConverter(), new BigDecimal("-0.1"), "Buffer"),
                 Arguments.of(new TravelFactorConverter(), BigDecimal.ZERO, "TravelFactor"),
-                Arguments.of(new DepartureAllowanceConverter(), -1, "DepartureAllowance"));
+                Arguments.of(new DepartureAllowanceConverter(), -1, "DepartureAllowance"),
+                Arguments.of(new RouteIndexConverter(), 0, "RouteIndex"),
+                Arguments.of(new RouteIndexConverter(), 31, "RouteIndex"));
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"}) // Each row pairs a converter with its own types.

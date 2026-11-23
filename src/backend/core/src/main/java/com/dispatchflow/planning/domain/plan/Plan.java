@@ -53,15 +53,20 @@ import com.dispatchflow.planning.domain.basis.SolveBasis;
 import com.dispatchflow.planning.domain.drop.DropReason;
 import com.dispatchflow.planning.domain.drop.DroppedOrder;
 import com.dispatchflow.planning.domain.drop.ExcludedVehicle;
-import com.dispatchflow.planning.domain.plan.Layout.Located;
+import com.dispatchflow.planning.domain.plan.PlanLayout.LaidOutRoute;
+import com.dispatchflow.planning.domain.plan.PlanLayout.LaidOutStop;
 import com.dispatchflow.planning.domain.reconciliation.LateFact;
 import com.dispatchflow.planning.domain.reconciliation.LateOutcome;
 import com.dispatchflow.planning.domain.reconciliation.Reconciliation;
 import com.dispatchflow.planning.domain.reconciliation.ReconciliationKind;
 import com.dispatchflow.planning.domain.revision.PlanRevision;
 import com.dispatchflow.planning.domain.solution.Evaluation;
+import com.dispatchflow.planning.domain.solution.RoutePlan;
+import com.dispatchflow.planning.domain.solution.RouteTimes;
 import com.dispatchflow.planning.domain.solution.SolveResult;
 import com.dispatchflow.planning.domain.solution.SolvedRoute;
+import com.dispatchflow.planning.domain.solution.StopPlan;
+import com.dispatchflow.planning.domain.solution.StopTiming;
 import com.dispatchflow.planning.domain.solution.ValidatedSolution;
 import com.dispatchflow.planning.domain.solution.VehicleWithdrawal;
 import com.dispatchflow.planning.domain.solution.Violation;
@@ -88,9 +93,24 @@ import com.dispatchflow.shared.RuleViolations;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.VehicleId;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderColumn;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -100,6 +120,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
@@ -113,12 +134,25 @@ import org.jspecify.annotations.Nullable;
  * live in Live Operations; a late one corrects the plan through {@link #reconcileLateOutcome}
  * (DL §8, ADR-065).
  *
- * <p>Every command checks every rule before it changes anything, so a refused call leaves the state
- * and the pending events as they were. Every command also passes the state it would leave through
- * the same at-rest invariants {@link #restore} checks, so no command can leave a state that would
- * not load again. The rules no document settled are ADR-101's, and the readings ADR-112 records.
+ * <p>Every command checks every rule before it changes any field, so a refused call leaves the state
+ * and the pending events as they were. It then changes the fields in place and ends by checking the
+ * state it left against the invariants at rest that the load check runs, so no command can leave a
+ * state that would not load again (ADR-126 decisions 8 and 11). The rules no document settled are
+ * ADR-101's, and the readings ADR-112 records.
+ *
+ * <p>It is mapped for JPA (ADR-126, ADR-127): its key is its {@code PlanId}'s UUID; its status is a
+ * kind beside the basis, revision and time each status keeps, and its applied solve three nullable
+ * columns. Its routes are {@link Route} entities and their stops {@link PlannedStop} entities, in
+ * order; the plan's own collection of stops creates and deletes them, so a stop that changes routes
+ * is never deleted (ADR-127 decision 11). Its drops, excluded vehicles, pins, violations and both journals are a table
+ * each. A command changes the collections Hibernate loaded and never assigns new ones. The revision a change makes
+ * is not part of the plan's rows: the repository appends it as rows of its own when it saves the
+ * plan, and never loads it again (ADR-059). Only Hibernate rebuilds a stored plan, and {@link
+ * #checkStored} refuses one that breaks an invariant at rest (ADR-126 decision 8).
  */
-public final class Plan extends AggregateRoot {
+@Entity
+@Table(schema = "planning", name = "plan")
+public class Plan extends AggregateRoot {
 
     /**
      * The most edits the undo and redo journals hold together; an edit past it forgets the oldest
@@ -193,33 +227,110 @@ public final class Plan extends AggregateRoot {
         record Abandoned() implements Status {}
     }
 
-    private final PlanId id;
-    private final DeliveryDate date;
-    private final Instant openedAt;
-    private Status status;
-    private @Nullable AppliedSolve applied;
-    private Layout layout;
-    private List<ExcludedVehicle> excluded;
-    private List<Violation> violations;
-    private List<Edit> undo;
-    private List<Edit> redo;
-    private @Nullable PlanRevision pendingRevision;
-
-    private Plan(PlanSnapshot state) {
-        super(state.version());
-        this.id = state.id();
-        this.date = state.date();
-        this.openedAt = state.openedAt();
-        this.status = state.status();
-        this.applied = state.applied().orElse(null);
-        this.layout = new Layout(state.routes().stream().map(Route::from).toList(), state.dropped(), state.pins());
-        this.excluded = state.excluded();
-        this.violations = state.violations();
-        this.undo = state.undo();
-        this.redo = state.redo();
+    /** Which {@link Status} a plan is in. */
+    private enum StatusKind {
+        DRAFT,
+        SOLVING,
+        READY,
+        PUBLISHED,
+        COMPLETED,
+        CANCELLED,
+        ABANDONED
     }
 
-    // ---- Creation and restore ------------------------------------------------------------------
+    /** The direction an {@link Edit} is made in: as the dispatcher made it, or undone. */
+    private static final boolean FORWARD = true;
+
+    private static final boolean BACKWARD = false;
+
+    @Id
+    private UUID id;
+
+    @Column(name = "delivery_date")
+    private DeliveryDate date;
+
+    private Instant openedAt;
+
+    @Enumerated(EnumType.STRING)
+    private StatusKind status;
+
+    @Column(name = "solving_job_id")
+    private @Nullable JobId solvingJob;
+
+    private @Nullable Instant solvingRequestedAt;
+
+    private @Nullable RevisionNo revision;
+
+    private @Nullable Instant cancelledAt;
+
+    @Column(name = "applied_job_id")
+    private @Nullable JobId appliedJob;
+
+    private @Nullable Instant appliedRequestedAt;
+
+    private @Nullable Instant appliedAt;
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "plan_id", nullable = false)
+    @OrderColumn(name = "position", nullable = false)
+    private List<Route> routes = new ArrayList<>();
+
+    // Every stop on any of the routes, unordered: it alone creates and deletes the stops, so a stop
+    // that changes routes stays in it and is never an orphan (ADR-127 decision 11). A route's list
+    // holds only which stops it serves, in order (see Route.stops). The migration keeps a stop's
+    // plan its route's plan.
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "plan_id", nullable = false)
+    private Set<PlannedStop> stops = new HashSet<>();
+
+    @ElementCollection
+    @CollectionTable(schema = "planning", name = "plan_drop", joinColumns = @JoinColumn(name = "plan_id"))
+    @OrderColumn(name = "position", nullable = false)
+    private List<StoredDroppedOrder> dropped = new ArrayList<>();
+
+    @ElementCollection
+    @CollectionTable(schema = "planning", name = "plan_excluded_vehicle", joinColumns = @JoinColumn(name = "plan_id"))
+    @OrderColumn(name = "position", nullable = false)
+    private List<ExcludedVehicle> excluded = new ArrayList<>();
+
+    @ElementCollection
+    @CollectionTable(schema = "planning", name = "plan_pin", joinColumns = @JoinColumn(name = "plan_id"))
+    @OrderColumn(name = "position", nullable = false)
+    private List<StoredPin> pins = new ArrayList<>();
+
+    @ElementCollection
+    @CollectionTable(schema = "planning", name = "plan_violation", joinColumns = @JoinColumn(name = "plan_id"))
+    @OrderColumn(name = "position", nullable = false)
+    private List<StoredViolation> violations = new ArrayList<>();
+
+    @ElementCollection
+    @CollectionTable(schema = "planning", name = "plan_undo", joinColumns = @JoinColumn(name = "plan_id"))
+    @OrderColumn(name = "position", nullable = false)
+    private List<StoredEdit> undo = new ArrayList<>();
+
+    @ElementCollection
+    @CollectionTable(schema = "planning", name = "plan_redo", joinColumns = @JoinColumn(name = "plan_id"))
+    @OrderColumn(name = "position", nullable = false)
+    private List<StoredEdit> redo = new ArrayList<>();
+
+    // The last command's revision, which the repository appends as rows of their own when it saves
+    // the plan. Every command that returns sets it, to none when it made no revision, so saving the
+    // plan again never appends one revision twice; a loaded plan has none.
+    @Transient
+    private @Nullable PlanRevision pendingRevision;
+
+    /** For Hibernate, which sets the fields from the stored rows and then runs {@link #checkStored}. */
+    protected Plan() {}
+
+    private Plan(PlanId id, DeliveryDate date, Instant openedAt) {
+        super();
+        this.id = id.value();
+        this.date = date;
+        this.openedAt = openedAt;
+        this.status = StatusKind.DRAFT;
+    }
+
+    // ---- Creation and the load check -----------------------------------------------------------
 
     /**
      * Opens a plan for a date, in draft (FR-15).
@@ -241,39 +352,24 @@ public final class Plan extends AggregateRoot {
         if (existing.isPresent()) {
             throw new RuleViolation(new PlanAlreadyExists(date, existing.get()));
         }
-        return new Plan(new PlanSnapshot(
-                id,
-                null,
-                date,
-                now,
-                new Status.Draft(),
-                Optional.empty(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of()));
+        return new Plan(id, date, now);
     }
 
     /**
-     * Rebuilds a stored plan; only the persistence adapter calls it. It checks the invariants that
-     * hold at rest, never one that needs {@code today} or an outside fact.
+     * Checks the plan as Hibernate loaded it, which alone rebuilds a stored plan (ADR-126 decision
+     * 8). It rebuilds every stored value and checks the invariants that hold at rest, never one that
+     * needs {@code today} or an outside fact.
      *
-     * @param snapshot the stored state
-     * @return the plan
-     * @throws StoredStateInvalid when the state breaks an invariant: a state's fields don't match
-     *     it, an order and attempt appears twice (BR-07), a vehicle or driver drives two routes
-     *     (BR-39), an ID or route index repeats, an order has two pins, or a violation or journal
-     *     entry names a route or stop the plan doesn't hold as it should
+     * @throws StoredStateInvalid when the stored state breaks an invariant: a status's fields don't
+     *     match it, an order and attempt appears twice (BR-07), a vehicle or driver drives two routes
+     *     (BR-39), an ID or route index repeats, an order has two pins, a violation or journal entry
+     *     names a route or stop the plan doesn't hold as it should, or a stored value is refused
      */
-    public static Plan restore(PlanSnapshot snapshot) {
-        Optional<String> broken = PlanInvariants.brokenBy(snapshot);
-        if (broken.isPresent()) {
-            throw new StoredStateInvalid(Plan.class, broken.get());
-        }
-        return new Plan(snapshot);
+    @PostLoad
+    void checkStored() {
+        brokenRule().ifPresent(broken -> {
+            throw new StoredStateInvalid(Plan.class, broken);
+        });
     }
 
     // ---- Solving -------------------------------------------------------------------------------
@@ -301,12 +397,12 @@ public final class Plan extends AggregateRoot {
             LaneCapacity capacity,
             LocalDate today,
             Instant now) {
-        if (!(status instanceof Status.Draft || status instanceof Status.Ready)) {
-            throw new RuleViolation(new PlanNotDraftOrReady(id));
-        }
+        requireDraftOrReady();
         requireNotPast(today);
-        SolveJob job = SolveJob.queue(jobId, id, Lane.DAILY, solver, limit, seed, Optional.empty(), capacity, now);
-        commit(next().status(new Status.Solving(new SolveBasis(jobId, now))));
+        SolveJob job = SolveJob.queue(jobId, id(), Lane.DAILY, solver, limit, seed, Optional.empty(), capacity, now);
+        forgetPendingRevision();
+        storeStatus(new Status.Solving(new SolveBasis(jobId, now)));
+        requireInvariants();
         return job;
     }
 
@@ -330,7 +426,7 @@ public final class Plan extends AggregateRoot {
         requireNotPast(today);
         return SolveJob.queue(
                 jobId,
-                id,
+                id(),
                 Lane.REOPTIMIZATION,
                 solver,
                 SolveLimit.REOPTIMIZATION,
@@ -361,33 +457,35 @@ public final class Plan extends AggregateRoot {
      *     DriverAlreadyHasRoute} (BR-39); each means a check upstream was skipped
      */
     public void applySolveResult(SolveJob job, FreshIds ids, Instant now) {
-        if (!(status instanceof Status.Solving solving)
+        Optional<SolveResult> kept = job.result();
+        if (!(status() instanceof Status.Solving solving)
                 || !solving.pending().job().equals(job.id())
-                || !job.plan().equals(id)
-                || job.result().isEmpty()) {
+                || !job.plan().equals(id())
+                || kept.isEmpty()) {
+            forgetPendingRevision();
             return;
         }
-        SolveResult result = job.result().get();
+        SolveResult result = kept.get();
         Optional<Route> broken = locksBrokenBy(result.routes()).stream().findFirst();
         if (broken.isPresent()) {
             throw new RuleViolation(new RouteLocked(broken.get().id()));
         }
         requireSingleAssignment(result.routes(), result.dropped());
-        List<Route> placed = place(
-                result.routes(),
-                layout.routes(),
-                layout.routes(),
-                List.of(),
-                ids,
-                vehicle -> Optional.empty(),
-                route -> List.of());
-        Instant appliedAt = TimeOrder.notBefore(now, solving.pending().requestedAt());
-        commit(next().status(new Status.Ready())
-                .applied(new AppliedSolve(solving.pending(), appliedAt))
-                .layout(new Layout(carryLocks(placed), result.dropped(), layout.pins()))
-                .excluded(result.excluded())
-                .violations(List.of())
-                .clearingJournal());
+        List<PlacedRoute> before = placedRoutes();
+        List<PlacedRoute> placed =
+                place(result.routes(), before, before, List.of(), ids, vehicle -> Optional.empty(), route -> List.of());
+        List<PlacedRoute> next = carryLocks(before, placed);
+        Instant solvedAt = TimeOrder.notBefore(now, solving.pending().requestedAt());
+        forgetPendingRevision();
+        storeStatus(new Status.Ready());
+        storeApplied(Optional.of(new AppliedSolve(solving.pending(), solvedAt)));
+        layRoutes(next);
+        storeDrops(result.dropped());
+        excluded.clear();
+        excluded.addAll(result.excluded());
+        violations.clear();
+        clearJournal();
+        requireInvariants();
     }
 
     /**
@@ -398,8 +496,11 @@ public final class Plan extends AggregateRoot {
      * @param jobId the job that failed
      */
     public void solveFailed(JobId jobId) {
-        if (status instanceof Status.Solving solving && solving.pending().job().equals(jobId)) {
-            commit(next().status(applied == null ? new Status.Draft() : new Status.Ready()));
+        forgetPendingRevision();
+        if (status() instanceof Status.Solving solving
+                && solving.pending().job().equals(jobId)) {
+            storeStatus(applied().isEmpty() ? new Status.Draft() : new Status.Ready());
+            requireInvariants();
         }
     }
 
@@ -519,11 +620,11 @@ public final class Plan extends AggregateRoot {
         requireReady();
         requireNotPast(today);
         Route locked = route(route);
+        forgetPendingRevision();
         if (locked.lock().equals(Optional.of(lock))) {
             return;
         }
-        commit(next().layout(layout.locking(route, Optional.of(lock)))
-                .journaling(new Edit.Locked(route, locked.lock(), lock)));
+        commitLockEdit(new Edit.Locked(route, locked.lock(), lock));
     }
 
     /**
@@ -538,7 +639,8 @@ public final class Plan extends AggregateRoot {
         requireReady();
         requireNotPast(today);
         RouteLock before = route(route).lock().orElseThrow(() -> new RuleViolation(new RouteNotLocked(route)));
-        commit(next().layout(layout.locking(route, Optional.empty())).journaling(new Edit.Unlocked(route, before)));
+        forgetPendingRevision();
+        commitLockEdit(new Edit.Unlocked(route, before));
     }
 
     /**
@@ -552,14 +654,17 @@ public final class Plan extends AggregateRoot {
     public void undo(Evaluation evaluation, LocalDate today) {
         requireReady();
         requireNotPast(today);
-        Layout undone = undone();
+        Edit last = lastUndo();
+        PlanLayout after = viewAfter(last, BACKWARD);
         requireCurrentAndAvailable(evaluation);
-        Edit last = undo.get(undo.size() - 1);
-        Layout judged = undone.judgedBy(evaluation, version(), true);
-        commit(next().layout(judged)
-                .violations(evaluation.violations())
-                .undo(undo.subList(0, undo.size() - 1))
-                .redo(appended(redo, last)));
+        requireDescribes(evaluation, after);
+        forgetPendingRevision();
+        change(last, BACKWARD, after);
+        judge(evaluation, true);
+        storeViolations(evaluation.violations());
+        undo.remove(undo.size() - 1);
+        redo.add(new StoredEdit(last));
+        requireInvariants();
     }
 
     /**
@@ -573,14 +678,17 @@ public final class Plan extends AggregateRoot {
     public void redo(Evaluation evaluation, LocalDate today) {
         requireReady();
         requireNotPast(today);
-        Layout redone = redone();
+        Edit last = lastRedo();
+        PlanLayout after = viewAfter(last, FORWARD);
         requireCurrentAndAvailable(evaluation);
-        Edit last = redo.get(redo.size() - 1);
-        Layout judged = redone.judgedBy(evaluation, version(), true);
-        commit(next().layout(judged)
-                .violations(evaluation.violations())
-                .redo(redo.subList(0, redo.size() - 1))
-                .undo(appended(undo, last)));
+        requireDescribes(evaluation, after);
+        forgetPendingRevision();
+        change(last, FORWARD, after);
+        judge(evaluation, true);
+        storeViolations(evaluation.violations());
+        redo.remove(redo.size() - 1);
+        undo.add(new StoredEdit(last));
+        requireInvariants();
     }
 
     // ---- Publishing and the published plan -----------------------------------------------------
@@ -607,15 +715,17 @@ public final class Plan extends AggregateRoot {
         requireNotPast(today);
         Evaluation recheck = checks.recheck();
         requireCurrent(recheck);
-        Layout rechecked = recheck.available() ? layout.judgedBy(recheck, version(), true) : layout;
+        if (recheck.available()) {
+            requireDescribes(recheck, layout());
+        }
         RuleViolations.throwIfAny(new PublishingRefused(PublishingStep.STAFFING), unstaffed(checks.staffing()));
         RuleViolations.throwIfAny(new PublishingRefused(PublishingStep.ORDERS), unaccounted(checks.orders()));
         RuleViolations.throwIfAny(
                 new PublishingRefused(PublishingStep.VIOLATIONS),
-                violations.stream()
+                violations().stream()
                         .map(violation -> new OpenViolation(violation.rule(), violation.route(), violation.order()))
                         .toList());
-        if (!layout.routes().isEmpty()) {
+        if (!routes.isEmpty()) {
             List<PlanningError> refusals = recheck.available()
                     ? recheck.violations().stream()
                             .<PlanningError>map(violation ->
@@ -624,11 +734,17 @@ public final class Plan extends AggregateRoot {
                     : List.of(new RecheckUnavailable());
             RuleViolations.throwIfAny(new PublishingRefused(PublishingStep.RECHECK), refusals);
         }
-        Layout published = rechecked.unlocked();
-        commit(next().layout(published).clearingJournal().status(new Status.Published(RevisionNo.FIRST)));
+        if (recheck.available()) {
+            judge(recheck, true);
+        }
+        routes.forEach(route -> route.lockAs(Optional.empty()));
+        clearJournal();
+        storeStatus(new Status.Published(RevisionNo.FIRST));
+        requireInvariants();
         pendingRevision = revisionOf(RevisionNo.FIRST, RevisionCause.PUBLISHED, Optional.empty(), Optional.of(by), now);
-        List<RouteId> routes = routeIds(published.routes());
-        raise(PlanPublished.class, id.value(), eventId -> new PlanPublished(eventId, now, id, date, 1, routes));
+        PlanId plan = id();
+        List<RouteId> published = routeIds();
+        raise(PlanPublished.class, id, eventId -> new PlanPublished(eventId, now, plan, date, 1, published));
     }
 
     /**
@@ -687,7 +803,7 @@ public final class Plan extends AggregateRoot {
             Instant now) {
         Status.Published published = requirePublished();
         requireNotPast(today);
-        if (!proposal.plan().equals(id)) {
+        if (!proposal.plan().equals(id())) {
             throw new RuleViolation(new ProposalForAnotherPlan(proposal.id(), proposal.plan()));
         }
         if (proposal.state() instanceof ReoptimizationProposal.State.Declined) {
@@ -703,25 +819,26 @@ public final class Plan extends AggregateRoot {
             throw new RuleViolation(new VehicleUnavailable(unavailable));
         }
         requireSingleAssignment(proposal.routes(), proposal.dropped());
-        List<Route> before = layout.routes();
+        List<PlacedRoute> before = placedRoutes();
         Set<VehicleId> routed = new HashSet<>();
         proposal.routes().forEach(route -> routed.add(route.vehicle()));
-        List<Route> active = before.stream().filter(route -> !route.withdrawn()).toList();
-        List<Route> covered = active.stream()
+        List<PlacedRoute> active =
+                before.stream().filter(route -> !route.withdrawn()).toList();
+        List<PlacedRoute> covered = active.stream()
                 .filter(route -> routed.contains(route.vehicle()))
                 .toList();
-        List<Route> leftOut = active.stream()
+        List<PlacedRoute> leftOut = active.stream()
                 .filter(route -> !routed.contains(route.vehicle()))
                 .map(route -> leftOutRoute(route, withdrawalFor(proposal, route.vehicle()), keptStops(route, taken)))
                 .toList();
-        List<Route> rewithdrawn = rewithdrawnRoutes(proposal, before, covered);
-        List<Route> matchable = new ArrayList<>(covered);
+        List<PlacedRoute> rewithdrawn = rewithdrawnRoutes(proposal, before, covered);
+        List<PlacedRoute> matchable = new ArrayList<>(covered);
         matchable.addAll(rewithdrawn);
-        List<Route> alongside = new ArrayList<>(before.stream()
+        List<PlacedRoute> alongside = new ArrayList<>(before.stream()
                 .filter(route -> route.withdrawn() && !rewithdrawn.contains(route))
                 .toList());
         alongside.addAll(leftOut);
-        List<Route> placed = place(
+        List<PlacedRoute> placed = place(
                 proposal.routes(),
                 matchable,
                 before,
@@ -729,26 +846,35 @@ public final class Plan extends AggregateRoot {
                 ids,
                 vehicle -> withdrawalFor(proposal, vehicle),
                 route -> keptStops(route, taken));
-        List<Route> next = inPlanOrder(before, placed, leftOut);
+        List<PlacedRoute> next = inPlanOrder(before, placed, leftOut);
         Set<StopKey> superseded = supersededDrops(taken);
-        Layout after = new Layout(next, droppedAfter(proposal, taken, superseded), layout.pins());
-        requireEachOrderOnce(after);
-        requireNothingLost(after, superseded);
+        List<DroppedOrder> dropsAfter = droppedAfter(proposal, taken, superseded).stream()
+                .sorted(PlanLayout.DROP_ORDER)
+                .toList();
+        List<StopKey> keysAfter = heldKeys(next, dropsAfter);
+        requireEachOrderOnce(keysAfter);
+        requireNothingLost(keysAfter, superseded);
         List<VehicleWithdrawal> newlyWithdrawn = next.stream()
                 .filter(route -> before.stream().noneMatch(old -> old.id().equals(route.id()) && old.withdrawn()))
                 .flatMap(route -> route.withdrawal().stream()
                         .map(withdrawal -> new VehicleWithdrawal(route.vehicle(), withdrawal.cause())))
                 .toList();
         List<RouteId> changed = changedRoutes(before, next);
+        List<OrderId> added = addedOrders(keysAfter);
+        forgetPendingRevision();
+        layRoutes(next);
+        storeDrops(dropsAfter);
+        excluded.clear();
+        excluded.addAll(proposal.excluded());
+        violations.clear();
         revise(
-                next().layout(after).excluded(proposal.excluded()).violations(List.of()),
                 RevisionCause.REOPTIMIZATION_ACCEPTED,
                 Optional.of(proposal.id()),
                 Optional.of(by),
                 now,
                 changed,
                 newlyWithdrawn,
-                addedOrders(after));
+                added);
     }
 
     /**
@@ -785,9 +911,9 @@ public final class Plan extends AggregateRoot {
             Instant now) {
         requirePublished();
         requireNotPast(today);
-        Route current = route(route);
+        Route handed = route(route);
         AccountId driver = standing.driver();
-        Layout after = handingOver(route, driver);
+        PlanLayout after = handingOver(route, driver);
         evaluation.ifPresent(this::requireCurrent);
         if (!standing.activeDriver()) {
             throw new RuleViolation(new NotAnActiveDriver(driver));
@@ -795,41 +921,40 @@ public final class Plan extends AggregateRoot {
         if (!standing.available()) {
             throw new RuleViolation(new DriverNotAvailable(driver));
         }
-        List<Violation> nextViolations = violations;
+        List<Violation> nextViolations = violations();
         Optional<Evaluation> judging = evaluation.filter(Evaluation::available);
+        Optional<SolveTime> confirmed = Optional.empty();
         if (judging.isPresent()) {
             Evaluation judged = judging.get();
-            after = after.judgedBy(judged, version(), false);
+            requireDescribes(judged, after);
             boolean breaks = judged.breaksShift(route);
             if (breaks && !breakConfirmed) {
                 throw new RuleViolation(new BreakNotConfirmed(route, driver));
             }
-            Optional<SolveTime> confirmed = breaks ? judged.returnOf(route) : Optional.empty();
-            after = after.changing(route, handed -> handed.withConfirmedReturn(confirmed));
+            confirmed = breaks ? judged.returnOf(route) : Optional.empty();
             nextViolations = judged.violations().stream()
                     .filter(violation -> !(breaks
                             && (violation.breaks(RuleCode.SHIFTS, route)
                                     || violation.breaks(RuleCode.BREAK_RESERVE, route))))
                     .toList();
-        } else {
-            after = after.changing(
-                    route,
-                    handed -> handed.withCheck(CheckState.NOT_YET_CHECKED).withConfirmedReturn(Optional.empty()));
         }
-        revise(
-                next().layout(after).violations(nextViolations),
-                RevisionCause.HANDED_OVER,
-                Optional.empty(),
-                Optional.of(by),
-                now,
-                List.of(route),
-                List.of(),
-                List.of());
-        AccountId from = current.driver();
+        AccountId from = handed.driver();
+        VehicleId vehicle = handed.vehicle();
+        forgetPendingRevision();
+        handed.driveBy(driver);
+        if (judging.isPresent()) {
+            judge(judging.get(), false);
+        } else {
+            handed.checkAs(CheckState.NOT_YET_CHECKED);
+        }
+        handed.confirmReturnAt(confirmed);
+        storeViolations(nextViolations);
+        revise(RevisionCause.HANDED_OVER, Optional.empty(), Optional.of(by), now, List.of(route), List.of(), List.of());
+        PlanId plan = id();
         raise(
                 RouteHandedOver.class,
-                id.value(),
-                eventId -> new RouteHandedOver(eventId, now, id, date, route, current.vehicle(), from, driver));
+                id,
+                eventId -> new RouteHandedOver(eventId, now, plan, date, route, vehicle, from, driver));
     }
 
     /**
@@ -846,26 +971,30 @@ public final class Plan extends AggregateRoot {
      * @param now the time of the change
      */
     public void removeStopOf(OrderId order, Attempt attempt, RemovalCause cause, Instant now) {
-        boolean ready = status instanceof Status.Ready;
-        if (!ready && !(status instanceof Status.Published)) {
+        forgetPendingRevision();
+        boolean ready = status == StatusKind.READY;
+        if (!ready && status != StatusKind.PUBLISHED) {
             return;
         }
-        Optional<Removal> removal = removalOf(new StopKey(order, attempt));
-        if (removal.isEmpty()) {
+        StopKey key = new StopKey(order, attempt);
+        Optional<Located> located = locate(key);
+        List<RouteId> changed;
+        if (located.isPresent()) {
+            Route route = located.get().route();
+            takeOff(located.get());
+            route.checkAs(CheckState.NOT_YET_CHECKED);
+            changed = List.of(route.id());
+        } else if (drop(key).isPresent()) {
+            removeDrop(key);
+            changed = List.of();
+        } else {
             return;
         }
         if (ready) {
-            commit(next().layout(removal.get().after()).clearingJournal());
+            clearJournal();
+            requireInvariants();
         } else {
-            revise(
-                    next().layout(removal.get().after()),
-                    cause.revisionCause(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    now,
-                    removal.get().changed(),
-                    List.of(),
-                    List.of());
+            revise(cause.revisionCause(), Optional.empty(), Optional.empty(), now, changed, List.of(), List.of());
         }
     }
 
@@ -888,9 +1017,12 @@ public final class Plan extends AggregateRoot {
      * @param attempt the attempt that was dropped or failed
      */
     public void removePutBackOrder(OrderId order, Attempt attempt) {
+        forgetPendingRevision();
         StopKey key = new StopKey(order, attempt);
-        if (status instanceof Status.Ready && layout.drop(key).isPresent()) {
-            commit(next().layout(layout.without(key)).clearingJournal());
+        if (status == StatusKind.READY && drop(key).isPresent()) {
+            removeDrop(key);
+            clearJournal();
+            requireInvariants();
         }
     }
 
@@ -907,41 +1039,42 @@ public final class Plan extends AggregateRoot {
      *     RouteNotInPlan} for an unknown serving route
      */
     public Reconciliation reconcileLateOutcome(LateFact fact, Instant now) {
-        if (status instanceof Status.Cancelled) {
+        if (status == StatusKind.CANCELLED) {
+            forgetPendingRevision();
             return Reconciliation.of(ReconciliationKind.PLAN_CANCELLED);
         }
-        if (!(status instanceof Status.Published || status instanceof Status.Completed)) {
-            throw new RuleViolation(new PlanNotPublished(id));
+        if (!(status == StatusKind.PUBLISHED || status == StatusKind.COMPLETED)) {
+            throw new RuleViolation(new PlanNotPublished(id()));
         }
         RouteId servedOn = fact.servedOn();
-        route(servedOn);
+        Route serving = route(servedOn);
         StopKey key = new StopKey(fact.order(), fact.attempt());
-        Optional<Located> located = layout.locate(fact.stop()).or(() -> layout.locate(key));
-        Layout after;
-        Reconciliation reconciliation;
+        Optional<Located> located = locate(fact.stop()).or(() -> locate(key));
+        forgetPendingRevision();
         Set<RouteId> changed = new HashSet<>(List.of(servedOn));
+        Reconciliation reconciliation;
         if (located.isPresent()) {
             Located at = located.get();
             if (at.route().id().equals(servedOn)) {
                 return Reconciliation.of(ReconciliationKind.UNCHANGED);
             }
-            PlannedStop stop = at.stop();
-            PlannedStop moved = new PlannedStop(
-                    stop.id(), stop.order(), stop.attempt(), stop.plan(), Optional.of(LateOutcome.SERVED_LATE));
-            after = layout.removing(stop.id()).appending(servedOn, moved);
+            PlannedStop moved = at.stop();
+            at.route().remove(moved);
+            moved.markLate(Optional.of(LateOutcome.SERVED_LATE));
+            serving.append(moved);
             changed.add(at.route().id());
             reconciliation = Reconciliation.movedFrom(at.route().id());
-        } else if (layout.drop(key).isPresent()) {
-            after = layout.without(key).appending(servedOn, lateStop(fact, LateOutcome.SERVED_LATE));
+        } else if (drop(key).isPresent()) {
+            removeDrop(key);
+            appendTo(serving, lateStop(fact, LateOutcome.SERVED_LATE));
             reconciliation = Reconciliation.of(ReconciliationKind.FROM_DROPPED);
         } else {
-            after = layout.appending(servedOn, lateStop(fact, LateOutcome.SERVED_AFTER_CANCELLATION));
+            appendTo(serving, lateStop(fact, LateOutcome.SERVED_AFTER_CANCELLATION));
             reconciliation = Reconciliation.of(ReconciliationKind.AFTER_CANCELLATION);
         }
         List<RouteId> changedInOrder =
-                after.routes().stream().map(Route::id).filter(changed::contains).toList();
+                routeIds().stream().filter(changed::contains).toList();
         revise(
-                next().layout(after),
                 RevisionCause.LATE_OUTCOME,
                 Optional.empty(),
                 Optional.empty(),
@@ -962,14 +1095,20 @@ public final class Plan extends AggregateRoot {
      * @throws RuleViolation with {@link StaleEvaluation} for another version or layout
      */
     public void recordRouteCheck(Evaluation evaluation) {
-        if (!(status instanceof Status.Ready || status instanceof Status.Published)) {
+        if (!(status == StatusKind.READY || status == StatusKind.PUBLISHED)) {
+            forgetPendingRevision();
             return;
         }
         requireCurrent(evaluation);
         if (!evaluation.available()) {
+            forgetPendingRevision();
             return;
         }
-        commit(next().layout(layout.judgedBy(evaluation, version(), false)).violations(evaluation.violations()));
+        requireDescribes(evaluation, layout());
+        forgetPendingRevision();
+        judge(evaluation, false);
+        storeViolations(evaluation.violations());
+        requireInvariants();
     }
 
     /**
@@ -993,9 +1132,12 @@ public final class Plan extends AggregateRoot {
         if (!started.reported().isEmpty()) {
             throw new RuleViolation(new StopAlreadyReported(started.reported()));
         }
-        commit(next().status(new Status.Cancelled(published.revision(), now)));
-        List<RouteId> routes = routeIds(layout.routes());
-        raise(PlanCancelled.class, id.value(), eventId -> new PlanCancelled(eventId, now, id, date, routes));
+        forgetPendingRevision();
+        storeStatus(new Status.Cancelled(published.revision(), now));
+        requireInvariants();
+        PlanId plan = id();
+        List<RouteId> cancelled = routeIds();
+        raise(PlanCancelled.class, id, eventId -> new PlanCancelled(eventId, now, plan, date, cancelled));
     }
 
     /**
@@ -1007,7 +1149,9 @@ public final class Plan extends AggregateRoot {
     public void complete(LocalDate today) {
         Status.Published published = requirePublished();
         requireDateOver(today);
-        commit(next().status(new Status.Completed(published.revision())));
+        forgetPendingRevision();
+        storeStatus(new Status.Completed(published.revision()));
+        requireInvariants();
     }
 
     /**
@@ -1020,11 +1164,14 @@ public final class Plan extends AggregateRoot {
      *     midnight
      */
     public void abandon(LocalDate today) {
-        if (!(status instanceof Status.Draft || status instanceof Status.Solving || status instanceof Status.Ready)) {
-            throw new RuleViolation(new PlanNotDraftSolvingOrReady(id));
+        if (!(status == StatusKind.DRAFT || status == StatusKind.SOLVING || status == StatusKind.READY)) {
+            throw new RuleViolation(new PlanNotDraftSolvingOrReady(id()));
         }
         requireDateOver(today);
-        commit(next().clearingJournal().status(new Status.Abandoned()));
+        forgetPendingRevision();
+        clearJournal();
+        storeStatus(new Status.Abandoned());
+        requireInvariants();
     }
 
     // ---- Queries -------------------------------------------------------------------------------
@@ -1054,7 +1201,17 @@ public final class Plan extends AggregateRoot {
      * @return the layout, without times
      */
     public PlanLayout layout() {
-        return layout.view();
+        return new PlanLayout(
+                routes.stream()
+                        .map(route -> new LaidOutRoute(
+                                route.id(),
+                                route.vehicle(),
+                                route.driver(),
+                                route.withdrawn(),
+                                route.stops().stream().map(Plan::laidOut).toList()))
+                        .toList(),
+                dropped(),
+                pins());
     }
 
     /**
@@ -1070,7 +1227,7 @@ public final class Plan extends AggregateRoot {
      */
     public PlanLayout afterMove(StopId stop, RouteId toRoute, int position) {
         requireReady();
-        return moving(stop, toRoute, position).after().view();
+        return viewAfter(moving(stop, toRoute, position), FORWARD);
     }
 
     /**
@@ -1084,7 +1241,7 @@ public final class Plan extends AggregateRoot {
      */
     public PlanLayout afterTakeOff(StopId stop) {
         requireReady();
-        return takingOff(stop).after().view();
+        return viewAfter(takingOff(stop), FORWARD);
     }
 
     /**
@@ -1103,7 +1260,7 @@ public final class Plan extends AggregateRoot {
      */
     public PlanLayout afterPlacing(OrderId order, Attempt attempt, RouteId toRoute, int position, StopId newStop) {
         requireReady();
-        return placing(order, attempt, toRoute, position, newStop).after().view();
+        return viewAfter(placing(order, attempt, toRoute, position, newStop), FORWARD);
     }
 
     /**
@@ -1117,7 +1274,7 @@ public final class Plan extends AggregateRoot {
      */
     public PlanLayout afterPin(OrderId order, PinTarget target) {
         requireDraftOrReady();
-        return pinning(order, target).after().view();
+        return viewAfter(pinning(order, target), FORWARD);
     }
 
     /**
@@ -1131,7 +1288,7 @@ public final class Plan extends AggregateRoot {
      */
     public PlanLayout afterUnpin(OrderId order) {
         requireDraftOrReady();
-        return unpinning(order).after().view();
+        return viewAfter(unpinning(order), FORWARD);
     }
 
     /**
@@ -1143,7 +1300,7 @@ public final class Plan extends AggregateRoot {
      */
     public PlanLayout afterUndo() {
         requireReady();
-        return undone().view();
+        return viewAfter(lastUndo(), BACKWARD);
     }
 
     /**
@@ -1155,7 +1312,7 @@ public final class Plan extends AggregateRoot {
      */
     public PlanLayout afterRedo() {
         requireReady();
-        return redone().view();
+        return viewAfter(lastRedo(), FORWARD);
     }
 
     /**
@@ -1171,7 +1328,7 @@ public final class Plan extends AggregateRoot {
      */
     public PlanLayout afterHandOver(RouteId route, AccountId driver) {
         requirePublished();
-        return handingOver(route, driver).view();
+        return handingOver(route, driver);
     }
 
     /**
@@ -1180,162 +1337,294 @@ public final class Plan extends AggregateRoot {
      * @return the ID
      */
     public PlanId id() {
-        return id;
+        return PlanId.of(id);
+    }
+
+    /**
+     * The plan's delivery date, of which a date has at most one uncancelled plan (BR-34).
+     *
+     * @return the date
+     */
+    public DeliveryDate date() {
+        return date;
     }
 
     /**
      * The plan's state.
      *
-     * @return the state
+     * @return the state, with the basis, revision and time it keeps
      */
     public Status status() {
-        return status;
+        return switch (status) {
+            case DRAFT -> new Status.Draft();
+            case SOLVING -> new Status.Solving(new SolveBasis(stored(solvingJob), stored(solvingRequestedAt)));
+            case READY -> new Status.Ready();
+            case PUBLISHED -> new Status.Published(stored(revision));
+            case COMPLETED -> new Status.Completed(stored(revision));
+            case CANCELLED -> new Status.Cancelled(stored(revision), stored(cancelledAt));
+            case ABANDONED -> new Status.Abandoned();
+        };
     }
 
     /**
-     * The revision this change made, which the repository appends when it saves the plan (ADR-059).
+     * The revision the last command made, which the repository appends when it saves the plan
+     * (ADR-059). Every command sets it, so a save after a command that made none appends nothing.
      *
-     * @return the revision, or empty when this change made none
+     * @return the revision, or empty when the last command made none, or the plan was just loaded
      */
     public Optional<PlanRevision> pendingRevision() {
         return Optional.ofNullable(pendingRevision);
     }
 
+    // ---- The stored state, for the invariants --------------------------------------------------
+
+    /** Its routes, in order, as the live entities. */
+    List<Route> routes() {
+        return Collections.unmodifiableList(routes);
+    }
+
+    /** When it was opened. */
+    Instant openedAt() {
+        return openedAt;
+    }
+
+    /** Every stop it keeps, which is every stop on its routes. */
+    Set<PlannedStop> keptStops() {
+        return Collections.unmodifiableSet(stops);
+    }
+
+    /** The solve its routes came from, which three nullable columns hold, all of them or none. */
+    Optional<AppliedSolve> applied() {
+        if (appliedJob == null || appliedRequestedAt == null || appliedAt == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new AppliedSolve(new SolveBasis(appliedJob, appliedRequestedAt), appliedAt));
+    }
+
+    /** Its drops, ordered by order ID and attempt. */
+    List<DroppedOrder> dropped() {
+        return dropped.stream().map(StoredDroppedOrder::droppedOrder).toList();
+    }
+
+    List<ExcludedVehicle> excluded() {
+        return List.copyOf(excluded);
+    }
+
+    /** Its pins, ordered by order ID. */
+    List<Pin> pins() {
+        return pins.stream().map(StoredPin::pin).toList();
+    }
+
+    List<Violation> violations() {
+        return violations.stream().map(StoredViolation::violation).toList();
+    }
+
+    /** The edits since the last solve, oldest first. */
+    List<Edit> undo() {
+        return undo.stream().map(StoredEdit::edit).toList();
+    }
+
+    /** The undone edits, oldest first. */
+    List<Edit> redo() {
+        return redo.stream().map(StoredEdit::edit).toList();
+    }
+
+    // ---- Storing the fields in place -----------------------------------------------------------
+
     /**
-     * The plan's present state, for the repository, for Planning's queries, and for tests.
-     *
-     * @return a snapshot that {@link #restore} rebuilds
+     * The one check of the stored fields, shared by the load check and every command's end check.
+     * Rebuilding every stored value checks it on the way.
      */
-    public PlanSnapshot snapshot() {
-        return snapshotOf(status, applied, layout, excluded, violations, undo, redo);
-    }
-
-    // ---- The one commit point ------------------------------------------------------------------
-
-    /** The state a command would leave; it starts as the plan's present state. */
-    private final class Next {
-
-        private Status status = Plan.this.status;
-        private @Nullable AppliedSolve applied = Plan.this.applied;
-        private Layout layout = Plan.this.layout;
-        private List<ExcludedVehicle> excluded = Plan.this.excluded;
-        private List<Violation> violations = Plan.this.violations;
-        private List<Edit> undo = Plan.this.undo;
-        private List<Edit> redo = Plan.this.redo;
-
-        Next status(Status next) {
-            this.status = next;
-            return this;
-        }
-
-        Next applied(AppliedSolve next) {
-            this.applied = next;
-            return this;
-        }
-
-        Next layout(Layout next) {
-            this.layout = next;
-            return this;
-        }
-
-        Next excluded(List<ExcludedVehicle> next) {
-            this.excluded = List.copyOf(next);
-            return this;
-        }
-
-        Next violations(List<Violation> next) {
-            this.violations = List.copyOf(next);
-            return this;
-        }
-
-        Next undo(List<Edit> next) {
-            this.undo = List.copyOf(next);
-            return this;
-        }
-
-        Next redo(List<Edit> next) {
-            this.redo = List.copyOf(next);
-            return this;
-        }
-
-        /** Journals an edit, forgetting the oldest past {@link #JOURNAL_LIMIT}; a new edit clears redo. */
-        Next journaling(Edit edit) {
-            List<Edit> journaled = appended(undo, edit);
-            return undo(journaled.subList(Math.max(0, journaled.size() - JOURNAL_LIMIT), journaled.size()))
-                    .redo(List.of());
-        }
-
-        Next clearingJournal() {
-            return undo(List.of()).redo(List.of());
-        }
-    }
-
-    private Next next() {
-        return new Next();
+    private Optional<String> brokenRule() {
+        routes.forEach(route -> {
+            route.plan();
+            route.confirmedReturn();
+            route.stops().forEach(PlannedStop::plan);
+        });
+        return PlanInvariants.brokenBy(this);
     }
 
     /**
-     * Replaces the plan's state with the one a command built, after checking it holds every at-rest
-     * invariant. Every rule a caller can break was checked before this point, so a broken invariant
-     * here is a bug in the command, not a refusal.
+     * Checks the state a command left against the invariants at rest (ADR-126 decision 11). Every
+     * input was checked before the command changed anything, so a broken invariant here is a bug in
+     * the command, not a refusal, and the error rolls its transaction back.
      */
-    private void commit(Next next) {
-        PlanSnapshot candidate = snapshotOf(
-                next.status, next.applied, next.layout, next.excluded, next.violations, next.undo, next.redo);
-        Optional<String> broken = PlanInvariants.brokenBy(candidate);
-        if (broken.isPresent()) {
-            throw new AssertionError("a plan command would leave a state that breaks: " + broken.get());
-        }
-        status = next.status;
-        applied = next.applied;
-        layout = next.layout;
-        excluded = next.excluded;
-        violations = next.violations;
-        undo = next.undo;
-        redo = next.redo;
+    private void requireInvariants() {
+        brokenRule().ifPresent(broken -> {
+            throw new AssertionError("a plan command left a state that breaks: " + broken);
+        });
     }
 
-    private PlanSnapshot snapshotOf(
-            Status state,
-            @Nullable AppliedSolve solve,
-            Layout routes,
-            List<ExcludedVehicle> leftOut,
-            List<Violation> open,
-            List<Edit> undone,
-            List<Edit> redone) {
-        return new PlanSnapshot(
-                id,
-                savedVersion().orElse(null),
-                date,
-                openedAt,
-                state,
-                Optional.ofNullable(solve),
-                routes.routes().stream().map(Route::snapshot).toList(),
-                routes.dropped(),
-                leftOut,
-                routes.pins(),
-                open,
-                undone,
-                redone);
+    /** A command that returns made no revision unless it sets one after this. */
+    private void forgetPendingRevision() {
+        pendingRevision = null;
+    }
+
+    /** Sets the kind of a status and the basis, revision and time it keeps, in place. */
+    private void storeStatus(Status next) {
+        solvingJob = null;
+        solvingRequestedAt = null;
+        revision = null;
+        cancelledAt = null;
+        status = switch (next) {
+            case Status.Draft draft -> StatusKind.DRAFT;
+            case Status.Solving solving -> {
+                solvingJob = solving.pending().job();
+                solvingRequestedAt = solving.pending().requestedAt();
+                yield StatusKind.SOLVING;
+            }
+            case Status.Ready ready -> StatusKind.READY;
+            case Status.Published published -> {
+                revision = published.revision();
+                yield StatusKind.PUBLISHED;
+            }
+            case Status.Completed completed -> {
+                revision = completed.revision();
+                yield StatusKind.COMPLETED;
+            }
+            case Status.Cancelled cancelled -> {
+                revision = cancelled.revision();
+                cancelledAt = cancelled.at();
+                yield StatusKind.CANCELLED;
+            }
+            case Status.Abandoned abandoned -> StatusKind.ABANDONED;
+        };
+    }
+
+    private void storeApplied(Optional<AppliedSolve> next) {
+        appliedJob = next.map(solve -> solve.basis().job()).orElse(null);
+        appliedRequestedAt = next.map(solve -> solve.basis().requestedAt()).orElse(null);
+        appliedAt = next.map(AppliedSolve::appliedAt).orElse(null);
+    }
+
+    /** Replaces the drops in the list Hibernate loaded, in {@link PlanLayout#DROP_ORDER}. */
+    private void storeDrops(List<DroppedOrder> next) {
+        dropped.clear();
+        next.stream().sorted(PlanLayout.DROP_ORDER).map(StoredDroppedOrder::new).forEach(dropped::add);
+    }
+
+    /** Adds a drop where {@link PlanLayout#DROP_ORDER} puts it, after any drop it ties with. */
+    private void addDrop(DroppedOrder drop) {
+        List<DroppedOrder> current = dropped();
+        int at = 0;
+        while (at < current.size() && PlanLayout.DROP_ORDER.compare(current.get(at), drop) <= 0) {
+            at++;
+        }
+        dropped.add(at, new StoredDroppedOrder(drop));
+    }
+
+    private void removeDrop(StopKey key) {
+        List<DroppedOrder> current = dropped();
+        for (int at = current.size() - 1; at >= 0; at--) {
+            DroppedOrder drop = current.get(at);
+            if (new StopKey(drop.order(), drop.attempt()).equals(key)) {
+                dropped.remove(at);
+            }
+        }
+    }
+
+    /** Replaces an order's pin, or removes it when the target is empty, in {@link PlanLayout#PIN_ORDER}. */
+    private void storePin(OrderId order, Optional<PinTarget> target) {
+        List<Pin> current = pins();
+        for (int at = current.size() - 1; at >= 0; at--) {
+            if (current.get(at).order().equals(order)) {
+                pins.remove(at);
+            }
+        }
+        if (target.isPresent()) {
+            Pin pin = new Pin(order, target.get());
+            List<Pin> left = pins();
+            int at = 0;
+            while (at < left.size() && PlanLayout.PIN_ORDER.compare(left.get(at), pin) <= 0) {
+                at++;
+            }
+            pins.add(at, new StoredPin(pin));
+        }
+    }
+
+    private void storeViolations(List<Violation> next) {
+        violations.clear();
+        next.stream().map(StoredViolation::new).forEach(violations::add);
+    }
+
+    /** Journals an edit, forgetting the oldest past {@link #JOURNAL_LIMIT}; a new edit clears redo. */
+    private void journal(Edit edit) {
+        undo.add(new StoredEdit(edit));
+        while (undo.size() > JOURNAL_LIMIT) {
+            undo.remove(0);
+        }
+        redo.clear();
+    }
+
+    private void clearJournal() {
+        undo.clear();
+        redo.clear();
+    }
+
+    /**
+     * Lays the routes a solve or an acceptance decided on onto the plan's own, in their order: a
+     * route or a stop whose ID the plan holds keeps its instance, so a stop that changes routes is
+     * the same entity on its new route's list, and the rest are new. A route the decision leaves out
+     * leaves the plan, and so does every stop no laid route holds.
+     */
+    private void layRoutes(List<PlacedRoute> next) {
+        Map<RouteId, Route> held = new HashMap<>();
+        Map<StopId, PlannedStop> heldStops = new HashMap<>();
+        for (Route route : routes) {
+            held.put(route.id(), route);
+            route.stops().forEach(stop -> heldStops.put(stop.id(), stop));
+        }
+        List<Route> laid = new ArrayList<>();
+        for (PlacedRoute placed : next) {
+            Route route = held.remove(placed.id());
+            if (route == null) {
+                route = new Route(placed.id(), placed.index(), placed.vehicle(), placed.driver());
+            }
+            route.reindexAs(placed.index());
+            route.driveBy(placed.driver());
+            route.lockAs(placed.lock());
+            route.checkAs(placed.check());
+            route.withdrawAs(placed.withdrawal());
+            route.confirmReturnAt(placed.confirmedReturn());
+            route.timeAs(placed.plan());
+            route.holdStops(placed.stops().stream()
+                    .map(stop -> {
+                        PlannedStop kept = heldStops.get(stop.id());
+                        if (kept == null) {
+                            return new PlannedStop(stop.id(), stop.order(), stop.attempt(), stop.plan(), stop.late());
+                        }
+                        kept.timeAs(stop.plan());
+                        kept.markLate(stop.late());
+                        return kept;
+                    })
+                    .toList());
+            laid.add(route);
+        }
+        Set<PlannedStop> onLaidRoutes = new HashSet<>();
+        laid.forEach(route -> onLaidRoutes.addAll(route.stops()));
+        stops.removeIf(stop -> !onLaidRoutes.contains(stop));
+        stops.addAll(onLaidRoutes);
+        routes.clear();
+        routes.addAll(laid);
     }
 
     // ---- Checks --------------------------------------------------------------------------------
 
     private void requireReady() {
-        if (!(status instanceof Status.Ready)) {
-            throw new RuleViolation(new PlanNotReady(id));
+        if (status != StatusKind.READY) {
+            throw new RuleViolation(new PlanNotReady(id()));
         }
     }
 
     private void requireDraftOrReady() {
-        if (!(status instanceof Status.Draft || status instanceof Status.Ready)) {
-            throw new RuleViolation(new PlanNotDraftOrReady(id));
+        if (!(status == StatusKind.DRAFT || status == StatusKind.READY)) {
+            throw new RuleViolation(new PlanNotDraftOrReady(id()));
         }
     }
 
     private Status.Published requirePublished() {
-        if (!(status instanceof Status.Published published)) {
-            throw new RuleViolation(new PlanNotPublished(id));
+        if (!(status() instanceof Status.Published published)) {
+            throw new RuleViolation(new PlanNotPublished(id()));
         }
         return published;
     }
@@ -1365,12 +1654,126 @@ public final class Plan extends AggregateRoot {
         }
     }
 
-    private Route route(RouteId route) {
-        return layout.route(route).orElseThrow(() -> new RuleViolation(new RouteNotInPlan(route)));
+    /**
+     * Checks that an evaluation describes a layout: its routes are exactly these routes, each with
+     * its vehicle, its driver and these stops in this order, and its violations name only these
+     * routes (ADR-101).
+     *
+     * @throws RuleViolation with {@link StaleEvaluation} when it describes another layout
+     */
+    private void requireDescribes(Evaluation evaluation, PlanLayout laidOut) {
+        Map<RouteId, RouteTimes> times = timesOf(evaluation);
+        List<LaidOutRoute> described = laidOut.routes();
+        boolean sameRoutes = times.size() == described.size()
+                && evaluation.routes().size() == described.size()
+                && described.stream().allMatch(route -> describes(times.get(route.route()), route));
+        boolean violationsOnTheseRoutes = evaluation.violations().stream()
+                .allMatch(violation -> violation.route().map(times::containsKey).orElse(true));
+        if (!sameRoutes || !violationsOnTheseRoutes) {
+            throw new RuleViolation(new StaleEvaluation(evaluation.planVersion(), version()));
+        }
     }
 
-    private Located locate(StopId stop) {
-        return layout.locate(stop).orElseThrow(() -> new RuleViolation(new StopNotInPlan(stop)));
+    /** Whether an evaluation's route is this route: its vehicle, its driver, and its stops in order. */
+    private static boolean describes(@Nullable RouteTimes times, LaidOutRoute route) {
+        return times != null
+                && times.vehicle().equals(route.vehicle())
+                && times.driver().equals(route.driver())
+                && times.stops().stream()
+                        .map(StopTiming::stop)
+                        .toList()
+                        .equals(route.stops().stream().map(LaidOutStop::stop).toList());
+    }
+
+    /**
+     * Marks every route checked by an evaluation that {@link #requireDescribes describes} the plan as
+     * it is. With {@code applyTimes}, the routes and stops also take its times (FR-23, BR-68), and a
+     * route or stop it couldn't time keeps none (ADR-112).
+     */
+    private void judge(Evaluation evaluation, boolean applyTimes) {
+        Map<RouteId, RouteTimes> times = timesOf(evaluation);
+        for (Route route : routes) {
+            route.checkAs(CheckState.CHECKED);
+            if (applyTimes) {
+                RouteTimes timed = Objects.requireNonNull(times.get(route.id()), "the evaluation describes the route");
+                route.timeAs(timed.plan());
+                List<PlannedStop> stops = route.stops();
+                for (int position = 0; position < stops.size(); position++) {
+                    stops.get(position).timeAs(timed.stops().get(position).plan());
+                }
+            }
+        }
+    }
+
+    private static Map<RouteId, RouteTimes> timesOf(Evaluation evaluation) {
+        Map<RouteId, RouteTimes> times = new HashMap<>();
+        evaluation.routes().forEach(route -> times.put(route.route(), route));
+        return times;
+    }
+
+    private Route route(RouteId route) {
+        return findRoute(route).orElseThrow(() -> new RuleViolation(new RouteNotInPlan(route)));
+    }
+
+    private Optional<Route> findRoute(RouteId route) {
+        return routes.stream().filter(candidate -> candidate.id().equals(route)).findFirst();
+    }
+
+    /** A route a command already found, while it changes the plan. */
+    private Route held(RouteId route) {
+        return findRoute(route).orElseThrow(() -> new AssertionError("a plan command changes only routes it holds"));
+    }
+
+    /** Where a stop is: its route, its position from 0, and the stop. */
+    private record Located(Route route, int position, PlannedStop stop) {}
+
+    private Located locateOrRefuse(StopId stop) {
+        return locate(stop).orElseThrow(() -> new RuleViolation(new StopNotInPlan(stop)));
+    }
+
+    private Optional<Located> locate(StopId stop) {
+        return locate(candidate -> candidate.id().equals(stop));
+    }
+
+    private Optional<Located> locate(StopKey key) {
+        return locate(candidate -> candidate.key().equals(key));
+    }
+
+    private Optional<Located> locate(Predicate<PlannedStop> matches) {
+        for (Route route : routes) {
+            List<PlannedStop> stops = route.stops();
+            for (int position = 0; position < stops.size(); position++) {
+                if (matches.test(stops.get(position))) {
+                    return Optional.of(new Located(route, position, stops.get(position)));
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    private Optional<DroppedOrder> drop(StopKey key) {
+        return dropped().stream()
+                .filter(drop -> new StopKey(drop.order(), drop.attempt()).equals(key))
+                .findFirst();
+    }
+
+    private Optional<PinTarget> pinOf(OrderId order) {
+        return pins().stream()
+                .filter(pin -> pin.order().equals(order))
+                .map(Pin::target)
+                .findFirst();
+    }
+
+    /** Every order and attempt the plan serves or drops, routes first, in order. */
+    private List<StopKey> keys() {
+        List<StopKey> keys = new ArrayList<>();
+        routes.forEach(route -> keys.addAll(route.keys()));
+        dropped().forEach(drop -> keys.add(new StopKey(drop.order(), drop.attempt())));
+        return keys;
+    }
+
+    private List<RouteId> routeIds() {
+        return routes.stream().map(Route::id).toList();
     }
 
     private static void requirePosition(RouteId route, int position, int last) {
@@ -1394,10 +1797,10 @@ public final class Plan extends AggregateRoot {
         }
     }
 
-    private static void requireOneRoutePerVehicleAndDriver(List<Route> routes) {
+    private static void requireOneRoutePerVehicleAndDriver(List<PlacedRoute> routes) {
         Map<VehicleId, RouteId> vehicles = new HashMap<>();
         Map<AccountId, RouteId> drivers = new HashMap<>();
-        for (Route route : routes) {
+        for (PlacedRoute route : routes) {
             if (route.withdrawn()) {
                 continue;
             }
@@ -1412,41 +1815,47 @@ public final class Plan extends AggregateRoot {
         }
     }
 
-    /** What taking an order and attempt off would leave: the layout, and the route it left, if any. */
-    private record Removal(Layout after, List<RouteId> changed) {}
-
-    /**
-     * Takes an order and attempt off its route or the drops; a route it leaves becomes not yet
-     * checked (FR-395).
-     */
-    private Optional<Removal> removalOf(StopKey key) {
-        Optional<Located> located = layout.locate(key);
-        if (located.isPresent()) {
-            RouteId route = located.get().route().id();
-            Layout after = layout.removing(located.get().stop().id())
-                    .changing(route, unchecked -> unchecked.withCheck(CheckState.NOT_YET_CHECKED));
-            return Optional.of(new Removal(after, List.of(route)));
-        }
-        if (layout.drop(key).isPresent()) {
-            return Optional.of(new Removal(layout.without(key), List.of()));
-        }
-        return Optional.empty();
-    }
-
     // ---- Edits ---------------------------------------------------------------------------------
 
-    /** The layout an edit leaves, and the journal entry that undoes it. */
-    private record EditedLayout(Layout after, Edit edit) {}
-
-    private void commitEdit(EditedLayout edited, Evaluation evaluation) {
-        commit(next().layout(edited.after().judgedBy(evaluation, version(), true))
-                .violations(evaluation.violations())
-                .journaling(edited.edit()));
+    /**
+     * Makes an edit with its evaluation: the evaluation must describe the layout the edit leaves,
+     * whose times the plan then takes, with its violations, and the edit is journaled.
+     */
+    private void commitEdit(Edit edit, Evaluation evaluation) {
+        PlanLayout after = viewAfter(edit, FORWARD);
+        requireDescribes(evaluation, after);
+        forgetPendingRevision();
+        change(edit, FORWARD, after);
+        judge(evaluation, true);
+        storeViolations(evaluation.violations());
+        journal(edit);
+        requireInvariants();
     }
 
-    /** {@link #moveStop}'s change, which {@link #afterMove} also returns, so the two can't differ. */
-    private EditedLayout moving(StopId stop, RouteId toRoute, int position) {
-        Located from = locate(stop);
+    /** As {@link #commitEdit}, except that a draft keeps no violations and journals nothing. */
+    private void commitPinEdit(Edit edit, Evaluation evaluation) {
+        PlanLayout after = viewAfter(edit, FORWARD);
+        requireDescribes(evaluation, after);
+        forgetPendingRevision();
+        change(edit, FORWARD, after);
+        judge(evaluation, true);
+        if (status == StatusKind.READY) {
+            storeViolations(evaluation.violations());
+            journal(edit);
+        }
+        requireInvariants();
+    }
+
+    /** Makes a lock's edit, which changes no route's stops and so needs no evaluation, and journals it. */
+    private void commitLockEdit(Edit edit) {
+        change(edit, FORWARD, layout());
+        journal(edit);
+        requireInvariants();
+    }
+
+    /** {@link #moveStop}'s edit, which {@link #afterMove} also makes, so the two can't differ. */
+    private Edit.MovedStop moving(StopId stop, RouteId toRoute, int position) {
+        Located from = locateOrRefuse(stop);
         Route target = route(toRoute);
         int last = from.route().id().equals(toRoute)
                 ? target.stops().size() - 1
@@ -1454,62 +1863,68 @@ public final class Plan extends AggregateRoot {
         requirePosition(toRoute, position, last);
         requireUnlocked(from.route());
         requireUnlocked(target);
-        return new EditedLayout(
-                layout.moving(from.stop(), toRoute, position),
-                new Edit.MovedStop(stop, from.route().id(), from.position(), toRoute, position));
+        return new Edit.MovedStop(stop, from.route().id(), from.position(), toRoute, position);
     }
 
-    /** {@link #takeOffRoute}'s change, which {@link #afterTakeOff} also returns. */
-    private EditedLayout takingOff(StopId stop) {
-        Located at = locate(stop);
+    /** {@link #takeOffRoute}'s edit, which {@link #afterTakeOff} also makes. */
+    private Edit.TookOff takingOff(StopId stop) {
+        Located at = locateOrRefuse(stop);
         requireUnlocked(at.route());
         PlannedStop taken = at.stop();
-        return new EditedLayout(
-                takingOff(layout, taken),
-                new Edit.TookOff(
-                        stop, taken.order(), taken.attempt(), at.route().id(), at.position(), taken.plan()));
+        return new Edit.TookOff(stop, taken.order(), taken.attempt(), at.route().id(), at.position(), taken.plan());
     }
 
-    /** {@link #placeDropped}'s change, which {@link #afterPlacing} also returns. */
-    private EditedLayout placing(OrderId order, Attempt attempt, RouteId toRoute, int position, StopId newStop) {
+    /** {@link #placeDropped}'s edit, which {@link #afterPlacing} also makes. */
+    private Edit.Placed placing(OrderId order, Attempt attempt, RouteId toRoute, int position, StopId newStop) {
         StopKey key = new StopKey(order, attempt);
-        DroppedOrder drop = layout.drop(key).orElseThrow(() -> new RuleViolation(new OrderNotDropped(order, attempt)));
+        DroppedOrder drop = drop(key).orElseThrow(() -> new RuleViolation(new OrderNotDropped(order, attempt)));
         if (drop.reason().isAboutLocation()) {
             throw new RuleViolation(new OrderNotRoutable(order));
         }
         Route target = route(toRoute);
         requirePosition(toRoute, position, target.stops().size());
         requireUnlocked(target);
-        Layout after = layout.without(key)
-                .inserting(
-                        toRoute,
-                        position,
-                        new PlannedStop(newStop, order, attempt, Optional.empty(), Optional.empty()));
-        return new EditedLayout(after, new Edit.Placed(order, attempt, newStop, toRoute, position, drop.reason()));
+        return new Edit.Placed(order, attempt, newStop, toRoute, position, drop.reason());
     }
 
-    /** {@link #undo}'s layout, which {@link #afterUndo} also returns. */
-    private Layout undone() {
+    /** {@link #pin}'s edit, which {@link #afterPin} also makes. */
+    private Edit.Pinned pinning(OrderId order, PinTarget target) {
+        return new Edit.Pinned(order, pinOf(order), target);
+    }
+
+    /** {@link #unpin}'s edit, which {@link #afterUnpin} also makes. */
+    private Edit.Unpinned unpinning(OrderId order) {
+        PinTarget before = pinOf(order).orElseThrow(() -> new RuleViolation(new OrderNotPinned(order)));
+        return new Edit.Unpinned(order, before);
+    }
+
+    /** {@link #undo}'s edit, which {@link #afterUndo} also undoes. */
+    private Edit lastUndo() {
         if (undo.isEmpty()) {
             throw new RuleViolation(new NothingToUndo());
         }
-        return reverted(undo.get(undo.size() - 1));
+        return undo.get(undo.size() - 1).edit();
     }
 
-    /** {@link #redo}'s layout, which {@link #afterRedo} also returns. */
-    private Layout redone() {
+    /** {@link #redo}'s edit, which {@link #afterRedo} also makes again. */
+    private Edit lastRedo() {
         if (redo.isEmpty()) {
             throw new RuleViolation(new NothingToRedo());
         }
-        return reapplied(redo.get(redo.size() - 1));
+        return redo.get(redo.size() - 1).edit();
     }
 
-    /** {@link #handOver}'s layout before it is judged, which {@link #afterHandOver} also returns. */
-    private Layout handingOver(RouteId route, AccountId driver) {
+    /**
+     * {@link #handOver}'s layout before it is judged, which {@link #afterHandOver} also returns.
+     *
+     * @throws RuleViolation with {@link RouteNotInPlan}, {@link RouteWithdrawn} or {@link
+     *     DriverAlreadyHasRoute}
+     */
+    private PlanLayout handingOver(RouteId route, AccountId driver) {
         if (route(route).withdrawn()) {
             throw new RuleViolation(new RouteWithdrawn(route));
         }
-        Optional<Route> driving = layout.routes().stream()
+        Optional<Route> driving = routes.stream()
                 .filter(candidate ->
                         !candidate.withdrawn() && candidate.driver().equals(driver))
                 .findFirst();
@@ -1517,78 +1932,150 @@ public final class Plan extends AggregateRoot {
             throw new RuleViolation(
                     new DriverAlreadyHasRoute(driver, driving.get().id()));
         }
-        return layout.changing(route, handed -> handed.withDriver(driver));
+        return layout().drivenBy(route, driver);
     }
 
-    /** {@link #pin}'s change, which {@link #afterPin} also returns. */
-    private EditedLayout pinning(OrderId order, PinTarget target) {
-        Optional<PinTarget> before = layout.pinOf(order);
-        return new EditedLayout(layout.pinning(order, Optional.of(target)), new Edit.Pinned(order, before, target));
-    }
-
-    /** {@link #unpin}'s change, which {@link #afterUnpin} also returns. */
-    private EditedLayout unpinning(OrderId order) {
-        PinTarget before = layout.pinOf(order).orElseThrow(() -> new RuleViolation(new OrderNotPinned(order)));
-        return new EditedLayout(layout.pinning(order, Optional.empty()), new Edit.Unpinned(order, before));
-    }
-
-    private void commitPinEdit(EditedLayout edited, Evaluation evaluation) {
-        Next change = next().layout(edited.after().judgedBy(evaluation, version(), true));
-        if (status instanceof Status.Ready) {
-            change.violations(evaluation.violations()).journaling(edited.edit());
-        }
-        commit(change);
-    }
-
-    private Layout reverted(Edit edit) {
+    /**
+     * The layout an edit leaves, made or undone, without changing the plan: what the edit's query
+     * returns and its evaluation must describe. {@link #change} makes the same edit in place.
+     *
+     * @throws RuleViolation with {@link StopNotInPlan} when the edit moves or takes off a stop the
+     *     plan doesn't hold
+     */
+    private PlanLayout viewAfter(Edit edit, boolean forward) {
+        PlanLayout now = layout();
         return switch (edit) {
-            case Edit.MovedStop moved -> layout.moving(stopAt(moved.stop()), moved.fromRoute(), moved.fromPosition());
-            case Edit.TookOff took ->
-                layout.without(new StopKey(took.order(), took.attempt()))
+            case Edit.MovedStop moved -> {
+                LaidOutStop stop = laidOut(locateOrRefuse(moved.stop()).stop());
+                yield forward
+                        ? now.removing(moved.stop()).inserting(moved.toRoute(), moved.toPosition(), stop)
+                        : now.removing(moved.stop()).inserting(moved.fromRoute(), moved.fromPosition(), stop);
+            }
+            case Edit.TookOff took -> {
+                if (forward) {
+                    locateOrRefuse(took.stop());
+                    yield now.removing(took.stop()).adding(removedByDispatcher(took.order(), took.attempt()));
+                }
+                yield now.without(took.order(), took.attempt())
                         .inserting(
                                 took.route(),
                                 took.position(),
-                                new PlannedStop(
-                                        took.stop(), took.order(), took.attempt(), took.plan(), Optional.empty()));
+                                new LaidOutStop(took.stop(), took.order(), took.attempt()));
+            }
             case Edit.Placed placed ->
-                layout.removing(placed.stop())
-                        .adding(new DroppedOrder(placed.order(), placed.attempt(), placed.before()));
-            case Edit.Pinned pinned -> layout.pinning(pinned.order(), pinned.before());
-            case Edit.Unpinned unpinned -> layout.pinning(unpinned.order(), Optional.of(unpinned.before()));
-            case Edit.Locked locked -> layout.locking(locked.route(), locked.before());
-            case Edit.Unlocked unlocked -> layout.locking(unlocked.route(), Optional.of(unlocked.before()));
+                forward
+                        ? now.without(placed.order(), placed.attempt())
+                                .inserting(
+                                        placed.route(),
+                                        placed.position(),
+                                        new LaidOutStop(placed.stop(), placed.order(), placed.attempt()))
+                        : now.removing(placed.stop())
+                                .adding(new DroppedOrder(placed.order(), placed.attempt(), placed.before()));
+            case Edit.Pinned pinned ->
+                now.pinning(pinned.order(), forward ? Optional.of(pinned.after()) : pinned.before());
+            case Edit.Unpinned unpinned ->
+                now.pinning(unpinned.order(), forward ? Optional.empty() : Optional.of(unpinned.before()));
+            case Edit.Locked locked -> now;
+            case Edit.Unlocked unlocked -> now;
         };
     }
 
-    private Layout reapplied(Edit edit) {
-        return switch (edit) {
-            case Edit.MovedStop moved -> layout.moving(stopAt(moved.stop()), moved.toRoute(), moved.toPosition());
-            case Edit.TookOff took -> takingOff(layout, stopAt(took.stop()));
-            case Edit.Placed placed ->
-                layout.without(new StopKey(placed.order(), placed.attempt()))
-                        .inserting(
-                                placed.route(),
-                                placed.position(),
-                                new PlannedStop(
-                                        placed.stop(),
-                                        placed.order(),
-                                        placed.attempt(),
-                                        Optional.empty(),
-                                        Optional.empty()));
-            case Edit.Pinned pinned -> layout.pinning(pinned.order(), Optional.of(pinned.after()));
-            case Edit.Unpinned unpinned -> layout.pinning(unpinned.order(), Optional.empty());
-            case Edit.Locked locked -> layout.locking(locked.route(), Optional.of(locked.after()));
-            case Edit.Unlocked unlocked -> layout.locking(unlocked.route(), Optional.empty());
-        };
+    /**
+     * Makes an edit, or undoes it, in place: a moved stop is the same entity on its new route, a
+     * stop taken off leaves the plan, and a stop put back or placed is a new entity under the edit's
+     * stop ID. Every rule was checked before, so it ends by checking that it left exactly the layout
+     * {@link #viewAfter} returned, which its query returned and its evaluation described.
+     */
+    private void change(Edit edit, boolean forward, PlanLayout expected) {
+        switch (edit) {
+            case Edit.MovedStop moved -> {
+                if (forward) {
+                    moveTo(moved.stop(), moved.toRoute(), moved.toPosition());
+                } else {
+                    moveTo(moved.stop(), moved.fromRoute(), moved.fromPosition());
+                }
+            }
+            case Edit.TookOff took -> {
+                StopKey key = new StopKey(took.order(), took.attempt());
+                if (forward) {
+                    takeOff(heldStop(took.stop()));
+                    addDrop(removedByDispatcher(took.order(), took.attempt()));
+                } else {
+                    removeDrop(key);
+                    putOn(
+                            held(took.route()),
+                            took.position(),
+                            new PlannedStop(took.stop(), took.order(), took.attempt(), took.plan(), Optional.empty()));
+                }
+            }
+            case Edit.Placed placed -> {
+                StopKey key = new StopKey(placed.order(), placed.attempt());
+                if (forward) {
+                    removeDrop(key);
+                    putOn(
+                            held(placed.route()),
+                            placed.position(),
+                            new PlannedStop(
+                                    placed.stop(),
+                                    placed.order(),
+                                    placed.attempt(),
+                                    Optional.empty(),
+                                    Optional.empty()));
+                } else {
+                    takeOff(heldStop(placed.stop()));
+                    addDrop(new DroppedOrder(placed.order(), placed.attempt(), placed.before()));
+                }
+            }
+            case Edit.Pinned pinned ->
+                storePin(pinned.order(), forward ? Optional.of(pinned.after()) : pinned.before());
+            case Edit.Unpinned unpinned ->
+                storePin(unpinned.order(), forward ? Optional.empty() : Optional.of(unpinned.before()));
+            case Edit.Locked locked ->
+                held(locked.route()).lockAs(forward ? Optional.of(locked.after()) : locked.before());
+            case Edit.Unlocked unlocked ->
+                held(unlocked.route()).lockAs(forward ? Optional.empty() : Optional.of(unlocked.before()));
+        }
+        if (!layout().equals(expected)) {
+            throw new AssertionError("a plan edit left another layout than its query returned");
+        }
     }
 
-    private PlannedStop stopAt(StopId stop) {
-        return locate(stop).stop();
+    /** Moves a stop off its route, then into a route at a position counted in the route without it. */
+    private void moveTo(StopId stop, RouteId to, int position) {
+        Located at = heldStop(stop);
+        at.route().remove(at.stop());
+        held(to).insert(position, at.stop());
     }
 
-    private static Layout takingOff(Layout from, PlannedStop stop) {
-        return from.removing(stop.id())
-                .adding(new DroppedOrder(stop.order(), stop.attempt(), new DropReason.RemovedByDispatcher()));
+    /** Puts a stop that joins the plan on a route, at a position from 0. */
+    private void putOn(Route route, int position, PlannedStop stop) {
+        route.insert(position, stop);
+        stops.add(stop);
+    }
+
+    /** Puts a stop that joins the plan at the end of a route. */
+    private void appendTo(Route route, PlannedStop stop) {
+        route.append(stop);
+        stops.add(stop);
+    }
+
+    /** Takes a stop off its route and off the plan, whose save then deletes it. */
+    private void takeOff(Located at) {
+        at.route().remove(at.stop());
+        stops.remove(at.stop());
+    }
+
+    /** A stop a command already found, while it changes the plan. */
+    private Located heldStop(StopId stop) {
+        return locate(stop).orElseThrow(() -> new AssertionError("a plan command changes only stops it holds"));
+    }
+
+    private static DroppedOrder removedByDispatcher(OrderId order, Attempt attempt) {
+        return new DroppedOrder(order, attempt, new DropReason.RemovedByDispatcher());
+    }
+
+    private static LaidOutStop laidOut(PlannedStop stop) {
+        return new LaidOutStop(stop.id(), stop.order(), stop.attempt());
     }
 
     private static PlannedStop lateStop(LateFact fact, LateOutcome late) {
@@ -1598,11 +2085,10 @@ public final class Plan extends AggregateRoot {
     // ---- Revisions -----------------------------------------------------------------------------
 
     /**
-     * Commits a change to a published or completed plan as its next revision, and raises {@link
-     * PlanRevised}.
+     * Ends a change to a published or completed plan, already made in place, as its next revision,
+     * and raises {@link PlanRevised}.
      */
     private void revise(
-            Next change,
             RevisionCause cause,
             Optional<ProposalId> proposal,
             Optional<AccountId> by,
@@ -1611,26 +2097,28 @@ public final class Plan extends AggregateRoot {
             List<VehicleWithdrawal> withdrawn,
             List<OrderId> added) {
         RevisionNo number;
-        if (status instanceof Status.Published published) {
+        if (status() instanceof Status.Published published) {
             number = published.revision().next();
-            change.status(new Status.Published(number));
-        } else if (status instanceof Status.Completed completed) {
+            storeStatus(new Status.Published(number));
+        } else if (status() instanceof Status.Completed completed) {
             number = completed.revision().next();
-            change.status(new Status.Completed(number));
+            storeStatus(new Status.Completed(number));
         } else {
             throw new AssertionError("only a published or completed plan is revised");
         }
-        commit(change);
+        requireInvariants();
         pendingRevision = revisionOf(number, cause, proposal, by, now);
-        int revision = number.value();
+        int revisionNumber = number.value();
+        PlanId plan = id();
         List<VehicleId> vehicles =
                 withdrawn.stream().map(VehicleWithdrawal::vehicle).toList();
         List<WithdrawalCause> causes =
                 withdrawn.stream().map(VehicleWithdrawal::cause).toList();
         raise(
                 PlanRevised.class,
-                id.value(),
-                eventId -> new PlanRevised(eventId, now, id, date, revision, cause, changed, vehicles, causes, added));
+                id,
+                eventId -> new PlanRevised(
+                        eventId, now, plan, date, revisionNumber, cause, changed, vehicles, causes, added));
     }
 
     private PlanRevision revisionOf(
@@ -1645,10 +2133,108 @@ public final class Plan extends AggregateRoot {
                 cause,
                 proposal,
                 by,
-                layout.routes().stream().map(Route::revision).toList());
+                routes.stream().map(Route::revision).toList());
     }
 
     // ---- Placing solved routes -----------------------------------------------------------------
+
+    /**
+     * A stop as a solve or an acceptance places it, before the plan's routes take it: a value, so
+     * that every rule of the command is checked before any field changes.
+     */
+    private record PlacedStop(
+            StopId id, OrderId order, Attempt attempt, Optional<StopPlan> plan, Optional<LateOutcome> late) {
+
+        static PlacedStop of(PlannedStop stop) {
+            return new PlacedStop(stop.id(), stop.order(), stop.attempt(), stop.plan(), stop.late());
+        }
+
+        StopKey key() {
+            return new StopKey(order, attempt);
+        }
+    }
+
+    /**
+     * A route as a solve or an acceptance places it, before the plan's routes take it: a value, so
+     * that every rule of the command is checked before any field changes. {@link #layRoutes} then
+     * lays the routes so decided onto the plan's own.
+     */
+    private record PlacedRoute(
+            RouteId id,
+            RouteIndex index,
+            VehicleId vehicle,
+            AccountId driver,
+            Optional<RouteLock> lock,
+            CheckState check,
+            Optional<Withdrawal> withdrawal,
+            Optional<SolveTime> confirmedReturn,
+            Optional<RoutePlan> plan,
+            List<PlacedStop> stops) {
+
+        PlacedRoute {
+            stops = List.copyOf(stops);
+        }
+
+        static PlacedRoute of(Route route) {
+            return new PlacedRoute(
+                    route.id(),
+                    route.index(),
+                    route.vehicle(),
+                    route.driver(),
+                    route.lock(),
+                    route.check(),
+                    route.withdrawal(),
+                    route.confirmedReturn(),
+                    route.plan(),
+                    route.stops().stream().map(PlacedStop::of).toList());
+        }
+
+        boolean withdrawn() {
+            return withdrawal.isPresent();
+        }
+
+        List<StopId> stopIds() {
+            return stops.stream().map(PlacedStop::id).toList();
+        }
+
+        List<StopKey> keys() {
+            return stops.stream().map(PlacedStop::key).toList();
+        }
+
+        PlacedRoute withStops(List<PlacedStop> newStops) {
+            return new PlacedRoute(
+                    id, index, vehicle, driver, lock, check, withdrawal, confirmedReturn, plan, newStops);
+        }
+
+        PlacedRoute withLock(Optional<RouteLock> newLock) {
+            return new PlacedRoute(
+                    id, index, vehicle, driver, newLock, check, withdrawal, confirmedReturn, plan, stops);
+        }
+
+        PlacedRoute withCheck(CheckState newCheck) {
+            return new PlacedRoute(
+                    id, index, vehicle, driver, lock, newCheck, withdrawal, confirmedReturn, plan, stops);
+        }
+
+        PlacedRoute withWithdrawal(Optional<Withdrawal> newWithdrawal) {
+            return new PlacedRoute(
+                    id, index, vehicle, driver, lock, check, newWithdrawal, confirmedReturn, plan, stops);
+        }
+
+        PlacedRoute withIndex(RouteIndex newIndex) {
+            return new PlacedRoute(
+                    id, newIndex, vehicle, driver, lock, check, withdrawal, confirmedReturn, plan, stops);
+        }
+
+        PlacedRoute withPlan(Optional<RoutePlan> newPlan) {
+            return new PlacedRoute(
+                    id, index, vehicle, driver, lock, check, withdrawal, confirmedReturn, newPlan, stops);
+        }
+    }
+
+    private List<PlacedRoute> placedRoutes() {
+        return routes.stream().map(PlacedRoute::of).toList();
+    }
 
     /**
      * Turns solved routes into the plan's routes (ADR-101):
@@ -1667,38 +2253,38 @@ public final class Plan extends AggregateRoot {
      * keptAlongside}, is checked before any index is handed out, so BR-39's refusals come before
      * {@link RouteIndexesUsedUp}.
      */
-    private static List<Route> place(
+    private static List<PlacedRoute> place(
             List<SolvedRoute> solved,
-            List<Route> current,
-            List<Route> stopSource,
-            List<Route> keptAlongside,
+            List<PlacedRoute> current,
+            List<PlacedRoute> stopSource,
+            List<PlacedRoute> keptAlongside,
             FreshIds ids,
             Function<VehicleId, Optional<Withdrawal>> withdrawalOf,
-            Function<Route, List<PlannedStop>> keptOf) {
-        Map<StopKey, PlannedStop> existingStops = new HashMap<>();
+            Function<PlacedRoute, List<PlacedStop>> keptOf) {
+        Map<StopKey, PlacedStop> existingStops = new HashMap<>();
         stopSource.forEach(route -> route.stops().forEach(stop -> existingStops.put(stop.key(), stop)));
-        List<Route> provisional = new ArrayList<>();
+        List<PlacedRoute> provisional = new ArrayList<>();
         List<Boolean> needsIndex = new ArrayList<>();
         for (SolvedRoute route : solved) {
-            List<PlannedStop> stops = route.stops().stream()
+            List<PlacedStop> stops = route.stops().stream()
                     .map(stop -> {
-                        PlannedStop existing = existingStops.get(new StopKey(stop.order(), stop.attempt()));
+                        PlacedStop existing = existingStops.get(new StopKey(stop.order(), stop.attempt()));
                         StopId stopId = existing != null ? existing.id() : StopId.of(ids.next());
                         Optional<LateOutcome> late = existing != null ? existing.late() : Optional.empty();
-                        return new PlannedStop(stopId, stop.order(), stop.attempt(), Optional.of(stop.plan()), late);
+                        return new PlacedStop(stopId, stop.order(), stop.attempt(), Optional.of(stop.plan()), late);
                     })
                     .toList();
-            Optional<Route> kept = current.stream()
+            Optional<PlacedRoute> kept = current.stream()
                     .filter(candidate -> candidate.vehicle().equals(route.vehicle()))
                     .findFirst();
-            List<PlannedStop> allStops = new ArrayList<>(kept.map(keptOf).orElse(List.of()));
+            List<PlacedStop> allStops = new ArrayList<>(kept.map(keptOf).orElse(List.of()));
             allStops.addAll(stops);
-            RouteId routeId = kept.map(Route::id).orElseGet(() -> RouteId.of(ids.next()));
+            RouteId routeId = kept.map(PlacedRoute::id).orElseGet(() -> RouteId.of(ids.next()));
             Optional<SolveTime> confirmed =
-                    kept.filter(old -> old.driver().equals(route.driver())).flatMap(Route::confirmedReturn);
-            provisional.add(new Route(
+                    kept.filter(old -> old.driver().equals(route.driver())).flatMap(PlacedRoute::confirmedReturn);
+            provisional.add(new PlacedRoute(
                     routeId,
-                    kept.map(Route::index).orElse(RouteIndex.of(RouteIndex.LOWEST)),
+                    kept.map(PlacedRoute::index).orElse(RouteIndex.of(RouteIndex.LOWEST)),
                     route.vehicle(),
                     route.driver(),
                     Optional.empty(),
@@ -1710,13 +2296,13 @@ public final class Plan extends AggregateRoot {
             needsIndex.add(kept.isEmpty());
         }
         Map<VehicleId, RouteId> routed = new HashMap<>();
-        for (Route route : provisional) {
+        for (PlacedRoute route : provisional) {
             RouteId first = routed.putIfAbsent(route.vehicle(), route.id());
             if (first != null) {
                 throw new RuleViolation(new VehicleAlreadyHasRoute(route.vehicle(), first));
             }
         }
-        List<Route> inForce = new ArrayList<>(provisional);
+        List<PlacedRoute> inForce = new ArrayList<>(provisional);
         inForce.addAll(keptAlongside);
         requireOneRoutePerVehicleAndDriver(inForce);
         Set<RouteIndex> taken = new HashSet<>();
@@ -1726,9 +2312,9 @@ public final class Plan extends AggregateRoot {
                 taken.add(provisional.get(i).index());
             }
         }
-        List<Route> placed = new ArrayList<>();
+        List<PlacedRoute> placed = new ArrayList<>();
         for (int i = 0; i < provisional.size(); i++) {
-            Route route = provisional.get(i);
+            PlacedRoute route = provisional.get(i);
             if (needsIndex.get(i)) {
                 RouteIndex index = lowestFree(taken);
                 taken.add(index);
@@ -1749,7 +2335,7 @@ public final class Plan extends AggregateRoot {
 
     /** The plan's locked routes that solved routes don't keep, in plan order (FR-147, FR-238). */
     private List<Route> locksBrokenBy(List<SolvedRoute> solved) {
-        return layout.routes().stream()
+        return routes.stream()
                 .filter(route -> route.lock().isPresent() && !keptBy(route, solved))
                 .toList();
     }
@@ -1781,16 +2367,16 @@ public final class Plan extends AggregateRoot {
      * sequence lock on an empty route, stays with its vehicle's route, and any other sequence lock
      * goes to the one route that now serves the sequence.
      */
-    private List<Route> carryLocks(List<Route> placed) {
-        List<Route> result = new ArrayList<>(
+    private static List<PlacedRoute> carryLocks(List<PlacedRoute> current, List<PlacedRoute> placed) {
+        List<PlacedRoute> result = new ArrayList<>(
                 placed.stream().map(route -> route.withLock(Optional.empty())).toList());
-        for (Route locked : layout.routes()) {
+        for (PlacedRoute locked : current) {
             if (locked.lock().isEmpty()) {
                 continue;
             }
             RouteLock lock = locked.lock().get();
             for (int position = 0; position < result.size(); position++) {
-                Route candidate = result.get(position);
+                PlacedRoute candidate = result.get(position);
                 boolean staysWithItsVehicle =
                         lock == RouteLock.WHOLE_ROUTE || locked.keys().isEmpty();
                 boolean holds = staysWithItsVehicle
@@ -1811,13 +2397,21 @@ public final class Plan extends AggregateRoot {
         return keys;
     }
 
+    /** Every order and attempt placed routes serve or drops drop, routes first, in order. */
+    private static List<StopKey> heldKeys(List<PlacedRoute> routes, List<DroppedOrder> dropped) {
+        List<StopKey> keys = new ArrayList<>();
+        routes.forEach(route -> keys.addAll(route.keys()));
+        dropped.forEach(drop -> keys.add(new StopKey(drop.order(), drop.attempt())));
+        return keys;
+    }
+
     // ---- Accepting a proposal ------------------------------------------------------------------
 
     /**
      * The stops of a route that a proposal neither serves nor drops: the stops already reported done
      * or in progress, which a proposal holds on no route (BR-10, BR-108, ADR-112).
      */
-    private static List<PlannedStop> keptStops(Route route, Set<StopKey> taken) {
+    private static List<PlacedStop> keptStops(PlacedRoute route, Set<StopKey> taken) {
         return route.stops().stream()
                 .filter(stop -> !taken.contains(stop.key()))
                 .toList();
@@ -1827,13 +2421,14 @@ public final class Plan extends AggregateRoot {
      * The routes an acceptance leaves, in the plan's order: each route as placed or kept, or as it
      * was, and then the new routes in the proposal's order.
      */
-    private static List<Route> inPlanOrder(List<Route> before, List<Route> placed, List<Route> leftOut) {
-        Map<RouteId, Route> replacing = new LinkedHashMap<>();
+    private static List<PlacedRoute> inPlanOrder(
+            List<PlacedRoute> before, List<PlacedRoute> placed, List<PlacedRoute> leftOut) {
+        Map<RouteId, PlacedRoute> replacing = new LinkedHashMap<>();
         placed.forEach(route -> replacing.put(route.id(), route));
         leftOut.forEach(route -> replacing.put(route.id(), route));
-        List<Route> next = new ArrayList<>();
-        for (Route route : before) {
-            Route replaced = replacing.remove(route.id());
+        List<PlacedRoute> next = new ArrayList<>();
+        for (PlacedRoute route : before) {
+            PlacedRoute replaced = replacing.remove(route.id());
             next.add(replaced != null ? replaced : route);
         }
         next.addAll(replacing.values());
@@ -1845,12 +2440,12 @@ public final class Plan extends AggregateRoot {
      * When that changes its stops it is not yet checked, for the re-check job (FR-395), and a route
      * left with no stops has no times, as the validator gives an empty route none (ADR-112).
      */
-    private static Route leftOutRoute(Route route, Optional<Withdrawal> withdrawal, List<PlannedStop> kept) {
-        Route left = route.withWithdrawal(withdrawal);
+    private static PlacedRoute leftOutRoute(PlacedRoute route, Optional<Withdrawal> withdrawal, List<PlacedStop> kept) {
+        PlacedRoute left = route.withWithdrawal(withdrawal);
         if (kept.equals(route.stops())) {
             return left;
         }
-        Route changed = left.withStops(kept).withCheck(CheckState.NOT_YET_CHECKED);
+        PlacedRoute changed = left.withStops(kept).withCheck(CheckState.NOT_YET_CHECKED);
         return kept.isEmpty() ? changed.withPlan(Optional.empty()) : changed;
     }
 
@@ -1861,7 +2456,7 @@ public final class Plan extends AggregateRoot {
      */
     private Set<StopKey> supersededDrops(Set<StopKey> taken) {
         Set<StopKey> superseded = new HashSet<>();
-        for (DroppedOrder dropped : layout.dropped()) {
+        for (DroppedOrder dropped : dropped()) {
             StopKey drop = new StopKey(dropped.order(), dropped.attempt());
             boolean later = taken.stream()
                     .anyMatch(key ->
@@ -1880,24 +2475,24 @@ public final class Plan extends AggregateRoot {
      * leaves.
      */
     private List<DroppedOrder> droppedAfter(ReoptimizationProposal offer, Set<StopKey> taken, Set<StopKey> superseded) {
-        List<DroppedOrder> dropped = new ArrayList<>(offer.dropped());
-        layout.dropped().stream()
+        List<DroppedOrder> next = new ArrayList<>(offer.dropped());
+        dropped().stream()
                 .filter(drop -> {
                     StopKey key = new StopKey(drop.order(), drop.attempt());
                     return !taken.contains(key) && !superseded.contains(key);
                 })
-                .forEach(dropped::add);
-        return dropped;
+                .forEach(next::add);
+        return next;
     }
 
     /**
-     * BR-07's other half: every order and attempt the plan held, except a superseded drop, the layout
-     * still serves or drops. Every stop and drop the proposal doesn't hold is kept before this point,
-     * so a loss here is a bug in {@link #accept}, not a refusal.
+     * BR-07's other half: every order and attempt the plan held, except a superseded drop, the
+     * acceptance still serves or drops. Every stop and drop the proposal doesn't hold is kept before
+     * this point, so a loss here is a bug in {@link #accept}, not a refusal.
      */
-    private void requireNothingLost(Layout after, Set<StopKey> superseded) {
-        Set<StopKey> held = new HashSet<>(after.keys());
-        for (StopKey key : layout.keys()) {
+    private void requireNothingLost(List<StopKey> after, Set<StopKey> superseded) {
+        Set<StopKey> held = new HashSet<>(after);
+        for (StopKey key : keys()) {
             if (!held.contains(key) && !superseded.contains(key)) {
                 throw new AssertionError("accepting a proposal would lose an order and attempt the plan held");
             }
@@ -1908,11 +2503,11 @@ public final class Plan extends AggregateRoot {
      * The orders an acceptance puts into the plan that it held under no attempt before, in plan order
      * (FR-39, ADR-112). A later attempt of an order the plan held is not an added order.
      */
-    private List<OrderId> addedOrders(Layout after) {
+    private List<OrderId> addedOrders(List<StopKey> after) {
         Set<OrderId> held = new HashSet<>();
-        layout.keys().forEach(key -> held.add(key.order()));
+        keys().forEach(key -> held.add(key.order()));
         Set<OrderId> added = new LinkedHashSet<>();
-        after.keys().stream()
+        after.stream()
                 .map(StopKey::order)
                 .filter(order -> !held.contains(order))
                 .forEach(added::add);
@@ -1924,9 +2519,9 @@ public final class Plan extends AggregateRoot {
      * route but a route withdrawn earlier, keeps its last such route's ID, index and stops (ADR-101,
      * ADR-112).
      */
-    private static List<Route> rewithdrawnRoutes(
-            ReoptimizationProposal proposal, List<Route> before, List<Route> covered) {
-        List<Route> matched = new ArrayList<>();
+    private static List<PlacedRoute> rewithdrawnRoutes(
+            ReoptimizationProposal proposal, List<PlacedRoute> before, List<PlacedRoute> covered) {
+        List<PlacedRoute> matched = new ArrayList<>();
         for (SolvedRoute route : proposal.routes()) {
             VehicleId vehicle = route.vehicle();
             boolean hasActive =
@@ -1943,10 +2538,10 @@ public final class Plan extends AggregateRoot {
         return matched;
     }
 
-    /** BR-07 over the layout a change would leave, which a caller's input can still break. */
-    private static void requireEachOrderOnce(Layout after) {
+    /** BR-07 over the orders and attempts a change would leave, which a caller's input can still break. */
+    private static void requireEachOrderOnce(List<StopKey> after) {
         Set<StopKey> seen = new HashSet<>();
-        for (StopKey key : after.keys()) {
+        for (StopKey key : after) {
             if (!seen.add(key)) {
                 throw new RuleViolation(new OrderAlreadyInPlan(key.order(), key.attempt()));
             }
@@ -1957,11 +2552,11 @@ public final class Plan extends AggregateRoot {
     private List<BasisChange> changesSince(
             ReoptimizationProposal proposal, Set<StopKey> taken, ChangesSinceBasis changes, RevisionNo current) {
         List<BasisChange> found = new ArrayList<>();
-        for (int revision = proposal.basis().revision().value() + 1; revision <= current.value(); revision++) {
-            found.add(new BasisChange.RevisionMade(RevisionNo.of(revision)));
+        for (int number = proposal.basis().revision().value() + 1; number <= current.value(); number++) {
+            found.add(new BasisChange.RevisionMade(RevisionNo.of(number)));
         }
         for (StopId stop : changes.reportedStops()) {
-            layout.locate(stop)
+            locate(stop)
                     .filter(at -> movesOrDrops(proposal, taken, at))
                     .ifPresent(at -> found.add(new BasisChange.ReportedStop(stop)));
         }
@@ -1996,8 +2591,9 @@ public final class Plan extends AggregateRoot {
      */
     private static boolean movesOrDrops(ReoptimizationProposal proposal, Set<StopKey> taken, Located at) {
         StopKey key = at.stop().key();
-        List<StopKey> accepted = new ArrayList<>(
-                keptStops(at.route(), taken).stream().map(PlannedStop::key).toList());
+        List<StopKey> accepted = new ArrayList<>(keptStops(PlacedRoute.of(at.route()), taken).stream()
+                .map(PlacedStop::key)
+                .toList());
         if (!accepted.contains(key)) {
             Optional<SolvedRoute> serving = proposal.routes().stream()
                     .filter(route -> keysOf(List.of(route), List.of()).contains(key))
@@ -2034,10 +2630,10 @@ public final class Plan extends AggregateRoot {
     }
 
     /** The routes whose driver, stops or withdrawal differ, or that joined or left, in plan order. */
-    private static List<RouteId> changedRoutes(List<Route> before, List<Route> after) {
+    private static List<RouteId> changedRoutes(List<PlacedRoute> before, List<PlacedRoute> after) {
         List<RouteId> changed = new ArrayList<>();
-        for (Route route : after) {
-            Optional<Route> old = before.stream()
+        for (PlacedRoute route : after) {
+            Optional<PlacedRoute> old = before.stream()
                     .filter(candidate -> candidate.id().equals(route.id()))
                     .findFirst();
             boolean same = old.isPresent()
@@ -2048,7 +2644,7 @@ public final class Plan extends AggregateRoot {
                 changed.add(route.id());
             }
         }
-        for (Route route : before) {
+        for (PlacedRoute route : before) {
             if (after.stream().noneMatch(candidate -> candidate.id().equals(route.id()))) {
                 changed.add(route.id());
             }
@@ -2056,20 +2652,10 @@ public final class Plan extends AggregateRoot {
         return changed;
     }
 
-    private static List<RouteId> routeIds(List<Route> routes) {
-        return routes.stream().map(Route::id).toList();
-    }
-
-    private static List<Edit> appended(List<Edit> edits, Edit edit) {
-        List<Edit> next = new ArrayList<>(edits);
-        next.add(edit);
-        return List.copyOf(next);
-    }
-
     // ---- Publishing checks ---------------------------------------------------------------------
 
     private List<PlanningError> unstaffed(List<RouteStaffing> staffing) {
-        return layout.routes().stream()
+        return routes.stream()
                 .filter(route -> staffing.stream()
                         .noneMatch(answer -> answer.vehicle().equals(route.vehicle())
                                 && answer.driver().equals(route.driver())
@@ -2080,8 +2666,9 @@ public final class Plan extends AggregateRoot {
 
     /** Step 2's refusals: every order not accounted for, then every order changed since the solve. */
     private List<PlanningError> unaccounted(List<DateOrder> orders) {
-        AppliedSolve solve = Objects.requireNonNull(applied, "a ready plan has an applied solve");
-        Set<StopKey> held = new HashSet<>(layout.keys());
+        AppliedSolve solve = applied().orElseThrow(() -> new AssertionError("a ready plan has an applied solve"));
+        List<StopKey> keys = keys();
+        Set<StopKey> held = new HashSet<>(keys);
         List<PlanningError> notAccounted = new ArrayList<>();
         Set<OrderId> changed = new LinkedHashSet<>();
         Set<OrderId> ofTheDate = new HashSet<>();
@@ -2094,7 +2681,7 @@ public final class Plan extends AggregateRoot {
                 changed.add(order.order());
             }
         }
-        for (StopKey key : layout.keys()) {
+        for (StopKey key : keys) {
             if (!ofTheDate.contains(key.order())) {
                 changed.add(key.order());
             }
@@ -2102,5 +2689,9 @@ public final class Plan extends AggregateRoot {
         List<PlanningError> refusals = new ArrayList<>(notAccounted);
         changed.forEach(order -> refusals.add(new OrderChangedSinceSolve(order)));
         return refusals;
+    }
+
+    private static <T> T stored(@Nullable T part) {
+        return Objects.requireNonNull(part, "the plan's status keeps this part");
     }
 }
