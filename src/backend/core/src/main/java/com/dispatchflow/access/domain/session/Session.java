@@ -11,7 +11,20 @@ import com.dispatchflow.shared.AggregateRoot;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.SessionId;
 import com.dispatchflow.shared.StoredStateInvalid;
-import com.dispatchflow.shared.Version;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderColumn;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -21,7 +34,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Stream;
+import org.hibernate.annotations.OptimisticLock;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -39,8 +54,15 @@ import org.jspecify.annotations.Nullable;
  * <p>The chain keeps only the current token, the tokens issued in the last {@link
  * #TOKEN_KEPT_FOR}, and any successor a kept token names. A replayed token older than that is
  * unknown, and refused without revoking the session (NFR-88, ADR-104).
+ *
+ * <p>It is mapped for JPA (ADR-126): its key is its ID's UUID, its {@link SessionState} a kind and
+ * the revocation's time, its refresh tokens child entities in the order they were issued, and its
+ * contact times an ordered element collection that leaves the version alone (DL §4.1). Every
+ * command ends by checking the invariants at rest that the load check runs.
  */
-public final class Session extends AggregateRoot {
+@Entity
+@Table(schema = "access", name = "session")
+public class Session extends AggregateRoot {
 
     /** How long a refresh token lasts from its issue; the session itself has no cap (NFR-87). */
     public static final Duration REFRESH_TOKEN_LIFETIME = Duration.ofDays(14);
@@ -60,37 +82,81 @@ public final class Session extends AggregateRoot {
     /** The least time between two kept contact times of one session (NFR-280). */
     public static final Duration CONTACT_SPACING = Duration.ofMinutes(1);
 
-    private final SessionId id;
-    private final AccountId account;
-    private final AccountGeneration accountGeneration;
+    /** Which {@link SessionState} a session is in. */
+    private enum StateKind {
+        LIVE,
+        REVOKED
+    }
+
+    @Id
+    private UUID id;
+
+    private AccountId account;
+
+    private AccountGeneration accountGeneration;
+
     private SessionGeneration generation;
-    private SessionState state;
-    private final Instant openedAt;
+
+    @Enumerated(EnumType.STRING)
+    private StateKind state;
+
+    private @Nullable Instant revokedAt;
+
+    private Instant openedAt;
+
     private Instant lastPasswordAt;
-    private final List<Instant> contactTimes;
-    private final List<RefreshToken> tokens;
+
+    // DL §4.1 lets keeping and dropping these leave the version alone (ADR-126).
+    @ElementCollection
+    @CollectionTable(schema = "access", name = "session_contact", joinColumns = @JoinColumn(name = "session_id"))
+    @OrderColumn(name = "position", nullable = false)
+    @Column(name = "contacted_at")
+    @OptimisticLock(excluded = true)
+    private List<Instant> contactTimes = new ArrayList<>();
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "session_id", nullable = false)
+    @OrderColumn(name = "position", nullable = false)
+    private List<RefreshToken> tokens = new ArrayList<>();
+
+    // Not stored: whether this instance holds a change its save must version (ADR-126).
+    @Transient
+    private boolean changedBeyondContactTimes;
+
+    /** For Hibernate, which sets the fields from the stored rows and then runs {@link #checkStored}. */
+    protected Session() {}
 
     private Session(
-            @Nullable Version version,
             SessionId id,
             AccountId account,
             AccountGeneration accountGeneration,
-            SessionGeneration generation,
-            SessionState state,
-            Instant openedAt,
-            Instant lastPasswordAt,
-            List<Instant> contactTimes,
-            List<RefreshToken> tokens) {
-        super(version);
-        this.id = Objects.requireNonNull(id, "id");
-        this.account = Objects.requireNonNull(account, "account");
-        this.accountGeneration = Objects.requireNonNull(accountGeneration, "accountGeneration");
-        this.generation = Objects.requireNonNull(generation, "generation");
-        this.state = Objects.requireNonNull(state, "state");
-        this.openedAt = Objects.requireNonNull(openedAt, "openedAt");
-        this.lastPasswordAt = Objects.requireNonNull(lastPasswordAt, "lastPasswordAt");
-        this.contactTimes = new ArrayList<>(contactTimes);
-        this.tokens = new ArrayList<>(tokens);
+            RefreshTokenId tokenId,
+            TokenHash tokenHash,
+            Instant now) {
+        this.id = id.value();
+        this.account = account;
+        this.accountGeneration = accountGeneration;
+        this.generation = SessionGeneration.INITIAL;
+        this.state = StateKind.LIVE;
+        this.openedAt = now;
+        this.lastPasswordAt = now;
+        this.tokens.add(new RefreshToken(tokenId, tokenHash, now, new TokenState.Current()));
+        this.changedBeyondContactTimes = true;
+    }
+
+    /** Builds the session {@link #restore} checks; it goes with {@code restore} (ADR-126). */
+    private Session(SessionSnapshot stored) {
+        super(stored.version());
+        this.id = stored.id().value();
+        this.account = stored.account();
+        this.accountGeneration = stored.accountGeneration();
+        this.generation = stored.generation();
+        this.state = stored.state() instanceof SessionState.Revoked ? StateKind.REVOKED : StateKind.LIVE;
+        this.revokedAt = stored.state() instanceof SessionState.Revoked(Instant at) ? at : null;
+        this.openedAt = stored.openedAt();
+        this.lastPasswordAt = stored.lastPasswordAt();
+        this.contactTimes.addAll(stored.contactTimes());
+        stored.tokens().forEach(token -> tokens.add(new RefreshToken(token)));
     }
 
     /**
@@ -119,17 +185,7 @@ public final class Session extends AggregateRoot {
         Objects.requireNonNull(tokenHash, "tokenHash");
         Objects.requireNonNull(now, "now");
         account.checkSignInAllowed();
-        return new Session(
-                null,
-                id,
-                account.id(),
-                account.generation(),
-                SessionGeneration.INITIAL,
-                new SessionState.Live(),
-                now,
-                now,
-                List.of(),
-                List.of(new RefreshToken(tokenId, tokenHash, now, new TokenState.Current())));
+        return new Session(id, account.id(), account.generation(), tokenId, tokenHash, now);
     }
 
     /**
@@ -147,59 +203,80 @@ public final class Session extends AggregateRoot {
      *     than the one before it
      */
     public static Session restore(SessionSnapshot stored) {
-        checkTokens(stored);
-        List<Instant> contacts = stored.contactTimes();
-        for (int i = 1; i < contacts.size(); i++) {
-            if (contacts.get(i).isBefore(contacts.get(i - 1))) {
-                throw invalid("contact times never decrease");
-            }
-        }
-        return new Session(
-                stored.version(),
-                stored.id(),
-                stored.account(),
-                stored.accountGeneration(),
-                stored.generation(),
-                stored.state(),
-                stored.openedAt(),
-                stored.lastPasswordAt(),
-                contacts,
-                stored.tokens().stream().map(RefreshToken::new).toList());
+        Session restored = new Session(stored);
+        restored.checkStored();
+        return restored;
     }
 
-    private static void checkTokens(SessionSnapshot stored) {
-        List<RefreshTokenSnapshot> chain = stored.tokens();
-        if (chain.isEmpty()) {
-            throw invalid("a session holds at least one refresh token");
+    /**
+     * Checks the session as Hibernate loaded it against the invariants at rest that {@link
+     * #restore} checks (ADR-126 decision 8).
+     *
+     * @throws StoredStateInvalid when the stored state breaks one of them
+     */
+    @PostLoad
+    void checkStored() {
+        brokenRule().ifPresent(broken -> {
+            throw new StoredStateInvalid(Session.class, broken);
+        });
+    }
+
+    /**
+     * Checks the state a command left against every invariant at rest (ADR-126 decision 11). Every
+     * rule a caller can break was checked before the command changed anything, so a broken
+     * invariant here is a bug in the command, not a refusal, and the error rolls its transaction
+     * back.
+     */
+    private void requireInvariants() {
+        brokenRule().ifPresent(broken -> {
+            throw new AssertionError("a session command left a state that breaks: " + broken);
+        });
+    }
+
+    /** The one check of the invariants at rest, shared by the load check and every command. */
+    private Optional<String> brokenRule() {
+        Optional<String> brokenChain = brokenTokenRule();
+        if (brokenChain.isPresent()) {
+            return brokenChain;
+        }
+        for (int i = 1; i < contactTimes.size(); i++) {
+            if (contactTimes.get(i).isBefore(contactTimes.get(i - 1))) {
+                return Optional.of("contact times never decrease");
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** The chain's part of {@link #brokenRule}. */
+    private Optional<String> brokenTokenRule() {
+        if (tokens.isEmpty()) {
+            return Optional.of("a session holds at least one refresh token");
         }
         Set<RefreshTokenId> ids = new HashSet<>();
         Set<TokenHash> hashes = new HashSet<>();
         int current = 0;
-        for (RefreshTokenSnapshot token : chain) {
+        for (RefreshToken token : tokens) {
             if (!ids.add(token.id())) {
-                throw invalid("two refresh tokens share an ID");
+                return Optional.of("two refresh tokens share an ID");
             }
             if (!hashes.add(token.tokenHash())) {
-                throw invalid("two refresh tokens share a hash");
+                return Optional.of("two refresh tokens share a hash");
             }
             if (token.state() instanceof TokenState.Current) {
                 current++;
             }
         }
-        boolean live = stored.state() instanceof SessionState.Live;
+        boolean live = state == StateKind.LIVE;
         if ((live && current != 1) || current > 1) {
-            throw invalid("a live session holds exactly one current token, a revoked one at most one");
+            return Optional.of("a live session holds exactly one current token, a revoked one at most one");
         }
-        for (RefreshTokenSnapshot token : chain) {
+        for (RefreshToken token : tokens) {
             if (token.state() instanceof TokenState.Exchanged(Instant at, RefreshTokenId successor)
                     && (successor.equals(token.id()) || !ids.contains(successor))) {
-                throw invalid("an exchanged token's successor is another token of the chain");
+                return Optional.of("an exchanged token's successor is another token of the chain");
             }
         }
-    }
-
-    private static StoredStateInvalid invalid(String detail) {
-        return new StoredStateInvalid(Session.class, detail);
+        return Optional.empty();
     }
 
     /**
@@ -243,10 +320,17 @@ public final class Session extends AggregateRoot {
         Objects.requireNonNull(currentAccountGeneration, "currentAccountGeneration");
         Objects.requireNonNull(now, "now");
         requireNewToken(newTokenId, newTokenHash);
-        if (!(state instanceof SessionState.Live) || accountGeneration.isOlderThan(currentAccountGeneration)) {
+        if (state == StateKind.REVOKED || accountGeneration.isOlderThan(currentAccountGeneration)) {
             return RefreshOutcome.refused();
         }
         dropOldTokens(now);
+        RefreshOutcome outcome = judged(presented, newTokenId, newTokenHash, now);
+        requireInvariants();
+        return outcome;
+    }
+
+    /** The presented token's exchange, judged on a live session whose old tokens are dropped. */
+    private RefreshOutcome judged(TokenHash presented, RefreshTokenId newTokenId, TokenHash newTokenHash, Instant now) {
         Optional<RefreshToken> found = tokenHashed(presented);
         if (found.isEmpty()) {
             return RefreshOutcome.refused();
@@ -257,7 +341,7 @@ public final class Session extends AggregateRoot {
                 if (!now.isBefore(token.issuedAt().plus(REFRESH_TOKEN_LIFETIME))) {
                     yield RefreshOutcome.refused();
                 }
-                token.moveTo(new TokenState.Exchanged(now, newTokenId));
+                move(token, new TokenState.Exchanged(now, newTokenId));
                 yield issue(newTokenId, newTokenHash, now);
             }
             case TokenState.Exchanged exchanged -> repeated(token, exchanged, newTokenId, newTokenHash, now);
@@ -283,8 +367,8 @@ public final class Session extends AggregateRoot {
         if (successor.isEmpty() || !(successor.get().state() instanceof TokenState.Current)) {
             return revokedByReuse(now);
         }
-        successor.get().moveTo(new TokenState.Replaced(now));
-        token.moveTo(new TokenState.Exchanged(exchanged.at(), newTokenId));
+        move(successor.get(), new TokenState.Replaced(now));
+        move(token, new TokenState.Exchanged(exchanged.at(), newTokenId));
         return issue(newTokenId, newTokenHash, now);
     }
 
@@ -302,11 +386,12 @@ public final class Session extends AggregateRoot {
 
     private RefreshOutcome issue(RefreshTokenId newTokenId, TokenHash newTokenHash, Instant now) {
         tokens.add(new RefreshToken(newTokenId, newTokenHash, now, new TokenState.Current()));
+        changedBeyondContactTimes = true;
         return new RefreshOutcome.Issued(newTokenId);
     }
 
     private RefreshOutcome revokedByReuse(Instant now) {
-        state = new SessionState.Revoked(now);
+        revokedAs(now);
         return RefreshOutcome.refused();
     }
 
@@ -335,7 +420,9 @@ public final class Session extends AggregateRoot {
                 }
             }
         }
-        tokens.removeIf(token -> !kept.contains(token.id()));
+        if (tokens.removeIf(token -> !kept.contains(token.id()))) {
+            changedBeyondContactTimes = true;
+        }
     }
 
     /**
@@ -364,10 +451,11 @@ public final class Session extends AggregateRoot {
         dropOldTokens(now);
         tokens.stream()
                 .filter(token -> token.state() instanceof TokenState.Current)
-                .forEach(token -> token.moveTo(new TokenState.Superseded(now)));
-        tokens.add(new RefreshToken(newTokenId, newTokenHash, now, new TokenState.Current()));
+                .forEach(token -> move(token, new TokenState.Superseded(now)));
+        issue(newTokenId, newTokenHash, now);
         generation = generation.next();
         lastPasswordAt = now;
+        requireInvariants();
     }
 
     /**
@@ -408,7 +496,7 @@ public final class Session extends AggregateRoot {
      */
     public void recordContact(Instant now) {
         Objects.requireNonNull(now, "now");
-        if (state instanceof SessionState.Revoked) {
+        if (state == StateKind.REVOKED) {
             throw new RuleViolation(new SessionRevoked());
         }
         dropOldContacts(now);
@@ -417,6 +505,7 @@ public final class Session extends AggregateRoot {
         if (spaced) {
             contactTimes.add(now);
         }
+        requireInvariants();
     }
 
     /**
@@ -429,6 +518,7 @@ public final class Session extends AggregateRoot {
     public void dropOldContacts(Instant now) {
         Instant keptSince = now.minus(CONTACT_RETENTION);
         contactTimes.removeIf(time -> time.isBefore(keptSince));
+        requireInvariants();
     }
 
     /**
@@ -439,8 +529,9 @@ public final class Session extends AggregateRoot {
      */
     public void revoke(Instant now) {
         Objects.requireNonNull(now, "now");
-        if (state instanceof SessionState.Live) {
-            state = new SessionState.Revoked(now);
+        if (state == StateKind.LIVE) {
+            revokedAs(now);
+            requireInvariants();
         }
     }
 
@@ -465,16 +556,40 @@ public final class Session extends AggregateRoot {
         if (!accountGeneration.isOlderThan(revokedTo)) {
             return;
         }
-        if (!(state instanceof SessionState.Revoked revoked) || revokedAt.isBefore(revoked.at())) {
-            state = new SessionState.Revoked(revokedAt);
+        if (!(state() instanceof SessionState.Revoked revoked) || revokedAt.isBefore(revoked.at())) {
+            revokedAs(revokedAt);
+            requireInvariants();
         }
+    }
+
+    /**
+     * Whether a command other than {@link #recordContact} and {@link #dropOldContacts} changed this
+     * instance since it was created or loaded, which the adapter's save asks: a session whose
+     * change only kept or dropped contact times is saved without moving its version (DL §4.1).
+     *
+     * @return {@code true} for a session never saved, and for one whose tokens, state, generation
+     *     or password time changed since it was loaded
+     */
+    public boolean changedBeyondContactTimes() {
+        return changedBeyondContactTimes;
     }
 
     private void requireLive(AccountGeneration currentAccountGeneration) {
         Objects.requireNonNull(currentAccountGeneration, "currentAccountGeneration");
-        if (state instanceof SessionState.Revoked || accountGeneration.isOlderThan(currentAccountGeneration)) {
+        if (state == StateKind.REVOKED || accountGeneration.isOlderThan(currentAccountGeneration)) {
             throw new RuleViolation(new SessionRevoked());
         }
+    }
+
+    private void revokedAs(Instant at) {
+        state = StateKind.REVOKED;
+        revokedAt = at;
+        changedBeyondContactTimes = true;
+    }
+
+    private void move(RefreshToken token, TokenState next) {
+        token.moveTo(next);
+        changedBeyondContactTimes = true;
     }
 
     private Optional<RefreshToken> tokenHashed(TokenHash hash) {
@@ -498,9 +613,7 @@ public final class Session extends AggregateRoot {
                 .filter(token -> token.state() instanceof TokenState.Current)
                 .map(token -> token.issuedAt().plus(REFRESH_TOKEN_LIFETIME))
                 .findFirst();
-        Optional<Instant> revokedAt =
-                state instanceof SessionState.Revoked revoked ? Optional.of(revoked.at()) : Optional.empty();
-        return Stream.of(expiry, revokedAt)
+        return Stream.of(expiry, Optional.ofNullable(revokedAt))
                 .flatMap(Optional::stream)
                 .min(Comparator.naturalOrder())
                 .orElseThrow(() -> new AssertionError("a live session always holds a current token"));
@@ -512,7 +625,7 @@ public final class Session extends AggregateRoot {
      * @return the ID
      */
     public SessionId id() {
-        return id;
+        return SessionId.of(id);
     }
 
     /**
@@ -549,7 +662,11 @@ public final class Session extends AggregateRoot {
      * @return live or revoked
      */
     public SessionState state() {
-        return state;
+        return switch (state) {
+            case LIVE -> new SessionState.Live();
+            case REVOKED ->
+                new SessionState.Revoked(Objects.requireNonNull(revokedAt, "a revoked session has its revocation"));
+        };
     }
 
     /**
@@ -561,11 +678,11 @@ public final class Session extends AggregateRoot {
     public SessionSnapshot snapshot() {
         return new SessionSnapshot(
                 savedVersion().orElse(null),
-                id,
+                id(),
                 account,
                 accountGeneration,
                 generation,
-                state,
+                state(),
                 openedAt,
                 lastPasswordAt,
                 contactTimes,
