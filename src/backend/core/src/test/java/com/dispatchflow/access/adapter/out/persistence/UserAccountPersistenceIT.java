@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dispatchflow.IntegrationTest;
+import com.dispatchflow.TestPersistenceConfiguration.RecordedEvents;
 import com.dispatchflow.Transactions;
 import com.dispatchflow.access.application.port.out.AdminNotice;
 import com.dispatchflow.access.application.port.out.UserAccountRepository;
@@ -22,6 +23,7 @@ import com.dispatchflow.access.domain.account.PasswordHash;
 import com.dispatchflow.access.domain.account.Role;
 import com.dispatchflow.access.domain.account.RoleSet;
 import com.dispatchflow.access.domain.account.UserAccount;
+import com.dispatchflow.access.events.SessionsRevoked;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.Version;
@@ -76,6 +78,9 @@ class UserAccountPersistenceIT {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    private RecordedEvents events;
 
     // --- round trips (ADR-127 decision 1)
 
@@ -170,6 +175,25 @@ class UserAccountPersistenceIT {
         });
 
         assertThat(List.of(added, linked, storedVersion(n))).containsExactly(0L, 1L, 2L);
+    }
+
+    @Test
+    void
+            GivenAnAccountAddedWithAPassword_WhenItsSessionsAreEndedAndItIsSaved_ThenEachSessionsRevokedIsCommittedAtItsVersion() {
+        int n = 27;
+        transactions.inTransaction(() -> repository.add(withPassword(n)));
+
+        transactions.inTransaction(() -> {
+            UserAccount account = repository.get(account(n)).orElseThrow();
+            account.endEverySession(at(6));
+            repository.save(account);
+        });
+
+        assertThat(events.committed())
+                .filteredOn(event -> event instanceof SessionsRevoked revoked
+                        && revoked.account().equals(account(n)))
+                .extracting(event -> event.eventId().version())
+                .containsExactly(Version.of(0), Version.of(1));
     }
 
     @Test
