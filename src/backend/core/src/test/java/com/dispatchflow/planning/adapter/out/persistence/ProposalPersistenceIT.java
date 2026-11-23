@@ -15,9 +15,9 @@ import static org.assertj.core.api.Assertions.catchThrowable;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.Transactions;
 import com.dispatchflow.planning.application.port.out.proposal.ProposalRepository;
+import com.dispatchflow.planning.domain.plan.ProposalDescription;
 import com.dispatchflow.planning.domain.plan.QueuedJobs;
 import com.dispatchflow.planning.domain.plan.ReoptimizationProposal;
-import com.dispatchflow.planning.domain.plan.ReoptimizationProposalSnapshot;
 import com.dispatchflow.planning.domain.plan.SolveJob;
 import com.dispatchflow.planning.events.Lane;
 import com.dispatchflow.shared.AccountId;
@@ -94,9 +94,9 @@ class ProposalPersistenceIT {
     @EnumSource(Scenario.class)
     void GivenAProposal_WhenAddedAndLoadedInAnotherTransaction_ThenItsWholeStateComesBackAsAdded(Scenario scenario) {
         int n = 1 + scenario.ordinal();
-        ReoptimizationProposalSnapshot added = transactions.inTransaction(() -> {
+        ProposalDescription added = transactions.inTransaction(() -> {
             ReoptimizationProposal proposal = scenario.build(n);
-            ReoptimizationProposalSnapshot before = proposal.snapshot();
+            ProposalDescription before = ProposalDescription.of(proposal);
             repository.add(proposal);
             return before;
         });
@@ -105,7 +105,7 @@ class ProposalPersistenceIT {
                 transactions.inTransaction(() -> repository.get(proposal(n)).orElseThrow());
 
         // Read outside the transaction, so a collection the load left unfetched fails here.
-        assertThat(loaded.snapshot()).isEqualTo(atVersion(added, Version.of(0)));
+        assertThat(ProposalDescription.of(loaded)).isEqualTo(added.at(Version.of(0)));
         assertThat(loaded.id()).isEqualTo(proposal(n));
         assertThat(loaded.plan()).isEqualTo(plan(n));
         assertThat(loaded.basis()).isEqualTo(added.basis());
@@ -189,7 +189,7 @@ class ProposalPersistenceIT {
                 .hasSize(3);
     }
 
-    // --- the load check (ADR-127 decision 1), mirroring the domain's damaged snapshots
+    // --- the load check (ADR-127 decision 1), one case for each damaged state the domain tests used to build
 
     static Stream<Arguments> damagedRows() {
         String once = "an order and attempt is served or dropped at most once";
@@ -354,26 +354,6 @@ class ProposalPersistenceIT {
     }
 
     // --- keys and stored values
-
-    private static ReoptimizationProposalSnapshot atVersion(ReoptimizationProposalSnapshot s, Version version) {
-        return new ReoptimizationProposalSnapshot(
-                s.id(),
-                version,
-                s.plan(),
-                s.job(),
-                s.basis(),
-                s.routes(),
-                s.dropped(),
-                s.excluded(),
-                s.withdrawn(),
-                s.objective(),
-                s.lateStops(),
-                s.withoutUsablePosition(),
-                s.driverChanges(),
-                s.needsGoodsHandOver(),
-                s.createdAt(),
-                s.state());
-    }
 
     private long storedVersion(int n) {
         return jdbc.sql("SELECT version FROM planning.reoptimization_proposal WHERE id = ?")

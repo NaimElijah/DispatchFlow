@@ -16,7 +16,7 @@ import com.dispatchflow.planning.domain.PlanningError.SolveQueueFull;
 import com.dispatchflow.planning.domain.plan.LaneCapacity;
 import com.dispatchflow.planning.domain.plan.QueuedJobs;
 import com.dispatchflow.planning.domain.plan.SolveJob;
-import com.dispatchflow.planning.domain.plan.SolveJobSnapshot;
+import com.dispatchflow.planning.domain.plan.SolveJobDescription;
 import com.dispatchflow.planning.domain.solution.SolveFailure;
 import com.dispatchflow.planning.domain.solution.SolveResult;
 import com.dispatchflow.planning.domain.solution.ValidatedSolution;
@@ -145,9 +145,9 @@ class SolveJobPersistenceIT {
     void GivenAJob_WhenAddedAndLoadedInAnotherTransaction_ThenItsWholeStateComesBackAsAdded(Scenario scenario) {
         JobId id = job(1 + scenario.ordinal());
         PlanId plan = plan(1 + scenario.ordinal());
-        SolveJobSnapshot added = transactions.inTransaction(() -> {
+        SolveJobDescription added = transactions.inTransaction(() -> {
             SolveJob job = scenario.build(id, plan);
-            SolveJobSnapshot before = job.snapshot();
+            SolveJobDescription before = SolveJobDescription.of(job);
             repository.add(job);
             return before;
         });
@@ -155,7 +155,7 @@ class SolveJobPersistenceIT {
         SolveJob loaded = transactions.inTransaction(() -> repository.get(id).orElseThrow());
 
         // Read outside the transaction, so a collection the load left unfetched fails here.
-        assertThat(loaded.snapshot()).isEqualTo(atVersion(added, Version.of(0)));
+        assertThat(SolveJobDescription.of(loaded)).isEqualTo(added.at(Version.of(0)));
         assertThat(loaded.id()).isEqualTo(id);
         assertThat(loaded.plan()).isEqualTo(plan);
         assertThat(loaded.result()).isEqualTo(added.result());
@@ -212,7 +212,7 @@ class SolveJobPersistenceIT {
 
         assertThat(storedVersion(id)).isEqualTo(1L);
         assertThat(transactions.inTransaction(
-                        () -> repository.get(id).orElseThrow().snapshot().phase()))
+                        () -> repository.get(id).orElseThrow().phase()))
                 .isEqualTo(new SolveJob.Phase.BuildingMatrix(CLAIMED));
     }
 
@@ -364,7 +364,7 @@ class SolveJobPersistenceIT {
                 repository.save(second);
                 claimed.add(second.id());
             });
-            assertThat(first.snapshot().phase()).isEqualTo(new SolveJob.Phase.Queued());
+            assertThat(first.phase()).isEqualTo(new SolveJob.Phase.Queued());
             first.claim(CLAIMED);
             repository.save(first);
             claimed.addFirst(first.id());
@@ -415,7 +415,7 @@ class SolveJobPersistenceIT {
         });
     }
 
-    // --- the load check (ADR-127 decision 1), mirroring the domain's damaged snapshots
+    // --- the load check (ADR-127 decision 1), one case for each damaged state the domain tests used to build
 
     static Stream<Arguments> damagedRows() {
         String basis = "a basis revision belongs to a re-optimization, and only to one";
@@ -708,21 +708,6 @@ class SolveJobPersistenceIT {
 
     private static SolveResult resultOf(ValidatedSolution solution) {
         return new SolveResult(solution.routes(), solution.dropped(), solution.excluded());
-    }
-
-    private static SolveJobSnapshot atVersion(SolveJobSnapshot s, Version version) {
-        return new SolveJobSnapshot(
-                s.id(),
-                version,
-                s.plan(),
-                s.lane(),
-                s.solver(),
-                s.limit(),
-                s.seed(),
-                s.basisRevision(),
-                s.requestedAt(),
-                s.phase(),
-                s.result());
     }
 
     // --- helpers

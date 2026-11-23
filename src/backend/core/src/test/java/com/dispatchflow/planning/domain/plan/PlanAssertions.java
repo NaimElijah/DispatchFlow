@@ -10,7 +10,8 @@ import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 
 /**
  * A refused command leaves a plan as it was: the same snapshot, no pending event and no pending
- * revision, because every rule is checked before the state changes (DL §3.10).
+ * revision, because every rule is checked before the state changes (DL §3.10). A refused job keeps
+ * the same description and records no event.
  */
 final class PlanAssertions {
 
@@ -36,9 +37,9 @@ final class PlanAssertions {
     }
 
     static void assertJobRefused(SolveJob job, ThrowingCallable call, DomainError expected) {
-        SolveJobSnapshot before = job.snapshot();
+        SolveJobDescription before = SolveJobDescription.of(job);
         assertRefused(call, expected);
-        assertThat(job.snapshot()).isEqualTo(before);
+        assertThat(SolveJobDescription.of(job)).isEqualTo(before);
         assertThat(job.pendingEvents()).isEmpty();
     }
 }

@@ -195,7 +195,7 @@ class PlanOptimizerOutputsTest {
 
         plan.accept(proposal, noChanges(V1, V2), freshIds(700), DISPATCHER, TODAY, LATER);
 
-        assertThat(proposal.snapshot().excluded()).isEqualTo(excluded);
+        assertThat(proposal.excluded()).isEqualTo(excluded);
         assertThat(reload(plan).snapshot().excluded()).isEqualTo(excluded);
     }
 

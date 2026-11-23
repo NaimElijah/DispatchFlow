@@ -86,17 +86,6 @@ public class PlanningSettings extends AggregateRoot {
         this.departureAllowance = departureAllowance;
     }
 
-    /** Builds the settings {@link #restore} returns; it goes with {@code restore} (ADR-126). */
-    private PlanningSettings(PlanningSettingsSnapshot stored) {
-        super(stored.version());
-        this.id = KEY;
-        this.travelBuckets = stored.travelBuckets();
-        this.buffer = stored.buffer();
-        this.defaultSolveLimit = stored.defaultSolveLimit();
-        storeFixedVehicleCost(stored.fixedVehicleCost());
-        this.departureAllowance = stored.departureAllowance();
-    }
-
     /**
      * The settings before an Admin changes any: FR-321's buckets, a 10% buffer (FR-227), a 45-second
      * daily limit (FR-19), no fixed vehicle cost (FR-21), and no departure allowance (ADR-101).
@@ -110,17 +99,6 @@ public class PlanningSettings extends AggregateRoot {
                 SolveLimit.DEFAULT_DAILY,
                 new FixedVehicleCost.Off(),
                 DepartureAllowance.STARTING);
-    }
-
-    /**
-     * Rebuilds the stored settings; only the persistence adapter calls it. Every value checked itself
-     * when the repository rebuilt it, so nothing else is checked here.
-     *
-     * @param snapshot the stored state
-     * @return the settings
-     */
-    public static PlanningSettings restore(PlanningSettingsSnapshot snapshot) {
-        return new PlanningSettings(snapshot);
     }
 
     /**
@@ -181,27 +159,53 @@ public class PlanningSettings extends AggregateRoot {
     }
 
     /**
-     * The settings' state, for the repository, for the use cases that read them, and for tests.
+     * The travel-time buckets (FR-321).
      *
-     * @return a snapshot that {@link #restore} rebuilds
+     * @return the morning and evening peaks and the off-peak factor
      */
-    public PlanningSettingsSnapshot snapshot() {
-        return new PlanningSettingsSnapshot(
-                savedVersion().orElse(null),
-                travelBuckets,
-                buffer,
-                defaultSolveLimit,
-                fixedVehicleCost(),
-                departureAllowance);
+    public TravelBuckets travelBuckets() {
+        return travelBuckets;
     }
 
-    private FixedVehicleCost fixedVehicleCost() {
+    /**
+     * The travel-time buffer (FR-227).
+     *
+     * @return the buffer
+     */
+    public Buffer buffer() {
+        return buffer;
+    }
+
+    /**
+     * The default daily solve limit (FR-19, FR-183).
+     *
+     * @return the limit
+     */
+    public SolveLimit defaultSolveLimit() {
+        return defaultSolveLimit;
+    }
+
+    /**
+     * The fixed cost per vehicle used (FR-21).
+     *
+     * @return off, or on with its cost
+     */
+    public FixedVehicleCost fixedVehicleCost() {
         return switch (fixedVehicleCost) {
             case OFF -> new FixedVehicleCost.Off();
             case ON ->
                 new FixedVehicleCost.On(
                         Objects.requireNonNull(fixedVehicleCostPerVehicle, "an enabled cost has its duration"));
         };
+    }
+
+    /**
+     * The minutes between a shift's start and leaving the depot (FR-67).
+     *
+     * @return the allowance
+     */
+    public DepartureAllowance departureAllowance() {
+        return departureAllowance;
     }
 
     /** Sets the kind and the duration from a cost, which checked itself when it was built. */

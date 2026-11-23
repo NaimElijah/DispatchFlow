@@ -253,21 +253,6 @@ public class SolveJob extends AggregateRoot {
         this.phase = PhaseKind.QUEUED;
     }
 
-    /** Builds the job {@link #restore} returns; it goes with {@code restore} (ADR-126). */
-    private SolveJob(SolveJobSnapshot stored) {
-        super(stored.version());
-        this.id = stored.id().value();
-        this.plan = stored.plan();
-        this.lane = stored.lane();
-        this.solver = stored.solver();
-        this.limit = stored.limit();
-        this.seed = stored.seed();
-        this.basisRevision = stored.basisRevision().orElse(null);
-        this.requestedAt = stored.requestedAt();
-        storePhase(stored.phase());
-        stored.result().ifPresent(this::storeResult);
-    }
-
     /**
      * Queues a job. {@link Plan} calls it, so a daily job exists only with its plan solving, and a
      * re-optimization only for a published plan (FR-35).
@@ -310,36 +295,10 @@ public class SolveJob extends AggregateRoot {
     }
 
     /**
-     * Rebuilds a stored job; only the persistence adapter calls it.
-     *
-     * @param snapshot the stored state
-     * @return the job
-     * @throws StoredStateInvalid when the state breaks an invariant that holds at rest: the phase's
-     *     times out of order, a basis revision outside the re-optimization lane, a re-optimization
-     *     limit other than 20 seconds, or a result anywhere but a succeeded daily job
-     */
-    public static SolveJob restore(SolveJobSnapshot snapshot) {
-        boolean reoptimization = snapshot.lane() == Lane.REOPTIMIZATION;
-        if (reoptimization != snapshot.basisRevision().isPresent()) {
-            throw invalid(BASIS_ONLY_FOR_REOPTIMIZATION);
-        }
-        if (reoptimization && !snapshot.limit().equals(SolveLimit.REOPTIMIZATION)) {
-            throw invalid(REOPTIMIZATION_LIMIT);
-        }
-        boolean keepsResult = snapshot.lane() == Lane.DAILY && snapshot.phase() instanceof Phase.Succeeded;
-        if (keepsResult != snapshot.result().isPresent()) {
-            throw invalid(RESULT_ONLY_WHEN_DAILY_SUCCEEDED);
-        }
-        if (!timesInOrder(snapshot.requestedAt(), snapshot.phase())) {
-            throw invalid(TIMES_IN_ORDER);
-        }
-        return new SolveJob(snapshot);
-    }
-
-    /**
-     * Checks the job as Hibernate loaded it (ADR-126 decision 8): the checks {@link #restore} runs,
-     * after rebuilding its phase and its result, and that only a failed job stores violations, which
-     * a snapshot could not break but stored rows can.
+     * Checks the job as Hibernate loaded it (ADR-126 decision 8): a basis revision only on a
+     * re-optimization, a re-optimization's 20-second limit, a result only on a succeeded daily job,
+     * violations only on a failed one, and the phase's times in order, after rebuilding its phase and
+     * its result.
      *
      * @throws StoredStateInvalid when the stored state breaks one of them, or a stored value is
      *     refused
@@ -515,27 +474,65 @@ public class SolveJob extends AggregateRoot {
     }
 
     /**
-     * The job's state, for the repository and for tests.
+     * The job's lane.
      *
-     * @return a snapshot that {@link #restore} rebuilds
+     * @return daily or re-optimization
      */
-    public SolveJobSnapshot snapshot() {
-        return new SolveJobSnapshot(
-                id(),
-                savedVersion().orElse(null),
-                plan,
-                lane,
-                solver,
-                limit,
-                seed,
-                Optional.ofNullable(basisRevision),
-                requestedAt,
-                phase(),
-                result());
+    public Lane lane() {
+        return lane;
     }
 
-    /** The phase its kind and times store, with a failure's reason and violations. */
-    private Phase phase() {
+    /**
+     * The solver it runs (FR-20).
+     *
+     * @return the solver's name
+     */
+    public SolverName solver() {
+        return solver;
+    }
+
+    /**
+     * Its search limit, which runs from the start of its search (BR-75).
+     *
+     * @return the limit: 20 seconds for a re-optimization (BR-84)
+     */
+    public SolveLimit limit() {
+        return limit;
+    }
+
+    /**
+     * The seed it runs with (NFR-13).
+     *
+     * @return the seed
+     */
+    public Seed seed() {
+        return seed;
+    }
+
+    /**
+     * The plan revision a re-optimization starts from (BR-25).
+     *
+     * @return the revision for a re-optimization; empty for a daily job
+     */
+    public Optional<RevisionNo> basisRevision() {
+        return Optional.ofNullable(basisRevision);
+    }
+
+    /**
+     * When it was requested, from which its time in the queue runs (BR-112).
+     *
+     * @return the request's time
+     */
+    public Instant requestedAt() {
+        return requestedAt;
+    }
+
+    /**
+     * Where it is in its lifecycle (DL §9.2).
+     *
+     * @return the phase, with the times it keeps and a failure's reason and violations
+     */
+    public Phase phase() {
         return switch (phase) {
             case QUEUED -> new Phase.Queued();
             case BUILDING_MATRIX -> new Phase.BuildingMatrix(stored(claimedAt));
@@ -658,9 +655,8 @@ public class SolveJob extends AggregateRoot {
     }
 
     /**
-     * The one check of the stored fields, shared by the load check and every command: the checks
-     * {@link #restore} runs on a snapshot, in its order, and that only a failed job stores
-     * violations. Rebuilding the phase and the result checks each stored value on the way.
+     * The one check of the stored fields, shared by the load check and every command. Rebuilding the
+     * phase and the result checks each stored value on the way.
      */
     private Optional<String> brokenRule() {
         boolean reoptimization = lane == Lane.REOPTIMIZATION;

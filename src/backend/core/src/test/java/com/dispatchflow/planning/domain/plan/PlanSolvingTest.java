@@ -33,7 +33,6 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.routeOf;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.solved;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.standardSolution;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.stopId;
-import static com.dispatchflow.planning.domain.plan.PlanningFixtures.storedSucceededJob;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.succeededJob;
 import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -41,15 +40,12 @@ import static org.assertj.core.api.Assertions.tuple;
 
 import com.dispatchflow.planning.domain.PlanningError.CapacityForAnotherLane;
 import com.dispatchflow.planning.domain.PlanningError.DateInPast;
-import com.dispatchflow.planning.domain.PlanningError.DriverAlreadyHasRoute;
-import com.dispatchflow.planning.domain.PlanningError.OrderAlreadyInPlan;
 import com.dispatchflow.planning.domain.PlanningError.PlanAlreadyExists;
 import com.dispatchflow.planning.domain.PlanningError.PlanNotDraftOrReady;
 import com.dispatchflow.planning.domain.PlanningError.PlanNotPublished;
 import com.dispatchflow.planning.domain.PlanningError.ReoptimizationAlreadyRunning;
 import com.dispatchflow.planning.domain.PlanningError.RouteLocked;
 import com.dispatchflow.planning.domain.PlanningError.SolveQueueFull;
-import com.dispatchflow.planning.domain.PlanningError.VehicleAlreadyHasRoute;
 import com.dispatchflow.planning.domain.RevisionNo;
 import com.dispatchflow.planning.domain.RuleCode;
 import com.dispatchflow.planning.domain.SolveLimit;
@@ -62,7 +58,6 @@ import com.dispatchflow.planning.domain.solution.ValidationReport;
 import com.dispatchflow.planning.domain.solution.Violation;
 import com.dispatchflow.planning.events.Lane;
 import com.dispatchflow.planning.events.SolveFailureReason;
-import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.RouteId;
@@ -117,8 +112,8 @@ class PlanSolvingTest {
                 JOB, SolverName.OR_TOOLS, SolveLimit.DEFAULT_DAILY, Seed.of(7), roomIn(Lane.DAILY), TODAY, NOW);
 
         assertThat(plan.status()).isEqualTo(new Plan.Status.Solving(new SolveBasis(JOB, NOW)));
-        assertThat(job.snapshot().phase()).isEqualTo(new SolveJob.Phase.Queued());
-        assertThat(job.snapshot().lane()).isEqualTo(Lane.DAILY);
+        assertThat(job.phase()).isEqualTo(new SolveJob.Phase.Queued());
+        assertThat(job.lane()).isEqualTo(Lane.DAILY);
         assertThat(job.plan()).isEqualTo(PLAN);
     }
 
@@ -193,9 +188,9 @@ class PlanSolvingTest {
         SolveJob job = plan.requestReoptimization(
                 SECOND_JOB, SolverName.OR_TOOLS, Seed.of(9), roomIn(Lane.REOPTIMIZATION), TODAY, LATER);
 
-        assertThat(job.snapshot().lane()).isEqualTo(Lane.REOPTIMIZATION);
-        assertThat(job.snapshot().limit()).isEqualTo(SolveLimit.REOPTIMIZATION);
-        assertThat(job.snapshot().basisRevision()).contains(RevisionNo.FIRST);
+        assertThat(job.lane()).isEqualTo(Lane.REOPTIMIZATION);
+        assertThat(job.limit()).isEqualTo(SolveLimit.REOPTIMIZATION);
+        assertThat(job.basisRevision()).contains(RevisionNo.FIRST);
         assertUnchanged(plan, before);
     }
 
@@ -346,39 +341,6 @@ class PlanSolvingTest {
 
         assertThat(plan.snapshot().undo()).isEmpty();
         assertThat(plan.snapshot().redo()).isEmpty();
-    }
-
-    @Test
-    void GivenAStoredResultServingAnOrderTwice_WhenApplied_ThenOrderAlreadyInPlan() {
-        Plan plan = aPlan().solving();
-        SolveJob twice = storedSucceededJob(JOB, List.of(solved(V1, D1, O1), solved(V2, D2, O1)), List.of());
-
-        assertPlanRefused(
-                plan,
-                () -> plan.applySolveResult(twice, freshIds(0), LATER),
-                new OrderAlreadyInPlan(O1, Attempt.FIRST));
-    }
-
-    @Test
-    void GivenAStoredResultGivingAVehicleTwoRoutes_WhenApplied_ThenVehicleAlreadyHasRoute() {
-        Plan plan = aPlan().solving();
-        SolveJob twice = storedSucceededJob(JOB, List.of(solved(V1, D1, O1), solved(V1, D2, O2)), List.of());
-
-        assertPlanRefused(
-                plan,
-                () -> plan.applySolveResult(twice, freshIds(0), LATER),
-                new VehicleAlreadyHasRoute(V1, RouteId.of(PlanningFixtures.uuid(10_000 + 1))));
-    }
-
-    @Test
-    void GivenAStoredResultGivingADriverTwoRoutes_WhenApplied_ThenDriverAlreadyHasRoute() {
-        Plan plan = aPlan().solving();
-        SolveJob twice = storedSucceededJob(JOB, List.of(solved(V1, D1, O1), solved(V2, D1, O2)), List.of());
-
-        assertPlanRefused(
-                plan,
-                () -> plan.applySolveResult(twice, freshIds(0), LATER),
-                new DriverAlreadyHasRoute(D1, RouteId.of(PlanningFixtures.uuid(10_000 + 1))));
     }
 
     @Test

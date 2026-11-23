@@ -310,26 +310,6 @@ public class ReoptimizationProposal extends AggregateRoot {
         storeState(new State.Ready());
     }
 
-    /** Builds the proposal {@link #restore} returns; it goes with {@code restore} (ADR-126). */
-    private ReoptimizationProposal(ReoptimizationProposalSnapshot stored) {
-        super(stored.version());
-        this.id = stored.id().value();
-        this.plan = stored.plan();
-        this.job = stored.job();
-        this.basis = stored.basis();
-        StoredSolvedRoute.flatten(stored.routes(), routes, stops);
-        stored.dropped().stream().map(StoredDroppedOrder::new).forEach(dropped::add);
-        excluded.addAll(stored.excluded());
-        withdrawn.addAll(stored.withdrawn());
-        this.objective = stored.objective();
-        lateStops.addAll(stored.lateStops());
-        withoutUsablePosition.addAll(stored.withoutUsablePosition());
-        StoredChangedOrder.flatten(stored.driverChanges(), changedDrivers, changedOrders);
-        needsGoodsHandOver.addAll(stored.needsGoodsHandOver());
-        this.createdAt = stored.createdAt();
-        storeState(stored.state());
-    }
-
     /**
      * Creates a proposal; {@link SolveJob#succeed(ProposalId, ReoptimizationResult, Instant)} calls it
      * in the same transaction as the job's success (DL §6.1).
@@ -341,7 +321,7 @@ public class ReoptimizationProposal extends AggregateRoot {
      * @param result the validated solution and the preview's facts
      * @param now when it was created
      * @return the proposal, ready
-     * @throws RuleViolation with what {@code restore} would refuse, so no stored proposal fails to
+     * @throws RuleViolation with what its load check would refuse, so no stored proposal fails to
      *     load: {@link OrderAlreadyInPlan} for an order and attempt served or dropped twice (BR-07),
      *     {@link VehicleRoutedTwice} for a vehicle with two routes, withdrawn or not, or {@link
      *     DriverRoutedTwice} for a driver on two routes it doesn't withdraw (BR-39, ADR-101)
@@ -357,25 +337,10 @@ public class ReoptimizationProposal extends AggregateRoot {
     }
 
     /**
-     * Rebuilds a stored proposal; only the persistence adapter calls it.
-     *
-     * @param snapshot the stored state
-     * @return the proposal
-     * @throws StoredStateInvalid when an order and attempt appears twice among its routes and drops
-     *     (BR-07), a vehicle has two routes, a driver drives two routes it doesn't withdraw (BR-39), or it was
-     *     declined before it was created
-     */
-    public static ReoptimizationProposal restore(ReoptimizationProposalSnapshot snapshot) {
-        brokenBy(snapshot.routes(), snapshot.dropped(), snapshot.withdrawn(), snapshot.state(), snapshot.createdAt())
-                .ifPresent(broken -> {
-                    throw new StoredStateInvalid(ReoptimizationProposal.class, broken);
-                });
-        return new ReoptimizationProposal(snapshot);
-    }
-
-    /**
-     * Checks the proposal as Hibernate loaded it (ADR-126 decision 8): the checks {@link #restore}
-     * runs, after rebuilding every list it stores.
+     * Checks the proposal as Hibernate loaded it (ADR-126 decision 8): an order and attempt served or
+     * dropped at most once (BR-07), a vehicle on at most one route and a driver on at most one route
+     * it isn't withdrawn from (BR-39), and a decline no earlier than its creation, after rebuilding
+     * every list it stores.
      *
      * @throws StoredStateInvalid when the stored state breaks one of them, or a stored value is
      *     refused
@@ -484,6 +449,69 @@ public class ReoptimizationProposal extends AggregateRoot {
     }
 
     /**
+     * The job that computed it.
+     *
+     * @return the job's ID
+     */
+    public JobId job() {
+        return job;
+    }
+
+    /**
+     * Its objective, term by term, for the preview's change in totals (FR-103).
+     *
+     * @return the terms
+     */
+    public ObjectiveTerms objective() {
+        return objective;
+    }
+
+    /**
+     * The stops it keeps past their window end (BR-107).
+     *
+     * @return an unmodifiable copy, in order
+     */
+    public List<LateStop> lateStops() {
+        return List.copyOf(lateStops);
+    }
+
+    /**
+     * The vehicles with no usable position (BR-81).
+     *
+     * @return an unmodifiable copy, in order
+     */
+    public List<VehicleId> withoutUsablePosition() {
+        return List.copyOf(withoutUsablePosition);
+    }
+
+    /**
+     * What changes for each driver (FR-36).
+     *
+     * @return the changes, in order, each with its three lists in order
+     */
+    public List<DriverChange> driverChanges() {
+        return StoredChangedOrder.assemble(changedDrivers, changedOrders);
+    }
+
+    /**
+     * The orders whose goods need a hand-over (FR-334).
+     *
+     * @return an unmodifiable copy, in order
+     */
+    public List<OrderId> needsGoodsHandOver() {
+        return List.copyOf(needsGoodsHandOver);
+    }
+
+    /**
+     * When it was created, which a decline never precedes (ADR-112).
+     *
+     * @return the creation's time
+     */
+    public Instant createdAt() {
+        return createdAt;
+    }
+
+    /**
      * Whether the proposal withdraws a vehicle.
      *
      * @param vehicle the vehicle
@@ -491,31 +519,6 @@ public class ReoptimizationProposal extends AggregateRoot {
      */
     public boolean withdraws(VehicleId vehicle) {
         return withdrawn.stream().anyMatch(withdrawal -> withdrawal.vehicle().equals(vehicle));
-    }
-
-    /**
-     * The proposal's state, for the repository and for tests.
-     *
-     * @return a snapshot that {@link #restore} rebuilds
-     */
-    public ReoptimizationProposalSnapshot snapshot() {
-        return new ReoptimizationProposalSnapshot(
-                id(),
-                savedVersion().orElse(null),
-                plan,
-                job,
-                basis,
-                routes(),
-                dropped(),
-                excluded,
-                withdrawn,
-                objective,
-                lateStops,
-                withoutUsablePosition,
-                StoredChangedOrder.assemble(changedDrivers, changedOrders),
-                needsGoodsHandOver,
-                createdAt,
-                state());
     }
 
     /** Sets the kind and who declined it and when. */
@@ -550,22 +553,12 @@ public class ReoptimizationProposal extends AggregateRoot {
      * the driver changes checks their stored orders on the way.
      */
     private Optional<String> brokenRule() {
-        StoredChangedOrder.assemble(changedDrivers, changedOrders);
-        return brokenBy(routes(), dropped(), withdrawn, state(), createdAt);
-    }
-
-    /** The invariants a proposal holds at rest, which {@link #restore} and every other check apply. */
-    private static Optional<String> brokenBy(
-            List<SolvedRoute> routes,
-            List<DroppedOrder> dropped,
-            List<VehicleWithdrawal> withdrawn,
-            State state,
-            Instant createdAt) {
-        Optional<PlanningError> broken = SolutionShape.brokenBy(routes, dropped, withdrawn);
+        driverChanges();
+        Optional<PlanningError> broken = SolutionShape.brokenBy(routes(), dropped(), withdrawn);
         if (broken.isPresent()) {
             return Optional.of(broken.get() instanceof OrderAlreadyInPlan ? ORDER_ONCE : ONE_ROUTE_EACH);
         }
-        if (state instanceof State.Declined declined && declined.at().isBefore(createdAt)) {
+        if (state() instanceof State.Declined declined && declined.at().isBefore(createdAt)) {
             return Optional.of(DECLINED_AFTER_CREATED);
         }
         return Optional.empty();

@@ -12,7 +12,7 @@ import com.dispatchflow.planning.domain.settings.Buffer;
 import com.dispatchflow.planning.domain.settings.DepartureAllowance;
 import com.dispatchflow.planning.domain.settings.FixedVehicleCost;
 import com.dispatchflow.planning.domain.settings.PlanningSettings;
-import com.dispatchflow.planning.domain.settings.PlanningSettingsSnapshot;
+import com.dispatchflow.planning.domain.settings.PlanningSettingsDescription;
 import com.dispatchflow.planning.domain.settings.TravelBucket;
 import com.dispatchflow.planning.domain.settings.TravelBuckets;
 import com.dispatchflow.planning.domain.settings.TravelFactor;
@@ -67,24 +67,24 @@ class PlanningSettingsPersistenceIT {
     void GivenNoAdminChangedTheSettings_WhenTheCurrentOnesAreRead_ThenTheyAreTheStartingValuesNeverSaved() {
         PlanningSettings current = transactions.inTransaction(() -> repository.current());
 
-        assertThat(current.snapshot())
-                .isEqualTo(PlanningSettings.startingValues().snapshot());
+        assertThat(PlanningSettingsDescription.of(current))
+                .isEqualTo(PlanningSettingsDescription.of(PlanningSettings.startingValues()));
         assertThat(current.savedVersion()).isEmpty();
     }
 
     @Test
     void GivenEverySettingChanged_WhenSavedAndLoadedInAnotherTransaction_ThenEveryValueComesBackUnderTheConstantKey() {
-        PlanningSettingsSnapshot saved = transactions.inTransaction(() -> {
+        PlanningSettingsDescription saved = transactions.inTransaction(() -> {
             PlanningSettings settings = repository.current();
             changeEverySetting(settings);
-            PlanningSettingsSnapshot before = settings.snapshot();
+            PlanningSettingsDescription before = PlanningSettingsDescription.of(settings);
             repository.save(settings);
             return before;
         });
 
         PlanningSettings loaded = transactions.inTransaction(() -> repository.current());
 
-        assertThat(loaded.snapshot()).isEqualTo(atVersion(saved, Version.of(0)));
+        assertThat(PlanningSettingsDescription.of(loaded)).isEqualTo(saved.at(Version.of(0)));
         assertThat(loaded.pendingEvents()).isEmpty();
         assertThat(jdbc.sql("SELECT id FROM planning.planning_settings")
                         .query(UUID.class)
@@ -96,8 +96,9 @@ class PlanningSettingsPersistenceIT {
     void GivenTheStartingValuesSavedUnchanged_WhenLoaded_ThenTheyComeBackWithNoFixedVehicleCost() {
         transactions.inTransaction(() -> repository.save(repository.current()));
 
-        assertThat(transactions.inTransaction(() -> repository.current()).snapshot())
-                .isEqualTo(atVersion(PlanningSettings.startingValues().snapshot(), Version.of(0)));
+        assertThat(PlanningSettingsDescription.of(transactions.inTransaction(() -> repository.current())))
+                .isEqualTo(PlanningSettingsDescription.of(PlanningSettings.startingValues())
+                        .at(Version.of(0)));
     }
 
     @Test
@@ -142,9 +143,9 @@ class PlanningSettingsPersistenceIT {
                     assertThat(stale.id()).isEqualTo(PlanningSettings.KEY);
                 });
 
-        PlanningSettingsSnapshot stored =
-                transactions.inTransaction(() -> repository.current().snapshot());
-        assertThat(stored.version()).isEqualTo(Version.of(1));
+        PlanningSettingsDescription stored =
+                transactions.inTransaction(() -> PlanningSettingsDescription.of(repository.current()));
+        assertThat(stored.version()).contains(Version.of(1));
         assertThat(stored.buffer()).isEqualTo(Buffer.percent(new BigDecimal("12.5")));
         assertThat(stored.departureAllowance()).isEqualTo(DepartureAllowance.STARTING);
     }
@@ -165,8 +166,7 @@ class PlanningSettingsPersistenceIT {
                     assertThat(stale.id()).isEqualTo(PlanningSettings.KEY);
                 });
 
-        assertThat(transactions.inTransaction(
-                        () -> repository.current().snapshot().defaultSolveLimit()))
+        assertThat(transactions.inTransaction(() -> repository.current().defaultSolveLimit()))
                 .isEqualTo(SolveLimit.daily(Duration.ofSeconds(30)));
     }
 
@@ -264,16 +264,6 @@ class PlanningSettingsPersistenceIT {
     private void storeStartingValuesWith(String assignments) {
         transactions.inTransaction(() -> repository.save(repository.current()));
         jdbc.sql("UPDATE planning.planning_settings SET " + assignments).update();
-    }
-
-    private static PlanningSettingsSnapshot atVersion(PlanningSettingsSnapshot s, Version version) {
-        return new PlanningSettingsSnapshot(
-                version,
-                s.travelBuckets(),
-                s.buffer(),
-                s.defaultSolveLimit(),
-                s.fixedVehicleCost(),
-                s.departureAllowance());
     }
 
     private long storedVersion() {
