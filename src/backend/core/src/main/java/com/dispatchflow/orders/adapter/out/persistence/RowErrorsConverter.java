@@ -27,6 +27,9 @@ import tools.jackson.databind.node.ArrayNode;
  * it without initializing it. Anything else, and any text not in this form, is {@link
  * StoredStateInvalid}. An error its record now refuses is too, through {@code
  * StoredStateInvalid.whileRestoring}, which the base class runs.
+ *
+ * <p>Writing refuses with {@link AssertionError} an error the reader would refuse, so no row is
+ * stored that can't be loaded again.
  */
 @Converter(autoApply = true)
 public final class RowErrorsConverter extends StoredValueConverter<RowErrors, String> {
@@ -55,9 +58,11 @@ public final class RowErrorsConverter extends StoredValueConverter<RowErrors, St
     private static String write(RowErrors errors) {
         ArrayNode stored = JSON.createArrayNode();
         for (DomainError error : errors.errors()) {
+            // Every error a preview keeps is a module's or the kernel's record, so another type here
+            // is the caller's bug, never a refusal.
             if (admitted(error.getClass().getName()).isEmpty()) {
-                throw new IllegalArgumentException("an import row's error must be a DomainError record under "
-                        + ADMITTED_PACKAGE + ", so it can be read back");
+                throw new AssertionError(
+                        "an import row's error must be a DomainError record under com.dispatchflow, so it can be read back");
             }
             stored.addObject().put(TYPE, error.getClass().getName()).set(VALUE, JSON.valueToTree(error));
         }
