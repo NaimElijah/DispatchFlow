@@ -64,7 +64,7 @@ report findings.
   - Queries are parameterised: JPQL and native queries take bound parameters, never a string built from input.
   - A module's persistence goes through JPA in its own schema ([ADR-041], amended by [ADR-126]; every aggregate is mapped, [ADR-127], [ADR-128]):
     - an adapter implements its port with a package-private Spring Data `Repository<Root, UUID>` interface, never `CrudRepository`, `ListCrudRepository`, `JpaRepository` or `JpaSpecificationExecutor`;
-    - its `save` goes through `VersionedSave`, so every save moves the version by exactly 1, and so does an `add` where another transaction may store the same aggregate first; any other `add` inserts and flushes itself;
+    - its `save` goes through `VersionedSave`, which moves the version by exactly 1, except a session's save of a change that only kept or dropped contact times ([ADR-128] decision 1); an `add` goes through it where another transaction may store the same aggregate first, and any other `add` inserts and flushes itself;
     - PostgreSQL-specific SQL is a native query with bound parameters and an adapter test;
     - every entity names its module's schema in `@Table`. ArchUnit checks the repository and schema rules, and review checks the rest.
 - **Code style:**
