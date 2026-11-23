@@ -74,11 +74,12 @@ followed.
    record types stay free of annotations. A row's key is the record's natural key where it has one,
    such as an SMS reply's provider ID, and otherwise a random UUID that the adapter assigns and
    nothing outside the table sees.
-7. **An import preview row's errors are stored as JSON text,** through a converter in Orders'
+7. **An import preview row's errors, and an unreadable row's field errors, are stored as JSON text,**
+   each in a column of its own, through a converter in Orders'
    persistence adapter that uses Jackson, which Spring Boot already brings. Its type validator admits
    only records that implement `DomainError` and live under `com.dispatchflow`, so a stored row cannot
-   name another class. It rebuilds each error through `StoredStateInvalid.whileRestoring`. This is
-   the one JSON column. Every other value is relational, as ADR-126 decides.
+   name another class. It rebuilds each error through `StoredStateInvalid.whileRestoring`.
+   These are the only JSON columns. Every other value is relational, as ADR-126 decides.
 8. **A migration creates its tables without grants until [ADR-041]'s roles exist.** The change that
    adds the roles and the `migrate` step grants `app` what it needs on every table made before it.
    From then on, every migration grants as ADR-041 says.
@@ -100,8 +101,8 @@ followed.
 **What this amends.**
 
 - **[ADR-126]:** `DayRoster`'s entries are values, not entities (3). The records are `@Immutable`
-  entities in their adapters, not the record types themselves (6). A preview row's errors are one
-  JSON column (7). A session's contact times are a set, not an ordered list (10).
+  entities in their adapters, not the record types themselves (6). A preview row's errors are JSON
+  text (7). A session's contact times are a set, not an ordered list (10).
 - **[ADR-041]:** a migration grants from the change that adds the roles, not before (8).
 
 ## Consequences
@@ -118,7 +119,7 @@ followed.
   so it is longer.
 - **Hard:** a private embeddable repeats a public record's components as fields, and its getter and
   its setter code must match the record.
-- **Hard:** the preview's errors are the one place whose stored form a Java type does not check.
+- **Hard:** the preview's errors are the one stored form a Java type does not check.
   Their converter's tests are what check it.
 - **Cost:** until the roles change lands, the core reads and writes its tables as one user, as it
   does today.

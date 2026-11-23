@@ -59,7 +59,6 @@ import com.dispatchflow.shared.SharedKernelError.TextHasForbiddenCharacters;
 import com.dispatchflow.shared.SharedKernelError.TextTooLong;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.TextKind;
-import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.Weight;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -95,17 +94,17 @@ class ImportBatchTest {
     }
 
     private static void assertRefusedUnchanged(ImportBatch batch, ThrowingCallable call, DomainError expected) {
-        ImportBatchSnapshot before = batch.snapshot();
+        ImportBatchDescription before = ImportBatchDescription.of(batch);
         assertRefused(call, expected);
-        assertThat(batch.snapshot()).isEqualTo(before);
+        assertThat(ImportBatchDescription.of(batch)).isEqualTo(before);
         assertThat(batch.pendingEvents()).isEmpty();
     }
 
     private static void assertAllRefusedUnchanged(
             ImportBatch batch, ThrowingCallable call, DomainError summary, List<? extends DomainError> errors) {
-        ImportBatchSnapshot before = batch.snapshot();
+        ImportBatchDescription before = ImportBatchDescription.of(batch);
         assertAllRefused(call, summary, errors);
-        assertThat(batch.snapshot()).isEqualTo(before);
+        assertThat(ImportBatchDescription.of(batch)).isEqualTo(before);
         assertThat(batch.pendingEvents()).isEmpty();
     }
 
@@ -119,7 +118,7 @@ class ImportBatchTest {
 
             assertThat(batch.state()).isEqualTo(new ImportBatch.State.Previewed());
             assertThat(batch.rows()).extracting(PreviewRow::errors).containsExactly(List.of(), List.of());
-            assertThat(batch.snapshot().version()).isNull();
+            assertThat(batch.savedVersion()).isEmpty();
             assertThat(batch.pendingEvents()).isEmpty();
         }
 
@@ -176,16 +175,16 @@ class ImportBatchTest {
             assertThat(created.id()).isEqualTo(CustomerId.of(fresh(1)));
             assertThat(created.flags()).containsExactly(AddressFlag.CREATED_BY_IMPORT);
             assertThat(created.orderDefaults()).isEqualTo(DEFAULTS);
-            assertThat(created.snapshot().name()).contains(ImportBatchBuilder.NAME);
-            assertThat(created.snapshot().phone()).contains(ImportBatchBuilder.PHONE);
-            assertThat(created.snapshot().address()).contains(NEW_ADDRESS);
-            assertThat(created.snapshot().createdAt()).isEqualTo(HALF_AN_HOUR_LATER);
+            assertThat(created.name()).contains(ImportBatchBuilder.NAME);
+            assertThat(created.phone()).contains(ImportBatchBuilder.PHONE);
+            assertThat(created.address()).contains(NEW_ADDRESS);
+            assertThat(created.createdAt()).isEqualTo(HALF_AN_HOUR_LATER);
             assertThat(result.orders())
                     .extracting(Order::id, Order::customer)
                     .containsExactly(
                             tuple(OrderId.of(fresh(2)), CustomerId.of(fresh(1))),
                             tuple(OrderId.of(fresh(3)), KNOWN_CUSTOMER.id()));
-            assertThat(result.orders().get(0).snapshot().serviceTime()).isEqualTo(OrdersTestData.FIVE_MINUTES);
+            assertThat(result.orders().get(0).serviceTime()).isEqualTo(OrdersTestData.FIVE_MINUTES);
             assertThat(result.orders())
                     .allSatisfy(order -> assertThat(order.lastChangedAt()).isEqualTo(HALF_AN_HOUR_LATER));
             assertThat(batch.state()).isEqualTo(new ImportBatch.State.Confirmed(HALF_AN_HOUR_LATER));
@@ -284,8 +283,8 @@ class ImportBatchTest {
 
             assertThat(result.customers()).hasSize(1);
             assertThat(result.orders()).extracting(Order::customer).containsOnly(CustomerId.of(fresh(1)));
-            assertThat(result.orders().get(0).snapshot().recipient()).isEqualTo(Recipient.NONE);
-            assertThat(result.orders().get(1).snapshot().recipient())
+            assertThat(result.orders().get(0).recipient()).isEqualTo(Recipient.NONE);
+            assertThat(result.orders().get(1).recipient())
                     .isEqualTo(new Recipient(
                             Optional.of(ContactName.of("Avi Cohen")), Optional.of(PhoneNumber.parse("054-2222222"))));
         }
@@ -308,7 +307,7 @@ class ImportBatchTest {
 
             assertThat(result.customers()).isEmpty();
             assertThat(result.orders().get(0).customer()).isEqualTo(KNOWN_CUSTOMER.id());
-            assertThat(result.orders().get(0).snapshot().recipient())
+            assertThat(result.orders().get(0).recipient())
                     .isEqualTo(new Recipient(
                             Optional.of(ContactName.of("אבי כהן")), Optional.of(PhoneNumber.parse("052-345-6780"))));
         }
@@ -329,7 +328,7 @@ class ImportBatchTest {
                     .previewed()
                     .confirm(context(), false, ids(1), TODAY, HALF_AN_HOUR_LATER);
 
-            assertThat(result.orders().get(0).snapshot().recipient())
+            assertThat(result.orders().get(0).recipient())
                     .isEqualTo(new Recipient(
                             Optional.of(ContactName.of("רות ישראלי")), Optional.of(PhoneNumber.parse("054-222-2222"))));
         }
@@ -350,7 +349,7 @@ class ImportBatchTest {
                     .previewed()
                     .confirm(context(), false, ids(1), TODAY, HALF_AN_HOUR_LATER);
 
-            assertThat(result.orders().get(0).snapshot().recipient())
+            assertThat(result.orders().get(0).recipient())
                     .isEqualTo(new Recipient(Optional.of(ContactName.of("אבי כהן")), Optional.empty()));
         }
 
@@ -370,7 +369,7 @@ class ImportBatchTest {
                     .previewed()
                     .confirm(context(), false, ids(1), TODAY, HALF_AN_HOUR_LATER);
 
-            assertThat(result.orders().get(0).snapshot().recipient())
+            assertThat(result.orders().get(0).recipient())
                     .isEqualTo(new Recipient(
                             Optional.of(ContactName.of("דנה לוי")), Optional.of(PhoneNumber.parse("052-345-6789"))));
         }
@@ -394,7 +393,7 @@ class ImportBatchTest {
                     .previewed()
                     .confirm(context(), false, ids(1), TODAY, HALF_AN_HOUR_LATER);
 
-            assertThat(result.orders().get(0).snapshot().recipient())
+            assertThat(result.orders().get(0).recipient())
                     .isEqualTo(new Recipient(
                             Optional.of(ContactName.of("אבי כהן")), Optional.of(PhoneNumber.parse("054-222-2222"))));
         }
@@ -418,7 +417,7 @@ class ImportBatchTest {
                     .previewed()
                     .confirm(context(), false, ids(1), TODAY, HALF_AN_HOUR_LATER);
 
-            assertThat(result.orders().get(0).snapshot().recipient())
+            assertThat(result.orders().get(0).recipient())
                     .isEqualTo(new Recipient(
                             Optional.of(ContactName.of("אבי כהן")), Optional.of(PhoneNumber.parse("054-333-3333"))));
         }
@@ -440,7 +439,7 @@ class ImportBatchTest {
                     .previewed()
                     .confirm(context(), false, ids(1), TODAY, HALF_AN_HOUR_LATER);
 
-            assertThat(result.orders().get(0).snapshot().recipient()).isEqualTo(namedOnly);
+            assertThat(result.orders().get(0).recipient()).isEqualTo(namedOnly);
         }
 
         static Stream<Arguments> rowsNamingTheCustomer() {
@@ -474,7 +473,7 @@ class ImportBatchTest {
                     .previewed()
                     .confirm(context(), false, ids(1), TODAY, HALF_AN_HOUR_LATER);
 
-            assertThat(result.orders().get(0).snapshot().recipient()).isEqualTo(Recipient.NONE);
+            assertThat(result.orders().get(0).recipient()).isEqualTo(Recipient.NONE);
         }
 
         @Test
@@ -636,13 +635,14 @@ class ImportBatchTest {
         }
 
         @Test
-        void GivenAClockSteppedBackBeforeThePreview_WhenConfirmed_ThenItIsConfirmedAtThePreviewAndStillRestores() {
+        void GivenAClockSteppedBackBeforeThePreview_WhenConfirmed_ThenItIsConfirmedAtThePreviewNotBeforeIt() {
             ImportBatch batch = anImportBatch().previewed();
 
             ImportResult result = batch.confirm(context(), false, ids(2), TODAY, Instant.parse("2027-06-15T05:59:59Z"));
 
+            // The confirmation's end check runs the load check's rules, so it would have failed on a
+            // state older than the preview; ImportBatchPersistenceIT loads such a row and refuses it.
             assertThat(batch.state()).isEqualTo(new ImportBatch.State.Confirmed(Instant.parse("2027-06-15T06:00:00Z")));
-            assertThat(ImportBatch.restore(batch.snapshot()).snapshot()).isEqualTo(batch.snapshot());
             assertThat(result.orders()).hasSize(1);
         }
 
@@ -717,13 +717,14 @@ class ImportBatchTest {
         }
 
         @Test
-        void GivenAClockSteppedBackBeforeThePreview_WhenDiscarded_ThenItIsDiscardedAtThePreviewAndStillRestores() {
+        void GivenAClockSteppedBackBeforeThePreview_WhenDiscarded_ThenItIsDiscardedAtThePreviewNotBeforeIt() {
             ImportBatch batch = anImportBatch().previewed();
 
             batch.discard(Instant.parse("2027-06-15T05:59:59Z"));
 
+            // The discard's end check runs the load check's rules, so it would have failed on a state
+            // older than the preview; ImportBatchPersistenceIT loads such a row and refuses it.
             assertThat(batch.state()).isEqualTo(new ImportBatch.State.Discarded(Instant.parse("2027-06-15T06:00:00Z")));
-            assertThat(ImportBatch.restore(batch.snapshot()).snapshot()).isEqualTo(batch.snapshot());
         }
 
         @Test
@@ -805,7 +806,7 @@ class ImportBatchTest {
         @MethodSource("matrix")
         void GivenABatchInEachState_WhenEachCommandRuns_ThenItTakesItsResultOrIsRefusedByName(
                 ImportBatch.State state, Command command, @Nullable OrdersError expected) {
-            ImportBatch batch = anImportBatch().inState(state).restored();
+            ImportBatch batch = anImportBatch().inState(state).build();
 
             if (expected == null) {
                 command.call.accept(batch);
@@ -818,97 +819,9 @@ class ImportBatchTest {
         }
     }
 
+    /** The values a stored row is rebuilt from refuse what no reader writes (ADR-127 decision 1). */
     @Nested
-    class Restoring {
-
-        static Stream<Arguments> builderStates() {
-            return Stream.of(
-                    Arguments.of("previewed", anImportBatch().previewed()),
-                    Arguments.of(
-                            "previewed with errors",
-                            anImportBatch()
-                                    .withRows(row(1, SHARED_ADDRESS, TOMORROW, bareDetails()))
-                                    .previewed()),
-                    Arguments.of(
-                            "confirmed",
-                            anImportBatch()
-                                    .inState(new ImportBatch.State.Confirmed(HALF_AN_HOUR_LATER))
-                                    .restored()),
-                    Arguments.of(
-                            "discarded",
-                            anImportBatch()
-                                    .inState(new ImportBatch.State.Discarded(HALF_AN_HOUR_LATER))
-                                    .restored()),
-                    Arguments.of(
-                            "expired",
-                            anImportBatch()
-                                    .inState(new ImportBatch.State.Expired(inMinutes(60)))
-                                    .restored()));
-        }
-
-        @ParameterizedTest(name = "{0}")
-        @MethodSource("builderStates")
-        void GivenABatchInEachBuilderState_WhenRestoredFromItsSnapshot_ThenItIsTheSame(
-                String state, ImportBatch batch) {
-            assertThat(ImportBatch.restore(batch.snapshot()).snapshot()).isEqualTo(batch.snapshot());
-        }
-
-        private static ImportBatchSnapshot with(List<PreviewRow> rows, Instant previewedAt, ImportBatch.State state) {
-            return new ImportBatchSnapshot(BATCH, HASH, FileEncoding.UTF_8, rows, previewedAt, state, Version.of(1));
-        }
-
-        private static void assertInvalid(ImportBatchSnapshot snapshot, String detail) {
-            assertThatThrownBy(() -> ImportBatch.restore(snapshot))
-                    .isInstanceOfSatisfying(
-                            StoredStateInvalid.class,
-                            invalid -> assertThat(invalid.detail()).isEqualTo(detail));
-        }
-
-        static Stream<Arguments> endedStates() {
-            return Stream.of(
-                    Arguments.of(new ImportBatch.State.Confirmed(HALF_AN_HOUR_LATER)),
-                    Arguments.of(new ImportBatch.State.Discarded(HALF_AN_HOUR_LATER)),
-                    Arguments.of(new ImportBatch.State.Expired(inMinutes(60))));
-        }
-
-        @ParameterizedTest(name = "{0}")
-        @MethodSource("endedStates")
-        void GivenAStoredEndedBatchWithARow_WhenRestored_ThenStoredStateInvalid(ImportBatch.State ended) {
-            assertInvalid(
-                    with(List.of(new PreviewRow(cleanRow(1), List.of())), NOW, ended),
-                    "a confirmed, discarded or expired import keeps a row");
-        }
-
-        static Stream<Arguments> rowsOutOfOrder() {
-            return Stream.of(Arguments.of(2, 2), Arguments.of(3, 1));
-        }
-
-        @ParameterizedTest(name = "rows {0}, then {1}")
-        @MethodSource("rowsOutOfOrder")
-        void GivenStoredRowsNotUniqueAndAscending_WhenRestored_ThenStoredStateInvalid(int first, int second) {
-            assertInvalid(
-                    with(
-                            List.of(
-                                    new PreviewRow(cleanRow(first), List.of()),
-                                    new PreviewRow(cleanRow(second), List.of())),
-                            NOW,
-                            new ImportBatch.State.Previewed()),
-                    "the row numbers are not unique and ascending");
-        }
-
-        @Test
-        void GivenAStoredStateOlderThanThePreview_WhenRestored_ThenStoredStateInvalid() {
-            assertInvalid(
-                    with(List.of(), NOW, new ImportBatch.State.Discarded(NOW.minusSeconds(1))),
-                    "the import's state is older than its preview");
-        }
-
-        @Test
-        void GivenAStoredConfirmationAfterTheHour_WhenRestored_ThenStoredStateInvalid() {
-            assertInvalid(
-                    with(List.of(), NOW, new ImportBatch.State.Confirmed(inMinutes(60))),
-                    "the import was confirmed after its hour");
-        }
+    class StoredRowValues {
 
         @Test
         void GivenAStoredUnreadableRowWithNoError_WhenRebuilt_ThenStoredStateInvalid() {
