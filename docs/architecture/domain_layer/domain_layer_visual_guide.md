@@ -59,7 +59,7 @@ paper, but only the inner one holds working code.
 ```mermaid
 flowchart TB
   subgraph CORE["core (Java): one module per context"]
-    CADP["adapters<br/>absent: no adapter package exists"]
+    CADP["adapters<br/>only the shared persistence adapter exists"]
     CAPP["application: api, spi, port/out, service<br/>declared, not built"]
     CDOM["domain and events<br/>built and tested"]
     CKER["shared: the kernel<br/>and shared/application"]
@@ -89,15 +89,18 @@ An arrow means *depends on*. The sources for each box:
   in `optimizer/application/`. `grep -rn "Built in M5" src/backend` lists one milestone's remaining work.
   The two kernel errors in `shared/application/` (`NotFound`, `StaleVersion`) are complete classes; its
   three ports (`Clock`, `IdGenerator`, `ProcessedEvents`) are interfaces with no implementation.
-- **Absent.** No use case, port or adapter is wired, and there is no `adapter/` package under `core/`.
-  The only Spring annotations are `@SpringBootApplication` on the entry point
-  `core/DispatchFlowApplication.java` and `@RestControllerAdvice` on the one error handler in
-  `core/web/`. The optimizer's only adapter is the liveness probe in `optimizer/adapters/inbound/http/app.py`.
+- **Absent.** No use case or port is wired, and the one adapter under `core/` is the shared persistence
+  adapter, `core/shared/adapter/out/persistence/`, which no repository uses yet. The Spring annotations
+  are `@SpringBootApplication` on the entry point `core/DispatchFlowApplication.java`,
+  `@RestControllerAdvice` on the one error handler in `core/web/`, `@Component` on `VersionedSave`, and
+  Spring Data's `@DomainEvents` and `@AfterDomainEventPublication` on `AggregateRoot`. The shared
+  adapter also carries Jakarta Persistence's `@Converter`, and the kernel's values and `AggregateRoot` carry
+  its mapping annotations ([ADR-126](../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)). The optimizer's only adapter is the liveness probe in `optimizer/adapters/inbound/http/app.py`.
 
 **Dependency direction.** Dependencies point inwards, as DL [§13](domain_layer_design.md#13-inside-each-module-hexagon)
 draws. The rules that keep the domain pure are DL [§2.3](domain_layer_design.md#23-rules-between-contexts)
 and [§3.9](domain_layer_design.md#39-purity), and ArchUnit tests in `core-test/architecture/` fail the
-build when one breaks (`DomainPurityTest`, `DomainShapeTest`, `DomainPackageTest`, `ApplicationTest`). A
+build when one breaks (`DomainPurityTest`, `DomainShapeTest`, `DomainPackageTest`, `ApplicationTest`, `PersistenceTest`). A
 scan of every `import` at this commit finds no file under any `domain/` or `events/` package that imports
 another module. The only cross-module imports are in `application/` packages. In Python,
 import-linter does the same job (`src/backend/optimizer/pyproject.toml`, section `[tool.importlinter]`).
@@ -222,7 +225,7 @@ classDiagram
     version() Version
     raise(type, aggregateId, build) E
     pendingEvents() List
-    savedVersion() Version
+    savedVersion() Optional~Version~
   }
   class Version {
     <<value>>
@@ -298,7 +301,7 @@ classDiagram
 
 How the pieces work together:
 
-- **`AggregateRoot`** (`core/shared/AggregateRoot.java`, 143 lines) is a `@MappedSuperclass` ([ADR-126](../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)). It holds
+- **`AggregateRoot`** (`core/shared/AggregateRoot.java`, 149 lines) is a `@MappedSuperclass` ([ADR-126](../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)). It holds
   the version the aggregate was loaded at and the events its methods raised. A never-saved aggregate has no
   version: `version()` throws `AssertionError` before its first save, and the first save stores 0. The
   field is `storedVersion`, a nullable `Long` that `@Version` maps to the `version` column; it has another
@@ -309,8 +312,11 @@ How the pieces work together:
   exactly the type given or does not carry that ID, because that is a bug and not a refusal. Spring Data
   publishes the recorded events when the port's `save` runs, through the package-private `@DomainEvents`
   method `domainEvents()`, then calls `clearEvents()` (DL [§3.6](domain_layer_design.md#36-repositories)).
-  The `AggregateRoot(Version)` constructor and `savedVersion()` are transitional: the snapshots still carry
-  a version until each lane maps its aggregate, and both go with the last `restore`.
+  `savedVersion()` returns the stored version, or empty before the first save, for a use case that holds an
+  aggregate that may not be stored yet. An aggregate is saved once per transaction, with no flush between two
+  of its changes; the shared `VersionedSave` fails with `AssertionError` otherwise. The `AggregateRoot(Version)`
+  constructor is transitional: the snapshots still carry a version until each lane maps its aggregate, and it
+  goes with the last `restore`.
 - **`EventId`** has a text form, `<eventType>:<aggregateId>:<version>:<ordinal>`, which `toText` writes
   and `parse` reads. Optimistic locking lets one change commit per aggregate and version, so the four
   parts are unique without a random part.
@@ -1875,7 +1881,7 @@ component `CLAUDE.md` files).
 | 9. Planning | `core/planning/domain/plan/SolveJob.java`, `ReoptimizationProposal.java`, then `Plan.java` by section | `planning/domain/plan/SolveJobTest`, `PlanLifecycleTest`, `PlanSequenceTest` |
 | 10. Messaging and reporting | `core/messaging/domain/rating/RatingRequest.java`, `reporting/domain/OnTimeRate.java`, `baseline/Baseline.java` | `messaging/domain/rating/RatingRequestTest`, `reporting/domain/baseline/BaselineTest` |
 | 11. The optimizer | `optimizer/domain/solution.py`, `problem_view.py`, `feasibility.py`, `problem.py`, `factory.py` | `optimizer-test/domain/test_problem.py`, `test_violation_catalogue.py` |
-| 12. The guards | The rules: `core-test/architecture/DomainPurityRules.java`, `DomainShapeRules.java`, `DomainPackageRules.java`, `ApplicationRules.java`, which `DomainPurityTest`, `DomainShapeTest`, `DomainPackageTest` and `ApplicationTest` run over the production classes | `DomainPurityRulesTest`, `DomainShapeRulesTest`, `DomainPackageRulesTest`, `ApplicationRulesTest`: each rule must flag its deliberately wrong fixture in `core-test/archfixture/` |
+| 12. The guards | The rules: `core-test/architecture/DomainPurityRules.java`, `DomainShapeRules.java`, `DomainPackageRules.java`, `ApplicationRules.java`, `PersistenceRules.java`, which `DomainPurityTest`, `DomainShapeTest`, `DomainPackageTest`, `ApplicationTest` and `PersistenceTest` run over the production classes | `DomainPurityRulesTest`, `DomainShapeRulesTest`, `DomainPackageRulesTest`, `ApplicationRulesTest`, `PersistenceRulesTest`: each rule must flag its deliberately wrong fixture in `core-test/archfixture/` |
 | 13. What is next | `core/planning/application/service/plan/RequestSolve.java`, then `grep -rn "Built in M0" src/backend` | none: bodies throw |
 
 After step 4 you can read any other aggregate with the §4 pattern in hand. Step 9 is the longest: `Plan.java`

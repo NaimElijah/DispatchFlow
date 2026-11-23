@@ -121,8 +121,10 @@ src/backend/core/
     db/migration/                  Flyway migrations: none yet
   src/test/java/com/dispatchflow/
     shared/                        the kernel's tests, and DomainAssertions, the refusal helper
-                                   every module's domain tests use; adapter/out/persistence/ holds
-                                   the shared adapter's tests and the test-only entity Ledger
+                                   every module's domain tests use; SaveEvents and StoredVersions,
+                                   the helpers that in-memory fakes and fixtures use to publish
+                                   events and store a version as a save does; adapter/out/persistence/
+                                   holds the shared adapter's tests and the test-only entity Ledger
     architecture/                  the domain purity, shape and package rules, the application
                                    rules and the JPA mapping rules (ArchUnit), and the error-code,
                                    event-name and refusal-test checks
@@ -341,9 +343,10 @@ who may construct a restricted type and what an error or an event may carry. The
 four: no cycle between a module's domain packages, a domain root that imports none of its own
 subpackages, `@NullMarked` on the kernel and on every domain and events package
 ([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)), and no package
-below a module's `api`, `spi` or `events` or below the kernel, except `shared.adapter`
-([ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)). The JPA mapping rules (`PersistenceRules`, [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)) are separate. The rest are
-conventions that review enforces.
+below a module's `api`, `spi` or `events` or below the kernel, except `shared.adapter.out.persistence`
+([ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)). The purity rules also forbid any pure class a dependency on `shared.adapter`. The eight JPA mapping rules
+(`PersistenceRules`, [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)) are
+separate. The rest are conventions that review enforces.
 
 The application rules are ArchUnit tests too, in `ApplicationRules`, numbered in
 [the Javadoc of its rule methods](../../src/backend/core/src/test/java/com/dispatchflow/architecture/ApplicationRules.java); rules 1 to 7 are

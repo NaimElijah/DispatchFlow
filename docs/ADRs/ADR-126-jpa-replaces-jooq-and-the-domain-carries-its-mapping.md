@@ -50,8 +50,8 @@ The forces:
 ## Decision
 
 We replace jOOQ with JPA in the core's persistence adapters, and the domain classes carry their own
-mapping. This amends [ADR-041], [ADR-040], [ADR-097] and [ADR-101] (the list is at the end of this
-section), and extends [ADR-125].
+mapping. This amends [ADR-001], [ADR-040], [ADR-041], [ADR-097], [ADR-101] and [ADR-121] (the list is at
+the end of this section), and extends [ADR-125].
 
 The numbers in parentheses are the owner's 16 decisions of 2026-11-23, in the order of
 [issue #101][ISSUE-101].
@@ -81,12 +81,18 @@ The numbers in parentheses are the owner's 16 decisions of 2026-11-23, in the or
     enum silently corrupts.
 - **A root's key is a private `UUID` (10).** `@Id private UUID id;` with a getter that returns the
   typed ID (`PlanId.of(id)`). No `@GeneratedValue`: IDs come from `IdGenerator` ([DL §3.9][DL-39]
-  rule 3), and Spring Data interfaces are typed `Repository<Plan, UUID>`.
+  rule 3), and Spring Data interfaces are typed `Repository<Plan, UUID>`. A root with a typed ID
+  keys on its value. A singleton keys on a constant `UUID`. A root found by its date keys on a
+  `UUID` beside a date its table keeps unique, so every root has a `UUID` key for the shared
+  version helper to name in a `StaleVersion`.
 - **Classes and collections.** A mapped class is not `final`, its persistent fields are not `final`,
   and it has a protected no-argument constructor for Hibernate. Annotations go on the fields, so no
   setter is added ([DL §3.10][DL-310]).
   - Ordered children use `@OrderColumn`, so no two lists Hibernate fetches are bags
     (`MultipleBagFetchException`).
+  - A position constraint, `UNIQUE(owner, index)` on an `@OrderColumn`, is `DEFERRABLE INITIALLY
+    DEFERRED`. Hibernate rewrites the indexes row by row, so a plain unique constraint fails on an
+    insert and on a removal.
   - Collections inside an aggregate use `cascade = ALL, orphanRemoval = true`.
   - A command never assigns a new collection to a mapped field; it changes the one Hibernate loaded.
 - **Relationships stay inside one aggregate.** Between aggregates and between modules, only IDs
@@ -100,10 +106,16 @@ The numbers in parentheses are the owner's 16 decisions of 2026-11-23, in the or
     `@EmbeddableInstantiatorRegistration`, so the kernel never refers to an adapter class.
   - Both build through `StoredStateInvalid.whileRestoring`, so a stored value that a since-tightened
     rule refuses is an incident, not a refusal.
+  - `TimeWindow`'s two components map to the columns `starts_at` and `ends_at`, because PostgreSQL
+    reserves `end`. An entity that embeds two windows overrides the names of both.
 - **Every entity names its module's schema,** such as `@Table(schema = "planning")` ([ADR-041]). The
-  schema is the module's package name, as [ADR-041] lists them, so an architecture test checks it.
-  That test is how [ADR-040]'s rule that each persistence adapter uses only its own module's schema
-  is checked now that no generated classes exist.
+  schema is the module's package name, as [ADR-041] lists them. An architecture test checks every
+  table an entity maps: its `@Table`, each `@CollectionTable`, each `@JoinTable`, and the default
+  join table of a one-to-many with neither `mappedBy` nor a `@JoinColumn`. A second test checks
+  that a module's adapter uses no other module's `@Entity`. Together they are how [ADR-040]'s rule
+  that each persistence adapter uses only its own module's schema is checked now that no generated
+  classes exist. Neither reads the text of a JPQL or native query, so a query that names another
+  module's schema is for review to catch.
 - **The plan's travel-time matrix** (`bytea`, [TS §6.5][TS-65]) is mapped outside the `Plan` entity,
   in its own table that only the solve path reads, so editing a plan never loads it.
 
@@ -147,18 +159,34 @@ The numbers in parentheses are the owner's 16 decisions of 2026-11-23, in the or
   3. if the version did not move, because only child rows changed, `em.lock(root,
      LockModeType.PESSIMISTIC_FORCE_INCREMENT)` raises it at once. Hibernate 7.4.13 writes it inside
      `lock`, whereas `OPTIMISTIC_FORCE_INCREMENT` waits for the commit;
-  4. Jakarta Persistence's `OptimisticLockException`, which Hibernate throws on a stale `flush`, or
-     Spring's `OptimisticLockingFailureException`, which its repository proxy throws, becomes
-     `StaleVersion` there, inside `save`. The kind is the entity's name and the ID its key, and the
-     exception is kept as the cause.
+  4. a conflict becomes `StaleVersion` there, inside `save`, with the entity's name as its kind,
+     the root's key as its ID, and the exception kept as its cause. A conflict is Jakarta
+     Persistence's `OptimisticLockException`, which Hibernate throws on a stale `flush`, or
+     Spring's `OptimisticLockingFailureException`, which its repository proxy throws. It is also a
+     lock the save can't get: `PessimisticLockException`, `LockTimeoutException` or Spring's
+     `PessimisticLockingFailureException`, because two writers of one aggregate can deadlock or wait
+     on each other, and either way another transaction is changing it. And on a first save only, a
+     unique-constraint violation is one: another transaction stored the same key, or the same unique
+     value, first. A retry then runs the use case against what is stored, and its own rules refuse
+     it if they should. Any other constraint violation passes through, as a bug.
 
   The lock is the row lock any update of the root takes, held until commit. [ADR-057] stands:
   Hibernate issues its `UPDATE … WHERE id = ? AND version = ?`, and only its cost "written by hand
   with jOOQ" goes.
+
+  **An aggregate is saved once per transaction, at the end of its change, with no flush between two
+  of its changes.** Hibernate ignores the forced increment of a root its transaction already wrote,
+  and moves the version at every flush of a change. So a second save, or a query that flushes
+  between two changes, would store a version the events don't carry, and the next change would
+  raise an `EventId` a listener has already processed. The helper throws `AssertionError` when a
+  save leaves the version where it was, or stores a version that one of the pending events doesn't
+  carry.
 - **The use case compares `If-Match` (4),** through `StaleVersion.requireCurrent(kind, id, loaded,
   expected)`, which every use case calls straight after loading. It compares the `If-Match` version,
-  or the version in the body when accepting a proposal ([ADR-121] P31), with the loaded one. `@Version`
-  alone guards only the window between this transaction's load and its commit.
+  or the version in the body when accepting a proposal ([ADR-121] P31), with the loaded one. An
+  overload takes two `Optional<Version>`, for an aggregate that may not be stored yet: it refuses
+  when one is empty and the other is not, and when both are there and differ. `@Version` alone
+  guards only the window between this transaction's load and its commit.
 - **Bookkeeping that [DL §4.1][DL-41] allows to leave the version alone** (a session's contact times)
   is mapped `@OptimisticLock(excluded = true)` and saved through its own port method, which forces
   nothing.
@@ -167,7 +195,9 @@ The numbers in parentheses are the owner's 16 decisions of 2026-11-23, in the or
   no version) and [DL §11][DL-11]'s (listeners, the midnight job) wrap the `@Transactional` call from
   outside it.
 - **The version before a first save.** A never-saved aggregate has no version, and `version()` called
-  before the first save throws `AssertionError`.
+  before the first save throws `AssertionError`. `savedVersion()` is public and returns an
+  `Optional<Version>`, empty before the first save, for a use case that holds an aggregate that may
+  not be stored yet.
   - The views of an aggregate that may not be stored yet (the singletons and a date's roster:
     `RegisterView`, `RosterView`, `MessagingSettingsView`, `PlanningSettingsView` and the queries
     that return them) carry an empty `Optional<Version>` before the first save. The use cases that
@@ -178,7 +208,7 @@ The numbers in parentheses are the owner's 16 decisions of 2026-11-23, in the or
   - A creation's response reads the version after `save`.
 - **Until each lane maps its aggregate,** the snapshot records' `version` is nullable (null until
   the first save), and `AggregateRoot` keeps a transitional constructor that takes a nullable stored
-  `Version`, plus a protected `savedVersion()` for `snapshot()`. Both go with the last `restore`.
+  `Version`. Both go with the last `restore`.
 
 **Events (5).** `AggregateRoot` carries `@DomainEvents` and `@AfterDomainEventPublication`, so Spring
 Data publishes the pending events when a repository method whose name starts with `save` or `delete`
@@ -194,14 +224,16 @@ check a refused call recorded nothing.
 - Events go out inside `save`, before the flush. When the flush or the forced increment fails, the
   transaction rolls back, and Modulith's stored publications with it.
 - The in-memory fakes in the application tests publish the pending events on `save` and clear them,
-  as Spring Data does.
+  as Spring Data does, through a test helper, `SaveEvents.publish`, because the two methods Spring
+  Data calls are package-private.
 
 **Adapters (6).**
 
 - Each persistence adapter implements its port with a package-private Spring Data interface that
   extends `Repository<Root, UUID>` and declares `save` plus only the lookups the port needs, and uses
-  `EntityManager` for `flush` and `lock`. It never extends `JpaRepository`, `CrudRepository` or
-  `ListCrudRepository`, so there is no `saveAll`, `deleteAll` or batch delete.
+  `EntityManager` for `flush` and `lock`. It never extends `JpaRepository`, `CrudRepository`,
+  `ListCrudRepository` or `JpaSpecificationExecutor`, so there is no `saveAll`, `deleteAll`, batch
+  delete or bulk update that passes by `@Version`, `@PostLoad` and the events.
 - `add` and `save` both call the interface's `save`, and `save` then runs the shared version helper.
 - Query ports ([ADR-120]) read into their `View` records with JPQL constructor expressions or native
   queries, never by loading aggregates ([DL §3.6][DL-36]).
@@ -218,33 +250,41 @@ embeddables `TimeWindow`, `GeoPoint` and `DaySeconds`, which carry `@Embeddable`
 `com.dispatchflow.shared.adapter.out.persistence`. A module's own converters and instantiators live
 in its `adapter/out/persistence`.
 
-That package is an adapter, not part of the kernel. The purity rules leave `shared.adapter..` out,
-and [ADR-125] decision 4's guard, which keeps the kernel's packages flat, lets it through. So this
-ADR extends ADR-125: the kernel's one subpackage besides `shared.application` is an adapter.
+That package is an adapter, not part of the kernel. The purity rules leave
+`shared.adapter.out.persistence..` out, and no pure class may depend on any class of `shared.adapter`.
+[ADR-125] decision 4's guard, which keeps the kernel's packages flat, lets that one package through.
+So this ADR extends ADR-125: the kernel's one subpackage besides `shared.application` is an adapter.
+M0 decides how Spring Modulith exposes `shared` (ADR-125, Revisit when), and it also decides how a
+module's adapters reach `shared.adapter.out.persistence`.
 
 **Configuration (12 to 15).**
 
-- **No JDBC batching for now (12).** A plan's stops take about 200 statements, estimated in tens of
-  milliseconds, not measured.
+- **No JDBC batching for now (12).** A new 200-stop plan takes about 400 statements, an `INSERT` and
+  an index `UPDATE` per stop under `@OrderColumn`. That is an estimate, not a measurement.
 - **Spring Modulith's event publication registry stays on JDBC (13)** (`spring-modulith-starter-jdbc`,
   as [TS §6][TS-6] already says), so publication rows stay out of the persistence context that the
   version helper flushes. When Modulith joins the build, its table comes from a Flyway migration that
   copies Modulith's documented PostgreSQL schema, with
   `spring.modulith.events.jdbc.schema-initialization.enabled=false`.
 - **The schema changes only through Flyway (14),** and `spring.jpa.hibernate.ddl-auto` is `validate`
-  in every profile, never `create` or `update` ([ADR-041]). `validate` checks the mapping against
-  the migrated schema at startup.
+  in every profile that connects to a database, so Hibernate checks the mapping against the migrated
+  schema at startup ([ADR-041]). The schema-draft profile connects to none and sets `none`, because
+  `validate` needs a database. No profile sets `create` or `update`.
 - **A `just` recipe writes a draft (15).** `just core-schema-draft` writes the DDL Hibernate would
   generate for the current mapping to `src/backend/core/target/schema-draft.sql`, through a
   `schema-draft` profile that sets `jakarta.persistence.schema-generation.scripts.action=create`
   and `…scripts.create-target`, with `jakarta.persistence.schema-generation.database.action=none`.
   It also creates each module's schema (`jakarta.persistence.create-database-schemas=true`), so the
   draft names the schemas its first migration must create. It opens no database connection, so
-  Hibernate reads no database metadata and the profile names the PostgreSQL dialect itself. A
+  Hibernate reads no database metadata, and the profile names the PostgreSQL dialect and major
+  version 18 itself. A
   developer copies what they need into a new migration and adds the indexes, constraints and grants
   by hand.
-- **No SQL or bind-value logging in any profile:** `spring.jpa.show-sql=false`, and no logging
-  configured for `org.hibernate.orm.jdbc.bind`. Bind values hold personal data ([NFR-19]).
+- **No SQL, bind-value or error-detail logging in any profile:** `spring.jpa.show-sql=false`, no
+  logging configured for `org.hibernate.orm.jdbc.bind`, and
+  `spring.datasource.hikari.data-source-properties.logServerErrorDetail=false`. Bind values hold
+  personal data ([NFR-19]), and PostgreSQL's error detail quotes the failing row, which Hibernate
+  logs at `WARN` with every SQL error.
 
 **What the domain and the kernel may carry (the exception to [DL §3.9][DL-39] rule 1).**
 
@@ -255,18 +295,23 @@ ADR extends ADR-125: the kernel's one subpackage besides `shared.application` is
 
 Annotations only: no `EntityManager`, Spring or Hibernate call. Never in an `events` package. This
 is a deliberate exception to "the domain never imports frameworks", and the architecture tests allow
-those annotation types and no others from those packages.
+those annotation types, and the enums the Jakarta Persistence annotations take as values (such as
+`EnumType`, or the `LockModeType` of `@NamedQuery`), and nothing else from those packages.
 
-**Architecture tests.** The rules are in a new `PersistenceRules`, each with a deliberately wrong
-fixture:
+**Architecture tests.** The eight rules are in a new `PersistenceRules`, each with a deliberately
+wrong fixture:
 
-- no entity relationship to another aggregate or module;
-- no class other than `AggregateRoot` declares `@Version`;
-- every enum attribute is `@Enumerated(EnumType.STRING)`;
+- relationships stay inside one aggregate: no root relates to another root, a child refers back
+  only to its own root, no entity is reached from two roots, and none is in another module;
+- no class other than `AggregateRoot` declares `@Version`, on a field or a method;
+- every enum attribute is stored by name: `@Enumerated(EnumType.STRING)`, and
+  `@MapKeyEnumerated(STRING)` for an enum map key;
 - every `@Entity` that extends `AggregateRoot` declares a `@PostLoad` method;
 - no `@GeneratedValue`;
-- no interface extends `CrudRepository`, `ListCrudRepository` or `JpaRepository`;
-- every `@Entity` in a module names that module's schema in its `@Table`.
+- no interface extends `CrudRepository`, `ListCrudRepository`, `JpaRepository` or
+  `JpaSpecificationExecutor`;
+- every table an entity maps is in its module's schema (the tables listed under the mapping above);
+- a module's adapter uses no other module's `@Entity`.
 
 `DomainShapeRules`' rule that a root's constructors are private allows the protected no-argument
 constructor Hibernate needs. One more rule waits for the change that maps the last of the 20 roots:
@@ -275,22 +320,35 @@ every subclass of `AggregateRoot` is an `@Entity`.
 **Tests.**
 
 - The version helper is tested against the Testcontainers PostgreSQL, on a test-only aggregate with
-  one child entity under `src/test`. A created aggregate is stored at 0 with its events at 0. A
-  change to the root, a change to a child only, and both together each move the version by exactly
-  1. A conflict ends in `StaleVersion`, for a change to the root and for a change to a child only:
-  transaction A loads, a `REQUIRES_NEW` transaction B loads, changes and commits, and A changes and
-  saves, on one thread with no `sleep`. The events are published on `save`, and a listener bound to
-  the commit never sees those of a save that fails. The kernel's converters and embeddables are
-  stored and read back on the same aggregate, against `ddl-auto=validate`.
+  one child entity under `src/test`, in 20 tests that prove:
+  - a created aggregate is stored at 0 with its events at 0, and a change to the root, to a child
+    only, to a child's list, and to both each move the version by exactly 1, as does a save with
+    nothing changed;
+  - a conflict ends in `StaleVersion`, for a change to the root and for a change to a child only:
+    transaction A loads, a `REQUIRES_NEW` transaction B loads, changes and commits, and A changes
+    and saves, on one thread with no `sleep`. So does a save of an aggregate loaded in an earlier
+    transaction, a save that times out on a row lock another transaction holds, and a first save
+    that loses a race on the same key, after which the first stands;
+  - the events are published on `save`, and a listener bound to the commit never sees those of a
+    save that fails;
+  - a query that flushes between two changes makes the save fail loudly, with nothing stored;
+  - a row the database refuses reaches neither the error nor the log with its values;
+  - the kernel's converters and embeddables are stored and read back on the same aggregate, against
+    `ddl-auto=validate`, and a stored blank name, a window that ends before it starts and a due time
+    before the day are each refused when loaded.
 - Its table, in its own schema `persistence_fixture`, comes from a test-only migration `V0_1__…` in
   `src/test/resources/db/fixture/`. Migration versions `V0_*` are reserved for test fixtures, so a
   real migration never collides with one. A test configuration, which the integration tests and
   `just core-run` both load, adds that location to Flyway's and keeps the ArchUnit fixtures out of
   Hibernate's scan.
+- Two public test helpers serve the fixtures and the in-memory fakes: `SaveEvents.publish` and
+  `StoredVersions.afterSave`.
 - Every lane's repository adds one conflict test through its port, built the same way.
 
 **What this amends.**
 
+- **[ADR-001]:** its rule that the domain imports no framework now has this ADR's exception for
+  persistence annotations. DDD with ports and adapters stands.
 - **[ADR-041]:** JPA replaces jOOQ. The rest stands: one PostgreSQL schema per module, Flyway the only
   way to change the schema, the two database roles, the one-shot `migrate` step and the audit purge
   function. Code generation, its plugin and the generated code's place in the build go with jOOQ.
@@ -301,6 +359,10 @@ every subclass of `AggregateRoot` is an `@Entity`.
   by the `@PostLoad` check and the converters.
 - **[ADR-101], decision 38:** a command checks the state it leaves after changing it in place,
   against the same invariants `@PostLoad` checks, and a break there stays a bug, not a refusal.
+- **[ADR-121], P31:** the company profile's first save is no longer the only one that sends
+  `If-None-Match: *`. The first change of every aggregate that may not be stored yet, the
+  singletons and a date's roster, sends it, and the use case takes an `Optional<Version>` that is
+  empty then.
 
 **What the accepted ADRs that name jOOQ in passing say now.** They stand as written:
 
@@ -342,6 +404,10 @@ every subclass of `AggregateRoot` is an `@Entity`.
   has an adapter test against the real database for that reason.
 - **Hard:** a view of an aggregate that may not be stored yet carries an `Optional<Version>`, and a
   use case that creates it takes one.
+- **Hard:** an aggregate is saved once per transaction, with no flush between two of its changes. A
+  use case that saves twice, or queries between two changes, fails with `AssertionError`.
+- **Hard:** a position constraint must be `DEFERRABLE INITIALLY DEFERRED`, which the migration
+  writes by hand, as it does the partial unique indexes.
 - **Cost:** all 20 roots are mapped, one lane at a time, each removing `final` from its classes,
   turning its record children into entities and replacing its `restore` with `@PostLoad`. Up to then
   the transitional constructor and the nullable snapshot version stay.
@@ -349,8 +415,8 @@ every subclass of `AggregateRoot` is an `@Entity`.
   change with the kernel.
 - **Cost:** a save that changes only child rows takes one more statement and holds a row lock on
   the root until commit.
-- **Cost:** a plan's stops are written without batching, about 200 statements, estimated in tens of
-  milliseconds and not measured.
+- **Cost:** a new plan's stops are written without batching, about 400 statements for 200 stops,
+  estimated and not measured.
 - **Cost:** the documents that decide the design change with this ADR: `tech_stack.md`,
   `domain_layer_design.md`, `requirements.md` and `roadmap.md`. The documents that describe the code
   as built change with the code.
@@ -363,6 +429,9 @@ every subclass of `AggregateRoot` is an `@Entity`.
 - **Risk:** `just core-schema-draft` is a draft. It does not write the partial unique indexes, the
   `CHECK` constraints or the grants, so a migration copied from it as it is lacks what the rules
   rely on ([BR-34], [BR-38]).
+- **Risk:** the schema rule checks the tables an entity maps, and that an adapter uses no other
+  module's entity. A JPQL or native query whose text names another module's schema is not checked,
+  so review checks it.
 
 ## Alternatives considered
 
@@ -373,12 +442,16 @@ every subclass of `AggregateRoot` is an `@Entity`.
   Rejected (decision 1): it doubles the classes and adds a mapper per aggregate, which is what
   [ADR-041] turned JPA down for.
 - **Spring Data JDBC.** Rejected, for [ADR-041]'s reason: it saves a changed collection by deleting
-  and reinserting every child row, so every edit would rewrite a 200-stop plan.
+  and reinserting every child row, so every edit would rewrite a 200-stop plan. Revisit when a
+  measured 200-stop plan shows that JPA's writes of its child rows cost more than Spring Data
+  JDBC's would.
 - **MyBatis and `JdbcTemplate`.** Still rejected, for [ADR-041]'s reasons: SQL in XML with no
-  compile-time checking, and no type safety across the tables.
-- **`JpaRepository`, `CrudRepository` or `ListCrudRepository`** for the adapters. Rejected (decision
-  6): they bring `saveAll`, `deleteAll` and batch deletes, which no aggregate needs. An adapter
-  declares only the methods its port needs.
+  compile-time checking, and no type safety across the tables. Revisit when native queries, with
+  their adapter tests, can no longer carry a read or a write that JPA can't.
+- **`JpaRepository`, `CrudRepository`, `ListCrudRepository` or `JpaSpecificationExecutor`** for the
+  adapters. Rejected (decision 6): they bring `saveAll`, `deleteAll`, batch deletes and bulk
+  updates, which no aggregate needs. An adapter declares only the methods its port needs. Revisit
+  when an aggregate needs a batch delete that one native `DELETE` can't serve.
 - **Not adopted, each with the trigger that would reopen it (16):**
 
 | Feature | Why not | Revisit when |
@@ -391,7 +464,7 @@ every subclass of `AggregateRoot` is an `@Entity`.
 | Bytecode enhancement | Another plugin rewriting the domain classes, beside Error Prone, NullAway and JaCoCo, for nothing that needs it: each transaction loads one aggregate, and the plan's matrix is mapped outside `Plan` | A large column must live on an aggregate's own row and slows its loads |
 | Spring Modulith's JPA publication registry | Its publications would become entities Hibernate tracks and flushes with our aggregates. The JDBC registry runs in the same transaction without that | The M0 test shows the JDBC registry doesn't commit or roll back together with the JPA change |
 | `ddl-auto` set to `create` or `update` | `create` wipes the data. `update` only adds: it never renames or drops, and it can't write partial indexes, `CHECK` constraints, grants, functions or data migrations. The core's `app` role owns no table anyway | We drop Flyway |
-| JDBC batching | About 200 statements for a plan's stops, estimated in tens of milliseconds, not measured | [TS §17.4][TS-174]'s measurement shows writes matter |
+| JDBC batching | About 400 statements for a new plan's 200 stops, an `INSERT` and an index `UPDATE` per stop, estimated, not measured | [TS §17.4][TS-174]'s measurement shows writes matter |
 
 ## Revisit when
 
@@ -402,6 +475,7 @@ every subclass of `AggregateRoot` is an `@Entity`.
   in the domain. Then reconsider a second set of entity classes for that aggregate.
 
 [ISSUE-101]: https://github.com/NaimElijah/DispatchFlow/issues/101
+[ADR-001]: ADR-001-domain-driven-design-with-hexagonal-architecture.md
 [ADR-040]: ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md
 [ADR-041]: ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md
 [ADR-047]: ADR-047-images-pinned-by-digest-and-core-on-temurin-25-jre.md

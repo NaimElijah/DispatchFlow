@@ -7,7 +7,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | ADR | Decision | Status |
 |---|---|---|
 | **Architecture** | | |
-| [ADR-001](ADR-001-domain-driven-design-with-hexagonal-architecture.md) | Domain-driven design, with every service built as ports and adapters | Accepted; amended by ADR-040 |
+| [ADR-001](ADR-001-domain-driven-design-with-hexagonal-architecture.md) | Domain-driven design, with every service built as ports and adapters | Accepted; amended by ADR-040 and ADR-126 |
 | [ADR-002](ADR-002-core-backend-and-separate-optimization-service.md) | A Java core backend and a separate Python optimization service | Accepted; amended by ADR-038 |
 | [ADR-003](ADR-003-dispatcher-console-and-driver-app.md) | Two clients: a React web app and a React Native phone app | Superseded by ADR-035 |
 | [ADR-004](ADR-004-pluggable-solver-port.md) | Every solver behind one solver port | Accepted; extended by ADR-029; amended by ADR-044 |
@@ -32,7 +32,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-111](ADR-111-attempt-is-a-shared-kernel-value-and-names-and-addresses-drop-invisible-fillers.md) | Attempt is a shared-kernel value, and names and addresses drop invisible fillers | Accepted |
 | [ADR-119](ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md) | The application layer is declared ahead of its milestones, as signatures whose bodies throw | Accepted; amended by ADR-121 |
 | [ADR-120](ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md) | The application layer takes an Actor and a CallContext, keeps its shared ports in shared.application, and reads through query ports | Accepted; extended by ADR-125; amended by ADR-121 |
-| [ADR-121](ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md) | The application skeleton's review settles its seams, its conflicts, its retention and its scoring inputs | Accepted |
+| [ADR-121](ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md) | The application skeleton's review settles its seams, its conflicts, its retention and its scoring inputs | Accepted; amended by ADR-126 |
 | [ADR-041](ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md) | Each module owns a PostgreSQL schema, read and written through jOOQ by a role that owns no table | Accepted; amended by ADR-126 |
 | [ADR-126](ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) | JPA replaces jOOQ in the core, and the domain classes carry their own mapping | Accepted |
 | [ADR-043](ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md) | Code is generated from both contracts on both sides, and errors are RFC 9457 Problem Details | Accepted; extended by ADR-068, ADR-073, ADR-087 and ADR-094; amended by ADR-123 |

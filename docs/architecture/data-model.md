@@ -2,11 +2,12 @@
 
 No data model exists in code today. `src/backend/core/src/main/resources/db/migration/` holds
 only a `.gitkeep`, so the database has no table, and `core` has no JPA entity in `src/main`
-([code-structure.md](code-structure.md#srcbackendcore)). The one entity and table in the repository
-are a test fixture: `Ledger` and `LedgerEntry` in `src/test`, and the migration
+([code-structure.md](code-structure.md#srcbackendcore)). The one entity with a table in the repository
+is a test fixture: `Ledger` with `LedgerEntry` in `src/test`, and the migration
 `src/test/resources/db/fixture/V0_1__persistence_fixture.sql`, which creates the schema
 `persistence_fixture` and which only the tests run
-([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)).
+([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)). The `@Entity`
+classes under `archfixture/` are deliberately wrong fixtures for the mapping rules, and no schema maps them.
 
 The decided design is the domain document, the tech stack and the ADRs: see
 [domain layer design §2.3](domain_layer/domain_layer_design.md#23-rules-between-contexts) (each

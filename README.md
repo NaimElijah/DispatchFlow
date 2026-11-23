@@ -166,7 +166,8 @@ not in the code yet).
 This table is what the code uses today. [tech_stack.md](docs/architecture/tech_stack.md) decides
 the stack for the Alpha and after, and ADR-038 to ADR-047 (Accepted, in the
 [ADR index](docs/ADRs/README.md)) record where it departs from today's: Spring Modulith, pnpm
-and mise. None of it is in the tree yet; each change lands with the milestone that needs it. ADR-038's Java 25 is already in the tree, and
+and mise. None of it is in the tree yet; each change lands with the milestone that needs it.
+ADR-038's Java 25 is already in the tree, and
 [ADR-123](docs/ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md)
 keeps the layout and renames three components, which the tree already uses.
 
@@ -228,7 +229,7 @@ comments. The rules apply to people and to coding assistants alike.
 | Layer | Covers | Command |
 |---|---|---|
 | Core unit (`*Test`) | Domain and use cases, no I/O. Today: the shared kernel's values, the eight modules' domains, the ArchUnit rules (purity, shape, package structure, the application layer's shape and the JPA mapping) and the web error handler; every use case is declared and none is built, so none has a behaviour test yet | `just core-check` |
-| Core integration (`*IT`) | Against a real PostgreSQL in a container. Today: the application starts, and the shared version helper saves a test-only aggregate | `just core-check` |
+| Core integration (`*IT`) | Against a real PostgreSQL in a container. Today: the application starts, and the shared version helper's saves, conflicts and storing of the kernel's values are checked on a test-only aggregate | `just core-check` |
 | Optimizer | The domain (the validator's crafted-violation catalogue, Hypothesis properties, Solomon best-known solutions accepted), the HTTP adapter, the dependency boundary and import-linter | `just optimizer-check` |
 | Research | Its environment: the optimizer and PyVRP are installed | `just research-check` |
 | Web app | Components in jsdom (Vitest + Testing Library) | `just web-check` |

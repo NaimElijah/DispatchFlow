@@ -42,9 +42,11 @@ today.
 | `research` (`src/research`) | Python, uv; never deployed | Installs `optimizer` and PyVRP in one environment, and imports neither yet: `tests/test_environment.py` only checks that both can be found. `benchmark/`, `simulation/`, `generator/`, `instances/` and `results/` hold only `.gitkeep` |
 
 `core` has no controller, entity or Flyway migration in `src/main`: `src/main/resources/db/migration/`
-holds only a `.gitkeep`. `src/test` holds one test-only entity, `Ledger` with its child `LedgerEntry`,
-and the test-only migration `src/test/resources/db/fixture/V0_1__persistence_fixture.sql`, which only
-the version helper's tests run ([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)). `optimizer`'s `solvers` folders hold only `.gitkeep`; its `domain` holds the
+holds only a `.gitkeep`. `src/test` holds one entity that has a table, `Ledger` with its child
+`LedgerEntry`, and the test-only migration `src/test/resources/db/fixture/V0_1__persistence_fixture.sql`, which only
+the version helper's tests run ([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)).
+The `@Entity` classes under `archfixture/` are deliberately wrong fixtures for the mapping rules, and no schema
+maps them. `optimizer`'s `solvers` folders hold only `.gitkeep`; its `domain` holds the
 domain for daily solves and re-optimizations
 ([ADR-098](../ADRs/ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) fixes its
 numbers), and its `application` package declares the `Solver` port, the registry, the requests and
@@ -127,7 +129,7 @@ have a `Dockerfile`, and neither runs as root
   module's `domain` and `events` packages, the shape rules for restricted types, errors and events,
   and the package rules: no cycle between a module's domain packages, a domain root that imports
   none of its own subpackages, `@NullMarked` on the kernel and on every domain and events package,
-  and no package below a module's `api`, `spi` or `events` or below the kernel, except `shared.adapter`
+  and no package below a module's `api`, `spi` or `events` or below the kernel, except `shared.adapter.out.persistence`
   (`src/test/java/com/dispatchflow/architecture/`, [ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md),
   [ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)).
   The application rules there are listed in [`ApplicationRules`](../../src/backend/core/src/test/java/com/dispatchflow/architecture/ApplicationRules.java);
@@ -135,10 +137,11 @@ have a `Dockerfile`, and neither runs as root
   decision 10, with rule 4 extended and rule 8 added by [ADR-121](../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md),
   and rule 7 widened to every application package by [ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md).
   The purity rules also allow the persistence annotations that [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) lists in the domain and the
-  kernel, and `PersistenceRules` checks how the domain is mapped: no relationship to another aggregate or
-  module, `@Version` only on `AggregateRoot`, every enum stored by name, a `@PostLoad` check on every
-  entity root, no `@GeneratedValue`, no Spring Data interface wider than its port needs, and every entity
-  in its module's schema. They fire on deliberately wrong fixtures, and need no mapped class to exist.
+  kernel, and `PersistenceRules` has eight rules on how the domain is mapped: relationships only inside
+  one aggregate, `@Version` only on `AggregateRoot`, every enum stored by name, a `@PostLoad` check on
+  every entity root, no `@GeneratedValue`, no Spring Data interface wider than its port needs, every mapped
+  table in its module's schema, and no adapter that uses another module's entity. They fire on
+  deliberately wrong fixtures, and need no mapped class to exist.
   The other dependency rules are enforced by review.
 - **Every solver sits behind one `Solver` port** and is chosen by name
   ([ADR-004](../ADRs/ADR-004-pluggable-solver-port.md), amended by
@@ -175,8 +178,8 @@ the ADRs:
   [ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md) (a
   Spring Modulith monolith, one module per context) and
   [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md) (a
-  schema per module, with its persistence amended to JPA by [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)) give the target shape. Apart from that Java 25, none of them is
-  in the tree yet. ADR-039 and ADR-042 to ADR-047 record the other tooling, contract, solver-port, token
+  schema per module, with its persistence amended to JPA by [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)) give the target shape. Apart from that Java 25 and ADR-126's shared
+  persistence adapter and kernel mapping, none of them is in the tree yet. ADR-039 and ADR-042 to ADR-047 record the other tooling, contract, solver-port, token
   and image decisions, and ADR-048 onward the rest.
 - [Roadmap](../roadmap.md#2-milestones): the milestones and dates.
 

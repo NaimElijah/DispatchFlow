@@ -1,6 +1,6 @@
 # ADR-001: Domain-driven design, with every service built as ports and adapters
 
-- **Status:** Accepted; amended by ADR-040
+- **Status:** Accepted; amended by ADR-040 and ADR-126
 - **Date:** 2026-10-30
 
 ## Context

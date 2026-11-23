@@ -114,7 +114,7 @@ Rules every module follows:
 | Where | Tool | Status | What it checks | Why now, or why later |
 |---|---|---|---|---|
 | Core | **Spring Modulith** `ApplicationModules.verify()` | Decided ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)) · Alpha | No cycles between modules; modules use only each other's exposed API | It catches the most expensive mistake (a cycle), and it's one test |
-| Core | **ArchUnit** | Decided ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md), [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)) · Alpha | The six purity rules of the domain document (§3.9): domain packages import only the JDK, the shared kernel, their own domain, their own module's `events`, pure libraries and the persistence annotations of ADR-126 (never in an `events` package); no clock, no `UUID.randomUUID()`, no randomness or I/O; no generic exceptions for business rules; only Hibernate rebuilds an aggregate, and the lock-read snapshot factories are the one other exception. The persistence rules: no entity relationship to another aggregate or module, `@Version` only on `AggregateRoot`, every enum stored as a string, a `@PostLoad` check on every root, no `@GeneratedValue`, no interface that extends `CrudRepository`, `ListCrudRepository` or `JpaRepository`, and every entity in its own module's schema, which is how each persistence adapter is kept to that schema. Also: the application layer takes only `@Transactional` from Spring | A few rules keep the domain pure from day one. The package layout is the convention, so no annotation is needed. **Over jMolecules' hexagonal rules:** they check the same layering, at the price of annotating every type, and the package names already say it |
+| Core | **ArchUnit** | Decided ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md), [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)) · Alpha | The six purity rules of the domain document (§3.9): domain packages import only the JDK, the shared kernel, their own domain, their own module's `events`, pure libraries and the persistence annotations of ADR-126 (never in an `events` package); no clock, no `UUID.randomUUID()`, no randomness or I/O; no generic exceptions for business rules; only Hibernate rebuilds an aggregate, and the lock-read snapshot factories are the one other exception. The eight persistence rules: relationships only inside one aggregate, `@Version` only on `AggregateRoot`, every enum stored by name, a `@PostLoad` check on every root, no `@GeneratedValue`, no interface that extends `CrudRepository`, `ListCrudRepository`, `JpaRepository` or `JpaSpecificationExecutor`, every mapped table in its module's schema, and no adapter that uses another module's entity, which is how each persistence adapter is kept to its own schema. Also: the application layer takes only `@Transactional` from Spring | A few rules keep the domain pure from day one. The package layout is the convention, so no annotation is needed. **Over jMolecules' hexagonal rules:** they check the same layering, at the price of annotating every type, and the package names already say it |
 | Core | **Error Prone + NullAway**, with JSpecify annotations (as Spring Framework 7 uses) | Decided ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)) · Jan | Null safety at compile time | Error Prone needs JDK compiler flags that are a common source of build trouble. Added after the Alpha, in warning mode first, then as errors |
 | Optimizer, research | **import-linter** | Decided ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)) · Alpha | Layers; the domain imports no `fastapi`, `pydantic`, `ortools`, `pyvrp` or `numba`; product adapters never import `pyvrp` (FR-286) | Cheap, and it keeps PyVRP out of the product from the first commit |
 | Optimizer, research | **mypy** (strict) | Decided ([ADR-011](../ADRs/ADR-011-python-tooling-uv-ruff-mypy-pytest.md)) · Alpha | Types | Cheapest when the code is new |
@@ -291,40 +291,30 @@ The domain document's §3 is the full set of rules. In Java they come down to th
 ### 6.3 Persistence
 
 **JPA in the persistence adapters**: Hibernate through Spring Data JPA, with the mapping on the domain
-classes themselves ([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)),
-one PostgreSQL schema per module. Every entity names its module's schema (`@Table(schema = …)`), and
-relationships stay inside one aggregate: between aggregates and between modules there are only IDs.
-Reporting reads the read-only views other modules publish.
+classes themselves ([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)), one PostgreSQL schema per module. Every entity names its module's
+schema (`@Table(schema = …)`), and relationships stay inside one aggregate: between aggregates and
+between modules there are only IDs. Reporting reads the read-only views other modules publish.
 
-Flyway is the only way the schema changes. `spring.jpa.hibernate.ddl-auto` is `validate` in every
-profile, so Hibernate checks the mapping against the migrated schema at startup and never changes it.
-`just core-schema-draft` writes the DDL Hibernate would generate to
+Flyway is the only way the schema changes. `spring.jpa.hibernate.ddl-auto` is `validate` in every profile
+that connects to a database, so Hibernate checks the mapping against the migrated schema at startup and
+never changes it; the profile of `just core-schema-draft` connects to none and sets `none`, and no profile
+sets `create` or `update`. `just core-schema-draft` writes the DDL Hibernate would generate to
 `src/backend/core/target/schema-draft.sql`, without a database connection, as a draft for a migration.
 
 - **Adapters:** each one implements its port with a package-private Spring Data
-  `Repository<Root, UUID>` interface that declares `save` and the lookups the port needs, and uses
-  `EntityManager` for `flush` and `lock`; never `JpaRepository`, `CrudRepository` or
-  `ListCrudRepository`. Query ports read into view records with JPQL constructor expressions or native
-  queries. PostgreSQL-specific SQL is a native query, each with an adapter test against the
+  `Repository<Root, UUID>` interface, never `JpaRepository`, `CrudRepository`, `ListCrudRepository` or
+  `JpaSpecificationExecutor`. Query ports read into view records with JPQL constructor expressions or
+  native queries, and PostgreSQL-specific SQL is a native query with an adapter test against the
   Testcontainers PostgreSQL. No JDBC batching for now.
-- **Optimistic locking:** `@Version` on `AggregateRoot`, so every root has one and child tables carry
-  none. Hibernate issues `UPDATE … WHERE id = ? AND version = ?`; zero rows updated means the change is
-  out of date (BR-76). A first save stores version 0, and every save moves the root's version by exactly
-  1: one shared helper in `shared/adapter/out/persistence` flushes, and forces an increment when only
-  child rows changed. A conflict becomes `StaleVersion` inside `save`. The use case compares the
-  `If-Match` version with the loaded one through `StaleVersion.requireCurrent`, and a retry re-runs the
-  whole use case in a new transaction.
-- **Loading an aggregate whole:** with `open-in-view=false`, each repository's `get` loads the root with
-  all its collections inside the transaction, through an entity graph or fetch joins, split into
-  separate queries where several collections would multiply the rows. A `@PostLoad` check on the root
-  runs the at-rest invariants and throws `StoredStateInvalid`. A command changes the loaded entities in
-  place and checks the same invariants at its end. The plan's travel-time matrix is mapped in its own
-  table, outside `Plan`, so editing a plan never loads it.
-- **Events:** Spring Data publishes an aggregate's events when the port's `save` or `add` runs, and
-  Spring Modulith's event publication registry, which stays on JDBC, stores them in the same
-  transaction. Its table comes from a Flyway migration.
-- **Logging:** SQL and bind-value logging stay off in every profile, because bind values hold personal
-  data (NFR-19).
+- **How aggregates are mapped, versioned, loaded and saved** (optimistic locking by `@Version`, the shared
+  save helper, the `@PostLoad` check, retries) is in [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) and in the domain document's
+  [§3.5](domain_layer/domain_layer_design.md#35-factories),
+  [§3.6](domain_layer/domain_layer_design.md#36-repositories) and
+  [§11](domain_layer/domain_layer_design.md#11-concurrency); this document names only the tools.
+- **Event publication:** Spring Modulith's event publication registry stays on JDBC, so its rows stay out of
+  Hibernate's persistence context. Its table comes from a Flyway migration.
+- **Logging:** SQL, bind values and the driver's error detail stay out of the logs in every profile,
+  because they hold personal data (NFR-19).
 - **Constraints in the schema:** a partial unique index for one plan per date (BR-34); unique emails after
   normalizing (BR-45); unique keys on outgoing messages (NFR-191).
 - **Types:** `timestamptz` for instants, `date` and `time` for Israel-local values; the database session
