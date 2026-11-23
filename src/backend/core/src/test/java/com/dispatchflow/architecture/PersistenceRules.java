@@ -154,8 +154,28 @@ final class PersistenceRules {
     }
 
     /**
-     * Every entity root declares its own {@code @PostLoad} check, which runs the invariants its
-     * {@code restore} used to and throws {@code StoredStateInvalid}.
+     * Every aggregate root is an entity, so Hibernate stores and rebuilds every one: none is left
+     * for a mapper or a {@code restore} (ADR-126).
+     */
+    static ArchRule everyAggregateIsAnEntity(String root) {
+        return classes()
+                .that()
+                .resideInAPackage(root + "..")
+                .should(new ArchCondition<JavaClass>("be an @Entity when an aggregate root") {
+                    @Override
+                    public void check(JavaClass item, ConditionEvents events) {
+                        if (RestrictedTypes.isAggregate(item) && !item.isAnnotatedWith(Entity.class)) {
+                            events.add(SimpleConditionEvent.violated(
+                                    item, item.getName() + " is an aggregate root that is not an @Entity"));
+                        }
+                    }
+                })
+                .because("ADR-126: Hibernate alone stores and rebuilds an aggregate");
+    }
+
+    /**
+     * Every entity root declares its own {@code @PostLoad} check, which runs the invariants at rest
+     * and throws {@code StoredStateInvalid}.
      */
     static ArchRule everyEntityRootChecksWhatItLoads(String root) {
         return classes()
