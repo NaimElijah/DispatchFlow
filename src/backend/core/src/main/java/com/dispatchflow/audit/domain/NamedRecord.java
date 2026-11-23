@@ -14,6 +14,9 @@ import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.SessionId;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.VehicleId;
+import jakarta.persistence.Embeddable;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -23,10 +26,16 @@ import java.util.UUID;
  * which keeps the kind matched to the ID. The canonical constructor is for the persistence adapter,
  * which rebuilds a stored one, and it doesn't check that the kind matches the ID (ADR-110).
  *
+ * <p>An audit record's stored row keeps each one in a row of its own, an element of its ordered
+ * collection (ADR-127 decision 6). The constructor only checks that both parts are present, which
+ * the table's {@code NOT NULL} columns keep, so Hibernate builds it through the canonical
+ * constructor and no instantiator is registered for it.
+ *
  * @param kind what the ID names
  * @param id the named thing's UUID
  */
-public record NamedRecord(RecordKind kind, UUID id) {
+@Embeddable
+public record NamedRecord(@Enumerated(EnumType.STRING) RecordKind kind, UUID id) {
 
     /** Checks both are present. */
     public NamedRecord {
