@@ -51,8 +51,7 @@ import org.springframework.data.repository.ListCrudRepository;
  * The rules on how the domain is mapped for JPA (ADR-126), built for a root package. {@code
  * com.dispatchflow} checks production code; {@code com.dispatchflow.archfixture} checks the fixtures
  * that prove each rule fires. Each looks at every class under the root, so a module added later is
- * covered without editing a rule, and none needs a mapped class to exist before the first lane maps
- * its aggregate.
+ * covered without editing a rule.
  */
 final class PersistenceRules {
 
@@ -219,24 +218,28 @@ final class PersistenceRules {
 
     /**
      * No interface extends {@code CrudRepository}, {@code ListCrudRepository}, {@code JpaRepository}
-     * or {@code JpaSpecificationExecutor}: an adapter declares only {@code save} and the lookups its
-     * port needs, and no bulk update or delete passes by {@code @Version}, {@code @PostLoad} and the
-     * events.
+     * or {@code JpaSpecificationExecutor}, so no adapter inherits a bulk method that passes by {@code
+     * @Version}, {@code @PostLoad} and the events. It doesn't check the writes an adapter declares
+     * itself, with or without {@code @Modifying}: a native statement such as a session's revocation
+     * or a retention delete, or a derived {@code deleteBy…}. Each is its port's own, and review
+     * checks it against ADR-126.
      */
     static ArchRule noRepositoryOffersMoreThanItsPortNeeds(String root) {
         return classes()
                 .that()
                 .resideInAPackage(root + "..")
-                .should(new ArchCondition<JavaClass>("not extend CrudRepository, ListCrudRepository or JpaRepository") {
-                    @Override
-                    public void check(JavaClass item, ConditionEvents events) {
-                        WIDE_REPOSITORIES.stream()
-                                .filter(item::isAssignableTo)
-                                .findFirst()
-                                .ifPresent(wide -> events.add(SimpleConditionEvent.violated(
-                                        item, item.getName() + " extends " + wide.getSimpleName())));
-                    }
-                })
+                .should(
+                        new ArchCondition<JavaClass>(
+                                "not extend CrudRepository, ListCrudRepository, JpaRepository or JpaSpecificationExecutor") {
+                            @Override
+                            public void check(JavaClass item, ConditionEvents events) {
+                                WIDE_REPOSITORIES.stream()
+                                        .filter(item::isAssignableTo)
+                                        .findFirst()
+                                        .ifPresent(wide -> events.add(SimpleConditionEvent.violated(
+                                                item, item.getName() + " extends " + wide.getSimpleName())));
+                            }
+                        })
                 .because("ADR-126 decision 6: no saveAll, deleteAll or batch delete on an aggregate");
     }
 

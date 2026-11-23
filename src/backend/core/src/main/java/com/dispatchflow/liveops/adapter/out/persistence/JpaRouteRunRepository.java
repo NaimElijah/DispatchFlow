@@ -62,8 +62,17 @@ class JpaRouteRunRepository implements RouteRunRepository {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * @throws AssertionError when the run was never stored: only {@link #add} keeps the date that
+     *     {@link #startedOn} reads, so a run saved here would never be found by its date
+     */
     @Override
     public void save(RouteRun run) {
+        if (run.savedVersion().isEmpty()) {
+            throw new AssertionError("a new route run is added with its date, never saved");
+        }
         versionedSave.save(run, runs::save);
     }
 

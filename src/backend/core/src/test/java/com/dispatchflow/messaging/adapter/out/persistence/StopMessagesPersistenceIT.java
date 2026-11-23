@@ -30,6 +30,7 @@ import com.dispatchflow.shared.FreshIds;
 import com.dispatchflow.shared.IsraelDateTime;
 import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.StopId;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.StaleVersion;
@@ -216,6 +217,36 @@ class StopMessagesPersistenceIT {
         assertThat(storedVersion(n)).isEqualTo(1L);
         assertThat(storedState(messageId(n, 2))).isEqualTo("PENDING");
         assertThat(storedMessages(n)).isEqualTo(2L);
+    }
+
+    /**
+     * The trigger adds a message to the root's own list, so the flush that the day's cap runs moves
+     * the root's version before the save, which then has no step of its own to take.
+     */
+    @Test
+    void GivenATriggerOnStoredMessages_WhenTheDaysCapIsReadBeforeTheSave_ThenAssertionErrorAndNothingIsStored() {
+        int n = 41;
+        Instant ten = tenOn(n);
+        RecipientPhone to = new RecipientPhone.Known(phone(n));
+        transactions.inTransaction(() -> repository.add(pendingOutForDelivery(n, ten, phone(n))));
+
+        assertThatThrownBy(() -> transactions.inTransaction(() -> {
+                    StopMessages messages = repository.get(stop(n)).orElseThrow();
+                    messages.onDeliveryChanged(
+                            messageId(n, 2),
+                            to,
+                            MESSAGES_ON,
+                            RouteProgress.IN_PROGRESS,
+                            StopProgress.NOT_REACHED,
+                            at(ten, 1));
+                    repository.capOn(dayOf(n));
+                    repository.save(messages);
+                }))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageStartingWith("a save must move the version");
+
+        assertThat(storedVersion(n)).isZero();
+        assertThat(storedMessages(n)).isEqualTo(1L);
     }
 
     @Test
@@ -477,7 +508,13 @@ class StopMessagesPersistenceIT {
                         1_008,
                         Base.DELIVERED,
                         (Damage) rows -> rows.insertAccepted(9, 2, "MISSED_YOU", 1, false),
-                        "a stop gets one outcome message, for its first outcome (FR-374)"));
+                        "a stop gets one outcome message, for its first outcome (FR-374)"),
+                Arguments.of(
+                        "messages whose positions start past the first",
+                        1_012,
+                        Base.TIME_CHANGED,
+                        (Damage) Rows::shiftPositions,
+                        StoredLists.GAP));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -567,6 +604,13 @@ class StopMessagesPersistenceIT {
         /** Puts the first message second and the second first. */
         void swapTheFirstTwo() {
             jdbc.sql("UPDATE messaging.outgoing_message SET position = 1 - position WHERE stop_messages_id = ?")
+                    .param(stop(s).value())
+                    .update();
+        }
+
+        /** Moves every message one position on, so no message holds the first. */
+        void shiftPositions() {
+            jdbc.sql("UPDATE messaging.outgoing_message SET position = position + 1 WHERE stop_messages_id = ?")
                     .param(stop(s).value())
                     .update();
         }

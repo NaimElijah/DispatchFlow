@@ -41,6 +41,7 @@ import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StopId;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.CascadeType;
@@ -144,15 +145,15 @@ public class Delivery extends AggregateRoot implements PersonalData {
      * Checks the delivery as Hibernate loaded it against the invariants that hold at rest (ADR-126
      * decision 8), never one that needs an outside fact.
      *
-     * @throws StoredStateInvalid when the state breaks an invariant: a correction comes first or
-     *     changes nothing, a report stays held beside an outcome, a held report is overtaken with no
-     *     outcome, two held reports share an ID, a confirmed held report is not the original
-     *     outcome, a reported outcome doesn't count from its report's time, or a driver's delivered
-     *     lacks its proof
+     * @throws StoredStateInvalid when a stored list has a gap in its positions, or the state breaks
+     *     an invariant: a correction comes first or changes nothing, a report stays held beside an
+     *     outcome, a held report is overtaken with no outcome, two held reports share an ID, a
+     *     confirmed held report is not the original outcome, a reported outcome doesn't count from
+     *     its report's time, or a driver's delivered lacks its proof
      */
     @PostLoad
     void checkStored() {
-        DeliveryInvariants.brokenBy(outcomes(), heldReports()).ifPresent(broken -> {
+        brokenRule().ifPresent(broken -> {
             throw new StoredStateInvalid(Delivery.class, broken);
         });
     }
@@ -164,9 +165,20 @@ public class Delivery extends AggregateRoot implements PersonalData {
      * back.
      */
     private void requireInvariants() {
-        DeliveryInvariants.brokenBy(outcomes(), heldReports()).ifPresent(broken -> {
+        brokenRule().ifPresent(broken -> {
             throw new AssertionError("a delivery command left a state that breaks: " + broken);
         });
+    }
+
+    /**
+     * The one check of the invariants at rest, shared by the load check and every command. It
+     * refuses a gap before {@link DeliveryInvariants} reads the records.
+     */
+    private Optional<String> brokenRule() {
+        if (StoredLists.anyHasGap(outcomes, heldReports)) {
+            return Optional.of(StoredLists.GAP);
+        }
+        return DeliveryInvariants.brokenBy(outcomes(), heldReports());
     }
 
     /**

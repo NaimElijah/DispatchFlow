@@ -133,9 +133,9 @@ Fleet and Customers & Orders have no relationship. Neither does any pair not in 
    `IsraelDateTime`, `DaySeconds`, `TimeWindow`, `GeoPoint`, `Weight`, `Volume`, `Priority`,
    `PhoneNumber` and `Attempt` ([ADR-111]), plus the free-text rule `PlainText` ([ADR-106]). It also holds the building blocks
    every module's domain uses: `DomainError`, `RuleViolation(s)`, `StoredStateInvalid`, `Version`,
-   `AggregateRoot`, `DomainEvent`, `EventId` and `FreshIds` ([ADR-097]), and the `PersonalData` marker
-   ([ADR-106]). Nothing with behaviour specific to one context goes there, and a change to it needs the
-   agreement of every module's owner.
+   `AggregateRoot`, `DomainEvent`, `EventId` and `FreshIds` ([ADR-097]), `StoredLists` ([ADR-128]), and
+   the `PersonalData` marker ([ADR-106]). Nothing with behaviour specific to one context goes there,
+   and a change to it needs the agreement of every module's owner.
 
 **Splitting a module into a service later** changes adapters only: its API calls become HTTP clients
 generated from a new contract, its events go through a message broker (Spring Modulith can externalize
@@ -399,7 +399,7 @@ and every aggregate that holds one inherits them.
 | A refresh token lasts 14 days from its issue, with no cap on the session (NFR-87) | `Session.exchange` | `RefreshRefused` |
 | Confirming the password refuses the session's older tokens (NFR-214, NFR-227) | `Session.confirmPassword`: its `SessionGeneration` + 1, and its current refresh token is superseded. A revoked session, or one whose account was revoked since, is refused (NFR-177) | `SessionRevoked` |
 | Admin-only operations need the password confirmed in the last 5 minutes: the Admin-only rows, plus the limited rows used beyond their limit, such as changing another user's email; `Capability.requiresStepUp` names them (NFR-214, NFR-227, [ADR-104]) | `Session.requireFreshStepUp` | `StepUpRequired`, `SessionRevoked` |
-| A session keeps its contact times for 14 days, as long as a late report can arrive (NFR-235, NFR-280): every request from it other than a token refresh or an outbox send, at most one a minute, and only for a session of an account with the Driver role. One time is not enough, because a later request would hide an earlier one inside the window. The endpoint decides which requests count, never a header the client sets (BR-132). The data inventory lists them (NFR-72, NFR-280) | `Session.recordContact(now)`, called only for an account with the Driver role. It appends a time unless the last one is under a minute old, so the times never decrease, though two concurrent requests may keep the same instant, and never moves the `Version` or the `SessionGeneration`, so it can't make a refresh fail `STALE_VERSION`. Times older than 14 days are dropped, here and by `Session.dropOldContacts`, which the retention job calls without waiting for a new contact | `SessionRevoked` |
+| A session keeps its contact times for 14 days, as long as a late report can arrive (NFR-235, NFR-280): every request from it other than a token refresh or an outbox send, at most one a minute, and only for a session of an account with the Driver role. One time is not enough, because a later request would hide an earlier one inside the window. The endpoint decides which requests count, never a header the client sets (BR-132). The data inventory lists them (NFR-72, NFR-280) | `Session.recordContact(now)`, called only for an account with the Driver role. It appends a time unless the last one is under a minute old, so the times never decrease and an instant is kept once, even by two concurrent requests, and never moves the `Version` or the `SessionGeneration`, so it can't make a refresh fail `STALE_VERSION`. Times older than 14 days are dropped, here and by `Session.dropOldContacts`, which the retention job calls without waiting for a new contact | `SessionRevoked` |
 | The company's name is at most 19 characters, so every message fits one SMS (FR-382) | `CompanyName` | `BlankCompanyName`, `CompanyNameTooLong` |
 | A new customer's default window opens before it closes, and its default service duration is positive (FR-125, FR-184) | `DefaultWindow`, `DefaultServiceTime` | `InvalidDefaultWindow`, `NonPositiveDefaultServiceTime` |
 
@@ -1783,3 +1783,4 @@ Nothing. These ADRs record the decisions of this document:
 [ADR-121]: ../../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md
 [ADR-125]: ../../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md
 [ADR-126]: ../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md
+[ADR-128]: ../../ADRs/ADR-128-the-persistence-rules-the-mapping-settled-after-adr-127.md

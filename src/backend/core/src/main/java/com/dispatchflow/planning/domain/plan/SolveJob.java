@@ -26,6 +26,7 @@ import com.dispatchflow.shared.JobId;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.ProposalId;
 import com.dispatchflow.shared.RuleViolation;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
@@ -300,8 +301,8 @@ public class SolveJob extends AggregateRoot {
      * violations only on a failed one, and the phase's times in order, after rebuilding its phase and
      * its result.
      *
-     * @throws StoredStateInvalid when the stored state breaks one of them, or a stored value is
-     *     refused
+     * @throws StoredStateInvalid when a stored list has a gap in its positions, the stored state
+     *     breaks one of them, or a stored value is refused
      */
     @PostLoad
     void checkStored() {
@@ -655,10 +656,14 @@ public class SolveJob extends AggregateRoot {
     }
 
     /**
-     * The one check of the stored fields, shared by the load check and every command. Rebuilding the
-     * phase and the result checks each stored value on the way.
+     * The one check of the stored fields, shared by the load check and every command. It refuses a
+     * gap in any list before it reads an element; then rebuilding the phase and the result checks
+     * each stored value on the way.
      */
     private Optional<String> brokenRule() {
+        if (StoredLists.anyHasGap(failureViolations, resultRoutes, resultStops, resultDropped, resultExcluded)) {
+            return Optional.of(StoredLists.GAP);
+        }
         boolean reoptimization = lane == Lane.REOPTIMIZATION;
         if (reoptimization != (basisRevision != null)) {
             return Optional.of(BASIS_ONLY_FOR_REOPTIMIZATION);

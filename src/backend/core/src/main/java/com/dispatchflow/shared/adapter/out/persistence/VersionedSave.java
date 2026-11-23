@@ -22,8 +22,9 @@ import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 
 /**
- * The one way a persistence adapter's {@code add} and {@code save} write an aggregate, so that every
- * save moves its root's version by exactly 1 (ADR-126 decision 3, BR-76).
+ * The way every persistence adapter's {@code save} writes an aggregate, so that every save moves its
+ * root's version by exactly 1 (ADR-126 decision 3, BR-76). An {@code add} uses it too where another
+ * transaction may store the same aggregate first; the rest insert and flush themselves.
  *
  * <p>Hibernate moves the root's {@code @Version} when the root's own columns or its owned
  * collections change, but not when only a child entity's columns do. So after flushing, a save that
@@ -31,11 +32,13 @@ import org.springframework.stereotype.Component;
  * Hibernate writes at once, inside {@code lock}; {@code OPTIMISTIC_FORCE_INCREMENT} would wait for
  * the commit. A root never saved is inserted at version 0 and forces nothing.
  *
- * <p>An aggregate is saved once per transaction, with no flush between two of its changes. Hibernate
- * ignores the forced increment of a root its transaction already wrote, and moves the version at
- * every flush of a change, so a second save, or a query that flushes between two changes, would
- * store a version its events don't carry, and the next change would raise an {@code EventId} a
- * listener has already processed. The save checks both and fails loudly instead.
+ * <p>An aggregate is saved once per transaction, and nothing flushes it between a change and its
+ * save. Hibernate ignores the forced increment of a root its transaction already wrote, and moves
+ * the version at every flush of a change, so a second save, or a call that flushes first (an {@code
+ * add}, a native statement, which flushes the whole persistence context, or a query that reads a
+ * changed table) after a change that moved the version, would store a version its events don't
+ * carry, and the next change would raise an {@code EventId} a listener has already processed. The
+ * save checks both and fails loudly instead (ADR-128).
  *
  * <p>A lock it can't get is a conflict too. Hibernate takes the root's and a child's row locks in
  * one order for a child-only change and in the other for a change to the children's list, so two
@@ -107,7 +110,8 @@ public final class VersionedSave {
 
     private static void requireOneStep(@Nullable Object stored, @Nullable Object loadedAt, List<DomainEvent> raised) {
         if (!(stored instanceof Long storedVersion) || storedVersion.equals(loadedAt)) {
-            throw new AssertionError("a save must move the version: save an aggregate once per transaction");
+            throw new AssertionError("a save must move the version: save an aggregate once per transaction,"
+                    + " before any call that flushes");
         }
         for (DomainEvent event : raised) {
             if (event.eventId().version().value() != storedVersion) {

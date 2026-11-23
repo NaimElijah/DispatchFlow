@@ -13,6 +13,7 @@ import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.RatingRequestId;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StopId;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.CollectionTable;
@@ -168,7 +169,8 @@ public class RatingRequest extends AggregateRoot implements PersonalData {
      * rating and comments were received within its 48 hours; and its thank-you is due exactly when
      * it is rated.
      *
-     * @throws StoredStateInvalid when the stored state breaks one of them
+     * @throws StoredStateInvalid when a stored list has a gap in its positions, or the stored state
+     *     breaks one of them
      */
     @PostLoad
     void checkStored() {
@@ -417,6 +419,9 @@ public class RatingRequest extends AggregateRoot implements PersonalData {
 
     /** The one check of the invariants at rest, shared by the load check and every command. */
     private Optional<String> brokenRule() {
+        if (StoredLists.anyHasGap(comments)) {
+            return Optional.of(StoredLists.GAP);
+        }
         if ((removedAt != null) == (phone != null)) {
             return Optional.of("a rating request has its phone exactly until it is removed");
         }

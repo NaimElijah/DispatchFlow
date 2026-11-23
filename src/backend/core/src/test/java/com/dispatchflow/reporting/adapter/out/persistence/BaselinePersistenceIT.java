@@ -19,6 +19,7 @@ import com.dispatchflow.reporting.domain.baseline.Baseline;
 import com.dispatchflow.reporting.domain.baseline.BaselineCause;
 import com.dispatchflow.reporting.domain.baseline.BaselineDescription;
 import com.dispatchflow.shared.PlanId;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.StaleVersion;
@@ -325,7 +326,28 @@ class BaselinePersistenceIT {
                         (Damage) rows ->
                                 rows.update("baseline_planned_order", "ends_at = starts_at - interval '1 hour'"),
                         "TimeWindow",
-                        "a stored value is refused with INVALID_TIME_WINDOW"));
+                        "a stored value is refused with INVALID_TIME_WINDOW"),
+                Arguments.of(
+                        "planned orders whose positions start past the first",
+                        1_007,
+                        Scenario.PUBLISHED,
+                        (Damage) rows -> rows.update("baseline_planned_order", "position = position + 1"),
+                        "Baseline",
+                        StoredLists.GAP),
+                Arguments.of(
+                        "withdrawals whose positions start past the first",
+                        1_008,
+                        Scenario.TWO_VEHICLES_WITHDRAWN,
+                        (Damage) rows -> rows.update("baseline_withdrawal", "position = position + 1"),
+                        "Baseline",
+                        StoredLists.GAP),
+                Arguments.of(
+                        "added orders whose positions start past the first",
+                        1_009,
+                        Scenario.AN_ORDER_ADDED,
+                        (Damage) rows -> rows.update("baseline_added_order", "position = position + 1"),
+                        "Baseline",
+                        StoredLists.GAP));
     }
 
     @ParameterizedTest(name = "{0}")

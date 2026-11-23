@@ -15,6 +15,7 @@ import com.dispatchflow.shared.AggregateRoot;
 import com.dispatchflow.shared.DepotId;
 import com.dispatchflow.shared.GeoPoint;
 import com.dispatchflow.shared.RuleViolation;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.VehicleId;
 import jakarta.persistence.CascadeType;
@@ -101,7 +102,8 @@ public class FleetRegister extends AggregateRoot {
      * is used once, and every depot they use is active, where names are compared as BR-48 compares
      * them.
      *
-     * @throws StoredStateInvalid when the stored state breaks one of them
+     * @throws StoredStateInvalid when a stored list has a gap in its positions, or the stored state
+     *     breaks one of them
      */
     @PostLoad
     void checkStored() {
@@ -112,6 +114,9 @@ public class FleetRegister extends AggregateRoot {
 
     /** The first invariant at rest the register breaks, if any: those {@link #checkStored} names. */
     private Optional<String> brokenRule() {
+        if (StoredLists.anyHasGap(depots, vehicles)) {
+            return Optional.of(StoredLists.GAP);
+        }
         if (repeats(depots.stream().map(Depot::id).toList())) {
             return Optional.of("a depot appears twice");
         }

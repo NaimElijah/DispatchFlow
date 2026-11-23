@@ -9,6 +9,7 @@ import com.dispatchflow.shared.AggregateRoot;
 import com.dispatchflow.shared.DaySeconds;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PlanId;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.TimeWindow;
 import com.dispatchflow.shared.VehicleId;
@@ -183,16 +184,18 @@ public class Baseline extends AggregateRoot {
     /**
      * Checks the baseline as Hibernate loaded it (ADR-126 decision 8): its planned orders rebuild,
      * each order once; a recomputed baseline names at least one withdrawn vehicle or added order,
-     * and each one once; and a published baseline names neither.
+     * and each one once; and a published baseline names neither. It refuses a gap in a stored list
+     * before it rebuilds the planned orders, which would read every element.
      *
-     * @throws StoredStateInvalid when the stored state breaks one of them
+     * @throws StoredStateInvalid when a stored list has a gap in its positions, or the stored state
+     *     breaks one of them
      */
     @PostLoad
     void checkStored() {
-        StoredStateInvalid.whileRestoring(PlannedOrders.class, this::orders);
         brokenRule().ifPresent(broken -> {
             throw new StoredStateInvalid(Baseline.class, broken);
         });
+        StoredStateInvalid.whileRestoring(PlannedOrders.class, this::orders);
     }
 
     /**
@@ -378,6 +381,9 @@ public class Baseline extends AggregateRoot {
 
     /** The one check of the stored kind and collections, shared by the load check and every command. */
     private Optional<String> brokenRule() {
+        if (StoredLists.anyHasGap(plannedOrders, withdrawn, added)) {
+            return Optional.of(StoredLists.GAP);
+        }
         if (cause == CauseKind.PUBLISHED && !(withdrawn.isEmpty() && added.isEmpty())) {
             return Optional.of("a published baseline names no withdrawn vehicle or added order");
         }

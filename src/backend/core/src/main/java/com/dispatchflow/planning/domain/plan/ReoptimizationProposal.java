@@ -21,6 +21,7 @@ import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.ProposalId;
 import com.dispatchflow.shared.RuleViolation;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.VehicleId;
 import jakarta.persistence.AttributeOverride;
@@ -342,8 +343,8 @@ public class ReoptimizationProposal extends AggregateRoot {
      * it isn't withdrawn from (BR-39), and a decline no earlier than its creation, after rebuilding
      * every list it stores.
      *
-     * @throws StoredStateInvalid when the stored state breaks one of them, or a stored value is
-     *     refused
+     * @throws StoredStateInvalid when a stored list has a gap in its positions, the stored state
+     *     breaks one of them, or a stored value is refused
      */
     @PostLoad
     void checkStored() {
@@ -549,10 +550,24 @@ public class ReoptimizationProposal extends AggregateRoot {
     }
 
     /**
-     * The one check of the stored fields, shared by the load check and every command. Rebuilding
-     * the driver changes checks their stored orders on the way.
+     * The one check of the stored fields, shared by the load check and every command. It refuses a
+     * gap in any list before it reads an element; then rebuilding the driver changes checks their
+     * stored orders on the way.
      */
     private Optional<String> brokenRule() {
+        if (StoredLists.anyHasGap(
+                routes,
+                stops,
+                dropped,
+                excluded,
+                withdrawn,
+                lateStops,
+                withoutUsablePosition,
+                changedDrivers,
+                changedOrders,
+                needsGoodsHandOver)) {
+            return Optional.of(StoredLists.GAP);
+        }
         driverChanges();
         Optional<PlanningError> broken = SolutionShape.brokenBy(routes(), dropped(), withdrawn);
         if (broken.isPresent()) {

@@ -73,8 +73,17 @@ class JpaAlertRepository implements AlertRepository {
         return true;
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * @throws AssertionError when the alert was never stored: only {@link #addUnlessKeyTaken}
+     *     takes its key's lock and keeps the date that {@code unacknowledgedAt} reads
+     */
     @Override
     public void save(Alert alert) {
+        if (alert.savedVersion().isEmpty()) {
+            throw new AssertionError("a new alert is added under its key, never saved");
+        }
         versionedSave.save(alert, alerts::save);
     }
 }

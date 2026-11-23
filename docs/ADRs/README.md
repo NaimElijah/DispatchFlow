@@ -27,15 +27,16 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-040](ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md) | The core is a Spring Modulith monolith with one module per bounded context, checked in CI | Accepted; extended by ADR-097, ADR-118 and ADR-120; amended by ADR-126 |
 | [ADR-118](ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md) | A domain package above 30 files splits into one package per aggregate, over a root that holds the module's error | Accepted; amended by ADR-120 and ADR-125 |
 | [ADR-125](ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md) | A source folder above 20 files splits wherever a group of four files can move | Accepted; extended by ADR-126 |
-| [ADR-097](ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md) | The shared kernel also holds the building blocks every module's domain uses | Accepted; extended by ADR-106 and ADR-111; amended by ADR-126 |
+| [ADR-097](ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md) | The shared kernel also holds the building blocks every module's domain uses | Accepted; extended by ADR-106, ADR-111 and ADR-128; amended by ADR-126 |
 | [ADR-106](ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md) | Free text is normalized and capped by one kernel rule, and personal values carry a marker | Accepted; extended by ADR-111 |
 | [ADR-111](ADR-111-attempt-is-a-shared-kernel-value-and-names-and-addresses-drop-invisible-fillers.md) | Attempt is a shared-kernel value, and names and addresses drop invisible fillers | Accepted |
 | [ADR-119](ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md) | The application layer is declared ahead of its milestones, as signatures whose bodies throw | Accepted; amended by ADR-121 |
 | [ADR-120](ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md) | The application layer takes an Actor and a CallContext, keeps its shared ports in shared.application, and reads through query ports | Accepted; extended by ADR-125; amended by ADR-121 |
 | [ADR-121](ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md) | The application skeleton's review settles its seams, its conflicts, its retention and its scoring inputs | Accepted; amended by ADR-126 |
 | [ADR-041](ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md) | Each module owns a PostgreSQL schema, read and written through jOOQ by a role that owns no table | Accepted; amended by ADR-126 and ADR-127 |
-| [ADR-126](ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) | JPA replaces jOOQ in the core, and the domain classes carry their own mapping | Accepted; amended by ADR-127 |
-| [ADR-127](ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md) | How the 20 aggregates are mapped, and where their stored state is tested | Accepted |
+| [ADR-126](ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) | JPA replaces jOOQ in the core, and the domain classes carry their own mapping | Accepted; amended by ADR-127 and ADR-128 |
+| [ADR-127](ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md) | How the 20 aggregates are mapped, and where their stored state is tested | Accepted; extended by ADR-128 |
+| [ADR-128](ADR-128-the-persistence-rules-the-mapping-settled-after-adr-127.md) | The persistence rules the JPA mapping settled after ADR-127 | Accepted |
 | [ADR-043](ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md) | Code is generated from both contracts on both sides, and errors are RFC 9457 Problem Details | Accepted; extended by ADR-068, ADR-073, ADR-087 and ADR-094; amended by ADR-123 |
 | [ADR-094](ADR-094-each-pull-requests-contract-check-compares-against-its-base-branch.md) | Each pull request's contract check compares against its base branch | Accepted |
 | [ADR-044](ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md) | The solver port takes a start, a budget and a seed, and `Problem` alone judges a solution | Accepted; extended by ADR-050 and ADR-099; amended by ADR-105, ADR-120 and ADR-121 |
@@ -158,4 +159,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > 2026-11-23, replaces jOOQ with JPA in the core and lets the domain classes carry their mapping.
 > ADR-127, on 2026-11-23, records how the 20 aggregates are mapped and where their stored state is
 > tested.
+> ADR-128, on 2026-11-23, records six persistence rules the mapping settled after ADR-127:
+> a session's writes, state no entity maps, durations, gaps in stored lists, instants to the
+> microsecond, and batch fetching.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.

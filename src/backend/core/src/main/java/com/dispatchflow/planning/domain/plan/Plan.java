@@ -91,6 +91,7 @@ import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.RuleViolations;
 import com.dispatchflow.shared.StopId;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.VehicleId;
 import jakarta.persistence.CascadeType;
@@ -361,11 +362,12 @@ public class Plan extends AggregateRoot {
      * 8). It rebuilds every stored value and checks the invariants that hold at rest, never one that
      * needs {@code today} or an outside fact.
      *
-     * @throws StoredStateInvalid when the stored state breaks an invariant: a status's fields don't
-     *     match it, an order and attempt appears twice (BR-07), a vehicle or driver drives two routes
-     *     (BR-39), an ID or route index repeats, an order has two pins, the drops or pins are out of
-     *     the order the commands keep them in, a violation or journal entry names a route or stop
-     *     the plan doesn't hold as it should, or a stored value is refused
+     * @throws StoredStateInvalid when the stored state breaks an invariant: a stored list, a route's
+     *     stops included, has a gap in its positions, a status's fields don't match it, an order and
+     *     attempt appears twice (BR-07), a vehicle or driver drives two routes (BR-39), an ID or
+     *     route index repeats, an order has two pins, the drops or pins are out of the order the
+     *     commands keep them in, a violation or journal entry names a route or stop the plan doesn't
+     *     hold as it should, or a stored value is refused
      */
     @PostLoad
     void checkStored() {
@@ -1439,9 +1441,14 @@ public class Plan extends AggregateRoot {
 
     /**
      * The one check of the stored fields, shared by the load check and every command's end check.
-     * Rebuilding every stored value checks it on the way.
+     * It refuses a gap in any list, a route's stops included, before it reads an element; then
+     * rebuilding every stored value checks it on the way.
      */
     private Optional<String> brokenRule() {
+        if (StoredLists.anyHasGap(routes, dropped, excluded, pins, violations, undo, redo)
+                || routes.stream().anyMatch(route -> StoredLists.anyHasGap(route.stops()))) {
+            return Optional.of(StoredLists.GAP);
+        }
         routes.forEach(route -> {
             route.plan();
             route.confirmedReturn();

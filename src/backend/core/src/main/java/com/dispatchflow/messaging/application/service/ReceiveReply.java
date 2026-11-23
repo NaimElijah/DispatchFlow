@@ -34,10 +34,11 @@ import java.time.Instant;
  * <p>Each answer counts toward the day's cap of 1,000 messages (NFR-196, ADR-108 Risk). In the
  * transaction of the reply's effect, it counts the answer through {@link
  * StopMessagesRepository#countAnswer} for today's Israel date from the {@link Clock}, before
- * sending it. The count is conditional and atomic: it counts only while the cap has room, under the
- * same per-day lock as the sender's claim, and answers whether it counted. An answer not counted is
- * skipped for good, as an answer due when messages can't go to the phone is (ADR-108), since each
- * is sent once.
+ * sending it, and after it saves what the reply changed, because the count writes whatever the
+ * transaction holds unwritten. The count is conditional and atomic: it counts only while the cap
+ * has room, under the same per-day lock as the sender's claim, and answers whether it counted. An
+ * answer not counted is skipped for good, as an answer due when messages can't go to the phone is
+ * (ADR-108), since each is sent once.
  *
  * <p><b>Precondition.</b> The callback's adapter has accepted the call only with the provider's
  * signature or header secret, one of two while one is rotated, compared in constant time, before it
