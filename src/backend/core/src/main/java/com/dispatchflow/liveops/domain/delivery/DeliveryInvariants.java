@@ -1,10 +1,6 @@
 package com.dispatchflow.liveops.domain.delivery;
 
 import com.dispatchflow.liveops.domain.HeldReportId;
-import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.HeldReport;
-import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.HeldState;
-import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.Origin;
-import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.OutcomeRecord;
 import com.dispatchflow.liveops.domain.outcome.Outcome;
 import com.dispatchflow.liveops.domain.proof.Proof;
 import com.dispatchflow.liveops.domain.proof.ProofKind;
@@ -14,23 +10,23 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * The invariants a {@link Delivery} holds at rest, checked in one place: by {@code restore}, which
- * throws {@code StoredStateInvalid}, and by every command's commit point, which throws {@code
- * AssertionError}, so no command can leave a state that {@code restore} refuses.
+ * The invariants a {@link Delivery} holds at rest, checked in one place: by the load check and
+ * {@code restore}, which throw {@code StoredStateInvalid}, and at the end of every command, which
+ * throws {@code AssertionError}, so no command can leave a state that loading refuses (ADR-126
+ * decisions 8 and 11).
  */
 final class DeliveryInvariants {
 
     private DeliveryInvariants() {}
 
     /**
-     * The first invariant the state breaks.
+     * The first invariant a delivery's records break.
      *
-     * @param state the state to check
-     * @return what it breaks, or empty when it holds every invariant
+     * @param outcomes the original outcome first, then each correction in order
+     * @param held every held report, in the order held
+     * @return what they break, or empty when they hold every invariant
      */
-    static Optional<String> brokenBy(DeliverySnapshot state) {
-        List<OutcomeRecord> outcomes = state.outcomes();
-        List<HeldReport> held = state.heldReports();
+    static Optional<String> brokenBy(List<OutcomeRecord> outcomes, List<HeldReport> held) {
         for (int i = 0; i < outcomes.size(); i++) {
             boolean correction = outcomes.get(i).origin() instanceof Origin.Correction;
             if (correction != (i > 0)) {

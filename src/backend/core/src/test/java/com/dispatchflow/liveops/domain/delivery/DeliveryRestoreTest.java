@@ -26,10 +26,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dispatchflow.liveops.domain.HeldReportId;
 import com.dispatchflow.liveops.domain.LiveOpsFixtures;
-import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.HeldReport;
-import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.HeldState;
-import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.Origin;
-import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.OutcomeRecord;
 import com.dispatchflow.liveops.domain.outcome.DispatcherOutcome;
 import com.dispatchflow.liveops.domain.outcome.FailureReason;
 import com.dispatchflow.liveops.domain.outcome.FailureReasonKind;

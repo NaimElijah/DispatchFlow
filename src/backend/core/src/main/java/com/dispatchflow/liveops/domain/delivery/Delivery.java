@@ -20,11 +20,6 @@ import com.dispatchflow.liveops.domain.LiveOpsError.ReportNotHeld;
 import com.dispatchflow.liveops.domain.LiveOpsError.SameOutcomeAlreadyRecorded;
 import com.dispatchflow.liveops.domain.LiveOpsError.StopNotOnYourRoute;
 import com.dispatchflow.liveops.domain.RevisionNo;
-import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.ArrivalRecord;
-import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.HeldReport;
-import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.HeldState;
-import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.Origin;
-import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.OutcomeRecord;
 import com.dispatchflow.liveops.domain.outcome.DispatcherOutcome;
 import com.dispatchflow.liveops.domain.outcome.FailureReason;
 import com.dispatchflow.liveops.domain.outcome.Outcome;
@@ -42,11 +37,25 @@ import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.StoredStateInvalid;
+import jakarta.persistence.AttributeOverride;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Embedded;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderColumn;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -61,24 +70,64 @@ import org.jspecify.annotations.Nullable;
  * account was in contact meanwhile (BR-132), and an outcome on the stop's current route overtakes
  * a held report (BR-134). Every method checks all its rules before it changes anything. Its
  * records hold reasons, proofs and notes, so it is personal data.
+ *
+ * <p>It is mapped for JPA (ADR-126): its key is its stop's UUID (ADR-127 decision 5), its arrival
+ * nullable columns, its outcome records an ordered element collection of {@link
+ * StoredOutcomeRecord}, and its held reports {@link StoredHeldReport} child entities in the order
+ * they were held. Every command changes those in place and ends by checking the invariants at rest
+ * that the load check runs.
  */
-public final class Delivery extends AggregateRoot implements PersonalData {
+@Entity
+@Table(schema = "liveops", name = "delivery")
+public class Delivery extends AggregateRoot implements PersonalData {
 
-    private final StopId stop;
-    private final OrderId order;
-    private final Attempt attempt;
-    private @Nullable ArrivalRecord arrival;
-    private List<OutcomeRecord> outcomes;
-    private List<HeldReport> heldReports;
+    @Id
+    private UUID id;
 
+    // "order" alone is an SQL keyword.
+    @Column(name = "order_id")
+    private OrderId order;
+
+    private Attempt attempt;
+
+    private @Nullable AccountId arrivalDriver;
+
+    private @Nullable RouteId arrivalRoute;
+
+    @Embedded
+    @AttributeOverride(name = "deviceTime", column = @Column(name = "arrival_device_time"))
+    @AttributeOverride(name = "deviceClockAtSend", column = @Column(name = "arrival_device_clock_at_send"))
+    @AttributeOverride(name = "receivedAt", column = @Column(name = "arrival_received_at"))
+    private @Nullable CorrectedTime arrivalTime;
+
+    @ElementCollection
+    @CollectionTable(schema = "liveops", name = "delivery_outcome", joinColumns = @JoinColumn(name = "delivery_id"))
+    @OrderColumn(name = "position", nullable = false)
+    private List<StoredOutcomeRecord> outcomes = new ArrayList<>();
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "delivery_id", nullable = false)
+    @OrderColumn(name = "position", nullable = false)
+    private List<StoredHeldReport> heldReports = new ArrayList<>();
+
+    /** For Hibernate, which sets the fields from the stored rows and then runs {@link #checkStored}. */
+    protected Delivery() {}
+
+    private Delivery(StopId stop, OrderId order, Attempt attempt) {
+        this.id = stop.value();
+        this.order = order;
+        this.attempt = attempt;
+    }
+
+    /** Builds the delivery {@link #restore} checks; it goes with {@code restore} (ADR-126). */
     private Delivery(DeliverySnapshot stored) {
         super(stored.version());
-        this.stop = stored.stop();
+        this.id = stored.stop().value();
         this.order = stored.order();
         this.attempt = stored.attempt();
-        this.arrival = stored.arrival().orElse(null);
-        this.outcomes = stored.outcomes();
-        this.heldReports = stored.heldReports();
+        stored.arrival().ifPresent(this::arriveAs);
+        stored.outcomes().forEach(record -> outcomes.add(new StoredOutcomeRecord(record)));
+        stored.heldReports().forEach(report -> heldReports.add(new StoredHeldReport(report)));
     }
 
     /**
@@ -94,7 +143,7 @@ public final class Delivery extends AggregateRoot implements PersonalData {
         Objects.requireNonNull(stop, "stop");
         Objects.requireNonNull(order, "order");
         Objects.requireNonNull(attempt, "attempt");
-        return new Delivery(new DeliverySnapshot(stop, order, attempt, null, Optional.empty(), List.of(), List.of()));
+        return new Delivery(stop, order, attempt);
     }
 
     /**
@@ -110,11 +159,34 @@ public final class Delivery extends AggregateRoot implements PersonalData {
      *     lacks its proof
      */
     public static Delivery restore(DeliverySnapshot stored) {
-        Optional<String> broken = DeliveryInvariants.brokenBy(stored);
-        if (broken.isPresent()) {
-            throw new StoredStateInvalid(Delivery.class, broken.get());
-        }
-        return new Delivery(stored);
+        Delivery restored = new Delivery(stored);
+        restored.checkStored();
+        return restored;
+    }
+
+    /**
+     * Checks the delivery as Hibernate loaded it against the invariants at rest that {@link
+     * #restore} checks (ADR-126 decision 8).
+     *
+     * @throws StoredStateInvalid when the stored state breaks one of them
+     */
+    @PostLoad
+    void checkStored() {
+        DeliveryInvariants.brokenBy(outcomeRecords(), heldReportList()).ifPresent(broken -> {
+            throw new StoredStateInvalid(Delivery.class, broken);
+        });
+    }
+
+    /**
+     * Checks the state a command left against every invariant at rest (ADR-126 decision 11). Every
+     * rule a caller can break was checked before the command changed anything, so a broken
+     * invariant here is a bug in the command, not a refusal, and the error rolls its transaction
+     * back.
+     */
+    private void requireInvariants() {
+        DeliveryInvariants.brokenBy(outcomeRecords(), heldReportList()).ifPresent(broken -> {
+            throw new AssertionError("a delivery command left a state that breaks: " + broken);
+        });
     }
 
     /**
@@ -123,7 +195,8 @@ public final class Delivery extends AggregateRoot implements PersonalData {
      * @return the stored form
      */
     public DeliverySnapshot snapshot() {
-        return snapshotOf(arrival, outcomes, heldReports);
+        return new DeliverySnapshot(
+                stop(), order, attempt, savedVersion().orElse(null), arrival(), outcomeRecords(), heldReportList());
     }
 
     /**
@@ -132,7 +205,7 @@ public final class Delivery extends AggregateRoot implements PersonalData {
      * @return the stop
      */
     public StopId stop() {
-        return stop;
+        return StopId.of(id);
     }
 
     /**
@@ -149,10 +222,10 @@ public final class Delivery extends AggregateRoot implements PersonalData {
                     ? DeliveryStatus.DELIVERED
                     : DeliveryStatus.FAILED;
         }
-        if (heldReports.stream().anyMatch(HeldReport::isOpen)) {
+        if (heldReports.stream().anyMatch(StoredHeldReport::isOpen)) {
             return DeliveryStatus.HELD;
         }
-        return arrival == null ? DeliveryStatus.PENDING : DeliveryStatus.ARRIVED;
+        return arrivalTime == null ? DeliveryStatus.PENDING : DeliveryStatus.ARRIVED;
     }
 
     /**
@@ -184,7 +257,7 @@ public final class Delivery extends AggregateRoot implements PersonalData {
      * @return {@code true} once an arrival is recorded
      */
     public boolean hasArrival() {
-        return arrival != null;
+        return arrivalTime != null;
     }
 
     /**
@@ -193,7 +266,7 @@ public final class Delivery extends AggregateRoot implements PersonalData {
      * @return the arrival's corrected time, or empty when none is recorded
      */
     public Optional<Instant> arrivedAt() {
-        return Optional.ofNullable(arrival).map(record -> record.time().corrected());
+        return Optional.ofNullable(arrivalTime).map(CorrectedTime::corrected);
     }
 
     /**
@@ -218,15 +291,16 @@ public final class Delivery extends AggregateRoot implements PersonalData {
         Objects.requireNonNull(where, "where");
         refuseIfAfterCancellation(where, report.time());
         if (requireEntitled(entitlement, report).isHandedOverSince()) {
-            throw new RuleViolation(new StopNotOnYourRoute(stop, report.route()));
+            throw new RuleViolation(new StopNotOnYourRoute(stop(), report.route()));
         }
         if (!outcomes.isEmpty()) {
-            throw new RuleViolation(new ArrivalAfterOutcome(stop));
+            throw new RuleViolation(new ArrivalAfterOutcome(stop()));
         }
-        if (arrival != null) {
-            throw new RuleViolation(new ArrivalAlreadyRecorded(stop));
+        if (arrivalTime != null) {
+            throw new RuleViolation(new ArrivalAlreadyRecorded(stop()));
         }
-        commit(new ArrivalRecord(report.driver(), report.route(), report.time()), outcomes, heldReports);
+        arriveAs(new ArrivalRecord(report.driver(), report.route(), report.time()));
+        requireInvariants();
     }
 
     /**
@@ -263,14 +337,14 @@ public final class Delivery extends AggregateRoot implements PersonalData {
         Objects.requireNonNull(door, "door");
         requireReportParts(entitlement, check, ifHeld, now);
         if (proof.isEmpty()) {
-            throw new RuleViolation(new ProofRequired(stop));
+            throw new RuleViolation(new ProofRequired(stop()));
         }
         if (proof.get().isErased()) {
-            throw new RuleViolation(new ProofHasNoFile(stop));
+            throw new RuleViolation(new ProofHasNoFile(stop()));
         }
         refuseIfNotADoorOrder(leftAtDoor, door);
         if (leftAtDoor && proof.get().kind() != ProofKind.PHOTO) {
-            throw new RuleViolation(new LeftAtDoorNeedsPhoto(stop));
+            throw new RuleViolation(new LeftAtDoorNeedsPhoto(stop()));
         }
         return reportOutcome(
                 report, Outcome.Delivered.withProof(proof.get(), leftAtDoor), entitlement, check, ifHeld, now);
@@ -331,8 +405,7 @@ public final class Delivery extends AggregateRoot implements PersonalData {
         Outcome outcome = recorded.toOutcome();
         refuseIfNotADoorOrder(outcome, door);
         refuseIfOutcomeStands(outcome);
-        return recordOriginal(
-                new OutcomeRecord(outcome, by, now, new Origin.OnBehalf(route)), heldReports, route, true, now);
+        return recordOriginal(new OutcomeRecord(outcome, by, now, new Origin.OnBehalf(route)), route, true, now);
     }
 
     /**
@@ -377,32 +450,31 @@ public final class Delivery extends AggregateRoot implements PersonalData {
         Outcome to = corrected.toOutcome();
         refuseIfNotADoorOrder(to, door);
         if (statedTime.filter(stated -> stated.isAfter(now)).isPresent()) {
-            throw new RuleViolation(new CorrectionTimeInFuture(stop));
+            throw new RuleViolation(new CorrectionTimeInFuture(stop()));
         }
         if (outcomes.isEmpty()) {
-            throw new RuleViolation(new NoOutcomeToCorrect(stop));
+            throw new RuleViolation(new NoOutcomeToCorrect(stop()));
         }
         OutcomeKind from = effective().outcome().kind();
         if (to.statesExactly(effective().outcome())) {
-            throw new RuleViolation(new CorrectionChangesNothing(stop, from));
+            throw new RuleViolation(new CorrectionChangesNothing(stop(), from));
         }
         boolean failedToDelivered = from == OutcomeKind.FAILED && to.kind() == OutcomeKind.DELIVERED;
         if (failedToDelivered && later instanceof LaterAttempt.WithOutcome withOutcome) {
-            throw new RuleViolation(
-                    new LaterAttemptHasOutcome(stop, withOutcome.stop(), withOutcome.attempt(), withOutcome.outcome()));
+            throw new RuleViolation(new LaterAttemptHasOutcome(
+                    stop(), withOutcome.stop(), withOutcome.attempt(), withOutcome.outcome()));
         }
-        Instant factTime = statedTime.orElse(outcomes.get(0).factTime());
-        List<OutcomeRecord> next = new ArrayList<>(outcomes);
-        next.add(new OutcomeRecord(to, by, factTime, new Origin.Correction(reason, now)));
-        commit(arrival, next, heldReports);
+        Instant factTime = statedTime.orElse(outcomes.get(0).record().factTime());
+        outcomes.add(new StoredOutcomeRecord(new OutcomeRecord(to, by, factTime, new Origin.Correction(reason, now))));
+        requireInvariants();
         if (failedToDelivered && later instanceof LaterAttempt.WithoutOutcome withoutOutcome) {
             raise(
                     PutBackSuperseded.class,
-                    stop.value(),
+                    id,
                     eventId -> new PutBackSuperseded(
                             eventId,
                             now,
-                            stop,
+                            stop(),
                             order,
                             withoutOutcome.stop(),
                             withoutOutcome.attempt().number(),
@@ -426,22 +498,21 @@ public final class Delivery extends AggregateRoot implements PersonalData {
         Objects.requireNonNull(report, "report");
         Objects.requireNonNull(by, "by");
         Objects.requireNonNull(now, "now");
-        HeldReport held = openHeld(report);
-        List<HeldReport> next = new ArrayList<>();
+        HeldReport held = openHeld(report).report();
         List<HeldReportId> overtaken = new ArrayList<>();
-        for (HeldReport each : heldReports) {
+        for (StoredHeldReport each : heldReports) {
             if (each.id().equals(report)) {
-                next.add(each.in(new HeldState.Confirmed(by, now)));
+                each.moveTo(new HeldState.Confirmed(by, now));
             } else if (each.isOpen()) {
-                next.add(each.in(new HeldState.Overtaken(now)));
+                each.moveTo(new HeldState.Overtaken(now));
                 overtaken.add(each.id());
-            } else {
-                next.add(each);
             }
         }
+        // A report is held only while the stop has no outcome, so this one is the original.
         OutcomeRecord confirmed = new OutcomeRecord(
                 held.outcome(), held.driver(), held.time().corrected(), new Origin.ConfirmedHeld(report));
-        commit(arrival, List.of(confirmed), next);
+        outcomes.add(new StoredOutcomeRecord(confirmed));
+        requireInvariants();
         raiseRecorded(confirmed, held.route(), false, now);
         return new ReportAnswer.Recorded(overtaken);
     }
@@ -460,11 +531,8 @@ public final class Delivery extends AggregateRoot implements PersonalData {
         Objects.requireNonNull(report, "report");
         Objects.requireNonNull(by, "by");
         Objects.requireNonNull(now, "now");
-        openHeld(report);
-        List<HeldReport> next = heldReports.stream()
-                .map(each -> each.id().equals(report) ? each.in(new HeldState.RefusedByDispatcher(by, now)) : each)
-                .toList();
-        commit(arrival, outcomes, next);
+        openHeld(report).moveTo(new HeldState.RefusedByDispatcher(by, now));
+        requireInvariants();
     }
 
     /**
@@ -480,32 +548,32 @@ public final class Delivery extends AggregateRoot implements PersonalData {
         Objects.requireNonNull(now, "now");
         Instant proofCutoff = RetentionPeriods.proofCutoff(now);
         Instant reasonCutoff = RetentionPeriods.reasonCutoff(now);
-        List<HeldReport> nextHeld = heldReports.stream()
-                .map(each -> new HeldReport(
-                        each.id(),
-                        erased(each.outcome(), each.time().receivedAt(), proofCutoff, reasonCutoff),
-                        each.driver(),
-                        each.route(),
-                        each.revision(),
-                        each.time(),
-                        each.overrides(),
-                        each.state()))
-                .toList();
-        List<OutcomeRecord> nextOutcomes = outcomes.stream()
-                .map(each -> {
-                    Instant recordedAt = recordedAt(each, nextHeld);
-                    Origin origin = each.origin() instanceof Origin.Correction correction
-                                    && isDue(correction.correctedAt(), reasonCutoff)
-                            ? new Origin.Correction(correction.reason().erased(), correction.correctedAt())
-                            : each.origin();
-                    return new OutcomeRecord(
-                            erased(each.outcome(), recordedAt, proofCutoff, reasonCutoff),
-                            each.by(),
-                            each.factTime(),
-                            origin);
-                })
-                .toList();
-        commit(arrival, nextOutcomes, nextHeld);
+        // Erasure keeps every receipt time, so the reports read here date the outcomes too.
+        List<HeldReport> held = heldReportList();
+        for (StoredHeldReport stored : heldReports) {
+            HeldReport each = stored.report();
+            Outcome erased = erased(each.outcome(), each.time().receivedAt(), proofCutoff, reasonCutoff);
+            if (!erased.equals(each.outcome())) {
+                stored.restate(erased);
+            }
+        }
+        for (int i = 0; i < outcomes.size(); i++) {
+            OutcomeRecord each = outcomes.get(i).record();
+            Origin origin = each.origin() instanceof Origin.Correction correction
+                            && isDue(correction.correctedAt(), reasonCutoff)
+                    ? new Origin.Correction(correction.reason().erased(), correction.correctedAt())
+                    : each.origin();
+            OutcomeRecord erased = new OutcomeRecord(
+                    erased(each.outcome(), recordedAt(each, held), proofCutoff, reasonCutoff),
+                    each.by(),
+                    each.factTime(),
+                    origin);
+            // Only a record that changes is rewritten, so a sweep with nothing due writes nothing.
+            if (!erased.equals(each)) {
+                outcomes.set(i, new StoredOutcomeRecord(erased));
+            }
+        }
+        requireInvariants();
     }
 
     /**
@@ -515,7 +583,7 @@ public final class Delivery extends AggregateRoot implements PersonalData {
      */
     @Override
     public String toString() {
-        return "Delivery[stop=" + stop + ", status=" + status() + ", redacted]";
+        return "Delivery[stop=" + stop() + ", status=" + status() + ", redacted]";
     }
 
     private ReportAnswer reportOutcome(
@@ -532,12 +600,11 @@ public final class Delivery extends AggregateRoot implements PersonalData {
         refuseIfOutcomeStands(outcome);
         refuseIfOwnReportHeld(report, outcome);
         Optional<CancellationKind> overridden = check.where().cancelledAfter(time);
-        boolean anyHeld = heldReports.stream().anyMatch(HeldReport::isOpen);
+        boolean anyHeld = heldReports.stream().anyMatch(StoredHeldReport::isOpen);
         boolean hold = entitled.isHandedOverSince()
                 || (anyHeld ? !(check.where() instanceof StopWhereabouts.OnServingRoute) : check.holds(time));
         if (hold) {
-            List<HeldReport> next = new ArrayList<>(heldReports);
-            next.add(new HeldReport(
+            heldReports.add(new StoredHeldReport(new HeldReport(
                     ifHeld,
                     outcome,
                     report.driver(),
@@ -545,8 +612,8 @@ public final class Delivery extends AggregateRoot implements PersonalData {
                     revision,
                     time,
                     overridden,
-                    new HeldState.Open()));
-            commit(arrival, outcomes, next);
+                    new HeldState.Open())));
+            requireInvariants();
             return new ReportAnswer.Held(ifHeld);
         }
         OutcomeRecord recorded = new OutcomeRecord(
@@ -554,23 +621,21 @@ public final class Delivery extends AggregateRoot implements PersonalData {
                 report.driver(),
                 time.corrected(),
                 new Origin.Reported(report.route(), revision, time, overridden));
-        return recordOriginal(recorded, heldReports, report.route(), false, now);
+        return recordOriginal(recorded, report.route(), false, now);
     }
 
     /** Records the original outcome, overtaking every open held report (BR-134, BR-18). */
-    private ReportAnswer recordOriginal(
-            OutcomeRecord original, List<HeldReport> held, RouteId route, boolean onBehalf, Instant now) {
-        List<HeldReport> next = new ArrayList<>();
+    private ReportAnswer recordOriginal(OutcomeRecord original, RouteId route, boolean onBehalf, Instant now) {
         List<HeldReportId> overtaken = new ArrayList<>();
-        for (HeldReport each : held) {
+        for (StoredHeldReport each : heldReports) {
             if (each.isOpen()) {
-                next.add(each.in(new HeldState.Overtaken(now)));
+                each.moveTo(new HeldState.Overtaken(now));
                 overtaken.add(each.id());
-            } else {
-                next.add(each);
             }
         }
-        commit(arrival, List.of(original), next);
+        // Every caller refused the call while an outcome stands, so this one is the original.
+        outcomes.add(new StoredOutcomeRecord(original));
+        requireInvariants();
         raiseRecorded(original, route, onBehalf, now);
         return new ReportAnswer.Recorded(overtaken);
     }
@@ -578,11 +643,11 @@ public final class Delivery extends AggregateRoot implements PersonalData {
     private void raiseRecorded(OutcomeRecord recorded, RouteId route, boolean onBehalf, Instant now) {
         raise(
                 OutcomeRecorded.class,
-                stop.value(),
+                id,
                 eventId -> new OutcomeRecorded(
                         eventId,
                         now,
-                        stop,
+                        stop(),
                         order,
                         attempt.number(),
                         route,
@@ -602,7 +667,7 @@ public final class Delivery extends AggregateRoot implements PersonalData {
 
     private void refuseIfAfterCancellation(StopWhereabouts where, CorrectedTime time) {
         if (where instanceof StopWhereabouts.Cancelled cancelled && cancelled.isNotAfter(time)) {
-            throw new RuleViolation(new ReportAfterCancellation(stop, cancelled.kind()));
+            throw new RuleViolation(new ReportAfterCancellation(stop(), cancelled.kind()));
         }
     }
 
@@ -616,7 +681,7 @@ public final class Delivery extends AggregateRoot implements PersonalData {
                 && onRoute.driver().equals(report.driver())) {
             return onRoute;
         }
-        throw new RuleViolation(new StopNotOnYourRoute(stop, report.route()));
+        throw new RuleViolation(new StopNotOnYourRoute(stop(), report.route()));
     }
 
     /**
@@ -625,7 +690,7 @@ public final class Delivery extends AggregateRoot implements PersonalData {
      * silently, and a different one as a contradiction.
      */
     private void refuseIfOwnReportHeld(DriverReport report, Outcome incoming) {
-        Optional<HeldReport> own = heldReports.stream()
+        Optional<HeldReport> own = heldReportList().stream()
                 .filter(each -> each.isOpen()
                         && each.driver().equals(report.driver())
                         && each.route().equals(report.route()))
@@ -635,9 +700,9 @@ public final class Delivery extends AggregateRoot implements PersonalData {
         }
         Outcome held = own.get().outcome();
         if (incoming.isSameAs(held)) {
-            throw new RuleViolation(new SameOutcomeAlreadyRecorded(stop, held.kind()));
+            throw new RuleViolation(new SameOutcomeAlreadyRecorded(stop(), held.kind()));
         }
-        throw new RuleViolation(new OutcomeAlreadyRecorded(stop, held.kind()));
+        throw new RuleViolation(new OutcomeAlreadyRecorded(stop(), held.kind()));
     }
 
     private void refuseIfOutcomeStands(Outcome incoming) {
@@ -646,9 +711,9 @@ public final class Delivery extends AggregateRoot implements PersonalData {
         }
         Outcome current = effective().outcome();
         if (incoming.isSameAs(current)) {
-            throw new RuleViolation(new SameOutcomeAlreadyRecorded(stop, current.kind()));
+            throw new RuleViolation(new SameOutcomeAlreadyRecorded(stop(), current.kind()));
         }
-        throw new RuleViolation(new OutcomeAlreadyRecorded(stop, current.kind()));
+        throw new RuleViolation(new OutcomeAlreadyRecorded(stop(), current.kind()));
     }
 
     private void refuseIfNotADoorOrder(Outcome outcome, LeaveAtDoor door) {
@@ -657,7 +722,7 @@ public final class Delivery extends AggregateRoot implements PersonalData {
 
     private void refuseIfNotADoorOrder(boolean leftAtDoor, LeaveAtDoor door) {
         if (leftAtDoor && door != LeaveAtDoor.ALLOWED) {
-            throw new RuleViolation(new NotALeaveAtDoorOrder(stop));
+            throw new RuleViolation(new NotALeaveAtDoorOrder(stop()));
         }
     }
 
@@ -672,15 +737,39 @@ public final class Delivery extends AggregateRoot implements PersonalData {
         }
     }
 
-    private HeldReport openHeld(HeldReportId report) {
+    private StoredHeldReport openHeld(HeldReportId report) {
         return heldReports.stream()
                 .filter(each -> each.id().equals(report) && each.isOpen())
                 .findFirst()
-                .orElseThrow(() -> new RuleViolation(new ReportNotHeld(stop, report)));
+                .orElseThrow(() -> new RuleViolation(new ReportNotHeld(stop(), report)));
     }
 
     private OutcomeRecord effective() {
-        return outcomes.get(outcomes.size() - 1);
+        return outcomes.get(outcomes.size() - 1).record();
+    }
+
+    private void arriveAs(ArrivalRecord record) {
+        arrivalDriver = record.driver();
+        arrivalRoute = record.route();
+        arrivalTime = record.time();
+    }
+
+    private Optional<ArrivalRecord> arrival() {
+        if (arrivalTime == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new ArrivalRecord(
+                Objects.requireNonNull(arrivalDriver, "an arrival names its driver"),
+                Objects.requireNonNull(arrivalRoute, "an arrival names its route"),
+                arrivalTime));
+    }
+
+    private List<OutcomeRecord> outcomeRecords() {
+        return outcomes.stream().map(StoredOutcomeRecord::record).toList();
+    }
+
+    private List<HeldReport> heldReportList() {
+        return heldReports.stream().map(StoredHeldReport::report).toList();
     }
 
     /** When an outcome's personal data reached the server, which its retention counts from. */
@@ -713,34 +802,5 @@ public final class Delivery extends AggregateRoot implements PersonalData {
                         ? new Outcome.Failed(failed.reason().erased())
                         : failed;
         };
-    }
-
-    /**
-     * Replaces the records with the ones a command built, after checking they hold every at-rest
-     * invariant. Every rule a caller can break was checked before this point, so a broken invariant
-     * here is a bug in the command, not a refusal.
-     */
-    private void commit(
-            @Nullable ArrivalRecord nextArrival, List<OutcomeRecord> nextOutcomes, List<HeldReport> nextHeld) {
-        DeliverySnapshot candidate = snapshotOf(nextArrival, nextOutcomes, nextHeld);
-        Optional<String> broken = DeliveryInvariants.brokenBy(candidate);
-        if (broken.isPresent()) {
-            throw new AssertionError("a delivery command would leave a state that breaks: " + broken.get());
-        }
-        arrival = nextArrival;
-        outcomes = candidate.outcomes();
-        heldReports = candidate.heldReports();
-    }
-
-    private DeliverySnapshot snapshotOf(
-            @Nullable ArrivalRecord nextArrival, List<OutcomeRecord> nextOutcomes, List<HeldReport> nextHeld) {
-        return new DeliverySnapshot(
-                stop,
-                order,
-                attempt,
-                savedVersion().orElse(null),
-                Optional.ofNullable(nextArrival),
-                nextOutcomes,
-                nextHeld);
     }
 }

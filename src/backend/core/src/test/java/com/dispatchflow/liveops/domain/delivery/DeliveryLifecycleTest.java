@@ -28,8 +28,6 @@ import com.dispatchflow.liveops.domain.LiveOpsError.NoOutcomeToCorrect;
 import com.dispatchflow.liveops.domain.LiveOpsError.OutcomeAlreadyRecorded;
 import com.dispatchflow.liveops.domain.LiveOpsError.ReportNotHeld;
 import com.dispatchflow.liveops.domain.LiveOpsError.SameOutcomeAlreadyRecorded;
-import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.HeldReport;
-import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.HeldState;
 import com.dispatchflow.liveops.domain.outcome.DispatcherOutcome;
 import com.dispatchflow.liveops.events.OutcomeKind;
 import com.dispatchflow.shared.DomainError;

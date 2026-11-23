@@ -10,15 +10,11 @@ import java.util.Optional;
  * Where alerts are kept, each unique by its dedupe key (DL §3.6, §4.5, FR-157, ADR-107). The key is
  * backed by a unique constraint, so an alert raised twice, as by a retried listener or a job that
  * runs every minute, is stored once, and an acknowledged key is never raised again.
- *
- * <p>Built in M8.
  */
 public interface AlertRepository {
 
     /**
      * One alert.
-     *
-     * <p>Built in M8.
      *
      * @param alert the alert's ID
      * @return the alert, or empty when no alert has the ID
@@ -34,8 +30,6 @@ public interface AlertRepository {
      * beside the alert. {@link LiveOpsViews#unacknowledgedAt} reads it to tell whether the plan has
      * completed (FR-261, BR-102).
      *
-     * <p>Built in M8.
-     *
      * @param alert the raised alert, never saved
      * @param date the delivery date of the alert's plan, from Planning's answer: {@code
      *     PublishedRoutes} for a plan in force, or the {@code MembershipFact} of a reported stop,
@@ -47,8 +41,6 @@ public interface AlertRepository {
 
     /**
      * Stores a changed alert, checking the version it was loaded at (BR-76, ADR-057).
-     *
-     * <p>Built in M8.
      *
      * @param alert the alert
      * @throws StaleVersion when another dispatcher saved it since it was loaded

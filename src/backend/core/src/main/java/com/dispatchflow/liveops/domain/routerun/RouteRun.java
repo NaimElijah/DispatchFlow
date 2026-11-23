@@ -16,11 +16,25 @@ import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.StoredStateInvalid;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OrderColumn;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A route being driven (DL §4.5, §17), keyed by its {@link RouteId} and created when it starts: by
@@ -33,24 +47,71 @@ import java.util.Optional;
  * <p>A late report after *finished* is accepted by {@link
  * com.dispatchflow.liveops.domain.delivery.Delivery} and changes no run (ADR-107). Every method
  * checks all its rules before it changes anything.
+ *
+ * <p>It is mapped for JPA (ADR-126): its key is its route's UUID (ADR-127 decision 5), its {@link
+ * RunStatus} a kind plus the finish's time and driver, with the pending stops an ordered element
+ * collection, and its confirmed revision a nullable column. Every command changes those in place
+ * and ends by checking the invariant at rest that the load check runs. The route's delivery date,
+ * which the run does not hold, is kept beside it by the persistence adapter.
  */
-public final class RouteRun extends AggregateRoot {
+@Entity
+@Table(schema = "liveops", name = "route_run")
+public class RouteRun extends AggregateRoot {
 
-    private final RouteId route;
-    private final AccountId startedBy;
-    private final RunStartCause cause;
-    private final Instant startedAt;
-    private RunStatus status;
-    private Optional<RevisionNo> confirmed;
+    /** Which {@link RunStatus} a run is in. */
+    private enum StatusKind {
+        STARTED,
+        FINISHED
+    }
 
+    @Id
+    private UUID id;
+
+    private AccountId startedBy;
+
+    @Enumerated(EnumType.STRING)
+    private RunStartCause cause;
+
+    private Instant startedAt;
+
+    @Enumerated(EnumType.STRING)
+    private StatusKind status;
+
+    private @Nullable Instant finishedAt;
+
+    private @Nullable AccountId finishedBy;
+
+    @ElementCollection
+    @CollectionTable(
+            schema = "liveops",
+            name = "route_run_pending_stop",
+            joinColumns = @JoinColumn(name = "route_run_id"))
+    @OrderColumn(name = "position", nullable = false)
+    @Column(name = "stop")
+    private List<StopId> pendingStops = new ArrayList<>();
+
+    private @Nullable RevisionNo confirmed;
+
+    /** For Hibernate, which sets the fields from the stored rows and then runs {@link #checkStored}. */
+    protected RouteRun() {}
+
+    private RouteRun(RouteId route, AccountId startedBy, RunStartCause cause, Instant startedAt) {
+        this.id = route.value();
+        this.startedBy = startedBy;
+        this.cause = cause;
+        this.startedAt = startedAt;
+        this.status = StatusKind.STARTED;
+    }
+
+    /** Builds the run {@link #restore} checks; it goes with {@code restore} (ADR-126). */
     private RouteRun(RouteRunSnapshot stored) {
         super(stored.version());
-        this.route = stored.route();
+        this.id = stored.route().value();
         this.startedBy = stored.startedBy();
         this.cause = stored.cause();
         this.startedAt = stored.startedAt();
-        this.status = stored.status();
-        this.confirmed = stored.confirmed();
+        moveTo(stored.status());
+        this.confirmed = stored.confirmed().orElse(null);
     }
 
     /**
@@ -86,8 +147,7 @@ public final class RouteRun extends AggregateRoot {
         Objects.requireNonNull(now, "now");
         refuseUnlessDrivingThenAndNow(route, report, routeDriver, currentDriver);
         Instant startedAt = report.time().corrected();
-        RouteRun run = new RouteRun(new RouteRunSnapshot(
-                route, null, report.driver(), cause, startedAt, new RunStatus.Started(), Optional.empty()));
+        RouteRun run = new RouteRun(route, report.driver(), cause, startedAt);
         run.raise(
                 RouteStarted.class,
                 route.value(),
@@ -103,11 +163,22 @@ public final class RouteRun extends AggregateRoot {
      * @throws StoredStateInvalid when a finished run names a pending stop twice
      */
     public static RouteRun restore(RouteRunSnapshot stored) {
-        Optional<String> broken = brokenBy(stored);
-        if (broken.isPresent()) {
-            throw new StoredStateInvalid(RouteRun.class, broken.get());
-        }
-        return new RouteRun(stored);
+        RouteRun restored = new RouteRun(stored);
+        restored.checkStored();
+        return restored;
+    }
+
+    /**
+     * Checks the run as Hibernate loaded it against the invariant at rest that {@link #restore}
+     * checks (ADR-126 decision 8).
+     *
+     * @throws StoredStateInvalid when a finished run names a pending stop twice
+     */
+    @PostLoad
+    void checkStored() {
+        brokenRule().ifPresent(broken -> {
+            throw new StoredStateInvalid(RouteRun.class, broken);
+        });
     }
 
     /**
@@ -116,7 +187,8 @@ public final class RouteRun extends AggregateRoot {
      * @return the stored form
      */
     public RouteRunSnapshot snapshot() {
-        return snapshotOf(status, confirmed);
+        return new RouteRunSnapshot(
+                route(), savedVersion().orElse(null), startedBy, cause, startedAt, status(), confirmed());
     }
 
     /**
@@ -125,7 +197,7 @@ public final class RouteRun extends AggregateRoot {
      * @return the route
      */
     public RouteId route() {
-        return route;
+        return RouteId.of(id);
     }
 
     /**
@@ -134,7 +206,7 @@ public final class RouteRun extends AggregateRoot {
      * @return {@code true} once finished
      */
     public boolean isFinished() {
-        return status instanceof RunStatus.Finished;
+        return status == StatusKind.FINISHED;
     }
 
     /**
@@ -143,7 +215,7 @@ public final class RouteRun extends AggregateRoot {
      * @return the revision, or empty when none was confirmed
      */
     public Optional<RevisionNo> confirmed() {
-        return confirmed;
+        return Optional.ofNullable(confirmed);
     }
 
     /**
@@ -162,9 +234,9 @@ public final class RouteRun extends AggregateRoot {
         Objects.requireNonNull(routeDriver, "routeDriver");
         Objects.requireNonNull(currentDriver, "currentDriver");
         Objects.requireNonNull(now, "now");
-        refuseUnlessDrivingThenAndNow(route, report, routeDriver, currentDriver);
+        refuseUnlessDrivingThenAndNow(route(), report, routeDriver, currentDriver);
         refuseIfFinished();
-        throw new RuleViolation(new RunAlreadyStarted(route));
+        throw new RuleViolation(new RunAlreadyStarted(route()));
     }
 
     /**
@@ -186,9 +258,10 @@ public final class RouteRun extends AggregateRoot {
         Objects.requireNonNull(routeDriver, "routeDriver");
         Objects.requireNonNull(currentDriver, "currentDriver");
         Objects.requireNonNull(pending, "pending");
-        refuseUnlessDrivingThenAndNow(route, report, routeDriver, currentDriver);
+        refuseUnlessDrivingThenAndNow(route(), report, routeDriver, currentDriver);
         refuseIfFinished();
-        commit(new RunStatus.Finished(report.time().corrected(), report.driver(), pending), confirmed);
+        moveTo(new RunStatus.Finished(report.time().corrected(), report.driver(), pending));
+        requireInvariants();
     }
 
     /**
@@ -210,14 +283,15 @@ public final class RouteRun extends AggregateRoot {
         Objects.requireNonNull(currentDriver, "currentDriver");
         Objects.requireNonNull(seen, "seen");
         Objects.requireNonNull(current, "current");
-        refuseIfNotTheDriver(route, driver, currentDriver);
+        refuseIfNotTheDriver(route(), driver, currentDriver);
         if (seen.isAfter(current)) {
-            throw new RuleViolation(new UnknownRevision(route, seen, current));
+            throw new RuleViolation(new UnknownRevision(route(), seen, current));
         }
-        if (confirmed.filter(stored -> !seen.isAfter(stored)).isPresent()) {
+        if (confirmed().filter(stored -> !seen.isAfter(stored)).isPresent()) {
             return;
         }
-        commit(status, Optional.of(seen));
+        confirmed = seen;
+        requireInvariants();
     }
 
     /**
@@ -236,9 +310,9 @@ public final class RouteRun extends AggregateRoot {
         Objects.requireNonNull(changedIn, "changedIn");
         Objects.requireNonNull(changedAt, "changedAt");
         Objects.requireNonNull(now, "now");
-        return status instanceof RunStatus.Started
+        return status == StatusKind.STARTED
                 && !changedAt.isBefore(startedAt)
-                && confirmed.filter(stored -> !changedIn.isAfter(stored)).isEmpty()
+                && confirmed().filter(stored -> !changedIn.isAfter(stored)).isEmpty()
                 && ConfirmationDeadline.after(changedAt).isPassed(now);
     }
 
@@ -256,7 +330,7 @@ public final class RouteRun extends AggregateRoot {
         Objects.requireNonNull(at, "at");
         Objects.requireNonNull(standing, "standing");
         refusalAt(at, standing).ifPresent(reason -> {
-            throw new RuleViolation(new TrackingClosed(route, reason));
+            throw new RuleViolation(new TrackingClosed(route(), reason));
         });
     }
 
@@ -281,9 +355,8 @@ public final class RouteRun extends AggregateRoot {
         if (!standing.available()) {
             return Optional.of(TrackingRefusal.DRIVER_UNAVAILABLE);
         }
-        Optional<Instant> finishedAt =
-                status instanceof RunStatus.Finished finished ? Optional.of(finished.at()) : Optional.empty();
-        return TrackingWindow.of(startedAt, finishedAt, standing.shiftEnd()).admits(at)
+        return TrackingWindow.of(startedAt, Optional.ofNullable(finishedAt), standing.shiftEnd())
+                        .admits(at)
                 ? Optional.empty()
                 : Optional.of(TrackingRefusal.OUTSIDE_WINDOW);
     }
@@ -307,35 +380,54 @@ public final class RouteRun extends AggregateRoot {
     }
 
     private void refuseIfFinished() {
-        if (status instanceof RunStatus.Finished) {
-            throw new RuleViolation(new RouteAlreadyFinished(route));
+        if (isFinished()) {
+            throw new RuleViolation(new RouteAlreadyFinished(route()));
         }
     }
 
     /**
-     * Replaces the state with the one a command built, after checking it holds every at-rest
-     * invariant; a broken one here is a bug in the command, not a refusal.
+     * Checks the state a command left against the invariant at rest (ADR-126 decision 11). Every
+     * rule a caller can break was checked before the command changed anything, so a broken one here
+     * is a bug in the command, not a refusal, and the error rolls its transaction back.
      */
-    private void commit(RunStatus nextStatus, Optional<RevisionNo> nextConfirmed) {
-        Optional<String> broken = brokenBy(snapshotOf(nextStatus, nextConfirmed));
-        if (broken.isPresent()) {
-            throw new AssertionError("a route run command would leave a state that breaks: " + broken.get());
-        }
-        status = nextStatus;
-        confirmed = nextConfirmed;
+    private void requireInvariants() {
+        brokenRule().ifPresent(broken -> {
+            throw new AssertionError("a route run command left a state that breaks: " + broken);
+        });
     }
 
-    private RouteRunSnapshot snapshotOf(RunStatus nextStatus, Optional<RevisionNo> nextConfirmed) {
-        return new RouteRunSnapshot(
-                route, savedVersion().orElse(null), startedBy, cause, startedAt, nextStatus, nextConfirmed);
-    }
-
-    private static Optional<String> brokenBy(RouteRunSnapshot state) {
-        if (state.status() instanceof RunStatus.Finished finished
-                && new HashSet<>(finished.pending()).size()
-                        != finished.pending().size()) {
+    /** The one check of the invariant at rest, shared by the load check and every command. */
+    private Optional<String> brokenRule() {
+        if (status == StatusKind.FINISHED && new HashSet<>(pendingStops).size() != pendingStops.size()) {
             return Optional.of("a finished run names each pending stop once (FR-329)");
         }
         return Optional.empty();
+    }
+
+    /** Moves the run to a status, in place, clearing what the old one carried. */
+    private void moveTo(RunStatus next) {
+        finishedAt = null;
+        finishedBy = null;
+        pendingStops.clear();
+        status = switch (next) {
+            case RunStatus.Started started -> StatusKind.STARTED;
+            case RunStatus.Finished finished -> {
+                finishedAt = finished.at();
+                finishedBy = finished.by();
+                pendingStops.addAll(finished.pending());
+                yield StatusKind.FINISHED;
+            }
+        };
+    }
+
+    private RunStatus status() {
+        return switch (status) {
+            case STARTED -> new RunStatus.Started();
+            case FINISHED ->
+                new RunStatus.Finished(
+                        Objects.requireNonNull(finishedAt, "a finished run has its finish time"),
+                        Objects.requireNonNull(finishedBy, "a finished run names its driver"),
+                        pendingStops);
+        };
     }
 }

@@ -36,8 +36,6 @@ import static org.assertj.core.groups.Tuple.tuple;
 import com.dispatchflow.liveops.domain.CancellationKind;
 import com.dispatchflow.liveops.domain.DriverReport;
 import com.dispatchflow.liveops.domain.LiveOpsFixtures;
-import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.HeldState;
-import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.Origin;
 import com.dispatchflow.liveops.domain.outcome.DispatcherOutcome;
 import com.dispatchflow.liveops.domain.outcome.FailureReason;
 import com.dispatchflow.liveops.domain.outcome.Outcome;
@@ -256,9 +254,7 @@ class DeliveryReportsTest {
         ReportAnswer answer = delivery.fail(byC(LATE), ABSENT, ON_ROUTE_C, NOW_ON_A_NO_CONTACT, HELD_2, NOW);
 
         assertThat(answer).isEqualTo(new ReportAnswer.Held(HELD_2));
-        assertThat(delivery.snapshot().heldReports())
-                .extracting(DeliverySnapshot.HeldReport::id)
-                .containsExactly(HELD_1, HELD_2);
+        assertThat(delivery.snapshot().heldReports()).extracting(HeldReport::id).containsExactly(HELD_1, HELD_2);
     }
 
     @Test
@@ -272,7 +268,7 @@ class DeliveryReportsTest {
 
         assertThat(answer).isEqualTo(new ReportAnswer.Recorded(List.of(HELD_1, HELD_2)));
         assertThat(reloaded.snapshot().heldReports())
-                .extracting(DeliverySnapshot.HeldReport::state)
+                .extracting(HeldReport::state)
                 .containsExactly(new HeldState.Overtaken(LATER), new HeldState.Overtaken(LATER));
         assertThat(reloaded.status()).isEqualTo(DeliveryStatus.DELIVERED);
     }
@@ -289,7 +285,7 @@ class DeliveryReportsTest {
         assertThat(reloaded.status()).isEqualTo(DeliveryStatus.FAILED);
         assertThat(reloaded.outcomeTime()).contains(T_0800);
         assertThat(reloaded.snapshot().heldReports())
-                .extracting(DeliverySnapshot.HeldReport::state)
+                .extracting(HeldReport::state)
                 .containsExactly(new HeldState.Overtaken(LATER), new HeldState.Confirmed(DISPATCHER, LATER));
         assertThat(reloaded.pendingEvents())
                 .containsExactly(new OutcomeRecorded(
@@ -361,7 +357,7 @@ class DeliveryReportsTest {
         assertThat(answer).isEqualTo(new ReportAnswer.Held(HELD_1));
         assertThat(delivery.status()).isEqualTo(DeliveryStatus.HELD);
         assertThat(delivery.snapshot().heldReports())
-                .extracting(DeliverySnapshot.HeldReport::driver, DeliverySnapshot.HeldReport::route)
+                .extracting(HeldReport::driver, HeldReport::route)
                 .containsExactly(tuple(DRIVER_A, ROUTE_A));
         assertThat(delivery.pendingEvents()).isEmpty();
     }

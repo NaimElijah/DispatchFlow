@@ -23,8 +23,6 @@ import static com.dispatchflow.liveops.domain.LiveOpsFixtures.reload;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dispatchflow.liveops.domain.LiveOpsError.CorrectionChangesNothing;
-import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.Origin;
-import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.OutcomeRecord;
 import com.dispatchflow.liveops.domain.outcome.DispatcherOutcome;
 import com.dispatchflow.liveops.domain.outcome.FailureReason;
 import com.dispatchflow.liveops.domain.outcome.FailureReasonKind;
