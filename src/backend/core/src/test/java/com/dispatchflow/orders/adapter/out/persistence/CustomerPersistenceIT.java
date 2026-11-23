@@ -371,37 +371,6 @@ class CustomerPersistenceIT {
     static Stream<Arguments> damagedRows() {
         return Stream.of(
                 Arguments.of(
-                        "an anonymized customer with a name",
-                        1_001,
-                        Base.ANONYMIZED,
-                        (Damage) rows -> rows.update("name = 'דנה לוי'"),
-                        PERSONAL_DATA),
-                Arguments.of(
-                        "an anonymized customer with a phone",
-                        1_002,
-                        Base.ANONYMIZED,
-                        (Damage) rows -> rows.update("phone = '+97231234567'"),
-                        PERSONAL_DATA),
-                Arguments.of(
-                        "an anonymized customer with an address",
-                        1_003,
-                        Base.ANONYMIZED,
-                        (Damage) rows -> rows.update("address = 'הרצל 5', normalized_address = 'הרצל 5'"),
-                        PERSONAL_DATA),
-                Arguments.of(
-                        "an anonymized customer with a note",
-                        1_004,
-                        Base.ANONYMIZED,
-                        (Damage) rows -> rows.update("note = 'שער אחורי'"),
-                        PERSONAL_DATA),
-                Arguments.of(
-                        "an anonymized customer with a location",
-                        1_005,
-                        Base.ANONYMIZED,
-                        (Damage) rows -> rows.update(
-                                "location_kind = 'HAND_PLACED', location_latitude = 32.08, location_longitude = 34.78"),
-                        PERSONAL_DATA),
-                Arguments.of(
                         "an anonymized customer with a flag",
                         1_006,
                         Base.ANONYMIZED,
@@ -500,7 +469,22 @@ class CustomerPersistenceIT {
                         "an unknown state", 1_108, Base.ACTIVE, (Damage) rows -> rows.update("state = 'SUSPENDED'")),
                 Arguments.of("an unknown flag", 1_109, Base.ACTIVE, (Damage) rows -> rows.flag("SUSPICIOUS")),
                 Arguments.of("an unknown match quality", 1_110, Base.GEOCODED, (Damage)
-                        rows -> rows.update("match_quality = 'CLOSE'")));
+                        rows -> rows.update("match_quality = 'CLOSE'")),
+                Arguments.of("an anonymized customer with a name", 1_001, Base.ANONYMIZED, (Damage)
+                        rows -> rows.update("name = 'דנה לוי'")),
+                Arguments.of("an anonymized customer with a phone", 1_002, Base.ANONYMIZED, (Damage)
+                        rows -> rows.update("phone = '+97231234567'")),
+                Arguments.of("an anonymized customer with an address", 1_003, Base.ANONYMIZED, (Damage)
+                        rows -> rows.update("address = 'הרצל 5', normalized_address = 'הרצל 5'")),
+                Arguments.of("an anonymized customer with a note", 1_004, Base.ANONYMIZED, (Damage)
+                        rows -> rows.update("note = 'שער אחורי'")),
+                Arguments.of(
+                        "an anonymized customer with a location",
+                        1_005,
+                        Base.ANONYMIZED,
+                        (Damage)
+                                rows -> rows.update(
+                                        "location_kind = 'HAND_PLACED', location_latitude = 32.08, location_longitude = 34.78")));
     }
 
     @ParameterizedTest(name = "{0}")

@@ -624,20 +624,6 @@ class PlanPersistenceIT {
                         "Plan",
                         "a vehicle or driver drives at most one route"),
                 damaged(
-                        "two routes with one index",
-                        State.READY,
-                        rows -> rows.update("route", "route_index = 1", "position = 1"),
-                        "Plan",
-                        "route IDs, stop IDs and route indexes are unique"),
-                damaged(
-                        "an order with two pins",
-                        State.READY,
-                        rows -> rows.run("INSERT INTO planning.plan_pin (plan_id, position, order_id, vehicle_id)"
-                                + " VALUES (:plan, 0, '" + O1.value() + "', '" + V1.value() + "'),"
-                                + " (:plan, 1, '" + O1.value() + "', '" + V2.value() + "')"),
-                        "Plan",
-                        "an order has at most one pin"),
-                damaged(
                         "a violation on an unknown route",
                         State.READY,
                         rows -> rows.run("INSERT INTO planning.plan_violation (plan_id, position, rule, route_id)"
@@ -806,7 +792,19 @@ class PlanPersistenceIT {
                         State.LAST_TOOK_OFF_O3,
                         rows -> rows.update("plan_undo", "start_seconds = arrival_seconds - 1"),
                         "StopPlan",
-                        REFUSED + "INVALID_STOP_TIMES"));
+                        REFUSED + "INVALID_STOP_TIMES"),
+                damaged(
+                        "two drops out of drop order",
+                        State.READY,
+                        rows -> rows.update("plan_drop", "position = 1 - position"),
+                        "Plan",
+                        "drops are in drop order"),
+                damaged(
+                        "two pins out of pin order",
+                        State.REDONE_AFTER_A_SAVE,
+                        rows -> rows.update("plan_pin", "position = 1 - position"),
+                        "Plan",
+                        "pins are in pin order"));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -942,7 +940,22 @@ class PlanPersistenceIT {
                         "a cause no exclusion has",
                         State.DRAFT,
                         rows -> rows.run("INSERT INTO planning.plan_excluded_vehicle (plan_id, position, vehicle_id,"
-                                + " cause) VALUES (:plan, 0, gen_random_uuid(), 'BORED')")));
+                                + " cause) VALUES (:plan, 0, gen_random_uuid(), 'BORED')")),
+                forbidden(
+                        "two routes with one index",
+                        State.READY,
+                        rows -> rows.update("route", "route_index = 1", "position = 1")),
+                forbidden(
+                        "an order with two pins",
+                        State.READY,
+                        rows -> rows.run("INSERT INTO planning.plan_pin (plan_id, position, order_id, vehicle_id)"
+                                + " VALUES (:plan, 0, '" + O1.value() + "', '" + V1.value() + "'),"
+                                + " (:plan, 1, '" + O1.value() + "', '" + V2.value() + "')")),
+                forbidden(
+                        "two stops for one order and attempt",
+                        State.READY,
+                        rows -> rows.run("UPDATE planning.planned_stop SET order_id = '" + O1.value()
+                                + "' WHERE route_id = " + SECOND_ROUTE)));
     }
 
     @ParameterizedTest(name = "{0}")

@@ -241,6 +241,18 @@ class RouteRunPersistenceIT {
                 .isEmpty();
     }
 
+    @Test
+    void GivenAStoredRun_WhenItIsAddedAgain_ThenAssertionErrorAndItsDateStays() {
+        int n = 16;
+        transactions.inTransaction(() -> repository.add(started(n), dateOf(n)));
+
+        assertThatThrownBy(() -> transactions.inTransaction(
+                        () -> repository.add(repository.get(route(n)).orElseThrow(), dateOf(100 + n))))
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("a route run is added once, and its date kept with it");
+        assertThat(storedDate(n)).isEqualTo(dateOf(n).value());
+    }
+
     // --- the load check (ADR-127 decision 1)
 
     @Test
@@ -256,6 +268,22 @@ class RouteRunPersistenceIT {
                 .isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
                     assertThat(invalid.subject()).isEqualTo("RouteRun");
                     assertThat(invalid.detail()).isEqualTo("a finished run names each pending stop once (FR-329)");
+                });
+    }
+
+    @Test
+    void GivenAStartedRunWithAPendingStop_WhenLoaded_ThenStoredStateInvalid() {
+        int n = 15;
+        transactions.inTransaction(() -> repository.add(started(n), dateOf(n)));
+
+        jdbc.sql("INSERT INTO liveops.route_run_pending_stop (route_run_id, position, stop) VALUES (?, 0, ?)")
+                .params(route(n).value(), stop(n, 1).value())
+                .update();
+
+        assertThatThrownBy(() -> transactions.inTransaction(() -> repository.get(route(n))))
+                .isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
+                    assertThat(invalid.subject()).isEqualTo("RouteRun");
+                    assertThat(invalid.detail()).isEqualTo("only a finished run has pending stops (FR-329)");
                 });
     }
 

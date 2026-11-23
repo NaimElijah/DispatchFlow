@@ -388,7 +388,10 @@ CREATE TABLE planning.route (
     CONSTRAINT route_plan_whole CHECK (
         num_nonnulls(times_date, leaves_at_seconds, returns_at_seconds, leg_to_end_travel, leg_to_end_metres) IN (0, 5)),
     CONSTRAINT route_position UNIQUE (plan_id, position) DEFERRABLE INITIALLY DEFERRED,
-    CONSTRAINT route_of_its_plan UNIQUE (id, plan_id)
+    CONSTRAINT route_of_its_plan UNIQUE (id, plan_id),
+    -- A plan's route indexes are unique (DL §4.4), which the load check also enforces. Deferred,
+    -- because a solve inserts its routes before it deletes those they replace.
+    CONSTRAINT route_index_once UNIQUE (plan_id, route_index) DEFERRABLE INITIALLY DEFERRED
 );
 
 -- The re-check job reads the ready and published plans with a route not yet checked (FR-395).
@@ -419,7 +422,11 @@ CREATE TABLE planning.planned_stop (
     CONSTRAINT planned_stop_late_known CHECK (late IN ('SERVED_LATE', 'SERVED_AFTER_CANCELLATION')),
     CONSTRAINT planned_stop_position UNIQUE (route_id, position) DEFERRABLE INITIALLY DEFERRED,
     CONSTRAINT planned_stop_on_a_route_of_its_plan FOREIGN KEY (route_id, plan_id)
-        REFERENCES planning.route (id, plan_id) DEFERRABLE INITIALLY DEFERRED
+        REFERENCES planning.route (id, plan_id) DEFERRABLE INITIALLY DEFERRED,
+    -- A plan serves an order and attempt at most once (DL §4.4); the load check also keeps a served
+    -- one out of the drops. Deferred, because Hibernate inserts a new stop before it deletes the one
+    -- it replaces.
+    CONSTRAINT planned_stop_order_once UNIQUE (plan_id, order_id, attempt) DEFERRABLE INITIALLY DEFERRED
 );
 -- A plan's stops, which its load fetches as one collection.
 CREATE INDEX planned_stop_by_plan ON planning.planned_stop (plan_id);
@@ -477,7 +484,10 @@ CREATE TABLE planning.plan_pin (
     vehicle_id uuid,
     driver_id uuid,
     CONSTRAINT plan_pin_one_target CHECK (num_nonnulls(vehicle_id, driver_id) = 1),
-    CONSTRAINT plan_pin_position UNIQUE (plan_id, position) DEFERRABLE INITIALLY DEFERRED
+    CONSTRAINT plan_pin_position UNIQUE (plan_id, position) DEFERRABLE INITIALLY DEFERRED,
+    -- An order has at most one pin (DL §4.4), which the load check also enforces. Deferred, because
+    -- Hibernate rewrites the pins' rows in place, so one order's row can move before another leaves.
+    CONSTRAINT plan_pin_order_once UNIQUE (plan_id, order_id) DEFERRABLE INITIALLY DEFERRED
 );
 
 CREATE TABLE planning.plan_violation (

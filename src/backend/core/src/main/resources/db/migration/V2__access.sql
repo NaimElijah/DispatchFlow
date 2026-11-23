@@ -24,6 +24,10 @@ CREATE TABLE access.user_account (
         OR (state = 'ANONYMIZED' AND deactivated_at IS NOT NULL AND anonymized_at IS NOT NULL)),
     CONSTRAINT user_account_email_set_whole CHECK ((email_set_by IS NULL) = (email_set_at IS NULL)),
     CONSTRAINT user_account_language_known CHECK (language IN ('HEBREW', 'ENGLISH')),
+    -- Anonymizing an account clears its email, who set it and its password (NFR-258), which the
+    -- load check also enforces.
+    CONSTRAINT user_account_anonymized_holds_nothing CHECK (
+        state <> 'ANONYMIZED' OR num_nonnulls(email, email_set_by, email_set_at, password_hash) = 0),
     -- One account per canonical address (BR-45); an anonymized account holds none, and NULLs are
     -- distinct. The persistence adapter answers a violation of it, by name, with EmailInUse.
     CONSTRAINT user_account_email_unique UNIQUE (email)
@@ -63,7 +67,8 @@ CREATE TABLE access.credential_link (
 );
 
 -- A link is found by its token's hash (NFR-211), and the retention job reads when links were sent.
-CREATE INDEX credential_link_token_hash ON access.credential_link (token_hash);
+-- The lookup expects one link per hash, so the hash is unique across every account's links.
+CREATE UNIQUE INDEX credential_link_token_hash ON access.credential_link (token_hash);
 CREATE INDEX credential_link_issued_at ON access.credential_link (issued_at);
 CREATE INDEX credential_link_open ON access.credential_link (user_account_id) WHERE status = 'OPEN';
 
@@ -101,8 +106,9 @@ CREATE TABLE access.refresh_token (
     CONSTRAINT refresh_token_position UNIQUE (session_id, position) DEFERRABLE INITIALLY DEFERRED
 );
 
--- A refresh or a sign-out finds its session by the presented token's hash (NFR-88, NFR-89).
-CREATE INDEX refresh_token_token_hash ON access.refresh_token (token_hash);
+-- A refresh or a sign-out finds its session by the presented token's hash (NFR-88, NFR-89). The
+-- lookup expects one token per hash, so the hash is unique across every session's tokens.
+CREATE UNIQUE INDEX refresh_token_token_hash ON access.refresh_token (token_hash);
 -- The retention job reads each session's current token to date its end (NFR-258).
 CREATE INDEX refresh_token_current ON access.refresh_token (session_id) WHERE state = 'CURRENT';
 

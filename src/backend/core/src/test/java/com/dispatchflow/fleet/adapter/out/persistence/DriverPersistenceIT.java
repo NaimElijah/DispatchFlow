@@ -307,12 +307,6 @@ class DriverPersistenceIT {
                         "name = NULL, phone = NULL",
                         CONTACT_UNTIL_ANONYMIZED),
                 Arguments.of(
-                        "an anonymized driver who still has a name and phone",
-                        1_003,
-                        Base.ANONYMIZED,
-                        "name = 'Dana Levi', phone = '+972523456789'",
-                        CONTACT_UNTIL_ANONYMIZED),
-                Arguments.of(
                         "anonymized before being retired",
                         1_004,
                         Base.ANONYMIZED,
@@ -342,14 +336,23 @@ class DriverPersistenceIT {
     static Stream<Arguments> damageTheSchemaForbids() {
         return Stream.of(
                 Arguments.of("a name without a phone", 1_005, Base.ACTIVE, "phone = NULL"),
-                Arguments.of("an active driver with a retirement time", 1_006, Base.ACTIVE, "retired_at = now()"),
+                Arguments.of(
+                        "an active driver with a retirement time",
+                        1_006,
+                        Base.ACTIVE,
+                        "retired_at = TIMESTAMPTZ '2031-01-01 08:00:00+00'"),
                 Arguments.of("a retired driver with no retirement time", 1_007, Base.RETIRED, "retired_at = NULL"),
                 Arguments.of(
                         "an anonymized driver with no anonymization time",
                         1_008,
                         Base.ANONYMIZED,
                         "anonymized_at = NULL"),
-                Arguments.of("an unknown status", 1_009, Base.ACTIVE, "status = 'SUSPENDED'"));
+                Arguments.of("an unknown status", 1_009, Base.ACTIVE, "status = 'SUSPENDED'"),
+                Arguments.of(
+                        "an anonymized driver who still has a name and phone",
+                        1_003,
+                        Base.ANONYMIZED,
+                        "name = 'Dana Levi', phone = '+972523456789'"));
     }
 
     @ParameterizedTest(name = "{0}")

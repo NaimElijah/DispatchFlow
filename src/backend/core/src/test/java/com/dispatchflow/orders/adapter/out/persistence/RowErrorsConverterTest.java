@@ -37,6 +37,7 @@ import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
+import org.example.foreign.ForeignError;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -45,8 +46,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * The JSON column of an import row's errors (ADR-127 decision 7): every error a preview can keep
- * comes back as it was stored, and a stored text that names a type the allow-list refuses, or that
- * isn't the converter's form, is damaged state.
+ * comes back as it was stored, an error the reader would refuse is never stored, and a stored text
+ * that names a type the allow-list refuses, or that isn't the converter's form, is damaged state.
  */
 class RowErrorsConverterTest {
 
@@ -112,6 +113,27 @@ class RowErrorsConverterTest {
         assertThat(converter.convertToDatabaseColumn(new RowErrors(List.of(new DateInPast(DATE)))))
                 .isEqualTo("[{\"type\":\"com.dispatchflow.orders.domain.OrdersError$DateInPast\","
                         + "\"value\":{\"date\":{\"value\":\"2027-06-16\"}}}]");
+    }
+
+    /** A {@link DomainError} that is no record, so the reader could not rebuild it by its components. */
+    private static final class NotARecord implements DomainError {}
+
+    static Stream<Arguments> errorsTheReaderRefuses() {
+        return Stream.of(
+                Arguments.of("a DomainError that is no record", new NotARecord()),
+                Arguments.of("a DomainError record outside com.dispatchflow", new ForeignError()));
+    }
+
+    /** Storing one is the caller's bug, never a refusal, so nothing is written that can't be read back. */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("errorsTheReaderRefuses")
+    void GivenAnErrorTheReaderRefuses_WhenStored_ThenAssertionError(String kind, DomainError error) {
+        RowErrors errors = new RowErrors(List.of(new NoServiceTime(), error));
+
+        assertThatThrownBy(() -> converter.convertToDatabaseColumn(errors))
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("an import row's error must be a DomainError record under com.dispatchflow,"
+                        + " so it can be read back");
     }
 
     @Test
