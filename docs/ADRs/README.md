@@ -36,6 +36,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-041](ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md) | Each module owns a PostgreSQL schema, read and written through jOOQ by a role that owns no table | Accepted; amended by ADR-126 and ADR-127 |
 | [ADR-126](ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) | JPA replaces jOOQ in the core, and the domain classes carry their own mapping | Accepted; amended by ADR-127 |
 | [ADR-127](ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md) | How the 20 aggregates are mapped, and where their stored state is tested | Accepted |
+| [ADR-128](ADR-128-a-sessions-contacts-unmapped-state-and-durations-as-the-mapping-stores-them.md) | A session's contacts, the state no entity maps, and durations, as the mapping stores them | Proposed |
 | [ADR-043](ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md) | Code is generated from both contracts on both sides, and errors are RFC 9457 Problem Details | Accepted; extended by ADR-068, ADR-073, ADR-087 and ADR-094; amended by ADR-123 |
 | [ADR-094](ADR-094-each-pull-requests-contract-check-compares-against-its-base-branch.md) | Each pull request's contract check compares against its base branch | Accepted |
 | [ADR-044](ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md) | The solver port takes a start, a budget and a seed, and `Problem` alone judges a solution | Accepted; extended by ADR-050 and ADR-099; amended by ADR-105, ADR-120 and ADR-121 |
@@ -158,4 +159,6 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > 2026-11-23, replaces jOOQ with JPA in the core and lets the domain classes carry their mapping.
 > ADR-127, on 2026-11-23, records how the 20 aggregates are mapped and where their stored state is
 > tested.
+> ADR-128, proposed on 2026-11-23, records how a session's contacts are saved, the state no entity
+> maps, and how a duration is stored, as the mapping built them.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.
