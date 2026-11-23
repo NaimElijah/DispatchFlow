@@ -126,7 +126,7 @@ public final class FleetRegister extends AggregateRoot {
      */
     public FleetRegisterSnapshot snapshot() {
         return new FleetRegisterSnapshot(
-                savedVersion(),
+                savedVersion().orElse(null),
                 depots.values().stream().map(Depot::snapshot).toList(),
                 vehicles.values().stream().map(Vehicle::snapshot).toList());
     }

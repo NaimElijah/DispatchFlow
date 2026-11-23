@@ -748,7 +748,7 @@ public final class UserAccount extends AggregateRoot {
      */
     public UserAccountSnapshot snapshot() {
         return new UserAccountSnapshot(
-                savedVersion(),
+                savedVersion().orElse(null),
                 id,
                 Optional.ofNullable(email),
                 Optional.ofNullable(emailSetByAnother),

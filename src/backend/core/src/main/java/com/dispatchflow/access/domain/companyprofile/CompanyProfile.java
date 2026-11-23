@@ -148,6 +148,6 @@ public final class CompanyProfile extends AggregateRoot {
      */
     public CompanyProfileSnapshot snapshot() {
         return new CompanyProfileSnapshot(
-                savedVersion(), name, language, defaultWindow, Optional.ofNullable(defaultServiceTime));
+                savedVersion().orElse(null), name, language, defaultWindow, Optional.ofNullable(defaultServiceTime));
     }
 }

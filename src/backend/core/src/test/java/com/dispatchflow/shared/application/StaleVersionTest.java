@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dispatchflow.shared.Version;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -32,6 +33,40 @@ class StaleVersionTest {
     @Test
     void GivenANewerVersionThanTheLoadedOne_WhenChecked_ThenStaleVersion() {
         assertThatThrownBy(() -> StaleVersion.requireCurrent("Plan", ID, Version.of(0), Version.of(1)))
+                .isInstanceOf(StaleVersion.class);
+    }
+
+    @Test
+    void GivenNothingStoredAndACallerWhoReadNothing_WhenChecked_ThenTheFirstSaveGoesOn() {
+        assertThatCode(() -> StaleVersion.requireCurrent("CompanyProfile", ID, Optional.empty(), Optional.empty()))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void GivenAStoredVersionTheCallerRead_WhenChecked_ThenTheChangeGoesOn() {
+        assertThatCode(() -> StaleVersion.requireCurrent(
+                        "CompanyProfile", ID, Optional.of(Version.of(3)), Optional.of(Version.of(3))))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void GivenAStoredAggregateAndACallerWhoReadNothing_WhenChecked_ThenStaleVersion() {
+        assertThatThrownBy(() ->
+                        StaleVersion.requireCurrent("CompanyProfile", ID, Optional.of(Version.of(0)), Optional.empty()))
+                .isInstanceOf(StaleVersion.class);
+    }
+
+    @Test
+    void GivenNothingStoredAndACallerWhoReadAVersion_WhenChecked_ThenStaleVersion() {
+        assertThatThrownBy(() ->
+                        StaleVersion.requireCurrent("CompanyProfile", ID, Optional.empty(), Optional.of(Version.of(0))))
+                .isInstanceOf(StaleVersion.class);
+    }
+
+    @Test
+    void GivenAnotherStoredVersion_WhenCheckedAsOptionals_ThenStaleVersion() {
+        assertThatThrownBy(() -> StaleVersion.requireCurrent(
+                        "CompanyProfile", ID, Optional.of(Version.of(4)), Optional.of(Version.of(3))))
                 .isInstanceOf(StaleVersion.class);
     }
 }

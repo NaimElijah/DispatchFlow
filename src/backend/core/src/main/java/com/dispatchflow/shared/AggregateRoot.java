@@ -6,6 +6,7 @@ import jakarta.persistence.Transient;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
@@ -76,13 +77,14 @@ public abstract class AggregateRoot {
     }
 
     /**
-     * The version this instance was loaded at, or none, for a {@code snapshot()} to carry. It goes
-     * with the last snapshot that holds a version (ADR-126).
+     * The version this instance was stored at, or none: what a use case compares with the caller's
+     * {@code If-Match}, or with {@code If-None-Match: *}, when what it loaded may never have been
+     * saved, such as a singleton's starting values (ADR-126).
      *
-     * @return the loaded version, or null when the aggregate was never saved
+     * @return the stored version, or empty when the aggregate was never saved
      */
-    protected final @Nullable Version savedVersion() {
-        return storedVersion == null ? null : Version.of(storedVersion);
+    public final Optional<Version> savedVersion() {
+        return storedVersion == null ? Optional.empty() : Optional.of(Version.of(storedVersion));
     }
 
     /**

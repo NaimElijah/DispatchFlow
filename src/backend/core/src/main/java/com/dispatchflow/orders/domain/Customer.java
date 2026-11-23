@@ -431,7 +431,7 @@ public final class Customer extends AggregateRoot implements PersonalData {
                 defaults,
                 state,
                 createdAt,
-                savedVersion());
+                savedVersion().orElse(null));
     }
 
     /**

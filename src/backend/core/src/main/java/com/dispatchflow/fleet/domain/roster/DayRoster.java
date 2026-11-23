@@ -102,7 +102,7 @@ public final class DayRoster extends AggregateRoot {
      */
     public DayRosterSnapshot snapshot() {
         return new DayRosterSnapshot(
-                date, savedVersion(), List.copyOf(entries.values()), List.copyOf(unavailableVehicles));
+                date, savedVersion().orElse(null), List.copyOf(entries.values()), List.copyOf(unavailableVehicles));
     }
 
     /**

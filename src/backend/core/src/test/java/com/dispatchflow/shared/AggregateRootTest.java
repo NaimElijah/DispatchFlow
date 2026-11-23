@@ -78,6 +78,16 @@ class AggregateRootTest {
     }
 
     @Test
+    void GivenANeverSavedAggregate_WhenItsSavedVersionIsRead_ThenThereIsNone() {
+        assertThat(Counter.open(NOW).savedVersion()).isEmpty();
+    }
+
+    @Test
+    void GivenALoadedAggregate_WhenItsSavedVersionIsRead_ThenItIsTheLoadedOne() {
+        assertThat(Counter.loadedAt(Version.of(4)).savedVersion()).contains(Version.of(4));
+    }
+
+    @Test
     void GivenAnAggregateSavedOnce_WhenItsVersionIsRead_ThenItIsZeroAndItsNextChangeRaisesAtOne() {
         Counter counter = Counter.loadedAt(Version.of(0));
 

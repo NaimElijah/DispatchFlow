@@ -62,7 +62,7 @@ public final class Alert extends AggregateRoot {
      * @return the stored form
      */
     public AlertSnapshot snapshot() {
-        return new AlertSnapshot(id, savedVersion(), subject, raisedAt, state);
+        return new AlertSnapshot(id, savedVersion().orElse(null), subject, raisedAt, state);
     }
 
     /**

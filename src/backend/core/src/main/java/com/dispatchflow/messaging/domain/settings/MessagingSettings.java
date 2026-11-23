@@ -98,6 +98,6 @@ public final class MessagingSettings extends AggregateRoot {
      * @return a snapshot that {@link #restore} rebuilds
      */
     public MessagingSettingsSnapshot snapshot() {
-        return new MessagingSettingsSnapshot(savedVersion(), messages, ratingQuestion, dispatchPhone);
+        return new MessagingSettingsSnapshot(savedVersion().orElse(null), messages, ratingQuestion, dispatchPhone);
     }
 }

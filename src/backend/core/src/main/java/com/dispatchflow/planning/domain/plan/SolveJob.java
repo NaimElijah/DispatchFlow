@@ -390,7 +390,7 @@ public final class SolveJob extends AggregateRoot {
     public SolveJobSnapshot snapshot() {
         return new SolveJobSnapshot(
                 id,
-                savedVersion(),
+                savedVersion().orElse(null),
                 plan,
                 lane,
                 solver,

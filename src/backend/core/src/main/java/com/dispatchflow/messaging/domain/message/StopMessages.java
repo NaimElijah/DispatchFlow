@@ -470,7 +470,7 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
      * @return a snapshot that {@link #restore} rebuilds
      */
     public StopMessagesSnapshot snapshot() {
-        return new StopMessagesSnapshot(stop, savedVersion(), messages);
+        return new StopMessagesSnapshot(stop, savedVersion().orElse(null), messages);
     }
 
     /**
@@ -632,7 +632,8 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
      * here is a bug in the command, not a refusal.
      */
     private void commit(List<OutgoingMessage> nextMessages) {
-        StopMessagesSnapshot candidate = new StopMessagesSnapshot(stop, savedVersion(), nextMessages);
+        StopMessagesSnapshot candidate =
+                new StopMessagesSnapshot(stop, savedVersion().orElse(null), nextMessages);
         StopMessagesInvariants.brokenBy(candidate).ifPresent(broken -> {
             throw new AssertionError("a stop messages command would leave a state that breaks: " + broken);
         });

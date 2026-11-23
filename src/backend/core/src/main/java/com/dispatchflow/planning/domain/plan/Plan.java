@@ -1306,7 +1306,7 @@ public final class Plan extends AggregateRoot {
             List<Edit> redone) {
         return new PlanSnapshot(
                 id,
-                savedVersion(),
+                savedVersion().orElse(null),
                 date,
                 openedAt,
                 state,

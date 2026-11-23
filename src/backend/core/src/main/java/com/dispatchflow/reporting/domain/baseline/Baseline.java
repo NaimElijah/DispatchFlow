@@ -179,7 +179,7 @@ public final class Baseline extends AggregateRoot {
      * @return a snapshot that {@link #restore} rebuilds
      */
     public BaselineSnapshot snapshot() {
-        return new BaselineSnapshot(plan, savedVersion(), result, cause, computedAt);
+        return new BaselineSnapshot(plan, savedVersion().orElse(null), result, cause, computedAt);
     }
 
     private BaselineCause.Recomputed recomputedSoFar() {
@@ -212,8 +212,8 @@ public final class Baseline extends AggregateRoot {
      * the command, not a refusal.
      */
     private void commit(PlannedFigures nextResult, BaselineCause nextCause, Instant nextComputedAt) {
-        Optional<String> broken =
-                brokenBy(new BaselineSnapshot(plan, savedVersion(), nextResult, nextCause, nextComputedAt));
+        Optional<String> broken = brokenBy(
+                new BaselineSnapshot(plan, savedVersion().orElse(null), nextResult, nextCause, nextComputedAt));
         if (broken.isPresent()) {
             throw new AssertionError("a baseline command would leave a state that breaks: " + broken.get());
         }

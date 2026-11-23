@@ -531,7 +531,7 @@ public final class Order extends AggregateRoot implements PersonalData {
                 state,
                 anonymized,
                 lastChangedAt,
-                savedVersion());
+                savedVersion().orElse(null));
     }
 
     /**

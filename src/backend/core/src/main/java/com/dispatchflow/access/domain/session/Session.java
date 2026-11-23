@@ -560,7 +560,7 @@ public final class Session extends AggregateRoot {
      */
     public SessionSnapshot snapshot() {
         return new SessionSnapshot(
-                savedVersion(),
+                savedVersion().orElse(null),
                 id,
                 account,
                 accountGeneration,

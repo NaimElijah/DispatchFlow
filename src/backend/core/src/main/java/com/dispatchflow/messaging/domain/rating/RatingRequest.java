@@ -248,7 +248,7 @@ public final class RatingRequest extends AggregateRoot implements PersonalData {
     public RatingRequestSnapshot snapshot() {
         return new RatingRequestSnapshot(
                 id,
-                savedVersion(),
+                savedVersion().orElse(null),
                 stop,
                 Optional.ofNullable(phone),
                 acceptedAt,
@@ -332,7 +332,7 @@ public final class RatingRequest extends AggregateRoot implements PersonalData {
             @Nullable Instant nextRemovedAt) {
         RatingRequestSnapshot candidate = new RatingRequestSnapshot(
                 id,
-                savedVersion(),
+                savedVersion().orElse(null),
                 stop,
                 Optional.ofNullable(nextPhone),
                 acceptedAt,

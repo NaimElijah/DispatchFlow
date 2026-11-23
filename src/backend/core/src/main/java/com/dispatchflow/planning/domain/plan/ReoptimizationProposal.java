@@ -158,7 +158,7 @@ public final class ReoptimizationProposal extends AggregateRoot {
     public ReoptimizationProposalSnapshot snapshot() {
         return new ReoptimizationProposalSnapshot(
                 content.id(),
-                savedVersion(),
+                savedVersion().orElse(null),
                 content.plan(),
                 content.job(),
                 content.basis(),

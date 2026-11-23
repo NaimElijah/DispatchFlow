@@ -326,7 +326,8 @@ public final class RouteRun extends AggregateRoot {
     }
 
     private RouteRunSnapshot snapshotOf(RunStatus nextStatus, Optional<RevisionNo> nextConfirmed) {
-        return new RouteRunSnapshot(route, savedVersion(), startedBy, cause, startedAt, nextStatus, nextConfirmed);
+        return new RouteRunSnapshot(
+                route, savedVersion().orElse(null), startedBy, cause, startedAt, nextStatus, nextConfirmed);
     }
 
     private static Optional<String> brokenBy(RouteRunSnapshot state) {

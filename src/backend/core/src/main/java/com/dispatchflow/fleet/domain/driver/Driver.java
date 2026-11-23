@@ -115,7 +115,13 @@ public final class Driver extends AggregateRoot {
      */
     public DriverSnapshot snapshot() {
         return new DriverSnapshot(
-                id, savedVersion(), status, Optional.ofNullable(contact), defaultShift, defaultVehicle, weeklyShifts);
+                id,
+                savedVersion().orElse(null),
+                status,
+                Optional.ofNullable(contact),
+                defaultShift,
+                defaultVehicle,
+                weeklyShifts);
     }
 
     /**

@@ -441,7 +441,8 @@ public final class ImportBatch extends AggregateRoot implements PersonalData {
      * @return the snapshot, at the loaded version
      */
     public ImportBatchSnapshot snapshot() {
-        return new ImportBatchSnapshot(id, hash, encoding, rows, previewedAt, state, savedVersion());
+        return new ImportBatchSnapshot(
+                id, hash, encoding, rows, previewedAt, state, savedVersion().orElse(null));
     }
 
     /**

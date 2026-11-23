@@ -105,6 +105,11 @@ public final class PlanningSettings extends AggregateRoot {
      */
     public PlanningSettingsSnapshot snapshot() {
         return new PlanningSettingsSnapshot(
-                savedVersion(), travelBuckets, buffer, defaultSolveLimit, fixedVehicleCost, departureAllowance);
+                savedVersion().orElse(null),
+                travelBuckets,
+                buffer,
+                defaultSolveLimit,
+                fixedVehicleCost,
+                departureAllowance);
     }
 }

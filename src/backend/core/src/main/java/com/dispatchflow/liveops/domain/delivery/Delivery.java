@@ -735,6 +735,12 @@ public final class Delivery extends AggregateRoot implements PersonalData {
     private DeliverySnapshot snapshotOf(
             @Nullable ArrivalRecord nextArrival, List<OutcomeRecord> nextOutcomes, List<HeldReport> nextHeld) {
         return new DeliverySnapshot(
-                stop, order, attempt, savedVersion(), Optional.ofNullable(nextArrival), nextOutcomes, nextHeld);
+                stop,
+                order,
+                attempt,
+                savedVersion().orElse(null),
+                Optional.ofNullable(nextArrival),
+                nextOutcomes,
+                nextHeld);
     }
 }
