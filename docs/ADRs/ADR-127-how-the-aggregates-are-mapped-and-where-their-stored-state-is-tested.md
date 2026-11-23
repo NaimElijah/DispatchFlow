@@ -37,7 +37,7 @@ cannot follow:
 
 ## Decision
 
-We map the 20 roots as ADR-126 decides, with these nine decisions where it is silent or cannot be
+We map the 20 roots as ADR-126 decides, with these ten decisions where it is silent or cannot be
 followed.
 
 1. **A stored-state check is tested where it runs: when the aggregate loads.** Each repository's
@@ -89,11 +89,19 @@ followed.
    - An advisory lock's key is `hashtext('<module>:<lock>:' || <value>)`, taken with
      `pg_advisory_xact_lock`, so each module's locks are named apart and released at commit.
 
+10. **A session's contact times are a set of instants, ordered by value,** in a table keyed by the
+    session and the instant, with no position, and mapped `@OptimisticLock(excluded = true)`. A
+    contact is then one row inserted and a dropped one is one row deleted, so two requests that save
+    contacts at once each keep their own, and a drop never rewrites the rest. ADR-126's ordered list
+    would number every row, so two concurrent contacts would take the same position, and dropping
+    the oldest would renumber up to two weeks of them. Two contacts at the very same instant are
+    kept once, which BR-133's contact window reads the same way.
+
 **What this amends.**
 
 - **[ADR-126]:** `DayRoster`'s entries are values, not entities (3). The records are `@Immutable`
   entities in their adapters, not the record types themselves (6). A preview row's errors are one
-  JSON column (7).
+  JSON column (7). A session's contact times are a set, not an ordered list (10).
 - **[ADR-041]:** a migration grants from the change that adds the roles, not before (8).
 
 ## Consequences
