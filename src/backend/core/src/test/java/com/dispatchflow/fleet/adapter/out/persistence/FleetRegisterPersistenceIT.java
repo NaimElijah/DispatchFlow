@@ -2,6 +2,7 @@ package com.dispatchflow.fleet.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.Transactions;
@@ -20,6 +21,7 @@ import com.dispatchflow.fleet.domain.register.VehicleDetails;
 import com.dispatchflow.fleet.domain.register.VehicleName;
 import com.dispatchflow.shared.DepotId;
 import com.dispatchflow.shared.GeoPoint;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.VehicleId;
 import com.dispatchflow.shared.Version;
@@ -31,6 +33,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -244,7 +247,9 @@ class FleetRegisterPersistenceIT {
                 Arguments.of("a vehicle uses a depot that is not in the register", Base.A_RETIRED_VEHICLE, (Damage)
                         rows -> rows.updateVehicle(2, "start_depot = '" + depot(9).value() + "'")),
                 Arguments.of("an active vehicle uses a retired depot", Base.A_RETIRED_DEPOT, (Damage)
-                        rows -> rows.updateVehicle(2, "end_depot = '" + EAST.value() + "'")));
+                        rows -> rows.updateVehicle(2, "end_depot = '" + EAST.value() + "'")),
+                Arguments.of(StoredLists.GAP, Base.TWO_ACTIVE_VEHICLES, (Damage) Rows::shiftDepotPositions),
+                Arguments.of(StoredLists.GAP, Base.TWO_ACTIVE_VEHICLES, (Damage) Rows::shiftVehiclePositions));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -260,6 +265,24 @@ class FleetRegisterPersistenceIT {
                     assertThat(invalid.subject()).isEqualTo("FleetRegister");
                     assertThat(invalid.detail()).isEqualTo(detail);
                 });
+    }
+
+    /**
+     * No {@code CHECK} keeps a depot's hours in order, so only the registered instantiator stands
+     * between the row and a {@code RuleViolation} that would read as the caller's mistake.
+     */
+    @Test
+    void GivenAStoredDepotWhoseHoursCloseBeforeTheyOpen_WhenTheRegisterIsLoaded_ThenStoredStateInvalidNamesTheHours() {
+        transactions.inTransaction(() -> repository.add(Base.TWO_ACTIVE_VEHICLES.build()));
+        new Rows(jdbc).updateDepot(NORTH, "opens = '20:00', closes = '06:00'");
+
+        Throwable thrown = catchThrowable(() -> transactions.inTransaction(() -> repository.get()));
+
+        assertThat(Stream.iterate(thrown, Objects::nonNull, Throwable::getCause))
+                .anySatisfy(cause -> assertThat(cause).isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
+                    assertThat(invalid.subject()).isEqualTo("DepotHours");
+                    assertThat(invalid.detail()).isEqualTo("a stored value is refused with INVALID_DEPOT_HOURS");
+                }));
     }
 
     static Stream<Arguments> damageTheSchemaForbids() {
@@ -332,6 +355,16 @@ class FleetRegisterPersistenceIT {
             jdbc.sql("UPDATE fleet.depot SET " + assignments + " WHERE id = ?")
                     .param(depot.value())
                     .update();
+        }
+
+        /** Moves every depot one position on, so no depot holds the first. */
+        void shiftDepotPositions() {
+            jdbc.sql("UPDATE fleet.depot SET position = position + 1").update();
+        }
+
+        /** Moves every vehicle one position on, so no vehicle holds the first. */
+        void shiftVehiclePositions() {
+            jdbc.sql("UPDATE fleet.vehicle SET position = position + 1").update();
         }
 
         /** Adds vehicle {@code n} at the end, a copy of vehicle {@code from} under its own name and plate. */

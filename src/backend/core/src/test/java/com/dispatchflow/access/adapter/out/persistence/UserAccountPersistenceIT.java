@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dispatchflow.IntegrationTest;
+import com.dispatchflow.TestPersistenceConfiguration.RecordedEvents;
 import com.dispatchflow.Transactions;
 import com.dispatchflow.access.application.port.out.AdminNotice;
 import com.dispatchflow.access.application.port.out.UserAccountRepository;
@@ -22,7 +23,9 @@ import com.dispatchflow.access.domain.account.PasswordHash;
 import com.dispatchflow.access.domain.account.Role;
 import com.dispatchflow.access.domain.account.RoleSet;
 import com.dispatchflow.access.domain.account.UserAccount;
+import com.dispatchflow.access.events.SessionsRevoked;
 import com.dispatchflow.shared.AccountId;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.StaleVersion;
@@ -76,6 +79,9 @@ class UserAccountPersistenceIT {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    private RecordedEvents events;
 
     // --- round trips (ADR-127 decision 1)
 
@@ -170,6 +176,25 @@ class UserAccountPersistenceIT {
         });
 
         assertThat(List.of(added, linked, storedVersion(n))).containsExactly(0L, 1L, 2L);
+    }
+
+    @Test
+    void
+            GivenAnAccountAddedWithAPassword_WhenItsSessionsAreEndedAndItIsSaved_ThenEachSessionsRevokedIsCommittedAtItsVersion() {
+        int n = 27;
+        transactions.inTransaction(() -> repository.add(withPassword(n)));
+
+        transactions.inTransaction(() -> {
+            UserAccount account = repository.get(account(n)).orElseThrow();
+            account.endEverySession(at(6));
+            repository.save(account);
+        });
+
+        assertThat(events.committed())
+                .filteredOn(event -> event instanceof SessionsRevoked revoked
+                        && revoked.account().equals(account(n)))
+                .extracting(event -> event.eventId().version())
+                .containsExactly(Version.of(0), Version.of(1));
     }
 
     @Test
@@ -510,7 +535,13 @@ class UserAccountPersistenceIT {
                         1_012,
                         Base.TWO_RECOVERY_LINKS,
                         (Damage) rows -> rows.setOnLink(2, "expires_at = issued_at"),
-                        "a link expires after it is sent"));
+                        "a link expires after it is sent"),
+                Arguments.of(
+                        "links whose positions start past the first",
+                        1_017,
+                        Base.TWO_RECOVERY_LINKS,
+                        (Damage) Rows::shiftLinkPositions,
+                        StoredLists.GAP));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -615,6 +646,13 @@ class UserAccountPersistenceIT {
                     "UPDATE access.credential_link SET " + assignments + " WHERE id = ?",
                     values,
                     link(n, m).value());
+        }
+
+        /** Moves every link one position on, so no link holds the first. */
+        void shiftLinkPositions() {
+            jdbc.sql("UPDATE access.credential_link SET position = position + 1 WHERE user_account_id = ?")
+                    .param(account(n).value())
+                    .update();
         }
 
         void giveTheAdminRole() {

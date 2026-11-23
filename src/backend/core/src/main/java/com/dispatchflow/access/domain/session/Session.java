@@ -11,6 +11,7 @@ import com.dispatchflow.shared.AggregateRoot;
 import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.SessionId;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.CollectionTable;
@@ -127,7 +128,7 @@ public class Session extends AggregateRoot implements PersonalData {
     @OrderColumn(name = "position", nullable = false)
     private List<RefreshToken> tokens = new ArrayList<>();
 
-    // Not stored: whether this instance holds a change its save must version (ADR-126).
+    // Not stored: whether this instance holds a change its save must version (ADR-128 decision 1).
     @Transient
     private boolean changedBeyondContactTimes;
 
@@ -188,9 +189,10 @@ public class Session extends AggregateRoot implements PersonalData {
      * unreadable. The contact times are a set ordered by value, which can't decrease, so it checks
      * nothing of them (ADR-127 decision 10).
      *
-     * @throws StoredStateInvalid when it has no token; two tokens share an ID or a hash; a live
-     *     session has not exactly one current token, or a revoked one has more than one; or an
-     *     exchanged token's successor is itself or not in the chain
+     * @throws StoredStateInvalid when a stored list has a gap in its positions; it has no token;
+     *     two tokens share an ID or a hash; a live session has not exactly one current token, or a
+     *     revoked one has more than one; or an exchanged token's successor is itself or not in the
+     *     chain
      */
     @PostLoad
     void checkStored() {
@@ -216,6 +218,9 @@ public class Session extends AggregateRoot implements PersonalData {
      * the chain alone: the contact times are a set ordered by value, which can't decrease.
      */
     private Optional<String> brokenRule() {
+        if (StoredLists.anyHasGap(tokens)) {
+            return Optional.of(StoredLists.GAP);
+        }
         if (tokens.isEmpty()) {
             return Optional.of("a session holds at least one refresh token");
         }

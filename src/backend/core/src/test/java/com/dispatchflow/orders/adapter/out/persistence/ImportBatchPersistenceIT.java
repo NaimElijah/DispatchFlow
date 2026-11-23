@@ -42,6 +42,7 @@ import com.dispatchflow.shared.Priority;
 import com.dispatchflow.shared.SharedKernelError.Measure;
 import com.dispatchflow.shared.SharedKernelError.QuantityOutOfRange;
 import com.dispatchflow.shared.SharedKernelError.TextTooLong;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.TextKind;
 import com.dispatchflow.shared.TimeWindow;
@@ -348,7 +349,14 @@ class ImportBatchPersistenceIT {
                         Base.PREVIEWED_WITH_ERRORS,
                         (Damage) rows -> rows.updateRow(3, "field_errors = '[]'"),
                         "ImportRow",
-                        "an unreadable row names no refused field"));
+                        "an unreadable row names no refused field"),
+                Arguments.of(
+                        "rows whose positions start past the first",
+                        1_011,
+                        Base.PREVIEWED,
+                        (Damage) Rows::shiftRowPositions,
+                        "ImportBatch",
+                        StoredLists.GAP));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -442,6 +450,13 @@ class ImportBatchPersistenceIT {
         void updateRow(int position, String assignments) {
             jdbc.sql("UPDATE orders.import_row SET " + assignments + " WHERE import_batch_id = ? AND position = ?")
                     .params(batch(n).value(), position)
+                    .update();
+        }
+
+        /** Moves every row one position on, so no row holds the first. */
+        void shiftRowPositions() {
+            jdbc.sql("UPDATE orders.import_row SET position = position + 1 WHERE import_batch_id = ?")
+                    .param(batch(n).value())
                     .update();
         }
 

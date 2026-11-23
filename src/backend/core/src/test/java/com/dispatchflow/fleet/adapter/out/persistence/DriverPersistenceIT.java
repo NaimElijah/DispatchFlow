@@ -2,6 +2,7 @@ package com.dispatchflow.fleet.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.assertj.core.api.Assertions.tuple;
 
 import com.dispatchflow.IntegrationTest;
@@ -35,6 +36,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -330,6 +332,29 @@ class DriverPersistenceIT {
                     assertThat(invalid.subject()).isEqualTo("Driver");
                     assertThat(invalid.detail()).isEqualTo(detail);
                 });
+        assertThat(transactions.inTransaction(() -> repository.get(account(n)))).isPresent();
+    }
+
+    /**
+     * No {@code CHECK} keeps a shift's hours in order, so only the registered instantiator stands
+     * between the row and a {@code RuleViolation} that would read as the caller's mistake.
+     */
+    @Test
+    void GivenAStoredDriverWhoseDefaultShiftEndsAsItStarts_WhenLoaded_ThenStoredStateInvalidNamesTheShift() {
+        int n = 1_010;
+        transactions.inTransaction(() -> repository.add(Base.ACTIVE.build(n)));
+
+        // The damage and the load share a transaction, which the refused load rolls back.
+        Throwable thrown = catchThrowable(() -> transactions.inTransaction(() -> {
+            damage(n, "default_shift_ends_at = default_shift_starts_at");
+            return repository.get(account(n));
+        }));
+
+        assertThat(Stream.iterate(thrown, Objects::nonNull, Throwable::getCause))
+                .anySatisfy(cause -> assertThat(cause).isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
+                    assertThat(invalid.subject()).isEqualTo("ShiftHours");
+                    assertThat(invalid.detail()).isEqualTo("a stored value is refused with INVALID_SHIFT");
+                }));
         assertThat(transactions.inTransaction(() -> repository.get(account(n)))).isPresent();
     }
 

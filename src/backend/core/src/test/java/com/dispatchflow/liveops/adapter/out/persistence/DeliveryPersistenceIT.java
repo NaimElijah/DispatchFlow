@@ -59,16 +59,21 @@ import com.dispatchflow.liveops.domain.proof.Proof;
 import com.dispatchflow.liveops.events.OutcomeRecorded;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.StopId;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.StaleVersion;
+import jakarta.persistence.EntityManagerFactory;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -108,6 +113,9 @@ class DeliveryPersistenceIT {
 
     @Autowired
     private RecordedEvents events;
+
+    @Autowired
+    private EntityManagerFactory entityManagerFactory;
 
     // --- round trips (ADR-127 decision 1)
 
@@ -385,6 +393,28 @@ class DeliveryPersistenceIT {
                         recorded -> assertThat(recorded.eventId().version()).isEqualTo(Version.of(0)));
     }
 
+    /**
+     * PostgreSQL keeps an instant to the microsecond, and the driver rounds each one on its own, so
+     * a corrected time computed from nanoseconds would not be the one its stored parts give back.
+     */
+    @Test
+    void GivenAReportWhoseDeviceTimesHaveNanoseconds_WhenItsDeliveryIsAddedAndLoaded_ThenItLoadsWithItsCorrectedTime() {
+        int n = 42;
+        // Sub-microsecond parts that round apart, 600 ns up and 400 ns down, on microsecond digits
+        // that a cut to the millisecond would lose.
+        CorrectedTime time = CorrectedTime.of(
+                T_0800.minusSeconds(5).plusNanos(123_456_600),
+                T_0800.minusSeconds(4).plusNanos(654_321_400),
+                T_0800);
+
+        transactions.inTransaction(() -> repository.add(failedForAnotherReason(n, time)));
+        Delivery loaded =
+                transactions.inTransaction(() -> repository.get(stop(n))).orElseThrow();
+
+        assertThat(time.corrected()).isEqualTo(Instant.parse("2027-03-01T07:59:58.469135Z"));
+        assertThat(loaded.outcomes().getFirst().factTime()).isEqualTo(time.corrected());
+    }
+
     @Test
     void GivenNoFactForAStop_WhenItsDeliveryIsLoaded_ThenThereIsNone() {
         assertThat(transactions.inTransaction(() -> repository.get(stop(30)))).isEmpty();
@@ -485,6 +515,19 @@ class DeliveryPersistenceIT {
                 .orElseThrow();
         assertThat(heldOne.heldReports()).hasSize(1);
         assertThat(corrected.outcomes()).hasSize(2);
+    }
+
+    /**
+     * The load check reads each delivery's held reports while the deliveries load, so without batch
+     * fetching every delivery read would cost a statement of its own (ADR-126, loading whole).
+     */
+    @Test
+    void GivenTwiceAsManyDeliveries_WhenTheirStopsAreRead_ThenTheSameNumberOfStatementsRuns() {
+        List<StopId> two = List.of(stop(43), stop(44));
+        List<StopId> four = List.of(stop(45), stop(46), stop(47), stop(48));
+        transactions.inTransaction(() -> IntStream.rangeClosed(43, 48).forEach(s -> repository.add(held(s))));
+
+        assertThat(statementsToRead(four)).isEqualTo(statementsToRead(two));
     }
 
     @Test
@@ -654,7 +697,19 @@ class DeliveryPersistenceIT {
                         1_014,
                         Base.HELD,
                         (Damage) rows -> rows.held(1, "state = 'OVERTAKEN', state_at = received_at"),
-                        "a held report is overtaken only by an outcome (BR-134, BR-18)"));
+                        "a held report is overtaken only by an outcome (BR-134, BR-18)"),
+                Arguments.of(
+                        "outcomes whose positions start past the first",
+                        1_021,
+                        Base.FAILED_THEN_CORRECTED,
+                        (Damage) Rows::shiftOutcomePositions,
+                        StoredLists.GAP),
+                Arguments.of(
+                        "held reports whose positions start past the first",
+                        1_022,
+                        Base.CONFIRMED,
+                        (Damage) Rows::shiftHeldReportPositions,
+                        StoredLists.GAP));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -783,6 +838,20 @@ class DeliveryPersistenceIT {
                     .update();
         }
 
+        /** Moves every outcome record one position on, so no record holds the first. */
+        void shiftOutcomePositions() {
+            jdbc.sql("UPDATE liveops.delivery_outcome SET position = position + 1 WHERE delivery_id = ?")
+                    .param(stop(s).value())
+                    .update();
+        }
+
+        /** Moves every held report one position on, so no report holds the first. */
+        void shiftHeldReportPositions() {
+            jdbc.sql("UPDATE liveops.held_report SET position = position + 1 WHERE delivery_id = ?")
+                    .param(stop(s).value())
+                    .update();
+        }
+
         /** Deletes the outcome record at a position. */
         void deleteOutcome(int position) {
             jdbc.sql("DELETE FROM liveops.delivery_outcome WHERE delivery_id = ? AND position = ?")
@@ -817,6 +886,20 @@ class DeliveryPersistenceIT {
         Delivery delivery = fresh(s);
         delivery.arrive(byA(ONLINE), ON_ROUTE, SERVING);
         return delivery;
+    }
+
+    /** The JDBC statements one transaction prepares to read the stops' deliveries. */
+    private long statementsToRead(List<StopId> stops) {
+        Statistics statistics =
+                entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        statistics.clear();
+        statistics.setStatisticsEnabled(true);
+        try {
+            transactions.inTransaction(() -> repository.ofStops(stops));
+            return statistics.getPrepareStatementCount();
+        } finally {
+            statistics.setStatisticsEnabled(false);
+        }
     }
 
     private static Delivery delivered(int s) {

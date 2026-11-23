@@ -27,6 +27,7 @@ import com.dispatchflow.shared.AggregateRoot;
 import com.dispatchflow.shared.IsraelDateTime;
 import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.RuleViolation;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.CascadeType;
@@ -217,12 +218,12 @@ public class UserAccount extends AggregateRoot implements PersonalData {
      * Checks the account as Hibernate loaded it against the invariants at rest (ADR-126 decision 8).
      * Only Hibernate rebuilds an account, and it runs this check on every load.
      *
-     * @throws StoredStateInvalid when an anonymized account still holds an email, a password or a
-     *     link, or any other account holds no email; when an anonymized account or an Admin records
-     *     that another account set its email; when it records the account itself as the one that
-     *     set its email; when it was anonymized before it was deactivated; when two links share an
-     *     ID or a token hash, or two open links share a kind; or when a link expires no later than
-     *     it was sent
+     * @throws StoredStateInvalid when a stored list has a gap in its positions; when an anonymized
+     *     account still holds an email, a password or a link, or any other account holds no email;
+     *     when an anonymized account or an Admin records that another account set its email; when
+     *     it records the account itself as the one that set its email; when it was anonymized
+     *     before it was deactivated; when two links share an ID or a token hash, or two open links
+     *     share a kind; or when a link expires no later than it was sent
      */
     @PostLoad
     void checkStored() {
@@ -245,6 +246,9 @@ public class UserAccount extends AggregateRoot implements PersonalData {
 
     /** The one check of the invariants at rest, shared by the load check and every command. */
     private Optional<String> brokenRule() {
+        if (StoredLists.anyHasGap(links)) {
+            return Optional.of(StoredLists.GAP);
+        }
         boolean anonymized = state == StateKind.ANONYMIZED;
         if (anonymized == (email != null)) {
             return Optional.of("an anonymized account holds no email, and every other account holds one");

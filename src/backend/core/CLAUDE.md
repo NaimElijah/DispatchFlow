@@ -110,11 +110,11 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
 - The schema changes only through a new migration, `src/main/resources/db/migration/V<n>__<x>.sql`:
   never edit an applied one, and `ddl-auto` stays `validate`. Flyway runs as `dispatchflow_owner` in
   a one-shot `migrate` step, which alone holds that credential; the core connects as `app`, which
-  owns no table ([ADR-041], [TS §6.3]). Until the change that adds `migrate`, Spring Boot runs it.
-- Optimistic locking is `AggregateRoot`'s `@Version` ([ADR-057]): every root's adapter saves
-  through `VersionedSave`, which moves it by exactly 1, and the use case checks `If-Match` with
-  `StaleVersion.requireCurrent`. `STALE_VERSION` answers 412 to a call that sent a version; one that
-  sent none is re-run whole in a new transaction, up to three times, then 503 ([ADR-121]).
+  owns no table ([ADR-041], [TS §6.3]). Until #160, Spring Boot runs Flyway as the core's own user.
+- Optimistic locking is `AggregateRoot`'s `@Version` ([ADR-057]): every `save` but a session's
+  contact-only one goes through `VersionedSave`, which moves it by 1, and the use case checks
+  `If-Match` with `StaleVersion.requireCurrent`. `STALE_VERSION` answers 412 to a call that sent a
+  version; one with none is re-run whole in a new transaction, up to 3 times, then 503 ([ADR-121]).
 - The `e2e` profile's test-only endpoints exist only in that profile, and the profile refuses to
   boot when the SMS credential is present, with a test for each (NFR-206).
 - Until M5's sign-in, the stand-in session exists only when `dev` or `test` is the only active
@@ -123,13 +123,13 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   minutes. Each refusal has a test. M5 deletes the stand-in, and M6 the dev allowance ([ADR-121]).
 - No Lombok: records and plain classes. Configuration comes from environment variables.
 - Persistence is JPA ([ADR-126], [ADR-127], [TS §6.3]). A port's `@Component` works over a
-  package-private Spring Data `Repository<Root, UUID>` with `save` and the port's lookups only;
-  never `@Repository`, whose exception translation turns a port's own `IllegalArgumentException`
-  into a Spring one.
-  Native SQL binds every value; SQL and bind logging stay off. `PersistenceRules` checks the
-  mapping, a `*PersistenceIT` the stored state. A call that flushes (an `add`, or a query, which
-  flushes what is pending) writes every changed aggregate: save a changed aggregate before one, or
-  `VersionedSave` fails its one-step check. Renaming a stored error or its field needs a migration.
+  package-private Spring Data `Repository<Root, UUID>` with `save` and the port's own queries; never
+  `@Repository`, whose exception translation turns a port's own `IllegalArgumentException` into a
+  Spring one. Native SQL binds every value; SQL and bind logging stay off. `PersistenceRules` checks
+  the mapping, a `*PersistenceIT` the stored state; a load check refuses a list gap first. A call
+  that flushes (an `add`, a native statement, or a query that reads a changed table) writes every
+  changed aggregate: save a changed aggregate before one, or `VersionedSave` fails its one-step
+  check. Renaming a stored error or its field needs a migration.
 
 ## Tests
 

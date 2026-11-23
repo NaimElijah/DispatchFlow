@@ -129,6 +129,20 @@ class AlertPersistenceIT {
         assertThat(transactions.inTransaction(() -> repository.get(alert(22)))).isEmpty();
     }
 
+    /**
+     * A save would skip the key's lock and store the alert with no date, so {@code unacknowledgedAt}
+     * would never find it (ADR-127 decision 12).
+     */
+    @Test
+    void GivenAnAlertNeverStored_WhenItIsSavedInsteadOfAdded_ThenAssertionErrorAndNothingIsStored() {
+        int n = 40;
+
+        assertThatThrownBy(() -> transactions.inTransaction(() -> repository.save(stopFailed(n, n))))
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("a new alert is added under its key, never saved");
+        assertThat(transactions.inTransaction(() -> repository.get(alert(n)))).isEmpty();
+    }
+
     // --- versions and conflicts
 
     @Test

@@ -24,6 +24,7 @@ import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.JobId;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.ProposalId;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.StaleVersion;
@@ -261,7 +262,34 @@ class ProposalPersistenceIT {
                         (Damage) rows ->
                                 rows.update("reoptimization_proposal_stop", "route_position = 3", "route_position = 2"),
                         "SolvedRoute",
-                        "a solved stop is on one of its solution's routes"));
+                        "a solved stop is on one of its solution's routes"),
+                Arguments.of(
+                        "late stops whose positions start past the first",
+                        109,
+                        Scenario.READY_WITH_EVERY_LIST,
+                        (Damage) rows -> rows.update("reoptimization_proposal_late_stop", "position = position + 1"),
+                        "ReoptimizationProposal",
+                        StoredLists.GAP),
+                shifted("routes", 110, "reoptimization_proposal_route"),
+                shifted("stops", 111, "reoptimization_proposal_stop"),
+                shifted("drops", 112, "reoptimization_proposal_drop"),
+                shifted("excluded vehicles", 113, "reoptimization_proposal_excluded_vehicle"),
+                shifted("withdrawals", 114, "reoptimization_proposal_withdrawal"),
+                shifted("vehicles without a usable position", 115, "reoptimization_proposal_vehicle_without_position"),
+                shifted("driver changes", 116, "reoptimization_proposal_driver_change"),
+                shifted("changed orders", 117, "reoptimization_proposal_changed_order"),
+                shifted("goods hand-overs", 118, "reoptimization_proposal_goods_hand_over"));
+    }
+
+    /** A gap case: every row of one of the proposal's lists moved one position on, so none holds the first. */
+    private static Arguments shifted(String list, int n, String table) {
+        return Arguments.of(
+                list + " whose positions start past the first",
+                n,
+                Scenario.READY_WITH_EVERY_LIST,
+                (Damage) rows -> rows.update(table, "position = position + 1"),
+                "ReoptimizationProposal",
+                StoredLists.GAP);
     }
 
     @ParameterizedTest(name = "{0}")

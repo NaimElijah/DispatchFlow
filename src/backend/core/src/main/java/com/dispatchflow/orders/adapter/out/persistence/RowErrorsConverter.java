@@ -9,6 +9,7 @@ import jakarta.persistence.Converter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.JsonNode;
@@ -29,7 +30,9 @@ import tools.jackson.databind.node.ArrayNode;
  * StoredStateInvalid.whileRestoring}, which the base class runs.
  *
  * <p>Writing refuses with {@link AssertionError} an error the reader would refuse, so no row is
- * stored that can't be loaded again.
+ * stored that can't be loaded again. It checks the type first, then reads its own text back: a
+ * record of an admitted type can still hold a component Jackson can't rebuild, such as one typed by
+ * an interface, which it writes as its fields with no type to read them back by.
  */
 @Converter(autoApply = true)
 public final class RowErrorsConverter extends StoredValueConverter<RowErrors, String> {
@@ -39,6 +42,7 @@ public final class RowErrorsConverter extends StoredValueConverter<RowErrors, St
     private static final String ADMITTED_PACKAGE = "com.dispatchflow.";
     private static final String TYPE_REFUSED = "a stored error names a type that is not a DomainError record";
     private static final String NOT_WELL_FORMED = "a stored error list is not well formed";
+    private static final String READ_BACK = "an import row's errors must read back as they were written: ";
 
     // Strict, so a stored error with a missing, extra or null component is damaged, not defaulted.
     private static final JsonMapper JSON = JsonMapper.builder()
@@ -66,7 +70,26 @@ public final class RowErrorsConverter extends StoredValueConverter<RowErrors, St
             }
             stored.addObject().put(TYPE, error.getClass().getName()).set(VALUE, JSON.valueToTree(error));
         }
-        return JSON.writeValueAsString(stored);
+        String text = JSON.writeValueAsString(stored);
+        RowErrors readBack;
+        try {
+            readBack = read(text);
+        } catch (StoredStateInvalid | RuleViolation unreadable) {
+            // Kept as the cause, which carries no stored text: its detail is a constant, and read
+            // drops Jackson's message.
+            throw new AssertionError(READ_BACK + typesOf(errors), unreadable);
+        }
+        if (!readBack.equals(errors)) {
+            throw new AssertionError(READ_BACK + typesOf(errors));
+        }
+        return text;
+    }
+
+    private static String typesOf(RowErrors errors) {
+        return errors.errors().stream()
+                .map(error -> error.getClass().getSimpleName())
+                .distinct()
+                .collect(Collectors.joining(", "));
     }
 
     private static RowErrors read(String stored) {

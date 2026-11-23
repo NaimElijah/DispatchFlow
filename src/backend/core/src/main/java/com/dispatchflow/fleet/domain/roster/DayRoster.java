@@ -15,6 +15,7 @@ import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.DomainError;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.SharedKernelError.NonexistentLocalTime;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.VehicleId;
 import jakarta.persistence.CollectionTable;
@@ -98,8 +99,8 @@ public class DayRoster extends AggregateRoot {
      * decision 8): each driver and each unavailable vehicle appears once, no vehicle has two
      * drivers, and every shift lies on the roster's date (FR-190).
      *
-     * @throws StoredStateInvalid when the stored state breaks one of them, or a stored shift falls in
-     *     an hour the clock skips on its date
+     * @throws StoredStateInvalid when a stored list has a gap in its positions, the stored state
+     *     breaks one of them, or a stored shift falls in an hour the clock skips on its date
      */
     @PostLoad
     void checkStored() {
@@ -110,6 +111,9 @@ public class DayRoster extends AggregateRoot {
 
     /** The first invariant at rest the roster breaks, if any: those {@link #checkStored} names. */
     private Optional<String> brokenRule() {
+        if (StoredLists.anyHasGap(entries, unavailableVehicles)) {
+            return Optional.of(StoredLists.GAP);
+        }
         Set<AccountId> drivers = new HashSet<>();
         Set<VehicleId> driven = new HashSet<>();
         for (RosterEntry entry : entries()) {

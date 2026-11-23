@@ -14,6 +14,10 @@
 	<name>DispatchFlow core</name>
 	<description>DispatchFlow core backend: the REST API and the system of record</description>
 	<properties>
+		<!-- Surefire and Failsafe run the tests in Israel's zone, the system's one zone (ADR-088), on
+		     every machine, so CI runs as a developer's machine does and a test can't pass only because
+		     the JVM's own zone happens to be UTC. -->
+		<argLine>-Duser.timezone=Asia/Jerusalem</argLine>
 		<java.version>25</java.version>
 		<archunit.version>1.5.1</archunit.version>
 		<jts.version>1.20.0</jts.version>

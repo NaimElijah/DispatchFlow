@@ -15,6 +15,7 @@ import com.dispatchflow.shared.AggregateRoot;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StopId;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
@@ -148,8 +149,8 @@ public class RouteRun extends AggregateRoot {
      * Checks the run as Hibernate loaded it against the invariants that hold at rest (ADR-126
      * decision 8). The pending stops are rows of their own, which no constraint ties to the status.
      *
-     * @throws StoredStateInvalid when a started run has pending stops, or a finished run names a
-     *     pending stop twice
+     * @throws StoredStateInvalid when a stored list has a gap in its positions, a started run has
+     *     pending stops, or a finished run names a pending stop twice
      */
     @PostLoad
     void checkStored() {
@@ -408,6 +409,9 @@ public class RouteRun extends AggregateRoot {
 
     /** The one check of the invariants at rest, shared by the load check and every command. */
     private Optional<String> brokenRule() {
+        if (StoredLists.anyHasGap(pendingStops)) {
+            return Optional.of(StoredLists.GAP);
+        }
         if (status == StatusKind.STARTED && !pendingStops.isEmpty()) {
             return Optional.of("only a finished run has pending stops (FR-329)");
         }
