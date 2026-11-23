@@ -127,6 +127,8 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
 - Persistence is JPA ([ADR-126], [TS §6.3]). An adapter implements its port with a package-private
   Spring Data `Repository<Root, UUID>` that declares `save` and the port's lookups, never a
   `CrudRepository` or `JpaRepository`. Native SQL binds every value; SQL and bind logging stay off.
+  `PersistenceRules` checks the mapping: no relationship leaves its aggregate, enums are stored by
+  name, every entity root has a `@PostLoad` check, and every entity is in its module's schema.
 
 ## Tests
 

@@ -102,6 +102,7 @@ class DomainPackageRulesTest {
                         ALPHA_DOMAIN,
                         ALPHA_DOMAIN + ".clock",
                         ALPHA_DOMAIN + ".dependency",
+                        ALPHA_DOMAIN + ".entity",
                         ALPHA_DOMAIN + ".error",
                         ALPHA_DOMAIN + ".error.personalvalue",
                         ALPHA_DOMAIN + ".error.text",
