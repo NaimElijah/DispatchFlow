@@ -5,7 +5,6 @@ import com.dispatchflow.fleet.domain.driver.Driver;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.IsraelDateTime;
 import com.dispatchflow.shared.adapter.out.persistence.VersionedSave;
-import jakarta.persistence.EntityManager;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -31,19 +30,16 @@ class JpaDriverRepository implements DriverRepository {
 
     private final Drivers drivers;
     private final VersionedSave versionedSave;
-    private final EntityManager entityManager;
 
     /**
      * Creates the adapter.
      *
      * @param drivers the Spring Data interface
      * @param versionedSave the shared save, which moves the version by exactly 1
-     * @param entityManager the transaction-bound entity manager, which {@code add} flushes
      */
-    JpaDriverRepository(Drivers drivers, VersionedSave versionedSave, EntityManager entityManager) {
+    JpaDriverRepository(Drivers drivers, VersionedSave versionedSave) {
         this.drivers = Objects.requireNonNull(drivers, "drivers");
         this.versionedSave = Objects.requireNonNull(versionedSave, "versionedSave");
-        this.entityManager = Objects.requireNonNull(entityManager, "entityManager");
     }
 
     @Override
@@ -65,7 +61,10 @@ class JpaDriverRepository implements DriverRepository {
         }
         Map<UUID, Driver> loaded = drivers.findByIdIn(order).stream()
                 .collect(Collectors.toMap(driver -> driver.id().value(), Function.identity()));
-        return order.stream().map(loaded::get).toList();
+        return order.stream()
+                .map(key -> Objects.requireNonNull(
+                        loaded.get(key), "a driver listed in registration order must load with the others"))
+                .toList();
     }
 
     @Override
@@ -75,10 +74,15 @@ class JpaDriverRepository implements DriverRepository {
                 .toList();
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>It goes through the shared save, which turns a first save that loses the race for the
+     * account's key into {@code StaleVersion}.
+     */
     @Override
     public void add(Driver driver) {
-        drivers.save(driver);
-        entityManager.flush();
+        versionedSave.save(driver, drivers::save);
     }
 
     @Override

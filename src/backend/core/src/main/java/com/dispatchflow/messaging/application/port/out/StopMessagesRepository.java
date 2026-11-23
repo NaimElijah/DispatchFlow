@@ -59,7 +59,8 @@ public interface StopMessagesRepository {
      *
      * <p>It takes the day's lock in the caller's transaction, held until that transaction ends, so
      * the sender's claim and {@link #countAnswer} on the same day run one at a time, and never both
-     * take the cap's last place.
+     * take the cap's last place. It is refused when no transaction is open, because a lock taken and
+     * released within the call would guard nothing.
      *
      * @param day the day, in {@code Asia/Jerusalem}
      * @return the cap as it stands

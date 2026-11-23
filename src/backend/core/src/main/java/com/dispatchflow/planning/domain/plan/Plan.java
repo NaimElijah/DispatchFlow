@@ -314,8 +314,9 @@ public class Plan extends AggregateRoot {
     private List<StoredEdit> redo = new ArrayList<>();
 
     // The last command's revision, which the repository appends as rows of their own when it saves
-    // the plan. Every command that returns sets it, to none when it made no revision, so saving the
-    // plan again never appends one revision twice; a loaded plan has none.
+    // the plan. Every command that changes the plan and returns sets it, to none when it made no
+    // revision, so saving the plan again never appends one revision twice; a loaded plan has none.
+    // requestReoptimization leaves it alone: it changes nothing, and its use case saves no plan.
     @Transient
     private @Nullable PlanRevision pendingRevision;
 
@@ -809,19 +810,21 @@ public class Plan extends AggregateRoot {
         if (proposal.state() instanceof ReoptimizationProposal.State.Declined) {
             throw new RuleViolation(new ProposalDeclined(proposal.id()));
         }
-        Set<StopKey> taken = new HashSet<>(keysOf(proposal.routes(), proposal.dropped()));
-        List<BasisChange> outdated = changesSince(proposal, taken, changes, published.revision());
+        // Read once: the proposal assembles its solved routes from their rows on every call.
+        List<SolvedRoute> solved = proposal.routes();
+        Set<StopKey> taken = new HashSet<>(keysOf(solved, proposal.dropped()));
+        List<BasisChange> outdated = changesSince(proposal, solved, taken, changes, published.revision());
         if (!outdated.isEmpty()) {
             throw new RuleViolation(new ProposalOutdated(proposal.id(), outdated));
         }
-        List<VehicleId> unavailable = unavailableVehicles(proposal, changes);
+        List<VehicleId> unavailable = unavailableVehicles(proposal, solved, changes);
         if (!unavailable.isEmpty()) {
             throw new RuleViolation(new VehicleUnavailable(unavailable));
         }
-        requireSingleAssignment(proposal.routes(), proposal.dropped());
+        requireSingleAssignment(solved, proposal.dropped());
         List<PlacedRoute> before = placedRoutes();
         Set<VehicleId> routed = new HashSet<>();
-        proposal.routes().forEach(route -> routed.add(route.vehicle()));
+        solved.forEach(route -> routed.add(route.vehicle()));
         List<PlacedRoute> active =
                 before.stream().filter(route -> !route.withdrawn()).toList();
         List<PlacedRoute> covered = active.stream()
@@ -831,7 +834,7 @@ public class Plan extends AggregateRoot {
                 .filter(route -> !routed.contains(route.vehicle()))
                 .map(route -> leftOutRoute(route, withdrawalFor(proposal, route.vehicle()), keptStops(route, taken)))
                 .toList();
-        List<PlacedRoute> rewithdrawn = rewithdrawnRoutes(proposal, before, covered);
+        List<PlacedRoute> rewithdrawn = rewithdrawnRoutes(proposal, solved, before, covered);
         List<PlacedRoute> matchable = new ArrayList<>(covered);
         matchable.addAll(rewithdrawn);
         List<PlacedRoute> alongside = new ArrayList<>(before.stream()
@@ -839,7 +842,7 @@ public class Plan extends AggregateRoot {
                 .toList());
         alongside.addAll(leftOut);
         List<PlacedRoute> placed = place(
-                proposal.routes(),
+                solved,
                 matchable,
                 before,
                 alongside,
@@ -1368,7 +1371,9 @@ public class Plan extends AggregateRoot {
 
     /**
      * The revision the last command made, which the repository appends when it saves the plan
-     * (ADR-059). Every command sets it, so a save after a command that made none appends nothing.
+     * (ADR-059). Every command that changes the plan sets it, so a save after a command that made
+     * none appends nothing. {@link #requestReoptimization} doesn't, because it changes nothing and
+     * the plan isn't saved after it.
      *
      * @return the revision, or empty when the last command made none, or the plan was just loaded
      */
@@ -2520,9 +2525,12 @@ public class Plan extends AggregateRoot {
      * ADR-112).
      */
     private static List<PlacedRoute> rewithdrawnRoutes(
-            ReoptimizationProposal proposal, List<PlacedRoute> before, List<PlacedRoute> covered) {
+            ReoptimizationProposal proposal,
+            List<SolvedRoute> solved,
+            List<PlacedRoute> before,
+            List<PlacedRoute> covered) {
         List<PlacedRoute> matched = new ArrayList<>();
-        for (SolvedRoute route : proposal.routes()) {
+        for (SolvedRoute route : solved) {
             VehicleId vehicle = route.vehicle();
             boolean hasActive =
                     covered.stream().anyMatch(candidate -> candidate.vehicle().equals(vehicle));
@@ -2550,21 +2558,25 @@ public class Plan extends AggregateRoot {
 
     /** The changes since the proposal's basis that it moves, drops or relies on (BR-25, BR-82, BR-83). */
     private List<BasisChange> changesSince(
-            ReoptimizationProposal proposal, Set<StopKey> taken, ChangesSinceBasis changes, RevisionNo current) {
+            ReoptimizationProposal proposal,
+            List<SolvedRoute> solved,
+            Set<StopKey> taken,
+            ChangesSinceBasis changes,
+            RevisionNo current) {
         List<BasisChange> found = new ArrayList<>();
         for (int number = proposal.basis().revision().value() + 1; number <= current.value(); number++) {
             found.add(new BasisChange.RevisionMade(RevisionNo.of(number)));
         }
         for (StopId stop : changes.reportedStops()) {
             locate(stop)
-                    .filter(at -> movesOrDrops(proposal, taken, at))
+                    .filter(at -> movesOrDrops(solved, taken, at))
                     .ifPresent(at -> found.add(new BasisChange.ReportedStop(stop)));
         }
         Set<OrderId> relied = new LinkedHashSet<>();
-        keysOf(proposal.routes(), proposal.dropped()).forEach(key -> relied.add(key.order()));
+        keysOf(solved, proposal.dropped()).forEach(key -> relied.add(key.order()));
         Set<VehicleId> vehicles = new HashSet<>();
         Set<AccountId> drivers = new HashSet<>();
-        proposal.routes().forEach(route -> {
+        solved.forEach(route -> {
             vehicles.add(route.vehicle());
             drivers.add(route.driver());
         });
@@ -2589,13 +2601,13 @@ public class Plan extends AggregateRoot {
      * route as accepted, its kept stops ahead of the proposal's, so a stop the proposal keeps after a
      * reported one stays put (ADR-112).
      */
-    private static boolean movesOrDrops(ReoptimizationProposal proposal, Set<StopKey> taken, Located at) {
+    private static boolean movesOrDrops(List<SolvedRoute> solved, Set<StopKey> taken, Located at) {
         StopKey key = at.stop().key();
         List<StopKey> accepted = new ArrayList<>(keptStops(PlacedRoute.of(at.route()), taken).stream()
                 .map(PlacedStop::key)
                 .toList());
         if (!accepted.contains(key)) {
-            Optional<SolvedRoute> serving = proposal.routes().stream()
+            Optional<SolvedRoute> serving = solved.stream()
                     .filter(route -> keysOf(List.of(route), List.of()).contains(key))
                     .findFirst();
             if (serving.isEmpty() || !serving.get().vehicle().equals(at.route().vehicle())) {
@@ -2607,9 +2619,10 @@ public class Plan extends AggregateRoot {
         return !accepted.subList(0, accepted.indexOf(key)).equals(before);
     }
 
-    private static List<VehicleId> unavailableVehicles(ReoptimizationProposal proposal, ChangesSinceBasis changes) {
+    private static List<VehicleId> unavailableVehicles(
+            ReoptimizationProposal proposal, List<SolvedRoute> solved, ChangesSinceBasis changes) {
         Set<VehicleId> unavailable = new LinkedHashSet<>();
-        for (SolvedRoute route : proposal.routes()) {
+        for (SolvedRoute route : solved) {
             if (proposal.withdraws(route.vehicle())) {
                 continue;
             }

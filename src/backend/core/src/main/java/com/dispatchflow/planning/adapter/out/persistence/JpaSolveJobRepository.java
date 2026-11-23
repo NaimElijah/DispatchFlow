@@ -19,6 +19,7 @@ import java.util.UUID;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -85,6 +86,7 @@ class JpaSolveJobRepository implements SolveJobRepository {
      * after the other (ADR-127 decision 9).
      */
     @Override
+    @Transactional(propagation = Propagation.MANDATORY)
     public LaneCapacity capacityUnderLock(Lane lane) {
         jobs.lockLane(lane.name());
         return LaneCapacity.readUnderLock(
@@ -98,6 +100,7 @@ class JpaSolveJobRepository implements SolveJobRepository {
      * other, and then loads the one it locked whole.
      */
     @Override
+    @Transactional(propagation = Propagation.MANDATORY)
     public Optional<SolveJob> claimNext(Lane lane) {
         return jobs.lockOldestQueued(lane.name()).flatMap(this::load);
     }
@@ -141,7 +144,13 @@ class JpaSolveJobRepository implements SolveJobRepository {
         throw new UnsupportedOperationException("Built in M13");
     }
 
-    /** Loads a job whole: its violations with it, then each result collection into the same instance. */
+    /**
+     * Loads a job whole: its violations with it, then each result collection into the same
+     * instance.
+     * Its load check may already have read them while the root loaded, but loading whole must not
+     * depend on what the check happens to read: Jakarta Persistence calls touching a relationship
+     * in a lifecycle callback unportable.
+     */
     private Optional<SolveJob> load(UUID id) {
         Optional<SolveJob> job = jobs.findById(id);
         if (job.isPresent()) {

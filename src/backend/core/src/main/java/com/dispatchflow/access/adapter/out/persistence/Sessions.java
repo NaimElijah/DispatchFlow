@@ -126,6 +126,9 @@ interface Sessions extends Repository<Session, UUID> {
      * whichever of the two exists. A stored session holds one current token at most; the {@code
      * min} keeps a damaged one, which its load check refuses, from failing the whole statement.
      *
+     * <p>It has no {@code @Modifying}: a modifying query may answer only a count, and this one
+     * answers the deleted sessions' IDs through {@code DELETE … RETURNING}.
+     *
      * @param cutoff the latest end that is due
      * @param lifetime a refresh token's lifetime, in ISO 8601 form
      * @return the UUIDs of the sessions deleted

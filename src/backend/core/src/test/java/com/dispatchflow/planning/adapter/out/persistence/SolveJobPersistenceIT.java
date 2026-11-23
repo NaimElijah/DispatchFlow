@@ -55,6 +55,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -297,6 +298,13 @@ class SolveJobPersistenceIT {
         });
     }
 
+    /** A lock taken in a transaction of the call's own would be gone before the caller acts. */
+    @Test
+    void GivenNoTransaction_WhenALanesCapacityIsReadUnderLock_ThenTheCallIsRefused() {
+        assertThatThrownBy(() -> repository.capacityUnderLock(Lane.DAILY))
+                .isInstanceOf(IllegalTransactionStateException.class);
+    }
+
     @Test
     void GivenFourQueuedDailyJobs_WhenTheCapacityIsRead_ThenAFifthQueuesAndASixthIsRefused() {
         inATransactionRolledBack(() -> {
@@ -383,6 +391,12 @@ class SolveJobPersistenceIT {
         assertThat(claimed).containsExactly(older, newer);
         assertThat(storedPhase(older)).isEqualTo("BUILDING_MATRIX");
         assertThat(storedPhase(newer)).isEqualTo("BUILDING_MATRIX");
+    }
+
+    /** A lock taken in a transaction of the call's own would be gone before the caller acts. */
+    @Test
+    void GivenNoTransaction_WhenTheNextJobIsClaimed_ThenTheCallIsRefused() {
+        assertThatThrownBy(() -> repository.claimNext(Lane.DAILY)).isInstanceOf(IllegalTransactionStateException.class);
     }
 
     @Test

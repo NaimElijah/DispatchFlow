@@ -23,7 +23,12 @@ public interface ProposalRepository {
     /**
      * Adds the proposal a succeeded re-optimization created, in the job's transaction (DL §6.1).
      *
+     * <p>It writes at once everything the caller's transaction holds unwritten. So the job, whose
+     * command created the proposal, is saved before this is called: written here, the job's change
+     * would not move its version when the job is saved, and that save would fail.
+     *
      * @param proposal the proposal, never saved
+     * @throws StaleVersion when another call stored a proposal with its ID first
      */
     void add(ReoptimizationProposal proposal);
 

@@ -309,6 +309,29 @@ class PlanPersistenceIT {
                 .containsExactly(new Edit.Locked(v1, Optional.empty(), RouteLock.WHOLE_ROUTE));
     }
 
+    @Test
+    void
+            GivenTwoTransactionsRevisingOnePublishedPlan_WhenTheLaterOneSaves_ThenStaleVersionAndOnlyTheFirstRevisionIsStored() {
+        KeyedBuilder builder = builder(72);
+        Plan published = builder.builder().published();
+        PlanId id = published.id();
+
+        assertThatThrownBy(() -> transactions.inTransaction(() -> {
+                    Plan mine = repository.get(id).orElseThrow();
+                    transactions.inANewTransaction(() -> {
+                        Plan theirs = repository.get(id).orElseThrow();
+                        theirs.removeStopOf(O1, Attempt.FIRST, RemovalCause.ORDER_CANCELLED, SOLVED_AGAIN);
+                        repository.save(theirs);
+                    });
+                    mine.removeStopOf(O2, Attempt.FIRST, RemovalCause.ORDER_CANCELLED, SOLVED_AGAIN);
+                    repository.save(mine);
+                }))
+                .isInstanceOfSatisfying(
+                        StaleVersion.class, stale -> assertThat(stale.id()).isEqualTo(id.value()));
+
+        assertThat(storedRevisions(id)).containsExactly("1 PUBLISHED by someone", "2 ORDER_CANCELLED");
+    }
+
     // --- revisions (ADR-059)
 
     @Test

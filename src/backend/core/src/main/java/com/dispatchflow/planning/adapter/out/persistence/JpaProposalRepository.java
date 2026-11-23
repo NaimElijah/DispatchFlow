@@ -36,6 +36,9 @@ class JpaProposalRepository implements ProposalRepository {
      * {@inheritDoc}
      *
      * <p>It loads the proposal with its routes, then each other collection into the same instance.
+     * Its load check may already have read them while the root loaded, but loading whole must not
+     * depend on what the check happens to read: Jakarta Persistence calls touching a relationship
+     * in a lifecycle callback unportable.
      */
     @Override
     public Optional<ReoptimizationProposal> get(ProposalId id) {

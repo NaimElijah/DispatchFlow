@@ -77,15 +77,21 @@ class JpaPlanRepository implements PlanRepository {
     /**
      * {@inheritDoc}
      *
-     * <p>The pending revision is persisted first, so the save's one flush writes it with the plan and
-     * a failure surfaces here. A loaded plan has none until a change makes one, and each change
-     * replaces it, so a revision is appended once.
+     * <p>The plan goes through the shared save before its pending revision is persisted. Hibernate
+     * flushes inserts before updates, so a revision persisted first would reach the database ahead
+     * of the version check: of two transactions revising one loaded version, the later one's insert
+     * would then break the revision's key instead of answering {@code StaleVersion}. Once the save
+     * has passed, this transaction holds the plan's row, and the revision is flushed at once, so a
+     * failure still surfaces here. A loaded plan has no revision until a change makes one, and each
+     * change replaces it, so a revision is appended once.
      */
     @Override
     public void save(Plan plan) {
-        plan.pendingRevision()
-                .ifPresent(revision -> entityManager.persist(new StoredPlanRevision(plan.id(), revision)));
         versionedSave.save(plan, plans::save);
+        plan.pendingRevision().ifPresent(revision -> {
+            entityManager.persist(new StoredPlanRevision(plan.id(), revision));
+            entityManager.flush();
+        });
     }
 
     @Override
@@ -111,6 +117,9 @@ class JpaPlanRepository implements PlanRepository {
     /**
      * Loads a plan whole: its routes and their stops with it, then each other collection into the
      * same instance. Its past revisions are never loaded.
+     * Its load check may already have read them while the root loaded, but loading whole must not
+     * depend on what the check happens to read: Jakarta Persistence calls touching a relationship
+     * in a lifecycle callback unportable.
      */
     private Optional<Plan> load(UUID id) {
         Optional<Plan> plan = plans.findById(id);

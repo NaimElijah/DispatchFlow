@@ -60,7 +60,8 @@ public interface UserAccountRepository {
      * The active Admin accounts, read under lock, which BR-19's and FR-291's checks require (DL
      * §5). It takes a transaction-scoped advisory lock and then {@code FOR UPDATE} on the active
      * Admin rows, so a read that finds none still excludes a concurrent first-Admin step. It runs
-     * in the transaction that saves the change.
+     * in the transaction that saves the change, and is refused when no transaction is open, because
+     * a lock taken and released within the call would guard nothing.
      *
      * @return the snapshot, the only way one is built (DL §3.9 rule 6)
      */
@@ -68,9 +69,11 @@ public interface UserAccountRepository {
 
     /**
      * The address and language of every active account that holds the Admin role, which FR-389's
-     * notice goes to. It reads in the caller's transaction, after the change is applied, so an
-     * account that has just gained the Admin role or been reactivated is among them. It takes no
-     * lock: the notice is advice, not a rule.
+     * notice goes to. It reads in the caller's transaction, after the change is saved, so an
+     * account that has just gained the Admin role or been reactivated is among them. It writes what
+     * the transaction holds unwritten before it reads, so called between a change and its save it
+     * would write the change there, and the save would then fail. It takes no lock: the notice is
+     * advice, not a rule.
      *
      * @return the recipients, each once, in any order; empty when no Admin is active
      */
@@ -120,7 +123,8 @@ public interface UserAccountRepository {
      *
      * @param account the new account, never saved
      * @throws RuleViolation with Access's {@code EmailInUse} when another account took the address
-     *     after {@link #holderOf} read it: the unique index backs BR-45
+     *     after {@link #holderOf} read it: the unique index backs BR-45. The index refuses the
+     *     write itself, so the caller's transaction can't go on, and rolls back
      */
     void add(UserAccount account);
 
@@ -131,7 +135,8 @@ public interface UserAccountRepository {
      * @param account the changed account
      * @throws StaleVersion when the stored account is no longer at the version it was loaded at
      * @throws RuleViolation with Access's {@code EmailInUse} when a confirmed address was taken by
-     *     another account after {@link #holderOf} read it (BR-45, FR-392)
+     *     another account after {@link #holderOf} read it (BR-45, FR-392). The unique index refuses
+     *     the write itself, so the caller's transaction can't go on, and rolls back
      */
     void save(UserAccount account);
 }

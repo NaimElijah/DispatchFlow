@@ -10,12 +10,16 @@ import com.dispatchflow.shared.IsraelDateTime;
 import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.adapter.out.persistence.VersionedSave;
+import com.dispatchflow.shared.application.StaleVersion;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -32,6 +36,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 @Transactional
 class JpaStopMessagesRepository implements StopMessagesRepository {
+
+    // The entity's name, which the shared save also gives a conflict as its kind.
+    private static final String KIND = StopMessages.class.getSimpleName();
+
+    /** The migration's name for the uniqueness of a stop's message by type and sequence (NFR-191). */
+    private static final String MESSAGE_ONCE = "outgoing_message_once";
 
     private final AllStopMessages stopMessages;
     private final VersionedSave versionedSave;
@@ -63,9 +73,26 @@ class JpaStopMessagesRepository implements StopMessagesRepository {
         versionedSave.save(messages, stopMessages::save);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>A message a trigger added is numbered from the messages loaded, so two triggers that change
+     * one loaded version give their messages the same type and sequence. Hibernate inserts the new
+     * message before it updates the root, so the later one breaks the messages' uniqueness before
+     * its version is checked. The messages keep that uniqueness themselves, so only a concurrent
+     * save breaks it, and the violation answers {@code StaleVersion} as the version check would
+     * have. Any other constraint violation passes through.
+     */
     @Override
     public void save(StopMessages messages) {
-        versionedSave.save(messages, stopMessages::save);
+        try {
+            versionedSave.save(messages, stopMessages::save);
+        } catch (ConstraintViolationException | DataIntegrityViolationException violation) {
+            if (breaksMessageOnce(violation)) {
+                throw new StaleVersion(KIND, messages.stop().value(), violation);
+            }
+            throw violation;
+        }
     }
 
     @Override
@@ -74,6 +101,7 @@ class JpaStopMessagesRepository implements StopMessagesRepository {
     }
 
     @Override
+    @Transactional(propagation = Propagation.MANDATORY)
     public DailySendCap capOn(LocalDate day) {
         stopMessages.lockDay(day.toString());
         return counted(day);
@@ -101,6 +129,16 @@ class JpaStopMessagesRepository implements StopMessagesRepository {
     public int deleteExpired(Instant now) {
         return stopMessages.deleteExpired(
                 now, IsraelDateTime.ZONE.getId(), MessagingRetention.MESSAGES_AND_REPLIES.toString());
+    }
+
+    private static boolean breaksMessageOnce(RuntimeException violation) {
+        for (Throwable cause = violation; cause != null; cause = cause.getCause()) {
+            if (cause instanceof ConstraintViolationException constraint
+                    && MESSAGE_ONCE.equals(constraint.getConstraintName())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** The day's cap as stored; the caller holds the day's lock. */

@@ -306,6 +306,61 @@ class SessionPersistenceIT {
         assertThat(storedVersion(n)).isZero();
     }
 
+    /**
+     * Neither copy saw the other's contact, so both keep the same instant, as two requests do under
+     * a clock that a test holds still. The retry the conflict asks for finds the instant kept.
+     */
+    @Test
+    void GivenTwoTransactionsRecordingOneInstant_WhenTheLaterOneSaves_ThenStaleVersionAndTheInstantIsKeptOnce() {
+        int n = 27;
+        transactions.inTransaction(() -> repository.add(opened(n)));
+
+        assertThatThrownBy(() -> transactions.inTransaction(() -> {
+                    Session mine = repository.get(session(n)).orElseThrow();
+                    transactions.inANewTransaction(() -> {
+                        Session theirs = repository.get(session(n)).orElseThrow();
+                        theirs.recordContact(at(1));
+                        repository.save(theirs);
+                    });
+                    mine.recordContact(at(1));
+                    repository.save(mine);
+                }))
+                .isInstanceOfSatisfying(StaleVersion.class, stale -> {
+                    assertThat(stale.kind()).isEqualTo("Session");
+                    assertThat(stale.id()).isEqualTo(session(n).value());
+                });
+
+        assertThat(storedContacts(n)).containsExactly(at(1));
+        assertThat(storedVersion(n)).isZero();
+    }
+
+    /** The version check passes, because a contact moves no version, and the instant is kept already. */
+    @Test
+    void GivenAContactSavedWhileAStepUpKeptTheSameInstant_WhenTheStepUpSaves_ThenStaleVersionAndTheContactStands() {
+        int n = 28;
+        transactions.inTransaction(() -> repository.add(opened(n)));
+
+        assertThatThrownBy(() -> transactions.inTransaction(() -> {
+                    Session mine = repository.get(session(n)).orElseThrow();
+                    transactions.inANewTransaction(() -> {
+                        Session theirs = repository.get(session(n)).orElseThrow();
+                        theirs.recordContact(at(1));
+                        repository.save(theirs);
+                    });
+                    mine.recordContact(at(1));
+                    mine.confirmPassword(FIRST, token(n, 3), hash(n, 3), at(1));
+                    repository.save(mine);
+                }))
+                .isInstanceOfSatisfying(StaleVersion.class, stale -> {
+                    assertThat(stale.kind()).isEqualTo("Session");
+                    assertThat(stale.id()).isEqualTo(session(n).value());
+                });
+
+        assertThat(storedContacts(n)).containsExactly(at(1));
+        assertThat(storedVersion(n)).isZero();
+        assertThat(storedTokens(n)).isEqualTo(1L);
+    }
+
     // --- the revocation written with no version check (NFR-88, NFR-89)
 
     @Test

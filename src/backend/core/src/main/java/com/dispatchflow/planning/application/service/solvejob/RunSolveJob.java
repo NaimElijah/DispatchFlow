@@ -39,7 +39,9 @@ import com.dispatchflow.shared.application.IdGenerator;
  *       the proposal in the job's transaction (DL §6.1). A result the proposal refuses, from {@code
  *       ReoptimizationProposal.create} ({@code OrderAlreadyInPlan}, {@code VehicleRoutedTwice} or
  *       {@code DriverRoutedTwice}), fails the job with {@code SolveFailure.rejected} instead,
- *       naming the broken rule as for a daily result (ADR-112).
+ *       naming the broken rule as for a daily result (ADR-112). The step saves the job before it
+ *       adds the proposal: adding it writes at once everything the transaction holds, so the job's
+ *       change written there would make the job's own save fail.
  *   <li>An optimizer answer of failure, an unreachable road network ({@code
  *       RoadNetworkUnavailable}) or a date with no orders fails the job with its reason (FR-65). A
  *       request the optimizer refused ({@code OptimizerRefusedRequest}) fails the job with {@code

@@ -206,6 +206,28 @@ class DriverPersistenceIT {
         assertThat(stored.weeklyShifts()).isEqualTo(WeeklyShifts.none());
     }
 
+    /** A driver is keyed by their account, so two registrations of one account race for that key. */
+    @Test
+    void GivenAnotherCallRegisteredTheAccountsDriverFirst_WhenTheDriverIsAdded_ThenStaleVersionAndTheFirstStands() {
+        int n = 10;
+
+        assertThatThrownBy(() -> transactions.inTransaction(() -> {
+                    Driver mine = active(n);
+                    transactions.inANewTransaction(() -> repository.add(
+                            Driver.register(account(n), contact(100 + n), MORNING, vehicle(n), Standing.ACTIVE)));
+                    repository.add(mine);
+                }))
+                .isInstanceOfSatisfying(StaleVersion.class, stale -> {
+                    assertThat(stale.kind()).isEqualTo("Driver");
+                    assertThat(stale.id()).isEqualTo(account(n).value());
+                });
+
+        Driver stored =
+                transactions.inTransaction(() -> repository.get(account(n)).orElseThrow());
+        assertThat(stored.defaultShift()).isEqualTo(MORNING);
+        assertThat(storedVersion(n)).isZero();
+    }
+
     // --- every driver, in registration order
 
     @Test

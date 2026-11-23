@@ -46,7 +46,10 @@ public interface OrderRepository {
      * A date's uncancelled orders, read after taking the date's transaction-scoped advisory lock,
      * which the caller's transaction holds until it ends (BR-101, BR-113, NFR-05, ADR-060, DL §5).
      * Every use case that adds an order to a date reads it, so two of them can't both take the
-     * date's last place or one reference.
+     * date's last place or one reference. It must run in the caller's transaction, and is refused
+     * when none is open, because a lock taken and released within the call would guard nothing. A
+     * caller that reads several dates reads them in ascending date order, so two imports that share
+     * dates take their locks in one order and can't deadlock.
      *
      * @param date the date
      * @return the date's capacity, failed orders included (BR-113)

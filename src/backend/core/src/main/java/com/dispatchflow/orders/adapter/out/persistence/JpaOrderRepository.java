@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -58,6 +59,7 @@ class JpaOrderRepository implements OrderRepository {
     }
 
     @Override
+    @Transactional(propagation = Propagation.MANDATORY)
     public DateCapacity capacityUnderLock(DeliveryDate date) {
         orders.lockDate(date.value().toString());
         return DateCapacity.readUnderLock(

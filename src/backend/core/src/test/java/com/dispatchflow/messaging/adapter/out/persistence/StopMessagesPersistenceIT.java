@@ -51,6 +51,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.IllegalTransactionStateException;
 
 /**
  * {@link StopMessagesRepository} against a real PostgreSQL (ADR-126, ADR-127): what a stop's
@@ -172,6 +173,49 @@ class StopMessagesPersistenceIT {
 
         assertThat(storedVersion(n)).isEqualTo(1L);
         assertThat(storedState(messageId(n, 1))).isEqualTo("SENDING");
+    }
+
+    /**
+     * Both triggers number their message the same, so the later one's message breaks the stored
+     * messages' uniqueness by stop, type and sequence before its version is checked.
+     */
+    @Test
+    void GivenTwoTriggersAddingOneMessageTypeToOneStop_WhenTheLaterOneSaves_ThenStaleVersionAndOnlyTheFirstIsStored() {
+        int n = 40;
+        Instant ten = tenOn(n);
+        RecipientPhone to = new RecipientPhone.Known(phone(n));
+        transactions.inTransaction(() -> repository.add(pendingOutForDelivery(n, ten, phone(n))));
+
+        assertThatThrownBy(() -> transactions.inTransaction(() -> {
+                    StopMessages mine = repository.get(stop(n)).orElseThrow();
+                    transactions.inANewTransaction(() -> {
+                        StopMessages theirs = repository.get(stop(n)).orElseThrow();
+                        theirs.onDeliveryChanged(
+                                messageId(n, 2),
+                                to,
+                                MESSAGES_ON,
+                                RouteProgress.IN_PROGRESS,
+                                StopProgress.NOT_REACHED,
+                                at(ten, 1));
+                        repository.save(theirs);
+                    });
+                    mine.onDeliveryChanged(
+                            messageId(n, 3),
+                            to,
+                            MESSAGES_ON,
+                            RouteProgress.IN_PROGRESS,
+                            StopProgress.NOT_REACHED,
+                            at(ten, 1));
+                    repository.save(mine);
+                }))
+                .isInstanceOfSatisfying(StaleVersion.class, stale -> {
+                    assertThat(stale.kind()).isEqualTo("StopMessages");
+                    assertThat(stale.id()).isEqualTo(stop(n).value());
+                });
+
+        assertThat(storedVersion(n)).isEqualTo(1L);
+        assertThat(storedState(messageId(n, 2))).isEqualTo("PENDING");
+        assertThat(storedMessages(n)).isEqualTo(2L);
     }
 
     @Test
@@ -309,6 +353,12 @@ class StopMessagesPersistenceIT {
         });
 
         assertThat(transactions.inTransaction(() -> repository.capOn(day))).isEqualTo(new DailySendCap(0));
+    }
+
+    /** A lock taken in a transaction of the call's own would be gone before the caller acts. */
+    @Test
+    void GivenNoTransaction_WhenADaysCapIsRead_ThenTheCallIsRefused() {
+        assertThatThrownBy(() -> repository.capOn(dayOf(15))).isInstanceOf(IllegalTransactionStateException.class);
     }
 
     // --- the last acceptance to a phone (FR-363)

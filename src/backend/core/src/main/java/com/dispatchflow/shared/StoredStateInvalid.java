@@ -4,9 +4,10 @@ import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
- * Thrown when stored state can't become a valid object (DL §3.5): an aggregate's {@code restore}
- * found a broken invariant at rest, or a stored kernel value, such as a {@link Version} or an
- * {@link EventId}, is malformed. It is not a {@link DomainError}, because no user's action caused
+ * Thrown when stored state can't become a valid object (DL §3.5): an aggregate's {@code @PostLoad}
+ * check found a broken invariant at rest as Hibernate loaded it, or a persistence adapter's
+ * converter or instantiator found a stored value, such as a {@link Version} or an {@link EventId},
+ * malformed (ADR-126). It is not a {@link DomainError}, because no user's action caused
  * it and no user can fix it: a damaged row is an incident.
  *
  * <p>The detail names the broken rule, never the stored values, so it carries no personal data
