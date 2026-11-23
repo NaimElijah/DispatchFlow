@@ -20,8 +20,8 @@ import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A {@link ReoptimizationProposal}'s whole state, which the repository stores, {@link
- * ReoptimizationProposal#restore} rebuilds and {@link Plan#accept} judges.
+ * A {@link ReoptimizationProposal}'s whole state, which {@link ReoptimizationProposal#restore}
+ * rebuilds.
  *
  * @param id the proposal
  * @param version the version it was loaded at, or null for an aggregate never saved
@@ -76,15 +76,5 @@ public record ReoptimizationProposalSnapshot(
         needsGoodsHandOver = List.copyOf(needsGoodsHandOver);
         Objects.requireNonNull(createdAt, "createdAt");
         Objects.requireNonNull(state, "state");
-    }
-
-    /**
-     * Whether the proposal withdraws a vehicle.
-     *
-     * @param vehicle the vehicle
-     * @return {@code true} when it is among the withdrawn
-     */
-    public boolean withdraws(VehicleId vehicle) {
-        return withdrawn.stream().anyMatch(withdrawal -> withdrawal.vehicle().equals(vehicle));
     }
 }

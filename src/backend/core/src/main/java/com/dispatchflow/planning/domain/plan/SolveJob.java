@@ -12,6 +12,7 @@ import com.dispatchflow.planning.domain.PlanningError.SolveQueueFull;
 import com.dispatchflow.planning.domain.RevisionNo;
 import com.dispatchflow.planning.domain.SolveLimit;
 import com.dispatchflow.planning.domain.basis.ProposalBasis;
+import com.dispatchflow.planning.domain.drop.ExcludedVehicle;
 import com.dispatchflow.planning.domain.solution.ReoptimizationResult;
 import com.dispatchflow.planning.domain.solution.SolveFailure;
 import com.dispatchflow.planning.domain.solution.SolveResult;
@@ -26,12 +27,24 @@ import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.ProposalId;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StoredStateInvalid;
-import com.dispatchflow.shared.Version;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OrderColumn;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.Table;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -47,8 +60,16 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>A command's {@code now} before the job's latest recorded time, as a clock stepped back would
  * give, counts as that time, so the job always loads again (ADR-112).
+ *
+ * <p>It is mapped for JPA (ADR-126, ADR-127): its key is its {@code JobId}'s UUID; its phase is a kind
+ * beside the times each phase keeps, with a failure's reason and its violations in a table of their
+ * own; and a daily job's result is four tables, its routes, their stops flattened by both positions,
+ * its drops and its excluded vehicles, which only a succeeded daily job fills. Every command changes
+ * these in place and ends by checking the invariants at rest.
  */
-public final class SolveJob extends AggregateRoot {
+@Entity
+@Table(schema = "planning", name = "solve_job")
+public class SolveJob extends AggregateRoot {
 
     /** The longest a job waits in its queue (BR-112). */
     public static final Duration QUEUE_WAIT = Duration.ofMinutes(5);
@@ -127,29 +148,124 @@ public final class SolveJob extends AggregateRoot {
         }
     }
 
-    private final JobId id;
-    private final PlanId plan;
-    private final Lane lane;
-    private final SolverName solver;
-    private final SolveLimit limit;
-    private final Seed seed;
-    private final @Nullable RevisionNo basisRevision;
-    private final Instant requestedAt;
-    private Phase phase;
-    private @Nullable SolveResult result;
+    private static final String BASIS_ONLY_FOR_REOPTIMIZATION =
+            "a basis revision belongs to a re-optimization, and only to one";
+    private static final String REOPTIMIZATION_LIMIT = "a re-optimization's limit is 20 seconds";
+    private static final String RESULT_ONLY_WHEN_DAILY_SUCCEEDED =
+            "a result belongs to a succeeded daily job, and only to one";
+    private static final String TIMES_IN_ORDER = "the phase's times are out of order";
+    private static final String VIOLATIONS_ONLY_WHEN_FAILED = "violations belong to a failed job";
 
-    private SolveJob(@Nullable Version version, SolveJobSnapshot state) {
-        super(version);
-        this.id = state.id();
-        this.plan = state.plan();
-        this.lane = state.lane();
-        this.solver = state.solver();
-        this.limit = state.limit();
-        this.seed = state.seed();
-        this.basisRevision = state.basisRevision().orElse(null);
-        this.requestedAt = state.requestedAt();
-        this.phase = state.phase();
-        this.result = state.result().orElse(null);
+    /** Which {@link Phase} a job is in. */
+    private enum PhaseKind {
+        QUEUED,
+        BUILDING_MATRIX,
+        RUNNING,
+        SUCCEEDED,
+        FAILED
+    }
+
+    @Id
+    private UUID id;
+
+    @Column(name = "plan_id")
+    private PlanId plan;
+
+    @Enumerated(EnumType.STRING)
+    private Lane lane;
+
+    private SolverName solver;
+
+    // PostgreSQL reserves "limit".
+    @Column(name = "solve_limit")
+    private SolveLimit limit;
+
+    private Seed seed;
+
+    private @Nullable RevisionNo basisRevision;
+
+    private Instant requestedAt;
+
+    @Enumerated(EnumType.STRING)
+    private PhaseKind phase;
+
+    private @Nullable Instant claimedAt;
+
+    private @Nullable Instant searchStartedAt;
+
+    private @Nullable Instant endedAt;
+
+    @Enumerated(EnumType.STRING)
+    private @Nullable SolveFailureReason failureReason;
+
+    @ElementCollection
+    @CollectionTable(
+            schema = "planning",
+            name = "solve_job_violation",
+            joinColumns = @JoinColumn(name = "solve_job_id"))
+    @OrderColumn(name = "position", nullable = false)
+    private List<StoredViolation> failureViolations = new ArrayList<>();
+
+    @ElementCollection
+    @CollectionTable(schema = "planning", name = "solve_job_route", joinColumns = @JoinColumn(name = "solve_job_id"))
+    @OrderColumn(name = "position", nullable = false)
+    private List<StoredSolvedRoute> resultRoutes = new ArrayList<>();
+
+    @ElementCollection
+    @CollectionTable(schema = "planning", name = "solve_job_stop", joinColumns = @JoinColumn(name = "solve_job_id"))
+    @OrderColumn(name = "position", nullable = false)
+    private List<StoredSolvedStop> resultStops = new ArrayList<>();
+
+    @ElementCollection
+    @CollectionTable(schema = "planning", name = "solve_job_drop", joinColumns = @JoinColumn(name = "solve_job_id"))
+    @OrderColumn(name = "position", nullable = false)
+    private List<StoredDroppedOrder> resultDropped = new ArrayList<>();
+
+    @ElementCollection
+    @CollectionTable(
+            schema = "planning",
+            name = "solve_job_excluded_vehicle",
+            joinColumns = @JoinColumn(name = "solve_job_id"))
+    @OrderColumn(name = "position", nullable = false)
+    private List<ExcludedVehicle> resultExcluded = new ArrayList<>();
+
+    /** For Hibernate, which sets the fields from the stored rows and then runs {@link #checkStored}. */
+    protected SolveJob() {}
+
+    private SolveJob(
+            JobId id,
+            PlanId plan,
+            Lane lane,
+            SolverName solver,
+            SolveLimit limit,
+            Seed seed,
+            @Nullable RevisionNo basisRevision,
+            Instant requestedAt) {
+        super();
+        this.id = id.value();
+        this.plan = plan;
+        this.lane = lane;
+        this.solver = solver;
+        this.limit = limit;
+        this.seed = seed;
+        this.basisRevision = basisRevision;
+        this.requestedAt = requestedAt;
+        this.phase = PhaseKind.QUEUED;
+    }
+
+    /** Builds the job {@link #restore} returns; it goes with {@code restore} (ADR-126). */
+    private SolveJob(SolveJobSnapshot stored) {
+        super(stored.version());
+        this.id = stored.id().value();
+        this.plan = stored.plan();
+        this.lane = stored.lane();
+        this.solver = stored.solver();
+        this.limit = stored.limit();
+        this.seed = stored.seed();
+        this.basisRevision = stored.basisRevision().orElse(null);
+        this.requestedAt = stored.requestedAt();
+        storePhase(stored.phase());
+        stored.result().ifPresent(this::storeResult);
     }
 
     /**
@@ -190,20 +306,7 @@ public final class SolveJob extends AggregateRoot {
         if (capacity.isFull()) {
             throw new RuleViolation(new SolveQueueFull(lane, LaneCapacity.QUEUE_LIMIT));
         }
-        return new SolveJob(
-                null,
-                new SolveJobSnapshot(
-                        id,
-                        null,
-                        plan,
-                        lane,
-                        solver,
-                        limit,
-                        seed,
-                        basisRevision,
-                        now,
-                        new Phase.Queued(),
-                        Optional.empty()));
+        return new SolveJob(id, plan, lane, solver, limit, seed, basisRevision.orElse(null), now);
     }
 
     /**
@@ -218,19 +321,34 @@ public final class SolveJob extends AggregateRoot {
     public static SolveJob restore(SolveJobSnapshot snapshot) {
         boolean reoptimization = snapshot.lane() == Lane.REOPTIMIZATION;
         if (reoptimization != snapshot.basisRevision().isPresent()) {
-            throw invalid("a basis revision belongs to a re-optimization, and only to one");
+            throw invalid(BASIS_ONLY_FOR_REOPTIMIZATION);
         }
         if (reoptimization && !snapshot.limit().equals(SolveLimit.REOPTIMIZATION)) {
-            throw invalid("a re-optimization's limit is 20 seconds");
+            throw invalid(REOPTIMIZATION_LIMIT);
         }
         boolean keepsResult = snapshot.lane() == Lane.DAILY && snapshot.phase() instanceof Phase.Succeeded;
         if (keepsResult != snapshot.result().isPresent()) {
-            throw invalid("a result belongs to a succeeded daily job, and only to one");
+            throw invalid(RESULT_ONLY_WHEN_DAILY_SUCCEEDED);
         }
         if (!timesInOrder(snapshot.requestedAt(), snapshot.phase())) {
-            throw invalid("the phase's times are out of order");
+            throw invalid(TIMES_IN_ORDER);
         }
-        return new SolveJob(snapshot.version(), snapshot);
+        return new SolveJob(snapshot);
+    }
+
+    /**
+     * Checks the job as Hibernate loaded it (ADR-126 decision 8): the checks {@link #restore} runs,
+     * after rebuilding its phase and its result, and that only a failed job stores violations, which
+     * a snapshot could not break but stored rows can.
+     *
+     * @throws StoredStateInvalid when the stored state breaks one of them, or a stored value is
+     *     refused
+     */
+    @PostLoad
+    void checkStored() {
+        brokenRule().ifPresent(broken -> {
+            throw invalid(broken);
+        });
     }
 
     /**
@@ -242,10 +360,11 @@ public final class SolveJob extends AggregateRoot {
      */
     public void claim(Instant now) {
         requireNotEnded();
-        if (!(phase instanceof Phase.Queued)) {
-            throw new RuleViolation(new JobNotQueued(id));
+        if (phase != PhaseKind.QUEUED) {
+            throw new RuleViolation(new JobNotQueued(id()));
         }
-        phase = new Phase.BuildingMatrix(atOrAfterLatest(now));
+        storePhase(new Phase.BuildingMatrix(atOrAfterLatest(now)));
+        requireInvariants();
     }
 
     /**
@@ -257,10 +376,11 @@ public final class SolveJob extends AggregateRoot {
      */
     public void searchStarted(Instant now) {
         requireNotEnded();
-        if (!(phase instanceof Phase.BuildingMatrix building)) {
-            throw new RuleViolation(new JobNotBuildingMatrix(id));
+        if (!(phase() instanceof Phase.BuildingMatrix building)) {
+            throw new RuleViolation(new JobNotBuildingMatrix(id()));
         }
-        phase = new Phase.Running(building.claimedAt(), atOrAfterLatest(now));
+        storePhase(new Phase.Running(building.claimedAt(), atOrAfterLatest(now)));
+        requireInvariants();
     }
 
     /**
@@ -287,8 +407,10 @@ public final class SolveJob extends AggregateRoot {
         if (broken.isPresent()) {
             throw new RuleViolation(broken.get());
         }
-        result = new SolveResult(solution.routes(), solution.dropped(), solution.excluded());
-        endSucceeded(running, atOrAfterLatest(now));
+        Instant ended = atOrAfterLatest(now);
+        storeResult(new SolveResult(solution.routes(), solution.dropped(), solution.excluded()));
+        endSucceeded(running, ended);
+        requireInvariants();
     }
 
     /**
@@ -310,8 +432,9 @@ public final class SolveJob extends AggregateRoot {
         RevisionNo revision = Objects.requireNonNull(basisRevision, "a re-optimization has a basis revision");
         Instant ended = atOrAfterLatest(now);
         ReoptimizationProposal proposal = ReoptimizationProposal.create(
-                proposalId, plan, id, new ProposalBasis(revision, reoptimization.factsAt()), reoptimization, ended);
+                proposalId, plan, id(), new ProposalBasis(revision, reoptimization.factsAt()), reoptimization, ended);
         endSucceeded(running, ended);
+        requireInvariants();
         return proposal;
     }
 
@@ -326,6 +449,7 @@ public final class SolveJob extends AggregateRoot {
     public void fail(SolveFailure failure, Instant now) {
         requireNotEnded();
         endFailed(failure, atOrAfterLatest(now));
+        requireInvariants();
     }
 
     /**
@@ -340,10 +464,11 @@ public final class SolveJob extends AggregateRoot {
         requireNotEnded();
         Instant deadline;
         SolveFailureReason reason;
-        if (phase instanceof Phase.BuildingMatrix building) {
+        Phase current = phase();
+        if (current instanceof Phase.BuildingMatrix building) {
             deadline = building.claimedAt().plus(MATRIX_DEADLINE);
             reason = SolveFailureReason.MATRIX_TOO_LONG;
-        } else if (phase instanceof Phase.Running running) {
+        } else if (current instanceof Phase.Running running) {
             deadline = running.searchStartedAt().plus(limit.duration()).plus(OVERRUN_GRACE);
             reason = SolveFailureReason.OVERRAN;
         } else {
@@ -352,6 +477,7 @@ public final class SolveJob extends AggregateRoot {
         }
         if (now.isAfter(deadline)) {
             endFailed(SolveFailure.of(reason), now);
+            requireInvariants();
         }
     }
 
@@ -361,7 +487,7 @@ public final class SolveJob extends AggregateRoot {
      * @return the ID
      */
     public JobId id() {
-        return id;
+        return JobId.of(id);
     }
 
     /**
@@ -379,7 +505,13 @@ public final class SolveJob extends AggregateRoot {
      * @return the result once a daily job succeeded; otherwise empty
      */
     public Optional<SolveResult> result() {
-        return Optional.ofNullable(result);
+        if (!keepsResult()) {
+            return Optional.empty();
+        }
+        return Optional.of(new SolveResult(
+                StoredSolvedRoute.assemble(resultRoutes, resultStops),
+                resultDropped.stream().map(StoredDroppedOrder::droppedOrder).toList(),
+                resultExcluded));
     }
 
     /**
@@ -389,7 +521,7 @@ public final class SolveJob extends AggregateRoot {
      */
     public SolveJobSnapshot snapshot() {
         return new SolveJobSnapshot(
-                id,
+                id(),
                 savedVersion().orElse(null),
                 plan,
                 lane,
@@ -398,13 +530,82 @@ public final class SolveJob extends AggregateRoot {
                 seed,
                 Optional.ofNullable(basisRevision),
                 requestedAt,
-                phase,
-                Optional.ofNullable(result));
+                phase(),
+                result());
+    }
+
+    /** The phase its kind and times store, with a failure's reason and violations. */
+    private Phase phase() {
+        return switch (phase) {
+            case QUEUED -> new Phase.Queued();
+            case BUILDING_MATRIX -> new Phase.BuildingMatrix(stored(claimedAt));
+            case RUNNING -> new Phase.Running(stored(claimedAt), stored(searchStartedAt));
+            case SUCCEEDED -> new Phase.Succeeded(stored(claimedAt), stored(searchStartedAt), stored(endedAt));
+            case FAILED ->
+                new Phase.Failed(
+                        SolveFailure.ofStored(
+                                Objects.requireNonNull(failureReason, "a failed job has its reason"),
+                                failureViolations.stream()
+                                        .map(StoredViolation::violation)
+                                        .toList()),
+                        stored(endedAt));
+        };
+    }
+
+    /** Sets the kind and the times of a phase, and a failure's reason and violations, in place. */
+    private void storePhase(Phase next) {
+        claimedAt = null;
+        searchStartedAt = null;
+        endedAt = null;
+        failureReason = null;
+        failureViolations.clear();
+        switch (next) {
+            case Phase.Queued queued -> phase = PhaseKind.QUEUED;
+            case Phase.BuildingMatrix building -> {
+                phase = PhaseKind.BUILDING_MATRIX;
+                claimedAt = building.claimedAt();
+            }
+            case Phase.Running running -> {
+                phase = PhaseKind.RUNNING;
+                claimedAt = running.claimedAt();
+                searchStartedAt = running.searchStartedAt();
+            }
+            case Phase.Succeeded succeeded -> {
+                phase = PhaseKind.SUCCEEDED;
+                claimedAt = succeeded.claimedAt();
+                searchStartedAt = succeeded.searchStartedAt();
+                endedAt = succeeded.endedAt();
+            }
+            case Phase.Failed failed -> {
+                phase = PhaseKind.FAILED;
+                endedAt = failed.endedAt();
+                failureReason = failed.failure().reason();
+                failed.failure().violations().stream().map(StoredViolation::new).forEach(failureViolations::add);
+            }
+        }
+    }
+
+    /** Fills the result's lists Hibernate loaded, which are empty until a daily job succeeds. */
+    private void storeResult(SolveResult kept) {
+        StoredSolvedRoute.flatten(kept.routes(), resultRoutes, resultStops);
+        kept.dropped().stream().map(StoredDroppedOrder::new).forEach(resultDropped::add);
+        resultExcluded.addAll(kept.excluded());
+    }
+
+    private boolean keepsResult() {
+        return lane == Lane.DAILY && phase == PhaseKind.SUCCEEDED;
+    }
+
+    private boolean storesAnyResult() {
+        return !(resultRoutes.isEmpty()
+                && resultStops.isEmpty()
+                && resultDropped.isEmpty()
+                && resultExcluded.isEmpty());
     }
 
     /** The time a command records: {@code now}, or the job's latest recorded time if that is later. */
     private Instant atOrAfterLatest(Instant now) {
-        Instant latest = switch (phase) {
+        Instant latest = switch (phase()) {
             case Phase.BuildingMatrix building -> building.claimedAt();
             case Phase.Running running -> running.searchStartedAt();
             case Phase.Succeeded succeeded -> succeeded.endedAt();
@@ -415,35 +616,75 @@ public final class SolveJob extends AggregateRoot {
     }
 
     private void requireNotEnded() {
-        if (phase instanceof Phase.Succeeded || phase instanceof Phase.Failed) {
-            throw new RuleViolation(new JobAlreadyEnded(id));
+        if (phase == PhaseKind.SUCCEEDED || phase == PhaseKind.FAILED) {
+            throw new RuleViolation(new JobAlreadyEnded(id()));
         }
     }
 
     private void requireLane(Lane expected) {
         if (lane != expected) {
-            throw new RuleViolation(new ResultForAnotherLane(id, lane));
+            throw new RuleViolation(new ResultForAnotherLane(id(), lane));
         }
     }
 
     private Phase.Running requireRunning() {
-        if (!(phase instanceof Phase.Running running)) {
-            throw new RuleViolation(new JobNotRunning(id));
+        if (!(phase() instanceof Phase.Running running)) {
+            throw new RuleViolation(new JobNotRunning(id()));
         }
         return running;
     }
 
     private void endSucceeded(Phase.Running running, Instant now) {
-        phase = new Phase.Succeeded(running.claimedAt(), running.searchStartedAt(), now);
-        raise(SolveSucceeded.class, id.value(), eventId -> new SolveSucceeded(eventId, now, id, plan, lane));
+        storePhase(new Phase.Succeeded(running.claimedAt(), running.searchStartedAt(), now));
+        JobId job = id();
+        raise(SolveSucceeded.class, id, eventId -> new SolveSucceeded(eventId, now, job, plan, lane));
     }
 
     private void endFailed(SolveFailure failure, Instant now) {
-        phase = new Phase.Failed(failure, now);
-        raise(
-                SolveFailed.class,
-                id.value(),
-                eventId -> new SolveFailed(eventId, now, id, plan, lane, failure.reason()));
+        storePhase(new Phase.Failed(failure, now));
+        JobId job = id();
+        raise(SolveFailed.class, id, eventId -> new SolveFailed(eventId, now, job, plan, lane, failure.reason()));
+    }
+
+    /**
+     * Checks the state a command left against the invariants at rest (ADR-126 decision 11). Every
+     * input was checked before this point, so a broken invariant here is a bug in the command, not a
+     * refusal, and the error rolls its transaction back.
+     */
+    private void requireInvariants() {
+        brokenRule().ifPresent(broken -> {
+            throw new AssertionError("a solve job command left a state that breaks: " + broken);
+        });
+    }
+
+    /**
+     * The one check of the stored fields, shared by the load check and every command: the checks
+     * {@link #restore} runs on a snapshot, in its order, and that only a failed job stores
+     * violations. Rebuilding the phase and the result checks each stored value on the way.
+     */
+    private Optional<String> brokenRule() {
+        boolean reoptimization = lane == Lane.REOPTIMIZATION;
+        if (reoptimization != (basisRevision != null)) {
+            return Optional.of(BASIS_ONLY_FOR_REOPTIMIZATION);
+        }
+        if (reoptimization && !limit.equals(SolveLimit.REOPTIMIZATION)) {
+            return Optional.of(REOPTIMIZATION_LIMIT);
+        }
+        if (!keepsResult() && storesAnyResult()) {
+            return Optional.of(RESULT_ONLY_WHEN_DAILY_SUCCEEDED);
+        }
+        if (phase != PhaseKind.FAILED && !failureViolations.isEmpty()) {
+            return Optional.of(VIOLATIONS_ONLY_WHEN_FAILED);
+        }
+        if (!timesInOrder(requestedAt, phase())) {
+            return Optional.of(TIMES_IN_ORDER);
+        }
+        result();
+        return Optional.empty();
+    }
+
+    private static Instant stored(@Nullable Instant time) {
+        return Objects.requireNonNull(time, "the phase keeps this time");
     }
 
     private static boolean timesInOrder(Instant requestedAt, Phase phase) {
