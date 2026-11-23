@@ -14,8 +14,10 @@ import org.springframework.data.domain.DomainEvents;
 
 /**
  * The base of every aggregate root (DL §3.1, §3.6): it holds the {@link Version} the aggregate was
- * loaded at and the events its methods raised since. It needs no ID type, because aggregates are
- * keyed differently: most by a typed ID, some by another ID or a date, and singletons by nothing.
+ * loaded at and the events its methods raised since. It holds no key: each root maps its own
+ * private {@code UUID} key (ADR-126), the value of its typed ID, a constant for a singleton, and for
+ * a root found by its date a UUID beside a date its table keeps unique. Until a lane maps its
+ * aggregate, a root may still be found by a date or, for a singleton, by nothing.
  *
  * <p>It is mapped for JPA (ADR-126): every root inherits its {@code @Version}, which Hibernate
  * checks on every update. A never-saved aggregate has no version. Its first save stores 0, and

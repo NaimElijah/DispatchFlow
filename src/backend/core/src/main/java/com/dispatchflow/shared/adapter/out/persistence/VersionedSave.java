@@ -13,7 +13,10 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.UnaryOperator;
+import org.hibernate.exception.ConstraintViolationException;
+import org.hibernate.exception.ConstraintViolationException.ConstraintKind;
 import org.jspecify.annotations.Nullable;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.stereotype.Component;
@@ -37,7 +40,11 @@ import org.springframework.stereotype.Component;
  * <p>A lock it can't get is a conflict too. Hibernate takes the root's and a child's row locks in
  * one order for a child-only change and in the other for a change to the children's list, so two
  * writers of one aggregate can deadlock, and a writer can time out behind another. Either way
- * another transaction is changing the aggregate, so the save answers {@code StaleVersion}.
+ * another transaction is changing the aggregate, so the save answers {@code StaleVersion}. So does
+ * a first save that breaks a unique constraint: another transaction stored the same aggregate, or
+ * one holding the same unique value, first. A retry then runs the use case against what is stored,
+ * and its own rules refuse it if they should. Any other constraint violation is a bug, and the save
+ * lets it through.
  *
  * <p>It runs in the caller's transaction: without one, the flush throws. A conflict leaves that
  * transaction rollback-only, so a retry re-runs the whole use case in a new one.
@@ -66,8 +73,9 @@ public final class VersionedSave {
      * @param <T> the aggregate type
      * @return the saved aggregate, which this transaction manages
      * @throws StaleVersion when another transaction saved the aggregate after this one loaded it,
-     *     or holds a lock this save waited for until it deadlocked or timed out; its kind is the
-     *     entity's name and its ID the root's key, and the conflict is its cause
+     *     or holds a lock this save waited for until it deadlocked or timed out, or stored first a
+     *     never-saved aggregate's key or unique value; its kind is the entity's name and its ID the
+     *     root's key, and the conflict is its cause
      * @throws AssertionError when the save left the version where it was, or stored a version its
      *     events don't carry: the aggregate was saved twice in this transaction, or flushed between
      *     two of its changes
@@ -87,6 +95,11 @@ public final class VersionedSave {
             throw new StaleVersion(entityName(root), key(units, root), conflict);
         } catch (PessimisticLockException | LockTimeoutException | PessimisticLockingFailureException blocked) {
             throw new StaleVersion(entityName(root), key(units, root), blocked);
+        } catch (ConstraintViolationException | DataIntegrityViolationException violation) {
+            if (loadedAt == null && breaksAUniqueConstraint(violation)) {
+                throw new StaleVersion(entityName(root), key(units, root), violation);
+            }
+            throw violation;
         }
         requireOneStep(units.getVersion(saved), loadedAt, raised);
         return saved;
@@ -102,6 +115,15 @@ public final class VersionedSave {
                         + "don't flush an aggregate between two of its changes");
             }
         }
+    }
+
+    private static boolean breaksAUniqueConstraint(RuntimeException violation) {
+        for (Throwable cause = violation; cause != null; cause = cause.getCause()) {
+            if (cause instanceof ConstraintViolationException constraint) {
+                return constraint.getKind() == ConstraintKind.UNIQUE;
+            }
+        }
+        return false;
     }
 
     private String entityName(AggregateRoot root) {

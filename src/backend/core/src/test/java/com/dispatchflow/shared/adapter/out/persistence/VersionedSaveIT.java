@@ -400,6 +400,26 @@ class VersionedSaveIT {
         assertThat(storedVersion(id)).isEqualTo(SECOND_SAVE.value());
     }
 
+    @Test
+    void GivenTwoTransactionsCreatingTheSameLedger_WhenTheLaterOneSaves_ThenStaleVersionAndTheFirstStands() {
+        UUID id = key(18);
+
+        assertThatThrownBy(() -> inTransaction(() -> {
+                    Ledger mine = Ledger.open(id, "Mine", DATE, MORNING, DEPOT, NOW);
+                    inANewTransaction(() -> {
+                        save(Ledger.open(id, "Theirs", DATE, MORNING, DEPOT, NOW));
+                    });
+                    save(mine);
+                }))
+                .isInstanceOfSatisfying(StaleVersion.class, stale -> {
+                    assertThat(stale.kind()).isEqualTo("Ledger");
+                    assertThat(stale.id()).isEqualTo(id);
+                });
+
+        assertThat(storedName(id)).isEqualTo("Theirs");
+        assertThat(storedVersion(id)).isEqualTo(FIRST_SAVE.value());
+    }
+
     private Ledger created(UUID id) {
         Ledger ledger = inTransaction(() -> save(Ledger.open(id, "Ledger", DATE, MORNING, DEPOT, NOW)));
         events.clear();
