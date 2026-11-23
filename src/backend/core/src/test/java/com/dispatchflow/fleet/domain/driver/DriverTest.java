@@ -11,7 +11,6 @@ import static com.dispatchflow.fleet.domain.driver.DriverBuilder.aDriver;
 import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dispatchflow.fleet.domain.FleetError.DriverInUse;
 import com.dispatchflow.fleet.domain.FleetError.NotAnActiveDriver;
@@ -28,7 +27,6 @@ import com.dispatchflow.shared.DomainError;
 import com.dispatchflow.shared.EventId;
 import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.PlanId;
-import com.dispatchflow.shared.StoredStateInvalid;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -58,11 +56,11 @@ class DriverTest {
     private static final DeliveryDate MONDAY = DeliveryDate.of(LocalDate.of(2027, 6, 14));
 
     private static void assertRefusedUnchanged(Driver driver, ThrowingCallable call, DomainError expected) {
-        DriverSnapshot before = driver.snapshot();
+        DriverDescription before = DriverDescription.of(driver);
 
         assertRefused(call, expected);
 
-        assertThat(driver.snapshot()).isEqualTo(before);
+        assertThat(DriverDescription.of(driver)).isEqualTo(before);
         assertThat(driver.pendingEvents()).isEmpty();
     }
 
@@ -73,11 +71,10 @@ class DriverTest {
         Driver driver = Driver.register(DANA, DANA_CONTACT, DEFAULT_SHIFT, DEFAULT_VEHICLE, Standing.ACTIVE);
 
         assertThat(driver.id()).isEqualTo(DANA);
-        assertThat(driver.snapshot().version()).isNull();
-        assertThat(driver.snapshot())
-                .isEqualTo(new DriverSnapshot(
+        assertThat(driver.savedVersion()).isEmpty();
+        assertThat(DriverDescription.of(driver))
+                .isEqualTo(new DriverDescription(
                         DANA,
-                        null,
                         new DriverStatus.Active(),
                         Optional.of(DANA_CONTACT),
                         DEFAULT_SHIFT,
@@ -100,11 +97,11 @@ class DriverTest {
 
         driver.changeDetails(newContact, MORNING, FleetRegisterBuilder.vehicleId(2));
 
-        assertThat(driver.snapshot())
+        assertThat(DriverDescription.of(driver))
                 .isEqualTo(aDriver()
                         .withContact(Optional.of(newContact))
                         .withDefaults(MORNING, FleetRegisterBuilder.vehicleId(2))
-                        .snapshot());
+                        .description());
         assertThat(driver.pendingEvents()).isEmpty();
     }
 
@@ -125,7 +122,7 @@ class DriverTest {
 
         driver.changeWeeklyShifts(week);
 
-        assertThat(driver.snapshot().weeklyShifts()).isEqualTo(week);
+        assertThat(driver.weeklyShifts()).isEqualTo(week);
     }
 
     // --- the date's default (FR-06, FR-79, FR-189, ADR-103)
@@ -184,8 +181,8 @@ class DriverTest {
 
         driver.retire(PlanUses.none(), TODAY, NOW);
 
-        assertThat(driver.snapshot().status()).isEqualTo(new DriverStatus.Retired(NOW));
-        assertThat(driver.snapshot().contact()).contains(DANA_CONTACT);
+        assertThat(driver.status()).isEqualTo(new DriverStatus.Retired(NOW));
+        assertThat(driver.contact()).contains(DANA_CONTACT);
         assertThat(driver.pendingEvents())
                 .containsExactly(
                         new DriverRetired(new EventId("DriverRetired", DANA.value(), LOADED.next(), 0), NOW, DANA));
@@ -211,7 +208,7 @@ class DriverTest {
 
         driver.retire(uses, TODAY, NOW);
 
-        assertThat(driver.snapshot().status()).isEqualTo(new DriverStatus.Retired(NOW));
+        assertThat(driver.status()).isEqualTo(new DriverStatus.Retired(NOW));
     }
 
     @Test
@@ -229,7 +226,8 @@ class DriverTest {
 
         driver.anonymize(ANONYMIZED_AT);
 
-        assertThat(driver.snapshot()).isEqualTo(aDriver().anonymized().snapshot());
+        assertThat(DriverDescription.of(driver))
+                .isEqualTo(aDriver().anonymized().description());
         assertThat(driver.pendingEvents()).isEmpty();
     }
 
@@ -257,7 +255,7 @@ class DriverTest {
 
         assertRefusedUnchanged(driver, () -> driver.anonymize(yearLater.minusSeconds(1)), new RetentionNotOver());
         driver.anonymize(yearLater);
-        assertThat(driver.snapshot().status()).isEqualTo(new DriverStatus.Anonymized(Optional.of(retired), yearLater));
+        assertThat(driver.status()).isEqualTo(new DriverStatus.Anonymized(Optional.of(retired), yearLater));
     }
 
     @Test
@@ -266,7 +264,8 @@ class DriverTest {
 
         driver.anonymize(ANONYMIZED_AT.plusSeconds(86_400));
 
-        assertThat(driver.snapshot()).isEqualTo(aDriver().anonymized().snapshot());
+        assertThat(DriverDescription.of(driver))
+                .isEqualTo(aDriver().anonymized().description());
         assertThat(driver.pendingEvents()).isEmpty();
     }
 
@@ -278,11 +277,11 @@ class DriverTest {
 
         driver.anonymizeWithAccount(NOW);
 
-        assertThat(driver.snapshot())
+        assertThat(DriverDescription.of(driver))
                 .isEqualTo(aDriver()
                         .withStatus(new DriverStatus.Anonymized(Optional.empty(), NOW))
                         .withContact(Optional.empty())
-                        .snapshot());
+                        .description());
         assertThat(driver.rosterDefaultOn(SUNDAY, Standing.ACTIVE)).isEmpty();
         assertThat(driver.pendingEvents()).isEmpty();
     }
@@ -295,15 +294,18 @@ class DriverTest {
 
         driver.anonymizeWithAccount(soon);
 
-        assertThat(driver.snapshot().status()).isEqualTo(new DriverStatus.Anonymized(Optional.of(RETIRED_AT), soon));
-        assertThat(driver.snapshot().contact()).isEmpty();
+        assertThat(driver.status()).isEqualTo(new DriverStatus.Anonymized(Optional.of(RETIRED_AT), soon));
+        assertThat(driver.contact()).isEmpty();
     }
 
     @Test
-    void GivenADriverRetiredAfterTheirAccountWasAnonymized_WhenTheLateEventIsHeard_ThenTheSavedStateRestores() {
+    void
+            GivenADriverRetiredAfterTheirAccountWasAnonymized_WhenTheLateEventIsHeard_ThenTheStateLeftPassesTheLoadCheck() {
         Driver driver = aDriver().retired().build();
-        driver.anonymizeWithAccount(RETIRED_AT.minusSeconds(3_600));
-        assertThatCode(() -> Driver.restore(driver.snapshot())).doesNotThrowAnyException();
+
+        // The command ends by running the load check's invariants, and fails loudly on a broken one.
+        assertThatCode(() -> driver.anonymizeWithAccount(RETIRED_AT.minusSeconds(3_600)))
+                .doesNotThrowAnyException();
     }
 
     @Test
@@ -313,9 +315,8 @@ class DriverTest {
 
         driver.anonymizeWithAccount(RETIRED_AT.minusSeconds(3_600));
 
-        assertThat(driver.snapshot().status())
-                .isEqualTo(new DriverStatus.Anonymized(Optional.of(RETIRED_AT), RETIRED_AT));
-        assertThat(driver.snapshot().contact()).isEmpty();
+        assertThat(driver.status()).isEqualTo(new DriverStatus.Anonymized(Optional.of(RETIRED_AT), RETIRED_AT));
+        assertThat(driver.contact()).isEmpty();
     }
 
     @Test
@@ -324,7 +325,8 @@ class DriverTest {
 
         driver.anonymizeWithAccount(NOW.plusSeconds(86_400));
 
-        assertThat(driver.snapshot()).isEqualTo(aDriver().anonymized().snapshot());
+        assertThat(DriverDescription.of(driver))
+                .isEqualTo(aDriver().anonymized().description());
         assertThat(driver.pendingEvents()).isEmpty();
     }
 
@@ -395,77 +397,16 @@ class DriverTest {
             assertRefusedUnchanged(driver, () -> command.run(driver), error);
         } else {
             command.run(driver);
-            assertThat(driver.snapshot().status()).isEqualTo(reached);
+            assertThat(driver.status()).isEqualTo(reached);
         }
     }
 
-    // --- restore
-
-    static Stream<DriverBuilder> builderStates() {
-        return Stream.of(
-                aDriver(),
-                aDriver()
-                        .withWeeklyShifts(
-                                WeeklyShifts.of(Map.of(DayOfWeek.SUNDAY, MORNING, DayOfWeek.FRIDAY, MORNING))),
-                aDriver().retired(),
-                aDriver().anonymized(),
-                aDriver()
-                        .withStatus(new DriverStatus.Anonymized(Optional.empty(), NOW))
-                        .withContact(Optional.empty()));
-    }
-
-    @ParameterizedTest
-    @MethodSource("builderStates")
-    void GivenEachBuilderState_WhenItsSnapshotIsRestored_ThenTheSnapshotRoundTrips(DriverBuilder builder) {
-        Driver driver = builder.build();
-
-        assertThat(Driver.restore(driver.snapshot()).snapshot()).isEqualTo(builder.snapshot());
-        assertThat(driver.version()).isEqualTo(LOADED);
-        assertThat(driver.pendingEvents()).isEmpty();
-    }
-
-    private static final String CONTACT_UNTIL_ANONYMIZED =
-            "a driver has a name and phone exactly until they are anonymized";
-
-    static Stream<Arguments> damagedSnapshots() {
-        return Stream.of(
-                Arguments.of(
-                        "an active driver without a name and phone",
-                        aDriver().withContact(Optional.empty()),
-                        CONTACT_UNTIL_ANONYMIZED),
-                Arguments.of(
-                        "a retired driver without a name and phone",
-                        aDriver().retired().withContact(Optional.empty()),
-                        CONTACT_UNTIL_ANONYMIZED),
-                Arguments.of(
-                        "an anonymized driver who still has a name and phone",
-                        aDriver().anonymized().withContact(Optional.of(DANA_CONTACT)),
-                        CONTACT_UNTIL_ANONYMIZED),
-                Arguments.of(
-                        "anonymized before being retired",
-                        aDriver()
-                                .anonymized()
-                                .withStatus(new DriverStatus.Anonymized(
-                                        Optional.of(RETIRED_AT), RETIRED_AT.minusSeconds(1))),
-                        "a driver is anonymized only after being retired"));
-    }
-
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("damagedSnapshots")
-    void GivenASnapshotBreakingAnInvariantAtRest_WhenRestored_ThenStoredStateInvalid(
-            String broken, DriverBuilder builder, String detail) {
-        assertThatThrownBy(builder::build).isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
-            assertThat(invalid.subject()).isEqualTo("Driver");
-            assertThat(invalid.detail()).isEqualTo(detail);
-        });
-    }
-
     @Test
-    void GivenADriverJustRetired_WhenTheirEventAndSnapshotArePrinted_ThenNeitherNamesThemOrTheirPhone() {
+    void GivenADriverJustRetired_WhenTheyAndTheirEventArePrinted_ThenNeitherNamesThemOrTheirPhone() {
         Driver driver = aDriver().build();
         driver.retire(PlanUses.none(), TODAY, NOW);
 
         assertThat(driver.pendingEvents().toString()).doesNotContain("Dana").doesNotContain("345");
-        assertThat(driver.snapshot().toString()).doesNotContain("Dana").doesNotContain("345");
+        assertThat(driver.toString()).doesNotContain("Dana").doesNotContain("345");
     }
 }

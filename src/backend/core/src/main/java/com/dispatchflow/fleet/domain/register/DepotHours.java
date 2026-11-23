@@ -2,6 +2,7 @@ package com.dispatchflow.fleet.domain.register;
 
 import com.dispatchflow.fleet.domain.FleetError.InvalidDepotHours;
 import com.dispatchflow.shared.RuleViolation;
+import jakarta.persistence.Embeddable;
 import java.time.LocalTime;
 import java.util.Objects;
 
@@ -10,9 +11,14 @@ import java.util.Objects;
  * date (FR-129, BR-46, ADR-103). They are wall-clock times rather than {@code DaySeconds},
  * because {@code DaySeconds} count from one date's midnight and these hold on every date.
  *
+ * <p>A depot embeds them in two {@code time} columns, {@code opens} and {@code closes}, both null
+ * for a depot with no hours. Its constructor checks a rule, so the persistence adapter's
+ * instantiator rebuilds it, and stored hours the rule refuses are an incident (ADR-126).
+ *
  * @param opens when routes may first leave the depot
  * @param closes when routes must be back
  */
+@Embeddable
 public record DepotHours(LocalTime opens, LocalTime closes) {
 
     /**

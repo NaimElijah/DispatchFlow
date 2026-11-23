@@ -2,7 +2,6 @@ package com.dispatchflow.fleet.domain.register;
 
 import static com.dispatchflow.fleet.domain.register.FleetRegisterBuilder.DAY_HOURS;
 import static com.dispatchflow.fleet.domain.register.FleetRegisterBuilder.EAST;
-import static com.dispatchflow.fleet.domain.register.FleetRegisterBuilder.LOADED;
 import static com.dispatchflow.fleet.domain.register.FleetRegisterBuilder.NORTH;
 import static com.dispatchflow.fleet.domain.register.FleetRegisterBuilder.NORTH_POINT;
 import static com.dispatchflow.fleet.domain.register.FleetRegisterBuilder.RETIRED_AT;
@@ -35,7 +34,6 @@ import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.DepotId;
 import com.dispatchflow.shared.DomainError;
 import com.dispatchflow.shared.PlanId;
-import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.VehicleId;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -63,23 +61,23 @@ class FleetRegisterTest {
 
     /** Asserts the refusal, and that the register's state and pending events did not change. */
     private static void assertRefusedUnchanged(FleetRegister register, ThrowingCallable call, DomainError expected) {
-        FleetRegisterSnapshot before = register.snapshot();
+        RegisterDescription before = RegisterDescription.of(register);
 
         assertRefused(call, expected);
 
-        assertThat(register.snapshot()).isEqualTo(before);
+        assertThat(RegisterDescription.of(register)).isEqualTo(before);
         assertThat(register.pendingEvents()).isEmpty();
     }
 
-    private static VehicleSnapshot vehicleIn(FleetRegister register, VehicleId id) {
-        return register.snapshot().vehicles().stream()
+    private static VehicleDescription vehicleIn(FleetRegister register, VehicleId id) {
+        return RegisterDescription.of(register).vehicles().stream()
                 .filter(vehicle -> vehicle.id().equals(id))
                 .findFirst()
                 .orElseThrow();
     }
 
-    private static DepotSnapshot depotIn(FleetRegister register, DepotId id) {
-        return register.snapshot().depots().stream()
+    private static DepotDescription depotIn(FleetRegister register, DepotId id) {
+        return RegisterDescription.of(register).depots().stream()
                 .filter(depot -> depot.id().equals(id))
                 .findFirst()
                 .orElseThrow();
@@ -95,9 +93,9 @@ class FleetRegisterTest {
     void GivenNothing_WhenAnEmptyRegisterIsCreated_ThenItIsNewWithNoDepotsOrVehiclesAndNoEvent() {
         FleetRegister register = FleetRegister.empty();
 
-        assertThat(register.snapshot().version()).isNull();
-        assertThat(register.snapshot().depots()).isEmpty();
-        assertThat(register.snapshot().vehicles()).isEmpty();
+        assertThat(register.savedVersion()).isEmpty();
+        assertThat(RegisterDescription.of(register).depots()).isEmpty();
+        assertThat(RegisterDescription.of(register).vehicles()).isEmpty();
         assertThat(register.pendingEvents()).isEmpty();
     }
 
@@ -107,7 +105,7 @@ class FleetRegisterTest {
 
         register.addDepot(NORTH, DepotName.of("North"), Optional.of(NORTH_POINT), Optional.of(DAY_HOURS));
 
-        assertThat(register.snapshot().depots()).containsExactly(activeDepot(NORTH, "North"));
+        assertThat(RegisterDescription.of(register).depots()).containsExactly(activeDepot(NORTH, "North"));
         assertThat(register.pendingEvents()).isEmpty();
     }
 
@@ -117,7 +115,7 @@ class FleetRegisterTest {
 
         register.addDepot(NORTH, DepotName.of("North"), Optional.empty(), Optional.empty());
 
-        DepotSnapshot depot = depotIn(register, NORTH);
+        DepotDescription depot = depotIn(register, NORTH);
         assertThat(depot.location()).isEmpty();
         assertThat(depot.hours()).isEmpty();
         assertThat(depot.retiredAt()).isEmpty();
@@ -130,14 +128,14 @@ class FleetRegisterTest {
         assertThatThrownBy(() -> register.addDepot(NORTH, DepotName.of("Again"), Optional.empty(), Optional.empty()))
                 .isInstanceOf(AssertionError.class)
                 .hasMessage("a new depot needs a new ID");
-        assertThat(register.snapshot()).isEqualTo(aRegister().snapshot());
+        assertThat(RegisterDescription.of(register)).isEqualTo(aRegister().description());
         assertThat(register.pendingEvents()).isEmpty();
     }
 
     @Test
     void GivenADepotWithoutCoordinates_WhenItsLocationIsSet_ThenItHasThem() {
         FleetRegister register = aRegisterWithNoDepots()
-                .withDepot(new DepotSnapshot(
+                .withDepot(new DepotDescription(
                         NORTH, DepotName.of("North"), Optional.empty(), Optional.empty(), Optional.empty()))
                 .build();
 
@@ -206,7 +204,7 @@ class FleetRegisterTest {
     void GivenActiveVehiclesAtADepot_WhenTheDepotIsRetired_ThenDepotHasActiveVehicles() {
         FleetRegister register = aRegister()
                 .withVehicle(activeVehicle(1))
-                .withVehicle(new VehicleSnapshot(
+                .withVehicle(new VehicleDescription(
                         vehicleId(2),
                         new VehicleDetails(VehicleName.of("Vehicle 2"), Plate.of("P2"), VAN_CAPACITY, SOUTH, NORTH),
                         Optional.empty()))
@@ -259,7 +257,7 @@ class FleetRegisterTest {
         register.addVehicle(NEW_VEHICLE, details(99));
 
         assertThat(vehicleIn(register, NEW_VEHICLE))
-                .isEqualTo(new VehicleSnapshot(NEW_VEHICLE, details(99), Optional.empty()));
+                .isEqualTo(new VehicleDescription(NEW_VEHICLE, details(99), Optional.empty()));
         assertThat(register.standingOf(NEW_VEHICLE)).isEqualTo(Standing.ACTIVE);
         assertThat(register.activeVehicles()).containsExactly(NEW_VEHICLE);
         assertThat(register.pendingEvents()).isEmpty();
@@ -307,7 +305,7 @@ class FleetRegisterTest {
     @Test
     void GivenAnActiveVehicleNamedVan1_WhenAnotherIsAddedAsVan1WithANoBreakSpace_ThenDuplicateVehicleName() {
         FleetRegister register = aRegister()
-                .withVehicle(new VehicleSnapshot(
+                .withVehicle(new VehicleDescription(
                         vehicleId(1),
                         new VehicleDetails(VehicleName.of("Van 1"), Plate.of("P1"), VAN_CAPACITY, NORTH, NORTH),
                         Optional.empty()))
@@ -377,7 +375,7 @@ class FleetRegisterTest {
     void GivenAnActiveVehicle_WhenAnotherIsAddedWithALookalikeName_ThenDuplicateVehicleName(
             String lookalike, String existing, String name) {
         FleetRegister register = aRegister()
-                .withVehicle(new VehicleSnapshot(
+                .withVehicle(new VehicleDescription(
                         vehicleId(1),
                         new VehicleDetails(VehicleName.of(existing), Plate.of("P1"), VAN_CAPACITY, NORTH, NORTH),
                         Optional.empty()))
@@ -403,7 +401,7 @@ class FleetRegisterTest {
     void
             GivenAnActiveVehicleNamedVan1_WhenAnotherIsAddedAsLowerCaseVan1_ThenItIsAcceptedBecauseNamesAreCaseSensitive() {
         FleetRegister register = aRegister()
-                .withVehicle(new VehicleSnapshot(
+                .withVehicle(new VehicleDescription(
                         vehicleId(1),
                         new VehicleDetails(VehicleName.of("Van 1"), Plate.of("P1"), VAN_CAPACITY, NORTH, NORTH),
                         Optional.empty()))
@@ -427,7 +425,7 @@ class FleetRegisterTest {
     @Test
     void GivenAnActiveVehicleWithAPlate_WhenAnotherIsAddedWithThatPlateWrittenDifferently_ThenDuplicatePlate() {
         FleetRegister register = aRegister()
-                .withVehicle(new VehicleSnapshot(
+                .withVehicle(new VehicleDescription(
                         vehicleId(1),
                         new VehicleDetails(VehicleName.of("Truck"), Plate.of("1234567"), VAN_CAPACITY, NORTH, NORTH),
                         Optional.empty()))
@@ -462,8 +460,8 @@ class FleetRegisterTest {
         assertThatThrownBy(() -> register.addVehicle(vehicleId(1), details(2)))
                 .isInstanceOf(AssertionError.class)
                 .hasMessage("a new vehicle needs a new ID");
-        assertThat(register.snapshot())
-                .isEqualTo(aRegister().withVehicle(retiredVehicle(1)).snapshot());
+        assertThat(RegisterDescription.of(register))
+                .isEqualTo(aRegister().withVehicle(retiredVehicle(1)).description());
         assertThat(register.pendingEvents()).isEmpty();
     }
 
@@ -626,7 +624,7 @@ class FleetRegisterTest {
     void GivenARetiredVehicleWhosePlateIsNowActive_WhenReactivated_ThenDuplicatePlate() {
         FleetRegister register = aRegister()
                 .withVehicle(retiredVehicle(1))
-                .withVehicle(new VehicleSnapshot(
+                .withVehicle(new VehicleDescription(
                         vehicleId(2),
                         new VehicleDetails(VehicleName.of("New van"), Plate.of("P1"), VAN_CAPACITY, NORTH, NORTH),
                         Optional.empty()))
@@ -640,7 +638,7 @@ class FleetRegisterTest {
     void GivenARetiredVehicleWhoseNameIsNowActive_WhenReactivated_ThenDuplicateVehicleName() {
         FleetRegister register = aRegister()
                 .withVehicle(retiredVehicle(1))
-                .withVehicle(new VehicleSnapshot(
+                .withVehicle(new VehicleDescription(
                         vehicleId(2),
                         new VehicleDetails(VehicleName.of("Vehicle 1"), Plate.of("NEW1"), VAN_CAPACITY, NORTH, NORTH),
                         Optional.empty()))
@@ -654,7 +652,7 @@ class FleetRegisterTest {
     void GivenARetiredVehicleWhoseDepotIsRetired_WhenReactivated_ThenUnknownDepot() {
         FleetRegister register = aRegister()
                 .withRetiredDepot(EAST, "East")
-                .withVehicle(new VehicleSnapshot(
+                .withVehicle(new VehicleDescription(
                         vehicleId(1),
                         new VehicleDetails(VehicleName.of("Vehicle 1"), Plate.of("P1"), VAN_CAPACITY, NORTH, EAST),
                         Optional.of(RETIRED_AT)))
@@ -669,8 +667,8 @@ class FleetRegisterTest {
 
         register.reactivateVehicle(vehicleId(1));
 
-        assertThat(register.snapshot())
-                .isEqualTo(aRegister().withActiveVehicles(1).snapshot());
+        assertThat(RegisterDescription.of(register))
+                .isEqualTo(aRegister().withActiveVehicles(1).description());
     }
 
     @Test
@@ -679,8 +677,8 @@ class FleetRegisterTest {
 
         register.reactivateVehicle(vehicleId(1));
 
-        assertThat(register.snapshot())
-                .isEqualTo(aRegister().withActiveVehicles(15).snapshot());
+        assertThat(RegisterDescription.of(register))
+                .isEqualTo(aRegister().withActiveVehicles(15).description());
     }
 
     // --- the lifecycle of a vehicle and of a depot
@@ -809,93 +807,5 @@ class FleetRegisterTest {
             Objects.requireNonNull(expected.check()).accept(register);
             assertThat(register.pendingEvents()).isEmpty();
         }
-    }
-
-    // --- restore
-
-    static Stream<FleetRegisterBuilder> builderStates() {
-        return Stream.of(
-                aRegisterWithNoDepots(),
-                aRegister(),
-                aRegister().withActiveVehicles(15),
-                aRegister().withActiveVehicles(15).withVehicle(retiredVehicle(20)),
-                aRegister()
-                        .withRetiredDepot(EAST, "East")
-                        .withVehicle(new VehicleSnapshot(
-                                vehicleId(1),
-                                new VehicleDetails(VehicleName.of("Old"), Plate.of("OLD1"), VAN_CAPACITY, EAST, EAST),
-                                Optional.of(RETIRED_AT))),
-                aRegisterWithNoDepots()
-                        .withDepot(new DepotSnapshot(
-                                NORTH, DepotName.of("North"), Optional.empty(), Optional.empty(), Optional.empty())));
-    }
-
-    @ParameterizedTest
-    @MethodSource("builderStates")
-    void GivenEachBuilderState_WhenItsSnapshotIsRestored_ThenTheSnapshotRoundTrips(FleetRegisterBuilder builder) {
-        FleetRegister register = builder.build();
-
-        assertThat(FleetRegister.restore(register.snapshot()).snapshot()).isEqualTo(builder.snapshot());
-        assertThat(register.version()).isEqualTo(LOADED);
-        assertThat(register.pendingEvents()).isEmpty();
-    }
-
-    static Stream<Arguments> damagedSnapshots() {
-        VehicleSnapshot duplicateName = new VehicleSnapshot(
-                vehicleId(2),
-                new VehicleDetails(VehicleName.of("Vehicle 1"), Plate.of("P2"), VAN_CAPACITY, NORTH, NORTH),
-                Optional.empty());
-        VehicleSnapshot lookalikeName = new VehicleSnapshot(
-                vehicleId(2),
-                new VehicleDetails(
-                        VehicleName.of("Vehicle" + Character.toString(0x00A0) + "1"),
-                        Plate.of("P2"),
-                        VAN_CAPACITY,
-                        NORTH,
-                        NORTH),
-                Optional.empty());
-        VehicleSnapshot duplicatePlate = new VehicleSnapshot(
-                vehicleId(2),
-                new VehicleDetails(VehicleName.of("Vehicle 2"), Plate.of("P1"), VAN_CAPACITY, NORTH, NORTH),
-                Optional.empty());
-        VehicleSnapshot atUnknownDepot = new VehicleSnapshot(
-                vehicleId(2),
-                new VehicleDetails(VehicleName.of("Vehicle 2"), Plate.of("P2"), VAN_CAPACITY, EAST, NORTH),
-                Optional.of(RETIRED_AT));
-        VehicleSnapshot activeAtRetiredDepot = new VehicleSnapshot(
-                vehicleId(2),
-                new VehicleDetails(VehicleName.of("Vehicle 2"), Plate.of("P2"), VAN_CAPACITY, NORTH, EAST),
-                Optional.empty());
-        return Stream.of(
-                Arguments.of("a depot appears twice", aRegister().withDepot(activeDepot(NORTH, "Again"))),
-                Arguments.of(
-                        "a vehicle appears twice",
-                        aRegister().withActiveVehicles(1).withVehicle(retiredVehicle(1))),
-                Arguments.of("more active vehicles than the limit", aRegister().withActiveVehicles(16)),
-                Arguments.of(
-                        "two active vehicles share a name",
-                        aRegister().withActiveVehicles(1).withVehicle(duplicateName)),
-                Arguments.of(
-                        "two active vehicles share a name",
-                        aRegister().withActiveVehicles(1).withVehicle(lookalikeName)),
-                Arguments.of(
-                        "two active vehicles share a plate",
-                        aRegister().withActiveVehicles(1).withVehicle(duplicatePlate)),
-                Arguments.of(
-                        "a vehicle uses a depot that is not in the register",
-                        aRegister().withVehicle(atUnknownDepot)),
-                Arguments.of(
-                        "an active vehicle uses a retired depot",
-                        aRegister().withRetiredDepot(EAST, "East").withVehicle(activeAtRetiredDepot)));
-    }
-
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("damagedSnapshots")
-    void GivenASnapshotBreakingAnInvariantAtRest_WhenRestored_ThenStoredStateInvalid(
-            String detail, FleetRegisterBuilder builder) {
-        assertThatThrownBy(builder::build).isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
-            assertThat(invalid.subject()).isEqualTo("FleetRegister");
-            assertThat(invalid.detail()).isEqualTo(detail);
-        });
     }
 }

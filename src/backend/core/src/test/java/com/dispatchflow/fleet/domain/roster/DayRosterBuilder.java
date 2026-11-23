@@ -1,12 +1,14 @@
 package com.dispatchflow.fleet.domain.roster;
 
+import static com.dispatchflow.shared.AsSaved.asSaved;
+
 import com.dispatchflow.fleet.domain.ShiftHours;
+import com.dispatchflow.fleet.domain.Standing;
 import com.dispatchflow.fleet.domain.driver.DriverBuilder;
 import com.dispatchflow.fleet.domain.register.FleetRegisterBuilder;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.VehicleId;
-import com.dispatchflow.shared.Version;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -14,8 +16,14 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * The test builder of {@link DayRoster}: {@code aRoster()} is a loaded, empty roster for Tuesday 15
- * June 2027. Every state is built as a snapshot and rebuilt through {@code restore}.
+ * The test builder of {@link DayRoster}: {@code aRoster()} is a saved, empty roster for Tuesday 15
+ * June 2027.
+ *
+ * <p>The builder lists the entries and unavailable vehicles it wants, in order; {@link #build}
+ * reaches that state through the roster's commands alone (ADR-127 decision 2), with every driver
+ * and vehicle active, then saves it. Each entry's shift is set first, then its vehicle and its
+ * availability. A state no command reaches, such as a shift on another date, fails the build. {@link
+ * #description} is the state the builder describes, for a test to compare a roster with.
  */
 final class DayRosterBuilder {
 
@@ -29,7 +37,7 @@ final class DayRosterBuilder {
     static final VehicleId V2 = FleetRegisterBuilder.vehicleId(2);
     static final VehicleId V3 = FleetRegisterBuilder.vehicleId(3);
     static final ShiftHours DAY_SHIFT = ShiftHours.of(LocalTime.of(8, 0), LocalTime.of(16, 0));
-    static final Version LOADED = Version.of(7);
+    static final UUID ROSTER_ID = UUID.fromString("0190a5e2-0000-7000-c000-000000000001");
 
     private DeliveryDate date = ORDINARY_DAY;
     private final List<RosterEntry> entries = new ArrayList<>();
@@ -78,11 +86,41 @@ final class DayRosterBuilder {
         return this;
     }
 
-    DayRosterSnapshot snapshot() {
-        return new DayRosterSnapshot(date, LOADED, entries, unavailableVehicles);
+    /**
+     * The roster this builder describes.
+     *
+     * @return the description {@link #build}'s roster matches
+     */
+    RosterDescription description() {
+        return new RosterDescription(date, entries, unavailableVehicles);
     }
 
+    /**
+     * Opens the roster, sets each entry's shift, vehicle and availability, marks the vehicles
+     * unavailable, and saves the roster.
+     *
+     * @return the roster, saved at version 0 with no pending event
+     * @throws AssertionError when the commands reach another state than the builder describes
+     */
     DayRoster build() {
-        return DayRoster.restore(snapshot());
+        DayRoster roster = DayRoster.open(ROSTER_ID, date);
+        for (RosterEntry entry : entries) {
+            AccountId driver = entry.driver();
+            roster.changeShift(driver, entry.shift().hours(), Standing.ACTIVE);
+            switch (entry.vehicle()) {
+                case RosterVehicle.NotSet notSet -> {}
+                case RosterVehicle.NoVehicle noVehicle -> roster.unassign(driver);
+                case RosterVehicle.Assigned(VehicleId vehicle) ->
+                    roster.assign(driver, vehicle, Standing.ACTIVE, Standing.ACTIVE);
+            }
+            if (entry.availability() == Availability.UNAVAILABLE) {
+                roster.markDriverUnavailable(driver);
+            }
+        }
+        unavailableVehicles.forEach(vehicle -> roster.markVehicleUnavailable(vehicle, Standing.ACTIVE));
+        if (!RosterDescription.of(roster).equals(description())) {
+            throw new AssertionError("the commands reached " + RosterDescription.of(roster) + ", not " + description());
+        }
+        return asSaved(roster);
     }
 }
