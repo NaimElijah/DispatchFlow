@@ -5,6 +5,7 @@ import com.dispatchflow.shared.RuleViolation;
 import jakarta.persistence.Embeddable;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -17,6 +18,10 @@ import java.util.Optional;
  * <p>It is stored in its owner's three columns (ADR-126). Its constructor checks a rule, so Live
  * Operations' persistence adapter registers an instantiator that rebuilds it through {@code
  * StoredStateInvalid.whileRestoring}.
+ *
+ * <p>It keeps each instant to the microsecond, as PostgreSQL does. A device may send nanoseconds,
+ * and the driver would round each stored part on its own, so the corrected time an outcome keeps
+ * would no longer be the one its stored parts give back, and the outcome would not load.
  *
  * @param deviceTime when the device says the report was made
  * @param deviceClockAtSend the device's clock when it sent the report ({@code X-Device-Time})
@@ -39,7 +44,8 @@ public record CorrectedTime(Instant deviceTime, Instant deviceClockAtSend, Insta
     private static final Instant LATEST_DEVICE_TIME = Instant.parse("9999-12-31T23:59:59.999999999Z");
 
     /**
-     * Checks every part is present, and that the device's two instants can be corrected.
+     * Checks every part is present, and that the device's two instants can be corrected, then cuts
+     * each instant to the microsecond.
      *
      * @throws RuleViolation with {@link DeviceTimeOutOfRange} when the device time or the device's
      *     clock lies outside the years 1 to 9999 (ADR-114)
@@ -51,6 +57,9 @@ public record CorrectedTime(Instant deviceTime, Instant deviceClockAtSend, Insta
         if (isOutOfRange(deviceTime) || isOutOfRange(deviceClockAtSend)) {
             throw new RuleViolation(new DeviceTimeOutOfRange());
         }
+        deviceTime = deviceTime.truncatedTo(ChronoUnit.MICROS);
+        deviceClockAtSend = deviceClockAtSend.truncatedTo(ChronoUnit.MICROS);
+        receivedAt = receivedAt.truncatedTo(ChronoUnit.MICROS);
     }
 
     /**

@@ -385,6 +385,23 @@ class DeliveryPersistenceIT {
                         recorded -> assertThat(recorded.eventId().version()).isEqualTo(Version.of(0)));
     }
 
+    /**
+     * PostgreSQL keeps an instant to the microsecond, and the driver rounds each one on its own, so
+     * a corrected time computed from nanoseconds would not be the one its stored parts give back.
+     */
+    @Test
+    void GivenAReportWhoseDeviceTimesHaveNanoseconds_WhenItsDeliveryIsAddedAndLoaded_ThenItLoadsWithItsCorrectedTime() {
+        int n = 42;
+        CorrectedTime time = CorrectedTime.of(
+                T_0800.minusSeconds(5).plusNanos(600), T_0800.minusSeconds(4).plusNanos(400), T_0800);
+
+        transactions.inTransaction(() -> repository.add(failedForAnotherReason(n, time)));
+        Delivery loaded =
+                transactions.inTransaction(() -> repository.get(stop(n))).orElseThrow();
+
+        assertThat(loaded.outcomes().getFirst().factTime()).isEqualTo(time.corrected());
+    }
+
     @Test
     void GivenNoFactForAStop_WhenItsDeliveryIsLoaded_ThenThereIsNone() {
         assertThat(transactions.inTransaction(() -> repository.get(stop(30)))).isEmpty();

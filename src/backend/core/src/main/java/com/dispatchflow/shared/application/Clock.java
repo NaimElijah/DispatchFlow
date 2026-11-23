@@ -14,11 +14,13 @@ import java.time.LocalDate;
 public interface Clock {
 
     /**
-     * The current instant.
+     * The current instant, cut to the microsecond. PostgreSQL keeps an instant to the microsecond,
+     * so an instant with nanoseconds would come back from a save as another one, and an aggregate
+     * whose rules compare it could then fail its load check.
      *
      * <p>Built in M0.
      *
-     * @return now
+     * @return now, with no part below a microsecond
      */
     Instant now();
 

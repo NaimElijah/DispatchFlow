@@ -56,6 +56,21 @@ class LiveOpsValuesTest {
     }
 
     @Test
+    void GivenInstantsWithNanoseconds_WhenTheTimeIsMade_ThenEachIsKeptToTheMicrosecond() {
+        CorrectedTime time = CorrectedTime.of(
+                Instant.parse("2027-03-01T07:59:55.000000600Z"),
+                Instant.parse("2027-03-01T07:59:56.000000400Z"),
+                Instant.parse("2027-03-01T08:00:00.000000999Z"));
+
+        assertThat(time)
+                .isEqualTo(CorrectedTime.of(
+                        Instant.parse("2027-03-01T07:59:55Z"),
+                        Instant.parse("2027-03-01T07:59:56Z"),
+                        Instant.parse("2027-03-01T08:00:00Z")));
+        assertThat(time.corrected()).isEqualTo(Instant.parse("2027-03-01T07:59:59Z"));
+    }
+
+    @Test
     void GivenADeviceTimeAfterItsSend_WhenCorrected_ThenItIsCutToTheReceipt() {
         CorrectedTime time = CorrectedTime.of(
                 Instant.parse("2027-03-01T08:30:00Z"),
