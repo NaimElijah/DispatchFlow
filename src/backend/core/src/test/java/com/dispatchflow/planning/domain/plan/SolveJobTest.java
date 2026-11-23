@@ -14,7 +14,6 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.V1;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.V2;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.aJob;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.dropped;
-import static com.dispatchflow.planning.domain.plan.PlanningFixtures.reload;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.reoptimizationResult;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.solved;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.standardSolution;
@@ -39,7 +38,6 @@ import com.dispatchflow.planning.domain.RuleCode;
 import com.dispatchflow.planning.domain.SolveLimit;
 import com.dispatchflow.planning.domain.drop.DropReason;
 import com.dispatchflow.planning.domain.solution.SolveFailure;
-import com.dispatchflow.planning.domain.solution.SolveResult;
 import com.dispatchflow.planning.domain.solution.ValidatedSolution;
 import com.dispatchflow.planning.domain.solution.ValidationReport;
 import com.dispatchflow.planning.domain.solution.Violation;
@@ -81,7 +79,7 @@ class SolveJobTest {
         job.claim(CLAIMED);
         job.searchStarted(SEARCH);
 
-        assertThat(job.snapshot().phase()).isEqualTo(new SolveJob.Phase.Running(CLAIMED, SEARCH));
+        assertThat(job.phase()).isEqualTo(new SolveJob.Phase.Running(CLAIMED, SEARCH));
         assertThat(job.pendingEvents()).isEmpty();
     }
 
@@ -92,7 +90,7 @@ class SolveJobTest {
 
         job.succeed(standardSolution(), ended);
 
-        assertThat(job.snapshot().phase()).isEqualTo(new SolveJob.Phase.Succeeded(CLAIMED, SEARCH, ended));
+        assertThat(job.phase()).isEqualTo(new SolveJob.Phase.Succeeded(CLAIMED, SEARCH, ended));
         assertThat(job.result()).isPresent();
         assertThat(job.pendingEvents())
                 .containsExactly(new SolveSucceeded(
@@ -110,14 +108,13 @@ class SolveJobTest {
 
         ReoptimizationProposal proposal = job.succeed(PROPOSAL, reoptimizationResult(standardSolution()), ended);
 
-        ReoptimizationProposalSnapshot snapshot = proposal.snapshot();
-        assertThat(snapshot.plan()).isEqualTo(PLAN);
-        assertThat(snapshot.job()).isEqualTo(JOB);
-        assertThat(snapshot.basis().revision()).isEqualTo(RevisionNo.FIRST);
-        assertThat(snapshot.state()).isEqualTo(new ReoptimizationProposal.State.Ready());
-        assertThat(snapshot.routes()).isEqualTo(standardSolution().routes());
-        assertThat(snapshot.dropped()).isEqualTo(standardSolution().dropped());
-        assertThat(snapshot.createdAt()).isEqualTo(ended);
+        assertThat(proposal.plan()).isEqualTo(PLAN);
+        assertThat(proposal.job()).isEqualTo(JOB);
+        assertThat(proposal.basis().revision()).isEqualTo(RevisionNo.FIRST);
+        assertThat(proposal.state()).isEqualTo(new ReoptimizationProposal.State.Ready());
+        assertThat(proposal.routes()).isEqualTo(standardSolution().routes());
+        assertThat(proposal.dropped()).isEqualTo(standardSolution().dropped());
+        assertThat(proposal.createdAt()).isEqualTo(ended);
         assertThat(job.result()).isEmpty();
         assertThat(job.pendingEvents())
                 .containsExactly(new SolveSucceeded(
@@ -137,7 +134,7 @@ class SolveJobTest {
 
         job.fail(rejected, ended);
 
-        assertThat(job.snapshot().phase()).isEqualTo(new SolveJob.Phase.Failed(rejected, ended));
+        assertThat(job.phase()).isEqualTo(new SolveJob.Phase.Failed(rejected, ended));
         assertThat(job.pendingEvents())
                 .containsExactly(new SolveFailed(
                         new EventId("SolveFailed", JOB.value(), job.version().next(), 0),
@@ -177,11 +174,11 @@ class SolveJobTest {
     void GivenAJobAtItsDeadline_WhenTheWatchdogChecks_ThenNothingChanges(
             String phase, Supplier<SolveJob> job, Instant deadline, SolveFailureReason reason) {
         SolveJob atDeadline = job.get();
-        SolveJobSnapshot before = atDeadline.snapshot();
+        SolveJobDescription before = SolveJobDescription.of(atDeadline);
 
         atDeadline.expireIfOverdue(deadline);
 
-        assertThat(atDeadline.snapshot()).isEqualTo(before);
+        assertThat(SolveJobDescription.of(atDeadline)).isEqualTo(before);
         assertThat(atDeadline.pendingEvents()).isEmpty();
     }
 
@@ -194,7 +191,7 @@ class SolveJobTest {
 
         overdue.expireIfOverdue(past);
 
-        assertThat(overdue.snapshot().phase()).isEqualTo(new SolveJob.Phase.Failed(SolveFailure.of(reason), past));
+        assertThat(overdue.phase()).isEqualTo(new SolveJob.Phase.Failed(SolveFailure.of(reason), past));
         assertThat(((SolveFailed) overdue.pendingEvents().get(0)).reason()).isEqualTo(reason);
     }
 
@@ -206,8 +203,8 @@ class SolveJobTest {
 
         job.claim(NOW.minusSeconds(1));
 
-        assertThat(job.snapshot().phase()).isEqualTo(new SolveJob.Phase.BuildingMatrix(NOW));
-        assertThat(reload(job).snapshot().phase()).isEqualTo(new SolveJob.Phase.BuildingMatrix(NOW));
+        assertThat(job.phase()).isEqualTo(new SolveJob.Phase.BuildingMatrix(NOW));
+        assertThat(job.phase()).isEqualTo(new SolveJob.Phase.BuildingMatrix(NOW));
     }
 
     @Test
@@ -216,7 +213,7 @@ class SolveJobTest {
 
         job.searchStarted(CLAIMED.minusSeconds(1));
 
-        assertThat(reload(job).snapshot().phase()).isEqualTo(new SolveJob.Phase.Running(CLAIMED, CLAIMED));
+        assertThat(job.phase()).isEqualTo(new SolveJob.Phase.Running(CLAIMED, CLAIMED));
     }
 
     @Test
@@ -225,7 +222,7 @@ class SolveJobTest {
 
         job.succeed(standardSolution(), SEARCH.minusSeconds(1));
 
-        assertThat(reload(job).snapshot().phase()).isEqualTo(new SolveJob.Phase.Succeeded(CLAIMED, SEARCH, SEARCH));
+        assertThat(job.phase()).isEqualTo(new SolveJob.Phase.Succeeded(CLAIMED, SEARCH, SEARCH));
         assertThat(job.pendingEvents())
                 .first()
                 .extracting(event -> ((SolveSucceeded) event).occurredAt())
@@ -239,8 +236,8 @@ class SolveJobTest {
         ReoptimizationProposal proposal =
                 job.succeed(PROPOSAL, reoptimizationResult(standardSolution()), SEARCH.minusSeconds(1));
 
-        assertThat(reload(job).snapshot().phase()).isEqualTo(new SolveJob.Phase.Succeeded(CLAIMED, SEARCH, SEARCH));
-        assertThat(proposal.snapshot().createdAt()).isEqualTo(SEARCH);
+        assertThat(job.phase()).isEqualTo(new SolveJob.Phase.Succeeded(CLAIMED, SEARCH, SEARCH));
+        assertThat(proposal.createdAt()).isEqualTo(SEARCH);
     }
 
     @Test
@@ -250,7 +247,7 @@ class SolveJobTest {
 
         job.fail(interrupted, NOW.minusSeconds(1));
 
-        assertThat(reload(job).snapshot().phase()).isEqualTo(new SolveJob.Phase.Failed(interrupted, SEARCH));
+        assertThat(job.phase()).isEqualTo(new SolveJob.Phase.Failed(interrupted, SEARCH));
     }
 
     // ---- refusals -------------------------------------------------------------------------------
@@ -437,18 +434,18 @@ class SolveJobTest {
     void GivenEachPhaseOfAJob_WhenEachCommandRuns_ThenTheMatrixCellHolds(
             String phase, String command, Consumer<SolveJob> run, Class<?> expected) {
         SolveJob job = jobIn(phase);
-        SolveJobSnapshot before = job.snapshot();
+        SolveJobDescription before = SolveJobDescription.of(job);
 
         if (PlanningError.class.isAssignableFrom(expected)) {
             assertThatThrownBy(() -> run.accept(job))
                     .isInstanceOfSatisfying(
                             RuleViolation.class,
                             violation -> assertThat(violation.error()).isInstanceOf(expected));
-            assertThat(job.snapshot()).isEqualTo(before);
+            assertThat(SolveJobDescription.of(job)).isEqualTo(before);
             assertThat(job.pendingEvents()).isEmpty();
         } else {
             run.accept(job);
-            assertThat(job.snapshot().phase()).isInstanceOf(expected);
+            assertThat(job.phase()).isInstanceOf(expected);
         }
     }
 
@@ -550,7 +547,7 @@ class SolveJobTest {
                 room,
                 NOW);
 
-        assertThat(job.snapshot().phase()).isEqualTo(new SolveJob.Phase.Queued());
+        assertThat(job.phase()).isEqualTo(new SolveJob.Phase.Queued());
     }
 
     private static List<PlanId> otherPlans(int count) {
@@ -559,87 +556,7 @@ class SolveJobTest {
                 .toList();
     }
 
-    // ---- restore --------------------------------------------------------------------------------
-
-    static Stream<Arguments> builderPhases() {
-        return Stream.<Supplier<SolveJob>>of(
-                        () -> aJob().queued(),
-                        () -> aJob().buildingMatrix(),
-                        () -> aJob().running(),
-                        () -> aJob().succeeded(),
-                        () -> aJob().failed(),
-                        () -> aJob().reoptimizing().queued(),
-                        () -> aJob().reoptimizing().succeeded())
-                .map(Supplier::get)
-                .map(job -> Arguments.of(
-                        job.snapshot().lane() + " "
-                                + job.snapshot().phase().getClass().getSimpleName(),
-                        job));
-    }
-
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("builderPhases")
-    void GivenAJobInEachBuilderPhase_WhenItsSnapshotIsRestored_ThenTheSnapshotRoundTrips(String phase, SolveJob job) {
-        assertThat(SolveJob.restore(job.snapshot()).snapshot()).isEqualTo(job.snapshot());
-    }
-
-    static Stream<Arguments> brokenJobs() {
-        SolveJobSnapshot daily = aJob().succeeded().snapshot();
-        SolveJobSnapshot reoptimization = aJob().reoptimizing().queued().snapshot();
-        SolveJobSnapshot queued = aJob().queued().snapshot();
-        return Stream.of(
-                Arguments.of(
-                        "a basis revision on a daily job",
-                        "a basis revision belongs to a re-optimization",
-                        withBasis(daily, Optional.of(RevisionNo.FIRST))),
-                Arguments.of(
-                        "a re-optimization without a basis revision",
-                        "a basis revision belongs to a re-optimization",
-                        withBasis(reoptimization, Optional.empty())),
-                Arguments.of(
-                        "a re-optimization limit other than 20 s",
-                        "a re-optimization's limit is 20 seconds",
-                        withLimit(reoptimization, SolveLimit.DEFAULT_DAILY)),
-                Arguments.of(
-                        "a succeeded daily job without its result",
-                        "a result belongs to a succeeded daily job",
-                        withResult(daily, Optional.empty())),
-                Arguments.of(
-                        "a queued job with a result",
-                        "a result belongs to a succeeded daily job",
-                        withResult(queued, daily.result())),
-                Arguments.of(
-                        "a claim before the request",
-                        "the phase's times are out of order",
-                        withPhase(queued, new SolveJob.Phase.BuildingMatrix(NOW.minusSeconds(1)))),
-                Arguments.of(
-                        "a search before the claim",
-                        "the phase's times are out of order",
-                        withPhase(queued, new SolveJob.Phase.Running(CLAIMED, NOW))),
-                Arguments.of(
-                        "an end before the search",
-                        "the phase's times are out of order",
-                        withPhase(
-                                withResult(queued, daily.result()),
-                                new SolveJob.Phase.Succeeded(CLAIMED, SEARCH, CLAIMED))),
-                Arguments.of(
-                        "a failure before the request",
-                        "the phase's times are out of order",
-                        withPhase(
-                                queued,
-                                new SolveJob.Phase.Failed(
-                                        SolveFailure.of(SolveFailureReason.INTERRUPTED), NOW.minusSeconds(1)))));
-    }
-
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("brokenJobs")
-    void GivenASnapshotThatBreaksAnAtRestInvariant_WhenAJobIsRestored_ThenStoredStateInvalid(
-            String invariant, String detail, SolveJobSnapshot snapshot) {
-        assertThatThrownBy(() -> SolveJob.restore(snapshot))
-                .isInstanceOfSatisfying(
-                        StoredStateInvalid.class,
-                        invalid -> assertThat(invalid.detail()).contains(detail));
-    }
+    // ---- stored failures ------------------------------------------------------------------------
 
     @Test
     void GivenAStoredFailureWhoseViolationsDontMatchItsReason_WhenRebuilt_ThenStoredStateInvalid() {
@@ -676,65 +593,5 @@ class SolveJobTest {
         job.fail(lock, SEARCH.plusSeconds(1));
 
         assertThat(((SolveFailed) job.pendingEvents().get(0)).reason()).isEqualTo(SolveFailureReason.LOCK_NOT_HONOURED);
-    }
-
-    private static SolveJobSnapshot withBasis(SolveJobSnapshot s, Optional<RevisionNo> basis) {
-        return new SolveJobSnapshot(
-                s.id(),
-                s.version(),
-                s.plan(),
-                s.lane(),
-                s.solver(),
-                s.limit(),
-                s.seed(),
-                basis,
-                s.requestedAt(),
-                s.phase(),
-                s.result());
-    }
-
-    private static SolveJobSnapshot withLimit(SolveJobSnapshot s, SolveLimit limit) {
-        return new SolveJobSnapshot(
-                s.id(),
-                s.version(),
-                s.plan(),
-                s.lane(),
-                s.solver(),
-                limit,
-                s.seed(),
-                s.basisRevision(),
-                s.requestedAt(),
-                s.phase(),
-                s.result());
-    }
-
-    private static SolveJobSnapshot withResult(SolveJobSnapshot s, Optional<SolveResult> result) {
-        return new SolveJobSnapshot(
-                s.id(),
-                s.version(),
-                s.plan(),
-                s.lane(),
-                s.solver(),
-                s.limit(),
-                s.seed(),
-                s.basisRevision(),
-                s.requestedAt(),
-                s.phase(),
-                result);
-    }
-
-    private static SolveJobSnapshot withPhase(SolveJobSnapshot s, SolveJob.Phase phase) {
-        return new SolveJobSnapshot(
-                s.id(),
-                s.version(),
-                s.plan(),
-                s.lane(),
-                s.solver(),
-                s.limit(),
-                s.seed(),
-                s.basisRevision(),
-                s.requestedAt(),
-                phase,
-                s.result());
     }
 }

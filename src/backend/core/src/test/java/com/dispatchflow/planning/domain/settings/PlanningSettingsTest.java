@@ -12,6 +12,7 @@ import com.dispatchflow.planning.domain.SolveLimit;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalTime;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 class PlanningSettingsTest {
@@ -20,7 +21,7 @@ class PlanningSettingsTest {
 
     @Test
     void GivenNoChanges_WhenTheStartingSettingsAreRead_ThenTheyAreTheRequirementsStartingValues() {
-        PlanningSettingsSnapshot settings = PlanningSettings.startingValues().snapshot();
+        PlanningSettings settings = PlanningSettings.startingValues();
 
         assertThat(settings.travelBuckets().morningPeak())
                 .isEqualTo(new TravelBucket(LocalTime.of(7, 0), LocalTime.of(9, 30), PEAK));
@@ -31,10 +32,11 @@ class PlanningSettingsTest {
         assertThat(settings.defaultSolveLimit().duration()).isEqualTo(Duration.ofSeconds(45));
         assertThat(settings.fixedVehicleCost()).isEqualTo(new FixedVehicleCost.Off());
         assertThat(settings.departureAllowance().minutes()).isZero();
+        assertThat(settings.savedVersion()).isEmpty();
     }
 
     @Test
-    void GivenTheSettings_WhenEachIsChanged_ThenTheNewValuesAreKeptAndRestoreRoundTrips() {
+    void GivenTheSettings_WhenEachIsChanged_ThenTheNewValuesAreKept() {
         PlanningSettings settings = PlanningSettings.startingValues();
         TravelBuckets buckets = new TravelBuckets(
                 new TravelBucket(LocalTime.of(6, 30), LocalTime.of(9, 0), PEAK),
@@ -47,11 +49,14 @@ class PlanningSettingsTest {
         settings.changeFixedVehicleCost(new FixedVehicleCost.On(Duration.ofMinutes(30)));
         settings.changeDepartureAllowance(DepartureAllowance.ofMinutes(15));
 
-        PlanningSettingsSnapshot changed = settings.snapshot();
-        assertThat(changed.travelBuckets()).isEqualTo(buckets);
-        assertThat(changed.fixedVehicleCost()).isEqualTo(new FixedVehicleCost.On(Duration.ofMinutes(30)));
-        assertThat(changed.departureAllowance().minutes()).isEqualTo(15);
-        assertThat(PlanningSettings.restore(changed).snapshot()).isEqualTo(changed);
+        assertThat(PlanningSettingsDescription.of(settings))
+                .isEqualTo(new PlanningSettingsDescription(
+                        Optional.empty(),
+                        buckets,
+                        Buffer.percent(BigDecimal.ZERO),
+                        SolveLimit.daily(Duration.ofSeconds(60)),
+                        new FixedVehicleCost.On(Duration.ofMinutes(30)),
+                        DepartureAllowance.ofMinutes(15)));
         assertThat(settings.pendingEvents()).isEmpty();
     }
 

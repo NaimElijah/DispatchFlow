@@ -1,5 +1,7 @@
 package com.dispatchflow.planning.domain.plan;
 
+import static com.dispatchflow.shared.AsSaved.asSaved;
+
 import com.dispatchflow.planning.domain.RevisionNo;
 import com.dispatchflow.planning.domain.RuleCode;
 import com.dispatchflow.planning.domain.SolveLimit;
@@ -14,7 +16,6 @@ import com.dispatchflow.planning.domain.solution.ReoptimizationResult;
 import com.dispatchflow.planning.domain.solution.RoutePlan;
 import com.dispatchflow.planning.domain.solution.RouteTimes;
 import com.dispatchflow.planning.domain.solution.SolveFailure;
-import com.dispatchflow.planning.domain.solution.SolveResult;
 import com.dispatchflow.planning.domain.solution.SolvedRoute;
 import com.dispatchflow.planning.domain.solution.SolvedStop;
 import com.dispatchflow.planning.domain.solution.StopPlan;
@@ -28,6 +29,7 @@ import com.dispatchflow.planning.domain.solution.Violation;
 import com.dispatchflow.planning.events.Lane;
 import com.dispatchflow.planning.events.SolveFailureReason;
 import com.dispatchflow.shared.AccountId;
+import com.dispatchflow.shared.AsSaved;
 import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.DaySeconds;
 import com.dispatchflow.shared.DeliveryDate;
@@ -56,8 +58,9 @@ import java.util.stream.IntStream;
 
 /**
  * Test data for Planning: fixed IDs, times and the one builder per aggregate ({@link #aPlan()},
- * {@link #aJob()}). Every state is reached through the aggregates' own commands, then saved and
- * reloaded through {@code restore}, so each test starts with no pending events.
+ * {@link #aJob()}). Every state is reached through the aggregates' own commands, then saved: a plan
+ * is reloaded through {@code restore}, and a job is saved in memory by {@link AsSaved#asSaved}, so
+ * each test starts with no pending events.
  */
 public final class PlanningFixtures {
 
@@ -171,22 +174,6 @@ public final class PlanningFixtures {
                 s.violations(),
                 s.undo(),
                 s.redo()));
-    }
-
-    static SolveJob reload(SolveJob job) {
-        SolveJobSnapshot s = job.snapshot();
-        return SolveJob.restore(new SolveJobSnapshot(
-                s.id(),
-                StoredVersions.afterSave(job),
-                s.plan(),
-                s.lane(),
-                s.solver(),
-                s.limit(),
-                s.seed(),
-                s.basisRevision(),
-                s.requestedAt(),
-                s.phase(),
-                s.result()));
     }
 
     static PlanSnapshot.RouteSnapshot routeOf(Plan plan, VehicleId vehicle) {
@@ -314,26 +301,7 @@ public final class PlanningFixtures {
         job.claim(NOW);
         job.searchStarted(NOW);
         job.succeed(solution, NOW);
-        return reload(job);
-    }
-
-    /**
-     * A succeeded daily job of {@link #PLAN} rebuilt from storage with a result that {@code succeed}
-     * refuses, so the plan's own backstop checks can be reached.
-     */
-    static SolveJob storedSucceededJob(JobId id, List<SolvedRoute> routes, List<DroppedOrder> dropped) {
-        return SolveJob.restore(new SolveJobSnapshot(
-                id,
-                Version.of(1),
-                PLAN,
-                Lane.DAILY,
-                SolverName.OR_TOOLS,
-                SolveLimit.DEFAULT_DAILY,
-                Seed.of(7),
-                Optional.empty(),
-                NOW,
-                new SolveJob.Phase.Succeeded(NOW, NOW, NOW),
-                Optional.of(new SolveResult(routes, dropped, List.of()))));
+        return asSaved(job);
     }
 
     /** The checks under which a ready plan publishes: every route staffed, every order accounted for. */
@@ -366,20 +334,20 @@ public final class PlanningFixtures {
         SolveJob queued() {
             SolveLimit limit = lane == Lane.DAILY ? SolveLimit.DEFAULT_DAILY : SolveLimit.REOPTIMIZATION;
             Optional<RevisionNo> basis = lane == Lane.DAILY ? Optional.empty() : Optional.of(RevisionNo.FIRST);
-            return reload(
+            return asSaved(
                     SolveJob.queue(JOB, PLAN, lane, SolverName.OR_TOOLS, limit, Seed.of(7), basis, roomIn(lane), NOW));
         }
 
         SolveJob buildingMatrix() {
             SolveJob job = queued();
             job.claim(NOW.plusSeconds(10));
-            return reload(job);
+            return asSaved(job);
         }
 
         SolveJob running() {
             SolveJob job = buildingMatrix();
             job.searchStarted(NOW.plusSeconds(20));
-            return reload(job);
+            return asSaved(job);
         }
 
         SolveJob succeeded() {
@@ -389,13 +357,13 @@ public final class PlanningFixtures {
             } else {
                 job.succeed(PROPOSAL, reoptimizationResult(standardSolution()), NOW.plusSeconds(60));
             }
-            return reload(job);
+            return asSaved(job);
         }
 
         SolveJob failed() {
             SolveJob job = running();
             job.fail(SolveFailure.of(SolveFailureReason.OPTIMIZER_UNAVAILABLE), NOW.plusSeconds(60));
-            return reload(job);
+            return asSaved(job);
         }
     }
 

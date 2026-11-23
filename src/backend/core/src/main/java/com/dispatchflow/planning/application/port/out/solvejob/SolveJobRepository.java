@@ -19,14 +19,13 @@ import java.util.Optional;
  * <p>The queue is built in M0; in full in M4. M0 builds the daily lane's queue, and the roadmap's
  * M4 builds "the {@code solve_job} queue, one worker per lane" (ADR-051).
  *
- * <p>Built in M0, M4, M5 and M13, method by method.
+ * <p>{@link #unfinishedOn} is built in M5, and the two that blank a job's input in M13; every other
+ * method is built.
  */
 public interface SolveJobRepository {
 
     /**
      * One job.
-     *
-     * <p>Built in M0.
      *
      * @param id the job
      * @return the job, or empty when no job has the ID
@@ -36,8 +35,6 @@ public interface SolveJobRepository {
     /**
      * Adds a newly queued job, in the caller's transaction, beside the change that created it (DL
      * §6.1). A partial unique index backs one queued or started re-optimization per plan (BR-38).
-     *
-     * <p>Built in M0.
      *
      * @param job the job, never saved
      * @throws com.dispatchflow.shared.RuleViolation with Planning's {@code
@@ -50,8 +47,6 @@ public interface SolveJobRepository {
      * transaction (BR-76). Its worker, the watchdog, startup recovery and the midnight job may
      * race; the loser's save fails (DL §11).
      *
-     * <p>Built in M0.
-     *
      * @param job the job, at the version it was loaded at
      * @throws StaleVersion when the job changed since it was loaded
      */
@@ -62,8 +57,6 @@ public interface SolveJobRepository {
      * transaction holds until it commits (BR-38, BR-112, DL §5). It is the only caller of {@code
      * LaneCapacity.readUnderLock}.
      *
-     * <p>Built in M0.
-     *
      * @param lane the lane a new job joins
      * @return the lane's capacity
      */
@@ -73,8 +66,6 @@ public interface SolveJobRepository {
      * The lane's oldest queued job, locked for the caller's transaction so no other worker takes it
      * (ADR-051). The caller claims it in that transaction.
      *
-     * <p>Built in M0.
-     *
      * @param lane the worker's lane
      * @return the job, or empty when the lane has none queued
      */
@@ -83,8 +74,6 @@ public interface SolveJobRepository {
     /**
      * Every job queued, building its matrix or running, in any lane, which the watchdog and startup
      * recovery check (BR-32, BR-74, BR-85, BR-112, NFR-12).
-     *
-     * <p>Built in M4.
      *
      * @return the jobs, oldest first
      */

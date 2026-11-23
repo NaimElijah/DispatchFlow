@@ -157,7 +157,7 @@ class PlanLifecycleTest {
                         SECOND_JOB, SolverName.OR_TOOLS, Seed.of(1), roomIn(Lane.REOPTIMIZATION), TODAY, LATER),
                 (plan, job) -> {
                     queuedIn((SolveJob) job, Lane.REOPTIMIZATION);
-                    assertThat(((SolveJob) job).snapshot().basisRevision()).contains(RevisionNo.FIRST);
+                    assertThat(((SolveJob) job).basisRevision()).contains(RevisionNo.FIRST);
                 },
                 NOT_PUBLISHED,
                 NOT_PUBLISHED,
@@ -486,8 +486,8 @@ class PlanLifecycleTest {
     }
 
     private static void queuedIn(SolveJob job, Lane lane) {
-        assertThat(job.snapshot().lane()).isEqualTo(lane);
-        assertThat(job.snapshot().phase()).isEqualTo(new SolveJob.Phase.Queued());
+        assertThat(job.lane()).isEqualTo(lane);
+        assertThat(job.phase()).isEqualTo(new SolveJob.Phase.Queued());
     }
 
     private static void reconciled(Plan plan, Object result) {

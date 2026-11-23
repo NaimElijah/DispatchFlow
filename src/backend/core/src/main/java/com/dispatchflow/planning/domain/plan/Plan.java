@@ -687,35 +687,34 @@ public final class Plan extends AggregateRoot {
             Instant now) {
         Status.Published published = requirePublished();
         requireNotPast(today);
-        ReoptimizationProposalSnapshot offer = proposal.snapshot();
-        if (!offer.plan().equals(id)) {
-            throw new RuleViolation(new ProposalForAnotherPlan(offer.id(), offer.plan()));
+        if (!proposal.plan().equals(id)) {
+            throw new RuleViolation(new ProposalForAnotherPlan(proposal.id(), proposal.plan()));
         }
-        if (offer.state() instanceof ReoptimizationProposal.State.Declined) {
-            throw new RuleViolation(new ProposalDeclined(offer.id()));
+        if (proposal.state() instanceof ReoptimizationProposal.State.Declined) {
+            throw new RuleViolation(new ProposalDeclined(proposal.id()));
         }
-        Set<StopKey> taken = new HashSet<>(keysOf(offer.routes(), offer.dropped()));
-        List<BasisChange> outdated = changesSince(offer, taken, changes, published.revision());
+        Set<StopKey> taken = new HashSet<>(keysOf(proposal.routes(), proposal.dropped()));
+        List<BasisChange> outdated = changesSince(proposal, taken, changes, published.revision());
         if (!outdated.isEmpty()) {
-            throw new RuleViolation(new ProposalOutdated(offer.id(), outdated));
+            throw new RuleViolation(new ProposalOutdated(proposal.id(), outdated));
         }
-        List<VehicleId> unavailable = unavailableVehicles(offer, changes);
+        List<VehicleId> unavailable = unavailableVehicles(proposal, changes);
         if (!unavailable.isEmpty()) {
             throw new RuleViolation(new VehicleUnavailable(unavailable));
         }
-        requireSingleAssignment(offer.routes(), offer.dropped());
+        requireSingleAssignment(proposal.routes(), proposal.dropped());
         List<Route> before = layout.routes();
         Set<VehicleId> routed = new HashSet<>();
-        offer.routes().forEach(route -> routed.add(route.vehicle()));
+        proposal.routes().forEach(route -> routed.add(route.vehicle()));
         List<Route> active = before.stream().filter(route -> !route.withdrawn()).toList();
         List<Route> covered = active.stream()
                 .filter(route -> routed.contains(route.vehicle()))
                 .toList();
         List<Route> leftOut = active.stream()
                 .filter(route -> !routed.contains(route.vehicle()))
-                .map(route -> leftOutRoute(route, withdrawalFor(offer, route.vehicle()), keptStops(route, taken)))
+                .map(route -> leftOutRoute(route, withdrawalFor(proposal, route.vehicle()), keptStops(route, taken)))
                 .toList();
-        List<Route> rewithdrawn = rewithdrawnRoutes(offer, before, covered);
+        List<Route> rewithdrawn = rewithdrawnRoutes(proposal, before, covered);
         List<Route> matchable = new ArrayList<>(covered);
         matchable.addAll(rewithdrawn);
         List<Route> alongside = new ArrayList<>(before.stream()
@@ -723,16 +722,16 @@ public final class Plan extends AggregateRoot {
                 .toList());
         alongside.addAll(leftOut);
         List<Route> placed = place(
-                offer.routes(),
+                proposal.routes(),
                 matchable,
                 before,
                 alongside,
                 ids,
-                vehicle -> withdrawalFor(offer, vehicle),
+                vehicle -> withdrawalFor(proposal, vehicle),
                 route -> keptStops(route, taken));
         List<Route> next = inPlanOrder(before, placed, leftOut);
         Set<StopKey> superseded = supersededDrops(taken);
-        Layout after = new Layout(next, droppedAfter(offer, taken, superseded), layout.pins());
+        Layout after = new Layout(next, droppedAfter(proposal, taken, superseded), layout.pins());
         requireEachOrderOnce(after);
         requireNothingLost(after, superseded);
         List<VehicleWithdrawal> newlyWithdrawn = next.stream()
@@ -742,9 +741,9 @@ public final class Plan extends AggregateRoot {
                 .toList();
         List<RouteId> changed = changedRoutes(before, next);
         revise(
-                next().layout(after).excluded(offer.excluded()).violations(List.of()),
+                next().layout(after).excluded(proposal.excluded()).violations(List.of()),
                 RevisionCause.REOPTIMIZATION_ACCEPTED,
-                Optional.of(offer.id()),
+                Optional.of(proposal.id()),
                 Optional.of(by),
                 now,
                 changed,
@@ -1880,8 +1879,7 @@ public final class Plan extends AggregateRoot {
      * another date, which a published plan keeps as the day's history (ADR-112). A superseded drop
      * leaves.
      */
-    private List<DroppedOrder> droppedAfter(
-            ReoptimizationProposalSnapshot offer, Set<StopKey> taken, Set<StopKey> superseded) {
+    private List<DroppedOrder> droppedAfter(ReoptimizationProposal offer, Set<StopKey> taken, Set<StopKey> superseded) {
         List<DroppedOrder> dropped = new ArrayList<>(offer.dropped());
         layout.dropped().stream()
                 .filter(drop -> {
@@ -1927,7 +1925,7 @@ public final class Plan extends AggregateRoot {
      * ADR-112).
      */
     private static List<Route> rewithdrawnRoutes(
-            ReoptimizationProposalSnapshot proposal, List<Route> before, List<Route> covered) {
+            ReoptimizationProposal proposal, List<Route> before, List<Route> covered) {
         List<Route> matched = new ArrayList<>();
         for (SolvedRoute route : proposal.routes()) {
             VehicleId vehicle = route.vehicle();
@@ -1957,10 +1955,7 @@ public final class Plan extends AggregateRoot {
 
     /** The changes since the proposal's basis that it moves, drops or relies on (BR-25, BR-82, BR-83). */
     private List<BasisChange> changesSince(
-            ReoptimizationProposalSnapshot proposal,
-            Set<StopKey> taken,
-            ChangesSinceBasis changes,
-            RevisionNo current) {
+            ReoptimizationProposal proposal, Set<StopKey> taken, ChangesSinceBasis changes, RevisionNo current) {
         List<BasisChange> found = new ArrayList<>();
         for (int revision = proposal.basis().revision().value() + 1; revision <= current.value(); revision++) {
             found.add(new BasisChange.RevisionMade(RevisionNo.of(revision)));
@@ -1999,7 +1994,7 @@ public final class Plan extends AggregateRoot {
      * route as accepted, its kept stops ahead of the proposal's, so a stop the proposal keeps after a
      * reported one stays put (ADR-112).
      */
-    private static boolean movesOrDrops(ReoptimizationProposalSnapshot proposal, Set<StopKey> taken, Located at) {
+    private static boolean movesOrDrops(ReoptimizationProposal proposal, Set<StopKey> taken, Located at) {
         StopKey key = at.stop().key();
         List<StopKey> accepted = new ArrayList<>(
                 keptStops(at.route(), taken).stream().map(PlannedStop::key).toList());
@@ -2016,8 +2011,7 @@ public final class Plan extends AggregateRoot {
         return !accepted.subList(0, accepted.indexOf(key)).equals(before);
     }
 
-    private static List<VehicleId> unavailableVehicles(
-            ReoptimizationProposalSnapshot proposal, ChangesSinceBasis changes) {
+    private static List<VehicleId> unavailableVehicles(ReoptimizationProposal proposal, ChangesSinceBasis changes) {
         Set<VehicleId> unavailable = new LinkedHashSet<>();
         for (SolvedRoute route : proposal.routes()) {
             if (proposal.withdraws(route.vehicle())) {
@@ -2032,7 +2026,7 @@ public final class Plan extends AggregateRoot {
         return List.copyOf(unavailable);
     }
 
-    private static Optional<Withdrawal> withdrawalFor(ReoptimizationProposalSnapshot proposal, VehicleId vehicle) {
+    private static Optional<Withdrawal> withdrawalFor(ReoptimizationProposal proposal, VehicleId vehicle) {
         return proposal.withdrawn().stream()
                 .filter(withdrawal -> withdrawal.vehicle().equals(vehicle))
                 .map(withdrawal -> new Withdrawal(withdrawal.cause()))

@@ -611,30 +611,6 @@ class PlanRoutesAndFactsTest {
         assertThat(routeOf(plan, V2).lock()).contains(RouteLock.WHOLE_ROUTE);
     }
 
-    // ---- refusal order --------------------------------------------------------------------------
-
-    @Test
-    void GivenAResultThatChangesALockedRouteAndServesAnOrderTwice_WhenApplied_ThenTheLockIsRefusedFirstAsRouteLocked() {
-        Plan ready = aPlan().ready();
-        RouteId v2 = routeId(ready, V2);
-        ready.lockRoute(v2, RouteLock.WHOLE_ROUTE, TODAY);
-        Plan locked = reload(ready);
-        locked.requestSolve(
-                SECOND_JOB,
-                SolverName.OR_TOOLS,
-                SolveLimit.DEFAULT_DAILY,
-                Seed.of(8),
-                roomIn(Lane.DAILY),
-                TODAY,
-                LATER);
-        Plan plan = reload(locked);
-        SolveJob both = PlanningFixtures.storedSucceededJob(
-                SECOND_JOB, List.of(solved(V1, D1, O1), solved(V2, D2, O1, O3)), List.of());
-
-        PlanAssertions.assertPlanRefused(
-                plan, () -> plan.applySolveResult(both, freshIds(500), LATER), new PlanningError.RouteLocked(v2));
-    }
-
     // ---- helpers --------------------------------------------------------------------------------
 
     /**

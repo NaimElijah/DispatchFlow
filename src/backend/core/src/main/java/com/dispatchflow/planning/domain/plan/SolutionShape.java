@@ -17,7 +17,7 @@ import java.util.Set;
 
 /**
  * What a solution must hold to be a plan's routes and drops, checked before a job succeeds and when
- * a proposal is restored, so no validated solution can trap the plan that applies it (ADR-101,
+ * a proposal is created or loaded, so no validated solution can trap the plan that applies it (ADR-101,
  * ADR-112).
  */
 final class SolutionShape {
