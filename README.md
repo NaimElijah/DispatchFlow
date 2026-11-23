@@ -26,11 +26,12 @@ It deliberately does not use live traffic data, handle payments, provide turn-by
 enterprise-scale fleets.
 
 > [!IMPORTANT]
-> **Pre-alpha: the repository holds working skeletons, the domain layer and a declared application
-> layer, not features yet.**
+> **Pre-alpha: the repository holds working skeletons, the domain layer, the core's persistence and a
+> declared application layer, not features yet.**
 > Every component builds and passes its tests with `just check`, and CI runs the same recipes on
 > every push and on every pull request into `dev` or `main`. The application layer is declared but
-> not built, and no adapter calls it yet, so none of the planning capabilities can be used.
+> not built, so the persistence adapters have no caller yet and none of the planning capabilities can
+> be used.
 > What the system must do is in [requirements.md](docs/requirements/requirements.md); what exists
 > today and what comes next are under [Status and limitations](#status-and-limitations).
 
@@ -104,7 +105,8 @@ flowchart LR
   ([domain design](docs/architecture/domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts)).
   Each module's domain is built. Its application layer is declared, with bodies that throw
   ([ADR-119](docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md); the conventions are in
-  [ADR-120](docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)), and its adapters do not exist. A folder that passes
+  [ADR-120](docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)), and its only adapters store each module's aggregates in its own PostgreSQL schema
+  ([data model](docs/architecture/data-model.md)). A folder that passes
   20 files splits wherever four of its files can move, a domain by aggregate
   ([ADR-118](docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md),
   [ADR-125](docs/ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)).
@@ -125,7 +127,8 @@ adapters depend on the domain.
 None of the calls between components exists in code yet. Today the optimizer answers its liveness
 probe, the core its health probe, and the two apps render a heading; the domain layers, in the core
 and in the optimizer, are built and tested, and their application layers are declared but not built.
-Nothing calls any of them.
+The core's persistence adapters store every module's aggregates in PostgreSQL, and no use case calls
+them.
 [architecture.md](docs/architecture/architecture.md) describes that system as it is, and
 [code-structure.md](docs/architecture/code-structure.md) the repository layout.
 
@@ -229,7 +232,7 @@ comments. The rules apply to people and to coding assistants alike.
 | Layer | Covers | Command |
 |---|---|---|
 | Core unit (`*Test`) | Domain and use cases, no I/O. Today: the shared kernel's values, the eight modules' domains, the ArchUnit rules (purity, shape, package structure, the application layer's shape and the JPA mapping) and the web error handler; every use case is declared and none is built, so none has a behaviour test yet | `just core-check` |
-| Core integration (`*IT`) | Against a real PostgreSQL in a container. Today: the application starts, and the shared version helper's saves, conflicts and storing of the kernel's values are checked on a test-only aggregate | `just core-check` |
+| Core integration (`*IT`) | Against a real PostgreSQL in a container. Today: the application starts, each module's aggregates are saved and loaded, with a damaged stored value refused, and the shared version helper's saves, conflicts and storing of the kernel's values are checked | `just core-check` |
 | Optimizer | The domain (the validator's crafted-violation catalogue, Hypothesis properties, Solomon best-known solutions accepted), the HTTP adapter, the dependency boundary and import-linter | `just optimizer-check` |
 | Research | Its environment: the optimizer and PyVRP are installed | `just research-check` |
 | Web app | Components in jsdom (Vitest + Testing Library) | `just web-check` |
@@ -304,10 +307,11 @@ ADR-124 what a `CLAUDE.md` holds, and ADR-125 when a folder splits into subfolde
 linter, tests and CI job; the two contracts; and the optimizer's and the core backend's health probes.
 The domain layer is being built ahead of its milestones: the core's shared kernel with its purity
 rules, the domains of `access`, `audit`, `fleet`, `liveops`, `messaging`, `orders`, `planning` and
-`reporting`, and the optimizer's domain for daily solves and re-optimizations (the validator, the
-objective and the drop reasons). The application layer is declared ahead too, in the core and in
+`reporting`, the core's persistence (a Flyway migration, mapped aggregates and a PostgreSQL adapter
+for each of those eight modules), and the optimizer's domain for daily solves and re-optimizations
+(the validator, the objective and the drop reasons). The application layer is declared ahead too, in the core and in
 the optimizer: every use case, query, port and module API has its signature, and every body that would
-do work throws "Built in M<n>" ([ADR-119](docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)). Nothing calls any of it yet.
+do work throws "Built in M<n>" ([ADR-119](docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)). No use case calls a persistence adapter yet.
 
 Planned: the [roadmap](docs/roadmap.md) has the course calendar, the milestones M0 to M13, and the
 definition and demo script of the Alpha (M0 to M5).

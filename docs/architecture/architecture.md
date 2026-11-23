@@ -5,11 +5,14 @@ How DispatchFlow is built, as it is today. What it must do is in
 [ADRs](../ADRs/README.md). Where each file lives is in [code-structure.md](code-structure.md).
 
 > [!NOTE]
-> Only the skeleton, the domain layer and the declared application layer exist. Each component
-> builds, passes its checks and runs a first test. The domain layers of `core` and `optimizer` are
-> built and tested. Their application layers are declared, not built: every body that would do work
-> throws, and no adapter calls them. The design the team is heading for is in
-> [Target design](#target-design); this file describes none of it as built beyond that.
+> Only the skeleton, the domain layer, the declared application layer and the persistence of every
+> `core` module exist. Each component builds, passes its checks and runs a first test. The domain
+> layers of `core` and `optimizer` are built and tested. The persistence of `access`, `audit`,
+> `fleet`, `liveops`, `messaging`, `orders`, `planning` and `reporting` is built: a migration, mapped
+> aggregates and a persistence adapter each. The application layers are
+> declared, not built: every body that would do work throws, and no use case calls a persistence
+> adapter. The design the team is heading for is in [Target design](#target-design); this file
+> describes none of it as built beyond that.
 
 ## Architecture overview
 
@@ -17,7 +20,8 @@ DispatchFlow is five components in one repository: a Java core backend, a Python
 two TypeScript frontends and a Python research harness. Two OpenAPI contracts define how they
 will meet. The core is meant to be the system of record, with PostgreSQL as its database, and the
 only client of the optimizer ([ADR-002](../ADRs/ADR-002-core-backend-and-separate-optimization-service.md)).
-Today the core and the optimizer each start and answer a health probe. No component calls another.
+Today the core and the optimizer each start and answer a health probe, and the core's persistence
+adapters store every module's aggregates in PostgreSQL. No component calls another.
 
 ```mermaid
 flowchart LR
@@ -35,18 +39,32 @@ today.
 
 | Component | Is | Does today |
 |---|---|---|
-| `core` (`src/backend/core`) | Spring Boot 4.1.2, Java 25 | Starts, connects to PostgreSQL, answers `GET /actuator/health`, and turns an unhandled exception into a 500 problem body |
+| `core` (`src/backend/core`) | Spring Boot 4.1.2, Java 25 | Starts, connects to PostgreSQL and migrates it, answers `GET /actuator/health`, turns an unhandled exception into a 500 problem body, and stores every module's aggregates through its persistence adapters |
 | `optimizer` (`src/backend/optimizer`) | FastAPI, Python 3.14, NumPy | Answers `GET /health/liveness` with `{"status":"UP"}`, and holds the domain for daily solves and re-optimizations (the validator, the objective and the drop reasons), and a declared application layer; nothing calls either yet |
 | `web` (`src/frontend/web`) | React, Vite | Renders a heading |
 | `mobile` (`src/frontend/mobile`) | React Native, Expo SDK 58 | Renders a heading |
 | `research` (`src/research`) | Python, uv; never deployed | Installs `optimizer` and PyVRP in one environment, and imports neither yet: `tests/test_environment.py` only checks that both can be found. `benchmark/`, `simulation/`, `generator/`, `instances/` and `results/` hold only `.gitkeep` |
 
-`core` has no controller, entity or Flyway migration in `src/main`: `src/main/resources/db/migration/`
-holds only a `.gitkeep`. `src/test` holds one entity that has a table, `Ledger` with its child
-`LedgerEntry`, and the test-only migration `src/test/resources/db/fixture/V0_1__persistence_fixture.sql`, which only
-the version helper's tests run ([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)).
-The `@Entity` classes under `archfixture/` are deliberately wrong fixtures for the mapping rules, and no schema
-maps them. `optimizer`'s `solvers` folders hold only `.gitkeep`; its `domain` holds the
+`core` has no controller. Its `src/main/resources/db/migration/` holds nine Flyway migrations: `V1`
+creates the eight module schemas, and `V2` to `V9` add one module's tables each
+([data-model.md](data-model.md)). The 20 aggregate roots are JPA entities: their
+domain classes carry the mapping, and only Hibernate rebuilds an aggregate, its `@PostLoad` check
+refusing a damaged row in place of the old `restore` factory
+([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md), [ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md)). Each module has an
+`adapter/out/persistence` package. It holds a package-private Spring Data interface for each root,
+the converters and instantiators of the module's values, and the adapters that implement the module's
+repository ports: 20 of them, one for each root, save it through `VersionedSave`, and four store a
+record (`audit`'s audit records, `liveops`' kept positions, `messaging`'s SMS replies and opt-outs)
+by plain insert. `Plan`'s adapter sits in a `plan/` subpackage of Planning's, with the
+`@Immutable` entities its revisions are appended as. Each
+module's `*PersistenceIT` tests its adapters against PostgreSQL. No aggregate keeps a `restore` factory or a
+snapshot record. Three adapter methods still throw: `SolveJobRepository`'s two blanking methods
+(`UnsupportedOperationException("Built in M13")`, because nothing stores a job's input yet) and
+`AuditRecords.purgeExpired`, which waits for the database roles. `src/test` also holds one entity that has a table, `Ledger` with its
+child `LedgerEntry`, and the test-only migration `src/test/resources/db/fixture/V0_1__persistence_fixture.sql`,
+which only the version helper's tests run. The `@Entity` classes under `archfixture/` are
+deliberately wrong fixtures for the mapping rules, and no schema maps them. `optimizer`'s `solvers`
+folders hold only `.gitkeep`; its `domain` holds the
 domain for daily solves and re-optimizations
 ([ADR-098](../ADRs/ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) fixes its
 numbers), and its `application` package declares the `Solver` port, the registry, the requests and
@@ -54,22 +72,22 @@ outcomes and five use cases, each body raising `NotImplementedError` ("Built in 
 `core` holds the shared kernel (`com.dispatchflow.shared`): typed IDs, the shared values and the
 domain's building blocks
 ([ADR-097](../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md),
-[ADR-106](../ADRs/ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md)). Nothing calls
-it yet. Beside it, `shared/adapter/out/persistence` is the persistence adapter every module shares
-([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)): `VersionedSave`, which saves an aggregate so that its version moves by exactly 1, the
-converters that store the kernel's single-value types (the 14 typed IDs are in its `id` package), and the
-instantiators of the embeddable `TimeWindow`, `GeoPoint` and `DaySeconds`. No repository calls it yet, and
-`VersionedSaveIT` runs it against the test-only entity. That package is an adapter, not part of the kernel.
-`AggregateRoot` is a `@MappedSuperclass` that holds the `@Version` and publishes the events its methods
-raised when a repository's `save` runs; no aggregate is mapped yet, so `restore` and `snapshot()` stay in
-every root until its lane maps it. The `domain` packages of `access`, `audit`, `fleet`, `liveops`, `messaging`, `orders`,
-`planning` and `reporting` are built ahead of their milestones, with the `events` packages of the six
-modules that raise events (not `audit` or `reporting`), and nothing calls them yet either.
+[ADR-106](../ADRs/ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md)). Beside it,
+`shared/adapter/out/persistence` is the persistence adapter every module shares ([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)):
+`VersionedSave`, which saves an aggregate so that its version moves by exactly 1, the converters that
+store the kernel's single-value types (the 14 typed IDs are in its `id` package), and the
+instantiators of the embeddable `TimeWindow`, `GeoPoint` and `DaySeconds`. That package is an
+adapter, not part of the kernel. `AggregateRoot` is a `@MappedSuperclass` that holds the `@Version`
+and publishes the events its methods raised when a repository's `save` runs. The `domain` packages
+of `access`, `audit`, `fleet`, `liveops`, `messaging`, `orders`, `planning` and `reporting` are
+built ahead of their milestones, with the `events` packages of the six modules that raise events
+(not `audit` or `reporting`), and no use case calls them yet.
 
 Each core module also has an `application` package, and the kernel has `shared/application`. They
 are declared ahead of their milestones: every use case, query, port and module API has its signature,
 and every body that would do work throws `UnsupportedOperationException("Built in M<n>")`. They are
-not built. No Spring annotation or bean wires them, and no adapter calls them, so the application
+not built. No Spring annotation or bean wires them, and nothing calls a port: the persistence
+adapters implement the repository ports, and no use case calls them, so the application
 context starts as before. Why they are declared now is in [ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md). The caller
 is an `Actor` and a `CallContext`, the shared ports are in `shared/application`, and screens read
 through query ports ([ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
@@ -98,7 +116,8 @@ exists is in the build: `research` installs `optimizer` as an editable path depe
 
 ## Data flow
 
-No request crosses a component today. Two probes are tested, each inside its own component:
+No request crosses a component today. Two probes and the persistence adapters are tested, each
+inside its own component:
 
 - The `core` health probe: a request to `/actuator/health` reaches Spring Boot, and
   `src/backend/core/src/test/java/com/dispatchflow/DispatchFlowApplicationIT.java` asserts that
@@ -107,6 +126,11 @@ No request crosses a component today. Two probes are tested, each inside its own
   through `TestClient(create_app())` that `GET /health/liveness` answers 200 with
   `{"status":"UP"}`.
 
+- A save and a load through a persistence adapter: each module's `*PersistenceIT` saves an
+  aggregate into a PostgreSQL container and loads it in another transaction, and where a stored
+  value can be damaged it damages one with SQL to check that the load refuses it
+  ([data-model.md](data-model.md#where-the-stored-state-is-tested)).
+
 A request traced from a frontend through `core` and `optimizer` and back can be written once those
 calls exist.
 
@@ -114,7 +138,7 @@ calls exist.
 
 | Dependency | Used by | For |
 |---|---|---|
-| PostgreSQL 18.6 | `core` | The database. In a Testcontainers container for `*IT` tests and `just core-run`, which need Docker ([ADR-014](../ADRs/ADR-014-real-dependencies-in-containers-for-tests-and-local-runs.md), superseded by [ADR-042](../ADRs/ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md): local runs start their services from `compose.dev.yaml`, the tests keep Testcontainers, and M0 decides whether `just core-run` stays. Not in the code yet). Elsewhere `core` reads `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` from the environment |
+| PostgreSQL 18.6 | `core` | The database, one schema per module, each with tables. Spring Boot runs the Flyway migrations at startup, until the `migrate` step of [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md) exists. In a Testcontainers container for `*IT` tests and `just core-run`, which need Docker ([ADR-014](../ADRs/ADR-014-real-dependencies-in-containers-for-tests-and-local-runs.md), superseded by [ADR-042](../ADRs/ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md): local runs start their services from `compose.dev.yaml`, the tests keep Testcontainers, and M0 decides whether `just core-run` stays. Not in the code yet). Elsewhere `core` reads `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` from the environment |
 | PyVRP | `research` | A reference solver for benchmarks. Never installed in `optimizer` |
 
 No other outside service is called. The repository has no Compose file; `core` and `optimizer` each
@@ -140,8 +164,9 @@ have a `Dockerfile`, and neither runs as root
   kernel, and `PersistenceRules` has eight rules on how the domain is mapped: relationships only inside
   one aggregate, `@Version` only on `AggregateRoot`, every enum stored by name, a `@PostLoad` check on
   every entity root, no `@GeneratedValue`, no Spring Data interface wider than its port needs, every mapped
-  table in its module's schema, and no adapter that uses another module's entity. They fire on
-  deliberately wrong fixtures, and need no mapped class to exist.
+  table in its module's schema, and no adapter that uses another module's entity. They check every
+  production class, so a module mapped later is covered without editing a rule, and they fire on
+  deliberately wrong fixtures.
   The other dependency rules are enforced by review.
 - **Every solver sits behind one `Solver` port** and is chosen by name
   ([ADR-004](../ADRs/ADR-004-pluggable-solver-port.md), amended by
@@ -158,7 +183,9 @@ have a `Dockerfile`, and neither runs as root
   [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md),
   amended by [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md), which replaces jOOQ with JPA). `just core-schema-draft` writes the DDL Hibernate
   would generate to `src/backend/core/target/schema-draft.sql`, as a draft for a migration, without a
-  database connection.
+  database connection. At startup `validate` checks each mapped table and column against the
+  migrations, which [data-model.md](data-model.md#migrations) lists; no migration grants anything
+  yet ([ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md), decision 8).
 - **Every error body is an RFC 9457 problem.** `UnexpectedErrorHandler` runs last, after Spring
   MVC's own problem handling, so a response never names the cause.
 
@@ -178,13 +205,15 @@ the ADRs:
   [ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md) (a
   Spring Modulith monolith, one module per context) and
   [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md) (a
-  schema per module, with its persistence amended to JPA by [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)) give the target shape. Apart from that Java 25 and ADR-126's shared
-  persistence adapter and kernel mapping, none of them is in the tree yet. ADR-039 and ADR-042 to ADR-047 record the other tooling, contract, solver-port, token
+  schema per module, with its persistence amended to JPA by [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)) give the target shape. Apart from Java 25, and every module's schema, tables and
+  persistence adapters, none of them is in the tree yet: the two database roles and the `migrate`
+  step do not exist, and Spring Modulith is not a dependency. ADR-039 and ADR-042 to ADR-047 record the other tooling, contract, solver-port, token
   and image decisions, and ADR-048 onward the rest.
 - [Roadmap](../roadmap.md#2-milestones): the milestones and dates.
 
 The hosting is in [ADR-078](../ADRs/ADR-078-hosting-on-one-aws-vm-in-tel-aviv-built-with-terraform.md)
 and [tech stack §15](tech_stack.md#15-infrastructure-and-operations). Beyond what the design and
-the ADRs decide, the schema and the flows are written down by the migrations and code that build them.
+the ADRs decide, the schema is written down by the migrations that build it, and
+[data-model.md](data-model.md) describes it as built.
 
 This file is rewritten as each milestone of the [roadmap](../roadmap.md#2-milestones) lands.

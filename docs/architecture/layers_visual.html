@@ -270,7 +270,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); out
   <main class="stack" id="stack"></main>
 
   <footer>
-    <span>Generated from the source at commit <code>3fb2a01</code> on 19 November 2026. The names, kinds and summaries come from the code and its Javadoc. The subpackages that ADR-125 split on 22 November 2026 were updated by hand. On 23 November 2026 the wording about the persistence adapters was changed by hand from jOOQ to JPA (ADR-126); the shared persistence adapter in <code>shared/adapter/out/persistence</code>, which is built, is not drawn. The planned adapters come from <code>docs/architecture/tech_stack.md</code> §6.3 and §6.4, and the append-only records from the domain document's §3.2.</span>
+    <span>Generated from the source at commit <code>3fb2a01</code> on 19 November 2026. The names, kinds and summaries come from the code and its Javadoc. The subpackages that ADR-125 split on 22 November 2026 were updated by hand. On 23 November 2026 the wording about the persistence adapters was changed by hand from jOOQ to JPA (ADR-126); on the same day the database lane was changed by hand: the persistence adapters now exist in every module, so the 24 repository and record ports they implement are drawn solid, and the adapters' own classes (<code>adapter/out/persistence</code> in each module and <code>shared/adapter/out/persistence</code>) are not drawn. The planned adapters come from <code>docs/architecture/tech_stack.md</code> §6.3 and §6.4, and the append-only records from the domain document's §3.2.</span>
     <span>This page decides nothing. Where it differs from the code, the domain document, <code>tech_stack.md</code> or an ADR, they win.</span>
     <span>The optimizer (<code>src/backend/optimizer</code>, Python) has its own domain, application and adapter layers and is not drawn here.</span>
   </footer>
@@ -299,6 +299,10 @@ const LAYER_PATH = { domain: "domain", events: "events", api: "application/api",
 const isInterface = r => r.k.includes("interface");
 // The append-only records of DL §3.2 are stored rows too, written with a plain insert.
 const RECORD_PORTS = new Set(["AuditRecords", "PositionLog", "ReplyLog", "OptOutList"]);
+// The ports a persistence adapter implements today, one for each aggregate root and each record
+// (src/backend/core/src/main/java/com/dispatchflow/<module>/adapter/out/persistence). The read views
+// (…Views) have none yet. Edited by hand on 23 November 2026.
+const BUILT_PORTS = new Set(["AlertRepository", "AuditRecords", "BaselineRepository", "CompanyProfileRepository", "CustomerRepository", "DayRosterRepository", "DeliveryRepository", "DriverRepository", "FleetRegisterRepository", "ImportBatchRepository", "MessagingSettingsRepository", "OptOutList", "OrderRepository", "PlanRepository", "PlanningSettingsRepository", "PositionLog", "ProposalRepository", "RatingRequestRepository", "ReplyLog", "RouteRunRepository", "SessionRepository", "SolveJobRepository", "StopMessagesRepository", "UserAccountRepository"]);
 const isDbPort = r => r.l === "port" && (/Repository$|Views$/.test(r.n) || RECORD_PORTS.has(r.n));
 
 // The secondary ports tech_stack.md §6.4 pairs with an adapter, in its own words; §6.4 wins where they differ.
@@ -342,8 +346,8 @@ const BANDS = [
     ],
   },
   {
-    id: "db", title: "Persistence and outbound adapters", path: "<context>/adapter/out/…", status: ["off", "Not built"],
-    desc: "Secondary adapters will implement the port/out interfaces above. The database lane holds the repositories, the read views and the append-only records of DL §3.2, which Spring Data JPA repositories over the domain's own mapping implement on PostgreSQL 18, one schema per module (ADR-041, ADR-126). The next lane holds the ports tech_stack.md §6.4 pairs with an adapter, and the last lane every other port, which the design documents don't pair with an adapter by name. Milestone M0 adds Flyway V1 and the first JPA repository.",
+    id: "db", title: "Persistence and outbound adapters", path: "<context>/adapter/out/…", status: ["warn", "Persistence built; read views and outside services not"],
+    desc: "Secondary adapters implement the port/out interfaces above. The database lane holds the repositories, the read views and the append-only records of DL §3.2. Each module's repositories and records have a Spring Data JPA adapter over the domain's own mapping on PostgreSQL 18, one schema per module (ADR-041, ADR-126, ADR-127), and those chips are solid. The read views have none yet, and stay dashed. The next lane holds the ports tech_stack.md §6.4 pairs with an adapter, and the last lane every other port, which the design documents don't pair with an adapter by name.",
     render: renderDb,
   },
 ];
@@ -405,7 +409,7 @@ function group(groupId, title, ctxId, types, keyFn, opts = {}) {
     el("div", { class: "group-head" }, nameNode, el("span", { class: "count", text: String(types.length) })),
     subs.map(sub => el("div", { class: "sub" },
       sub ? el("span", { class: "sub-label", text: sub }) : null,
-      bySub.get(sub).map(r => chip(r, opts)))),
+      bySub.get(sub).map(r => chip(r, opts.plannedOf ? { planned: opts.plannedOf(r) } : opts)))),
     (hidden > 0)
       ? el("button", { class: "more", type: "button", onclick: () => { state.open.add(groupId); render(); }, text: `+${hidden} more` })
       : (!state.every && state.ctx === "all" && state.open.has(groupId) && types.some(r => !keyFn(r)))
@@ -465,9 +469,9 @@ function renderDb(band) {
   const dbBody = el("div", { class: "lane-body" });
   for (const c of visibleContexts()) {
     const ports = DATA.filter(r => r.c === c.id && isDbPort(r));
-    if (ports.length) dbBody.append(group(`db:db:${c.id}`, c.name, c.id, ports, () => true, { planned: true, subOf: () => "" }));
+    if (ports.length) dbBody.append(group(`db:db:${c.id}`, c.name, c.id, ports, () => true, { plannedOf: r => !BUILT_PORTS.has(r.n), subOf: () => "" }));
   }
-  dbBody.append(el("p", { class: "foot", text: "Each dashed chip is a port that a Spring Data JPA adapter will implement: one repository per aggregate root, each module's read views, and the append-only records. PostgreSQL 18 holds one schema per module, migrated by Flyway from src/main/resources/db/migration, which holds only a .gitkeep today." }));
+  dbBody.append(el("p", { class: "foot", text: "A solid chip is a port that a Spring Data JPA adapter implements today: one repository per aggregate root, and the append-only records. A dashed chip is a port with no adapter yet, such as each module's read views. PostgreSQL 18 holds one schema per module, migrated by Flyway from src/main/resources/db/migration, which holds V1 to V9." }));
 
   const rows = OUTBOUND.map(row => {
     const ports = row.ports.flatMap(n => DATA.filter(r => r.n === n && (r.l === "port" || (r.c === "shared" && r.l === "application"))));
@@ -500,7 +504,7 @@ function renderDb(band) {
   }
   if (!otherBody.children.length) { otherBody.classList.add("empty-lane"); otherBody.textContent = "Every port of this context has a planned adapter above."; }
   return [
-    laneShell(band, { label: "database", hint: "JPA repositories, read views and the append-only records of DL §3.2" }, dbBody),
+    laneShell(band, { label: "database", hint: "JPA repositories and records are built; read views are not" }, dbBody),
     laneShell(band, { label: "outside services", hint: "Ports that tech_stack.md §6.4 pairs with an adapter" }, outBody),
     laneShell(band, { label: "other ports", hint: "Ports the design documents don't pair with an adapter by name" }, otherBody),
   ];
