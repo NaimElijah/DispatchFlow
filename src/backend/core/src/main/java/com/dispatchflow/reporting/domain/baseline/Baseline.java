@@ -164,22 +164,6 @@ public class Baseline extends AggregateRoot {
         storeResult(result);
     }
 
-    /** Builds the baseline {@link #restore} returns; it goes with {@code restore} (ADR-126). */
-    private Baseline(BaselineSnapshot stored) {
-        super(stored.version());
-        this.id = stored.plan().value();
-        this.computedAt = stored.computedAt();
-        storeResult(stored.result());
-        switch (stored.cause()) {
-            case BaselineCause.Published published -> this.cause = CauseKind.PUBLISHED;
-            case BaselineCause.Recomputed recomputed -> {
-                this.cause = CauseKind.RECOMPUTED;
-                this.withdrawn.addAll(recomputed.withdrawn());
-                this.added.addAll(recomputed.added());
-            }
-        }
-    }
-
     /**
      * Computes a published plan's baseline (FR-39, FR-342). The listener on {@code PlanPublished}
      * calls it once per plan; a repeated delivery finds the baseline already stored.
@@ -197,27 +181,9 @@ public class Baseline extends AggregateRoot {
     }
 
     /**
-     * Rebuilds a stored baseline, checking the invariant that holds at rest: a recomputed baseline
-     * names at least one withdrawn vehicle or added order, and each one once. Only persistence
-     * adapters call it (DL §3.5).
-     *
-     * @param stored the stored state
-     * @return the baseline at the stored version
-     * @throws StoredStateInvalid when the stored state breaks that invariant
-     */
-    public static Baseline restore(BaselineSnapshot stored) {
-        Optional<String> broken = brokenBy(stored.cause());
-        if (broken.isPresent()) {
-            throw new StoredStateInvalid(Baseline.class, broken.get());
-        }
-        return new Baseline(stored);
-    }
-
-    /**
      * Checks the baseline as Hibernate loaded it (ADR-126 decision 8): its planned orders rebuild,
-     * each order once, as the adapter that rebuilt a snapshot's figures checked; it holds the
-     * invariant {@link #restore} checks; and a published baseline stores no withdrawn vehicle and no
-     * added order, which a snapshot could not break but stored rows can.
+     * each order once; a recomputed baseline names at least one withdrawn vehicle or added order,
+     * and each one once; and a published baseline names neither.
      *
      * @throws StoredStateInvalid when the stored state breaks one of them
      */
@@ -332,15 +298,11 @@ public class Baseline extends AggregateRoot {
     }
 
     /**
-     * The baseline's state, for the repository to store and for tests.
+     * The figures of the nearest-neighbour solve it was last computed from (FR-39, FR-342).
      *
-     * @return a snapshot that {@link #restore} rebuilds
+     * @return the distance, the driver-hours and every order's planned service
      */
-    public BaselineSnapshot snapshot() {
-        return new BaselineSnapshot(plan(), savedVersion().orElse(null), result(), cause(), computedAt);
-    }
-
-    private PlannedFigures result() {
+    public PlannedFigures result() {
         return new PlannedFigures(distance, driverHours, orders());
     }
 
@@ -349,11 +311,26 @@ public class Baseline extends AggregateRoot {
                 plannedOrders.stream().map(StoredPlannedOrder::toPlannedOrder).toList());
     }
 
-    private BaselineCause cause() {
+    /**
+     * Why it was last computed, which decides what it is compared on (FR-269).
+     *
+     * @return published, or recomputed with unmodifiable copies of the withdrawn vehicles and the
+     *     added orders, each in the order first named
+     */
+    public BaselineCause cause() {
         return switch (cause) {
             case PUBLISHED -> new BaselineCause.Published();
             case RECOMPUTED -> new BaselineCause.Recomputed(withdrawn, added);
         };
+    }
+
+    /**
+     * When it was last computed.
+     *
+     * @return the time of its computation or of its latest recompute
+     */
+    public Instant computedAt() {
+        return computedAt;
     }
 
     /** Sets the figures, changing the planned orders Hibernate loaded in place. */
@@ -407,7 +384,7 @@ public class Baseline extends AggregateRoot {
         return brokenBy(cause());
     }
 
-    /** The invariant a baseline holds at rest, which {@link #restore} and every other check apply. */
+    /** The invariant a cause holds at rest, which the load check and the end check apply. */
     private static Optional<String> brokenBy(BaselineCause cause) {
         if (cause instanceof BaselineCause.Recomputed(List<Withdrawal> withdrawn, List<OrderId> added)) {
             if (withdrawn.isEmpty() && added.isEmpty()) {

@@ -17,13 +17,14 @@ import com.dispatchflow.reporting.application.port.out.BaselineRepository;
 import com.dispatchflow.reporting.application.port.out.RefusalCause;
 import com.dispatchflow.reporting.domain.baseline.Baseline;
 import com.dispatchflow.reporting.domain.baseline.BaselineCause;
-import com.dispatchflow.reporting.domain.baseline.BaselineSnapshot;
+import com.dispatchflow.reporting.domain.baseline.BaselineDescription;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
@@ -94,16 +95,16 @@ class BaselinePersistenceIT {
     @EnumSource(Scenario.class)
     void GivenABaseline_WhenAddedAndLoadedInAnotherTransaction_ThenItsWholeStateComesBackAsAdded(Scenario scenario) {
         PlanId plan = plan(1 + scenario.ordinal());
-        BaselineSnapshot added = transactions.inTransaction(() -> {
+        BaselineDescription added = transactions.inTransaction(() -> {
             Baseline baseline = scenario.build(plan);
             repository.add(baseline);
-            return baseline.snapshot();
+            return BaselineDescription.of(baseline);
         });
 
         Baseline loaded = transactions.inTransaction(() -> repository.get(plan).orElseThrow());
 
         // Read outside the transaction, so a collection the load left unfetched fails here.
-        assertThat(loaded.snapshot()).isEqualTo(added);
+        assertThat(BaselineDescription.of(loaded)).isEqualTo(added);
         assertThat(loaded.plan()).isEqualTo(plan);
         assertThat(loaded.version()).isEqualTo(Version.of(0));
         assertThat(loaded.pendingEvents()).isEmpty();
@@ -136,10 +137,10 @@ class BaselinePersistenceIT {
 
         assertThat(List.of(added, grown, storedVersion(plan))).containsExactly(0L, 1L, 2L);
         assertThat(transactions.inTransaction(
-                        () -> repository.get(plan).orElseThrow().snapshot()))
-                .isEqualTo(new BaselineSnapshot(
+                        () -> BaselineDescription.of(repository.get(plan).orElseThrow())))
+                .isEqualTo(new BaselineDescription(
                         plan,
-                        Version.of(2),
+                        Optional.of(Version.of(2)),
                         RECOMPUTED_FIGURES,
                         new BaselineCause.Recomputed(List.of(UNAVAILABLE_1), List.of(ORDER_D, ORDER_C)),
                         REVISED_AGAIN_AT));
@@ -167,7 +168,7 @@ class BaselinePersistenceIT {
 
         assertThat(storedVersion(plan)).isEqualTo(1L);
         assertThat(transactions.inTransaction(
-                        () -> repository.get(plan).orElseThrow().snapshot().cause()))
+                        () -> repository.get(plan).orElseThrow().cause()))
                 .isEqualTo(new BaselineCause.Recomputed(List.of(UNAVAILABLE_1), List.of()));
     }
 
@@ -187,7 +188,7 @@ class BaselinePersistenceIT {
                 });
 
         assertThat(transactions.inTransaction(
-                        () -> repository.get(plan).orElseThrow().snapshot().result()))
+                        () -> repository.get(plan).orElseThrow().result()))
                 .isEqualTo(RECOMPUTED_FIGURES);
     }
 
