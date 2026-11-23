@@ -61,7 +61,10 @@ class JpaDriverRepository implements DriverRepository {
         }
         Map<UUID, Driver> loaded = drivers.findByIdIn(order).stream()
                 .collect(Collectors.toMap(driver -> driver.id().value(), Function.identity()));
-        return order.stream().map(loaded::get).toList();
+        return order.stream()
+                .map(key -> Objects.requireNonNull(
+                        loaded.get(key), "a driver listed in registration order must load with the others"))
+                .toList();
     }
 
     @Override

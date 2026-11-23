@@ -44,6 +44,6 @@ class JpaAuditRecords implements AuditRecords {
      */
     @Override
     public int purgeExpired() {
-        throw new UnsupportedOperationException("Built with ADR-041's roles and migrate step");
+        throw new UnsupportedOperationException("Built in M13");
     }
 }
