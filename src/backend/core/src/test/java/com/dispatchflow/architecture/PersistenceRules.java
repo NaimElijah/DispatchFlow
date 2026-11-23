@@ -12,12 +12,15 @@ import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Embeddable;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.MappedSuperclass;
@@ -203,14 +206,17 @@ final class PersistenceRules {
     }
 
     /**
-     * Every entity names its own module's schema in its {@code @Table}, which is how each
-     * persistence adapter is kept to that schema (ADR-041, ADR-040).
+     * Every table an entity maps is in its own module's schema: its {@code @Table}, the {@code
+     * @CollectionTable} of each element collection, and the {@code @JoinTable} of each relationship
+     * that has one, including the join table a one-to-many with neither {@code mappedBy} nor a
+     * {@code @JoinColumn} gets by default. A table without a schema lands in the database's default
+     * one (ADR-041).
      */
     static ArchRule everyEntityLivesInItsModulesSchema(String root) {
         return classes()
                 .that()
                 .resideInAPackage(root + "..")
-                .should(new ArchCondition<JavaClass>("name its module's schema in @Table when an entity") {
+                .should(new ArchCondition<JavaClass>("keep every table it maps in its module's schema when an entity") {
                     @Override
                     public void check(JavaClass item, ConditionEvents events) {
                         if (!item.isAnnotatedWith(Entity.class)) {
@@ -225,9 +231,66 @@ final class PersistenceRules {
                                     item.getName() + " is in schema " + schema.orElse("(none)") + ", not its module's, "
                                             + module));
                         }
+                        item.getFields().stream()
+                                .filter(field -> !secondaryTableSchema(field)
+                                        .map(module::equals)
+                                        .orElse(true))
+                                .forEach(field -> events.add(SimpleConditionEvent.violated(
+                                        field,
+                                        field.getFullName() + " maps a table outside its module's schema, " + module)));
                     }
                 })
                 .because("ADR-041: each module owns its tables, in its own PostgreSQL schema");
+    }
+
+    /**
+     * A module's persistence adapter uses only its own module's entities: another module's tables
+     * are reached through that module's {@code api}, never its mapping (ADR-041, ADR-040).
+     */
+    static ArchRule adaptersUseOnlyTheirModulesEntities(String root) {
+        return classes()
+                .that()
+                .resideInAPackage(root + ".*.adapter..")
+                .should(new ArchCondition<JavaClass>("use no other module's entity") {
+                    @Override
+                    public void check(JavaClass item, ConditionEvents events) {
+                        String module = moduleOf(root, item.getPackageName());
+                        item.getDirectDependenciesFromSelf().stream()
+                                .filter(dependency ->
+                                        dependency.getTargetClass().isAnnotatedWith(Entity.class))
+                                .filter(dependency -> !moduleOf(
+                                                root,
+                                                dependency.getTargetClass().getPackageName())
+                                        .equals(module))
+                                .forEach(dependency -> events.add(
+                                        SimpleConditionEvent.violated(dependency, dependency.getDescription())));
+                    }
+                })
+                .because("ADR-041: a module's adapter reads and writes only its own schema");
+    }
+
+    /**
+     * The schema of the table beside the owner's that a field maps, or empty when the field maps
+     * none; a table without a schema answers the empty string.
+     */
+    private static Optional<String> secondaryTableSchema(JavaField field) {
+        Optional<JoinTable> joinTable = field.tryGetAnnotationOfType(JoinTable.class);
+        if (joinTable.isPresent()) {
+            return joinTable.map(JoinTable::schema);
+        }
+        if (field.isAnnotatedWith(ElementCollection.class)) {
+            return Optional.of(field.tryGetAnnotationOfType(CollectionTable.class)
+                    .map(CollectionTable::schema)
+                    .orElse(""));
+        }
+        boolean defaultJoinTable = field.tryGetAnnotationOfType(OneToMany.class)
+                        .map(oneToMany -> oneToMany.mappedBy().isEmpty())
+                        .orElse(false)
+                && !field.isAnnotatedWith(JoinColumn.class);
+        boolean manyToMany = field.tryGetAnnotationOfType(ManyToMany.class)
+                .map(relation -> relation.mappedBy().isEmpty())
+                .orElse(false);
+        return defaultJoinTable || manyToMany ? Optional.of("") : Optional.empty();
     }
 
     private static Stream<JavaField> relationshipFields(JavaClass item) {

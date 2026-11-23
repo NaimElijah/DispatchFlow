@@ -1,5 +1,6 @@
 package com.dispatchflow.archfixture.alpha.domain.entity;
 
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -18,6 +19,7 @@ public class StoresEnumsByPositionInAList {
     private UUID id = new UUID(0, 8);
 
     @ElementCollection
+    @CollectionTable(schema = "alpha")
     @OrderColumn
     private List<EntityKind> kinds = new ArrayList<>();
 

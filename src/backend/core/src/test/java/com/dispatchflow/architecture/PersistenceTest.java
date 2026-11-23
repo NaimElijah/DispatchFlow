@@ -56,6 +56,11 @@ class PersistenceTest {
     }
 
     @Test
+    void GivenTheProductionClasses_WhenAdaptersAreChecked_ThenEachUsesOnlyItsModulesEntities() {
+        PersistenceRules.adaptersUseOnlyTheirModulesEntities(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
     void GivenTheProductionClasses_WhenEntitiesAreChecked_ThenEachLivesInItsModulesSchema() {
         PersistenceRules.everyEntityLivesInItsModulesSchema(ROOT).check(ProductionClasses.ALL);
     }

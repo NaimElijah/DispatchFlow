@@ -2,6 +2,7 @@ package com.dispatchflow.archfixture.alpha.domain.entity;
 
 import com.dispatchflow.shared.AggregateRoot;
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -27,6 +28,7 @@ public class MappedRoot extends AggregateRoot {
     private EntityKind kind = EntityKind.FIRST;
 
     @ElementCollection
+    @CollectionTable(schema = "alpha")
     @Enumerated(EnumType.STRING)
     @OrderColumn
     private List<EntityKind> history = new ArrayList<>();

@@ -4,9 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dispatchflow.archfixture.alpha.adapter.out.persistence.ListCrudRepositoryOfRoots;
 import com.dispatchflow.archfixture.alpha.adapter.out.persistence.NarrowRepository;
+import com.dispatchflow.archfixture.alpha.adapter.out.persistence.ReadsAnotherModulesEntity;
 import com.dispatchflow.archfixture.alpha.adapter.out.persistence.WideRepository;
+import com.dispatchflow.archfixture.alpha.domain.entity.CollectsWithoutASchema;
 import com.dispatchflow.archfixture.alpha.domain.entity.EmbedsAnEnumByPosition;
 import com.dispatchflow.archfixture.alpha.domain.entity.GeneratesItsKey;
+import com.dispatchflow.archfixture.alpha.domain.entity.JoinsThroughADefaultTable;
 import com.dispatchflow.archfixture.alpha.domain.entity.MappedChild;
 import com.dispatchflow.archfixture.alpha.domain.entity.MappedInAnotherSchema;
 import com.dispatchflow.archfixture.alpha.domain.entity.MappedRoot;
@@ -150,10 +153,30 @@ class PersistenceRulesTest {
     }
 
     @ParameterizedTest
-    @ValueSource(classes = {MappedInAnotherSchema.class, MappedWithoutASchema.class})
+    @ValueSource(
+            classes = {
+                MappedInAnotherSchema.class,
+                MappedWithoutASchema.class,
+                CollectsWithoutASchema.class,
+                JoinsThroughADefaultTable.class
+            })
     void GivenAnEntityOutsideItsModulesSchema_WhenChecked_ThenItIsFlagged(Class<?> fixture) {
         assertThat(flags(PersistenceRules.everyEntityLivesInItsModulesSchema(FIXTURE_ROOT), fixture))
                 .isTrue();
+    }
+
+    @Test
+    void GivenAnAdapterThatReadsAnotherModulesEntity_WhenChecked_ThenItIsFlagged() {
+        assertThat(flags(
+                        PersistenceRules.adaptersUseOnlyTheirModulesEntities(FIXTURE_ROOT),
+                        ReadsAnotherModulesEntity.class))
+                .isTrue();
+    }
+
+    @Test
+    void GivenAnAdapterOverItsOwnModulesEntity_WhenChecked_ThenNothingIsFlagged() {
+        assertThat(flags(PersistenceRules.adaptersUseOnlyTheirModulesEntities(FIXTURE_ROOT), NarrowRepository.class))
+                .isFalse();
     }
 
     @Test
