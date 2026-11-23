@@ -120,7 +120,7 @@ class NamesTest {
     void GivenADriversNameAndContact_WhenCheckedForPersonalData_ThenBothAreMarked() {
         assertThat(DriverName.of("Dana Levi")).isInstanceOf(PersonalData.class);
         assertThat(DriverBuilder.DANA_CONTACT).isInstanceOf(PersonalData.class);
-        assertThat(DriverBuilder.aDriver().snapshot()).isInstanceOf(PersonalData.class);
+        assertThat(DriverBuilder.aDriver().build()).isInstanceOf(PersonalData.class);
     }
 
     @Test

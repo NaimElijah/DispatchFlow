@@ -15,7 +15,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import org.springframework.stereotype.Repository;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -29,7 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
  * claim made today is never missed; one claimed late yesterday whose state moved on today counts
  * today too, which errs on the side of NFR-196's limit.
  */
-@Repository
+@Component
 @Transactional
 class JpaStopMessagesRepository implements StopMessagesRepository {
 

@@ -17,16 +17,24 @@ import com.dispatchflow.shared.GeoPoint;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.VehicleId;
-import com.dispatchflow.shared.Version;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderColumn;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.Table;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
-import org.jspecify.annotations.Nullable;
 
 /**
  * The company's depots and vehicles (DL §4.2): one register, with no ID, because two of its rules
@@ -35,20 +43,45 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>Records are retired, never deleted (BR-43), and a retired vehicle counts toward neither the
  * vehicle limit nor uniqueness (FR-307, BR-48). Every method checks all its rules before it changes
- * anything, so a refused call leaves the register as it was. No method raises an event.
+ * anything, so a refused call leaves the register as it was, and every change ends by checking the
+ * invariants at rest. No method raises an event.
+ *
+ * <p>It is mapped for JPA (ADR-126). Having no ID, it is stored under the constant {@link #KEY}
+ * (ADR-127 decision 5). Its depots and vehicles are child entities, each list in the order they
+ * were added, which the register searches by ID (ADR-127 decision 4).
  */
-public final class FleetRegister extends AggregateRoot {
+@Entity
+@Table(schema = "fleet", name = "fleet_register")
+public class FleetRegister extends AggregateRoot {
 
     /** The most active vehicles the register holds (BR-36, NFR-04, ADR-060). */
     public static final int MAX_ACTIVE_VEHICLES = 15;
 
-    // Insertion order, so a snapshot and a refusal's vehicle list come out the same every time.
-    private final Map<DepotId, Depot> depots = new LinkedHashMap<>();
-    private final Map<VehicleId, Vehicle> vehicles = new LinkedHashMap<>();
+    /**
+     * The one stored register's key. The register has no ID, but every root keys on a UUID
+     * (ADR-126 decision 10), so it keys on this constant, which the table allows as its only key.
+     */
+    public static final UUID KEY = UUID.fromString("10b6b5f9-ffc1-4b99-9eac-05d3d670a261");
 
-    private FleetRegister(@Nullable Version version) {
-        super(version);
-    }
+    @Id
+    private UUID id;
+
+    // Insertion order, so the getters and a refusal's vehicle list come out the same every time.
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "fleet_register_id", nullable = false)
+    @OrderColumn(name = "position", nullable = false)
+    private List<Depot> depots = new ArrayList<>();
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "fleet_register_id", nullable = false)
+    @OrderColumn(name = "position", nullable = false)
+    private List<Vehicle> vehicles = new ArrayList<>();
+
+    /**
+     * For Hibernate, which sets the fields from the stored rows and then runs {@link #checkStored};
+     * and for {@link #empty}, which then sets the key.
+     */
+    protected FleetRegister() {}
 
     /**
      * Creates the company's register, before any depot or vehicle is added.
@@ -56,79 +89,95 @@ public final class FleetRegister extends AggregateRoot {
      * @return an empty register, never saved
      */
     public static FleetRegister empty() {
-        return new FleetRegister(null);
-    }
-
-    /**
-     * Rebuilds the register from storage, checking the invariants that hold at rest: each depot and
-     * vehicle appears once, every vehicle's depots are in the register, and among active vehicles
-     * there are at most {@value #MAX_ACTIVE_VEHICLES}, each name and plate is used once, and every
-     * depot they use is active, where names are compared as BR-48 compares them. Only persistence
-     * adapters call it (DL §3.5).
-     *
-     * @param stored the stored state
-     * @return the register at the stored version
-     * @throws StoredStateInvalid when the stored state breaks one of those invariants
-     */
-    public static FleetRegister restore(FleetRegisterSnapshot stored) {
-        FleetRegister register = new FleetRegister(stored.version());
-        for (DepotSnapshot depot : stored.depots()) {
-            if (register.depots.putIfAbsent(depot.id(), new Depot(depot)) != null) {
-                throw invalid("a depot appears twice");
-            }
-        }
-        for (VehicleSnapshot vehicle : stored.vehicles()) {
-            if (register.vehicles.putIfAbsent(vehicle.id(), new Vehicle(vehicle)) != null) {
-                throw invalid("a vehicle appears twice");
-            }
-        }
-        register.checkAtRest();
+        FleetRegister register = new FleetRegister();
+        register.id = KEY;
         return register;
     }
 
-    private void checkAtRest() {
+    /**
+     * Checks the register as Hibernate loaded it against the invariants that hold at rest (ADR-126
+     * decision 8): each depot and vehicle appears once, every vehicle's depots are in the register,
+     * and among active vehicles there are at most {@value #MAX_ACTIVE_VEHICLES}, each name and plate
+     * is used once, and every depot they use is active, where names are compared as BR-48 compares
+     * them.
+     *
+     * @throws StoredStateInvalid when the stored state breaks one of them
+     */
+    @PostLoad
+    void checkStored() {
+        brokenRule().ifPresent(broken -> {
+            throw new StoredStateInvalid(FleetRegister.class, broken);
+        });
+    }
+
+    /** The first invariant at rest the register breaks, if any: those {@link #checkStored} names. */
+    private Optional<String> brokenRule() {
+        if (repeats(depots.stream().map(Depot::id).toList())) {
+            return Optional.of("a depot appears twice");
+        }
+        if (repeats(vehicles.stream().map(Vehicle::id).toList())) {
+            return Optional.of("a vehicle appears twice");
+        }
         List<Vehicle> active = activeVehicleList();
         if (active.size() > MAX_ACTIVE_VEHICLES) {
-            throw invalid("more active vehicles than the limit");
+            return Optional.of("more active vehicles than the limit");
         }
-        if (active.stream()
-                        .map(vehicle -> nameKey(vehicle.details()))
-                        .distinct()
-                        .count()
-                < active.size()) {
-            throw invalid("two active vehicles share a name");
+        if (repeats(active.stream().map(vehicle -> nameKey(vehicle.details())).toList())) {
+            return Optional.of("two active vehicles share a name");
         }
-        if (active.stream().map(vehicle -> vehicle.details().plate()).distinct().count() < active.size()) {
-            throw invalid("two active vehicles share a plate");
+        if (repeats(active.stream().map(vehicle -> vehicle.details().plate()).toList())) {
+            return Optional.of("two active vehicles share a plate");
         }
-        for (Vehicle vehicle : vehicles.values()) {
+        for (Vehicle vehicle : vehicles) {
             for (DepotId depot :
                     List.of(vehicle.details().startDepot(), vehicle.details().endDepot())) {
-                Depot found = depots.get(depot);
-                if (found == null) {
-                    throw invalid("a vehicle uses a depot that is not in the register");
+                Optional<Depot> found = findDepot(depot);
+                if (found.isEmpty()) {
+                    return Optional.of("a vehicle uses a depot that is not in the register");
                 }
-                if (vehicle.isActive() && !found.isActive()) {
-                    throw invalid("an active vehicle uses a retired depot");
+                if (vehicle.isActive() && !found.get().isActive()) {
+                    return Optional.of("an active vehicle uses a retired depot");
                 }
             }
         }
+        return Optional.empty();
     }
 
-    private static StoredStateInvalid invalid(String detail) {
-        return new StoredStateInvalid(FleetRegister.class, detail);
+    private static boolean repeats(List<?> values) {
+        Set<Object> seen = new HashSet<>();
+        return !values.stream().allMatch(seen::add);
     }
 
     /**
-     * The register's state, for the repository to store and for Fleet's API to read.
-     *
-     * @return every depot and vehicle, in the order they were added
+     * Checks the state a command left against every invariant at rest (ADR-126 decision 11). Every
+     * rule a caller can break was checked before the command changed anything, so a broken
+     * invariant here is a bug in the command, not a refusal, and the error rolls its transaction
+     * back.
      */
-    public FleetRegisterSnapshot snapshot() {
-        return new FleetRegisterSnapshot(
-                savedVersion().orElse(null),
-                depots.values().stream().map(Depot::snapshot).toList(),
-                vehicles.values().stream().map(Vehicle::snapshot).toList());
+    private void requireInvariants() {
+        brokenRule().ifPresent(broken -> {
+            throw new AssertionError("a fleet register command left a state that breaks: " + broken);
+        });
+    }
+
+    /**
+     * Every depot, active and retired.
+     *
+     * @return an unmodifiable copy of the list, in the order the depots were added; only this
+     *     register's commands change the depots in it
+     */
+    public List<Depot> depots() {
+        return List.copyOf(depots);
+    }
+
+    /**
+     * Every vehicle, active and retired.
+     *
+     * @return an unmodifiable copy of the list, in the order the vehicles were added; only this
+     *     register's commands change the vehicles in it
+     */
+    public List<Vehicle> vehicles() {
+        return List.copyOf(vehicles);
     }
 
     /**
@@ -143,10 +192,11 @@ public final class FleetRegister extends AggregateRoot {
      *     programming error rather than a refusal
      */
     public void addDepot(DepotId id, DepotName name, Optional<GeoPoint> location, Optional<DepotHours> hours) {
-        if (depots.containsKey(id)) {
+        if (findDepot(id).isPresent()) {
             throw new AssertionError("a new depot needs a new ID");
         }
-        depots.put(id, new Depot(new DepotSnapshot(id, name, location, hours, Optional.empty())));
+        depots.add(new Depot(id, name, location, hours));
+        requireInvariants();
     }
 
     /**
@@ -161,6 +211,7 @@ public final class FleetRegister extends AggregateRoot {
         Objects.requireNonNull(name, "name");
         Objects.requireNonNull(location, "location");
         activeDepot(id).change(name, location);
+        requireInvariants();
     }
 
     /**
@@ -173,6 +224,7 @@ public final class FleetRegister extends AggregateRoot {
     public void changeDepotHours(DepotId id, Optional<DepotHours> hours) {
         Objects.requireNonNull(hours, "hours");
         activeDepot(id).changeHours(hours);
+        requireInvariants();
     }
 
     /**
@@ -203,6 +255,7 @@ public final class FleetRegister extends AggregateRoot {
             throw new RuleViolation(new DepotInUse(id, use.plan(), use.date()));
         });
         depot.retire(now);
+        requireInvariants();
     }
 
     /**
@@ -218,12 +271,13 @@ public final class FleetRegister extends AggregateRoot {
      *     programming error rather than a refusal
      */
     public void addVehicle(VehicleId id, VehicleDetails details) {
-        if (vehicles.containsKey(id)) {
+        if (findVehicle(id).isPresent()) {
             throw new AssertionError("a new vehicle needs a new ID");
         }
         checkRoomForOneMore();
         checkDetails(details, id);
-        vehicles.put(id, new Vehicle(new VehicleSnapshot(id, details, Optional.empty())));
+        vehicles.add(new Vehicle(id, details));
+        requireInvariants();
     }
 
     /**
@@ -240,6 +294,7 @@ public final class FleetRegister extends AggregateRoot {
         Vehicle vehicle = activeVehicle(id);
         checkDetails(details, id);
         vehicle.change(details);
+        requireInvariants();
     }
 
     /**
@@ -263,6 +318,7 @@ public final class FleetRegister extends AggregateRoot {
             throw new RuleViolation(new VehicleInUse(id, use.plan(), use.date()));
         });
         vehicle.retire(now);
+        requireInvariants();
     }
 
     /**
@@ -283,6 +339,7 @@ public final class FleetRegister extends AggregateRoot {
         checkRoomForOneMore();
         checkDetails(vehicle.details(), id);
         vehicle.reactivate();
+        requireInvariants();
     }
 
     /**
@@ -293,8 +350,7 @@ public final class FleetRegister extends AggregateRoot {
      *     retired one or an ID the register doesn't hold
      */
     public Standing standingOf(VehicleId id) {
-        Vehicle vehicle = vehicles.get(id);
-        return vehicle != null && vehicle.isActive() ? Standing.ACTIVE : Standing.NOT_ACTIVE;
+        return findVehicle(id).filter(Vehicle::isActive).isPresent() ? Standing.ACTIVE : Standing.NOT_ACTIVE;
     }
 
     /**
@@ -307,7 +363,7 @@ public final class FleetRegister extends AggregateRoot {
     }
 
     private List<Vehicle> activeVehicleList() {
-        return vehicles.values().stream().filter(Vehicle::isActive).toList();
+        return vehicles.stream().filter(Vehicle::isActive).toList();
     }
 
     private void checkRoomForOneMore() {
@@ -343,20 +399,22 @@ public final class FleetRegister extends AggregateRoot {
                 .findFirst();
     }
 
+    private Optional<Depot> findDepot(DepotId id) {
+        Objects.requireNonNull(id, "id");
+        return depots.stream().filter(depot -> depot.id().equals(id)).findFirst();
+    }
+
+    private Optional<Vehicle> findVehicle(VehicleId id) {
+        Objects.requireNonNull(id, "id");
+        return vehicles.stream().filter(vehicle -> vehicle.id().equals(id)).findFirst();
+    }
+
     private Depot activeDepot(DepotId id) {
-        Depot depot = depots.get(id);
-        if (depot == null || !depot.isActive()) {
-            throw new RuleViolation(new UnknownDepot(id));
-        }
-        return depot;
+        return findDepot(id).filter(Depot::isActive).orElseThrow(() -> new RuleViolation(new UnknownDepot(id)));
     }
 
     private Vehicle vehicle(VehicleId id) {
-        Vehicle vehicle = vehicles.get(id);
-        if (vehicle == null) {
-            throw new RuleViolation(new UnknownVehicle(id));
-        }
-        return vehicle;
+        return findVehicle(id).orElseThrow(() -> new RuleViolation(new UnknownVehicle(id)));
     }
 
     private Vehicle activeVehicle(VehicleId id) {
