@@ -110,14 +110,11 @@ class JpaSolveJobRepository implements SolveJobRepository {
     /**
      * {@inheritDoc}
      *
-     * <p>Not built yet: a job keeps no date of its own, and its plan's date is in the plan's table,
-     * which comes with the mapping of {@code Plan}.
-     *
-     * @throws UnsupportedOperationException always, until then
+     * <p>A job keeps no date of its own, so it is found through its plan's date.
      */
     @Override
     public List<JobId> unfinishedOn(DeliveryDate date) {
-        throw new UnsupportedOperationException("Built in M5");
+        return jobs.unfinishedOn(date.value()).stream().map(JobId::of).toList();
     }
 
     /**

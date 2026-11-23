@@ -10,10 +10,13 @@ import static org.assertj.core.api.Assertions.catchThrowable;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.TestPersistenceConfiguration.RecordedEvents;
 import com.dispatchflow.Transactions;
+import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
 import com.dispatchflow.planning.application.port.out.solvejob.SolveJobRepository;
 import com.dispatchflow.planning.domain.PlanningError.ReoptimizationAlreadyRunning;
 import com.dispatchflow.planning.domain.PlanningError.SolveQueueFull;
 import com.dispatchflow.planning.domain.plan.LaneCapacity;
+import com.dispatchflow.planning.domain.plan.Plan;
+import com.dispatchflow.planning.domain.plan.PlansOnDate;
 import com.dispatchflow.planning.domain.plan.QueuedJobs;
 import com.dispatchflow.planning.domain.plan.SolveJob;
 import com.dispatchflow.planning.domain.plan.SolveJobDescription;
@@ -23,6 +26,7 @@ import com.dispatchflow.planning.domain.solution.ValidatedSolution;
 import com.dispatchflow.planning.events.Lane;
 import com.dispatchflow.planning.events.SolveFailureReason;
 import com.dispatchflow.planning.events.SolveSucceeded;
+import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.DomainAssertions;
 import com.dispatchflow.shared.EventId;
 import com.dispatchflow.shared.JobId;
@@ -33,6 +37,7 @@ import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -56,12 +61,14 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * {@link SolveJobRepository} against a real PostgreSQL (ADR-126, ADR-127): what a job stores and loads
  * as in every phase, the version, the lane's lock and queue, the claim that skips a locked job, the
- * one running re-optimization per plan (BR-38), and the stored states the load check refuses.
+ * one running re-optimization per plan (BR-38), the unfinished jobs of a date's plans (BR-128), and
+ * the stored states the load check refuses.
  *
  * <p>The database is shared and never cleaned, so test {@code n} keys its own jobs and plans. The
  * queue's reads see every job of a lane, so the tests of their contents run in a transaction that
  * first ends every other unfinished job and is rolled back; the claim test, which needs two
- * transactions that commit, uses requests older than any other test's.
+ * transactions that commit, uses requests older than any other test's. The tests of a date's jobs
+ * store their plans, through the plan's repository, on dates no other test uses.
  */
 @IntegrationTest
 class SolveJobPersistenceIT {
@@ -75,6 +82,9 @@ class SolveJobPersistenceIT {
 
     @Autowired
     private SolveJobRepository repository;
+
+    @Autowired
+    private PlanRepository plans;
 
     @Autowired
     private Transactions transactions;
@@ -413,6 +423,52 @@ class SolveJobPersistenceIT {
 
             assertThat(repository.unfinished()).isEmpty();
         });
+    }
+
+    // --- the unfinished jobs of a date's plans (BR-128)
+
+    @Test
+    void GivenJobsOfPlansOnTwoDates_WhenADatesUnfinishedAreRead_ThenTheyAreThatDatesQueuedAndStartedOnesOldestFirst() {
+        DeliveryDate day = DeliveryDate.of(LocalDate.of(2040, 3, 1));
+        DeliveryDate nextDay = DeliveryDate.of(day.value().plusDays(1));
+        PlanId cancelled = plan(72);
+        PlanId open = plan(73);
+        PlanId later = plan(74);
+        transactions.inTransaction(() -> plans.add(opened(cancelled, day)));
+        jdbc.sql("UPDATE planning.plan SET status = 'CANCELLED', revision = 1, cancelled_at = opened_at WHERE id = ?")
+                .param(cancelled.value())
+                .update();
+        transactions.inTransaction(() -> {
+            plans.add(opened(open, day));
+            plans.add(opened(later, nextDay));
+        });
+        transactions.inTransaction(() -> {
+            repository.add(QueuedJobs.queue(job(72), open, Lane.DAILY, REQUESTED.plusSeconds(2)));
+            repository.add(Scenario.REOPTIMIZATION_RUNNING.build(job(73), cancelled));
+            repository.add(Scenario.DAILY_SUCCEEDED.build(job(74), open));
+            repository.add(QueuedJobs.queue(job(75), later, Lane.DAILY, REQUESTED.minusSeconds(1)));
+        });
+
+        assertThat(transactions.inTransaction(() -> repository.unfinishedOn(day)))
+                .containsExactly(job(73), job(72));
+    }
+
+    @Test
+    void GivenADateWhosePlansHaveNoUnfinishedJob_WhenItsUnfinishedAreRead_ThenThereAreNone() {
+        DeliveryDate day = DeliveryDate.of(LocalDate.of(2040, 3, 5));
+        PlanId ended = plan(76);
+        transactions.inTransaction(() -> plans.add(opened(ended, day)));
+        transactions.inTransaction(() -> repository.add(Scenario.DAILY_REJECTED.build(job(76), ended)));
+
+        assertThat(transactions.inTransaction(() -> repository.unfinishedOn(day)))
+                .isEmpty();
+        assertThat(transactions.inTransaction(() ->
+                        repository.unfinishedOn(DeliveryDate.of(day.value().plusDays(1)))))
+                .isEmpty();
+    }
+
+    private static Plan opened(PlanId plan, DeliveryDate date) {
+        return Plan.open(plan, date, PlansOnDate.none(), date.value(), REQUESTED);
     }
 
     // --- the load check (ADR-127 decision 1), one case for each damaged state the domain tests used to build

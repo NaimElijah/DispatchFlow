@@ -1,6 +1,7 @@
 package com.dispatchflow.planning.adapter.out.persistence;
 
 import com.dispatchflow.planning.domain.plan.SolveJob;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -131,4 +132,19 @@ interface SolveJobs extends Repository<SolveJob, UUID> {
             ORDER BY requested_at, id
             """, nativeQuery = true)
     List<UUID> unfinished();
+
+    /**
+     * Every job queued, building its matrix or running, in any lane, of a plan of a date. A job keeps
+     * no date of its own, so the date is its plan's, in Planning's own plan table.
+     *
+     * @param date the plans' delivery date
+     * @return the jobs' UUIDs, the oldest request first
+     */
+    @Query(value = """
+            SELECT j.id FROM planning.solve_job j
+            JOIN planning.plan p ON p.id = j.plan_id
+            WHERE p.delivery_date = :date AND j.phase IN ('QUEUED', 'BUILDING_MATRIX', 'RUNNING')
+            ORDER BY j.requested_at, j.id
+            """, nativeQuery = true)
+    List<UUID> unfinishedOn(LocalDate date);
 }

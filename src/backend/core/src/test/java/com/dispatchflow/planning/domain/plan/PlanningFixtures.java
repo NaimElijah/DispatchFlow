@@ -2,6 +2,7 @@ package com.dispatchflow.planning.domain.plan;
 
 import static com.dispatchflow.shared.AsSaved.asSaved;
 
+import com.dispatchflow.planning.domain.PinTarget;
 import com.dispatchflow.planning.domain.RevisionNo;
 import com.dispatchflow.planning.domain.RuleCode;
 import com.dispatchflow.planning.domain.SolveLimit;
@@ -10,6 +11,7 @@ import com.dispatchflow.planning.domain.basis.ChangesSinceBasis;
 import com.dispatchflow.planning.domain.basis.VehicleStanding;
 import com.dispatchflow.planning.domain.drop.DropReason;
 import com.dispatchflow.planning.domain.drop.DroppedOrder;
+import com.dispatchflow.planning.domain.reconciliation.LateFact;
 import com.dispatchflow.planning.domain.solution.Evaluation;
 import com.dispatchflow.planning.domain.solution.ObjectiveTerms;
 import com.dispatchflow.planning.domain.solution.ReoptimizationResult;
@@ -28,6 +30,7 @@ import com.dispatchflow.planning.domain.solution.VehicleWithdrawal;
 import com.dispatchflow.planning.domain.solution.Violation;
 import com.dispatchflow.planning.events.Lane;
 import com.dispatchflow.planning.events.SolveFailureReason;
+import com.dispatchflow.planning.events.WithdrawalCause;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.AsSaved;
 import com.dispatchflow.shared.Attempt;
@@ -54,13 +57,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
 /**
  * Test data for Planning: fixed IDs, times and the one builder per aggregate ({@link #aPlan()},
  * {@link #aJob()}). Every state is reached through the aggregates' own commands, then saved: a plan
- * is reloaded through {@code restore}, and a job is saved in memory by {@link AsSaved#asSaved}, so
- * each test starts with no pending events.
+ * is reloaded through {@code restore}, unless its builder is given other {@link Saves}, and a job is
+ * saved in memory by {@link AsSaved#asSaved}, so each test starts with no pending events.
  */
 public final class PlanningFixtures {
 
@@ -82,28 +86,47 @@ public final class PlanningFixtures {
     public static final VehicleId V2 = VehicleId.of(uuid(102));
     public static final VehicleId V3 = VehicleId.of(uuid(103));
     public static final AccountId D1 = AccountId.of(uuid(201));
-    static final AccountId D2 = AccountId.of(uuid(202));
+    public static final AccountId D2 = AccountId.of(uuid(202));
     static final AccountId D3 = AccountId.of(uuid(203));
     public static final OrderId O1 = OrderId.of(uuid(301));
-    static final OrderId O2 = OrderId.of(uuid(302));
-    static final OrderId O3 = OrderId.of(uuid(303));
+    public static final OrderId O2 = OrderId.of(uuid(302));
+    public static final OrderId O3 = OrderId.of(uuid(303));
     static final OrderId O4 = OrderId.of(uuid(304));
     static final OrderId O5 = OrderId.of(uuid(305));
     static final OrderId O6 = OrderId.of(uuid(306));
     static final Attempt FIRST = Attempt.FIRST;
 
+    private static final long KEY_PREFIX = 0x0190a5e27c3b7defL;
     private static final long FRESH_BASE = 10_000;
     private static final int FRESH_COUNT = 215;
+
+    /** Keeps a plan between two of its builder's commands as a save and a reload through {@code restore}. */
+    private static final Saves IN_MEMORY = new Saves() {
+        @Override
+        public Plan added(Plan opened) {
+            return reload(opened);
+        }
+
+        @Override
+        public Plan changed(Plan plan, Consumer<Plan> command) {
+            command.accept(plan);
+            return reload(plan);
+        }
+    };
 
     private PlanningFixtures() {}
 
     public static UUID uuid(long n) {
-        return new UUID(0x0190a5e27c3b7defL, n);
+        return new UUID(KEY_PREFIX, n);
     }
 
     static FreshIds freshIds(long from) {
+        return freshIds(KEY_PREFIX, from);
+    }
+
+    private static FreshIds freshIds(long prefix, long from) {
         return FreshIds.of(IntStream.range(0, FRESH_COUNT)
-                .mapToObj(i -> uuid(FRESH_BASE + from + i))
+                .mapToObj(i -> new UUID(prefix, FRESH_BASE + from + i))
                 .toList());
     }
 
@@ -184,11 +207,11 @@ public final class PlanningFixtures {
                 .orElseThrow();
     }
 
-    static RouteId routeId(Plan plan, VehicleId vehicle) {
+    public static RouteId routeId(Plan plan, VehicleId vehicle) {
         return routeOf(plan, vehicle).id();
     }
 
-    static StopId stopId(Plan plan, OrderId order) {
+    public static StopId stopId(Plan plan, OrderId order) {
         return plan.snapshot().routes().stream()
                 .flatMap(route -> route.stops().stream())
                 .filter(stop -> stop.order().equals(order))
@@ -203,7 +226,7 @@ public final class PlanningFixtures {
                 .toList();
     }
 
-    static PlanBuilder aPlan() {
+    public static PlanBuilder aPlan() {
         return new PlanBuilder();
     }
 
@@ -211,7 +234,7 @@ public final class PlanningFixtures {
         return new JobBuilder();
     }
 
-    static EvaluationBuilder evaluationOf(Plan plan) {
+    public static EvaluationBuilder evaluationOf(Plan plan) {
         return new EvaluationBuilder(plan.version(), plan.layout());
     }
 
@@ -220,77 +243,234 @@ public final class PlanningFixtures {
         return new EvaluationBuilder(plan.version(), after);
     }
 
-    /** Builds a plan in a named state, through its own commands. */
-    static final class PlanBuilder {
+    /**
+     * How a builder keeps a plan between two of its commands: in memory, as a save and a reload
+     * through {@code restore}, or through a repository, as a persistence integration test does.
+     */
+    public interface Saves {
+
+        /**
+         * Saves a plan never saved.
+         *
+         * @param opened the plan as {@code Plan.open} returned it
+         * @return the plan as it loads again
+         */
+        Plan added(Plan opened);
+
+        /**
+         * Runs one command on a saved plan, and saves it.
+         *
+         * @param plan the plan as it last loaded
+         * @param command the command, given the plan to change
+         * @return the plan as it loads again
+         */
+        Plan changed(Plan plan, Consumer<Plan> command);
+    }
+
+    /**
+     * Builds a plan in a named state, through its own commands. By default it keys the plan on
+     * {@link #PLAN} and {@link #DATE} and keeps it in memory between commands.
+     */
+    public static final class PlanBuilder {
 
         private ValidatedSolution solution = standardSolution();
+        private long keys = KEY_PREFIX;
+        private DeliveryDate date = DATE;
+        private Saves saves = IN_MEMORY;
 
         PlanBuilder solvedAs(ValidatedSolution newSolution) {
             this.solution = newSolution;
             return this;
         }
 
-        Plan draft() {
-            return reload(Plan.open(PLAN, DATE, PlansOnDate.none(), TODAY, NOW));
+        /**
+         * Keys the plan, its new routes and stops and its late stop on a prefix of its own, and opens
+         * it for a date of its own, as tests that share one database need.
+         *
+         * @param keyPrefix the most significant bits of every UUID the plan's commands are given
+         * @param onDate the plan's date, which is also the date its commands take as today
+         * @return this builder
+         */
+        public PlanBuilder keyed(long keyPrefix, DeliveryDate onDate) {
+            this.keys = keyPrefix;
+            this.date = onDate;
+            return this;
         }
 
-        Plan solving() {
-            Plan plan = draft();
-            plan.requestSolve(
-                    JOB, SolverName.OR_TOOLS, SolveLimit.DEFAULT_DAILY, Seed.of(7), roomIn(Lane.DAILY), TODAY, NOW);
-            return reload(plan);
+        /**
+         * Keeps the plan between commands through the given saves.
+         *
+         * @param through how the plan is saved and loaded again
+         * @return this builder
+         */
+        public PlanBuilder savedBy(Saves through) {
+            this.saves = through;
+            return this;
         }
 
-        Plan ready() {
-            Plan plan = solving();
-            plan.applySolveResult(succeededJob(JOB, solution), freshIds(0), NOW);
-            return reload(plan);
+        public Plan draft() {
+            return saves.added(Plan.open(PlanId.of(key(1)), date, PlansOnDate.none(), today(), NOW));
+        }
+
+        public Plan solving() {
+            return saves.changed(
+                    draft(),
+                    plan -> plan.requestSolve(
+                            JOB,
+                            SolverName.OR_TOOLS,
+                            SolveLimit.DEFAULT_DAILY,
+                            Seed.of(7),
+                            roomIn(Lane.DAILY),
+                            today(),
+                            NOW));
+        }
+
+        public Plan ready() {
+            return saves.changed(
+                    solving(),
+                    plan -> plan.applySolveResult(succeededJob(plan.id(), JOB, solution), freshIds(keys, 0), NOW));
         }
 
         /** Ready, then solving again: a failed solve returns it to ready. */
-        Plan solvingAgain() {
-            Plan plan = ready();
-            plan.requestSolve(
-                    SECOND_JOB,
-                    SolverName.OR_TOOLS,
-                    SolveLimit.DEFAULT_DAILY,
-                    Seed.of(8),
-                    roomIn(Lane.DAILY),
-                    TODAY,
-                    LATER);
-            return reload(plan);
+        public Plan solvingAgain() {
+            return saves.changed(
+                    ready(),
+                    plan -> plan.requestSolve(
+                            SECOND_JOB,
+                            SolverName.OR_TOOLS,
+                            SolveLimit.DEFAULT_DAILY,
+                            Seed.of(8),
+                            roomIn(Lane.DAILY),
+                            today(),
+                            LATER));
         }
 
-        Plan published() {
-            Plan plan = ready();
-            plan.publish(checksFor(plan), DISPATCHER, TODAY, LATER);
-            return reload(plan);
+        /**
+         * Ready with a pin, a lock, an open violation, three edits to undo and one to redo: O5 is
+         * pinned to V1, O1 moved to the front of V2 with BR-03 there, V1 locked, and O4's pin undone.
+         */
+        public Plan readyEdited() {
+            Plan ready = ready();
+            RouteId v1 = routeId(ready, V1);
+            RouteId v2 = routeId(ready, V2);
+            StopId o1 = stopId(ready, O1);
+            Violation late = violation("BR-03", v2);
+            Plan pinned = saves.changed(
+                    ready,
+                    plan -> plan.pin(
+                            O5, new PinTarget.ToVehicle(V1), evaluationOf(plan).build(), today()));
+            Plan moved = saves.changed(
+                    pinned,
+                    plan -> plan.moveStop(
+                            o1,
+                            v2,
+                            0,
+                            evaluationOf(plan)
+                                    .moving(o1, v2, 0)
+                                    .withViolation(late)
+                                    .build(),
+                            today()));
+            Plan locked = saves.changed(moved, plan -> plan.lockRoute(v1, RouteLock.WHOLE_ROUTE, today()));
+            Plan pinnedTwice = saves.changed(
+                    locked,
+                    plan -> plan.pin(
+                            O4,
+                            new PinTarget.ToVehicle(V2),
+                            evaluationOf(plan).withViolation(late).build(),
+                            today()));
+            return saves.changed(
+                    pinnedTwice,
+                    plan -> plan.undo(evaluationOf(plan).withViolation(late).build(), today()));
         }
 
-        Plan completed() {
-            Plan plan = published();
-            plan.complete(TOMORROW);
-            return reload(plan);
+        public Plan published() {
+            return saves.changed(ready(), plan -> plan.publish(checksFor(plan), DISPATCHER, today(), LATER));
         }
 
-        Plan cancelled() {
-            Plan plan = published();
-            plan.cancel(StartedRoutes.none(), TODAY, LATER);
-            return reload(plan);
+        /**
+         * Published at revision 4: V1 withdrawn after O1, kept on its route (revision 2); O4 served
+         * late on V2 from the drops (revision 3); V2 handed to D3 with a confirmed broken shift
+         * (revision 4).
+         */
+        public Plan publishedWithFacts() {
+            Plan withdrawn = saves.changed(published(), plan -> {
+                SolveJob job = plan.requestReoptimization(
+                        JobId.of(key(60)),
+                        SolverName.OR_TOOLS,
+                        Seed.of(1),
+                        roomIn(Lane.REOPTIMIZATION),
+                        today(),
+                        LATER);
+                job.claim(LATER);
+                job.searchStarted(LATER);
+                ValidatedSolution reoptimized = ValidatedSolution.of(ValidationReport.of(
+                        List.of(),
+                        List.of(solved(V1, D1), solved(V2, D2, O3, O2)),
+                        List.of(dropped(O4, new DropReason.Displaced()), dropped(O5, new DropReason.MissingLocation())),
+                        List.of()));
+                ReoptimizationProposal proposal = job.succeed(
+                        ProposalId.of(key(61)),
+                        reoptimizationResult(
+                                reoptimized, new VehicleWithdrawal(V1, WithdrawalCause.VEHICLE_UNAVAILABLE)),
+                        LATER);
+                plan.accept(proposal, noChanges(V2), freshIds(keys, 700), DISPATCHER, today(), LATER);
+            });
+            RouteId v2 = routeId(withdrawn, V2);
+            Plan late = saves.changed(
+                    withdrawn,
+                    plan -> plan.reconcileLateOutcome(new LateFact(StopId.of(key(62)), O4, FIRST, v2), LATER));
+            return saves.changed(late, plan -> {
+                Evaluation breaks = evaluationOf(plan)
+                        .handingOver(v2, D3)
+                        .withViolation(violation("BR-06", v2))
+                        .returningAt(70_000)
+                        .build();
+                plan.handOver(
+                        v2, new DriverStanding(D3, true, true), Optional.of(breaks), true, DISPATCHER, today(), LATER);
+            });
         }
 
-        Plan abandoned() {
-            Plan plan = ready();
-            plan.abandon(TOMORROW);
-            return reload(plan);
+        public Plan completed() {
+            return saves.changed(published(), plan -> plan.complete(tomorrow()));
+        }
+
+        public Plan cancelled() {
+            return saves.changed(published(), plan -> plan.cancel(StartedRoutes.none(), today(), LATER));
+        }
+
+        public Plan abandoned() {
+            return saves.changed(ready(), plan -> plan.abandon(tomorrow()));
+        }
+
+        /**
+         * The date the plan's commands take as today: its own date, so none of them is refused as
+         * past.
+         *
+         * @return the date
+         */
+        public LocalDate today() {
+            return date.value();
+        }
+
+        private LocalDate tomorrow() {
+            return today().plusDays(1);
+        }
+
+        private UUID key(long n) {
+            return new UUID(keys, n);
         }
     }
 
     /** A daily job of {@link #PLAN} that succeeded with a solution. */
     static SolveJob succeededJob(JobId id, ValidatedSolution solution) {
+        return succeededJob(PLAN, id, solution);
+    }
+
+    /** A daily job of a plan that succeeded with a solution. */
+    private static SolveJob succeededJob(PlanId plan, JobId id, ValidatedSolution solution) {
         SolveJob job = SolveJob.queue(
                 id,
-                PLAN,
+                plan,
                 Lane.DAILY,
                 SolverName.OR_TOOLS,
                 SolveLimit.DEFAULT_DAILY,
@@ -397,7 +577,7 @@ public final class PlanningFixtures {
      * layout, the plan's or one its queries returned, and takes the same edit the plan will. Like the
      * validator, it gives a route with no stops no times (ADR-113).
      */
-    static final class EvaluationBuilder {
+    public static final class EvaluationBuilder {
 
         private final Version version;
         private final Map<RouteId, List<StopId>> routes = new LinkedHashMap<>();
@@ -421,44 +601,44 @@ public final class PlanningFixtures {
         }
 
         /** The route as a hand-over leaves it: judged with its new driver. */
-        EvaluationBuilder handingOver(RouteId route, AccountId driver) {
+        public EvaluationBuilder handingOver(RouteId route, AccountId driver) {
             drivers.put(route, driver);
             return this;
         }
 
-        EvaluationBuilder moving(StopId stop, RouteId to, int position) {
+        public EvaluationBuilder moving(StopId stop, RouteId to, int position) {
             removing(stop);
             routes.get(to).add(position, stop);
             return this;
         }
 
-        EvaluationBuilder removing(StopId stop) {
+        public EvaluationBuilder removing(StopId stop) {
             routes.values().forEach(stops -> stops.remove(stop));
             return this;
         }
 
-        EvaluationBuilder inserting(RouteId route, int position, StopId stop) {
+        public EvaluationBuilder inserting(RouteId route, int position, StopId stop) {
             routes.get(route).add(position, stop);
             return this;
         }
 
-        EvaluationBuilder withViolation(Violation violation) {
+        public EvaluationBuilder withViolation(Violation violation) {
             violations.add(violation);
             return this;
         }
 
-        EvaluationBuilder returningAt(long seconds) {
+        public EvaluationBuilder returningAt(long seconds) {
             this.returnsAt = seconds;
             return this;
         }
 
         /** The stop as the validator gives one it can't reach (BR-14): no times. */
-        EvaluationBuilder untimed(StopId stop) {
+        public EvaluationBuilder untimed(StopId stop) {
             untimed.add(stop);
             return this;
         }
 
-        Evaluation build() {
+        public Evaluation build() {
             List<RouteTimes> times = new ArrayList<>();
             routes.forEach((route, stops) -> {
                 List<StopTiming> timings = new ArrayList<>();
@@ -474,7 +654,7 @@ public final class PlanningFixtures {
             return Evaluation.checked(version, violations, times);
         }
 
-        Evaluation unavailable() {
+        public Evaluation unavailable() {
             return Evaluation.unavailable(version);
         }
     }

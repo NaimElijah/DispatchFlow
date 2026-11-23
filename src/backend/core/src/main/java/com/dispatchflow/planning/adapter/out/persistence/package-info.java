@@ -2,6 +2,8 @@
  * Planning's persistence adapter (ADR-126, ADR-127): the JPA implementations of the repositories of
  * {@code SolveJob}, {@code ReoptimizationProposal} and {@code PlanningSettings}, over the tables of
  * the {@code planning} schema, with the auto-applied converters of Planning's single-column values.
+ * {@code Plan}'s repository and the entities its revisions are appended as live in the {@code plan}
+ * subpackage, which these converters serve too (ADR-125).
  *
  * <p>Hibernate reads the registrations below when it scans this package, so {@code TravelBucket} and
  * {@code TravelBuckets}, whose constructors check a rule, are rebuilt through {@code
