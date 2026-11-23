@@ -2,6 +2,7 @@ package com.dispatchflow.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 
+import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.AccessTarget;
 import com.tngtech.archunit.core.domain.AccessTarget.CodeUnitAccessTarget;
 import com.tngtech.archunit.core.domain.JavaAccess;
@@ -35,6 +36,7 @@ final class DomainPurityRules {
     private static final String DOMAIN = "domain";
     private static final String EVENTS = "events";
     private static final String APPLICATION = "application";
+    private static final String ADAPTER = "adapter";
     private static final String PACKAGE_INFO = "package-info";
     private static final List<String> KERNEL_LIBRARIES = List.of("com.google.i18n.phonenumbers");
     private static final List<String> DOMAIN_LIBRARIES =
@@ -192,8 +194,7 @@ final class DomainPurityRules {
      */
     static ArchRule onlyAllowedDependencies(String root, String moduleAnnotations) {
         return classes()
-                .that()
-                .resideInAnyPackage(pureLayers(root))
+                .that(inPureLayers(root))
                 .should(dependOnlyOnAllowedPackages(root, moduleAnnotations))
                 .because("DL §3.9 rule 1 and §7.3: the kernel imports only the JDK, JSpecify and libphonenumber;"
                         + " a domain also its own domain and events, the kernel and JTS; events only the JDK,"
@@ -204,8 +205,7 @@ final class DomainPurityRules {
     /** Rule 2: no clock. */
     static ArchRule noSystemClock(String root) {
         return classes()
-                .that()
-                .resideInAnyPackage(pureLayers(root))
+                .that(inPureLayers(root))
                 .should(notAccess("read or wait on the system clock", DomainPurityRules::readsTheClock)
                         .and(notDependOn("a legacy date type or a clock", DomainPurityRules::isAClock)))
                 .because("DL §3.9 rule 2: now and today are parameters (NFR-13, NFR-175)");
@@ -214,8 +214,7 @@ final class DomainPurityRules {
     /** Rule 3: no ID generation. */
     static ArchRule noIdGeneration(String root) {
         return classes()
-                .that()
-                .resideInAnyPackage(pureLayers(root))
+                .that(inPureLayers(root))
                 .should(notAccess("generate a random UUID", DomainPurityRules::generatesAnId))
                 .because("DL §3.9 rule 3: factories take the new ID from IdGenerator");
     }
@@ -223,8 +222,7 @@ final class DomainPurityRules {
     /** Rule 4: no randomness. */
     static ArchRule noRandomness(String root) {
         return classes()
-                .that()
-                .resideInAnyPackage(pureLayers(root))
+                .that(inPureLayers(root))
                 .should(notDependOn("a source of randomness", DomainPurityRules::isRandomness)
                         .and(notAccess("call a random method", DomainPurityRules::callsRandomness)))
                 .because("DL §3.9 rule 4: the domain uses no randomness");
@@ -233,8 +231,7 @@ final class DomainPurityRules {
     /** Rule 4: no I/O. */
     static ArchRule noIo(String root) {
         return classes()
-                .that()
-                .resideInAnyPackage(pureLayers(root))
+                .that(inPureLayers(root))
                 .should(notDependOn("an I/O type", DomainPurityRules::isIo)
                         .and(notAccess(
                                 "use the process's streams, environment, system properties or default locale",
@@ -255,8 +252,7 @@ final class DomainPurityRules {
     /** Rule 4: no logging. */
     static ArchRule noLogging(String root) {
         return classes()
-                .that()
-                .resideInAnyPackage(pureLayers(root))
+                .that(inPureLayers(root))
                 .should(notDependOn("a logging type", DomainPurityRules::isLogging))
                 .because("DL §3.9 rule 4: the domain does no logging");
     }
@@ -264,8 +260,7 @@ final class DomainPurityRules {
     /** Rule 5: no generic exceptions. */
     static ArchRule noGenericExceptions(String root) {
         return classes()
-                .that()
-                .resideInAnyPackage(pureLayers(root))
+                .that(inPureLayers(root))
                 .should(notAccess(
                         "create an IllegalArgumentException or IllegalStateException",
                         DomainPurityRules::createsAGenericException))
@@ -301,6 +296,17 @@ final class DomainPurityRules {
     /** The kernel and every domain and events package under a root, with their subpackages. */
     static String[] pureLayers(String root) {
         return new String[] {root + "." + KERNEL + "..", root + ".*." + DOMAIN + "..", root + ".*." + EVENTS + ".."};
+    }
+
+    /**
+     * The classes the purity rules hold: those in {@link #pureLayers}, apart from {@code
+     * shared.adapter}, the persistence adapter every module shares, which ADR-126 puts beside the
+     * kernel without making it part of it.
+     */
+    static DescribedPredicate<JavaClass> inPureLayers(String root) {
+        return JavaClass.Predicates.resideInAnyPackage(pureLayers(root))
+                .and(DescribedPredicate.not(
+                        JavaClass.Predicates.resideInAPackage(root + "." + KERNEL + "." + ADAPTER + "..")));
     }
 
     private static ArchCondition<JavaClass> dependOnlyOnAllowedPackages(String root, String moduleAnnotations) {

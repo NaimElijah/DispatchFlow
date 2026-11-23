@@ -1,6 +1,7 @@
 package com.dispatchflow.shared;
 
 import com.dispatchflow.shared.SharedKernelError.InvalidTimeWindow;
+import jakarta.persistence.Embeddable;
 import java.time.LocalTime;
 import java.util.Objects;
 
@@ -9,9 +10,13 @@ import java.util.Objects;
  * Israel (BR-35). Whether the window lies on its order's date is the order's rule, which compares
  * {@link #date()}. A window that crosses midnight would need FR-114, which is not built.
  *
+ * <p>An entity embeds it, stored in two columns, its start and its end; an adapter's instantiator
+ * rebuilds it (ADR-126).
+ *
  * @param start the first moment of the window
  * @param end the moment the window closes
  */
+@Embeddable
 public record TimeWindow(IsraelDateTime start, IsraelDateTime end) {
 
     /**

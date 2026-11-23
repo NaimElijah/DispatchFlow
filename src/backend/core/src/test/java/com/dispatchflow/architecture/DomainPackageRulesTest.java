@@ -164,6 +164,8 @@ class DomainPackageRulesTest {
                                 root + ".shared.application",
                                 root + ".shared.id",
                                 root + ".shared.application.port",
+                                root + ".shared.adapter.out.persistence",
+                                root + ".shared.adapter.out.persistence.id",
                                 root + ".alpha.events",
                                 root + ".alpha.events.kind",
                                 root + ".alpha.application.api",

@@ -14,6 +14,8 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   - `shared/application/`, the application ports every module uses: `Clock`, `IdGenerator`,
     `ProcessedEvents`, `NotFound` and `StaleVersion` ([ADR-120]), a package of its own under the
     kernel's purity rules: no Spring, but `@NamedInterface` on its `package-info` ([ADR-121]).
+  - `shared/adapter/out/persistence/`, the kernel's JPA converters and instantiators: an adapter
+    beside the kernel, outside its purity rules, that no application class imports ([ADR-126]).
   ```text
   <module>/domain/, events/
   <module>/application/{api,spi,port/out,service}      bodies throw (ADR-119)

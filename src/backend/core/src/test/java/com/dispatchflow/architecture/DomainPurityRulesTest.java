@@ -121,6 +121,7 @@ import com.dispatchflow.archfixture.shared.KernelDependsOnAModule;
 import com.dispatchflow.archfixture.shared.KernelDependsOnJts;
 import com.dispatchflow.archfixture.shared.KernelMappedSuperclass;
 import com.dispatchflow.archfixture.shared.KernelValue;
+import com.dispatchflow.archfixture.shared.adapter.out.persistence.KernelAdapterUsesJpa;
 import com.dispatchflow.archfixture.shared.application.SharedPortCarriesAJpaAnnotation;
 import com.dispatchflow.archfixture.shared.application.SharedPortIsTransactional;
 import com.tngtech.archunit.core.domain.JavaClass;
@@ -190,6 +191,16 @@ class DomainPurityRulesTest {
             })
     void GivenOnlyAllowedDependencies_WhenRule1Evaluates_ThenNothingIsFlagged(Class<?> fixture) {
         assertThat(flags(rule1(), fixture)).isFalse();
+    }
+
+    @Test
+    void GivenTheSharedAdapterBesideTheKernel_WhenThePurityRulesEvaluate_ThenNothingIsFlagged() {
+        assertThat(flags(rule1(), KernelAdapterUsesJpa.class, KernelValue.class))
+                .isFalse();
+        assertThat(flags(DomainPurityRules.noIo(FIXTURE_ROOT), KernelAdapterUsesJpa.class, KernelValue.class))
+                .isFalse();
+        assertThat(flags(DomainPurityRules.noLogging(FIXTURE_ROOT), KernelAdapterUsesJpa.class, KernelValue.class))
+                .isFalse();
     }
 
     @Test

@@ -52,6 +52,7 @@ import com.dispatchflow.archfixture.zeta.upper.application.service.DependsOnADom
 import com.dispatchflow.archfixture.zeta.upper.application.service.DependsOnAnotherModulesDomain;
 import com.dispatchflow.archfixture.zeta.upper.application.service.DependsOnAnotherModulesService;
 import com.dispatchflow.archfixture.zeta.upper.application.service.DependsOnItsOwnAdapter;
+import com.dispatchflow.archfixture.zeta.upper.application.service.DependsOnTheKernelsAdapter;
 import com.dispatchflow.archfixture.zeta.upper.application.service.LowerUsageService;
 import com.dispatchflow.archfixture.zeta.upper.application.service.ServiceRootUsingASubpackage;
 import com.dispatchflow.archfixture.zeta.upper.application.service.UpperUseCase;
@@ -186,6 +187,7 @@ class ApplicationRulesTest {
                         DependsOnAnotherModulesDomain.class.getName(),
                         DependsOnAnotherModulesService.class.getName(),
                         DependsOnItsOwnAdapter.class.getName(),
+                        DependsOnTheKernelsAdapter.class.getName(),
                         DependsOnADomainLibrary.class.getName(),
                         AnnotatedAsASpringComponent.class.getName(),
                         AnnotatedAsANamedInterface.class.getName(),
@@ -243,6 +245,12 @@ class ApplicationRulesTest {
     @Test
     void GivenAUseCaseUsingEverythingAllowedAndTransactional_WhenRule1Evaluates_ThenNothingIsFlagged() {
         assertThat(violators(rule1(), FixtureClasses.only(UpperUseCase.class))).isEmpty();
+    }
+
+    @Test
+    void GivenAUseCaseThatDependsOnTheKernelsSharedAdapter_WhenRule1Evaluates_ThenItIsFlagged() {
+        assertThat(violators(rule1(), FixtureClasses.only(DependsOnTheKernelsAdapter.class)))
+                .containsExactly(DependsOnTheKernelsAdapter.class.getName());
     }
 
     @Test
