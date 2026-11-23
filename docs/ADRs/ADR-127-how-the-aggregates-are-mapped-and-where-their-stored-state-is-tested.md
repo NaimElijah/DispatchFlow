@@ -21,9 +21,11 @@ cannot follow:
   such as a `DroppedOrder`'s `DropReason` or an `Edit` in `Plan`'s journal. Some value lists hold
   value lists, such as a proposal's solved routes and their stops. An `@Embeddable` cannot hold an
   `Optional`, a sealed type or a collection.
-- **Records in the application layer.** ADR-126 makes positions and SMS replies `@Immutable` entities.
-  But `KeptPosition` and `InboundReply` are records in `application.port.out`, and ApplicationRules
-  rule 1 lets an application package import no persistence annotation.
+- **The DL §3.2 records.** ADR-126 makes positions, audit records, SMS replies and opt-outs
+  `@Immutable` entities. But `KeptPosition` and `InboundReply` are records in
+  `application.port.out`, and ApplicationRules rule 1 lets an application package import no
+  persistence annotation. `AuditRecord` is a Java record, which Hibernate cannot map as an entity.
+  And none of the four has an ID, while an entity needs one, and `@GeneratedValue` is forbidden.
 - **The import preview's errors.** Each preview row keeps its `DomainError`s, which can be records
   from any module's error type: 28 in Orders and 12 in the kernel alone, each with its own
   components. ADR-126's relational rules have no table for "any error record".
@@ -67,10 +69,11 @@ followed.
    - A singleton keys on a constant UUID that its class documents.
    - `DayRoster`, found by its date, takes a UUID from `IdGenerator`, beside a date its table keeps
      unique.
-6. **The two records in `application.port.out`,** `KeptPosition` and `InboundReply`, are stored
-   through `@Immutable` entity classes in their module's persistence adapter. The port records stay
-   free of annotations. The domain records `AuditRecord` and `OptOutRecord` carry their own mapping,
-   as ADR-126 decides.
+6. **The four DL §3.2 records are stored through `@Immutable` entity classes in their module's
+   persistence adapter:** `KeptPosition`, `InboundReply`, `AuditRecord` and `OptOutRecord`. The
+   record types stay free of annotations. A row's key is the record's natural key where it has one,
+   such as an SMS reply's provider ID, and otherwise a random UUID that the adapter assigns and
+   nothing outside the table sees.
 7. **An import preview row's errors are stored as JSON text,** through a converter in Orders'
    persistence adapter that uses Jackson, which Spring Boot already brings. Its type validator admits
    only records that implement `DomainError` and live under `com.dispatchflow`, so a stored row cannot
@@ -88,9 +91,9 @@ followed.
 
 **What this amends.**
 
-- **[ADR-126]:** `DayRoster`'s entries are values, not entities (3). Positions and SMS replies are
-  `@Immutable` entities in their adapters, not in the classes the ports take (6). A preview row's
-  errors are one JSON column (7).
+- **[ADR-126]:** `DayRoster`'s entries are values, not entities (3). The records are `@Immutable`
+  entities in their adapters, not the record types themselves (6). A preview row's errors are one
+  JSON column (7).
 - **[ADR-041]:** a migration grants from the change that adds the roles, not before (8).
 
 ## Consequences
@@ -132,6 +135,9 @@ followed.
 - **Store the preview's errors relationally,** as a code and a list of parameters. Rejected: each
   error record has its own components, so rebuilding it needs the same per-type decoding as JSON,
   with more tables.
+- **Give each record an ID in the domain and map the record type itself.** Rejected: two of the
+  types are Java records and two live in the application layer, so they can't carry the mapping,
+  and an ID only the table uses would change every caller that builds one.
 - **Create the roles in `V1`.** Rejected: a role is cluster-wide, so creating it needs a privilege
   the migration's owner should not hold, and the `migrate` step that ADR-041 gives the owner
   credential to is not built.
