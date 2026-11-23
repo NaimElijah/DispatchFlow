@@ -1,5 +1,6 @@
 package com.dispatchflow.shared.application;
 
+import com.dispatchflow.shared.Version;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -33,6 +34,26 @@ public final class StaleVersion extends RuntimeException {
                 + " changed since it was read");
         this.kind = kind;
         this.id = id;
+    }
+
+    /**
+     * Refuses a change made against a version that is no longer current. A use case calls it
+     * straight after loading, with the version the caller last read: from {@code If-Match}, or from
+     * the body when a proposal is accepted (ADR-121, P31). JPA's {@code @Version} only guards the
+     * time between this transaction's load and its commit, so this check covers the time before.
+     *
+     * @param kind what is being changed, such as {@code Plan}
+     * @param id the changed record's ID
+     * @param loaded the version the use case just loaded
+     * @param expected the version the caller last read
+     * @throws StaleVersion when the two differ
+     */
+    public static void requireCurrent(String kind, UUID id, Version loaded, Version expected) {
+        Objects.requireNonNull(loaded, "loaded");
+        Objects.requireNonNull(expected, "expected");
+        if (!loaded.equals(expected)) {
+            throw new StaleVersion(kind, id);
+        }
     }
 
     /**

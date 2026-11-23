@@ -1,0 +1,37 @@
+package com.dispatchflow.shared.application;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.dispatchflow.shared.Version;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
+
+class StaleVersionTest {
+
+    private static final UUID ID = UUID.fromString("0190a5e2-7c3b-7def-8a12-3456789abcde");
+
+    @Test
+    void GivenTheVersionTheCallerRead_WhenItIsTheLoadedOne_ThenTheChangeGoesOn() {
+        assertThatCode(() -> StaleVersion.requireCurrent("Plan", ID, Version.of(4), Version.of(4)))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void GivenAnOlderVersion_WhenCheckedAgainstTheLoadedOne_ThenStaleVersionNamesTheKindAndTheId() {
+        assertThatThrownBy(() -> StaleVersion.requireCurrent("Plan", ID, Version.of(5), Version.of(4)))
+                .isInstanceOfSatisfying(StaleVersion.class, stale -> {
+                    assertThat(stale.kind()).isEqualTo("Plan");
+                    assertThat(stale.id()).isEqualTo(ID);
+                    assertThat(stale.code()).isEqualTo(StaleVersion.CODE);
+                })
+                .hasMessage("Plan " + ID + " changed since it was read");
+    }
+
+    @Test
+    void GivenANewerVersionThanTheLoadedOne_WhenChecked_ThenStaleVersion() {
+        assertThatThrownBy(() -> StaleVersion.requireCurrent("Plan", ID, Version.of(0), Version.of(1)))
+                .isInstanceOf(StaleVersion.class);
+    }
+}
