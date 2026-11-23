@@ -26,7 +26,6 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.dropped;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.evaluationOf;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.freshIds;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.noChanges;
-import static com.dispatchflow.planning.domain.plan.PlanningFixtures.reload;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.reoptimizationResult;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.routeId;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.routeOf;
@@ -36,6 +35,7 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.stopId;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.succeededJob;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.uuid;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.violation;
+import static com.dispatchflow.shared.AsSaved.asSaved;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -55,7 +55,6 @@ import com.dispatchflow.planning.events.WithdrawalCause;
 import com.dispatchflow.shared.FreshIds;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
-import com.dispatchflow.shared.StoredStateInvalid;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -84,7 +83,7 @@ class PlanOptimizerOutputsTest {
         RouteId v2 = routeId(plan, V2);
 
         plan.moveStop(o3, v1, 2, evaluationOf(plan, plan.afterMove(o3, v1, 2)).build(), TODAY);
-        Plan emptied = reload(plan);
+        Plan emptied = asSaved(plan);
 
         assertThat(routeOf(emptied, V2).stops()).isEmpty();
         assertThat(routeOf(emptied, V2).plan()).isEmpty();
@@ -108,7 +107,7 @@ class PlanOptimizerOutputsTest {
 
         assertThat(routeOf(plan, V2).stops().get(0).plan()).isPresent();
         assertThat(routeOf(plan, V2).stops().get(1).plan()).isEmpty();
-        assertThat(routeOf(reload(plan), V2).stops().get(1).plan()).isEmpty();
+        assertThat(routeOf(plan, V2).stops().get(1).plan()).isEmpty();
     }
 
     @Test
@@ -123,7 +122,7 @@ class PlanOptimizerOutputsTest {
 
         plan.moveStop(o1, v2, 1, evaluation, TODAY);
 
-        SolveTime returnsAt = routeOf(reload(plan), V2).plan().orElseThrow().returnsAt();
+        SolveTime returnsAt = routeOf(plan, V2).plan().orElseThrow().returnsAt();
         assertThat(returnsAt).isEqualTo(at(88_200));
         assertThat(returnsAt.pastTheDay()).isTrue();
     }
@@ -139,7 +138,7 @@ class PlanOptimizerOutputsTest {
 
         plan.handOver(v1, D3_STANDS, Optional.of(breaks), true, DISPATCHER, TODAY, LATER);
 
-        assertThat(routeOf(reload(plan), V1).confirmedReturn()).contains(at(88_200));
+        assertThat(routeOf(plan, V1).confirmedReturn()).contains(at(88_200));
     }
 
     @Test
@@ -152,7 +151,7 @@ class PlanOptimizerOutputsTest {
 
         Plan plan = aPlan().solvedAs(solution).ready();
 
-        assertThat(plan.snapshot().dropped()).contains(dropped(O4, lateShift));
+        assertThat(plan.dropped()).contains(dropped(O4, lateShift));
     }
 
     @Test
@@ -181,7 +180,7 @@ class PlanOptimizerOutputsTest {
     void GivenADailyResultThatLeftAVehicleOut_WhenApplied_ThenThePlanNamesItWithItsCause() {
         Plan plan = aPlan().solvedAs(standardSolutionWithout(V3_HAS_NO_DEPOT)).ready();
 
-        assertThat(plan.snapshot().excluded()).isEqualTo(V3_HAS_NO_DEPOT);
+        assertThat(plan.excluded()).isEqualTo(V3_HAS_NO_DEPOT);
     }
 
     @Test
@@ -196,31 +195,7 @@ class PlanOptimizerOutputsTest {
         plan.accept(proposal, noChanges(V1, V2), freshIds(700), DISPATCHER, TODAY, LATER);
 
         assertThat(proposal.excluded()).isEqualTo(excluded);
-        assertThat(reload(plan).snapshot().excluded()).isEqualTo(excluded);
-    }
-
-    @Test
-    void GivenADraftThatNamesAnExcludedVehicle_WhenRestored_ThenStoredStateInvalid() {
-        PlanSnapshot draft = aPlan().draft().snapshot();
-        PlanSnapshot broken = new PlanSnapshot(
-                draft.id(),
-                draft.version(),
-                draft.date(),
-                draft.openedAt(),
-                draft.status(),
-                draft.applied(),
-                draft.routes(),
-                draft.dropped(),
-                V3_HAS_NO_DEPOT,
-                draft.pins(),
-                draft.violations(),
-                draft.undo(),
-                draft.redo());
-
-        assertThatThrownBy(() -> Plan.restore(broken))
-                .isInstanceOfSatisfying(
-                        StoredStateInvalid.class,
-                        invalid -> assertThat(invalid.detail()).contains("a draft plan has no routes"));
+        assertThat(plan.excluded()).isEqualTo(excluded);
     }
 
     // ---- what a revision tells Reporting -----------------------------------------------------------
@@ -273,11 +248,11 @@ class PlanOptimizerOutputsTest {
     @Test
     void GivenOneNewIdTooFew_WhenANewPlansResultIsApplied_ThenTheSupplyRunsOutAndNothingChanges() {
         Plan plan = aPlan().solving();
-        PlanSnapshot before = plan.snapshot();
+        PlanDescription before = PlanDescription.of(plan);
 
         assertThatThrownBy(() -> plan.applySolveResult(succeededJob(JOB, standardSolution()), ids(4), NOW))
                 .isInstanceOf(NoSuchElementException.class);
-        assertThat(plan.snapshot()).isEqualTo(before);
+        assertThat(PlanDescription.of(plan)).isEqualTo(before);
     }
 
     @Test

@@ -12,6 +12,7 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.evaluationO
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.routeId;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.solved;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.stopId;
+import static com.dispatchflow.planning.domain.plan.PlanningFixtures.violation;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
@@ -26,7 +27,7 @@ import com.dispatchflow.planning.domain.SolveLimit;
 import com.dispatchflow.planning.domain.plan.Edit;
 import com.dispatchflow.planning.domain.plan.LaneCapacity;
 import com.dispatchflow.planning.domain.plan.Plan;
-import com.dispatchflow.planning.domain.plan.PlanSnapshot;
+import com.dispatchflow.planning.domain.plan.PlanDescription;
 import com.dispatchflow.planning.domain.plan.PlanningFixtures;
 import com.dispatchflow.planning.domain.plan.PlanningFixtures.PlanBuilder;
 import com.dispatchflow.planning.domain.plan.PlansOnDate;
@@ -132,8 +133,8 @@ class PlanPersistenceIT {
     // --- round trips (ADR-127 decision 1)
 
     /**
-     * The ten states PlanRestoreTest round-trips, and the two whose last edit the damage cases need,
-     * each reached through the builder's commands.
+     * The ten states the domain's restore tests round-tripped, the two whose last edit the damage
+     * cases need, and a redo after a save, each reached through the builder's commands.
      */
     enum State {
         DRAFT(PlanBuilder::draft),
@@ -157,7 +158,15 @@ class PlanPersistenceIT {
         LAST_TOOK_OFF_O3((KeyedBuilder keyed) -> keyed.edited(keyed.builder().ready(), (plan, today) -> {
             StopId o3 = stopId(plan, O3);
             plan.takeOffRoute(o3, evaluationOf(plan).removing(o3).build(), today);
-        }));
+        })),
+        /** The edited ready plan, saved, then its undone pin redone. */
+        REDONE_AFTER_A_SAVE((KeyedBuilder keyed) -> keyed.edited(
+                keyed.builder().readyEdited(),
+                (plan, today) -> plan.redo(
+                        evaluationOf(plan)
+                                .withViolation(violation("BR-03", routeId(plan, V2)))
+                                .build(),
+                        today)));
 
         private final Function<KeyedBuilder, Plan> build;
 
@@ -182,8 +191,7 @@ class PlanPersistenceIT {
 
         Plan loaded = state.build(builder);
 
-        // Read outside the transaction, so a collection the load left unfetched fails here.
-        assertThat(loaded.snapshot()).isEqualTo(builder.saves().lastSaved());
+        builder.saves().hasStored(loaded);
         assertThat(loaded.pendingRevision()).isEmpty();
         assertThat(loaded.pendingEvents()).isEmpty();
     }
@@ -207,7 +215,7 @@ class PlanPersistenceIT {
             plan.moveStop(o1, v2, 0, evaluationOf(plan).moving(o1, v2, 0).build(), today);
         });
 
-        assertThat(moved.snapshot()).isEqualTo(builder.saves().lastSaved());
+        builder.saves().hasStored(moved);
         assertThat(stopsOn(moved, V2)).containsExactly(o1, stopId(ready, O3));
         assertThat(storedStops(moved.id()))
                 .containsExactlyInAnyOrder(stopId(ready, O1), stopId(ready, O2), stopId(ready, O3));
@@ -224,7 +232,7 @@ class PlanPersistenceIT {
             plan.moveStop(o3, v1, 0, evaluationOf(plan).moving(o3, v1, 0).build(), today);
         });
 
-        assertThat(moved.snapshot()).isEqualTo(builder.saves().lastSaved());
+        builder.saves().hasStored(moved);
         assertThat(stopsOn(moved, V1)).containsExactly(o3, stopId(ready, O1), stopId(ready, O2));
         assertThat(stopsOn(moved, V2)).isEmpty();
         assertThat(storedStops(moved.id()))
@@ -238,7 +246,7 @@ class PlanPersistenceIT {
 
         Plan solved = solvedAgain(builder, ready, solved(V1, D1, O3, O1, O2));
 
-        assertThat(solved.snapshot()).isEqualTo(builder.saves().lastSaved());
+        builder.saves().hasStored(solved);
         assertThat(stopsOn(solved, V1)).containsExactly(stopId(ready, O3), stopId(ready, O1), stopId(ready, O2));
         assertThat(storedRoutes(solved.id())).containsExactly(routeId(ready, V1));
         assertThat(storedStops(solved.id())).hasSize(3);
@@ -251,7 +259,7 @@ class PlanPersistenceIT {
 
         Plan solved = solvedAgain(builder, ready, solved(V2, D2, O1, O2, O3));
 
-        assertThat(solved.snapshot()).isEqualTo(builder.saves().lastSaved());
+        builder.saves().hasStored(solved);
         assertThat(stopsOn(solved, V2)).containsExactly(stopId(ready, O1), stopId(ready, O2), stopId(ready, O3));
         assertThat(storedRoutes(solved.id())).containsExactly(routeId(ready, V2));
         assertThat(storedStops(solved.id())).hasSize(3);
@@ -297,7 +305,7 @@ class PlanPersistenceIT {
                 });
 
         assertThat(storedVersion(id)).isEqualTo(3L);
-        assertThat(loaded(id).snapshot().undo())
+        assertThat(PlanDescription.of(loaded(id)).undo())
                 .containsExactly(new Edit.Locked(v1, Optional.empty(), RouteLock.WHOLE_ROUTE));
     }
 
@@ -360,15 +368,15 @@ class PlanPersistenceIT {
                                 evaluationOf(plan).build(),
                                 today)));
 
-        assertThat(pinned.snapshot()).isEqualTo(builder.saves().lastSaved());
-        assertThat(pinned.snapshot().undo()).hasSize(100);
-        assertThat(pinned.snapshot().undo().getFirst())
+        builder.saves().hasStored(pinned);
+        assertThat(PlanDescription.of(pinned).undo()).hasSize(100);
+        assertThat(PlanDescription.of(pinned).undo().getFirst())
                 .isEqualTo(new Edit.Pinned(O1, Optional.of(new PinTarget.ToVehicle(V1)), new PinTarget.ToVehicle(V2)));
 
         Plan undone = builder.edited(
                 pinned, (plan, today) -> plan.undo(evaluationOf(plan).build(), today));
 
-        assertThat(undone.snapshot()).isEqualTo(builder.saves().lastSaved());
+        builder.saves().hasStored(undone);
         assertThat(journalRows(undone.id())).isEqualTo(Map.of("plan_undo", 99, "plan_redo", 1));
     }
 
@@ -448,7 +456,7 @@ class PlanPersistenceIT {
         Plan loaded = transactions.inTransaction(
                 () -> repository.uncancelledOn(date(71)).orElseThrow());
 
-        assertThat(loaded.snapshot()).isEqualTo(draft.snapshot());
+        assertThat(PlanDescription.of(loaded)).isEqualTo(PlanDescription.of(draft));
         assertThat(transactions.inTransaction(() -> repository.plansOn(date(71))))
                 .isEqualTo(PlansOnDate.of(draft.id()));
     }
@@ -499,7 +507,7 @@ class PlanPersistenceIT {
     }
 
     // --- the load check (ADR-127 decision 1): one case for each damaged snapshot the domain tests
-    // build, PlanRestoreTest's and PlanOptimizerOutputsTest's, then the stored values it rebuilds
+    // built, PlanRestoreTest's and PlanOptimizerOutputsTest's, then the stored values it rebuilds
 
     static Stream<Arguments> damagedRows() {
         String undoUnpinnedO1 = unpinnedO1("plan_undo", 1);
@@ -1027,12 +1035,14 @@ class PlanPersistenceIT {
      */
     private final class ThroughTheRepository implements PlanningFixtures.Saves {
 
-        private @Nullable PlanSnapshot lastSaved;
+        private @Nullable PlanDescription lastSaved;
+        private @Nullable Version lastVersion;
         private final List<Long> storedVersions = new ArrayList<>();
 
         @Override
         public Plan added(Plan opened) {
-            lastSaved = atVersion(opened.snapshot(), Version.of(0));
+            lastSaved = PlanDescription.of(opened);
+            lastVersion = Version.of(0);
             transactions.inTransaction(() -> repository.add(opened));
             storedVersions.add(storedVersion(opened.id()));
             return loaded(opened.id());
@@ -1043,15 +1053,21 @@ class PlanPersistenceIT {
             transactions.inTransaction(() -> {
                 Plan stored = repository.get(plan.id()).orElseThrow();
                 command.accept(stored);
-                lastSaved = atVersion(stored.snapshot(), stored.version().next());
+                lastSaved = PlanDescription.of(stored);
+                lastVersion = stored.version().next();
                 repository.save(stored);
             });
             storedVersions.add(storedVersion(plan.id()));
             return loaded(plan.id());
         }
 
-        PlanSnapshot lastSaved() {
-            return Objects.requireNonNull(lastSaved, "a plan was saved");
+        /**
+         * Checks a plan as loaded holds what the last command left, at the version its save stored.
+         * Read outside the transaction, so a collection the load left unfetched fails here.
+         */
+        void hasStored(Plan loaded) {
+            assertThat(PlanDescription.of(loaded)).isEqualTo(Objects.requireNonNull(lastSaved, "a plan was saved"));
+            assertThat(loaded.version()).isEqualTo(lastVersion);
         }
 
         List<Long> storedVersions() {
@@ -1110,37 +1126,20 @@ class PlanPersistenceIT {
         return transactions.inTransaction(() -> repository.get(plan).orElseThrow());
     }
 
-    private static PlanSnapshot atVersion(PlanSnapshot s, Version version) {
-        return new PlanSnapshot(
-                s.id(),
-                version,
-                s.date(),
-                s.openedAt(),
-                s.status(),
-                s.applied(),
-                s.routes(),
-                s.dropped(),
-                s.excluded(),
-                s.pins(),
-                s.violations(),
-                s.undo(),
-                s.redo());
-    }
-
     private static List<StopId> stopsOn(Plan plan, VehicleId vehicle) {
-        return plan.snapshot().routes().stream()
+        return PlanDescription.of(plan).routes().stream()
                 .filter(route -> route.vehicle().equals(vehicle))
                 .findFirst()
                 .orElseThrow()
                 .stops()
                 .stream()
-                .map(PlanSnapshot.StopSnapshot::id)
+                .map(PlanDescription.StopDescription::id)
                 .toList();
     }
 
     /** Each route of the plan as a revision row stores it: its ID, vehicle and driver. */
     private static List<String> routesInPlanOrder(Plan plan) {
-        return plan.snapshot().routes().stream()
+        return PlanDescription.of(plan).routes().stream()
                 .map(route -> route.id().value() + " " + route.vehicle().value() + " "
                         + route.driver().value())
                 .toList();
@@ -1148,7 +1147,7 @@ class PlanPersistenceIT {
 
     /** Each stop of the plan, route by route, as a revision row stores it: ID, order, planned arrival. */
     private static List<String> stopsInPlanOrder(Plan plan) {
-        return plan.snapshot().routes().stream()
+        return PlanDescription.of(plan).routes().stream()
                 .flatMap(route -> route.stops().stream())
                 .map(stop -> stop.id().value() + " " + stop.order().value() + " "
                         + stop.plan()

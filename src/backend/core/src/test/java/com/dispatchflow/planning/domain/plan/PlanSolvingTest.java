@@ -1,5 +1,6 @@
 package com.dispatchflow.planning.domain.plan;
 
+import static com.dispatchflow.planning.domain.plan.PlanAssertions.assertLeftAsItWas;
 import static com.dispatchflow.planning.domain.plan.PlanAssertions.assertPlanRefused;
 import static com.dispatchflow.planning.domain.plan.PlanAssertions.assertUnchanged;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.D1;
@@ -26,7 +27,6 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.aPlan;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.dropped;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.freshIds;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.ordersOn;
-import static com.dispatchflow.planning.domain.plan.PlanningFixtures.reload;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.roomIn;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.routeId;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.routeOf;
@@ -34,6 +34,7 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.solved;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.standardSolution;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.stopId;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.succeededJob;
+import static com.dispatchflow.shared.AsSaved.asSaved;
 import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
@@ -52,6 +53,7 @@ import com.dispatchflow.planning.domain.SolveLimit;
 import com.dispatchflow.planning.domain.basis.SolveBasis;
 import com.dispatchflow.planning.domain.drop.DropReason;
 import com.dispatchflow.planning.domain.drop.DroppedOrder;
+import com.dispatchflow.planning.domain.revision.PlanRevision;
 import com.dispatchflow.planning.domain.solution.SolveFailure;
 import com.dispatchflow.planning.domain.solution.ValidatedSolution;
 import com.dispatchflow.planning.domain.solution.ValidationReport;
@@ -64,6 +66,7 @@ import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.VehicleId;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 class PlanSolvingTest {
@@ -86,7 +89,7 @@ class PlanSolvingTest {
         Plan plan = Plan.open(PLAN, DATE, PlansOnDate.none(), TODAY, NOW);
 
         assertThat(plan.status()).isEqualTo(new Plan.Status.Draft());
-        assertThat(plan.snapshot().routes()).isEmpty();
+        assertThat(PlanDescription.of(plan).routes()).isEmpty();
         assertThat(plan.pendingEvents()).isEmpty();
     }
 
@@ -183,7 +186,8 @@ class PlanSolvingTest {
     void
             GivenAPublishedPlan_WhenAReoptimizationIsRequested_ThenANewJobIsQueuedWithTwentySecondsAndThePlanIsUnchanged() {
         Plan plan = aPlan().published();
-        PlanSnapshot before = plan.snapshot();
+        PlanDescription before = PlanDescription.of(plan);
+        Optional<PlanRevision> pending = plan.pendingRevision();
 
         SolveJob job = plan.requestReoptimization(
                 SECOND_JOB, SolverName.OR_TOOLS, Seed.of(9), roomIn(Lane.REOPTIMIZATION), TODAY, LATER);
@@ -191,7 +195,7 @@ class PlanSolvingTest {
         assertThat(job.lane()).isEqualTo(Lane.REOPTIMIZATION);
         assertThat(job.limit()).isEqualTo(SolveLimit.REOPTIMIZATION);
         assertThat(job.basisRevision()).contains(RevisionNo.FIRST);
-        assertUnchanged(plan, before);
+        assertLeftAsItWas(plan, before, pending);
     }
 
     @Test
@@ -236,10 +240,10 @@ class PlanSolvingTest {
         assertThat(plan.status()).isEqualTo(new Plan.Status.Ready());
         assertThat(ordersOn(plan, V1)).containsExactly(O1, O2);
         assertThat(ordersOn(plan, V2)).containsExactly(O3);
-        assertThat(plan.snapshot().dropped()).extracting(DroppedOrder::order).containsExactlyInAnyOrder(O4, O5);
-        assertThat(plan.snapshot().applied()).contains(new AppliedSolve(new SolveBasis(JOB, NOW), LATER));
-        assertThat(plan.snapshot().routes())
-                .extracting(PlanSnapshot.RouteSnapshot::index, PlanSnapshot.RouteSnapshot::check)
+        assertThat(plan.dropped()).extracting(DroppedOrder::order).containsExactlyInAnyOrder(O4, O5);
+        assertThat(plan.applied()).contains(new AppliedSolve(new SolveBasis(JOB, NOW), LATER));
+        assertThat(PlanDescription.of(plan).routes())
+                .extracting(PlanDescription.RouteDescription::index, PlanDescription.RouteDescription::check)
                 .containsExactly(
                         tuple(RouteIndex.of(1), CheckState.CHECKED), tuple(RouteIndex.of(2), CheckState.CHECKED));
         assertThat(plan.pendingEvents()).isEmpty();
@@ -248,7 +252,7 @@ class PlanSolvingTest {
     @Test
     void GivenAnotherJobsResult_WhenApplied_ThenNothingChanges() {
         Plan plan = aPlan().solving();
-        PlanSnapshot before = plan.snapshot();
+        PlanDescription before = PlanDescription.of(plan);
 
         plan.applySolveResult(succeededJob(SECOND_JOB, standardSolution()), freshIds(0), LATER);
 
@@ -258,7 +262,7 @@ class PlanSolvingTest {
     @Test
     void GivenAReadyPlan_WhenItsAppliedJobsResultArrivesAgain_ThenNothingChanges() {
         Plan plan = aPlan().ready();
-        PlanSnapshot before = plan.snapshot();
+        PlanDescription before = PlanDescription.of(plan);
 
         plan.applySolveResult(succeededJob(JOB, standardSolution()), freshIds(500), LATER);
 
@@ -269,8 +273,8 @@ class PlanSolvingTest {
     void GivenAnAbandonedPlanThatWasSolving_WhenItsJobsLateSuccessArrives_ThenNothingChanges() {
         Plan plan = aPlan().solving();
         plan.abandon(TOMORROW);
-        Plan abandoned = reload(plan);
-        PlanSnapshot before = abandoned.snapshot();
+        Plan abandoned = asSaved(plan);
+        PlanDescription before = PlanDescription.of(abandoned);
 
         abandoned.applySolveResult(succeededJob(JOB, standardSolution()), freshIds(0), LATER);
 
@@ -309,7 +313,7 @@ class PlanSolvingTest {
     private static Plan solvingAgainWithLock(VehicleId vehicle, RouteLock lock, ValidatedSolution solution) {
         Plan ready = aPlan().solvedAs(solution).ready();
         ready.lockRoute(routeId(ready, vehicle), lock, TODAY);
-        Plan locked = reload(ready);
+        Plan locked = asSaved(ready);
         locked.requestSolve(
                 SECOND_JOB,
                 SolverName.OR_TOOLS,
@@ -318,7 +322,7 @@ class PlanSolvingTest {
                 roomIn(Lane.DAILY),
                 TODAY,
                 LATER);
-        return reload(locked);
+        return asSaved(locked);
     }
 
     @Test
@@ -326,7 +330,7 @@ class PlanSolvingTest {
         Plan ready = aPlan().ready();
         ready.lockRoute(routeId(ready, V2), RouteLock.WHOLE_ROUTE, TODAY);
         ready.unlockRoute(routeId(ready, V2), TODAY);
-        Plan edited = reload(ready);
+        Plan edited = asSaved(ready);
         edited.requestSolve(
                 SECOND_JOB,
                 SolverName.OR_TOOLS,
@@ -335,12 +339,12 @@ class PlanSolvingTest {
                 roomIn(Lane.DAILY),
                 TODAY,
                 LATER);
-        Plan plan = reload(edited);
+        Plan plan = asSaved(edited);
 
         plan.applySolveResult(succeededJob(SECOND_JOB, standardSolution()), freshIds(500), LATER);
 
-        assertThat(plan.snapshot().undo()).isEmpty();
-        assertThat(plan.snapshot().redo()).isEmpty();
+        assertThat(plan.undo()).isEmpty();
+        assertThat(plan.redo()).isEmpty();
     }
 
     @Test
@@ -348,7 +352,7 @@ class PlanSolvingTest {
         Plan ready = aPlan().ready();
         RouteId locked = routeId(ready, V2);
         ready.lockRoute(locked, RouteLock.WHOLE_ROUTE, TODAY);
-        Plan relocked = reload(ready);
+        Plan relocked = asSaved(ready);
         relocked.requestSolve(
                 SECOND_JOB,
                 SolverName.OR_TOOLS,
@@ -357,7 +361,7 @@ class PlanSolvingTest {
                 roomIn(Lane.DAILY),
                 TODAY,
                 LATER);
-        Plan plan = reload(relocked);
+        Plan plan = asSaved(relocked);
         ValidatedSolution changed = ValidatedSolution.of(ValidationReport.of(
                 List.of(), List.of(solved(V1, D1, O1, O2), solved(V2, D2, O3, O4)), List.of(), List.of()));
 
@@ -371,7 +375,7 @@ class PlanSolvingTest {
     void GivenASequenceLock_WhenANewResultServesTheSequenceOnAnotherVehicle_ThenTheLockMovesWithIt() {
         Plan ready = aPlan().ready();
         ready.lockRoute(routeId(ready, V2), RouteLock.STOP_SEQUENCE, TODAY);
-        Plan relocked = reload(ready);
+        Plan relocked = asSaved(ready);
         relocked.requestSolve(
                 SECOND_JOB,
                 SolverName.OR_TOOLS,
@@ -380,7 +384,7 @@ class PlanSolvingTest {
                 roomIn(Lane.DAILY),
                 TODAY,
                 LATER);
-        Plan plan = reload(relocked);
+        Plan plan = asSaved(relocked);
         ValidatedSolution moved = ValidatedSolution.of(ValidationReport.of(
                 List.of(), List.of(solved(V1, D1, O1, O2), solved(V3, PlanningFixtures.D3, O3)), List.of(), List.of()));
 
@@ -396,8 +400,8 @@ class PlanSolvingTest {
 
         plan.applySolveResult(succeededJob(JOB, standardSolution()), freshIds(0), NOW.minusSeconds(1));
 
-        assertThat(plan.snapshot().applied()).contains(new AppliedSolve(new SolveBasis(JOB, NOW), NOW));
-        assertThat(reload(plan).status()).isEqualTo(new Plan.Status.Ready());
+        assertThat(plan.applied()).contains(new AppliedSolve(new SolveBasis(JOB, NOW), NOW));
+        assertThat(plan.status()).isEqualTo(new Plan.Status.Ready());
     }
 
     @Test
@@ -439,9 +443,9 @@ class PlanSolvingTest {
         RouteId v1 = routeId(ready, V1);
         RouteId v2 = routeId(ready, V2);
         ready.lockRoute(v1, RouteLock.WHOLE_ROUTE, TODAY);
-        Plan locked = reload(ready);
+        Plan locked = asSaved(ready);
         locked.lockRoute(v2, RouteLock.STOP_SEQUENCE, TODAY);
-        Plan plan = reload(locked);
+        Plan plan = asSaved(locked);
         ValidatedSolution breaksBoth = ValidatedSolution.of(ValidationReport.of(
                 List.of(),
                 List.of(solved(V1, D1, O2, O1), solved(V2, D2, O3, O4)),
@@ -466,18 +470,18 @@ class PlanSolvingTest {
     @Test
     void GivenAPlanSolvedBefore_WhenItsNewJobFails_ThenItIsReadyWithItsRoutesAsTheyWere() {
         Plan plan = aPlan().solvingAgain();
-        List<PlanSnapshot.RouteSnapshot> routes = plan.snapshot().routes();
+        List<PlanDescription.RouteDescription> routes = PlanDescription.of(plan).routes();
 
         plan.solveFailed(SECOND_JOB);
 
         assertThat(plan.status()).isEqualTo(new Plan.Status.Ready());
-        assertThat(plan.snapshot().routes()).isEqualTo(routes);
+        assertThat(PlanDescription.of(plan).routes()).isEqualTo(routes);
     }
 
     @Test
     void GivenAnotherJob_WhenItFails_ThenNothingChanges() {
         Plan plan = aPlan().solving();
-        PlanSnapshot before = plan.snapshot();
+        PlanDescription before = PlanDescription.of(plan);
 
         plan.solveFailed(SECOND_JOB);
 
@@ -487,7 +491,7 @@ class PlanSolvingTest {
     @Test
     void GivenAnAbandonedPlan_WhenALateFailureArrives_ThenNothingChanges() {
         Plan plan = aPlan().abandoned();
-        PlanSnapshot before = plan.snapshot();
+        PlanDescription before = PlanDescription.of(plan);
 
         plan.solveFailed(JOB);
 

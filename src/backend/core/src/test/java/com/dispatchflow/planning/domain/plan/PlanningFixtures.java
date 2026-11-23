@@ -43,7 +43,6 @@ import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.ProposalId;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
-import com.dispatchflow.shared.StoredVersions;
 import com.dispatchflow.shared.VehicleId;
 import com.dispatchflow.shared.Version;
 import java.time.Duration;
@@ -62,9 +61,9 @@ import java.util.stream.IntStream;
 
 /**
  * Test data for Planning: fixed IDs, times and the one builder per aggregate ({@link #aPlan()},
- * {@link #aJob()}). Every state is reached through the aggregates' own commands, then saved: a plan
- * is reloaded through {@code restore}, unless its builder is given other {@link Saves}, and a job is
- * saved in memory by {@link AsSaved#asSaved}, so each test starts with no pending events.
+ * {@link #aJob()}). Every state is reached through the aggregates' own commands, then saved in
+ * memory by {@link AsSaved#asSaved}, unless a plan's builder is given other {@link Saves}, so each
+ * test starts with no pending events.
  */
 public final class PlanningFixtures {
 
@@ -100,17 +99,17 @@ public final class PlanningFixtures {
     private static final long FRESH_BASE = 10_000;
     private static final int FRESH_COUNT = 215;
 
-    /** Keeps a plan between two of its builder's commands as a save and a reload through {@code restore}. */
+    /** Keeps a plan between two of its builder's commands as a save in memory, on the same instance. */
     private static final Saves IN_MEMORY = new Saves() {
         @Override
         public Plan added(Plan opened) {
-            return reload(opened);
+            return asSaved(opened);
         }
 
         @Override
         public Plan changed(Plan plan, Consumer<Plan> command) {
             command.accept(plan);
-            return reload(plan);
+            return asSaved(plan);
         }
     };
 
@@ -180,27 +179,8 @@ public final class PlanningFixtures {
         return Violation.onRoute(RuleCode.of(rule), route);
     }
 
-    /** Saves and reloads a plan: the next version, no pending events, nothing pending. */
-    static Plan reload(Plan plan) {
-        PlanSnapshot s = plan.snapshot();
-        return Plan.restore(new PlanSnapshot(
-                s.id(),
-                StoredVersions.afterSave(plan),
-                s.date(),
-                s.openedAt(),
-                s.status(),
-                s.applied(),
-                s.routes(),
-                s.dropped(),
-                s.excluded(),
-                s.pins(),
-                s.violations(),
-                s.undo(),
-                s.redo()));
-    }
-
-    static PlanSnapshot.RouteSnapshot routeOf(Plan plan, VehicleId vehicle) {
-        return plan.snapshot().routes().stream()
+    static PlanDescription.RouteDescription routeOf(Plan plan, VehicleId vehicle) {
+        return PlanDescription.of(plan).routes().stream()
                 .filter(route ->
                         route.vehicle().equals(vehicle) && route.withdrawal().isEmpty())
                 .findFirst()
@@ -212,17 +192,17 @@ public final class PlanningFixtures {
     }
 
     public static StopId stopId(Plan plan, OrderId order) {
-        return plan.snapshot().routes().stream()
+        return PlanDescription.of(plan).routes().stream()
                 .flatMap(route -> route.stops().stream())
                 .filter(stop -> stop.order().equals(order))
-                .map(PlanSnapshot.StopSnapshot::id)
+                .map(PlanDescription.StopDescription::id)
                 .findFirst()
                 .orElseThrow();
     }
 
     static List<OrderId> ordersOn(Plan plan, VehicleId vehicle) {
         return routeOf(plan, vehicle).stops().stream()
-                .map(PlanSnapshot.StopSnapshot::order)
+                .map(PlanDescription.StopDescription::order)
                 .toList();
     }
 
@@ -244,8 +224,8 @@ public final class PlanningFixtures {
     }
 
     /**
-     * How a builder keeps a plan between two of its commands: in memory, as a save and a reload
-     * through {@code restore}, or through a repository, as a persistence integration test does.
+     * How a builder keeps a plan between two of its commands: saved in memory on the same
+     * instance, or through a repository, as a persistence integration test does.
      */
     public interface Saves {
 
@@ -486,16 +466,16 @@ public final class PlanningFixtures {
 
     /** The checks under which a ready plan publishes: every route staffed, every order accounted for. */
     static PublishingChecks checksFor(Plan plan) {
-        List<RouteStaffing> staffing = plan.snapshot().routes().stream()
+        List<RouteStaffing> staffing = PlanDescription.of(plan).routes().stream()
                 .map(route -> new RouteStaffing(route.vehicle(), route.driver(), true))
                 .toList();
         Instant before = NOW.minusSeconds(3_600);
         List<DateOrder> orders = new ArrayList<>();
-        plan.snapshot()
+        PlanDescription.of(plan)
                 .routes()
                 .forEach(route -> route.stops()
                         .forEach(stop -> orders.add(new DateOrder(stop.order(), stop.attempt(), before, before))));
-        plan.snapshot()
+        PlanDescription.of(plan)
                 .dropped()
                 .forEach(drop -> orders.add(new DateOrder(drop.order(), drop.attempt(), before, before)));
         return new PublishingChecks(staffing, orders, evaluationOf(plan).build());
@@ -545,6 +525,58 @@ public final class PlanningFixtures {
             job.fail(SolveFailure.of(SolveFailureReason.OPTIMIZER_UNAVAILABLE), NOW.plusSeconds(60));
             return asSaved(job);
         }
+    }
+
+    /** A vehicle of a numbered fleet, beyond the standard three. */
+    static VehicleId fleetVehicle(int n) {
+        return VehicleId.of(uuid(5_000 + n));
+    }
+
+    /** The driver of {@link #fleetVehicle} {@code n}. */
+    static AccountId fleetDriver(int n) {
+        return AccountId.of(uuid(6_000 + n));
+    }
+
+    /**
+     * A published plan whose first fifteen routes, those of fleet vehicles 1 to 15 at indexes 1 to
+     * 15, a re-optimization withdrew, and a second one gave fleet vehicles 1 to {@code routedAgain}
+     * new routes at the next indexes. It is at revision 3, and no route holds a stop.
+     */
+    static Plan fifteenWithdrawnAndRoutedAgain(int routedAgain) {
+        List<SolvedRoute> fleet = IntStream.rangeClosed(1, 15)
+                .mapToObj(n -> solved(fleetVehicle(n), fleetDriver(n)))
+                .toList();
+        Plan plan = aPlan().solvedAs(ValidatedSolution.of(ValidationReport.of(List.of(), fleet, List.of(), List.of())))
+                .published();
+        VehicleWithdrawal[] withdrawals = IntStream.rangeClosed(1, 15)
+                .mapToObj(n -> new VehicleWithdrawal(fleetVehicle(n), WithdrawalCause.SHIFT_RAN_OUT))
+                .toArray(VehicleWithdrawal[]::new);
+        plan.accept(proposalOn(plan, List.of(), withdrawals), noChanges(), freshIds(700), DISPATCHER, TODAY, LATER);
+        asSaved(plan);
+        VehicleId[] again = IntStream.rangeClosed(1, routedAgain)
+                .mapToObj(PlanningFixtures::fleetVehicle)
+                .toArray(VehicleId[]::new);
+        plan.accept(
+                proposalOn(plan, fleet.subList(0, routedAgain)),
+                noChanges(again),
+                freshIds(800),
+                DISPATCHER,
+                TODAY,
+                LATER);
+        return asSaved(plan);
+    }
+
+    /**
+     * A re-optimization of a published plan from its current revision, as its job leaves it, with no
+     * drops.
+     */
+    static ReoptimizationProposal proposalOn(Plan plan, List<SolvedRoute> routes, VehicleWithdrawal... withdrawn) {
+        SolveJob job = plan.requestReoptimization(
+                JobId.of(uuid(14)), SolverName.OR_TOOLS, Seed.of(1), roomIn(Lane.REOPTIMIZATION), TODAY, LATER);
+        job.claim(LATER);
+        job.searchStarted(LATER);
+        ValidatedSolution solution = ValidatedSolution.of(ValidationReport.of(List.of(), routes, List.of(), List.of()));
+        return job.succeed(PROPOSAL, reoptimizationResult(solution, withdrawn), LATER);
     }
 
     static ReoptimizationResult reoptimizationResult(ValidatedSolution solution, VehicleWithdrawal... withdrawn) {

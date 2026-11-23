@@ -144,10 +144,11 @@ import org.jspecify.annotations.Nullable;
  * kind beside the basis, revision and time each status keeps, and its applied solve three nullable
  * columns. Its routes are {@link Route} entities and their stops {@link PlannedStop} entities, in
  * order; the plan's own collection of stops creates and deletes them, so a stop that changes routes
- * is never deleted. Its drops, excluded vehicles, pins, violations and both journals are a table
+ * is never deleted (ADR-127 decision 11). Its drops, excluded vehicles, pins, violations and both journals are a table
  * each. A command changes the collections Hibernate loaded and never assigns new ones. The revision a change makes
  * is not part of the plan's rows: the repository appends it as rows of its own when it saves the
- * plan, and never loads it again (ADR-059).
+ * plan, and never loads it again (ADR-059). Only Hibernate rebuilds a stored plan, and {@link
+ * #checkStored} refuses one that breaks an invariant at rest (ADR-126 decision 8).
  */
 @Entity
 @Table(schema = "planning", name = "plan")
@@ -275,8 +276,9 @@ public class Plan extends AggregateRoot {
     private List<Route> routes = new ArrayList<>();
 
     // Every stop on any of the routes, unordered: it alone creates and deletes the stops, so a stop
-    // that changes routes stays in it and is never an orphan. A route's list holds only which stops
-    // it serves, in order (see Route.stops). The migration keeps a stop's plan its route's plan.
+    // that changes routes stays in it and is never an orphan (ADR-127 decision 11). A route's list
+    // holds only which stops it serves, in order (see Route.stops). The migration keeps a stop's
+    // plan its route's plan.
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "plan_id", nullable = false)
     private Set<PlannedStop> stops = new HashSet<>();
@@ -328,25 +330,7 @@ public class Plan extends AggregateRoot {
         this.status = StatusKind.DRAFT;
     }
 
-    /** Builds the plan {@link #restore} returns; it goes with {@code restore} (ADR-126). */
-    private Plan(PlanSnapshot stored) {
-        super(stored.version());
-        this.id = stored.id().value();
-        this.date = stored.date();
-        this.openedAt = stored.openedAt();
-        storeStatus(stored.status());
-        storeApplied(stored.applied());
-        stored.routes().stream().map(Route::from).forEach(routes::add);
-        routes.forEach(route -> stops.addAll(route.stops()));
-        storeDrops(stored.dropped());
-        excluded.addAll(stored.excluded());
-        stored.pins().stream().sorted(PlanLayout.PIN_ORDER).map(StoredPin::new).forEach(pins::add);
-        storeViolations(stored.violations());
-        stored.undo().stream().map(StoredEdit::new).forEach(undo::add);
-        stored.redo().stream().map(StoredEdit::new).forEach(redo::add);
-    }
-
-    // ---- Creation, restore and the load check -------------------------------------------------
+    // ---- Creation and the load check -----------------------------------------------------------
 
     /**
      * Opens a plan for a date, in draft (FR-15).
@@ -372,31 +356,14 @@ public class Plan extends AggregateRoot {
     }
 
     /**
-     * Rebuilds a stored plan from a snapshot. It checks the invariants that hold at rest, never one
-     * that needs {@code today} or an outside fact, as the load check does. It goes once Hibernate
-     * alone rebuilds a plan (ADR-126).
+     * Checks the plan as Hibernate loaded it, which alone rebuilds a stored plan (ADR-126 decision
+     * 8). It rebuilds every stored value and checks the invariants that hold at rest, never one that
+     * needs {@code today} or an outside fact.
      *
-     * @param snapshot the stored state
-     * @return the plan
-     * @throws StoredStateInvalid when the state breaks an invariant: a state's fields don't match
-     *     it, an order and attempt appears twice (BR-07), a vehicle or driver drives two routes
-     *     (BR-39), an ID or route index repeats, an order has two pins, or a violation or journal
-     *     entry names a route or stop the plan doesn't hold as it should
-     */
-    public static Plan restore(PlanSnapshot snapshot) {
-        Plan plan = new Plan(snapshot);
-        plan.brokenRule().ifPresent(broken -> {
-            throw new StoredStateInvalid(Plan.class, broken);
-        });
-        return plan;
-    }
-
-    /**
-     * Checks the plan as Hibernate loaded it (ADR-126 decision 8): the invariants {@link #restore}
-     * checks, after rebuilding every stored value.
-     *
-     * @throws StoredStateInvalid when the stored state breaks one of them, or a stored value is
-     *     refused
+     * @throws StoredStateInvalid when the stored state breaks an invariant: a status's fields don't
+     *     match it, an order and attempt appears twice (BR-07), a vehicle or driver drives two routes
+     *     (BR-39), an ID or route index repeats, an order has two pins, a violation or journal entry
+     *     names a route or stop the plan doesn't hold as it should, or a stored value is refused
      */
     @PostLoad
     void checkStored() {
@@ -1409,34 +1376,16 @@ public class Plan extends AggregateRoot {
         return Optional.ofNullable(pendingRevision);
     }
 
-    /**
-     * The plan's present state, for Planning's queries and for tests; it goes once Hibernate alone
-     * rebuilds a plan (ADR-126).
-     *
-     * @return a snapshot that {@link #restore} rebuilds
-     */
-    public PlanSnapshot snapshot() {
-        return new PlanSnapshot(
-                id(),
-                savedVersion().orElse(null),
-                date,
-                openedAt,
-                status(),
-                applied(),
-                routes.stream().map(Route::snapshot).toList(),
-                dropped(),
-                excluded(),
-                pins(),
-                violations(),
-                undo(),
-                redo());
-    }
-
     // ---- The stored state, for the invariants --------------------------------------------------
 
     /** Its routes, in order, as the live entities. */
     List<Route> routes() {
         return Collections.unmodifiableList(routes);
+    }
+
+    /** When it was opened. */
+    Instant openedAt() {
+        return openedAt;
     }
 
     /** Every stop it keeps, which is every stop on its routes. */
@@ -1483,8 +1432,8 @@ public class Plan extends AggregateRoot {
     // ---- Storing the fields in place -----------------------------------------------------------
 
     /**
-     * The one check of the stored fields, shared by the load check, {@link #restore} and every
-     * command's end check. Rebuilding every stored value checks it on the way.
+     * The one check of the stored fields, shared by the load check and every command's end check.
+     * Rebuilding every stored value checks it on the way.
      */
     private Optional<String> brokenRule() {
         routes.forEach(route -> {

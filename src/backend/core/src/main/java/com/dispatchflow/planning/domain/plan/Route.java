@@ -40,7 +40,7 @@ import org.jspecify.annotations.Nullable;
  * StoredRoutePlan}'s columns, all of them or none, and its stops as {@link PlannedStop} entities in
  * order. Its list holds which stops it serves and in what order, never their lifecycle: the plan's
  * own collection of stops creates and deletes them, so a stop that moves to another route is never
- * an orphan of the route it left.
+ * an orphan of the route it left (ADR-127 decision 11).
  */
 @Entity
 @Table(schema = "planning", name = "route")
@@ -77,12 +77,12 @@ class Route {
     @Embedded
     private @Nullable StoredRoutePlan plan;
 
-    // No removal and no orphan removal. Hibernate deletes an orphan of each list as it flushes the
-    // list, and the order of the lists decides whether a moved stop stays: with orphan removal
-    // here, a stop moved from a later route to an earlier one was deleted when the flush came at
-    // commit. The plan's own collection of stops deletes them instead. Persist and merge still
-    // cascade, because the merge in Spring Data's save would otherwise load a new stop on this
-    // list by its ID, before it is inserted.
+    // No REMOVE cascade and no orphan removal (ADR-127 decision 11). Hibernate deletes an orphan of
+    // each list as it flushes the list, and the order of the lists decides whether a moved stop
+    // stays: with orphan removal here, a stop moved from a later route to an earlier one was deleted
+    // when the flush came at commit. The plan's own collection of stops deletes them instead.
+    // Persist and merge still cascade, because the merge in Spring Data's save would otherwise load
+    // a new stop on this list by its ID, before it is inserted.
     @OneToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinColumn(name = "route_id", nullable = false)
     @OrderColumn(name = "position", nullable = false)
@@ -105,18 +105,6 @@ class Route {
         this.vehicle = vehicle;
         this.driver = driver;
         this.check = CheckState.CHECKED;
-    }
-
-    /** Rebuilds a route from a snapshot; it goes with {@code Plan.restore} (ADR-126). */
-    static Route from(PlanSnapshot.RouteSnapshot snapshot) {
-        Route route = new Route(snapshot.id(), snapshot.index(), snapshot.vehicle(), snapshot.driver());
-        route.lockAs(snapshot.lock());
-        route.checkAs(snapshot.check());
-        route.withdrawAs(snapshot.withdrawal());
-        route.confirmReturnAt(snapshot.confirmedReturn());
-        route.timeAs(snapshot.plan());
-        snapshot.stops().stream().map(PlannedStop::from).forEach(route.stops::add);
-        return route;
     }
 
     RouteId id() {
@@ -241,21 +229,6 @@ class Route {
     void holdStops(List<PlannedStop> next) {
         stops.clear();
         stops.addAll(next);
-    }
-
-    /** The route as its plan's snapshot holds it; it goes with {@code Plan.snapshot} (ADR-126). */
-    PlanSnapshot.RouteSnapshot snapshot() {
-        return new PlanSnapshot.RouteSnapshot(
-                id(),
-                index,
-                vehicle,
-                driver,
-                lock(),
-                check,
-                withdrawal(),
-                confirmedReturn(),
-                plan(),
-                stops.stream().map(PlannedStop::snapshot).toList());
     }
 
     /** The route as a revision records it, with each stop's planned arrival (ADR-059). */

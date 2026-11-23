@@ -14,10 +14,10 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.V1;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.V2;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.aPlan;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.freshIds;
-import static com.dispatchflow.planning.domain.plan.PlanningFixtures.reload;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.roomIn;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.routeId;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.solved;
+import static com.dispatchflow.shared.AsSaved.asSaved;
 
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.Transactions;
@@ -47,9 +47,9 @@ import org.springframework.jdbc.core.simple.JdbcClient;
  *
  * <p>So each test stores a valid result through the job's commands and damages its rows with SQL
  * into the result the plan must refuse, as a bug or a since-changed rule would leave it; the job's
- * own load check accepts it, since it checks no plan's rules. The plan isn't mapped yet, so it is
- * built in memory. It sits beside {@code Plan}, the type it tests, and each test keys its own job,
- * because the database is shared and never cleaned.
+ * own load check accepts it, since it checks no plan's rules. Only the job's rows are damaged, so
+ * the plan is built and saved in memory. It sits beside {@code Plan}, the type it tests, and each
+ * test keys its own job, because the database is shared and never cleaned.
  */
 @IntegrationTest
 class StoredResultAppliedIT {
@@ -71,7 +71,7 @@ class StoredResultAppliedIT {
         JobId job = storeSucceeded(draft, 1, List.of(solved(V1, D1, O1), solved(V2, D2, O2)));
         damage(job, "solve_job_stop", "order_id = '" + O1.value() + "'", "route_position = 1");
         SolveJob stored = load(job);
-        Plan plan = reload(draft);
+        Plan plan = asSaved(draft);
 
         assertPlanRefused(
                 plan, () -> plan.applySolveResult(stored, freshIds(0), LATER), new OrderAlreadyInPlan(O1, FIRST));
@@ -83,7 +83,7 @@ class StoredResultAppliedIT {
         JobId job = storeSucceeded(draft, 2, List.of(solved(V1, D1, O1), solved(V2, D2, O2)));
         damage(job, "solve_job_route", "vehicle_id = '" + V1.value() + "'", "position = 1");
         SolveJob stored = load(job);
-        Plan plan = reload(draft);
+        Plan plan = asSaved(draft);
 
         assertPlanRefused(
                 plan,
@@ -97,7 +97,7 @@ class StoredResultAppliedIT {
         JobId job = storeSucceeded(draft, 3, List.of(solved(V1, D1, O1), solved(V2, D2, O2)));
         damage(job, "solve_job_route", "driver_id = '" + D1.value() + "'", "position = 1");
         SolveJob stored = load(job);
-        Plan plan = reload(draft);
+        Plan plan = asSaved(draft);
 
         assertPlanRefused(
                 plan,
@@ -111,11 +111,11 @@ class StoredResultAppliedIT {
         Plan ready = aPlan().ready();
         RouteId v2 = routeId(ready, V2);
         ready.lockRoute(v2, RouteLock.WHOLE_ROUTE, TODAY);
-        Plan locked = reload(ready);
+        Plan locked = asSaved(ready);
         JobId job = storeSucceeded(locked, 4, List.of(solved(V1, D1, O1), solved(V2, D2, O2, O3)));
         damage(job, "solve_job_stop", "order_id = '" + O1.value() + "'", "route_position = 1 AND stop_position = 0");
         SolveJob stored = load(job);
-        Plan plan = reload(locked);
+        Plan plan = asSaved(locked);
 
         assertPlanRefused(plan, () -> plan.applySolveResult(stored, freshIds(500), LATER), new RouteLocked(v2));
     }

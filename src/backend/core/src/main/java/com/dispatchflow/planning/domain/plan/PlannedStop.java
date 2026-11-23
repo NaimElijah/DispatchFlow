@@ -65,11 +65,6 @@ class PlannedStop {
         this.late = late.orElse(null);
     }
 
-    /** Rebuilds a stop from a snapshot; it goes with {@code Plan.restore} (ADR-126). */
-    static PlannedStop from(PlanSnapshot.StopSnapshot snapshot) {
-        return new PlannedStop(snapshot.id(), snapshot.order(), snapshot.attempt(), snapshot.plan(), snapshot.late());
-    }
-
     StopId id() {
         return StopId.of(id);
     }
@@ -109,10 +104,5 @@ class PlannedStop {
     /** Marks how the stop joined its route after a late fact, or that it didn't. */
     void markLate(Optional<LateOutcome> next) {
         this.late = next.orElse(null);
-    }
-
-    /** The stop as its plan's snapshot holds it; it goes with {@code Plan.snapshot} (ADR-126). */
-    PlanSnapshot.StopSnapshot snapshot() {
-        return new PlanSnapshot.StopSnapshot(id(), order, attempt, plan(), late());
     }
 }
