@@ -29,7 +29,9 @@ import tools.jackson.databind.node.ArrayNode;
  * StoredStateInvalid.whileRestoring}, which the base class runs.
  *
  * <p>Writing refuses with {@link AssertionError} an error the reader would refuse, so no row is
- * stored that can't be loaded again.
+ * stored that can't be loaded again. It checks the type first, then reads its own text back: a
+ * record of an admitted type can still hold a component Jackson can't rebuild, such as one typed by
+ * an interface, which it writes as its fields with no type to read them back by.
  */
 @Converter(autoApply = true)
 public final class RowErrorsConverter extends StoredValueConverter<RowErrors, String> {
@@ -66,7 +68,20 @@ public final class RowErrorsConverter extends StoredValueConverter<RowErrors, St
             }
             stored.addObject().put(TYPE, error.getClass().getName()).set(VALUE, JSON.valueToTree(error));
         }
-        return JSON.writeValueAsString(stored);
+        String text = JSON.writeValueAsString(stored);
+        if (!readsBackAs(text, errors)) {
+            throw new AssertionError("an import row's errors must read back as they were written");
+        }
+        return text;
+    }
+
+    private static boolean readsBackAs(String text, RowErrors written) {
+        try {
+            return read(text).equals(written);
+        } catch (StoredStateInvalid | RuleViolation unreadable) {
+            // The reader's refusal is the answer: this text could never be loaded again.
+            return false;
+        }
     }
 
     private static RowErrors read(String stored) {

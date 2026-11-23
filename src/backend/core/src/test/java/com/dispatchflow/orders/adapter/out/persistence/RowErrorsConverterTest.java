@@ -12,8 +12,10 @@ import com.dispatchflow.orders.domain.OrdersError.DuplicateOrderReference;
 import com.dispatchflow.orders.domain.OrdersError.NewCustomerNeedsNameAndPhone;
 import com.dispatchflow.orders.domain.OrdersError.NoServiceTime;
 import com.dispatchflow.orders.domain.OrdersError.NonPositiveServiceTime;
+import com.dispatchflow.orders.domain.OrdersError.RowRefused;
 import com.dispatchflow.orders.domain.OrdersError.WindowNotOnDate;
 import com.dispatchflow.orders.domain.RowErrors;
+import com.dispatchflow.orders.domain.RowNumber;
 import com.dispatchflow.shared.CustomerId;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.DomainError;
@@ -134,6 +136,19 @@ class RowErrorsConverterTest {
                 .isInstanceOf(AssertionError.class)
                 .hasMessage("an import row's error must be a DomainError record under com.dispatchflow,"
                         + " so it can be read back");
+    }
+
+    /**
+     * An admitted record whose component is an interface: Jackson writes its fields, but can't tell
+     * which record to read back, so the row would never load again (ADR-127 decision 7).
+     */
+    @Test
+    void GivenAnErrorWithAComponentTheReaderCanNotRebuild_WhenStored_ThenAssertionError() {
+        RowErrors errors = new RowErrors(List.of(new RowRefused(RowNumber.of(3), new NoServiceTime())));
+
+        assertThatThrownBy(() -> converter.convertToDatabaseColumn(errors))
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("an import row's errors must read back as they were written");
     }
 
     @Test
