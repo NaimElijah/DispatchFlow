@@ -305,7 +305,8 @@ sets `create` or `update`. `just core-schema-draft` writes the DDL Hibernate wou
   `Repository<Root, UUID>` interface, never `JpaRepository`, `CrudRepository`, `ListCrudRepository` or
   `JpaSpecificationExecutor`. Query ports read into view records with JPQL constructor expressions or
   native queries, and PostgreSQL-specific SQL is a native query with an adapter test against the
-  Testcontainers PostgreSQL. No JDBC batching for now.
+  Testcontainers PostgreSQL. No JDBC write batching for now; Hibernate batch-fetches the collections
+  a load reads, 200 roots at a time ([ADR-128](../ADRs/ADR-128-the-persistence-rules-the-mapping-settled-after-adr-127.md)).
 - **How aggregates are mapped, versioned, loaded and saved** (optimistic locking by `@Version`, the shared
   save helper, the `@PostLoad` check, retries) is in [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) and in the domain document's
   [§3.5](domain_layer/domain_layer_design.md#35-factories),

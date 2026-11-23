@@ -133,9 +133,9 @@ Fleet and Customers & Orders have no relationship. Neither does any pair not in 
    `IsraelDateTime`, `DaySeconds`, `TimeWindow`, `GeoPoint`, `Weight`, `Volume`, `Priority`,
    `PhoneNumber` and `Attempt` ([ADR-111]), plus the free-text rule `PlainText` ([ADR-106]). It also holds the building blocks
    every module's domain uses: `DomainError`, `RuleViolation(s)`, `StoredStateInvalid`, `Version`,
-   `AggregateRoot`, `DomainEvent`, `EventId` and `FreshIds` ([ADR-097]), and the `PersonalData` marker
-   ([ADR-106]). Nothing with behaviour specific to one context goes there, and a change to it needs the
-   agreement of every module's owner.
+   `AggregateRoot`, `DomainEvent`, `EventId` and `FreshIds` ([ADR-097]), `StoredLists` ([ADR-128]), and
+   the `PersonalData` marker ([ADR-106]). Nothing with behaviour specific to one context goes there,
+   and a change to it needs the agreement of every module's owner.
 
 **Splitting a module into a service later** changes adapters only: its API calls become HTTP clients
 generated from a new contract, its events go through a message broker (Spring Modulith can externalize
@@ -1783,3 +1783,4 @@ Nothing. These ADRs record the decisions of this document:
 [ADR-121]: ../../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md
 [ADR-125]: ../../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md
 [ADR-126]: ../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md
+[ADR-128]: ../../ADRs/ADR-128-the-persistence-rules-the-mapping-settled-after-adr-127.md
