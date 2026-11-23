@@ -12,7 +12,9 @@ CREATE TABLE persistence_fixture.ledger (
     window_end timestamp(6) NOT NULL,
     depot_latitude double precision,
     depot_longitude double precision,
-    CONSTRAINT ledger_status_known CHECK (status IN ('OPEN', 'CLOSED'))
+    CONSTRAINT ledger_status_known CHECK (status IN ('OPEN', 'CLOSED')),
+    -- Lets VersionedSaveIT make the database refuse a row Hibernate writes.
+    CONSTRAINT ledger_name_allowed CHECK (name <> 'Refused by the database')
 );
 
 CREATE TABLE persistence_fixture.ledger_entry (

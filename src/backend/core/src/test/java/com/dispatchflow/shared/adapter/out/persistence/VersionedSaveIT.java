@@ -2,6 +2,7 @@ package com.dispatchflow.shared.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.TestPersistenceConfiguration.RecordedEvents;
@@ -27,7 +28,10 @@ import java.util.UUID;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -40,6 +44,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * keys its own ledgers, so none depends on another's rows.
  */
 @IntegrationTest
+@ExtendWith(OutputCaptureExtension.class)
 class VersionedSaveIT {
 
     private static final Instant NOW = Instant.parse("2027-07-13T05:00:00Z");
@@ -304,6 +309,22 @@ class VersionedSaveIT {
                             (id, version, name, status, booked_for, window_start, window_end)
                         VALUES (?, 0, ?, 'OPEN', ?, ?, ?)
                         """).params(id, name, DATE.value(), windowStart, windowEnd).update();
+    }
+
+    @Test
+    void GivenARowTheDatabaseRefuses_WhenSaved_ThenNeitherTheErrorNorTheLogQuotesItsValues(CapturedOutput output) {
+        UUID id = key(14);
+
+        Throwable refused = catchThrowable(
+                () -> inTransaction(() -> save(Ledger.open(id, "Refused by the database", DATE, MORNING, DEPOT, NOW))));
+
+        assertThat(refused).isNotNull().isNotInstanceOf(StaleVersion.class);
+        for (Throwable cause = refused; cause != null; cause = cause.getCause()) {
+            assertThat(String.valueOf(cause.getMessage()))
+                    .doesNotContain("Failing row")
+                    .doesNotContain(String.valueOf(DEPOT.latitude()));
+        }
+        assertThat(output.getAll()).doesNotContain("Failing row").doesNotContain(String.valueOf(DEPOT.latitude()));
     }
 
     private Ledger created(UUID id) {
