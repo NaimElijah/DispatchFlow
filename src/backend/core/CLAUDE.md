@@ -54,9 +54,9 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
     `@PostLoad` check when it maps it ([ADR-126]), or a locked snapshot's `readUnderLock`. Only the
     optimizer adapter makes `ValidationReport` or `Evaluation` ([DL §13]).
 - `DomainShapeRules` checks the shape. What goes against Java's defaults:
-  - The constructors of an aggregate root, a locked snapshot, `ValidationReport`, `Evaluation` and
-    `ValidatedSolution` are private. Every interface that extends `DomainError` is sealed, and no
-    error declares its own `code()`.
+  - The constructors of an aggregate root (bar Hibernate's protected no-argument one), a locked
+    snapshot, `ValidationReport`, `Evaluation` and `ValidatedSolution` are private. Every interface
+    that extends `DomainError` is sealed, and no error declares its own `code()`.
   - Error fields become a response's `params` ([ADR-043]), so they never hold text, an `Object`, an
     array or anything personal ([ADR-106]).
   - Every personal value implements `PersonalData`. No test checks that; review does. Every concrete

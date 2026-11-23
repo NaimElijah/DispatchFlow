@@ -115,7 +115,8 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
   device has a zone of its own ([ADR-088]).
 - Record every architectural decision, including a decision not to adopt something, as an ADR in
   `docs/ADRs/`, with the trigger that would make us revisit it.
-- Dependencies point one way: domain logic never imports frameworks, I/O or transport types.
+- Dependencies point one way: domain logic never imports frameworks, I/O or transport types, but
+  for the persistence annotations [ADR-126] allows.
   Adapters depend on the core, never the reverse. No cyclic dependencies.
 - Every new third-party dependency needs a justification: what it replaces, its maintenance
   status, its licence, why the standard library or an existing dependency is not enough, and the
@@ -189,5 +190,6 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 [ADR-122]: ../docs/ADRs/ADR-122-the-finish-skill-runs-no-agent-review.md
 [ADR-124]: ../docs/ADRs/ADR-124-a-claude-md-holds-only-what-a-session-would-otherwise-get-wrong.md
 [ADR-125]: ../docs/ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md
+[ADR-126]: ../docs/ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md
 [NFR-209]: ../docs/requirements/requirements.md#nfr-209
 [NFR-262]: ../docs/requirements/requirements.md#nfr-262
