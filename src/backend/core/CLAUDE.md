@@ -30,8 +30,8 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   cycle to split. The kernel's domain types and every `api`, `spi` and `events` package stay flat.
   Each new package carries `@NullMarked`. `DomainPackageRules` and `ApplicationRules` check the
   cycles, the root imports, `@NullMarked` and that the flat packages have no subpackage.
-- `src/test/java/com/dispatchflow/` holds the tests, `TestcontainersConfiguration` (PostgreSQL
-  18.6 in a container) and `TestDispatchFlowApplication`, which `just core-run` starts.
+- `src/test/java/com/dispatchflow/` holds the tests, `TestDispatchFlowApplication` (`just core-run`)
+  and `TestcontainersConfiguration`: PostgreSQL 18.6, with `db/fixture`'s `V0_*` test migrations.
 
 ## Rules
 
@@ -50,11 +50,9 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
     `String.format`, `DateTimeFormatter.ofPattern`, `toFormatter` and the `*Format` classes take a
     `Locale`, and `formatted` and `DateTimeFormatter.ofLocalized*` are never used.
   - They never create an `IllegalArgumentException` or an `IllegalStateException`, or a subclass of
-    either. They throw the module's named error in a `RuleViolation`, or a `StoredStateInvalid` from
-    `restore`.
+    either. They throw a `RuleViolation` with the module's named error, or `StoredStateInvalid`.
   - Only persistence adapters call an aggregate's `restore`, or the `readUnderLock` factory of a
-    locked snapshot. Only the optimizer adapter builds Planning's `ValidationReport` or `Evaluation`
-    ([DL §13]).
+    locked snapshot. Only the optimizer adapter makes `ValidationReport` or `Evaluation` ([DL §13]).
 - `DomainShapeRules` checks the shape. What goes against Java's defaults:
   - The constructors of an aggregate root, a locked snapshot, `ValidationReport`, `Evaluation` and
     `ValidatedSolution` are private. Every interface that extends `DomainError` is sealed, and no
@@ -115,10 +113,10 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   never edit an applied one, and `ddl-auto` stays `validate`. Flyway runs as `dispatchflow_owner` in
   a one-shot `migrate` step, which alone holds that credential; the core connects as `app`, which
   owns no table ([ADR-041], [TS §6.3]). Until the change that adds `migrate`, Spring Boot runs it.
-- Optimistic locking is `UPDATE … WHERE id = ? AND version = ?` on the root table. Zero rows updated
-  answers 412 `STALE_VERSION`, through `ETag` and `If-Match`, on a call that sent a version. A call
-  that sent none is retried at once, up to three times, then answered 503 with `Retry-After`
-  ([ADR-121]). Child tables carry no version ([ADR-057]).
+- Optimistic locking is `AggregateRoot`'s `@Version` ([ADR-057]): every adapter saves through
+  `VersionedSave`, which moves it by exactly 1, and the use case checks `If-Match` with
+  `StaleVersion.requireCurrent`. `STALE_VERSION` answers 412 to a call that sent a version; one that
+  sent none is re-run whole in a new transaction, up to three times, then 503 ([ADR-121]).
 - The `e2e` profile's test-only endpoints exist only in that profile, and the profile refuses to
   boot when the SMS credential is present, with a test for each (NFR-206).
 - Until M5's sign-in, the stand-in session exists only when `dev` or `test` is the only active

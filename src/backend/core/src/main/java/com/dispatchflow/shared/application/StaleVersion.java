@@ -13,7 +13,9 @@ import java.util.UUID;
  * with {@code Retry-After} (ADR-121), as a listener adapter retries (DL §11). The message names the
  * kind and the ID only, never personal data (NFR-19).
  *
- * <p>Built in M0.
+ * <p>Two checks throw it (ADR-126): {@link #requireCurrent}, in the use case, against the version
+ * the caller read; and the persistence adapter's save, when another transaction saved the
+ * aggregate after this one loaded it. A retry re-runs the whole use case in a new transaction.
  */
 public final class StaleVersion extends RuntimeException {
 
@@ -30,10 +32,28 @@ public final class StaleVersion extends RuntimeException {
      * @param id the changed record's ID
      */
     public StaleVersion(String kind, UUID id) {
-        super(Objects.requireNonNull(kind, "kind") + " " + Objects.requireNonNull(id, "id")
-                + " changed since it was read");
+        super(message(kind, id));
         this.kind = kind;
         this.id = id;
+    }
+
+    /**
+     * Creates the error, keeping the optimistic-lock failure that showed it.
+     *
+     * @param kind what was changed, such as {@code Plan}
+     * @param id the changed record's ID
+     * @param cause the persistence provider's conflict, whose message names the entity and its key
+     *     only
+     */
+    public StaleVersion(String kind, UUID id, Throwable cause) {
+        super(message(kind, id), Objects.requireNonNull(cause, "cause"));
+        this.kind = kind;
+        this.id = id;
+    }
+
+    private static String message(String kind, UUID id) {
+        return Objects.requireNonNull(kind, "kind") + " " + Objects.requireNonNull(id, "id")
+                + " changed since it was read";
     }
 
     /**

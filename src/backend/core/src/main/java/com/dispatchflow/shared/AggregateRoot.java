@@ -1,5 +1,6 @@
 package com.dispatchflow.shared;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.MappedSuperclass;
 import jakarta.persistence.Transient;
 import java.util.ArrayList;
@@ -31,9 +32,12 @@ public abstract class AggregateRoot {
     private static final Version FIRST_SAVE = Version.of(0);
 
     // A Long, not the kernel's Version: Jakarta Persistence applies no converter to a version
-    // attribute. Hibernate seeds a null version with 0 when it inserts the aggregate.
+    // attribute. Hibernate seeds a null version with 0 when it inserts the aggregate. Spring Data
+    // tells a new aggregate by reading this attribute by name, and for a field named "version" it
+    // would call version(), which throws before the first save; so the field has another name.
     @jakarta.persistence.Version
-    private @Nullable Long version;
+    @Column(name = "version")
+    private @Nullable Long storedVersion;
 
     @Transient
     private final List<DomainEvent> pendingEvents = new ArrayList<>();
@@ -49,7 +53,7 @@ public abstract class AggregateRoot {
      * @param stored the version this instance was loaded at, or null when it was never saved
      */
     protected AggregateRoot(@Nullable Version stored) {
-        this.version = stored == null ? null : stored.value();
+        this.storedVersion = stored == null ? null : stored.value();
     }
 
     /**
@@ -61,10 +65,10 @@ public abstract class AggregateRoot {
      *     caller, which reads the version of a creation only after its save
      */
     public final Version version() {
-        if (version == null) {
+        if (storedVersion == null) {
             throw new AssertionError("an aggregate has no version before its first save");
         }
-        return Version.of(version);
+        return Version.of(storedVersion);
     }
 
     /**
@@ -74,7 +78,7 @@ public abstract class AggregateRoot {
      * @return the loaded version, or null when the aggregate was never saved
      */
     protected final @Nullable Version savedVersion() {
-        return version == null ? null : Version.of(version);
+        return storedVersion == null ? null : Version.of(storedVersion);
     }
 
     /**
@@ -95,7 +99,8 @@ public abstract class AggregateRoot {
      *     the ID it was given: a bug in the raising method, not a refusal
      */
     protected final <E extends DomainEvent> E raise(Class<E> type, UUID aggregateId, Function<EventId, E> build) {
-        Version savedAt = version == null ? FIRST_SAVE : Version.of(version).next();
+        Version savedAt =
+                storedVersion == null ? FIRST_SAVE : Version.of(storedVersion).next();
         EventId id = new EventId(type.getSimpleName(), aggregateId, savedAt, pendingEvents.size());
         E event = Objects.requireNonNull(build.apply(id), "event");
         // The ID names the type given, so a supertype such as a sealed event interface is refused.
