@@ -18,6 +18,7 @@ import com.dispatchflow.messaging.domain.Switch;
 import com.dispatchflow.messaging.domain.message.ArrivalFacts;
 import com.dispatchflow.messaging.domain.message.ArrivalFacts.PreviousStop;
 import com.dispatchflow.messaging.domain.message.DailySendCap;
+import com.dispatchflow.messaging.domain.message.MessageDescription;
 import com.dispatchflow.messaging.domain.message.ProviderReference;
 import com.dispatchflow.messaging.domain.message.RecipientPhone;
 import com.dispatchflow.messaging.domain.message.ReportedOutcome;
@@ -84,24 +85,26 @@ class StopMessagesPersistenceIT {
     @Autowired
     private JdbcClient jdbc;
 
-    // --- round trips, mirroring the domain's restore round trips
+    // --- round trips (ADR-127 decision 1)
 
-    /** The states the domain's restore round trip covers, reached through commands. */
+    /** The states a stop's messages store and load in, reached through commands. */
     enum Scenario {
         NO_MESSAGE,
         ONE_PENDING,
-        EVERY_STATE
+        EVERY_STATE,
+        TO_TWO_PHONES
     }
 
     @ParameterizedTest
     @EnumSource(Scenario.class)
     void GivenAStopsMessages_WhenAddedAndLoadedInAnotherTransaction_ThenEveryPartComesBackAsAdded(Scenario scenario) {
-        int n = 1 + scenario.ordinal();
+        int n = 20 + scenario.ordinal();
         StopMessages added = transactions.inTransaction(() -> {
             StopMessages messages = switch (scenario) {
                 case NO_MESSAGE -> StopMessages.open(stop(n));
                 case ONE_PENDING -> pendingOutForDelivery(n, tenOn(n), phone(n));
                 case EVERY_STATE -> everyState(n, tenOn(n), phone(n));
+                case TO_TWO_PHONES -> toTwoPhones(n, tenOn(n));
             };
             repository.add(messages);
             return messages;
@@ -110,7 +113,7 @@ class StopMessagesPersistenceIT {
         StopMessages loaded =
                 transactions.inTransaction(() -> repository.get(stop(n)).orElseThrow());
 
-        assertThat(loaded.snapshot()).isEqualTo(added.snapshot());
+        assertThat(MessageDescription.everyMessageOf(loaded)).isEqualTo(MessageDescription.everyMessageOf(added));
         assertThat(loaded.stop()).isEqualTo(stop(n));
         assertThat(loaded.version()).isEqualTo(Version.of(0));
         assertThat(loaded.retentionEndsAt()).isEqualTo(added.retentionEndsAt());
@@ -562,6 +565,24 @@ class StopMessagesPersistenceIT {
         messages.claim(messageId(s, 5), ROOM, PhoneConsent.MAY_BE_MESSAGED, at(ten, 14));
         messages.onOutcome(messageId(s, 6), to, RATING_QUESTION_ON, new ReportedOutcome.Delivered(true), at(ten, 15));
         messages.claim(messageId(s, 6), ROOM, PhoneConsent.OPTED_OUT, at(ten, 16));
+        return messages;
+    }
+
+    /**
+     * "Out for delivery" accepted to {@code phone(s)}, then "missed you" accepted to {@code phone(100
+     * + s)}: each message keeps the phone it was triggered for (ADR-117).
+     */
+    private static StopMessages toTwoPhones(int s, Instant ten) {
+        StopMessages messages = claimed(s, ten, phone(s));
+        messages.accepted(messageId(s, 1), REFERENCE, at(ten, 2));
+        messages.onOutcome(
+                messageId(s, 2),
+                new RecipientPhone.Known(phone(100 + s)),
+                MESSAGES_ON,
+                new ReportedOutcome.Failed(),
+                at(ten, 3));
+        messages.claim(messageId(s, 2), ROOM, PhoneConsent.MAY_BE_MESSAGED, at(ten, 4));
+        messages.accepted(messageId(s, 2), new ProviderReference("provider-2"), at(ten, 5));
         return messages;
     }
 

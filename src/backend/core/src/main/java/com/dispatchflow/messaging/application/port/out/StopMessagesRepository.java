@@ -14,15 +14,11 @@ import java.util.Optional;
 /**
  * Where each stop's {@link StopMessages} is kept, keyed by its stop, each message unique by its
  * stop, type and sequence (DL §3.6, §4.6, NFR-191).
- *
- * <p>Built in M12 and M13, method by method.
  */
 public interface StopMessagesRepository {
 
     /**
      * One stop's messages.
-     *
-     * <p>Built in M12.
      *
      * @param stop the stop
      * @return the messages, or empty when the stop has had no trigger
@@ -31,8 +27,6 @@ public interface StopMessagesRepository {
 
     /**
      * Stores a stop's messages on its first trigger, in the caller's transaction.
-     *
-     * <p>Built in M12.
      *
      * @param messages the stop's messages, never saved
      * @throws StaleVersion when another trigger stored the stop's messages first; the caller
@@ -43,8 +37,6 @@ public interface StopMessagesRepository {
     /**
      * Stores a stop's changed messages, checking the version they were loaded at (BR-76, DL §11).
      *
-     * <p>Built in M12.
-     *
      * @param messages the stop's messages
      * @throws StaleVersion when a trigger or the sender saved them since they were loaded; the
      *     sender retries its claim (DL §11)
@@ -54,8 +46,6 @@ public interface StopMessagesRepository {
     /**
      * The stops with a message the sender may claim: pending, or of unknown outcome and retryable
      * (DL §9.5).
-     *
-     * <p>Built in M12.
      *
      * @return the stops, each once, the oldest trigger first
      */
@@ -71,8 +61,6 @@ public interface StopMessagesRepository {
      * the sender's claim and {@link #countAnswer} on the same day run one at a time, and never both
      * take the cap's last place.
      *
-     * <p>Built in M12.
-     *
      * @param day the day, in {@code Asia/Jerusalem}
      * @return the cap as it stands
      */
@@ -87,8 +75,6 @@ public interface StopMessagesRepository {
      * that it was sent that day, for {@link #capOn} to count; counting the same answer twice
      * changes nothing, and answers as the first count did.
      *
-     * <p>Built in M12.
-     *
      * @param answer the answer's own ID, the reference the provider is given
      * @param day the day it is sent, in {@code Asia/Jerusalem}
      * @return {@code true} when the answer counts and may be sent, {@code false} when the cap was
@@ -100,8 +86,6 @@ public interface StopMessagesRepository {
      * When a message to a phone was last accepted by the provider, which decides whether an opt-out
      * is confirmed (FR-363, ADR-108). Phones are compared in their stored E.164 form (FR-377).
      *
-     * <p>Built in M12.
-     *
      * @param phone the phone
      * @return the latest acceptance, or empty when no message to it was ever accepted
      */
@@ -110,8 +94,6 @@ public interface StopMessagesRepository {
     /**
      * Deletes every stop's messages whose retention has ended: 90 days after the last of them
      * reached its state (NFR-184, ADR-108).
-     *
-     * <p>Built in M13.
      *
      * @param now when the retention job runs
      * @return how many stops' messages were deleted

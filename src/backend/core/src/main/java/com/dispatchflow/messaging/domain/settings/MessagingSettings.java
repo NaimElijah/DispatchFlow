@@ -57,15 +57,6 @@ public class MessagingSettings extends AggregateRoot {
         this.dispatchPhone = dispatchPhone;
     }
 
-    /** Builds the settings {@link #restore} returns; it goes with {@code restore} (ADR-126). */
-    private MessagingSettings(MessagingSettingsSnapshot stored) {
-        super(stored.version());
-        this.id = KEY;
-        this.messages = stored.messages();
-        this.ratingQuestion = stored.ratingQuestion();
-        this.dispatchPhone = stored.dispatchPhone();
-    }
-
     /**
      * Creates the settings when the system is deployed: messages and the rating question both off
      * (FR-350, FR-375), with the dispatch phone the deployment is given, because two of the
@@ -79,19 +70,8 @@ public class MessagingSettings extends AggregateRoot {
     }
 
     /**
-     * Rebuilds the stored settings; only the persistence adapter calls it (DL §3.5). Each value
-     * checked itself when the adapter rebuilt it, and no rule ties them together.
-     *
-     * @param stored the stored state
-     * @return the settings at the stored version
-     */
-    public static MessagingSettings restore(MessagingSettingsSnapshot stored) {
-        return new MessagingSettings(stored);
-    }
-
-    /**
-     * The load check every root has (ADR-126 decision 8). Like {@link #restore}, it checks nothing:
-     * each value checked itself when its converter rebuilt it, and no rule ties them together.
+     * The load check every root has (ADR-126 decision 8). It checks nothing: each value checked
+     * itself when its converter rebuilt it, and no rule ties them together.
      */
     @PostLoad
     void checkStored() {
@@ -138,11 +118,29 @@ public class MessagingSettings extends AggregateRoot {
     }
 
     /**
-     * The settings as stored.
+     * Whether messages to recipients go (FR-350).
      *
-     * @return a snapshot that {@link #restore} rebuilds
+     * @return on or off
      */
-    public MessagingSettingsSnapshot snapshot() {
-        return new MessagingSettingsSnapshot(savedVersion().orElse(null), messages, ratingQuestion, dispatchPhone);
+    public Switch messages() {
+        return messages;
+    }
+
+    /**
+     * Whether the delivered message asks for a rating (FR-375).
+     *
+     * @return on or off
+     */
+    public Switch ratingQuestion() {
+        return ratingQuestion;
+    }
+
+    /**
+     * The dispatch phone the messages give (FR-125).
+     *
+     * @return the phone
+     */
+    public DispatchPhone dispatchPhone() {
+        return dispatchPhone;
     }
 }

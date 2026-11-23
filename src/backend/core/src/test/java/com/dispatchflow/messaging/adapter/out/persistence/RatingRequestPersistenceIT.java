@@ -16,6 +16,7 @@ import com.dispatchflow.messaging.domain.RatingQuestion;
 import com.dispatchflow.messaging.domain.SendingConditions;
 import com.dispatchflow.messaging.domain.Switch;
 import com.dispatchflow.messaging.domain.rating.RatingRequest;
+import com.dispatchflow.messaging.domain.rating.RatingRequestDescription;
 import com.dispatchflow.messaging.domain.rating.Reply;
 import com.dispatchflow.messaging.events.RatingReceived;
 import com.dispatchflow.shared.EventId;
@@ -82,9 +83,9 @@ class RatingRequestPersistenceIT {
         events.clear();
     }
 
-    // --- round trips, mirroring the domain's restore round trips
+    // --- round trips (ADR-127 decision 1)
 
-    /** The states the domain's restore round trip covers, reached through commands. */
+    /** The states a request stores and loads in, reached through commands. */
     enum Scenario {
         OPEN,
         COMMENTED_WITH_THE_REMINDER_SKIPPED,
@@ -128,7 +129,7 @@ class RatingRequestPersistenceIT {
         RatingRequest loaded =
                 transactions.inTransaction(() -> repository.get(request(n)).orElseThrow());
 
-        assertThat(loaded.snapshot()).isEqualTo(added.snapshot());
+        assertThat(RatingRequestDescription.of(loaded)).isEqualTo(RatingRequestDescription.of(added));
         assertThat(loaded.id()).isEqualTo(request(n));
         assertThat(loaded.version()).isEqualTo(Version.of(0));
         assertThat(loaded.statusAt(tenOn(n))).isEqualTo(added.statusAt(tenOn(n)));
@@ -218,7 +219,7 @@ class RatingRequestPersistenceIT {
                 () -> repository.openFor(phone(n), ten.plusSeconds(7_200)).orElseThrow());
 
         assertThat(open.id()).isEqualTo(request(100 + n));
-        assertThat(open.snapshot().comments()).hasSize(1);
+        assertThat(open.comments()).hasSize(1);
     }
 
     @Test

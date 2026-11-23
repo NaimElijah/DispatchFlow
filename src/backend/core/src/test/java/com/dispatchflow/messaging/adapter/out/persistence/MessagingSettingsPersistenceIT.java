@@ -9,7 +9,6 @@ import com.dispatchflow.messaging.application.port.out.MessagingSettingsReposito
 import com.dispatchflow.messaging.domain.DispatchPhone;
 import com.dispatchflow.messaging.domain.Switch;
 import com.dispatchflow.messaging.domain.settings.MessagingSettings;
-import com.dispatchflow.messaging.domain.settings.MessagingSettingsSnapshot;
 import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.StaleVersion;
@@ -54,21 +53,18 @@ class MessagingSettingsPersistenceIT {
 
     @Test
     void GivenChangedSettings_WhenAddedAndLoadedInAnotherTransaction_ThenEveryValueComesBackUnderTheConstantKey() {
-        MessagingSettingsSnapshot added = transactions.inTransaction(() -> {
+        transactions.inTransaction(() -> {
             MessagingSettings settings = MessagingSettings.create(DISPATCH);
             settings.changeMessages(Switch.ON);
             settings.changeRatingQuestion(Switch.ON);
             settings.changeDispatchPhone(MOBILE);
             repository.add(settings);
-            return settings.snapshot();
         });
 
         MessagingSettings loaded =
                 transactions.inTransaction(() -> repository.get().orElseThrow());
 
-        assertThat(loaded.snapshot()).isEqualTo(added);
-        assertThat(loaded.snapshot())
-                .isEqualTo(new MessagingSettingsSnapshot(Version.of(0), Switch.ON, Switch.ON, MOBILE));
+        assertThat(stored(loaded)).isEqualTo(new Stored(Version.of(0), Switch.ON, Switch.ON, MOBILE));
         assertThat(jdbc.sql("SELECT id FROM messaging.messaging_settings")
                         .query(UUID.class)
                         .single())
@@ -110,9 +106,8 @@ class MessagingSettingsPersistenceIT {
                     assertThat(stale.id()).isEqualTo(MessagingSettings.KEY);
                 });
 
-        assertThat(transactions.inTransaction(
-                        () -> repository.get().orElseThrow().snapshot()))
-                .isEqualTo(new MessagingSettingsSnapshot(Version.of(1), Switch.ON, Switch.OFF, DISPATCH));
+        assertThat(transactions.inTransaction(() -> stored(repository.get().orElseThrow())))
+                .isEqualTo(new Stored(Version.of(1), Switch.ON, Switch.OFF, DISPATCH));
     }
 
     @Test
@@ -127,9 +122,15 @@ class MessagingSettingsPersistenceIT {
                     assertThat(stale.id()).isEqualTo(MessagingSettings.KEY);
                 });
 
-        assertThat(transactions.inTransaction(
-                        () -> repository.get().orElseThrow().snapshot()))
-                .isEqualTo(new MessagingSettingsSnapshot(Version.of(0), Switch.OFF, Switch.OFF, MOBILE));
+        assertThat(transactions.inTransaction(() -> stored(repository.get().orElseThrow())))
+                .isEqualTo(new Stored(Version.of(0), Switch.OFF, Switch.OFF, MOBILE));
+    }
+
+    /** What the test reads of loaded settings, through their getters. */
+    private record Stored(Version version, Switch messages, Switch ratingQuestion, DispatchPhone dispatchPhone) {}
+
+    private static Stored stored(MessagingSettings settings) {
+        return new Stored(settings.version(), settings.messages(), settings.ratingQuestion(), settings.dispatchPhone());
     }
 
     private long storedVersion() {

@@ -224,43 +224,6 @@ public class OutgoingMessage implements PersonalData {
     }
 
     /**
-     * A copy that shares nothing with this message, for a {@link StopMessagesSnapshot}; it goes with
-     * the snapshots (ADR-126).
-     *
-     * @return the copy, which no persistence context manages
-     */
-    OutgoingMessage copy() {
-        return new OutgoingMessage(
-                id(), type, sequence, phone, text, arrivalSent(), asksForRating, triggeredAt, state());
-    }
-
-    /**
-     * Whether another message has the same ID and the same parts, as the record this class replaced
-     * compared them, so that two {@link StopMessagesSnapshot}s compare by their messages' contents.
-     *
-     * @param other the object to compare
-     * @return {@code true} when every part is equal
-     */
-    @Override
-    public boolean equals(@Nullable Object other) {
-        return other instanceof OutgoingMessage that
-                && id.equals(that.id)
-                && type == that.type
-                && sequence == that.sequence
-                && phone.equals(that.phone)
-                && text.equals(that.text)
-                && Objects.equals(arrivalSent, that.arrivalSent)
-                && asksForRating == that.asksForRating
-                && triggeredAt.equals(that.triggeredAt)
-                && state().equals(that.state());
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(id, type, sequence, phone, text, arrivalSent, asksForRating, triggeredAt, state());
-    }
-
-    /**
      * A form that leaves the phone and the text out.
      *
      * @return the message without its phone and text

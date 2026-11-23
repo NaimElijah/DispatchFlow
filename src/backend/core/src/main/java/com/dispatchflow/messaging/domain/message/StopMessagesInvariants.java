@@ -8,10 +8,9 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * The one check of {@link StopMessages}' invariants at rest. The {@code @PostLoad} check, and {@code
- * restore} while it lasts, turn a broken one into {@code StoredStateInvalid}, and the end of every
- * command into an {@link AssertionError}, so no command can leave a state that a load refuses
- * (ADR-126 decision 11).
+ * The one check of {@link StopMessages}' invariants at rest. The {@code @PostLoad} check turns a
+ * broken one into {@code StoredStateInvalid}, and the end of every command into an {@link
+ * AssertionError}, so no command can leave a state that a load refuses (ADR-126 decision 11).
  */
 final class StopMessagesInvariants {
 

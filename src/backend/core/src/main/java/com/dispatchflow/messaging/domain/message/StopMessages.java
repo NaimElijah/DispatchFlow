@@ -105,13 +105,6 @@ public class StopMessages extends AggregateRoot implements PersonalData {
         this.id = stop.value();
     }
 
-    /** Builds the aggregate {@link #restore} checks; it goes with {@code restore} (ADR-126). */
-    private StopMessages(StopMessagesSnapshot stored) {
-        super(stored.version());
-        this.id = stored.stop().value();
-        stored.messages().forEach(message -> messages.add(message.copy()));
-    }
-
     /**
      * Starts the messages of a stop that has none yet, when its first trigger arrives (DL §6.2).
      *
@@ -123,25 +116,11 @@ public class StopMessages extends AggregateRoot implements PersonalData {
     }
 
     /**
-     * Rebuilds a stop's messages from storage, checking the invariants that hold at rest: each
-     * message has its own ID; each type is numbered from 1 up to its most per stop; only "out for
-     * delivery" and "time changed" give an arrival, and a "time changed" follows one that did;
-     * only "delivered" asks for a rating; one outcome message at most; and a pending message is
-     * pending since its trigger. Only persistence adapters call it (DL §3.5).
-     *
-     * @param stored the stored state
-     * @return the aggregate at the stored version
-     * @throws StoredStateInvalid when the stored state breaks one of those invariants
-     */
-    public static StopMessages restore(StopMessagesSnapshot stored) {
-        StopMessages restored = new StopMessages(stored);
-        restored.checkStored();
-        return restored;
-    }
-
-    /**
-     * Checks the stop's messages as Hibernate loaded them against the invariants at rest that
-     * {@link #restore} checks (ADR-126 decision 8).
+     * Checks the stop's messages as Hibernate loaded them against the invariants that hold at rest
+     * (ADR-126 decision 8): each message has its own ID; each type is numbered from 1 up to its most
+     * per stop; only "out for delivery" and "time changed" give an arrival, and a "time changed"
+     * follows one that did; only "delivered" asks for a rating; one outcome message at most; and a
+     * pending message is pending since its trigger.
      *
      * @throws StoredStateInvalid when the stored state breaks one of them
      */
@@ -505,25 +484,23 @@ public class StopMessages extends AggregateRoot implements PersonalData {
     }
 
     /**
-     * The stop's messages as stored.
+     * Every message to the stop, each with the phone it goes to (ADR-117).
      *
-     * @return a snapshot that {@link #restore} rebuilds
+     * @return an unmodifiable copy of the list, in the order the messages were triggered; only this
+     *     aggregate's commands change the messages in it
      */
-    public StopMessagesSnapshot snapshot() {
-        return new StopMessagesSnapshot(
-                stop(),
-                savedVersion().orElse(null),
-                messages.stream().map(OutgoingMessage::copy).toList());
+    public List<OutgoingMessage> messages() {
+        return List.copyOf(messages);
     }
 
     /**
-     * A form that names the stop and leaves the phones and the texts out.
+     * A form that names the stop and its messages and leaves the phones and the texts out.
      *
      * @return the aggregate without personal data
      */
     @Override
     public String toString() {
-        return "StopMessages[" + snapshot() + "]";
+        return "StopMessages[stop=" + stop() + ", messages=" + messages + "]";
     }
 
     // --- helpers

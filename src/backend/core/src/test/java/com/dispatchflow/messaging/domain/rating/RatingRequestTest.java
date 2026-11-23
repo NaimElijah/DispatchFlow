@@ -5,12 +5,12 @@ import static com.dispatchflow.messaging.domain.MessagingFixtures.STOP;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.TEN;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.conditions;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.on;
+import static com.dispatchflow.messaging.domain.rating.ExpectedRatingRequest.expectedRequest;
 import static com.dispatchflow.messaging.domain.rating.RatingRequestBuilder.LOADED;
 import static com.dispatchflow.messaging.domain.rating.RatingRequestBuilder.REQUEST;
 import static com.dispatchflow.messaging.domain.rating.RatingRequestBuilder.aRatingRequest;
 import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dispatchflow.messaging.domain.MessagingError.RetentionNotOver;
 import com.dispatchflow.messaging.domain.PhoneConsent;
@@ -24,7 +24,6 @@ import com.dispatchflow.messaging.domain.rating.RatingRequest.Rated;
 import com.dispatchflow.messaging.domain.rating.RatingRequest.Status;
 import com.dispatchflow.messaging.events.RatingReceived;
 import com.dispatchflow.shared.EventId;
-import com.dispatchflow.shared.StoredStateInvalid;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -55,11 +54,11 @@ class RatingRequestTest {
     }
 
     private static void assertUnchanged(RatingRequest request, Runnable call) {
-        RatingRequestSnapshot before = request.snapshot();
+        RatingRequestDescription before = RatingRequestDescription.of(request);
 
         call.run();
 
-        assertThat(request.snapshot()).isEqualTo(before);
+        assertThat(RatingRequestDescription.of(request)).isEqualTo(before);
         assertThat(request.pendingEvents()).isEmpty();
     }
 
@@ -69,10 +68,9 @@ class RatingRequestTest {
     void GivenAnAcceptedRatingQuestion_WhenARequestIsOpened_ThenItIsOpenWithNoReply() {
         RatingRequest request = RatingRequest.open(REQUEST, new RatingQuestion(STOP, MOBILE, TEN));
 
-        assertThat(request.snapshot())
-                .isEqualTo(new RatingRequestSnapshot(
+        assertThat(RatingRequestDescription.of(request))
+                .isEqualTo(new RatingRequestDescription(
                         REQUEST,
-                        null,
                         STOP,
                         Optional.of(MOBILE),
                         TEN,
@@ -94,8 +92,8 @@ class RatingRequestTest {
         Answer answer = answer(request, "3", HOUR_LATER);
 
         assertThat(answer).isEqualTo(new Answer(Counted.RATING, Optional.of(ReplyMessage.THANK_YOU)));
-        assertThat(request.snapshot())
-                .isEqualTo(aRatingRequest().rated(3, HOUR_LATER).snapshot());
+        assertThat(RatingRequestDescription.of(request))
+                .isEqualTo(expectedRequest().rated(3, HOUR_LATER).described());
         assertThat(request.pendingEvents())
                 .containsExactly(new RatingReceived(
                         new EventId("RatingReceived", REQUEST.value(), LOADED.next(), 0),
@@ -113,11 +111,11 @@ class RatingRequestTest {
         Answer answer = answer(request, "8 thanks", HOUR_LATER);
 
         assertThat(answer).isEqualTo(new Answer(Counted.RATING_AND_COMMENT, Optional.of(ReplyMessage.THANK_YOU)));
-        assertThat(request.snapshot())
-                .isEqualTo(aRatingRequest()
+        assertThat(RatingRequestDescription.of(request))
+                .isEqualTo(expectedRequest()
                         .rated(8, HOUR_LATER)
                         .withComment("8 thanks", HOUR_LATER)
-                        .snapshot());
+                        .described());
     }
 
     @Test
@@ -136,11 +134,11 @@ class RatingRequestTest {
 
         assertThat(answer(request, "9 sorry, it was fine", HOUR_LATER))
                 .isEqualTo(new Answer(Counted.COMMENT, Optional.empty()));
-        assertThat(request.snapshot())
-                .isEqualTo(aRatingRequest()
+        assertThat(RatingRequestDescription.of(request))
+                .isEqualTo(expectedRequest()
                         .rated(3, TEN)
                         .withComment("9 sorry, it was fine", HOUR_LATER)
-                        .snapshot());
+                        .described());
         assertThat(request.pendingEvents()).isEmpty();
     }
 
@@ -155,12 +153,12 @@ class RatingRequestTest {
         assertThat(answer(request, "really", HOUR_LATER.plusSeconds(60)))
                 .isEqualTo(new Answer(Counted.COMMENT, Optional.empty()));
 
-        assertThat(request.snapshot())
-                .isEqualTo(aRatingRequest()
+        assertThat(RatingRequestDescription.of(request))
+                .isEqualTo(expectedRequest()
                         .withComment("great driver", HOUR_LATER)
                         .withComment("really", HOUR_LATER.plusSeconds(60))
                         .withReminder(OneTimeReply.SENT)
-                        .snapshot());
+                        .described());
     }
 
     @Test
@@ -169,8 +167,8 @@ class RatingRequestTest {
 
         assertThat(answer(request, "  ", HOUR_LATER))
                 .isEqualTo(new Answer(Counted.NOTHING, Optional.of(ReplyMessage.FORMAT_REMINDER)));
-        assertThat(request.snapshot())
-                .isEqualTo(aRatingRequest().withReminder(OneTimeReply.SENT).snapshot());
+        assertThat(RatingRequestDescription.of(request))
+                .isEqualTo(expectedRequest().withReminder(OneTimeReply.SENT).described());
     }
 
     @Test
@@ -179,7 +177,7 @@ class RatingRequestTest {
 
         assertThat(answer(request, "thanks again", HOUR_LATER))
                 .isEqualTo(new Answer(Counted.COMMENT, Optional.empty()));
-        assertThat(request.snapshot().reminder()).isEqualTo(OneTimeReply.NOT_YET);
+        assertThat(request.reminder()).isEqualTo(OneTimeReply.NOT_YET);
     }
 
     @Test
@@ -201,8 +199,8 @@ class RatingRequestTest {
 
         assertThat(request.answer(Reply.parse("7"), off, HOUR_LATER))
                 .isEqualTo(new Answer(Counted.RATING, Optional.empty()));
-        assertThat(request.snapshot().thankYou()).isEqualTo(OneTimeReply.SKIPPED);
-        assertThat(request.snapshot().rating()).isEqualTo(ratedAt(7, HOUR_LATER));
+        assertThat(request.thankYou()).isEqualTo(OneTimeReply.SKIPPED);
+        assertThat(request.rating()).isEqualTo(ratedAt(7, HOUR_LATER));
         assertThat(request.pendingEvents()).hasSize(1);
     }
 
@@ -215,7 +213,7 @@ class RatingRequestTest {
                 .isEqualTo(new Answer(Counted.COMMENT, Optional.empty()));
         assertThat(answer(request, "hello again", HOUR_LATER.plusSeconds(60)))
                 .isEqualTo(new Answer(Counted.COMMENT, Optional.empty()));
-        assertThat(request.snapshot().reminder()).isEqualTo(OneTimeReply.SKIPPED);
+        assertThat(request.reminder()).isEqualTo(OneTimeReply.SKIPPED);
     }
 
     // --- the 48 hours (FR-357, FR-379)
@@ -252,8 +250,9 @@ class RatingRequestTest {
 
         request.removePersonalData(RETENTION_END);
 
-        assertThat(request.snapshot())
-                .isEqualTo(aRatingRequest().rated(4, TEN).removed(RETENTION_END).snapshot());
+        assertThat(RatingRequestDescription.of(request))
+                .isEqualTo(
+                        expectedRequest().rated(4, TEN).removed(RETENTION_END).described());
         assertThat(request.pendingEvents()).isEmpty();
     }
 
@@ -266,33 +265,38 @@ class RatingRequestTest {
                 .build();
 
         request.removePersonalData(RETENTION_END);
-        assertThat(request.snapshot())
-                .isEqualTo(aRatingRequest()
+        assertThat(RatingRequestDescription.of(request))
+                .isEqualTo(expectedRequest()
                         .withComment("first", HOUR_LATER)
                         .withComment("second", WINDOW_END)
+                        .withReminder(OneTimeReply.SENT)
                         .phoneRemoved(RETENTION_END)
-                        .snapshot());
+                        .described());
 
         request.removePersonalData(RETENTION_END.plusSeconds(3_600));
-        assertThat(request.snapshot())
-                .isEqualTo(aRatingRequest()
+        assertThat(RatingRequestDescription.of(request))
+                .isEqualTo(expectedRequest()
                         .withComment("second", WINDOW_END)
+                        .withReminder(OneTimeReply.SENT)
                         .phoneRemoved(RETENTION_END)
-                        .snapshot());
+                        .described());
 
         request.removePersonalData(secondEnd);
-        assertThat(request.snapshot())
-                .isEqualTo(aRatingRequest().phoneRemoved(RETENTION_END).snapshot());
+        assertThat(RatingRequestDescription.of(request))
+                .isEqualTo(expectedRequest()
+                        .withReminder(OneTimeReply.SENT)
+                        .phoneRemoved(RETENTION_END)
+                        .described());
     }
 
     @Test
     void GivenNothingDueYet_WhenPersonalDataIsRemoved_ThenRetentionNotOver() {
         RatingRequest request = aRatingRequest().withComment("hi", HOUR_LATER).build();
-        RatingRequestSnapshot before = request.snapshot();
+        RatingRequestDescription before = RatingRequestDescription.of(request);
 
         assertRefused(() -> request.removePersonalData(RETENTION_END.minusSeconds(1)), new RetentionNotOver());
 
-        assertThat(request.snapshot()).isEqualTo(before);
+        assertThat(RatingRequestDescription.of(request)).isEqualTo(before);
         assertThat(request.pendingEvents()).isEmpty();
     }
 
@@ -300,20 +304,22 @@ class RatingRequestTest {
     void GivenThePhoneRemovedAndACommentNotYetDue_WhenRetentionRunsAgain_ThenRetentionNotOver() {
         RatingRequest request = aRatingRequest()
                 .withComment("second", WINDOW_END)
-                .phoneRemoved(RETENTION_END)
+                .personalDataRemoved(RETENTION_END)
                 .build();
-        RatingRequestSnapshot before = request.snapshot();
+        RatingRequestDescription before = RatingRequestDescription.of(request);
 
         assertRefused(() -> request.removePersonalData(RETENTION_END.plusSeconds(3_600)), new RetentionNotOver());
 
-        assertThat(request.snapshot()).isEqualTo(before);
+        assertThat(RatingRequestDescription.of(request)).isEqualTo(before);
         assertThat(request.pendingEvents()).isEmpty();
     }
 
     @Test
     void GivenARemovedRequest_WhenRemovedAgainOrAnswered_ThenNothingChanges() {
-        RatingRequest request =
-                aRatingRequest().rated(4, TEN).removed(RETENTION_END).build();
+        RatingRequest request = aRatingRequest()
+                .rated(4, TEN)
+                .personalDataRemoved(RETENTION_END)
+                .build();
 
         assertUnchanged(request, () -> request.removePersonalData(RETENTION_END.plusSeconds(86_400)));
         assertUnchanged(
@@ -325,14 +331,14 @@ class RatingRequestTest {
 
     @Test
     void GivenARequestKeeping19Comments_WhenThe20thArrives_ThenItIsKept() {
-        RatingRequestBuilder nineteen = aRatingRequest().withReminder(OneTimeReply.SENT);
+        RatingRequestBuilder nineteen = aRatingRequest();
         for (int i = 1; i <= 19; i++) {
             nineteen.withComment("comment " + i, HOUR_LATER);
         }
         RatingRequest request = nineteen.build();
 
         assertThat(answer(request, "comment 20", HOUR_LATER)).isEqualTo(new Answer(Counted.COMMENT, Optional.empty()));
-        assertThat(request.snapshot().comments()).hasSize(20);
+        assertThat(request.comments()).hasSize(20);
     }
 
     @Test
@@ -350,7 +356,7 @@ class RatingRequestTest {
     }
 
     private static RatingRequestBuilder twentyComments() {
-        RatingRequestBuilder builder = aRatingRequest().withReminder(OneTimeReply.SENT);
+        RatingRequestBuilder builder = aRatingRequest();
         for (int i = 1; i <= 20; i++) {
             builder.withComment("comment " + i, HOUR_LATER);
         }
@@ -370,7 +376,15 @@ class RatingRequestTest {
         return switch (state) {
             case OPEN, CLOSED -> aRatingRequest();
             case RATED -> aRatingRequest().rated(2, TEN);
-            case REMOVED -> aRatingRequest().rated(2, TEN).removed(RETENTION_END);
+            case REMOVED -> aRatingRequest().rated(2, TEN).personalDataRemoved(RETENTION_END);
+        };
+    }
+
+    private static ExpectedRatingRequest expectedFor(State state) {
+        return switch (state) {
+            case OPEN, CLOSED -> expectedRequest();
+            case RATED -> expectedRequest().rated(2, TEN);
+            case REMOVED -> expectedRequest().rated(2, TEN).removed(RETENTION_END);
         };
     }
 
@@ -388,116 +402,59 @@ class RatingRequestTest {
                         State.OPEN,
                         "8",
                         new Answer(Counted.RATING, Optional.of(ReplyMessage.THANK_YOU)),
-                        aRatingRequest().rated(8, HOUR_LATER),
+                        expectedRequest().rated(8, HOUR_LATER),
                         List.of(ratingReceived(8))),
                 Arguments.of(
                         State.OPEN,
                         "8 ok",
                         new Answer(Counted.RATING_AND_COMMENT, Optional.of(ReplyMessage.THANK_YOU)),
-                        aRatingRequest().rated(8, HOUR_LATER).withComment("8 ok", HOUR_LATER),
+                        expectedRequest().rated(8, HOUR_LATER).withComment("8 ok", HOUR_LATER),
                         List.of(ratingReceived(8))),
                 Arguments.of(
                         State.OPEN,
                         "ok",
                         new Answer(Counted.COMMENT, Optional.of(ReplyMessage.FORMAT_REMINDER)),
-                        aRatingRequest().withComment("ok", HOUR_LATER).withReminder(OneTimeReply.SENT),
+                        expectedRequest().withComment("ok", HOUR_LATER).withReminder(OneTimeReply.SENT),
                         none),
-                Arguments.of(State.OPEN, "STOP", nothing, aRatingRequest(), none),
+                Arguments.of(State.OPEN, "STOP", nothing, expectedRequest(), none),
                 Arguments.of(
                         State.OPEN,
                         "  ",
                         new Answer(Counted.NOTHING, Optional.of(ReplyMessage.FORMAT_REMINDER)),
-                        aRatingRequest().withReminder(OneTimeReply.SENT),
+                        expectedRequest().withReminder(OneTimeReply.SENT),
                         none));
         Stream<Arguments> rated = Stream.of(
-                Arguments.of(State.RATED, "8", nothing, builderFor(State.RATED), none),
+                Arguments.of(State.RATED, "8", nothing, expectedFor(State.RATED), none),
                 Arguments.of(
                         State.RATED,
                         "8 ok",
                         new Answer(Counted.COMMENT, Optional.empty()),
-                        builderFor(State.RATED).withComment("8 ok", HOUR_LATER),
+                        expectedFor(State.RATED).withComment("8 ok", HOUR_LATER),
                         none),
                 Arguments.of(
                         State.RATED,
                         "ok",
                         new Answer(Counted.COMMENT, Optional.empty()),
-                        builderFor(State.RATED).withComment("ok", HOUR_LATER),
+                        expectedFor(State.RATED).withComment("ok", HOUR_LATER),
                         none),
-                Arguments.of(State.RATED, "STOP", nothing, builderFor(State.RATED), none),
-                Arguments.of(State.RATED, "  ", nothing, builderFor(State.RATED), none));
+                Arguments.of(State.RATED, "STOP", nothing, expectedFor(State.RATED), none),
+                Arguments.of(State.RATED, "  ", nothing, expectedFor(State.RATED), none));
         Stream<Arguments> ended = Stream.of(State.CLOSED, State.REMOVED)
                 .flatMap(state -> Stream.of("8", "8 ok", "ok", "STOP", "  ")
-                        .map(reply -> Arguments.of(state, reply, discarded, builderFor(state), none)));
+                        .map(reply -> Arguments.of(state, reply, discarded, expectedFor(state), none)));
         return Stream.of(open, rated, ended).flatMap(cells -> cells);
     }
 
     @ParameterizedTest(name = "{0} request, reply \"{1}\"")
     @MethodSource("lifecycle")
     void GivenARequestInEachState_WhenEachKindOfReplyArrives_ThenItAnswersChangesAndRaisesWhatTheRulesSay(
-            State state, String reply, Answer expected, RatingRequestBuilder after, List<RatingReceived> events) {
+            State state, String reply, Answer expected, ExpectedRatingRequest after, List<RatingReceived> events) {
         RatingRequest request = builderFor(state).build();
         Instant at = state == State.CLOSED ? WINDOW_END.plusSeconds(1) : HOUR_LATER;
 
         assertThat(answer(request, reply, at)).isEqualTo(expected);
-        assertThat(request.snapshot()).isEqualTo(after.snapshot());
+        assertThat(RatingRequestDescription.of(request)).isEqualTo(after.described());
         assertThat(request.pendingEvents()).containsExactlyElementsOf(events);
-    }
-
-    // --- restore
-
-    static Stream<RatingRequestBuilder> builderStates() {
-        return Stream.of(
-                aRatingRequest(),
-                aRatingRequest().withComment("hi", TEN).withReminder(OneTimeReply.SKIPPED),
-                aRatingRequest().rated(10, WINDOW_END).withComment("10 wow", WINDOW_END),
-                aRatingRequest().rated(1, TEN).withThankYou(OneTimeReply.SKIPPED),
-                aRatingRequest().rated(4, TEN).removed(RETENTION_END),
-                aRatingRequest().withComment("second", WINDOW_END).phoneRemoved(RETENTION_END),
-                twentyComments());
-    }
-
-    @ParameterizedTest
-    @MethodSource("builderStates")
-    void GivenEachBuilderState_WhenItsSnapshotIsRestored_ThenTheSnapshotRoundTrips(RatingRequestBuilder builder) {
-        RatingRequest request = builder.build();
-
-        assertThat(RatingRequest.restore(request.snapshot()).snapshot()).isEqualTo(builder.snapshot());
-        assertThat(request.version()).isEqualTo(LOADED);
-    }
-
-    static Stream<Arguments> damagedSnapshots() {
-        String phoneRule = "a rating request has its phone exactly until it is removed";
-        String windowRule = "a rating and comments are received within the 48 hours (FR-357, FR-360)";
-        String thankYouRule = "a rating request's thank-you is due exactly when it is rated (FR-358)";
-        return Stream.of(
-                Arguments.of("no phone, not removed", aRatingRequest().withPhone(Optional.empty()), phoneRule),
-                Arguments.of(
-                        "removed, phone kept", aRatingRequest().withRemovedAt(Optional.of(RETENTION_END)), phoneRule),
-                Arguments.of(
-                        "21 comments",
-                        twentyComments().withComment("comment 21", HOUR_LATER),
-                        "a rating request keeps at most 20 comments"),
-                Arguments.of("rated after 48 hours", aRatingRequest().rated(5, WINDOW_END.plusSeconds(1)), windowRule),
-                Arguments.of(
-                        "a comment before the question",
-                        aRatingRequest().withComment("hi", TEN.minusSeconds(1)),
-                        windowRule),
-                Arguments.of(
-                        "rated with no thank-you due",
-                        aRatingRequest().rated(5, TEN).withThankYou(OneTimeReply.NOT_YET),
-                        thankYouRule),
-                Arguments.of(
-                        "a thank-you with no rating", aRatingRequest().withThankYou(OneTimeReply.SENT), thankYouRule));
-    }
-
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("damagedSnapshots")
-    void GivenASnapshotBreakingAnInvariantAtRest_WhenRestored_ThenStoredStateInvalid(
-            String broken, RatingRequestBuilder builder, String detail) {
-        assertThatThrownBy(builder::build).isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
-            assertThat(invalid.subject()).isEqualTo("RatingRequest");
-            assertThat(invalid.detail()).isEqualTo(detail);
-        });
     }
 
     @Test

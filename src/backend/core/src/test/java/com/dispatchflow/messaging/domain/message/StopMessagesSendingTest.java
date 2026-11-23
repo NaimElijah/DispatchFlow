@@ -4,21 +4,21 @@ import static com.dispatchflow.messaging.domain.MessagingFixtures.MOBILE;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.OTHER_MOBILE;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.STOP;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.TEN;
+import static com.dispatchflow.messaging.domain.MessagingFixtures.TO_MOBILE;
+import static com.dispatchflow.messaging.domain.MessagingFixtures.TO_OTHER_MOBILE;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.at;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.messageId;
-import static com.dispatchflow.messaging.domain.MessagingFixtures.text;
+import static com.dispatchflow.messaging.domain.message.MessageDescription.everyMessageOf;
 import static com.dispatchflow.messaging.domain.message.StopMessagesBuilder.aStopMessages;
-import static com.dispatchflow.messaging.domain.message.StopMessagesBuilder.outForDelivery;
-import static com.dispatchflow.messaging.domain.message.StopMessagesBuilder.plain;
 import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.groups.Tuple.tuple;
 
 import com.dispatchflow.messaging.domain.MessagingError.MessageNotClaimable;
 import com.dispatchflow.messaging.domain.MessagingError.MessageNotSending;
 import com.dispatchflow.messaging.domain.MessagingError.UnknownMessage;
 import com.dispatchflow.messaging.domain.PhoneConsent;
 import com.dispatchflow.messaging.domain.RatingQuestion;
-import com.dispatchflow.messaging.domain.Wording;
 import com.dispatchflow.messaging.domain.message.MessageState.DropCause;
 import com.dispatchflow.messaging.domain.message.StopMessages.Claim;
 import com.dispatchflow.messaging.domain.message.StopMessages.ProviderRepeats;
@@ -27,7 +27,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Stream;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.Test;
@@ -47,16 +46,16 @@ class StopMessagesSendingTest {
     private static final MessageState ACCEPTED_TODAY = new MessageState.Accepted(at(1), REFERENCE);
 
     private static void assertRefusedUnchanged(StopMessages messages, ThrowingCallable call, DomainError expected) {
-        StopMessagesSnapshot before = messages.snapshot();
+        List<MessageDescription> before = everyMessageOf(messages);
 
         assertRefused(call, expected);
 
-        assertThat(messages.snapshot()).isEqualTo(before);
+        assertThat(everyMessageOf(messages)).isEqualTo(before);
         assertThat(messages.pendingEvents()).isEmpty();
     }
 
     private static MessageState stateOf(StopMessages messages) {
-        return messages.snapshot().messages().get(0).state();
+        return messages.messages().get(0).state();
     }
 
     // --- the lifecycle: every state against every command
@@ -81,12 +80,12 @@ class StopMessagesSendingTest {
             case ACCEPTED -> new MessageState.Accepted(at(1), REFERENCE);
             case UNKNOWN -> new MessageState.Unknown(at(1));
             case DROPPED -> new MessageState.Dropped(at(1), DropCause.REFUSED);
-            case DROPPED_STALE_WHILE_SENDING -> new MessageState.Dropped(at(1), DropCause.STALE_WHILE_SENDING);
+            case DROPPED_STALE_WHILE_SENDING -> new MessageState.Dropped(at(16), DropCause.STALE_WHILE_SENDING);
         };
     }
 
     private static StopMessages inState(State state) {
-        return aStopMessages().with(outForDelivery(1, stateFor(state))).build();
+        return aStopMessages().withOutForDelivery(1, stateFor(state)).build();
     }
 
     static Stream<Arguments> lifecycle() {
@@ -154,7 +153,7 @@ class StopMessagesSendingTest {
                         State.DROPPED_STALE_WHILE_SENDING,
                         "drop stale",
                         dropStale,
-                        new MessageState.Dropped(at(1), DropCause.STALE_WHILE_SENDING),
+                        new MessageState.Dropped(at(16), DropCause.STALE_WHILE_SENDING),
                         null));
     }
 
@@ -273,11 +272,11 @@ class StopMessagesSendingTest {
     @Test
     void GivenTheDaysCapReached_WhenClaimed_ThenTheMessageWaitsUnchanged() {
         StopMessages messages = inState(State.PENDING);
-        StopMessagesSnapshot before = messages.snapshot();
+        List<MessageDescription> before = everyMessageOf(messages);
 
         assertThat(messages.claim(messageId(1), new DailySendCap(1_000), PhoneConsent.MAY_BE_MESSAGED, SOON))
                 .isEqualTo(Claim.WAITING);
-        assertThat(messages.snapshot()).isEqualTo(before);
+        assertThat(everyMessageOf(messages)).isEqualTo(before);
         assertThat(messages.claim(messageId(1), new DailySendCap(999), PhoneConsent.MAY_BE_MESSAGED, SOON))
                 .isEqualTo(Claim.CLAIMED);
     }
@@ -286,24 +285,25 @@ class StopMessagesSendingTest {
 
     @Test
     void GivenMessagesOfEveryState_WhenStaleOnesAreDropped_ThenEveryUnendedOnePast15MinutesIsDroppedAndCounted() {
+        // "Arriving soon" first: after an arrival was sent, its projection would add "time changed".
         StopMessages messages = aStopMessages()
-                .with(outForDelivery(1, new MessageState.Sending(at(1))))
-                .with(plain(2, MessageType.ARRIVING_SOON, new MessageState.Unknown(at(1))))
-                .with(plain(3, MessageType.DELIVERY_CHANGED, new MessageState.Pending(TEN)))
-                .with(plain(4, MessageType.DELIVERED, new MessageState.Accepted(at(1), REFERENCE)))
+                .with(2, MessageType.ARRIVING_SOON, new MessageState.Unknown(at(1)))
+                .withOutForDelivery(1, new MessageState.Sending(at(1)))
+                .with(3, MessageType.DELIVERY_CHANGED, new MessageState.Pending(TEN))
+                .with(4, MessageType.DELIVERED, new MessageState.Accepted(at(1), REFERENCE))
                 .build();
         Instant late = at(15).plusSeconds(1);
 
         assertThat(messages.dropStale(at(15))).isZero();
         assertThat(messages.dropStale(late)).isEqualTo(3);
 
-        assertThat(messages.snapshot().messages())
-                .extracting(OutgoingMessage::state)
+        assertThat(messages.messages())
+                .extracting(OutgoingMessage::id, OutgoingMessage::state)
                 .containsExactly(
-                        new MessageState.Dropped(late, DropCause.STALE_WHILE_SENDING),
-                        new MessageState.Dropped(late, DropCause.OUTCOME_UNKNOWN),
-                        new MessageState.Dropped(late, DropCause.STALE),
-                        new MessageState.Accepted(at(1), REFERENCE));
+                        tuple(messageId(2), new MessageState.Dropped(late, DropCause.OUTCOME_UNKNOWN)),
+                        tuple(messageId(1), new MessageState.Dropped(late, DropCause.STALE_WHILE_SENDING)),
+                        tuple(messageId(3), new MessageState.Dropped(late, DropCause.STALE)),
+                        tuple(messageId(4), new MessageState.Accepted(at(1), REFERENCE)));
     }
 
     @Test
@@ -319,7 +319,7 @@ class StopMessagesSendingTest {
     @Test
     void GivenAMessageDroppedWhilePending_WhenTheProviderReportsItAccepted_ThenMessageNotSending() {
         StopMessages messages = aStopMessages()
-                .with(outForDelivery(1, new MessageState.Dropped(at(16), DropCause.STALE)))
+                .withOutForDelivery(1, new MessageState.Dropped(at(16), DropCause.STALE))
                 .build();
 
         assertRefusedUnchanged(
@@ -331,17 +331,9 @@ class StopMessagesSendingTest {
     @Test
     void
             GivenADeliveredMessageDroppedAsStaleWhileSending_WhenTheProviderAcceptsIt_ThenItIsAcceptedAndOpensItsRatingRequest() {
-        OutgoingMessage asking = new OutgoingMessage(
-                messageId(1),
-                MessageType.DELIVERED,
-                1,
-                MOBILE,
-                text(new Wording.Delivered(false, true)),
-                Optional.empty(),
-                true,
-                TEN,
-                new MessageState.Sending(at(14)));
-        StopMessages messages = aStopMessages().with(asking).build();
+        StopMessages messages = aStopMessages()
+                .withDeliveredAskingForARating(1, TO_MOBILE, new MessageState.Sending(at(14)))
+                .build();
         messages.dropStale(at(16));
 
         assertThat(messages.accepted(messageId(1), REFERENCE, at(17)))
@@ -354,36 +346,18 @@ class StopMessagesSendingTest {
 
     @Test
     void GivenADeliveredMessageThatAsksForARating_WhenAccepted_ThenItGivesTheQuestionToOpenARequestFor() {
-        OutgoingMessage asking = new OutgoingMessage(
-                messageId(1),
-                MessageType.DELIVERED,
-                1,
-                MOBILE,
-                text(new Wording.Delivered(false, true)),
-                Optional.empty(),
-                true,
-                TEN,
-                new MessageState.Sending(at(1)));
-        StopMessages messages = aStopMessages().with(asking).build();
+        StopMessages messages = aStopMessages()
+                .withDeliveredAskingForARating(1, TO_MOBILE, new MessageState.Sending(at(1)))
+                .build();
 
         assertThat(messages.accepted(messageId(1), REFERENCE, SOON)).contains(new RatingQuestion(STOP, MOBILE, SOON));
     }
 
     @Test
     void GivenADeliveredMessageToAnotherPhoneThanAnEarlierMessage_WhenAccepted_ThenTheQuestionGoesToItsOwnPhone() {
-        OutgoingMessage asking = new OutgoingMessage(
-                messageId(2),
-                MessageType.DELIVERED,
-                1,
-                OTHER_MOBILE,
-                text(new Wording.Delivered(false, true)),
-                Optional.empty(),
-                true,
-                TEN,
-                new MessageState.Sending(at(1)));
         StopMessages messages = aStopMessages()
-                .with(outForDelivery(1, ACCEPTED_TODAY))
-                .with(asking)
+                .withOutForDelivery(1, ACCEPTED_TODAY)
+                .withDeliveredAskingForARating(2, TO_OTHER_MOBILE, new MessageState.Sending(at(1)))
                 .build();
 
         assertThat(messages.accepted(messageId(2), REFERENCE, SOON))
@@ -402,8 +376,8 @@ class StopMessagesSendingTest {
     @Test
     void GivenMessages_WhenTheirRetentionIsAsked_ThenItEnds90DaysAfterTheLastStateChange() {
         StopMessages messages = aStopMessages()
-                .with(outForDelivery(1, new MessageState.Accepted(at(1), REFERENCE)))
-                .with(plain(2, MessageType.DELIVERED, new MessageState.Dropped(at(20), DropCause.STALE)))
+                .withOutForDelivery(1, new MessageState.Accepted(at(1), REFERENCE))
+                .with(2, MessageType.DELIVERED, new MessageState.Dropped(at(20), DropCause.STALE))
                 .build();
 
         assertThat(messages.retentionEndsAt()).contains(Instant.parse("2027-09-13T07:20:00Z"));

@@ -150,20 +150,6 @@ public class RatingRequest extends AggregateRoot implements PersonalData {
         this.thankYou = OneTimeReply.NOT_YET;
     }
 
-    /** Builds the request {@link #restore} checks; it goes with {@code restore} (ADR-126). */
-    private RatingRequest(RatingRequestSnapshot stored) {
-        super(stored.version());
-        this.id = stored.id().value();
-        this.stop = stored.stop();
-        this.acceptedAt = stored.acceptedAt();
-        this.phone = stored.phone().orElse(null);
-        this.rating = stored.rating().orElse(null);
-        this.comments.addAll(stored.comments());
-        this.reminder = stored.reminder();
-        this.thankYou = stored.thankYou();
-        this.removedAt = stored.removedAt().orElse(null);
-    }
-
     /**
      * Opens the request when the provider accepts a "delivered" message that asks for a rating (DL
      * §6.2).
@@ -177,24 +163,10 @@ public class RatingRequest extends AggregateRoot implements PersonalData {
     }
 
     /**
-     * Rebuilds a request from storage, checking the invariants that hold at rest: it has its phone
-     * exactly until it is removed; it keeps at most 20 comments; its rating and comments were
-     * received within its 48 hours; and its thank-you is due exactly when it is rated. Only
-     * persistence adapters call it (DL §3.5).
-     *
-     * @param stored the stored state
-     * @return the request at the stored version
-     * @throws StoredStateInvalid when the stored state breaks one of those invariants
-     */
-    public static RatingRequest restore(RatingRequestSnapshot stored) {
-        RatingRequest restored = new RatingRequest(stored);
-        restored.checkStored();
-        return restored;
-    }
-
-    /**
-     * Checks the request as Hibernate loaded it against the invariants at rest that {@link #restore}
-     * checks (ADR-126 decision 8).
+     * Checks the request as Hibernate loaded it against the invariants that hold at rest (ADR-126
+     * decision 8): it has its phone exactly until it is removed; it keeps at most 20 comments; its
+     * rating and comments were received within its 48 hours; and its thank-you is due exactly when
+     * it is rated.
      *
      * @throws StoredStateInvalid when the stored state breaks one of them
      */
@@ -301,22 +273,75 @@ public class RatingRequest extends AggregateRoot implements PersonalData {
     }
 
     /**
-     * The request as stored.
+     * The delivered stop the request is about.
      *
-     * @return a snapshot that {@link #restore} rebuilds
+     * @return the stop
      */
-    public RatingRequestSnapshot snapshot() {
-        return new RatingRequestSnapshot(
-                id(),
-                savedVersion().orElse(null),
-                stop,
-                Optional.ofNullable(phone),
-                acceptedAt,
-                Optional.ofNullable(rating),
-                comments,
-                reminder,
-                thankYou,
-                Optional.ofNullable(removedAt));
+    public StopId stop() {
+        return stop;
+    }
+
+    /**
+     * The phone the question went to, until its retention ends (NFR-184).
+     *
+     * @return the phone; empty once removed
+     */
+    public Optional<PhoneNumber> phone() {
+        return Optional.ofNullable(phone);
+    }
+
+    /**
+     * When the provider accepted the question, from which the 48 hours run (FR-357).
+     *
+     * @return the time
+     */
+    public Instant acceptedAt() {
+        return acceptedAt;
+    }
+
+    /**
+     * The delivery's rating, once given; it stays when the personal data goes (FR-362).
+     *
+     * @return the rating and when its reply was received; empty before the first rating
+     */
+    public Optional<Rated> rating() {
+        return Optional.ofNullable(rating);
+    }
+
+    /**
+     * The replies kept as comments (FR-360).
+     *
+     * @return an unmodifiable copy, at most 20, in the order received
+     */
+    public List<ReceivedComment> comments() {
+        return List.copyOf(comments);
+    }
+
+    /**
+     * What became of the one format reminder (FR-359).
+     *
+     * @return not yet due, sent or skipped
+     */
+    public OneTimeReply reminder() {
+        return reminder;
+    }
+
+    /**
+     * What became of the one thank-you (FR-358).
+     *
+     * @return not yet due, sent or skipped
+     */
+    public OneTimeReply thankYou() {
+        return thankYou;
+    }
+
+    /**
+     * When the phone was removed (NFR-184); each comment goes on its own date.
+     *
+     * @return the time; empty while the phone is kept
+     */
+    public Optional<Instant> removedAt() {
+        return Optional.ofNullable(removedAt);
     }
 
     /**
@@ -326,7 +351,9 @@ public class RatingRequest extends AggregateRoot implements PersonalData {
      */
     @Override
     public String toString() {
-        return "RatingRequest[" + snapshot() + "]";
+        return "RatingRequest[id=" + id() + ", stop=" + stop + ", phone=" + (phone == null ? "none" : "redacted")
+                + ", acceptedAt=" + acceptedAt + ", rating=" + rating + ", comments=" + comments.size()
+                + ", reminder=" + reminder + ", thankYou=" + thankYou + ", removedAt=" + removedAt + "]";
     }
 
     private boolean answersAt(Instant receivedAt) {
