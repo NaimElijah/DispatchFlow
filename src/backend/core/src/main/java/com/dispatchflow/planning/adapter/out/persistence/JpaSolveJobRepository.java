@@ -144,7 +144,13 @@ class JpaSolveJobRepository implements SolveJobRepository {
         throw new UnsupportedOperationException("Built in M13");
     }
 
-    /** Loads a job whole: its violations with it, then each result collection into the same instance. */
+    /**
+     * Loads a job whole: its violations with it, then each result collection into the same
+     * instance.
+     * Its load check may already have read them while the root loaded, but loading whole must not
+     * depend on what the check happens to read: Jakarta Persistence calls touching a relationship
+     * in a lifecycle callback unportable.
+     */
     private Optional<SolveJob> load(UUID id) {
         Optional<SolveJob> job = jobs.findById(id);
         if (job.isPresent()) {

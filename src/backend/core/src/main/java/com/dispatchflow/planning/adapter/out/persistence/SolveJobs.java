@@ -13,7 +13,9 @@ import org.springframework.data.repository.Repository;
  * The Spring Data interface behind {@link JpaSolveJobRepository}: {@code save}, the loads that fetch
  * a job's five collections one query each (ADR-126), and the native statements of the queue: the
  * lane's advisory lock and the claim with {@code FOR UPDATE SKIP LOCKED}. A lane is bound by its
- * name, as its column stores it.
+ * name, as its column stores it. The fetches run whatever the job's load check read: loading whole
+ * must not depend on it, because Jakarta Persistence calls touching a relationship in a lifecycle
+ * callback unportable.
  */
 interface SolveJobs extends Repository<SolveJob, UUID> {
 
@@ -35,7 +37,8 @@ interface SolveJobs extends Repository<SolveJob, UUID> {
     Optional<SolveJob> findById(UUID id);
 
     /**
-     * Fetches a job's result routes into the persistence context.
+     * Fetches a job's result routes into the job this transaction already holds, whether or not its
+     * load check read them.
      *
      * @param id the job's UUID
      * @return the job, or empty
@@ -44,7 +47,8 @@ interface SolveJobs extends Repository<SolveJob, UUID> {
     Optional<SolveJob> fetchResultRoutes(UUID id);
 
     /**
-     * Fetches a job's result stops into the persistence context.
+     * Fetches a job's result stops into the job this transaction already holds, whether or not its
+     * load check read them.
      *
      * @param id the job's UUID
      * @return the job, or empty
@@ -53,7 +57,8 @@ interface SolveJobs extends Repository<SolveJob, UUID> {
     Optional<SolveJob> fetchResultStops(UUID id);
 
     /**
-     * Fetches a job's result drops into the persistence context.
+     * Fetches a job's result drops into the job this transaction already holds, whether or not its
+     * load check read them.
      *
      * @param id the job's UUID
      * @return the job, or empty
@@ -62,7 +67,8 @@ interface SolveJobs extends Repository<SolveJob, UUID> {
     Optional<SolveJob> fetchResultDropped(UUID id);
 
     /**
-     * Fetches a job's result's excluded vehicles into the persistence context.
+     * Fetches a job's result's excluded vehicles into the job this transaction already holds,
+     * whether or not its load check read them.
      *
      * @param id the job's UUID
      * @return the job, or empty

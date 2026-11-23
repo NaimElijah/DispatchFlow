@@ -32,7 +32,8 @@ public interface PlanRepository {
      * @param plan the plan, never saved
      * @throws com.dispatchflow.shared.RuleViolation with Planning's {@code PlanAlreadyExists} when
      *     another uncancelled plan for the date was stored first, a race the read missed: the date's
-     *     lock puts two openings in order, and a partial unique index backs it (BR-34)
+     *     lock puts two openings in order, and a partial unique index backs it (BR-34). The refusal
+     *     marks the caller's transaction to roll back, so it can't commit
      */
     void add(Plan plan);
 

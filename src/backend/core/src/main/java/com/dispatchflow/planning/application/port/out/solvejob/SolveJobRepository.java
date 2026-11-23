@@ -16,9 +16,6 @@ import java.util.Optional;
  * {@code @PostLoad} check checks (ADR-126), and stores the events it raised with the change
  * (ADR-064).
  *
- * <p>The queue is built in M0; in full in M4. M0 builds the daily lane's queue, and the roadmap's
- * M4 builds "the {@code solve_job} queue, one worker per lane" (ADR-051).
- *
  * <p>The two that blank a job's input are built in M13; every other method is built.
  */
 public interface SolveJobRepository {
@@ -35,9 +32,14 @@ public interface SolveJobRepository {
      * Adds a newly queued job, in the caller's transaction, beside the change that created it (DL
      * §6.1). A partial unique index backs one queued or started re-optimization per plan (BR-38).
      *
+     * <p>It writes at once everything the caller's transaction holds unwritten. So a use case saves
+     * the aggregate whose command queued the job before it calls this: written here, that change
+     * would not move its version when the aggregate is saved, and that save would fail.
+     *
      * @param job the job, never saved
      * @throws com.dispatchflow.shared.RuleViolation with Planning's {@code
-     *     ReoptimizationAlreadyRunning} when the index finds another, a race the lock missed
+     *     ReoptimizationAlreadyRunning} when the index finds another, a race the lock missed. The
+     *     index refuses the insert itself, so the caller's transaction can't go on, and rolls back
      */
     void add(SolveJob job);
 
@@ -68,7 +70,8 @@ public interface SolveJobRepository {
      * refused when none is open.
      *
      * @param lane the worker's lane
-     * @return the job, or empty when the lane has none queued
+     * @return the job, or empty when the lane has none queued, or when every job it has queued is
+     *     locked by another worker's transaction, which this call skips rather than waits for
      */
     Optional<SolveJob> claimNext(Lane lane);
 

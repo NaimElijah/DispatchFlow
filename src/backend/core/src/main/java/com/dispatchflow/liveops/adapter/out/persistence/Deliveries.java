@@ -15,7 +15,10 @@ import org.springframework.data.repository.Repository;
 /**
  * The Spring Data interface behind {@link JpaDeliveryRepository}: {@code save}, and the lookups the
  * port needs. The lookups that find a delivery answer its key alone, so that {@link #findById} and
- * {@link #withHeldReports} load it whole.
+ * {@link #withHeldReports} load it whole. The fetch of the held reports runs although the
+ * delivery's load check reads them while the delivery loads: loading whole must not depend on
+ * what the check reads, because Jakarta Persistence calls touching a relationship in a lifecycle
+ * callback unportable.
  */
 interface Deliveries extends Repository<Delivery, UUID> {
 
@@ -38,7 +41,8 @@ interface Deliveries extends Repository<Delivery, UUID> {
     Optional<Delivery> findById(UUID stop);
 
     /**
-     * Fetches a delivery's held reports into the instance this transaction already holds.
+     * Fetches a delivery's held reports into the instance this transaction already holds, whether
+     * or not its load check read them.
      *
      * @param stop the stop's UUID
      * @return the delivery, or empty
@@ -58,7 +62,7 @@ interface Deliveries extends Repository<Delivery, UUID> {
 
     /**
      * Fetches the held reports of several deliveries into the instances this transaction already
-     * holds.
+     * holds, whether or not their load checks read them.
      *
      * @param stops the stops' UUIDs
      * @return the deliveries found, each once, in no order

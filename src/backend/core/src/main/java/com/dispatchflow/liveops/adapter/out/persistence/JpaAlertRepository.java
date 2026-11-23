@@ -53,8 +53,8 @@ class JpaAlertRepository implements AlertRepository {
     /**
      * {@inheritDoc}
      *
-     * @throws AssertionError when the alert was stored before, so its row already has a date: the
-     *     caller added an alert it had loaded
+     * <p>An alert stored before holds its own key, so adding it again answers {@code false} before
+     * anything is written.
      */
     @Override
     public boolean addUnlessKeyTaken(Alert alert, DeliveryDate date) {
@@ -65,6 +65,8 @@ class JpaAlertRepository implements AlertRepository {
         }
         alerts.save(alert);
         entityManager.flush();
+        // The flush just inserted this row without its date, so the update finds exactly that row;
+        // any other count is a bug in this adapter or in the table, never a caller's mistake.
         if (alerts.keepDate(alert.id().value(), date.value()) != 1) {
             throw new AssertionError("an alert is added once, and its date kept with it");
         }

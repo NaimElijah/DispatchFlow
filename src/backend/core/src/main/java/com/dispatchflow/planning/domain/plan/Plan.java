@@ -314,8 +314,9 @@ public class Plan extends AggregateRoot {
     private List<StoredEdit> redo = new ArrayList<>();
 
     // The last command's revision, which the repository appends as rows of their own when it saves
-    // the plan. Every command that returns sets it, to none when it made no revision, so saving the
-    // plan again never appends one revision twice; a loaded plan has none.
+    // the plan. Every command that changes the plan and returns sets it, to none when it made no
+    // revision, so saving the plan again never appends one revision twice; a loaded plan has none.
+    // requestReoptimization leaves it alone: it changes nothing, and its use case saves no plan.
     @Transient
     private @Nullable PlanRevision pendingRevision;
 
@@ -1368,7 +1369,9 @@ public class Plan extends AggregateRoot {
 
     /**
      * The revision the last command made, which the repository appends when it saves the plan
-     * (ADR-059). Every command sets it, so a save after a command that made none appends nothing.
+     * (ADR-059). Every command that changes the plan sets it, so a save after a command that made
+     * none appends nothing. {@link #requestReoptimization} doesn't, because it changes nothing and
+     * the plan isn't saved after it.
      *
      * @return the revision, or empty when the last command made none, or the plan was just loaded
      */

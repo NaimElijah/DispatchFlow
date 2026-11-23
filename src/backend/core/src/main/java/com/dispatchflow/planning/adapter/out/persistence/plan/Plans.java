@@ -14,6 +14,8 @@ import org.springframework.data.repository.Repository;
  * plan's routes with their stops in one query and each of its seven other collections in one query
  * each (ADR-126), the date's advisory lock, and the native reads by date and by route check. A
  * date is bound as its {@code LocalDate}, and a status by its name, as their columns store them.
+ * The fetches run whatever the plan's load check read: loading whole must not depend on it,
+ * because Jakarta Persistence calls touching a relationship in a lifecycle callback unportable.
  */
 interface Plans extends Repository<Plan, UUID> {
 
@@ -36,8 +38,8 @@ interface Plans extends Repository<Plan, UUID> {
     Optional<Plan> findById(UUID id);
 
     /**
-     * Fetches the plan's own collection of its stops into the persistence context; they are the
-     * stops its routes already loaded.
+     * Fetches the plan's own collection of its stops into the plan this transaction already holds,
+     * whether or not its load check read them; they are the stops its routes already loaded.
      *
      * @param id the plan's UUID
      * @return the plan, or empty
@@ -46,7 +48,8 @@ interface Plans extends Repository<Plan, UUID> {
     Optional<Plan> fetchStops(UUID id);
 
     /**
-     * Fetches a plan's drops into the persistence context.
+     * Fetches a plan's drops into the plan this transaction already holds, whether or not its load
+     * check read them.
      *
      * @param id the plan's UUID
      * @return the plan, or empty
@@ -55,7 +58,8 @@ interface Plans extends Repository<Plan, UUID> {
     Optional<Plan> fetchDropped(UUID id);
 
     /**
-     * Fetches a plan's excluded vehicles into the persistence context.
+     * Fetches a plan's excluded vehicles into the plan this transaction already holds, whether or
+     * not its load check read them.
      *
      * @param id the plan's UUID
      * @return the plan, or empty
@@ -64,7 +68,8 @@ interface Plans extends Repository<Plan, UUID> {
     Optional<Plan> fetchExcluded(UUID id);
 
     /**
-     * Fetches a plan's pins into the persistence context.
+     * Fetches a plan's pins into the plan this transaction already holds, whether or not its load
+     * check read them.
      *
      * @param id the plan's UUID
      * @return the plan, or empty
@@ -73,7 +78,8 @@ interface Plans extends Repository<Plan, UUID> {
     Optional<Plan> fetchPins(UUID id);
 
     /**
-     * Fetches a plan's open violations into the persistence context.
+     * Fetches a plan's open violations into the plan this transaction already holds, whether or not
+     * its load check read them.
      *
      * @param id the plan's UUID
      * @return the plan, or empty
@@ -82,7 +88,8 @@ interface Plans extends Repository<Plan, UUID> {
     Optional<Plan> fetchViolations(UUID id);
 
     /**
-     * Fetches a plan's undo journal into the persistence context.
+     * Fetches a plan's undo journal into the plan this transaction already holds, whether or not
+     * its load check read them.
      *
      * @param id the plan's UUID
      * @return the plan, or empty
@@ -91,7 +98,8 @@ interface Plans extends Repository<Plan, UUID> {
     Optional<Plan> fetchUndo(UUID id);
 
     /**
-     * Fetches a plan's redo journal into the persistence context.
+     * Fetches a plan's redo journal into the plan this transaction already holds, whether or not
+     * its load check read them.
      *
      * @param id the plan's UUID
      * @return the plan, or empty

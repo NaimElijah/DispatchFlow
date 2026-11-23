@@ -117,6 +117,9 @@ class JpaPlanRepository implements PlanRepository {
     /**
      * Loads a plan whole: its routes and their stops with it, then each other collection into the
      * same instance. Its past revisions are never loaded.
+     * Its load check may already have read them while the root loaded, but loading whole must not
+     * depend on what the check happens to read: Jakarta Persistence calls touching a relationship
+     * in a lifecycle callback unportable.
      */
     private Optional<Plan> load(UUID id) {
         Optional<Plan> plan = plans.findById(id);

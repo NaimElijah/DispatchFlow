@@ -10,7 +10,9 @@ import org.springframework.data.repository.Repository;
 /**
  * The Spring Data interface behind {@link JpaProposalRepository}. A proposal has ten collections, so
  * {@link #findById} fetches one and a query each fetches the others into the same persistence
- * context, which keeps each query's rows to one collection's (ADR-126).
+ * context, which keeps each query's rows to one collection's (ADR-126). The fetches run whatever
+ * the proposal's load check read: loading whole must not depend on it, because Jakarta
+ * Persistence calls touching a relationship in a lifecycle callback unportable.
  */
 interface Proposals extends Repository<ReoptimizationProposal, UUID> {
 
@@ -32,7 +34,8 @@ interface Proposals extends Repository<ReoptimizationProposal, UUID> {
     Optional<ReoptimizationProposal> findById(UUID id);
 
     /**
-     * Fetches a proposal's stops into the persistence context.
+     * Fetches a proposal's stops into the proposal this transaction already holds, whether or not
+     * its load check read them.
      *
      * @param id the proposal's UUID
      * @return the proposal, or empty
@@ -41,7 +44,8 @@ interface Proposals extends Repository<ReoptimizationProposal, UUID> {
     Optional<ReoptimizationProposal> fetchStops(UUID id);
 
     /**
-     * Fetches a proposal's drops into the persistence context.
+     * Fetches a proposal's drops into the proposal this transaction already holds, whether or not
+     * its load check read them.
      *
      * @param id the proposal's UUID
      * @return the proposal, or empty
@@ -50,7 +54,8 @@ interface Proposals extends Repository<ReoptimizationProposal, UUID> {
     Optional<ReoptimizationProposal> fetchDropped(UUID id);
 
     /**
-     * Fetches a proposal's excluded vehicles into the persistence context.
+     * Fetches a proposal's excluded vehicles into the proposal this transaction already holds,
+     * whether or not its load check read them.
      *
      * @param id the proposal's UUID
      * @return the proposal, or empty
@@ -59,7 +64,8 @@ interface Proposals extends Repository<ReoptimizationProposal, UUID> {
     Optional<ReoptimizationProposal> fetchExcluded(UUID id);
 
     /**
-     * Fetches a proposal's withdrawn vehicles into the persistence context.
+     * Fetches a proposal's withdrawn vehicles into the proposal this transaction already holds,
+     * whether or not its load check read them.
      *
      * @param id the proposal's UUID
      * @return the proposal, or empty
@@ -68,7 +74,8 @@ interface Proposals extends Repository<ReoptimizationProposal, UUID> {
     Optional<ReoptimizationProposal> fetchWithdrawn(UUID id);
 
     /**
-     * Fetches a proposal's late stops into the persistence context.
+     * Fetches a proposal's late stops into the proposal this transaction already holds, whether or
+     * not its load check read them.
      *
      * @param id the proposal's UUID
      * @return the proposal, or empty
@@ -77,7 +84,8 @@ interface Proposals extends Repository<ReoptimizationProposal, UUID> {
     Optional<ReoptimizationProposal> fetchLateStops(UUID id);
 
     /**
-     * Fetches a proposal's vehicles without a usable position into the persistence context.
+     * Fetches a proposal's vehicles without a usable position into the proposal this transaction
+     * already holds, whether or not its load check read them.
      *
      * @param id the proposal's UUID
      * @return the proposal, or empty
@@ -86,7 +94,8 @@ interface Proposals extends Repository<ReoptimizationProposal, UUID> {
     Optional<ReoptimizationProposal> fetchWithoutUsablePosition(UUID id);
 
     /**
-     * Fetches the drivers of a proposal's driver changes into the persistence context.
+     * Fetches the drivers of a proposal's driver changes into the proposal this transaction already
+     * holds, whether or not its load check read them.
      *
      * @param id the proposal's UUID
      * @return the proposal, or empty
@@ -95,7 +104,8 @@ interface Proposals extends Repository<ReoptimizationProposal, UUID> {
     Optional<ReoptimizationProposal> fetchChangedDrivers(UUID id);
 
     /**
-     * Fetches the orders of a proposal's driver changes into the persistence context.
+     * Fetches the orders of a proposal's driver changes into the proposal this transaction already
+     * holds, whether or not its load check read them.
      *
      * @param id the proposal's UUID
      * @return the proposal, or empty
@@ -104,7 +114,8 @@ interface Proposals extends Repository<ReoptimizationProposal, UUID> {
     Optional<ReoptimizationProposal> fetchChangedOrders(UUID id);
 
     /**
-     * Fetches the orders whose goods need a hand-over into the persistence context.
+     * Fetches the orders whose goods need a hand-over into the proposal this transaction already
+     * holds, whether or not its load check read them.
      *
      * @param id the proposal's UUID
      * @return the proposal, or empty

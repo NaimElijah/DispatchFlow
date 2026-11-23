@@ -68,7 +68,8 @@ class JpaDeliveryRepository implements DeliveryRepository {
         }
         List<UUID> keys = stops.stream().map(StopId::value).toList();
         List<Delivery> found = deliveries.findByIdIn(keys);
-        // Fills the held reports of the instances just loaded; the list it answers is the same.
+        // Fills the held reports of the instances just loaded, whatever their load checks read; the
+        // list it answers is the same.
         deliveries.withHeldReportsIn(keys);
         return found;
     }
@@ -93,7 +94,12 @@ class JpaDeliveryRepository implements DeliveryRepository {
                 .toList();
     }
 
-    /** Loads a delivery whole: its outcome records with it, then its held reports into it. */
+    /**
+     * Loads a delivery whole: its outcome records with it, then its held reports into it.
+     * Its load check may already have read them while the root loaded, but loading whole must not
+     * depend on what the check happens to read: Jakarta Persistence calls touching a relationship
+     * in a lifecycle callback unportable.
+     */
     private Optional<Delivery> load(UUID stop) {
         Optional<Delivery> delivery = deliveries.findById(stop);
         delivery.ifPresent(found -> deliveries.withHeldReports(stop));
