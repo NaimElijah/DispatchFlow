@@ -62,9 +62,9 @@ report findings.
 - **Persistence (Flyway, which [ADR-041] keeps from ADR-007):**
   - Schema changes only through a new Flyway migration; an applied migration is never edited.
   - Queries are parameterised: JPQL and native queries take bound parameters, never a string built from input.
-  - A module's persistence goes through JPA in its own schema ([ADR-041], amended by [ADR-126]; the shared adapter and the kernel's mapping are in the tree, no aggregate is mapped yet):
-    - an adapter implements its port with a package-private Spring Data `Repository<Root, UUID>` interface, never `CrudRepository`, `ListCrudRepository` or `JpaRepository`;
-    - its `add` and `save` go through `VersionedSave`, so every save moves the version by exactly 1;
+  - A module's persistence goes through JPA in its own schema ([ADR-041], amended by [ADR-126]; every aggregate is mapped, [ADR-127], [ADR-128]):
+    - an adapter implements its port with a package-private Spring Data `Repository<Root, UUID>` interface, never `CrudRepository`, `ListCrudRepository`, `JpaRepository` or `JpaSpecificationExecutor`;
+    - its `save` goes through `VersionedSave`, so every save moves the version by exactly 1, and so does an `add` where another transaction may store the same aggregate first; any other `add` inserts and flushes itself;
     - PostgreSQL-specific SQL is a native query with bound parameters and an adapter test;
     - every entity names its module's schema in `@Table`. ArchUnit checks the repository and schema rules, and review checks the rest.
 - **Code style:**
@@ -103,6 +103,8 @@ No praise, and no restating what the code does. End with:
 [ADR-040]: ../../docs/ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md
 [ADR-041]: ../../docs/ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md
 [ADR-126]: ../../docs/ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md
+[ADR-127]: ../../docs/ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md
+[ADR-128]: ../../docs/ADRs/ADR-128-the-persistence-rules-the-mapping-settled-after-adr-127.md
 [ADR-044]: ../../docs/ADRs/ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md
 [ADR-063]: ../../docs/ADRs/ADR-063-a-transaction-changes-one-aggregate-and-every-rule-has-one-owner.md
 [ADR-064]: ../../docs/ADRs/ADR-064-events-only-where-they-earn-their-place-through-the-modulith-registry.md
