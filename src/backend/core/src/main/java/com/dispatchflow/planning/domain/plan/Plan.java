@@ -1,6 +1,7 @@
 package com.dispatchflow.planning.domain.plan;
 
 import com.dispatchflow.planning.domain.BasisChange;
+import com.dispatchflow.planning.domain.PinTarget;
 import com.dispatchflow.planning.domain.PlanningError;
 import com.dispatchflow.planning.domain.PlanningError.BreakNotConfirmed;
 import com.dispatchflow.planning.domain.PlanningError.DateInPast;
@@ -49,17 +50,16 @@ import com.dispatchflow.planning.domain.SolveLimit;
 import com.dispatchflow.planning.domain.SolveTime;
 import com.dispatchflow.planning.domain.basis.ChangesSinceBasis;
 import com.dispatchflow.planning.domain.basis.SolveBasis;
+import com.dispatchflow.planning.domain.drop.DropReason;
+import com.dispatchflow.planning.domain.drop.DroppedOrder;
+import com.dispatchflow.planning.domain.drop.ExcludedVehicle;
 import com.dispatchflow.planning.domain.plan.Layout.Located;
 import com.dispatchflow.planning.domain.reconciliation.LateFact;
 import com.dispatchflow.planning.domain.reconciliation.LateOutcome;
 import com.dispatchflow.planning.domain.reconciliation.Reconciliation;
 import com.dispatchflow.planning.domain.reconciliation.ReconciliationKind;
 import com.dispatchflow.planning.domain.revision.PlanRevision;
-import com.dispatchflow.planning.domain.solution.DropReason;
-import com.dispatchflow.planning.domain.solution.DroppedOrder;
 import com.dispatchflow.planning.domain.solution.Evaluation;
-import com.dispatchflow.planning.domain.solution.ExcludedVehicle;
-import com.dispatchflow.planning.domain.solution.PinTarget;
 import com.dispatchflow.planning.domain.solution.SolveResult;
 import com.dispatchflow.planning.domain.solution.SolvedRoute;
 import com.dispatchflow.planning.domain.solution.ValidatedSolution;
@@ -88,7 +88,6 @@ import com.dispatchflow.shared.RuleViolations;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.VehicleId;
-import com.dispatchflow.shared.Version;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -230,7 +229,7 @@ public final class Plan extends AggregateRoot {
      * @param plansOnDate the date's uncancelled plan, as the use case read it
      * @param today the current date in {@code Asia/Jerusalem}
      * @param now the time of opening
-     * @return the plan, at {@code Version.NEW}
+     * @return the plan, never saved
      * @throws RuleViolation with {@link DateInPast} for a past date (BR-118), or {@link
      *     PlanAlreadyExists} when the date has an uncancelled plan (BR-34)
      */
@@ -244,7 +243,7 @@ public final class Plan extends AggregateRoot {
         }
         return new Plan(new PlanSnapshot(
                 id,
-                Version.NEW,
+                null,
                 date,
                 now,
                 new Status.Draft(),
@@ -1307,7 +1306,7 @@ public final class Plan extends AggregateRoot {
             List<Edit> redone) {
         return new PlanSnapshot(
                 id,
-                version(),
+                savedVersion().orElse(null),
                 date,
                 openedAt,
                 state,

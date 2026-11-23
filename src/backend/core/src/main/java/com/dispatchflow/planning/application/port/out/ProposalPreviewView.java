@@ -1,9 +1,9 @@
 package com.dispatchflow.planning.application.port.out;
 
 import com.dispatchflow.planning.domain.basis.ProposalBasis;
+import com.dispatchflow.planning.domain.drop.DroppedOrder;
 import com.dispatchflow.planning.domain.plan.ReoptimizationProposal;
 import com.dispatchflow.planning.domain.solution.DriverChange;
-import com.dispatchflow.planning.domain.solution.DroppedOrder;
 import com.dispatchflow.planning.domain.solution.LateStop;
 import com.dispatchflow.planning.domain.solution.ObjectiveTerms;
 import com.dispatchflow.planning.domain.solution.VehicleWithdrawal;

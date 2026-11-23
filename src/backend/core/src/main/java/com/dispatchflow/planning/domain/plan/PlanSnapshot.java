@@ -1,9 +1,9 @@
 package com.dispatchflow.planning.domain.plan;
 
 import com.dispatchflow.planning.domain.SolveTime;
+import com.dispatchflow.planning.domain.drop.DroppedOrder;
+import com.dispatchflow.planning.domain.drop.ExcludedVehicle;
 import com.dispatchflow.planning.domain.reconciliation.LateOutcome;
-import com.dispatchflow.planning.domain.solution.DroppedOrder;
-import com.dispatchflow.planning.domain.solution.ExcludedVehicle;
 import com.dispatchflow.planning.domain.solution.RoutePlan;
 import com.dispatchflow.planning.domain.solution.StopPlan;
 import com.dispatchflow.planning.domain.solution.Violation;
@@ -21,13 +21,15 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link Plan}'s whole present state, which the repository stores and {@link Plan#restore}
  * rebuilds (DL §4.4 "What {@code Plan} loads"). Past revisions are not part of it (ADR-059).
  *
  * @param id the plan
- * @param version the version it was loaded at
+ * @param version the version it was loaded at, or null for an aggregate never saved
+ *     (ADR-126)
  * @param date its delivery date
  * @param openedAt when it was opened
  * @param status its state
@@ -43,7 +45,7 @@ import java.util.Optional;
  */
 public record PlanSnapshot(
         PlanId id,
-        Version version,
+        @Nullable Version version,
         DeliveryDate date,
         Instant openedAt,
         Plan.Status status,
@@ -59,7 +61,6 @@ public record PlanSnapshot(
     /** Checks every part is present, and copies the lists. */
     public PlanSnapshot {
         Objects.requireNonNull(id, "id");
-        Objects.requireNonNull(version, "version");
         Objects.requireNonNull(date, "date");
         Objects.requireNonNull(openedAt, "openedAt");
         Objects.requireNonNull(status, "status");

@@ -27,6 +27,7 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.uuid;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.violation;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.dispatchflow.planning.domain.PinTarget;
 import com.dispatchflow.planning.domain.PlanningError.DateInPast;
 import com.dispatchflow.planning.domain.PlanningError.NothingToRedo;
 import com.dispatchflow.planning.domain.PlanningError.NothingToUndo;
@@ -42,10 +43,9 @@ import com.dispatchflow.planning.domain.PlanningError.RouteNotLocked;
 import com.dispatchflow.planning.domain.PlanningError.StaleEvaluation;
 import com.dispatchflow.planning.domain.PlanningError.StopNotInPlan;
 import com.dispatchflow.planning.domain.PlanningError.ValidatorUnavailable;
-import com.dispatchflow.planning.domain.solution.DropReason;
-import com.dispatchflow.planning.domain.solution.DroppedOrder;
+import com.dispatchflow.planning.domain.drop.DropReason;
+import com.dispatchflow.planning.domain.drop.DroppedOrder;
 import com.dispatchflow.planning.domain.solution.Evaluation;
-import com.dispatchflow.planning.domain.solution.PinTarget;
 import com.dispatchflow.planning.domain.solution.Violation;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
@@ -120,10 +120,10 @@ class PlanEditingTest {
         Plan plan = aPlan().ready();
         StopId o1 = stopId(plan, O1);
         RouteId v2 = routeId(plan, V2);
-        Evaluation old = Evaluation.checked(Version.NEW, List.of(), List.of());
+        Evaluation old = Evaluation.checked(Version.of(0), List.of(), List.of());
 
         assertPlanRefused(
-                plan, () -> plan.moveStop(o1, v2, 0, old, TODAY), new StaleEvaluation(Version.NEW, plan.version()));
+                plan, () -> plan.moveStop(o1, v2, 0, old, TODAY), new StaleEvaluation(Version.of(0), plan.version()));
     }
 
     @Test

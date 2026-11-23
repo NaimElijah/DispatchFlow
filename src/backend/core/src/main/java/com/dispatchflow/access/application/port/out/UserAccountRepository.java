@@ -142,7 +142,7 @@ public interface UserAccountRepository {
      *
      * <p>Built in M6.
      *
-     * @param account the new account, at {@code Version.NEW}
+     * @param account the new account, never saved
      * @throws RuleViolation with Access's {@code EmailInUse} when another account took the address
      *     after {@link #holderOf} read it: the unique index backs BR-45
      */

@@ -1,6 +1,6 @@
 # ADR-009: The root `justfile` is the single entry point, and CI runs the same recipes
 
-- **Status:** Accepted; amended by ADR-037 and ADR-038
+- **Status:** Accepted; amended by ADR-037, ADR-038 and ADR-123
 - **Date:** 2026-10-30
 
 ## Context
@@ -27,10 +27,10 @@ flowchart LR
     dev["Developer:<br/>just check"] --> just["Root justfile"]
     ci["CI: one job<br/>per component"] --> just
     just --> core["core-check<br/>Maven wrapper"]
-    just --> solver["solver-check<br/>uv"]
+    just --> optimizer["optimizer-check<br/>uv"]
     just --> research["research-check<br/>uv"]
-    just --> console["console-check<br/>npm"]
-    just --> driver["driver-app-check<br/>npm"]
+    just --> web["web-check<br/>npm"]
+    just --> mobile["mobile-check<br/>npm"]
     just --> contracts["contracts-check<br/>Redocly CLI"]
     just --> audit["audit<br/>OSV-Scanner"]
 ```
@@ -40,8 +40,8 @@ flowchart LR
 - **Recipe names follow one pattern.**
   - `setup`, `check` and `format` run across the components.
   - Each component has `<component>-setup`, `<component>-check` and `<component>-format`, and
-    where it runs, `<component>-run`. The components are `core`, `solver`, `research`,
-    `console` and `driver-app`.
+    where it runs, `<component>-run`. The components are `core`, `optimizer`, `research`,
+    `web` and `mobile`.
   - `contracts-check` ([ADR-006]) and `audit` ([ADR-016]) stand alone. `just` with no argument
     lists the recipes.
 - **`just check` runs everything CI runs**, and CI jobs call the same recipes. A green local

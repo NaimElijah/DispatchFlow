@@ -65,13 +65,13 @@ import com.dispatchflow.planning.domain.RevisionNo;
 import com.dispatchflow.planning.domain.SolveLimit;
 import com.dispatchflow.planning.domain.basis.ChangesSinceBasis;
 import com.dispatchflow.planning.domain.basis.VehicleStanding;
+import com.dispatchflow.planning.domain.drop.DropReason;
+import com.dispatchflow.planning.domain.drop.DroppedOrder;
 import com.dispatchflow.planning.domain.reconciliation.LateFact;
 import com.dispatchflow.planning.domain.reconciliation.LateOutcome;
 import com.dispatchflow.planning.domain.reconciliation.Reconciliation;
 import com.dispatchflow.planning.domain.reconciliation.ReconciliationKind;
 import com.dispatchflow.planning.domain.revision.PlanRevision;
-import com.dispatchflow.planning.domain.solution.DropReason;
-import com.dispatchflow.planning.domain.solution.DroppedOrder;
 import com.dispatchflow.planning.domain.solution.Evaluation;
 import com.dispatchflow.planning.domain.solution.SolvedRoute;
 import com.dispatchflow.planning.domain.solution.ValidatedSolution;
@@ -531,12 +531,12 @@ class PlanPublishedTest {
     @Test
     void GivenAnEvaluationOfAnotherVersion_WhenARouteIsHandedOver_ThenStaleEvaluation() {
         Plan plan = aPlan().published();
-        Evaluation old = Evaluation.checked(Version.NEW, List.of(), List.of());
+        Evaluation old = Evaluation.checked(Version.of(0), List.of(), List.of());
 
         assertPlanRefused(
                 plan,
                 () -> plan.handOver(routeId(plan, V1), D3_STANDS, Optional.of(old), false, DISPATCHER, TODAY, LATER),
-                new StaleEvaluation(Version.NEW, plan.version()));
+                new StaleEvaluation(Version.of(0), plan.version()));
     }
 
     // ---- removeStopOf ---------------------------------------------------------------------------

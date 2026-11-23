@@ -10,6 +10,7 @@ import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.StaleVersion;
+import java.util.Optional;
 
 /**
  * An Admin changes the messaging part of the company settings: messages on or off, the rating
@@ -58,14 +59,18 @@ public final class ChangeMessagingSettings {
      * @param ratingQuestion whether the delivered message asks for a rating
      * @param dispatchPhone the dispatch phone, already checked by {@code DispatchPhone.of}, so at
      *     most 11 characters in national form (FR-382)
-     * @param expected the settings' version the Admin saw, {@code Version.NEW} before the first
+     * @param expected the settings' version the Admin saw, empty before the first
      *     change (BR-76)
      * @throws RuleViolation with Access's {@code SessionRevoked} or {@code StepUpRequired}, in that
      *     order, from {@link StepUp#requireFresh}, before any change (NFR-214)
      * @throws StaleVersion when the settings changed since {@code expected}
      */
     public void change(
-            Actor actor, Switch messages, Switch ratingQuestion, DispatchPhone dispatchPhone, Version expected) {
+            Actor actor,
+            Switch messages,
+            Switch ratingQuestion,
+            DispatchPhone dispatchPhone,
+            Optional<Version> expected) {
         throw new UnsupportedOperationException("Built in M12");
     }
 }

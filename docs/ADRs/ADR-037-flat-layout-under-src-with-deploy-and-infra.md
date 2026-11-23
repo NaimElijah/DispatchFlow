@@ -1,6 +1,6 @@
 # ADR-037: The code moves to a flat layout under `src/`, with deployment in `deploy/` and Terraform in `infra/`
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-123
 - **Date:** 2026-11-13
 
 ## Context

@@ -100,7 +100,7 @@ public interface SessionRepository {
      *
      * <p>Built in M5.
      *
-     * @param session the new session, at {@code Version.NEW}
+     * @param session the new session, never saved
      */
     void add(Session session);
 

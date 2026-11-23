@@ -58,7 +58,7 @@ by name for each solve. This is the strategy pattern.
 - **One judge.** Every solution passes the shared feasibility validator ([BR-15]) and is scored
   by the shared objective ([BR-09]) before it leaves the service, whichever solver produced it.
   Solvers are never compared on the objective value they report themselves.
-- **Nothing else knows the solvers.** The backend, the dispatcher console and the driver app
+- **Nothing else knows the solvers.** The backend, the web app and the phone app
   know a solver only by its name.
   - The backend's optimizer port always sends a solver name, and the solve job records it
     ([FR-20], [NFR-11]).

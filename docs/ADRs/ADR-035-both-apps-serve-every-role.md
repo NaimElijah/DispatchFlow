@@ -1,12 +1,12 @@
 # ADR-035: Both apps serve Admins, Dispatchers and Drivers
 
-- **Status:** Accepted; extended by ADR-076 and ADR-083; amended by ADR-037 and ADR-039
+- **Status:** Accepted; extended by ADR-076 and ADR-083; amended by ADR-037, ADR-039 and ADR-123
 - **Date:** 2026-11-11
 
 ## Context
 
-[ADR-003] built two clients, each for one kind of user: a desktop console for Admins and
-Dispatchers, and a driver app for drivers on iOS, Android and the browser. Its revisit trigger
+[ADR-003] built two clients, each for one kind of user: a desktop web app for Admins and
+Dispatchers, and a phone app for drivers on iOS, Android and the browser. Its revisit trigger
 "a requirement asks for the dispatcher's tasks on a phone" has now fired.
 
 On 2026-11-11 the owner, Naim Elijah, aligned the requirements with the [ARD]. The ARD puts every
@@ -28,7 +28,7 @@ for web, iOS and Android, was compared and turned down.
 
 ## Decision
 
-- **The web app** (`src/frontend/console`) is React and TypeScript, built with Vite. It serves
+- **The web app** (`src/frontend/web`) is React and TypeScript, built with Vite. It serves
   Admins, Dispatchers and Drivers in desktop browsers, and its driver screens also work in a phone's
   browser ([NFR-15], [NFR-219]).
   - A driver there works online only ([FR-326]). While the app is open and visible on a route in
@@ -39,7 +39,7 @@ for web, iOS and Android, was compared and turned down.
 - **The event stream is filtered by role.** The server sends each account only the events its roles
   may read, so the Driver role gets its own published routes and nothing else ([NFR-85], [BR-02],
   [BR-41]).
-- **The phone app** (`src/frontend/driver-app`) is React Native with Expo SDK 58, in TypeScript, one
+- **The phone app** (`src/frontend/mobile`) is React Native with Expo SDK 58, in TypeScript, one
   codebase for iOS and Android.
   - It serves all three roles, and an Admin or Dispatcher can do everything there that the web app
     allows ([FR-120]).

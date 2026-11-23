@@ -25,6 +25,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.dispatchflow.liveops.domain.LiveOpsError.CorrectionChangesNothing;
 import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.Origin;
 import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.OutcomeRecord;
+import com.dispatchflow.liveops.domain.outcome.DispatcherOutcome;
+import com.dispatchflow.liveops.domain.outcome.FailureReason;
+import com.dispatchflow.liveops.domain.outcome.FailureReasonKind;
+import com.dispatchflow.liveops.domain.outcome.Outcome;
 import com.dispatchflow.liveops.events.OutcomeKind;
 import com.dispatchflow.liveops.events.PutBackSuperseded;
 import com.dispatchflow.shared.DeliveryDate;
@@ -236,7 +240,7 @@ class DeliveryCorrectionTest {
 
         assertThat(delivery.pendingEvents())
                 .containsExactly(new PutBackSuperseded(
-                        new EventId("PutBackSuperseded", STOP.value(), Version.of(2), 0),
+                        new EventId("PutBackSuperseded", STOP.value(), Version.of(1), 0),
                         LATER,
                         STOP,
                         ORDER,

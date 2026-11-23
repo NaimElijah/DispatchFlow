@@ -13,7 +13,7 @@ The repository holds these pins today:
 | Java | 21 | `.java-version`, `<java.version>` in `src/backend/core/pom.xml`, both `FROM` lines of the core `Dockerfile` (`eclipse-temurin:21-jdk-noble`, `eclipse-temurin:21-jre-noble`) |
 | Python | 3.14 | `.python-version`, `requires-python = ">=3.14,<3.15"` in both `pyproject.toml` files, `FROM python:3.14-slim` |
 | Node | 24 | `.nvmrc` |
-| uv | 0.12.7 | `UV_VERSION` in `.github/workflows/ci.yml`, the solver `Dockerfile`, and `uv_build` in both `pyproject.toml` files |
+| uv | 0.12.7 | `UV_VERSION` in `.github/workflows/ci.yml`, the optimizer `Dockerfile`, and `uv_build` in both `pyproject.toml` files |
 | Maven | 3.10.0 | `src/backend/core/.mvn/wrapper/maven-wrapper.properties` |
 | `just` | 1.59.0 | `uvx --from rust-just==1.59.0 just` in `ci.yml` ([ADR-009]) |
 

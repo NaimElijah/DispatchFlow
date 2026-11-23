@@ -13,6 +13,7 @@ import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
 import com.tngtech.archunit.library.dependencies.SliceAssignment;
 import com.tngtech.archunit.library.dependencies.SliceIdentifier;
+import java.util.Collection;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
@@ -22,13 +23,22 @@ import org.jspecify.annotations.NullMarked;
 /**
  * The package rules of ADR-118, built for a root package as {@link DomainPurityRules} is: no cycle
  * between a module's domain packages, a domain root that uses none of its subpackages, and
- * {@code @NullMarked} on the kernel and on every domain and events package. {@code
+ * {@code @NullMarked} on the kernel and on every domain and events package, and ADR-125's guard
+ * that the packages which stay flat have no subpackage. {@code
  * com.dispatchflow} checks production code; {@code com.dispatchflow.archfixture} checks the
  * fixtures that prove each rule fires.
  */
 final class DomainPackageRules {
 
     private static final String DOMAIN = "domain";
+    private static final String KERNEL = "shared";
+    private static final String EVENTS = "events";
+    private static final String APPLICATION = "application";
+    private static final String ADAPTER = "adapter";
+    private static final String OUT = "out";
+    private static final String PERSISTENCE = "persistence";
+    private static final String API = "api";
+    private static final String SPI = "spi";
 
     private DomainPackageRules() {}
 
@@ -117,8 +127,41 @@ final class DomainPackageRules {
                 .collect(Collectors.toCollection(TreeSet::new));
     }
 
+    /**
+     * ADR-125 decision 4: the names, among the given package names under a root, of the packages
+     * that lie below one that stays flat whatever its size. A module's {@code application.api},
+     * {@code application.spi} and {@code events} are its contract (DL §2.3, rule 4), and the kernel's
+     * domain types stay flat until M0, so the kernel's one subpackage is {@code shared.application}
+     * (ADR-120 decision 2). {@code shared.adapter.out.persistence} is no kernel package but the
+     * persistence adapter every module shares (ADR-126), so it may have subpackages.
+     */
+    static SortedSet<String> packagesBelowAFlatOne(String root, Collection<String> packageNames) {
+        String prefix = root + ".";
+        return packageNames.stream()
+                .filter(name -> name.startsWith(prefix))
+                .filter(name ->
+                        liesBelowAFlatOne(name.substring(prefix.length()).split("\\.")))
+                .collect(Collectors.toCollection(TreeSet::new));
+    }
+
+    private static boolean liesBelowAFlatOne(String[] segments) {
+        if (segments[0].equals(KERNEL)) {
+            // ADR-126: shared.adapter.out.persistence is the persistence adapter every module shares,
+            // not the kernel.
+            boolean adapter = segments.length > 3
+                    && segments[1].equals(ADAPTER)
+                    && segments[2].equals(OUT)
+                    && segments[3].equals(PERSISTENCE);
+            return !adapter && (segments.length > 2 || (segments.length == 2 && !segments[1].equals(APPLICATION)));
+        }
+        boolean belowEvents = segments.length > 2 && segments[1].equals(EVENTS);
+        boolean belowApiOrSpi = segments.length > 3
+                && segments[1].equals(APPLICATION)
+                && (segments[2].equals(API) || segments[2].equals(SPI));
+        return belowEvents || belowApiOrSpi;
+    }
+
     private static Stream<JavaPackage> subjects(String root, JavaClasses classes) {
-        return classes.that(JavaClass.Predicates.resideInAnyPackage(DomainPurityRules.pureLayers(root))).stream()
-                .map(JavaClass::getPackage);
+        return classes.that(DomainPurityRules.inPureLayers(root)).stream().map(JavaClass::getPackage);
     }
 }

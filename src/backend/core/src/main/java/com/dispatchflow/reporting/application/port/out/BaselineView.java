@@ -1,6 +1,6 @@
 package com.dispatchflow.reporting.application.port.out;
 
-import com.dispatchflow.reporting.domain.BaselineComparison;
+import com.dispatchflow.reporting.domain.baseline.BaselineComparison;
 import com.dispatchflow.shared.PlanId;
 import java.util.Objects;
 import java.util.Optional;

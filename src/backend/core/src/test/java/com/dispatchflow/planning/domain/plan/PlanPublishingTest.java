@@ -45,9 +45,9 @@ import com.dispatchflow.planning.domain.PlanningError.StaleEvaluation;
 import com.dispatchflow.planning.domain.PublishingStep;
 import com.dispatchflow.planning.domain.RevisionNo;
 import com.dispatchflow.planning.domain.RuleCode;
+import com.dispatchflow.planning.domain.drop.DropReason;
 import com.dispatchflow.planning.domain.revision.PlanRevision;
 import com.dispatchflow.planning.domain.revision.RevisionRoute;
-import com.dispatchflow.planning.domain.solution.DropReason;
 import com.dispatchflow.planning.domain.solution.Evaluation;
 import com.dispatchflow.planning.domain.solution.ValidatedSolution;
 import com.dispatchflow.planning.domain.solution.ValidationReport;
@@ -120,12 +120,12 @@ class PlanPublishingTest {
         Plan plan = aPlan().ready();
         PublishingChecks checks = checksFor(plan);
         PublishingChecks stale = new PublishingChecks(
-                checks.staffing(), checks.orders(), Evaluation.checked(Version.NEW, List.of(), List.of()));
+                checks.staffing(), checks.orders(), Evaluation.checked(Version.of(0), List.of(), List.of()));
 
         assertPlanRefused(
                 plan,
                 () -> plan.publish(stale, DISPATCHER, TODAY, LATER),
-                new StaleEvaluation(Version.NEW, plan.version()));
+                new StaleEvaluation(Version.of(0), plan.version()));
     }
 
     @Test

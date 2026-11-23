@@ -1,6 +1,6 @@
 package com.dispatchflow.planning.domain.plan;
 
-import com.dispatchflow.planning.domain.solution.DroppedOrder;
+import com.dispatchflow.planning.domain.drop.DroppedOrder;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.OrderId;

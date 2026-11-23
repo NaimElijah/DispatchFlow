@@ -1,9 +1,9 @@
 package com.dispatchflow.planning.domain.plan;
 
+import com.dispatchflow.planning.domain.PinTarget;
 import com.dispatchflow.planning.domain.PlanningError.StaleEvaluation;
-import com.dispatchflow.planning.domain.solution.DroppedOrder;
+import com.dispatchflow.planning.domain.drop.DroppedOrder;
 import com.dispatchflow.planning.domain.solution.Evaluation;
-import com.dispatchflow.planning.domain.solution.PinTarget;
 import com.dispatchflow.planning.domain.solution.RouteTimes;
 import com.dispatchflow.planning.domain.solution.StopTiming;
 import com.dispatchflow.shared.OrderId;

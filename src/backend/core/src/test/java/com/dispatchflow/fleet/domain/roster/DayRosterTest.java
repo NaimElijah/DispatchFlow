@@ -33,7 +33,6 @@ import com.dispatchflow.shared.DomainError;
 import com.dispatchflow.shared.SharedKernelError.NonexistentLocalTime;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.VehicleId;
-import com.dispatchflow.shared.Version;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.util.List;
@@ -92,8 +91,8 @@ class DayRosterTest {
         DayRoster roster = DayRoster.open(ORDINARY_DAY);
 
         assertThat(roster.date()).isEqualTo(ORDINARY_DAY);
-        assertThat(roster.version()).isEqualTo(Version.NEW);
-        assertThat(roster.snapshot()).isEqualTo(new DayRosterSnapshot(ORDINARY_DAY, Version.NEW, List.of(), List.of()));
+        assertThat(roster.snapshot().version()).isNull();
+        assertThat(roster.snapshot()).isEqualTo(new DayRosterSnapshot(ORDINARY_DAY, null, List.of(), List.of()));
         assertThat(roster.pendingEvents()).isEmpty();
     }
 

@@ -2,6 +2,7 @@ package com.dispatchflow.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 
+import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.AccessTarget;
 import com.tngtech.archunit.core.domain.AccessTarget.CodeUnitAccessTarget;
 import com.tngtech.archunit.core.domain.JavaAccess;
@@ -35,6 +36,10 @@ final class DomainPurityRules {
     private static final String DOMAIN = "domain";
     private static final String EVENTS = "events";
     private static final String APPLICATION = "application";
+    private static final String ADAPTER = "adapter";
+    // ADR-126: the persistence adapter every module shares sits beside the kernel. It is no part
+    // of the kernel, so no purity rule holds it, and nothing pure may use it.
+    private static final String SHARED_PERSISTENCE_ADAPTER = KERNEL + "." + ADAPTER + ".out.persistence";
     private static final String PACKAGE_INFO = "package-info";
     private static final List<String> KERNEL_LIBRARIES = List.of("com.google.i18n.phonenumbers");
     private static final List<String> DOMAIN_LIBRARIES =
@@ -45,6 +50,15 @@ final class DomainPurityRules {
     private static final String MODULITH = "org.springframework.modulith";
     // The fixtures' stand-in keeps the simple name, so one name serves Modulith and the stand-in.
     private static final String NAMED_INTERFACE = "NamedInterface";
+    // ADR-126: a domain or kernel class may carry Jakarta Persistence's annotations, with the enums
+    // they take as values (such as EnumType), and these four from Hibernate and Spring Data. Only
+    // annotations: never an EntityManager, a Spring Data type or another Hibernate annotation.
+    private static final String JAKARTA_PERSISTENCE = "jakarta.persistence";
+    private static final Set<String> PERSISTENCE_ANNOTATIONS = Set.of(
+            "org.hibernate.annotations.OptimisticLock",
+            "org.hibernate.annotations.Immutable",
+            "org.springframework.data.domain.DomainEvents",
+            "org.springframework.data.domain.AfterDomainEventPublication");
 
     // A legacy date type or a Clock is a way to read the time inside the domain.
     private static final List<String> CLOCK_TYPES = List.of(
@@ -183,19 +197,18 @@ final class DomainPurityRules {
      */
     static ArchRule onlyAllowedDependencies(String root, String moduleAnnotations) {
         return classes()
-                .that()
-                .resideInAnyPackage(pureLayers(root))
+                .that(inPureLayers(root))
                 .should(dependOnlyOnAllowedPackages(root, moduleAnnotations))
                 .because("DL §3.9 rule 1 and §7.3: the kernel imports only the JDK, JSpecify and libphonenumber;"
                         + " a domain also its own domain and events, the kernel and JTS; events only the JDK,"
-                        + " JSpecify, the kernel and their own package");
+                        + " JSpecify, the kernel and their own package; the kernel and a domain may also carry"
+                        + " ADR-126's persistence annotations; none of them uses a shared adapter");
     }
 
     /** Rule 2: no clock. */
     static ArchRule noSystemClock(String root) {
         return classes()
-                .that()
-                .resideInAnyPackage(pureLayers(root))
+                .that(inPureLayers(root))
                 .should(notAccess("read or wait on the system clock", DomainPurityRules::readsTheClock)
                         .and(notDependOn("a legacy date type or a clock", DomainPurityRules::isAClock)))
                 .because("DL §3.9 rule 2: now and today are parameters (NFR-13, NFR-175)");
@@ -204,8 +217,7 @@ final class DomainPurityRules {
     /** Rule 3: no ID generation. */
     static ArchRule noIdGeneration(String root) {
         return classes()
-                .that()
-                .resideInAnyPackage(pureLayers(root))
+                .that(inPureLayers(root))
                 .should(notAccess("generate a random UUID", DomainPurityRules::generatesAnId))
                 .because("DL §3.9 rule 3: factories take the new ID from IdGenerator");
     }
@@ -213,8 +225,7 @@ final class DomainPurityRules {
     /** Rule 4: no randomness. */
     static ArchRule noRandomness(String root) {
         return classes()
-                .that()
-                .resideInAnyPackage(pureLayers(root))
+                .that(inPureLayers(root))
                 .should(notDependOn("a source of randomness", DomainPurityRules::isRandomness)
                         .and(notAccess("call a random method", DomainPurityRules::callsRandomness)))
                 .because("DL §3.9 rule 4: the domain uses no randomness");
@@ -223,8 +234,7 @@ final class DomainPurityRules {
     /** Rule 4: no I/O. */
     static ArchRule noIo(String root) {
         return classes()
-                .that()
-                .resideInAnyPackage(pureLayers(root))
+                .that(inPureLayers(root))
                 .should(notDependOn("an I/O type", DomainPurityRules::isIo)
                         .and(notAccess(
                                 "use the process's streams, environment, system properties or default locale",
@@ -245,8 +255,7 @@ final class DomainPurityRules {
     /** Rule 4: no logging. */
     static ArchRule noLogging(String root) {
         return classes()
-                .that()
-                .resideInAnyPackage(pureLayers(root))
+                .that(inPureLayers(root))
                 .should(notDependOn("a logging type", DomainPurityRules::isLogging))
                 .because("DL §3.9 rule 4: the domain does no logging");
     }
@@ -254,8 +263,7 @@ final class DomainPurityRules {
     /** Rule 5: no generic exceptions. */
     static ArchRule noGenericExceptions(String root) {
         return classes()
-                .that()
-                .resideInAnyPackage(pureLayers(root))
+                .that(inPureLayers(root))
                 .should(notAccess(
                         "create an IllegalArgumentException or IllegalStateException",
                         DomainPurityRules::createsAGenericException))
@@ -293,18 +301,37 @@ final class DomainPurityRules {
         return new String[] {root + "." + KERNEL + "..", root + ".*." + DOMAIN + "..", root + ".*." + EVENTS + ".."};
     }
 
+    /**
+     * The classes the purity rules hold: those in {@link #pureLayers}, apart from {@code
+     * shared.adapter.out.persistence}, the persistence adapter every module shares, which ADR-126
+     * puts beside the kernel without making it part of it. Any other package below the kernel is
+     * still held.
+     */
+    static DescribedPredicate<JavaClass> inPureLayers(String root) {
+        return JavaClass.Predicates.resideInAnyPackage(pureLayers(root))
+                .and(DescribedPredicate.not(
+                        JavaClass.Predicates.resideInAPackage(root + "." + SHARED_PERSISTENCE_ADAPTER + "..")));
+    }
+
     private static ArchCondition<JavaClass> dependOnlyOnAllowedPackages(String root, String moduleAnnotations) {
         return new ArchCondition<>("depend only on the packages DL §3.9 allows") {
             @Override
             public void check(JavaClass item, ConditionEvents events) {
                 List<String> allowed = allowedPackages(root, moduleAnnotations, item);
                 Set<String> allowedTypes = allowedTypes(root, moduleAnnotations, item);
+                boolean mayCarryMapping = mayCarryPersistenceAnnotations(root, item);
+                List<String> sharedAdapters = List.of(root + "." + KERNEL + "." + ADAPTER);
                 item.getDirectDependenciesFromSelf().stream()
                         .filter(dependency -> {
                             JavaClass target = baseType(dependency.getTargetClass());
-                            return !target.isPrimitive()
-                                    && !isInAny(target.getPackageName(), allowed)
-                                    && !allowedTypes.contains(target.getName());
+                            if (target.isPrimitive()) {
+                                return false;
+                            }
+                            // The kernel's prefix below would let the shared adapters through.
+                            return isInAny(target.getPackageName(), sharedAdapters)
+                                    || (!isInAny(target.getPackageName(), allowed)
+                                            && !allowedTypes.contains(target.getName())
+                                            && !(mayCarryMapping && isAPersistenceAnnotation(target)));
                         })
                         .forEach(dependency ->
                                 events.add(SimpleConditionEvent.violated(dependency, dependency.getDescription())));
@@ -356,6 +383,30 @@ final class DomainPurityRules {
         return kernelApplication && item.getSimpleName().equals(PACKAGE_INFO)
                 ? Set.of(moduleAnnotations + "." + NAMED_INTERFACE)
                 : Set.of();
+    }
+
+    /**
+     * ADR-126: the kernel's own package and every module's domain may carry the persistence
+     * annotations that map them; an events package, the kernel's application package and a {@code
+     * package-info} may not.
+     */
+    private static boolean mayCarryPersistenceAnnotations(String root, JavaClass item) {
+        if (item.getSimpleName().equals(PACKAGE_INFO)) {
+            return false;
+        }
+        String[] segments = segmentsBelow(root, item);
+        boolean kernelRoot = segments.length == 1 && segments[0].equals(KERNEL);
+        boolean domain = segments.length > 1 && segments[1].equals(DOMAIN);
+        return kernelRoot || domain;
+    }
+
+    /**
+     * An annotation of Jakarta Persistence, or an enum one takes as a value, or one of the four
+     * Hibernate and Spring Data annotations ADR-126 allows.
+     */
+    private static boolean isAPersistenceAnnotation(JavaClass type) {
+        boolean jakarta = type.getPackageName().equals(JAKARTA_PERSISTENCE) && (type.isAnnotation() || type.isEnum());
+        return jakarta || PERSISTENCE_ANNOTATIONS.contains(type.getName());
     }
 
     /**

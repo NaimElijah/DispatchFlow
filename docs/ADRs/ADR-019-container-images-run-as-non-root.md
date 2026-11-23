@@ -31,7 +31,7 @@ Each service has its own `Dockerfile` and `.dockerignore` in its folder.
 - **Both run as a system user, `dispatchflow`, with uid 10001.** The `USER` line comes after
   every step that needs root.
 - **`.dockerignore` keeps `.env` out of the build context** in both services, along with build
-  output and caches. The solver's also leaves out `tests/`.
+  output and caches. The optimizer's also leaves out `tests/`.
 - **Base images are pinned by tag**, and Dependabot proposes tag updates weekly ([ADR-015]).
 - **The ports are fixed:** `core` exposes 8080 and the optimization service 8000.
 
@@ -39,7 +39,7 @@ Each service has its own `Dockerfile` and `.dockerignore` in its folder.
 
 - **Easy:** a compromised process in either container is not root there.
 - **Easy:** the `core` image holds a JRE and the jar, with no JDK, Maven or source.
-- **Easy:** a source-only change to the solver reuses the dependency layer.
+- **Easy:** a source-only change to the optimizer reuses the dependency layer.
 - **Hard:** a tag such as `21-jre-noble` moves when the publisher rebuilds it, so two builds of
   the same commit can differ.
 - **Hard:** no CI job builds the images, so a broken `Dockerfile` is found only when someone

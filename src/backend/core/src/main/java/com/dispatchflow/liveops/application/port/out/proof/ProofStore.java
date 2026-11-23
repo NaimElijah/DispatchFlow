@@ -1,7 +1,7 @@
 package com.dispatchflow.liveops.application.port.out.proof;
 
-import com.dispatchflow.liveops.domain.delivery.ProofId;
-import com.dispatchflow.liveops.domain.delivery.ProofKind;
+import com.dispatchflow.liveops.domain.proof.ProofId;
+import com.dispatchflow.liveops.domain.proof.ProofKind;
 import com.dispatchflow.shared.AccountId;
 import java.time.Instant;
 import java.util.Objects;

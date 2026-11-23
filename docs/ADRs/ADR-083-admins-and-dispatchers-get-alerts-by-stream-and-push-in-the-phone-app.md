@@ -5,7 +5,7 @@
 
 ## Context
 
-[ADR-026] chose server-sent events for the console and a push through Expo's push service for a
+[ADR-026] chose server-sent events for the web app and a push through Expo's push service for a
 driver's backgrounded app. [ADR-035] then put every role in the phone app and gave Admins and
 Dispatchers everything the web app allows ([FR-120]). It left one thing open: how their alerts reach
 the phone app, by push or by an open event stream ([Q-97]).

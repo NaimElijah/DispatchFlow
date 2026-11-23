@@ -34,7 +34,7 @@ yet. `application.properties` sets `spring.jpa.hibernate.ddl-auto=validate`.
 We use PostgreSQL as the system of record, and we change its schema only through Flyway
 migrations.
 
-- **The core is the only service that owns a database.** The solver service has none
+- **The core is the only service that owns a database.** The optimizer service has none
   ([ADR-002]). Anything it needs arrives in a request, through the optimization API
   ([ADR-006]).
 - **A migration is a plain SQL file** in `src/backend/core/src/main/resources/db/migration/`.

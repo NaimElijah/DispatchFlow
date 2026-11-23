@@ -1,6 +1,6 @@
 package com.dispatchflow.reporting.application.port.out;
 
-import com.dispatchflow.reporting.domain.Distance;
+import com.dispatchflow.reporting.domain.baseline.Distance;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.RouteId;

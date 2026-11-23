@@ -7,7 +7,7 @@ import com.dispatchflow.planning.application.port.out.DatePlansView;
 import com.dispatchflow.planning.application.port.out.PlanHistoryView;
 import com.dispatchflow.planning.application.port.out.PlanWorkspaceView;
 import com.dispatchflow.planning.application.port.out.PlanningViews;
-import com.dispatchflow.planning.application.port.out.PreflightView;
+import com.dispatchflow.planning.application.port.out.plan.PreflightView;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.application.NotFound;

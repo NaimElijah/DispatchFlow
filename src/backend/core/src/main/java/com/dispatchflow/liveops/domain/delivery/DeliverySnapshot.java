@@ -4,6 +4,7 @@ import com.dispatchflow.liveops.domain.CancellationKind;
 import com.dispatchflow.liveops.domain.CorrectedTime;
 import com.dispatchflow.liveops.domain.HeldReportId;
 import com.dispatchflow.liveops.domain.RevisionNo;
+import com.dispatchflow.liveops.domain.outcome.Outcome;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.OrderId;
@@ -15,6 +16,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A delivery's stored state: what {@link Delivery#snapshot()} returns and {@link Delivery#restore}
@@ -24,7 +26,8 @@ import java.util.Optional;
  * @param stop the stop, which keys the delivery
  * @param order the stop's order
  * @param attempt the stop's attempt
- * @param version the version it was loaded at
+ * @param version the version it was loaded at, or null for an aggregate never saved
+ *     (ADR-126)
  * @param arrival the driver's arrival, if any (FR-29)
  * @param outcomes the original outcome first, then each correction in order (FR-333)
  * @param heldReports every report held for a dispatcher, in the order held (BR-132)
@@ -33,7 +36,7 @@ public record DeliverySnapshot(
         StopId stop,
         OrderId order,
         Attempt attempt,
-        Version version,
+        @Nullable Version version,
         Optional<ArrivalRecord> arrival,
         List<OutcomeRecord> outcomes,
         List<HeldReport> heldReports)
@@ -44,7 +47,6 @@ public record DeliverySnapshot(
         Objects.requireNonNull(stop, "stop");
         Objects.requireNonNull(order, "order");
         Objects.requireNonNull(attempt, "attempt");
-        Objects.requireNonNull(version, "version");
         Objects.requireNonNull(arrival, "arrival");
         outcomes = List.copyOf(outcomes);
         heldReports = List.copyOf(heldReports);

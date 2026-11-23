@@ -43,11 +43,13 @@ This README is ordered for contributors, so Quick start comes before Architectur
 | Tool | Version | Used for |
 |---|---|---|
 | Git | any recent | |
-| JDK | 21 (`.java-version`) | `src/backend/core` |
+| JDK | 25 (`.java-version`) | `src/backend/core` |
 | Node.js | 24 LTS (`.nvmrc`) | both frontends, contract lint |
 | uv | 0.12+ | both Python projects; installs Python 3.14 (`.python-version`) by itself |
 | Docker | running daemon | core's integration tests, `just core-run`, `just audit` |
 | just | 1.59 | every command below |
+
+Point `JAVA_HOME`, and your IDE's Java SDK, at that JDK 25: the core does not build on an older one.
 
 Install `just` through uv, which you already have:
 
@@ -67,9 +69,9 @@ Start a component:
 
 ```bash
 just core-run         # core backend on :8080, against a throwaway PostgreSQL container
-just solver-run       # solver on :8000, reloading on change
-just console-run      # web app (Vite dev server; it prints the URL)
-just driver-app-run   # phone app (Expo dev server for phones and the browser)
+just optimizer-run    # optimizer on :8000, reloading on change
+just web-run          # web app (Vite dev server; it prints the URL)
+just mobile-run       # phone app (Expo dev server for phones and the browser)
 ```
 
 Success looks like this:
@@ -89,11 +91,11 @@ curl http://localhost:8000/health/liveness   # {"status":"UP"}
 
 ```mermaid
 flowchart LR
-    Console[Web app<br/>React] -->|client-api v1| Core[Core backend<br/>Spring Boot]
-    Driver[Phone app<br/>Expo] -->|client-api v1| Core
+    Web[Web app<br/>React] -->|client-api v1| Core[Core backend<br/>Spring Boot]
+    Mobile[Phone app<br/>Expo] -->|client-api v1| Core
     Core --> DB[(PostgreSQL)]
-    Core -->|optimization-api v1| Solver[Solver<br/>FastAPI]
-    Research[Research harness] -.->|imports| Solver
+    Core -->|optimization-api v1| Optimizer[Optimizer<br/>FastAPI]
+    Research[Research harness] -.->|imports| Optimizer
 ```
 
 - **Core backend** (`src/backend/core`) is the system of record and the only API the clients
@@ -102,13 +104,14 @@ flowchart LR
   ([domain design](docs/architecture/domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts)).
   Each module's domain is built. Its application layer is declared, with bodies that throw
   ([ADR-119](docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md); the conventions are in
-  [ADR-120](docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)), and its adapters do not exist. A domain that passes
-  30 files splits into one package per aggregate
-  ([ADR-118](docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)).
-- **Solver** (`src/backend/solver`) turns a routing problem into routes. Every solver sits behind
+  [ADR-120](docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)), and its adapters do not exist. A folder that passes
+  20 files splits wherever four of its files can move, a domain by aggregate
+  ([ADR-118](docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md),
+  [ADR-125](docs/ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)).
+- **Optimizer** (`src/backend/optimizer`) turns a routing problem into routes. Every solver sits behind
   one `Solver` port and is chosen by name; every solution passes a shared feasibility validator
   before it leaves the service ([ADR-004](docs/ADRs/ADR-004-pluggable-solver-port.md)).
-- **Web app** (`src/frontend/console`) and **phone app** (`src/frontend/driver-app`, iOS and
+- **Web app** (`src/frontend/web`) and **phone app** (`src/frontend/mobile`, iOS and
   Android from one codebase) each serve Admins, Dispatchers and Drivers
   ([ADR-035](docs/ADRs/ADR-035-both-apps-serve-every-role.md)). A driver in the web app works
   online only.
@@ -119,9 +122,9 @@ Components meet only at the versioned OpenAPI contracts in `contracts/`. Inside 
 dependencies point one way: the domain imports no framework, I/O or transport types, and
 adapters depend on the domain.
 
-None of the calls between components exists in code yet. Today the solver answers its liveness
+None of the calls between components exists in code yet. Today the optimizer answers its liveness
 probe, the core its health probe, and the two apps render a heading; the domain layers, in the core
-and in the solver, are built and tested, and their application layers are declared but not built.
+and in the optimizer, are built and tested, and their application layers are declared but not built.
 Nothing calls any of them.
 [architecture.md](docs/architecture/architecture.md) describes that system as it is, and
 [code-structure.md](docs/architecture/code-structure.md) the repository layout.
@@ -147,9 +150,9 @@ progress to the web app over server-sent events
 
 | Layer | Technology | Version | Why |
 |---|---|---|---|
-| Core backend | Java, Spring Boot, Spring Data JPA; libphonenumber, JTS, JSpecify | 21, 4.1.2; 9.0.43, 1.20.0, version from the Spring Boot parent | The team's strongest stack; mature ecosystem for the adapters. libphonenumber parses phone numbers and JTS checks the service area, both in the pure domain; JSpecify marks null-safe packages |
+| Core backend | Java, Spring Boot, Spring Data JPA; libphonenumber, JTS, JSpecify | 25, 4.1.2; 9.0.43, 1.20.0, version from the Spring Boot parent | The team's strongest stack; mature ecosystem for the adapters. libphonenumber parses phone numbers and JTS checks the service area, both in the pure domain; JSpecify marks null-safe packages |
 | Database | PostgreSQL 18.6; Flyway (version from the Spring Boot parent) | 18.6 | Relational data with real constraints; versioned SQL migrations |
-| Solver | Python, FastAPI, NumPy | 3.14, 0.162, 2.5.4 | OR-Tools' richest bindings; algorithm work iterates apart from the backend; NumPy holds the validator's arrays |
+| Optimizer | Python, FastAPI, NumPy | 3.14, 0.162, 2.5.4 | OR-Tools' richest bindings; algorithm work iterates apart from the backend; NumPy holds the validator's arrays |
 | Web app | React, TypeScript, Vite | 19.3, 6.0, 8.3 | Web app for every role; its driver screens also work in a phone's browser |
 | Phone app | React Native, Expo | 0.88, SDK 58 | One codebase for iOS and Android, for every role |
 | Contracts | OpenAPI, Redocly CLI | 3.1, 2.72 | Each side is built against the contract, not against the other side |
@@ -161,10 +164,12 @@ TypeScript is held at 6.0 because typescript-eslint does not support 7 yet
 not in the code yet).
 
 This table is what the code uses today. [tech_stack.md](docs/architecture/tech_stack.md) decides
-the stack for the Alpha and after, and ADR-037 to ADR-047 (Accepted, in the
-[ADR index](docs/ADRs/README.md)) record where it departs from today's: Java 25, jOOQ in place of
-Spring Data JPA, Spring Modulith, pnpm, mise, and a flatter layout. None of it is in the tree yet.
-Each change lands with the milestone that needs it.
+the stack for the Alpha and after, and ADR-038 to ADR-047 (Accepted, in the
+[ADR index](docs/ADRs/README.md)) record where it departs from today's: Spring Modulith, pnpm
+and mise. None of it is in the tree yet; each change lands with the milestone that needs it.
+ADR-038's Java 25 is already in the tree, and
+[ADR-123](docs/ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md)
+keeps the layout and renames three components, which the tree already uses.
 
 ## Configuration
 
@@ -197,9 +202,9 @@ commit, never a squash.
 | `just <component>-setup` | Install that component's dependencies |
 | `just <component>-check` | Everything CI checks for it |
 | `just <component>-format` | Reformat its code |
-| `just <component>-run` | Start it (core, solver, console, driver-app) |
+| `just <component>-run` | Start it (core, optimizer, web, mobile) |
 
-The components are `core`, `solver`, `research`, `console` and `driver-app`. `just` lists every
+The components are `core`, `optimizer`, `research`, `web` and `mobile`. `just` lists every
 recipe; `just check` and `just format` run them all.
 
 **Adding a feature end to end:** start from the requirement it delivers in
@@ -208,7 +213,7 @@ recipe; `just check` and `just format` run them all.
 and the milestone it belongs to in the
 [roadmap](docs/roadmap.md#2-milestones);
 change the contract in `contracts/` first;
-implement the domain, then the use case, then the adapter in `src/backend/core` (and in the solver
+implement the domain, then the use case, then the adapter in `src/backend/core` (and in the optimizer
 if it needs new solving behaviour); then the client screens; tests at each layer; and update the
 requirements, architecture and ADRs in the same pull request.
 
@@ -223,12 +228,12 @@ comments. The rules apply to people and to coding assistants alike.
 
 | Layer | Covers | Command |
 |---|---|---|
-| Core unit (`*Test`) | Domain and use cases, no I/O. Today: the shared kernel's values, the eight modules' domains, the ArchUnit rules (purity, shape, package structure and the application layer's shape) and the web error handler; every use case is declared and none is built, so none has a behaviour test yet | `just core-check` |
-| Core integration (`*IT`) | Against a real PostgreSQL in a container | `just core-check` |
-| Solver | The domain (the validator's crafted-violation catalogue, Hypothesis properties, Solomon best-known solutions accepted), the HTTP adapter, the dependency boundary and import-linter | `just solver-check` |
-| Research | Its environment: the solver and PyVRP are installed | `just research-check` |
-| Web app | Components in jsdom (Vitest + Testing Library) | `just console-check` |
-| Phone app | Components (Jest + React Native Testing Library) | `just driver-app-check` |
+| Core unit (`*Test`) | Domain and use cases, no I/O. Today: the shared kernel's values, the eight modules' domains, the ArchUnit rules (purity, shape, package structure, the application layer's shape and the JPA mapping) and the web error handler; every use case is declared and none is built, so none has a behaviour test yet | `just core-check` |
+| Core integration (`*IT`) | Against a real PostgreSQL in a container. Today: the application starts, and the shared version helper's saves, conflicts and storing of the kernel's values are checked on a test-only aggregate | `just core-check` |
+| Optimizer | The domain (the validator's crafted-violation catalogue, Hypothesis properties, Solomon best-known solutions accepted), the HTTP adapter, the dependency boundary and import-linter | `just optimizer-check` |
+| Research | Its environment: the optimizer and PyVRP are installed | `just research-check` |
+| Web app | Components in jsdom (Vitest + Testing Library) | `just web-check` |
+| Phone app | Components (Jest + React Native Testing Library) | `just mobile-check` |
 | Contracts | Both OpenAPI documents lint clean | `just contracts-check` |
 | Dependencies | Known vulnerabilities in every lockfile and the pom | `just audit` |
 
@@ -241,9 +246,9 @@ and load tests (`tests/load`) have folders but no tests yet. There is no coverag
 ```text
 src/
   backend/core/        REST API and system of record (Spring Boot)
-  backend/solver/      solver service (FastAPI)
-  frontend/console/    web app (React + Vite)
-  frontend/driver-app/ phone app (Expo)
+  backend/optimizer/   optimization service (FastAPI)
+  frontend/web/        web app (React + Vite)
+  frontend/mobile/     phone app (Expo)
   research/            benchmarks, simulation, order generator; never deployed
 contracts/             versioned OpenAPI contracts between the components
 tests/                 cross-component tests only: e2e/, load/
@@ -253,16 +258,16 @@ docs/                  requirements, architecture and design, ADRs, the roadmap,
 justfile               every command, the same locally and in CI
 ```
 
-ADR-037 (Accepted) flattens this tree to `src/core`, `src/optimizer`, `src/web`, `src/mobile`
-and `src/packages`, with `deploy/` and `e2e/` at the root, in the M0 restructure. The pull request
-that moves the code updates this section.
+[ADR-123](docs/ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md) (Accepted) decides this tree and its component names.
 
 ## Design decisions
 
 **Domain-driven design, built as ports and adapters**
 ([ADR-001](docs/ADRs/ADR-001-domain-driven-design-with-hexagonal-architecture.md)): business
-rules import no framework, database or network type, so they are tested without any of them.
-Cost: mapping between domain objects, database entities and API types.
+rules import no framework, database or network call, so they are tested without any of them; the one
+exception is the persistence annotations that [ADR-126](docs/ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)
+allows on the domain classes, in place of a second set of entity classes. Cost: mapping between domain
+objects and API types, and a domain that carries annotations.
 
 **A Java core and a separate Python optimization service**
 ([ADR-002](docs/ADRs/ADR-002-core-backend-and-separate-optimization-service.md)): the solvers run
@@ -284,22 +289,24 @@ hangs. Cost: every contributor installs `just`, and CI builds every component on
 
 The other decisions, including the repository layout, the two clients and the tooling, are in
 the [ADR index](docs/ADRs/README.md). It also lists ADR-037 to ADR-047, accepted in this round, on
-2026-11-13 and 2026-11-14, and ADR-048 to ADR-093, which record the rest of the decisions. Each
+2026-11-13 and 2026-11-14 (ADR-123 has since superseded ADR-037), and ADR-048 to ADR-093, which record the rest of the decisions. Each
 supersedes, amends or extends the ADRs its status names, to match the design documents. The code
 does not follow them yet. ADR-094 to ADR-096 settle three points found open afterwards: the
 contract check's base branch, the zod and deepmerge advisories, and the root `CLAUDE.md`. ADR-097
 to ADR-118 record decisions taken while the domain layer was built, reviewed and split into packages,
-and ADR-119 and ADR-120 the declaration of the application layer.
+ADR-119 and ADR-120 the declaration of the application layer, ADR-121 its review, ADR-122 the
+finish skill without an agent review, ADR-123 the grouped layout with three renamed components,
+ADR-124 what a `CLAUDE.md` holds, and ADR-125 when a folder splits into subfolders.
 
 ## Status and limitations
 
 **Pre-alpha.** Shipped: a skeleton for each of the five components, with its build, formatter,
-linter, tests and CI job; the two contracts; and the solver's and the core backend's health probes.
+linter, tests and CI job; the two contracts; and the optimizer's and the core backend's health probes.
 The domain layer is being built ahead of its milestones: the core's shared kernel with its purity
 rules, the domains of `access`, `audit`, `fleet`, `liveops`, `messaging`, `orders`, `planning` and
-`reporting`, and the solver's domain for daily solves and re-optimizations (the validator, the
+`reporting`, and the optimizer's domain for daily solves and re-optimizations (the validator, the
 objective and the drop reasons). The application layer is declared ahead too, in the core and in
-the solver: every use case, query, port and module API has its signature, and every body that would
+the optimizer: every use case, query, port and module API has its signature, and every body that would
 do work throws "Built in M<n>" ([ADR-119](docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)). Nothing calls any of it yet.
 
 Planned: the [roadmap](docs/roadmap.md) has the course calendar, the milestones M0 to M13, and the
@@ -310,10 +317,9 @@ Known limitations:
 - Nothing is deployed; there is no staging or production environment yet.
 - `docker compose` is not set up; each component runs on its own. `compose.dev.yaml` is part of
   the M0 walking skeleton (ADR-042, Accepted).
-- Four vulnerabilities in the frontends' build, lint and test tooling are ignored by the audit
+- Four vulnerabilities in the phone app's build, lint and test tooling are ignored by the audit
   until 2027-01-31. The owner accepted all four: minimatch and glob in ADR-023, zod and deepmerge
-  in ADR-095. The reasons are in `src/frontend/console/osv-scanner.toml` and
-  `src/frontend/driver-app/osv-scanner.toml`
+  in ADR-095. The reasons are in `src/frontend/mobile/osv-scanner.toml`
   ([ADR-016](docs/ADRs/ADR-016-dependency-audit-with-osv-scanner.md),
   [ADR-023](docs/ADRs/ADR-023-accept-minimatch-and-glob-advisories.md),
   [ADR-095](docs/ADRs/ADR-095-accept-the-zod-and-deepmerge-advisories-until-2027-01-31.md)).

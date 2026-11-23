@@ -1,7 +1,7 @@
 package com.dispatchflow.liveops.application.service.delivery;
 
-import com.dispatchflow.liveops.domain.delivery.FailureReason;
-import com.dispatchflow.liveops.domain.delivery.Proof;
+import com.dispatchflow.liveops.domain.outcome.FailureReason;
+import com.dispatchflow.liveops.domain.proof.Proof;
 import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;

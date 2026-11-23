@@ -30,7 +30,7 @@ updates:
 
   - package-ecosystem: uv
     directories:
-      - /src/backend/solver
+      - /src/backend/optimizer
       - /src/research
     target-branch: dev
     schedule:
@@ -41,14 +41,14 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
-    # uv_build moves together with uv itself, which ci.yml and the solver Dockerfile pin and
-    # Dependabot cannot see (ADR-010, ADR-021).
+    # uv_build moves together with uv itself, which ci.yml and the optimizer Dockerfile pin and
+    # Dependabot cannot see (ADR-038, ADR-021).
     ignore:
       - dependency-name: uv-build
         versions: [">= 0.13"]
 
   - package-ecosystem: npm
-    directory: /src/frontend/console
+    directory: /src/frontend/web
     target-branch: dev
     schedule:
       interval: weekly
@@ -59,7 +59,7 @@ updates:
       minor-and-patch:
         update-types: [minor, patch]
     # TypeScript stays on 6 until typescript-eslint supports 7 (ADR-012), and @types/node follows
-    # the Node line in .nvmrc (ADR-010). See ADR-021.
+    # the Node line in .nvmrc (ADR-038). See ADR-021.
     ignore:
       - dependency-name: typescript
         update-types: [version-update:semver-major]
@@ -67,7 +67,7 @@ updates:
         update-types: [version-update:semver-major]
 
   - package-ecosystem: npm
-    directory: /src/frontend/driver-app
+    directory: /src/frontend/mobile
     target-branch: dev
     schedule:
       interval: weekly
@@ -91,14 +91,14 @@ updates:
   - package-ecosystem: docker
     directories:
       - /src/backend/core
-      - /src/backend/solver
+      - /src/backend/optimizer
     target-branch: dev
     schedule:
       interval: weekly
     commit-message:
       prefix: chore
       include: scope
-    # The runtimes stay on the versions ADR-010 pins: Java 21, today's LTS in the pom, and Python
+    # The runtimes stay on the versions ADR-038 pins: Java 25, today's LTS in the pom, and Python
     # 3.14, the newest OR-Tools ships wheels for. Moving either is a decision, not a bump (ADR-021).
     ignore:
       - dependency-name: eclipse-temurin

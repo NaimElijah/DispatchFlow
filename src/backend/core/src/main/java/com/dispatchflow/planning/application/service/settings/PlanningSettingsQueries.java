@@ -4,7 +4,7 @@ import com.dispatchflow.access.application.api.Actor;
 import com.dispatchflow.access.application.api.GrantLimitExceeded;
 import com.dispatchflow.planning.application.port.out.PlanningSettingsView;
 import com.dispatchflow.planning.application.port.out.PlanningViews;
-import com.dispatchflow.planning.application.port.out.SolversView;
+import com.dispatchflow.planning.application.port.out.settings.SolversView;
 import com.dispatchflow.planning.application.port.out.solvejob.RouteOptimizer;
 
 /**
@@ -42,7 +42,7 @@ public final class PlanningSettingsQueries {
      * <p>Built in M4.
      *
      * @param actor the Admin or the Dispatcher
-     * @return the settings, with their version
+     * @return the settings, with their version, empty while never saved
      * @throws GrantLimitExceeded when the actor's roles give only the Driver's limited grant, which
      *     covers the company's name and dispatch phone and not these settings
      */

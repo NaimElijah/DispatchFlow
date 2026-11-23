@@ -13,15 +13,15 @@ default:
     @{{ just_executable() }} --list
 
 # Install every component's dependencies.
-setup: core-setup solver-setup research-setup console-setup driver-app-setup
+setup: core-setup optimizer-setup research-setup web-setup mobile-setup
 
 # Run every check that CI runs. Needs Docker, for the core's integration tests and the audit.
-check: core-check solver-check research-check console-check driver-app-check contracts-check audit
+check: core-check optimizer-check research-check web-check mobile-check contracts-check audit
 
 # Reformat every component's code.
-format: core-format solver-format research-format console-format driver-app-format
+format: core-format optimizer-format research-format web-format mobile-format
 
-# --- backend/core: Java 21, Spring Boot, Maven ---
+# --- backend/core: Java 25, Spring Boot, Maven ---
 
 [working-directory('src/backend/core')]
 core-setup:
@@ -41,30 +41,35 @@ core-format:
 core-run:
     {{ mvnw }} -B -ntp spring-boot:test-run
 
-# --- backend/solver: Python, FastAPI, uv ---
+# Write the DDL Hibernate would generate to target/schema-draft.sql, a migration's draft. No database.
+[working-directory('src/backend/core')]
+core-schema-draft:
+    {{ mvnw }} -B -ntp spring-boot:run "-Dspring-boot.run.profiles=schema-draft"
 
-[working-directory('src/backend/solver')]
-solver-setup:
+# --- backend/optimizer: Python, FastAPI, uv ---
+
+[working-directory('src/backend/optimizer')]
+optimizer-setup:
     uv sync --locked
 
 # Format check, lint, strict type check, import-linter and tests.
-[working-directory('src/backend/solver')]
-solver-check:
+[working-directory('src/backend/optimizer')]
+optimizer-check:
     uv run --locked ruff format --check .
     uv run --locked ruff check .
     uv run --locked mypy src tests
     uv run --locked lint-imports
     uv run --locked pytest
 
-[working-directory('src/backend/solver')]
-solver-format:
+[working-directory('src/backend/optimizer')]
+optimizer-format:
     uv run --locked ruff format .
     uv run --locked ruff check --fix .
 
-# Start the solver on port 8000, reloading on every change.
-[working-directory('src/backend/solver')]
-solver-run:
-    uv run --locked uvicorn dispatchflow_solver.adapters.inbound.http.app:create_app --factory --reload
+# Start the optimizer on port 8000, reloading on every change.
+[working-directory('src/backend/optimizer')]
+optimizer-run:
+    uv run --locked uvicorn dispatchflow_optimizer.adapters.inbound.http.app:create_app --factory --reload
 
 # --- research: Python, uv; never deployed ---
 
@@ -85,51 +90,51 @@ research-format:
     uv run --locked ruff format .
     uv run --locked ruff check --fix .
 
-# --- frontend/console: React, TypeScript, Vite, npm ---
+# --- frontend/web: React, TypeScript, Vite, npm ---
 
-[working-directory('src/frontend/console')]
-console-setup:
+[working-directory('src/frontend/web')]
+web-setup:
     npm ci
 
 # Lint, format check, tests and a production build.
-[working-directory('src/frontend/console')]
-console-check:
+[working-directory('src/frontend/web')]
+web-check:
     npm run lint
     npm run format:check
     npm test
     npm run build
 
-[working-directory('src/frontend/console')]
-console-format:
+[working-directory('src/frontend/web')]
+web-format:
     npm run format
 
-# Start the console's dev server.
-[working-directory('src/frontend/console')]
-console-run:
+# Start the web app's dev server.
+[working-directory('src/frontend/web')]
+web-run:
     npm run dev
 
-# --- frontend/driver-app: React Native, Expo, npm ---
+# --- frontend/mobile: React Native, Expo, npm ---
 
-[working-directory('src/frontend/driver-app')]
-driver-app-setup:
+[working-directory('src/frontend/mobile')]
+mobile-setup:
     npm ci
 
 # Lint, format check, type check, tests and a web export.
-[working-directory('src/frontend/driver-app')]
-driver-app-check:
+[working-directory('src/frontend/mobile')]
+mobile-check:
     npm run lint
     npm run format:check
     npm run typecheck
     npm test
     npm run build
 
-[working-directory('src/frontend/driver-app')]
-driver-app-format:
+[working-directory('src/frontend/mobile')]
+mobile-format:
     npm run format
 
 # Start Expo's dev server for phones and the browser.
-[working-directory('src/frontend/driver-app')]
-driver-app-run:
+[working-directory('src/frontend/mobile')]
+mobile-run:
     npm start
 
 # --- contracts and dependencies ---

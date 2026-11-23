@@ -1,52 +1,100 @@
 package com.dispatchflow.shared;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.MappedSuperclass;
+import jakarta.persistence.Transient;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
+import org.springframework.data.domain.AfterDomainEventPublication;
+import org.springframework.data.domain.DomainEvents;
 
 /**
  * The base of every aggregate root (DL §3.1, §3.6): it holds the {@link Version} the aggregate was
- * loaded at and the events its methods raised since. It needs no ID type, because aggregates are
- * keyed differently: most by a typed ID, some by another ID or a date, and singletons by nothing.
+ * loaded at and the events its methods raised since. It holds no key: each root maps its own
+ * private {@code UUID} key (ADR-126), the value of its typed ID, a constant for a singleton, and for
+ * a root found by its date a UUID beside a date its table keeps unique. Until a lane maps its
+ * aggregate, a root may still be found by a date or, for a singleton, by nothing.
  *
- * <p>An instance is saved once: the repository saves it at {@code version().next()} and publishes
- * {@link #pullEvents()} in the same transaction. To change it again, reload it. A save that only
- * keeps bookkeeping no business rule reads, and raises no event, may leave the version where it is,
- * as a session's contact times do (DL §4.1).
+ * <p>It is mapped for JPA (ADR-126): every root inherits its {@code @Version}, which Hibernate
+ * checks on every update. A never-saved aggregate has no version. Its first save stores 0, and
+ * every save after moves the version by exactly 1, so every event a change raises carries the
+ * version that change is saved at. Spring Data publishes the recorded events when the port's
+ * {@code save} runs, in the same transaction, and then forgets them. An instance is saved once per
+ * transaction, at the end of its change, with no flush between two of its changes; the shared
+ * {@code VersionedSave} fails loudly otherwise. A save that only keeps
+ * bookkeeping no business rule reads, and raises no event, may leave the version where it is, as a
+ * session's contact times do (DL §4.1).
  */
+@MappedSuperclass
 public abstract class AggregateRoot {
 
-    private final Version version;
+    /** The version the first save stores (ADR-126). */
+    private static final Version FIRST_SAVE = Version.of(0);
+
+    // A Long, not the kernel's Version: Jakarta Persistence applies no converter to a version
+    // attribute. Hibernate seeds a null version with 0 when it inserts the aggregate. Spring Data
+    // tells a new aggregate by reading this attribute by name, and for a field named "version" it
+    // would call version(), which throws before the first save; so the field has another name.
+    @jakarta.persistence.Version
+    @Column(name = "version")
+    private @Nullable Long storedVersion;
+
+    @Transient
     private final List<DomainEvent> pendingEvents = new ArrayList<>();
 
+    /** Starts an aggregate that has never been saved, so it has no version yet. */
+    protected AggregateRoot() {}
+
     /**
-     * Sets the version: {@link Version#NEW} from a creation factory, the stored one from {@code
-     * restore}.
+     * Sets the version a stored aggregate was loaded at, or none for one never saved. Only the
+     * factories and {@code restore} methods that still build through a snapshot call it; it goes
+     * with the last {@code restore} (ADR-126).
      *
-     * @param version the version this instance was created or loaded at
+     * @param stored the version this instance was loaded at, or null when it was never saved
      */
-    protected AggregateRoot(Version version) {
-        this.version = Objects.requireNonNull(version, "version");
+    protected AggregateRoot(@Nullable Version stored) {
+        this.storedVersion = stored == null ? null : stored.value();
     }
 
     /**
-     * The version this instance was created or loaded at, which the save checks.
+     * The version this instance was loaded at, which the save checks and a view sends as its
+     * {@code ETag}.
      *
      * @return the loaded version; raising events doesn't move it
+     * @throws AssertionError when the aggregate was never saved, so it has no version: a bug in the
+     *     caller, which reads the version of a creation only after its save
      */
     public final Version version() {
-        return version;
+        if (storedVersion == null) {
+            throw new AssertionError("an aggregate has no version before its first save");
+        }
+        return Version.of(storedVersion);
+    }
+
+    /**
+     * The version this instance was stored at, or none: what a use case compares with the caller's
+     * {@code If-Match}, or with {@code If-None-Match: *}, when what it loaded may never have been
+     * saved, such as a singleton's starting values (ADR-126).
+     *
+     * @return the stored version, or empty when the aggregate was never saved
+     */
+    public final Optional<Version> savedVersion() {
+        return storedVersion == null ? Optional.empty() : Optional.of(Version.of(storedVersion));
     }
 
     /**
      * Records an event, to be published when this change is saved. Call it only after every rule
      * of the method has been checked, so a refused call records nothing (DL §3.10).
      *
-     * <p>The event's ID carries {@code version().next()}, the version this change is saved at, and
-     * its position among this change's events, from 0. A call that throws records nothing, so a
-     * later call on the same instance still numbers from where the recorded events end.
+     * <p>The event's ID carries the version this change is saved at: 0 for an aggregate never
+     * saved, and the loaded version plus 1 otherwise. It also carries its position among this
+     * change's events, from 0. A call that throws records nothing, so a later call on the same
+     * instance still numbers from where the recorded events end.
      *
      * @param type the event's own record type, never a supertype
      * @param aggregateId this aggregate's UUID
@@ -57,7 +105,9 @@ public abstract class AggregateRoot {
      *     the ID it was given: a bug in the raising method, not a refusal
      */
     protected final <E extends DomainEvent> E raise(Class<E> type, UUID aggregateId, Function<EventId, E> build) {
-        EventId id = new EventId(type.getSimpleName(), aggregateId, version.next(), pendingEvents.size());
+        Version savedAt =
+                storedVersion == null ? FIRST_SAVE : Version.of(storedVersion).next();
+        EventId id = new EventId(type.getSimpleName(), aggregateId, savedAt, pendingEvents.size());
         E event = Objects.requireNonNull(build.apply(id), "event");
         // The ID names the type given, so a supertype such as a sealed event interface is refused.
         if (event.getClass() != type) {
@@ -81,13 +131,19 @@ public abstract class AggregateRoot {
     }
 
     /**
-     * Hands the recorded events to the save, which publishes them, and forgets them.
+     * The events Spring Data publishes when a repository's {@code save} runs (ADR-126). Spring Data
+     * finds and calls it by its annotation, so it needs no wider access.
      *
      * @return an unmodifiable copy, in the order raised
      */
-    public final List<DomainEvent> pullEvents() {
-        List<DomainEvent> pulled = List.copyOf(pendingEvents);
+    @DomainEvents
+    final List<DomainEvent> domainEvents() {
+        return List.copyOf(pendingEvents);
+    }
+
+    /** Forgets the recorded events once Spring Data has published them (ADR-126). */
+    @AfterDomainEventPublication
+    final void clearEvents() {
         pendingEvents.clear();
-        return pulled;
     }
 }

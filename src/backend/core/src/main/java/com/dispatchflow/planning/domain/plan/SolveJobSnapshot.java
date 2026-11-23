@@ -10,12 +10,14 @@ import com.dispatchflow.shared.Version;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link SolveJob}'s whole state, which the repository stores and {@link SolveJob#restore} rebuilds.
  *
  * @param id the job
- * @param version the version it was loaded at
+ * @param version the version it was loaded at, or null for an aggregate never saved
+ *     (ADR-126)
  * @param plan the plan it solves
  * @param lane its lane
  * @param solver its solver
@@ -28,7 +30,7 @@ import java.util.Optional;
  */
 public record SolveJobSnapshot(
         JobId id,
-        Version version,
+        @Nullable Version version,
         PlanId plan,
         Lane lane,
         SolverName solver,
@@ -42,7 +44,6 @@ public record SolveJobSnapshot(
     /** Checks every part is present, possibly empty. */
     public SolveJobSnapshot {
         Objects.requireNonNull(id, "id");
-        Objects.requireNonNull(version, "version");
         Objects.requireNonNull(plan, "plan");
         Objects.requireNonNull(lane, "lane");
         Objects.requireNonNull(solver, "solver");

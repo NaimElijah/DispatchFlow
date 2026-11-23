@@ -32,6 +32,7 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.solved;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.stopId;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.uuid;
 
+import com.dispatchflow.planning.domain.PinTarget;
 import com.dispatchflow.planning.domain.PlanningError.DateInPast;
 import com.dispatchflow.planning.domain.PlanningError.DriverAlreadyHasRoute;
 import com.dispatchflow.planning.domain.PlanningError.OrderAlreadyInPlan;
@@ -42,7 +43,6 @@ import com.dispatchflow.planning.domain.PlanningError.StaleEvaluation;
 import com.dispatchflow.planning.domain.PlanningError.ValidatorUnavailable;
 import com.dispatchflow.planning.domain.SolveLimit;
 import com.dispatchflow.planning.domain.solution.Evaluation;
-import com.dispatchflow.planning.domain.solution.PinTarget;
 import com.dispatchflow.planning.domain.solution.RouteTimes;
 import com.dispatchflow.planning.domain.solution.SolvedRoute;
 import com.dispatchflow.planning.domain.solution.ValidatedSolution;

@@ -1,6 +1,6 @@
 package com.dispatchflow.reporting.application.port.out;
 
-import com.dispatchflow.reporting.domain.Baseline;
+import com.dispatchflow.reporting.domain.baseline.Baseline;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.util.Optional;
@@ -30,7 +30,7 @@ public interface BaselineRepository {
      *
      * <p>Built in M5.
      *
-     * @param baseline the baseline, at {@code Version.NEW}
+     * @param baseline the baseline, never saved
      * @throws StaleVersion when the plan already has a baseline or a recorded refusal, as when a
      *     concurrent delivery of the same publication stored one first; the listener retries, and the
      *     retry finds the plan settled

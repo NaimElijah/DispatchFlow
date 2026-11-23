@@ -28,8 +28,7 @@ class CompanyProfileTest {
         CompanyProfile profile = CompanyProfile.create(NAME, Language.ENGLISH, NINE_TO_FIVE);
 
         assertThat(profile.snapshot())
-                .isEqualTo(new CompanyProfileSnapshot(
-                        Version.NEW, NAME, Language.ENGLISH, NINE_TO_FIVE, Optional.empty()));
+                .isEqualTo(new CompanyProfileSnapshot(null, NAME, Language.ENGLISH, NINE_TO_FIVE, Optional.empty()));
         assertThat(profile.pendingEvents()).isEmpty();
     }
 

@@ -38,56 +38,62 @@ import com.dispatchflow.archfixture.alpha.domain.exception.CreatesAnIllegalState
 import com.dispatchflow.archfixture.alpha.domain.exception.CreatesAnIllegalStateByReference;
 import com.dispatchflow.archfixture.alpha.domain.id.GeneratesARandomUuid;
 import com.dispatchflow.archfixture.alpha.domain.id.GeneratesARandomUuidByReference;
-import com.dispatchflow.archfixture.alpha.domain.io.BuildsADatePatternWithTheDefaultLocale;
-import com.dispatchflow.archfixture.alpha.domain.io.BuildsADecimalFormatWithTheDefaultLocale;
-import com.dispatchflow.archfixture.alpha.domain.io.BuildsAFormatterWithTheDefaultLocale;
-import com.dispatchflow.archfixture.alpha.domain.io.BuildsALocalizedDateFormatter;
-import com.dispatchflow.archfixture.alpha.domain.io.BuildsAThreadPoolExecutor;
-import com.dispatchflow.archfixture.alpha.domain.io.CallsAMethodByReflection;
 import com.dispatchflow.archfixture.alpha.domain.io.CallsOverHttp;
-import com.dispatchflow.archfixture.alpha.domain.io.ContinuesAsyncOnACompletionStage;
-import com.dispatchflow.archfixture.alpha.domain.io.FormatsADateWithTheDefaultLocale;
-import com.dispatchflow.archfixture.alpha.domain.io.FormatsAMessageWithTheDefaultLocale;
-import com.dispatchflow.archfixture.alpha.domain.io.FormatsANumberWithTheDefaultLocale;
-import com.dispatchflow.archfixture.alpha.domain.io.FormatsATemplateWithTheDefaultLocale;
-import com.dispatchflow.archfixture.alpha.domain.io.FormatsWithTheDefaultLocale;
-import com.dispatchflow.archfixture.alpha.domain.io.LoadsAClassByName;
-import com.dispatchflow.archfixture.alpha.domain.io.LoadsAResourceBundle;
-import com.dispatchflow.archfixture.alpha.domain.io.LoadsAService;
-import com.dispatchflow.archfixture.alpha.domain.io.LooksUpAMethodHandle;
-import com.dispatchflow.archfixture.alpha.domain.io.LowerCasesWithTheDefaultLocaleByReference;
-import com.dispatchflow.archfixture.alpha.domain.io.MakesAStreamParallel;
 import com.dispatchflow.archfixture.alpha.domain.io.OpensASocket;
-import com.dispatchflow.archfixture.alpha.domain.io.PrintsToStandardOut;
-import com.dispatchflow.archfixture.alpha.domain.io.ReadsABooleanProperty;
 import com.dispatchflow.archfixture.alpha.domain.io.ReadsAFile;
-import com.dispatchflow.archfixture.alpha.domain.io.ReadsALongProperty;
 import com.dispatchflow.archfixture.alpha.domain.io.ReadsAPath;
-import com.dispatchflow.archfixture.alpha.domain.io.ReadsAResourceAsAStream;
-import com.dispatchflow.archfixture.alpha.domain.io.ReadsAResourceThroughAClassLoader;
-import com.dispatchflow.archfixture.alpha.domain.io.ReadsAResourceThroughItsClass;
-import com.dispatchflow.archfixture.alpha.domain.io.ReadsAnIntegerProperty;
-import com.dispatchflow.archfixture.alpha.domain.io.ReadsTheDefaultLocale;
-import com.dispatchflow.archfixture.alpha.domain.io.ReadsTheDefaultLocaleOfACategory;
-import com.dispatchflow.archfixture.alpha.domain.io.ReadsTheEnvironment;
-import com.dispatchflow.archfixture.alpha.domain.io.ReadsTheJvmsManagement;
-import com.dispatchflow.archfixture.alpha.domain.io.RegistersWithACleaner;
-import com.dispatchflow.archfixture.alpha.domain.io.RunsAsyncOnACompletableFuture;
-import com.dispatchflow.archfixture.alpha.domain.io.RunsInItsOwnThread;
-import com.dispatchflow.archfixture.alpha.domain.io.SchedulesOnATimer;
-import com.dispatchflow.archfixture.alpha.domain.io.SetsTheDefaultLocale;
-import com.dispatchflow.archfixture.alpha.domain.io.StartsAPlatformThread;
-import com.dispatchflow.archfixture.alpha.domain.io.StartsAProcess;
-import com.dispatchflow.archfixture.alpha.domain.io.StartsAThread;
-import com.dispatchflow.archfixture.alpha.domain.io.StartsAVirtualThread;
-import com.dispatchflow.archfixture.alpha.domain.io.StreamsInParallel;
-import com.dispatchflow.archfixture.alpha.domain.io.UpperCasesWithTheDefaultLocale;
-import com.dispatchflow.archfixture.alpha.domain.io.UsesAnExecutor;
-import com.dispatchflow.archfixture.alpha.domain.io.UsesPreferences;
-import com.dispatchflow.archfixture.alpha.domain.io.UsesTheCommonPool;
+import com.dispatchflow.archfixture.alpha.domain.io.classpath.CallsAMethodByReflection;
+import com.dispatchflow.archfixture.alpha.domain.io.classpath.LoadsAClassByName;
+import com.dispatchflow.archfixture.alpha.domain.io.classpath.LoadsAResourceBundle;
+import com.dispatchflow.archfixture.alpha.domain.io.classpath.LoadsAService;
+import com.dispatchflow.archfixture.alpha.domain.io.classpath.LooksUpAMethodHandle;
+import com.dispatchflow.archfixture.alpha.domain.io.classpath.ReadsAResourceAsAStream;
+import com.dispatchflow.archfixture.alpha.domain.io.classpath.ReadsAResourceThroughAClassLoader;
+import com.dispatchflow.archfixture.alpha.domain.io.classpath.ReadsAResourceThroughItsClass;
+import com.dispatchflow.archfixture.alpha.domain.io.locale.BuildsADatePatternWithTheDefaultLocale;
+import com.dispatchflow.archfixture.alpha.domain.io.locale.BuildsADecimalFormatWithTheDefaultLocale;
+import com.dispatchflow.archfixture.alpha.domain.io.locale.BuildsAFormatterWithTheDefaultLocale;
+import com.dispatchflow.archfixture.alpha.domain.io.locale.BuildsALocalizedDateFormatter;
+import com.dispatchflow.archfixture.alpha.domain.io.locale.FormatsADateWithTheDefaultLocale;
+import com.dispatchflow.archfixture.alpha.domain.io.locale.FormatsAMessageWithTheDefaultLocale;
+import com.dispatchflow.archfixture.alpha.domain.io.locale.FormatsANumberWithTheDefaultLocale;
+import com.dispatchflow.archfixture.alpha.domain.io.locale.FormatsATemplateWithTheDefaultLocale;
+import com.dispatchflow.archfixture.alpha.domain.io.locale.FormatsWithTheDefaultLocale;
+import com.dispatchflow.archfixture.alpha.domain.io.locale.LowerCasesWithTheDefaultLocaleByReference;
+import com.dispatchflow.archfixture.alpha.domain.io.locale.ReadsTheDefaultLocale;
+import com.dispatchflow.archfixture.alpha.domain.io.locale.ReadsTheDefaultLocaleOfACategory;
+import com.dispatchflow.archfixture.alpha.domain.io.locale.SetsTheDefaultLocale;
+import com.dispatchflow.archfixture.alpha.domain.io.locale.UpperCasesWithTheDefaultLocale;
+import com.dispatchflow.archfixture.alpha.domain.io.process.PrintsToStandardOut;
+import com.dispatchflow.archfixture.alpha.domain.io.process.ReadsABooleanProperty;
+import com.dispatchflow.archfixture.alpha.domain.io.process.ReadsALongProperty;
+import com.dispatchflow.archfixture.alpha.domain.io.process.ReadsAnIntegerProperty;
+import com.dispatchflow.archfixture.alpha.domain.io.process.ReadsTheEnvironment;
+import com.dispatchflow.archfixture.alpha.domain.io.process.ReadsTheJvmsManagement;
+import com.dispatchflow.archfixture.alpha.domain.io.process.StartsAProcess;
+import com.dispatchflow.archfixture.alpha.domain.io.process.UsesPreferences;
+import com.dispatchflow.archfixture.alpha.domain.io.thread.BuildsAThreadPoolExecutor;
+import com.dispatchflow.archfixture.alpha.domain.io.thread.ContinuesAsyncOnACompletionStage;
+import com.dispatchflow.archfixture.alpha.domain.io.thread.MakesAStreamParallel;
+import com.dispatchflow.archfixture.alpha.domain.io.thread.RegistersWithACleaner;
+import com.dispatchflow.archfixture.alpha.domain.io.thread.RunsAsyncOnACompletableFuture;
+import com.dispatchflow.archfixture.alpha.domain.io.thread.RunsInItsOwnThread;
+import com.dispatchflow.archfixture.alpha.domain.io.thread.SchedulesOnATimer;
+import com.dispatchflow.archfixture.alpha.domain.io.thread.StartsAPlatformThread;
+import com.dispatchflow.archfixture.alpha.domain.io.thread.StartsAThread;
+import com.dispatchflow.archfixture.alpha.domain.io.thread.StartsAVirtualThread;
+import com.dispatchflow.archfixture.alpha.domain.io.thread.StreamsInParallel;
+import com.dispatchflow.archfixture.alpha.domain.io.thread.UsesAnExecutor;
+import com.dispatchflow.archfixture.alpha.domain.io.thread.UsesTheCommonPool;
 import com.dispatchflow.archfixture.alpha.domain.logging.LogsWithJul;
 import com.dispatchflow.archfixture.alpha.domain.logging.LogsWithSlf4j;
 import com.dispatchflow.archfixture.alpha.domain.logging.LogsWithTheSystemLogger;
+import com.dispatchflow.archfixture.alpha.domain.mapping.CarriesAnotherHibernateAnnotation;
+import com.dispatchflow.archfixture.alpha.domain.mapping.MappedWithHibernateAndSpringData;
+import com.dispatchflow.archfixture.alpha.domain.mapping.MappedWithJakartaPersistence;
+import com.dispatchflow.archfixture.alpha.domain.mapping.UsesASpringDataType;
+import com.dispatchflow.archfixture.alpha.domain.mapping.UsesTheEntityManager;
+import com.dispatchflow.archfixture.alpha.domain.mapping.UsesTheSharedAdapter;
 import com.dispatchflow.archfixture.alpha.domain.randomness.ShufflesAList;
 import com.dispatchflow.archfixture.alpha.domain.randomness.UsesARandomGenerator;
 import com.dispatchflow.archfixture.alpha.domain.randomness.UsesMathRandom;
@@ -99,6 +105,8 @@ import com.dispatchflow.archfixture.alpha.events.EventCreatesAnIllegalState;
 import com.dispatchflow.archfixture.alpha.events.EventDependsOnAnotherModulesEvents;
 import com.dispatchflow.archfixture.alpha.events.EventDependsOnItsDomain;
 import com.dispatchflow.archfixture.alpha.events.EventDependsOnLibphonenumber;
+import com.dispatchflow.archfixture.alpha.events.EventUsesTheSharedAdapter;
+import com.dispatchflow.archfixture.alpha.events.EventWithAJpaAnnotation;
 import com.dispatchflow.archfixture.beta.application.BuildsARecordEvaluation;
 import com.dispatchflow.archfixture.modulith.NamedInterface;
 import com.dispatchflow.archfixture.planning.adapter.out.optimizer.OptimizerAdapter;
@@ -113,7 +121,11 @@ import com.dispatchflow.archfixture.planning.domain.ValidationReport;
 import com.dispatchflow.archfixture.shared.KernelCreatesAnIllegalArgument;
 import com.dispatchflow.archfixture.shared.KernelDependsOnAModule;
 import com.dispatchflow.archfixture.shared.KernelDependsOnJts;
+import com.dispatchflow.archfixture.shared.KernelMappedSuperclass;
+import com.dispatchflow.archfixture.shared.KernelUsesTheSharedAdapter;
 import com.dispatchflow.archfixture.shared.KernelValue;
+import com.dispatchflow.archfixture.shared.adapter.out.persistence.KernelAdapterUsesJpa;
+import com.dispatchflow.archfixture.shared.application.SharedPortCarriesAJpaAnnotation;
 import com.dispatchflow.archfixture.shared.application.SharedPortIsTransactional;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
@@ -158,16 +170,43 @@ class DomainPurityRulesTest {
                 KernelDependsOnAModule.class,
                 KernelDependsOnJts.class,
                 AnnotatedWithModulith.class,
-                SharedPortIsTransactional.class
+                SharedPortIsTransactional.class,
+                UsesTheEntityManager.class,
+                UsesASpringDataType.class,
+                CarriesAnotherHibernateAnnotation.class,
+                EventWithAJpaAnnotation.class,
+                SharedPortCarriesAJpaAnnotation.class,
+                UsesTheSharedAdapter.class,
+                EventUsesTheSharedAdapter.class,
+                KernelUsesTheSharedAdapter.class
             })
     void GivenAForbiddenDependency_WhenRule1Evaluates_ThenItIsFlagged(Class<?> fixture) {
         assertThat(flags(rule1(), fixture)).isTrue();
     }
 
     @ParameterizedTest
-    @ValueSource(classes = {AlphaValue.class, AlphaEventKind.class, AlphaHappened.class, KernelValue.class})
+    @ValueSource(
+            classes = {
+                AlphaValue.class,
+                AlphaEventKind.class,
+                AlphaHappened.class,
+                KernelValue.class,
+                MappedWithJakartaPersistence.class,
+                MappedWithHibernateAndSpringData.class,
+                KernelMappedSuperclass.class
+            })
     void GivenOnlyAllowedDependencies_WhenRule1Evaluates_ThenNothingIsFlagged(Class<?> fixture) {
         assertThat(flags(rule1(), fixture)).isFalse();
+    }
+
+    @Test
+    void GivenTheSharedAdapterBesideTheKernel_WhenThePurityRulesEvaluate_ThenNothingIsFlagged() {
+        assertThat(flags(rule1(), KernelAdapterUsesJpa.class, KernelValue.class))
+                .isFalse();
+        assertThat(flags(DomainPurityRules.noIo(FIXTURE_ROOT), KernelAdapterUsesJpa.class, KernelValue.class))
+                .isFalse();
+        assertThat(flags(DomainPurityRules.noLogging(FIXTURE_ROOT), KernelAdapterUsesJpa.class, KernelValue.class))
+                .isFalse();
     }
 
     @Test

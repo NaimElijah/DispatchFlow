@@ -4,11 +4,12 @@
  * com.dispatchflow.orders.application.port.out.OrderRepository} and {@link
  * com.dispatchflow.orders.application.port.out.ImportBatchRepository}), the {@link
  * com.dispatchflow.orders.application.port.out.Geocoder} and its outbox {@link
- * com.dispatchflow.orders.application.port.out.GeocodeRequests}, the road network's {@link
- * com.dispatchflow.orders.application.port.out.RoadSnap}, the {@link
+ * com.dispatchflow.orders.application.port.out.GeocodeRequests}, the {@link
  * com.dispatchflow.orders.application.port.out.ServiceAreas}, and the read port {@link
  * com.dispatchflow.orders.application.port.out.OrdersViews} with the view records the queries
- * answer with.
+ * answer with. The ports only the customer use cases use, the customer list, the flagged
+ * addresses and the road network's {@code RoadSnap}, sit in {@code customer} (ADR-125); this root
+ * imports none of them.
  *
  * <p>Adapters implement every port here. A record that holds a name, a phone, an address, a point
  * or a note is personal data and prints redacted (NFR-19, ADR-106).

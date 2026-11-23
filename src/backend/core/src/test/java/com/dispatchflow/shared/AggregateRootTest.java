@@ -23,12 +23,14 @@ class AggregateRootTest {
     /** The smallest aggregate: methods that raise events, refuse, or raise a mislabelled event. */
     static final class Counter extends AggregateRoot {
 
+        private Counter() {}
+
         private Counter(Version version) {
             super(version);
         }
 
         static Counter open(Instant now) {
-            Counter counter = new Counter(Version.NEW);
+            Counter counter = new Counter();
             counter.raise(Opened.class, ID, id -> new Opened(id, now));
             return counter;
         }
@@ -59,12 +61,43 @@ class AggregateRootTest {
     }
 
     @Test
-    void GivenANewAggregate_WhenItsEventIsRead_ThenItCarriesTheFirstSavedVersion() {
+    void GivenANewAggregate_WhenItsEventIsRead_ThenItCarriesVersionZeroWhichItsFirstSaveStores() {
         Counter counter = Counter.open(NOW);
 
-        assertThat(counter.version()).isEqualTo(Version.NEW);
         assertThat(counter.pendingEvents())
-                .containsExactly(new Opened(new EventId("Opened", ID, Version.of(1), 0), NOW));
+                .containsExactly(new Opened(new EventId("Opened", ID, Version.of(0), 0), NOW));
+    }
+
+    @Test
+    void GivenANeverSavedAggregate_WhenItsVersionIsRead_ThenItFailsAsAProgrammingError() {
+        Counter counter = Counter.open(NOW);
+
+        assertThatThrownBy(counter::version)
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("an aggregate has no version before its first save");
+    }
+
+    @Test
+    void GivenANeverSavedAggregate_WhenItsSavedVersionIsRead_ThenThereIsNone() {
+        assertThat(Counter.open(NOW).savedVersion()).isEmpty();
+    }
+
+    @Test
+    void GivenALoadedAggregate_WhenItsSavedVersionIsRead_ThenItIsTheLoadedOne() {
+        assertThat(Counter.loadedAt(Version.of(4)).savedVersion()).contains(Version.of(4));
+    }
+
+    @Test
+    void GivenAnAggregateSavedOnce_WhenItsVersionIsRead_ThenItIsZeroAndItsNextChangeRaisesAtOne() {
+        Counter counter = Counter.loadedAt(Version.of(0));
+
+        counter.renameTwice(NOW);
+
+        assertThat(counter.version()).isEqualTo(Version.of(0));
+        assertThat(counter.pendingEvents())
+                .extracting(DomainEvent::eventId)
+                .containsExactly(
+                        new EventId("Renamed", ID, Version.of(1), 0), new EventId("Renamed", ID, Version.of(1), 1));
     }
 
     @Test
@@ -111,16 +144,16 @@ class AggregateRootTest {
     }
 
     @Test
-    void GivenRecordedEvents_WhenPulled_ThenTheyAreReturnedOnceAndCleared() {
+    void GivenRecordedEvents_WhenAFakesSavePublishesThem_ThenTheyAreHandedOverOnceAndCleared() {
         Counter counter = Counter.open(NOW);
 
-        assertThat(counter.pullEvents()).hasSize(1);
-        assertThat(counter.pullEvents()).isEmpty();
+        assertThat(SaveEvents.publish(counter)).hasSize(1);
         assertThat(counter.pendingEvents()).isEmpty();
+        assertThat(SaveEvents.publish(counter)).isEmpty();
     }
 
     @Test
-    void GivenRecordedEvents_WhenReadWithoutPulling_ThenTheyStay() {
+    void GivenRecordedEvents_WhenReadWithoutBeingPublished_ThenTheyStay() {
         Counter counter = Counter.open(NOW);
 
         assertThat(counter.pendingEvents()).hasSize(1);

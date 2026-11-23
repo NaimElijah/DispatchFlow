@@ -16,8 +16,8 @@ decided that:
   leaves the service;
 - PyVRP and its adapter live in the benchmark harness's package, and the service never installs it.
 
-Today none of this is code. The solver service has an HTTP app and a health probe. The
-`Solver` port, the domain and the solvers are placeholders (`src/backend/solver/CLAUDE.md`). One
+Today none of this is code. The optimizer service has an HTTP app and a health probe. The
+`Solver` port, the domain and the solvers are placeholders (`src/backend/optimizer/CLAUDE.md`). One
 test, `tests/test_dependency_boundary.py`, checks that PyVRP is neither installed nor in the
 lockfile.
 
@@ -63,7 +63,7 @@ stands: the request carries the solver's name, and `GET /v1/solvers` lists the n
     `pyvrp` ([TS §2.2]).
 - **Solvers are never compared on an objective they report themselves.** This is ADR-004's rule,
   and `Problem.cost` is how it is kept.
-- **The PyVRP boundary test stays.** `src/backend/solver/tests/test_dependency_boundary.py` is kept
+- **The PyVRP boundary test stays.** `src/backend/optimizer/tests/test_dependency_boundary.py` is kept
   beside import-linter. import-linter checks imports only. The test also checks the installed
   environment and `uv.lock`, so PyVRP cannot arrive as an installed package or a locked
   dependency without an import.

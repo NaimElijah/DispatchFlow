@@ -44,7 +44,7 @@ public final class DayRoster extends AggregateRoot {
     private final Map<AccountId, RosterEntry> entries = new LinkedHashMap<>();
     private final Set<VehicleId> unavailableVehicles = new LinkedHashSet<>();
 
-    private DayRoster(DeliveryDate date, Version version) {
+    private DayRoster(DeliveryDate date, @Nullable Version version) {
         super(version);
         this.date = Objects.requireNonNull(date, "date");
     }
@@ -53,10 +53,10 @@ public final class DayRoster extends AggregateRoot {
      * Opens an empty roster for a date. {@link #fill} then gives it the drivers' defaults.
      *
      * @param date the delivery date
-     * @return the new roster at {@link Version#NEW}
+     * @return the new roster, never saved
      */
     public static DayRoster open(DeliveryDate date) {
-        return new DayRoster(date, Version.NEW);
+        return new DayRoster(date, null);
     }
 
     /**
@@ -101,7 +101,8 @@ public final class DayRoster extends AggregateRoot {
      * @return the stored form
      */
     public DayRosterSnapshot snapshot() {
-        return new DayRosterSnapshot(date, version(), List.copyOf(entries.values()), List.copyOf(unavailableVehicles));
+        return new DayRosterSnapshot(
+                date, savedVersion().orElse(null), List.copyOf(entries.values()), List.copyOf(unavailableVehicles));
     }
 
     /**

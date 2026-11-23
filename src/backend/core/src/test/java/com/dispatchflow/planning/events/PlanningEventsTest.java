@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
 
 class PlanningEventsTest {
 
-    private static final EventId EVENT = new EventId("SolveSucceeded", uuid(1), Version.NEW.next(), 0);
+    private static final EventId EVENT = new EventId("SolveSucceeded", uuid(1), Version.of(1), 0);
     private static final Instant AT = Instant.parse("2027-06-15T04:00:00Z");
     private static final JobId JOB = JobId.of(uuid(2));
     private static final PlanId PLAN = PlanId.of(uuid(3));

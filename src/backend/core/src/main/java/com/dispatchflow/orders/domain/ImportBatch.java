@@ -23,7 +23,6 @@ import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.RuleViolations;
 import com.dispatchflow.shared.StoredStateInvalid;
-import com.dispatchflow.shared.Version;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -131,7 +130,7 @@ public final class ImportBatch extends AggregateRoot implements PersonalData {
      * @param context the matches, date snapshots and company defaults the rows are checked against
      * @param today today in {@code Asia/Jerusalem}
      * @param now the time of the preview, from which its hour counts
-     * @return the batch, previewed, at {@link Version#NEW}, with its rows in row order
+     * @return the batch, previewed, never saved, with its rows in row order
      * @throws java.util.NoSuchElementException when the context lacks a row's address or date, a
      *     programming error
      * @throws StoredStateInvalid when two rows share a number: the reader numbers rows, so this is a
@@ -156,7 +155,7 @@ public final class ImportBatch extends AggregateRoot implements PersonalData {
             previewed.add(new PreviewRow(ordered.get(i), errors.get(i)));
         }
         return new ImportBatch(
-                new ImportBatchSnapshot(id, hash, encoding, previewed, now, new State.Previewed(), Version.NEW));
+                new ImportBatchSnapshot(id, hash, encoding, previewed, now, new State.Previewed(), null));
     }
 
     /**
@@ -442,7 +441,8 @@ public final class ImportBatch extends AggregateRoot implements PersonalData {
      * @return the snapshot, at the loaded version
      */
     public ImportBatchSnapshot snapshot() {
-        return new ImportBatchSnapshot(id, hash, encoding, rows, previewedAt, state, version());
+        return new ImportBatchSnapshot(
+                id, hash, encoding, rows, previewedAt, state, savedVersion().orElse(null));
     }
 
     /**

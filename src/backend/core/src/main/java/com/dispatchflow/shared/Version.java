@@ -4,15 +4,13 @@ package com.dispatchflow.shared;
  * The technical counter optimistic locking checks (BR-76, ADR-057). Never shown to a user, and not
  * a plan's revision (DL §17).
  *
- * <p>A new aggregate starts at {@link #NEW}; its first save stores {@code NEW.next()}, and every
- * event a change raises carries the version that change will be saved at.
+ * <p>An aggregate never saved has no version. Its first save stores 0, every save after moves the
+ * version by exactly 1, and every event a change raises carries the version that change is saved
+ * at (ADR-126).
  *
- * @param value the count of saves, zero before the first
+ * @param value the count of saves after the first, so 0 for an aggregate saved once
  */
 public record Version(long value) {
-
-    /** The version of an aggregate that has never been saved. */
-    public static final Version NEW = new Version(0);
 
     /**
      * Checks a stored version.

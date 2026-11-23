@@ -1,9 +1,9 @@
 package com.dispatchflow.planning.domain.plan;
 
 import com.dispatchflow.planning.domain.basis.ProposalBasis;
+import com.dispatchflow.planning.domain.drop.DroppedOrder;
+import com.dispatchflow.planning.domain.drop.ExcludedVehicle;
 import com.dispatchflow.planning.domain.solution.DriverChange;
-import com.dispatchflow.planning.domain.solution.DroppedOrder;
-import com.dispatchflow.planning.domain.solution.ExcludedVehicle;
 import com.dispatchflow.planning.domain.solution.LateStop;
 import com.dispatchflow.planning.domain.solution.ObjectiveTerms;
 import com.dispatchflow.planning.domain.solution.SolvedRoute;
@@ -17,13 +17,15 @@ import com.dispatchflow.shared.Version;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link ReoptimizationProposal}'s whole state, which the repository stores, {@link
  * ReoptimizationProposal#restore} rebuilds and {@link Plan#accept} judges.
  *
  * @param id the proposal
- * @param version the version it was loaded at
+ * @param version the version it was loaded at, or null for an aggregate never saved
+ *     (ADR-126)
  * @param plan the plan it would change
  * @param job the job that computed it
  * @param basis the revision and fact time it was computed from
@@ -41,7 +43,7 @@ import java.util.Objects;
  */
 public record ReoptimizationProposalSnapshot(
         ProposalId id,
-        Version version,
+        @Nullable Version version,
         PlanId plan,
         JobId job,
         ProposalBasis basis,
@@ -60,7 +62,6 @@ public record ReoptimizationProposalSnapshot(
     /** Checks every part is present, and copies the lists. */
     public ReoptimizationProposalSnapshot {
         Objects.requireNonNull(id, "id");
-        Objects.requireNonNull(version, "version");
         Objects.requireNonNull(plan, "plan");
         Objects.requireNonNull(job, "job");
         Objects.requireNonNull(basis, "basis");

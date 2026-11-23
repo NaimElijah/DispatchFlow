@@ -6,7 +6,7 @@ import com.dispatchflow.shared.Version;
 /**
  * The optimizer's validator, asked to judge a plan without optimizing it: after an edit (FR-23,
  * FR-233), for a hand-over (FR-304), for the publishing re-check (BR-21) and for the route re-check
- * (FR-395, ADR-058). The optimizer adapter implements it over {@code optimizer-api}'s {@code
+ * (FR-395, ADR-058). The optimizer adapter implements it over {@code optimization-api}'s {@code
  * /v1/evaluate}, and is the only builder of an {@link Evaluation} (DL §13). The use case calls it
  * before its transaction opens (DL §6.3).
  *

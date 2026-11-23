@@ -91,7 +91,7 @@ public final class UserAccount extends AggregateRoot {
     private final List<CredentialLink> links;
 
     private UserAccount(
-            Version version,
+            @Nullable Version version,
             AccountId id,
             @Nullable EmailAddress email,
             @Nullable EmailSetByAnother emailSetByAnother,
@@ -172,7 +172,7 @@ public final class UserAccount extends AggregateRoot {
 
     private static UserAccount fresh(AccountId id, EmailAddress email, RoleSet roles, Language language) {
         return new UserAccount(
-                Version.NEW,
+                null,
                 id,
                 email,
                 null,
@@ -748,7 +748,7 @@ public final class UserAccount extends AggregateRoot {
      */
     public UserAccountSnapshot snapshot() {
         return new UserAccountSnapshot(
-                version(),
+                savedVersion().orElse(null),
                 id,
                 Optional.ofNullable(email),
                 Optional.ofNullable(emailSetByAnother),

@@ -1,14 +1,19 @@
 package com.dispatchflow.shared;
 
 import com.dispatchflow.shared.SharedKernelError.InvalidCoordinates;
+import jakarta.persistence.Embeddable;
 
 /**
  * A point on the earth, in WGS 84 degrees (DL §3.3): a latitude from -90 to 90 and a longitude from
  * -180 to 180, both inclusive. {@link #toString()} hides them.
  *
+ * <p>An entity embeds it, stored in two columns, its latitude and its longitude; an adapter's
+ * instantiator rebuilds it (ADR-126).
+ *
  * @param latitude degrees north of the equator
  * @param longitude degrees east of Greenwich
  */
+@Embeddable
 public record GeoPoint(double latitude, double longitude) implements PersonalData {
 
     private static final double MAX_LATITUDE = 90;

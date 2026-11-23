@@ -8,13 +8,15 @@ import com.dispatchflow.shared.Version;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A route run's stored state: what {@link RouteRun#snapshot()} returns and {@link RouteRun#restore}
  * rebuilds from.
  *
  * @param route the route, which keys the run
- * @param version the version it was loaded at
+ * @param version the version it was loaded at, or null for an aggregate never saved
+ *     (ADR-126)
  * @param startedBy the driver whose report started it
  * @param cause what started it
  * @param startedAt when it started, the start report's corrected time
@@ -23,7 +25,7 @@ import java.util.Optional;
  */
 public record RouteRunSnapshot(
         RouteId route,
-        Version version,
+        @Nullable Version version,
         AccountId startedBy,
         RunStartCause cause,
         Instant startedAt,
@@ -33,7 +35,6 @@ public record RouteRunSnapshot(
     /** Checks every field is present. */
     public RouteRunSnapshot {
         Objects.requireNonNull(route, "route");
-        Objects.requireNonNull(version, "version");
         Objects.requireNonNull(startedBy, "startedBy");
         Objects.requireNonNull(cause, "cause");
         Objects.requireNonNull(startedAt, "startedAt");

@@ -6,7 +6,7 @@ import com.dispatchflow.liveops.application.port.out.AlertRepository;
 import com.dispatchflow.liveops.application.port.out.DeliveryRepository;
 import com.dispatchflow.liveops.application.port.out.LiveUpdates;
 import com.dispatchflow.liveops.application.port.out.PushNotifier;
-import com.dispatchflow.liveops.domain.delivery.DispatcherOutcome;
+import com.dispatchflow.liveops.domain.outcome.DispatcherOutcome;
 import com.dispatchflow.orders.application.api.StopOrders;
 import com.dispatchflow.planning.application.api.PublishedRoutes;
 import com.dispatchflow.shared.RouteId;

@@ -36,7 +36,7 @@ public interface OrderRepository {
      *
      * <p>Built in M2.
      *
-     * @param order the order, at {@code Version.NEW}
+     * @param order the order, never saved
      */
     void add(Order order);
 

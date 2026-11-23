@@ -85,7 +85,7 @@ Dependencies point inward only.
 
 | Layer | Holds | May depend on | Must not depend on |
 |---|---|---|---|
-| Domain | Aggregates, entities, value objects, records, domain events, named errors | The JDK; JSpecify annotations; the shared kernel; its own module's `events`; pure libraries with no I/O (libphonenumber, JTS; NumPy in Python) | Frameworks, persistence, HTTP, JSON, the system clock, ID generation, unseeded randomness, other modules |
+| Domain | Aggregates, entities, value objects, records, domain events, named errors | The JDK; JSpecify annotations; the shared kernel; its own module's `events`; pure libraries with no I/O (libphonenumber, JTS; NumPy in Python); the persistence annotations that [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) lists, and only as annotations | Frameworks and persistence beyond those annotations, HTTP, JSON, the system clock, ID generation, unseeded randomness, other modules |
 | Application | One class per use case; the module's `api` (interfaces other modules call) and `spi` (ports it owns for them to implement); secondary ports; application services such as `SolveRequestAssembler` | Domain; other modules' `api`, `spi` and `events`; `@Transactional`, and nothing else from Spring | Adapters, web types, persistence types |
 | Adapters | Primary: web, event stream, job workers, schedulers, watchers, provider callbacks, CLI. Secondary: persistence, OSRM, optimizer, geocoder, SMS, email, push, file store | Application, frameworks | Other adapters (an adapter reaches another only through a port) |
 | Configuration | Wiring, profiles | Everything | — |
@@ -114,7 +114,7 @@ Rules every module follows:
 | Where | Tool | Status | What it checks | Why now, or why later |
 |---|---|---|---|---|
 | Core | **Spring Modulith** `ApplicationModules.verify()` | Decided ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)) · Alpha | No cycles between modules; modules use only each other's exposed API | It catches the most expensive mistake (a cycle), and it's one test |
-| Core | **ArchUnit** | Decided ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)) · Alpha | The six purity rules of the domain document (§3.9): domain packages import only the JDK, the shared kernel, their own domain, their own module's `events` and pure libraries; no clock, no `UUID.randomUUID()`, no randomness or I/O; no generic exceptions for business rules; only persistence adapters call `restore` and the lock-read snapshot factories. Also: each persistence adapter uses only its own module's schema, and the application layer takes only `@Transactional` from Spring | A few rules keep the domain pure from day one. The package layout is the convention, so no annotation is needed. **Over jMolecules' hexagonal rules:** they check the same layering, at the price of annotating every type, and the package names already say it |
+| Core | **ArchUnit** | Decided ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md), [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)) · Alpha | The six purity rules of the domain document (§3.9): domain packages import only the JDK, the shared kernel, their own domain, their own module's `events`, pure libraries and the persistence annotations of ADR-126 (never in an `events` package); no clock, no `UUID.randomUUID()`, no randomness or I/O; no generic exceptions for business rules; only Hibernate rebuilds an aggregate, and the lock-read snapshot factories are the one other exception. The eight persistence rules: relationships only inside one aggregate, `@Version` only on `AggregateRoot`, every enum stored by name, a `@PostLoad` check on every root, no `@GeneratedValue`, no interface that extends `CrudRepository`, `ListCrudRepository`, `JpaRepository` or `JpaSpecificationExecutor`, every mapped table in its module's schema, and no adapter that uses another module's entity, which is how each persistence adapter is kept to its own schema. Also: the application layer takes only `@Transactional` from Spring | A few rules keep the domain pure from day one. The package layout is the convention, so no annotation is needed. **Over jMolecules' hexagonal rules:** they check the same layering, at the price of annotating every type, and the package names already say it |
 | Core | **Error Prone + NullAway**, with JSpecify annotations (as Spring Framework 7 uses) | Decided ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)) · Jan | Null safety at compile time | Error Prone needs JDK compiler flags that are a common source of build trouble. Added after the Alpha, in warning mode first, then as errors |
 | Optimizer, research | **import-linter** | Decided ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)) · Alpha | Layers; the domain imports no `fastapi`, `pydantic`, `ortools`, `pyvrp` or `numba`; product adapters never import `pyvrp` (FR-286) | Cheap, and it keeps PyVRP out of the product from the first commit |
 | Optimizer, research | **mypy** (strict) | Decided ([ADR-011](../ADRs/ADR-011-python-tooling-uv-ruff-mypy-pytest.md)) · Alpha | Types | Cheapest when the code is new |
@@ -137,7 +137,7 @@ screens and documents use the same words.
 
 ## 4. Repository layout
 
-**Decided ([ADR-037](../ADRs/ADR-037-flat-layout-under-src-with-deploy-and-infra.md)) · Alpha.** The pull request that moves the code brings it to this tree.
+**Decided ([ADR-123](../ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md)) · Alpha.** The grouped tree with ADR-123's component names. Inside `core` and `optimizer` it draws the target packages ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)), not today's.
 `src/research` already exists (NFR-50).
 
 ```text
@@ -146,40 +146,46 @@ screens and documents use the same words.
   workflows/                      CI pipelines
   CODEOWNERS  pull_request_template.md  ISSUE_TEMPLATE/
 contracts/
-  core-api.v1.yaml                OpenAPI: web and phone apps ↔ core (ADR-006)
-  optimizer-api.v1.yaml           OpenAPI: core ↔ optimization service
+  client-api/v1/openapi.yaml      OpenAPI: web and phone apps ↔ core (ADR-006)
+  optimization-api/v1/openapi.yaml  OpenAPI: core ↔ optimization service
 src/
-  core/                           Java, Spring Boot, one deployable
-    src/main/java/.../dispatchflow/
-      access/ fleet/ orders/ planning/ liveops/ messaging/ reporting/ audit/
-        domain/                   aggregates, entities, value objects, sealed states, named errors
-        events/                   the module's events (the `events` named interface): IDs,
-                                  shared-kernel values and the package's own enums only
-        application/
-          api/                    use cases and queries other modules call
-          spi/                    ports this module owns for other modules to implement
-          port/out/               repositories, logs and outside services
-          service/                one class per use case, and application services
-        adapter/
-          in/web/  in/job/  in/schedule/  in/callback/
-          out/persistence/  out/osrm/  out/optimizer/  out/...
-      shared/                     shared kernel: typed IDs, DeliveryDate, IsraelDateTime, DaySeconds, TimeWindow,
-                                  GeoPoint, Weight, Volume, Priority, PhoneNumber, and the domain's
-                                  building blocks (errors, Version, AggregateRoot, events; ADR-097)
-    src/main/resources/db/migration/   Flyway migrations, one PostgreSQL schema per module
-  optimizer/                      Python, FastAPI
-    dispatchflow_opt/
-      domain/  application/
-      adapters/inbound/http/
-      adapters/outbound/solvers/{ortools,alns,nearest_neighbour}/
+  backend/
+    core/                         Java, Spring Boot, one deployable
+      src/main/java/.../dispatchflow/
+        access/ fleet/ orders/ planning/ liveops/ messaging/ reporting/ audit/
+          domain/                   aggregates, entities, value objects, sealed states, named errors
+          events/                   the module's events (the `events` named interface): IDs,
+                                    shared-kernel values and the package's own enums only
+          application/
+            api/                    use cases and queries other modules call
+            spi/                    ports this module owns for other modules to implement
+            port/out/               repositories, logs and outside services
+            service/                one class per use case, and application services
+          adapter/
+            in/web/  in/job/  in/schedule/  in/callback/
+            out/persistence/  out/osrm/  out/optimizer/  out/...
+        shared/                     shared kernel: typed IDs, DeliveryDate, IsraelDateTime, DaySeconds, TimeWindow,
+                                    GeoPoint, Weight, Volume, Priority, PhoneNumber, and the domain's
+                                    building blocks (errors, Version, AggregateRoot, events; ADR-097)
+      src/main/resources/db/migration/   Flyway migrations, one PostgreSQL schema per module
+    optimizer/                    Python, FastAPI
+      src/dispatchflow_optimizer/
+        domain/  application/
+        adapters/inbound/http/
+        adapters/outbound/solvers/{ortools,alns,nearest_neighbour}/
+  frontend/
+    web/                          React web app
+    mobile/                       Expo phone app (from Semester B)
+    packages/                     api-client, schemas, i18n, map-style, formatters, eslint-config, tsconfig
   research/                       harness, study configs, results (no pilot-derived data, NFR-50)
-  web/                            React web app
-  mobile/                         Expo phone app (from Semester B)
-  packages/                       api-client, schemas, i18n, map-style, formatters, eslint-config, tsconfig
-e2e/                              Playwright: the Alpha demo script and the use-case flows
-deploy/
-  compose.yaml  compose.dev.yaml  Caddyfile  osrm/  tiles/  backup/  observability/
-infra/                            Terraform: AWS account resources
+tests/
+  e2e/                            Playwright: the Alpha demo script and the use-case flows
+  load/                           k6 scripts (NFR-10, NFR-59)
+infra/
+  deploy/                         compose.yaml  compose.dev.yaml  Caddyfile  backup/  observability/
+  osrm/                           OSRM configuration
+  terraform/                      AWS account resources (from M13)
+data/                             git-ignored: OSM extract, OSRM files, PMTiles, benchmark instances
 docs/
   architecture/  ADRs/  operations/  guides/{he,en}/  research/
 ```
@@ -203,7 +209,7 @@ atomic contract changes, and four copies of CI.
 | IDEs | **IntelliJ IDEA** (free JetBrains educational licence) for Java; **PyCharm** or **VS Code** for Python; **VS Code** for TypeScript; **Android Studio** and **Xcode** for phone builds and emulators (Semester B) | Decided · Alpha | The best tool per language, all free for students | **One IDE for everything:** Java refactoring is weak outside IntelliJ |
 | API client | **Bruno**, with collections in the repository | Decided · Alpha | Requests are versioned with the code and need no account | **Postman:** collections live in its cloud by default and need an account. **IntelliJ HTTP files:** good, but only for IntelliJ users |
 | Database client | **DBeaver**, or IntelliJ's database tools | Decided · Alpha | Free, works with every OS | — |
-| Contract-first mocks | **MSW** in the web app and tests; **Prism** serves a mock of `core-api` | Optional · Alpha | Front-end work can start before an endpoint exists | — |
+| Contract-first mocks | **MSW** in the web app and tests; **Prism** serves a mock of `client-api` | Optional · Alpha | Front-end work can start before an endpoint exists | — |
 | Source control | **Git** on **GitHub**: private repository, protected `main` and `dev`, required reviews and checks, `CODEOWNERS` per area | Decided · Alpha | The code is proprietary (ADR-017); GitHub Projects holds the Gantt chart the course asks for | **GitLab:** equally capable; the team is already on GitHub |
 | Branching | Short-lived branches off `dev`, squash-merged into `dev`; `dev` reaches `main` by merge commit; **Conventional Commits** (checked by commitlint in lefthook and CI) | Decided · Alpha | Small merges keep four people out of each other's way; history stays readable, and release notes can be generated | **GitFlow:** long-lived branches and painful merges for a four-person team |
 | Releases | Semantic versions with Git tags. Phone app versions follow NFR-44 (the previous version stays supported) | Decided · B | — | — |
@@ -223,8 +229,8 @@ atomic contract changes, and four copies of CI.
 | Code style | **Spotless** with palantir-java-format; **JaCoCo** coverage | Decided ([ADR-013](../ADRs/ADR-013-java-tooling-maven-wrapper-and-spotless.md)) · Alpha | Formatting is automatic, so reviews never discuss it | **google-java-format:** two-space indentation and awkward lambdas. **Checkstyle:** reports problems but doesn't fix them |
 | Static checks | **Error Prone + NullAway** | Decided · Jan | Catches null dereferences and common bugs at compile time, using the same JSpecify annotations as Spring Framework 7 | **Checker Framework:** more powerful, and much slower and noisier. **SpotBugs:** runs after compilation, with more false positives |
 | Boilerplate | Records and plain classes; **no Lombok** | Decided · Alpha | Records cover value objects | **Lombok:** generated code hides what an aggregate exposes, and it hooks into the compiler, which Error Prone also does |
-| Database | **PostgreSQL 18**, **Flyway** | Decided ([ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md)) | Partial unique indexes, `FOR UPDATE SKIP LOCKED`, advisory locks and `jsonb` carry real rules here (BR-34, BR-38, BR-36, BR-101). PostgreSQL 19 is due on 19 November 2026; a first release isn't worth taking mid-project. PostGIS only when a feature needs a spatial query (Q-18) | **MySQL:** no partial indexes, which BR-34 and BR-38 rely on. **H2 in tests:** behaves differently; Testcontainers runs the real thing. **Liquibase:** XML or YAML changelogs and rollbacks, which expand-then-contract migrations don't need |
-| Persistence adapter | **jOOQ** (Open Source Edition), with explicit hand-written mappers | Decided ([ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md)) · Alpha | Type-safe SQL generated from the real schema; explicit mapping keeps the domain free of annotations; the same SQL serves Reporting's read models; PostgreSQL features (`SKIP LOCKED`, `ON CONFLICT`, advisory locks) are first-class. Details in [6.3](#63-persistence) | **JPA / Hibernate:** a pure domain needs a second set of entity classes plus mappers, and lazy loading and dirty checking don't earn their cost. **Spring Data JDBC:** designed for aggregates, but it saves a changed collection by deleting and reinserting every child row, so every edit would rewrite a 200-stop plan. **MyBatis:** SQL in XML, with no compile-time checking. **JdbcTemplate:** no type safety across 37 tables |
+| Database | **PostgreSQL 18**, **Flyway** | Decided ([ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md)) | Partial unique indexes, `FOR UPDATE SKIP LOCKED`, advisory locks and `jsonb` carry real rules here (BR-34, BR-38, BR-36, BR-101). PostgreSQL 19 is due on 19 November 2026; a first release isn't worth taking mid-project. PostGIS only when a feature needs a spatial query (Q-18). Flyway is the only way the schema changes: Hibernate only validates it ([6.3](#63-persistence)) | **MySQL:** no partial indexes, which BR-34 and BR-38 rely on. **H2 in tests:** behaves differently; Testcontainers runs the real thing. **Liquibase:** XML or YAML changelogs and rollbacks, which expand-then-contract migrations don't need |
+| Persistence adapter | **JPA: Hibernate through Spring Data JPA**, with the mapping on the domain classes | Decided ([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md), [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md)) · Alpha | Hibernate writes the version check (BR-76) itself; no generated code, no code-generation plugin, no hand-written mappers and no second set of entity classes; package-private Spring Data `Repository` interfaces declare only what a port needs; PostgreSQL features (`SKIP LOCKED`, `ON CONFLICT`, advisory locks) run as native queries. Details in [6.3](#63-persistence) | **jOOQ:** the version check and the mappers would be written by hand, and it needs generated code and a code-generation plugin; reopen it for Reporting's or Live Operations' reads only if they pile up as native SQL. **Spring Data JDBC:** designed for aggregates, but it saves a changed collection by deleting and reinserting every child row, so every edit would rewrite a 200-stop plan. **MyBatis:** SQL in XML, with no compile-time checking. **JdbcTemplate:** no type safety across 37 tables |
 | Connection pool | **HikariCP** (Spring Boot's default) | Decided · Alpha | The default, and the fastest well-known pool | — |
 | Web adapter | **Spring MVC** on virtual threads; interfaces generated by **openapi-generator** (`spring`, `interfaceOnly`, `useSpringBoot4`, `useJackson3`); Bean Validation; **Jackson 3** | Decided ([ADR-043](../ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md)) · Alpha | Plain blocking code that scales like reactive code, thanks to virtual threads; a contract-first API (ADR-006), whose generated validation covers most of NFR-56 | **WebFlux:** reactive code everywhere, for no gain over virtual threads, with blocking JDBC underneath. **springdoc (code first):** would make the Java code the source of truth, while the Python service and the phone app need a reviewed contract before the code |
 | API conventions | Path versions (`/api/v1`) through Spring Framework 7's API versioning; errors as RFC 9457 Problem Details with a stable error code that both apps translate | Decided ([ADR-043](../ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md)) · Alpha | NFR-21, NFR-69, NFR-143, NFR-144; a standard error shape needs no custom parser | **Custom error JSON:** every client has to learn it |
@@ -248,7 +254,7 @@ atomic contract changes, and four copies of CI.
 | HTTP clients | Spring `RestClient` for OSRM, the geocoder, SMS and push; the optimizer client generated from its contract (openapi-generator, `java` with the RestClient library) | Decided · Alpha | Synchronous code on virtual threads; integrates with observability and `@Retryable` | **WebClient:** reactive. **OkHttp or Apache HttpClient:** a second HTTP stack to configure |
 | Email | **AWS SDK for Java v2** (SES v2) in `il-central-1`, with a configuration set with link and open tracking off (NFR-223) | Decided ([ADR-078](../ADRs/ADR-078-hosting-on-one-aws-vm-in-tel-aviv-built-with-terraform.md)) · Pilot (Mailpit before) | Email stays in Israel (NFR-209), and the SDK authenticates with the VM's IAM role | **SMTP to SES:** needs SMTP credentials to store and rotate. **SendGrid or Mailgun:** data leaves Israel |
 | Observability | **OpenTelemetry Java agent** for traces; **Micrometer** for domain metrics (NFR-161), exported over OTLP; Spring Boot structured JSON logs carrying the trace ID (NFR-20, NFR-159), where a log converter scrubs the fields the data inventory names and request bodies are never logged (NFR-19); **Actuator** health and readiness (NFR-160) | Decided · Alpha (logs, health), Pilot (traces, metrics) | The agent instruments JDBC, HTTP clients and Spring with no code | **Micrometer Tracing alone:** works, but needs per-library setup. **Vendor agents:** tie the data to one vendor |
-| Runtime image | **Eclipse Temurin 25 JRE**, non-root, with `-XX:MaxRAMPercentage` set for the container's memory limit | Decided ([ADR-047](../ADRs/ADR-047-images-pinned-by-digest-and-core-on-temurin-25-jre.md)) · Pilot | `linux/amd64` (NFR-208); a shell is available for debugging during the pilot | **GraalVM native image:** slow builds and reflection configuration for Spring, jOOQ and POI, to save startup time a long-running VM doesn't need. **Distroless:** smaller, but no shell; reconsider after the pilot |
+| Runtime image | **Eclipse Temurin 25 JRE**, non-root, with `-XX:MaxRAMPercentage` set for the container's memory limit | Decided ([ADR-047](../ADRs/ADR-047-images-pinned-by-digest-and-core-on-temurin-25-jre.md)) · Pilot | `linux/amd64` (NFR-208); a shell is available for debugging during the pilot | **GraalVM native image:** slow builds and reflection configuration for Spring, Hibernate and POI, to save startup time a long-running VM doesn't need. **Distroless:** smaller, but no shell; reconsider after the pilot |
 
 ### 6.1 Domain conventions
 
@@ -284,17 +290,31 @@ The domain document's §3 is the full set of rules. In Java they come down to th
 
 ### 6.3 Persistence
 
-**jOOQ in the persistence adapters**, with code generated from the Flyway-migrated schema, one
-PostgreSQL schema per module. A module's adapter imports only its own schema's generated classes, which
-ArchUnit checks; Reporting reads the read-only views other modules publish. The build runs
-the migrations against a Testcontainers PostgreSQL (the `testcontainers-jooq-codegen-maven-plugin`), so
-the generated code always matches the real schema. Docker must be running for `./mvnw verify`, which the
-adapter tests need anyway.
+**JPA in the persistence adapters**: Hibernate through Spring Data JPA, with the mapping on the domain
+classes themselves ([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)), one PostgreSQL schema per module. Every entity names its module's
+schema (`@Table(schema = …)`), and relationships stay inside one aggregate: between aggregates and
+between modules there are only IDs. Reporting reads the read-only views other modules publish.
 
-- **Optimistic locking:** `UPDATE … WHERE id = ? AND version = ?` on the root table; zero rows updated
-  means the change is out of date (BR-76). Child tables carry no version of their own.
-- **Loading an aggregate whole:** jOOQ's `MULTISET` reads a root with its child rows in one query (a plan
-  with its routes and stops), and the mapper rebuilds it through the aggregate's `restore` factory.
+Flyway is the only way the schema changes. `spring.jpa.hibernate.ddl-auto` is `validate` in every profile
+that connects to a database, so Hibernate checks the mapping against the migrated schema at startup and
+never changes it; the profile of `just core-schema-draft` connects to none and sets `none`, and no profile
+sets `create` or `update`. `just core-schema-draft` writes the DDL Hibernate would generate to
+`src/backend/core/target/schema-draft.sql`, without a database connection, as a draft for a migration.
+
+- **Adapters:** each one implements its port with a package-private Spring Data
+  `Repository<Root, UUID>` interface, never `JpaRepository`, `CrudRepository`, `ListCrudRepository` or
+  `JpaSpecificationExecutor`. Query ports read into view records with JPQL constructor expressions or
+  native queries, and PostgreSQL-specific SQL is a native query with an adapter test against the
+  Testcontainers PostgreSQL. No JDBC batching for now.
+- **How aggregates are mapped, versioned, loaded and saved** (optimistic locking by `@Version`, the shared
+  save helper, the `@PostLoad` check, retries) is in [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) and in the domain document's
+  [§3.5](domain_layer/domain_layer_design.md#35-factories),
+  [§3.6](domain_layer/domain_layer_design.md#36-repositories) and
+  [§11](domain_layer/domain_layer_design.md#11-concurrency); this document names only the tools.
+- **Event publication:** Spring Modulith's event publication registry stays on JDBC, so its rows stay out of
+  Hibernate's persistence context. Its table comes from a Flyway migration.
+- **Logging:** SQL, bind values and the driver's error detail stay out of the logs in every profile,
+  because they hold personal data (NFR-19).
 - **Constraints in the schema:** a partial unique index for one plan per date (BR-34); unique emails after
   normalizing (BR-45); unique keys on outgoing messages (NFR-191).
 - **Types:** `timestamptz` for instants, `date` and `time` for Israel-local values; the database session
@@ -314,7 +334,7 @@ adapter tests need anyway.
 
 | Secondary port | Adapter | Notes |
 |---|---|---|
-| `RouteOptimizer`, `FeasibilityChecker`, `BaselinePlanner` | Optimizer HTTP client, generated from `optimizer-api` | Anti-corruption layer. Also used for edit checks (FR-233) and the publishing re-check (BR-21). While the optimizer is down, hand-overs and cancellations complete and their routes show *not yet checked* until it returns; publishing refuses (BR-70, [ADR-058](../ADRs/ADR-058-routes-changed-while-the-optimizer-is-down-are-checked-when-it-returns.md)) |
+| `RouteOptimizer`, `FeasibilityChecker`, `BaselinePlanner` | Optimizer HTTP client, generated from `optimization-api` | Anti-corruption layer. Also used for edit checks (FR-233) and the publishing re-check (BR-21). While the optimizer is down, hand-overs and cancellations complete and their routes show *not yet checked* until it returns; publishing refuses (BR-70, [ADR-058](../ADRs/ADR-058-routes-changed-while-the-optimizer-is-down-are-checked-when-it-returns.md)) |
 | `TravelTimes`, `RouteShapes` | OSRM `table` and `route` services | **Base durations only.** The Python `TravelTimeModel` applies the bucket factors and the buffer (FR-321, FR-322); the core never does |
 | `Geocoder` | GovMap adapter, fake; Nominatim only if GovMap's terms fail | Decided in [ADR-085](../ADRs/ADR-085-govmap-geocodes-addresses-with-nominatim-as-the-fallback.md) |
 | `SmsGateway` | Israeli provider adapter (Q-96); fake in every environment except production (NFR-206) | Callbacks verified by signature or header secret (NFR-192) |
@@ -325,7 +345,7 @@ adapter tests need anyway.
 | `Clock` | System clock; a controllable clock in the end-to-end profile (NFR-175) | |
 | `IdGenerator` | UUIDv7 (uuid-creator) | IDs exist before persistence; factories take them as parameters |
 | `PasswordHasher`, `TokenSigner`, `Hmac` | Spring Security's Argon2id encoder; Nimbus JOSE + JWT; the JDK's `Mac` | Hashing and signing need secrets and randomness, so they stay out of the domain, which gets `PasswordHash` and `PhoneHash` values |
-| Repositories | jOOQ | One repository per aggregate root |
+| Repositories | Spring Data JPA interfaces, package-private | One repository per aggregate root |
 
 ### 6.5 Core ↔ optimizer calls
 
@@ -344,7 +364,7 @@ adapter tests need anyway.
 | Packaging and environments | **uv** (lock file committed) | Decided · Alpha | Fast, one tool for Python versions, environments and locking; the lock hash goes in every run manifest | **Poetry:** slower, and doesn't manage Python versions. **pip-tools + pyenv:** two tools. **conda:** heavy, for nothing that wheels don't already provide |
 | Lint and format | **Ruff** | Decided · Alpha | One fast tool for linting and formatting | **flake8 + isort + black:** three tools to configure, and slower |
 | Types | **mypy** (strict) | Decided · Alpha | One type authority in CI, with Pydantic's mypy plugin | **pyright:** faster, and fine in editors through Pylance, but CI needs one checker, and mypy has the Pydantic plugin |
-| HTTP adapter | **FastAPI** + **Uvicorn**; **Pydantic v2** models generated from `optimizer-api` by **datamodel-code-generator**, used only in the adapter; **orjson** for responses | Decided · Alpha | Async handlers for the pipe to the solver workers; validation and OpenAPI built in; generated models can't drift from the contract | **Flask:** no async, no built-in validation. **Litestar:** similar features, smaller community. **gRPC:** ADR-006 chose OpenAPI, and gRPC is harder to inspect with curl or Bruno |
+| HTTP adapter | **FastAPI** + **Uvicorn**; **Pydantic v2** models generated from `optimization-api` by **datamodel-code-generator**, used only in the adapter; **orjson** for responses | Decided · Alpha | Async handlers for the pipe to the solver workers; validation and OpenAPI built in; generated models can't drift from the contract | **Flask:** no async, no built-in validation. **Litestar:** similar features, smaller community. **gRPC:** ADR-006 chose OpenAPI, and gRPC is harder to inspect with curl or Bruno |
 | Settings | **pydantic-settings** (environment variables only, NFR-03) | Decided · Alpha | Typed settings, validated at startup | — |
 | Domain numerics | **NumPy** | Decided · Alpha | Structs of arrays for the validator and for Numba | — |
 | Product solver | **OR-Tools** Routing, pinned to an exact version: a time dimension and two capacity dimensions (weight, volume), disjunctions with priority-based drop penalties (BR-54), a fixed vehicle cost (FR-21), guided local search. Matrices registered with `RegisterTransitMatrix`, not Python callbacks ([plan §8](https://github.com/NaimElijah/DispatchFlow/blob/f54b13bc3e29e72d37ebc2a32bfd5aed2543bdee/docs/init_impl_ref/technical_implementation_plan.md#8-or-tools-model)) | Decided ([ADR-005](../ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md)) · Alpha | Every DispatchFlow rule maps to a standard construct, warm start is built in, and it's free. Registered matrices measured about 4.5 times faster than callbacks for the same search | **VROOM:** a fast C++ engine with OSRM built in, but its time windows are hard constraints and its objective has no terms for re-optimization stability or priority-weighted drops. **PyVRP in the product:** FR-286 keeps it as the study's reference solver. **Timefold:** Java, outside the Python research stack and its validator. **Hexaly or Gurobi:** commercial licences |
@@ -507,7 +527,7 @@ Reports stay queued until the server acknowledges them (FR-248). The sync is rec
 | Concern | Choice | Status | Why | Over |
 |---|---|---|---|---|
 | Workspaces | **pnpm** workspaces; the hoisted linker if Metro has trouble resolving dependencies | Decided ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)) · Alpha | Strict dependencies catch undeclared imports; fast installs | **npm or Yarn workspaces:** looser, so an undeclared dependency works by accident until it doesn't. **Nx or Turborepo:** build caching that a repository this size doesn't need yet |
-| API client | `@dispatchflow/api-client`: types and client generated from `core-api` with **openapi-typescript** and **openapi-fetch** | Decided · Alpha | Types only, with a tiny runtime | **orval:** generates hooks and more code. **openapi-generator's TypeScript output:** bulky classes |
+| API client | `@dispatchflow/api-client`: types and client generated from `client-api` with **openapi-typescript** and **openapi-fetch** | Decided · Alpha | Types only, with a tiny runtime | **orval:** generates hooks and more code. **openapi-generator's TypeScript output:** bulky classes |
 | Other packages | `@dispatchflow/schemas` (Zod forms for both apps), `@dispatchflow/i18n` (Hebrew and English strings, with text and a next step for every error code, NFR-144), `@dispatchflow/map-style` (one MapLibre style and the route colours, FR-148, FR-240), `@dispatchflow/formatters` (dates, times, distances, weights, volumes and shekels, NFR-68), `@dispatchflow/eslint-config`, `@dispatchflow/tsconfig` | Decided · Alpha (all but the phone-only parts) | One definition of each, used by both apps | **Copies in each app:** they drift |
 
 ---
@@ -564,7 +584,7 @@ All of this is adopted before the pilot (M13), not before the Alpha.
 | Operating system | **Ubuntu Server 26.04 LTS**; **unattended-upgrades** for security patches; **chrony** on AWS Time Sync, because the server's clock judges staleness and device clock offsets (FR-74, BR-114) (NFR-127) | Decided · Pilot | Long support; the same family as the laptops' WSL | **Amazon Linux 2023:** fine too, but different from what the team uses locally |
 | Network | Security group open only on 80 and 443; no SSH port (**SSM Session Manager** instead, limited to named members, whose accounts require MFA, NFR-265) (NFR-26). No container can use the VM's full AWS role: each container that calls AWS gets only what it needs (send email, publish alerts, write backups). The M13 Terraform pull request designs the mechanisms against these goals, and gets an infrastructure review and a security review before it merges ([ADR-078](../ADRs/ADR-078-hosting-on-one-aws-vm-in-tel-aviv-built-with-terraform.md)) | Decided · Pilot | Nothing to brute-force | **SSH with keys:** an open port and keys to manage |
 | Containers | **Docker Engine** + Compose v2: `caddy`, `migrate` (one-shot Flyway as the owner role, before `core` starts), `core`, `optimizer`, `postgres`, `osrm`, `glitchtip` (with its own database, and CPU and memory limits), `nominatim` (only as GovMap's fallback), `photon` (only if FR-139 needs it), `otel-collector`, the monitoring backend (Prometheus, Alertmanager, Loki, Tempo, Grafana) and `backup`. Each has a health check, a memory limit and a non-root user (NFR-16, NFR-160, NFR-208) | Decided · Pilot | One file describes production, the same one the laptops use | **Kubernetes or k3s:** a cluster for one VM. **Nomad:** the same |
-| Images | Temurin 25 JRE (core), copying in the jar CI builds, so jOOQ's generated code stays out of the repository; `python:3.14-slim` (optimizer); official `postgres:18`, OSRM and `caddy` images; all pinned by digest from January, with Renovate (NFR-54) | Decided ([ADR-047](../ADRs/ADR-047-images-pinned-by-digest-and-core-on-temurin-25-jre.md)) · Pilot | — | — |
+| Images | Temurin 25 JRE (core), copying in the jar CI builds; `python:3.14-slim` (optimizer); official `postgres:18`, OSRM and `caddy` images; all pinned by digest from January, with Renovate (NFR-54) | Decided ([ADR-047](../ADRs/ADR-047-images-pinned-by-digest-and-core-on-temurin-25-jre.md)) · Pilot | — | — |
 | Domain and TLS | A domain registered for DispatchFlow, DNS in **Route 53**; certificates from Let's Encrypt through Caddy; SPF, DKIM and DMARC for SES (NFR-26, NFR-213) | Decided ([ADR-069](../ADRs/ADR-069-sign-in-and-transport-security.md)) · Pilot | — | — |
 | Reverse proxy | **Caddy**: automatic TLS, HTTP/2 and HTTP/3 (so several open event streams don't hit the browser's per-host connection limit), HSTS, frame-ancestors, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, and a Content Security Policy with `base-uri 'none'; form-action 'self'; object-src 'none'` and a `connect-src` that names GlitchTip's address (M0 checks that the web app renders under it: Mantine injects a `<style>` element that may need a nonce or hash); serves the web app, PMTiles and the app-link files; exposes only GlitchTip's ingest paths, on GlitchTip's own host name and never a path of the app's host, with a request-body size cap and a cap on the storage volume, and GlitchTip's own event throttling if the pinned version has it (checked at the pilot); its UI is reached through SSM port forwarding; no buffering on event streams (NFR-26, NFR-55, NFR-213) | Decided ([ADR-069](../ADRs/ADR-069-sign-in-and-transport-security.md)) · Pilot | Certificates with no cron job, and a short config file | **Nginx:** certificates by hand through certbot, and more configuration. **Traefik:** label-driven configuration is hard to read for a fixed setup |
 | Backups | **restic** to S3 in `il-central-1`, encrypted: an hourly `pg_dump` first, then the proof files, so every file a row points to is in the backup. A **Healthchecks.io** ping on every run; a restore drill script, rehearsed before the pilot. Daily EBS snapshots as a second layer (NFR-28, NFR-125, NFR-126, NFR-164). The restic key and config sit in SSM, readable by two named members (Q-92). The VM cannot delete or corrupt backups, including old versions and restic's key and config objects (NFR-266): the bucket is versioned, with Object Lock in governance mode for 35 days, and old versions are kept at least as long as the lock. Pruning runs inside `il-central-1` under its own role, never on runners outside Israel. Only the break-glass role, assumed by a member with MFA, can bypass the lock or change the bucket's lock, lifecycle or policy, and assuming it raises an alert. A scheduled check of the backup repository alerts when it fails. The disk and snapshots are encrypted, and EBS snapshots are kept 35 days (Q-14). Erased personal data leaves the backups within a total the data inventory states. Whether the pinned restic works with an Object Lock bucket is unverified; M13 checks it | Decided · Pilot | One tool covers the database and the files, deduplicated and encrypted | **pgBackRest or WAL-G:** point-in-time recovery is more than a one-hour loss allowance needs, and they don't cover the proof files. **EBS snapshots alone:** crash-consistent images, not logical dumps |
@@ -583,7 +603,7 @@ All of this is adopted before the pilot (M13), not before the Alpha.
 | Correlation | W3C trace context across web app → core → optimizer; the trace ID in every log line, audit record and client error report (NFR-20, NFR-93, NFR-74) | Decided · Alpha (log IDs), Pilot (traces) | One ID finds everything about one request | — |
 | Pipeline | **OpenTelemetry Collector**, with a redaction processor as a backstop against personal data (NFR-19) | Decided · Pilot | One place to scrub | — |
 | Backend | **Prometheus** + **Alertmanager**, **Loki**, **Tempo**, **Grafana**, on the 16 GB VM, with 7-day retention (NFR-76) | Decided ([ADR-078](../ADRs/ADR-078-hosting-on-one-aws-vm-in-tel-aviv-built-with-terraform.md)) · Pilot | Self-hosted, so telemetry stays in Israel and the plan sets retention | **OpenObserve** (one program for logs, metrics, traces and alerts) on an 8 GB VM: rejected with that size (§15, §23). **SigNoz:** ClickHouse underneath, heavy on one VM. **Hosted** (Grafana Cloud, Datadog): telemetry leaves Israel, and the vendor sets retention |
-| Dashboards and alert rules | Stored as code in `deploy/observability/` (NFR-75, NFR-197) | Decided · Pilot | Reviewed like code | — |
+| Dashboards and alert rules | Stored as code in `infra/deploy/observability/` (NFR-75, NFR-197) | Decided · Pilot | Reviewed like code | — |
 | Alerts | Solve failures above 10% of a day, a preview over 30 s, 5 queued jobs, disk above 80% (NFR-75); failed backups (NFR-164); the message cap or more than 10% dropped (NFR-197); the recovery-email cap (NFR-215); an event publication still failing after 5 resubmissions; a job the watchdog had to fail. Delivered by email through Amazon SNS in `il-central-1` and to the team's chat channel; alert text carries no personal data (NFR-268) | Decided · Pilot | A watcher that repairs silently should still tell someone | — |
 | Client errors | **GlitchTip**, self-hosted on the VM, through the Sentry SDKs in both apps (NFR-74) | Decided ([ADR-079](../ADRs/ADR-079-client-errors-and-crashes-go-to-self-hosted-glitchtip.md)) · Pilot | §10 | §10 |
 | Uptime | A **Route 53 health check** over HTTPS on the health endpoint, with a CloudWatch alarm that emails a named team member through SNS, in Terraform; about $1.60 a month (estimate, not measured). Healthchecks.io's backup pings, from outside AWS, are a second and slower warning (NFR-128) | Decided ([ADR-078](../ADRs/ADR-078-hosting-on-one-aws-vm-in-tel-aviv-built-with-terraform.md)) · Pilot | The VM can't report its own outage | — |
@@ -716,7 +736,7 @@ What each stage brings in, so the team doesn't build infrastructure before the p
 
 | Stage | Brings in |
 |---|---|
-| **Alpha** ([dates](../roadmap.md#22-alpha-track)): local, web only, synthetic data | Repository tooling ([5](#5-development-environment-and-workflow)); PostgreSQL with the owner and application roles, Flyway, jOOQ; signature proofs (`signature_pad`, ImageIO); the core with Fleet, Customers & Orders, Planning, the fact aggregates for online reports, and Reporting's summary and baseline; Spring Modulith's event registry with retries configured; the optimizer with OR-Tools, nearest neighbour and the daily validator; OSRM and tiles on a small extract; the web app with map, timeline, table, publishing and driver screens; the synthetic order generator; CI with unit tests, `verify()`, the ArchUnit purity rules, import-linter, mypy, Gitleaks, and the demo script under Playwright |
+| **Alpha** ([dates](../roadmap.md#22-alpha-track)): local, web only, synthetic data | Repository tooling ([5](#5-development-environment-and-workflow)); PostgreSQL with the owner and application roles, Flyway, JPA with Hibernate; signature proofs (`signature_pad`, ImageIO); the core with Fleet, Customers & Orders, Planning, the fact aggregates for online reports, and Reporting's summary and baseline; Spring Modulith's event registry with retries configured; the optimizer with OR-Tools, nearest neighbour and the daily validator; OSRM and tiles on a small extract; the web app with map, timeline, table, publishing and driver screens; the synthetic order generator; CI with unit tests, `verify()`, the ArchUnit purity rules, import-linter, mypy, Gitleaks, and the demo script under Playwright |
 | **January break** (after the 12 January demo) | Spring Boot 4.2; Error Prone and NullAway (warnings first); Schemathesis and oasdiff; Renovate, with digest pins for every image; Trivy and Semgrep; the bundle visualizer |
 | **Semester B** | Access in full; Excel and Windows-1255 imports; geocoding (GovMap); Live Operations in full and re-optimization; the phone app with offline outbox and background location; push; Recipient Messaging with the fake SMS gateway; the own solver and the research harness |
 | **Before the pilot** | AWS through Terraform; Caddy, TLS, domain, SES; backups and the restore drill; observability and alerts; GlitchTip and the Route 53 health check; real SMS; ZAP and the ASVS self-check; SBOMs and the licence check; the device checklist; the usability environment; the team's own AWS account, if there is no company |
@@ -737,7 +757,8 @@ other two from their projects' release pages.
 | Spring Boot | 4.1.x, then 4.2.x in January | 4.1 released 10 June 2026, OSS support to 31 July 2027; 4.2 scheduled for 19 November 2026, OSS support to 31 December 2027 |
 | Spring Modulith | 2.1.x with Boot 4.1 (2.1 GA on 11 June 2026) | The 2.2 line follows Boot 4.2 |
 | PostgreSQL | 18 | 19 is due on 19 November 2026; don't switch during the project |
-| jOOQ, Flyway, JUnit, Testcontainers | The versions Spring Boot manages (jOOQ: latest Open Source Edition) | The open-source edition supports the latest PostgreSQL versions |
+| Hibernate, Spring Data JPA | 7.4.13 and 4.1.2, as Spring Boot 4.1.2 manages them | Read from the resolved build on 23 November 2026; Jakarta Persistence 3.2.0 comes with them |
+| Flyway, JUnit, Testcontainers | The versions Spring Boot manages | |
 | Python | 3.14 | OR-Tools has no 3.15 wheels; 3.13 is ending bug-fix support |
 | OR-Tools | 9.15.6755, pinned exactly | The latest on PyPI |
 | NumPy, SciPy | 2.5.x, 1.18.x | Both need Python 3.12 or later |
@@ -766,7 +787,7 @@ other two from their projects' release pages.
 
 ## 22. Open decisions
 
-Three decisions are open. Every other row of this file is decided, and its reasoning is in its ADR. Some details are deferred to the M0 restructure PR: ADR-038's Node major; ADR-039's ESLint, Prettier and Renovate pins; ADR-042's `TestDispatchFlowApplication` and `just core-run`.
+Three decisions are open. Every other row of this file is decided, and its reasoning is in its ADR. Some details are deferred to M0: ADR-038's Node major; ADR-039's ESLint, Prettier and Renovate pins; ADR-042's `TestDispatchFlowApplication` and `just core-run`.
 
 | Decision | Proposed answer | Refs |
 |---|---|---|
@@ -806,7 +827,6 @@ Most rejections are in the **Over** column of their row. These cut across severa
 - Spring Framework 7 resilience features: <https://docs.spring.io/spring-framework/reference/core/resilience.html>
 - Spring Modulith verification: <https://docs.spring.io/spring-modulith/reference/verification.html>
 - PostgreSQL 19 RC 1 and the planned GA date: <https://www.postgresql.org/about/news/postgresql-19-rc-1-released-3409/>
-- jOOQ editions and supported databases: <https://www.jooq.org/download/>
 - OpenAPI Generator, Jackson 3 and Spring Boot 4 options: <https://github.com/OpenAPITools/openapi-generator/pull/22854>
 - Expo SDK 58: <https://expo.dev/changelog/sdk-58>
 - expo-location options (`timeInterval` is Android-only): <https://unpkg.com/expo-location@56.0.15/src/Location.types.ts>

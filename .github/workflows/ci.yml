@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version-file: .java-version
@@ -39,7 +39,7 @@ jobs:
           version: ${{ env.UV_VERSION }}
       - run: $JUST core-check
 
-  solver:
+  optimizer:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -50,8 +50,8 @@ jobs:
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
-          cache-dependency-glob: src/backend/solver/uv.lock
-      - run: $JUST solver-check
+          cache-dependency-glob: src/backend/optimizer/uv.lock
+      - run: $JUST optimizer-check
 
   research:
     runs-on: ubuntu-24.04
@@ -67,7 +67,7 @@ jobs:
           cache-dependency-glob: src/research/uv.lock
       - run: $JUST research-check
 
-  console:
+  web:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -78,14 +78,14 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-          cache-dependency-path: src/frontend/console/package-lock.json
+          cache-dependency-path: src/frontend/web/package-lock.json
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: ${{ env.UV_VERSION }}
-      - run: $JUST console-setup
-      - run: $JUST console-check
+      - run: $JUST web-setup
+      - run: $JUST web-check
 
-  driver-app:
+  mobile:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -96,12 +96,12 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-          cache-dependency-path: src/frontend/driver-app/package-lock.json
+          cache-dependency-path: src/frontend/mobile/package-lock.json
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: ${{ env.UV_VERSION }}
-      - run: $JUST driver-app-setup
-      - run: $JUST driver-app-check
+      - run: $JUST mobile-setup
+      - run: $JUST mobile-check
 
   contracts:
     runs-on: ubuntu-24.04

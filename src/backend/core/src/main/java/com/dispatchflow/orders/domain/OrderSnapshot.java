@@ -13,6 +13,7 @@ import com.dispatchflow.shared.Weight;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Everything an {@link Order} holds, as the persistence adapter stores and reloads it. {@link
@@ -35,7 +36,8 @@ import java.util.Optional;
  * @param state active or cancelled
  * @param anonymized whether its personal fields were removed (NFR-257)
  * @param lastChangedAt when it was last placed, changed, moved, cancelled or put back
- * @param version the version it was saved at
+ * @param version the version it was loaded at, or null for an aggregate never saved
+ *     (ADR-126)
  */
 public record OrderSnapshot(
         OrderId id,
@@ -55,7 +57,7 @@ public record OrderSnapshot(
         Order.State state,
         boolean anonymized,
         Instant lastChangedAt,
-        Version version)
+        @Nullable Version version)
         implements PersonalData {
 
     /** Checks every part is given. */
@@ -75,7 +77,6 @@ public record OrderSnapshot(
         Objects.requireNonNull(attempt, "attempt");
         Objects.requireNonNull(state, "state");
         Objects.requireNonNull(lastChangedAt, "lastChangedAt");
-        Objects.requireNonNull(version, "version");
     }
 
     /**

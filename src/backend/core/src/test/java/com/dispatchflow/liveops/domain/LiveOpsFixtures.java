@@ -5,18 +5,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.dispatchflow.liveops.domain.delivery.CorrectionReason;
 import com.dispatchflow.liveops.domain.delivery.Delivery;
 import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot;
-import com.dispatchflow.liveops.domain.delivery.DispatcherOutcome;
 import com.dispatchflow.liveops.domain.delivery.Entitlement;
-import com.dispatchflow.liveops.domain.delivery.FailureReason;
-import com.dispatchflow.liveops.domain.delivery.FailureReasonKind;
 import com.dispatchflow.liveops.domain.delivery.HoldCheck;
 import com.dispatchflow.liveops.domain.delivery.LaterAttempt;
 import com.dispatchflow.liveops.domain.delivery.LeaveAtDoor;
-import com.dispatchflow.liveops.domain.delivery.Proof;
-import com.dispatchflow.liveops.domain.delivery.ProofId;
-import com.dispatchflow.liveops.domain.delivery.ProofKind;
-import com.dispatchflow.liveops.domain.delivery.ProofNote;
 import com.dispatchflow.liveops.domain.delivery.StopWhereabouts;
+import com.dispatchflow.liveops.domain.outcome.DispatcherOutcome;
+import com.dispatchflow.liveops.domain.outcome.FailureReason;
+import com.dispatchflow.liveops.domain.outcome.FailureReasonKind;
+import com.dispatchflow.liveops.domain.proof.Proof;
+import com.dispatchflow.liveops.domain.proof.ProofId;
+import com.dispatchflow.liveops.domain.proof.ProofKind;
+import com.dispatchflow.liveops.domain.proof.ProofNote;
 import com.dispatchflow.liveops.domain.routerun.RouteRun;
 import com.dispatchflow.liveops.domain.routerun.RouteRunSnapshot;
 import com.dispatchflow.shared.AccountId;
@@ -29,6 +29,7 @@ import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
+import com.dispatchflow.shared.StoredVersions;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -130,7 +131,7 @@ public final class LiveOpsFixtures {
                 s.stop(),
                 s.order(),
                 s.attempt(),
-                delivery.version().next(),
+                StoredVersions.afterSave(delivery),
                 s.arrival(),
                 s.outcomes(),
                 s.heldReports()));
@@ -139,7 +140,13 @@ public final class LiveOpsFixtures {
     public static RouteRun reload(RouteRun run) {
         RouteRunSnapshot s = run.snapshot();
         return RouteRun.restore(new RouteRunSnapshot(
-                s.route(), run.version().next(), s.startedBy(), s.cause(), s.startedAt(), s.status(), s.confirmed()));
+                s.route(),
+                StoredVersions.afterSave(run),
+                s.startedBy(),
+                s.cause(),
+                s.startedAt(),
+                s.status(),
+                s.confirmed()));
     }
 
     public static DeliveryBuilder aDelivery() {

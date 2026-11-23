@@ -51,7 +51,7 @@ so the app has to shrink photos to about that size.
 
 [ADR-001]: ADR-001-domain-driven-design-with-hexagonal-architecture.md
 [ADR-019]: ADR-019-container-images-run-as-non-root.md
-[FR-30]: ../requirements/requirements.md#publishing-and-the-driver-app
+[FR-30]: ../requirements/requirements.md#publishing-and-the-phone-app
 [NFR-14]: ../requirements/requirements.md#nfr-14
 [NFR-28]: ../requirements/requirements.md#nfr-28
 [NFR-37]: ../requirements/requirements.md#nfr-37

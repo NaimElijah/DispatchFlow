@@ -29,7 +29,7 @@ import java.time.Instant;
  * ExecutionFacts.liveStateOf}, asked with the plan's own routes and stops, each position's
  * service-area flag from {@code ServiceAreaCheck} (ADR-050), the settings, the configured values of
  * {@link SolveConfiguration}, and the matrix. The optimizer adapter then turns each request into
- * {@code optimizer-api}'s, so no outside model reaches Planning (TS §2.1 rule 4).
+ * {@code optimization-api}'s, so no outside model reaches Planning (TS §2.1 rule 4).
  *
  * <p>Each {@code ProblemFacts.Order} copies its {@code OrderFact}'s location and service-area flag
  * as they are, so an order outside the service area drops as <em>unreachable location</em>, unless

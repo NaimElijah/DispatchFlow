@@ -38,6 +38,9 @@ import com.dispatchflow.liveops.domain.DriverReport;
 import com.dispatchflow.liveops.domain.LiveOpsFixtures;
 import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.HeldState;
 import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.Origin;
+import com.dispatchflow.liveops.domain.outcome.DispatcherOutcome;
+import com.dispatchflow.liveops.domain.outcome.FailureReason;
+import com.dispatchflow.liveops.domain.outcome.Outcome;
 import com.dispatchflow.liveops.events.OutcomeKind;
 import com.dispatchflow.liveops.events.OutcomeRecorded;
 import com.dispatchflow.shared.EventId;
@@ -76,7 +79,7 @@ class DeliveryReportsTest {
         assertThat(answer).isEqualTo(new ReportAnswer.Recorded(List.of()));
         assertThat(delivery.pendingEvents())
                 .containsExactly(new OutcomeRecorded(
-                        new EventId("OutcomeRecorded", STOP.value(), Version.of(1), 0),
+                        new EventId("OutcomeRecorded", STOP.value(), Version.of(0), 0),
                         NOW,
                         STOP,
                         ORDER,
@@ -148,7 +151,7 @@ class DeliveryReportsTest {
 
         assertThat(delivery.pendingEvents())
                 .containsExactly(new OutcomeRecorded(
-                        new EventId("OutcomeRecorded", STOP.value(), Version.of(1), 0),
+                        new EventId("OutcomeRecorded", STOP.value(), Version.of(0), 0),
                         NOW,
                         STOP,
                         ORDER,
@@ -290,7 +293,7 @@ class DeliveryReportsTest {
                 .containsExactly(new HeldState.Overtaken(LATER), new HeldState.Confirmed(DISPATCHER, LATER));
         assertThat(reloaded.pendingEvents())
                 .containsExactly(new OutcomeRecorded(
-                        new EventId("OutcomeRecorded", STOP.value(), Version.of(3), 0),
+                        new EventId("OutcomeRecorded", STOP.value(), Version.of(2), 0),
                         LATER,
                         STOP,
                         ORDER,

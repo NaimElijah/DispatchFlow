@@ -81,7 +81,7 @@ We build both, in a set order, behind one solver port ([ADR-004]).
    3. Our solver (Phase 2, overlapping Phase 1).
    4. The benchmark suite against OR-Tools and PyVRP.
    5. Live re-optimization with both solvers.
-   6. The driver app.
+   6. The phone app.
    7. The pilot and its evaluation.
 
 ## Consequences

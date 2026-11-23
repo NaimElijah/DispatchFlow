@@ -31,6 +31,10 @@ class PlainTextTest {
     private static final String LOW_SURROGATE = Character.toString(0xDC00);
     /** DESERET CAPITAL LETTER LONG I, a letter outside the Basic Multilingual Plane. */
     private static final String SUPPLEMENTARY_LETTER = Character.toString(0x10400);
+    /** CYRILLIC CAPITAL LETTER TJE, first assigned in Unicode 16.0 (DerivedAge.txt). */
+    private static final int FIRST_ASSIGNED_IN_UNICODE_16 = 0x1C89;
+    /** First assigned in Unicode 17.0 (DerivedAge.txt). */
+    private static final int FIRST_ASSIGNED_IN_UNICODE_17 = 0x20C1;
 
     @Test
     void GivenADecomposedAccent_WhenBuilt_ThenItEqualsTheComposedForm() {
@@ -516,6 +520,31 @@ class PlainTextTest {
         String raw = "a" + Character.toString(codePoint) + "b";
 
         assertRefused(() -> PlainText.of(TextKind.NOTE, raw), new TextHasForbiddenCharacters(TextKind.NOTE));
+    }
+
+    @ParameterizedTest
+    @EnumSource(TextKind.class)
+    void GivenALetterFirstAssignedInUnicode16_WhenBuilt_ThenItIsKept(TextKind kind) {
+        String raw = "Van" + Character.toString(FIRST_ASSIGNED_IN_UNICODE_16) + "1";
+
+        assertThat(PlainText.of(kind, raw).text()).isEqualTo(raw);
+    }
+
+    /**
+     * The tables of invisible characters in PlainText and VehicleNameKey are copied by hand, because
+     * the JDK does not expose them. When this fails the JDK's Unicode version has changed: re-check
+     * PlainText's DEFAULT_IGNORABLE and VARIATION_SELECTORS and VehicleNameKey's INVISIBLE pattern
+     * against that version's DerivedCoreProperties.txt and PropList.txt, then move these two code
+     * points to the new version (ADR-106).
+     */
+    @Test
+    void GivenTheJdksCharacterData_WhenRead_ThenItIsTheUnicodeVersionTheTablesWereCheckedAgainst() {
+        assertThat(Character.getType(FIRST_ASSIGNED_IN_UNICODE_16))
+                .as("U+1C89, first assigned in Unicode 16, is assigned in the JDK's character data")
+                .isNotEqualTo(Character.UNASSIGNED);
+        assertThat(Character.getType(FIRST_ASSIGNED_IN_UNICODE_17))
+                .as("U+20C1, first assigned in Unicode 17, is still unassigned in the JDK's character data")
+                .isEqualTo(Character.UNASSIGNED);
     }
 
     @Test

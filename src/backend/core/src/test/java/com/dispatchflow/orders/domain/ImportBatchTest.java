@@ -119,7 +119,7 @@ class ImportBatchTest {
 
             assertThat(batch.state()).isEqualTo(new ImportBatch.State.Previewed());
             assertThat(batch.rows()).extracting(PreviewRow::errors).containsExactly(List.of(), List.of());
-            assertThat(batch.snapshot().version()).isEqualTo(Version.NEW);
+            assertThat(batch.snapshot().version()).isNull();
             assertThat(batch.pendingEvents()).isEmpty();
         }
 

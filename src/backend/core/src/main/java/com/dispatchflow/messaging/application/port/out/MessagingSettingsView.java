@@ -16,11 +16,11 @@ import java.util.Optional;
  * @param messages whether messages to recipients go (FR-350)
  * @param ratingQuestion whether the delivered message asks for a rating (FR-375)
  * @param dispatchPhone the dispatch phone the messages give, or empty before an Admin set one
- * @param version the settings' version, which a change sends back; {@code Version.NEW} before the
+ * @param version the settings' version, which a change sends back; empty before the
  *     first change (BR-76)
  */
 public record MessagingSettingsView(
-        Switch messages, Switch ratingQuestion, Optional<DispatchPhone> dispatchPhone, Version version) {
+        Switch messages, Switch ratingQuestion, Optional<DispatchPhone> dispatchPhone, Optional<Version> version) {
 
     /** Checks every part is present, possibly empty. */
     public MessagingSettingsView {

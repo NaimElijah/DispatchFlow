@@ -6,7 +6,6 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.V1;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.V2;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.V3;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.at;
-import static com.dispatchflow.planning.domain.plan.PlanningFixtures.dayAt;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.routePlan;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.solved;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.uuid;
@@ -15,18 +14,13 @@ import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dispatchflow.planning.domain.PlanningError.SolutionRejected;
+import com.dispatchflow.planning.domain.drop.ExcludedVehicle;
+import com.dispatchflow.planning.domain.drop.ExclusionCause;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.Version;
-import com.dispatchflow.shared.Volume;
-import com.dispatchflow.shared.Weight;
-import java.math.BigDecimal;
 import java.time.Duration;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 class OptimizerResultsTest {
@@ -59,7 +53,7 @@ class OptimizerResultsTest {
     void GivenABr06ViolationOnARoute_WhenTheEvaluationIsAsked_ThenItBreaksThatRoutesShiftOnly() {
         RouteId other = RouteId.of(uuid(43));
         Evaluation evaluation = Evaluation.checked(
-                Version.NEW,
+                Version.of(0),
                 List.of(violation("BR-06", ROUTE), violation("BR-105", other)),
                 List.of(new RouteTimes(ROUTE, V1, D1, routePlan(60_000), List.of())));
 
@@ -70,17 +64,9 @@ class OptimizerResultsTest {
     }
 
     @Test
-    void GivenALateShift_WhenADropsEarliestReturnPassesTheDay_ThenItKeepsTheSecondsFromTheDaysStart() {
-        DropReason.Shift shift = new DropReason.Shift(dayAt(84_600), at(88_200));
-
-        assertThat(shift.earliestReturn().seconds()).isEqualTo(88_200);
-        assertThat(shift.earliestReturn().pastTheDay()).isTrue();
-    }
-
-    @Test
     void GivenARouteTheValidatorCouldntTime_WhenItsReturnIsAsked_ThenThereIsNone() {
         Evaluation evaluation = Evaluation.checked(
-                Version.NEW, List.of(), List.of(new RouteTimes(ROUTE, V1, D1, Optional.empty(), List.of())));
+                Version.of(0), List.of(), List.of(new RouteTimes(ROUTE, V1, D1, Optional.empty(), List.of())));
 
         assertThat(evaluation.returnOf(ROUTE)).isEmpty();
     }
@@ -113,38 +99,10 @@ class OptimizerResultsTest {
 
     @Test
     void GivenAnUnreachableOptimizer_WhenAnEvaluationSaysSo_ThenItJudgedNothing() {
-        Evaluation evaluation = Evaluation.unavailable(Version.NEW);
+        Evaluation evaluation = Evaluation.unavailable(Version.of(0));
 
         assertThat(evaluation.available()).isFalse();
         assertThat(evaluation.violations()).isEmpty();
         assertThat(evaluation.routes()).isEmpty();
-    }
-
-    @Test
-    void GivenEachDropReason_WhenAskedWhetherItIsAboutTheLocation_ThenOnlyTheTwoLocationReasonsAre() {
-        Weight kilograms = Weight.kilograms(BigDecimal.TEN);
-        Volume litres = Volume.litres(BigDecimal.TEN);
-        Map<Class<?>, DropReason> samples = new LinkedHashMap<>();
-        Stream.of(
-                        new DropReason.MissingLocation(),
-                        new DropReason.NoVehicleAvailable(),
-                        new DropReason.UnreachableLocation(),
-                        new DropReason.RemovedByDispatcher(),
-                        new DropReason.PinNotHonoured(new PinTarget.ToVehicle(V1), false),
-                        new DropReason.Capacity(kilograms, litres, kilograms, litres),
-                        new DropReason.TimeWindow(dayAt(30_000), at(31_000)),
-                        new DropReason.Shift(dayAt(60_000), at(61_000)),
-                        new DropReason.DepotHours(dayAt(60_000), at(61_000)),
-                        new DropReason.VehicleLimit(),
-                        new DropReason.Displaced())
-                .forEach(reason -> samples.put(reason.getClass(), reason));
-        Set<Class<?>> locationReasons = Set.of(DropReason.MissingLocation.class, DropReason.UnreachableLocation.class);
-
-        assertThat(samples.keySet()).containsExactlyInAnyOrder(DropReason.class.getPermittedSubclasses());
-        for (Class<?> variant : DropReason.class.getPermittedSubclasses()) {
-            assertThat(samples.get(variant).isAboutLocation())
-                    .as(variant.getSimpleName())
-                    .isEqualTo(locationReasons.contains(variant));
-        }
     }
 }

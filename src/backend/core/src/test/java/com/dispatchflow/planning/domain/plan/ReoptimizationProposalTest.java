@@ -20,8 +20,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dispatchflow.planning.domain.PlanningError;
 import com.dispatchflow.planning.domain.PlanningError.ProposalAlreadyDeclined;
-import com.dispatchflow.planning.domain.solution.DropReason;
-import com.dispatchflow.planning.domain.solution.DroppedOrder;
+import com.dispatchflow.planning.domain.drop.DropReason;
+import com.dispatchflow.planning.domain.drop.DroppedOrder;
 import com.dispatchflow.planning.domain.solution.ReoptimizationResult;
 import com.dispatchflow.planning.domain.solution.SolvedRoute;
 import com.dispatchflow.planning.domain.solution.ValidatedSolution;

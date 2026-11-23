@@ -44,6 +44,7 @@ import com.dispatchflow.archfixture.zeta.stray.StrayValue;
 import com.dispatchflow.archfixture.zeta.upper.application.port.out.PortRootUsingASubpackage;
 import com.dispatchflow.archfixture.zeta.upper.application.port.out.UpperRecords;
 import com.dispatchflow.archfixture.zeta.upper.application.port.out.looped.LoopedRecords;
+import com.dispatchflow.archfixture.zeta.upper.application.port.out.nested.NestedPortUsingASubpackage;
 import com.dispatchflow.archfixture.zeta.upper.application.port.out.used.UsedByThePortRoot;
 import com.dispatchflow.archfixture.zeta.upper.application.service.AnnotatedAsANamedInterface;
 import com.dispatchflow.archfixture.zeta.upper.application.service.AnnotatedAsASpringComponent;
@@ -51,10 +52,15 @@ import com.dispatchflow.archfixture.zeta.upper.application.service.DependsOnADom
 import com.dispatchflow.archfixture.zeta.upper.application.service.DependsOnAnotherModulesDomain;
 import com.dispatchflow.archfixture.zeta.upper.application.service.DependsOnAnotherModulesService;
 import com.dispatchflow.archfixture.zeta.upper.application.service.DependsOnItsOwnAdapter;
+import com.dispatchflow.archfixture.zeta.upper.application.service.DependsOnTheKernelsAdapter;
 import com.dispatchflow.archfixture.zeta.upper.application.service.LowerUsageService;
 import com.dispatchflow.archfixture.zeta.upper.application.service.ServiceRootUsingASubpackage;
 import com.dispatchflow.archfixture.zeta.upper.application.service.UpperUseCase;
 import com.dispatchflow.archfixture.zeta.upper.application.service.looped.LoopedUseCase;
+import com.dispatchflow.archfixture.zeta.upper.application.service.nested.NestedPackageUsingASubpackage;
+import com.dispatchflow.archfixture.zeta.upper.application.service.prefix.UsesASiblingWithALongerName;
+import com.dispatchflow.archfixture.zeta.upper.application.service.prefixed.SiblingWithALongerName;
+import com.dispatchflow.archfixture.zeta.upper.application.service.upward.UsesTheServiceRoot;
 import com.dispatchflow.archfixture.zeta.upper.application.service.used.UsedByTheServiceRoot;
 import com.dispatchflow.archfixture.zeta.web.ZetaWebHandler;
 import com.tngtech.archunit.core.domain.JavaClass;
@@ -181,6 +187,7 @@ class ApplicationRulesTest {
                         DependsOnAnotherModulesDomain.class.getName(),
                         DependsOnAnotherModulesService.class.getName(),
                         DependsOnItsOwnAdapter.class.getName(),
+                        DependsOnTheKernelsAdapter.class.getName(),
                         DependsOnADomainLibrary.class.getName(),
                         AnnotatedAsASpringComponent.class.getName(),
                         AnnotatedAsANamedInterface.class.getName(),
@@ -238,6 +245,12 @@ class ApplicationRulesTest {
     @Test
     void GivenAUseCaseUsingEverythingAllowedAndTransactional_WhenRule1Evaluates_ThenNothingIsFlagged() {
         assertThat(violators(rule1(), FixtureClasses.only(UpperUseCase.class))).isEmpty();
+    }
+
+    @Test
+    void GivenAUseCaseThatDependsOnTheKernelsSharedAdapter_WhenRule1Evaluates_ThenItIsFlagged() {
+        assertThat(violators(rule1(), FixtureClasses.only(DependsOnTheKernelsAdapter.class)))
+                .containsExactly(DependsOnTheKernelsAdapter.class.getName());
     }
 
     @Test
@@ -477,9 +490,16 @@ class ApplicationRulesTest {
                         ROOT + ".upper.application.configured",
                         ROOT + ".upper.application.port.out",
                         ROOT + ".upper.application.port.out.looped",
+                        ROOT + ".upper.application.port.out.nested",
+                        ROOT + ".upper.application.port.out.nested.below",
                         ROOT + ".upper.application.port.out.used",
                         ROOT + ".upper.application.service",
                         ROOT + ".upper.application.service.looped",
+                        ROOT + ".upper.application.service.nested",
+                        ROOT + ".upper.application.service.nested.below",
+                        ROOT + ".upper.application.service.prefix",
+                        ROOT + ".upper.application.service.prefixed",
+                        ROOT + ".upper.application.service.upward",
                         ROOT + ".upper.application.service.used");
     }
 
@@ -536,16 +556,28 @@ class ApplicationRulesTest {
     }
 
     @Test
-    void GivenTheZetaFixtures_WhenRule7ChecksTheRoots_ThenExactlyTheServiceAndPortRootsUsingASubpackageAreFlagged() {
-        assertThat(violators(ApplicationRules.serviceAndPortRootsUseNoSubpackage(ROOT), zeta()))
-                .containsExactlyInAnyOrder(namesOf(ServiceRootUsingASubpackage.class, PortRootUsingASubpackage.class));
+    void
+            GivenTheZetaFixtures_WhenRule7ChecksEachApplicationPackage_ThenExactlyThoseUsingTheirOwnSubpackageAreFlagged() {
+        assertThat(violators(ApplicationRules.applicationPackagesUseNoSubpackage(ROOT), zeta()))
+                .containsExactlyInAnyOrder(namesOf(
+                        ServiceRootUsingASubpackage.class,
+                        PortRootUsingASubpackage.class,
+                        NestedPackageUsingASubpackage.class,
+                        NestedPortUsingASubpackage.class));
     }
 
     @Test
-    void GivenRootsThatUseOnlyTheirOwnPackageAndOtherLayers_WhenRule7ChecksTheRoots_ThenNothingIsFlagged() {
+    void
+            GivenPackagesUsingThemselvesThePackageAboveOrOtherLayers_WhenRule7ChecksEachApplicationPackage_ThenNothingIsFlagged() {
         assertThat(violators(
-                        ApplicationRules.serviceAndPortRootsUseNoSubpackage(ROOT),
-                        FixtureClasses.only(UpperUseCase.class, UpperRecords.class, LoopedUseCase.class)))
+                        ApplicationRules.applicationPackagesUseNoSubpackage(ROOT),
+                        FixtureClasses.only(
+                                UpperUseCase.class,
+                                UpperRecords.class,
+                                LoopedUseCase.class,
+                                UsesTheServiceRoot.class,
+                                UsesASiblingWithALongerName.class,
+                                SiblingWithALongerName.class)))
                 .isEmpty();
     }
 

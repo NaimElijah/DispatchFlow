@@ -1,11 +1,13 @@
 package com.dispatchflow.liveops.domain.delivery;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dispatchflow.liveops.domain.LiveOpsFixtures;
 import com.dispatchflow.shared.DaySeconds;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.StopId;
+import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.TimeWindow;
 import java.time.Duration;
 import java.time.Instant;
@@ -198,5 +200,13 @@ class ArrivalProjectionTest {
         assertThat(early.arrivalOf(S2)).contains(at("07:00:00"));
         assertThat(late.isAtRisk(S1)).isFalse();
         assertThat(late.isAtRisk(LiveOpsFixtures.STOP)).isFalse();
+    }
+
+    @Test
+    void GivenARouteWithOneStopTwice_WhenItsLegsAreBuilt_ThenStoredStateInvalid() {
+        PlannedStopLeg leg = leg(LiveOpsFixtures.STOP, 10, 5, 9, 12, false);
+
+        assertThatThrownBy(() -> new PlannedLegs(DEPARTURE, List.of(leg, leg))).isInstanceOf(StoredStateInvalid.class);
+        assertThatThrownBy(() -> leg(LiveOpsFixtures.STOP, -1, 5, 9, 12, false)).isInstanceOf(StoredStateInvalid.class);
     }
 }

@@ -18,7 +18,7 @@ The forces:
   `.java-version`, `actions/setup-node` reads `.nvmrc`, and uv reads each project's
   `requires-python`.
 - **Some components need a particular version for a reason.** The research code depends on
-  PyVRP, and the solver will depend on OR-Tools ([ADR-005]): libraries that publish wheels for a
+  PyVRP, and the optimizer will depend on OR-Tools ([ADR-005]): libraries that publish wheels for a
   limited range of Python versions.
 - **Some versions are repeated** in files that cannot read a version file, such as a Dockerfile.
 
@@ -32,7 +32,7 @@ tools are pinned beside the code that uses them.
 | Java | 21 | `.java-version` | `actions/setup-java` in CI |
 | Python | 3.14 | `.python-version`, and `requires-python = ">=3.14,<3.15"` in both `pyproject.toml` files | uv reads `requires-python`; it does not look above a project for `.python-version` |
 | Node | 24 | `.nvmrc` | `actions/setup-node` in CI |
-| uv | 0.12.7 | `UV_VERSION` in `.github/workflows/ci.yml`, and the solver `Dockerfile` | `astral-sh/setup-uv`, Docker |
+| uv | 0.12.7 | `UV_VERSION` in `.github/workflows/ci.yml`, and the optimizer `Dockerfile` | `astral-sh/setup-uv`, Docker |
 | Maven | 3.10.0 | `src/backend/core/.mvn/wrapper/maven-wrapper.properties` | the Maven wrapper |
 
 The reason for each language version:
@@ -49,7 +49,7 @@ The versions are repeated where a file cannot read the version files. They chang
 | Version | Also set in |
 |---|---|
 | Java 21 | `<java.version>` in `src/backend/core/pom.xml`, and both `FROM` lines of `src/backend/core/Dockerfile` (`eclipse-temurin:21`) |
-| Python 3.14 | `requires-python = ">=3.14"` in `src/backend/solver/pyproject.toml` and `src/research/pyproject.toml`, and `FROM python:3.14-slim` in `src/backend/solver/Dockerfile` |
+| Python 3.14 | `requires-python = ">=3.14"` in `src/backend/optimizer/pyproject.toml` and `src/research/pyproject.toml`, and `FROM python:3.14-slim` in `src/backend/optimizer/Dockerfile` |
 | uv 0.12.7 | `uv_build>=0.12.7,<0.13.0` under `[build-system]` in both `pyproject.toml` files, as well as the two places in the table |
 
 ## Consequences
@@ -61,9 +61,9 @@ The versions are repeated where a file cannot read the version files. They chang
 - **Hard:** the versions are pinned in several places that must change together. Nothing
   checks that they agree, so a missed one shows up as a failed build or an image that differs
   from CI.
-- **Hard:** Python 3.14 is the newest version the solver can use, so it cannot move ahead of
+- **Hard:** Python 3.14 is the newest version the optimizer can use, so it cannot move ahead of
   OR-Tools. The research code, which also needs PyVRP, is held to the same version.
-- **Hard:** Node 24 is not the newest long-term-support line. The driver app can move to
+- **Hard:** Node 24 is not the newest long-term-support line. The phone app can move to
   Node 26 only after Expo supports it.
 - **Cost:** the version files, the uv pin and the Maven wrapper are each a pin to maintain.
 

@@ -27,14 +27,14 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.violation;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
+import com.dispatchflow.planning.domain.PinTarget;
 import com.dispatchflow.planning.domain.RevisionNo;
 import com.dispatchflow.planning.domain.RuleCode;
 import com.dispatchflow.planning.domain.SolveLimit;
+import com.dispatchflow.planning.domain.drop.DropReason;
+import com.dispatchflow.planning.domain.drop.DroppedOrder;
 import com.dispatchflow.planning.domain.reconciliation.LateFact;
-import com.dispatchflow.planning.domain.solution.DropReason;
-import com.dispatchflow.planning.domain.solution.DroppedOrder;
 import com.dispatchflow.planning.domain.solution.Evaluation;
-import com.dispatchflow.planning.domain.solution.PinTarget;
 import com.dispatchflow.planning.domain.solution.SolvedRoute;
 import com.dispatchflow.planning.domain.solution.SolvedStop;
 import com.dispatchflow.planning.domain.solution.ValidatedSolution;

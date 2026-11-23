@@ -31,7 +31,7 @@ seen them.
   factor ([FR-321], [FR-322]). Arrival is never later than the plan assumed, and a vehicle that arrives
   early waits ([BR-03]), so a plan stays feasible all day. The buckets' hours, the objective's factor
   and the buffer's effect on the validator stay open ([Q-20]).
-- **Settings:** objective code lives in the solver's `domain`. Weights and penalties travel in the problem
+- **Settings:** objective code lives in the optimizer's `domain`. Weights and penalties travel in the problem
   ([ADR-004]), from `core`'s settings or the research harness's configuration.
 - **Study values:** fixed as [Q-29], [Q-30] and [Q-84] say, which replaces [ADR-005]'s clause that they
   stay open until the advisor agrees. The gaps left are in [Q-93].
