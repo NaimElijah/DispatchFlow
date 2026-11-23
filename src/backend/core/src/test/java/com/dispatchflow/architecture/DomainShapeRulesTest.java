@@ -31,10 +31,14 @@ import com.dispatchflow.archfixture.alpha.domain.error.text.ErrorWithPlainText;
 import com.dispatchflow.archfixture.alpha.domain.personal.ContactName;
 import com.dispatchflow.archfixture.alpha.domain.personal.UnredactedContactName;
 import com.dispatchflow.archfixture.alpha.domain.personal.UnredactedNote;
+import com.dispatchflow.archfixture.alpha.domain.shape.AggregateWithANestedVariant;
 import com.dispatchflow.archfixture.alpha.domain.shape.AggregateWithAProtectedConstructorTakingState;
 import com.dispatchflow.archfixture.alpha.domain.shape.AggregateWithAPublicConstructor;
 import com.dispatchflow.archfixture.alpha.domain.shape.AggregateWithHibernatesConstructor;
+import com.dispatchflow.archfixture.alpha.domain.shape.BuildsAnAggregateOutsideItsRoot;
 import com.dispatchflow.archfixture.alpha.domain.shape.EventOutsideEvents;
+import com.dispatchflow.archfixture.alpha.domain.shape.ExtendsAnAggregate;
+import com.dispatchflow.archfixture.alpha.domain.shape.ReferencesAnAggregatesConstructor;
 import com.dispatchflow.archfixture.alpha.domain.shape.SnapshotRecordWithReadUnderLock;
 import com.dispatchflow.archfixture.alpha.events.CleanEvent;
 import com.dispatchflow.archfixture.alpha.events.EventInheritingAText;
@@ -98,6 +102,51 @@ class DomainShapeRulesTest {
             })
     void GivenPrivateConstructorsOrAnUnrestrictedType_WhenEvaluated_ThenNothingIsFlagged(Class<?> fixture) {
         assertThat(flags(DomainShapeRules.restrictedConstructorsArePrivate(FIXTURE_ROOT), fixture))
+                .isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            classes = {
+                BuildsAnAggregateOutsideItsRoot.class,
+                ReferencesAnAggregatesConstructor.class,
+                ExtendsAnAggregate.class
+            })
+    void GivenAnAggregateBuiltOutsideItsRoot_WhenEvaluated_ThenItIsFlagged(Class<?> fixture) {
+        assertThat(flags(DomainShapeRules.aggregatesAreBuiltOnlyByTheirRoot(FIXTURE_ROOT), fixture))
+                .isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            classes = {
+                AlphaAggregate.class,
+                AggregateWithHibernatesConstructor.class,
+                AggregateWithANestedVariant.Variant.class,
+                AlphaRecord.class
+            })
+    void GivenAnAggregateBuiltWithinItsRootOrNoAggregate_WhenEvaluated_ThenNothingIsFlagged(Class<?> fixture) {
+        assertThat(flags(DomainShapeRules.aggregatesAreBuiltOnlyByTheirRoot(FIXTURE_ROOT), fixture))
+                .isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(classes = {ExtendsAnAggregate.class, AggregateWithANestedVariant.Variant.class})
+    void GivenASubclassOfAConcreteRoot_WhenEvaluated_ThenItIsFlagged(Class<?> fixture) {
+        assertThat(flags(DomainShapeRules.aggregateRootsAreNotExtended(FIXTURE_ROOT), fixture))
+                .isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            classes = {
+                AlphaAggregate.class,
+                AggregateWithHibernatesConstructor.class,
+                AggregateWithANestedVariant.class,
+                AlphaRecord.class
+            })
+    void GivenARootThatExtendsAggregateRootOrNoAggregate_WhenEvaluated_ThenNothingIsFlagged(Class<?> fixture) {
+        assertThat(flags(DomainShapeRules.aggregateRootsAreNotExtended(FIXTURE_ROOT), fixture))
                 .isFalse();
     }
 

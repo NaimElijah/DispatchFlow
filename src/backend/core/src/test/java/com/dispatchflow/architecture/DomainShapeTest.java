@@ -51,6 +51,16 @@ class DomainShapeTest {
     }
 
     @Test
+    void GivenTheProductionClasses_WhenAggregateConstructionIsChecked_ThenOnlyEachRootBuildsItself() {
+        DomainShapeRules.aggregatesAreBuiltOnlyByTheirRoot(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenAggregateRootsAreChecked_ThenNoneIsExtended() {
+        DomainShapeRules.aggregateRootsAreNotExtended(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
     void GivenTheProductionClasses_WhenEventsAreLocated_ThenEachLivesInAnEventsPackage() {
         DomainShapeRules.eventsLiveInEventsPackages(ROOT).check(ProductionClasses.ALL);
     }
