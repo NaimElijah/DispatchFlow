@@ -1,6 +1,6 @@
 # ADR-040: The core is a Spring Modulith monolith with one module per bounded context, checked in CI
 
-- **Status:** Accepted; extended by ADR-097, ADR-118 and ADR-120
+- **Status:** Accepted; extended by ADR-097, ADR-118 and ADR-120; amended by ADR-126
 - **Date:** 2026-11-13
 
 ## Context

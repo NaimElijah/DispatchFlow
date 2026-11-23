@@ -26,7 +26,6 @@ import com.dispatchflow.shared.GeoPoint;
 import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.StoredStateInvalid;
-import com.dispatchflow.shared.Version;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.EnumSet;
@@ -103,7 +102,7 @@ class CustomerTest {
             assertThat(registered.flags()).isEmpty();
             assertThat(registered.note()).contains(CustomerBuilder.NOTES);
             assertThat(registered.createdAt()).isEqualTo(CREATED);
-            assertThat(registered.version()).isEqualTo(Version.NEW);
+            assertThat(registered.version()).isNull();
             assertThat(customer.orderDefaults()).isEqualTo(DEFAULTS);
             assertThat(customer.normalizedAddress()).contains(LOOKED_UP);
             assertThat(customer.pendingEvents()).isEmpty();

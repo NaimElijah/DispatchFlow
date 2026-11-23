@@ -34,6 +34,9 @@ final class DomainPackageRules {
     private static final String KERNEL = "shared";
     private static final String EVENTS = "events";
     private static final String APPLICATION = "application";
+    private static final String ADAPTER = "adapter";
+    private static final String OUT = "out";
+    private static final String PERSISTENCE = "persistence";
     private static final String API = "api";
     private static final String SPI = "spi";
 
@@ -129,7 +132,8 @@ final class DomainPackageRules {
      * that lie below one that stays flat whatever its size. A module's {@code application.api},
      * {@code application.spi} and {@code events} are its contract (DL §2.3, rule 4), and the kernel's
      * domain types stay flat until M0, so the kernel's one subpackage is {@code shared.application}
-     * (ADR-120 decision 2).
+     * (ADR-120 decision 2). {@code shared.adapter.out.persistence} is no kernel package but the
+     * persistence adapter every module shares (ADR-126), so it may have subpackages.
      */
     static SortedSet<String> packagesBelowAFlatOne(String root, Collection<String> packageNames) {
         String prefix = root + ".";
@@ -142,7 +146,13 @@ final class DomainPackageRules {
 
     private static boolean liesBelowAFlatOne(String[] segments) {
         if (segments[0].equals(KERNEL)) {
-            return segments.length > 2 || (segments.length == 2 && !segments[1].equals(APPLICATION));
+            // ADR-126: shared.adapter.out.persistence is the persistence adapter every module shares,
+            // not the kernel.
+            boolean adapter = segments.length > 3
+                    && segments[1].equals(ADAPTER)
+                    && segments[2].equals(OUT)
+                    && segments[3].equals(PERSISTENCE);
+            return !adapter && (segments.length > 2 || (segments.length == 2 && !segments[1].equals(APPLICATION)));
         }
         boolean belowEvents = segments.length > 2 && segments[1].equals(EVENTS);
         boolean belowApiOrSpi = segments.length > 3
@@ -152,7 +162,6 @@ final class DomainPackageRules {
     }
 
     private static Stream<JavaPackage> subjects(String root, JavaClasses classes) {
-        return classes.that(JavaClass.Predicates.resideInAnyPackage(DomainPurityRules.pureLayers(root))).stream()
-                .map(JavaClass::getPackage);
+        return classes.that(DomainPurityRules.inPureLayers(root)).stream().map(JavaClass::getPackage);
     }
 }

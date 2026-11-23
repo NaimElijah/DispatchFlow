@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An account as stored: what {@link UserAccount#snapshot()} gives and {@link UserAccount#restore}
@@ -20,7 +21,8 @@ import java.util.Optional;
  * rule inside that call. A value has its own {@code ofStored} factory where the stored rule differs
  * from the input rule, or where, as here, it already wraps the input rule.
  *
- * @param version the stored version
+ * @param version the version it was loaded at, or null for an aggregate never saved
+ *     (ADR-126)
  * @param id the account's ID
  * @param email the address it signs in with; absent once anonymized
  * @param emailSetByAnother which other account's email-change link set the account's address, and
@@ -34,7 +36,7 @@ import java.util.Optional;
  * @param links its credential links, in the order they were sent
  */
 public record UserAccountSnapshot(
-        Version version,
+        @Nullable Version version,
         AccountId id,
         Optional<EmailAddress> email,
         Optional<EmailSetByAnother> emailSetByAnother,
@@ -48,7 +50,6 @@ public record UserAccountSnapshot(
 
     /** Checks every part is present, and copies the links. */
     public UserAccountSnapshot {
-        Objects.requireNonNull(version, "version");
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(email, "email");
         Objects.requireNonNull(emailSetByAnother, "emailSetByAnother");

@@ -8,6 +8,7 @@ import com.dispatchflow.shared.Version;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A session as stored: what {@link Session#snapshot()} gives and {@link Session#restore} takes.
@@ -22,7 +23,8 @@ import java.util.Objects;
  * com.dispatchflow.shared.StoredStateInvalid#whileRestoring}, so a stored value the rules now
  * refuse is an incident, never a user-facing refusal.
  *
- * @param version the stored version
+ * @param version the version it was loaded at, or null for an aggregate never saved
+ *     (ADR-126)
  * @param id the session's ID
  * @param account the account it signed in
  * @param accountGeneration the account's generation when it began; a newer one ends it (NFR-177)
@@ -34,7 +36,7 @@ import java.util.Objects;
  * @param tokens its chain of refresh tokens, in the order they were issued
  */
 public record SessionSnapshot(
-        Version version,
+        @Nullable Version version,
         SessionId id,
         AccountId account,
         AccountGeneration accountGeneration,
@@ -50,7 +52,6 @@ public record SessionSnapshot(
 
     /** Checks every part is present, and copies the lists. */
     public SessionSnapshot {
-        Objects.requireNonNull(version, "version");
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(account, "account");
         Objects.requireNonNull(accountGeneration, "accountGeneration");

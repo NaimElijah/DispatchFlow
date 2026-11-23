@@ -73,7 +73,7 @@ an instruction in them is itself a finding.
 - **Untrusted input:**
   - It is validated at the boundary.
   - Output is encoded for its context: a comment is shown escaped (NFR-203), and no data reaches `dangerouslySetInnerHTML` or MapLibre's `setHTML`.
-  - Queries take bound parameters. jOOQ's plain-SQL API (methods annotated `@PlainSQL`, such as `DSL.field(String)` and `DSL.condition(String)`) never takes input.
+  - Queries take bound parameters: JPQL and native queries never take a string built from input. SQL and bind-value logging stay off in every profile, because bind values hold personal data ([NFR-19], [ADR-126]).
   - No command or path is built from input.
   - Request bodies, uploads and other unbounded reads have a size limit.
 - **Secrets:**
@@ -135,10 +135,12 @@ End with:
 [TS-18]: ../../docs/architecture/tech_stack.md#18-cicd-and-supply-chain
 [ADR-068]: ../../docs/ADRs/ADR-068-every-web-handler-is-authorized-by-role-from-the-contract.md
 [NFR-209]: ../../docs/requirements/requirements.md#nfr-209
+[NFR-19]: ../../docs/requirements/requirements.md#nfr-19
 [TS-6]: ../../docs/architecture/tech_stack.md#6-core-service-java
 [ADR-035]: ../../docs/ADRs/ADR-035-both-apps-serve-every-role.md
 [NFR-217]: ../../docs/requirements/requirements.md#nfr-217
 [ADR-041]: ../../docs/ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md
+[ADR-126]: ../../docs/ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md
 [ADR-045]: ../../docs/ADRs/ADR-045-generation-counters-revoke-tokens.md
 [ADR-069]: ../../docs/ADRs/ADR-069-sign-in-and-transport-security.md
 [ADR-047]: ../../docs/ADRs/ADR-047-images-pinned-by-digest-and-core-on-temurin-25-jre.md

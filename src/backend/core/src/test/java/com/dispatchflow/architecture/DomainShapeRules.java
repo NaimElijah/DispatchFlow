@@ -32,6 +32,7 @@ import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.Volume;
 import com.dispatchflow.shared.Weight;
 import com.tngtech.archunit.core.domain.JavaClass;
+import com.tngtech.archunit.core.domain.JavaConstructor;
 import com.tngtech.archunit.core.domain.JavaField;
 import com.tngtech.archunit.core.domain.JavaModifier;
 import com.tngtech.archunit.core.domain.JavaParameterizedType;
@@ -109,7 +110,9 @@ final class DomainShapeRules {
      * DL §3.5 and §13: aggregates, lock-read snapshots and Planning's optimizer results, with every
      * type nested in an optimizer result, are built only by their factories, so their constructors
      * are private. So is {@code ValidatedSolution}'s, whose factory anyone may call. A record can't
-     * qualify: its canonical constructor is as visible as the record.
+     * qualify: its canonical constructor is as visible as the record. An aggregate root may also
+     * declare the protected no-argument constructor Hibernate needs (ADR-126): it takes no state, so
+     * only Hibernate and the root's own creation factory use it.
      */
     static ArchRule restrictedConstructorsArePrivate(String root) {
         return classes()
@@ -124,6 +127,8 @@ final class DomainShapeRules {
                         item.getConstructors().stream()
                                 .filter(constructor ->
                                         !constructor.getModifiers().contains(JavaModifier.PRIVATE))
+                                .filter(constructor ->
+                                        !(RestrictedTypes.isAggregate(item) && isHibernatesConstructor(constructor)))
                                 .forEach(constructor -> events.add(SimpleConditionEvent.violated(
                                         constructor, constructor.getFullName() + " is not private")));
                     }
@@ -271,6 +276,11 @@ final class DomainShapeRules {
                 })
                 .because("DL §3.8: each code is derived from its type's simple name, which the uniqueness test"
                         + " checks");
+    }
+
+    private static boolean isHibernatesConstructor(JavaConstructor constructor) {
+        return constructor.getModifiers().contains(JavaModifier.PROTECTED)
+                && constructor.getRawParameterTypes().isEmpty();
     }
 
     /** Whether a type is a concrete event, which the event rules check. */

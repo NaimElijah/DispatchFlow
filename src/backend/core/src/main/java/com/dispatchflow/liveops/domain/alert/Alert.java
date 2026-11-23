@@ -5,7 +5,6 @@ import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.AggregateRoot;
 import com.dispatchflow.shared.AlertId;
 import com.dispatchflow.shared.RuleViolation;
-import com.dispatchflow.shared.Version;
 import java.time.Instant;
 import java.util.Objects;
 
@@ -37,13 +36,13 @@ public final class Alert extends AggregateRoot {
      * @param id the new alert's ID
      * @param subject what it is about
      * @param now when it is raised
-     * @return the alert, open, at {@link Version#NEW}
+     * @return the alert, open, never saved
      */
     public static Alert raise(AlertId id, AlertSubject subject, Instant now) {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(subject, "subject");
         Objects.requireNonNull(now, "now");
-        return new Alert(new AlertSnapshot(id, Version.NEW, subject, now, new AlertState.Open()));
+        return new Alert(new AlertSnapshot(id, null, subject, now, new AlertState.Open()));
     }
 
     /**
@@ -63,7 +62,7 @@ public final class Alert extends AggregateRoot {
      * @return the stored form
      */
     public AlertSnapshot snapshot() {
-        return new AlertSnapshot(id, version(), subject, raisedAt, state);
+        return new AlertSnapshot(id, savedVersion().orElse(null), subject, raisedAt, state);
     }
 
     /**

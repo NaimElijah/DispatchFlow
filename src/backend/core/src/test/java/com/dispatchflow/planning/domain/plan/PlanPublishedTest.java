@@ -531,12 +531,12 @@ class PlanPublishedTest {
     @Test
     void GivenAnEvaluationOfAnotherVersion_WhenARouteIsHandedOver_ThenStaleEvaluation() {
         Plan plan = aPlan().published();
-        Evaluation old = Evaluation.checked(Version.NEW, List.of(), List.of());
+        Evaluation old = Evaluation.checked(Version.of(0), List.of(), List.of());
 
         assertPlanRefused(
                 plan,
                 () -> plan.handOver(routeId(plan, V1), D3_STANDS, Optional.of(old), false, DISPATCHER, TODAY, LATER),
-                new StaleEvaluation(Version.NEW, plan.version()));
+                new StaleEvaluation(Version.of(0), plan.version()));
     }
 
     // ---- removeStopOf ---------------------------------------------------------------------------

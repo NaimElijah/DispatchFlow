@@ -25,7 +25,6 @@ import com.dispatchflow.access.domain.account.AccountState;
 import com.dispatchflow.access.domain.account.UserAccount;
 import com.dispatchflow.shared.DomainError;
 import com.dispatchflow.shared.PersonalData;
-import com.dispatchflow.shared.Version;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -176,10 +175,10 @@ class SessionTest {
 
         Session session = Session.open(SESSION, account, FIRST, FIRST_HASH, OPENED);
 
-        assertThat(session.version()).isEqualTo(Version.NEW);
+        assertThat(session.snapshot().version()).isNull();
         assertThat(session.snapshot())
                 .isEqualTo(new SessionSnapshot(
-                        Version.NEW,
+                        null,
                         SESSION,
                         AccountBuilder.ACCOUNT,
                         AccountBuilder.GENERATION,

@@ -25,7 +25,7 @@ public interface CompanyProfileRepository {
      *
      * <p>Built in M2.
      *
-     * @param profile the new profile, at {@code Version.NEW}
+     * @param profile the new profile, never saved
      * @throws StaleVersion when a profile was stored after {@link #get} read none (BR-76)
      */
     void add(CompanyProfile profile);

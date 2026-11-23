@@ -30,8 +30,8 @@ public final class CompanyQueries {
      * The company's details, with the version the next change sends as {@code If-Match} (BR-76).
      * Before an Admin first saves the settings there is no profile, and the answer is empty, so the
      * settings page opens with no values for the Admin to fill in. With no version to send, its
-     * first save sends {@code If-None-Match: *}, which the web adapter passes on as {@code
-     * Version.NEW}.
+     * first save sends {@code If-None-Match: *}, which the web adapter passes on as an empty
+     * version.
      *
      * <p>It never throws {@code CompanyNotSetUp}: that error is for a use case that needs the
      * profile, and this page is where the profile is set up, so no profile is an answer here.

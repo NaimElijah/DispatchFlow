@@ -102,6 +102,7 @@ class DomainPackageRulesTest {
                         ALPHA_DOMAIN,
                         ALPHA_DOMAIN + ".clock",
                         ALPHA_DOMAIN + ".dependency",
+                        ALPHA_DOMAIN + ".entity",
                         ALPHA_DOMAIN + ".error",
                         ALPHA_DOMAIN + ".error.personalvalue",
                         ALPHA_DOMAIN + ".error.text",
@@ -113,6 +114,7 @@ class DomainPackageRulesTest {
                         ALPHA_DOMAIN + ".io.process",
                         ALPHA_DOMAIN + ".io.thread",
                         ALPHA_DOMAIN + ".logging",
+                        ALPHA_DOMAIN + ".mapping",
                         ALPHA_DOMAIN + ".personal",
                         ALPHA_DOMAIN + ".randomness",
                         ALPHA_DOMAIN + ".shape");
@@ -163,6 +165,9 @@ class DomainPackageRulesTest {
                                 root + ".shared.application",
                                 root + ".shared.id",
                                 root + ".shared.application.port",
+                                root + ".shared.adapter.out.persistence",
+                                root + ".shared.adapter.out.persistence.id",
+                                root + ".shared.adapter.util",
                                 root + ".alpha.events",
                                 root + ".alpha.events.kind",
                                 root + ".alpha.application.api",
@@ -180,6 +185,7 @@ class DomainPackageRulesTest {
                         root + ".alpha.application.api.plan",
                         root + ".alpha.application.spi.usage",
                         root + ".alpha.events.kind",
+                        root + ".shared.adapter.util",
                         root + ".shared.application.port",
                         root + ".shared.id");
     }

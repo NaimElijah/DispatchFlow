@@ -1,14 +1,19 @@
 # DispatchFlow — Data model
 
 No data model exists in code today. `src/backend/core/src/main/resources/db/migration/` holds
-only a `.gitkeep`, so the database has no table, and `core` has no JPA entity
-([code-structure.md](code-structure.md#srcbackendcore)).
+only a `.gitkeep`, so the database has no table, and `core` has no JPA entity in `src/main`
+([code-structure.md](code-structure.md#srcbackendcore)). The one entity with a table in the repository
+is a test fixture: `Ledger` with `LedgerEntry` in `src/test`, and the migration
+`src/test/resources/db/fixture/V0_1__persistence_fixture.sql`, which creates the schema
+`persistence_fixture` and which only the tests run
+([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)). The `@Entity`
+classes under `archfixture/` are deliberately wrong fixtures for the mapping rules, and no schema maps them.
 
 The decided design is the domain document, the tech stack and the ADRs: see
 [domain layer design §2.3](domain_layer/domain_layer_design.md#23-rules-between-contexts) (each
 module owns its tables), [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md)
 (a schema per module) and [ADR-059](../ADRs/ADR-059-plan-revisions-are-stored-as-rows.md) (plan
-revisions as rows). The persistence rules (jOOQ, optimistic locking, column types and the two
+revisions as rows). The persistence rules (JPA, optimistic locking, column types and the two
 database roles) are in [tech stack §6.3](tech_stack.md#63-persistence), and the aggregates in
 [domain layer design §4](domain_layer/domain_layer_design.md#4-aggregates-context-by-context). The
 related ADRs are

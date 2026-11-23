@@ -15,7 +15,6 @@ import com.dispatchflow.shared.IsraelDateTime;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.VehicleId;
-import com.dispatchflow.shared.Version;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Period;
@@ -67,7 +66,7 @@ public final class Driver extends AggregateRoot {
      * @param defaultVehicle the vehicle a date gets by default
      * @param account Access's answer: {@link Standing#ACTIVE} when the account is active and holds
      *     the Driver role
-     * @return the new driver, active, at {@link Version#NEW}
+     * @return the new driver, active, never saved
      * @throws RuleViolation with {@link NotAnActiveDriver} when the account is not an active driver
      */
     public static Driver register(
@@ -79,7 +78,7 @@ public final class Driver extends AggregateRoot {
         }
         return new Driver(new DriverSnapshot(
                 id,
-                Version.NEW,
+                null,
                 new DriverStatus.Active(),
                 Optional.of(contact),
                 defaultShift,
@@ -116,7 +115,13 @@ public final class Driver extends AggregateRoot {
      */
     public DriverSnapshot snapshot() {
         return new DriverSnapshot(
-                id, version(), status, Optional.ofNullable(contact), defaultShift, defaultVehicle, weeklyShifts);
+                id,
+                savedVersion().orElse(null),
+                status,
+                Optional.ofNullable(contact),
+                defaultShift,
+                defaultVehicle,
+                weeklyShifts);
     }
 
     /**

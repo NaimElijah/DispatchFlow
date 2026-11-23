@@ -14,7 +14,6 @@ import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StoredStateInvalid;
-import com.dispatchflow.shared.Version;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Period;
@@ -117,7 +116,7 @@ public final class Customer extends AggregateRoot implements PersonalData {
      * @param defaults its default window and service time, from the form or the company's (FR-125)
      * @param now the time of creation, from which a customer that never gets an order counts its
      *     retention (NFR-257, ADR-102)
-     * @return the customer, at {@link Version#NEW}
+     * @return the customer, never saved
      */
     public static Customer register(
             CustomerId id,
@@ -157,7 +156,7 @@ public final class Customer extends AggregateRoot implements PersonalData {
                 defaults,
                 new State.Active(),
                 now,
-                Version.NEW));
+                null));
     }
 
     /**
@@ -432,7 +431,7 @@ public final class Customer extends AggregateRoot implements PersonalData {
                 defaults,
                 state,
                 createdAt,
-                version());
+                savedVersion().orElse(null));
     }
 
     /**

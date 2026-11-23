@@ -31,7 +31,9 @@ import com.dispatchflow.archfixture.alpha.domain.error.text.ErrorWithPlainText;
 import com.dispatchflow.archfixture.alpha.domain.personal.ContactName;
 import com.dispatchflow.archfixture.alpha.domain.personal.UnredactedContactName;
 import com.dispatchflow.archfixture.alpha.domain.personal.UnredactedNote;
+import com.dispatchflow.archfixture.alpha.domain.shape.AggregateWithAProtectedConstructorTakingState;
 import com.dispatchflow.archfixture.alpha.domain.shape.AggregateWithAPublicConstructor;
+import com.dispatchflow.archfixture.alpha.domain.shape.AggregateWithHibernatesConstructor;
 import com.dispatchflow.archfixture.alpha.domain.shape.EventOutsideEvents;
 import com.dispatchflow.archfixture.alpha.domain.shape.SnapshotRecordWithReadUnderLock;
 import com.dispatchflow.archfixture.alpha.events.CleanEvent;
@@ -73,6 +75,7 @@ class DomainShapeRulesTest {
             classes = {
                 SnapshotRecordWithReadUnderLock.class,
                 AggregateWithAPublicConstructor.class,
+                AggregateWithAProtectedConstructorTakingState.class,
                 com.dispatchflow.archfixture.planning.domain.shaped.Evaluation.class,
                 ValidationReport.class,
                 Evaluation.Builder.class,
@@ -87,6 +90,7 @@ class DomainShapeRulesTest {
     @ValueSource(
             classes = {
                 AlphaAggregate.class,
+                AggregateWithHibernatesConstructor.class,
                 AlphaCapacity.class,
                 Evaluation.class,
                 AlphaRecord.class,

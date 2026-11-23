@@ -11,6 +11,7 @@ import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.IdGenerator;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
+import java.util.Optional;
 
 /**
  * A dispatcher registers a vehicle with its capacities, its start and end depots, a display name
@@ -49,7 +50,8 @@ public final class AddVehicle {
      *
      * @param actor the signed-in user acting
      * @param details its name, plate, capacity and depots
-     * @param expected the version of the register the caller last read (BR-76)
+     * @param expected the version of the register the caller last read, or empty before the
+     *     register is first stored, which sends {@code If-None-Match: *} (BR-76)
      * @return the new vehicle's ID
      * @throws RuleViolation with Fleet's {@code FleetFull} when 15 vehicles are active (BR-36);
      *     {@code UnknownDepot} when either depot is not active (BR-40); {@code
@@ -59,7 +61,7 @@ public final class AddVehicle {
      * @throws StaleVersion when the register is no longer at {@code expected}, or changed before
      *     the save (BR-76)
      */
-    public VehicleId add(Actor actor, VehicleDetails details, Version expected) {
+    public VehicleId add(Actor actor, VehicleDetails details, Optional<Version> expected) {
         throw new UnsupportedOperationException("Built in M2");
     }
 }

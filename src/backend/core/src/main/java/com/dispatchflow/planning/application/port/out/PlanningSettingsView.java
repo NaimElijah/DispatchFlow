@@ -7,6 +7,7 @@ import com.dispatchflow.planning.domain.settings.FixedVehicleCost;
 import com.dispatchflow.planning.domain.settings.TravelBuckets;
 import com.dispatchflow.shared.Version;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * The planning settings an Admin sees and changes in one place (FR-183, FR-19, FR-21, FR-67, FR-227,
@@ -14,7 +15,8 @@ import java.util.Objects;
  *
  * <p>Built in M4.
  *
- * @param version their version, which the next change sends as {@code If-Match} (BR-76)
+ * @param version their version, which the next change sends as {@code If-Match} (BR-76);
+ *     empty while they are the starting values, never saved
  * @param travelBuckets the travel-time buckets and their factors (FR-321, FR-408)
  * @param buffer the travel-time buffer (FR-227)
  * @param defaultSolveLimit the default daily solve limit (FR-19, FR-183)
@@ -22,7 +24,7 @@ import java.util.Objects;
  * @param departureAllowance the departure allowance (FR-67)
  */
 public record PlanningSettingsView(
-        Version version,
+        Optional<Version> version,
         TravelBuckets travelBuckets,
         Buffer buffer,
         SolveLimit defaultSolveLimit,

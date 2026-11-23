@@ -9,11 +9,12 @@ import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.StaleVersion;
+import java.util.Optional;
 
 /**
  * A dispatcher records that a rostered driver drives no vehicle on a date; they still work their
  * shift (FR-54). The choice counts as set, so a fill leaves it alone (FR-79). A date with no roster
- * yet is opened empty, at {@code Version.NEW}, so the domain answers a driver who is not on it.
+ * yet is opened empty, never saved, so the domain answers a driver who is not on it.
  * Like every changing call it writes its audit record, a refused attempt's in its own transaction
  * (NFR-23, ADR-110).
  *
@@ -46,14 +47,14 @@ public final class UnassignVehicle {
      * @param actor the signed-in user acting
      * @param date the roster's date
      * @param driver the driver's account
-     * @param expected the version of the date's roster the caller last read, {@code Version.NEW}
-     *     for a date with none yet (BR-76)
+     * @param expected the version of the date's roster the caller last read, or empty for a date
+     *     with none yet, which sends {@code If-None-Match: *} (BR-76)
      * @throws RuleViolation with Fleet's {@code DriverNotRostered} when the driver has no shift
      *     that date
      * @throws StaleVersion when the roster is no longer at {@code expected}, or changed before the
      *     save (BR-76)
      */
-    public void unassign(Actor actor, DeliveryDate date, AccountId driver, Version expected) {
+    public void unassign(Actor actor, DeliveryDate date, AccountId driver, Optional<Version> expected) {
         throw new UnsupportedOperationException("Built in M2");
     }
 }

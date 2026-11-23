@@ -27,7 +27,7 @@ public interface MessagingSettingsRepository {
      *
      * <p>Built in M12.
      *
-     * @param settings the settings, at {@code Version.NEW}
+     * @param settings the settings, never saved
      * @throws StaleVersion when another Admin stored them first
      */
     void add(MessagingSettings settings);

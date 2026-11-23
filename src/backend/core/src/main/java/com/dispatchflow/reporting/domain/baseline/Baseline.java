@@ -7,7 +7,6 @@ import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.VehicleId;
-import com.dispatchflow.shared.Version;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -49,13 +48,13 @@ public final class Baseline extends AggregateRoot {
      * @param plan the published plan, which keys the baseline
      * @param result the nearest-neighbour solve's figures, on the plan's orders and fleet
      * @param now when it was computed
-     * @return the baseline, caused by the publication, at {@link Version#NEW}
+     * @return the baseline, caused by the publication, never saved
      */
     public static Baseline compute(PlanId plan, PlannedFigures result, Instant now) {
         Objects.requireNonNull(plan, "plan");
         Objects.requireNonNull(result, "result");
         Objects.requireNonNull(now, "now");
-        return new Baseline(new BaselineSnapshot(plan, Version.NEW, result, new BaselineCause.Published(), now));
+        return new Baseline(new BaselineSnapshot(plan, null, result, new BaselineCause.Published(), now));
     }
 
     /**
@@ -180,7 +179,7 @@ public final class Baseline extends AggregateRoot {
      * @return a snapshot that {@link #restore} rebuilds
      */
     public BaselineSnapshot snapshot() {
-        return new BaselineSnapshot(plan, version(), result, cause, computedAt);
+        return new BaselineSnapshot(plan, savedVersion().orElse(null), result, cause, computedAt);
     }
 
     private BaselineCause.Recomputed recomputedSoFar() {
@@ -213,8 +212,8 @@ public final class Baseline extends AggregateRoot {
      * the command, not a refusal.
      */
     private void commit(PlannedFigures nextResult, BaselineCause nextCause, Instant nextComputedAt) {
-        Optional<String> broken =
-                brokenBy(new BaselineSnapshot(plan, version(), nextResult, nextCause, nextComputedAt));
+        Optional<String> broken = brokenBy(
+                new BaselineSnapshot(plan, savedVersion().orElse(null), nextResult, nextCause, nextComputedAt));
         if (broken.isPresent()) {
             throw new AssertionError("a baseline command would leave a state that breaks: " + broken.get());
         }

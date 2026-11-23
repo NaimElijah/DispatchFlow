@@ -29,7 +29,6 @@ import com.dispatchflow.shared.EventId;
 import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.StoredStateInvalid;
-import com.dispatchflow.shared.Version;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -74,11 +73,11 @@ class DriverTest {
         Driver driver = Driver.register(DANA, DANA_CONTACT, DEFAULT_SHIFT, DEFAULT_VEHICLE, Standing.ACTIVE);
 
         assertThat(driver.id()).isEqualTo(DANA);
-        assertThat(driver.version()).isEqualTo(Version.NEW);
+        assertThat(driver.snapshot().version()).isNull();
         assertThat(driver.snapshot())
                 .isEqualTo(new DriverSnapshot(
                         DANA,
-                        Version.NEW,
+                        null,
                         new DriverStatus.Active(),
                         Optional.of(DANA_CONTACT),
                         DEFAULT_SHIFT,

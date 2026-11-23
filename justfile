@@ -41,6 +41,11 @@ core-format:
 core-run:
     {{ mvnw }} -B -ntp spring-boot:test-run
 
+# Write the DDL Hibernate would generate to target/schema-draft.sql, a migration's draft. No database.
+[working-directory('src/backend/core')]
+core-schema-draft:
+    {{ mvnw }} -B -ntp spring-boot:run "-Dspring-boot.run.profiles=schema-draft"
+
 # --- backend/optimizer: Python, FastAPI, uv ---
 
 [working-directory('src/backend/optimizer')]

@@ -1,6 +1,7 @@
 package com.dispatchflow.shared;
 
 import com.dispatchflow.shared.SharedKernelError.OutsideTheDay;
+import jakarta.persistence.Embeddable;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
@@ -14,9 +15,13 @@ import java.util.Objects;
  * <p>It runs from 0 to the date's length inclusive: the date's length is the end of a solve's
  * planning horizon (ADR-088).
  *
+ * <p>An entity embeds it, stored in two columns, its date and its seconds; an adapter's
+ * instantiator rebuilds it (ADR-126).
+ *
  * @param date the date the seconds count from
  * @param seconds elapsed seconds since that date's local midnight
  */
+@Embeddable
 public record DaySeconds(DeliveryDate date, long seconds) {
 
     /**

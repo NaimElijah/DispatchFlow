@@ -7,6 +7,7 @@ import com.dispatchflow.shared.VehicleId;
 import com.dispatchflow.shared.Version;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * One date's roster as its screen shows it (FR-54, FR-79): each driver's shift, vehicle,
@@ -22,10 +23,11 @@ import java.util.Objects;
  * @param entries every rostered driver, each once, whatever their standing
  * @param unavailableVehicles the vehicles marked unavailable that date (FR-07, FR-301)
  * @param version the version the roster was read at, for {@code If-Match} on every roster change
- *     but {@code FillDayRoster}, which takes none (BR-76); {@code Version.NEW} for a date nobody
+ *     but {@code FillDayRoster}, which takes none (BR-76); empty for a date nobody
  *     rostered, which the first change opens
  */
-public record RosterView(DeliveryDate date, List<Line> entries, List<VehicleId> unavailableVehicles, Version version) {
+public record RosterView(
+        DeliveryDate date, List<Line> entries, List<VehicleId> unavailableVehicles, Optional<Version> version) {
 
     /** Checks every part is present, and copies the lists. */
     public RosterView {

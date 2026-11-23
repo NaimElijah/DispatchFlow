@@ -34,7 +34,6 @@ class EventIdTest {
                 "PlanPublished:1-1-1-1-1:4:1",
                 "PlanPublished:0190a5e2-7c3b-7def-8a12-3456789abcde:four:1",
                 "PlanPublished:0190a5e2-7c3b-7def-8a12-3456789abcde:4:-1",
-                "PlanPublished:0190a5e2-7c3b-7def-8a12-3456789abcde:0:0",
                 ":0190a5e2-7c3b-7def-8a12-3456789abcde:4:1",
                 "plan published:0190a5e2-7c3b-7def-8a12-3456789abcde:4:1",
                 "PlanPublished:0190A5E2-7C3B-7DEF-8A12-3456789ABCDE:4:1",
@@ -51,6 +50,14 @@ class EventIdTest {
             assertThat(invalid.subject()).isEqualTo("EventId");
             assertThat(invalid.getCause()).isNull();
         });
+    }
+
+    @Test
+    void GivenTheEventOfAFirstSave_WhenWrittenAndParsed_ThenVersionZeroIsKept() {
+        EventId created = new EventId("PlanOpened", ID, Version.of(0), 0);
+
+        assertThat(created.toText()).isEqualTo("PlanOpened:0190a5e2-7c3b-7def-8a12-3456789abcde:0:0");
+        assertThat(EventId.parse(created.toText())).isEqualTo(created);
     }
 
     @Test

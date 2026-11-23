@@ -61,8 +61,12 @@ report findings.
   - A breaking change needs a new major version.
 - **Persistence (Flyway, which [ADR-041] keeps from ADR-007):**
   - Schema changes only through a new Flyway migration; an applied migration is never edited.
-  - Queries are parameterised. jOOQ's plain-SQL API (methods annotated `@PlainSQL`, such as `DSL.field(String)` and `DSL.condition(String)`) never takes input: bind parameters.
-  - A module's persistence goes through jOOQ in its own schema ([ADR-041], Accepted and not in the tree yet; the pom still has Spring Data JPA).
+  - Queries are parameterised: JPQL and native queries take bound parameters, never a string built from input.
+  - A module's persistence goes through JPA in its own schema ([ADR-041], amended by [ADR-126]; the shared adapter and the kernel's mapping are in the tree, no aggregate is mapped yet):
+    - an adapter implements its port with a package-private Spring Data `Repository<Root, UUID>` interface, never `CrudRepository`, `ListCrudRepository` or `JpaRepository`;
+    - its `add` and `save` go through `VersionedSave`, so every save moves the version by exactly 1;
+    - PostgreSQL-specific SQL is a native query with bound parameters and an adapter test;
+    - every entity names its module's schema in `@Table`. ArchUnit checks the repository and schema rules, and review checks the rest.
 - **Code style:**
   - Names carry the meaning, and comments explain why, never what.
   - Every public type and function has a doc comment.
@@ -98,6 +102,7 @@ No praise, and no restating what the code does. End with:
 [ADR-038]: ../../docs/ADRs/ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md
 [ADR-040]: ../../docs/ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md
 [ADR-041]: ../../docs/ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md
+[ADR-126]: ../../docs/ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md
 [ADR-044]: ../../docs/ADRs/ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md
 [ADR-063]: ../../docs/ADRs/ADR-063-a-transaction-changes-one-aggregate-and-every-rule-has-one-owner.md
 [ADR-064]: ../../docs/ADRs/ADR-064-events-only-where-they-earn-their-place-through-the-modulith-registry.md

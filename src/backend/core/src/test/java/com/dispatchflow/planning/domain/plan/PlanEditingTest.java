@@ -120,10 +120,10 @@ class PlanEditingTest {
         Plan plan = aPlan().ready();
         StopId o1 = stopId(plan, O1);
         RouteId v2 = routeId(plan, V2);
-        Evaluation old = Evaluation.checked(Version.NEW, List.of(), List.of());
+        Evaluation old = Evaluation.checked(Version.of(0), List.of(), List.of());
 
         assertPlanRefused(
-                plan, () -> plan.moveStop(o1, v2, 0, old, TODAY), new StaleEvaluation(Version.NEW, plan.version()));
+                plan, () -> plan.moveStop(o1, v2, 0, old, TODAY), new StaleEvaluation(Version.of(0), plan.version()));
     }
 
     @Test

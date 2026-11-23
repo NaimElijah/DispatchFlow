@@ -5,8 +5,10 @@
  * ports and errors every module's application layer shares live in their own package, {@code
  * shared.application}, which no domain type may import (ADR-120).
  *
- * <p>It is pure: it imports only the JDK, JSpecify and libphonenumber, and the ArchUnit purity
- * rules check it with every module's domain (DL §3.9). A change here needs the agreement of every
+ * <p>It is pure: it imports only the JDK, JSpecify and libphonenumber, and carries only the
+ * persistence annotations ADR-126 allows, and the ArchUnit purity rules check it with every module's
+ * domain (DL §3.9). The persistence adapter beside it, {@code shared.adapter.out.persistence}, is no
+ * part of it, and it uses none of that adapter's classes. A change here needs the agreement of every
  * module's owner (DL §2.3 rule 5).
  */
 @NullMarked

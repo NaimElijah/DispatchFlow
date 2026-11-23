@@ -21,7 +21,6 @@ import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.StoredStateInvalid;
-import com.dispatchflow.shared.Version;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -88,10 +87,10 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
      * Starts the messages of a stop that has none yet, when its first trigger arrives (DL §6.2).
      *
      * @param stop the stop
-     * @return the aggregate, with no message, at {@link Version#NEW}
+     * @return the aggregate, with no message, never saved
      */
     public static StopMessages open(StopId stop) {
-        return new StopMessages(new StopMessagesSnapshot(Objects.requireNonNull(stop, "stop"), Version.NEW, List.of()));
+        return new StopMessages(new StopMessagesSnapshot(Objects.requireNonNull(stop, "stop"), null, List.of()));
     }
 
     /**
@@ -471,7 +470,7 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
      * @return a snapshot that {@link #restore} rebuilds
      */
     public StopMessagesSnapshot snapshot() {
-        return new StopMessagesSnapshot(stop, version(), messages);
+        return new StopMessagesSnapshot(stop, savedVersion().orElse(null), messages);
     }
 
     /**
@@ -633,7 +632,8 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
      * here is a bug in the command, not a refusal.
      */
     private void commit(List<OutgoingMessage> nextMessages) {
-        StopMessagesSnapshot candidate = new StopMessagesSnapshot(stop, version(), nextMessages);
+        StopMessagesSnapshot candidate =
+                new StopMessagesSnapshot(stop, savedVersion().orElse(null), nextMessages);
         StopMessagesInvariants.brokenBy(candidate).ifPresent(broken -> {
             throw new AssertionError("a stop messages command would leave a state that breaks: " + broken);
         });

@@ -24,7 +24,7 @@ public final class CompanyProfile extends AggregateRoot {
     private @Nullable DefaultServiceTime defaultServiceTime;
 
     private CompanyProfile(
-            Version version,
+            @Nullable Version version,
             CompanyName name,
             Language language,
             DefaultWindow defaultWindow,
@@ -46,7 +46,7 @@ public final class CompanyProfile extends AggregateRoot {
      * @return the new profile, raising no event
      */
     public static CompanyProfile create(CompanyName name, Language language, DefaultWindow defaultWindow) {
-        return new CompanyProfile(Version.NEW, name, language, defaultWindow, null);
+        return new CompanyProfile(null, name, language, defaultWindow, null);
     }
 
     /**
@@ -148,6 +148,6 @@ public final class CompanyProfile extends AggregateRoot {
      */
     public CompanyProfileSnapshot snapshot() {
         return new CompanyProfileSnapshot(
-                version(), name, language, defaultWindow, Optional.ofNullable(defaultServiceTime));
+                savedVersion().orElse(null), name, language, defaultWindow, Optional.ofNullable(defaultServiceTime));
     }
 }

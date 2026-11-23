@@ -25,7 +25,6 @@ import com.dispatchflow.messaging.domain.rating.RatingRequest.Status;
 import com.dispatchflow.messaging.events.RatingReceived;
 import com.dispatchflow.shared.EventId;
 import com.dispatchflow.shared.StoredStateInvalid;
-import com.dispatchflow.shared.Version;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -73,7 +72,7 @@ class RatingRequestTest {
         assertThat(request.snapshot())
                 .isEqualTo(new RatingRequestSnapshot(
                         REQUEST,
-                        Version.NEW,
+                        null,
                         STOP,
                         Optional.of(MOBILE),
                         TEN,

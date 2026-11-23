@@ -29,6 +29,7 @@ import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
+import com.dispatchflow.shared.StoredVersions;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -130,7 +131,7 @@ public final class LiveOpsFixtures {
                 s.stop(),
                 s.order(),
                 s.attempt(),
-                delivery.version().next(),
+                StoredVersions.afterSave(delivery),
                 s.arrival(),
                 s.outcomes(),
                 s.heldReports()));
@@ -139,7 +140,13 @@ public final class LiveOpsFixtures {
     public static RouteRun reload(RouteRun run) {
         RouteRunSnapshot s = run.snapshot();
         return RouteRun.restore(new RouteRunSnapshot(
-                s.route(), run.version().next(), s.startedBy(), s.cause(), s.startedAt(), s.status(), s.confirmed()));
+                s.route(),
+                StoredVersions.afterSave(run),
+                s.startedBy(),
+                s.cause(),
+                s.startedAt(),
+                s.status(),
+                s.confirmed()));
     }
 
     public static DeliveryBuilder aDelivery() {

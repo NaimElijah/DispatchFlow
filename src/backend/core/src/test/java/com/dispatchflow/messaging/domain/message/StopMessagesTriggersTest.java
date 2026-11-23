@@ -32,7 +32,6 @@ import com.dispatchflow.messaging.domain.Wording;
 import com.dispatchflow.messaging.domain.message.ArrivalFacts.PreviousStop;
 import com.dispatchflow.messaging.domain.message.MessageState.DropCause;
 import com.dispatchflow.shared.PhoneNumber;
-import com.dispatchflow.shared.Version;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -112,7 +111,7 @@ class StopMessagesTriggersTest {
         assertThat(messages.snapshot())
                 .isEqualTo(new StopMessagesSnapshot(
                         STOP,
-                        Version.NEW,
+                        null,
                         List.of(pendingMessage(
                                 1,
                                 MessageType.OUT_FOR_DELIVERY,

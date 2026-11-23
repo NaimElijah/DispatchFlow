@@ -35,7 +35,7 @@ public interface RouteRunRepository {
      *
      * <p>Built in M5.
      *
-     * @param run the run, at {@code Version.NEW}
+     * @param run the run, never saved
      * @param date the delivery date of the run's route, from Planning's {@code PublishedRoutes}
      * @throws StaleVersion when the route got a run meanwhile, as when two first reports arrive at
      *     once; the second is retried as a change (DL §11)

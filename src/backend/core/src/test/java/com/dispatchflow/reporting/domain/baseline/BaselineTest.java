@@ -23,7 +23,6 @@ import com.dispatchflow.reporting.domain.PlannedOnTimeRate;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.StoredStateInvalid;
-import com.dispatchflow.shared.Version;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -76,10 +75,9 @@ class BaselineTest {
         Baseline baseline = Baseline.compute(PLAN, BASELINE_FIGURES, NOW);
 
         assertThat(baseline.plan()).isEqualTo(PLAN);
-        assertThat(baseline.version()).isEqualTo(Version.NEW);
+        assertThat(baseline.snapshot().version()).isNull();
         assertThat(baseline.snapshot())
-                .isEqualTo(
-                        new BaselineSnapshot(PLAN, Version.NEW, BASELINE_FIGURES, new BaselineCause.Published(), NOW));
+                .isEqualTo(new BaselineSnapshot(PLAN, null, BASELINE_FIGURES, new BaselineCause.Published(), NOW));
         assertThat(baseline.pendingEvents()).isEmpty();
     }
 

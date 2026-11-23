@@ -10,7 +10,6 @@ import com.dispatchflow.messaging.domain.MessageLanguage;
 import com.dispatchflow.messaging.domain.PhoneConsent;
 import com.dispatchflow.messaging.domain.SendingConditions;
 import com.dispatchflow.messaging.domain.Switch;
-import com.dispatchflow.shared.Version;
 import org.junit.jupiter.api.Test;
 
 /** The company's messaging settings (FR-350, FR-375, FR-125, DL §4.6). */
@@ -21,7 +20,7 @@ class MessagingSettingsTest {
         MessagingSettings settings = MessagingSettings.create(DISPATCH);
 
         assertThat(settings.snapshot())
-                .isEqualTo(new MessagingSettingsSnapshot(Version.NEW, Switch.OFF, Switch.OFF, DISPATCH));
+                .isEqualTo(new MessagingSettingsSnapshot(null, Switch.OFF, Switch.OFF, DISPATCH));
         assertThat(settings.conditions(COMPANY, MessageLanguage.HEBREW, PhoneConsent.MAY_BE_MESSAGED)
                         .mayMessage())
                 .isFalse();
@@ -37,7 +36,7 @@ class MessagingSettingsTest {
         settings.changeDispatchPhone(mobile);
 
         MessagingSettingsSnapshot changed = settings.snapshot();
-        assertThat(changed).isEqualTo(new MessagingSettingsSnapshot(Version.NEW, Switch.ON, Switch.ON, mobile));
+        assertThat(changed).isEqualTo(new MessagingSettingsSnapshot(null, Switch.ON, Switch.ON, mobile));
         assertThat(MessagingSettings.restore(changed).snapshot()).isEqualTo(changed);
         assertThat(settings.pendingEvents()).isEmpty();
     }

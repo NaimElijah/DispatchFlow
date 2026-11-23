@@ -53,7 +53,7 @@ public interface DriverRepository {
      *
      * <p>Built in M2.
      *
-     * @param driver the new record, at {@code Version.NEW}
+     * @param driver the new record, never saved
      */
     void add(Driver driver);
 

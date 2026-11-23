@@ -13,12 +13,13 @@ import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
+import java.util.Optional;
 
 /**
  * A dispatcher sets a driver's shift on a date (FR-54, FR-190). A driver not yet on the roster is
  * added, available, with their vehicle not set, so a later fill may give them their default vehicle
  * (FR-79). Neither end may fall in the hour the clock skips (BR-111). A date with no roster yet is
- * opened empty, at {@code Version.NEW}, so the domain answers a driver who is not on it.
+ * opened empty, never saved, so the domain answers a driver who is not on it.
  *
  * <p>The driver's standing combines Access's answer on the account with the driver record's own
  * state, read now (ADR-062). Like every changing call it writes its audit record, a refused
@@ -61,8 +62,8 @@ public final class ChangeShift {
      * @param date the roster's date
      * @param driver the driver's account
      * @param hours the shift's wall-clock hours, placed on the date
-     * @param expected the version of the date's roster the caller last read, {@code Version.NEW}
-     *     for a date with none yet (BR-76)
+     * @param expected the version of the date's roster the caller last read, or empty for a date
+     *     with none yet, which sends {@code If-None-Match: *} (BR-76)
      * @throws RuleViolation with Fleet's {@code NotAnActiveDriver} when the driver is not active;
      *     or with the kernel's {@code NonexistentLocalTime} when the shift starts or ends in the
      *     hour the clock skips (BR-111)
@@ -70,7 +71,7 @@ public final class ChangeShift {
      * @throws StaleVersion when the roster is no longer at {@code expected}, or changed before the
      *     save (BR-76)
      */
-    public void change(Actor actor, DeliveryDate date, AccountId driver, ShiftHours hours, Version expected) {
+    public void change(Actor actor, DeliveryDate date, AccountId driver, ShiftHours hours, Optional<Version> expected) {
         throw new UnsupportedOperationException("Built in M2");
     }
 }

@@ -45,6 +45,7 @@ final class ApplicationRules {
     private static final String APPLICATION = "application";
     private static final String API = "api";
     private static final String SPI = "spi";
+    private static final String ADAPTER = "adapter";
     private static final String SERVICE = "service";
     private static final String SERVICE_SUFFIX = "Service";
     private static final String PACKAGE_INFO = "package-info";
@@ -126,8 +127,9 @@ final class ApplicationRules {
     /**
      * Rule 1: each module's application layer and the shared application package depend only on
      * what TS §2.2 and DL §2.3 allow, with Spring Modulith's annotations allowed on their {@code
-     * package-info} only. A module's own {@code adapter} is not among them: dependencies point from
-     * the adapters to the application, never back. An interface of another module's {@code spi}
+     * package-info} only. A module's own {@code adapter} is not among them, nor the kernel's
+     * {@code shared.adapter} (ADR-126): dependencies point from the adapters to the application,
+     * never back. An interface of another module's {@code spi}
      * that a dashed arrow of {@link #SPI_IMPLEMENTERS} names is open only to the module that arrow
      * names to implement it; the rest of that {@code spi}, the records beside the interfaces, is
      * open to every module an arrow names to implement one of its interfaces.
@@ -439,7 +441,8 @@ final class ApplicationRules {
             String root, String moduleAnnotations, Map<String, String> implementers, JavaClass item, JavaClass target) {
         String targetPackage = target.getPackageName();
         if (isInAny(targetPackage, ALWAYS_ALLOWED)
-                || isIn(targetPackage, root + "." + KERNEL)
+                || (isIn(targetPackage, root + "." + KERNEL)
+                        && !isIn(targetPackage, root + "." + KERNEL + "." + ADAPTER))
                 || TRANSACTIONAL.contains(target.getName())
                 || (item.getSimpleName().equals(PACKAGE_INFO) && isIn(targetPackage, moduleAnnotations))) {
             return true;

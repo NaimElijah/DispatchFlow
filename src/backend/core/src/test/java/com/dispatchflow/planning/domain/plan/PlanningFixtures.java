@@ -38,6 +38,7 @@ import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.ProposalId;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
+import com.dispatchflow.shared.StoredVersions;
 import com.dispatchflow.shared.VehicleId;
 import com.dispatchflow.shared.Version;
 import java.time.Duration;
@@ -158,7 +159,7 @@ public final class PlanningFixtures {
         PlanSnapshot s = plan.snapshot();
         return Plan.restore(new PlanSnapshot(
                 s.id(),
-                plan.version().next(),
+                StoredVersions.afterSave(plan),
                 s.date(),
                 s.openedAt(),
                 s.status(),
@@ -176,7 +177,7 @@ public final class PlanningFixtures {
         SolveJobSnapshot s = job.snapshot();
         return SolveJob.restore(new SolveJobSnapshot(
                 s.id(),
-                job.version().next(),
+                StoredVersions.afterSave(job),
                 s.plan(),
                 s.lane(),
                 s.solver(),
@@ -323,7 +324,7 @@ public final class PlanningFixtures {
     static SolveJob storedSucceededJob(JobId id, List<SolvedRoute> routes, List<DroppedOrder> dropped) {
         return SolveJob.restore(new SolveJobSnapshot(
                 id,
-                Version.NEW.next(),
+                Version.of(1),
                 PLAN,
                 Lane.DAILY,
                 SolverName.OR_TOOLS,
