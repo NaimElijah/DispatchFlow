@@ -30,6 +30,7 @@ final class DayRosterBuilder {
     static final VehicleId V3 = FleetRegisterBuilder.vehicleId(3);
     static final ShiftHours DAY_SHIFT = ShiftHours.of(LocalTime.of(8, 0), LocalTime.of(16, 0));
     static final Version LOADED = Version.of(7);
+    static final UUID ROSTER_ID = UUID.fromString("0190a5e2-0000-7000-c000-000000000001");
 
     private DeliveryDate date = ORDINARY_DAY;
     private final List<RosterEntry> entries = new ArrayList<>();

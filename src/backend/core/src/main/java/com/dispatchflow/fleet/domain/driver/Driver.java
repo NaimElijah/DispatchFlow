@@ -15,11 +15,29 @@ import com.dispatchflow.shared.IsraelDateTime;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.VehicleId;
+import jakarta.persistence.AttributeOverride;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Embedded;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.MapKeyColumn;
+import jakarta.persistence.MapKeyEnumerated;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.Table;
+import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Period;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -30,28 +48,77 @@ import org.jspecify.annotations.Nullable;
  * <p>A driver holds their name and phone, their default shift and vehicle (FR-06, FR-189), and a
  * weekly shift template (FR-79). They end retired, then anonymized a year later (BR-98, NFR-184,
  * ADR-075), or anonymized with their account (NFR-258, ADR-103); the record stays. Every method
- * checks all its rules before it changes anything.
+ * checks all its rules before it changes anything, and every change ends by checking the invariants
+ * at rest.
+ *
+ * <p>It is mapped for JPA (ADR-126): its key is the account's UUID (ADR-127 decision 5), its {@link
+ * DriverStatus} a kind and the two times the states hold, its contact two nullable columns, and its
+ * weekly shifts a map keyed by weekday (ADR-127 decision 4).
  */
-public final class Driver extends AggregateRoot {
+@Entity
+@Table(schema = "fleet", name = "driver")
+public class Driver extends AggregateRoot {
 
-    /** How long a retired driver's name and phone are kept (NFR-184, ADR-075). */
-    static final Period RETENTION = Period.ofYears(1);
+    /**
+     * How long a retired driver's name and phone are kept (NFR-184, ADR-075), counted in Israel's
+     * calendar. The persistence adapter reads it to find the drivers due.
+     */
+    public static final Period RETENTION = Period.ofYears(1);
 
-    private final AccountId id;
-    private DriverStatus status;
+    /** Which {@link DriverStatus} a driver is in. */
+    private enum StatusKind {
+        ACTIVE,
+        RETIRED,
+        ANONYMIZED
+    }
+
+    /** The account's UUID. */
+    @Id
+    private UUID id;
+
+    @Enumerated(EnumType.STRING)
+    private StatusKind status;
+
+    private @Nullable Instant retiredAt;
+
+    private @Nullable Instant anonymizedAt;
+
+    @Embedded
     private @Nullable DriverContact contact;
-    private ShiftHours defaultShift;
-    private VehicleId defaultVehicle;
-    private WeeklyShifts weeklyShifts;
 
+    @Embedded
+    @AttributeOverride(name = "start", column = @Column(name = "default_shift_starts_at"))
+    @AttributeOverride(name = "end", column = @Column(name = "default_shift_ends_at"))
+    private ShiftHours defaultShift;
+
+    private VehicleId defaultVehicle;
+
+    @ElementCollection
+    @CollectionTable(schema = "fleet", name = "driver_weekly_shift", joinColumns = @JoinColumn(name = "driver_id"))
+    @MapKeyEnumerated(EnumType.STRING)
+    @MapKeyColumn(name = "day")
+    private Map<DayOfWeek, ShiftHours> weeklyShifts = new EnumMap<>(DayOfWeek.class);
+
+    /** For Hibernate, which sets the fields from the stored rows and then runs {@link #checkStored}. */
+    protected Driver() {}
+
+    private Driver(AccountId id, DriverContact contact, ShiftHours defaultShift, VehicleId defaultVehicle) {
+        this.id = id.value();
+        this.status = StatusKind.ACTIVE;
+        this.contact = contact;
+        this.defaultShift = defaultShift;
+        this.defaultVehicle = defaultVehicle;
+    }
+
+    /** Builds the driver {@link #restore} checks; it goes with {@code restore} (ADR-126). */
     private Driver(DriverSnapshot stored) {
         super(stored.version());
-        this.id = stored.id();
-        this.status = stored.status();
+        this.id = stored.id().value();
+        moveTo(stored.status());
         this.contact = stored.contact().orElse(null);
         this.defaultShift = stored.defaultShift();
         this.defaultVehicle = stored.defaultVehicle();
-        this.weeklyShifts = stored.weeklyShifts();
+        this.weeklyShifts.putAll(stored.weeklyShifts().days());
     }
 
     /**
@@ -73,17 +140,13 @@ public final class Driver extends AggregateRoot {
             AccountId id, DriverContact contact, ShiftHours defaultShift, VehicleId defaultVehicle, Standing account) {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(account, "account");
+        Objects.requireNonNull(contact, "contact");
+        Objects.requireNonNull(defaultShift, "defaultShift");
+        Objects.requireNonNull(defaultVehicle, "defaultVehicle");
         if (account != Standing.ACTIVE) {
             throw new RuleViolation(new NotAnActiveDriver(id));
         }
-        return new Driver(new DriverSnapshot(
-                id,
-                null,
-                new DriverStatus.Active(),
-                Optional.of(contact),
-                defaultShift,
-                defaultVehicle,
-                WeeklyShifts.none()));
+        return new Driver(id, contact, defaultShift, defaultVehicle);
     }
 
     /**
@@ -96,16 +159,22 @@ public final class Driver extends AggregateRoot {
      * @throws StoredStateInvalid when the stored state breaks one of those invariants
      */
     public static Driver restore(DriverSnapshot stored) {
-        boolean anonymized = stored.status() instanceof DriverStatus.Anonymized;
-        if (anonymized == stored.contact().isPresent()) {
-            throw new StoredStateInvalid(
-                    Driver.class, "a driver has a name and phone exactly until they are anonymized");
-        }
-        if (stored.status() instanceof DriverStatus.Anonymized(Optional<Instant> retiredAt, Instant anonymizedAt)
-                && retiredAt.filter(anonymizedAt::isBefore).isPresent()) {
-            throw new StoredStateInvalid(Driver.class, "a driver is anonymized only after being retired");
-        }
-        return new Driver(stored);
+        Driver restored = new Driver(stored);
+        restored.checkStored();
+        return restored;
+    }
+
+    /**
+     * Checks the driver as Hibernate loaded them against the invariants at rest that {@link
+     * #restore} checks (ADR-126 decision 8).
+     *
+     * @throws StoredStateInvalid when the stored state breaks one of them
+     */
+    @PostLoad
+    void checkStored() {
+        brokenRule().ifPresent(broken -> {
+            throw new StoredStateInvalid(Driver.class, broken);
+        });
     }
 
     /**
@@ -115,13 +184,13 @@ public final class Driver extends AggregateRoot {
      */
     public DriverSnapshot snapshot() {
         return new DriverSnapshot(
-                id,
+                id(),
                 savedVersion().orElse(null),
-                status,
+                status(),
                 Optional.ofNullable(contact),
                 defaultShift,
                 defaultVehicle,
-                weeklyShifts);
+                WeeklyShifts.of(weeklyShifts));
     }
 
     /**
@@ -130,7 +199,7 @@ public final class Driver extends AggregateRoot {
      * @return the ID of the driver's account
      */
     public AccountId id() {
-        return id;
+        return AccountId.of(id);
     }
 
     /**
@@ -150,6 +219,7 @@ public final class Driver extends AggregateRoot {
         this.contact = newContact;
         this.defaultShift = newDefaultShift;
         this.defaultVehicle = newDefaultVehicle;
+        requireInvariants();
     }
 
     /**
@@ -161,7 +231,9 @@ public final class Driver extends AggregateRoot {
     public void changeWeeklyShifts(WeeklyShifts newWeeklyShifts) {
         Objects.requireNonNull(newWeeklyShifts, "newWeeklyShifts");
         requireActive();
-        this.weeklyShifts = newWeeklyShifts;
+        weeklyShifts.clear();
+        weeklyShifts.putAll(newWeeklyShifts.days());
+        requireInvariants();
     }
 
     /**
@@ -180,11 +252,13 @@ public final class Driver extends AggregateRoot {
         Objects.requireNonNull(today, "today");
         Objects.requireNonNull(now, "now");
         requireActive();
+        AccountId account = id();
         uses.blockingOn(today).ifPresent(use -> {
-            throw new RuleViolation(new DriverInUse(id, use.plan(), use.date()));
+            throw new RuleViolation(new DriverInUse(account, use.plan(), use.date()));
         });
-        this.status = new DriverStatus.Retired(now);
-        raise(DriverRetired.class, id.value(), eventId -> new DriverRetired(eventId, now, id));
+        moveTo(new DriverStatus.Retired(now));
+        requireInvariants();
+        raise(DriverRetired.class, id, eventId -> new DriverRetired(eventId, now, account));
     }
 
     /**
@@ -198,7 +272,7 @@ public final class Driver extends AggregateRoot {
      */
     public void anonymize(Instant now) {
         Objects.requireNonNull(now, "now");
-        switch (status) {
+        switch (status()) {
             case DriverStatus.Active active -> throw new RuleViolation(new RetentionNotOver());
             case DriverStatus.Retired(Instant retiredAt) -> {
                 if (now.isBefore(retentionEnd(retiredAt))) {
@@ -228,7 +302,7 @@ public final class Driver extends AggregateRoot {
      */
     public void anonymizeWithAccount(Instant now) {
         Objects.requireNonNull(now, "now");
-        switch (status) {
+        switch (status()) {
             case DriverStatus.Active active -> removePersonalFields(Optional.empty(), now);
             case DriverStatus.Retired(Instant retiredAt) ->
                 removePersonalFields(Optional.of(retiredAt), now.isBefore(retiredAt) ? retiredAt : now);
@@ -252,24 +326,86 @@ public final class Driver extends AggregateRoot {
      */
     public Optional<RosterDefault> rosterDefaultOn(DeliveryDate date, Standing account) {
         Objects.requireNonNull(account, "account");
-        if (!(status instanceof DriverStatus.Active)) {
+        if (status != StatusKind.ACTIVE) {
             return Optional.empty();
         }
         Optional<ShiftHours> hours = weeklyShifts.isEmpty()
                 ? Optional.of(defaultShift)
-                : weeklyShifts.shiftOn(date.value().getDayOfWeek());
-        return Optional.of(new RosterDefault(id, hours, defaultVehicle, account));
+                : Optional.ofNullable(weeklyShifts.get(date.value().getDayOfWeek()));
+        return Optional.of(new RosterDefault(id(), hours, defaultVehicle, account));
+    }
+
+    /** The status its kind and its stored times make. */
+    private DriverStatus status() {
+        return switch (status) {
+            case ACTIVE -> new DriverStatus.Active();
+            case RETIRED ->
+                new DriverStatus.Retired(Objects.requireNonNull(retiredAt, "a retired driver has a retirement time"));
+            case ANONYMIZED ->
+                new DriverStatus.Anonymized(
+                        Optional.ofNullable(retiredAt),
+                        Objects.requireNonNull(anonymizedAt, "an anonymized driver has an anonymization time"));
+        };
+    }
+
+    /** Sets the status's kind and the times it holds, in place. */
+    private void moveTo(DriverStatus next) {
+        retiredAt = null;
+        anonymizedAt = null;
+        status = switch (next) {
+            case DriverStatus.Active active -> StatusKind.ACTIVE;
+            case DriverStatus.Retired retired -> {
+                retiredAt = retired.retiredAt();
+                yield StatusKind.RETIRED;
+            }
+            case DriverStatus.Anonymized anonymized -> {
+                retiredAt = anonymized.retiredAt().orElse(null);
+                anonymizedAt = anonymized.anonymizedAt();
+                yield StatusKind.ANONYMIZED;
+            }
+        };
     }
 
     private void requireActive() {
-        if (!(status instanceof DriverStatus.Active)) {
-            throw new RuleViolation(new NotAnActiveDriver(id));
+        if (status != StatusKind.ACTIVE) {
+            throw new RuleViolation(new NotAnActiveDriver(id()));
         }
     }
 
     private void removePersonalFields(Optional<Instant> retiredAt, Instant now) {
-        this.status = new DriverStatus.Anonymized(retiredAt, now);
+        moveTo(new DriverStatus.Anonymized(retiredAt, now));
         this.contact = null;
+        requireInvariants();
+    }
+
+    /**
+     * The first invariant at rest the driver breaks, if any: the name and phone are present unless
+     * the driver is anonymized, and absent once they are; and a driver is not anonymized before
+     * being retired.
+     */
+    private Optional<String> brokenRule() {
+        if ((status == StatusKind.ANONYMIZED) == (contact != null)) {
+            return Optional.of("a driver has a name and phone exactly until they are anonymized");
+        }
+        if (status == StatusKind.ANONYMIZED
+                && retiredAt != null
+                && anonymizedAt != null
+                && anonymizedAt.isBefore(retiredAt)) {
+            return Optional.of("a driver is anonymized only after being retired");
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Checks the state a command left against every invariant at rest (ADR-126 decision 11). Every
+     * rule a caller can break was checked before the command changed anything, so a broken
+     * invariant here is a bug in the command, not a refusal, and the error rolls its transaction
+     * back.
+     */
+    private void requireInvariants() {
+        brokenRule().ifPresent(broken -> {
+            throw new AssertionError("a driver command left a state that breaks: " + broken);
+        });
     }
 
     private static Instant retentionEnd(Instant retiredAt) {

@@ -7,6 +7,7 @@ import static com.dispatchflow.fleet.domain.roster.DayRosterBuilder.LOADED;
 import static com.dispatchflow.fleet.domain.roster.DayRosterBuilder.NOA;
 import static com.dispatchflow.fleet.domain.roster.DayRosterBuilder.OMER;
 import static com.dispatchflow.fleet.domain.roster.DayRosterBuilder.ORDINARY_DAY;
+import static com.dispatchflow.fleet.domain.roster.DayRosterBuilder.ROSTER_ID;
 import static com.dispatchflow.fleet.domain.roster.DayRosterBuilder.SPRING_FORWARD;
 import static com.dispatchflow.fleet.domain.roster.DayRosterBuilder.V1;
 import static com.dispatchflow.fleet.domain.roster.DayRosterBuilder.V2;
@@ -88,7 +89,7 @@ class DayRosterTest {
 
     @Test
     void GivenADate_WhenItsRosterIsOpened_ThenItIsNewAndEmpty() {
-        DayRoster roster = DayRoster.open(ORDINARY_DAY);
+        DayRoster roster = DayRoster.open(ROSTER_ID, ORDINARY_DAY);
 
         assertThat(roster.date()).isEqualTo(ORDINARY_DAY);
         assertThat(roster.snapshot().version()).isNull();
@@ -112,7 +113,7 @@ class DayRosterTest {
 
     @Test
     void GivenADispatcherSetADriversShift_WhenTheRosterIsFilled_ThenTheyGetTheDefaultVehicleAndKeepTheirShift() {
-        DayRoster roster = DayRoster.open(ORDINARY_DAY);
+        DayRoster roster = DayRoster.open(ROSTER_ID, ORDINARY_DAY);
         roster.changeShift(DANA, LATE, Standing.ACTIVE);
 
         RosterFill fill = roster.fill(List.of(activeDefault(DANA, DAY_SHIFT, V1)), ALL_ACTIVE);
@@ -126,7 +127,7 @@ class DayRosterTest {
         Driver dana = DriverBuilder.aDriver()
                 .withWeeklyShifts(WeeklyShifts.of(Map.of(DayOfWeek.MONDAY, EARLY)))
                 .build();
-        DayRoster tuesday = DayRoster.open(ORDINARY_DAY);
+        DayRoster tuesday = DayRoster.open(ROSTER_ID, ORDINARY_DAY);
         tuesday.changeShift(DANA, LATE, Standing.ACTIVE);
 
         RosterFill fill = tuesday.fill(
