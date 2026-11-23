@@ -9,12 +9,15 @@ import com.dispatchflow.access.domain.session.SessionState;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.SessionId;
 import com.dispatchflow.shared.adapter.out.persistence.VersionedSave;
+import com.dispatchflow.shared.application.StaleVersion;
 import jakarta.persistence.EntityManager;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +35,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 @Transactional
 class JpaSessionRepository implements SessionRepository {
+
+    // The entity's name, which the shared save also gives a conflict as its kind.
+    private static final String KIND = Session.class.getSimpleName();
+
+    /** The migration's name for the key of a session's contact time, the session and the instant. */
+    private static final String CONTACT_KEY = "session_contact_pkey";
 
     private final Sessions sessions;
     private final VersionedSave versionedSave;
@@ -96,15 +105,26 @@ class JpaSessionRepository implements SessionRepository {
      * <p>A session whose change only kept or dropped contact times is flushed as it is: nothing
      * checks or moves its version, because those times are excluded from its optimistic lock. Any
      * other change goes through the shared save.
+     *
+     * <p>Either way, a contact time this copy keeps that another call stored after it was loaded
+     * breaks the times' key, and answers {@code StaleVersion}: the conflict is real, as no version
+     * check sees it, and a retry finds the time kept. Any other constraint violation passes through.
      */
     @Override
     public void save(Session session) {
-        if (session.changedBeyondContactTimes()) {
-            versionedSave.save(session, sessions::save);
-            return;
+        try {
+            if (session.changedBeyondContactTimes()) {
+                versionedSave.save(session, sessions::save);
+                return;
+            }
+            sessions.save(session);
+            entityManager.flush();
+        } catch (ConstraintViolationException | DataIntegrityViolationException violation) {
+            if (breaksTheContactKey(violation)) {
+                throw new StaleVersion(KIND, session.id().value(), violation);
+            }
+            throw violation;
         }
-        sessions.save(session);
-        entityManager.flush();
     }
 
     /**
@@ -141,5 +161,15 @@ class JpaSessionRepository implements SessionRepository {
 
     private static List<SessionId> ids(List<UUID> keys) {
         return keys.stream().map(SessionId::of).toList();
+    }
+
+    private static boolean breaksTheContactKey(RuntimeException violation) {
+        for (Throwable cause = violation; cause != null; cause = cause.getCause()) {
+            if (cause instanceof ConstraintViolationException constraint
+                    && CONTACT_KEY.equals(constraint.getConstraintName())) {
+                return true;
+            }
+        }
+        return false;
     }
 }

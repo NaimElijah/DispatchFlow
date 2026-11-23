@@ -94,7 +94,9 @@ public interface SessionRepository {
      * version check, and a contact never makes a refresh fail (DL §4.1).
      *
      * @param session the changed session
-     * @throws StaleVersion when the stored session is no longer at the version it was loaded at
+     * @throws StaleVersion when the stored session is no longer at the version it was loaded at, or
+     *     when another call stored one of the contact times it keeps since it was loaded; a retry
+     *     finds that time kept
      */
     void save(Session session);
 
