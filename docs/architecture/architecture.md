@@ -62,8 +62,11 @@ and its revocation
 P20). Four store a record by insert (`audit`'s audit records, `liveops`' kept positions, and
 `messaging`'s opt-outs and its SMS replies, whose insert skips a reply already kept), and
 `reporting` keeps a baseline's outcome as a record row of its own, so five `@Immutable` `Stored…`
-entities keep records. The reads under a lock (`activeAdminsUnderLock`, both `capacityUnderLock`,
-`claimNext` and `capOn`) run only in the caller's transaction, and refuse a call outside one.
+entities keep records. No adapter carries `@Transactional`: each runs in the caller's transaction
+([ADR-129](../ADRs/ADR-129-transactions-start-only-in-the-service-layer.md)). The eight methods that take a lock lasting only as long as that transaction
+(the reads `activeAdminsUnderLock`, both `capacityUnderLock`, `claimNext` and `capOn`, and the
+writes `countAnswer`, `addUnlessKeyTaken` and the plan's `add`) call `OpenTransaction.require`
+first, and refuse a call outside one.
 `Plan`'s adapter sits in a `plan/` subpackage of Planning's, with the `@Immutable` entity its
 revisions are appended as. Every root's load check refuses a gap in its stored lists first, and
 Hibernate batch-fetches the collections a load reads, 200 roots at a time

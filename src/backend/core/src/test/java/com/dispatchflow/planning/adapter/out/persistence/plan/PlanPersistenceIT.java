@@ -82,6 +82,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.IllegalTransactionStateException;
 
 /**
  * {@link PlanRepository} against a real PostgreSQL (ADR-126, ADR-127): what a plan stores and loads
@@ -426,6 +427,16 @@ class PlanPersistenceIT {
                 new PlanAlreadyExists(date(60), first.id()));
 
         assertThat(transactions.inTransaction(() -> repository.get(second.id())))
+                .isEmpty();
+    }
+
+    /** A date's lock taken in a transaction of the call's own would be gone before the insert. */
+    @Test
+    void GivenNoTransaction_WhenAPlanIsAdded_ThenTheCallIsRefused() {
+        Plan opened = opened(1_400, date(1_400));
+
+        assertThatThrownBy(() -> repository.add(opened)).isInstanceOf(IllegalTransactionStateException.class);
+        assertThat(transactions.inTransaction(() -> repository.get(opened.id())))
                 .isEmpty();
     }
 

@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Keeps the customers in {@code orders.customer}, keyed by their IDs, and their address flags in
@@ -24,7 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
  * the module's own {@code orders.customer_order}.
  */
 @Component
-@Transactional
 class JpaCustomerRepository implements CustomerRepository {
 
     private final Customers customers;

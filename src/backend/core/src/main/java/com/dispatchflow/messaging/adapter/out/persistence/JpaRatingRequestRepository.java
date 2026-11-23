@@ -13,14 +13,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Keeps rating requests in {@code messaging.rating_request}, and their comments in {@code
  * messaging.rating_request_comment}.
  */
 @Component
-@Transactional
 class JpaRatingRequestRepository implements RatingRequestRepository {
 
     private final RatingRequests ratingRequests;

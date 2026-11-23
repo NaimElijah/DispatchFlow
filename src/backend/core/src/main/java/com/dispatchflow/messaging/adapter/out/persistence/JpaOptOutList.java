@@ -10,11 +10,9 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /** Keeps the phones' opt-out history in {@code messaging.opt_out}. */
 @Component
-@Transactional
 class JpaOptOutList implements OptOutList {
 
     private final StoredOptOuts optOuts;

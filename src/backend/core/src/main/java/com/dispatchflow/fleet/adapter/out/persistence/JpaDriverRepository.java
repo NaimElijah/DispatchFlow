@@ -14,7 +14,6 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Keeps the drivers in {@code fleet.driver}, keyed by their accounts, and their weekly shifts in
@@ -25,7 +24,6 @@ import org.springframework.transaction.annotation.Transactional;
  * it: no rule reads it, and only {@link #registered()} orders by it.
  */
 @Component
-@Transactional
 class JpaDriverRepository implements DriverRepository {
 
     private final Drivers drivers;

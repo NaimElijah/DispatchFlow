@@ -9,6 +9,7 @@ import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.JobId;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.RuleViolation;
+import com.dispatchflow.shared.adapter.out.persistence.OpenTransaction;
 import com.dispatchflow.shared.adapter.out.persistence.VersionedSave;
 import jakarta.persistence.EntityManager;
 import java.time.Instant;
@@ -19,8 +20,6 @@ import java.util.UUID;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Keeps solve jobs in {@code planning.solve_job}, with a failure's violations and a daily result's
@@ -31,7 +30,6 @@ import org.springframework.transaction.annotation.Transactional;
  * ReoptimizationAlreadyRunning}, and lets every other constraint violation through.
  */
 @Component
-@Transactional
 class JpaSolveJobRepository implements SolveJobRepository {
 
     /** The migration's name for the partial unique index of BR-38. */
@@ -86,8 +84,8 @@ class JpaSolveJobRepository implements SolveJobRepository {
      * after the other (ADR-127 decision 9).
      */
     @Override
-    @Transactional(propagation = Propagation.MANDATORY)
     public LaneCapacity capacityUnderLock(Lane lane) {
+        OpenTransaction.require("capacityUnderLock");
         jobs.lockLane(lane.name());
         return LaneCapacity.readUnderLock(
                 lane, plans(jobs.queuedPlans(lane.name())), plans(jobs.startedPlans(lane.name())));
@@ -100,8 +98,8 @@ class JpaSolveJobRepository implements SolveJobRepository {
      * other, and then loads the one it locked whole.
      */
     @Override
-    @Transactional(propagation = Propagation.MANDATORY)
     public Optional<SolveJob> claimNext(Lane lane) {
+        OpenTransaction.require("claimNext");
         return jobs.lockOldestQueued(lane.name()).flatMap(this::load);
     }
 

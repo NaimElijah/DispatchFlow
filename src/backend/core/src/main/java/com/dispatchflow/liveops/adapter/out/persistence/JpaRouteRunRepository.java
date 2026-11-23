@@ -10,7 +10,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Keeps each route's {@link RouteRun} in {@code liveops.route_run} and the stops a finished run left
@@ -22,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
  * run stored without its date; only this adapter writes the table.
  */
 @Component
-@Transactional
 class JpaRouteRunRepository implements RouteRunRepository {
 
     private final RouteRuns runs;

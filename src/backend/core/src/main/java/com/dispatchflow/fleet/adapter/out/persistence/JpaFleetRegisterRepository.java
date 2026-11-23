@@ -6,7 +6,6 @@ import com.dispatchflow.shared.adapter.out.persistence.VersionedSave;
 import java.util.Objects;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Keeps the company's one {@link FleetRegister} in {@code fleet.fleet_register}, under {@link
@@ -16,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
  * the same persistence context, so the two lists never multiply each other's rows.
  */
 @Component
-@Transactional
 class JpaFleetRegisterRepository implements FleetRegisterRepository {
 
     private final FleetRegisters registers;

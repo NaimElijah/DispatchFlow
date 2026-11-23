@@ -12,6 +12,7 @@ import com.dispatchflow.access.domain.account.Role;
 import com.dispatchflow.access.domain.account.UserAccount;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.RuleViolation;
+import com.dispatchflow.shared.adapter.out.persistence.OpenTransaction;
 import com.dispatchflow.shared.adapter.out.persistence.VersionedSave;
 import jakarta.persistence.EntityManager;
 import java.time.Instant;
@@ -22,8 +23,6 @@ import java.util.UUID;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Keeps user accounts in {@code access.user_account}, their roles in {@code
@@ -37,7 +36,6 @@ import org.springframework.transaction.annotation.Transactional;
  * names is not built yet.
  */
 @Component
-@Transactional
 class JpaUserAccountRepository implements UserAccountRepository {
 
     /** The migration's name for the unique constraint on the canonical email (BR-45). */
@@ -89,8 +87,8 @@ class JpaUserAccountRepository implements UserAccountRepository {
      * still run one after the other (FR-291).
      */
     @Override
-    @Transactional(propagation = Propagation.MANDATORY)
     public ActiveAdmins activeAdminsUnderLock() {
+        OpenTransaction.require("activeAdminsUnderLock");
         accounts.lockActiveAdmins();
         return ActiveAdmins.readUnderLock(
                 accounts.activeAdminsForUpdate().stream().map(AccountId::of).toList());

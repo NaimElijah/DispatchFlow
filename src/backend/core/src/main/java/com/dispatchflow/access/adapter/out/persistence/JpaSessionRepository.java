@@ -19,7 +19,6 @@ import java.util.UUID;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Keeps sessions in {@code access.session}, their refresh tokens in {@code access.refresh_token}
@@ -33,7 +32,6 @@ import org.springframework.transaction.annotation.Transactional;
  * names is not built yet.
  */
 @Component
-@Transactional
 class JpaSessionRepository implements SessionRepository {
 
     // The entity's name, which the shared save also gives a conflict as its kind.
