@@ -50,8 +50,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 /**
  * {@link FleetRegisterRepository} against a real PostgreSQL (ADR-126, ADR-127): what the company's
  * one register stores and loads as, with its depots and vehicles in the order they were added, its
- * version, the first save another call wins, and the stored states the load check and the schema
- * refuse.
+ * version, the first save another call wins, the stored states the load check and the schema
+ * refuse, and the check that keeps it to one row.
  *
  * <p>There is one register for the whole database, and only this class writes it, so each test
  * starts with none.
@@ -308,6 +308,15 @@ class FleetRegisterPersistenceIT {
 
         assertThatThrownBy(() -> damage.apply(rows)).isInstanceOf(DataIntegrityViolationException.class);
         assertThat(transactions.inTransaction(() -> repository.get())).isPresent();
+    }
+
+    @Test
+    void GivenAnotherKey_WhenARowIsInsertedUnderIt_ThenTheDatabaseRefusesASecondRegister() {
+        assertThatThrownBy(() -> jdbc.sql("INSERT INTO fleet.fleet_register (id, version) VALUES (?, 0)")
+                        .param(UUID.fromString("0190a5e2-636f-7000-8000-000000000001"))
+                        .update())
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("fleet_register_one_row");
     }
 
     /** The valid registers the damage cases start from, each with the North and South depots. */
