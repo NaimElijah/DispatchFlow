@@ -23,6 +23,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.MapKeyEnumerated;
 import jakarta.persistence.MappedSuperclass;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
@@ -42,6 +43,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.ListCrudRepository;
 
@@ -58,8 +60,8 @@ final class PersistenceRules {
             List.of(OneToMany.class, ManyToOne.class, OneToOne.class, ManyToMany.class);
     private static final List<Class<? extends Annotation>> MAPPED_TYPES =
             List.of(Entity.class, MappedSuperclass.class, Embeddable.class);
-    private static final List<Class<?>> WIDE_REPOSITORIES =
-            List.of(CrudRepository.class, ListCrudRepository.class, JpaRepository.class);
+    private static final List<Class<?>> WIDE_REPOSITORIES = List.of(
+            CrudRepository.class, ListCrudRepository.class, JpaRepository.class, JpaSpecificationExecutor.class);
 
     private PersistenceRules() {}
 
@@ -111,30 +113,41 @@ final class PersistenceRules {
                                 .filter(field -> field.isAnnotatedWith(Version.class))
                                 .forEach(field -> events.add(SimpleConditionEvent.violated(
                                         field, field.getFullName() + " is a @Version outside AggregateRoot")));
+                        item.getMethods().stream()
+                                .filter(method -> method.isAnnotatedWith(Version.class))
+                                .forEach(method -> events.add(SimpleConditionEvent.violated(
+                                        method, method.getFullName() + " is a @Version outside AggregateRoot")));
                     }
                 })
                 .because("ADR-126 and ADR-057: the root's version guards its whole aggregate");
     }
 
     /**
-     * Every enum a mapped class stores, alone or in an element collection, is stored by name: the
-     * default stores its position, which reordering the enum would silently corrupt.
+     * Every enum a mapped class stores is stored by name: alone, as an element collection's value,
+     * or as a map's key, which takes {@code @MapKeyEnumerated} because {@code @Enumerated} governs
+     * only the value. The default stores the enum's position, which reordering the enum would
+     * silently corrupt.
      */
     static ArchRule enumsAreStoredByName(String root) {
         return classes()
                 .that()
                 .resideInAPackage(root + "..")
-                .should(new ArchCondition<JavaClass>("store every enum with @Enumerated(EnumType.STRING)") {
+                .should(new ArchCondition<JavaClass>("store every enum by name") {
                     @Override
                     public void check(JavaClass item, ConditionEvents events) {
                         if (!isMapped(item)) {
                             return;
                         }
                         persistentFields(item)
-                                .filter(PersistenceRules::storesAnEnum)
-                                .filter(field -> !storedByName(field))
+                                .filter(field -> storesAnEnumValue(field) && !storedByName(field))
                                 .forEach(field -> events.add(SimpleConditionEvent.violated(
                                         field, field.getFullName() + " stores an enum without EnumType.STRING")));
+                        persistentFields(item)
+                                .filter(field -> keysAMapByAnEnum(field) && !keyedByName(field))
+                                .forEach(field -> events.add(SimpleConditionEvent.violated(
+                                        field,
+                                        field.getFullName()
+                                                + " keys a map by an enum without @MapKeyEnumerated(STRING)")));
                     }
                 })
                 .because("ADR-126: a reordered enum must not change what a stored row means");
@@ -185,8 +198,10 @@ final class PersistenceRules {
     }
 
     /**
-     * No interface extends {@code CrudRepository}, {@code ListCrudRepository} or {@code
-     * JpaRepository}: an adapter declares only {@code save} and the lookups its port needs.
+     * No interface extends {@code CrudRepository}, {@code ListCrudRepository}, {@code JpaRepository}
+     * or {@code JpaSpecificationExecutor}: an adapter declares only {@code save} and the lookups its
+     * port needs, and no bulk update or delete passes by {@code @Version}, {@code @PostLoad} and the
+     * events.
      */
     static ArchRule noRepositoryOffersMoreThanItsPortNeeds(String root) {
         return classes()
@@ -356,16 +371,42 @@ final class PersistenceRules {
                 .filter(field -> !field.isAnnotatedWith(Transient.class));
     }
 
-    private static boolean storesAnEnum(JavaField field) {
+    /** An enum field, or an element collection whose element or map value is an enum. */
+    private static boolean storesAnEnumValue(JavaField field) {
         if (field.getRawType().isEnum()) {
             return true;
         }
-        return field.isAnnotatedWith(ElementCollection.class)
-                && erasuresIn(field.getType()).skip(1).anyMatch(JavaClass::isEnum);
+        if (!field.isAnnotatedWith(ElementCollection.class)) {
+            return false;
+        }
+        List<JavaType> arguments = typeArguments(field);
+        boolean map = field.getRawType().isAssignableTo(Map.class);
+        int value = map ? 1 : 0;
+        return arguments.size() > value && arguments.get(value).toErasure().isEnum();
+    }
+
+    /** A map, of values or of entities, whose key is an enum. */
+    private static boolean keysAMapByAnEnum(JavaField field) {
+        List<JavaType> arguments = typeArguments(field);
+        return field.getRawType().isAssignableTo(Map.class)
+                && !arguments.isEmpty()
+                && arguments.get(0).toErasure().isEnum();
+    }
+
+    private static List<JavaType> typeArguments(JavaField field) {
+        return field.getType() instanceof JavaParameterizedType parameterized
+                ? parameterized.getActualTypeArguments()
+                : List.of();
     }
 
     private static boolean storedByName(JavaField field) {
         return field.tryGetAnnotationOfType(Enumerated.class)
+                .map(enumerated -> enumerated.value() == EnumType.STRING)
+                .orElse(false);
+    }
+
+    private static boolean keyedByName(JavaField field) {
+        return field.tryGetAnnotationOfType(MapKeyEnumerated.class)
                 .map(enumerated -> enumerated.value() == EnumType.STRING)
                 .orElse(false);
     }

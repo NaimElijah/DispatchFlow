@@ -5,11 +5,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.dispatchflow.archfixture.alpha.adapter.out.persistence.ListCrudRepositoryOfRoots;
 import com.dispatchflow.archfixture.alpha.adapter.out.persistence.NarrowRepository;
 import com.dispatchflow.archfixture.alpha.adapter.out.persistence.ReadsAnotherModulesEntity;
+import com.dispatchflow.archfixture.alpha.adapter.out.persistence.SpecifiesItsWayAround;
 import com.dispatchflow.archfixture.alpha.adapter.out.persistence.WideRepository;
 import com.dispatchflow.archfixture.alpha.domain.entity.CollectsWithoutASchema;
 import com.dispatchflow.archfixture.alpha.domain.entity.EmbedsAnEnumByPosition;
 import com.dispatchflow.archfixture.alpha.domain.entity.GeneratesItsKey;
 import com.dispatchflow.archfixture.alpha.domain.entity.JoinsThroughADefaultTable;
+import com.dispatchflow.archfixture.alpha.domain.entity.KeysAMapByPosition;
 import com.dispatchflow.archfixture.alpha.domain.entity.MappedChild;
 import com.dispatchflow.archfixture.alpha.domain.entity.MappedInAnotherSchema;
 import com.dispatchflow.archfixture.alpha.domain.entity.MappedRoot;
@@ -24,6 +26,7 @@ import com.dispatchflow.archfixture.alpha.domain.entity.StoresAnEnumAsAnOrdinal;
 import com.dispatchflow.archfixture.alpha.domain.entity.StoresAnEnumByPosition;
 import com.dispatchflow.archfixture.alpha.domain.entity.StoresEnumsByPositionInAList;
 import com.dispatchflow.archfixture.alpha.domain.entity.VersionedChild;
+import com.dispatchflow.archfixture.alpha.domain.entity.VersionsThroughAGetter;
 import com.dispatchflow.archfixture.alpha.domain.mapping.MappedWithJakartaPersistence;
 import com.tngtech.archunit.lang.ArchRule;
 import org.junit.jupiter.api.Test;
@@ -75,9 +78,10 @@ class PersistenceRulesTest {
                 .isFalse();
     }
 
-    @Test
-    void GivenAChildEntityWithAVersion_WhenChecked_ThenItIsFlagged() {
-        assertThat(flags(PersistenceRules.onlyTheAggregateRootIsVersioned(FIXTURE_ROOT), VersionedChild.class))
+    @ParameterizedTest
+    @ValueSource(classes = {VersionedChild.class, VersionsThroughAGetter.class})
+    void GivenAVersionOutsideAggregateRoot_WhenChecked_ThenItIsFlagged(Class<?> fixture) {
+        assertThat(flags(PersistenceRules.onlyTheAggregateRootIsVersioned(FIXTURE_ROOT), fixture))
                 .isTrue();
     }
 
@@ -96,7 +100,8 @@ class PersistenceRulesTest {
                 StoresAnEnumByPosition.class,
                 StoresAnEnumAsAnOrdinal.class,
                 StoresEnumsByPositionInAList.class,
-                EmbedsAnEnumByPosition.class
+                EmbedsAnEnumByPosition.class,
+                KeysAMapByPosition.class
             })
     void GivenAnEnumStoredByPosition_WhenChecked_ThenItIsFlagged(Class<?> fixture) {
         assertThat(flags(PersistenceRules.enumsAreStoredByName(FIXTURE_ROOT), fixture))
@@ -140,7 +145,7 @@ class PersistenceRulesTest {
     }
 
     @ParameterizedTest
-    @ValueSource(classes = {WideRepository.class, ListCrudRepositoryOfRoots.class})
+    @ValueSource(classes = {WideRepository.class, ListCrudRepositoryOfRoots.class, SpecifiesItsWayAround.class})
     void GivenARepositoryThatOffersCrud_WhenChecked_ThenItIsFlagged(Class<?> fixture) {
         assertThat(flags(PersistenceRules.noRepositoryOffersMoreThanItsPortNeeds(FIXTURE_ROOT), fixture))
                 .isTrue();
