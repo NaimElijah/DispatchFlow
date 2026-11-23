@@ -3,7 +3,6 @@ package com.dispatchflow.fleet.domain.roster;
 import static com.dispatchflow.fleet.domain.roster.DayRosterBuilder.DANA;
 import static com.dispatchflow.fleet.domain.roster.DayRosterBuilder.DAY_SHIFT;
 import static com.dispatchflow.fleet.domain.roster.DayRosterBuilder.FALL_BACK;
-import static com.dispatchflow.fleet.domain.roster.DayRosterBuilder.LOADED;
 import static com.dispatchflow.fleet.domain.roster.DayRosterBuilder.NOA;
 import static com.dispatchflow.fleet.domain.roster.DayRosterBuilder.OMER;
 import static com.dispatchflow.fleet.domain.roster.DayRosterBuilder.ORDINARY_DAY;
@@ -32,7 +31,6 @@ import com.dispatchflow.fleet.domain.driver.WeeklyShifts;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.DomainError;
 import com.dispatchflow.shared.SharedKernelError.NonexistentLocalTime;
-import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.VehicleId;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
@@ -60,11 +58,11 @@ class DayRosterTest {
     private static final List<VehicleId> ALL_ACTIVE = List.of(V1, V2, V3);
 
     private static void assertRefusedUnchanged(DayRoster roster, ThrowingCallable call, DomainError expected) {
-        DayRosterSnapshot before = roster.snapshot();
+        RosterDescription before = RosterDescription.of(roster);
 
         assertRefused(call, expected);
 
-        assertThat(roster.snapshot()).isEqualTo(before);
+        assertThat(RosterDescription.of(roster)).isEqualTo(before);
         assertThat(roster.pendingEvents()).isEmpty();
     }
 
@@ -92,8 +90,8 @@ class DayRosterTest {
         DayRoster roster = DayRoster.open(ROSTER_ID, ORDINARY_DAY);
 
         assertThat(roster.date()).isEqualTo(ORDINARY_DAY);
-        assertThat(roster.snapshot().version()).isNull();
-        assertThat(roster.snapshot()).isEqualTo(new DayRosterSnapshot(ORDINARY_DAY, null, List.of(), List.of()));
+        assertThat(roster.savedVersion()).isEmpty();
+        assertThat(RosterDescription.of(roster)).isEqualTo(new RosterDescription(ORDINARY_DAY, List.of(), List.of()));
         assertThat(roster.pendingEvents()).isEmpty();
     }
 
@@ -104,7 +102,7 @@ class DayRosterTest {
         RosterFill fill =
                 roster.fill(List.of(activeDefault(DANA, DAY_SHIFT, V1), activeDefault(OMER, EARLY, V2)), ALL_ACTIVE);
 
-        assertThat(roster.snapshot().entries())
+        assertThat(roster.entries())
                 .containsExactly(
                         entry(DANA, DAY_SHIFT, drives(V1), Availability.AVAILABLE),
                         entry(OMER, EARLY, drives(V2), Availability.AVAILABLE));
@@ -148,7 +146,7 @@ class DayRosterTest {
                         RosterDefault.dayOff(OMER, V2, Standing.NOT_ACTIVE)),
                 ALL_ACTIVE);
 
-        assertThat(roster.snapshot().entries()).isEmpty();
+        assertThat(roster.entries()).isEmpty();
         assertThat(fill).isEqualTo(new RosterFill(List.of(), List.of()));
     }
 
@@ -158,8 +156,8 @@ class DayRosterTest {
 
         RosterFill fill = roster.fill(List.of(activeDefault(DANA, EARLY, V1)), ALL_ACTIVE);
 
-        assertThat(roster.snapshot())
-                .isEqualTo(aRoster().withDriverWithoutVehicle(DANA).snapshot());
+        assertThat(RosterDescription.of(roster))
+                .isEqualTo(aRoster().withDriverWithoutVehicle(DANA).description());
         assertThat(fill).isEqualTo(new RosterFill(List.of(), List.of()));
     }
 
@@ -169,8 +167,8 @@ class DayRosterTest {
 
         roster.fill(List.of(activeDefault(DANA, EARLY, V1)), ALL_ACTIVE);
 
-        assertThat(roster.snapshot())
-                .isEqualTo(aRoster().withDriverDriving(DANA, V2).snapshot());
+        assertThat(RosterDescription.of(roster))
+                .isEqualTo(aRoster().withDriverDriving(DANA, V2).description());
     }
 
     @Test
@@ -188,11 +186,11 @@ class DayRosterTest {
         DayRoster roster = aRoster().build();
         List<RosterDefault> defaults = List.of(activeDefault(DANA, DAY_SHIFT, V1));
         roster.fill(defaults, ALL_ACTIVE);
-        DayRosterSnapshot once = roster.snapshot();
+        RosterDescription once = RosterDescription.of(roster);
 
         RosterFill again = roster.fill(defaults, ALL_ACTIVE);
 
-        assertThat(roster.snapshot()).isEqualTo(once);
+        assertThat(RosterDescription.of(roster)).isEqualTo(once);
         assertThat(again).isEqualTo(new RosterFill(List.of(), List.of()));
     }
 
@@ -203,8 +201,7 @@ class DayRosterTest {
         RosterFill fill =
                 roster.fill(List.of(activeDefault(DANA, DAY_SHIFT, V1), activeDefault(DANA, EARLY, V2)), ALL_ACTIVE);
 
-        assertThat(roster.snapshot().entries())
-                .containsExactly(entry(DANA, DAY_SHIFT, drives(V1), Availability.AVAILABLE));
+        assertThat(roster.entries()).containsExactly(entry(DANA, DAY_SHIFT, drives(V1), Availability.AVAILABLE));
         assertThat(fill).isEqualTo(new RosterFill(List.of(DANA), List.of()));
     }
 
@@ -215,8 +212,7 @@ class DayRosterTest {
         RosterFill fill =
                 roster.fill(List.of(activeDefault(DANA, DAY_SHIFT, V1), activeDefault(OMER, EARLY, V1)), ALL_ACTIVE);
 
-        assertThat(roster.snapshot().entries())
-                .containsExactly(entry(DANA, DAY_SHIFT, drives(V1), Availability.AVAILABLE));
+        assertThat(roster.entries()).containsExactly(entry(DANA, DAY_SHIFT, drives(V1), Availability.AVAILABLE));
         assertThat(fill)
                 .isEqualTo(new RosterFill(
                         List.of(DANA), List.of(new SkippedDriver(OMER, new VehicleAlreadyAssigned(V1, DANA)))));
@@ -240,8 +236,8 @@ class DayRosterTest {
 
         RosterFill fill = roster.fill(List.of(activeDefault(DANA, EARLY, V1)), ALL_ACTIVE);
 
-        assertThat(roster.snapshot())
-                .isEqualTo(aRoster().withDriverDriving(NOA, V1).withDriver(DANA).snapshot());
+        assertThat(RosterDescription.of(roster))
+                .isEqualTo(aRoster().withDriverDriving(NOA, V1).withDriver(DANA).description());
         assertThat(fill.skipped()).containsExactly(new SkippedDriver(DANA, new VehicleAlreadyAssigned(V1, NOA)));
     }
 
@@ -395,8 +391,8 @@ class DayRosterTest {
 
         roster.assign(DANA, V1, Standing.ACTIVE, Standing.ACTIVE);
 
-        assertThat(roster.snapshot())
-                .isEqualTo(aRoster().withDriverDriving(DANA, V1).snapshot());
+        assertThat(RosterDescription.of(roster))
+                .isEqualTo(aRoster().withDriverDriving(DANA, V1).description());
     }
 
     @Test
@@ -476,7 +472,7 @@ class DayRosterTest {
         roster.markVehicleUnavailable(V3, Standing.ACTIVE);
         roster.markVehicleUnavailable(V1, Standing.ACTIVE);
 
-        assertThat(roster.snapshot().unavailableVehicles()).containsExactly(V1, V3);
+        assertThat(roster.unavailableVehicles()).containsExactly(V1, V3);
         assertThat(roster.isUnavailable(V1)).isTrue();
         assertThat(vehicleOf(roster, DANA)).isEqualTo(drives(V1));
     }
@@ -488,7 +484,7 @@ class DayRosterTest {
 
         roster.markVehicleAvailable(V1);
 
-        assertThat(roster.snapshot().unavailableVehicles()).containsExactly(V3);
+        assertThat(roster.unavailableVehicles()).containsExactly(V3);
         assertThat(roster.isUnavailable(V1)).isFalse();
     }
 
@@ -502,8 +498,8 @@ class DayRosterTest {
         assertThatThrownBy(() -> roster.isUnavailable(null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("vehicle");
-        assertThat(roster.snapshot())
-                .isEqualTo(aRoster().withUnavailableVehicle(V1).snapshot());
+        assertThat(RosterDescription.of(roster))
+                .isEqualTo(aRoster().withUnavailableVehicle(V1).description());
     }
 
     @Test
@@ -607,9 +603,9 @@ class DayRosterTest {
 
         roster.moveVehicleWithRoute(V1, DANA, OMER);
 
-        assertThat(roster.snapshot())
+        assertThat(RosterDescription.of(roster))
                 .isEqualTo(
-                        aRoster().withDriver(DANA).withDriverDriving(OMER, V1).snapshot());
+                        aRoster().withDriver(DANA).withDriverDriving(OMER, V1).description());
     }
 
     @Test
@@ -681,9 +677,9 @@ class DayRosterTest {
         assertThatThrownBy(() -> roster.entryOf(null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("driver");
-        assertThat(roster.snapshot())
+        assertThat(RosterDescription.of(roster))
                 .isEqualTo(
-                        aRoster().withDriverDriving(DANA, V1).withDriver(OMER).snapshot());
+                        aRoster().withDriverDriving(DANA, V1).withDriver(OMER).description());
     }
 
     // --- the lifecycle of one driver's entry
@@ -847,51 +843,5 @@ class DayRosterTest {
             Objects.requireNonNull(expected.check()).accept(roster);
             assertThat(roster.pendingEvents()).isEmpty();
         }
-    }
-
-    // --- restore
-
-    static Stream<DayRosterBuilder> builderStates() {
-        return Stream.of(
-                aRoster(),
-                aRoster().withDriverDriving(DANA, V1).withDriver(OMER).withUnavailableDriver(NOA),
-                aRoster().withDriverWithoutVehicle(DANA).withDriverDriving(OMER, V2),
-                aRoster().withDriverDriving(DANA, V1).withUnavailableVehicle(V1).withUnavailableVehicle(V3),
-                aRoster().on(SPRING_FORWARD).withDriverDriving(DANA, V1),
-                aRoster().on(FALL_BACK).withDriver(DANA));
-    }
-
-    @ParameterizedTest
-    @MethodSource("builderStates")
-    void GivenEachBuilderState_WhenItsSnapshotIsRestored_ThenTheSnapshotRoundTrips(DayRosterBuilder builder) {
-        DayRoster roster = builder.build();
-
-        assertThat(DayRoster.restore(roster.snapshot()).snapshot()).isEqualTo(builder.snapshot());
-        assertThat(roster.version()).isEqualTo(LOADED);
-    }
-
-    static Stream<Arguments> damagedSnapshots() {
-        RosterEntry onAnotherDate = new RosterEntry(
-                DANA, Shift.on(FALL_BACK, DAY_SHIFT), new RosterVehicle.NotSet(), Availability.AVAILABLE);
-        return Stream.of(
-                Arguments.of(
-                        "a driver appears twice", aRoster().withDriver(DANA).withDriverDriving(DANA, V1)),
-                Arguments.of(
-                        "a vehicle has two drivers",
-                        aRoster().withDriverDriving(DANA, V1).withDriverDriving(OMER, V1)),
-                Arguments.of("a shift lies on another date", aRoster().withEntry(onAnotherDate)),
-                Arguments.of(
-                        "a vehicle is marked unavailable twice",
-                        aRoster().withUnavailableVehicle(V1).withUnavailableVehicle(V1)));
-    }
-
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("damagedSnapshots")
-    void GivenASnapshotBreakingAnInvariantAtRest_WhenRestored_ThenStoredStateInvalid(
-            String detail, DayRosterBuilder builder) {
-        assertThatThrownBy(builder::build).isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
-            assertThat(invalid.subject()).isEqualTo("DayRoster");
-            assertThat(invalid.detail()).isEqualTo(detail);
-        });
     }
 }

@@ -12,6 +12,7 @@ import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.AggregateRoot;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.IsraelDateTime;
+import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.VehicleId;
@@ -53,11 +54,13 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>It is mapped for JPA (ADR-126): its key is the account's UUID (ADR-127 decision 5), its {@link
  * DriverStatus} a kind and the two times the states hold, its contact two nullable columns, and its
- * weekly shifts a map keyed by weekday (ADR-127 decision 4).
+ * weekly shifts a map keyed by weekday (ADR-127 decision 4). Only Hibernate rebuilds a stored
+ * driver, and its load check refuses a damaged one. It holds the driver's name and phone, so {@link
+ * #toString()} leaves them out.
  */
 @Entity
 @Table(schema = "fleet", name = "driver")
-public class Driver extends AggregateRoot {
+public class Driver extends AggregateRoot implements PersonalData {
 
     /**
      * How long a retired driver's name and phone are kept (NFR-184, ADR-075), counted in Israel's
@@ -110,17 +113,6 @@ public class Driver extends AggregateRoot {
         this.defaultVehicle = defaultVehicle;
     }
 
-    /** Builds the driver {@link #restore} checks; it goes with {@code restore} (ADR-126). */
-    private Driver(DriverSnapshot stored) {
-        super(stored.version());
-        this.id = stored.id().value();
-        moveTo(stored.status());
-        this.contact = stored.contact().orElse(null);
-        this.defaultShift = stored.defaultShift();
-        this.defaultVehicle = stored.defaultVehicle();
-        this.weeklyShifts.putAll(stored.weeklyShifts().days());
-    }
-
     /**
      * Registers a driver for an account (FR-06), with no weekly shifts yet.
      *
@@ -150,23 +142,9 @@ public class Driver extends AggregateRoot {
     }
 
     /**
-     * Rebuilds a driver from storage, checking the invariants that hold at rest: the name and phone
-     * are present unless the driver is anonymized, and absent once they are; and a driver is not
-     * anonymized before being retired. Only persistence adapters call it (DL §3.5).
-     *
-     * @param stored the stored state
-     * @return the driver at the stored version
-     * @throws StoredStateInvalid when the stored state breaks one of those invariants
-     */
-    public static Driver restore(DriverSnapshot stored) {
-        Driver restored = new Driver(stored);
-        restored.checkStored();
-        return restored;
-    }
-
-    /**
-     * Checks the driver as Hibernate loaded them against the invariants at rest that {@link
-     * #restore} checks (ADR-126 decision 8).
+     * Checks the driver as Hibernate loaded them against the invariants that hold at rest (ADR-126
+     * decision 8): the name and phone are present unless the driver is anonymized, and absent once
+     * they are; and a driver is not anonymized before being retired.
      *
      * @throws StoredStateInvalid when the stored state breaks one of them
      */
@@ -178,28 +156,77 @@ public class Driver extends AggregateRoot {
     }
 
     /**
-     * The driver's state, for the repository to store and for Fleet's API to read.
-     *
-     * @return the stored form
-     */
-    public DriverSnapshot snapshot() {
-        return new DriverSnapshot(
-                id(),
-                savedVersion().orElse(null),
-                status(),
-                Optional.ofNullable(contact),
-                defaultShift,
-                defaultVehicle,
-                WeeklyShifts.of(weeklyShifts));
-    }
-
-    /**
      * The driver's key.
      *
      * @return the ID of the driver's account
      */
     public AccountId id() {
         return AccountId.of(id);
+    }
+
+    /**
+     * Where the driver is in their lifecycle (DL §9.7).
+     *
+     * @return active, retired or anonymized, with the times each state holds
+     */
+    public DriverStatus status() {
+        return switch (status) {
+            case ACTIVE -> new DriverStatus.Active();
+            case RETIRED ->
+                new DriverStatus.Retired(Objects.requireNonNull(retiredAt, "a retired driver has a retirement time"));
+            case ANONYMIZED ->
+                new DriverStatus.Anonymized(
+                        Optional.ofNullable(retiredAt),
+                        Objects.requireNonNull(anonymizedAt, "an anonymized driver has an anonymization time"));
+        };
+    }
+
+    /**
+     * The driver's name and phone (FR-132).
+     *
+     * @return them, or empty once the driver is anonymized (BR-98)
+     */
+    public Optional<DriverContact> contact() {
+        return Optional.ofNullable(contact);
+    }
+
+    /**
+     * The shift hours a date gets by default (FR-06, FR-189).
+     *
+     * @return the default shift
+     */
+    public ShiftHours defaultShift() {
+        return defaultShift;
+    }
+
+    /**
+     * The vehicle a date gets by default (FR-06, FR-189).
+     *
+     * @return the default vehicle
+     */
+    public VehicleId defaultVehicle() {
+        return defaultVehicle;
+    }
+
+    /**
+     * The driver's weekly shift template (FR-79).
+     *
+     * @return the template, a copy; the empty one leaves every date to the default shift
+     */
+    public WeeklyShifts weeklyShifts() {
+        return WeeklyShifts.of(weeklyShifts);
+    }
+
+    /**
+     * A form that names the driver by account and state and leaves their name and phone out.
+     *
+     * @return the driver without their contact
+     */
+    @Override
+    public String toString() {
+        return "Driver[id=" + id() + ", status=" + status() + ", contact="
+                + (contact == null ? "none" : "redacted") + ", defaultShift=" + defaultShift
+                + ", defaultVehicle=" + defaultVehicle + ", weeklyShifts=" + weeklyShifts() + "]";
     }
 
     /**
@@ -295,7 +322,7 @@ public class Driver extends AggregateRoot {
      *
      * <p>A late, redelivered event can reach a driver a dispatcher retired after the account was
      * anonymized. The driver is then recorded as anonymized at the retirement, never before it, so
-     * the saved state keeps {@link #restore}'s order.
+     * the saved state keeps the order the load check requires.
      *
      * @param now when the account was anonymized, from the event; for a driver retired later, the
      *     retirement is recorded instead
@@ -333,19 +360,6 @@ public class Driver extends AggregateRoot {
                 ? Optional.of(defaultShift)
                 : Optional.ofNullable(weeklyShifts.get(date.value().getDayOfWeek()));
         return Optional.of(new RosterDefault(id(), hours, defaultVehicle, account));
-    }
-
-    /** The status its kind and its stored times make. */
-    private DriverStatus status() {
-        return switch (status) {
-            case ACTIVE -> new DriverStatus.Active();
-            case RETIRED ->
-                new DriverStatus.Retired(Objects.requireNonNull(retiredAt, "a retired driver has a retirement time"));
-            case ANONYMIZED ->
-                new DriverStatus.Anonymized(
-                        Optional.ofNullable(retiredAt),
-                        Objects.requireNonNull(anonymizedAt, "an anonymized driver has an anonymization time"));
-        };
     }
 
     /** Sets the status's kind and the times it holds, in place. */

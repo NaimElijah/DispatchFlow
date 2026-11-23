@@ -13,8 +13,8 @@ import com.dispatchflow.fleet.domain.ShiftHours;
 import com.dispatchflow.fleet.domain.Standing;
 import com.dispatchflow.fleet.domain.driver.Driver;
 import com.dispatchflow.fleet.domain.driver.DriverContact;
+import com.dispatchflow.fleet.domain.driver.DriverDescription;
 import com.dispatchflow.fleet.domain.driver.DriverName;
-import com.dispatchflow.fleet.domain.driver.DriverSnapshot;
 import com.dispatchflow.fleet.domain.driver.DriverStatus;
 import com.dispatchflow.fleet.domain.driver.WeeklyShifts;
 import com.dispatchflow.fleet.events.DriverRetired;
@@ -87,9 +87,9 @@ class DriverPersistenceIT {
         events.clear();
     }
 
-    // --- round trips, mirroring the domain's restore round trips
+    // --- round trips
 
-    /** The states the domain's restore round trip covers, reached through commands. */
+    /** The states the round trip covers, reached through commands. */
     enum Scenario {
         ACTIVE,
         WITH_WEEKLY_SHIFTS,
@@ -117,7 +117,7 @@ class DriverPersistenceIT {
         Driver loaded =
                 transactions.inTransaction(() -> repository.get(account(n)).orElseThrow());
 
-        assertThat(loaded.snapshot()).isEqualTo(added.snapshot());
+        assertThat(DriverDescription.of(loaded)).isEqualTo(DriverDescription.of(added));
         assertThat(loaded.id()).isEqualTo(account(n));
         assertThat(loaded.version()).isEqualTo(Version.of(0));
         assertThat(loaded.rosterDefaultOn(A_SUNDAY, Standing.ACTIVE))
@@ -152,10 +152,9 @@ class DriverPersistenceIT {
 
         assertThat(List.of(added, changed, storedVersion(n))).containsExactly(0L, 1L, 2L);
         assertThat(transactions.inTransaction(
-                        () -> repository.get(account(n)).orElseThrow().snapshot()))
-                .isEqualTo(new DriverSnapshot(
+                        () -> DriverDescription.of(repository.get(account(n)).orElseThrow())))
+                .isEqualTo(new DriverDescription(
                         account(n),
-                        Version.of(2),
                         new DriverStatus.Active(),
                         Optional.of(contact(100 + n)),
                         MORNING,
@@ -200,8 +199,8 @@ class DriverPersistenceIT {
                     assertThat(stale.id()).isEqualTo(account(n).value());
                 });
 
-        DriverSnapshot stored = transactions.inTransaction(
-                () -> repository.get(account(n)).orElseThrow().snapshot());
+        Driver stored =
+                transactions.inTransaction(() -> repository.get(account(n)).orElseThrow());
         assertThat(stored.version()).isEqualTo(Version.of(1));
         assertThat(stored.defaultShift()).isEqualTo(MORNING);
         assertThat(stored.weeklyShifts()).isEqualTo(WeeklyShifts.none());
@@ -223,8 +222,8 @@ class DriverPersistenceIT {
         List<Driver> registered = transactions.inTransaction(() -> repository.registered());
 
         // Read outside the transaction, so a collection it didn't load would fail here.
-        assertThat(registered.stream().map(Driver::snapshot).filter(driver -> ours.contains(driver.id())))
-                .extracting(DriverSnapshot::id, DriverSnapshot::weeklyShifts)
+        assertThat(registered.stream().map(DriverDescription::of).filter(driver -> ours.contains(driver.id())))
+                .extracting(DriverDescription::id, DriverDescription::weeklyShifts)
                 .containsExactly(
                         tuple(account(first), SUNDAY_AND_FRIDAY),
                         tuple(account(second), WeeklyShifts.none()),
@@ -266,7 +265,7 @@ class DriverPersistenceIT {
                 .containsExactlyInAnyOrder(account(due), account(retiredADayLater));
     }
 
-    // --- the load check (ADR-127 decision 1), mirroring the domain's damaged snapshots
+    // --- the load check (ADR-127 decision 1): the damaged stored states it refuses
 
     private static final String CONTACT_UNTIL_ANONYMIZED =
             "a driver has a name and phone exactly until they are anonymized";

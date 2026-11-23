@@ -66,7 +66,7 @@ public class FleetRegister extends AggregateRoot {
     @Id
     private UUID id;
 
-    // Insertion order, so a snapshot and a refusal's vehicle list come out the same every time.
+    // Insertion order, so the getters and a refusal's vehicle list come out the same every time.
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "fleet_register_id", nullable = false)
     @OrderColumn(name = "position", nullable = false)
@@ -83,14 +83,6 @@ public class FleetRegister extends AggregateRoot {
      */
     protected FleetRegister() {}
 
-    /** Builds the register {@link #restore} checks; it goes with {@code restore} (ADR-126). */
-    private FleetRegister(FleetRegisterSnapshot stored) {
-        super(stored.version());
-        this.id = KEY;
-        stored.depots().forEach(depot -> depots.add(new Depot(depot)));
-        stored.vehicles().forEach(vehicle -> vehicles.add(new Vehicle(vehicle)));
-    }
-
     /**
      * Creates the company's register, before any depot or vehicle is added.
      *
@@ -103,25 +95,11 @@ public class FleetRegister extends AggregateRoot {
     }
 
     /**
-     * Rebuilds the register from storage, checking the invariants that hold at rest: each depot and
-     * vehicle appears once, every vehicle's depots are in the register, and among active vehicles
-     * there are at most {@value #MAX_ACTIVE_VEHICLES}, each name and plate is used once, and every
-     * depot they use is active, where names are compared as BR-48 compares them. Only persistence
-     * adapters call it (DL §3.5).
-     *
-     * @param stored the stored state
-     * @return the register at the stored version
-     * @throws StoredStateInvalid when the stored state breaks one of those invariants
-     */
-    public static FleetRegister restore(FleetRegisterSnapshot stored) {
-        FleetRegister register = new FleetRegister(stored);
-        register.checkStored();
-        return register;
-    }
-
-    /**
-     * Checks the register as Hibernate loaded it against the invariants at rest that {@link
-     * #restore} checks (ADR-126 decision 8).
+     * Checks the register as Hibernate loaded it against the invariants that hold at rest (ADR-126
+     * decision 8): each depot and vehicle appears once, every vehicle's depots are in the register,
+     * and among active vehicles there are at most {@value #MAX_ACTIVE_VEHICLES}, each name and plate
+     * is used once, and every depot they use is active, where names are compared as BR-48 compares
+     * them.
      *
      * @throws StoredStateInvalid when the stored state breaks one of them
      */
@@ -132,7 +110,7 @@ public class FleetRegister extends AggregateRoot {
         });
     }
 
-    /** The first invariant at rest the register breaks, if any: those {@link #restore} names. */
+    /** The first invariant at rest the register breaks, if any: those {@link #checkStored} names. */
     private Optional<String> brokenRule() {
         if (repeats(depots.stream().map(Depot::id).toList())) {
             return Optional.of("a depot appears twice");
@@ -183,15 +161,23 @@ public class FleetRegister extends AggregateRoot {
     }
 
     /**
-     * The register's state, for the repository to store and for Fleet's API to read.
+     * Every depot, active and retired.
      *
-     * @return every depot and vehicle, in the order they were added
+     * @return an unmodifiable copy of the list, in the order the depots were added; only this
+     *     register's commands change the depots in it
      */
-    public FleetRegisterSnapshot snapshot() {
-        return new FleetRegisterSnapshot(
-                savedVersion().orElse(null),
-                depots.stream().map(Depot::snapshot).toList(),
-                vehicles.stream().map(Vehicle::snapshot).toList());
+    public List<Depot> depots() {
+        return List.copyOf(depots);
+    }
+
+    /**
+     * Every vehicle, active and retired.
+     *
+     * @return an unmodifiable copy of the list, in the order the vehicles were added; only this
+     *     register's commands change the vehicles in it
+     */
+    public List<Vehicle> vehicles() {
+        return List.copyOf(vehicles);
     }
 
     /**
@@ -209,7 +195,7 @@ public class FleetRegister extends AggregateRoot {
         if (findDepot(id).isPresent()) {
             throw new AssertionError("a new depot needs a new ID");
         }
-        depots.add(new Depot(new DepotSnapshot(id, name, location, hours, Optional.empty())));
+        depots.add(new Depot(id, name, location, hours));
         requireInvariants();
     }
 
@@ -290,7 +276,7 @@ public class FleetRegister extends AggregateRoot {
         }
         checkRoomForOneMore();
         checkDetails(details, id);
-        vehicles.add(new Vehicle(new VehicleSnapshot(id, details, Optional.empty())));
+        vehicles.add(new Vehicle(id, details));
         requireInvariants();
     }
 

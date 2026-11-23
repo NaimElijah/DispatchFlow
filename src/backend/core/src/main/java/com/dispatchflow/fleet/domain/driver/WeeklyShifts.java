@@ -11,7 +11,7 @@ import java.util.Optional;
 /**
  * A driver's weekly shift template (FR-79, ADR-103): for each weekday, at most one shift's hours.
  * It holds no vehicle: the driver's default vehicle fills that (FR-06). The days are kept in
- * {@link DayOfWeek} order, Monday first, so a snapshot or a screen lists them the same way every
+ * {@link DayOfWeek} order, Monday first, so a view or a screen lists them the same way every
  * time.
  *
  * @param days the shift hours of each weekday that has a shift

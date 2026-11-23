@@ -11,7 +11,7 @@ import com.dispatchflow.fleet.domain.ShiftHours;
 import com.dispatchflow.fleet.domain.Standing;
 import com.dispatchflow.fleet.domain.roster.Availability;
 import com.dispatchflow.fleet.domain.roster.DayRoster;
-import com.dispatchflow.fleet.domain.roster.DayRosterSnapshot;
+import com.dispatchflow.fleet.domain.roster.RosterDescription;
 import com.dispatchflow.fleet.domain.roster.RosterEntry;
 import com.dispatchflow.fleet.domain.roster.RosterVehicle;
 import com.dispatchflow.fleet.domain.roster.Shift;
@@ -72,9 +72,9 @@ class DayRosterPersistenceIT {
     @Autowired
     private JdbcClient jdbc;
 
-    // --- round trips, mirroring the domain's restore round trips
+    // --- round trips
 
-    /** The states the domain's restore round trip covers, reached through commands. */
+    /** The states the round trip covers, reached through commands. */
     enum Scenario {
         EMPTY,
         A_DRIVER_IN_EACH_STATE,
@@ -123,7 +123,7 @@ class DayRosterPersistenceIT {
         // Read outside the transaction, so a collection the load left out would fail here.
         DayRoster loaded = transactions.inTransaction(() -> repository.get(date).orElseThrow());
 
-        assertThat(loaded.snapshot()).isEqualTo(added.snapshot());
+        assertThat(RosterDescription.of(loaded)).isEqualTo(RosterDescription.of(added));
         assertThat(loaded.date()).isEqualTo(date);
         assertThat(loaded.version()).isEqualTo(Version.of(0));
         assertThat(loaded.entryOf(DANA)).isEqualTo(added.entryOf(DANA));
@@ -148,8 +148,8 @@ class DayRosterPersistenceIT {
             repository.add(next);
         });
 
-        DayRosterSnapshot loaded = transactions.inTransaction(
-                () -> repository.get(dayAfter(dayOf(n))).orElseThrow().snapshot());
+        DayRoster loaded = transactions.inTransaction(
+                () -> repository.get(dayAfter(dayOf(n))).orElseThrow());
 
         assertThat(loaded.entries()).extracting(RosterEntry::driver).containsExactly(OMER);
     }
@@ -200,8 +200,7 @@ class DayRosterPersistenceIT {
             repository.save(roster);
         });
 
-        DayRosterSnapshot loaded = transactions.inTransaction(
-                () -> repository.get(date).orElseThrow().snapshot());
+        DayRoster loaded = transactions.inTransaction(() -> repository.get(date).orElseThrow());
         assertThat(loaded.entries())
                 .containsExactly(
                         new RosterEntry(
@@ -233,8 +232,8 @@ class DayRosterPersistenceIT {
                     assertThat(stale.id()).isEqualTo(rosterId(n));
                 });
 
-        DayRosterSnapshot stored = transactions.inTransaction(
-                () -> repository.get(dayOf(n)).orElseThrow().snapshot());
+        DayRoster stored =
+                transactions.inTransaction(() -> repository.get(dayOf(n)).orElseThrow());
         assertThat(stored.version()).isEqualTo(Version.of(1));
         assertThat(stored.entries()).extracting(RosterEntry::driver).containsExactly(DANA);
         assertThat(stored.unavailableVehicles()).isEmpty();
@@ -260,8 +259,8 @@ class DayRosterPersistenceIT {
                     assertThat(stale.id()).isEqualTo(rosterId(n));
                 });
 
-        DayRosterSnapshot stored = transactions.inTransaction(
-                () -> repository.get(dayOf(n)).orElseThrow().snapshot());
+        DayRoster stored =
+                transactions.inTransaction(() -> repository.get(dayOf(n)).orElseThrow());
         assertThat(stored.entries()).extracting(RosterEntry::driver).containsExactly(OMER);
         assertThat(jdbc.sql("SELECT id FROM fleet.day_roster WHERE date = ?")
                         .param(dayOf(n).value())
@@ -270,7 +269,7 @@ class DayRosterPersistenceIT {
                 .isEqualTo(rosterId(100 + n));
     }
 
-    // --- the load check (ADR-127 decision 1), mirroring the domain's damaged snapshots
+    // --- the load check (ADR-127 decision 1): the damaged stored states it refuses
 
     static Stream<Arguments> damagedRows() {
         return Stream.of(

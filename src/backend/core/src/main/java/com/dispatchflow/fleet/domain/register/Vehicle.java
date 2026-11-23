@@ -7,19 +7,21 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A vehicle, an entity of {@link FleetRegister}: changed only through the register's methods.
+ * A vehicle, an entity of {@link FleetRegister}: only the register's methods change it, and its
+ * getters read it.
  *
  * <p>It is mapped for JPA (ADR-126): its details are embedded in its row, and a change replaces
  * them whole.
  */
 @Entity
 @Table(schema = "fleet", name = "vehicle")
-class Vehicle {
+public class Vehicle {
 
     @Id
     private UUID id;
@@ -32,18 +34,42 @@ class Vehicle {
     /** For Hibernate, which sets the fields from the stored row. */
     protected Vehicle() {}
 
-    Vehicle(VehicleSnapshot stored) {
-        this.id = stored.id().value();
-        this.details = stored.details();
-        this.retiredAt = stored.retiredAt().orElse(null);
+    /**
+     * Creates an active vehicle; the rules are {@link FleetRegister}'s.
+     *
+     * @param id the vehicle's ID
+     * @param details its name, plate, capacity and depots
+     */
+    Vehicle(VehicleId id, VehicleDetails details) {
+        this.id = Objects.requireNonNull(id, "id").value();
+        this.details = Objects.requireNonNull(details, "details");
     }
 
-    VehicleId id() {
+    /**
+     * The vehicle's ID.
+     *
+     * @return its ID
+     */
+    public VehicleId id() {
         return VehicleId.of(id);
     }
 
-    VehicleDetails details() {
+    /**
+     * What a dispatcher registered or last changed about the vehicle (FR-05, FR-131).
+     *
+     * @return its name, plate, capacity and depots
+     */
+    public VehicleDetails details() {
         return details;
+    }
+
+    /**
+     * When the vehicle was retired (BR-43).
+     *
+     * @return the time, or empty while it is active
+     */
+    public Optional<Instant> retiredAt() {
+        return Optional.ofNullable(retiredAt);
     }
 
     boolean isActive() {
@@ -64,9 +90,5 @@ class Vehicle {
 
     void reactivate() {
         this.retiredAt = null;
-    }
-
-    VehicleSnapshot snapshot() {
-        return new VehicleSnapshot(id(), details, Optional.ofNullable(retiredAt));
     }
 }

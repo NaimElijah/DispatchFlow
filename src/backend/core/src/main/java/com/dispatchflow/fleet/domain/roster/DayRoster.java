@@ -61,7 +61,7 @@ public class DayRoster extends AggregateRoot {
 
     private DeliveryDate date;
 
-    // Insertion order, so a snapshot lists drivers and vehicles the same way every time.
+    // Insertion order, so the getters list drivers and vehicles the same way every time.
     @ElementCollection
     @CollectionTable(schema = "fleet", name = "roster_entry", joinColumns = @JoinColumn(name = "day_roster_id"))
     @OrderColumn(name = "position", nullable = false)
@@ -82,19 +82,6 @@ public class DayRoster extends AggregateRoot {
     }
 
     /**
-     * Builds the roster {@link #restore} checks; it goes with {@code restore} (ADR-126). A snapshot
-     * carries no key, and nothing stores a restored roster, so it keys on a UUID made from the date
-     * alone, the same for every restore of that date.
-     */
-    private DayRoster(DayRosterSnapshot stored) {
-        super(stored.version());
-        this.id = new UUID(0L, stored.date().value().toEpochDay());
-        this.date = stored.date();
-        stored.entries().forEach(entry -> entries.add(new StoredRosterEntry(entry)));
-        unavailableVehicles.addAll(stored.unavailableVehicles());
-    }
-
-    /**
      * Opens an empty roster for a date. {@link #fill} then gives it the drivers' defaults.
      *
      * @param id the new roster's key, from {@code IdGenerator}; the date stays the roster's identity,
@@ -107,23 +94,9 @@ public class DayRoster extends AggregateRoot {
     }
 
     /**
-     * Rebuilds a roster from storage, checking the invariants that hold at rest: each driver and
-     * each unavailable vehicle appears once, no vehicle has two drivers, and every shift lies on the
-     * roster's date (FR-190). Only persistence adapters call it (DL §3.5).
-     *
-     * @param stored the stored state
-     * @return the roster at the stored version
-     * @throws StoredStateInvalid when the stored state breaks one of those invariants
-     */
-    public static DayRoster restore(DayRosterSnapshot stored) {
-        DayRoster roster = new DayRoster(stored);
-        roster.checkStored();
-        return roster;
-    }
-
-    /**
-     * Checks the roster as Hibernate loaded it against the invariants at rest that {@link #restore}
-     * checks (ADR-126 decision 8).
+     * Checks the roster as Hibernate loaded it against the invariants that hold at rest (ADR-126
+     * decision 8): each driver and each unavailable vehicle appears once, no vehicle has two
+     * drivers, and every shift lies on the roster's date (FR-190).
      *
      * @throws StoredStateInvalid when the stored state breaks one of them, or a stored shift falls in
      *     an hour the clock skips on its date
@@ -135,11 +108,11 @@ public class DayRoster extends AggregateRoot {
         });
     }
 
-    /** The first invariant at rest the roster breaks, if any: those {@link #restore} names. */
+    /** The first invariant at rest the roster breaks, if any: those {@link #checkStored} names. */
     private Optional<String> brokenRule() {
         Set<AccountId> drivers = new HashSet<>();
         Set<VehicleId> driven = new HashSet<>();
-        for (RosterEntry entry : entryList()) {
+        for (RosterEntry entry : entries()) {
             if (!drivers.add(entry.driver())) {
                 return Optional.of("a driver appears twice");
             }
@@ -169,22 +142,30 @@ public class DayRoster extends AggregateRoot {
     }
 
     /**
-     * The roster's state, for the repository to store and for Fleet's application layer to map into
-     * its API's own types.
+     * The date the roster is for, which finds it; its table keeps one roster per date.
      *
-     * @return the stored form
-     */
-    public DayRosterSnapshot snapshot() {
-        return new DayRosterSnapshot(date, savedVersion().orElse(null), entryList(), List.copyOf(unavailableVehicles));
-    }
-
-    /**
-     * The roster's key.
-     *
-     * @return the delivery date it is for
+     * @return the delivery date
      */
     public DeliveryDate date() {
         return date;
+    }
+
+    /**
+     * Every driver on the roster (FR-54).
+     *
+     * @return one entry per rostered driver, unmodifiable, in the order they were rostered
+     */
+    public List<RosterEntry> entries() {
+        return entries.stream().map(StoredRosterEntry::entry).toList();
+    }
+
+    /**
+     * The vehicles marked unavailable on the date (FR-07, FR-301).
+     *
+     * @return an unmodifiable copy, in the order they were marked
+     */
+    public List<VehicleId> unavailableVehicles() {
+        return List.copyOf(unavailableVehicles);
     }
 
     /**
@@ -482,10 +463,6 @@ public class DayRoster extends AggregateRoot {
         return find(Objects.requireNonNull(driver, "driver"));
     }
 
-    private List<RosterEntry> entryList() {
-        return entries.stream().map(StoredRosterEntry::entry).toList();
-    }
-
     private OptionalInt indexOf(AccountId driver) {
         return IntStream.range(0, entries.size())
                 .filter(index -> entries.get(index).driver().equals(driver))
@@ -504,7 +481,7 @@ public class DayRoster extends AggregateRoot {
     }
 
     private Optional<AccountId> holderOf(VehicleId vehicle) {
-        return entryList().stream()
+        return entries().stream()
                 .filter(entry -> entry.drives(vehicle))
                 .map(RosterEntry::driver)
                 .findFirst();

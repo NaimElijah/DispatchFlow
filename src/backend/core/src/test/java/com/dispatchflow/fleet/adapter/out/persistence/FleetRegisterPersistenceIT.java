@@ -9,12 +9,13 @@ import com.dispatchflow.fleet.application.port.out.FleetRegisterRepository;
 import com.dispatchflow.fleet.domain.PlanUses;
 import com.dispatchflow.fleet.domain.Standing;
 import com.dispatchflow.fleet.domain.register.Capacity;
+import com.dispatchflow.fleet.domain.register.Depot;
+import com.dispatchflow.fleet.domain.register.DepotDescription;
 import com.dispatchflow.fleet.domain.register.DepotHours;
 import com.dispatchflow.fleet.domain.register.DepotName;
-import com.dispatchflow.fleet.domain.register.DepotSnapshot;
 import com.dispatchflow.fleet.domain.register.FleetRegister;
-import com.dispatchflow.fleet.domain.register.FleetRegisterSnapshot;
 import com.dispatchflow.fleet.domain.register.Plate;
+import com.dispatchflow.fleet.domain.register.RegisterDescription;
 import com.dispatchflow.fleet.domain.register.VehicleDetails;
 import com.dispatchflow.fleet.domain.register.VehicleName;
 import com.dispatchflow.shared.DepotId;
@@ -87,9 +88,9 @@ class FleetRegisterPersistenceIT {
         assertThat(transactions.inTransaction(() -> repository.get())).isEmpty();
     }
 
-    // --- round trips, mirroring the domain's restore round trips
+    // --- round trips
 
-    /** The states the domain's restore round trip covers, reached through commands. */
+    /** The states the round trip covers, reached through commands. */
     enum Scenario {
         NO_DEPOTS,
         TWO_DEPOTS,
@@ -130,7 +131,7 @@ class FleetRegisterPersistenceIT {
         // Read outside the transaction, so a collection the load left out would fail here.
         FleetRegister loaded = transactions.inTransaction(() -> repository.get().orElseThrow());
 
-        assertThat(loaded.snapshot()).isEqualTo(added.snapshot());
+        assertThat(RegisterDescription.of(loaded)).isEqualTo(RegisterDescription.of(added));
         assertThat(loaded.version()).isEqualTo(Version.of(0));
         assertThat(loaded.activeVehicles()).isEqualTo(added.activeVehicles());
         assertThat(loaded.pendingEvents()).isEmpty();
@@ -150,10 +151,9 @@ class FleetRegisterPersistenceIT {
             repository.add(register);
         });
 
-        FleetRegisterSnapshot loaded =
-                transactions.inTransaction(() -> repository.get().orElseThrow().snapshot());
+        FleetRegister loaded = transactions.inTransaction(() -> repository.get().orElseThrow());
 
-        assertThat(loaded.depots()).extracting(DepotSnapshot::id).containsExactly(EAST, NORTH, SOUTH);
+        assertThat(loaded.depots()).extracting(Depot::id).containsExactly(EAST, NORTH, SOUTH);
     }
 
     // --- versions and conflicts
@@ -177,9 +177,9 @@ class FleetRegisterPersistenceIT {
         });
 
         assertThat(List.of(added, withEast, storedVersion())).containsExactly(0L, 1L, 2L);
-        assertThat(transactions.inTransaction(
-                        () -> repository.get().orElseThrow().snapshot().depots().get(2)))
-                .isEqualTo(new DepotSnapshot(
+        assertThat(transactions.inTransaction(() -> DepotDescription.of(
+                        repository.get().orElseThrow().depots().get(2))))
+                .isEqualTo(new DepotDescription(
                         EAST, DepotName.of("East Gate"), Optional.of(NORTH_POINT), Optional.empty(), Optional.empty()));
     }
 
@@ -224,12 +224,12 @@ class FleetRegisterPersistenceIT {
                 });
 
         assertThat(transactions.inTransaction(
-                        () -> repository.get().orElseThrow().snapshot().depots()))
-                .extracting(DepotSnapshot::id)
+                        () -> repository.get().orElseThrow().depots()))
+                .extracting(Depot::id)
                 .containsExactly(EAST);
     }
 
-    // --- the load check (ADR-127 decision 1), mirroring the domain's damaged snapshots
+    // --- the load check (ADR-127 decision 1): the damaged stored states it refuses
 
     static Stream<Arguments> damagedRows() {
         return Stream.of(
