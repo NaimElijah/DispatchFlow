@@ -1,12 +1,18 @@
 package com.dispatchflow.shared.adapter.out.persistence;
 
 import com.dispatchflow.shared.AggregateRoot;
+import com.dispatchflow.shared.Attempt;
+import com.dispatchflow.shared.DaySeconds;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.DomainEvent;
 import com.dispatchflow.shared.EventId;
 import com.dispatchflow.shared.GeoPoint;
+import com.dispatchflow.shared.PhoneNumber;
+import com.dispatchflow.shared.PlanId;
+import com.dispatchflow.shared.Priority;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.TimeWindow;
+import com.dispatchflow.shared.Volume;
 import com.dispatchflow.shared.Weight;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.CascadeType;
@@ -71,6 +77,14 @@ class Ledger extends AggregateRoot {
     @AttributeOverride(name = "longitude", column = @Column(name = "depot_longitude"))
     private @Nullable GeoPoint depot;
 
+    private Priority priority;
+
+    private @Nullable PlanId plan;
+
+    private @Nullable PhoneNumber phone;
+
+    private @Nullable EventId cause;
+
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "ledger_id", nullable = false)
     @OrderColumn(name = "entry_index", nullable = false)
@@ -85,6 +99,7 @@ class Ledger extends AggregateRoot {
         this.bookedFor = bookedFor;
         this.window = window;
         this.depot = depot;
+        this.priority = Priority.byDefault();
     }
 
     static Ledger open(
@@ -120,6 +135,37 @@ class Ledger extends AggregateRoot {
 
     List<LedgerEntry> entries() {
         return List.copyOf(entries);
+    }
+
+    Priority priority() {
+        return priority;
+    }
+
+    Optional<PlanId> plan() {
+        return Optional.ofNullable(plan);
+    }
+
+    Optional<PhoneNumber> phone() {
+        return Optional.ofNullable(phone);
+    }
+
+    Optional<EventId> cause() {
+        return Optional.ofNullable(cause);
+    }
+
+    /** Sets the kernel values no other method sets, before the first save; it raises nothing. */
+    void describe(Priority newPriority, PlanId newPlan, PhoneNumber newPhone, EventId newCause) {
+        priority = newPriority;
+        plan = newPlan;
+        phone = newPhone;
+        cause = newCause;
+    }
+
+    /** Adds an entry that carries every kernel value an entry can. */
+    void addDetailedEntry(
+            UUID entryId, Weight amount, Attempt attempt, Volume volume, DaySeconds due, TimeWindow slot, Instant now) {
+        entries.add(new LedgerEntry(entryId, amount, attempt, volume, due, slot));
+        raise(EntryAdded.class, id, eventId -> new EntryAdded(eventId, now));
     }
 
     /** Changes the root's own column only. */

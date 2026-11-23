@@ -6,13 +6,19 @@ import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.TestPersistenceConfiguration.RecordedEvents;
+import com.dispatchflow.shared.Attempt;
+import com.dispatchflow.shared.DaySeconds;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.DomainEvent;
 import com.dispatchflow.shared.EventId;
 import com.dispatchflow.shared.GeoPoint;
+import com.dispatchflow.shared.PhoneNumber;
+import com.dispatchflow.shared.PlanId;
+import com.dispatchflow.shared.Priority;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.TimeWindow;
 import com.dispatchflow.shared.Version;
+import com.dispatchflow.shared.Volume;
 import com.dispatchflow.shared.Weight;
 import com.dispatchflow.shared.adapter.out.persistence.Ledger.EntryAdded;
 import com.dispatchflow.shared.adapter.out.persistence.Ledger.EntryReweighed;
@@ -20,6 +26,7 @@ import com.dispatchflow.shared.adapter.out.persistence.Ledger.LedgerOpened;
 import com.dispatchflow.shared.adapter.out.persistence.Ledger.LedgerRenamed;
 import com.dispatchflow.shared.application.StaleVersion;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.OptimisticLockException;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -33,6 +40,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -195,7 +203,7 @@ class VersionedSaveIT {
                 .isInstanceOfSatisfying(StaleVersion.class, stale -> {
                     assertThat(stale.kind()).isEqualTo("Ledger");
                     assertThat(stale.id()).isEqualTo(id);
-                    assertThat(stale.getCause()).isNotNull();
+                    assertThat(stale.getCause()).isInstanceOf(OptimisticLockException.class);
                 });
 
         assertThat(storedVersion(id)).isEqualTo(SECOND_SAVE.value());
@@ -218,7 +226,11 @@ class VersionedSaveIT {
                     mine.reweigh(entry, TWELVE_AND_A_HALF, NOW);
                     save(mine);
                 }))
-                .isInstanceOf(StaleVersion.class);
+                .isInstanceOfSatisfying(StaleVersion.class, stale -> {
+                    assertThat(stale.kind()).isEqualTo("Ledger");
+                    assertThat(stale.id()).isEqualTo(id);
+                    assertThat(stale.getCause()).isInstanceOf(OptimisticLockException.class);
+                });
 
         assertThat(storedVersion(id)).isEqualTo(SECOND_SAVE.value());
         assertThat(storedAmount(entry)).isEqualByComparingTo(TEN.kilograms());
@@ -251,7 +263,20 @@ class VersionedSaveIT {
     void GivenALedgerWithKernelValues_WhenSavedAndLoadedAgain_ThenEveryValueComesBackAsSaved() {
         UUID id = key(10);
         UUID entry = key(100);
-        createdWithAnEntry(id, entry);
+        UUID detailed = key(101);
+        PlanId plan = PlanId.of(key(102));
+        PhoneNumber phone = PhoneNumber.ofStored("+972523456789");
+        EventId cause = new EventId("PlanOpened", plan.value(), Version.of(0), 0);
+        DaySeconds due = DaySeconds.of(DATE, 36_000);
+        TimeWindow afternoon = TimeWindow.on(DATE, LocalTime.of(13, 0), LocalTime.of(17, 0));
+        Volume volume = Volume.litres(new BigDecimal("40"));
+        inTransaction(() -> {
+            Ledger ledger = Ledger.open(id, "Ledger", DATE, MORNING, DEPOT, NOW);
+            ledger.addEntry(entry, TEN, NOW);
+            ledger.describe(Priority.of(Priority.HIGHEST), plan, phone, cause);
+            ledger.addDetailedEntry(detailed, TWELVE_AND_A_HALF, Attempt.of(2), volume, due, afternoon, NOW);
+            return save(ledger);
+        });
 
         Ledger loaded = inTransaction(() -> load(id));
 
@@ -260,10 +285,32 @@ class VersionedSaveIT {
         assertThat(loaded.bookedFor()).isEqualTo(DATE);
         assertThat(loaded.window()).isEqualTo(MORNING);
         assertThat(loaded.depot()).contains(DEPOT);
-        assertThat(loaded.entries()).singleElement().satisfies(stored -> {
+        assertThat(loaded.priority()).isEqualTo(Priority.of(Priority.HIGHEST));
+        assertThat(loaded.plan()).contains(plan);
+        assertThat(loaded.phone()).contains(phone);
+        assertThat(loaded.cause()).contains(cause);
+        assertThat(loaded.entries()).hasSize(2);
+        assertThat(loaded.entries().get(0)).satisfies(stored -> {
             assertThat(stored.id()).isEqualTo(entry);
             assertThat(stored.amount()).isEqualTo(TEN);
+            assertThat(stored.attempt()).isEqualTo(Attempt.FIRST);
+            assertThat(stored.volume()).isEmpty();
+            assertThat(stored.due()).isEmpty();
+            assertThat(stored.slot()).isEmpty();
         });
+        assertThat(loaded.entries().get(1)).satisfies(stored -> {
+            assertThat(stored.id()).isEqualTo(detailed);
+            assertThat(stored.amount()).isEqualTo(TWELVE_AND_A_HALF);
+            assertThat(stored.attempt()).isEqualTo(Attempt.of(2));
+            assertThat(stored.volume()).contains(volume);
+            assertThat(stored.due()).contains(due);
+            assertThat(stored.slot()).contains(afternoon);
+        });
+        assertThat(jdbc.sql("SELECT starts_at FROM persistence_fixture.ledger_entry WHERE id = ?")
+                        .param(detailed)
+                        .query(LocalDateTime.class)
+                        .single())
+                .isEqualTo(LocalDateTime.of(2027, 7, 13, 13, 0));
         assertThat(jdbc.sql("SELECT window_start FROM persistence_fixture.ledger WHERE id = ?")
                         .param(id)
                         .query(LocalDateTime.class)
@@ -310,8 +357,8 @@ class VersionedSaveIT {
     private void insertLedger(UUID id, String name, LocalDateTime windowStart, LocalDateTime windowEnd) {
         jdbc.sql("""
                         INSERT INTO persistence_fixture.ledger
-                            (id, version, name, status, booked_for, window_start, window_end)
-                        VALUES (?, 0, ?, 'OPEN', ?, ?, ?)
+                            (id, version, name, status, booked_for, window_start, window_end, priority)
+                        VALUES (?, 0, ?, 'OPEN', ?, ?, ?, 3)
                         """).params(id, name, DATE.value(), windowStart, windowEnd).update();
     }
 
@@ -418,6 +465,45 @@ class VersionedSaveIT {
 
         assertThat(storedName(id)).isEqualTo("Theirs");
         assertThat(storedVersion(id)).isEqualTo(FIRST_SAVE.value());
+    }
+
+    @Test
+    void GivenALedgerLoadedInAnEarlierTransaction_WhenSavedAfterAnotherChangeCommitted_ThenStaleVersion() {
+        UUID id = key(19);
+        created(id);
+        Ledger detached = inTransaction(() -> load(id));
+        inTransaction(() -> {
+            Ledger ledger = load(id);
+            ledger.rename("Theirs", NOW);
+            save(ledger);
+        });
+
+        detached.rename("Mine", NOW);
+
+        assertThatThrownBy(() -> inTransaction(() -> save(detached)))
+                .isInstanceOfSatisfying(StaleVersion.class, stale -> {
+                    assertThat(stale.kind()).isEqualTo("Ledger");
+                    assertThat(stale.id()).isEqualTo(id);
+                    assertThat(stale.getCause()).isInstanceOf(OptimisticLockingFailureException.class);
+                });
+        assertThat(storedName(id)).isEqualTo("Theirs");
+    }
+
+    @Test
+    void GivenAStoredEntryWhoseDueSecondsFallBeforeTheDay_WhenLoaded_ThenTheRegisteredInstantiatorRefusesTheRow() {
+        UUID id = key(20);
+        insertLedger(id, "Ledger", LocalDateTime.of(2027, 7, 13, 8, 0), LocalDateTime.of(2027, 7, 13, 12, 0));
+        jdbc.sql("""
+                        INSERT INTO persistence_fixture.ledger_entry
+                            (id, ledger_id, entry_index, amount, attempt, due_date, due_seconds)
+                        VALUES (?, ?, 0, 10, 1, ?, -1)
+                        """).params(key(200), id, DATE.value()).update();
+
+        // Hibernate's own record instantiator would throw DaySeconds' RuleViolation instead.
+        assertThatThrownBy(() -> inTransaction(() -> load(id)))
+                .isInstanceOfSatisfying(
+                        StoredStateInvalid.class,
+                        invalid -> assertThat(invalid.subject()).isEqualTo("DaySeconds"));
     }
 
     private Ledger created(UUID id) {

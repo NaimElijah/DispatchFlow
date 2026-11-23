@@ -138,7 +138,7 @@ class KernelConvertersTest {
 
     @ParameterizedTest
     @MethodSource("conversions")
-    void GivenAKernelConverter_WhenHibernateScansIt_ThenItAppliesToEveryAttributeOfItsType(Object converter) {
+    void GivenAKernelConverter_WhenItsDeclarationIsRead_ThenItIsAutoApplied(Object converter) {
         Converter declared = converter.getClass().getAnnotation(Converter.class);
 
         assertThat(declared).isNotNull();
