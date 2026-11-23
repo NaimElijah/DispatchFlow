@@ -14,7 +14,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.springframework.stereotype.Repository;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -25,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
  * when it inserts a driver's row, so a driver registered later sorts later. The entity doesn't map
  * it: no rule reads it, and only {@link #registered()} orders by it.
  */
-@Repository
+@Component
 @Transactional
 class JpaDriverRepository implements DriverRepository {
 

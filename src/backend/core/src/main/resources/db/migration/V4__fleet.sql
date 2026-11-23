@@ -97,6 +97,8 @@ CREATE TABLE fleet.roster_entry (
     CONSTRAINT roster_entry_vehicle_choice_known CHECK (vehicle_choice IN ('NOT_SET', 'NO_VEHICLE', 'ASSIGNED')),
     CONSTRAINT roster_entry_assigned_has_vehicle CHECK ((vehicle_choice = 'ASSIGNED') = (vehicle IS NOT NULL)),
     CONSTRAINT roster_entry_availability_known CHECK (availability IN ('AVAILABLE', 'UNAVAILABLE')),
+    -- One entry per driver. Deferred, as the position is: Hibernate rewrites a list's rows one by one.
+    CONSTRAINT roster_entry_driver_once UNIQUE (day_roster_id, driver) DEFERRABLE INITIALLY DEFERRED,
     CONSTRAINT roster_entry_position UNIQUE (day_roster_id, position) DEFERRABLE INITIALLY DEFERRED
 );
 

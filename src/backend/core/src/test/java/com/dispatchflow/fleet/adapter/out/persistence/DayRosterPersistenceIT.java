@@ -275,11 +275,6 @@ class DayRosterPersistenceIT {
     static Stream<Arguments> damagedRows() {
         return Stream.of(
                 Arguments.of(
-                        "a driver appears twice",
-                        1_001,
-                        (Damage) rows -> rows.updateEntry(1, "driver = '" + DANA.value() + "'"),
-                        "DayRoster"),
-                Arguments.of(
                         "a vehicle has two drivers",
                         1_002,
                         (Damage) rows -> rows.updateEntry(1, "vehicle = '" + V1.value() + "'"),
@@ -326,6 +321,9 @@ class DayRosterPersistenceIT {
 
     static Stream<Arguments> damageTheSchemaForbids() {
         return Stream.of(
+                // The domain's "a driver appears twice": the table keeps one entry per driver.
+                Arguments.of("a driver appears twice", 1_001, (Damage)
+                        rows -> rows.updateEntry(1, "driver = '" + DANA.value() + "'")),
                 Arguments.of("an assigned vehicle that names none", 1_006, (Damage)
                         rows -> rows.updateEntry(0, "vehicle = NULL")),
                 Arguments.of("a vehicle not set that names one", 1_007, (Damage)
