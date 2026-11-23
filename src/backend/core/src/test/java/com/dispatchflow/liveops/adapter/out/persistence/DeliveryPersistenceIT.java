@@ -62,13 +62,17 @@ import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.StaleVersion;
+import jakarta.persistence.EntityManagerFactory;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -108,6 +112,9 @@ class DeliveryPersistenceIT {
 
     @Autowired
     private RecordedEvents events;
+
+    @Autowired
+    private EntityManagerFactory entityManagerFactory;
 
     // --- round trips (ADR-127 decision 1)
 
@@ -504,6 +511,19 @@ class DeliveryPersistenceIT {
         assertThat(corrected.outcomes()).hasSize(2);
     }
 
+    /**
+     * The load check reads each delivery's held reports while the deliveries load, so without batch
+     * fetching every delivery read would cost a statement of its own (ADR-126, loading whole).
+     */
+    @Test
+    void GivenTwiceAsManyDeliveries_WhenTheirStopsAreRead_ThenTheSameNumberOfStatementsRuns() {
+        List<StopId> two = List.of(stop(43), stop(44));
+        List<StopId> four = List.of(stop(45), stop(46), stop(47), stop(48));
+        transactions.inTransaction(() -> IntStream.rangeClosed(43, 48).forEach(s -> repository.add(held(s))));
+
+        assertThat(statementsToRead(four)).isEqualTo(statementsToRead(two));
+    }
+
     @Test
     void GivenNoStops_WhenTheirDeliveriesAreRead_ThenThereAreNone() {
         assertThat(transactions.inTransaction(() -> repository.ofStops(List.of())))
@@ -834,6 +854,20 @@ class DeliveryPersistenceIT {
         Delivery delivery = fresh(s);
         delivery.arrive(byA(ONLINE), ON_ROUTE, SERVING);
         return delivery;
+    }
+
+    /** The JDBC statements one transaction prepares to read the stops' deliveries. */
+    private long statementsToRead(List<StopId> stops) {
+        Statistics statistics =
+                entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        statistics.clear();
+        statistics.setStatisticsEnabled(true);
+        try {
+            transactions.inTransaction(() -> repository.ofStops(stops));
+            return statistics.getPrepareStatementCount();
+        } finally {
+            statistics.setStatisticsEnabled(false);
+        }
     }
 
     private static Delivery delivered(int s) {
