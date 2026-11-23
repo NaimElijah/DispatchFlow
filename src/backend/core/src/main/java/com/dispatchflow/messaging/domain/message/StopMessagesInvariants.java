@@ -8,9 +8,10 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * The one check of {@link StopMessages}' invariants at rest. {@code restore} turns a broken one into
- * {@code StoredStateInvalid}, and every command's commit into an {@link AssertionError}, so no
- * command can leave a state that {@code restore} refuses.
+ * The one check of {@link StopMessages}' invariants at rest. The {@code @PostLoad} check, and {@code
+ * restore} while it lasts, turn a broken one into {@code StoredStateInvalid}, and the end of every
+ * command into an {@link AssertionError}, so no command can leave a state that a load refuses
+ * (ADR-126 decision 11).
  */
 final class StopMessagesInvariants {
 
@@ -19,11 +20,10 @@ final class StopMessagesInvariants {
     /**
      * The first invariant the state breaks.
      *
-     * @param state the state to check
+     * @param messages the stop's messages, in the order they were triggered
      * @return the broken rule, with no personal data; empty when every rule holds
      */
-    static Optional<String> brokenBy(StopMessagesSnapshot state) {
-        List<OutgoingMessage> messages = state.messages();
+    static Optional<String> brokenBy(List<OutgoingMessage> messages) {
         Set<OutgoingMessageId> ids = new HashSet<>();
         Set<MessageType> outcomes = EnumSet.noneOf(MessageType.class);
         boolean arrivalGiven = false;

@@ -21,12 +21,21 @@ import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.StoredStateInvalid;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderColumn;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.Table;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Every message to one stop's recipient, and the rules on which go and how often (DL §4.6, §16),
@@ -43,9 +52,15 @@ import java.util.Optional;
  * <p>Each message keeps the phone it was triggered for, and is sent to that phone: a later trigger
  * that names another phone adds its message there and leaves the earlier ones alone (ADR-117).
  *
- * <p>It raises no event. Every method checks all its rules before it changes anything.
+ * <p>It raises no event. Every method checks all its rules before it changes anything, and every
+ * change ends by checking the invariants at rest.
+ *
+ * <p>It is mapped for JPA (ADR-126): its key is the stop's UUID (ADR-127 decision 5), and its
+ * messages are child entities, in the order they were triggered.
  */
-public final class StopMessages extends AggregateRoot implements PersonalData {
+@Entity
+@Table(schema = "messaging", name = "stop_messages")
+public class StopMessages extends AggregateRoot implements PersonalData {
 
     /** How long after its trigger a message may still be accepted (NFR-190). */
     public static final Duration STALE_AFTER = Duration.ofMinutes(15);
@@ -74,13 +89,27 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
         NOT_DROPPED
     }
 
-    private final StopId stop;
-    private List<OutgoingMessage> messages;
+    /** The stop's UUID. */
+    @Id
+    private UUID id;
 
-    private StopMessages(StopMessagesSnapshot state) {
-        super(state.version());
-        this.stop = state.stop();
-        this.messages = state.messages();
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "stop_messages_id", nullable = false)
+    @OrderColumn(name = "position", nullable = false)
+    private List<OutgoingMessage> messages = new ArrayList<>();
+
+    /** For Hibernate, which sets the fields from the stored rows and then runs {@link #checkStored}. */
+    protected StopMessages() {}
+
+    private StopMessages(StopId stop) {
+        this.id = stop.value();
+    }
+
+    /** Builds the aggregate {@link #restore} checks; it goes with {@code restore} (ADR-126). */
+    private StopMessages(StopMessagesSnapshot stored) {
+        super(stored.version());
+        this.id = stored.stop().value();
+        stored.messages().forEach(message -> messages.add(message.copy()));
     }
 
     /**
@@ -90,7 +119,7 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
      * @return the aggregate, with no message, never saved
      */
     public static StopMessages open(StopId stop) {
-        return new StopMessages(new StopMessagesSnapshot(Objects.requireNonNull(stop, "stop"), null, List.of()));
+        return new StopMessages(Objects.requireNonNull(stop, "stop"));
     }
 
     /**
@@ -105,10 +134,22 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
      * @throws StoredStateInvalid when the stored state breaks one of those invariants
      */
     public static StopMessages restore(StopMessagesSnapshot stored) {
-        StopMessagesInvariants.brokenBy(stored).ifPresent(broken -> {
+        StopMessages restored = new StopMessages(stored);
+        restored.checkStored();
+        return restored;
+    }
+
+    /**
+     * Checks the stop's messages as Hibernate loaded them against the invariants at rest that
+     * {@link #restore} checks (ADR-126 decision 8).
+     *
+     * @throws StoredStateInvalid when the stored state breaks one of them
+     */
+    @PostLoad
+    void checkStored() {
+        StopMessagesInvariants.brokenBy(messages).ifPresent(broken -> {
             throw new StoredStateInvalid(StopMessages.class, broken);
         });
-        return new StopMessages(stored);
     }
 
     // --- triggers
@@ -195,9 +236,15 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
                 || !facts.arrival().isCarriedForward()) {
             return;
         }
-        List<OutgoingMessage> next = new ArrayList<>(messages);
-        if (arrivingSoon(facts, now) && countOf(MessageType.ARRIVING_SOON) == 0) {
-            next.add(pending(
+        boolean soon = arrivingSoon(facts, now) && countOf(MessageType.ARRIVING_SOON) == 0;
+        Optional<QuarterHour> lastSent = lastArrivalSent();
+        boolean moved = lastSent.filter(sent -> sent.distanceTo(facts.arrival()).compareTo(TIME_CHANGE_THRESHOLD) >= 0)
+                .isPresent();
+        boolean changed = facts.route().hasStarted()
+                && moved
+                && countOf(MessageType.TIME_CHANGED) < MessageType.TIME_CHANGED.mostPerStop();
+        if (soon) {
+            messages.add(pending(
                     OutgoingMessageId.of(ids.next()),
                     phone.get(),
                     MessageType.ARRIVING_SOON,
@@ -206,14 +253,9 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
                     false,
                     now));
         }
-        Optional<QuarterHour> lastSent = lastArrivalSent();
-        boolean moved = lastSent.filter(sent -> sent.distanceTo(facts.arrival()).compareTo(TIME_CHANGE_THRESHOLD) >= 0)
-                .isPresent();
-        if (facts.route().hasStarted()
-                && moved
-                && countOf(MessageType.TIME_CHANGED) < MessageType.TIME_CHANGED.mostPerStop()) {
+        if (changed) {
             QuarterHour arrival = QuarterHour.nearest(facts.arrival());
-            next.add(pending(
+            messages.add(pending(
                     OutgoingMessageId.of(ids.next()),
                     phone.get(),
                     MessageType.TIME_CHANGED,
@@ -222,8 +264,8 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
                     false,
                     now));
         }
-        if (next.size() > messages.size()) {
-            commit(next);
+        if (soon || changed) {
+            requireInvariants();
         }
     }
 
@@ -339,17 +381,17 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
             throw new RuleViolation(new MessageNotClaimable(id));
         }
         if (isStale(message, now)) {
-            replace(message.in(staleDrop(message.state(), now)));
+            move(message, staleDrop(message.state(), now));
             return Claim.DROPPED;
         }
         if (consent == PhoneConsent.OPTED_OUT) {
-            replace(message.in(optedOutDrop(message.state(), now)));
+            move(message, optedOutDrop(message.state(), now));
             return Claim.DROPPED;
         }
         if (!cap.hasRoom()) {
             return Claim.WAITING;
         }
-        replace(message.in(new MessageState.Sending(now)));
+        move(message, new MessageState.Sending(now));
         return Claim.CLAIMED;
     }
 
@@ -375,9 +417,9 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
         if (!(message.state() instanceof MessageState.Sending) && !leftLate) {
             throw new RuleViolation(new MessageNotSending(id));
         }
-        replace(message.in(new MessageState.Accepted(now, reference)));
+        move(message, new MessageState.Accepted(now, reference));
         if (message.asksForRating()) {
-            return Optional.of(new RatingQuestion(stop, message.phone(), now));
+            return Optional.of(new RatingQuestion(stop(), message.phone(), now));
         }
         return Optional.empty();
     }
@@ -392,7 +434,7 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
     public void refused(OutgoingMessageId id, Instant now) {
         Objects.requireNonNull(now, "now");
         OutgoingMessage message = requireSending(id);
-        replace(message.in(new MessageState.Dropped(now, DropCause.REFUSED)));
+        move(message, new MessageState.Dropped(now, DropCause.REFUSED));
     }
 
     /**
@@ -408,10 +450,11 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
         Objects.requireNonNull(repeats, "repeats");
         Objects.requireNonNull(now, "now");
         OutgoingMessage message = requireSending(id);
-        replace(message.in(
+        move(
+                message,
                 repeats == ProviderRepeats.DROPPED_BY_REFERENCE
                         ? new MessageState.Unknown(now)
-                        : new MessageState.Dropped(now, DropCause.OUTCOME_UNKNOWN)));
+                        : new MessageState.Dropped(now, DropCause.OUTCOME_UNKNOWN));
     }
 
     /**
@@ -424,18 +467,15 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
      */
     public int dropStale(Instant now) {
         Objects.requireNonNull(now, "now");
-        List<OutgoingMessage> next = new ArrayList<>(messages.size());
         int dropped = 0;
         for (OutgoingMessage message : messages) {
             if (!message.state().hasEnded() && isStale(message, now)) {
-                next.add(message.in(staleDrop(message.state(), now)));
+                message.moveTo(staleDrop(message.state(), now));
                 dropped++;
-            } else {
-                next.add(message);
             }
         }
         if (dropped > 0) {
-            commit(next);
+            requireInvariants();
         }
         return dropped;
     }
@@ -448,7 +488,7 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
      * @return its ID, which keys the aggregate
      */
     public StopId stop() {
-        return stop;
+        return StopId.of(id);
     }
 
     /**
@@ -470,7 +510,10 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
      * @return a snapshot that {@link #restore} rebuilds
      */
     public StopMessagesSnapshot snapshot() {
-        return new StopMessagesSnapshot(stop, savedVersion().orElse(null), messages);
+        return new StopMessagesSnapshot(
+                stop(),
+                savedVersion().orElse(null),
+                messages.stream().map(OutgoingMessage::copy).toList());
     }
 
     /**
@@ -531,9 +574,8 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
         if (phone.isEmpty() || countOf(type) >= type.mostPerStop()) {
             return;
         }
-        List<OutgoingMessage> next = new ArrayList<>(messages);
-        next.add(pending(id, phone.get(), type, conditions.write(wording), arrival, asksForRating, now));
-        commit(next);
+        messages.add(pending(id, phone.get(), type, conditions.write(wording), arrival, asksForRating, now));
+        requireInvariants();
     }
 
     /** The phone a new message goes to, while messages may go to it (FR-350, FR-363, FR-378). */
@@ -618,25 +660,20 @@ public final class StopMessages extends AggregateRoot implements PersonalData {
         return message;
     }
 
-    private void replace(OutgoingMessage changed) {
-        List<OutgoingMessage> next = new ArrayList<>(messages.size());
-        for (OutgoingMessage message : messages) {
-            next.add(message.id().equals(changed.id()) ? changed : message);
-        }
-        commit(next);
+    private void move(OutgoingMessage message, MessageState next) {
+        message.moveTo(next);
+        requireInvariants();
     }
 
     /**
-     * Replaces the state with the one a command built, after checking it holds every at-rest
-     * invariant. Every rule a caller can break was checked before this point, so a broken invariant
-     * here is a bug in the command, not a refusal.
+     * Checks the state a command left against every invariant at rest (ADR-126 decision 11). Every
+     * rule a caller can break was checked before the command changed anything, so a broken
+     * invariant here is a bug in the command, not a refusal, and the error rolls its transaction
+     * back.
      */
-    private void commit(List<OutgoingMessage> nextMessages) {
-        StopMessagesSnapshot candidate =
-                new StopMessagesSnapshot(stop, savedVersion().orElse(null), nextMessages);
-        StopMessagesInvariants.brokenBy(candidate).ifPresent(broken -> {
-            throw new AssertionError("a stop messages command would leave a state that breaks: " + broken);
+    private void requireInvariants() {
+        StopMessagesInvariants.brokenBy(messages).ifPresent(broken -> {
+            throw new AssertionError("a stop messages command left a state that breaks: " + broken);
         });
-        messages = candidate.messages();
     }
 }
