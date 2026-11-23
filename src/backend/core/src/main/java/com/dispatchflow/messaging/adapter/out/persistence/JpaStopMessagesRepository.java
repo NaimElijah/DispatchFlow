@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -74,6 +75,7 @@ class JpaStopMessagesRepository implements StopMessagesRepository {
     }
 
     @Override
+    @Transactional(propagation = Propagation.MANDATORY)
     public DailySendCap capOn(LocalDate day) {
         stopMessages.lockDay(day.toString());
         return counted(day);

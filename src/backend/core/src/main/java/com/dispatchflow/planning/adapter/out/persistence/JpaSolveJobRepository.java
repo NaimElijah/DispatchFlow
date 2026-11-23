@@ -19,6 +19,7 @@ import java.util.UUID;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -85,6 +86,7 @@ class JpaSolveJobRepository implements SolveJobRepository {
      * after the other (ADR-127 decision 9).
      */
     @Override
+    @Transactional(propagation = Propagation.MANDATORY)
     public LaneCapacity capacityUnderLock(Lane lane) {
         jobs.lockLane(lane.name());
         return LaneCapacity.readUnderLock(
@@ -98,6 +100,7 @@ class JpaSolveJobRepository implements SolveJobRepository {
      * other, and then loads the one it locked whole.
      */
     @Override
+    @Transactional(propagation = Propagation.MANDATORY)
     public Optional<SolveJob> claimNext(Lane lane) {
         return jobs.lockOldestQueued(lane.name()).flatMap(this::load);
     }

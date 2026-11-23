@@ -44,6 +44,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.IllegalTransactionStateException;
 
 /**
  * {@link UserAccountRepository} against a real PostgreSQL (ADR-126, ADR-127): what an account
@@ -425,6 +426,13 @@ class UserAccountPersistenceIT {
             shortLockTimeout();
             repository.activeAdminsUnderLock();
         });
+    }
+
+    /** A lock taken in a transaction of the call's own would be gone before the caller acts. */
+    @Test
+    void GivenNoTransaction_WhenTheActiveAdminsAreReadUnderLock_ThenTheCallIsRefused() {
+        assertThatThrownBy(() -> repository.activeAdminsUnderLock())
+                .isInstanceOf(IllegalTransactionStateException.class);
     }
 
     @Test

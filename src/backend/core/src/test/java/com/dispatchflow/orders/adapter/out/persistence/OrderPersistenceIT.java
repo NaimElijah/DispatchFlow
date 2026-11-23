@@ -56,6 +56,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.IllegalTransactionStateException;
 
 /**
  * {@link OrderRepository} against a real PostgreSQL (ADR-126, ADR-127): what an order stores and
@@ -243,6 +244,13 @@ class OrderPersistenceIT {
         assertThat(transactions.inTransaction(
                         () -> CapacityDescription.of(repository.capacityUnderLock(dateOf(n)), List.of(), List.of())))
                 .isEqualTo(new CapacityDescription(dateOf(n), 0, Set.of(), Set.of()));
+    }
+
+    /** A lock taken in a transaction of the call's own would be gone before the caller acts. */
+    @Test
+    void GivenNoTransaction_WhenADatesCapacityIsReadUnderLock_ThenTheCallIsRefused() {
+        assertThatThrownBy(() -> repository.capacityUnderLock(dateOf(23)))
+                .isInstanceOf(IllegalTransactionStateException.class);
     }
 
     @Test

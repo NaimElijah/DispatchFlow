@@ -22,6 +22,7 @@ import java.util.UUID;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -88,6 +89,7 @@ class JpaUserAccountRepository implements UserAccountRepository {
      * still run one after the other (FR-291).
      */
     @Override
+    @Transactional(propagation = Propagation.MANDATORY)
     public ActiveAdmins activeAdminsUnderLock() {
         accounts.lockActiveAdmins();
         return ActiveAdmins.readUnderLock(

@@ -54,7 +54,8 @@ public interface SolveJobRepository {
     /**
      * A lane's queued and started jobs, read under the lane's advisory lock, which the caller's
      * transaction holds until it commits (BR-38, BR-112, DL §5). It is the only caller of {@code
-     * LaneCapacity.readUnderLock}.
+     * LaneCapacity.readUnderLock}. It must run in the caller's transaction, and is refused when none
+     * is open, because a lock taken and released within the call would guard nothing.
      *
      * @param lane the lane a new job joins
      * @return the lane's capacity
@@ -63,7 +64,8 @@ public interface SolveJobRepository {
 
     /**
      * The lane's oldest queued job, locked for the caller's transaction so no other worker takes it
-     * (ADR-051). The caller claims it in that transaction.
+     * (ADR-051). The caller claims it in that transaction, so the call must run in one, and is
+     * refused when none is open.
      *
      * @param lane the worker's lane
      * @return the job, or empty when the lane has none queued

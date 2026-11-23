@@ -51,6 +51,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.IllegalTransactionStateException;
 
 /**
  * {@link StopMessagesRepository} against a real PostgreSQL (ADR-126, ADR-127): what a stop's
@@ -309,6 +310,12 @@ class StopMessagesPersistenceIT {
         });
 
         assertThat(transactions.inTransaction(() -> repository.capOn(day))).isEqualTo(new DailySendCap(0));
+    }
+
+    /** A lock taken in a transaction of the call's own would be gone before the caller acts. */
+    @Test
+    void GivenNoTransaction_WhenADaysCapIsRead_ThenTheCallIsRefused() {
+        assertThatThrownBy(() -> repository.capOn(dayOf(15))).isInstanceOf(IllegalTransactionStateException.class);
     }
 
     // --- the last acceptance to a phone (FR-363)

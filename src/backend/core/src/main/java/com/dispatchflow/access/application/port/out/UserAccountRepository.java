@@ -60,7 +60,8 @@ public interface UserAccountRepository {
      * The active Admin accounts, read under lock, which BR-19's and FR-291's checks require (DL
      * §5). It takes a transaction-scoped advisory lock and then {@code FOR UPDATE} on the active
      * Admin rows, so a read that finds none still excludes a concurrent first-Admin step. It runs
-     * in the transaction that saves the change.
+     * in the transaction that saves the change, and is refused when no transaction is open, because
+     * a lock taken and released within the call would guard nothing.
      *
      * @return the snapshot, the only way one is built (DL §3.9 rule 6)
      */
