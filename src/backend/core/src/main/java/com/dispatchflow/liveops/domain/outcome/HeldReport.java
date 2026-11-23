@@ -1,10 +1,9 @@
-package com.dispatchflow.liveops.domain.delivery.history;
+package com.dispatchflow.liveops.domain.outcome;
 
 import com.dispatchflow.liveops.domain.CancellationKind;
 import com.dispatchflow.liveops.domain.CorrectedTime;
 import com.dispatchflow.liveops.domain.HeldReportId;
 import com.dispatchflow.liveops.domain.RevisionNo;
-import com.dispatchflow.liveops.domain.outcome.Outcome;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.RouteId;
