@@ -144,7 +144,16 @@ class AggregateRootTest {
     }
 
     @Test
-    void GivenRecordedEvents_WhenReadWithoutPulling_ThenTheyStay() {
+    void GivenRecordedEvents_WhenAFakesSavePublishesThem_ThenTheyAreHandedOverOnceAndCleared() {
+        Counter counter = Counter.open(NOW);
+
+        assertThat(SaveEvents.publish(counter)).hasSize(1);
+        assertThat(counter.pendingEvents()).isEmpty();
+        assertThat(SaveEvents.publish(counter)).isEmpty();
+    }
+
+    @Test
+    void GivenRecordedEvents_WhenReadWithoutBeingPublished_ThenTheyStay() {
         Counter counter = Counter.open(NOW);
 
         assertThat(counter.pendingEvents()).hasSize(1);

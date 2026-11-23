@@ -89,7 +89,8 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   number through `PhoneNumber.ofStored`. So a damaged or since-refused value is an incident, never a
   user-facing refusal. No test checks this; review does.
 - Web types live in `adapter` and are mapped to domain objects. Every use case that changes an
-  aggregate calls its port's `save` or `add`, which publishes its events; a test fake's does too.
+  aggregate calls its port's `save` or `add`, which publishes its events; a test fake's calls
+  `SaveEvents.publish`.
 - Another module is reached only through its `api`, `spi` and `events` packages ([DL §2.3]). Spring
   Modulith ([ADR-040]) isn't in the build yet: until its `verify()` runs, review checks this for
   adapters, which `ApplicationRules` doesn't cover. Each module owns its tables, in its own
@@ -127,8 +128,7 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
 - Persistence is JPA ([ADR-126], [TS §6.3]). An adapter implements its port with a package-private
   Spring Data `Repository<Root, UUID>` that declares `save` and the port's lookups, never a
   `CrudRepository` or `JpaRepository`. Native SQL binds every value; SQL and bind logging stay off.
-  `PersistenceRules` checks the mapping: no relationship leaves its aggregate, enums are stored by
-  name, every entity root has a `@PostLoad` check, and every entity is in its module's schema.
+  `PersistenceRules` checks how the domain and the adapters are mapped.
 
 ## Tests
 

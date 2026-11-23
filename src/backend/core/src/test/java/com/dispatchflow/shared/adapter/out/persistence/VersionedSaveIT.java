@@ -98,6 +98,7 @@ class VersionedSaveIT {
 
         assertThat(storedVersion(id)).isEqualTo(FIRST_SAVE.value());
         assertThat(saved.version()).isEqualTo(FIRST_SAVE);
+        assertThat(saved.pendingEvents()).isEmpty();
         assertThat(events.committed())
                 .containsExactly(new LedgerOpened(new EventId("LedgerOpened", id, FIRST_SAVE, 0), NOW));
     }
