@@ -21,7 +21,9 @@ import org.springframework.data.domain.DomainEvents;
  * checks on every update. A never-saved aggregate has no version. Its first save stores 0, and
  * every save after moves the version by exactly 1, so every event a change raises carries the
  * version that change is saved at. Spring Data publishes the recorded events when the port's
- * {@code save} runs, in the same transaction, and then forgets them. A save that only keeps
+ * {@code save} runs, in the same transaction, and then forgets them. An instance is saved once per
+ * transaction, at the end of its change, with no flush between two of its changes; the shared
+ * {@code VersionedSave} fails loudly otherwise. A save that only keeps
  * bookkeeping no business rule reads, and raises no event, may leave the version where it is, as a
  * session's contact times do (DL §4.1).
  */

@@ -19,6 +19,7 @@ import com.dispatchflow.shared.adapter.out.persistence.Ledger.EntryReweighed;
 import com.dispatchflow.shared.adapter.out.persistence.Ledger.LedgerOpened;
 import com.dispatchflow.shared.adapter.out.persistence.Ledger.LedgerRenamed;
 import com.dispatchflow.shared.application.StaleVersion;
+import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -72,6 +73,9 @@ class VersionedSaveIT {
 
     @Autowired
     private RecordedEvents events;
+
+    @Autowired
+    private EntityManager entityManager;
 
     @BeforeEach
     void forgetEarlierEvents() {
@@ -325,6 +329,50 @@ class VersionedSaveIT {
                     .doesNotContain(String.valueOf(DEPOT.latitude()));
         }
         assertThat(output.getAll()).doesNotContain("Failing row").doesNotContain(String.valueOf(DEPOT.latitude()));
+    }
+
+    @Test
+    void
+            GivenALedgerSavedOnceInATransaction_WhenAnEntryOnlyChangeIsSavedAgain_ThenTheSaveFailsLoudlyAndNothingIsStored() {
+        UUID id = key(15);
+        UUID entry = key(150);
+        createdWithAnEntry(id, entry);
+
+        assertThatThrownBy(() -> inTransaction(() -> {
+                    Ledger ledger = load(id);
+                    ledger.rename("Renamed", NOW);
+                    save(ledger);
+                    ledger.reweigh(entry, TWELVE_AND_A_HALF, NOW);
+                    save(ledger);
+                }))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("once per transaction");
+
+        assertThat(storedVersion(id)).isEqualTo(FIRST_SAVE.value());
+        assertThat(storedName(id)).isEqualTo("Ledger");
+        assertThat(events.committed()).isEmpty();
+    }
+
+    @Test
+    void GivenAQueryThatFlushesBetweenTwoChanges_WhenTheLedgerIsSaved_ThenTheSaveFailsLoudlyAndNothingIsStored() {
+        UUID id = key(16);
+        UUID entry = key(160);
+        createdWithAnEntry(id, entry);
+
+        assertThatThrownBy(() -> inTransaction(() -> {
+                    Ledger ledger = load(id);
+                    ledger.rename("Renamed", NOW);
+                    entityManager
+                            .createQuery("select count(l) from Ledger l", Long.class)
+                            .getSingleResult();
+                    ledger.rename("Renamed again", NOW);
+                    save(ledger);
+                }))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("between two of its changes");
+
+        assertThat(storedVersion(id)).isEqualTo(FIRST_SAVE.value());
+        assertThat(events.committed()).isEmpty();
     }
 
     private Ledger created(UUID id) {
