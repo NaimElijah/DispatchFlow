@@ -51,12 +51,17 @@ creates the eight module schemas, and `V2` to `V9` add one module's tables each
 domain classes carry the mapping, and only Hibernate rebuilds an aggregate, its `@PostLoad` check
 refusing a damaged row in place of the old `restore` factory
 ([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md), [ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md)). Each module has an
-`adapter/out/persistence` package. It holds a package-private Spring Data interface for each root,
-the converters and instantiators of the module's values, and the adapters that implement the module's
-repository ports: 20 of them, one for each root, save it through `VersionedSave`, and four store a
-record (`audit`'s audit records, `liveops`' kept positions, `messaging`'s SMS replies and opt-outs)
-by plain insert. `Plan`'s adapter sits in a `plan/` subpackage of Planning's, with the
-`@Immutable` entities its revisions are appended as. Each
+`adapter/out/persistence` package. It holds the module's package-private Spring Data interfaces,
+the converters and instantiators of its values, and the adapters that implement its repository
+ports. 20 of them, one for each root, save it through `VersionedSave`, except that a session's save
+that changes only its contact times, and its revocation, write without a version check by design
+([ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md),
+decision 10). Four store a record by plain insert (`audit`'s audit records, `liveops`' kept
+positions, `messaging`'s SMS replies and opt-outs), and `reporting` keeps a baseline's outcome as a
+record row of its own, so five `@Immutable` `Stored…` entities keep records. The reads under a lock
+(`activeAdminsUnderLock`, both `capacityUnderLock`, `claimNext` and `capOn`) run only in the
+caller's transaction, and refuse a call outside one. `Plan`'s adapter sits in a `plan/` subpackage
+of Planning's, with the `@Immutable` entity its revisions are appended as. Each
 module's `*PersistenceIT` tests its adapters against PostgreSQL. No aggregate keeps a `restore` factory or a
 snapshot record. Three adapter methods still throw: `SolveJobRepository`'s two blanking methods
 (`UnsupportedOperationException("Built in M13")`, because nothing stores a job's input yet) and
@@ -125,7 +130,6 @@ inside its own component:
 - The `optimizer` liveness probe: `src/backend/optimizer/tests/adapters/inbound/http/test_app.py` asserts
   through `TestClient(create_app())` that `GET /health/liveness` answers 200 with
   `{"status":"UP"}`.
-
 - A save and a load through a persistence adapter: each module's `*PersistenceIT` saves an
   aggregate into a PostgreSQL container and loads it in another transaction, and where a stored
   value can be damaged it damages one with SQL to check that the load refuses it
@@ -161,7 +165,8 @@ have a `Dockerfile`, and neither runs as root
   decision 10, with rule 4 extended and rule 8 added by [ADR-121](../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md),
   and rule 7 widened to every application package by [ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md).
   The purity rules also allow the persistence annotations that [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) lists in the domain and the
-  kernel, and `PersistenceRules` has eight rules on how the domain is mapped: relationships only inside
+  kernel, and `PersistenceRules` has nine rules on how the domain is mapped: every aggregate root an
+  `@Entity`, relationships only inside
   one aggregate, `@Version` only on `AggregateRoot`, every enum stored by name, a `@PostLoad` check on
   every entity root, no `@GeneratedValue`, no Spring Data interface wider than its port needs, every mapped
   table in its module's schema, and no adapter that uses another module's entity. They check every

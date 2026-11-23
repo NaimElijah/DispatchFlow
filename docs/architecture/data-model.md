@@ -6,7 +6,7 @@ The tables `core` stores its aggregates in, as the migrations in
 versioned, loaded and saved, and how the stored state is tested is in [ADR-126][ADR-126] and
 [ADR-127][ADR-127]. The aggregates, their rules and their states are in
 [domain layer design §4](domain_layer/domain_layer_design.md#4-aggregates-context-by-context); this
-file does not restate them.
+file does not restate them. Where this file and a migration differ, the migration wins.
 
 Every module has tables: `access`, `audit`, `fleet`, `liveops`, `messaging`, `orders`, `planning`
 and `reporting`, 72 in all.
@@ -64,7 +64,9 @@ Every table is one of four kinds, and its kind decides its key.
 - `fleet.day_roster` is found by its date, so it takes a UUID beside a `date` column that is unique.
 - A first save stores version 0, and every save moves the version by exactly 1
   ([ADR-126][ADR-126], [ADR-057][ADR-057]).
-- A foreign key runs from a child table to its root's table, and `reporting` adds one more, below.
+- A foreign key runs from a child table to its root's table. `planning` adds composite ones, from a
+  stop to a route of its own plan and from a revision's rows to the revision, and `reporting` one
+  more, below.
   A column that names another aggregate's row (an order's `customer`, a vehicle's `start_depot`, a
   roster entry's `driver`) is a plain `uuid` with no foreign key. `ON DELETE CASCADE` appears only
   where retention deletes the parent with its children: `access.refresh_token`,
@@ -97,8 +99,8 @@ Every table is one of four kinds, and its kind decides its key.
   own converter, so that a fraction of a second is kept ([ADR-109][ADR-109]). A time of day inside
   a plan is `bigint` seconds (`*_seconds`) beside a `date`.
 - **Personal data** is nullable where retention anonymizes a row in place (`user_account`, `driver`,
-  `customer`, `customer_order`). For a customer and an order, the load check enforces that the
-  anonymized columns are null.
+  `customer`, `customer_order`). In each, a `CHECK` keeps every column that anonymizing clears null
+  in an anonymized row, and the load check enforces it too.
 - **Advisory locks** are taken with `pg_advisory_xact_lock(hashtext('<module>:<lock>:' || value))`,
   so each module's locks have their own names and are released at commit
   ([ADR-127][ADR-127], decision 9). The modules take `access:active-admins`,
@@ -179,7 +181,8 @@ What the constraints enforce:
 - **One account per address** (BR-45). `user_account_email_unique` is a unique over `email`. A
   `NULL` is distinct, so anonymized accounts hold no address between them, and the adapter answers a
   violation of that one constraint, by name, with `EmailInUse`. `user_account_email_set_whole` has
-  `email_set_by` and `email_set_at` both null or both set.
+  `email_set_by` and `email_set_at` both null or both set. `user_account_anonymized_holds_nothing`:
+  an `ANONYMIZED` account holds no email, no record of who set it, and no password hash.
 - **A link's kind.** `credential_link_email_change_whole`: only an email-change link carries
   `new_email` and `requested_by`.
 - **A token's state.** `refresh_token_state_has_time`: every state but `CURRENT` has a `state_at`.
@@ -188,8 +191,9 @@ What the constraints enforce:
 - **Partial indexes** for the lookups the ports make: the active Admins
   (`user_account_role_admin`, where `role = 'ADMIN'`), the accounts whose deactivation is due
   (`user_account_deactivated_at`), a user's open links (`credential_link_open`) and a session's
-  current token (`refresh_token_current`). Links and tokens are found by their token's hash
-  (`credential_link_token_hash`, `refresh_token_token_hash`), never by the token.
+  current token (`refresh_token_current`). Links and tokens are found by their token's hash, never
+  by the token, and each hash is unique across every link or every token
+  (`credential_link_token_hash`, `refresh_token_token_hash`), because each lookup expects one row.
 - **Deletion.** An account is anonymized in place, never deleted, so its children have no cascade.
   A session is deleted 30 days after it ends, and its tokens and contacts go with it.
 
@@ -219,8 +223,9 @@ erDiagram
 - `audit_record_refused_has_code`: a `REFUSED` record has an `error_code`, and no other does.
 - `audit_record_named_record_kind_known` lists the 14 kinds a record may name.
 - `audit_record_at` serves the purge of records older than a year. No purge function exists yet,
-  so `JpaAuditRecords.purgeExpired` throws `UnsupportedOperationException`, and neither does the
-  `INSERT`-and-`SELECT`-only grant that [tech stack §6.3](tech_stack.md#63-persistence) decides.
+  so `JpaAuditRecords.purgeExpired` throws `UnsupportedOperationException`, and no `INSERT`-and-
+  `SELECT`-only grant exists yet either, although [tech stack §6.3](tech_stack.md#63-persistence)
+  decides one.
   Both come with [ADR-041][ADR-041]'s roles and the `migrate` step.
 
 ### `fleet` (V4)
@@ -263,7 +268,8 @@ erDiagram
 
 - **A driver's status.** `driver_active_has_no_times`, `driver_retired_has_retired_at` and
   `driver_anonymized_has_anonymized_at` tie each status to its times. `driver_contact_whole` has
-  `name` and `phone` both null or both set.
+  `name` and `phone` both null or both set, and `driver_anonymized_has_no_contact` has both null
+  for an `ANONYMIZED` driver.
 - **One roster per date.** `day_roster_one_per_date` is a unique over `date`. A second roster for a
   date is a race that `DayRosterRepository.add` answers with `StaleVersion`.
 - **One entry per driver.** `roster_entry_driver_once` is deferred, as the position unique is,
@@ -367,10 +373,11 @@ that does not update exactly one row, which means the caller added an aggregate 
   rule rests on that.
 - **What it buys:** the date stays out of the domain classes, and the lookups by date use an index.
 
-**The history package.** The public values that `Delivery` keeps in columns of its own are in
-`com.dispatchflow.liveops.domain.delivery.history`: `ArrivalRecord`, `OutcomeRecord`, `HeldReport`,
-`HeldState`, `Origin` and `CorrectionReason`. They depend on nothing in `domain.delivery`, so the two
-packages form no cycle ([ADR-125][ADR-125]). The package-private `StoredOutcomeRecord`,
+**Where the records live.** Of the public values that `Delivery` keeps in columns of its own,
+`ArrivalRecord` sits beside it in `domain.delivery`, and `OutcomeRecord`, `HeldReport`, `HeldState`,
+`Origin` and `CorrectionReason` sit in `com.dispatchflow.liveops.domain.outcome`, because each is
+about an outcome. No class there depends on `domain.delivery`, so the two packages form no cycle
+([ADR-125][ADR-125]). The package-private `StoredOutcomeRecord`,
 `StoredOutcome` and `StoredHeldReport` in `domain.delivery` store them: an outcome record, which has
 no ID, as an embeddable with its origin as a kind plus nullable columns, and a held report as a child
 entity ([ADR-127][ADR-127], decision 3).
@@ -479,9 +486,14 @@ erDiagram
   set. `customer_geocoded_has_quality`: only a `GEOCODED` location has a `match_quality`.
 - **A customer's state.** `customer_state_since`: an `ACTIVE` customer has no `state_since`, and a
   retired or anonymized one has. `customer_normalized_with_address`: `address` and
-  `normalized_address` are both null or both set.
+  `normalized_address` are both null or both set. `customer_anonymized_holds_nothing`: an
+  `ANONYMIZED` customer has a `MISSING` location and none of its personal columns.
 - **An order's state.** `customer_order_cancelled_at`: a `CANCELLED` order has `cancelled_at`. The
   window is `starts_at` and `ends_at`, because PostgreSQL reserves `end`.
+- **One reference per date** (FR-211). `customer_order_reference_unique_on_date` is a partial
+  unique index on `(date, reference)` over the uncancelled orders that have a reference. Placing,
+  moving and putting back an order read the date's orders under its lock first, so the index is
+  the backstop for a write that skipped the lock.
 - **A batch's state.** `import_batch_state_since`: a `PREVIEWED` batch has no `state_since`, and a
   confirmed, discarded or expired one has.
 - **A row's kind.** `import_row_parsed_has_line`: a `PARSED` row has an address, date, weight,
@@ -494,7 +506,8 @@ erDiagram
   (`import_batch_previewed_at`, where `state = 'PREVIEWED'`), and the retention job's lookups of
   retired and active customers and of orders not yet anonymized.
 - **`customer_order.anonymized`** records that the row's recipient, note, access details and
-  reference are null, which the load check enforces.
+  reference are null, which `customer_order_anonymized_holds_nothing` enforces, as the load check
+  does.
 
 ### `planning` (V8)
 
@@ -569,8 +582,8 @@ erDiagram
 | `reoptimization_proposal_route`, `_stop`, `_drop`, `_excluded_vehicle`, `_withdrawal`, `_late_stop`, `_vehicle_without_position`, `_driver_change`, `_changed_order`, `_goods_hand_over` | A proposal's routes, stops, drops, excluded vehicles, withdrawals, late stops, vehicles without a position, driver changes, and each change's orders and goods handed over. Value rows | A deferred unique on `(proposal_id, position)`. A stop's is also unique on `(proposal_id, route_position, stop_position)` |
 | `planning_settings` | The company's morning and evening peak windows and factors, off-peak factor, buffer, default solve limit, fixed vehicle cost and departure allowance. A singleton | A constant UUID |
 | `plan` | One delivery date's plan: date, status, a solving plan's basis, the current revision, when it was cancelled, its applied solve | `id`, the `PlanId` |
-| `route` | A plan's route, in its order: vehicle, driver, lock, check state, withdrawal cause, confirmed return, times. A child entity | `id`, the `RouteId`, a deferred unique on `(plan_id, position)`, and a unique on `(id, plan_id)` |
-| `planned_stop` | A stop: order, attempt, times, whether it was served late. A child entity | `id`, the `StopId`, which it keeps when it moves between routes, and a deferred unique on `(route_id, position)` |
+| `route` | A plan's route, in its order: vehicle, driver, lock, check state, withdrawal cause, confirmed return, times. A child entity | `id`, the `RouteId`, deferred uniques on `(plan_id, position)` and `(plan_id, route_index)`, and a unique on `(id, plan_id)` |
+| `planned_stop` | A stop: order, attempt, times, whether it was served late. A child entity | `id`, the `StopId`, which it keeps when it moves between routes, and deferred uniques on `(route_id, position)` and `(plan_id, order_id, attempt)` |
 | `plan_drop`, `plan_excluded_vehicle`, `plan_pin`, `plan_violation` | A plan's drops, excluded vehicles, pins and violations. Value rows | A deferred unique on `(plan_id, position)` |
 | `plan_undo`, `plan_redo` | The undo and redo journals, oldest first. Value rows | A deferred unique on `(plan_id, position)` |
 | `plan_revision` | One revision of a published plan: effective time, cause, the proposal it accepted, who made it. A record | `(plan_id, revision)` |
@@ -614,17 +627,17 @@ erDiagram
   lock, `planning:plan-date:<date>`, then reads the date's uncancelled plan and refuses with
   `PlanAlreadyExists` if there is one. The index is the backstop for a write that skipped the lock,
   and its violation passes through as the bug it would be.
-- **A stop stays on a route of its own plan** ([ADR-127][ADR-127], decision 11). `Plan` holds every
-  stop in one unordered collection, with cascade and orphan removal, that alone creates and deletes
-  them through `planned_stop.plan_id`. A route's list holds only which stops the route serves, in
-  order, through `planned_stop.route_id` and `position`, with no orphan removal. The
-  composite foreign key `planned_stop_on_a_route_of_its_plan`, from `(route_id, plan_id)` to
-  `route (id, plan_id)`, which `route_of_its_plan` makes possible, keeps the two on one plan. It is
-  `DEFERRABLE INITIALLY DEFERRED`, because Hibernate may insert a stop before its new route and
-  delete a route before the stops that leave with it. The root owns the stops because Hibernate
-  deletes each list's orphans as it flushes that list, so with orphan removal on the routes' lists
-  a moved stop's fate depended on the order of the flush. The plan's end check keeps the two
-  collections holding the same stops.
+- **A stop stays on a route of its own plan** ([ADR-127][ADR-127], decision 11, says why). The
+  plan's own collection creates and deletes a stop through `planned_stop.plan_id`, and its route's
+  list places it through `route_id` and `position`. The composite foreign key
+  `planned_stop_on_a_route_of_its_plan`, from `(route_id, plan_id)` to `route (id, plan_id)`, which
+  `route_of_its_plan` makes possible, keeps the two on one plan. It is `DEFERRABLE INITIALLY
+  DEFERRED`, because Hibernate may insert a stop before its new route and delete a route before the
+  stops that leave with it.
+- **One index, one stop, one pin.** `route_index_once`, `planned_stop_order_once` and
+  `plan_pin_order_once` are deferred uniques: a plan gives each route its own index, serves an
+  order and attempt once, and pins an order once. They back the load check, and are deferred
+  because Hibernate rewrites those rows in place.
 - **The journals.** `plan_undo` and `plan_redo` have one shape: a `kind` (`MOVED_STOP`, `TOOK_OFF`,
   `PLACED`, `PINNED`, `UNPINNED`, `LOCKED` or `UNLOCKED`) beside the columns that kind uses, and a
   `CHECK` per column group says which kinds fill it: the stop, the order and attempt, the origin

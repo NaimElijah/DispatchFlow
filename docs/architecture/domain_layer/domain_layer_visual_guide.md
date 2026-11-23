@@ -3,7 +3,7 @@
 **Status:** Describes the code at commit `6e3028f` on `dev`, 15 November 2026. The shared kernel's
 `AggregateRoot` and `Version`, the save sequences and the load check that replaced `restore` and the snapshots
 were brought up to date on 23 November 2026 for [ADR-126](../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) and [ADR-127](../../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md), and the file and line counts
-with them. The counts for Planning come from the branch that maps `Plan`, not yet merged.
+with them.
 
 This guide is a map of the domain layer **as it is built today**, for a person learning the repository
 before building a milestone. After reading it you should be able to find any aggregate, value, event or
@@ -162,7 +162,7 @@ arrows (or to Access or Audit), and `audit/` imports no other module.
 | `access` | root, `account`, `session`, `companyprofile` | 33 | 2 |
 | `audit` | flat | 11 | none |
 | `fleet` | root, `driver`, `register`, `roster` | 30 | 1 |
-| `liveops` | root, `delivery`, `delivery.history`, `outcome`, `proof`, `alert`, `routerun` | 52 | 3 |
+| `liveops` | root, `delivery`, `outcome`, `proof`, `alert`, `routerun` | 52 | 3 |
 | `messaging` | root, `message`, `rating`, `settings` | 39 | 1 |
 | `orders` | flat | 40 | 3 |
 | `planning` | root, `plan`, `solution`, `drop`, `basis`, `revision`, `reconciliation`, `settings` | 85 | 6 |
@@ -192,13 +192,13 @@ There are 20 roots in Java (`extends AggregateRoot`). Audit has none, and the Py
 | `Customer` (Orders) | `CustomerId` | `register` | 624 |
 | `Order` (Orders) | `OrderId` | `place` | 689 |
 | `ImportBatch` (Orders) | `ImportBatchId` | `preview` | 554 |
-| `Plan` (Planning) | `PlanId` | `open` | 2,697 |
+| `Plan` (Planning) | `PlanId` | `open` | 2,711 |
 | `SolveJob` (Planning) | `JobId` | `queue`, package-private | 704 |
 | `ReoptimizationProposal` (Planning) | `ProposalId` | `create`, package-private | 566 |
 | `PlanningSettings` (Planning) | none: one per company | `startingValues` | 224 |
-| `Delivery` (Live Operations) | `StopId` | `firstFact` | 812 |
-| `RouteRun` (Live Operations) | `RouteId` | `start` | 423 |
-| `Alert` (Live Operations) | `AlertId` | `raise` | 301 |
+| `Delivery` (Live Operations) | `StopId` | `firstFact` | 811 |
+| `RouteRun` (Live Operations) | `RouteId` | `start` | 427 |
+| `Alert` (Live Operations) | `AlertId` | `raise` | 329 |
 | `StopMessages` (Messaging) | `StopId` | `open` | 656 |
 | `RatingRequest` (Messaging) | `RatingRequestId` | `open` | 439 |
 | `MessagingSettings` (Messaging) | none: one per company | `create` | 146 |
@@ -214,7 +214,7 @@ plus the aggregate's package from the table above (`Plan.java` is in `core/plann
 `core/shared/` holds what every module's domain is made of. DL [§2.3](domain_layer_design.md#23-rules-between-contexts)
 rule 5 and [ADR-097](../../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md) set what
 may go in it: building blocks, typed IDs, ten shared values and one text rule, and nothing that holds one
-context's rule. It is 38 files; its tests are the 25 files in `core-test/shared/`, which include `AsSaved`, the helper that saves an aggregate in memory (ADR-127 decision 2). Beside it, `core/shared/adapter/out/persistence/`
+context's rule. It is 38 files; its tests are the 24 files in `core-test/shared/`, which include `AsSaved`, the helper that saves an aggregate in memory (ADR-127 decision 2). Beside it, `core/shared/adapter/out/persistence/`
 holds the persistence adapter every module shares ([ADR-126](../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)): the converters and instantiators that store the
 kernel's values, and `VersionedSave`. That package is an adapter, not part of the kernel.
 
@@ -444,7 +444,8 @@ The pattern, with where `Driver` shows each part:
 1. **A private constructor**, which `DomainShapeRules` requires, taking what the factory has:
    `private Driver(AccountId id, DriverContact contact, ...)`. A protected no-argument constructor
    beside it is for Hibernate, which sets the fields from the stored row. Nothing outside the class can
-   build an instance except through a static factory.
+   build an instance except through a static factory: `DomainShapeRules` also refuses a call to a root's
+   constructor from outside the root, and any class that extends a root.
 2. **A creation factory checks every invariant of a new aggregate** and returns it with no version yet. Its
    name says what the business does: `register` here, `place`, `open`, `start`, `raise`, `compute` in the
    table of roots in §2. The new ID and `now` are parameters, never made inside (DL
@@ -1003,7 +1004,7 @@ records), `DroppedOrder`, `ExcludedVehicle` and `ExclusionCause`, which `solutio
   from `Plan`; `SolveSucceeded`, `SolveFailed` from `SolveJob`. The package also holds the enums these
   events use: `Lane`, `RevisionCause`, `SolveFailureReason`, `WithdrawalCause`.
 - **Start reading:** `SolveJob.java` (704) and `ReoptimizationProposal.java` (566) first. Then `Plan.java`
-  (2,697 lines) by section: its source has banner comments (`// ---- Solving ----`), and its tests are split
+  (2,711 lines) by section: its source has banner comments (`// ---- Solving ----`), and its tests are split
   by topic, so read a section beside its test. Tests: `core-test/planning/domain/plan/`
   (`PlanLifecycleTest`, `PlanSolvingTest`, `PlanEditingTest`, `PlanPublishingTest`, `PlanPublishedTest`,
   `PlanRoutesAndFactsTest`, `PlanSequenceTest`, `PlanQueriesTest`, `PlanPendingRevisionTest`,
@@ -1151,11 +1152,11 @@ classDiagram
 
 - **Packages** (`core/liveops/domain/`): the root (8 files) holds `LiveOpsError`, `CorrectedTime`,
   `DriverReport`, `ContactWindow`, `RevisionNo`, `HeldReportId`, `CancellationKind`, `TrackingRefusal`;
-  `delivery/` (17) holds `Delivery`, the package-private types that store its outcome records and held
+  `delivery/` (18) holds `Delivery`, the package-private types that store its outcome records and held
   reports (`StoredOutcomeRecord`, `StoredOutcome`, `StoredHeldReport`), `ArrivalProjection`,
-  `RetentionPeriods`, and `delivery/history/` (6) holds the public values it keeps in columns of its own:
-  `ArrivalRecord`, `OutcomeRecord`, `HeldReport`, `HeldState`, `Origin`, `CorrectionReason`;
-  `outcome/` (4) holds `Outcome`, `FailureReason`, `FailureReasonKind`, `DispatcherOutcome`, and uses
+  `ArrivalRecord` and `RetentionPeriods`; `outcome/` (9) holds `Outcome`, `FailureReason`,
+  `FailureReasonKind`, `DispatcherOutcome`, and the outcomes a delivery keeps on record:
+  `OutcomeRecord`, `Origin`, `CorrectionReason`, `HeldReport`, `HeldState`. It uses
   `proof/` (4), which holds `Proof`, `ProofId`, `ProofKind`, `ProofNote`; `alert/` (8) holds `Alert`, `AlertSubject`, `AlertKind`,
   `DedupeKey`; `routerun/` (5) holds `RouteRun`, `RunStatus`, `TrackingWindow`, `ConfirmationDeadline`.
 - **`Delivery`'s status is derived.** `DeliveryStatus` (`PENDING`, `ARRIVED`, `HELD`, `DELIVERED`,
@@ -1170,7 +1171,7 @@ classDiagram
   [§4.5](domain_layer_design.md#45-live-operations)).
 - **Events** (`core/liveops/events/`): `OutcomeRecorded` and `PutBackSuperseded` from `Delivery`;
   `RouteStarted` from `RouteRun.start`. Enums beside them: `OutcomeKind`, `RunStartCause`.
-- **Start reading:** `Alert.java` (301), `RouteRun.java` (423), then `Delivery.java` (812) with
+- **Start reading:** `Alert.java` (329), `RouteRun.java` (427), then `Delivery.java` (811) with
   `DeliveryInvariants.java`. Tests: `core-test/liveops/domain/alert/AlertTest`, `routerun/RouteRunTest`,
   `delivery/` (`DeliveryLifecycleTest`, `DeliveryReportsTest`, `DeliveryCorrectionTest`,
   `DeliveryRefusalsTest`, `DeliverySequenceTest`, `ArrivalProjectionTest`).
@@ -1882,4 +1883,4 @@ component `CLAUDE.md` files).
 | 13. What is next | `core/planning/application/service/plan/RequestSolve.java`, then `grep -rn "Built in M0" src/backend` | none: bodies throw |
 
 After step 4 you can read any other aggregate with the §4 pattern in hand. Step 9 is the longest: `Plan.java`
-is 2,697 lines, so read it by the banner comments and keep the matching test open.
+is 2,711 lines, so read it by the banner comments and keep the matching test open.

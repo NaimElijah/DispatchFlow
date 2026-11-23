@@ -118,7 +118,7 @@ src/backend/core/
                                    it raises no event
     messaging/                     domain/ (message, rating, settings), events/, application/ and
                                    adapter/out/persistence/
-    liveops/                       domain/ (delivery with history/, outcome, proof, alert,
+    liveops/                       domain/ (delivery, outcome, proof, alert,
                                    routerun), events/, application/ and adapter/out/persistence/
     web/                           application-wide web concerns: the fallback for unexpected errors
       UnexpectedErrorHandler.java  answers an unhandled exception with a 500 problem body
@@ -135,9 +135,9 @@ src/backend/core/
                                    every module's domain tests use; AsSaved, which does to an
                                    aggregate in memory what a save does (it publishes and clears
                                    the events and moves the version), so that a domain test
-                                   reaches a saved state through commands; SaveEvents and
-                                   StoredVersions, the helpers that in-memory fakes and fixtures
-                                   use to publish events and store a version as a save does;
+                                   reaches a saved state through commands; SaveEvents, the
+                                   helper that in-memory fakes use to publish events as a save
+                                   does;
                                    adapter/out/persistence/ holds the shared adapter's tests and
                                    the test-only entity Ledger
     architecture/                  the domain purity, shape and package rules, the application
@@ -215,8 +215,8 @@ The only adapters are persistence adapters. Each of the eight modules has an
 - a `Stored…` entity for each record it keeps: `StoredAuditRecord`, `StoredPosition`, `StoredReply`,
   `StoredOptOut` and `StoredBaselineOutcome`;
 - for Planning only, a `plan/` subpackage that holds `Plan`'s adapter (`JpaPlanRepository`,
-  `Plans`) and the `@Immutable` entities a plan's revisions are appended as (`StoredPlanRevision`,
-  `StoredRevisionRoute`, `StoredRevisionStop`). Planning's converters, in the parent package, serve it
+  `Plans`) and the `@Immutable` entity a plan's revisions are appended as, `StoredPlanRevision`,
+  with its embeddables `StoredRevisionRoute` and `StoredRevisionStop`. Planning's converters, in the parent package, serve it
   too ([ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)).
 
 The migration for each of these modules is in `src/main/resources/db/migration/`, and
@@ -381,12 +381,13 @@ Three sets of rules are checked automatically today:
 The purity rules are ArchUnit tests in `src/test/java/com/dispatchflow/architecture/`, over
 `shared` and every module's `domain` and `events` packages
 ([domain layer design §3.9](domain_layer/domain_layer_design.md#39-purity)). The shape rules cover
-who may construct a restricted type and what an error or an event may carry. The package rules are
+who may construct a restricted type, including that only a root's own class calls a root's
+constructors and that no class extends a root, and what an error or an event may carry. The package rules are
 four: no cycle between a module's domain packages, a domain root that imports none of its own
 subpackages, `@NullMarked` on the kernel and on every domain and events package
 ([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)), and no package
 below a module's `api`, `spi` or `events` or below the kernel, except `shared.adapter.out.persistence`
-([ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)). The purity rules also forbid any pure class a dependency on `shared.adapter`. The eight JPA mapping rules
+([ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)). The purity rules also forbid any pure class a dependency on `shared.adapter`. The nine JPA mapping rules
 (`PersistenceRules`, [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)) are
 separate. The rest are conventions that review enforces.
 
