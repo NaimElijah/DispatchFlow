@@ -73,8 +73,9 @@ factory or a snapshot record. Three adapter methods still throw: `SolveJobReposi
 methods (`UnsupportedOperationException("Built in M13")`, because nothing stores a job's input yet)
 and `AuditRecords.purgeExpired`, which waits for the database roles. `src/test` also holds one
 entity that has a table, `Ledger` with its child `LedgerEntry`, and the test-only migration
-`src/test/resources/db/fixture/V0_1__persistence_fixture.sql`, which only the version helper's tests
-run. The `@Entity` classes under `archfixture/` are deliberately wrong fixtures for the mapping
+`src/test/resources/db/fixture/V0_1__persistence_fixture.sql`. Flyway applies it in every
+integration-test context and under `just core-run`, and only the version helper's tests use its
+tables. The `@Entity` classes under `archfixture/` are deliberately wrong fixtures for the mapping
 rules, and no schema maps them. `optimizer`'s `solvers` folders hold only `.gitkeep`; its `domain`
 holds the domain for daily solves and re-optimizations
 ([ADR-098](../ADRs/ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) fixes its

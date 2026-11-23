@@ -9,7 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
- * Every stored list refuses a negative position (ADR-127 decision 1). Hibernate throws {@code
+ * Every stored list refuses a negative position (ADR-128 decision 4). Hibernate throws {@code
  * IndexOutOfBoundsException} while it loads a list with one, before the root's load check can
  * refuse the damage, so the schema has to.
  */
