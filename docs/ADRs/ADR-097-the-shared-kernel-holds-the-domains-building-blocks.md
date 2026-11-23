@@ -1,6 +1,6 @@
 # ADR-097: The shared kernel also holds the building blocks every module's domain uses
 
-- **Status:** Accepted; extended by ADR-106 and ADR-111
+- **Status:** Accepted; extended by ADR-106 and ADR-111; amended by ADR-126
 - **Date:** 2026-11-14
 
 ## Context

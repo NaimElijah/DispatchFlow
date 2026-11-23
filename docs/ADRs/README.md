@@ -24,16 +24,17 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-032](ADR-032-leave-at-door-windows-are-preferences.md) | A leave-at-door order's time window is a preference, priced into the objective | Accepted; extended by ADR-048; amended by ADR-100 |
 | [ADR-035](ADR-035-both-apps-serve-every-role.md) | Both apps serve Admins, Dispatchers and Drivers | Accepted; extended by ADR-076 and ADR-083; amended by ADR-037, ADR-039 and ADR-123 |
 | [ADR-036](ADR-036-one-account-per-person-signed-in-by-email.md) | Each person has one account, signed in with their email, holding one or more roles | Accepted; extended by ADR-069; amended by ADR-045 |
-| [ADR-040](ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md) | The core is a Spring Modulith monolith with one module per bounded context, checked in CI | Accepted; extended by ADR-097, ADR-118 and ADR-120 |
+| [ADR-040](ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md) | The core is a Spring Modulith monolith with one module per bounded context, checked in CI | Accepted; extended by ADR-097, ADR-118 and ADR-120; amended by ADR-126 |
 | [ADR-118](ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md) | A domain package above 30 files splits into one package per aggregate, over a root that holds the module's error | Accepted; amended by ADR-120 and ADR-125 |
-| [ADR-125](ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md) | A source folder above 20 files splits wherever a group of four files can move | Accepted |
-| [ADR-097](ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md) | The shared kernel also holds the building blocks every module's domain uses | Accepted; extended by ADR-106 and ADR-111 |
+| [ADR-125](ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md) | A source folder above 20 files splits wherever a group of four files can move | Accepted; extended by ADR-126 |
+| [ADR-097](ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md) | The shared kernel also holds the building blocks every module's domain uses | Accepted; extended by ADR-106 and ADR-111; amended by ADR-126 |
 | [ADR-106](ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md) | Free text is normalized and capped by one kernel rule, and personal values carry a marker | Accepted; extended by ADR-111 |
 | [ADR-111](ADR-111-attempt-is-a-shared-kernel-value-and-names-and-addresses-drop-invisible-fillers.md) | Attempt is a shared-kernel value, and names and addresses drop invisible fillers | Accepted |
 | [ADR-119](ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md) | The application layer is declared ahead of its milestones, as signatures whose bodies throw | Accepted; amended by ADR-121 |
 | [ADR-120](ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md) | The application layer takes an Actor and a CallContext, keeps its shared ports in shared.application, and reads through query ports | Accepted; extended by ADR-125; amended by ADR-121 |
 | [ADR-121](ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md) | The application skeleton's review settles its seams, its conflicts, its retention and its scoring inputs | Accepted |
-| [ADR-041](ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md) | Each module owns a PostgreSQL schema, read and written through jOOQ by a role that owns no table | Accepted |
+| [ADR-041](ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md) | Each module owns a PostgreSQL schema, read and written through jOOQ by a role that owns no table | Accepted; amended by ADR-126 |
+| [ADR-126](ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) | JPA replaces jOOQ in the core, and the domain classes carry their own mapping | Accepted |
 | [ADR-043](ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md) | Code is generated from both contracts on both sides, and errors are RFC 9457 Problem Details | Accepted; extended by ADR-068, ADR-073, ADR-087 and ADR-094; amended by ADR-123 |
 | [ADR-094](ADR-094-each-pull-requests-contract-check-compares-against-its-base-branch.md) | Each pull request's contract check compares against its base branch | Accepted |
 | [ADR-044](ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md) | The solver port takes a start, a budget and a seed, and `Problem` alone judges a solution | Accepted; extended by ADR-050 and ADR-099; amended by ADR-105, ADR-120 and ADR-121 |
@@ -49,7 +50,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-051](ADR-051-one-solver-worker-per-lane-killed-30-seconds-past-its-limit.md) | Each lane has one solver worker process, killed 30 seconds past its limit | Accepted |
 | [ADR-052](ADR-052-each-plan-stores-the-matrix-and-values-it-was-solved-with.md) | Each plan stores the travel-time matrix and the values it was solved with | Accepted; amended by ADR-121 |
 | [ADR-053](ADR-053-plan-lifecycle-publishing-stability-drop-reasons-and-abandoned-plans.md) | A plan follows one lifecycle that ends in completed, cancelled or abandoned, and every drop has a reason | Accepted; amended by ADR-100 and ADR-101 |
-| [ADR-101](ADR-101-completed-plans-take-late-outcomes-as-revisions-and-routes-keep-an-index.md) | A completed plan takes late outcomes as revisions, a hand-over takes an optional check, and each route keeps an index from 1 to 30 | Accepted; amended by ADR-112 |
+| [ADR-101](ADR-101-completed-plans-take-late-outcomes-as-revisions-and-routes-keep-an-index.md) | A completed plan takes late outcomes as revisions, a hand-over takes an optional check, and each route keeps an index from 1 to 30 | Accepted; amended by ADR-112 and ADR-126 |
 | [ADR-112](ADR-112-a-re-optimization-keeps-every-order-and-route-a-solve-that-breaks-a-lock-fails-and-publishing-clears-locks.md) | A re-optimization keeps every order and route, a solve that breaks a lock fails, and publishing clears locks | Accepted |
 | [ADR-054](ADR-054-publishing-re-checks-every-route-against-the-current-fleet.md) | Publishing re-checks every route against the current fleet and orders | Accepted |
 | [ADR-055](ADR-055-accepting-a-re-optimization-checks-the-vehicles-it-keeps-driving.md) | Accepting a re-optimization checks the vehicles it keeps driving | Accepted |
@@ -152,5 +153,6 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > application layer's skeleton and its review. ADR-122, on 2026-11-18, drops the finish skill's agent
 > review. ADR-123, on 2026-11-22, drops ADR-037's flat tree and renames three components. ADR-124,
 > on 2026-11-22, cuts each `CLAUDE.md` to what a session would otherwise get wrong. ADR-125, on
-> 2026-11-22, splits a source folder above 20 files wherever four of its files can move. The tech
-> stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.
+> 2026-11-22, splits a source folder above 20 files wherever four of its files can move. ADR-126, on
+> 2026-11-23, replaces jOOQ with JPA in the core and lets the domain classes carry their mapping.
+> The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.

@@ -255,22 +255,28 @@ each lifecycle.
 
 An aggregate is created only by a static factory on its root (`Plan.open`, `Order.place`,
 `Delivery.firstFact`) that checks every invariant of a new one. The new ID and `now` are parameters;
-the use case gets them from the `IdGenerator` and `Clock` ports. Repositories rebuild aggregates through a
-separate `restore` factory that checks the structure again, so even a damaged row can't become an invalid
-object; only persistence adapters may call `restore`. Python's `ProblemFactory` builds a `Problem` from a
+the use case gets them from the `IdGenerator` and `Clock` ports. Hibernate rebuilds a stored aggregate
+([ADR-126]): a `@PostLoad` check on its root runs the at-rest invariants and throws `StoredStateInvalid`,
+so a damaged row is refused when it loads, before any command works on it. Python's `ProblemFactory` builds a `Problem` from a
 request (§4.9).
 
 ### 3.6 Repositories
 
 - **One repository per aggregate root**, as a secondary port in the module's `application` package,
-  implemented with jOOQ in `adapter/out/persistence`. Records use their append-only logs instead (§3.2).
+  implemented with JPA in `adapter/out/persistence`, on a package-private Spring Data interface
+  ([ADR-126]). Records use their append-only logs instead (§3.2).
 - **It speaks in whole aggregates**: `get(id)`, the lookups use cases need (`PlanRepository.forDate`),
-  `add(newAggregate)` and `save(aggregate)`. `save` updates with `WHERE version = ?` and fails with
-  `STALE_VERSION` when nothing matched (BR-76).
+  `add(newAggregate)` and `save(aggregate)`. Every root carries a `@Version`, and every save moves it by
+  exactly 1: a first save stores 0, and a save that changed only child rows forces the increment. A save
+  fails with `STALE_VERSION` when the version moved since the load (BR-76). The use case compares the
+  `If-Match` version with the loaded one through `StaleVersion.requireCurrent`, because `@Version` guards
+  only the window between the load and the commit.
 - **It has no queries for screens.** Screens and reports read read models (CQRS-lite), so a repository
   never grows a method per screen and never returns half an aggregate.
-- **Events leave with the save.** An aggregate records the events its methods raise; the use case
-  publishes them when it saves, in the same transaction, and Spring Modulith stores them with the change.
+- **Events leave with the save.** An aggregate records the events its methods raise. Spring Data
+  publishes them when the port's `save` or `add` runs, in the same transaction, and Spring Modulith stores
+  them with the change. So every use case that changes an aggregate calls `save` or `add`, and no use case
+  publishes an event itself.
 
 ### 3.7 Domain services: none
 
@@ -309,8 +315,12 @@ ruff keeps NumPy's randomness, clock and file readers (`load`, `fromfile`, `load
 `eval` out ([ADR-113]).
 
 1. A module's domain imports only the JDK, the shared kernel, its own domain, its own module's `events`
-   package (§7.3), JSpecify annotations and pure libraries (libphonenumber, JTS). Not Spring, jOOQ, Jackson, Jakarta or `java.net.http`, not any
-   `application` or `adapter` package, and not another module.
+   package (§7.3), JSpecify annotations, pure libraries (libphonenumber, JTS) and the persistence
+   annotations of [ADR-126]: `jakarta.persistence`; Hibernate's `@OptimisticLock` and `@Immutable`; Spring
+   Data's `@DomainEvents` and `@AfterDomainEventPublication`. This is a deliberate exception, for
+   annotations only: no `EntityManager`, Spring or Hibernate call, and never in an `events` package. Nothing
+   else from Spring, Hibernate, Jackson or Jakarta, and not `java.net.http`, any `application` or `adapter`
+   package, or another module.
 2. No clock: domain code never calls `Instant.now()`, `LocalDate.now()`, `Clock.system…()`,
    `System.currentTimeMillis()` or `System.nanoTime()`, and never `Thread.sleep` or `TimeUnit.sleep`.
    `now` and `today` are parameters.
@@ -328,8 +338,12 @@ ruff keeps NumPy's randomness, clock and file readers (`load`, `fromfile`, `load
    `startVirtualThread`, `Executors`, `ForkJoinPool`, `ThreadPoolExecutor`, `Timer`,
    `Cleaner.create`, a `CompletableFuture`'s `…Async` methods, and a parallel stream.
 5. No `new IllegalArgumentException` or `new IllegalStateException` (§3.8).
-6. Only persistence adapters call `restore` (§3.5), and the factories of the snapshots read under a
-   lock (`ActiveAdmins`, `DateCapacity`, `LaneCapacity`, §5).
+6. Only Hibernate rebuilds an aggregate (§3.5), and only persistence adapters call the factories of the
+   snapshots read under a lock (`ActiveAdmins`, `DateCapacity`, `LaneCapacity`, §5).
+
+Separate ArchUnit rules keep the mapping honest (relationships only inside one aggregate, `@Version` only on
+`AggregateRoot`, a `@PostLoad` check on every root, every entity in its module's schema;
+[tech stack §2.2](../tech_stack.md#22-enforcement)).
 
 Password hashing, token signing and hashing with a secret key are adapters behind ports (`PasswordHasher`,
 `TokenSigner`, `Hmac`); the domain receives their results as values (`PasswordHash`, `PhoneHash`).
@@ -492,7 +506,9 @@ dropped exactly once (BR-07), each vehicle and driver has at most one route (BR-
 off one route and onto another atomically, and a revision is a consistent snapshot of every route
 (BR-110). Splitting it per route would turn each of these into a rule across aggregates. Its writers are
 few (dispatchers and eight automatic writers, at most a few writes a minute), and the high-frequency writers, the
-drivers' phones, are kept out of it on purpose: their facts live in Live Operations.
+drivers' phones, are kept out of it on purpose: their facts live in Live Operations. Its routes and their
+stops are stored as entities of the aggregate, and its travel-time matrix in a table of its own, which editing
+a plan never loads ([ADR-126]).
 
 | Invariant | Owner | Error |
 |---|---|---|
@@ -500,8 +516,8 @@ drivers' phones, are kept out of it on purpose: their facts live in Live Operati
 | A plan for a past date isn't solved or changed (BR-118) | `Plan`, given `today` | `DateInPast` |
 | The state moves only along BR-12's transitions (§9.1) | Each `Plan` method | `PlanNotDraftOrReady`, `PlanNotReady`, `PlanNotPublished`, `PlanNotDraftSolvingOrReady` |
 | Each order is served or dropped exactly once (BR-07) | `Plan`, and `SolveJob.succeed` for a daily result ([ADR-112]), backed by unique (plan, order, attempt) | `OrderAlreadyInPlan` |
-| Each vehicle and each driver has at most one route; a route withdrawn mid-route doesn't count, and a re-optimization's proposal gives a vehicle one route, withdrawn or not, and a driver one route that isn't withdrawn (BR-39, [ADR-101], [ADR-112]) | `Plan.applySolveResult`, `accept`, `handOver`; `SolveJob.succeed`, which checks a daily result, creates a proposal, and refuses what its `restore` would | `VehicleAlreadyHasRoute`, `DriverAlreadyHasRoute`, `VehicleRoutedTwice`, `DriverRoutedTwice` |
-| Only a validated solution replaces the routes (BR-15) | `SolveJob.succeed`, which takes only a `ValidatedSolution`; `Plan.applySolveResult` reads the job's result, and `Plan.accept` takes the `ReoptimizationProposal` itself, which only a succeeded job or persistence builds ([ADR-101]) | — (by type) |
+| Each vehicle and each driver has at most one route; a route withdrawn mid-route doesn't count, and a re-optimization's proposal gives a vehicle one route, withdrawn or not, and a driver one route that isn't withdrawn (BR-39, [ADR-101], [ADR-112]) | `Plan.applySolveResult`, `accept`, `handOver`; `SolveJob.succeed`, which checks a daily result, creates a proposal, and refuses what its `@PostLoad` check would | `VehicleAlreadyHasRoute`, `DriverAlreadyHasRoute`, `VehicleRoutedTwice`, `DriverRoutedTwice` |
+| Only a validated solution replaces the routes (BR-15) | `SolveJob.succeed`, which takes only a `ValidatedSolution`; `Plan.applySolveResult` reads the job's result, and `Plan.accept` takes the `ReoptimizationProposal` itself, which only a succeeded job or Hibernate builds ([ADR-101]) | — (by type) |
 | Only the plan's own basis job may end its solve; a result or failure from any other job, or in any other state, is ignored (BR-59) | `Plan.applySolveResult`, `solveFailed` | — |
 | A failed solve keeps the routes the plan had, or returns it to *draft* (BR-57, BR-59) | `Plan.solveFailed` | — |
 | Every edit is judged by the validator on the version it was made from, by an evaluation that describes the plan after the edit; its violations stay open until fixed (FR-23, FR-233). An edit while the optimizer is down is refused ([ADR-101]). The plan's `after…` queries give the layout that evaluation must describe, so a use case never repeats an edit ([ADR-112]) | `Plan.moveStop`, `takeOffRoute`, `placeDropped`, `pin`, `unpin`, `undo`, `redo`, which require an `Evaluation` of the current version; `Plan.afterMove`, `afterTakeOff`, `afterPlacing`, `afterPin`, `afterUnpin`, `afterUndo`, `afterRedo` and `afterHandOver` | `StaleEvaluation`, `ValidatorUnavailable` |
@@ -704,8 +720,8 @@ availability; whether the shift breaks comes from the optimizer's `Evaluation`) 
 (started routes and reported stops). An `Evaluation` names the plan version it was read for and
 describes the plan after the change, and `Plan` refuses one read for another version or another
 change (`StaleEvaluation`, [ADR-101]). The routes, drops and pins it describes come from the plan: `layout()` for the plan as it is, and an `after…` query for the plan after a command ([ADR-112]). A solve's validated result reaches the plan on its job: only
-`SolveJob.succeed` takes one from a `ValidatedSolution`, and only persistence rebuilds it, through
-`SolveJob.restore`, so the plan applies what the validator accepted, and only the optimizer adapter builds
+`SolveJob.succeed` takes one from a `ValidatedSolution`, and only Hibernate rebuilds it, which
+`SolveJob`'s `@PostLoad` check checks again ([ADR-126]), so the plan applies what the validator accepted, and only the optimizer adapter builds
 a `ValidationReport` (§13).
 
 **In the Alpha:** `Plan` (solve, view, publish) and `SolveJob` in the daily lane. Proposals, hand-overs
@@ -1452,6 +1468,10 @@ than one writer may change at once.
 | `ImportBatch` | A double-clicked confirm | The second gets `ImportAlreadyConfirmed` |
 | `FleetRegister`, the settings | Admins | The version decides |
 
+**Retries.** A conflict leaves the transaction rollback-only, so a retry re-runs the whole use case in a new
+transaction: the retry wraps the `@Transactional` call from outside it ([ADR-126]). This holds for the
+listeners, the midnight job and the retries for a call that sent no version ([ADR-121]).
+
 **Hotspots.** `Plan` is the only aggregate with several writers in a normal day, and it sees a few writes
 a minute at peak. The one high-volume stream, positions from 15 phones, is records with no version, and
 the 15 phones' reports go to 200 separate `Delivery`s, never to `Plan`. The set rules of §5 serialize on
@@ -1495,7 +1515,7 @@ flowchart LR
     M["aggregates, entities, value objects,<br/>sealed states, named errors"]
   end
   subgraph OUT["adapter/out"]
-    DB[("jOOQ / PostgreSQL,<br/>the module's own schema")]
+    DB[("JPA (Hibernate) / PostgreSQL,<br/>the module's own schema")]
     HTTP["optimizer, OSRM, geocoder, SMS, push"]
   end
   IN --> SVC
@@ -1715,6 +1735,7 @@ Nothing. These ADRs record the decisions of this document:
 - [ADR-067]: live arrivals propagate delay along stored legs when asked (§10.4).
 - [ADR-040]: the core is a Spring Modulith monolith with one module per context (§2, §3.9, §13).
 - [ADR-041]: one PostgreSQL schema per module (§2.3).
+- [ADR-126]: JPA replaces jOOQ, and the domain classes carry their mapping (§3.5, §3.6, §3.9, §11).
 - [ADR-048], [ADR-049], [ADR-100]: travel times from buckets and a buffer, and the drop-penalty unit (§4.9, §10.2).
 - [ADR-053]: the plan lifecycle, with the *abandoned* state (§9.1).
 
@@ -1761,3 +1782,4 @@ Nothing. These ADRs record the decisions of this document:
 [ADR-118]: ../../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md
 [ADR-121]: ../../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md
 [ADR-125]: ../../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md
+[ADR-126]: ../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md

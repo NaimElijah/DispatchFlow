@@ -1050,7 +1050,7 @@ protocol).
 | <a id="nfr-164"></a>NFR-164 | The team is alerted when a backup fails ([NFR-28]: scheduled off-VM backups). Priority: Must. |  |  |
 | <a id="nfr-197"></a>NFR-197 | The team is alerted when sending stops at the cap of [NFR-196] (daily message cap) or more than 10% of a day's messages are dropped ([NFR-190]: stale messages dropped). Priority: Must. |  |  |
 | <a id="nfr-76"></a>NFR-76 | Logs, traces and metrics are kept for 7 days and then deleted. Priority: Should. |  |  |
-| <a id="nfr-77"></a>NFR-77 | Every database change follows [ADR-041] (one PostgreSQL schema per module, read and written through jOOQ). Priority: Should. |  |  |
+| <a id="nfr-77"></a>NFR-77 | Every database change follows [ADR-041] (one PostgreSQL schema per module, changed only by Flyway migrations) and [ADR-126] (persistence through JPA, with the schema never changed by Hibernate). Priority: Should. |  |  |
 | <a id="nfr-165"></a>NFR-165 | Every database change is tested in CI against the schema of the last merge to `main`, with data in it, checking the values after the migration. Priority: Should. |  |  |
 | <a id="nfr-79"></a>NFR-79 | A dispatcher guide and a driver guide exist in Hebrew and English. Priority: Should. |  |  |
 | <a id="nfr-166"></a>NFR-166 | An operations runbook covers deployment, restore ([NFR-125]: restore time), secret rotation ([NFR-03]: secrets kept out of the repository and logs), handling an outage ([NFR-29]: API availability) and recovering a lost Admin ([FR-292]: Admin created on a written request). Priority: Should. |  |  |
@@ -1779,3 +1779,4 @@ DispatchFlow deliberately does not:
 [ADR-104]: ../ADRs/ADR-104-the-company-profile-holds-customer-defaults-and-capabilities-follow-the-role-matrix.md
 [ADR-105]: ../ADRs/ADR-105-a-re-optimizations-problem-carries-its-conventions-and-only-a-vehicle-that-is-out-has-no-driver.md
 [ADR-116]: ../ADRs/ADR-116-only-an-admin-changes-their-own-email.md
+[ADR-126]: ../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md
