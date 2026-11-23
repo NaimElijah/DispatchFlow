@@ -22,6 +22,7 @@ import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.RuleViolations;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.ElementCollection;
@@ -210,8 +211,8 @@ public class ImportBatch extends AggregateRoot implements PersonalData {
      * a confirmed, discarded or expired batch keeps no row, the row numbers are unique and
      * ascending, its state is not older than its preview, and it was confirmed within its hour.
      *
-     * @throws StoredStateInvalid when the stored state breaks one of them, or a stored row can't
-     *     become a {@link PreviewRow}
+     * @throws StoredStateInvalid when a stored list has a gap in its positions, the stored state
+     *     breaks one of them, or a stored row can't become a {@link PreviewRow}
      */
     @PostLoad
     void checkStored() {
@@ -222,6 +223,9 @@ public class ImportBatch extends AggregateRoot implements PersonalData {
 
     /** The first invariant at rest the batch breaks, if any: those {@link #checkStored} names. */
     private Optional<String> brokenRule() {
+        if (StoredLists.anyHasGap(rows)) {
+            return Optional.of(StoredLists.GAP);
+        }
         List<PreviewRow> previewRows = rows();
         if (state != StateKind.PREVIEWED && !previewRows.isEmpty()) {
             return Optional.of("a confirmed, discarded or expired import keeps a row");

@@ -122,7 +122,8 @@ public class StopMessages extends AggregateRoot implements PersonalData {
      * follows one that did; only "delivered" asks for a rating; one outcome message at most; and a
      * pending message is pending since its trigger.
      *
-     * @throws StoredStateInvalid when the stored state breaks one of them
+     * @throws StoredStateInvalid when a stored list has a gap in its positions, or the stored state
+     *     breaks one of them
      */
     @PostLoad
     void checkStored() {

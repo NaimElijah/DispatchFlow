@@ -24,6 +24,7 @@ import com.dispatchflow.access.domain.session.SessionState;
 import com.dispatchflow.access.domain.session.TokenState;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.SessionId;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.StaleVersion;
@@ -743,7 +744,13 @@ class SessionPersistenceIT {
                         1_008,
                         Base.EXCHANGED,
                         (Damage) rows -> rows.setOnToken(1, "successor = id"),
-                        successor));
+                        successor),
+                Arguments.of(
+                        "tokens whose positions start past the first",
+                        1_014,
+                        Base.EXCHANGED,
+                        (Damage) Rows::shiftTokenPositions,
+                        StoredLists.GAP));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -833,6 +840,13 @@ class SessionPersistenceIT {
             params.add(token(n, m).value());
             jdbc.sql("UPDATE access.refresh_token SET " + assignments + " WHERE id = ?")
                     .params(params)
+                    .update();
+        }
+
+        /** Moves every token one position on, so no token holds the first. */
+        void shiftTokenPositions() {
+            jdbc.sql("UPDATE access.refresh_token SET position = position + 1 WHERE session_id = ?")
+                    .param(session(n).value())
                     .update();
         }
 

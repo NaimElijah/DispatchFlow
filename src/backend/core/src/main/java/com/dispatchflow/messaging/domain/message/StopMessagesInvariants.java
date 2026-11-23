@@ -1,6 +1,7 @@
 package com.dispatchflow.messaging.domain.message;
 
 import com.dispatchflow.messaging.domain.OutgoingMessageId;
+import com.dispatchflow.shared.StoredLists;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
@@ -23,6 +24,9 @@ final class StopMessagesInvariants {
      * @return the broken rule, with no personal data; empty when every rule holds
      */
     static Optional<String> brokenBy(List<OutgoingMessage> messages) {
+        if (StoredLists.anyHasGap(messages)) {
+            return Optional.of(StoredLists.GAP);
+        }
         Set<OutgoingMessageId> ids = new HashSet<>();
         Set<MessageType> outcomes = EnumSet.noneOf(MessageType.class);
         boolean arrivalGiven = false;

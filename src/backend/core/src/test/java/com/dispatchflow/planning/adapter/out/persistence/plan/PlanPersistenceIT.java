@@ -51,6 +51,7 @@ import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StopId;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.VehicleId;
 import com.dispatchflow.shared.Version;
@@ -804,7 +805,20 @@ class PlanPersistenceIT {
                         State.REDONE_AFTER_A_SAVE,
                         rows -> rows.update("plan_pin", "position = 1 - position"),
                         "Plan",
-                        "pins are in pin order"));
+                        "pins are in pin order"),
+                damaged(
+                        "routes whose positions start past the first",
+                        State.READY,
+                        rows -> rows.update("route", "position = position + 1"),
+                        "Plan",
+                        StoredLists.GAP),
+                damaged(
+                        "a route's stops whose positions start past the first",
+                        State.READY,
+                        rows -> rows.run("UPDATE planning.planned_stop SET position = position + 1 WHERE route_id = "
+                                + FIRST_ROUTE),
+                        "Plan",
+                        StoredLists.GAP));
     }
 
     @ParameterizedTest(name = "{0}")

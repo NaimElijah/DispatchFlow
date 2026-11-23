@@ -59,6 +59,7 @@ import com.dispatchflow.liveops.domain.proof.Proof;
 import com.dispatchflow.liveops.events.OutcomeRecorded;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.StopId;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.StaleVersion;
@@ -691,7 +692,13 @@ class DeliveryPersistenceIT {
                         1_014,
                         Base.HELD,
                         (Damage) rows -> rows.held(1, "state = 'OVERTAKEN', state_at = received_at"),
-                        "a held report is overtaken only by an outcome (BR-134, BR-18)"));
+                        "a held report is overtaken only by an outcome (BR-134, BR-18)"),
+                Arguments.of(
+                        "outcomes whose positions start past the first",
+                        1_021,
+                        Base.FAILED_THEN_CORRECTED,
+                        (Damage) Rows::shiftOutcomePositions,
+                        StoredLists.GAP));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -817,6 +824,13 @@ class DeliveryPersistenceIT {
         void held(int k, String assignments) {
             jdbc.sql("UPDATE liveops.held_report SET " + assignments + " WHERE id = ?")
                     .param(DeliveryPersistenceIT.held(s, k).value())
+                    .update();
+        }
+
+        /** Moves every outcome record one position on, so no record holds the first. */
+        void shiftOutcomePositions() {
+            jdbc.sql("UPDATE liveops.delivery_outcome SET position = position + 1 WHERE delivery_id = ?")
+                    .param(stop(s).value())
                     .update();
         }
 

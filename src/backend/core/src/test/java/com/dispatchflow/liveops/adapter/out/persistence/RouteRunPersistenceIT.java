@@ -24,6 +24,7 @@ import com.dispatchflow.liveops.events.RunStartCause;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.StaleVersion;
@@ -279,6 +280,22 @@ class RouteRunPersistenceIT {
                 .isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
                     assertThat(invalid.subject()).isEqualTo("RouteRun");
                     assertThat(invalid.detail()).isEqualTo("a finished run names each pending stop once (FR-329)");
+                });
+    }
+
+    @Test
+    void GivenAFinishedRunWhosePendingStopsStartPastTheFirstPosition_WhenLoaded_ThenStoredStateInvalid() {
+        int n = 18;
+        transactions.inTransaction(() -> repository.add(finished(n, List.of(stop(n, 1), stop(n, 2))), dateOf(n)));
+
+        jdbc.sql("UPDATE liveops.route_run_pending_stop SET position = position + 1 WHERE route_run_id = ?")
+                .param(route(n).value())
+                .update();
+
+        assertThatThrownBy(() -> transactions.inTransaction(() -> repository.get(route(n))))
+                .isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
+                    assertThat(invalid.subject()).isEqualTo("RouteRun");
+                    assertThat(invalid.detail()).isEqualTo(StoredLists.GAP);
                 });
     }
 

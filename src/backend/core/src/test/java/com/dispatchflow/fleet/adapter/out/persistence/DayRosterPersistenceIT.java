@@ -17,6 +17,7 @@ import com.dispatchflow.fleet.domain.roster.RosterVehicle;
 import com.dispatchflow.fleet.domain.roster.Shift;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.DeliveryDate;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.VehicleId;
 import com.dispatchflow.shared.Version;
@@ -287,7 +288,8 @@ class DayRosterPersistenceIT {
                         "a vehicle is marked unavailable twice",
                         1_004,
                         (Damage) rows -> rows.updateUnavailable(1, "vehicle = '" + V1.value() + "'"),
-                        "DayRoster"));
+                        "DayRoster"),
+                Arguments.of(StoredLists.GAP, 1_011, (Damage) Rows::shiftEntryPositions, "DayRoster"));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -364,6 +366,13 @@ class DayRosterPersistenceIT {
             jdbc.sql("UPDATE fleet.unavailable_vehicle SET " + assignments
                             + " WHERE day_roster_id = ? AND position = ?")
                     .params(rosterId(n), position)
+                    .update();
+        }
+
+        /** Moves every entry one position on, so no entry holds the first. */
+        void shiftEntryPositions() {
+            jdbc.sql("UPDATE fleet.roster_entry SET position = position + 1 WHERE day_roster_id = ?")
+                    .param(rosterId(n))
                     .update();
         }
 

@@ -25,6 +25,7 @@ import com.dispatchflow.access.domain.account.RoleSet;
 import com.dispatchflow.access.domain.account.UserAccount;
 import com.dispatchflow.access.events.SessionsRevoked;
 import com.dispatchflow.shared.AccountId;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.StaleVersion;
@@ -534,7 +535,13 @@ class UserAccountPersistenceIT {
                         1_012,
                         Base.TWO_RECOVERY_LINKS,
                         (Damage) rows -> rows.setOnLink(2, "expires_at = issued_at"),
-                        "a link expires after it is sent"));
+                        "a link expires after it is sent"),
+                Arguments.of(
+                        "links whose positions start past the first",
+                        1_017,
+                        Base.TWO_RECOVERY_LINKS,
+                        (Damage) Rows::shiftLinkPositions,
+                        StoredLists.GAP));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -639,6 +646,13 @@ class UserAccountPersistenceIT {
                     "UPDATE access.credential_link SET " + assignments + " WHERE id = ?",
                     values,
                     link(n, m).value());
+        }
+
+        /** Moves every link one position on, so no link holds the first. */
+        void shiftLinkPositions() {
+            jdbc.sql("UPDATE access.credential_link SET position = position + 1 WHERE user_account_id = ?")
+                    .param(account(n).value())
+                    .update();
         }
 
         void giveTheAdminRole() {

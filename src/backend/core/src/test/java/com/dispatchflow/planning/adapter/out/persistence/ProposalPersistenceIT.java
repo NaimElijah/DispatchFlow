@@ -24,6 +24,7 @@ import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.JobId;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.ProposalId;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.StaleVersion;
@@ -261,7 +262,14 @@ class ProposalPersistenceIT {
                         (Damage) rows ->
                                 rows.update("reoptimization_proposal_stop", "route_position = 3", "route_position = 2"),
                         "SolvedRoute",
-                        "a solved stop is on one of its solution's routes"));
+                        "a solved stop is on one of its solution's routes"),
+                Arguments.of(
+                        "late stops whose positions start past the first",
+                        109,
+                        Scenario.READY_WITH_EVERY_LIST,
+                        (Damage) rows -> rows.update("reoptimization_proposal_late_stop", "position = position + 1"),
+                        "ReoptimizationProposal",
+                        StoredLists.GAP));
     }
 
     @ParameterizedTest(name = "{0}")

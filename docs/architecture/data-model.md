@@ -84,7 +84,9 @@ Every table is one of four kinds, and its kind decides its key.
   state says which columns each state fills (for example `user_account_state_times`). The migration
   is the second line of defence: the `@PostLoad` check on the root is the first.
 - **Ordered lists** have a `position integer NOT NULL` column and a `UNIQUE (owner, position)` that
-  is `DEFERRABLE INITIALLY DEFERRED`, because Hibernate rewrites the indexes row by row.
+  is `DEFERRABLE INITIALLY DEFERRED`, because Hibernate rewrites the indexes row by row. Nothing in
+  the schema keeps the positions contiguous, and Hibernate loads a missing one as a `null` element,
+  so every root's load check refuses a gap first, through the kernel's `StoredLists`.
 - **Instants** are `timestamptz`. An Israel-local date and time (`IsraelDateTime`) is
   `timestamp(6)` with no zone, a date is `date`, and a time of day is `time`
   ([ADR-088][ADR-088]).

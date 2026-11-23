@@ -33,6 +33,7 @@ import com.dispatchflow.shared.JobId;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.ProposalId;
 import com.dispatchflow.shared.RuleViolation;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.StaleVersion;
@@ -619,7 +620,14 @@ class SolveJobPersistenceIT {
                         Scenario.DAILY_SUCCEEDED,
                         (Damage) rows -> rows.update("solve_job_drop", "fact_limit_seconds = -1", "reason = 'SHIFT'"),
                         "DaySeconds",
-                        refused + "OUTSIDE_THE_DAY"));
+                        refused + "OUTSIDE_THE_DAY"),
+                Arguments.of(
+                        "result routes whose positions start past the first",
+                        1017,
+                        Scenario.DAILY_SUCCEEDED,
+                        (Damage) rows -> rows.update("solve_job_route", "position = position + 1"),
+                        "SolveJob",
+                        StoredLists.GAP));
     }
 
     @ParameterizedTest(name = "{0}")

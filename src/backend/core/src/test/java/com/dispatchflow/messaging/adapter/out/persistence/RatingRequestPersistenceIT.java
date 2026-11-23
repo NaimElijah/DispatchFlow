@@ -24,6 +24,7 @@ import com.dispatchflow.shared.IsraelDateTime;
 import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.RatingRequestId;
 import com.dispatchflow.shared.StopId;
+import com.dispatchflow.shared.StoredLists;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.StaleVersion;
@@ -348,7 +349,13 @@ class RatingRequestPersistenceIT {
                         1_007,
                         Scenario.OPEN,
                         "UPDATE messaging.rating_request SET thank_you = 'SENT' WHERE id = ?",
-                        thankYouRule));
+                        thankYouRule),
+                Arguments.of(
+                        "comments whose positions start past the first",
+                        1_008,
+                        Scenario.COMMENTED_WITH_THE_REMINDER_SKIPPED,
+                        "UPDATE messaging.rating_request_comment SET position = position + 1 WHERE rating_request_id = ?",
+                        StoredLists.GAP));
     }
 
     @ParameterizedTest(name = "{0}")
