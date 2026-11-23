@@ -34,6 +34,12 @@ cannot follow:
   step, which is not built. A `GRANT` to a missing role fails the migration.
 - **Migration versions and lock keys.** Eight modules each add tables in one change, and several
   adapters take advisory locks.
+- **Concurrent contacts.** A session keeps the times its holder was in contact, and two requests
+  can record one at once. ADR-126's ordered list numbers every row, so two concurrent contacts
+  would take the same position.
+- **Children that move.** A plan's stops move between its routes and keep their IDs. Jakarta
+  Persistence forbids moving an orphan-removed entity to another relationship, which ADR-126's
+  rule for collections would have each route's list do.
 
 ## Decision
 
@@ -49,7 +55,9 @@ followed.
 2. **A domain test simulates a save with one helper,** `AsSaved.asSaved(root)` in the kernel's test
    package. It does to the instance what saving it does: it publishes and clears the pending events,
    as Spring Data does, and moves the version field, as Hibernate does, by reflection. It replaces
-   every reload helper, and it is the only place a test reaches into a class's private state.
+   every reload helper, and it is the only place a test reaches into a class's private state. A
+   domain test in the root's package may also call the package-private `@PostLoad` check, to show
+   that a state its commands reach would load again.
 3. **A child without its own ID is a value,** stored in an `@ElementCollection` with an
    `@OrderColumn`. That includes `DayRoster`'s entries, which ADR-126's text lists with the entities.
    - A value whose components are sealed or `Optional` is stored as a private `@Embeddable` class in
@@ -89,14 +97,15 @@ followed.
      `V8` planning and `V9` reporting. Later migrations take the next free number.
    - An advisory lock's key is `hashtext('<module>:<lock>:' || <value>)`, taken with
      `pg_advisory_xact_lock`, so each module's locks are named apart and released at commit.
-
 10. **A session's contact times are a set of instants, ordered by value,** in a table keyed by the
     session and the instant, with no position, and mapped `@OptimisticLock(excluded = true)`. A
     contact is then one row inserted and a dropped one is one row deleted, so two requests that save
     contacts at once each keep their own, and a drop never rewrites the rest. ADR-126's ordered list
     would number every row, so two concurrent contacts would take the same position, and dropping
     the oldest would renumber up to two weeks of them. Two contacts at the very same instant are
-    kept once, which BR-133's contact window reads the same way.
+    kept once, as BR-133's contact window reads them: one call's set holds it once, and when two
+    calls keep it at once, the later save answers `StaleVersion`, and its retry finds it kept. The
+    stored instant is rounded to the microsecond, so two instants within one are one.
 11. **A child entity that moves between parents inside one aggregate is owned by the root.** A
     `Plan`'s stops move between its routes and keep their IDs (DL §3.1). The root holds every stop
     in a collection of its own, mapped `cascade = ALL, orphanRemoval = true`, which alone creates and
@@ -114,6 +123,7 @@ followed.
   entities in their adapters, not the record types themselves (6). A preview row's errors are JSON
   text (7). A session's contact times are a set, not an ordered list (10). A child that moves
   between parents has its lifecycle in the root's collection, not in its parent's list (11).
+  `AsSaved` replaces ADR-126's test helper `StoredVersions.afterSave`, which is deleted (2).
 - **[ADR-041]:** a migration grants from the change that adds the roles, not before (8).
 
 ## Consequences
@@ -134,6 +144,13 @@ followed.
   Their converter's tests are what check it.
 - **Hard:** a `Plan` keeps its stops in two collections, the root's and their route's, so each
   command that adds or takes off a stop changes both. The end check catches the two drifting apart.
+- **Risk:** decision 11 relies on Hibernate leaving a stop's `route_id` alone when the stop leaves
+  a route's list, which it does because that join column is not nullable, and on the deferred keys
+  being checked only at commit. The stop-move tests in `PlanPersistenceIT` show it, and would show
+  a Hibernate upgrade that changes it.
+- **Risk:** each root's `@PostLoad` check reads its collections, so they load while the root
+  loads. Jakarta Persistence calls relationship access in a callback unportable, so the adapters
+  still fetch every collection, and a load stays whole if a check stops reading one.
 - **Cost:** until the roles change lands, the core reads and writes its tables as one user, as it
   does today.
 
@@ -176,6 +193,11 @@ followed.
 - A report needs to filter on an import preview's errors in SQL.
 - The stored-state integration tests make the core's checks too slow for a pull request.
 - The roles and the `migrate` step land: decision 8 ends then.
+- A Hibernate upgrade changes how a one-to-many deletes its rows, or how lazy loading behaves
+  inside a callback (decision 11, and the load checks).
+- Retries of concurrent contacts on one session show in latency (decision 10).
+- Renumbering an element collection's positions costs more than giving its rows their own IDs,
+  as a full undo journal's 100 rows might (decision 3).
 
 [ISSUE-112]: https://github.com/NaimElijah/DispatchFlow/issues/112
 [ADR-041]: ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md
