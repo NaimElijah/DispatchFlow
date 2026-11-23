@@ -2,17 +2,38 @@ package com.dispatchflow.reporting.domain.baseline;
 
 import com.dispatchflow.reporting.domain.CancelledOrders;
 import com.dispatchflow.reporting.domain.PlannedOnTimeRate;
+import com.dispatchflow.reporting.domain.PlannedOrder;
+import com.dispatchflow.reporting.domain.PlannedOrders;
+import com.dispatchflow.reporting.domain.PlannedService;
 import com.dispatchflow.shared.AggregateRoot;
+import com.dispatchflow.shared.DaySeconds;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.StoredStateInvalid;
+import com.dispatchflow.shared.TimeWindow;
 import com.dispatchflow.shared.VehicleId;
+import jakarta.persistence.AttributeOverride;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Embeddable;
+import jakarta.persistence.Embedded;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OrderColumn;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The nearest-neighbour plan a published plan is compared with (DL §4.7, §17 "Baseline"; FR-39),
@@ -25,20 +46,122 @@ import java.util.Optional;
  * <p>It holds no personal data, so Reporting has no retention period for it: it stays as long as its
  * plan, and its figures outlive any person's data (NFR-152, ADR-109). No method raises an event (DL
  * §7.2).
+ *
+ * <p>It is mapped for JPA (ADR-126, ADR-127): its key is the plan's UUID (ADR-127 decision 5); its
+ * figures are two columns and an ordered collection of planned orders, each stored as a service kind
+ * beside a start only a served order has (ADR-127 decision 3); and its cause is a kind beside two
+ * ordered collections, the withdrawn vehicles and the added orders, both empty for a published one.
+ * Every command changes these in place and ends by checking the invariants at rest.
  */
-public final class Baseline extends AggregateRoot {
+@Entity
+@Table(schema = "reporting", name = "baseline")
+public class Baseline extends AggregateRoot {
 
-    private final PlanId plan;
-    private PlannedFigures result;
-    private BaselineCause cause;
+    /** Which {@link BaselineCause} a baseline has. */
+    private enum CauseKind {
+        PUBLISHED,
+        RECOMPUTED
+    }
+
+    /** Which {@link PlannedService} a planned order has. */
+    private enum ServiceKind {
+        SERVED,
+        DROPPED
+    }
+
+    /**
+     * One {@link PlannedOrder} as its row stores it: the sealed {@link PlannedService} becomes a kind
+     * and a start that only a served order has (ADR-127 decision 3). The public record is what every
+     * caller sees; this class exists only for Hibernate.
+     */
+    @Embeddable
+    private static class StoredPlannedOrder {
+
+        // PostgreSQL reserves "order".
+        @Column(name = "order_id")
+        private OrderId order;
+
+        @Embedded
+        private TimeWindow window;
+
+        @Enumerated(EnumType.STRING)
+        private ServiceKind service;
+
+        @Embedded
+        @AttributeOverride(name = "date", column = @Column(name = "start_date"))
+        @AttributeOverride(name = "seconds", column = @Column(name = "start_seconds"))
+        private @Nullable DaySeconds start;
+
+        /** For Hibernate, which sets the fields from the stored row. */
+        protected StoredPlannedOrder() {}
+
+        private StoredPlannedOrder(PlannedOrder planned) {
+            this.order = planned.order();
+            this.window = planned.window();
+            switch (planned.service()) {
+                case PlannedService.Served(DaySeconds plannedStart) -> {
+                    this.service = ServiceKind.SERVED;
+                    this.start = plannedStart;
+                }
+                case PlannedService.Dropped dropped -> this.service = ServiceKind.DROPPED;
+            }
+        }
+
+        private PlannedOrder toPlannedOrder() {
+            PlannedService planned = switch (service) {
+                case SERVED -> new PlannedService.Served(Objects.requireNonNull(start, "start"));
+                case DROPPED -> new PlannedService.Dropped();
+            };
+            return new PlannedOrder(order, window, planned);
+        }
+    }
+
+    @Id
+    private UUID id;
+
+    private Distance distance;
+
+    private DriverHours driverHours;
+
+    @ElementCollection
+    @CollectionTable(
+            schema = "reporting",
+            name = "baseline_planned_order",
+            joinColumns = @JoinColumn(name = "baseline_id"))
+    @OrderColumn(name = "position", nullable = false)
+    private List<StoredPlannedOrder> plannedOrders = new ArrayList<>();
+
+    @Enumerated(EnumType.STRING)
+    private CauseKind cause;
+
+    @ElementCollection
+    @CollectionTable(
+            schema = "reporting",
+            name = "baseline_withdrawal",
+            joinColumns = @JoinColumn(name = "baseline_id"))
+    @OrderColumn(name = "position", nullable = false)
+    private List<Withdrawal> withdrawn = new ArrayList<>();
+
+    @ElementCollection
+    @CollectionTable(
+            schema = "reporting",
+            name = "baseline_added_order",
+            joinColumns = @JoinColumn(name = "baseline_id"))
+    @OrderColumn(name = "position", nullable = false)
+    @Column(name = "order_id")
+    private List<OrderId> added = new ArrayList<>();
+
     private Instant computedAt;
 
-    private Baseline(BaselineSnapshot stored) {
-        super(stored.version());
-        this.plan = stored.plan();
-        this.result = stored.result();
-        this.cause = stored.cause();
-        this.computedAt = stored.computedAt();
+    /** For Hibernate, which sets the fields from the stored rows and then runs {@link #checkStored}. */
+    protected Baseline() {}
+
+    private Baseline(PlanId plan, PlannedFigures result, Instant now) {
+        super();
+        this.id = plan.value();
+        this.cause = CauseKind.PUBLISHED;
+        this.computedAt = now;
+        storeResult(result);
     }
 
     /**
@@ -54,24 +177,22 @@ public final class Baseline extends AggregateRoot {
         Objects.requireNonNull(plan, "plan");
         Objects.requireNonNull(result, "result");
         Objects.requireNonNull(now, "now");
-        return new Baseline(new BaselineSnapshot(plan, null, result, new BaselineCause.Published(), now));
+        return new Baseline(plan, result, now);
     }
 
     /**
-     * Rebuilds a stored baseline, checking the invariant that holds at rest: a recomputed baseline
-     * names at least one withdrawn vehicle or added order, and each one once. Only persistence
-     * adapters call it (DL §3.5).
+     * Checks the baseline as Hibernate loaded it (ADR-126 decision 8): its planned orders rebuild,
+     * each order once; a recomputed baseline names at least one withdrawn vehicle or added order,
+     * and each one once; and a published baseline names neither.
      *
-     * @param stored the stored state
-     * @return the baseline at the stored version
-     * @throws StoredStateInvalid when the stored state breaks that invariant
+     * @throws StoredStateInvalid when the stored state breaks one of them
      */
-    public static Baseline restore(BaselineSnapshot stored) {
-        Optional<String> broken = brokenBy(stored);
-        if (broken.isPresent()) {
-            throw new StoredStateInvalid(Baseline.class, broken.get());
-        }
-        return new Baseline(stored);
+    @PostLoad
+    void checkStored() {
+        StoredStateInvalid.whileRestoring(PlannedOrders.class, this::orders);
+        brokenRule().ifPresent(broken -> {
+            throw new StoredStateInvalid(Baseline.class, broken);
+        });
     }
 
     /**
@@ -104,12 +225,14 @@ public final class Baseline extends AggregateRoot {
         if (withdrawn.isEmpty() && added.isEmpty()) {
             return;
         }
-        BaselineCause.Recomputed before = recomputedSoFar();
-        commit(
-                newResult,
-                new BaselineCause.Recomputed(
-                        withdrawalsWith(before.withdrawn(), withdrawn), union(before.added(), added)),
-                now);
+        List<Withdrawal> nextWithdrawn = withdrawalsWith(this.withdrawn, withdrawn);
+        List<OrderId> nextAdded = union(this.added, added);
+        storeResult(newResult);
+        cause = CauseKind.RECOMPUTED;
+        replace(this.withdrawn, nextWithdrawn);
+        replace(this.added, nextAdded);
+        computedAt = now;
+        requireInvariants();
     }
 
     /**
@@ -132,11 +255,12 @@ public final class Baseline extends AggregateRoot {
         if (standing == PlanStanding.CANCELLED) {
             return new BaselineComparison.NotCompared();
         }
+        PlannedFigures result = result();
         PlannedOnTimeRate planOnTime = planFigures.plannedOnTime(cancelled);
         PlannedOnTimeRate baselineOnTime = result.plannedOnTime(cancelled);
-        List<VehicleId> withdrawn =
-                recomputedSoFar().withdrawn().stream().map(Withdrawal::vehicle).toList();
-        if (withdrawn.isEmpty()) {
+        List<VehicleId> withdrawnVehicles =
+                withdrawn.stream().map(Withdrawal::vehicle).toList();
+        if (withdrawnVehicles.isEmpty()) {
             return new BaselineComparison.AllMeasures(
                     planFigures.distance(),
                     result.distance(),
@@ -146,7 +270,7 @@ public final class Baseline extends AggregateRoot {
                     baselineOnTime);
         }
         return new BaselineComparison.KilometresAndOnTime(
-                planFigures.distance(), result.distance(), planOnTime, baselineOnTime, withdrawn);
+                planFigures.distance(), result.distance(), planOnTime, baselineOnTime, withdrawnVehicles);
     }
 
     /**
@@ -161,7 +285,7 @@ public final class Baseline extends AggregateRoot {
      */
     public WithdrawnFleet withdrawnFleetAfter(List<Withdrawal> withdrawn) {
         Objects.requireNonNull(withdrawn, "withdrawn");
-        return WithdrawnFleet.of(withdrawalsWith(recomputedSoFar().withdrawn(), withdrawn));
+        return WithdrawnFleet.of(withdrawalsWith(this.withdrawn, withdrawn));
     }
 
     /**
@@ -170,23 +294,58 @@ public final class Baseline extends AggregateRoot {
      * @return the plan's ID, which keys the baseline
      */
     public PlanId plan() {
-        return plan;
+        return PlanId.of(id);
     }
 
     /**
-     * The baseline's state, for the repository to store and for tests.
+     * The figures of the nearest-neighbour solve it was last computed from (FR-39, FR-342).
      *
-     * @return a snapshot that {@link #restore} rebuilds
+     * @return the distance, the driver-hours and every order's planned service
      */
-    public BaselineSnapshot snapshot() {
-        return new BaselineSnapshot(plan, savedVersion().orElse(null), result, cause, computedAt);
+    public PlannedFigures result() {
+        return new PlannedFigures(distance, driverHours, orders());
     }
 
-    private BaselineCause.Recomputed recomputedSoFar() {
+    private PlannedOrders orders() {
+        return PlannedOrders.of(
+                plannedOrders.stream().map(StoredPlannedOrder::toPlannedOrder).toList());
+    }
+
+    /**
+     * Why it was last computed, which decides what it is compared on (FR-269).
+     *
+     * @return published, or recomputed with unmodifiable copies of the withdrawn vehicles and the
+     *     added orders, each in the order first named
+     */
+    public BaselineCause cause() {
         return switch (cause) {
-            case BaselineCause.Published published -> new BaselineCause.Recomputed(List.of(), List.of());
-            case BaselineCause.Recomputed recomputed -> recomputed;
+            case PUBLISHED -> new BaselineCause.Published();
+            case RECOMPUTED -> new BaselineCause.Recomputed(withdrawn, added);
         };
+    }
+
+    /**
+     * When it was last computed.
+     *
+     * @return the time of its computation or of its latest recompute
+     */
+    public Instant computedAt() {
+        return computedAt;
+    }
+
+    /** Sets the figures, changing the planned orders Hibernate loaded in place. */
+    private void storeResult(PlannedFigures result) {
+        distance = result.distance();
+        driverHours = result.driverHours();
+        replace(
+                plannedOrders,
+                result.orders().orders().stream().map(StoredPlannedOrder::new).toList());
+    }
+
+    /** Swaps a mapped collection's contents, never the collection Hibernate loaded (ADR-126). */
+    private static <T> void replace(List<T> mapped, List<T> next) {
+        mapped.clear();
+        mapped.addAll(next);
     }
 
     /** The withdrawals named so far and the new ones, each vehicle once, with its first cause. */
@@ -207,24 +366,27 @@ public final class Baseline extends AggregateRoot {
     }
 
     /**
-     * Replaces the state with the one a command built, after checking it holds the at-rest
-     * invariant. Every input was checked before this point, so a broken invariant here is a bug in
-     * the command, not a refusal.
+     * Checks the state a command left against the invariants at rest (ADR-126 decision 11). Every
+     * input was checked before this point, so a broken invariant here is a bug in the command, not a
+     * refusal, and the error rolls its transaction back.
      */
-    private void commit(PlannedFigures nextResult, BaselineCause nextCause, Instant nextComputedAt) {
-        Optional<String> broken = brokenBy(
-                new BaselineSnapshot(plan, savedVersion().orElse(null), nextResult, nextCause, nextComputedAt));
-        if (broken.isPresent()) {
-            throw new AssertionError("a baseline command would leave a state that breaks: " + broken.get());
-        }
-        result = nextResult;
-        cause = nextCause;
-        computedAt = nextComputedAt;
+    private void requireInvariants() {
+        brokenRule().ifPresent(broken -> {
+            throw new AssertionError("a baseline command left a state that breaks: " + broken);
+        });
     }
 
-    /** The invariant a baseline holds at rest, which {@link #restore} and {@link #commit} check. */
-    private static Optional<String> brokenBy(BaselineSnapshot state) {
-        if (state.cause() instanceof BaselineCause.Recomputed(List<Withdrawal> withdrawn, List<OrderId> added)) {
+    /** The one check of the stored kind and collections, shared by the load check and every command. */
+    private Optional<String> brokenRule() {
+        if (cause == CauseKind.PUBLISHED && !(withdrawn.isEmpty() && added.isEmpty())) {
+            return Optional.of("a published baseline names no withdrawn vehicle or added order");
+        }
+        return brokenBy(cause());
+    }
+
+    /** The invariant a cause holds at rest, which the load check and the end check apply. */
+    private static Optional<String> brokenBy(BaselineCause cause) {
+        if (cause instanceof BaselineCause.Recomputed(List<Withdrawal> withdrawn, List<OrderId> added)) {
             if (withdrawn.isEmpty() && added.isEmpty()) {
                 return Optional.of("a recomputed baseline names a withdrawn vehicle or an added order");
             }

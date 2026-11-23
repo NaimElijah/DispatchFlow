@@ -44,6 +44,7 @@ import com.dispatchflow.shared.adapter.out.persistence.id.VehicleIdConverter;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -74,6 +75,7 @@ class KernelConvertersTest {
                 Arguments.of(new WeightConverter(), Weight.kilograms(new BigDecimal("12.5")), new BigDecimal("12.5")),
                 Arguments.of(new VolumeConverter(), Volume.litres(new BigDecimal("40")), new BigDecimal("40")),
                 Arguments.of(new PhoneNumberConverter(), PhoneNumber.ofStored("+972523456789"), "+972523456789"),
+                Arguments.of(new DurationConverter(), Duration.ofSeconds(90, 5), 90_000_000_005L),
                 Arguments.of(
                         new EventIdConverter(),
                         new EventId("PlanOpened", ID, Version.of(0), 0),
