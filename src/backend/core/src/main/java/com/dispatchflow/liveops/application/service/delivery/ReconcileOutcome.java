@@ -17,8 +17,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  * transaction of its own, {@link ReconcileOutcomeChange#apply}, stored with the plan and its date
  * that the same {@code MembershipFact} gives from the stored revisions, so an alert on a plan
  * cancelled since has both: an {@code OnAnotherRoute} names the route the stop leaves, and a dropped
- * or cancelled stop names none. Then, after that commit, {@link ReconcileOutcomeChange#reconcile}
- * calls Planning's {@link ReconcileLateOutcome} in a second transaction (ADR-121).
+ * or cancelled stop names none. Then, after that commit, it calls Planning's {@link
+ * ReconcileLateOutcome}, a use case that opens its own transaction and tells Planning's screens
+ * after its own commit (ADR-121, ADR-129).
  *
  * <p>The alert comes first so that a failure between the two steps can't lose it (BR-89). Raised
  * after Planning's commit, a failure before the alert's own commit would leave the plan reconciled,
@@ -41,6 +42,7 @@ public final class ReconcileOutcome {
 
     private final PushNotifier pushNotifier;
     private final LiveUpdates liveUpdates;
+    private final ReconcileLateOutcome reconcileLateOutcome;
     private final ReconcileOutcomeChange change;
 
     /**
@@ -48,12 +50,18 @@ public final class ReconcileOutcome {
      *
      * @param pushNotifier the staff's phones, told of each alert raised
      * @param liveUpdates the open screens
-     * @param change the listener's two transactions: the late-report alert, then Planning's
-     *     reconciliation
+     * @param reconcileLateOutcome Planning's reconciliation of a late outcome, called after the
+     *     alert's commit
+     * @param change the late-report alert's transaction
      */
-    public ReconcileOutcome(PushNotifier pushNotifier, LiveUpdates liveUpdates, ReconcileOutcomeChange change) {
+    public ReconcileOutcome(
+            PushNotifier pushNotifier,
+            LiveUpdates liveUpdates,
+            ReconcileLateOutcome reconcileLateOutcome,
+            ReconcileOutcomeChange change) {
         this.pushNotifier = pushNotifier;
         this.liveUpdates = liveUpdates;
+        this.reconcileLateOutcome = reconcileLateOutcome;
         this.change = change;
     }
 

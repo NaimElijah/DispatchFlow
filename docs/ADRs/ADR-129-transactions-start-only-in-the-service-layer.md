@@ -49,6 +49,13 @@ On 2026-11-24 the owner, Naim Elijah, decided where transactions start, and how,
      exception or a sealed result type in those packages isn't one.
    - A transactional class is not `final` and not a record, and declares no `final` method, so that
      Spring can subclass it.
+   - **A service that calls a use case opening no transaction of its own carries none either.** That
+     callee is a split use case (decision 3), reached directly or through another module's `api` or
+     `spi`.
+     - The service makes a later call. The callee commits before it pushes, tells the screens or
+       evicts a cache, and two modules' aggregates never change in one transaction ([ADR-063]).
+     - `AlertLowRating` and `RemoveRoleOfRetiredDriver` are two such services, and so are the use
+       cases that make such a call after their own transaction.
 3. **A use case with outside calls, or with one transaction per item, is two classes.**
    - **The use case** keeps its name and its `api` implementation, and carries no `@Transactional`.
      It makes its outside calls before the transaction and its notifications after it. Where there
@@ -60,14 +67,19 @@ On 2026-11-24 the owner, Naim Elijah, decided where transactions start, and how,
      `RouteShapes`, `Geocoder`, `RoadSnap`, `SmsGateway`, `EmailSender`, `PushNotifier`,
      `LiveUpdates`, `BaselinePlanner` and `ProofStore`. A transactional class holds none of them, so
      no database transaction waits on HTTP or disk ([ADR-063]).
-   - **The use case never touches the database itself.** It holds its outside-call ports, its
-     `Change`, and only ports that store nothing, such as `Clock` and `IdGenerator`.
+   - **The use case never touches the database itself.** It holds only:
+     - its outside-call ports and its `Change`;
+     - ports that store nothing: `Clock`, `IdGenerator`, `RevocationCache` and `TokenSigner`;
+     - other services, and other modules' `api` or `spi` other than `AuditLog`. Each of these opens
+       its own transaction.
      - What it must read before an outside call, and the items it loops over, come from a method of
        its `Change` that is `@Transactional(readOnly = true)`. That method returns a value, never
        an entity.
      - The write that follows loads again. Where the aggregate has a version, it takes the version
        the read returned and refuses with `StaleVersion` if it moved ([DL §6.3][DL-63]).
-     - Another module's `api` or `spi` is in process, not an outside call, so the `Change` calls it.
+     - Another module's `api` or `spi` is in process, not an outside call, so the `Change` calls it
+       to read. A call to another module's use case that opens no transaction of its own is a later
+       call, made by the use case after its own transaction (decision 2).
      - These points were settled while the classes were split, so that one rule holds for every
        module.
    - **Four service packages split under [ADR-125].** The `Change` classes took each past 20
@@ -99,8 +111,9 @@ On 2026-11-24 the owner, Naim Elijah, decided where transactions start, and how,
    - Spring Modulith's registry tracks every listener annotated, directly or through another
      annotation, with `@TransactionalEventListener`, as its reference documentation for 2.x says.
      That is to be confirmed against the version the build adopts.
-8. **`TransactionRules` checks decisions 1 to 4 and 6 in six ArchUnit rules,** each with a
-   deliberately wrong fixture.
+8. **`TransactionRules` checks decisions 1 to 4, 6 and 7 in ArchUnit rules,** each with a
+   deliberately wrong fixture. Review checks the one point they don't: that a service which
+   changes nothing is read-only. The rules check only the converse, that an auditing service isn't.
 
 **What this amends and extends.**
 

@@ -13,6 +13,7 @@ import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
@@ -48,6 +49,13 @@ final class TransactionRules {
             "LiveUpdates",
             "BaselinePlanner",
             "ProofStore");
+
+    /**
+     * The ports that store nothing, by simple name: the clock, new IDs, the revocation cache that
+     * only evicts, and the key a token is signed with. A service that opens no transaction of its own
+     * may hold them (rule 7).
+     */
+    static final Set<String> STORELESS_PORTS = Set.of("Clock", "IdGenerator", "RevocationCache", "TokenSigner");
 
     /** The port every changing use case writes its audit record through (NFR-23). */
     static final String AUDIT_LOG = "AuditLog";
@@ -86,30 +94,33 @@ final class TransactionRules {
     }
 
     /**
-     * Rule 2: every service is transactional, at class level. A use case split around its outside
-     * calls, or into one transaction per item, is the exception: it holds its {@code <UseCase>Change}
-     * and carries no {@code @Transactional} itself, because a call to its own method would go around
-     * Spring's proxy. The {@code Change} is a service, so it is transactional.
+     * Rule 2: every service is transactional, at class level, except one that opens no transaction
+     * of its own. That is a use case split around its outside calls, or into one transaction per item,
+     * which holds its {@code <UseCase>Change}. It is also a service that calls such a service,
+     * directly or through an {@code api} or {@code spi} it implements, as a later call. A transaction
+     * around that call would hold the callee's pushes, live updates and cache evictions until its own
+     * commit, and change two aggregates in one transaction (ADR-063). Such a service carries no
+     * {@code @Transactional}. A call to its own method would also go around Spring's proxy.
      */
     static ArchRule everyServiceIsTransactional(String root) {
         return classes()
                 .that()
                 .resideInAPackage(root + "..")
-                .should(new ArchCondition<JavaClass>("be transactional, or hold the Change that is") {
+                .should(new ArchCondition<JavaClass>("be transactional, unless it opens no transaction of its own") {
                     @Override
                     public void check(JavaClass item, ConditionEvents events) {
                         if (!isService(root, item)) {
                             return;
                         }
-                        Optional<JavaClass> change = changeOf(item);
-                        if (change.isPresent()) {
+                        if (opensNoTransaction(root, item)) {
                             if (transactional(item)
                                     || transactionalMembers(item).findAny().isPresent()) {
                                 events.add(SimpleConditionEvent.violated(
                                         item,
-                                        item.getName() + " holds "
-                                                + change.get().getSimpleName()
-                                                + " and so must carry no @Transactional of its own"));
+                                        item.getName()
+                                                + " opens no transaction of its own (it holds its Change, or"
+                                                + " calls a service that does), so it must carry no"
+                                                + " @Transactional"));
                             }
                             return;
                         }
@@ -119,7 +130,99 @@ final class TransactionRules {
                         }
                     }
                 })
-                .because("ADR-129 decisions 2 and 3: every service is transactional, or holds its Change");
+                .because("ADR-129 decisions 2 and 3: every service is transactional, or opens none of its own");
+    }
+
+    /**
+     * Rule 7: a service that opens no transaction of its own (rule 2) touches no data. Every field it
+     * holds is one of these:
+     * <ul>
+     *   <li>its {@code Change};
+     *   <li>an outside-call port;
+     *   <li>a port that stores nothing, {@link #STORELESS_PORTS};
+     *   <li>another service;
+     *   <li>an {@code api} or {@code spi} other than {@code AuditLog}.
+     * </ul>
+     * Each of those opens its own transaction, or needs none. A repository, a query port or the audit
+     * log here would read or write with no transaction.
+     */
+    static ArchRule aServiceWithoutATransactionTouchesNoData(String root) {
+        return classes()
+                .that()
+                .resideInAPackage(root + "..")
+                .should(new ArchCondition<JavaClass>("touch no data while it opens no transaction") {
+                    @Override
+                    public void check(JavaClass item, ConditionEvents events) {
+                        if (!isService(root, item) || !opensNoTransaction(root, item)) {
+                            return;
+                        }
+                        instanceFields(item)
+                                .filter(field -> !reachesNoDataItself(root, field.getRawType()))
+                                .forEach(field -> events.add(SimpleConditionEvent.violated(
+                                        field,
+                                        field.getFullName()
+                                                + " reaches data outside any transaction; move it to "
+                                                + item.getSimpleName() + CHANGE_SUFFIX)));
+                    }
+                })
+                .because("ADR-129 decision 3: the use case never touches the database itself");
+    }
+
+    /**
+     * Whether a service opens no transaction of its own: it holds its {@code <UseCase>Change}, or it
+     * holds a service that opens none, directly or through an interface such a service implements.
+     */
+    static boolean opensNoTransaction(String root, JavaClass item) {
+        return opensNoTransaction(root, item, new HashSet<>());
+    }
+
+    /** {@code path} holds the services on the way here, so a cycle of services ends the search. */
+    private static boolean opensNoTransaction(String root, JavaClass item, Set<String> path) {
+        if (changeOf(item).isPresent()) {
+            return true;
+        }
+        if (!path.add(item.getName())) {
+            return false;
+        }
+        boolean found = instanceFields(item)
+                .map(JavaField::getRawType)
+                .anyMatch(type ->
+                        callees(root, type).stream().anyMatch(callee -> opensNoTransaction(root, callee, path)));
+        path.remove(item.getName());
+        return found;
+    }
+
+    /** The services a field of this type reaches: the type itself, or the services implementing it. */
+    private static Set<JavaClass> callees(String root, JavaClass type) {
+        if (type.isInterface()) {
+            Set<JavaClass> implementations = new HashSet<>();
+            type.getAllSubclasses().stream()
+                    .filter(subclass -> isService(root, subclass))
+                    .forEach(implementations::add);
+            return implementations;
+        }
+        return isService(root, type) ? Set.of(type) : Set.of();
+    }
+
+    private static boolean reachesNoDataItself(String root, JavaClass type) {
+        String name = type.getSimpleName();
+        if (OUTSIDE_CALL_PORTS.contains(name) || STORELESS_PORTS.contains(name)) {
+            return true;
+        }
+        if (name.equals(AUDIT_LOG)) {
+            return false;
+        }
+        if (isService(root, type) || inServices(root, type)) {
+            return true;
+        }
+        String below = type.getPackageName().startsWith(root + ".")
+                ? type.getPackageName().substring(root.length() + 1)
+                : "";
+        String[] parts = below.split("\\.");
+        return type.isInterface()
+                && parts.length >= 3
+                && parts[1].equals("application")
+                && (parts[2].equals("api") || parts[2].equals("spi"));
     }
 
     /**

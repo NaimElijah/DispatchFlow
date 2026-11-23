@@ -53,6 +53,11 @@ class TransactionTest {
     }
 
     @Test
+    void GivenTheProductionClasses_WhenServicesWithoutATransactionAreChecked_ThenNoneTouchesData() {
+        TransactionRules.aServiceWithoutATransactionTouchesNoData(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
     void GivenTheProductionClasses_WhenTransactionalClassesAreChecked_ThenSpringCanSubclassEach() {
         TransactionRules.transactionalClassesCanBeProxied(ROOT).check(ProductionClasses.ALL);
     }
@@ -109,7 +114,7 @@ class TransactionTest {
                     .toList();
             if (!type.isAnnotationPresent(Transactional.class)) {
                 assertThat(methods)
-                        .as("%s is split, so it opens no transaction of its own", type.getName())
+                        .as("%s opens no transaction of its own", type.getName())
                         .allSatisfy(method -> assertThat(attributes.getTransactionAttribute(method, type))
                                 .isNull());
                 continue;

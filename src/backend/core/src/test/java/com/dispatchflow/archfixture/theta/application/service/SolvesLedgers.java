@@ -1,9 +1,10 @@
 package com.dispatchflow.archfixture.theta.application.service;
 
+import com.dispatchflow.archfixture.theta.application.api.Solve;
 import com.dispatchflow.archfixture.theta.application.port.out.RouteOptimizer;
 
 /** Clean: a use case split around its outside call; it holds its Change and no transaction. */
-public final class SolvesLedgers {
+public final class SolvesLedgers implements Solve {
 
     private final RouteOptimizer optimizer;
     private final SolvesLedgersChange change;
@@ -18,6 +19,7 @@ public final class SolvesLedgers {
     }
 
     /** Calls out first, then changes in one transaction. */
+    @Override
     public void solve() {
         optimizer.solve();
         change.apply();

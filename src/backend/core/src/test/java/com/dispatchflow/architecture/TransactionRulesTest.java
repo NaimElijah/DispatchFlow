@@ -12,9 +12,14 @@ import com.dispatchflow.archfixture.theta.adapter.out.persistence.LocksWithoutTh
 import com.dispatchflow.archfixture.theta.adapter.out.persistence.PlainLedgers;
 import com.dispatchflow.archfixture.theta.adapter.out.persistence.TransactionalLedgers;
 import com.dispatchflow.archfixture.theta.application.api.AuditLog;
+import com.dispatchflow.archfixture.theta.application.api.Solve;
 import com.dispatchflow.archfixture.theta.application.port.out.Ledgers;
 import com.dispatchflow.archfixture.theta.application.port.out.RouteOptimizer;
+import com.dispatchflow.archfixture.theta.application.service.CallsASplitApi;
+import com.dispatchflow.archfixture.theta.application.service.CallsASplitUseCase;
 import com.dispatchflow.archfixture.theta.application.service.CountsLedgers;
+import com.dispatchflow.archfixture.theta.application.service.DelegatesAndAudits;
+import com.dispatchflow.archfixture.theta.application.service.DelegatesToASplitApi;
 import com.dispatchflow.archfixture.theta.application.service.FinalMethodService;
 import com.dispatchflow.archfixture.theta.application.service.FinalService;
 import com.dispatchflow.archfixture.theta.application.service.ForgetsItsTransaction;
@@ -23,6 +28,8 @@ import com.dispatchflow.archfixture.theta.application.service.ReadOnlyButAuditin
 import com.dispatchflow.archfixture.theta.application.service.ReadsLedgers;
 import com.dispatchflow.archfixture.theta.application.service.SolvesLedgers;
 import com.dispatchflow.archfixture.theta.application.service.SolvesLedgersChange;
+import com.dispatchflow.archfixture.theta.application.service.SplitButHoldsLedgers;
+import com.dispatchflow.archfixture.theta.application.service.SplitButHoldsLedgersChange;
 import com.dispatchflow.archfixture.theta.application.service.SplitButTransactional;
 import com.dispatchflow.archfixture.theta.application.service.SplitButTransactionalChange;
 import com.dispatchflow.archfixture.theta.application.service.WaitsOnTheOptimizer;
@@ -46,7 +53,9 @@ class TransactionRulesTest {
     private static final Class<?> LEDGER_ROWS = ledgerRows();
 
     /** The ports and values every fixture names, so a rule sees the types its fields hold. */
-    private static final Class<?>[] PORTS = {Ledgers.class, RouteOptimizer.class, AuditLog.class, LedgerCount.class};
+    private static final Class<?>[] PORTS = {
+        Ledgers.class, RouteOptimizer.class, AuditLog.class, Solve.class, LedgerCount.class, SolvesLedgers.class
+    };
 
     private static Class<?> ledgerRows() {
         try {
@@ -109,6 +118,39 @@ class TransactionRulesTest {
     @Test
     void GivenTransactionalServicesASplitUseCaseAndAValue_WhenChecked_ThenNothingIsFlagged() {
         assertThat(flags(TransactionRules.everyServiceIsTransactional(FIXTURE_ROOT), CLEAN))
+                .isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(classes = {CallsASplitUseCase.class, CallsASplitApi.class})
+    void GivenATransactionalServiceCallingASplitUseCase_WhenChecked_ThenItIsFlagged(Class<?> fixture) {
+        assertThat(flags(TransactionRules.everyServiceIsTransactional(FIXTURE_ROOT), fixture))
+                .isTrue();
+    }
+
+    @Test
+    void GivenADelegateCallingASplitUseCaseWithNoTransaction_WhenChecked_ThenNothingIsFlagged() {
+        assertThat(flags(TransactionRules.everyServiceIsTransactional(FIXTURE_ROOT), DelegatesToASplitApi.class))
+                .isFalse();
+        assertThat(flags(
+                        TransactionRules.aServiceWithoutATransactionTouchesNoData(FIXTURE_ROOT),
+                        DelegatesToASplitApi.class))
+                .isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(classes = {SplitButHoldsLedgers.class, DelegatesAndAudits.class})
+    void GivenAServiceWithoutATransactionThatTouchesData_WhenChecked_ThenItIsFlagged(Class<?> fixture) {
+        assertThat(flags(
+                        TransactionRules.aServiceWithoutATransactionTouchesNoData(FIXTURE_ROOT),
+                        fixture,
+                        SplitButHoldsLedgersChange.class))
+                .isTrue();
+    }
+
+    @Test
+    void GivenSplitUseCasesThatTouchNoData_WhenChecked_ThenNothingIsFlagged() {
+        assertThat(flags(TransactionRules.aServiceWithoutATransactionTouchesNoData(FIXTURE_ROOT), CLEAN))
                 .isFalse();
     }
 

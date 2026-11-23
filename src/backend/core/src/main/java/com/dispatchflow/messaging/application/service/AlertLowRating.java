@@ -4,7 +4,6 @@ import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.liveops.application.api.RaiseAlert;
 import com.dispatchflow.messaging.events.RatingReceived;
 import com.dispatchflow.shared.application.NotFound;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Messaging's own listener on {@code RatingReceived}: a low rating alerts the dispatcher, as an
@@ -19,10 +18,12 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Delivery is at least once (ADR-064); the alert is raised once per rating request (ADR-107
  * point 4), so it records no {@code ProcessedEvents} pair.
  *
+ * <p>It opens no transaction of its own: Live Operations' {@link RaiseAlert} is a use case that
+ * opens its own, and pushes the alert only after that commit (ADR-129).
+ *
  * <p>Built in M12. Rows: FR-361.
  */
-@Transactional
-public class AlertLowRating {
+public final class AlertLowRating {
 
     private final RaiseAlert raiseAlert;
 

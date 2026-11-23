@@ -13,8 +13,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  * (FR-404, FR-258, ADR-107, ADR-114). Then Customers &amp; Orders' {@link EndSupersededPutBack}
  * ends the order's put-back attempt, so the order goes back to its earlier attempt, derives
  * <em>delivered</em> from it, and no solve plans it again (ADR-121). Planning never listens to Live
- * Operations (DL §2.3 rule 2). {@link RemoveSupersededStopChange} holds the two steps, each in a
- * transaction of its own, so each changes one module's aggregate (ADR-063).
+ * Operations (DL §2.3 rule 2). It opens no transaction of its own: each call is the other
+ * module's use case, which opens its own, so each changes one module's aggregate (ADR-063), and
+ * Planning tells the open screens only after its change commits (ADR-129).
  *
  * <p>Delivery is at least once (ADR-064). Both calls are idempotent: a redelivery finds the stop
  * already off the plan and the order already back on its earlier attempt, and changes neither, so
@@ -25,15 +26,19 @@ import com.dispatchflow.shared.application.StaleVersion;
  */
 public final class RemoveSupersededStop {
 
-    private final RemoveSupersededStopChange change;
+    private final RemoveSupersededPutBack removeSupersededPutBack;
+    private final EndSupersededPutBack endSupersededPutBack;
 
     /**
      * Creates the listener's use case.
      *
-     * @param change the listener's two transactions
+     * @param removeSupersededPutBack Planning's removal of a superseded put-back's stop
+     * @param endSupersededPutBack Customers &amp; Orders' end of the order's put-back attempt
      */
-    public RemoveSupersededStop(RemoveSupersededStopChange change) {
-        this.change = change;
+    public RemoveSupersededStop(
+            RemoveSupersededPutBack removeSupersededPutBack, EndSupersededPutBack endSupersededPutBack) {
+        this.removeSupersededPutBack = removeSupersededPutBack;
+        this.endSupersededPutBack = endSupersededPutBack;
     }
 
     /**
