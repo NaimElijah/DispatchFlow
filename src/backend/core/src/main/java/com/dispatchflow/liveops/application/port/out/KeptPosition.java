@@ -12,8 +12,6 @@ import java.util.Objects;
  * FR-328, NFR-30): a record in {@link PositionLog}, deleted 7 days after it was received (NFR-31).
  * It is a person's location, so it prints redacted.
  *
- * <p>Built in M8.
- *
  * @param route the route it was sent for
  * @param driver the driver who sent it
  * @param at where the device was

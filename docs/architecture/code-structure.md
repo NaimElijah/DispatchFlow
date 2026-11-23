@@ -24,8 +24,9 @@ are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 
 > [!NOTE]
 > Most folders below are still empty. A folder listed as a placeholder holds only a `.gitkeep`
-> file. What is real today is the skeleton, and the domain layer of `core` and `optimizer`: each
-> component builds, passes its own checks and runs a first test.
+> file. What is real today is the skeleton, the domain layer of `core` and `optimizer`, and the
+> persistence of every `core` module: each component builds, passes its own checks and runs a first
+> test.
 
 ## Top level
 
@@ -102,29 +103,43 @@ src/backend/core/
                                    and id/ with the 14 typed-ID converters; an adapter, not the
                                    kernel
     access/                        a bounded context's module: domain/ (account, session,
-                                   companyprofile), events/ and application/ (declared) so far
-    fleet/                         domain/ (register, roster, driver), events/ and application/
-    orders/                        domain/ (flat), events/ and application/
+                                   companyprofile), events/, application/ (declared) and
+                                   adapter/out/persistence/
+    fleet/                         domain/ (register, roster, driver), events/, application/ and
+                                   adapter/out/persistence/
+    orders/                        domain/ (flat), events/, application/ and
+                                   adapter/out/persistence/
     planning/                      domain/ (plan, solution, drop, basis, revision,
-                                   reconciliation, settings), events/ and application/
-    audit/                         domain/ (flat) and application/; it raises no event
-    reporting/                     domain/ (baseline) and application/; it raises no event
-    messaging/                     domain/ (message, rating, settings), events/ and application/
-    liveops/                       domain/ (delivery, outcome, proof, alert, routerun), events/
-                                   and application/
+                                   reconciliation, settings), events/, application/ and
+                                   adapter/out/persistence/ with plan/ for Plan
+    audit/                         domain/ (flat), application/ and adapter/out/persistence/; it
+                                   raises no event
+    reporting/                     domain/ (baseline), application/ and adapter/out/persistence/;
+                                   it raises no event
+    messaging/                     domain/ (message, rating, settings), events/, application/ and
+                                   adapter/out/persistence/
+    liveops/                       domain/ (delivery, outcome, proof, alert,
+                                   routerun), events/, application/ and adapter/out/persistence/
     web/                           application-wide web concerns: the fallback for unexpected errors
       UnexpectedErrorHandler.java  answers an unhandled exception with a 500 problem body
       package-info.java
   src/main/resources/
     application.properties
     application-schema-draft.properties  the profile `just core-schema-draft` runs
-    db/migration/                  Flyway migrations: none yet
+    db/migration/                  Flyway migrations, one per module: V1 creates the eight
+                                   schemas, then V2 access, V3 audit, V4 fleet, V5 liveops, V6
+                                   messaging, V7 orders, V8 planning and V9 reporting
+                                   (data-model.md)
   src/test/java/com/dispatchflow/
     shared/                        the kernel's tests, and DomainAssertions, the refusal helper
-                                   every module's domain tests use; SaveEvents and StoredVersions,
-                                   the helpers that in-memory fakes and fixtures use to publish
-                                   events and store a version as a save does; adapter/out/persistence/
-                                   holds the shared adapter's tests and the test-only entity Ledger
+                                   every module's domain tests use; AsSaved, which does to an
+                                   aggregate in memory what a save does (it publishes and clears
+                                   the events and moves the version), so that a domain test
+                                   reaches a saved state through commands; SaveEvents, the
+                                   helper that in-memory fakes use to publish events as a save
+                                   does;
+                                   adapter/out/persistence/ holds the shared adapter's tests and
+                                   the test-only entity Ledger
     architecture/                  the domain purity, shape and package rules, the application
                                    rules and the JPA mapping rules (ArchUnit), and the error-code,
                                    event-name and refusal-test checks
@@ -133,22 +148,28 @@ src/backend/core/
                                    20 files), epsilon/ for the package rules, zeta/ for the
                                    application rules, and entity/ and mapping/ under alpha/domain/
                                    and adapter/out/persistence/ for the mapping rules
-    access/                        that module's domain tests, in the package of the type each tests
-    fleet/                         that module's domain tests
-    orders/                        that module's domain tests
-    planning/                      that module's domain tests
-    audit/                         that module's domain tests
-    reporting/                     that module's domain tests
-    messaging/                     that module's domain tests
-    liveops/                       that module's domain tests
+    access/                        that module's domain tests, in the package of the type each
+                                   tests, and its adapter/out/persistence/ tests: a *PersistenceIT
+                                   for each aggregate or record, and the converters' tests
+    fleet/                         the same as access/
+    orders/                        the same as access/
+    planning/                      the same as access/; the Plan's is in
+                                   adapter/out/persistence/plan/
+    audit/                         the same as access/
+    reporting/                     the same as access/
+    messaging/                     the same as access/
+    liveops/                       the same as access/
     web/UnexpectedErrorHandlerTest.java  the 500 problem body keeps the cause out
     IntegrationTest.java                 the one annotation every *IT uses: the whole app and PostgreSQL
     DispatchFlowApplicationIT.java       the health probe answers UP against PostgreSQL
     TestDispatchFlowApplication.java     what `just core-run` starts
     TestcontainersConfiguration.java     the PostgreSQL container
+    Transactions.java                    the ITs' shared transaction helper: it runs work in a
+                                         transaction of its own, as a use case would, so a test
+                                         can hold two copies of an aggregate and prove a conflict
     TestPersistenceConfiguration.java    what the persistence tests add: the test-only Flyway
-                                         location, no archfixture in Hibernate's scan, and a
-                                         recorder of published events
+                                         location, no archfixture in Hibernate's scan, the
+                                         Transactions bean, and a recorder of published events
   src/test/resources/
     db/fixture/                    V0_1__persistence_fixture.sql, the test-only table behind Ledger
                                    (migration versions V0_* are reserved for tests)
@@ -177,10 +198,30 @@ Each module also has an `application` package, declared ahead of its milestone a
 It holds whichever of `api`, `spi`, `port/out` and `service` the module has something for: `access`,
 `audit` and `liveops` have no `spi`, and `messaging` and `reporting` have neither `api` nor `spi`.
 Every body that would do work throws `UnsupportedOperationException("Built in M<n>")`. Nothing is
-wired: the application layer carries no Spring annotation and registers no bean, and no adapter
-calls it, so no `adapter/` package exists yet. The ports every module uses sit in
-`shared/application`, and the caller is an `Actor` and a `CallContext`
+wired: the application layer carries no Spring annotation and registers no bean, and no use case
+calls a port. The ports every module uses sit in `shared/application`, and the caller is an `Actor`
+and a `CallContext`
 ([ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
+
+The only adapters are persistence adapters. Each of the eight modules has an
+`adapter/out/persistence/` package ([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md), [ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md)). A module's package holds:
+
+- the `Jpa…` classes, which implement the module's repository and record ports;
+- a package-private Spring Data interface for each root, named for its collection (`Customers`,
+  `ImportBatches`, `AllStopMessages`), which declares only `save` and the lookups its port needs;
+- the module's converters (`…Converter`, auto-applied) and its embeddable instantiators
+  (`…Instantiator`, registered in `package-info.java`), which store the module's single-column and
+  multi-column values;
+- a `Stored…` entity for each record it keeps: `StoredAuditRecord`, `StoredPosition`, `StoredReply`,
+  `StoredOptOut` and `StoredBaselineOutcome`;
+- for Planning only, a `plan/` subpackage that holds `Plan`'s adapter (`JpaPlanRepository`,
+  `Plans`) and the `@Immutable` entity a plan's revisions are appended as, `StoredPlanRevision`,
+  with its embeddables `StoredRevisionRoute` and `StoredRevisionStop`. Planning's converters, in the parent package, serve it
+  too ([ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)).
+
+The migration for each of these modules is in `src/main/resources/db/migration/`, and
+[data-model.md](data-model.md) describes its tables. An adapter reads and writes only its own
+module's schema and entities (`PersistenceRules`).
 
 The decided design is the domain document, the tech stack and the ADRs:
 see the [domain layer
@@ -192,8 +233,9 @@ are written to tech stack §4.
 (Accepted) makes each context a Spring Modulith module, and
 [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md)
 (Accepted, amended by [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)) gives each module its own schema, accessed through JPA with the
-mapping on the domain classes. Neither is in the tree yet; ADR-126's shared adapter and the kernel's
-mapping are.
+mapping on the domain classes. ADR-040 is not in the tree yet. ADR-041 and ADR-126 are, for every
+module: their schemas, tables, mapped aggregates and persistence adapters exist, but the two
+database roles and the `migrate` step do not.
 [ADR-001](../ADRs/ADR-001-domain-driven-design-with-hexagonal-architecture.md)'s layout (one package
 per context, split into `api`, `domain`, `application` and `adapter`) is amended by ADR-040, which
 is accepted.
@@ -339,12 +381,13 @@ Three sets of rules are checked automatically today:
 The purity rules are ArchUnit tests in `src/test/java/com/dispatchflow/architecture/`, over
 `shared` and every module's `domain` and `events` packages
 ([domain layer design §3.9](domain_layer/domain_layer_design.md#39-purity)). The shape rules cover
-who may construct a restricted type and what an error or an event may carry. The package rules are
+who may construct a restricted type, including that only a root's own class calls a root's
+constructors and that no class extends a root, and what an error or an event may carry. The package rules are
 four: no cycle between a module's domain packages, a domain root that imports none of its own
 subpackages, `@NullMarked` on the kernel and on every domain and events package
 ([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)), and no package
 below a module's `api`, `spi` or `events` or below the kernel, except `shared.adapter.out.persistence`
-([ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)). The purity rules also forbid any pure class a dependency on `shared.adapter`. The eight JPA mapping rules
+([ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)). The purity rules also forbid any pure class a dependency on `shared.adapter`. The nine JPA mapping rules
 (`PersistenceRules`, [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)) are
 separate. The rest are conventions that review enforces.
 

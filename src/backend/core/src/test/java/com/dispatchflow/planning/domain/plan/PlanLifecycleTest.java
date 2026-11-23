@@ -1,5 +1,6 @@
 package com.dispatchflow.planning.domain.plan;
 
+import static com.dispatchflow.planning.domain.plan.PlanAssertions.assertLeftAsItWas;
 import static com.dispatchflow.planning.domain.plan.PlanAssertions.assertUnchanged;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.D1;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.D2;
@@ -48,6 +49,7 @@ import com.dispatchflow.planning.domain.drop.DropReason;
 import com.dispatchflow.planning.domain.reconciliation.LateFact;
 import com.dispatchflow.planning.domain.reconciliation.Reconciliation;
 import com.dispatchflow.planning.domain.reconciliation.ReconciliationKind;
+import com.dispatchflow.planning.domain.revision.PlanRevision;
 import com.dispatchflow.planning.domain.solution.Evaluation;
 import com.dispatchflow.planning.domain.solution.ValidatedSolution;
 import com.dispatchflow.planning.domain.solution.ValidationReport;
@@ -75,7 +77,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Every state of a plan × every command, against the matrix ADR-101 approved (DL §9.1, §14). A
  * refused cell runs the command alone and expects its error; an accepted cell runs the command's
  * setup, then the command, and checks the exact state it leaves (revision included) and what the
- * command returned. A refused or unchanged call leaves the snapshot and the pending events as they
+ * command returned. A refused or unchanged call leaves the description and the pending events as they
  * were.
  */
 class PlanLifecycleTest {
@@ -86,8 +88,14 @@ class PlanLifecycleTest {
     /** The command is accepted and leaves this exact state. */
     private record Becomes(Plan.Status status) implements Expect {}
 
-    /** The command is accepted and changes nothing. */
+    /** The command is accepted and changes nothing, so it leaves no pending revision. */
     private record NoChange() implements Expect {}
+
+    /**
+     * The call is accepted and makes no change to the plan at all, as a re-optimization request,
+     * which only queues a job, so the plan keeps the pending revision it had.
+     */
+    private record Untouched() implements Expect {}
 
     /** The command is refused with this error. */
     private record Refused(Class<? extends PlanningError> error) implements Expect {}
@@ -107,6 +115,7 @@ class PlanLifecycleTest {
             (plan, result) -> assertThat(result).isNull();
 
     private static final Expect SAME = new NoChange();
+    private static final Expect UNTOUCHED = new Untouched();
     private static final Expect NOT_DRAFT_OR_READY = new Refused(PlanNotDraftOrReady.class);
     private static final Expect NOT_READY = new Refused(PlanNotReady.class);
     private static final Expect NOT_PUBLISHED = new Refused(PlanNotPublished.class);
@@ -157,12 +166,12 @@ class PlanLifecycleTest {
                         SECOND_JOB, SolverName.OR_TOOLS, Seed.of(1), roomIn(Lane.REOPTIMIZATION), TODAY, LATER),
                 (plan, job) -> {
                     queuedIn((SolveJob) job, Lane.REOPTIMIZATION);
-                    assertThat(((SolveJob) job).snapshot().basisRevision()).contains(RevisionNo.FIRST);
+                    assertThat(((SolveJob) job).basisRevision()).contains(RevisionNo.FIRST);
                 },
                 NOT_PUBLISHED,
                 NOT_PUBLISHED,
                 NOT_PUBLISHED,
-                SAME,
+                UNTOUCHED,
                 NOT_PUBLISHED,
                 NOT_PUBLISHED,
                 NOT_PUBLISHED);
@@ -458,17 +467,25 @@ class PlanLifecycleTest {
 
         switch (expect) {
             case Refused refused -> {
-                PlanSnapshot before = plan.snapshot();
+                PlanDescription before = PlanDescription.of(plan);
+                Optional<PlanRevision> pending = plan.pendingRevision();
                 assertThatThrownBy(() -> row.command().apply(plan))
                         .isInstanceOfSatisfying(
                                 RuleViolation.class,
                                 violation -> assertThat(violation.error()).isInstanceOf(refused.error()));
-                assertUnchanged(plan, before);
+                assertLeftAsItWas(plan, before, pending);
             }
             case NoChange noChange -> {
-                PlanSnapshot before = plan.snapshot();
+                PlanDescription before = PlanDescription.of(plan);
                 Object result = row.command().apply(plan);
                 assertUnchanged(plan, before);
+                row.returned().accept(plan, result);
+            }
+            case Untouched untouched -> {
+                PlanDescription before = PlanDescription.of(plan);
+                Optional<PlanRevision> pending = plan.pendingRevision();
+                Object result = row.command().apply(plan);
+                assertLeftAsItWas(plan, before, pending);
                 row.returned().accept(plan, result);
             }
             case Becomes becomes -> {
@@ -486,8 +503,8 @@ class PlanLifecycleTest {
     }
 
     private static void queuedIn(SolveJob job, Lane lane) {
-        assertThat(job.snapshot().lane()).isEqualTo(lane);
-        assertThat(job.snapshot().phase()).isEqualTo(new SolveJob.Phase.Queued());
+        assertThat(job.lane()).isEqualTo(lane);
+        assertThat(job.phase()).isEqualTo(new SolveJob.Phase.Queued());
     }
 
     private static void reconciled(Plan plan, Object result) {
@@ -530,25 +547,25 @@ class PlanLifecycleTest {
     /** An evaluation of the change when the plan has routes; otherwise of the plan as it is. */
     private static Evaluation judging(Plan plan, Consumer<PlanningFixtures.EvaluationBuilder> change) {
         PlanningFixtures.EvaluationBuilder builder = evaluationOf(plan);
-        if (!plan.snapshot().routes().isEmpty()) {
+        if (!PlanDescription.of(plan).routes().isEmpty()) {
             change.accept(builder);
         }
         return builder.build();
     }
 
     private static RouteId route(Plan plan, VehicleId vehicle) {
-        return plan.snapshot().routes().stream()
+        return PlanDescription.of(plan).routes().stream()
                 .filter(candidate -> candidate.vehicle().equals(vehicle))
-                .map(PlanSnapshot.RouteSnapshot::id)
+                .map(PlanDescription.RouteDescription::id)
                 .findFirst()
                 .orElse(RouteId.of(uuid(4_000)));
     }
 
     private static StopId stop(Plan plan, OrderId order) {
-        return plan.snapshot().routes().stream()
+        return PlanDescription.of(plan).routes().stream()
                 .flatMap(candidate -> candidate.stops().stream())
                 .filter(candidate -> candidate.order().equals(order))
-                .map(PlanSnapshot.StopSnapshot::id)
+                .map(PlanDescription.StopDescription::id)
                 .findFirst()
                 .orElse(StopId.of(uuid(4_001)));
     }

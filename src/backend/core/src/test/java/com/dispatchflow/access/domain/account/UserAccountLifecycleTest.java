@@ -1,15 +1,14 @@
 package com.dispatchflow.access.domain.account;
 
 import static com.dispatchflow.access.domain.account.AccountBuilder.ACCOUNT;
+import static com.dispatchflow.access.domain.account.AccountBuilder.LOADED;
 import static com.dispatchflow.access.domain.account.AccountBuilder.NEW_EMAIL;
 import static com.dispatchflow.access.domain.account.AccountBuilder.OTHER_ADMIN;
 import static com.dispatchflow.access.domain.account.AccountBuilder.SENT;
 import static com.dispatchflow.access.domain.account.AccountBuilder.THIRD_ADMIN;
-import static com.dispatchflow.access.domain.account.AccountBuilder.VERSION;
 import static com.dispatchflow.access.domain.account.AccountBuilder.anAccount;
 import static com.dispatchflow.access.domain.account.AccountBuilder.anAnonymizedAccount;
 import static com.dispatchflow.access.domain.account.AccountBuilder.linkId;
-import static com.dispatchflow.access.domain.account.AccountBuilder.openLink;
 import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -47,7 +46,7 @@ class UserAccountLifecycleTest {
     private static final Instant NOW = SENT.plus(Duration.ofMinutes(10));
     private static final ActiveAdmins THREE_ADMINS =
             ActiveAdmins.readUnderLock(List.of(ACCOUNT, OTHER_ADMIN, THIRD_ADMIN));
-    private static final TokenHash SET_PASSWORD_TOKEN = new TokenHash("set-password-token");
+    private static final TokenHash RECOVERY_TOKEN = new TokenHash("recovery-token");
     private static final TokenHash EMAIL_TOKEN = new TokenHash("email-token");
     private static final PasswordHash NEW_HASH = new PasswordHash("new-hash");
 
@@ -58,44 +57,42 @@ class UserAccountLifecycleTest {
     }
 
     /**
-     * A command, and what an accepting state must show after it, given the snapshot before.
+     * A command, and what an accepting state must show after it, given the account before.
      *
      * @param name the method's name, for the test's display
      * @param call the call
      * @param accepted the checks of an accepted call
      */
     private record Command(
-            String name, Consumer<UserAccount> call, BiConsumer<UserAccountSnapshot, UserAccount> accepted) {
+            String name, Consumer<UserAccount> call, BiConsumer<AccountDescription, UserAccount> accepted) {
         @Override
         public String toString() {
             return name;
         }
     }
 
-    private static void revokedOnce(UserAccountSnapshot before, UserAccount after) {
+    private static void revokedOnce(AccountDescription before, UserAccount after) {
         assertThat(after.generation()).isEqualTo(before.generation().next());
         assertThat(after.pendingEvents())
                 .containsExactly(new SessionsRevoked(
-                        new EventId("SessionsRevoked", ACCOUNT.value(), VERSION.next(), 0),
+                        new EventId("SessionsRevoked", ACCOUNT.value(), LOADED.next(), 0),
                         NOW,
                         ACCOUNT,
                         before.generation().next().value()));
     }
 
-    private static void nothingRaised(UserAccountSnapshot before, UserAccount after) {
+    private static void nothingRaised(AccountDescription before, UserAccount after) {
         assertThat(after.generation()).isEqualTo(before.generation());
         assertThat(after.pendingEvents()).isEmpty();
     }
 
     private static void linksVoided(UserAccount after) {
-        assertThat(after.snapshot().links())
-                .extracting(CredentialLinkSnapshot::status)
-                .containsOnly(LinkStatus.VOIDED);
+        assertThat(after.links()).extracting(CredentialLink::status).containsOnly(LinkStatus.VOIDED);
     }
 
     private static final Command SIGN_IN =
             new Command("checkSignInAllowed", UserAccount::checkSignInAllowed, (before, after) -> {
-                assertThat(after.snapshot()).isEqualTo(before);
+                assertThat(AccountDescription.of(after)).isEqualTo(before);
                 nothingRaised(before, after);
             });
     private static final Command CHANGE_ROLES = new Command(
@@ -125,7 +122,7 @@ class UserAccountLifecycleTest {
             });
     private static final Command REACTIVATE = new Command("reactivate", UserAccount::reactivate, (before, after) -> {
         assertThat(after.state()).isEqualTo(new AccountState.Active());
-        assertThat(after.snapshot().links()).isEqualTo(before.links());
+        assertThat(LinkDescription.everyLinkOf(after)).isEqualTo(before.links());
         nothingRaised(before, after);
     });
     private static final Command END_EVERY_SESSION =
@@ -138,18 +135,18 @@ class UserAccountLifecycleTest {
             "issueLink",
             account -> account.issueLink(new LinkPurpose.Recovery(), linkId("9"), new TokenHash("fresh"), NOW),
             (before, after) -> {
-                List<CredentialLinkSnapshot> links = after.snapshot().links();
+                List<CredentialLink> links = after.links();
                 assertThat(links).hasSize(before.links().size() + 1);
                 assertThat(links.get(links.size() - 1).status()).isEqualTo(LinkStatus.OPEN);
                 nothingRaised(before, after);
             });
     private static final Command SET_PASSWORD_BY_LINK = new Command(
             "setPasswordByLink",
-            account -> account.setPasswordByLink(SET_PASSWORD_TOKEN, NEW_HASH, NOW),
+            account -> account.setPasswordByLink(RECOVERY_TOKEN, NEW_HASH, NOW),
             (before, after) -> {
                 assertThat(after.passwordHash()).contains(NEW_HASH);
-                assertThat(after.snapshot().links())
-                        .extracting(CredentialLinkSnapshot::status)
+                assertThat(after.links())
+                        .extracting(CredentialLink::status)
                         .containsExactly(LinkStatus.SPENT, LinkStatus.VOIDED);
                 revokedOnce(before, after);
             });
@@ -158,8 +155,8 @@ class UserAccountLifecycleTest {
             account -> account.confirmEmailByLink(EMAIL_TOKEN, EmailHolder.nobody(NEW_EMAIL), NOW),
             (before, after) -> {
                 assertThat(after.email()).contains(NEW_EMAIL);
-                assertThat(after.snapshot().links())
-                        .extracting(CredentialLinkSnapshot::status)
+                assertThat(after.links())
+                        .extracting(CredentialLink::status)
                         .containsExactly(LinkStatus.VOIDED, LinkStatus.SPENT);
                 revokedOnce(before, after);
             });
@@ -176,20 +173,25 @@ class UserAccountLifecycleTest {
             });
     private static final Command ACCEPT_TERMS =
             new Command("acceptTerms", account -> account.acceptTerms(NOW), (before, after) -> {
-                assertThat(after.snapshot().termsAcceptedAt()).contains(NOW);
+                assertThat(after.termsAcceptedAt()).contains(NOW);
                 nothingRaised(before, after);
             });
     private static final Command ANONYMIZE =
             new Command("anonymize", account -> account.anonymize(NOW), (before, after) -> {
                 assertThat(after.state()).isEqualTo(new AccountState.Anonymized(DEACTIVATED_AT, NOW));
                 assertThat(after.email()).isEmpty();
-                assertThat(after.snapshot().links()).isEmpty();
+                assertThat(after.links()).isEmpty();
                 assertThat(after.pendingEvents())
                         .singleElement()
                         .isExactlyInstanceOf(com.dispatchflow.access.events.AccountAnonymized.class);
             });
 
-    /** An Admin and Driver, with an open set-password link and an open email-change link. */
+    /**
+     * An Admin and Driver with a password, sent a recovery link and an email-change link of its own:
+     * open while it is active, voided by its deactivation, and gone once it is anonymized. A
+     * set-password link can't be open beside a password (FR-294), so the recovery link is the one
+     * {@code setPasswordByLink} spends.
+     */
     private static UserAccount in(State state) {
         AccountBuilder builder = switch (state) {
             case ACTIVE -> anAccount();
@@ -198,8 +200,9 @@ class UserAccountLifecycleTest {
         };
         builder.withRoles(Role.ADMIN, Role.DRIVER);
         if (state != State.ANONYMIZED) {
-            builder.withLink(openLink("1", new LinkPurpose.SetPassword(), SET_PASSWORD_TOKEN.value()))
-                    .withLink(openLink("2", new LinkPurpose.EmailChange(NEW_EMAIL, ACCOUNT), EMAIL_TOKEN.value()));
+            Instant sent = state == State.ACTIVE ? SENT : DEACTIVATED_AT.minus(Duration.ofHours(1));
+            builder.withOpenLink("1", new LinkPurpose.Recovery(), RECOVERY_TOKEN.value(), sent)
+                    .withOpenLink("2", new LinkPurpose.EmailChange(NEW_EMAIL, ACCOUNT), EMAIL_TOKEN.value(), sent);
         }
         return builder.build();
     }
@@ -258,14 +261,14 @@ class UserAccountLifecycleTest {
     void GivenAnAccountInEachState_WhenEachCommandIsCalled_ThenItIsTakenOrRefusedByName(
             State state, Command command, @Nullable DomainError refusal) {
         UserAccount account = in(state);
-        UserAccountSnapshot before = account.snapshot();
+        AccountDescription before = AccountDescription.of(account);
 
         if (refusal == null) {
             command.call().accept(account);
             command.accepted().accept(before, account);
         } else {
             assertRefused(() -> command.call().accept(account), refusal);
-            assertThat(account.snapshot()).isEqualTo(before);
+            assertThat(AccountDescription.of(account)).isEqualTo(before);
             assertThat(account.pendingEvents()).isEmpty();
         }
     }

@@ -5,7 +5,7 @@ import com.dispatchflow.shared.DeliveryDate;
 import org.hibernate.metamodel.spi.ValueAccess;
 
 /** Rebuilds a stored {@link DaySeconds} from its date and seconds columns (ADR-126). */
-public final class DaySecondsInstantiator extends KernelEmbeddableInstantiator<DaySeconds> {
+public final class DaySecondsInstantiator extends StoredEmbeddableInstantiator<DaySeconds> {
 
     private static final int DATE = 0;
     private static final int SECONDS = 1;
@@ -16,7 +16,7 @@ public final class DaySecondsInstantiator extends KernelEmbeddableInstantiator<D
     }
 
     @Override
-    DaySeconds rebuild(ValueAccess values) {
+    protected DaySeconds rebuild(ValueAccess values) {
         return DaySeconds.of(values.getValue(DATE, DeliveryDate.class), values.getValue(SECONDS, Long.class));
     }
 }

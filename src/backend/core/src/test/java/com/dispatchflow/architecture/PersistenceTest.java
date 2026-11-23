@@ -41,6 +41,11 @@ class PersistenceTest {
     }
 
     @Test
+    void GivenTheProductionClasses_WhenTheAggregatesAreChecked_ThenEachIsAnEntity() {
+        PersistenceRules.everyAggregateIsAnEntity(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
     void GivenTheProductionClasses_WhenEntityRootsAreChecked_ThenEachChecksWhatItLoads() {
         PersistenceRules.everyEntityRootChecksWhatItLoads(ROOT).check(ProductionClasses.ALL);
     }

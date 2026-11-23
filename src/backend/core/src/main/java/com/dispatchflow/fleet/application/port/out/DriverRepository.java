@@ -10,15 +10,11 @@ import java.util.Optional;
 /**
  * Where the driver records are kept, each keyed by its account's ID (DL §3.6, §4.2), and published
  * with their {@code DriverRetired} events.
- *
- * <p>Built in M2 and M13, method by method.
  */
 public interface DriverRepository {
 
     /**
      * The driver record of an account.
-     *
-     * <p>Built in M2.
      *
      * @param id the driver's account
      * @return the record, or empty when the account has none
@@ -28,8 +24,6 @@ public interface DriverRepository {
     /**
      * Every driver record, in any state, whose defaults a roster fill reads (FR-79, FR-189); {@code
      * Driver.rosterDefaultOn} answers empty for one retired or anonymized.
-     *
-     * <p>Built in M2.
      *
      * @return the records, in the order they were registered
      */
@@ -41,8 +35,6 @@ public interface DriverRepository {
      * one, in Israel's calendar. It answers IDs, so each record is loaded, changed and saved in its
      * own transaction.
      *
-     * <p>Built in M13.
-     *
      * @param now the time of the retention job
      * @return their IDs, in any order; an anonymized driver is never among them
      */
@@ -51,17 +43,14 @@ public interface DriverRepository {
     /**
      * Stores a new driver record (DL §3.6).
      *
-     * <p>Built in M2.
-     *
      * @param driver the new record, never saved
+     * @throws StaleVersion when another call stored a driver for the account first
      */
     void add(Driver driver);
 
     /**
      * Stores a changed driver record with a version check, and publishes the events it raised in
      * the same transaction (DL §3.6, BR-76).
-     *
-     * <p>Built in M2.
      *
      * @param driver the changed record
      * @throws StaleVersion when the stored record is no longer at the version it was loaded at

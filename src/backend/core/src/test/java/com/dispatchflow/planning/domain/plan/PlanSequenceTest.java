@@ -16,7 +16,6 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.dropped;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.evaluationOf;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.freshIds;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.noChanges;
-import static com.dispatchflow.planning.domain.plan.PlanningFixtures.reload;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.reoptimizationResult;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.roomIn;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.routeId;
@@ -24,6 +23,7 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.solved;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.stopId;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.uuid;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.violation;
+import static com.dispatchflow.shared.AsSaved.asSaved;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
@@ -34,6 +34,7 @@ import com.dispatchflow.planning.domain.SolveLimit;
 import com.dispatchflow.planning.domain.drop.DropReason;
 import com.dispatchflow.planning.domain.drop.DroppedOrder;
 import com.dispatchflow.planning.domain.reconciliation.LateFact;
+import com.dispatchflow.planning.domain.revision.PlanRevision;
 import com.dispatchflow.planning.domain.solution.Evaluation;
 import com.dispatchflow.planning.domain.solution.SolvedRoute;
 import com.dispatchflow.planning.domain.solution.SolvedStop;
@@ -71,10 +72,11 @@ import org.junit.jupiter.api.Test;
 /**
  * Seeded sequences of commands on one plan (DL §14): one of the edits a ready plan takes, and one of
  * the changes a published plan takes. After every step the invariants are recomputed from the
- * snapshot, in test code: each order and attempt served or dropped once (BR-07), no order lost except
- * by the command that takes it off, one route per vehicle and driver (BR-39), unique IDs and indexes,
- * no lock and no journal outside a ready plan, and a snapshot {@code restore} accepts. A refused step
- * leaves the snapshot and the events as they were, and a step that changes nothing raises no event.
+ * plan's description, in test code: each order and attempt served or dropped once (BR-07), no order
+ * lost except by the command that takes it off, one route per vehicle and driver (BR-39), unique IDs
+ * and indexes, no lock and no journal outside a ready plan, and a state the load check accepts. A
+ * refused step leaves the description and the events as they were, and a step that changes nothing
+ * raises no event.
  * The message names the seed and the step, so a failure replays. Each command must change the plan a
  * minimum number of times across the seeds; a step that changes nothing is counted apart, so a
  * sequence that only exercises refusals or no-ops fails.
@@ -150,7 +152,7 @@ class PlanSequenceTest {
     }
 
     private static String runEdit(String command, Plan plan, Random random, int step) {
-        PlanSnapshot s = plan.snapshot();
+        PlanDescription s = PlanDescription.of(plan);
         List<StopId> stops = stopIds(s);
         List<RouteId> routes = routeIds(s);
         switch (command) {
@@ -160,7 +162,7 @@ class PlanSequenceTest {
                 int position = random.nextInt(3);
                 PlanningFixtures.EvaluationBuilder evaluation = evaluationOf(plan);
                 if (stops.contains(stop) && routes.contains(to)) {
-                    PlanSnapshot.RouteSnapshot target = route(s, to);
+                    PlanDescription.RouteDescription target = route(s, to);
                     boolean same = target.stops().stream()
                             .anyMatch(candidate -> candidate.id().equals(stop));
                     if (position
@@ -208,7 +210,7 @@ class PlanSequenceTest {
             case "unlockRoute" -> {
                 List<RouteId> locked = s.routes().stream()
                         .filter(route -> route.lock().isPresent())
-                        .map(PlanSnapshot.RouteSnapshot::id)
+                        .map(PlanDescription.RouteDescription::id)
                         .toList();
                 plan.unlockRoute(pickOr(locked, random, RouteId.of(uuid(9_006))), TODAY);
             }
@@ -233,7 +235,7 @@ class PlanSequenceTest {
     /** The re-check job's evaluation of the plan as it is, which finds a broken shift half the time. */
     private static Evaluation routeCheck(Plan plan, Random random) {
         PlanningFixtures.EvaluationBuilder evaluation = evaluationOf(plan);
-        List<RouteId> routes = routeIds(plan.snapshot());
+        List<RouteId> routes = routeIds(PlanDescription.of(plan));
         if (!routes.isEmpty() && random.nextBoolean()) {
             evaluation.withViolation(violation(RuleCode.SHIFTS.value(), pick(routes, random)));
         }
@@ -309,7 +311,7 @@ class PlanSequenceTest {
     }
 
     private static String runChange(String command, Plan plan, Random random, int step) {
-        PlanSnapshot s = plan.snapshot();
+        PlanDescription s = PlanDescription.of(plan);
         List<RouteId> routes = routeIds(s);
         Instant now = LATER.plusSeconds(step);
         switch (command) {
@@ -350,7 +352,7 @@ class PlanSequenceTest {
                 OrderId order = s.routes().stream()
                         .flatMap(route -> route.stops().stream())
                         .filter(candidate -> candidate.id().equals(stop))
-                        .map(PlanSnapshot.StopSnapshot::order)
+                        .map(PlanDescription.StopDescription::order)
                         .findFirst()
                         .orElse(ORDERS.get(8));
                 plan.reconcileLateOutcome(
@@ -368,11 +370,11 @@ class PlanSequenceTest {
      * it forward (ADR-112).
      */
     private static ReoptimizationProposal proposalFor(Plan plan, Random random, int step) {
-        PlanSnapshot s = plan.snapshot();
+        PlanDescription s = PlanDescription.of(plan);
         RevisionNo revision = ((Plan.Status.Published) s.status()).revision();
         Map<VehicleId, AccountId> drivers = new LinkedHashMap<>();
         List<SolvedStopKey> toDeal = new ArrayList<>();
-        for (PlanSnapshot.RouteSnapshot route : s.routes()) {
+        for (PlanDescription.RouteDescription route : s.routes()) {
             if (route.withdrawal().isPresent()) {
                 continue;
             }
@@ -434,22 +436,22 @@ class PlanSequenceTest {
     private static Plan publishedWithALockAPinAndAnEdit() {
         Plan plan = aPlan().solvedAs(sequenceSolution()).ready();
         plan.lockRoute(routeId(plan, V3), RouteLock.WHOLE_ROUTE, TODAY);
-        plan = reload(plan);
+        plan = asSaved(plan);
         PinTarget toV1 = new PinTarget.ToVehicle(V1);
         plan.pin(
                 ORDERS.get(0),
                 toV1,
                 evaluationOf(plan, plan.afterPin(ORDERS.get(0), toV1)).build(),
                 TODAY);
-        plan = reload(plan);
+        plan = asSaved(plan);
         StopId moved = stopId(plan, ORDERS.get(1));
         RouteId v2 = routeId(plan, V2);
         plan.moveStop(
                 moved, v2, 0, evaluationOf(plan, plan.afterMove(moved, v2, 0)).build(), TODAY);
-        plan = reload(plan);
-        assertThat(plan.snapshot().undo()).hasSize(3);
+        plan = asSaved(plan);
+        assertThat(plan.undo()).hasSize(3);
         plan.publish(checksFor(plan), DISPATCHER, TODAY, LATER);
-        return reload(plan);
+        return asSaved(plan);
     }
 
     /** An order and attempt a proposal is dealt. */
@@ -475,10 +477,11 @@ class PlanSequenceTest {
         for (int n = 0; n < STEPS; n++) {
             String command = commands.get(random.nextInt(commands.size()));
             String where = "seed " + seed + ", step " + n + ", " + command;
-            PlanSnapshot before = plan.snapshot();
+            PlanDescription before = PlanDescription.of(plan);
+            Optional<PlanRevision> pending = plan.pendingRevision();
             try {
                 String takenOff = step.run(command, plan, random, n);
-                PlanSnapshot after = plan.snapshot();
+                PlanDescription after = PlanDescription.of(plan);
                 checkNothingLost(before, after, takenOff, where);
                 if (after.equals(before)) {
                     assertThat(plan.pendingEvents())
@@ -488,17 +491,17 @@ class PlanSequenceTest {
                 } else {
                     applied.merge(command, 1, Integer::sum);
                 }
-                plan = reload(plan);
+                plan = asSaved(plan);
             } catch (RuleViolation | RuleViolations refused) {
-                assertThat(plan.snapshot()).as(where).isEqualTo(before);
+                assertThat(PlanDescription.of(plan)).as(where).isEqualTo(before);
                 assertThat(plan.pendingEvents()).as(where).isEmpty();
-                assertThat(plan.pendingRevision()).as(where).isEmpty();
+                assertThat(plan.pendingRevision()).as(where).isEqualTo(pending);
             } catch (RuntimeException | AssertionError unexpected) {
                 throw new AssertionError(where + ": " + unexpected, unexpected);
             }
-            checkInvariants(plan.snapshot(), where);
+            checkInvariants(plan, where);
             if (plan.status() instanceof Plan.Status.Cancelled
-                    || heldOrders(plan.snapshot()).size() < FEWEST_HELD) {
+                    || heldOrders(PlanDescription.of(plan)).size() < FEWEST_HELD) {
                 plan = fresh.get();
             }
         }
@@ -514,7 +517,7 @@ class PlanSequenceTest {
     }
 
     /** No order and attempt the plan held is lost, except the one the command takes off (BR-07). */
-    private static void checkNothingLost(PlanSnapshot before, PlanSnapshot after, String takenOff, String where) {
+    private static void checkNothingLost(PlanDescription before, PlanDescription after, String takenOff, String where) {
         Set<String> held = new HashSet<>(keys(after));
         for (String key : keys(before)) {
             if (!key.equals(takenOff)) {
@@ -523,12 +526,13 @@ class PlanSequenceTest {
         }
     }
 
-    private static void checkInvariants(PlanSnapshot s, String where) {
+    private static void checkInvariants(Plan plan, String where) {
+        PlanDescription s = PlanDescription.of(plan);
         List<String> keys = keys(s);
         assertThat(new HashSet<>(keys)).as(where + ": BR-07").hasSameSizeAs(keys);
         Map<VehicleId, RouteId> vehicles = new HashMap<>();
         Map<AccountId, RouteId> drivers = new HashMap<>();
-        for (PlanSnapshot.RouteSnapshot route : s.routes()) {
+        for (PlanDescription.RouteDescription route : s.routes()) {
             if (route.withdrawal().isEmpty()) {
                 assertThat(vehicles.put(route.vehicle(), route.id()))
                         .as(where + ": BR-39 vehicle")
@@ -542,7 +546,7 @@ class PlanSequenceTest {
         assertThat(new HashSet<>(stopIds)).as(where + ": unique stop IDs").hasSameSizeAs(stopIds);
         List<RouteId> routeIds = routeIds(s);
         List<RouteIndex> indexes =
-                s.routes().stream().map(PlanSnapshot.RouteSnapshot::index).toList();
+                s.routes().stream().map(PlanDescription.RouteDescription::index).toList();
         assertThat(new HashSet<>(routeIds)).as(where + ": unique route IDs").hasSameSizeAs(routeIds);
         assertThat(new HashSet<>(indexes)).as(where + ": unique route indexes").hasSameSizeAs(indexes);
         List<OrderId> pinned = s.pins().stream().map(Pin::order).toList();
@@ -555,12 +559,12 @@ class PlanSequenceTest {
                     .as(where + ": no lock once published")
                     .allSatisfy(route -> assertThat(route.lock()).isEmpty());
         }
-        assertThatCode(() -> Plan.restore(s)).as(where + ": restorable").doesNotThrowAnyException();
+        assertThatCode(plan::checkStored).as(where + ": passes the load check").doesNotThrowAnyException();
     }
 
     // ---- helpers --------------------------------------------------------------------------------
 
-    private static List<String> keys(PlanSnapshot s) {
+    private static List<String> keys(PlanDescription s) {
         List<String> keys = new ArrayList<>();
         s.routes().forEach(route -> route.stops().forEach(stop -> keys.add(key(stop.order(), stop.attempt()))));
         s.dropped().forEach(drop -> keys.add(key(drop.order(), drop.attempt())));
@@ -568,7 +572,7 @@ class PlanSequenceTest {
     }
 
     /** The orders the plan serves or drops, so a removal mostly finds one. */
-    private static List<OrderId> heldOrders(PlanSnapshot s) {
+    private static List<OrderId> heldOrders(PlanDescription s) {
         List<OrderId> held = new ArrayList<>();
         s.routes().forEach(route -> route.stops().forEach(stop -> held.add(stop.order())));
         s.dropped().forEach(drop -> held.add(drop.order()));
@@ -583,18 +587,18 @@ class PlanSequenceTest {
         return order.value() + "#" + attempt.number();
     }
 
-    private static List<StopId> stopIds(PlanSnapshot s) {
+    private static List<StopId> stopIds(PlanDescription s) {
         return s.routes().stream()
                 .flatMap(route -> route.stops().stream())
-                .map(PlanSnapshot.StopSnapshot::id)
+                .map(PlanDescription.StopDescription::id)
                 .toList();
     }
 
-    private static List<RouteId> routeIds(PlanSnapshot s) {
-        return s.routes().stream().map(PlanSnapshot.RouteSnapshot::id).toList();
+    private static List<RouteId> routeIds(PlanDescription s) {
+        return s.routes().stream().map(PlanDescription.RouteDescription::id).toList();
     }
 
-    private static PlanSnapshot.RouteSnapshot route(PlanSnapshot s, RouteId id) {
+    private static PlanDescription.RouteDescription route(PlanDescription s, RouteId id) {
         return s.routes().stream()
                 .filter(route -> route.id().equals(id))
                 .findFirst()

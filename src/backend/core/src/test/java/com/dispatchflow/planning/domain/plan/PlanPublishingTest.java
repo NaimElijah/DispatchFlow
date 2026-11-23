@@ -23,13 +23,13 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.checksFor;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.dropped;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.evaluationOf;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.freshIds;
-import static com.dispatchflow.planning.domain.plan.PlanningFixtures.reload;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.routeId;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.routeOf;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.stopId;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.stopPlan;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.succeededJob;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.violation;
+import static com.dispatchflow.shared.AsSaved.asSaved;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dispatchflow.planning.domain.PlanningError.DateInPast;
@@ -152,11 +152,11 @@ class PlanPublishingTest {
     void GivenALockedRoute_WhenPublished_ThenTheLockIsClearedBecauseLocksBindDailySolvesOnly() {
         Plan ready = aPlan().ready();
         ready.lockRoute(routeId(ready, V1), RouteLock.WHOLE_ROUTE, TODAY);
-        Plan plan = reload(ready);
+        Plan plan = asSaved(ready);
 
         plan.publish(checksFor(plan), DISPATCHER, TODAY, LATER);
 
-        assertThat(plan.snapshot().routes())
+        assertThat(PlanDescription.of(plan).routes())
                 .allSatisfy(route -> assertThat(route.lock()).isEmpty());
     }
 
@@ -318,7 +318,7 @@ class PlanPublishingTest {
                 0,
                 evaluationOf(ready).moving(o1, v2, 0).withViolation(late).build(),
                 TODAY);
-        Plan plan = reload(ready);
+        Plan plan = asSaved(ready);
 
         assertPlanAllRefused(
                 plan,
@@ -435,12 +435,12 @@ class PlanPublishingTest {
                         .withViolation(violation("BR-03", v2))
                         .build(),
                 TODAY);
-        return reload(ready);
+        return asSaved(ready);
     }
 
     private static Plan readyAppliedAt(Instant appliedAt) {
         Plan plan = aPlan().solving();
         plan.applySolveResult(succeededJob(JOB, PlanningFixtures.standardSolution()), freshIds(0), appliedAt);
-        return reload(plan);
+        return asSaved(plan);
     }
 }

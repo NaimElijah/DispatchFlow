@@ -16,17 +16,12 @@ import java.util.Optional;
  * {@code @PostLoad} check checks (ADR-126), and stores the events it raised with the change
  * (ADR-064).
  *
- * <p>The queue is built in M0; in full in M4. M0 builds the daily lane's queue, and the roadmap's
- * M4 builds "the {@code solve_job} queue, one worker per lane" (ADR-051).
- *
- * <p>Built in M0, M4, M5 and M13, method by method.
+ * <p>The two that blank a job's input are built in M13; every other method is built.
  */
 public interface SolveJobRepository {
 
     /**
      * One job.
-     *
-     * <p>Built in M0.
      *
      * @param id the job
      * @return the job, or empty when no job has the ID
@@ -37,11 +32,14 @@ public interface SolveJobRepository {
      * Adds a newly queued job, in the caller's transaction, beside the change that created it (DL
      * §6.1). A partial unique index backs one queued or started re-optimization per plan (BR-38).
      *
-     * <p>Built in M0.
+     * <p>It writes at once everything the caller's transaction holds unwritten. So a use case saves
+     * the aggregate whose command queued the job before it calls this: written here, that change
+     * would not move its version when the aggregate is saved, and that save would fail.
      *
      * @param job the job, never saved
      * @throws com.dispatchflow.shared.RuleViolation with Planning's {@code
-     *     ReoptimizationAlreadyRunning} when the index finds another, a race the lock missed
+     *     ReoptimizationAlreadyRunning} when the index finds another, a race the lock missed. The
+     *     index refuses the insert itself, so the caller's transaction can't go on, and rolls back
      */
     void add(SolveJob job);
 
@@ -49,8 +47,6 @@ public interface SolveJobRepository {
      * Saves a changed job with its version check, and stores the events it raised, in the caller's
      * transaction (BR-76). Its worker, the watchdog, startup recovery and the midnight job may
      * race; the loser's save fails (DL §11).
-     *
-     * <p>Built in M0.
      *
      * @param job the job, at the version it was loaded at
      * @throws StaleVersion when the job changed since it was loaded
@@ -60,9 +56,8 @@ public interface SolveJobRepository {
     /**
      * A lane's queued and started jobs, read under the lane's advisory lock, which the caller's
      * transaction holds until it commits (BR-38, BR-112, DL §5). It is the only caller of {@code
-     * LaneCapacity.readUnderLock}.
-     *
-     * <p>Built in M0.
+     * LaneCapacity.readUnderLock}. It must run in the caller's transaction, and is refused when none
+     * is open, because a lock taken and released within the call would guard nothing.
      *
      * @param lane the lane a new job joins
      * @return the lane's capacity
@@ -71,20 +66,18 @@ public interface SolveJobRepository {
 
     /**
      * The lane's oldest queued job, locked for the caller's transaction so no other worker takes it
-     * (ADR-051). The caller claims it in that transaction.
-     *
-     * <p>Built in M0.
+     * (ADR-051). The caller claims it in that transaction, so the call must run in one, and is
+     * refused when none is open.
      *
      * @param lane the worker's lane
-     * @return the job, or empty when the lane has none queued
+     * @return the job, or empty when the lane has none queued, or when every job it has queued is
+     *     locked by another worker's transaction, which this call skips rather than waits for
      */
     Optional<SolveJob> claimNext(Lane lane);
 
     /**
      * Every job queued, building its matrix or running, in any lane, which the watchdog and startup
      * recovery check (BR-32, BR-74, BR-85, BR-112, NFR-12).
-     *
-     * <p>Built in M4.
      *
      * @return the jobs, oldest first
      */
@@ -93,8 +86,6 @@ public interface SolveJobRepository {
     /**
      * Every job of a date's plans that is queued, building its matrix or running, which the
      * midnight job fails first (BR-128).
-     *
-     * <p>Built in M5.
      *
      * @param date the date that just ended
      * @return the jobs, oldest first

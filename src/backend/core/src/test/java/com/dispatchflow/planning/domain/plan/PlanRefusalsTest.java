@@ -24,13 +24,13 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.checksFor;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.evaluationOf;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.freshIds;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.noChanges;
-import static com.dispatchflow.planning.domain.plan.PlanningFixtures.reload;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.reoptimizationResult;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.roomIn;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.routeId;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.solved;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.stopId;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.uuid;
+import static com.dispatchflow.shared.AsSaved.asSaved;
 
 import com.dispatchflow.planning.domain.PinTarget;
 import com.dispatchflow.planning.domain.PlanningError.DateInPast;
@@ -304,7 +304,7 @@ class PlanRefusalsTest {
         Plan ready = aPlan().ready();
         RouteId v2 = routeId(ready, V2);
         ready.lockRoute(v2, RouteLock.WHOLE_ROUTE, TODAY);
-        Plan plan = reload(ready);
+        Plan plan = asSaved(ready);
 
         assertPlanRefused(
                 plan,
@@ -369,18 +369,18 @@ class PlanRefusalsTest {
     private static Plan pinnedReady() {
         Plan plan = aPlan().ready();
         plan.pin(O1, new PinTarget.ToVehicle(V1), evaluationOf(plan).build(), TODAY);
-        return reload(plan);
+        return asSaved(plan);
     }
 
     private static Plan lockedAndJournaled() {
         Plan plan = aPlan().ready();
         plan.lockRoute(routeId(plan, V1), RouteLock.WHOLE_ROUTE, TODAY);
-        return reload(plan);
+        return asSaved(plan);
     }
 
     private static Plan lockedThenUndone() {
         Plan plan = lockedAndJournaled();
         plan.undo(evaluationOf(plan).build(), TODAY);
-        return reload(plan);
+        return asSaved(plan);
     }
 }

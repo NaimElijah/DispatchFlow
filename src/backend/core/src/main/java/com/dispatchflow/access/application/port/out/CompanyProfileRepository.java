@@ -6,15 +6,11 @@ import java.util.Optional;
 
 /**
  * Where the company's one profile is kept (DL §3.6, §4.1). It has no ID, because there is one.
- *
- * <p>Built in M2.
  */
 public interface CompanyProfileRepository {
 
     /**
      * The company's profile.
-     *
-     * <p>Built in M2.
      *
      * @return the profile, or empty before it is created
      */
@@ -23,8 +19,6 @@ public interface CompanyProfileRepository {
     /**
      * Stores the profile the first time an Admin saves the company's settings (FR-125).
      *
-     * <p>Built in M2.
-     *
      * @param profile the new profile, never saved
      * @throws StaleVersion when a profile was stored after {@link #get} read none (BR-76)
      */
@@ -32,8 +26,6 @@ public interface CompanyProfileRepository {
 
     /**
      * Stores the changed profile with a version check (DL §3.6, BR-76).
-     *
-     * <p>Built in M2.
      *
      * @param profile the changed profile
      * @throws StaleVersion when the stored profile is no longer at the version it was loaded at

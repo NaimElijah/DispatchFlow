@@ -11,15 +11,11 @@ import java.util.Optional;
 /**
  * Where rating requests are kept (DL §3.6, §4.6). Saving a request publishes its {@code
  * RatingReceived}, in the caller's transaction (ADR-064).
- *
- * <p>Built in M12 and M13, method by method.
  */
 public interface RatingRequestRepository {
 
     /**
      * One rating request.
-     *
-     * <p>Built in M12.
      *
      * @param request the request's ID
      * @return the request, or empty when no request has the ID
@@ -30,16 +26,12 @@ public interface RatingRequestRepository {
      * Stores a new request, opened when the provider accepted its question, in the transaction of
      * that acceptance (DL §6.2).
      *
-     * <p>Built in M12.
-     *
      * @param request the request, never saved
      */
     void add(RatingRequest request);
 
     /**
      * Stores a changed request, checking the version it was loaded at (BR-76).
-     *
-     * <p>Built in M12.
      *
      * @param request the request
      * @throws StaleVersion when another reply saved it since it was loaded
@@ -51,8 +43,6 @@ public interface RatingRequestRepository {
      * accepted within the 48 hours before the reply (FR-357, FR-371, FR-379). Phones are compared in
      * their stored E.164 form (FR-377).
      *
-     * <p>Built in M12.
-     *
      * @param phone the reply's phone
      * @param receivedAt when the reply was received
      * @return the request, or empty when the phone has none in the 48 hours, so the reply is
@@ -63,8 +53,6 @@ public interface RatingRequestRepository {
     /**
      * The requests holding personal data whose retention has ended: a phone 90 days after its
      * question was accepted, or a comment 90 days after its reply (NFR-184, NFR-193).
-     *
-     * <p>Built in M13.
      *
      * @param now when the retention job runs
      * @return the requests, each once, for the job to clear one at a time

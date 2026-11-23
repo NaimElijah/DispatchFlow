@@ -13,6 +13,7 @@ import static com.dispatchflow.liveops.domain.LiveOpsFixtures.ROUTE_A;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.ROUTE_B;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.STOP;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.uuid;
+import static com.dispatchflow.shared.AsSaved.asSaved;
 import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
@@ -148,32 +149,18 @@ class AlertTest {
         alert.acknowledge(DISPATCHER, LATER);
 
         assertThat(alert.isOpen()).isFalse();
-        assertThat(alert.snapshot().state()).isEqualTo(new AlertState.Acknowledged(DISPATCHER, LATER));
+        assertThat(alert.state()).isEqualTo(new AlertState.Acknowledged(DISPATCHER, LATER));
     }
 
     @Test
     void GivenAnAcknowledgedAlert_WhenAcknowledgedAgain_ThenAlertAlreadyAcknowledged() {
-        Alert alert = Alert.raise(ALERT, new AlertSubject.StopFailed(PLAN, ROUTE_A, STOP), NOW);
+        Alert alert = asSaved(Alert.raise(ALERT, new AlertSubject.StopFailed(PLAN, ROUTE_A, STOP), NOW));
         alert.acknowledge(DISPATCHER, LATER);
-        Alert reloaded = Alert.restore(new AlertSnapshot(
-                ALERT,
-                Version.of(1),
-                alert.snapshot().subject(),
-                NOW,
-                alert.snapshot().state()));
-        AlertSnapshot before = reloaded.snapshot();
+        Alert reloaded = asSaved(alert);
+        AlertDescription before = AlertDescription.of(reloaded);
 
         assertRefused(() -> reloaded.acknowledge(DISPATCHER, LATER), new AlertAlreadyAcknowledged(ALERT));
-        assertThat(reloaded.snapshot()).isEqualTo(before);
-    }
-
-    @Test
-    void GivenAnOpenAndAnAcknowledgedAlert_WhenRestoredFromTheirSnapshots_ThenTheyRoundTrip() {
-        Alert open = Alert.raise(ALERT, new AlertSubject.RouteNotStarted(PLAN, ROUTE_A), NOW);
-        Alert acknowledged = Alert.raise(OTHER_ALERT, new AlertSubject.RouteNotStarted(PLAN, ROUTE_B), NOW);
-        acknowledged.acknowledge(DISPATCHER, LATER);
-
-        assertThat(Alert.restore(open.snapshot()).snapshot()).isEqualTo(open.snapshot());
-        assertThat(Alert.restore(acknowledged.snapshot()).snapshot()).isEqualTo(acknowledged.snapshot());
+        assertThat(AlertDescription.of(reloaded)).isEqualTo(before);
+        assertThat(reloaded.version()).isEqualTo(Version.of(1));
     }
 }

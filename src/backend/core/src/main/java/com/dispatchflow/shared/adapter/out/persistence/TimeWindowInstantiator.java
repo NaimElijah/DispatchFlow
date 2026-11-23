@@ -5,7 +5,7 @@ import com.dispatchflow.shared.TimeWindow;
 import org.hibernate.metamodel.spi.ValueAccess;
 
 /** Rebuilds a stored {@link TimeWindow} from its start and end columns (ADR-126). */
-public final class TimeWindowInstantiator extends KernelEmbeddableInstantiator<TimeWindow> {
+public final class TimeWindowInstantiator extends StoredEmbeddableInstantiator<TimeWindow> {
 
     // Alphabetical, as Hibernate hands them: end before start.
     private static final int END = 0;
@@ -17,7 +17,7 @@ public final class TimeWindowInstantiator extends KernelEmbeddableInstantiator<T
     }
 
     @Override
-    TimeWindow rebuild(ValueAccess values) {
+    protected TimeWindow rebuild(ValueAccess values) {
         return new TimeWindow(values.getValue(START, IsraelDateTime.class), values.getValue(END, IsraelDateTime.class));
     }
 }

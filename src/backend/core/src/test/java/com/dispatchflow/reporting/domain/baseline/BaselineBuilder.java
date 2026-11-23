@@ -2,25 +2,33 @@ package com.dispatchflow.reporting.domain.baseline;
 
 import static com.dispatchflow.reporting.domain.ReportingFixtures.BASELINE_FIGURES;
 import static com.dispatchflow.reporting.domain.ReportingFixtures.PLAN;
+import static com.dispatchflow.shared.AsSaved.asSaved;
 
 import com.dispatchflow.reporting.domain.ReportingFixtures;
-import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.Version;
 import java.time.Instant;
 import java.util.List;
 
 /**
- * The test builder of {@link Baseline}: {@code aBaseline()} is a loaded baseline of {@link
- * ReportingFixtures#PLAN}, computed when the plan was published. Every state is built as a snapshot
- * and rebuilt through {@code restore}.
+ * The test builder of {@link Baseline}: {@code aBaseline()} is a saved baseline of {@link
+ * ReportingFixtures#PLAN}, computed when the plan was published. Every state is one the commands
+ * reach (ADR-127 decision 2): a baseline that names withdrawn vehicles was computed at {@link
+ * #PUBLISHED_AT} and recomputed once, at {@link #COMPUTED_AT}, from the figures given.
+ * {@link #build} computes a new baseline each time and saves it, so one builder may build many.
  */
 final class BaselineBuilder {
 
-    static final Version LOADED = Version.of(3);
+    /** The version {@link #build} leaves: a baseline's first save stores 0 (ADR-126). */
+    static final Version LOADED = Version.of(0);
+
+    /** When the built baseline was last computed: published then, or recomputed then. */
     static final Instant COMPUTED_AT = Instant.parse("2027-06-12T15:00:00Z");
 
+    /** When a recomputed baseline was first computed, before {@link #COMPUTED_AT}. */
+    static final Instant PUBLISHED_AT = Instant.parse("2027-06-12T14:00:00Z");
+
     private PlannedFigures result = BASELINE_FIGURES;
-    private BaselineCause cause = new BaselineCause.Published();
+    private List<Withdrawal> withdrawn = List.of();
 
     private BaselineBuilder() {}
 
@@ -28,31 +36,25 @@ final class BaselineBuilder {
         return new BaselineBuilder();
     }
 
+    /** Recomputed once, after a revision withdrew these vehicles, in this order. */
     BaselineBuilder withdrawn(Withdrawal... withdrawals) {
-        this.cause = new BaselineCause.Recomputed(List.of(withdrawals), List.of());
+        this.withdrawn = List.of(withdrawals);
         return this;
     }
 
-    BaselineBuilder added(OrderId... orders) {
-        this.cause = new BaselineCause.Recomputed(List.of(), List.of(orders));
-        return this;
-    }
-
-    BaselineBuilder withCause(BaselineCause cause) {
-        this.cause = cause;
-        return this;
-    }
-
+    /** The figures it was last computed from: the publication's, or the recompute's. */
     BaselineBuilder withResult(PlannedFigures result) {
         this.result = result;
         return this;
     }
 
-    BaselineSnapshot snapshot() {
-        return new BaselineSnapshot(PLAN, LOADED, result, cause, COMPUTED_AT);
-    }
-
+    /** A new baseline computed, and recomputed when vehicles were withdrawn, then saved. */
     Baseline build() {
-        return Baseline.restore(snapshot());
+        if (withdrawn.isEmpty()) {
+            return asSaved(Baseline.compute(PLAN, result, COMPUTED_AT));
+        }
+        Baseline baseline = Baseline.compute(PLAN, BASELINE_FIGURES, PUBLISHED_AT);
+        baseline.recompute(withdrawn, List.of(), result, COMPUTED_AT);
+        return asSaved(baseline);
     }
 }

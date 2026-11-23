@@ -1,7 +1,7 @@
 package com.dispatchflow.planning.domain.plan;
 
+import static com.dispatchflow.planning.domain.plan.PlanAssertions.assertLeftAsItWas;
 import static com.dispatchflow.planning.domain.plan.PlanAssertions.assertPlanRefused;
-import static com.dispatchflow.planning.domain.plan.PlanAssertions.assertUnchanged;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.D1;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.D2;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.D3;
@@ -19,10 +19,10 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.V1;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.V2;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.aPlan;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.evaluationOf;
-import static com.dispatchflow.planning.domain.plan.PlanningFixtures.reload;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.routeId;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.stopId;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.uuid;
+import static com.dispatchflow.shared.AsSaved.asSaved;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 
@@ -40,6 +40,7 @@ import com.dispatchflow.planning.domain.PlanningError.RouteLocked;
 import com.dispatchflow.planning.domain.PlanningError.StopNotInPlan;
 import com.dispatchflow.planning.domain.drop.DropReason;
 import com.dispatchflow.planning.domain.drop.DroppedOrder;
+import com.dispatchflow.planning.domain.revision.PlanRevision;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
@@ -79,11 +80,12 @@ class PlanQueriesTest {
         Plan plan = aPlan().ready();
         StopId o1 = stopId(plan, O1);
         RouteId v2 = routeId(plan, V2);
-        PlanSnapshot before = plan.snapshot();
+        PlanDescription before = PlanDescription.of(plan);
+        Optional<PlanRevision> pending = plan.pendingRevision();
 
         PlanLayout after = plan.afterMove(o1, v2, 1);
 
-        assertUnchanged(plan, before);
+        assertLeftAsItWas(plan, before, pending);
         assertThat(ordersIn(after, V1)).containsExactly(O2);
         assertThat(ordersIn(after, V2)).containsExactly(O3, O1);
         plan.moveStop(o1, v2, 1, evaluationOf(plan, after).build(), TODAY);
@@ -94,11 +96,12 @@ class PlanQueriesTest {
     void GivenAReadyPlan_WhenATakeOffIsQueriedAndThenMade_ThenThePlanHoldsTheQueriedLayout() {
         Plan plan = aPlan().ready();
         StopId o3 = stopId(plan, O3);
-        PlanSnapshot before = plan.snapshot();
+        PlanDescription before = PlanDescription.of(plan);
+        Optional<PlanRevision> pending = plan.pendingRevision();
 
         PlanLayout after = plan.afterTakeOff(o3);
 
-        assertUnchanged(plan, before);
+        assertLeftAsItWas(plan, before, pending);
         assertThat(ordersIn(after, V2)).isEmpty();
         assertThat(after.dropped()).contains(new DroppedOrder(O3, FIRST, new DropReason.RemovedByDispatcher()));
         plan.takeOffRoute(o3, evaluationOf(plan, after).build(), TODAY);
@@ -109,11 +112,12 @@ class PlanQueriesTest {
     void GivenAReadyPlan_WhenAPlacementIsQueriedAndThenMade_ThenThePlanHoldsTheQueriedLayout() {
         Plan plan = aPlan().ready();
         RouteId v1 = routeId(plan, V1);
-        PlanSnapshot before = plan.snapshot();
+        PlanDescription before = PlanDescription.of(plan);
+        Optional<PlanRevision> pending = plan.pendingRevision();
 
         PlanLayout after = plan.afterPlacing(O4, FIRST, v1, 0, NEW_STOP);
 
-        assertUnchanged(plan, before);
+        assertLeftAsItWas(plan, before, pending);
         assertThat(ordersIn(after, V1)).containsExactly(O4, O1, O2);
         assertThat(after.routes().get(0).stops().get(0).stop()).isEqualTo(NEW_STOP);
         assertThat(after.dropped()).extracting(DroppedOrder::order).containsExactly(O5);
@@ -124,11 +128,12 @@ class PlanQueriesTest {
     @Test
     void GivenAMovedStop_WhenAnUndoIsQueriedAndThenMade_ThenThePlanHoldsTheQueriedLayout() {
         Plan plan = movedO1ToV2();
-        PlanSnapshot before = plan.snapshot();
+        PlanDescription before = PlanDescription.of(plan);
+        Optional<PlanRevision> pending = plan.pendingRevision();
 
         PlanLayout after = plan.afterUndo();
 
-        assertUnchanged(plan, before);
+        assertLeftAsItWas(plan, before, pending);
         assertThat(ordersIn(after, V1)).containsExactly(O1, O2);
         assertThat(ordersIn(after, V2)).containsExactly(O3);
         plan.undo(evaluationOf(plan, after).build(), TODAY);
@@ -139,12 +144,13 @@ class PlanQueriesTest {
     void GivenAnUndoneMove_WhenARedoIsQueriedAndThenMade_ThenThePlanHoldsTheQueriedLayout() {
         Plan plan = movedO1ToV2();
         plan.undo(evaluationOf(plan, plan.afterUndo()).build(), TODAY);
-        plan = reload(plan);
-        PlanSnapshot before = plan.snapshot();
+        plan = asSaved(plan);
+        PlanDescription before = PlanDescription.of(plan);
+        Optional<PlanRevision> pending = plan.pendingRevision();
 
         PlanLayout after = plan.afterRedo();
 
-        assertUnchanged(plan, before);
+        assertLeftAsItWas(plan, before, pending);
         assertThat(ordersIn(after, V2)).containsExactly(O3, O1);
         plan.redo(evaluationOf(plan, after).build(), TODAY);
         assertThat(plan.layout()).isEqualTo(after);
@@ -154,11 +160,12 @@ class PlanQueriesTest {
     void GivenAPublishedPlan_WhenAHandOverIsQueriedAndThenMade_ThenThePlanHoldsTheQueriedLayout() {
         Plan plan = aPlan().published();
         RouteId v1 = routeId(plan, V1);
-        PlanSnapshot before = plan.snapshot();
+        PlanDescription before = PlanDescription.of(plan);
+        Optional<PlanRevision> pending = plan.pendingRevision();
 
         PlanLayout after = plan.afterHandOver(v1, D3);
 
-        assertUnchanged(plan, before);
+        assertLeftAsItWas(plan, before, pending);
         assertThat(after.routes().get(0).driver()).isEqualTo(D3);
         plan.handOver(v1, D3_STANDS, Optional.of(evaluationOf(plan, after).build()), false, DISPATCHER, TODAY, LATER);
         assertThat(plan.layout()).isEqualTo(after);
@@ -167,11 +174,12 @@ class PlanQueriesTest {
     @Test
     void GivenAReadyPlan_WhenAPinIsQueriedAndThenMade_ThenThePlanHoldsTheQueriedLayout() {
         Plan plan = aPlan().ready();
-        PlanSnapshot before = plan.snapshot();
+        PlanDescription before = PlanDescription.of(plan);
+        Optional<PlanRevision> pending = plan.pendingRevision();
 
         PlanLayout after = plan.afterPin(O4, TO_V2);
 
-        assertUnchanged(plan, before);
+        assertLeftAsItWas(plan, before, pending);
         assertThat(after.pins()).containsExactly(new Pin(O4, TO_V2));
         assertThat(after.routes()).isEqualTo(plan.layout().routes());
         plan.pin(O4, TO_V2, evaluationOf(plan, after).build(), TODAY);
@@ -181,11 +189,12 @@ class PlanQueriesTest {
     @Test
     void GivenADraft_WhenAPinIsQueriedAndThenMade_ThenThePlanHoldsTheQueriedLayout() {
         Plan plan = aPlan().draft();
-        PlanSnapshot before = plan.snapshot();
+        PlanDescription before = PlanDescription.of(plan);
+        Optional<PlanRevision> pending = plan.pendingRevision();
 
         PlanLayout after = plan.afterPin(O1, TO_V2);
 
-        assertUnchanged(plan, before);
+        assertLeftAsItWas(plan, before, pending);
         assertThat(after.pins()).containsExactly(new Pin(O1, TO_V2));
         plan.pin(O1, TO_V2, evaluationOf(plan, after).build(), TODAY);
         assertThat(plan.layout()).isEqualTo(after);
@@ -195,12 +204,13 @@ class PlanQueriesTest {
     void GivenAPinnedOrder_WhenAnUnpinIsQueriedAndThenMade_ThenThePlanHoldsTheQueriedLayout() {
         Plan plan = aPlan().ready();
         plan.pin(O4, TO_V2, evaluationOf(plan, plan.afterPin(O4, TO_V2)).build(), TODAY);
-        Plan pinned = reload(plan);
-        PlanSnapshot before = pinned.snapshot();
+        Plan pinned = asSaved(plan);
+        PlanDescription before = PlanDescription.of(pinned);
+        Optional<PlanRevision> pending = pinned.pendingRevision();
 
         PlanLayout after = pinned.afterUnpin(O4);
 
-        assertUnchanged(pinned, before);
+        assertLeftAsItWas(pinned, before, pending);
         assertThat(after.pins()).isEmpty();
         pinned.unpin(O4, evaluationOf(pinned, after).build(), TODAY);
         assertThat(pinned.layout()).isEqualTo(after);
@@ -246,7 +256,7 @@ class PlanQueriesTest {
         Plan plan = aPlan().ready();
         RouteId v2 = routeId(plan, V2);
         plan.lockRoute(v2, RouteLock.WHOLE_ROUTE, TODAY);
-        Plan locked = reload(plan);
+        Plan locked = asSaved(plan);
         StopId o1 = stopId(locked, O1);
 
         assertPlanRefused(locked, () -> locked.afterMove(o1, v2, 0), new RouteLocked(v2));
@@ -305,7 +315,7 @@ class PlanQueriesTest {
         StopId o1 = stopId(plan, O1);
         RouteId v2 = routeId(plan, V2);
         plan.moveStop(o1, v2, 1, evaluationOf(plan, plan.afterMove(o1, v2, 1)).build(), TODAY);
-        return reload(plan);
+        return asSaved(plan);
     }
 
     private static List<OrderId> ordersIn(PlanLayout layout, VehicleId vehicle) {

@@ -1,52 +1,69 @@
 package com.dispatchflow.access.domain.companyprofile;
 
+import static com.dispatchflow.shared.AsSaved.asSaved;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dispatchflow.access.domain.Language;
-import com.dispatchflow.shared.Version;
 import java.time.LocalTime;
 import java.util.Optional;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
 
 class CompanyProfileTest {
 
     private static final CompanyName NAME = new CompanyName("מהיר משלוחים");
     private static final DefaultWindow NINE_TO_FIVE = new DefaultWindow(LocalTime.of(9, 0), LocalTime.of(17, 0));
     private static final DefaultWindow EIGHT_TO_NOON = new DefaultWindow(LocalTime.of(8, 0), LocalTime.of(12, 0));
-    private static final Version STORED = Version.of(7);
 
-    /** The profile as stored: by default Hebrew, 09:00 to 17:00, no default service time. */
-    private static CompanyProfileSnapshot aProfile(Optional<DefaultServiceTime> serviceTime) {
-        return new CompanyProfileSnapshot(STORED, NAME, Language.HEBREW, NINE_TO_FIVE, serviceTime);
+    /**
+     * What a test sees of a profile, read through its getters.
+     *
+     * @param name the company's name
+     * @param language the default language
+     * @param defaultWindow the default time window
+     * @param defaultServiceTime the default service time, once set
+     */
+    private record ProfileDescription(
+            CompanyName name,
+            Language language,
+            DefaultWindow defaultWindow,
+            Optional<DefaultServiceTime> defaultServiceTime) {
+
+        static ProfileDescription of(CompanyProfile profile) {
+            return new ProfileDescription(
+                    profile.name(), profile.language(), profile.defaultWindow(), profile.defaultServiceTime());
+        }
+    }
+
+    /** The profile as saved: Hebrew, 09:00 to 17:00, no default service time. */
+    private static CompanyProfile aProfile() {
+        return asSaved(CompanyProfile.create(NAME, Language.HEBREW, NINE_TO_FIVE));
     }
 
     @Test
     void GivenTheDeploymentsSettings_WhenTheProfileIsCreated_ThenItHoldsThemAndNoDefaultServiceTime() {
         CompanyProfile profile = CompanyProfile.create(NAME, Language.ENGLISH, NINE_TO_FIVE);
 
-        assertThat(profile.snapshot())
-                .isEqualTo(new CompanyProfileSnapshot(null, NAME, Language.ENGLISH, NINE_TO_FIVE, Optional.empty()));
+        assertThat(ProfileDescription.of(profile))
+                .isEqualTo(new ProfileDescription(NAME, Language.ENGLISH, NINE_TO_FIVE, Optional.empty()));
+        assertThat(profile.savedVersion()).isEmpty();
         assertThat(profile.pendingEvents()).isEmpty();
     }
 
     @Test
     void GivenAProfile_WhenRenamed_ThenOnlyTheNameChanges() {
-        CompanyProfile profile = CompanyProfile.restore(aProfile(Optional.empty()));
+        CompanyProfile profile = aProfile();
 
         profile.rename(new CompanyName("Fast Deliveries"));
 
-        assertThat(profile.snapshot())
-                .isEqualTo(new CompanyProfileSnapshot(
-                        STORED, new CompanyName("Fast Deliveries"), Language.HEBREW, NINE_TO_FIVE, Optional.empty()));
+        assertThat(ProfileDescription.of(profile))
+                .isEqualTo(new ProfileDescription(
+                        new CompanyName("Fast Deliveries"), Language.HEBREW, NINE_TO_FIVE, Optional.empty()));
         assertThat(profile.pendingEvents()).isEmpty();
     }
 
     @Test
     void GivenAProfile_WhenItsLanguageIsChanged_ThenANewUserStartsWithTheNewOne() {
-        CompanyProfile profile = CompanyProfile.restore(aProfile(Optional.empty()));
+        CompanyProfile profile = aProfile();
 
         profile.changeLanguage(Language.ENGLISH);
 
@@ -55,7 +72,7 @@ class CompanyProfileTest {
 
     @Test
     void GivenAProfile_WhenTheDefaultWindowIsChanged_ThenANewCustomerStartsWithTheNewOne() {
-        CompanyProfile profile = CompanyProfile.restore(aProfile(Optional.empty()));
+        CompanyProfile profile = aProfile();
 
         profile.changeDefaultWindow(EIGHT_TO_NOON);
 
@@ -64,24 +81,11 @@ class CompanyProfileTest {
 
     @Test
     void GivenAProfileWithNoDefaultServiceTime_WhenOneIsSet_ThenANewCustomerStartsWithIt() {
-        CompanyProfile profile = CompanyProfile.restore(aProfile(Optional.empty()));
+        CompanyProfile profile = aProfile();
 
         profile.changeDefaultServiceTime(new DefaultServiceTime(300));
 
         assertThat(profile.defaultServiceTime()).contains(new DefaultServiceTime(300));
         assertThat(profile.name()).isEqualTo(NAME);
-    }
-
-    static Stream<CompanyProfileSnapshot> everyBuilderState() {
-        return Stream.of(aProfile(Optional.empty()), aProfile(Optional.of(new DefaultServiceTime(240))));
-    }
-
-    @ParameterizedTest
-    @MethodSource("everyBuilderState")
-    void GivenAStoredProfile_WhenRestoredFromItsOwnSnapshot_ThenTheSnapshotIsTheSame(CompanyProfileSnapshot stored) {
-        CompanyProfile profile = CompanyProfile.restore(stored);
-
-        assertThat(CompanyProfile.restore(profile.snapshot()).snapshot()).isEqualTo(stored);
-        assertThat(profile.version()).isEqualTo(STORED);
     }
 }

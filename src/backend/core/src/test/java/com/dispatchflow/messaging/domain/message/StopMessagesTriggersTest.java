@@ -15,20 +15,17 @@ import static com.dispatchflow.messaging.domain.MessagingFixtures.on;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.planned;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.projected;
 import static com.dispatchflow.messaging.domain.MessagingFixtures.quarter;
+import static com.dispatchflow.messaging.domain.message.MessageDescription.everyMessageOf;
 import static com.dispatchflow.messaging.domain.message.StopMessagesBuilder.aStopMessages;
-import static com.dispatchflow.messaging.domain.message.StopMessagesBuilder.outForDelivery;
-import static com.dispatchflow.messaging.domain.message.StopMessagesBuilder.plain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.groups.Tuple.tuple;
 
 import com.dispatchflow.messaging.domain.MessageText;
-import com.dispatchflow.messaging.domain.MessagingFixtures;
 import com.dispatchflow.messaging.domain.PhoneConsent;
 import com.dispatchflow.messaging.domain.QuarterHour;
 import com.dispatchflow.messaging.domain.SendingConditions;
 import com.dispatchflow.messaging.domain.Switch;
-import com.dispatchflow.messaging.domain.Wording;
 import com.dispatchflow.messaging.domain.message.ArrivalFacts.PreviousStop;
 import com.dispatchflow.messaging.domain.message.MessageState.DropCause;
 import com.dispatchflow.shared.PhoneNumber;
@@ -52,11 +49,11 @@ class StopMessagesTriggersTest {
     private static final ProviderReference REFERENCE = new ProviderReference("provider-1");
     private static final MessageState ACCEPTED = new MessageState.Accepted(TEN, REFERENCE);
 
-    private static StopMessagesSnapshot expected(OutgoingMessage... messages) {
-        return new StopMessagesSnapshot(STOP, StopMessagesBuilder.LOADED, List.of(messages));
+    private static List<MessageDescription> expected(MessageDescription... messages) {
+        return List.of(messages);
     }
 
-    private static OutgoingMessage pendingMessage(
+    private static MessageDescription pendingMessage(
             int n,
             MessageType type,
             int sequence,
@@ -64,7 +61,7 @@ class StopMessagesTriggersTest {
             Optional<QuarterHour> arrival,
             boolean asks,
             Instant triggered) {
-        return new OutgoingMessage(
+        return new MessageDescription(
                 messageId(n),
                 type,
                 sequence,
@@ -77,11 +74,11 @@ class StopMessagesTriggersTest {
     }
 
     private static void assertNothingAdded(StopMessages messages, Consumer<StopMessages> trigger) {
-        StopMessagesSnapshot before = messages.snapshot();
+        List<MessageDescription> before = everyMessageOf(messages);
 
         trigger.accept(messages);
 
-        assertThat(messages.snapshot()).isEqualTo(before);
+        assertThat(everyMessageOf(messages)).isEqualTo(before);
         assertThat(messages.pendingEvents()).isEmpty();
     }
 
@@ -108,18 +105,15 @@ class StopMessagesTriggersTest {
         messages.onRouteStarted(
                 messageId(1), TO_MOBILE, on(), StopProgress.NOT_REACHED, projected(at(67).plusSeconds(30)), TEN);
 
-        assertThat(messages.snapshot())
-                .isEqualTo(new StopMessagesSnapshot(
-                        STOP,
-                        null,
-                        List.of(pendingMessage(
-                                1,
-                                MessageType.OUT_FOR_DELIVERY,
-                                1,
-                                "Shefa Deliveries: המשלוח בדרך ויגיע היום בין 10:45–11:45",
-                                Optional.of(quarter(75)),
-                                false,
-                                TEN))));
+        assertThat(everyMessageOf(messages))
+                .isEqualTo(expected(pendingMessage(
+                        1,
+                        MessageType.OUT_FOR_DELIVERY,
+                        1,
+                        "Shefa Deliveries: המשלוח בדרך ויגיע היום בין 10:45–11:45",
+                        Optional.of(quarter(75)),
+                        false,
+                        TEN)));
         assertThat(messages.pendingEvents()).isEmpty();
     }
 
@@ -130,7 +124,7 @@ class StopMessagesTriggersTest {
         messages.onJoinedStartedRoute(
                 messageId(1), TO_MOBILE, on(), StopProgress.NOT_REACHED, projected(at(60)), at(5));
 
-        assertThat(messages.snapshot())
+        assertThat(everyMessageOf(messages))
                 .isEqualTo(expected(pendingMessage(
                         1,
                         MessageType.OUT_FOR_DELIVERY,
@@ -179,7 +173,7 @@ class StopMessagesTriggersTest {
     @Test
     void GivenOutForDeliveryAlreadyTriggered_WhenTheStopJoinsAnotherStartedRoute_ThenNoSecondOneIsAdded() {
         StopMessages messages = aStopMessages()
-                .with(outForDelivery(1, new MessageState.Dropped(TEN, DropCause.STALE)))
+                .withOutForDelivery(1, new MessageState.Dropped(at(16), DropCause.STALE))
                 .build();
 
         assertNothingAdded(
@@ -196,7 +190,7 @@ class StopMessagesTriggersTest {
 
         messages.onArrivalProjected(freshIds(1), TO_MOBILE, on(), inProgress(at(15)), TEN);
 
-        assertThat(messages.snapshot())
+        assertThat(everyMessageOf(messages))
                 .isEqualTo(expected(pendingMessage(
                         1,
                         MessageType.ARRIVING_SOON,
@@ -218,9 +212,7 @@ class StopMessagesTriggersTest {
                 facts(RouteProgress.IN_PROGRESS, PreviousStop.NONE, StopProgress.NOT_REACHED, at(10)),
                 TEN);
 
-        assertThat(messages.snapshot().messages())
-                .extracting(OutgoingMessage::type)
-                .containsExactly(MessageType.ARRIVING_SOON);
+        assertThat(messages.messages()).extracting(OutgoingMessage::type).containsExactly(MessageType.ARRIVING_SOON);
     }
 
     /**
@@ -228,7 +220,7 @@ class StopMessagesTriggersTest {
      * for 11:00 and a projection 15 minutes away at 10:15, which would otherwise add both messages.
      */
     static Stream<Arguments> guards() {
-        StopMessagesBuilder arrivalSent = aStopMessages().with(outForDelivery(1, ACCEPTED));
+        StopMessagesBuilder arrivalSent = aStopMessages().withOutForDelivery(1, ACCEPTED);
         ArrivalFacts both = inProgress(at(15));
         return Stream.of(
                 Arguments.of(
@@ -326,7 +318,7 @@ class StopMessagesTriggersTest {
     @Test
     void GivenArrivingSoonAlreadyAdded_WhenTheArrivalIsProjectedAgain_ThenNoSecondOneIsAdded() {
         StopMessages messages = aStopMessages()
-                .with(plain(1, MessageType.ARRIVING_SOON, StopMessagesBuilder.pendingSinceTen()))
+                .with(1, MessageType.ARRIVING_SOON, StopMessagesBuilder.pendingSinceTen())
                 .build();
 
         assertNothingAdded(
@@ -346,7 +338,7 @@ class StopMessagesTriggersTest {
         messages.onArrivalProjected(freshIds(6, 7), TO_MOBILE, on(), skipped(at(61)), at(61));
         messages.onArrivalProjected(freshIds(8, 9), TO_MOBILE, on(), skipped(at(91)), at(91));
 
-        assertThat(messages.snapshot().messages())
+        assertThat(messages.messages())
                 .extracting(OutgoingMessage::id, OutgoingMessage::type, OutgoingMessage::arrivalSent)
                 .containsExactly(tuple(messageId(1), MessageType.OUT_FOR_DELIVERY, Optional.of(quarter(0))));
     }
@@ -359,7 +351,7 @@ class StopMessagesTriggersTest {
 
         messages.onArrivalProjected(freshIds(4, 5), TO_MOBILE, on(), inProgress(at(40)), at(31));
 
-        assertThat(messages.snapshot().messages())
+        assertThat(messages.messages())
                 .extracting(OutgoingMessage::id, OutgoingMessage::type)
                 .containsExactly(
                         tuple(messageId(1), MessageType.OUT_FOR_DELIVERY),
@@ -371,8 +363,7 @@ class StopMessagesTriggersTest {
 
     @Test
     void GivenAnArrivalSentFor1100_WhenTheProjectionIs29Minutes59SecondsLater_ThenNoTimeChangedIsAdded() {
-        StopMessages messages =
-                aStopMessages().with(outForDelivery(1, ACCEPTED)).build();
+        StopMessages messages = aStopMessages().withOutForDelivery(1, ACCEPTED).build();
 
         assertNothingAdded(
                 messages,
@@ -381,14 +372,13 @@ class StopMessagesTriggersTest {
 
     @Test
     void GivenAnArrivalSentFor1100_WhenTheProjectionIs30MinutesLater_ThenTimeChangedGivesTheNewWindow() {
-        StopMessages messages =
-                aStopMessages().with(outForDelivery(1, ACCEPTED)).build();
+        StopMessages messages = aStopMessages().withOutForDelivery(1, ACCEPTED).build();
 
         messages.onArrivalProjected(freshIds(2), TO_MOBILE, on(), inProgress(at(90)), TEN);
 
-        assertThat(messages.snapshot())
+        assertThat(everyMessageOf(messages))
                 .isEqualTo(expected(
-                        outForDelivery(1, ACCEPTED),
+                        MessageDescription.outForDelivery(1, ACCEPTED),
                         pendingMessage(
                                 2,
                                 MessageType.TIME_CHANGED,
@@ -401,8 +391,7 @@ class StopMessagesTriggersTest {
 
     @Test
     void GivenAnArrivalSentFor1100_WhenTheProjectionIs29Minutes59SecondsEarlier_ThenNoTimeChangedIsAdded() {
-        StopMessages messages =
-                aStopMessages().with(outForDelivery(1, ACCEPTED)).build();
+        StopMessages messages = aStopMessages().withOutForDelivery(1, ACCEPTED).build();
 
         assertNothingAdded(
                 messages,
@@ -411,25 +400,23 @@ class StopMessagesTriggersTest {
 
     @Test
     void GivenAnArrivalSentFor1100_WhenTheProjectionIs30MinutesEarlier_ThenTimeChangedIsAdded() {
-        StopMessages messages =
-                aStopMessages().with(outForDelivery(1, ACCEPTED)).build();
+        StopMessages messages = aStopMessages().withOutForDelivery(1, ACCEPTED).build();
 
         messages.onArrivalProjected(freshIds(2), TO_MOBILE, on(), inProgress(at(30)), TEN);
 
-        assertThat(messages.snapshot().messages().get(1).arrivalSent()).contains(quarter(30));
+        assertThat(messages.messages().get(1).arrivalSent()).contains(quarter(30));
     }
 
     @Test
     void GivenTwoTimeChangesAlready_WhenTheProjectionMovesAgain_ThenNoThirdIsAdded() {
-        StopMessages messages =
-                aStopMessages().with(outForDelivery(1, ACCEPTED)).build();
+        StopMessages messages = aStopMessages().withOutForDelivery(1, ACCEPTED).build();
 
         messages.onArrivalProjected(freshIds(2), TO_MOBILE, on(), inProgress(at(90)), TEN);
         messages.onArrivalProjected(freshIds(3), TO_MOBILE, on(), inProgress(at(120)), at(1));
         assertNothingAdded(
                 messages, m -> m.onArrivalProjected(freshIds(4), TO_MOBILE, on(), inProgress(at(150)), at(2)));
 
-        assertThat(messages.snapshot().messages())
+        assertThat(messages.messages())
                 .extracting(OutgoingMessage::type, OutgoingMessage::sequence, OutgoingMessage::arrivalSent)
                 .containsExactly(
                         tuple(MessageType.OUT_FOR_DELIVERY, 1, Optional.of(quarter(60))),
@@ -439,8 +426,7 @@ class StopMessagesTriggersTest {
 
     @Test
     void GivenAFinishedRouteWithTheStopNotReached_WhenTheProjectionMoves30Minutes_ThenTimeChangedIsAdded() {
-        StopMessages messages =
-                aStopMessages().with(outForDelivery(1, ACCEPTED)).build();
+        StopMessages messages = aStopMessages().withOutForDelivery(1, ACCEPTED).build();
 
         messages.onArrivalProjected(
                 freshIds(2),
@@ -449,9 +435,7 @@ class StopMessagesTriggersTest {
                 facts(RouteProgress.FINISHED, PreviousStop.HAS_OUTCOME, StopProgress.NOT_REACHED, at(90)),
                 TEN);
 
-        assertThat(messages.snapshot().messages())
-                .extracting(OutgoingMessage::type)
-                .contains(MessageType.TIME_CHANGED);
+        assertThat(messages.messages()).extracting(OutgoingMessage::type).contains(MessageType.TIME_CHANGED);
     }
 
     static Stream<Arguments> noTimeChanged() {
@@ -460,7 +444,7 @@ class StopMessagesTriggersTest {
                 Stream.of(
                         Arguments.of(
                                 "route not started",
-                                aStopMessages().with(outForDelivery(1, ACCEPTED)),
+                                aStopMessages().withOutForDelivery(1, ACCEPTED),
                                 TO_MOBILE,
                                 on(),
                                 facts(
@@ -470,7 +454,7 @@ class StopMessagesTriggersTest {
                                         moved)),
                         Arguments.of(
                                 "stop arrived",
-                                aStopMessages().with(outForDelivery(1, ACCEPTED)),
+                                aStopMessages().withOutForDelivery(1, ACCEPTED),
                                 TO_MOBILE,
                                 on(),
                                 facts(
@@ -480,14 +464,15 @@ class StopMessagesTriggersTest {
                                         moved)),
                         Arguments.of(
                                 "a skipped stop's planned arrival (ADR-114)",
-                                aStopMessages().with(outForDelivery(1, ACCEPTED)),
+                                aStopMessages().withOutForDelivery(1, ACCEPTED),
                                 TO_MOBILE,
                                 on(),
                                 skipped(moved)),
                         Arguments.of("no arrival ever sent", aStopMessages(), TO_MOBILE, on(), inProgress(moved)),
                         Arguments.of(
                                 "the only arrival was dropped",
-                                aStopMessages().with(outForDelivery(1, new MessageState.Dropped(TEN, DropCause.STALE))),
+                                aStopMessages()
+                                        .withOutForDelivery(1, new MessageState.Dropped(at(16), DropCause.STALE)),
                                 TO_MOBILE,
                                 on(),
                                 inProgress(moved))),
@@ -510,8 +495,8 @@ class StopMessagesTriggersTest {
     @Test
     void GivenATimeChangedSentFor1130_WhenTheProjectionIs1145_ThenNoSecondTimeChangedIsAdded() {
         StopMessages messages = aStopMessages()
-                .with(outForDelivery(1, ACCEPTED))
-                .with(timeChanged(2, 1, quarter(90), ACCEPTED))
+                .withOutForDelivery(1, ACCEPTED)
+                .withTimeChanged(2, ACCEPTED)
                 .build();
 
         assertNothingAdded(messages, m -> m.onArrivalProjected(freshIds(3), TO_MOBILE, on(), inProgress(at(105)), TEN));
@@ -520,13 +505,13 @@ class StopMessagesTriggersTest {
     @Test
     void GivenTheLatestTimeChangedDropped_WhenTheProjectionIs30MinutesFromTheOutForDelivery_ThenTimeChangedIsAdded() {
         StopMessages messages = aStopMessages()
-                .with(outForDelivery(1, ACCEPTED))
-                .with(timeChanged(2, 1, quarter(90), new MessageState.Dropped(TEN, DropCause.STALE)))
+                .withOutForDelivery(1, ACCEPTED)
+                .withTimeChanged(2, new MessageState.Dropped(at(16), DropCause.STALE))
                 .build();
 
         messages.onArrivalProjected(freshIds(3), TO_MOBILE, on(), inProgress(at(90)), TEN);
 
-        assertThat(messages.snapshot().messages())
+        assertThat(messages.messages())
                 .extracting(OutgoingMessage::id, OutgoingMessage::type, OutgoingMessage::sequence)
                 .containsExactly(
                         tuple(messageId(1), MessageType.OUT_FOR_DELIVERY, 1),
@@ -534,27 +519,13 @@ class StopMessagesTriggersTest {
                         tuple(messageId(3), MessageType.TIME_CHANGED, 2));
     }
 
-    private static OutgoingMessage timeChanged(int n, int sequence, QuarterHour arrival, MessageState state) {
-        return new OutgoingMessage(
-                messageId(n),
-                MessageType.TIME_CHANGED,
-                sequence,
-                MOBILE,
-                MessagingFixtures.text(new Wording.TimeChanged(arrival)),
-                Optional.of(arrival),
-                false,
-                TEN,
-                state);
-    }
-
     @Test
     void GivenAnArrivalSentFor1100_WhenTheStopIs15MinutesAwayAnd45MinutesEarly_ThenBothMessagesAreAdded() {
-        StopMessages messages =
-                aStopMessages().with(outForDelivery(1, ACCEPTED)).build();
+        StopMessages messages = aStopMessages().withOutForDelivery(1, ACCEPTED).build();
 
         messages.onArrivalProjected(freshIds(2, 3), TO_MOBILE, on(), inProgress(at(15)), TEN);
 
-        assertThat(messages.snapshot().messages())
+        assertThat(messages.messages())
                 .extracting(OutgoingMessage::id, OutgoingMessage::type)
                 .containsExactly(
                         tuple(messageId(1), MessageType.OUT_FOR_DELIVERY),
@@ -571,7 +542,7 @@ class StopMessagesTriggersTest {
         messages.onDeliveryChanged(
                 messageId(1), TO_MOBILE, on(), RouteProgress.IN_PROGRESS, StopProgress.NOT_REACHED, TEN);
 
-        assertThat(messages.snapshot())
+        assertThat(everyMessageOf(messages))
                 .isEqualTo(expected(pendingMessage(
                         1,
                         MessageType.DELIVERY_CHANGED,
@@ -593,9 +564,7 @@ class StopMessagesTriggersTest {
                 m -> m.onDeliveryChanged(
                         messageId(1), TO_MOBILE, on(), RouteProgress.IN_PROGRESS, StopProgress.ARRIVED, TEN));
         assertNothingAdded(
-                aStopMessages()
-                        .with(plain(1, MessageType.DELIVERY_CHANGED, ACCEPTED))
-                        .build(),
+                aStopMessages().with(1, MessageType.DELIVERY_CHANGED, ACCEPTED).build(),
                 m -> m.onDeliveryChanged(
                         messageId(2), TO_MOBILE, on(), RouteProgress.FINISHED, StopProgress.NOT_REACHED, TEN));
     }
@@ -608,7 +577,7 @@ class StopMessagesTriggersTest {
 
         messages.onOutcome(messageId(1), TO_MOBILE, on(), new ReportedOutcome.Delivered(true), TEN);
 
-        assertThat(messages.snapshot())
+        assertThat(everyMessageOf(messages))
                 .isEqualTo(expected(pendingMessage(
                         1,
                         MessageType.DELIVERED,
@@ -630,7 +599,7 @@ class StopMessagesTriggersTest {
                 new ReportedOutcome.Delivered(false),
                 TEN);
 
-        assertThat(messages.snapshot())
+        assertThat(everyMessageOf(messages))
                 .isEqualTo(expected(pendingMessage(
                         1,
                         MessageType.DELIVERED,
@@ -647,7 +616,7 @@ class StopMessagesTriggersTest {
 
         messages.onOutcome(messageId(1), TO_MOBILE, on(), new ReportedOutcome.Failed(), TEN);
 
-        assertThat(messages.snapshot())
+        assertThat(everyMessageOf(messages))
                 .isEqualTo(expected(pendingMessage(
                         1,
                         MessageType.MISSED_YOU,
@@ -661,9 +630,9 @@ class StopMessagesTriggersTest {
     @Test
     void GivenAnOutcomeAlreadyMessaged_WhenAnotherOutcomeArrives_ThenNoSecondOutcomeMessageIsAdded() {
         StopMessages missed =
-                aStopMessages().with(plain(1, MessageType.MISSED_YOU, ACCEPTED)).build();
+                aStopMessages().with(1, MessageType.MISSED_YOU, ACCEPTED).build();
         StopMessages delivered =
-                aStopMessages().with(plain(1, MessageType.DELIVERED, ACCEPTED)).build();
+                aStopMessages().with(1, MessageType.DELIVERED, ACCEPTED).build();
 
         assertNothingAdded(
                 missed, m -> m.onOutcome(messageId(2), TO_MOBILE, on(), new ReportedOutcome.Delivered(false), TEN));
@@ -703,7 +672,7 @@ class StopMessagesTriggersTest {
         messages.onDeliveryChanged(
                 messageId(2), TO_OTHER_MOBILE, on(), RouteProgress.IN_PROGRESS, StopProgress.NOT_REACHED, at(1));
 
-        assertThat(messages.snapshot().messages())
+        assertThat(messages.messages())
                 .extracting(OutgoingMessage::id, OutgoingMessage::phone, OutgoingMessage::state)
                 .containsExactly(
                         tuple(messageId(1), MOBILE, new MessageState.Pending(TEN)),
@@ -712,24 +681,22 @@ class StopMessagesTriggersTest {
 
     @Test
     void GivenAMessageAcceptedForOnePhone_WhenALaterTriggerGivesAnother_ThenTheAcceptedMessageStillShowsItsOwnPhone() {
-        StopMessages messages =
-                aStopMessages().with(outForDelivery(1, ACCEPTED)).build();
+        StopMessages messages = aStopMessages().withOutForDelivery(1, ACCEPTED).build();
 
         messages.onOutcome(messageId(2), TO_OTHER_MOBILE, on(), new ReportedOutcome.Failed(), at(30));
 
-        assertThat(messages.snapshot().messages())
+        assertThat(messages.messages())
                 .extracting(OutgoingMessage::id, OutgoingMessage::phone)
                 .containsExactly(tuple(messageId(1), MOBILE), tuple(messageId(2), OTHER_MOBILE));
     }
 
     @Test
     void GivenAProjectionAddingTwoMessages_WhenItNamesAnotherPhoneThanTheArrivalSent_ThenBothGoToTheNamedPhone() {
-        StopMessages messages =
-                aStopMessages().with(outForDelivery(1, ACCEPTED)).build();
+        StopMessages messages = aStopMessages().withOutForDelivery(1, ACCEPTED).build();
 
         messages.onArrivalProjected(freshIds(2, 3), TO_OTHER_MOBILE, on(), inProgress(at(15)), TEN);
 
-        assertThat(messages.snapshot().messages())
+        assertThat(messages.messages())
                 .extracting(OutgoingMessage::type, OutgoingMessage::phone)
                 .containsExactly(
                         tuple(MessageType.OUT_FOR_DELIVERY, MOBILE),
@@ -739,8 +706,7 @@ class StopMessagesTriggersTest {
 
     @Test
     void GivenAMessageWithAnId_WhenATriggerReusesTheId_ThenItFailsAsABug() {
-        StopMessages messages =
-                aStopMessages().with(outForDelivery(1, ACCEPTED)).build();
+        StopMessages messages = aStopMessages().withOutForDelivery(1, ACCEPTED).build();
 
         assertThatThrownBy(() -> messages.onOutcome(messageId(1), TO_MOBILE, on(), new ReportedOutcome.Failed(), TEN))
                 .isInstanceOf(AssertionError.class);
@@ -749,7 +715,7 @@ class StopMessagesTriggersTest {
     @Test
     void GivenAPendingMessage_WhenMessagesAreTurnedOffAfterItsTrigger_ThenItIsStillClaimed() {
         StopMessages messages = aStopMessages()
-                .with(outForDelivery(1, new MessageState.Pending(TEN)))
+                .withOutForDelivery(1, new MessageState.Pending(TEN))
                 .build();
         SendingConditions off = conditions(Switch.OFF, Switch.OFF, PhoneConsent.MAY_BE_MESSAGED);
 
@@ -757,6 +723,6 @@ class StopMessagesTriggersTest {
 
         assertThat(messages.claim(messageId(1), new DailySendCap(0), PhoneConsent.MAY_BE_MESSAGED, at(2)))
                 .isEqualTo(StopMessages.Claim.CLAIMED);
-        assertThat(messages.snapshot().messages()).hasSize(1);
+        assertThat(messages.messages()).hasSize(1);
     }
 }

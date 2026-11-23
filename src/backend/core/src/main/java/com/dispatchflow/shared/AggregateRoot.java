@@ -16,9 +16,10 @@ import org.springframework.data.domain.DomainEvents;
 /**
  * The base of every aggregate root (DL §3.1, §3.6): it holds the {@link Version} the aggregate was
  * loaded at and the events its methods raised since. It holds no key: each root maps its own
- * private {@code UUID} key (ADR-126), the value of its typed ID, a constant for a singleton, and for
- * a root found by its date a UUID beside a date its table keeps unique. Until a lane maps its
- * aggregate, a root may still be found by a date or, for a singleton, by nothing.
+ * private {@code UUID} key (ADR-126): the value of its typed ID, another aggregate's ID it is keyed
+ * by, a constant for a singleton, or, for a root found by its date, a UUID beside a date its table
+ * keeps unique (ADR-127 decision 5). Only Hibernate rebuilds a stored aggregate, and each root's
+ * {@code @PostLoad} check refuses a damaged one.
  *
  * <p>It is mapped for JPA (ADR-126): every root inherits its {@code @Version}, which Hibernate
  * checks on every update. A never-saved aggregate has no version. Its first save stores 0, and
@@ -47,19 +48,11 @@ public abstract class AggregateRoot {
     @Transient
     private final List<DomainEvent> pendingEvents = new ArrayList<>();
 
-    /** Starts an aggregate that has never been saved, so it has no version yet. */
-    protected AggregateRoot() {}
-
     /**
-     * Sets the version a stored aggregate was loaded at, or none for one never saved. Only the
-     * factories and {@code restore} methods that still build through a snapshot call it; it goes
-     * with the last {@code restore} (ADR-126).
-     *
-     * @param stored the version this instance was loaded at, or null when it was never saved
+     * Starts an aggregate that has never been saved, so it has no version yet. A factory calls it
+     * for a creation, and Hibernate for a row it loads, before it sets the stored version.
      */
-    protected AggregateRoot(@Nullable Version stored) {
-        this.storedVersion = stored == null ? null : stored.value();
-    }
+    protected AggregateRoot() {}
 
     /**
      * The version this instance was loaded at, which the save checks and a view sends as its
