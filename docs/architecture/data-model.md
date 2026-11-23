@@ -743,6 +743,7 @@ write ([ADR-127][ADR-127], decision 1).
 | `orders` | `CustomerPersistenceIT`, `OrderPersistenceIT`, `ImportBatchPersistenceIT` |
 | `planning` | `SolveJobPersistenceIT`, `ProposalPersistenceIT`, `PlanningSettingsPersistenceIT`, `PlanPersistenceIT` (in `plan/`) |
 | `reporting` | `BaselinePersistenceIT` |
+| `shared` (the kernel's adapter) | `VersionedSaveIT` (the save helper, the kernel's values and instantiators), `ListPositionsIT` (every list table refuses a negative position, [ADR-128][ADR-128], decision 4) |
 
 The test helpers they share are in [code-structure.md](code-structure.md#srcbackendcore).
 

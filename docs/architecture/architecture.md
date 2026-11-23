@@ -71,10 +71,11 @@ Hibernate batch-fetches the collections a load reads, 200 roots at a time
 module's `*PersistenceIT` tests its adapters against PostgreSQL. No aggregate keeps a `restore`
 factory or a snapshot record. Three adapter methods still throw: `SolveJobRepository`'s two blanking
 methods (`UnsupportedOperationException("Built in M13")`, because nothing stores a job's input yet)
-and `AuditRecords.purgeExpired`, which waits for the database roles. `src/test` also holds one
-entity that has a table, `Ledger` with its child `LedgerEntry`, and the test-only migration
-`src/test/resources/db/fixture/V0_1__persistence_fixture.sql`, which only the version helper's tests
-run. The `@Entity` classes under `archfixture/` are deliberately wrong fixtures for the mapping
+and `AuditRecords.purgeExpired`, which waits for the database roles. `src/test` also holds two
+entities that have tables, `Ledger` and its child `LedgerEntry`, and the test-only migration
+`src/test/resources/db/fixture/V0_1__persistence_fixture.sql`. Flyway applies it in every
+integration-test context and under `just core-run`, and only the version helper's tests use its
+tables. The `@Entity` classes under `archfixture/` are deliberately wrong fixtures for the mapping
 rules, and no schema maps them. `optimizer`'s `solvers` folders hold only `.gitkeep`; its `domain`
 holds the domain for daily solves and re-optimizations
 ([ADR-098](../ADRs/ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) fixes its

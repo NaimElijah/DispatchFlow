@@ -17,11 +17,13 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
  * {@link MessagingSettingsRepository} against a real PostgreSQL (ADR-126, ADR-127): the one row of
- * the company's settings, its version, and the first save another Admin wins.
+ * the company's settings, its version, the first save another Admin wins, and the check that keeps
+ * it to one row.
  *
  * <p>There is one row for the whole database, and only this class writes it, so each test starts
  * with none.
@@ -124,6 +126,19 @@ class MessagingSettingsPersistenceIT {
 
         assertThat(transactions.inTransaction(() -> stored(repository.get().orElseThrow())))
                 .isEqualTo(new Stored(Version.of(0), Switch.OFF, Switch.OFF, MOBILE));
+    }
+
+    @Test
+    void GivenAnotherKey_WhenARowIsInsertedUnderIt_ThenTheDatabaseRefusesASecondSettingsRow() {
+        assertThatThrownBy(() -> jdbc.sql("""
+                                INSERT INTO messaging.messaging_settings
+                                    (id, version, messages, rating_question, dispatch_phone)
+                                VALUES (?, 0, 'OFF', 'OFF', '+97235551234')
+                                """)
+                        .param(UUID.fromString("0190a5e2-636f-7000-8000-000000000001"))
+                        .update())
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("messaging_settings_one_row");
     }
 
     /** What the test reads of loaded settings, through their getters. */
