@@ -49,15 +49,16 @@ today.
 creates the eight module schemas, and `V2` to `V9` add one module's tables each
 ([data-model.md](data-model.md)). The 20 aggregate roots are JPA entities: their
 domain classes carry the mapping, and only Hibernate rebuilds an aggregate, its `@PostLoad` check
-refusing a damaged row in place of the old `restore` factory
+refusing a damaged row
 ([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md), [ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md)). Each module has an
 `adapter/out/persistence` package. It holds the module's package-private Spring Data interfaces,
 the converters and instantiators of its values, and the adapters that implement its repository
-ports. 20 of them, one for each root, save it through `VersionedSave`, except that a session's save
-that changes only its contact times, and its revocation, write without a version check by design
-([ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md),
-decision 10). Four store a record by plain insert (`audit`'s audit records, `liveops`' kept
-positions, `messaging`'s SMS replies and opt-outs), and `reporting` keeps a baseline's outcome as a
+ports. 20 of them, one for each root, save it through `VersionedSave`, except that two of a
+session's saves write without a version check by design: one that changes only its contact times
+([ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md), decision 10), and its revocation
+([ADR-121](../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md), P20). Four store
+a record by insert (`audit`'s audit records, `liveops`' kept positions, and `messaging`'s opt-outs
+and its SMS replies, whose insert skips a reply already kept), and `reporting` keeps a baseline's outcome as a
 record row of its own, so five `@Immutable` `Stored…` entities keep records. The reads under a lock
 (`activeAdminsUnderLock`, both `capacityUnderLock`, `claimNext` and `capOn`) run only in the
 caller's transaction, and refuse a call outside one. `Plan`'s adapter sits in a `plan/` subpackage

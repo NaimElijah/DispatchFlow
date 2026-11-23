@@ -10,6 +10,10 @@ import java.lang.reflect.Field;
  *
  * <p>Hibernate writes the version field directly, so this does too, by reflection. It is the only
  * test code that reaches into a class's private state.
+ *
+ * <p>It models a versioned save, and nothing more: not a session's save that only kept or dropped
+ * contact times, which leaves the version where it was, and not a reload, which would also reset a
+ * root's {@code @Transient} state, such as a plan's pending revision.
  */
 public final class AsSaved {
 

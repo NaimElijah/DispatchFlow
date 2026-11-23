@@ -219,9 +219,10 @@ final class PersistenceRules {
 
     /**
      * No interface extends {@code CrudRepository}, {@code ListCrudRepository}, {@code JpaRepository}
-     * or {@code JpaSpecificationExecutor}: an adapter declares only {@code save} and the lookups its
-     * port needs, and no bulk update or delete passes by {@code @Version}, {@code @PostLoad} and the
-     * events.
+     * or {@code JpaSpecificationExecutor}, so no adapter inherits a bulk method that passes by {@code
+     * @Version}, {@code @PostLoad} and the events. It doesn't check the {@code @Modifying} queries an
+     * adapter declares, such as a session's revocation or a retention delete: each is its port's own,
+     * and review checks it against ADR-126.
      */
     static ArchRule noRepositoryOffersMoreThanItsPortNeeds(String root) {
         return classes()

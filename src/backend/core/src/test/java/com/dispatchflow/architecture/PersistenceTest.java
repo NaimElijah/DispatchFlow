@@ -8,9 +8,9 @@ import jakarta.persistence.MappedSuperclass;
 import org.junit.jupiter.api.Test;
 
 /**
- * The JPA mapping rules of ADR-126, checked against the production classes. Until a lane maps its
- * aggregate, the kernel's {@code AggregateRoot} and embeddable values are all the mapping there is,
- * and the guard below fails if those vanish, which would let the rules pass on nothing mapped.
+ * The JPA mapping rules of ADR-126, checked against the production classes. The guard below fails if
+ * the kernel's {@code AggregateRoot} and embeddable values stop being picked, which would let the
+ * rules pass on nothing mapped.
  */
 class PersistenceTest {
 

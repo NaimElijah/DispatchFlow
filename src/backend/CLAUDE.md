@@ -18,9 +18,10 @@ with its layout, rules and commands.
 - The validator, the objective, the travel-time factors and the re-optimization conventions exist
   once, in the optimizer's Python domain. `core` calls them through the contract and never applies
   a bucket factor: OSRM gives it base durations only ([DL §10.2], [TS §6.4]).
-- A solve works in seconds of the day in `Asia/Jerusalem`. The core converts with `ZonedDateTime`,
-  and the database keeps instants as `timestamptz` and local values as `date` and `time`
-  ([ADR-088], [TS §6.3]).
+- A solve works in seconds of the day in `Asia/Jerusalem`. The core converts with `ZonedDateTime`.
+  The database keeps instants as `timestamptz`, a local date and time as `timestamp(6)`, a date
+  and a time of day as `date` and `time`, and a solve's seconds as `bigint` beside a `date`
+  ([ADR-088], [TS §6.3]); its session runs in UTC.
 - Logs are structured JSON carrying the trace ID, and request bodies are never logged (NFR-19,
   NFR-20; the Observability rows of [TS §6] and [TS §7]).
 - The core calls the optimizer over plain synchronous HTTP, with a client timeout of the solve limit

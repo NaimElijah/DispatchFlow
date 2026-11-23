@@ -59,8 +59,10 @@ public interface StopMessagesRepository {
      *
      * <p>It takes the day's lock in the caller's transaction, held until that transaction ends, so
      * the sender's claim and {@link #countAnswer} on the same day run one at a time, and never both
-     * take the cap's last place. It is refused when no transaction is open, because a lock taken and
-     * released within the call would guard nothing.
+     * take the cap's last place. It is refused when no transaction is open, because a lock taken
+     * and released within the call would guard nothing. It writes what the transaction holds
+     * unwritten before it locks, so called between a change and its save it would write the change
+     * there, and the save would then fail.
      *
      * @param day the day, in {@code Asia/Jerusalem}
      * @return the cap as it stands
@@ -74,7 +76,9 @@ public interface StopMessagesRepository {
      * {@link #capOn}, which the sender's claim reads under, so the check and the count are one
      * atomic step. An answer keeps no state of its own and belongs to no stop, so this records only
      * that it was sent that day, for {@link #capOn} to count; counting the same answer twice
-     * changes nothing, and answers as the first count did.
+     * changes nothing, and answers as the first count did. It writes what the transaction holds
+     * unwritten before it locks, so called between a change and its save it would write the change
+     * there, and the save would then fail.
      *
      * @param answer the answer's own ID, the reference the provider is given
      * @param day the day it is sent, in {@code Asia/Jerusalem}

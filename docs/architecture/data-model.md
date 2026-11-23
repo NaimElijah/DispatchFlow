@@ -87,19 +87,21 @@ Every table is one of four kinds, and its kind decides its key.
   is `DEFERRABLE INITIALLY DEFERRED`, because Hibernate rewrites the indexes row by row. Nothing in
   the schema keeps the positions contiguous, and Hibernate loads a missing one as a `null` element,
   so every root's load check refuses a gap first, through the kernel's `StoredLists`.
-- **Instants** are `timestamptz`. An Israel-local date and time (`IsraelDateTime`) is
-  `timestamp(6)` with no zone, a date is `date`, and a time of day is `time`
-  ([ADR-088][ADR-088]).
+- **Instants** are `timestamptz`, kept to the microsecond, so an instant the domain compares after
+  a load is cut to the microsecond before it is stored: the `Clock` port's `now()` and
+  `CorrectedTime`'s device times are. An Israel-local date and time (`IsraelDateTime`) is
+  `timestamp(6)` with no zone, a date is `date`, and a time of day is `time`, and the session runs
+  in UTC ([ADR-088][ADR-088]).
 - **Weights and volumes** are `numeric(8, 2)` kilograms and `numeric(9, 2)` litres
   ([ADR-061][ADR-061]).
-- **Durations.** A bare `java.time.Duration` is `bigint` nanoseconds, through the kernel's
+- **Durations.** A bare `java.time.Duration` is `bigint` nanoseconds, through the shared adapter's
   `DurationConverter`, so every module stores one the same way and exactly. `planning` does: a leg's
   travel time (`leg_in_travel`, `leg_to_end_travel`), a late stop's `late`, a violation's
   `exceeded_by` and the fixed cost per vehicle. A solve limit is nanoseconds too, through its own
   converter. A service time is whole seconds in a `bigint` (`default_service_time`,
   `service_time_seconds`), and `reporting.baseline.driver_hours` is `bigint` nanoseconds through its
-  own converter, so that a fraction of a second is kept ([ADR-109][ADR-109]). A time of day inside
-  a plan is `bigint` seconds (`*_seconds`) beside a `date`.
+  own converter, so that a fraction of a second is kept ([ADR-109][ADR-109]). A time of day inside a
+  plan is `bigint` seconds (`*_seconds`) beside a `date`.
 - **Personal data** is nullable where retention anonymizes a row in place (`user_account`, `driver`,
   `customer`, `customer_order`). In each, a `CHECK` keeps every column that anonymizing clears null
   in an anonymized row, and the load check enforces it too.
