@@ -12,8 +12,9 @@ import java.util.Optional;
 
 /**
  * Where solve jobs are kept, the {@code solve_job} queue, with each job's input, result and failure
- * (DL §3.6, §9.7, ADR-051, ADR-052). The persistence adapter loads a job through {@code
- * SolveJob.restore}, and stores the events it raised with the change (ADR-064).
+ * (DL §3.6, §9.7, ADR-051, ADR-052). The persistence adapter loads a job whole, which its
+ * {@code @PostLoad} check checks (ADR-126), and stores the events it raised with the change
+ * (ADR-064).
  *
  * <p>The queue is built in M0; in full in M4. M0 builds the daily lane's queue, and the roadmap's
  * M4 builds "the {@code solve_job} queue, one worker per lane" (ADR-051).

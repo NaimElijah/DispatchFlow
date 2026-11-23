@@ -240,7 +240,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); out
   <div class="note">
     <svg viewBox="0 0 36 52" aria-hidden="true"><path d="M18 50V6M8 16l10-10 10 10" fill="none" stroke="var(--db)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
     <div>
-      <p><b>The database sits at the bottom of the picture, but it does not sit under the domain.</b> Every dependency points toward the domain. The persistence adapters depend upward: they implement the application layer's <code>port/out</code> interfaces and rebuild aggregates from rows. The domain never imports Spring, jOOQ or SQL (ADR-001).</p>
+      <p><b>The database sits at the bottom of the picture, but it does not sit under the domain.</b> Every dependency points toward the domain. The persistence adapters depend upward: they implement the application layer's <code>port/out</code> interfaces with Spring Data repositories over the domain's own mapping, and Hibernate rebuilds aggregates from rows. The domain imports no Spring, Hibernate or SQL call, only the persistence annotations that ADR-126 allows (ADR-001).</p>
       <p>The ArchUnit tests in <code>src/backend/core/src/test/java/com/dispatchflow/architecture/</code> enforce the domain's purity and the application layer's imports.</p>
     </div>
   </div>
@@ -270,7 +270,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); out
   <main class="stack" id="stack"></main>
 
   <footer>
-    <span>Generated from the source at commit <code>3fb2a01</code> on 19 November 2026. The names, kinds and summaries come from the code and its Javadoc. The subpackages that ADR-125 split on 22 November 2026 were updated by hand. The planned adapters come from <code>docs/architecture/tech_stack.md</code> §6.3 and §6.4, and the append-only records from the domain document's §3.2.</span>
+    <span>Generated from the source at commit <code>3fb2a01</code> on 19 November 2026. The names, kinds and summaries come from the code and its Javadoc. The subpackages that ADR-125 split on 22 November 2026 were updated by hand. On 23 November 2026 the wording about the persistence adapters was changed by hand from jOOQ to JPA (ADR-126); the shared persistence adapter in <code>shared/adapter/out/persistence</code>, which is built, is not drawn. The planned adapters come from <code>docs/architecture/tech_stack.md</code> §6.3 and §6.4, and the append-only records from the domain document's §3.2.</span>
     <span>This page decides nothing. Where it differs from the code, the domain document, <code>tech_stack.md</code> or an ADR, they win.</span>
     <span>The optimizer (<code>src/backend/optimizer</code>, Python) has its own domain, application and adapter layers and is not drawn here.</span>
   </footer>
@@ -343,7 +343,7 @@ const BANDS = [
   },
   {
     id: "db", title: "Persistence and outbound adapters", path: "<context>/adapter/out/…", status: ["off", "Not built"],
-    desc: "Secondary adapters will implement the port/out interfaces above. The database lane holds the repositories, the read views and the append-only records of DL §3.2, which jOOQ adapters with hand-written mappers implement on PostgreSQL 18, one schema per module (ADR-041). The next lane holds the ports tech_stack.md §6.4 pairs with an adapter, and the last lane every other port, which the design documents don't pair with an adapter by name. Milestone M0 adds Flyway V1 and jOOQ code generation.",
+    desc: "Secondary adapters will implement the port/out interfaces above. The database lane holds the repositories, the read views and the append-only records of DL §3.2, which Spring Data JPA repositories over the domain's own mapping implement on PostgreSQL 18, one schema per module (ADR-041, ADR-126). The next lane holds the ports tech_stack.md §6.4 pairs with an adapter, and the last lane every other port, which the design documents don't pair with an adapter by name. Milestone M0 adds Flyway V1 and the first JPA repository.",
     render: renderDb,
   },
 ];
@@ -467,7 +467,7 @@ function renderDb(band) {
     const ports = DATA.filter(r => r.c === c.id && isDbPort(r));
     if (ports.length) dbBody.append(group(`db:db:${c.id}`, c.name, c.id, ports, () => true, { planned: true, subOf: () => "" }));
   }
-  dbBody.append(el("p", { class: "foot", text: "Each dashed chip is a port that a jOOQ adapter will implement: one repository per aggregate root, each module's read views, and the append-only records. PostgreSQL 18 holds one schema per module, migrated by Flyway from src/main/resources/db/migration, which holds only a .gitkeep today." }));
+  dbBody.append(el("p", { class: "foot", text: "Each dashed chip is a port that a Spring Data JPA adapter will implement: one repository per aggregate root, each module's read views, and the append-only records. PostgreSQL 18 holds one schema per module, migrated by Flyway from src/main/resources/db/migration, which holds only a .gitkeep today." }));
 
   const rows = OUTBOUND.map(row => {
     const ports = row.ports.flatMap(n => DATA.filter(r => r.n === n && (r.l === "port" || (r.c === "shared" && r.l === "application"))));
@@ -500,7 +500,7 @@ function renderDb(band) {
   }
   if (!otherBody.children.length) { otherBody.classList.add("empty-lane"); otherBody.textContent = "Every port of this context has a planned adapter above."; }
   return [
-    laneShell(band, { label: "database", hint: "jOOQ repositories, read views and the append-only records of DL §3.2" }, dbBody),
+    laneShell(band, { label: "database", hint: "JPA repositories, read views and the append-only records of DL §3.2" }, dbBody),
     laneShell(band, { label: "outside services", hint: "Ports that tech_stack.md §6.4 pairs with an adapter" }, outBody),
     laneShell(band, { label: "other ports", hint: "Ports the design documents don't pair with an adapter by name" }, otherBody),
   ];

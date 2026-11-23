@@ -9,7 +9,7 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
 - `src/main/java/com/dispatchflow/` holds `DispatchFlowApplication`, `web/` (the error handler that
   belongs to no context), and:
   - `shared/`, the shared kernel: typed IDs, shared values with their errors (`Attempt` is one,
-    [ADR-111]) and building blocks ([ADR-097], [ADR-106]). Never add a type holding one context's rule.
+    [ADR-111]) and building blocks ([ADR-097], [ADR-106]). Add no type holding one context's rule.
   - `shared/application/`, the application ports every module uses: `Clock`, `IdGenerator`,
     `ProcessedEvents`, `NotFound` and `StaleVersion` ([ADR-120]), a package of its own under the
     kernel's purity rules: no Spring, but `@NamedInterface` on its `package-info` ([ADR-121]).
@@ -50,8 +50,9 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
     `Locale`, and `formatted` and `DateTimeFormatter.ofLocalized*` are never used.
   - They never create an `IllegalArgumentException` or an `IllegalStateException`, or a subclass of
     either. They throw a `RuleViolation` with the module's named error, or `StoredStateInvalid`.
-  - Only persistence adapters call an aggregate's `restore`, or the `readUnderLock` factory of a
-    locked snapshot. Only the optimizer adapter makes `ValidationReport` or `Evaluation` ([DL §13]).
+  - Only persistence adapters call an aggregate's `restore`, which its lane replaces with a
+    `@PostLoad` check when it maps it ([ADR-126]), or a locked snapshot's `readUnderLock`. Only the
+    optimizer adapter makes `ValidationReport` or `Evaluation` ([DL §13]).
 - `DomainShapeRules` checks the shape. What goes against Java's defaults:
   - The constructors of an aggregate root, a locked snapshot, `ValidationReport`, `Evaluation` and
     `ValidatedSolution` are private. Every interface that extends `DomainError` is sealed, and no
@@ -169,8 +170,7 @@ Run `just` recipes from the repository root, and `mvnw` from this folder (`.\mvn
 | `./mvnw -Dit.test=FooIT verify` | One integration test class, after the unit tests and the format check |
 
 - Spotless checks in `validate`, so any build fails on an unformatted file. Run `just core-format`.
-- `mvnw` must stay executable in git. When adding it again, use
-  `git add --chmod=+x src/backend/core/mvnw`, or CI fails with "permission denied".
+- Keep `mvnw` executable in git (`git add --chmod=+x mvnw`), or CI fails with "permission denied".
 
 [ADR-040]: ../../../docs/ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md
 [ADR-041]: ../../../docs/ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md

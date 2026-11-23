@@ -5,8 +5,8 @@ import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * Where the company's one set of planning settings is kept (DL §3.6, §4.4, FR-183). The persistence
- * adapter loads it through {@code PlanningSettings.restore}, and answers the starting values until an
- * Admin first saves a change (ADR-101).
+ * adapter loads it whole, which its {@code @PostLoad} check checks (ADR-126), and answers the
+ * starting values until an Admin first saves a change (ADR-101).
  *
  * <p>Built in M0 and M4, method by method.
  */

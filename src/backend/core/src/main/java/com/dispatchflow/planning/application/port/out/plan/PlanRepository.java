@@ -11,9 +11,9 @@ import java.util.Optional;
 /**
  * Where plans are kept, whole: a plan with its routes, stops, drops, pins, violations and journal,
  * never its past revisions (DL §3.6, §4.4 "What {@code Plan} loads", ADR-059). The persistence
- * adapter loads a plan through {@code Plan.restore}, appends its pending revision as rows when it
- * saves it, and stores the events it raised with the change, in the same transaction (DL §3.6,
- * ADR-064). A partial unique index on the date backs one uncancelled plan per date (BR-34).
+ * adapter loads a plan whole, which its {@code @PostLoad} check checks (ADR-126), appends its
+ * pending revision as rows when it saves it, and stores the events it raised with the change, in
+ * the same transaction (DL §3.6, ADR-064). A partial unique index on the date backs one uncancelled plan per date (BR-34).
  *
  * <p>Built in M0, M5, M8 and M9, method by method.
  */

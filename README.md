@@ -165,9 +165,8 @@ not in the code yet).
 
 This table is what the code uses today. [tech_stack.md](docs/architecture/tech_stack.md) decides
 the stack for the Alpha and after, and ADR-038 to ADR-047 (Accepted, in the
-[ADR index](docs/ADRs/README.md)) record where it departs from today's: jOOQ in place of
-Spring Data JPA, Spring Modulith, pnpm and mise. None of it is in the tree yet; each change lands
-with the milestone that needs it. ADR-038's Java 25 is already in the tree, and
+[ADR index](docs/ADRs/README.md)) record where it departs from today's: Spring Modulith, pnpm
+and mise. None of it is in the tree yet; each change lands with the milestone that needs it. ADR-038's Java 25 is already in the tree, and
 [ADR-123](docs/ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md)
 keeps the layout and renames three components, which the tree already uses.
 
@@ -228,8 +227,8 @@ comments. The rules apply to people and to coding assistants alike.
 
 | Layer | Covers | Command |
 |---|---|---|
-| Core unit (`*Test`) | Domain and use cases, no I/O. Today: the shared kernel's values, the eight modules' domains, the ArchUnit rules (purity, shape, package structure and the application layer's shape) and the web error handler; every use case is declared and none is built, so none has a behaviour test yet | `just core-check` |
-| Core integration (`*IT`) | Against a real PostgreSQL in a container | `just core-check` |
+| Core unit (`*Test`) | Domain and use cases, no I/O. Today: the shared kernel's values, the eight modules' domains, the ArchUnit rules (purity, shape, package structure, the application layer's shape and the JPA mapping) and the web error handler; every use case is declared and none is built, so none has a behaviour test yet | `just core-check` |
+| Core integration (`*IT`) | Against a real PostgreSQL in a container. Today: the application starts, and the shared version helper saves a test-only aggregate | `just core-check` |
 | Optimizer | The domain (the validator's crafted-violation catalogue, Hypothesis properties, Solomon best-known solutions accepted), the HTTP adapter, the dependency boundary and import-linter | `just optimizer-check` |
 | Research | Its environment: the optimizer and PyVRP are installed | `just research-check` |
 | Web app | Components in jsdom (Vitest + Testing Library) | `just web-check` |
@@ -264,8 +263,10 @@ justfile               every command, the same locally and in CI
 
 **Domain-driven design, built as ports and adapters**
 ([ADR-001](docs/ADRs/ADR-001-domain-driven-design-with-hexagonal-architecture.md)): business
-rules import no framework, database or network type, so they are tested without any of them.
-Cost: mapping between domain objects, database entities and API types.
+rules import no framework, database or network call, so they are tested without any of them; the one
+exception is the persistence annotations that [ADR-126](docs/ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)
+allows on the domain classes, in place of a second set of entity classes. Cost: mapping between domain
+objects and API types, and a domain that carries annotations.
 
 **A Java core and a separate Python optimization service**
 ([ADR-002](docs/ADRs/ADR-002-core-backend-and-separate-optimization-service.md)): the solvers run

@@ -1,6 +1,8 @@
 # DispatchFlow — Domain layer visual guide
 
-**Status:** Describes the code at commit `6e3028f` on `dev`, 15 November 2026.
+**Status:** Describes the code at commit `6e3028f` on `dev`, 15 November 2026. The shared kernel's
+`AggregateRoot` and `Version`, the `restore` and `snapshot()` pattern and the save sequences were brought up
+to date on 23 November 2026 for [ADR-126](../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md), and the roots' line counts with them.
 
 This guide is a map of the domain layer **as it is built today**, for a person learning the repository
 before building a milestone. After reading it you should be able to find any aggregate, value, event or
@@ -174,25 +176,25 @@ There are 20 roots in Java (`extends AggregateRoot`). Audit has none, and the Py
 | Aggregate (module) | Key | Creation factory | Lines |
 |---|---|---|---|
 | `UserAccount` (Access) | `AccountId` | `open`, `openFirstAdmin` | 763 |
-| `Session` (Access) | `SessionId` | `open` | 573 |
+| `Session` (Access) | `SessionId` | `open` | 574 |
 | `CompanyProfile` (Access) | none: one per company | `create` | 153 |
-| `FleetRegister` (Fleet) | none: one per company | `empty` | 368 |
-| `Driver` (Fleet) | `AccountId`, the driver's account | `register` | 273 |
-| `DayRoster` (Fleet) | `DeliveryDate` | `open` | 427 |
-| `Customer` (Orders) | `CustomerId` | `register` | 447 |
-| `Order` (Orders) | `OrderId` | `place` | 547 |
-| `ImportBatch` (Orders) | `ImportBatchId` | `preview` | 457 |
-| `Plan` (Planning) | `PlanId` | `open` | 2,113 |
+| `FleetRegister` (Fleet) | none: one per company | `empty` | 369 |
+| `Driver` (Fleet) | `AccountId`, the driver's account | `register` | 272 |
+| `DayRoster` (Fleet) | `DeliveryDate` | `open` | 428 |
+| `Customer` (Orders) | `CustomerId` | `register` | 446 |
+| `Order` (Orders) | `OrderId` | `place` | 546 |
+| `ImportBatch` (Orders) | `ImportBatchId` | `preview` | 456 |
+| `Plan` (Planning) | `PlanId` | `open` | 2,112 |
 | `SolveJob` (Planning) | `JobId` | `queue`, package-private | 467 |
-| `ReoptimizationProposal` (Planning) | `ProposalId` | `create`, package-private | 178 |
-| `PlanningSettings` (Planning) | none: one per company | `startingValues` | 111 |
-| `Delivery` (Live Operations) | `StopId` | `firstFact` | 737 |
-| `RouteRun` (Live Operations) | `RouteId` | `start` | 341 |
-| `Alert` (Live Operations) | `AlertId` | `raise` | 121 |
-| `StopMessages` (Messaging) | `StopId` | `open` | 642 |
-| `RatingRequest` (Messaging) | `RatingRequestId` | `open` | 378 |
-| `MessagingSettings` (Messaging) | none: one per company | `create` | 104 |
-| `Baseline` (Reporting) | `PlanId` | `compute` | 238 |
+| `ReoptimizationProposal` (Planning) | `ProposalId` | `create`, package-private | 177 |
+| `PlanningSettings` (Planning) | none: one per company | `startingValues` | 110 |
+| `Delivery` (Live Operations) | `StopId` | `firstFact` | 740 |
+| `RouteRun` (Live Operations) | `RouteId` | `start` | 340 |
+| `Alert` (Live Operations) | `AlertId` | `raise` | 120 |
+| `StopMessages` (Messaging) | `StopId` | `open` | 641 |
+| `RatingRequest` (Messaging) | `RatingRequestId` | `open` | 377 |
+| `MessagingSettings` (Messaging) | none: one per company | `create` | 103 |
+| `Baseline` (Reporting) | `PlanId` | `compute` | 239 |
 
 Lines are the line counts of the root's file at this commit. Where a root lives: `core/<module>/domain/`
 plus the aggregate's package from the table above (`Plan.java` is in `core/planning/domain/plan/`).
@@ -204,7 +206,9 @@ plus the aggregate's package from the table above (`Plan.java` is in `core/plann
 `core/shared/` holds what every module's domain is made of. DL [§2.3](domain_layer_design.md#23-rules-between-contexts)
 rule 5 and [ADR-097](../../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md) set what
 may go in it: building blocks, typed IDs, ten shared values and one text rule, and nothing that holds one
-context's rule. It is 38 files; its tests are the 21 files in `core-test/shared/`.
+context's rule. It is 38 files; its tests are the 21 files in `core-test/shared/`. Beside it, `core/shared/adapter/out/persistence/`
+holds the persistence adapter every module shares ([ADR-126](../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)): the converters and instantiators that store the
+kernel's values, and `VersionedSave`. That package is an adapter, not part of the kernel.
 
 ### The building blocks
 
@@ -213,17 +217,16 @@ classDiagram
   direction LR
   class AggregateRoot {
     <<abstract>>
-    Version version
+    Long storedVersion
     List pendingEvents
     version() Version
     raise(type, aggregateId, build) E
     pendingEvents() List
-    pullEvents() List
+    savedVersion() Version
   }
   class Version {
     <<value>>
     long value
-    NEW
     of(value)
     next() Version
   }
@@ -295,13 +298,19 @@ classDiagram
 
 How the pieces work together:
 
-- **`AggregateRoot`** (`core/shared/AggregateRoot.java`, 93 lines) holds the `Version` the aggregate was
-  loaded at and the events its methods raised. `raise` builds the event's `EventId` from the type's
-  simple name, the aggregate's UUID, `version().next()` (the version this change will be saved at) and
-  the event's position in the change. It throws `AssertionError` when the event is not exactly the
-  type given or does not carry that ID, because that is a bug and not a refusal. `pullEvents` hands the
-  recorded events to the use case's save and forgets them (DL
-  [§3.6](domain_layer_design.md#36-repositories)).
+- **`AggregateRoot`** (`core/shared/AggregateRoot.java`, 143 lines) is a `@MappedSuperclass` ([ADR-126](../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)). It holds
+  the version the aggregate was loaded at and the events its methods raised. A never-saved aggregate has no
+  version: `version()` throws `AssertionError` before its first save, and the first save stores 0. The
+  field is `storedVersion`, a nullable `Long` that `@Version` maps to the `version` column; it has another
+  name because Spring Data reads the version attribute by name to tell a new aggregate, and for a field named
+  `version` it would call `version()`. `raise` builds the event's `EventId` from the type's simple name, the
+  aggregate's UUID, the version this change will be saved at (0 for a never-saved aggregate, else the loaded
+  version plus 1) and the event's position in the change. It throws `AssertionError` when the event is not
+  exactly the type given or does not carry that ID, because that is a bug and not a refusal. Spring Data
+  publishes the recorded events when the port's `save` runs, through the package-private `@DomainEvents`
+  method `domainEvents()`, then calls `clearEvents()` (DL [§3.6](domain_layer_design.md#36-repositories)).
+  The `AggregateRoot(Version)` constructor and `savedVersion()` are transitional: the snapshots still carry
+  a version until each lane maps its aggregate, and both go with the last `restore`.
 - **`EventId`** has a text form, `<eventType>:<aggregateId>:<version>:<ordinal>`, which `toText` writes
   and `parse` reads. Optimistic locking lets one change commit per aggregate and version, so the four
   parts are unique without a random part.
@@ -368,8 +377,8 @@ DL [§3.3](domain_layer_design.md#33-value-objects) lists what each checks and t
 ## 4. Anatomy of one aggregate
 
 Most of the 20 roots follow one pattern. The clearest small example with an event is `Driver`
-(`core/fleet/domain/driver/Driver.java`, 273 lines). `Alert` (`core/liveops/domain/alert/Alert.java`,
-121 lines) is a small root that raises none.
+(`core/fleet/domain/driver/Driver.java`, 272 lines). `Alert` (`core/liveops/domain/alert/Alert.java`,
+120 lines) is a small root that raises none.
 
 ```mermaid
 classDiagram
@@ -439,16 +448,19 @@ The pattern, with where `Driver` shows each part:
    `private Driver(DriverSnapshot stored)`. A few roots take their fields instead (`UserAccount`,
    `Session`, `CompanyProfile`, `FleetRegister`, `DayRoster`). Either way, nothing outside the class can
    build an instance except through a static factory.
-2. **A creation factory checks every invariant of a new aggregate** and returns it at `Version.NEW`. Its
+2. **A creation factory checks every invariant of a new aggregate** and returns it with no version yet. Its
    name says what the business does: `register` here, `place`, `open`, `start`, `raise`, `compute` in the
    table of roots in §2. The new ID and `now` are parameters, never made inside (DL
    [§3.5](domain_layer_design.md#35-factories)). `Driver.register` also takes the account's `Standing`,
    a fact the driver can't see itself.
-3. **`restore(snapshot)` is for persistence only.** It rebuilds a stored aggregate and checks its
-   structure again, throwing `StoredStateInvalid` for a damaged row (`Driver.restore` checks that a
+3. **`restore(snapshot)` is for persistence only, and goes.** It rebuilds a stored aggregate and checks
+   its structure again, throwing `StoredStateInvalid` for a damaged row (`Driver.restore` checks that a
    driver has a name and phone exactly until anonymized). Only a persistence adapter may call it; an
-   ArchUnit rule enforces that.
-4. **`snapshot()` is the stored form**, including `version()`. The repository stores it.
+   ArchUnit rule enforces that. [ADR-126](../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) has Hibernate rebuild an aggregate and a `@PostLoad` check on
+   its root run those same checks, so `restore` stays only until the lane that maps this aggregate
+   removes it. No aggregate is mapped yet.
+4. **`snapshot()` is the stored form**, including its version, which is null for a never-saved aggregate.
+   It goes with `restore`.
 5. **Business methods are named for what the business does** and are called once per command (`retire`,
    not `setStatus`). Each checks the current state first, then throws `new RuleViolation(new FleetError.X(...))`,
    then changes state, then raises events. A refused call changes nothing and records nothing.
@@ -472,8 +484,8 @@ sequenceDiagram
   UC->>Use: the plans that use the driver
   Use-->>UC: PlanUses
   UC->>Repo: get(driver)
-  Repo-->>UC: Driver, rebuilt with restore
-  UC->>UC: driver.version() equals expected, else StaleVersion
+  Repo-->>UC: Driver, loaded whole
+  UC->>UC: StaleVersion.requireCurrent(Driver, id, driver.version(), expected)
   UC->>D: retire(uses, today, now)
   D->>D: requireActive
   alt an uncancelled plan uses the driver
@@ -481,12 +493,10 @@ sequenceDiagram
   else the driver is free
     D->>D: status = Retired(now)
     D->>Root: raise(DriverRetired.class, ...)
-    Root-->>D: event with EventId(DriverRetired, uuid, version.next(), 0)
+    Root-->>D: event with EventId(DriverRetired, uuid, loaded version + 1, 0)
     D-->>UC: returns
     UC->>Repo: save(driver)
-    Repo->>D: pullEvents()
-    D-->>Repo: DriverRetired
-    Note over UC,Repo: The save checks the version again and publishes the event in the same transaction (DL 3.6)
+    Note over UC,Repo: The adapter saves through VersionedSave: Spring Data publishes DriverRetired in the same transaction, the flush checks the version again, and a save that left it unmoved forces one increment (DL 3.6)
   end
 ```
 
@@ -591,7 +601,7 @@ classDiagram
   `requireFreshStepUp` refuses an Admin-only operation once `STEP_UP_LIFETIME` (5 minutes) has passed
   since the password was last given. An Admin-only use case calls it rather than checking by itself.
 - **Events:** `SessionsRevoked` and `AccountAnonymized`, both raised by `UserAccount`.
-- **Start reading:** `CompanyProfile.java` (153 lines) for the pattern, then `Session.java` (573, the
+- **Start reading:** `CompanyProfile.java` (153 lines) for the pattern, then `Session.java` (574, the
   refresh-token chain), then `UserAccount.java` (763). Tests: `core-test/access/domain/account/`
   (`UserAccountTest`, `UserAccountLifecycleTest`, `CapabilityMatrixTest`), `session/` (`SessionTest`,
   `SessionLifecycleTest`) and `companyprofile/`.
@@ -992,7 +1002,7 @@ records), `DroppedOrder`, `ExcludedVehicle` and `ExclusionCause`, which `solutio
   from `Plan`; `SolveSucceeded`, `SolveFailed` from `SolveJob`. The package also holds the enums these
   events use: `Lane`, `RevisionCause`, `SolveFailureReason`, `WithdrawalCause`.
 - **Start reading:** `SolveJob.java` (467) and `ReoptimizationProposal.java` (178) first. Then `Plan.java`
-  (2,113 lines) by section: its source has banner comments (`// ---- Solving ----`), and its tests are split
+  (2,112 lines) by section: its source has banner comments (`// ---- Solving ----`), and its tests are split
   by topic, so read a section beside its test. Tests: `core-test/planning/domain/plan/`
   (`PlanLifecycleTest`, `PlanSolvingTest`, `PlanEditingTest`, `PlanPublishingTest`, `PlanPublishedTest`,
   `PlanRoutesAndFactsTest`, `PlanSequenceTest`, `SolveJobTest`, `ReoptimizationProposalTest`,
@@ -1740,7 +1750,7 @@ sequenceDiagram
   Note over UC,J: One transaction: one existing aggregate changes
   UC->>PR: get(plan)
   PR-->>UC: Plan, loaded whole
-  UC->>UC: plan.version() equals expected, else StaleVersion
+  UC->>UC: StaleVersion.requireCurrent(Plan, id, plan.version(), expected)
   UC->>JR: capacityUnderLock(Lane.DAILY)
   JR-->>UC: LaneCapacity
   UC->>P: requestSolve(jobId, solver, limit, seed, capacity, today, now)
@@ -1748,7 +1758,7 @@ sequenceDiagram
   J-->>P: SolveJob, queued
   P->>P: status = Solving(SolveBasis)
   P-->>UC: the new SolveJob
-  UC->>PR: save(plan), which checks the version again
+  UC->>PR: save(plan), through VersionedSave, which checks the version again
   UC->>JR: add(job)
   Note over UC,JR: The audit record is written in this transaction
   UC-->>Web: JobId
@@ -1780,8 +1790,8 @@ Reading the diagram:
 - **Who supplies what.** `now` and `today` come from the `Clock` port, the job's ID from `IdGenerator`, the
   seed from `Seeds`. The domain makes none of them (DL §3.9).
 - **The version check.** `expected` is the plan version the dispatcher saw. The use case compares it with
-  the loaded plan's version and throws `StaleVersion` when they differ; `save` then catches only a change
-  made between the load and the save. Either way, only the optimizer call is lost (DL §6.3).
+  the loaded plan's version through `StaleVersion.requireCurrent` and throws `StaleVersion` when they differ;
+  `save`, through `VersionedSave`, then catches only a change made between the load and the save. Either way, only the optimizer call is lost (DL §6.3).
 - **The worker saves each phase.** `claim` and `searchStarted` are each saved in their own transaction,
   so `SolveJob.expireIfOverdue` judges the job by its current phase's deadline (DL
   [§9.2](domain_layer_design.md#92-solvejob)). A daily result is checked against the plan's locks
@@ -1869,4 +1879,4 @@ component `CLAUDE.md` files).
 | 13. What is next | `core/planning/application/service/plan/RequestSolve.java`, then `grep -rn "Built in M0" src/backend` | none: bodies throw |
 
 After step 4 you can read any other aggregate with the §4 pattern in hand. Step 9 is the longest: `Plan.java`
-is 2,113 lines, so read it by the banner comments and keep the matching test open.
+is 2,112 lines, so read it by the banner comments and keep the matching test open.

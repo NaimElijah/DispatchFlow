@@ -7,8 +7,8 @@ import java.util.Optional;
 
 /**
  * Where re-optimization proposals are kept: written once by the job that computed them, and changed
- * only to be declined (DL §3.6, §4.4, FR-36, BR-26). The persistence adapter loads one through {@code
- * ReoptimizationProposal.restore}.
+ * only to be declined (DL §3.6, §4.4, FR-36, BR-26). The persistence adapter loads one whole, which
+ * its {@code @PostLoad} check checks (ADR-126).
  *
  * <p>Built in M9.
  */

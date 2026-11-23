@@ -97,6 +97,10 @@ src/backend/core/
                                    errors, and the building blocks every module's domain uses
       application/                 the ports every module uses: Clock, IdGenerator,
                                    ProcessedEvents, NotFound, StaleVersion (declared)
+      adapter/out/persistence/     the persistence adapter every module shares: VersionedSave, the
+                                   converters and instantiators that store the kernel's values,
+                                   and id/ with the 14 typed-ID converters; an adapter, not the
+                                   kernel
     access/                        a bounded context's module: domain/ (account, session,
                                    companyprofile), events/ and application/ (declared) so far
     fleet/                         domain/ (register, roster, driver), events/ and application/
@@ -113,17 +117,20 @@ src/backend/core/
       package-info.java
   src/main/resources/
     application.properties
+    application-schema-draft.properties  the profile `just core-schema-draft` runs
     db/migration/                  Flyway migrations: none yet
   src/test/java/com/dispatchflow/
     shared/                        the kernel's tests, and DomainAssertions, the refusal helper
-                                   every module's domain tests use
-    architecture/                  the domain purity, shape and package rules and the application
-                                   rules (ArchUnit), and the error-code, event-name and
-                                   refusal-test checks
+                                   every module's domain tests use; adapter/out/persistence/ holds
+                                   the shared adapter's tests and the test-only entity Ledger
+    architecture/                  the domain purity, shape and package rules, the application
+                                   rules and the JPA mapping rules (ArchUnit), and the error-code,
+                                   event-name and refusal-test checks
     archfixture/                   deliberately wrong classes that each rule must flag, one
                                    subpackage per rule under alpha/domain/ (split by kind above
-                                   20 files), epsilon/ for the package rules, and zeta/ for the
-                                   application rules
+                                   20 files), epsilon/ for the package rules, zeta/ for the
+                                   application rules, and entity/ and mapping/ under alpha/domain/
+                                   and adapter/out/persistence/ for the mapping rules
     access/                        that module's domain tests, in the package of the type each tests
     fleet/                         that module's domain tests
     orders/                        that module's domain tests
@@ -137,6 +144,12 @@ src/backend/core/
     DispatchFlowApplicationIT.java       the health probe answers UP against PostgreSQL
     TestDispatchFlowApplication.java     what `just core-run` starts
     TestcontainersConfiguration.java     the PostgreSQL container
+    TestPersistenceConfiguration.java    what the persistence tests add: the test-only Flyway
+                                         location, no archfixture in Hibernate's scan, and a
+                                         recorder of published events
+  src/test/resources/
+    db/fixture/                    V0_1__persistence_fixture.sql, the test-only table behind Ledger
+                                   (migration versions V0_* are reserved for tests)
 ```
 
 The shared kernel exists
@@ -176,7 +189,9 @@ are written to tech stack §4.
 [ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)
 (Accepted) makes each context a Spring Modulith module, and
 [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md)
-(Accepted) gives each module its own schema, accessed through jOOQ. Neither is in the tree yet.
+(Accepted, amended by [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)) gives each module its own schema, accessed through JPA with the
+mapping on the domain classes. Neither is in the tree yet; ADR-126's shared adapter and the kernel's
+mapping are.
 [ADR-001](../ADRs/ADR-001-domain-driven-design-with-hexagonal-architecture.md)'s layout (one package
 per context, split into `api`, `domain`, `application` and `adapter`) is amended by ADR-040, which
 is accepted.
@@ -326,8 +341,8 @@ who may construct a restricted type and what an error or an event may carry. The
 four: no cycle between a module's domain packages, a domain root that imports none of its own
 subpackages, `@NullMarked` on the kernel and on every domain and events package
 ([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)), and no package
-below a module's `api`, `spi` or `events` or below the kernel
-([ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)). The rest are
+below a module's `api`, `spi` or `events` or below the kernel, except `shared.adapter`
+([ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)). The JPA mapping rules (`PersistenceRules`, [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)) are separate. The rest are
 conventions that review enforces.
 
 The application rules are ArchUnit tests too, in `ApplicationRules`, numbered in

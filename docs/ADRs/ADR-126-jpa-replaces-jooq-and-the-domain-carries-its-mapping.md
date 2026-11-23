@@ -128,7 +128,10 @@ The numbers in parentheses are the owner's 16 decisions of 2026-11-23, in the or
   class declares one. Not on child entities, on the `@Immutable` records, on the idempotency records
   behind `ProcessedEvents`, or on Spring Modulith's publication table. The field is a nullable
   `Long`, `null` until the first save, because Jakarta Persistence applies no converter to a version
-  attribute, so it cannot hold the kernel's `Version`.
+  attribute, so it cannot hold the kernel's `Version`. The field is named `storedVersion` and mapped to
+  the `version` column, because Spring Data reads the version attribute by name to tell a new
+  aggregate, and Spring's bean wrapper would call `version()`, which throws before the first save,
+  for a field named `version`.
 - **A new aggregate's first save stores version 0 (2).** Hibernate seeds a `null` version with 0 on
   insert (`LongJavaType.seed` returns 0 in 7.4.13), and Spring Data's `save` treats a `null` version
   as new and calls `persist` with no `SELECT` first. `Version.NEW` goes: a creation has no version
@@ -235,8 +238,11 @@ ADR extends ADR-125: the kernel's one subpackage besides `shared.application` is
   generate for the current mapping to `src/backend/core/target/schema-draft.sql`, through a
   `schema-draft` profile that sets `jakarta.persistence.schema-generation.scripts.action=create`
   and `…scripts.create-target`, with `jakarta.persistence.schema-generation.database.action=none`.
-  It opens no database connection. A developer copies what they need into a new migration and adds
-  the indexes, constraints and grants by hand.
+  It also creates each module's schema (`jakarta.persistence.create-database-schemas=true`), so the
+  draft names the schemas its first migration must create. It opens no database connection, so
+  Hibernate reads no database metadata and the profile names the PostgreSQL dialect itself. A
+  developer copies what they need into a new migration and adds the indexes, constraints and grants
+  by hand.
 - **No SQL or bind-value logging in any profile:** `spring.jpa.show-sql=false`, and no logging
   configured for `org.hibernate.orm.jdbc.bind`. Bind values hold personal data ([NFR-19]).
 
