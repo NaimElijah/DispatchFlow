@@ -62,7 +62,7 @@ report findings.
 - **Persistence (Flyway, which [ADR-041] keeps from ADR-007):**
   - Schema changes only through a new Flyway migration; an applied migration is never edited.
   - Queries are parameterised: JPQL and native queries take bound parameters, never a string built from input.
-  - A module's persistence goes through JPA in its own schema ([ADR-041], amended by [ADR-126]; every aggregate is mapped, [ADR-127], [ADR-128]):
+  - A module's persistence goes through JPA in its own schema ([ADR-041], amended by [ADR-126] and [ADR-127]; every aggregate is mapped, [ADR-128]):
     - an adapter implements its port with a package-private Spring Data `Repository<Root, UUID>` interface, never `CrudRepository`, `ListCrudRepository`, `JpaRepository` or `JpaSpecificationExecutor`;
     - its `save` goes through `VersionedSave`, which moves the version by exactly 1, except a session's save of a change that only kept or dropped contact times ([ADR-128] decision 1); an `add` goes through it where another transaction may store the same aggregate first, and any other `add` inserts and flushes itself;
     - PostgreSQL-specific SQL is a native query with bound parameters and an adapter test;
