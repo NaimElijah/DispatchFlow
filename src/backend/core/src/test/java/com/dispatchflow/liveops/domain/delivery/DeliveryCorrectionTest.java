@@ -23,12 +23,12 @@ import static com.dispatchflow.shared.AsSaved.asSaved;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dispatchflow.liveops.domain.LiveOpsError.CorrectionChangesNothing;
-import com.dispatchflow.liveops.domain.delivery.history.Origin;
-import com.dispatchflow.liveops.domain.delivery.history.OutcomeRecord;
 import com.dispatchflow.liveops.domain.outcome.DispatcherOutcome;
 import com.dispatchflow.liveops.domain.outcome.FailureReason;
 import com.dispatchflow.liveops.domain.outcome.FailureReasonKind;
+import com.dispatchflow.liveops.domain.outcome.Origin;
 import com.dispatchflow.liveops.domain.outcome.Outcome;
+import com.dispatchflow.liveops.domain.outcome.OutcomeRecord;
 import com.dispatchflow.liveops.events.OutcomeKind;
 import com.dispatchflow.liveops.events.PutBackSuperseded;
 import com.dispatchflow.shared.DeliveryDate;

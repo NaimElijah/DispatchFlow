@@ -1,11 +1,11 @@
 package com.dispatchflow.liveops.domain.delivery;
 
 import com.dispatchflow.liveops.domain.HeldReportId;
-import com.dispatchflow.liveops.domain.delivery.history.HeldReport;
-import com.dispatchflow.liveops.domain.delivery.history.HeldState;
-import com.dispatchflow.liveops.domain.delivery.history.Origin;
-import com.dispatchflow.liveops.domain.delivery.history.OutcomeRecord;
+import com.dispatchflow.liveops.domain.outcome.HeldReport;
+import com.dispatchflow.liveops.domain.outcome.HeldState;
+import com.dispatchflow.liveops.domain.outcome.Origin;
 import com.dispatchflow.liveops.domain.outcome.Outcome;
+import com.dispatchflow.liveops.domain.outcome.OutcomeRecord;
 import com.dispatchflow.liveops.domain.proof.Proof;
 import com.dispatchflow.liveops.domain.proof.ProofKind;
 import java.util.HashSet;

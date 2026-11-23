@@ -1,4 +1,4 @@
-package com.dispatchflow.liveops.domain.delivery.history;
+package com.dispatchflow.liveops.domain.outcome;
 
 import com.dispatchflow.shared.AccountId;
 import java.time.Instant;

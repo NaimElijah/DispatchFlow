@@ -10,7 +10,7 @@ import com.dispatchflow.liveops.domain.delivery.HoldCheck;
 import com.dispatchflow.liveops.domain.delivery.LaterAttempt;
 import com.dispatchflow.liveops.domain.delivery.LeaveAtDoor;
 import com.dispatchflow.liveops.domain.delivery.StopWhereabouts;
-import com.dispatchflow.liveops.domain.delivery.history.CorrectionReason;
+import com.dispatchflow.liveops.domain.outcome.CorrectionReason;
 import com.dispatchflow.liveops.domain.outcome.DispatcherOutcome;
 import com.dispatchflow.liveops.domain.outcome.FailureReason;
 import com.dispatchflow.liveops.domain.outcome.FailureReasonKind;

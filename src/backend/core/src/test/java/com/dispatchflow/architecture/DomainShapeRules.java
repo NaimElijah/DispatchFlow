@@ -31,6 +31,7 @@ import com.dispatchflow.shared.VehicleId;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.Volume;
 import com.dispatchflow.shared.Weight;
+import com.tngtech.archunit.core.domain.JavaAccess;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaConstructor;
 import com.tngtech.archunit.core.domain.JavaField;
@@ -111,8 +112,8 @@ final class DomainShapeRules {
      * type nested in an optimizer result, are built only by their factories, so their constructors
      * are private. So is {@code ValidatedSolution}'s, whose factory anyone may call. A record can't
      * qualify: its canonical constructor is as visible as the record. An aggregate root may also
-     * declare the protected no-argument constructor Hibernate needs (ADR-126): it takes no state, so
-     * only Hibernate and the root's own creation factory use it.
+     * declare the protected no-argument constructor Hibernate needs (ADR-126): it takes no state, and
+     * {@link #aggregatesAreBuiltOnlyByTheirRoot} keeps every caller but the root itself away.
      */
     static ArchRule restrictedConstructorsArePrivate(String root) {
         return classes()
@@ -134,6 +135,55 @@ final class DomainShapeRules {
                     }
                 })
                 .because("DL §3.5 and §13: only a restricted type's own factory may build it");
+    }
+
+    /**
+     * ADR-126: only a root's own factory and Hibernate build an aggregate. Hibernate's protected
+     * no-argument constructor is visible to the root's package and to any subclass, which the
+     * visibility rule above can't prevent, so every constructor of a root is called or referenced
+     * only from within the root, its nested types included. Hibernate calls it reflectively, which
+     * no class file shows.
+     */
+    static ArchRule aggregatesAreBuiltOnlyByTheirRoot(String root) {
+        return classes()
+                .that()
+                .resideInAPackage(root + "..")
+                .should(
+                        new ArchCondition<JavaClass>(
+                                "call an aggregate root's constructor only from within that root") {
+                            @Override
+                            public void check(JavaClass item, ConditionEvents events) {
+                                Stream.concat(
+                                                item.getConstructorCallsFromSelf().stream(),
+                                                item.getConstructorReferencesFromSelf().stream())
+                                        .filter(DomainShapeRules::buildsAnAggregateFromOutside)
+                                        .forEach(access -> events.add(
+                                                SimpleConditionEvent.violated(access, access.getDescription())));
+                            }
+                        })
+                .because("ADR-126: only a root's factory and Hibernate build an aggregate");
+    }
+
+    /**
+     * ADR-126: a mapped root is not {@code final}, for Hibernate, so this rule keeps any class from
+     * extending one: a subclass could build the root through {@code super()} and override its
+     * rules. A root extends {@code AggregateRoot} directly, never another root or a class between
+     * them.
+     */
+    static ArchRule aggregateRootsAreNotExtended(String root) {
+        return classes()
+                .that()
+                .resideInAPackage(root + "..")
+                .should(new ArchCondition<JavaClass>("not extend an aggregate root") {
+                    @Override
+                    public void check(JavaClass item, ConditionEvents events) {
+                        item.getRawSuperclass()
+                                .filter(RestrictedTypes::isAggregate)
+                                .ifPresent(superclass -> events.add(SimpleConditionEvent.violated(
+                                        item, item.getName() + " extends the aggregate root " + superclass.getName())));
+                    }
+                })
+                .because("ADR-126: only a root's factory and Hibernate build an aggregate");
     }
 
     /** DL §7.3: an event is published language, so it lives in its module's events package. */
@@ -281,6 +331,11 @@ final class DomainShapeRules {
     private static boolean isHibernatesConstructor(JavaConstructor constructor) {
         return constructor.getModifiers().contains(JavaModifier.PROTECTED)
                 && constructor.getRawParameterTypes().isEmpty();
+    }
+
+    private static boolean buildsAnAggregateFromOutside(JavaAccess<?> access) {
+        JavaClass target = access.getTargetOwner();
+        return RestrictedTypes.isAggregate(target) && !RestrictedTypes.isWithin(access.getOriginOwner(), target);
     }
 
     /** Whether a type is a concrete event, which the event rules check. */

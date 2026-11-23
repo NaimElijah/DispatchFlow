@@ -1,4 +1,4 @@
-package com.dispatchflow.liveops.domain.delivery.history;
+package com.dispatchflow.liveops.domain.outcome;
 
 import com.dispatchflow.liveops.domain.LiveOpsError.CorrectionReasonRequired;
 import com.dispatchflow.shared.PersonalData;

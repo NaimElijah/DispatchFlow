@@ -1,4 +1,4 @@
-package com.dispatchflow.liveops.domain.delivery.history;
+package com.dispatchflow.liveops.domain.delivery;
 
 import com.dispatchflow.liveops.domain.CorrectedTime;
 import com.dispatchflow.shared.AccountId;

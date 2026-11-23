@@ -16,7 +16,7 @@ import com.dispatchflow.liveops.domain.LiveOpsError.InvalidRevision;
 import com.dispatchflow.liveops.domain.alert.StartDeadline;
 import com.dispatchflow.liveops.domain.delivery.Entitlement;
 import com.dispatchflow.liveops.domain.delivery.RetentionPeriods;
-import com.dispatchflow.liveops.domain.delivery.history.CorrectionReason;
+import com.dispatchflow.liveops.domain.outcome.CorrectionReason;
 import com.dispatchflow.liveops.domain.outcome.FailureReason;
 import com.dispatchflow.liveops.domain.outcome.FailureReasonKind;
 import com.dispatchflow.liveops.domain.proof.Proof;

@@ -1,8 +1,7 @@
 package com.dispatchflow.liveops.domain.delivery;
 
-import com.dispatchflow.liveops.domain.delivery.history.ArrivalRecord;
-import com.dispatchflow.liveops.domain.delivery.history.HeldReport;
-import com.dispatchflow.liveops.domain.delivery.history.OutcomeRecord;
+import com.dispatchflow.liveops.domain.outcome.HeldReport;
+import com.dispatchflow.liveops.domain.outcome.OutcomeRecord;
 import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.StopId;
