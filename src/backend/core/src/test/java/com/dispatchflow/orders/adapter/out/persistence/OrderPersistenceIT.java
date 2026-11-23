@@ -402,7 +402,11 @@ class OrderPersistenceIT {
 
     static Stream<Arguments> damageTheSchemaForbids() {
         return Stream.of(
-                Arguments.of("an active order with a cancellation time", 1_101, Base.PLACED, "cancelled_at = now()"),
+                Arguments.of(
+                        "an active order with a cancellation time",
+                        1_101,
+                        Base.PLACED,
+                        "cancelled_at = TIMESTAMPTZ '2032-01-05 08:00:00+00'"),
                 Arguments.of(
                         "a cancelled order with no cancellation time", 1_102, Base.CANCELLED, "cancelled_at = NULL"),
                 Arguments.of("an unknown state", 1_103, Base.PLACED, "state = 'HELD'"),

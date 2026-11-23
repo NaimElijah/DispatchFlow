@@ -35,6 +35,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.IntFunction;
+import java.util.function.ObjIntConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
@@ -304,6 +306,81 @@ class SessionPersistenceIT {
 
         assertThat(storedContacts(n)).containsExactly(recent, now);
         assertThat(storedVersion(n)).isZero();
+    }
+
+    /**
+     * Every public command that changes a session, each from a stored state where it does, and
+     * whether its save must check the version. {@code JpaSessionRepository.save} skips the check
+     * when {@link Session#changedBeyondContactTimes()} is unset, so a command that forgot to set it
+     * would save its change unchecked. Only a load leaves the flag unset, so this runs on loaded
+     * sessions rather than in a domain test. A new command belongs here. {@code
+     * requireFreshStepUp} is left out: it only checks, and changes nothing.
+     */
+    enum Command {
+        EXCHANGE(
+                SessionPersistenceIT::opened,
+                true,
+                (session, n) -> session.exchange(hash(n, 1), FIRST, token(n, 2), hash(n, 2), at(20))),
+        EXCHANGE_AGAIN_WITHIN_THE_GRACE(
+                SessionPersistenceIT::exchanged,
+                true,
+                (session, n) -> session.exchange(hash(n, 1), FIRST, token(n, 3), hash(n, 3), at(20).plusSeconds(5))),
+        EXCHANGE_REUSED_AFTER_THE_GRACE(
+                SessionPersistenceIT::exchanged,
+                true,
+                (session, n) -> session.exchange(hash(n, 1), FIRST, token(n, 3), hash(n, 3), at(30))),
+        EXCHANGE_REFUSED_AFTER_DROPPING_OLD_TOKENS(
+                SessionPersistenceIT::exchanged,
+                true,
+                (session, n) -> session.exchange(
+                        hash(n, 9),
+                        FIRST,
+                        token(n, 3),
+                        hash(n, 3),
+                        T.plus(Session.TOKEN_KEPT_FOR).plusSeconds(1))),
+        CONFIRM_PASSWORD(
+                SessionPersistenceIT::opened,
+                true,
+                (session, n) -> session.confirmPassword(FIRST, token(n, 2), hash(n, 2), at(20))),
+        REVOKE(SessionPersistenceIT::opened, true, (session, n) -> session.revoke(at(20))),
+        REVOKE_WITH_ACCOUNT(
+                SessionPersistenceIT::opened,
+                true,
+                (session, n) -> session.revokeWithAccount(AccountGeneration.of(2), at(20))),
+        RECORD_CONTACT(SessionPersistenceIT::opened, false, (session, n) -> session.recordContact(at(20))),
+        DROP_OLD_CONTACTS(
+                SessionPersistenceIT::contactedAtT,
+                false,
+                (session, n) -> session.dropOldContacts(
+                        T.plus(Session.CONTACT_RETENTION).plusSeconds(1)));
+
+        private final IntFunction<Session> stored;
+        private final boolean versioned;
+        private final ObjIntConsumer<Session> run;
+
+        Command(IntFunction<Session> stored, boolean versioned, ObjIntConsumer<Session> run) {
+            this.stored = stored;
+            this.versioned = versioned;
+            this.run = run;
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(Command.class)
+    void GivenALoadedSession_WhenACommandChangesIt_ThenOnlyTheContactTimeCommandsLeaveItSavedWithNoVersionCheck(
+            Command command) {
+        int n = 2_000 + command.ordinal();
+        transactions.inTransaction(() -> repository.add(command.stored.apply(n)));
+
+        boolean changedBeyondContactTimes = transactions.inTransaction(() -> {
+            Session session = repository.get(session(n)).orElseThrow();
+            command.run.accept(session, n);
+            repository.save(session);
+            return session.changedBeyondContactTimes();
+        });
+
+        assertThat(changedBeyondContactTimes).isEqualTo(command.versioned);
+        assertThat(storedVersion(n)).isEqualTo(command.versioned ? 1L : 0L);
     }
 
     // --- the revocation written with no version check (NFR-88, NFR-89)
@@ -749,6 +826,13 @@ class SessionPersistenceIT {
         if (!(outcome instanceof RefreshOutcome.Issued)) {
             throw new AssertionError("the first exchange issues a token");
         }
+        return session;
+    }
+
+    /** Session {@code n}, signed in and contacted at {@link #T}. */
+    private static Session contactedAtT(int n) {
+        Session session = opened(n);
+        session.recordContact(T);
         return session;
     }
 

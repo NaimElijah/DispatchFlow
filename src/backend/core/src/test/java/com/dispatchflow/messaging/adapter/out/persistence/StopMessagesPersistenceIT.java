@@ -450,7 +450,8 @@ class StopMessagesPersistenceIT {
                 Arguments.of("two messages with one ID", 1_009, (Damage)
                         rows -> rows.update(2, "id = '" + messageId(1_009, 1).value() + "'")),
                 Arguments.of("a second out for delivery", 1_010, (Damage)
-                        rows -> rows.update(2, "type = 'OUT_FOR_DELIVERY'")));
+                        rows -> rows.update(2, "type = 'OUT_FOR_DELIVERY'")),
+                Arguments.of("a message with no phone", 1_011, (Damage) rows -> rows.update(1, "phone = NULL")));
     }
 
     @ParameterizedTest(name = "{0}")

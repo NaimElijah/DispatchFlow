@@ -547,6 +547,8 @@ class DeliveryPersistenceIT {
     void GivenAListedDelivery_WhenItIsErasedAndSaved_ThenItIsNoLongerListed() {
         int n = 37;
         transactions.inTransaction(() -> repository.add(confirmedOverAnother(n)));
+        assertThat(transactions.inTransaction(() -> repository.withExpiredData(NINETY_DAYS_AFTER_NOW)))
+                .contains(stop(n));
 
         transactions.inTransaction(() -> {
             Delivery delivery = repository.get(stop(n)).orElseThrow();

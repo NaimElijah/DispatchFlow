@@ -314,7 +314,11 @@ class DriverPersistenceIT {
     static Stream<Arguments> damageTheSchemaForbids() {
         return Stream.of(
                 Arguments.of("a name without a phone", 1_005, Base.ACTIVE, "phone = NULL"),
-                Arguments.of("an active driver with a retirement time", 1_006, Base.ACTIVE, "retired_at = now()"),
+                Arguments.of(
+                        "an active driver with a retirement time",
+                        1_006,
+                        Base.ACTIVE,
+                        "retired_at = TIMESTAMPTZ '2031-01-01 08:00:00+00'"),
                 Arguments.of("a retired driver with no retirement time", 1_007, Base.RETIRED, "retired_at = NULL"),
                 Arguments.of(
                         "an anonymized driver with no anonymization time",

@@ -18,6 +18,7 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.roomIn;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.routeId;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.solved;
 import static com.dispatchflow.shared.AsSaved.asSaved;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.Transactions;
@@ -69,7 +70,8 @@ class StoredResultAppliedIT {
     void GivenAStoredResultServingAnOrderTwice_WhenApplied_ThenOrderAlreadyInPlan() {
         Plan draft = aPlan().draft();
         JobId job = storeSucceeded(draft, 1, List.of(solved(V1, D1, O1), solved(V2, D2, O2)));
-        damage(job, "solve_job_stop", "order_id = '" + O1.value() + "'", "route_position = 1");
+        assertThat(damage(job, "solve_job_stop", "order_id = '" + O1.value() + "'", "route_position = 1"))
+                .isOne();
         SolveJob stored = load(job);
         Plan plan = asSaved(draft);
 
@@ -81,7 +83,8 @@ class StoredResultAppliedIT {
     void GivenAStoredResultGivingAVehicleTwoRoutes_WhenApplied_ThenVehicleAlreadyHasRoute() {
         Plan draft = aPlan().draft();
         JobId job = storeSucceeded(draft, 2, List.of(solved(V1, D1, O1), solved(V2, D2, O2)));
-        damage(job, "solve_job_route", "vehicle_id = '" + V1.value() + "'", "position = 1");
+        assertThat(damage(job, "solve_job_route", "vehicle_id = '" + V1.value() + "'", "position = 1"))
+                .isOne();
         SolveJob stored = load(job);
         Plan plan = asSaved(draft);
 
@@ -95,7 +98,8 @@ class StoredResultAppliedIT {
     void GivenAStoredResultGivingADriverTwoRoutes_WhenApplied_ThenDriverAlreadyHasRoute() {
         Plan draft = aPlan().draft();
         JobId job = storeSucceeded(draft, 3, List.of(solved(V1, D1, O1), solved(V2, D2, O2)));
-        damage(job, "solve_job_route", "driver_id = '" + D1.value() + "'", "position = 1");
+        assertThat(damage(job, "solve_job_route", "driver_id = '" + D1.value() + "'", "position = 1"))
+                .isOne();
         SolveJob stored = load(job);
         Plan plan = asSaved(draft);
 
@@ -113,7 +117,13 @@ class StoredResultAppliedIT {
         ready.lockRoute(v2, RouteLock.WHOLE_ROUTE, TODAY);
         Plan locked = asSaved(ready);
         JobId job = storeSucceeded(locked, 4, List.of(solved(V1, D1, O1), solved(V2, D2, O2, O3)));
-        damage(job, "solve_job_stop", "order_id = '" + O1.value() + "'", "route_position = 1 AND stop_position = 0");
+        // The stored result changes the locked route anyway, so only the count shows the damage ran.
+        assertThat(damage(
+                        job,
+                        "solve_job_stop",
+                        "order_id = '" + O1.value() + "'",
+                        "route_position = 1 AND stop_position = 0"))
+                .isOne();
         SolveJob stored = load(job);
         Plan plan = asSaved(locked);
 
@@ -135,9 +145,14 @@ class StoredResultAppliedIT {
         return id;
     }
 
-    /** Sets columns of the job's rows in one of its result tables; every statement is the test's own. */
-    private void damage(JobId job, String table, String assignments, String condition) {
-        jdbc.sql("UPDATE planning." + table + " SET " + assignments + " WHERE solve_job_id = ? AND (" + condition + ")")
+    /**
+     * Sets columns of the job's rows in one of its result tables; every statement is the test's own.
+     *
+     * @return how many rows it changed, so a test sees its damage reached the row it meant
+     */
+    private int damage(JobId job, String table, String assignments, String condition) {
+        return jdbc.sql("UPDATE planning." + table + " SET " + assignments + " WHERE solve_job_id = ? AND (" + condition
+                        + ")")
                 .param(job.value())
                 .update();
     }

@@ -241,6 +241,18 @@ class RouteRunPersistenceIT {
                 .isEmpty();
     }
 
+    @Test
+    void GivenAStoredRun_WhenItIsAddedAgain_ThenAssertionErrorAndItsDateStays() {
+        int n = 16;
+        transactions.inTransaction(() -> repository.add(started(n), dateOf(n)));
+
+        assertThatThrownBy(() -> transactions.inTransaction(
+                        () -> repository.add(repository.get(route(n)).orElseThrow(), dateOf(100 + n))))
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("a route run is added once, and its date kept with it");
+        assertThat(storedDate(n)).isEqualTo(dateOf(n).value());
+    }
+
     // --- the load check (ADR-127 decision 1)
 
     @Test
