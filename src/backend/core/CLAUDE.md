@@ -129,7 +129,7 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   Native SQL binds every value; SQL and bind logging stay off. `PersistenceRules` checks the
   mapping, a `*PersistenceIT` the stored state. A call that flushes (an `add`, or a query, which
   flushes what is pending) writes every changed aggregate: save a changed aggregate before one, or
-  `VersionedSave` fails its one-step check.
+  `VersionedSave` fails its one-step check. Renaming a stored error or its field needs a migration.
 
 ## Tests
 

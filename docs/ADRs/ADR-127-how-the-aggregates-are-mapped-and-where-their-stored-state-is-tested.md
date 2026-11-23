@@ -44,6 +44,10 @@ cannot follow:
   alerts of a date's plan, by delivery date. Neither `RouteRun` nor `Alert` holds that date: it is
   their plan's, in Planning.
 
+On 2026-11-23 the owner, Naim Elijah, accepted decisions 1 to 9 with the plan for
+[issue #112][ISSUE-112], and, after the review of [pull request #244][PR-244], decision 6 as
+rewritten, decisions 10 to 12, and decision 7's consequence below. They are final.
+
 ## Decision
 
 We map the 20 roots as ADR-126 decides, with these twelve decisions where it is silent or cannot be
@@ -155,10 +159,12 @@ followed.
   its setter code must match the record.
 - **Hard:** the preview's errors are the one stored form a Java type does not check.
   Their converter's tests are what check it.
-- **Hard:** each stored error names its record's class, so renaming or moving a `DomainError`
-  record an import can raise leaves the preview rows that name it unloadable (`StoredStateInvalid`).
-  A change that renames or moves one carries a migration that rewrites the stored name. A preview's
-  rows are deleted at most two hours after it was made (FR-399), so few rows are ever at stake.
+- **Hard:** each stored error names its record's class and components, so renaming or moving a
+  `DomainError` record an import can raise, or renaming one of its components, leaves every stored
+  preview that names it unloadable (`StoredStateInvalid`): it can then be neither confirmed,
+  discarded nor expired, since the hourly sweep loads it too. Such a change therefore carries a
+  migration that rewrites the stored names. Only the previews stored when it deploys are at stake,
+  since a preview's rows are deleted at most two hours after it was made (FR-399).
 - **Hard:** a run's or an alert's delivery date is in its table but not in its class, so no domain
   rule can read it, and the column can't be `NOT NULL`, because Hibernate inserts the row before
   the adapter writes the date. The adapter's one-row check keeps the two writes together.
@@ -196,8 +202,8 @@ followed.
   with more tables.
 - **Store each preview error under a stable code that a registry maps to its record.**
   Rejected: the registry must list every `DomainError` record an import can raise, across modules,
-  and be kept in step with them, while a preview's rows live at most two hours, so a rename rarely
-  meets a stored row.
+  and be kept in step with them, while a rename meets only the previews of the last two hours,
+  which its migration rewrites.
 - **Give each record an ID in the domain and map the record type itself.** Rejected: two of the
   types are Java records and two live in the application layer, so they can't carry the mapping,
   and an ID only the table uses would change every caller that builds one.
@@ -234,5 +240,6 @@ followed.
   as a full undo journal's 100 rows might (decision 3).
 
 [ISSUE-112]: https://github.com/NaimElijah/DispatchFlow/issues/112
+[PR-244]: https://github.com/NaimElijah/DispatchFlow/pull/244
 [ADR-041]: ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md
 [ADR-126]: ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md
