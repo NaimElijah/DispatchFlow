@@ -9,6 +9,7 @@ import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.VehicleId;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.StaleVersion;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Fleet's implementation of {@code MoveVehicleWithRoute}: after Planning hands a route over, {@code
@@ -17,7 +18,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>Built in M9.
  */
-public final class MoveVehicleWithRouteService implements MoveVehicleWithRoute {
+@Transactional
+public class MoveVehicleWithRouteService implements MoveVehicleWithRoute {
 
     private final DayRosterRepository rosters;
     private final Clock clock;

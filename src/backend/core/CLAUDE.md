@@ -97,14 +97,13 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   body ([ADR-119], decision 5): write the failing test first, replace the `throw`, then build the
   adapter. A milestone may change a declared signature or add a class, with every caller in the same
   pull request. Delete the Javadoc's "Built in M<n>" when the body is built.
-- A use case follows [TS §6.2], [ADR-063] and [ADR-064]:
-  - One class per use case. Its one `@Transactional` method changes one existing aggregate, after
-    the outside calls.
-  - The application layer takes only `@Transactional` from Spring. `@Retryable` and
-    `@ConcurrencyLimit` sit on the adapter that makes the outside call, where a retry is safe.
-  - `@ApplicationModuleListener` reactions are idempotent, because delivery is at least once.
-  - Every changing use case writes its `AuditLog` record in the same transaction, with no personal
-    data (NFR-94).
+- A use case follows [TS §6.2], [ADR-063], [ADR-064] and [ADR-129]:
+  - One class per use case. A changing one changes one existing aggregate after its outside calls,
+    and writes its `AuditLog` record in that transaction, with no personal data (NFR-94).
+  - `TransactionRules` checks where transactions start: only on a service's class, `readOnly` if it
+    changes nothing, and in a `<UseCase>Change` for one with outside calls or per-item transactions.
+  - `@Retryable` and `@ConcurrencyLimit` sit on the adapter that makes the outside call, where a
+    retry is safe. A listener has no transaction, so each retry gets a fresh one; it is idempotent.
 - Every handler is authorized by role from its operation's `x-capability`. A check that depends on
   the data, such as a driver's own route, lives in the use case ([ADR-068]).
 - The schema changes only through a new migration, `src/main/resources/db/migration/V<n>__<x>.sql`:
@@ -187,6 +186,7 @@ Run `just` recipes from the repository root, and `mvnw` from this folder (`.\mvn
 [ADR-125]: ../../../docs/ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md
 [ADR-126]: ../../../docs/ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md
 [ADR-127]: ../../../docs/ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md
+[ADR-129]: ../../../docs/ADRs/ADR-129-transactions-start-only-in-the-service-layer.md
 [DL §2.1]: ../../../docs/architecture/domain_layer/domain_layer_design.md#21-module-graph
 [DL §2.3]: ../../../docs/architecture/domain_layer/domain_layer_design.md#23-rules-between-contexts
 [DL §3.9]: ../../../docs/architecture/domain_layer/domain_layer_design.md#39-purity

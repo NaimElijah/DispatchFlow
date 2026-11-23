@@ -4,6 +4,7 @@ import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.liveops.application.api.RaiseAlert;
 import com.dispatchflow.messaging.events.RatingReceived;
 import com.dispatchflow.shared.application.NotFound;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Messaging's own listener on {@code RatingReceived}: a low rating alerts the dispatcher, as an
@@ -20,7 +21,8 @@ import com.dispatchflow.shared.application.NotFound;
  *
  * <p>Built in M12. Rows: FR-361.
  */
-public final class AlertLowRating {
+@Transactional
+public class AlertLowRating {
 
     private final RaiseAlert raiseAlert;
 

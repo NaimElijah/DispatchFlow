@@ -1,9 +1,6 @@
 package com.dispatchflow.orders.application.service.order;
 
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
-import com.dispatchflow.orders.application.port.out.OrderRepository;
-import com.dispatchflow.shared.application.Clock;
 
 /**
  * The nightly retention job's order step (NFR-257, ADR-075, DL §12): {@code Order.anonymize}
@@ -11,25 +8,22 @@ import com.dispatchflow.shared.application.Clock;
  * transaction; the order and its figures stay (NFR-152). The scheduler runs it at 03:00 {@code
  * Asia/Jerusalem} (TS §6.3).
  *
+ * <p>It lists the orders due, then anonymizes them one by one, and opens no transaction of its own:
+ * {@link AnonymizeOrdersChange} holds each order's (ADR-129).
+ *
  * <p>Built in M13, with the whole nightly retention run (ADR-121).
  */
 public final class AnonymizeOrders {
 
-    private final OrderRepository orders;
-    private final Clock clock;
-    private final AuditLog auditLog;
+    private final AnonymizeOrdersChange change;
 
     /**
      * Creates the job.
      *
-     * @param orders where orders are kept
-     * @param clock today in {@code Asia/Jerusalem}
-     * @param auditLog the audit trail
+     * @param change the transaction that lists the orders due, and each order's own
      */
-    public AnonymizeOrders(OrderRepository orders, Clock clock, AuditLog auditLog) {
-        this.orders = orders;
-        this.clock = clock;
-        this.auditLog = auditLog;
+    public AnonymizeOrders(AnonymizeOrdersChange change) {
+        this.change = change;
     }
 
     /**

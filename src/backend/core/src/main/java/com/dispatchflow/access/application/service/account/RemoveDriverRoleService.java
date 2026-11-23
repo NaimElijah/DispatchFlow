@@ -2,11 +2,8 @@ package com.dispatchflow.access.application.service.account;
 
 import com.dispatchflow.access.application.api.RemoveDriverRole;
 import com.dispatchflow.access.application.port.out.RevocationCache;
-import com.dispatchflow.access.application.port.out.UserAccountRepository;
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.shared.AccountId;
-import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 
@@ -22,29 +19,25 @@ import com.dispatchflow.shared.application.StaleVersion;
  * RevocationCache} joins in M6, which builds the cache; until then the token check has no cache to
  * evict.
  *
+ * <p><b>The transaction.</b> {@link RemoveDriverRoleServiceChange} holds it: the change, its save
+ * and the audit record. The eviction runs after its commit (ADR-129).
+ *
  * <p>Built in M2.
  */
 public final class RemoveDriverRoleService implements RemoveDriverRole {
 
-    private final UserAccountRepository accounts;
     private final RevocationCache revocationCache;
-    private final Clock clock;
-    private final AuditLog auditLog;
+    private final RemoveDriverRoleServiceChange change;
 
     /**
      * Creates the service.
      *
-     * @param accounts where accounts are kept
      * @param revocationCache the token check's cache, evicted after a change
-     * @param clock the time
-     * @param auditLog where the audit record is written
+     * @param change the transaction that removes the role
      */
-    public RemoveDriverRoleService(
-            UserAccountRepository accounts, RevocationCache revocationCache, Clock clock, AuditLog auditLog) {
-        this.accounts = accounts;
+    public RemoveDriverRoleService(RevocationCache revocationCache, RemoveDriverRoleServiceChange change) {
         this.revocationCache = revocationCache;
-        this.clock = clock;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

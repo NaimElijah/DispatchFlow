@@ -7,6 +7,7 @@ import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.StaleVersion;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Access's listener on its own {@code SessionsRevoked}: it dates each session of the account begun
@@ -24,7 +25,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>Built in M6.
  */
-public final class RevokeSessionsWithAccount {
+@Transactional
+public class RevokeSessionsWithAccount {
 
     private final SessionRepository sessions;
     private final PushTokens pushTokens;

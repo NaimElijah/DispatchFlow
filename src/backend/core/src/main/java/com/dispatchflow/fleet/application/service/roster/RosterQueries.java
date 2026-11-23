@@ -5,6 +5,7 @@ import com.dispatchflow.access.application.api.Actor;
 import com.dispatchflow.fleet.application.port.out.FleetViews;
 import com.dispatchflow.fleet.application.port.out.RosterView;
 import com.dispatchflow.shared.DeliveryDate;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The roster screen's query (FR-54, FR-79): one date's shifts, vehicles, availability and each
@@ -14,7 +15,8 @@ import com.dispatchflow.shared.DeliveryDate;
  *
  * <p>Built in M2.
  */
-public final class RosterQueries {
+@Transactional(readOnly = true)
+public class RosterQueries {
 
     private final FleetViews views;
     private final Accounts accounts;

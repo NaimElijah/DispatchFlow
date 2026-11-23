@@ -2,12 +2,7 @@ package com.dispatchflow.access.application.service.session;
 
 import com.dispatchflow.access.application.port.out.PresentedToken;
 import com.dispatchflow.access.application.port.out.RevocationCache;
-import com.dispatchflow.access.application.port.out.SecretTokens;
-import com.dispatchflow.access.application.port.out.SessionRepository;
-import com.dispatchflow.access.application.port.out.session.PushTokens;
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
-import com.dispatchflow.shared.application.Clock;
 
 /**
  * Signs a session out by its refresh token, which revokes it (NFR-89, FR-127): its tokens are
@@ -31,6 +26,10 @@ import com.dispatchflow.shared.application.Clock;
  * <p>The endpoint's CSRF check on the web app's cookie is the web adapter's, as it is for refresh
  * (NFR-107, ADR-069); this use case sees only the token.
  *
+ * <p><b>The transaction.</b> {@link SignOutChange} holds it: the lookup, the revocation and its
+ * store, the push address's removal and the audit record. After its commit, the use case evicts the
+ * session from the revocation cache (ADR-129).
+ *
  * <p>In M5 it finds and revokes the session and writes the audit record. The eviction from {@code
  * RevocationCache} joins in M6, and the removal through {@code PushTokens} in M10, the milestones
  * that build those ports. Until M6 builds {@code SessionValidity}, nothing checks an access token's
@@ -40,36 +39,18 @@ import com.dispatchflow.shared.application.Clock;
  */
 public final class SignOut {
 
-    private final SessionRepository sessions;
-    private final SecretTokens secretTokens;
-    private final PushTokens pushTokens;
     private final RevocationCache revocationCache;
-    private final Clock clock;
-    private final AuditLog auditLog;
+    private final SignOutChange change;
 
     /**
      * Creates the use case.
      *
-     * @param sessions where sessions are kept
-     * @param secretTokens hashes the presented refresh token
-     * @param pushTokens the push addresses of signed-in phones
      * @param revocationCache the token check's cache, evicted after a change
-     * @param clock the time
-     * @param auditLog where the audit record is written
+     * @param change the transaction that revokes the session
      */
-    public SignOut(
-            SessionRepository sessions,
-            SecretTokens secretTokens,
-            PushTokens pushTokens,
-            RevocationCache revocationCache,
-            Clock clock,
-            AuditLog auditLog) {
-        this.sessions = sessions;
-        this.secretTokens = secretTokens;
-        this.pushTokens = pushTokens;
+    public SignOut(RevocationCache revocationCache, SignOutChange change) {
         this.revocationCache = revocationCache;
-        this.clock = clock;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

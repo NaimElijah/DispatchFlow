@@ -1,14 +1,11 @@
 package com.dispatchflow.planning.application.service.plan.route;
 
 import com.dispatchflow.access.application.api.Actor;
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.planning.application.port.out.LiveUpdates;
-import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
 import com.dispatchflow.planning.domain.plan.RouteLock;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.Version;
-import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 
@@ -21,6 +18,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  * it is scheduled, because the domain already holds locks (ADR-112, ADR-121). Until the optimizer has a lock
  * rule, a solve isn't sent the locks, and {@code Plan.locksBrokenBy} checks its result.
  *
+ * <p>{@link LockRouteChange} holds the transaction, which locks the route and writes the audit
+ * record; after it commits, the dispatchers' open screens are told (ADR-129).
+ *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
@@ -28,24 +28,18 @@ import com.dispatchflow.shared.application.StaleVersion;
  */
 public final class LockRoute {
 
-    private final PlanRepository plans;
-    private final Clock clock;
     private final LiveUpdates liveUpdates;
-    private final AuditLog auditLog;
+    private final LockRouteChange change;
 
     /**
      * Creates the use case.
      *
-     * @param plans where plans are kept
-     * @param clock the time, for {@code today}
      * @param liveUpdates the dispatchers' open screens
-     * @param auditLog the audit trail, written in the change's transaction (TS §6.2)
+     * @param change the lock's transaction
      */
-    public LockRoute(PlanRepository plans, Clock clock, LiveUpdates liveUpdates, AuditLog auditLog) {
-        this.plans = plans;
-        this.clock = clock;
+    public LockRoute(LiveUpdates liveUpdates, LockRouteChange change) {
         this.liveUpdates = liveUpdates;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

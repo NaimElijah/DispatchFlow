@@ -9,6 +9,7 @@ import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Customers &amp; Orders' implementation of {@link EndSupersededPutBack}: once a failed stop was
@@ -27,7 +28,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>Built in M8.
  */
-public final class EndSupersededPutBackService implements EndSupersededPutBack {
+@Transactional
+public class EndSupersededPutBackService implements EndSupersededPutBack {
 
     private final OrderRepository orders;
     private final Clock clock;

@@ -1,16 +1,10 @@
 package com.dispatchflow.liveops.application.service.alert;
 
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.fleet.application.api.FleetFacts;
-import com.dispatchflow.liveops.application.port.out.AlertRepository;
 import com.dispatchflow.liveops.application.port.out.LiveUpdates;
 import com.dispatchflow.liveops.application.port.out.PushNotifier;
-import com.dispatchflow.liveops.application.port.out.RouteRunRepository;
 import com.dispatchflow.planning.application.api.PlanningSettingsFacts;
-import com.dispatchflow.planning.application.api.PublishedRoutes;
-import com.dispatchflow.shared.application.Clock;
-import com.dispatchflow.shared.application.IdGenerator;
 
 /**
  * The minute job that alerts the dispatcher when a route has not started 15 minutes after its
@@ -19,61 +13,33 @@ import com.dispatchflow.shared.application.IdGenerator;
  * through Fleet's {@link FleetFacts#driverOn}, and Planning's {@link
  * PlanningSettingsFacts#departureAllowance}, and raises a <em>route not started</em> alert once per
  * route. It reads {@code driverOn}, not {@code rosterOn}, which keeps only active drivers: a route
- * published before its driver lost the Driver role still has a deadline (ADR-062).
+ * published before its driver lost the Driver role still has a deadline (ADR-062). {@link
+ * AlertRoutesNotStartedChange} holds that transaction.
  *
- * <p>For each alert it raises, it calls {@link PushNotifier#alertStaff} after the commit, so a
- * staff phone app in the background learns of it (FR-405, ADR-083).
+ * <p>After the commit, it tells the open screens of each alert raised through {@link LiveUpdates},
+ * and calls {@link PushNotifier#alertStaff} for each, so a staff phone app in the background learns
+ * of it (FR-405, ADR-083).
  *
  * <p>Built in M8; the push through {@link PushNotifier} in M10. Rows: FR-101.
  */
 public final class AlertRoutesNotStarted {
 
-    private final PublishedRoutes publishedRoutes;
-    private final RouteRunRepository runs;
-    private final FleetFacts fleetFacts;
-    private final PlanningSettingsFacts planningSettings;
-    private final AlertRepository alerts;
     private final PushNotifier pushNotifier;
-    private final Clock clock;
-    private final IdGenerator ids;
-    private final AuditLog auditLog;
     private final LiveUpdates liveUpdates;
+    private final AlertRoutesNotStartedChange change;
 
     /**
      * Creates the job.
      *
-     * @param publishedRoutes Planning's routes in force, for today's routes and drivers
-     * @param runs where route runs are kept
-     * @param fleetFacts Fleet's roster, for each driver's shift
-     * @param planningSettings Planning's departure allowance
-     * @param alerts where alerts are kept
      * @param pushNotifier the staff's phones, told of each alert raised
-     * @param clock the server's time and today's date
-     * @param ids new IDs, for the alerts
-     * @param auditLog the audit trail
      * @param liveUpdates the open screens
+     * @param change the job's transaction
      */
     public AlertRoutesNotStarted(
-            PublishedRoutes publishedRoutes,
-            RouteRunRepository runs,
-            FleetFacts fleetFacts,
-            PlanningSettingsFacts planningSettings,
-            AlertRepository alerts,
-            PushNotifier pushNotifier,
-            Clock clock,
-            IdGenerator ids,
-            AuditLog auditLog,
-            LiveUpdates liveUpdates) {
-        this.publishedRoutes = publishedRoutes;
-        this.runs = runs;
-        this.fleetFacts = fleetFacts;
-        this.planningSettings = planningSettings;
-        this.alerts = alerts;
+            PushNotifier pushNotifier, LiveUpdates liveUpdates, AlertRoutesNotStartedChange change) {
         this.pushNotifier = pushNotifier;
-        this.clock = clock;
-        this.ids = ids;
-        this.auditLog = auditLog;
         this.liveUpdates = liveUpdates;
+        this.change = change;
     }
 
     /**

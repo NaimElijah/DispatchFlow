@@ -1,12 +1,8 @@
 package com.dispatchflow.planning.application.service;
 
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.planning.application.port.out.LiveUpdates;
-import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
-import com.dispatchflow.planning.application.port.out.solvejob.SolveJobRepository;
 import com.dispatchflow.shared.DeliveryDate;
-import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.StaleVersion;
 
 /**
@@ -20,34 +16,28 @@ import com.dispatchflow.shared.application.StaleVersion;
  * midnight job's adapter calls it again, which reloads the plan, up to three times, and then fails
  * loudly for the team's alert (DL §11, §12).
  *
+ * <p>It loops over the jobs {@link CloseDeliveryDateChange#unfinishedJobsOn} lists, and {@link
+ * CloseDeliveryDateChange} holds each job's transaction and then the plan's; after each commits, the
+ * dispatchers' open screens are told (ADR-129).
+ *
  * <p>It lives in the service root because it changes two aggregates, the jobs and the plan.
  *
  * <p>Built in M5.
  */
 public final class CloseDeliveryDate {
 
-    private final SolveJobRepository jobs;
-    private final PlanRepository plans;
-    private final Clock clock;
     private final LiveUpdates liveUpdates;
-    private final AuditLog auditLog;
+    private final CloseDeliveryDateChange change;
 
     /**
      * Creates the job.
      *
-     * @param jobs where solve jobs are kept
-     * @param plans where plans are kept
-     * @param clock the time, for {@code today} and {@code now}
      * @param liveUpdates the dispatchers' open screens
-     * @param auditLog the audit trail, written in each change's transaction (TS §6.2)
+     * @param change each job's and the plan's transaction
      */
-    public CloseDeliveryDate(
-            SolveJobRepository jobs, PlanRepository plans, Clock clock, LiveUpdates liveUpdates, AuditLog auditLog) {
-        this.jobs = jobs;
-        this.plans = plans;
-        this.clock = clock;
+    public CloseDeliveryDate(LiveUpdates liveUpdates, CloseDeliveryDateChange change) {
         this.liveUpdates = liveUpdates;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

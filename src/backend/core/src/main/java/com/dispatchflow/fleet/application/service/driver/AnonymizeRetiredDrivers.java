@@ -1,9 +1,6 @@
 package com.dispatchflow.fleet.application.service.driver;
 
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
-import com.dispatchflow.fleet.application.port.out.DriverRepository;
-import com.dispatchflow.shared.application.Clock;
 
 /**
  * The nightly retention job's driver step: {@code Driver.anonymize} removes the name and phone of
@@ -12,25 +9,22 @@ import com.dispatchflow.shared.application.Clock;
  * hold back the rest; the next night retries it. A driver whose retention isn't over refuses with
  * {@code RetentionNotOver}, and the job moves on.
  *
+ * <p>It lists the drivers due, then anonymizes them one by one, and opens no transaction of its
+ * own: {@link AnonymizeRetiredDriversChange} holds each driver's (ADR-129).
+ *
  * <p>Built in M13, with the whole nightly retention run (ADR-121).
  */
 public final class AnonymizeRetiredDrivers {
 
-    private final DriverRepository drivers;
-    private final Clock clock;
-    private final AuditLog auditLog;
+    private final AnonymizeRetiredDriversChange change;
 
     /**
      * Creates the job.
      *
-     * @param drivers where the driver records are kept
-     * @param clock the time
-     * @param auditLog where the audit record is written
+     * @param change the transaction that lists the drivers due, and each driver's own
      */
-    public AnonymizeRetiredDrivers(DriverRepository drivers, Clock clock, AuditLog auditLog) {
-        this.drivers = drivers;
-        this.clock = clock;
-        this.auditLog = auditLog;
+    public AnonymizeRetiredDrivers(AnonymizeRetiredDriversChange change) {
+        this.change = change;
     }
 
     /**

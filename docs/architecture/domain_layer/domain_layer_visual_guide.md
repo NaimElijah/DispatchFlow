@@ -1608,15 +1608,15 @@ flowchart LR
 
 | Event | Raised by | Declared listeners (`core/<module>/application/service/`) |
 |---|---|---|
-| `SolveSucceeded` | `SolveJob.succeed` | `plan/ApplySolveResult` (Planning) |
-| `SolveFailed` | `SolveJob.fail`, `expireIfOverdue` | `plan/RecordSolveFailure` (Planning) |
+| `SolveSucceeded` | `SolveJob.succeed` | `plan/reaction/ApplySolveResult` (Planning) |
+| `SolveFailed` | `SolveJob.fail`, `expireIfOverdue` | `plan/reaction/RecordSolveFailure` (Planning) |
 | `PlanPublished` | `Plan.publish` | `routerun/TellDriversRoutesReady` (Live Operations); `ComputeBaseline` (Reporting) |
 | `PlanRevised` | `Plan.accept`, `handOver`, `removeStopOf`, `reconcileLateOutcome` | `routerun/TellDriversOfRevision` (Live Operations); `MessagePlanRevised` (Messaging); `RecomputeBaseline` (Reporting) |
 | `RouteHandedOver` | `Plan.handOver` | `plan/route/MoveRosterWithRoute` (Planning); `routerun/TellDriversOfRevision` (Live Operations) |
 | `PlanCancelled` | `Plan.cancel` | `routerun/TellDriversPlanCancelled` (Live Operations) |
-| `OrderCancelled` | `Order.cancel` | `plan/RemoveStopOfOrder` (Planning); `MessageDeliveryChanged` (Messaging) |
-| `OrderRescheduled` | `Order.reschedule` | `plan/RemoveStopOfOrder` (Planning); `MessageDeliveryChanged` (Messaging) |
-| `OrderPutBack` | `Order.putBack`, on another date only | `plan/RemovePutBackOrder` (Planning) |
+| `OrderCancelled` | `Order.cancel` | `plan/reaction/RemoveStopOfOrder` (Planning); `MessageDeliveryChanged` (Messaging) |
+| `OrderRescheduled` | `Order.reschedule` | `plan/reaction/RemoveStopOfOrder` (Planning); `MessageDeliveryChanged` (Messaging) |
+| `OrderPutBack` | `Order.putBack`, on another date only | `plan/reaction/RemovePutBackOrder` (Planning) |
 | `RouteStarted` | `RouteRun.start` | `MessageRouteStarted` (Messaging) |
 | `OutcomeRecorded` | `Delivery.deliver`, `fail`, `recordOnBehalf`, `confirmHeld` | `delivery/ReconcileOutcome` (Live Operations); `MessageOutcome` (Messaging) |
 | `PutBackSuperseded` | `Delivery.correct` | `delivery/RemoveSupersededStop` (Live Operations) |
@@ -1733,7 +1733,7 @@ for the command "Request a solve" and shows the classes the code declares for it
 
 The use case is `RequestSolve` (`core/planning/application/service/plan/RequestSolve.java`); the lane's
 worker is `RunSolveJob` (`core/planning/application/service/solvejob/`); the listener that ends the
-solve is `ApplySolveResult` (`service/plan/`). The repositories are ports in
+solve is `ApplySolveResult` (`service/plan/reaction/`). The repositories are ports in
 `core/planning/application/port/out/`.
 
 ```mermaid

@@ -5,6 +5,7 @@ import com.dispatchflow.planning.application.port.out.PlanningViews;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PlanId;
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Planning's implementation of Customers &amp; Orders' {@link RecordUsage}, which Customers &amp;
@@ -17,7 +18,8 @@ import java.util.List;
  *
  * <p>Built in M2.
  */
-public final class CustomerUsageService implements RecordUsage {
+@Transactional(readOnly = true)
+public class CustomerUsageService implements RecordUsage {
 
     private final PlanningViews views;
 

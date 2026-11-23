@@ -5,6 +5,7 @@ import com.dispatchflow.access.application.port.out.SessionRepository;
 import com.dispatchflow.shared.AccountId;
 import java.time.Instant;
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Access's implementation of {@code SessionContacts}: the contact times of an account's sessions
@@ -16,7 +17,8 @@ import java.util.List;
  *
  * <p>Built in M8.
  */
-public final class SessionContactsService implements SessionContacts {
+@Transactional(readOnly = true)
+public class SessionContactsService implements SessionContacts {
 
     private final SessionRepository sessions;
 

@@ -12,6 +12,7 @@ import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.util.Optional;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher renames an active depot and sets or clears its location (FR-04, FR-130, FR-197).
@@ -20,7 +21,8 @@ import java.util.Optional;
  *
  * <p>Built in M2.
  */
-public final class ChangeDepot {
+@Transactional
+public class ChangeDepot {
 
     private final FleetRegisterRepository registers;
     private final Clock clock;

@@ -1,21 +1,14 @@
 package com.dispatchflow.planning.application.service.plan;
 
 import com.dispatchflow.access.application.api.Actor;
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.planning.application.port.out.LiveUpdates;
-import com.dispatchflow.planning.application.port.out.Seeds;
-import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
-import com.dispatchflow.planning.application.port.out.settings.PlanningSettingsRepository;
 import com.dispatchflow.planning.application.port.out.solvejob.RouteOptimizer;
-import com.dispatchflow.planning.application.port.out.solvejob.SolveJobRepository;
 import com.dispatchflow.planning.application.service.SolverNotOffered;
 import com.dispatchflow.planning.domain.SolveLimit;
 import com.dispatchflow.planning.domain.plan.SolverName;
 import com.dispatchflow.shared.JobId;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.Version;
-import com.dispatchflow.shared.application.Clock;
-import com.dispatchflow.shared.application.IdGenerator;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.util.Optional;
@@ -41,8 +34,8 @@ import java.util.Optional;
  * domain gap that M4 closes. Until M4 adds the field, a request with no solver runs OR-Tools, the
  * default that ADR-004 and FR-20 name.
  *
- * <p>It saves the plan before it adds the job: adding the job writes at once everything the
- * transaction holds, so the plan's change written there would make its own save fail.
+ * <p>{@link RequestSolveChange} holds the transaction, which makes the plan solving, queues the job
+ * and writes the audit record; after it commits, the dispatchers' open screens are told (ADR-129).
  *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
@@ -51,48 +44,21 @@ import java.util.Optional;
  */
 public final class RequestSolve {
 
-    private final PlanRepository plans;
-    private final SolveJobRepository jobs;
-    private final PlanningSettingsRepository settings;
     private final RouteOptimizer optimizer;
-    private final Seeds seeds;
-    private final Clock clock;
-    private final IdGenerator ids;
     private final LiveUpdates liveUpdates;
-    private final AuditLog auditLog;
+    private final RequestSolveChange change;
 
     /**
      * Creates the use case.
      *
-     * @param plans where plans are kept
-     * @param jobs where solve jobs are kept, and the daily lane's capacity under its lock
-     * @param settings the planning settings, for the default solver and the default limit
      * @param optimizer the optimization service, for the solvers it offers (from M4)
-     * @param seeds the new job's seed (NFR-13)
-     * @param clock the time, for {@code today} and {@code now}
-     * @param ids the new job's ID
      * @param liveUpdates the dispatchers' open screens
-     * @param auditLog the audit trail, written in the change's transaction (TS §6.2)
+     * @param change the request's transaction
      */
-    public RequestSolve(
-            PlanRepository plans,
-            SolveJobRepository jobs,
-            PlanningSettingsRepository settings,
-            RouteOptimizer optimizer,
-            Seeds seeds,
-            Clock clock,
-            IdGenerator ids,
-            LiveUpdates liveUpdates,
-            AuditLog auditLog) {
-        this.plans = plans;
-        this.jobs = jobs;
-        this.settings = settings;
+    public RequestSolve(RouteOptimizer optimizer, LiveUpdates liveUpdates, RequestSolveChange change) {
         this.optimizer = optimizer;
-        this.seeds = seeds;
-        this.clock = clock;
-        this.ids = ids;
         this.liveUpdates = liveUpdates;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

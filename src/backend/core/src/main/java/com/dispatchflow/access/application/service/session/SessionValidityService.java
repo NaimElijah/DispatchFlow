@@ -5,6 +5,7 @@ import com.dispatchflow.access.application.port.out.SessionRepository;
 import com.dispatchflow.access.application.port.out.UserAccountRepository;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.SessionId;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Access's implementation of {@code SessionValidity}: whether an access token's account and session
@@ -16,7 +17,8 @@ import com.dispatchflow.shared.SessionId;
  *
  * <p>Built in M6.
  */
-public final class SessionValidityService implements SessionValidity {
+@Transactional(readOnly = true)
+public class SessionValidityService implements SessionValidity {
 
     private final UserAccountRepository accounts;
     private final SessionRepository sessions;

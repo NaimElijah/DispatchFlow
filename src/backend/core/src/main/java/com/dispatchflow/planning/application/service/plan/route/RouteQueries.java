@@ -1,10 +1,6 @@
 package com.dispatchflow.planning.application.service.plan.route;
 
 import com.dispatchflow.access.application.api.Actor;
-import com.dispatchflow.fleet.application.api.FleetFacts;
-import com.dispatchflow.orders.application.api.OrdersForDate;
-import com.dispatchflow.orders.application.api.StopOrders;
-import com.dispatchflow.planning.application.port.out.PlanningViews;
 import com.dispatchflow.planning.application.port.out.RouteChangesView;
 import com.dispatchflow.planning.application.port.out.plan.LoadingListView;
 import com.dispatchflow.planning.application.port.out.plan.PrintableRouteView;
@@ -24,37 +20,26 @@ import com.dispatchflow.shared.application.NotFound;
  * dispatcher sees every route. This class enforces it once its milestone builds it; the handler's role
  * check from {@code x-capability} can't, because it depends on the data (ADR-068).
  *
+ * <p>{@link RouteQueriesChange} holds the read-only transaction of each screen. For the line,
+ * {@link RouteQueriesChange#waypoints} reads the route's points, and the line along the road
+ * network is asked of {@link RouteShapes} after it (ADR-129).
+ *
  * <p>Built in M3 and later milestones, method by method.
  */
 public final class RouteQueries {
 
-    private final PlanningViews views;
     private final RouteShapes routeShapes;
-    private final OrdersForDate ordersForDate;
-    private final StopOrders stopOrders;
-    private final FleetFacts fleetFacts;
+    private final RouteQueriesChange change;
 
     /**
      * Creates the queries.
      *
-     * @param views Planning's read side
      * @param routeShapes the road network's line through a route's points
-     * @param ordersForDate the date's orders, for each stop's location, weight and volume
-     * @param stopOrders each stop's address, phones and notes, as a driver sees them, read for all
-     *     the route's orders in one call (FR-86, FR-87)
-     * @param fleetFacts Fleet's register, for the depots' locations
+     * @param change the screens' read-only transactions
      */
-    public RouteQueries(
-            PlanningViews views,
-            RouteShapes routeShapes,
-            OrdersForDate ordersForDate,
-            StopOrders stopOrders,
-            FleetFacts fleetFacts) {
-        this.views = views;
+    public RouteQueries(RouteShapes routeShapes, RouteQueriesChange change) {
         this.routeShapes = routeShapes;
-        this.ordersForDate = ordersForDate;
-        this.stopOrders = stopOrders;
-        this.fleetFacts = fleetFacts;
+        this.change = change;
     }
 
     /**

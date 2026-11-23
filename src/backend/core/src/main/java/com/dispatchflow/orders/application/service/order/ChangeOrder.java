@@ -12,6 +12,7 @@ import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher changes an order's fields other than its date and reference (FR-57): the use case
@@ -35,7 +36,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>Built in M2.
  */
-public final class ChangeOrder {
+@Transactional
+public class ChangeOrder {
 
     private final OrderRepository orders;
     private final StopProgress stopProgress;

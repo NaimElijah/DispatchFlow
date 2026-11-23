@@ -1,18 +1,13 @@
 package com.dispatchflow.liveops.application.service.routerun;
 
 import com.dispatchflow.access.application.api.Actor;
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.fleet.application.api.FleetFacts;
 import com.dispatchflow.liveops.application.port.out.IdempotencyKey;
 import com.dispatchflow.liveops.application.port.out.LiveUpdates;
-import com.dispatchflow.liveops.application.port.out.PositionLog;
-import com.dispatchflow.liveops.application.port.out.ReportReceipts;
 import com.dispatchflow.liveops.application.port.out.RequestDigest;
-import com.dispatchflow.liveops.application.port.out.RouteRunRepository;
 import com.dispatchflow.liveops.application.service.IdempotencyKeyReused;
 import com.dispatchflow.planning.application.api.PublishedRoutes;
 import com.dispatchflow.shared.RouteId;
-import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.util.List;
@@ -24,52 +19,28 @@ import java.util.List;
  * window from the route's current driver while available (FR-328, NFR-30). The {@code
  * TrackingStanding} it is judged by comes from Planning's {@link PublishedRoutes} (the current
  * driver, and a confirmed return, FR-394) and Fleet's {@link FleetFacts#driverOn} (the availability
- * and the shift end). The kept positions are appended with the receipt and the audit record, so a
- * retried batch is stored once (NFR-285). Like every changing call it writes its audit record, a
- * refused attempt's in its own transaction (NFR-23, ADR-110).
+ * and the shift end). {@link RecordPositionsChange} holds the one transaction, which appends the
+ * kept positions with the receipt and the audit record, so a retried batch is stored once
+ * (NFR-285). Like every changing call it writes its audit record, a refused attempt's in its own
+ * transaction (NFR-23, ADR-110). After the commit, when it kept any position, it tells the open
+ * screens through {@link LiveUpdates}.
  *
  * <p>Built in M8. Rows: FR-31, FR-243, FR-328, NFR-30, NFR-285.
  */
 public final class RecordPositions {
 
-    private final RouteRunRepository runs;
-    private final PositionLog positions;
-    private final ReportReceipts receipts;
-    private final PublishedRoutes publishedRoutes;
-    private final FleetFacts fleetFacts;
-    private final Clock clock;
-    private final AuditLog auditLog;
     private final LiveUpdates liveUpdates;
+    private final RecordPositionsChange change;
 
     /**
      * Creates the use case.
      *
-     * @param runs where route runs are kept
-     * @param positions where positions are kept
-     * @param receipts the phone's idempotency record
-     * @param publishedRoutes Planning's routes in force, for the current driver and return time
-     * @param fleetFacts Fleet's roster, for the driver's availability and shift
-     * @param clock the server's time
-     * @param auditLog the audit trail
      * @param liveUpdates the open screens
+     * @param change the use case's transaction
      */
-    public RecordPositions(
-            RouteRunRepository runs,
-            PositionLog positions,
-            ReportReceipts receipts,
-            PublishedRoutes publishedRoutes,
-            FleetFacts fleetFacts,
-            Clock clock,
-            AuditLog auditLog,
-            LiveUpdates liveUpdates) {
-        this.runs = runs;
-        this.positions = positions;
-        this.receipts = receipts;
-        this.publishedRoutes = publishedRoutes;
-        this.fleetFacts = fleetFacts;
-        this.clock = clock;
-        this.auditLog = auditLog;
+    public RecordPositions(LiveUpdates liveUpdates, RecordPositionsChange change) {
         this.liveUpdates = liveUpdates;
+        this.change = change;
     }
 
     /**

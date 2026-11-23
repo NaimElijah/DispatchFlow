@@ -16,6 +16,7 @@ import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.util.Objects;
 import java.util.Optional;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher changes a customer's name, phone, notes for drivers or defaults (FR-56, FR-59). The
@@ -29,7 +30,8 @@ import java.util.Optional;
  *
  * <p>Built in M2.
  */
-public final class ChangeCustomer {
+@Transactional
+public class ChangeCustomer {
 
     private final CustomerRepository customers;
     private final Clock clock;

@@ -12,6 +12,7 @@ import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.util.Optional;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher marks a vehicle unavailable on a date, during the day (FR-07) or before it starts
@@ -23,7 +24,8 @@ import java.util.Optional;
  *
  * <p>Built in M2.
  */
-public final class SetVehicleAvailability {
+@Transactional
+public class SetVehicleAvailability {
 
     private final DayRosterRepository rosters;
     private final FleetRegisterRepository registers;

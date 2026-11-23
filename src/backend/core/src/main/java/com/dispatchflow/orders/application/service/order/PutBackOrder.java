@@ -12,6 +12,7 @@ import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher puts a failed or dropped order back, for today's re-optimization or on another date,
@@ -28,7 +29,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>Built in M9.
  */
-public final class PutBackOrder {
+@Transactional
+public class PutBackOrder {
 
     private final OrderRepository orders;
     private final OrderPlacement orderPlacement;

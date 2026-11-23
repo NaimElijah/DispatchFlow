@@ -10,6 +10,7 @@ import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.util.Optional;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher records that a rostered driver drives no vehicle on a date; they still work their
@@ -20,7 +21,8 @@ import java.util.Optional;
  *
  * <p>Built in M2.
  */
-public final class UnassignVehicle {
+@Transactional
+public class UnassignVehicle {
 
     private final DayRosterRepository rosters;
     private final Clock clock;

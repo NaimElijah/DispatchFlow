@@ -1,10 +1,7 @@
 package com.dispatchflow.messaging.application.service;
 
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
-import com.dispatchflow.messaging.application.port.out.OptOutList;
 import com.dispatchflow.messaging.application.port.out.PhoneHasher;
-import com.dispatchflow.shared.application.Clock;
 
 /**
  * The server step a key rotation runs: every opt-out whose phone is still stored is re-hashed under
@@ -21,34 +18,28 @@ import com.dispatchflow.shared.application.Clock;
  *
  * <ul>
  *   <li>a read of every phone still stored, in Customers &amp; Orders' {@code api} and in
- *       Messaging's own repositories, which this step's constructor then takes;
+ *       Messaging's own repositories, which {@link RehashOptOutsChange}'s constructor then takes;
  *   <li>an {@code OptOutRecord} factory that copies an entry under a new hash, keeping its change,
  *       time and dispatcher (a domain gap);
  *   <li>the key version {@code PhoneHash} records (a domain gap).
  * </ul>
  *
+ * <p>It opens no transaction of its own: it re-hashes the phones one by one, and {@link
+ * RehashOptOutsChange} holds each phone's transaction (ADR-129).
+ *
  * <p>Built in M12. Rows: NFR-202.
  */
 public final class RehashOptOuts {
 
-    private final OptOutList optOuts;
-    private final PhoneHasher phoneHasher;
-    private final Clock clock;
-    private final AuditLog auditLog;
+    private final RehashOptOutsChange change;
 
     /**
      * Creates the step.
      *
-     * @param optOuts the phones' opt-out history
-     * @param phoneHasher the keyed phone hash, under every key version still in use
-     * @param clock the server's time, for the audit record
-     * @param auditLog the audit trail
+     * @param change the transaction of each phone's re-hash
      */
-    public RehashOptOuts(OptOutList optOuts, PhoneHasher phoneHasher, Clock clock, AuditLog auditLog) {
-        this.optOuts = optOuts;
-        this.phoneHasher = phoneHasher;
-        this.clock = clock;
-        this.auditLog = auditLog;
+    public RehashOptOuts(RehashOptOutsChange change) {
+        this.change = change;
     }
 
     /**

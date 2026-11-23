@@ -5,6 +5,7 @@ import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.fleet.events.DriverRetired;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Fleet's listener on its own {@code DriverRetired}: it calls Access's {@code RemoveDriverRole},
@@ -15,7 +16,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>Built in M2.
  */
-public final class RemoveRoleOfRetiredDriver {
+@Transactional
+public class RemoveRoleOfRetiredDriver {
 
     private final RemoveDriverRole removeDriverRole;
 

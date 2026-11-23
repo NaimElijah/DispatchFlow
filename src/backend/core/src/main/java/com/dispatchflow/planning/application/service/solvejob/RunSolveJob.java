@@ -1,17 +1,11 @@
 package com.dispatchflow.planning.application.service.solvejob;
 
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.planning.application.port.out.LiveUpdates;
 import com.dispatchflow.planning.application.port.out.StoredMatrices;
-import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
-import com.dispatchflow.planning.application.port.out.proposal.ProposalRepository;
 import com.dispatchflow.planning.application.port.out.solvejob.RouteOptimizer;
-import com.dispatchflow.planning.application.port.out.solvejob.SolveJobRepository;
 import com.dispatchflow.planning.application.service.SolveRequestAssembler;
 import com.dispatchflow.planning.events.Lane;
-import com.dispatchflow.shared.application.Clock;
-import com.dispatchflow.shared.application.IdGenerator;
 
 /**
  * A lane's worker step: it claims the lane's oldest queued job, builds its request and matrix,
@@ -56,6 +50,10 @@ import com.dispatchflow.shared.application.IdGenerator;
  * <p>The job's events, {@code SolveSucceeded} or {@code SolveFailed}, then end the plan's solve
  * (BR-59).
  *
+ * <p>{@link RunSolveJobChange} holds each phase change's transaction: the claim, the start of the
+ * search, and the job's end. The assembler's matrix and the optimizer call run between them, outside
+ * any, and the dispatchers' open screens are told after each commits (ADR-129).
+ *
  * <p><b>Domain gap.</b> {@code SolveJob.succeed} keeps no objective and no stats, which the daily
  * answer carries for NFR-11: M0 adds them to {@code SolveResult} (see {@code DailyAnswer.Solved}).
  * {@code SolveJob.fail} keeps no stats either, which a {@code Failed} answer carries when the
@@ -66,53 +64,28 @@ import com.dispatchflow.shared.application.IdGenerator;
  */
 public final class RunSolveJob {
 
-    private final SolveJobRepository jobs;
-    private final PlanRepository plans;
-    private final ProposalRepository proposals;
     private final SolveRequestAssembler assembler;
     private final RouteOptimizer optimizer;
-    private final StoredMatrices storedMatrices;
-    private final Clock clock;
-    private final IdGenerator ids;
     private final LiveUpdates liveUpdates;
-    private final AuditLog auditLog;
+    private final RunSolveJobChange change;
 
     /**
      * Creates the worker step.
      *
-     * @param jobs where solve jobs are kept, and the lane's queue
-     * @param plans where plans are kept, for a daily job's locks
-     * @param proposals where a re-optimization's proposal is added
      * @param assembler builds the job's request and matrix
      * @param optimizer the optimization service
-     * @param storedMatrices each plan's stored matrix, which the success transaction writes
-     *     (ADR-052, ADR-121)
-     * @param clock the time of each phase change
-     * @param ids the new proposal's ID
      * @param liveUpdates the dispatchers' open screens (FR-142, FR-222)
-     * @param auditLog the audit trail, written in each change's transaction (TS §6.2, ADR-110)
+     * @param change each phase change's transaction
      */
     public RunSolveJob(
-            SolveJobRepository jobs,
-            PlanRepository plans,
-            ProposalRepository proposals,
             SolveRequestAssembler assembler,
             RouteOptimizer optimizer,
-            StoredMatrices storedMatrices,
-            Clock clock,
-            IdGenerator ids,
             LiveUpdates liveUpdates,
-            AuditLog auditLog) {
-        this.jobs = jobs;
-        this.plans = plans;
-        this.proposals = proposals;
+            RunSolveJobChange change) {
         this.assembler = assembler;
         this.optimizer = optimizer;
-        this.storedMatrices = storedMatrices;
-        this.clock = clock;
-        this.ids = ids;
         this.liveUpdates = liveUpdates;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

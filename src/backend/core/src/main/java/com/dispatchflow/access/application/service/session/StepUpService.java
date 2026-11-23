@@ -5,6 +5,7 @@ import com.dispatchflow.access.application.api.StepUp;
 import com.dispatchflow.access.application.port.out.SessionRepository;
 import com.dispatchflow.access.application.port.out.UserAccountRepository;
 import com.dispatchflow.shared.application.Clock;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Access's implementation of {@link StepUp}: it loads the actor's session and account, and asks
@@ -13,7 +14,8 @@ import com.dispatchflow.shared.application.Clock;
  *
  * <p>Built in M6.
  */
-public final class StepUpService implements StepUp {
+@Transactional(readOnly = true)
+public class StepUpService implements StepUp {
 
     private final SessionRepository sessions;
     private final UserAccountRepository accounts;

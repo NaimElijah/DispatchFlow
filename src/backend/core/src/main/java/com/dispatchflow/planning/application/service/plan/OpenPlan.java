@@ -1,17 +1,16 @@
 package com.dispatchflow.planning.application.service.plan;
 
 import com.dispatchflow.access.application.api.Actor;
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.planning.application.port.out.LiveUpdates;
-import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.PlanId;
-import com.dispatchflow.shared.application.Clock;
-import com.dispatchflow.shared.application.IdGenerator;
 
 /**
  * Opens a plan for a delivery date, in draft (FR-15, BR-34, BR-118). It reads the date's uncancelled
  * plan first, and the partial unique index on the date refuses a race the read missed (DL §5).
+ *
+ * <p>{@link OpenPlanChange} holds the transaction, which adds the plan and writes the audit record;
+ * after it commits, the dispatchers' open screens are told (ADR-129).
  *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
@@ -20,27 +19,18 @@ import com.dispatchflow.shared.application.IdGenerator;
  */
 public final class OpenPlan {
 
-    private final PlanRepository plans;
-    private final Clock clock;
-    private final IdGenerator ids;
     private final LiveUpdates liveUpdates;
-    private final AuditLog auditLog;
+    private final OpenPlanChange change;
 
     /**
      * Creates the use case.
      *
-     * @param plans where plans are kept
-     * @param clock the time, for {@code today} and {@code now}
-     * @param ids the new plan's ID
      * @param liveUpdates the dispatchers' open screens
-     * @param auditLog the audit trail, written in the change's transaction (TS §6.2)
+     * @param change the opening's transaction
      */
-    public OpenPlan(PlanRepository plans, Clock clock, IdGenerator ids, LiveUpdates liveUpdates, AuditLog auditLog) {
-        this.plans = plans;
-        this.clock = clock;
-        this.ids = ids;
+    public OpenPlan(LiveUpdates liveUpdates, OpenPlanChange change) {
         this.liveUpdates = liveUpdates;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

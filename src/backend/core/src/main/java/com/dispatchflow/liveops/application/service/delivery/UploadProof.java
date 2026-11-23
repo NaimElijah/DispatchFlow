@@ -1,7 +1,6 @@
 package com.dispatchflow.liveops.application.service.delivery;
 
 import com.dispatchflow.access.application.api.Actor;
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.liveops.application.port.out.proof.ProofFormatRefused;
 import com.dispatchflow.liveops.application.port.out.proof.ProofIdTaken;
 import com.dispatchflow.liveops.application.port.out.proof.ProofImageTooLarge;
@@ -11,7 +10,6 @@ import com.dispatchflow.liveops.application.port.out.proof.ProofUpload;
 import com.dispatchflow.liveops.application.port.out.proof.ProofUploadsCapped;
 import com.dispatchflow.liveops.domain.proof.ProofId;
 import com.dispatchflow.liveops.domain.proof.ProofKind;
-import com.dispatchflow.shared.application.Clock;
 
 /**
  * A driver's phone uploads a proof of delivery before the report that names it, under the outbox
@@ -38,28 +36,26 @@ import com.dispatchflow.shared.application.Clock;
  * waits instead of marking its row refused. Both are the store adapter's named settings, whose
  * values M5 fixes.
  *
- * <p>Like every changing call it writes its audit record, a refused attempt's in its own
- * transaction (NFR-23, ADR-110).
+ * <p>The store's call goes first, on disk, outside any transaction. Then {@link UploadProofChange}
+ * writes the audit record in its own. Like every changing call it writes its audit record, a refused
+ * attempt's in its own transaction (NFR-23, ADR-110).
  *
  * <p>Built in M5. Rows: FR-30, FR-367, NFR-37, NFR-204, NFR-205, NFR-235.
  */
 public final class UploadProof {
 
     private final ProofStore proofs;
-    private final Clock clock;
-    private final AuditLog auditLog;
+    private final UploadProofChange change;
 
     /**
      * Creates the use case.
      *
      * @param proofs where proofs are kept
-     * @param clock the server's time, for the audit record
-     * @param auditLog the audit trail
+     * @param change the audit record's transaction
      */
-    public UploadProof(ProofStore proofs, Clock clock, AuditLog auditLog) {
+    public UploadProof(ProofStore proofs, UploadProofChange change) {
         this.proofs = proofs;
-        this.clock = clock;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

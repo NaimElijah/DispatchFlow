@@ -1,9 +1,6 @@
 package com.dispatchflow.planning.application.service.solvejob;
 
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
-import com.dispatchflow.planning.application.port.out.solvejob.SolveJobRepository;
-import com.dispatchflow.shared.application.Clock;
 
 /**
  * Startup recovery, before the lane workers start: a job that was building its matrix or running
@@ -13,25 +10,22 @@ import com.dispatchflow.shared.application.Clock;
  * of the recovery: it reloads the job, finds it ended ({@code JobAlreadyEnded}), and moves on to the
  * next job, never retrying its change (DL §11).
  *
+ * <p>It loops over the jobs {@link RecoverSolveJobsAtStartupChange#unfinished} lists, and {@link
+ * RecoverSolveJobsAtStartupChange} holds each job's transaction (ADR-129).
+ *
  * <p>Built in M4.
  */
 public final class RecoverSolveJobsAtStartup {
 
-    private final SolveJobRepository jobs;
-    private final Clock clock;
-    private final AuditLog auditLog;
+    private final RecoverSolveJobsAtStartupChange change;
 
     /**
      * Creates the job.
      *
-     * @param jobs where solve jobs are kept
-     * @param clock the time of each failure
-     * @param auditLog the audit trail, written in each change's transaction (TS §6.2, ADR-110)
+     * @param change each job's transaction
      */
-    public RecoverSolveJobsAtStartup(SolveJobRepository jobs, Clock clock, AuditLog auditLog) {
-        this.jobs = jobs;
-        this.clock = clock;
-        this.auditLog = auditLog;
+    public RecoverSolveJobsAtStartup(RecoverSolveJobsAtStartupChange change) {
+        this.change = change;
     }
 
     /**

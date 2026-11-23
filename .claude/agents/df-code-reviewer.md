@@ -48,7 +48,11 @@ report findings.
   - Use cases are `service` classes. An interface in `api` exists only when another module calls the use case ([DL §13][DL-13]).
   - Outside calls happen before the transaction, and a transaction changes one existing aggregate ([ADR-063]).
   - The application layer uses only `@Transactional` from Spring. `@Retryable` and `@ConcurrencyLimit` sit on the adapter that makes the outside call ([ADR-040], [TS §6.2][TS-62]).
-  - Listeners are idempotent ([ADR-064]).
+  - Transactions start only in services ([ADR-129]), which `TransactionRules` checks. Review what it can't:
+    - a service marked `readOnly` changes nothing;
+    - a use case's outside calls, or its loop over items, sit in the use case, and its transaction in its `<UseCase>Change`;
+    - a new port that calls out of the process is added to `TransactionRules.OUTSIDE_CALL_PORTS`.
+  - Listeners have no transaction of their own (`@Async @TransactionalEventListener`, never `@ApplicationModuleListener`), and are idempotent ([ADR-064], [ADR-129]).
   - An error that crosses `api` is an `api` type, since no domain object crosses a boundary ([DL §2.3][DL-23], rule 1). Inside a module, every refusal is a named error of the module's sealed type, with a stable code that the web adapter puts in the problem response ([DL §3.8][DL-38]).
   - Outbound adapters implement ports the inside declares, and an adapter reaches another only through a port ([TS §2.1][TS-21]).
   - No Lombok ([TS §6][TS-6]).
@@ -105,6 +109,7 @@ No praise, and no restating what the code does. End with:
 [ADR-126]: ../../docs/ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md
 [ADR-127]: ../../docs/ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md
 [ADR-128]: ../../docs/ADRs/ADR-128-the-persistence-rules-the-mapping-settled-after-adr-127.md
+[ADR-129]: ../../docs/ADRs/ADR-129-transactions-start-only-in-the-service-layer.md
 [ADR-044]: ../../docs/ADRs/ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md
 [ADR-063]: ../../docs/ADRs/ADR-063-a-transaction-changes-one-aggregate-and-every-rule-has-one-owner.md
 [ADR-064]: ../../docs/ADRs/ADR-064-events-only-where-they-earn-their-place-through-the-modulith-registry.md

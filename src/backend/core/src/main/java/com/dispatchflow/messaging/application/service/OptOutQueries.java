@@ -11,6 +11,7 @@ import com.dispatchflow.planning.application.api.PublishedRoutes;
 import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.application.NotFound;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * What a dispatcher sees about a phone's messages: whether it opted out, with who made the latest
@@ -23,7 +24,8 @@ import com.dispatchflow.shared.application.NotFound;
  *
  * <p>Built in M12. Rows: FR-378, FR-380.
  */
-public final class OptOutQueries {
+@Transactional(readOnly = true)
+public class OptOutQueries {
 
     private final PhoneHasher phoneHasher;
     private final OptOutList optOuts;

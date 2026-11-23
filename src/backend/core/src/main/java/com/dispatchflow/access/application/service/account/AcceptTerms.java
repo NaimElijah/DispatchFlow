@@ -7,6 +7,7 @@ import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The signed-in user accepts the terms and the privacy notice, which is recorded (FR-77). The first
@@ -15,7 +16,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>Built in M6.
  */
-public final class AcceptTerms {
+@Transactional
+public class AcceptTerms {
 
     private final UserAccountRepository accounts;
     private final Clock clock;

@@ -5,6 +5,7 @@ import com.dispatchflow.liveops.application.port.out.HeldReportsView;
 import com.dispatchflow.liveops.application.port.out.LiveOpsViews;
 import com.dispatchflow.liveops.application.port.out.OpenAlertsView;
 import com.dispatchflow.shared.application.Clock;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The dispatcher's alert list and the held reports waiting for a decision (FR-157, FR-261, FR-335,
@@ -15,7 +16,8 @@ import com.dispatchflow.shared.application.Clock;
  *
  * <p>Built in M8. Rows: FR-157, FR-261, FR-335, FR-405, BR-132.
  */
-public final class AlertQueries {
+@Transactional(readOnly = true)
+public class AlertQueries {
 
     private final LiveOpsViews views;
     private final Clock clock;

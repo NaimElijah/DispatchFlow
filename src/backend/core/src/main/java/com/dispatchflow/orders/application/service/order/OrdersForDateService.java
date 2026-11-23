@@ -7,6 +7,7 @@ import com.dispatchflow.orders.application.port.out.OrdersViews;
 import com.dispatchflow.shared.DeliveryDate;
 import java.time.Instant;
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Customers &amp; Orders' implementation of {@link OrdersForDate}: it reads a date's orders from
@@ -19,7 +20,8 @@ import java.util.List;
  *
  * <p>Built in M2 and M9, method by method.
  */
-public final class OrdersForDateService implements OrdersForDate {
+@Transactional(readOnly = true)
+public class OrdersForDateService implements OrdersForDate {
 
     private final OrdersViews views;
 

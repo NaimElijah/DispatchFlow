@@ -5,6 +5,7 @@ import com.dispatchflow.access.application.port.out.SessionRepository;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Keeps the time of a request from the acting session, which BR-133's contact window reads when
@@ -17,7 +18,8 @@ import com.dispatchflow.shared.application.NotFound;
  *
  * <p>Built in M8.
  */
-public final class RecordContact {
+@Transactional
+public class RecordContact {
 
     private final SessionRepository sessions;
     private final Clock clock;

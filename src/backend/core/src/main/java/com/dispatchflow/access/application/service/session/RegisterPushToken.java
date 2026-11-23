@@ -5,6 +5,7 @@ import com.dispatchflow.access.application.api.PushAddress;
 import com.dispatchflow.access.application.port.out.session.PushTokens;
 import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.shared.application.Clock;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The acting phone registers the push service's token for its device, so notices reach it (ADR-026,
@@ -14,7 +15,8 @@ import com.dispatchflow.shared.application.Clock;
  *
  * <p>Built in M10.
  */
-public final class RegisterPushToken {
+@Transactional
+public class RegisterPushToken {
 
     private final PushTokens pushTokens;
     private final Clock clock;

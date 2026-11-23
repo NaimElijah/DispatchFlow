@@ -1,12 +1,9 @@
 package com.dispatchflow.planning.application.service.plan.route;
 
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.planning.application.port.out.LiveUpdates;
 import com.dispatchflow.planning.application.port.out.plan.FeasibilityChecker;
-import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
 import com.dispatchflow.planning.application.service.SolveRequestAssembler;
-import com.dispatchflow.shared.application.Clock;
 
 /**
  * The route re-check job, every minute while a ready or published plan has a route <em>not yet
@@ -20,40 +17,37 @@ import com.dispatchflow.shared.application.Clock;
  * {@code RoadNetworkUnavailable}, the job asks {@code FeasibilityChecker.unavailableFor} for the
  * plan's version, and the plan's routes stay <em>not yet checked</em> (FR-395).
  *
+ * <p>It loops over the plans {@link RecheckRoutesChange#due} lists. For each it reads the plan
+ * through {@link RecheckRoutesChange#layoutOf}, builds the evaluation request and asks the
+ * validator; {@link RecheckRoutesChange#apply} then holds the plan's transaction, and after it
+ * commits, the dispatchers' open screens are told (ADR-129).
+ *
  * <p>Built in M9.
  */
 public final class RecheckRoutes {
 
-    private final PlanRepository plans;
     private final SolveRequestAssembler assembler;
     private final FeasibilityChecker checker;
-    private final Clock clock;
     private final LiveUpdates liveUpdates;
-    private final AuditLog auditLog;
+    private final RecheckRoutesChange change;
 
     /**
      * Creates the job.
      *
-     * @param plans where plans are kept, and which have unchecked routes
      * @param assembler builds each evaluation request
      * @param checker the optimizer's validator
-     * @param clock the time, for the audit record
      * @param liveUpdates the dispatchers' open screens
-     * @param auditLog the audit trail, written in each change's transaction (TS §6.2)
+     * @param change each plan's transaction
      */
     public RecheckRoutes(
-            PlanRepository plans,
             SolveRequestAssembler assembler,
             FeasibilityChecker checker,
-            Clock clock,
             LiveUpdates liveUpdates,
-            AuditLog auditLog) {
-        this.plans = plans;
+            RecheckRoutesChange change) {
         this.assembler = assembler;
         this.checker = checker;
-        this.clock = clock;
         this.liveUpdates = liveUpdates;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

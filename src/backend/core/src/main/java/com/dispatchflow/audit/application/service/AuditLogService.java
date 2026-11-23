@@ -6,6 +6,7 @@ import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.audit.application.port.out.AuditRecords;
 import java.time.Instant;
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Audit's implementation of {@link AuditLog}: it translates the call into Audit's own {@code
@@ -13,7 +14,8 @@ import java.util.List;
  *
  * <p>Built in M0.
  */
-public final class AuditLogService implements AuditLog {
+@Transactional
+public class AuditLogService implements AuditLog {
 
     private final AuditRecords auditRecords;
 

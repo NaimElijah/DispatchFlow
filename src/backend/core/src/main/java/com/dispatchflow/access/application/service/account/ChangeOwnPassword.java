@@ -1,15 +1,10 @@
 package com.dispatchflow.access.application.service.account;
 
 import com.dispatchflow.access.application.api.Actor;
-import com.dispatchflow.access.application.port.out.CommonPasswordList;
 import com.dispatchflow.access.application.port.out.EmailSender;
-import com.dispatchflow.access.application.port.out.PasswordHasher;
 import com.dispatchflow.access.application.port.out.PresentedPassword;
 import com.dispatchflow.access.application.port.out.RevocationCache;
-import com.dispatchflow.access.application.port.out.UserAccountRepository;
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.shared.RuleViolation;
-import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 
@@ -28,44 +23,30 @@ import com.dispatchflow.shared.application.StaleVersion;
  * Like every changing call it writes its audit record, a refused attempt's in its own transaction
  * (NFR-23, ADR-110).
  *
+ * <p><b>The transaction.</b> {@link ChangeOwnPasswordChange} holds it: the password check, the
+ * change, its save, the Admins' addresses and the audit record. After its commit, the use case
+ * evicts the account from the revocation cache and sends the Admins' notice, so a change that rolls
+ * back sends nothing (ADR-129).
+ *
  * <p>Built in M6.
  */
 public final class ChangeOwnPassword {
 
-    private final UserAccountRepository accounts;
-    private final PasswordHasher passwordHasher;
-    private final CommonPasswordList commonPasswordList;
     private final RevocationCache revocationCache;
     private final EmailSender emailSender;
-    private final Clock clock;
-    private final AuditLog auditLog;
+    private final ChangeOwnPasswordChange change;
 
     /**
      * Creates the use case.
      *
-     * @param accounts where accounts are kept
-     * @param passwordHasher hashes passwords and checks a presented one
-     * @param commonPasswordList reads the bundled list of common passwords
      * @param revocationCache the token check's cache, evicted after a change
      * @param emailSender sends links and notices by email
-     * @param clock the time
-     * @param auditLog where the audit record is written
+     * @param change the transaction that changes the password
      */
-    public ChangeOwnPassword(
-            UserAccountRepository accounts,
-            PasswordHasher passwordHasher,
-            CommonPasswordList commonPasswordList,
-            RevocationCache revocationCache,
-            EmailSender emailSender,
-            Clock clock,
-            AuditLog auditLog) {
-        this.accounts = accounts;
-        this.passwordHasher = passwordHasher;
-        this.commonPasswordList = commonPasswordList;
+    public ChangeOwnPassword(RevocationCache revocationCache, EmailSender emailSender, ChangeOwnPasswordChange change) {
         this.revocationCache = revocationCache;
         this.emailSender = emailSender;
-        this.clock = clock;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

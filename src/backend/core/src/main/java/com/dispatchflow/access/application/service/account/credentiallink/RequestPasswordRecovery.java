@@ -2,13 +2,8 @@ package com.dispatchflow.access.application.service.account.credentiallink;
 
 import com.dispatchflow.access.application.port.out.EmailSender;
 import com.dispatchflow.access.application.port.out.RecoveryEmailCap;
-import com.dispatchflow.access.application.port.out.SecretTokens;
-import com.dispatchflow.access.application.port.out.UserAccountRepository;
 import com.dispatchflow.access.domain.account.EmailAddress;
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
-import com.dispatchflow.shared.application.Clock;
-import com.dispatchflow.shared.application.IdGenerator;
 
 /**
  * A user who forgot their password asks for a recovery link at their address (FR-386). The link
@@ -53,6 +48,11 @@ import com.dispatchflow.shared.application.IdGenerator;
  * to {@code EmailSender.sendLink} only after that transaction commits, as every Access email does,
  * so a rolled-back save sends nothing.
  *
+ * <p><b>The transaction.</b> {@link RequestPasswordRecoveryChange} holds it: the account's lookup,
+ * the link's issue, the take and the save, and the audit record. The use case answers its {@code
+ * StaleVersion} as a request that sent nothing, and after its commit hands the link it returns to
+ * {@code EmailSender.sendLink} (ADR-129).
+ *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
@@ -60,40 +60,18 @@ import com.dispatchflow.shared.application.IdGenerator;
  */
 public final class RequestPasswordRecovery {
 
-    private final UserAccountRepository accounts;
-    private final SecretTokens secretTokens;
     private final EmailSender emailSender;
-    private final RecoveryEmailCap recoveryEmailCap;
-    private final IdGenerator ids;
-    private final Clock clock;
-    private final AuditLog auditLog;
+    private final RequestPasswordRecoveryChange change;
 
     /**
      * Creates the use case.
      *
-     * @param accounts where accounts are kept
-     * @param secretTokens makes refresh and link tokens, and hashes a presented one
      * @param emailSender sends links and notices by email
-     * @param recoveryEmailCap NFR-215's daily cap of recovery emails, taken from before each send
-     * @param ids makes new IDs
-     * @param clock the time
-     * @param auditLog where the audit record is written
+     * @param change the transaction that issues the recovery link
      */
-    public RequestPasswordRecovery(
-            UserAccountRepository accounts,
-            SecretTokens secretTokens,
-            EmailSender emailSender,
-            RecoveryEmailCap recoveryEmailCap,
-            IdGenerator ids,
-            Clock clock,
-            AuditLog auditLog) {
-        this.accounts = accounts;
-        this.secretTokens = secretTokens;
+    public RequestPasswordRecovery(EmailSender emailSender, RequestPasswordRecoveryChange change) {
         this.emailSender = emailSender;
-        this.recoveryEmailCap = recoveryEmailCap;
-        this.ids = ids;
-        this.clock = clock;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

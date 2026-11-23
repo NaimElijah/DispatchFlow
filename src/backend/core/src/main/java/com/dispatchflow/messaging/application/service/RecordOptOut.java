@@ -6,6 +6,7 @@ import com.dispatchflow.messaging.application.port.out.OptOutList;
 import com.dispatchflow.messaging.application.port.out.PhoneHasher;
 import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.application.Clock;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher records a phone's opt-out at the person's own request by phone, noting who did it
@@ -16,7 +17,8 @@ import com.dispatchflow.shared.application.Clock;
  *
  * <p>Built in M12. Rows: FR-380, NFR-202.
  */
-public final class RecordOptOut {
+@Transactional
+public class RecordOptOut {
 
     private final PhoneHasher phoneHasher;
     private final OptOutList optOuts;

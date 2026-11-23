@@ -4,6 +4,7 @@ import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.audit.application.port.out.AuditRecords;
 import com.dispatchflow.shared.application.Clock;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The nightly retention job's Audit step: it deletes every audit record older than a year, through
@@ -17,7 +18,8 @@ import com.dispatchflow.shared.application.Clock;
  *
  * <p>Built in M13, with the whole nightly retention run (ADR-121).
  */
-public final class PurgeExpiredAuditRecords {
+@Transactional
+public class PurgeExpiredAuditRecords {
 
     private final AuditRecords auditRecords;
     private final Clock clock;

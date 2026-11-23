@@ -1,18 +1,18 @@
 package com.dispatchflow.planning.application.service.proposal;
 
 import com.dispatchflow.access.application.api.Actor;
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.planning.application.port.out.LiveUpdates;
-import com.dispatchflow.planning.application.port.out.proposal.ProposalRepository;
 import com.dispatchflow.shared.ProposalId;
 import com.dispatchflow.shared.Version;
-import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * Declines a re-optimization's proposal; the plan stays published and every route as it was (FR-255,
  * BR-26, DL §6.2).
+ *
+ * <p>{@link DeclineProposalChange} holds the transaction, which declines the proposal and writes the
+ * audit record; after it commits, the dispatchers' open screens are told (ADR-129).
  *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
@@ -21,24 +21,18 @@ import com.dispatchflow.shared.application.StaleVersion;
  */
 public final class DeclineProposal {
 
-    private final ProposalRepository proposals;
-    private final Clock clock;
     private final LiveUpdates liveUpdates;
-    private final AuditLog auditLog;
+    private final DeclineProposalChange change;
 
     /**
      * Creates the use case.
      *
-     * @param proposals where proposals are kept
-     * @param clock the time, for {@code now}
      * @param liveUpdates the dispatchers' open screens
-     * @param auditLog the audit trail, written in the change's transaction (TS §6.2)
+     * @param change the decline's transaction
      */
-    public DeclineProposal(ProposalRepository proposals, Clock clock, LiveUpdates liveUpdates, AuditLog auditLog) {
-        this.proposals = proposals;
-        this.clock = clock;
+    public DeclineProposal(LiveUpdates liveUpdates, DeclineProposalChange change) {
         this.liveUpdates = liveUpdates;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

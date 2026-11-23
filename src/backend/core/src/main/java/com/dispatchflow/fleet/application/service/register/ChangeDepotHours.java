@@ -11,6 +11,7 @@ import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.util.Optional;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher sets or clears an active depot's opening hours, one pair for every date (FR-129,
@@ -19,7 +20,8 @@ import java.util.Optional;
  *
  * <p>Built in M2.
  */
-public final class ChangeDepotHours {
+@Transactional
+public class ChangeDepotHours {
 
     private final FleetRegisterRepository registers;
     private final Clock clock;

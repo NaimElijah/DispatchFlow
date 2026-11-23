@@ -1,15 +1,9 @@
 package com.dispatchflow.liveops.application.service.alert;
 
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
-import com.dispatchflow.liveops.application.port.out.AlertRepository;
-import com.dispatchflow.liveops.application.port.out.DeliveryRepository;
 import com.dispatchflow.liveops.application.port.out.LiveUpdates;
 import com.dispatchflow.liveops.application.port.out.PushNotifier;
-import com.dispatchflow.liveops.application.port.out.RouteRunRepository;
 import com.dispatchflow.planning.application.api.PublishedRoutes;
-import com.dispatchflow.shared.application.Clock;
-import com.dispatchflow.shared.application.IdGenerator;
 
 /**
  * The minute job that alerts the dispatcher on stops at risk of missing their window: projected
@@ -17,57 +11,32 @@ import com.dispatchflow.shared.application.IdGenerator;
  * ADR-067). For today's routes in force it builds the {@code PlannedLegs} from Planning's {@link
  * PublishedRoutes}, whose stops carry their windows and door flags, the {@code StopFact}s from the
  * deliveries and the runs' starts, asks {@code ArrivalProjection.isAtRisk}, and raises a <em>stop at
- * risk</em> alert keyed on the revision, so a new revision can alert again (ADR-107).
+ * risk</em> alert keyed on the revision, so a new revision can alert again (ADR-107). {@link
+ * AlertStopsAtRiskChange} holds that transaction.
  *
- * <p>For each alert it raises, it calls {@link PushNotifier#alertStaff} after the commit, so a
- * staff phone app in the background learns of it (FR-405, ADR-083).
+ * <p>After the commit, it tells the open screens of each alert raised through {@link LiveUpdates},
+ * and calls {@link PushNotifier#alertStaff} for each, so a staff phone app in the background learns
+ * of it (FR-405, ADR-083).
  *
  * <p>Built in M8; the push through {@link PushNotifier} in M10. Rows: FR-34, FR-253, ADR-067.
  */
 public final class AlertStopsAtRisk {
 
-    private final PublishedRoutes publishedRoutes;
-    private final DeliveryRepository deliveries;
-    private final RouteRunRepository runs;
-    private final AlertRepository alerts;
     private final PushNotifier pushNotifier;
-    private final Clock clock;
-    private final IdGenerator ids;
-    private final AuditLog auditLog;
     private final LiveUpdates liveUpdates;
+    private final AlertStopsAtRiskChange change;
 
     /**
      * Creates the job.
      *
-     * @param publishedRoutes Planning's routes in force, their stored legs and their stops' windows
-     * @param deliveries where deliveries are kept
-     * @param runs where route runs are kept
-     * @param alerts where alerts are kept
      * @param pushNotifier the staff's phones, told of each alert raised
-     * @param clock the server's time and today's date
-     * @param ids new IDs, for the alerts
-     * @param auditLog the audit trail
      * @param liveUpdates the open screens
+     * @param change the job's transaction
      */
-    public AlertStopsAtRisk(
-            PublishedRoutes publishedRoutes,
-            DeliveryRepository deliveries,
-            RouteRunRepository runs,
-            AlertRepository alerts,
-            PushNotifier pushNotifier,
-            Clock clock,
-            IdGenerator ids,
-            AuditLog auditLog,
-            LiveUpdates liveUpdates) {
-        this.publishedRoutes = publishedRoutes;
-        this.deliveries = deliveries;
-        this.runs = runs;
-        this.alerts = alerts;
+    public AlertStopsAtRisk(PushNotifier pushNotifier, LiveUpdates liveUpdates, AlertStopsAtRiskChange change) {
         this.pushNotifier = pushNotifier;
-        this.clock = clock;
-        this.ids = ids;
-        this.auditLog = auditLog;
         this.liveUpdates = liveUpdates;
+        this.change = change;
     }
 
     /**

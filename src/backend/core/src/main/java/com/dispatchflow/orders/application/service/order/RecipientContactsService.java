@@ -5,6 +5,7 @@ import com.dispatchflow.orders.application.api.RecipientContacts;
 import com.dispatchflow.orders.application.port.out.OrdersViews;
 import com.dispatchflow.shared.OrderId;
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Customers &amp; Orders' implementation of {@link RecipientContacts}: it reads the orders'
@@ -14,7 +15,8 @@ import java.util.List;
  *
  * <p>Built in M12.
  */
-public final class RecipientContactsService implements RecipientContacts {
+@Transactional(readOnly = true)
+public class RecipientContactsService implements RecipientContacts {
 
     private final OrdersViews views;
 

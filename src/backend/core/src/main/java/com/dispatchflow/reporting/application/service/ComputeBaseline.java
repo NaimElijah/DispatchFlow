@@ -1,6 +1,5 @@
 package com.dispatchflow.reporting.application.service;
 
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.planning.events.PlanPublished;
 import com.dispatchflow.reporting.application.port.out.BaselineAnswer;
@@ -9,18 +8,17 @@ import com.dispatchflow.reporting.application.port.out.BaselinePlanner;
 import com.dispatchflow.reporting.application.port.out.BaselineRepository;
 import com.dispatchflow.reporting.application.port.out.ReportingViews;
 import com.dispatchflow.shared.RuleViolation;
-import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * Computes a published plan's baseline when Reporting hears {@code PlanPublished} (FR-39, FR-342,
- * DL §7.2). Before its transaction it reads the plan's {@code BaselineInputs} through {@link
- * ReportingViews#baselineInputsOf}, from the views Planning and Customers &amp; Orders publish
- * (ADR-041, ADR-109), builds the {@code BaselineRequest} from them with no vehicle withdrawn and
- * with {@code BaselineSolve}'s seed and budget, and asks the {@link BaselinePlanner} for the
- * nearest-neighbour solve (DL §6.3); then {@code Baseline.compute} stores it. It reads no other
- * module's Java API. Delivery is at least once (ADR-064): the plan keys the baseline and the
+ * DL §7.2). Before the transaction that stores it, it reads the plan's {@code BaselineInputs}
+ * through {@link ReportingViews#baselineInputsOf}, from the views Planning and Customers &amp;
+ * Orders publish (ADR-041, ADR-109), builds the {@code BaselineRequest} from them with no vehicle
+ * withdrawn and with {@code BaselineSolve}'s seed and budget, and asks the {@link BaselinePlanner}
+ * for the nearest-neighbour solve (DL §6.3); then {@code Baseline.compute} stores it. It reads no
+ * other module's Java API. Delivery is at least once (ADR-064): the plan keys the baseline and the
  * refusal, so a repeated delivery finds one stored and changes nothing.
  *
  * <p>When the planner answers {@link BaselineAnswer.Refused}, the use case stores no baseline: it
@@ -29,36 +27,26 @@ import com.dispatchflow.shared.application.StaleVersion;
  * may repeat, and a later recompute finds the plan settled. What the plan's summary shows then is
  * open for M5.
  *
+ * <p>The {@link BaselinePlanner} is an outside call, so this class opens no transaction: {@link
+ * ComputeBaselineChange} reads the inputs and builds the request in one, before the solve, and
+ * stores the answer in another (ADR-129).
+ *
  * <p>Built in M5.
  */
 public final class ComputeBaseline {
 
-    private final ReportingViews views;
     private final BaselinePlanner baselinePlanner;
-    private final BaselineRepository baselines;
-    private final Clock clock;
-    private final AuditLog auditLog;
+    private final ComputeBaselineChange change;
 
     /**
      * Creates the listener's use case.
      *
-     * @param views Reporting's read port over the views other modules publish
      * @param baselinePlanner the optimizer's baseline solve
-     * @param baselines where baselines are kept
-     * @param clock the time of computing
-     * @param auditLog the audit trail
+     * @param change the transactions that build the request and store the answer
      */
-    public ComputeBaseline(
-            ReportingViews views,
-            BaselinePlanner baselinePlanner,
-            BaselineRepository baselines,
-            Clock clock,
-            AuditLog auditLog) {
-        this.views = views;
+    public ComputeBaseline(BaselinePlanner baselinePlanner, ComputeBaselineChange change) {
         this.baselinePlanner = baselinePlanner;
-        this.baselines = baselines;
-        this.clock = clock;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

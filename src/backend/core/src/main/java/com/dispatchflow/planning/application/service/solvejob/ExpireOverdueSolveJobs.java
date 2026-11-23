@@ -1,10 +1,7 @@
 package com.dispatchflow.planning.application.service.solvejob;
 
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.planning.application.port.out.LiveUpdates;
-import com.dispatchflow.planning.application.port.out.solvejob.SolveJobRepository;
-import com.dispatchflow.shared.application.Clock;
 
 /**
  * The queue watchdog, every 15 seconds: it fails each job past its phase's deadline, 5 minutes queued,
@@ -16,28 +13,26 @@ import com.dispatchflow.shared.application.Clock;
  * finds it ended ({@code JobAlreadyEnded}), and moves on to the next job, never retrying its change
  * (DL §11).
  *
+ * <p>It loops over the jobs {@link ExpireOverdueSolveJobsChange#unfinished} lists, and {@link
+ * ExpireOverdueSolveJobsChange} holds each job's transaction; after each commits, the dispatchers'
+ * open screens are told of a job it failed (ADR-129).
+ *
  * <p>Built in M4.
  */
 public final class ExpireOverdueSolveJobs {
 
-    private final SolveJobRepository jobs;
-    private final Clock clock;
     private final LiveUpdates liveUpdates;
-    private final AuditLog auditLog;
+    private final ExpireOverdueSolveJobsChange change;
 
     /**
      * Creates the job.
      *
-     * @param jobs where solve jobs are kept
-     * @param clock the watchdog's time
      * @param liveUpdates the dispatchers' open screens
-     * @param auditLog the audit trail, written in each change's transaction (TS §6.2, ADR-110)
+     * @param change each job's transaction
      */
-    public ExpireOverdueSolveJobs(SolveJobRepository jobs, Clock clock, LiveUpdates liveUpdates, AuditLog auditLog) {
-        this.jobs = jobs;
-        this.clock = clock;
+    public ExpireOverdueSolveJobs(LiveUpdates liveUpdates, ExpireOverdueSolveJobsChange change) {
         this.liveUpdates = liveUpdates;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

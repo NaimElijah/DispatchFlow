@@ -9,6 +9,7 @@ import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher discards an import preview: {@code ImportBatch.discard}, and its rows are deleted at
@@ -19,7 +20,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>Built in M2.
  */
-public final class DiscardOrderImport {
+@Transactional
+public class DiscardOrderImport {
 
     private final ImportBatchRepository imports;
     private final Clock clock;

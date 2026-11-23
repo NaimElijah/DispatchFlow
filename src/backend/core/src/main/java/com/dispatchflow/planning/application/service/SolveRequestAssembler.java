@@ -1,19 +1,11 @@
 package com.dispatchflow.planning.application.service;
 
-import com.dispatchflow.fleet.application.api.FleetFacts;
-import com.dispatchflow.orders.application.api.OrdersForDate;
-import com.dispatchflow.orders.application.api.ServiceAreaCheck;
 import com.dispatchflow.planning.application.port.out.RoadNetworkUnavailable;
 import com.dispatchflow.planning.application.port.out.SolveConfiguration;
-import com.dispatchflow.planning.application.port.out.StoredMatrices;
 import com.dispatchflow.planning.application.port.out.TravelTimes;
 import com.dispatchflow.planning.application.port.out.plan.EvaluationRequest;
-import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
-import com.dispatchflow.planning.application.port.out.settings.PlanningSettingsRepository;
 import com.dispatchflow.planning.application.port.out.solvejob.ReoptimizationRequest;
-import com.dispatchflow.planning.application.port.out.solvejob.SolveJobRepository;
 import com.dispatchflow.planning.application.port.out.solvejob.SolveRequest;
-import com.dispatchflow.planning.application.spi.ExecutionFacts;
 import com.dispatchflow.planning.domain.plan.PlanLayout;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.JobId;
@@ -50,7 +42,10 @@ import java.time.Instant;
  * adds the position rows: one {@code TravelTimes.from} call, from each vehicle's latest position,
  * one row exactly where a position exists, to every location of its matrix, depots included
  * (ADR-050, ADR-052). Which positions are usable is the optimizer's to judge (BR-80, ADR-050). The
- * assembler reads every fact outside any transaction (DL §6.3).
+ * assembler reads every fact outside the calling use case's transaction (DL §6.3), in read-only
+ * transactions of {@link SolveRequestAssemblerChange}: first which locations the matrix must span
+ * and whether the stored one serves, then, after it asks {@link TravelTimes}, the facts the request
+ * is built from (ADR-129).
  *
  * <p>Every request's {@code ProblemFacts} carries the door-window rate and the break flag, and a
  * re-optimization's request adds the lateness rate and the moved-stop cost, all from {@link
@@ -75,54 +70,19 @@ import java.time.Instant;
  */
 public final class SolveRequestAssembler {
 
-    private final PlanRepository plans;
-    private final SolveJobRepository jobs;
-    private final PlanningSettingsRepository settings;
-    private final SolveConfiguration configuration;
-    private final StoredMatrices storedMatrices;
     private final TravelTimes travelTimes;
-    private final FleetFacts fleetFacts;
-    private final OrdersForDate ordersForDate;
-    private final ServiceAreaCheck serviceArea;
-    private final ExecutionFacts executionFacts;
+    private final SolveRequestAssemblerChange change;
 
     /**
      * Creates the assembler.
      *
-     * @param plans where plans are kept, for the pins, locks and routes a request carries
-     * @param jobs where solve jobs are kept, for each job's solver, limit, seed and plan
-     * @param settings the planning settings, for the travel model (FR-321, FR-227, FR-21, FR-67)
-     * @param configuration the configured rates and break flag (BR-115, BR-120, FR-81, ADR-121)
-     * @param storedMatrices each plan's stored matrix (ADR-052)
      * @param travelTimes the road network's travel times, for a new matrix and a re-optimization's
      *     position rows (ADR-052, ADR-121)
-     * @param fleetFacts Fleet's register and roster
-     * @param ordersForDate Customers &amp; Orders' orders of a date
-     * @param serviceArea Customers &amp; Orders' service area, for each position's flag (ADR-050)
-     * @param executionFacts Live Operations' facts about the plan's own routes and stops, for a
-     *     re-optimization
+     * @param change the read-only transaction that reads the facts
      */
-    public SolveRequestAssembler(
-            PlanRepository plans,
-            SolveJobRepository jobs,
-            PlanningSettingsRepository settings,
-            SolveConfiguration configuration,
-            StoredMatrices storedMatrices,
-            TravelTimes travelTimes,
-            FleetFacts fleetFacts,
-            OrdersForDate ordersForDate,
-            ServiceAreaCheck serviceArea,
-            ExecutionFacts executionFacts) {
-        this.plans = plans;
-        this.jobs = jobs;
-        this.settings = settings;
-        this.configuration = configuration;
-        this.storedMatrices = storedMatrices;
+    public SolveRequestAssembler(TravelTimes travelTimes, SolveRequestAssemblerChange change) {
         this.travelTimes = travelTimes;
-        this.fleetFacts = fleetFacts;
-        this.ordersForDate = ordersForDate;
-        this.serviceArea = serviceArea;
-        this.executionFacts = executionFacts;
+        this.change = change;
     }
 
     /**

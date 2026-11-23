@@ -18,27 +18,25 @@ import com.dispatchflow.shared.application.NotFound;
  * LiveOpsViews#stopOfProof} gives the stop whose delivery names the proof, and Planning's {@link
  * PublishedRoutes#routeOf} that stop's route in force and its driver now; a proof on any other
  * route answers {@link NotFound}, the same as an unknown ID, so a driver learns nothing of another
- * route's proofs.
+ * route's proofs. {@link ProofQueriesChange} makes that check in a read-only transaction; after it,
+ * the file is read from {@link ProofStore}, on disk, outside any transaction.
  *
  * <p>Built in M5. Rows: FR-105, NFR-38, BR-02.
  */
 public final class ProofQueries {
 
     private final ProofStore proofs;
-    private final LiveOpsViews views;
-    private final PublishedRoutes publishedRoutes;
+    private final ProofQueriesChange change;
 
     /**
      * Creates the queries.
      *
      * @param proofs where proof files are kept
-     * @param views Live Operations' read port, for the stop a proof is on
-     * @param publishedRoutes Planning's routes in force, for that stop's driver
+     * @param change the check that the actor may see the proof
      */
-    public ProofQueries(ProofStore proofs, LiveOpsViews views, PublishedRoutes publishedRoutes) {
+    public ProofQueries(ProofStore proofs, ProofQueriesChange change) {
         this.proofs = proofs;
-        this.views = views;
-        this.publishedRoutes = publishedRoutes;
+        this.change = change;
     }
 
     /**

@@ -14,6 +14,7 @@ import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.util.Objects;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher changes an active driver's name, phone and defaults (FR-06, FR-56, FR-189). A change
@@ -23,7 +24,8 @@ import java.util.Objects;
  *
  * <p>Built in M2.
  */
-public final class ChangeDriverDetails {
+@Transactional
+public class ChangeDriverDetails {
 
     private final DriverRepository drivers;
     private final Clock clock;

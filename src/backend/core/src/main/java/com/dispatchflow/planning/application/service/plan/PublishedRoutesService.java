@@ -10,6 +10,7 @@ import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Planning's implementation of {@link PublishedRoutes}: it reads the current revisions of the plans in
@@ -22,7 +23,8 @@ import java.util.Optional;
  *
  * <p>Built in M5 and M12, method by method.
  */
-public final class PublishedRoutesService implements PublishedRoutes {
+@Transactional(readOnly = true)
+public class PublishedRoutesService implements PublishedRoutes {
 
     private final PlanningViews views;
 

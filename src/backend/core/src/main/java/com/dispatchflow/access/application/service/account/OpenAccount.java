@@ -2,18 +2,11 @@ package com.dispatchflow.access.application.service.account;
 
 import com.dispatchflow.access.application.api.Actor;
 import com.dispatchflow.access.application.api.CompanyNotSetUp;
-import com.dispatchflow.access.application.port.out.CompanyProfileRepository;
 import com.dispatchflow.access.application.port.out.EmailSender;
-import com.dispatchflow.access.application.port.out.SecretTokens;
-import com.dispatchflow.access.application.port.out.SessionRepository;
-import com.dispatchflow.access.application.port.out.UserAccountRepository;
 import com.dispatchflow.access.domain.account.EmailAddress;
 import com.dispatchflow.access.domain.account.RoleSet;
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.RuleViolation;
-import com.dispatchflow.shared.application.Clock;
-import com.dispatchflow.shared.application.IdGenerator;
 
 /**
  * An Admin opens a user's account with one or more roles (FR-02, FR-293), and it gets a
@@ -29,48 +22,27 @@ import com.dispatchflow.shared.application.IdGenerator;
  * NFR-227). Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
+ * <p><b>The transaction.</b> {@link OpenAccountChange} holds it: the step-up check, the new account
+ * with its link, the Admins' addresses and the audit record. After its commit, the use case sends
+ * the set-password link and the Admins' notice, so an opening that rolls back sends nothing
+ * (ADR-129).
+ *
  * <p>Built in M6.
  */
 public final class OpenAccount {
 
-    private final UserAccountRepository accounts;
-    private final SessionRepository sessions;
-    private final CompanyProfileRepository companyProfiles;
-    private final SecretTokens secretTokens;
     private final EmailSender emailSender;
-    private final IdGenerator ids;
-    private final Clock clock;
-    private final AuditLog auditLog;
+    private final OpenAccountChange change;
 
     /**
      * Creates the use case.
      *
-     * @param accounts where accounts are kept
-     * @param sessions where sessions are kept
-     * @param companyProfiles where the company profile is kept, whose language a new user starts in
-     * @param secretTokens makes refresh and link tokens, and hashes a presented one
      * @param emailSender sends links and notices by email
-     * @param ids makes new IDs
-     * @param clock the time
-     * @param auditLog where the audit record is written
+     * @param change the transaction that opens the account
      */
-    public OpenAccount(
-            UserAccountRepository accounts,
-            SessionRepository sessions,
-            CompanyProfileRepository companyProfiles,
-            SecretTokens secretTokens,
-            EmailSender emailSender,
-            IdGenerator ids,
-            Clock clock,
-            AuditLog auditLog) {
-        this.accounts = accounts;
-        this.sessions = sessions;
-        this.companyProfiles = companyProfiles;
-        this.secretTokens = secretTokens;
+    public OpenAccount(EmailSender emailSender, OpenAccountChange change) {
         this.emailSender = emailSender;
-        this.ids = ids;
-        this.clock = clock;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

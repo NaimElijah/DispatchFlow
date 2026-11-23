@@ -60,6 +60,22 @@ On 2026-11-24 the owner, Naim Elijah, decided where transactions start, and how,
      `RouteShapes`, `Geocoder`, `RoadSnap`, `SmsGateway`, `EmailSender`, `PushNotifier`,
      `LiveUpdates`, `BaselinePlanner` and `ProofStore`. A transactional class holds none of them, so
      no database transaction waits on HTTP or disk ([ADR-063]).
+   - **The use case never touches the database itself.** It holds its outside-call ports, its
+     `Change`, and only ports that store nothing, such as `Clock` and `IdGenerator`.
+     - What it must read before an outside call, and the items it loops over, come from a method of
+       its `Change` that is `@Transactional(readOnly = true)`. That method returns a value, never
+       an entity.
+     - The write that follows loads again. Where the aggregate has a version, it takes the version
+       the read returned and refuses with `StaleVersion` if it moved ([DL §6.3][DL-63]).
+     - Another module's `api` or `spi` is in process, not an outside call, so the `Change` calls it.
+     - These points were settled while the classes were split, so that one rule holds for every
+       module.
+   - **Four service packages split under [ADR-125].** The `Change` classes took each past 20
+     files, so each moved a group by concept:
+     - `access.application.service.account.state`;
+     - `liveops.application.service.delivery.dispatcher`;
+     - `messaging.application.service.message`;
+     - `planning.application.service.plan.reaction`.
 4. **A service that changes nothing is `@Transactional(readOnly = true)`.**
    - Hibernate then skips its dirty checking and flush.
    - PostgreSQL refuses any write the service makes by mistake.
@@ -75,14 +91,16 @@ On 2026-11-24 the owner, Naim Elijah, decided where transactions start, and how,
        `capOn`;
      - the three writes that lock first: `countAnswer`, `addUnlessKeyTaken` and the plan's `add`.
    - **Every other method relies on the service's transaction.**
+   - `TransactionRules` finds each method that takes such a lock by its query's SQL, and checks that
+     it calls the check.
 7. **Event listeners have no transaction of their own.**
    - A listener is `@Async` and `@TransactionalEventListener`, never `@ApplicationModuleListener`.
    - The service it calls opens each transaction, so each of the three retries gets a fresh one.
    - Spring Modulith's registry tracks every listener annotated, directly or through another
-     annotation, with `@TransactionalEventListener`, according to its reference documentation for 2.x. That is to be confirmed
-     against the version the build adopts.
-8. **`TransactionRules` checks decisions 1 to 4 and 6 in ArchUnit,** each rule with a deliberately
-   wrong fixture.
+     annotation, with `@TransactionalEventListener`, as its reference documentation for 2.x says.
+     That is to be confirmed against the version the build adopts.
+8. **`TransactionRules` checks decisions 1 to 4 and 6 in six ArchUnit rules,** each with a
+   deliberately wrong fixture.
 
 **What this amends and extends.**
 
@@ -91,6 +109,7 @@ On 2026-11-24 the owner, Naim Elijah, decided where transactions start, and how,
 - **[ADR-063]:** a use case whose work around its transaction includes outside calls, or one
   transaction per item, is two classes (3). It is extended.
 - **[ADR-064]:** a listener's form, so that its retries work (7). It is extended.
+- **[ADR-125]:** four more service packages split by its rule (3). It is extended.
 - **[TS §6.2][TS-62]** is corrected to match: its "one `@Transactional` method" is the transactional
   service or its `Change`.
 
@@ -143,11 +162,13 @@ On 2026-11-24 the owner, Naim Elijah, decided where transactions start, and how,
 [ADR-064]: ADR-064-events-only-where-they-earn-their-place-through-the-modulith-registry.md
 [ADR-110]: ADR-110-audit-records-hold-only-ids-codes-enums-numbers-and-instants-record-refusals-and-are-kept-a-year.md
 [ADR-119]: ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md
+[ADR-125]: ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md
 [ADR-121]: ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md
 [ADR-126]: ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md
 [ADR-127]: ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md
 [ADR-128]: ADR-128-the-persistence-rules-the-mapping-settled-after-adr-127.md
 [DL-11]: ../architecture/domain_layer/domain_layer_design.md#11-concurrency
+[DL-63]: ../architecture/domain_layer/domain_layer_design.md#63-outside-calls-happen-before-the-transaction
 [TS-62]: ../architecture/tech_stack.md#62-application-layer
 [NFR-23]: ../requirements/requirements.md#nfr-23
 [NFR-93]: ../requirements/requirements.md#nfr-93

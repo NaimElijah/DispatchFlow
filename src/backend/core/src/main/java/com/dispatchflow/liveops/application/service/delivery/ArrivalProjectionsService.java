@@ -12,6 +12,7 @@ import com.dispatchflow.shared.StopId;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Live Operations' implementation of {@link ArrivalProjections} (DL §10.4, ADR-067, ADR-114). It
@@ -28,7 +29,8 @@ import java.util.Optional;
  *
  * <p>Built in M8.
  */
-public final class ArrivalProjectionsService implements ArrivalProjections {
+@Transactional(readOnly = true)
+public class ArrivalProjectionsService implements ArrivalProjections {
 
     private final PublishedRoutes publishedRoutes;
     private final DeliveryRepository deliveries;
