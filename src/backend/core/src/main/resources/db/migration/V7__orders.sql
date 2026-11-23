@@ -2,9 +2,10 @@
 -- (ADR-127 decision 8). Nothing deletes a customer, an order or an import, so no foreign key
 -- cascades, and no foreign key joins two aggregates: an order names its customer by ID only.
 
--- A customer, keyed by its ID. Its name, phone, address and note are null once it is anonymized,
--- which the load check enforces; normalized_address is the address's matching form (FR-310), kept
--- beside it for candidatesAt's lookup.
+-- A customer, keyed by its ID. Once it is anonymized, its name, phone, address, note and location
+-- are null, which customer_anonymized_holds_nothing enforces, and it has no flag, which the load
+-- check enforces; normalized_address is the address's matching form (FR-310), kept beside it for
+-- candidatesAt's lookup.
 CREATE TABLE orders.customer (
     id uuid PRIMARY KEY,
     version bigint NOT NULL,
@@ -30,7 +31,12 @@ CREATE TABLE orders.customer (
     CONSTRAINT customer_geocoded_has_quality CHECK ((location_kind = 'GEOCODED') = (match_quality IS NOT NULL)),
     CONSTRAINT customer_match_quality_known CHECK (match_quality IN ('EXACT', 'PARTIAL', 'AMBIGUOUS')),
     CONSTRAINT customer_state_known CHECK (state IN ('ACTIVE', 'RETIRED', 'ANONYMIZED')),
-    CONSTRAINT customer_state_since CHECK ((state = 'ACTIVE') = (state_since IS NULL))
+    CONSTRAINT customer_state_since CHECK ((state = 'ACTIVE') = (state_since IS NULL)),
+    -- Anonymizing a customer clears its personal data and its location (BR-98, NFR-257).
+    CONSTRAINT customer_anonymized_holds_nothing CHECK (
+        state <> 'ANONYMIZED'
+        OR (location_kind = 'MISSING' AND num_nonnulls(
+            name, phone, address, normalized_address, note, location_latitude, location_longitude, match_quality) = 0))
 );
 
 -- An import row's match (FR-60, FR-310): only an active customer is a candidate.
@@ -52,7 +58,7 @@ CREATE TABLE orders.customer_address_flag (
 
 -- An order, keyed by its ID; "order" is reserved in PostgreSQL, so the table is customer_order. Its
 -- window's two columns are TimeWindow's, and its demand columns ADR-061's. Its recipient, note,
--- access details and reference are null once it is anonymized, which the load check enforces.
+-- access details and reference are null once it is anonymized, which the load check also enforces.
 CREATE TABLE orders.customer_order (
     id uuid PRIMARY KEY,
     version bigint NOT NULL,
@@ -78,8 +84,19 @@ CREATE TABLE orders.customer_order (
     anonymized boolean NOT NULL,
     last_changed_at timestamptz NOT NULL,
     CONSTRAINT customer_order_state_known CHECK (state IN ('ACTIVE', 'CANCELLED')),
-    CONSTRAINT customer_order_cancelled_at CHECK ((state = 'CANCELLED') = (cancelled_at IS NOT NULL))
+    CONSTRAINT customer_order_cancelled_at CHECK ((state = 'CANCELLED') = (cancelled_at IS NOT NULL)),
+    -- Anonymizing an order clears its personal fields (NFR-257, ADR-075).
+    CONSTRAINT customer_order_anonymized_holds_nothing CHECK (
+        NOT anonymized
+        OR num_nonnulls(reference, recipient_name, recipient_phone, note, floor, apartment, entrance_code) = 0)
 );
+
+-- A reference is unique among its date's uncancelled orders (FR-211, ADR-102). Placing, moving and
+-- putting back an order read the date's orders under its lock first, so this index is the backstop
+-- for a write that skipped the lock. It is immediate: only creation sets a reference, and an order
+-- moves to another date in a transaction of its own.
+CREATE UNIQUE INDEX customer_order_reference_unique_on_date ON orders.customer_order (date, reference)
+    WHERE state <> 'CANCELLED' AND reference IS NOT NULL;
 
 -- A date's uncancelled orders, read under the date's lock (BR-101, BR-113) and copied (FR-62).
 CREATE INDEX customer_order_uncancelled_by_date ON orders.customer_order (date) WHERE state <> 'CANCELLED';

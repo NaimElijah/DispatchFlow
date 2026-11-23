@@ -20,7 +20,10 @@ CREATE TABLE fleet.driver (
     CONSTRAINT driver_active_has_no_times CHECK (status <> 'ACTIVE' OR retired_at IS NULL),
     CONSTRAINT driver_retired_has_retired_at CHECK (status <> 'RETIRED' OR retired_at IS NOT NULL),
     CONSTRAINT driver_anonymized_has_anonymized_at CHECK ((status = 'ANONYMIZED') = (anonymized_at IS NOT NULL)),
-    CONSTRAINT driver_contact_whole CHECK ((name IS NULL) = (phone IS NULL))
+    CONSTRAINT driver_contact_whole CHECK ((name IS NULL) = (phone IS NULL)),
+    -- Anonymizing a driver clears their name and phone (BR-98, NFR-258), which the load check also
+    -- enforces.
+    CONSTRAINT driver_anonymized_has_no_contact CHECK (status <> 'ANONYMIZED' OR (name IS NULL AND phone IS NULL))
 );
 
 -- The retention job's lookup of the retired drivers (BR-98, NFR-184).

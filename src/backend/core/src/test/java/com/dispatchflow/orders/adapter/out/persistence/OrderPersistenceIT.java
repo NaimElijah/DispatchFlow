@@ -351,8 +351,6 @@ class OrderPersistenceIT {
 
     // --- the load check (ADR-127 decision 1): the damaged stored states it refuses
 
-    private static final String PERSONAL_FIELD = "an anonymized order holds a personal field";
-
     static Stream<Arguments> damagedRows() {
         return Stream.of(
                 Arguments.of(
@@ -361,26 +359,6 @@ class OrderPersistenceIT {
                         Base.PLACED,
                         "starts_at = starts_at + interval '7 days', ends_at = ends_at + interval '7 days'",
                         "the window lies off the order's date"),
-                Arguments.of(
-                        "an anonymized order with a recipient",
-                        1_002,
-                        Base.ANONYMIZED,
-                        "recipient_name = 'דנה לוי', recipient_phone = '+972523456789'",
-                        PERSONAL_FIELD),
-                Arguments.of(
-                        "an anonymized order with a note", 1_003, Base.ANONYMIZED, "note = 'לא לצלצל'", PERSONAL_FIELD),
-                Arguments.of(
-                        "an anonymized order with access details",
-                        1_004,
-                        Base.ANONYMIZED,
-                        "floor = '3', apartment = '12', entrance_code = '1234#'",
-                        PERSONAL_FIELD),
-                Arguments.of(
-                        "an anonymized order with a reference",
-                        1_005,
-                        Base.ANONYMIZED,
-                        "reference = 'SHOP-1001'",
-                        PERSONAL_FIELD),
                 Arguments.of(
                         "a cancellation after the last change",
                         1_006,
@@ -428,7 +406,20 @@ class OrderPersistenceIT {
                 Arguments.of(
                         "a cancelled order with no cancellation time", 1_102, Base.CANCELLED, "cancelled_at = NULL"),
                 Arguments.of("an unknown state", 1_103, Base.PLACED, "state = 'HELD'"),
-                Arguments.of("an order with no window", 1_104, Base.PLACED, "starts_at = NULL"));
+                Arguments.of("an order with no window", 1_104, Base.PLACED, "starts_at = NULL"),
+                Arguments.of(
+                        "an anonymized order with a recipient",
+                        1_002,
+                        Base.ANONYMIZED,
+                        "recipient_name = 'דנה לוי', recipient_phone = '+972523456789'"),
+                Arguments.of("an anonymized order with a note", 1_003, Base.ANONYMIZED, "note = 'לא לצלצל'"),
+                Arguments.of(
+                        "an anonymized order with access details",
+                        1_004,
+                        Base.ANONYMIZED,
+                        "floor = '3', apartment = '12', entrance_code = '1234#'"),
+                Arguments.of(
+                        "an anonymized order with a reference", 1_005, Base.ANONYMIZED, "reference = 'SHOP-1001'"));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -440,6 +431,41 @@ class OrderPersistenceIT {
         assertThatThrownBy(() -> damage(n, damage)).isInstanceOf(DataIntegrityViolationException.class);
         assertThat(transactions.inTransaction(() -> repository.get(order(n, 1))))
                 .isPresent();
+    }
+
+    @Test
+    void GivenTwoUncancelledOrdersOnADate_WhenOneIsGivenTheOthersReference_ThenTheDatabaseRefusesTheWrite() {
+        int n = 1_105;
+        transactions.inTransaction(() -> {
+            repository.add(placedWith(n, 1, dateOf(n), bare()));
+            repository.add(placed(n, 2));
+        });
+
+        assertThatThrownBy(() -> damage(n, "reference = 'SHOP-1001'"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThat(transactions.inTransaction(
+                        () -> repository.get(order(n, 1)).orElseThrow().reference()))
+                .isEmpty();
+    }
+
+    /**
+     * FR-211 counts only a date's uncancelled orders (ADR-102), so the schema's backstop lets an
+     * order take a reference that a cancelled order of its date, or an order of another date, holds.
+     */
+    @Test
+    void GivenAReferenceHeldByACancelledOrderAndByAnotherDatesOrder_WhenAnOrderOnTheDateTakesIt_ThenItIsStored() {
+        int n = 60;
+        DeliveryDate nextDay = DeliveryDate.of(dateOf(n).value().plusDays(1));
+        transactions.inTransaction(() -> {
+            repository.add(cancelled(n, 1));
+            repository.add(placedWith(n, 2, nextDay, full(nextDay)));
+        });
+
+        transactions.inTransaction(() -> repository.add(placed(n, 3)));
+
+        assertThat(transactions.inTransaction(
+                        () -> repository.get(order(n, 3)).orElseThrow().reference()))
+                .contains(REFERENCE);
     }
 
     /** The valid states the damage cases start from, each order {@code order(n, 1)}. */

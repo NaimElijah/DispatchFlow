@@ -582,13 +582,6 @@ class SessionPersistenceIT {
                         (Damage) Rows::deleteTheTokens,
                         "a session holds at least one refresh token"),
                 Arguments.of(
-                        "two tokens with one hash",
-                        1_003,
-                        Base.EXCHANGED,
-                        (Damage) rows -> rows.setOnToken(
-                                2, "token_hash = ?", hash(1_003, 1).value()),
-                        "two refresh tokens share a hash"),
-                Arguments.of(
                         "a live session with no current token",
                         1_004,
                         Base.ONE_TOKEN,
@@ -644,14 +637,22 @@ class SessionPersistenceIT {
                         rows -> rows.setOnToken(1, "successor = NULL")),
                 Arguments.of("a revoked session with no revocation time", 1_011, (Damage)
                         rows -> rows.setOnSession("state = 'REVOKED'")),
-                Arguments.of("one contact time twice", 1_012, (Damage) Rows::insertOneContactTimeTwice));
+                Arguments.of("one contact time twice", 1_012, (Damage) Rows::insertOneContactTimeTwice),
+                Arguments.of("two tokens with one hash", 1_003, (Damage) rows ->
+                        rows.setOnToken(2, "token_hash = ?", hash(1_003, 1).value())),
+                Arguments.of("a token with another session's hash", 1_013, (Damage) rows ->
+                        rows.setOnToken(2, "token_hash = ?", hash(1_113, 1).value())));
     }
 
+    /** Session {@code 100 + n}, beside the base, holds the token hash a case takes. */
     @ParameterizedTest(name = "{0}")
     @MethodSource("damageTheSchemaForbids")
     void GivenAStoredSession_WhenARowIsDamagedAsTheSchemaForbids_ThenTheDatabaseRefusesTheWrite(
             String broken, int n, Damage damage) {
-        transactions.inTransaction(() -> repository.add(Base.EXCHANGED.build(n)));
+        transactions.inTransaction(() -> {
+            repository.add(Base.EXCHANGED.build(n));
+            repository.add(Base.ONE_TOKEN.build(100 + n));
+        });
         Rows rows = new Rows(jdbc, n);
 
         assertThatThrownBy(() -> damage.apply(rows)).isInstanceOf(DataIntegrityViolationException.class);

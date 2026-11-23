@@ -285,12 +285,6 @@ class DriverPersistenceIT {
                         "name = NULL, phone = NULL",
                         CONTACT_UNTIL_ANONYMIZED),
                 Arguments.of(
-                        "an anonymized driver who still has a name and phone",
-                        1_003,
-                        Base.ANONYMIZED,
-                        "name = 'Dana Levi', phone = '+972523456789'",
-                        CONTACT_UNTIL_ANONYMIZED),
-                Arguments.of(
                         "anonymized before being retired",
                         1_004,
                         Base.ANONYMIZED,
@@ -327,7 +321,12 @@ class DriverPersistenceIT {
                         1_008,
                         Base.ANONYMIZED,
                         "anonymized_at = NULL"),
-                Arguments.of("an unknown status", 1_009, Base.ACTIVE, "status = 'SUSPENDED'"));
+                Arguments.of("an unknown status", 1_009, Base.ACTIVE, "status = 'SUSPENDED'"),
+                Arguments.of(
+                        "an anonymized driver who still has a name and phone",
+                        1_003,
+                        Base.ANONYMIZED,
+                        "name = 'Dana Levi', phone = '+972523456789'"));
     }
 
     @ParameterizedTest(name = "{0}")

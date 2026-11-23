@@ -468,19 +468,6 @@ class UserAccountPersistenceIT {
                         (Damage) rows -> rows.setOnAccount("email = NULL"),
                         emailHeld),
                 Arguments.of(
-                        "an anonymized account still holding its email",
-                        1_002,
-                        Base.ANONYMIZED,
-                        (Damage) rows ->
-                                rows.setOnAccount("email = ?", email(1_002).value()),
-                        emailHeld),
-                Arguments.of(
-                        "an anonymized account still holding a password",
-                        1_003,
-                        Base.ANONYMIZED,
-                        (Damage) rows -> rows.setOnAccount("password_hash = 'stored-hash'"),
-                        nothingLeft),
-                Arguments.of(
                         "an anonymized account still holding a link",
                         1_004,
                         Base.ANONYMIZED,
@@ -491,13 +478,6 @@ class UserAccountPersistenceIT {
                         1_005,
                         Base.EMAIL_SET_BY_ANOTHER,
                         (Damage) Rows::giveTheAdminRole,
-                        setByAnother),
-                Arguments.of(
-                        "an anonymized account still recording who set its email",
-                        1_006,
-                        Base.ANONYMIZED,
-                        (Damage) rows -> rows.setOnAccount(
-                                "email_set_by = ?, email_set_at = anonymized_at", OTHER_ADMIN.value()),
                         setByAnother),
                 Arguments.of(
                         "an account recording that its own link set its email",
@@ -511,13 +491,6 @@ class UserAccountPersistenceIT {
                         Base.ANONYMIZED,
                         (Damage) rows -> rows.setOnAccount("anonymized_at = deactivated_at - interval '1 day'"),
                         "an account is anonymized after it is deactivated"),
-                Arguments.of(
-                        "two links with one token hash",
-                        1_010,
-                        Base.TWO_RECOVERY_LINKS,
-                        (Damage) rows -> rows.setOnLink(
-                                2, "token_hash = ?", hash(1_010, 1).value()),
-                        "two links share a token hash"),
                 Arguments.of(
                         "two open links of one kind",
                         1_011,
@@ -549,23 +522,38 @@ class UserAccountPersistenceIT {
 
     static Stream<Arguments> damageTheSchemaForbids() {
         return Stream.of(
-                Arguments.of("two links with one ID", 1_009, (Damage)
+                Arguments.of("two links with one ID", 1_009, Base.TWO_RECOVERY_LINKS, (Damage)
                         rows -> rows.setOnLink(2, "id = ?", link(1_009, 1).value())),
-                Arguments.of("a second account with the address", 1_013, (Damage)
+                Arguments.of("a second account with the address", 1_013, Base.TWO_RECOVERY_LINKS, (Damage)
                         rows -> rows.setOnAccount("email = ?", email(1_113).value())),
-                Arguments.of("a deactivated account with no deactivation time", 1_014, (Damage)
+                Arguments.of("a deactivated account with no deactivation time", 1_014, Base.TWO_RECOVERY_LINKS, (Damage)
                         rows -> rows.setOnAccount("state = 'DEACTIVATED'")),
-                Arguments.of("an email-change link with no address", 1_015, (Damage)
-                        rows -> rows.setOnLink(1, "kind = 'EMAIL_CHANGE'")));
+                Arguments.of("an email-change link with no address", 1_015, Base.TWO_RECOVERY_LINKS, (Damage)
+                        rows -> rows.setOnLink(1, "kind = 'EMAIL_CHANGE'")),
+                Arguments.of("two links with one token hash", 1_010, Base.TWO_RECOVERY_LINKS, (Damage) rows ->
+                        rows.setOnLink(2, "token_hash = ?", hash(1_010, 1).value())),
+                Arguments.of("a link with another account's token hash", 1_016, Base.TWO_RECOVERY_LINKS, (Damage)
+                        rows -> rows.setOnLink(
+                                2, "token_hash = ?", hash(1_116, 1).value())),
+                Arguments.of("an anonymized account still holding its email", 1_002, Base.ANONYMIZED, (Damage)
+                        rows -> rows.setOnAccount("email = ?", email(1_002).value())),
+                Arguments.of("an anonymized account still holding a password", 1_003, Base.ANONYMIZED, (Damage)
+                        rows -> rows.setOnAccount("password_hash = 'stored-hash'")),
+                Arguments.of("an anonymized account still recording who set its email", 1_006, Base.ANONYMIZED, (Damage)
+                        rows -> rows.setOnAccount(
+                                "email_set_by = ?, email_set_at = anonymized_at", OTHER_ADMIN.value())));
     }
 
+    /** Account {@code 100 + n}, beside every base, holds the address and the link hash the cases take. */
     @ParameterizedTest(name = "{0}")
     @MethodSource("damageTheSchemaForbids")
     void GivenAStoredAccount_WhenARowIsDamagedAsTheSchemaForbids_ThenTheDatabaseRefusesTheWrite(
-            String broken, int n, Damage damage) {
+            String broken, int n, Base base, Damage damage) {
         transactions.inTransaction(() -> {
-            repository.add(Base.TWO_RECOVERY_LINKS.build(n));
-            repository.add(opened(100 + n, Role.DRIVER));
+            repository.add(base.build(n));
+            UserAccount other = opened(100 + n, Role.DRIVER);
+            other.issueLink(new LinkPurpose.Recovery(), link(100 + n, 1), hash(100 + n, 1), at(1));
+            repository.add(other);
         });
         Rows rows = new Rows(jdbc, n);
 
