@@ -306,7 +306,7 @@ classDiagram
 
 How the pieces work together:
 
-- **`AggregateRoot`** (`core/shared/AggregateRoot.java`, 149 lines) is a `@MappedSuperclass` ([ADR-126](../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)). It holds
+- **`AggregateRoot`** (`core/shared/AggregateRoot.java`, 142 lines) is a `@MappedSuperclass` ([ADR-126](../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)). It holds
   the version the aggregate was loaded at and the events its methods raised. A never-saved aggregate has no
   version: `version()` throws `AssertionError` before its first save, and the first save stores 0. The
   field is `storedVersion`, a nullable `Long` that `@Version` maps to the `version` column; it has another

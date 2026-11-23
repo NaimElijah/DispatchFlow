@@ -83,7 +83,7 @@ class DomainPurityTest {
 
     @Test
     void GivenTheProductionClasses_WhenRule6IsChecked_ThenOnlyPersistenceRestores() {
-        DomainPurityRules.restoreOnlyFromPersistence(ROOT).check(ProductionClasses.ALL);
+        DomainPurityRules.lockReadsOnlyFromPersistence(ROOT).check(ProductionClasses.ALL);
     }
 
     @Test

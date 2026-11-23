@@ -25,18 +25,19 @@ class AggregateRootTest {
 
         private Counter() {}
 
-        private Counter(Version version) {
-            super(version);
-        }
-
         static Counter open(Instant now) {
             Counter counter = new Counter();
             counter.raise(Opened.class, ID, id -> new Opened(id, now));
             return counter;
         }
 
+        /** An aggregate saved until it stands at a version, its creation event long published. */
         static Counter loadedAt(Version version) {
-            return new Counter(version);
+            Counter counter = open(NOW);
+            for (long save = 0; save <= version.value(); save++) {
+                AsSaved.asSaved(counter);
+            }
+            return counter;
         }
 
         void renameTwice(Instant now) {

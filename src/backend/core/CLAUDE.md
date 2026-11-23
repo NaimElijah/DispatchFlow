@@ -50,9 +50,8 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
     `Locale`, and `formatted` and `DateTimeFormatter.ofLocalized*` are never used.
   - They never create an `IllegalArgumentException` or an `IllegalStateException`, or a subclass of
     either. They throw a `RuleViolation` with the module's named error, or `StoredStateInvalid`.
-  - Only persistence adapters call an aggregate's `restore`, which its lane replaces with a
-    `@PostLoad` check when it maps it ([ADR-126]), or a locked snapshot's `readUnderLock`. Only the
-    optimizer adapter makes `ValidationReport` or `Evaluation` ([DL §13]).
+  - Only Hibernate rebuilds an aggregate, only persistence adapters call `readUnderLock`, and only
+    the optimizer adapter makes `ValidationReport` or `Evaluation` ([ADR-126], [DL §13]).
 - `DomainShapeRules` checks the shape. What goes against Java's defaults:
   - The constructors of an aggregate root (bar Hibernate's protected no-argument one), a locked
     snapshot, `ValidationReport`, `Evaluation` and `ValidatedSolution` are private. Every interface
@@ -125,10 +124,10 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   is the only active profile, the core refuses to boot with an access-token lifetime other than 15
   minutes. Each refusal has a test. M5 deletes the stand-in, and M6 the dev allowance ([ADR-121]).
 - No Lombok: records and plain classes. Configuration comes from environment variables.
-- Persistence is JPA ([ADR-126], [TS §6.3]). An adapter implements its port with a package-private
-  Spring Data `Repository<Root, UUID>` that declares `save` and the port's lookups, never a
-  `CrudRepository` or `JpaRepository`. Native SQL binds every value; SQL and bind logging stay off.
-  `PersistenceRules` checks how the domain and the adapters are mapped.
+- Persistence is JPA ([ADR-126], [ADR-127], [TS §6.3]): a port's `@Component` (never `@Repository`,
+  which rewrites a port's own exceptions) over a package-private Spring Data `Repository<Root,
+  UUID>` with `save` and the port's lookups only. Native SQL binds every value; SQL and bind logging
+  stay off. `PersistenceRules` checks the mapping, a `*PersistenceIT` the stored state.
 
 ## Tests
 
@@ -152,8 +151,8 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
     ([NFR-176]).
   - A test sits in the package of the type it tests, and one that covers several packages' values
     sits in the module's root. A helper that several test packages use is public.
-  - Build test data with one builder per aggregate, such as `aPlan()`. No test reads a shared
-    fixture file that other tests also change.
+  - Build test data with one builder per aggregate, such as `aPlan()`, through its commands and
+    `AsSaved`. No test reads a shared fixture file that other tests also change.
   - The failure paths the design names are listed in `.claude/agents/df-tester.md`.
 
 ## Commands
@@ -187,6 +186,7 @@ Run `just` recipes from the repository root, and `mvnw` from this folder (`.\mvn
 [ADR-121]: ../../../docs/ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md
 [ADR-125]: ../../../docs/ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md
 [ADR-126]: ../../../docs/ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md
+[ADR-127]: ../../../docs/ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md
 [DL §2.1]: ../../../docs/architecture/domain_layer/domain_layer_design.md#21-module-graph
 [DL §2.3]: ../../../docs/architecture/domain_layer/domain_layer_design.md#23-rules-between-contexts
 [DL §3.9]: ../../../docs/architecture/domain_layer/domain_layer_design.md#39-purity
