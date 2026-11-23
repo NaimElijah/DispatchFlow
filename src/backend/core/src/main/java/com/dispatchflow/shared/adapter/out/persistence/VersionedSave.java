@@ -5,14 +5,17 @@ import com.dispatchflow.shared.DomainEvent;
 import com.dispatchflow.shared.application.StaleVersion;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
+import jakarta.persistence.LockTimeoutException;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.persistence.PersistenceUnitUtil;
+import jakarta.persistence.PessimisticLockException;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.UnaryOperator;
 import org.jspecify.annotations.Nullable;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 
 /**
@@ -30,6 +33,11 @@ import org.springframework.stereotype.Component;
  * every flush of a change, so a second save, or a query that flushes between two changes, would
  * store a version its events don't carry, and the next change would raise an {@code EventId} a
  * listener has already processed. The save checks both and fails loudly instead.
+ *
+ * <p>A lock it can't get is a conflict too. Hibernate takes the root's and a child's row locks in
+ * one order for a child-only change and in the other for a change to the children's list, so two
+ * writers of one aggregate can deadlock, and a writer can time out behind another. Either way
+ * another transaction is changing the aggregate, so the save answers {@code StaleVersion}.
  *
  * <p>It runs in the caller's transaction: without one, the flush throws. A conflict leaves that
  * transaction rollback-only, so a retry re-runs the whole use case in a new one.
@@ -57,8 +65,9 @@ public final class VersionedSave {
      * @param repositorySave the adapter's Spring Data {@code save}, such as {@code plans::save}
      * @param <T> the aggregate type
      * @return the saved aggregate, which this transaction manages
-     * @throws StaleVersion when another transaction saved the aggregate after this one loaded it;
-     *     its kind is the entity's name and its ID the root's key, and the conflict is its cause
+     * @throws StaleVersion when another transaction saved the aggregate after this one loaded it,
+     *     or holds a lock this save waited for until it deadlocked or timed out; its kind is the
+     *     entity's name and its ID the root's key, and the conflict is its cause
      * @throws AssertionError when the save left the version where it was, or stored a version its
      *     events don't carry: the aggregate was saved twice in this transaction, or flushed between
      *     two of its changes
@@ -76,6 +85,8 @@ public final class VersionedSave {
             }
         } catch (OptimisticLockException | OptimisticLockingFailureException conflict) {
             throw new StaleVersion(entityName(root), key(units, root), conflict);
+        } catch (PessimisticLockException | LockTimeoutException | PessimisticLockingFailureException blocked) {
+            throw new StaleVersion(entityName(root), key(units, root), blocked);
         }
         requireOneStep(units.getVersion(saved), loadedAt, raised);
         return saved;

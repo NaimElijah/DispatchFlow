@@ -375,6 +375,31 @@ class VersionedSaveIT {
         assertThat(events.committed()).isEmpty();
     }
 
+    @Test
+    void GivenATransactionHoldingTheLedgersRow_WhenAnotherSaveTimesOutWaitingForIt_ThenStaleVersion() {
+        UUID id = key(17);
+        created(id);
+
+        inTransaction(() -> {
+            Ledger holder = load(id);
+            holder.rename("Held", NOW);
+            save(holder);
+            assertThatThrownBy(() -> inANewTransaction(() -> {
+                        jdbc.sql("SET LOCAL lock_timeout = '200ms'").update();
+                        Ledger waiting = load(id);
+                        waiting.rename("Waiting", NOW);
+                        save(waiting);
+                    }))
+                    .isInstanceOfSatisfying(StaleVersion.class, stale -> {
+                        assertThat(stale.kind()).isEqualTo("Ledger");
+                        assertThat(stale.id()).isEqualTo(id);
+                    });
+        });
+
+        assertThat(storedName(id)).isEqualTo("Held");
+        assertThat(storedVersion(id)).isEqualTo(SECOND_SAVE.value());
+    }
+
     private Ledger created(UUID id) {
         Ledger ledger = inTransaction(() -> save(Ledger.open(id, "Ledger", DATE, MORNING, DEPOT, NOW)));
         events.clear();
