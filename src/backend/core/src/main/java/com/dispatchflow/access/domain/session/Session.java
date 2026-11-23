@@ -128,7 +128,7 @@ public class Session extends AggregateRoot implements PersonalData {
     @OrderColumn(name = "position", nullable = false)
     private List<RefreshToken> tokens = new ArrayList<>();
 
-    // Not stored: whether this instance holds a change its save must version (ADR-126).
+    // Not stored: whether this instance holds a change its save must version (ADR-128 decision 1).
     @Transient
     private boolean changedBeyondContactTimes;
 

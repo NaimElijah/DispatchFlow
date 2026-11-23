@@ -42,8 +42,10 @@ public interface AlertRepository {
     /**
      * Stores a changed alert, checking the version it was loaded at (BR-76, ADR-057).
      *
-     * @param alert the alert
+     * @param alert the alert, as it was loaded; a new alert is stored only through {@link
+     *     #addUnlessKeyTaken}, which takes its key's lock and keeps its date
      * @throws StaleVersion when another dispatcher saved it since it was loaded
+     * @throws AssertionError when the alert was never stored: a programming error, not a refusal
      */
     void save(Alert alert);
 }

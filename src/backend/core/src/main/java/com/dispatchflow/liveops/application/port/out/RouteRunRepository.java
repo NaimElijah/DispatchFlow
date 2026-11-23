@@ -39,8 +39,10 @@ public interface RouteRunRepository {
     /**
      * Stores a changed run, checking the version it was loaded at (BR-76, ADR-057).
      *
-     * @param run the run
+     * @param run the run, as it was loaded; a new run is stored only through {@link #add}, which
+     *     keeps its date
      * @throws StaleVersion when another writer saved it since it was loaded
+     * @throws AssertionError when the run was never stored: a programming error, not a refusal
      */
     void save(RouteRun run);
 

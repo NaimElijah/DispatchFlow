@@ -35,9 +35,10 @@ import org.springframework.stereotype.Component;
  * <p>An aggregate is saved once per transaction, and nothing flushes it between a change and its
  * save. Hibernate ignores the forced increment of a root its transaction already wrote, and moves
  * the version at every flush of a change, so a second save, or a call that flushes first (an {@code
- * add}, a query, or a native lock or write, each of which flushes the whole persistence context),
- * would store a version its events don't carry, and the next change would raise an {@code EventId}
- * a listener has already processed. The save checks both and fails loudly instead.
+ * add}, a native statement, which flushes the whole persistence context, or a query that reads a
+ * changed table) after a change that moved the version, would store a version its events don't
+ * carry, and the next change would raise an {@code EventId} a listener has already processed. The
+ * save checks both and fails loudly instead (ADR-128).
  *
  * <p>A lock it can't get is a conflict too. Hibernate takes the root's and a child's row locks in
  * one order for a child-only change and in the other for a change to the children's list, so two

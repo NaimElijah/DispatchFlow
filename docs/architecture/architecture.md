@@ -45,43 +45,48 @@ today.
 | `mobile` (`src/frontend/mobile`) | React Native, Expo SDK 58 | Renders a heading |
 | `research` (`src/research`) | Python, uv; never deployed | Installs `optimizer` and PyVRP in one environment, and imports neither yet: `tests/test_environment.py` only checks that both can be found. `benchmark/`, `simulation/`, `generator/`, `instances/` and `results/` hold only `.gitkeep` |
 
-`core` has no controller. Its `src/main/resources/db/migration/` holds nine Flyway migrations: `V1`
-creates the eight module schemas, and `V2` to `V9` add one module's tables each
-([data-model.md](data-model.md)). The 20 aggregate roots are JPA entities: their
-domain classes carry the mapping, and only Hibernate rebuilds an aggregate, its `@PostLoad` check
-refusing a damaged row
-([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md), [ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md)). Each module has an
-`adapter/out/persistence` package. It holds the module's package-private Spring Data interfaces,
-the converters and instantiators of its values, and the adapters that implement its repository
-ports. 20 of them, one for each root, save it through `VersionedSave`, except that two of a
-session's saves write without a version check by design: one that changes only its contact times
-([ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md), decision 10), and its revocation
-([ADR-121](../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md), P20). Four store
-a record by insert (`audit`'s audit records, `liveops`' kept positions, and `messaging`'s opt-outs
-and its SMS replies, whose insert skips a reply already kept), and `reporting` keeps a baseline's outcome as a
-record row of its own, so five `@Immutable` `Stored…` entities keep records. The reads under a lock
-(`activeAdminsUnderLock`, both `capacityUnderLock`, `claimNext` and `capOn`) run only in the
-caller's transaction, and refuse a call outside one. `Plan`'s adapter sits in a `plan/` subpackage
-of Planning's, with the `@Immutable` entity its revisions are appended as. Each
-module's `*PersistenceIT` tests its adapters against PostgreSQL. No aggregate keeps a `restore` factory or a
-snapshot record. Three adapter methods still throw: `SolveJobRepository`'s two blanking methods
-(`UnsupportedOperationException("Built in M13")`, because nothing stores a job's input yet) and
-`AuditRecords.purgeExpired`, which waits for the database roles. `src/test` also holds one entity that has a table, `Ledger` with its
-child `LedgerEntry`, and the test-only migration `src/test/resources/db/fixture/V0_1__persistence_fixture.sql`,
-which only the version helper's tests run. The `@Entity` classes under `archfixture/` are
-deliberately wrong fixtures for the mapping rules, and no schema maps them. `optimizer`'s `solvers`
-folders hold only `.gitkeep`; its `domain` holds the
-domain for daily solves and re-optimizations
+`core` has no controller. Its `src/main/resources/db/migration/` holds ten Flyway migrations: `V1`
+creates the eight module schemas, `V2` to `V9` add one module's tables each, and `V10` refuses a
+negative position in every stored list ([data-model.md](data-model.md)). The 20 aggregate roots are
+JPA entities: their domain classes carry the mapping, and only Hibernate rebuilds an aggregate, its
+`@PostLoad` check refusing a damaged row
+([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md),
+[ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md)).
+Each module has an `adapter/out/persistence` package. It holds the module's package-private Spring
+Data interfaces, the converters and instantiators of its values, and the adapters that implement its
+repository ports. 20 of them, one for each root, save it through `VersionedSave`, except that two of
+a session's saves write without a version check by design: one that changes only its contact times
+([ADR-128](../ADRs/ADR-128-the-persistence-rules-the-mapping-settled-after-adr-127.md), decision 1),
+and its revocation
+([ADR-121](../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md),
+P20). Four store a record by insert (`audit`'s audit records, `liveops`' kept positions, and
+`messaging`'s opt-outs and its SMS replies, whose insert skips a reply already kept), and
+`reporting` keeps a baseline's outcome as a record row of its own, so five `@Immutable` `Stored…`
+entities keep records. The reads under a lock (`activeAdminsUnderLock`, both `capacityUnderLock`,
+`claimNext` and `capOn`) run only in the caller's transaction, and refuse a call outside one.
+`Plan`'s adapter sits in a `plan/` subpackage of Planning's, with the `@Immutable` entity its
+revisions are appended as. Every root's load check refuses a gap in its stored lists first, and
+Hibernate batch-fetches the collections a load reads, 200 roots at a time
+([ADR-128](../ADRs/ADR-128-the-persistence-rules-the-mapping-settled-after-adr-127.md)). Each
+module's `*PersistenceIT` tests its adapters against PostgreSQL. No aggregate keeps a `restore`
+factory or a snapshot record. Three adapter methods still throw: `SolveJobRepository`'s two blanking
+methods (`UnsupportedOperationException("Built in M13")`, because nothing stores a job's input yet)
+and `AuditRecords.purgeExpired`, which waits for the database roles. `src/test` also holds one
+entity that has a table, `Ledger` with its child `LedgerEntry`, and the test-only migration
+`src/test/resources/db/fixture/V0_1__persistence_fixture.sql`, which only the version helper's tests
+run. The `@Entity` classes under `archfixture/` are deliberately wrong fixtures for the mapping
+rules, and no schema maps them. `optimizer`'s `solvers` folders hold only `.gitkeep`; its `domain`
+holds the domain for daily solves and re-optimizations
 ([ADR-098](../ADRs/ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) fixes its
 numbers), and its `application` package declares the `Solver` port, the registry, the requests and
-outcomes and five use cases, each body raising `NotImplementedError` ("Built in M<n>").
-`core` holds the shared kernel (`com.dispatchflow.shared`): typed IDs, the shared values and the
-domain's building blocks
-([ADR-097](../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md),
+outcomes and five use cases, each body raising `NotImplementedError` ("Built in M<n>"). `core` holds
+the shared kernel (`com.dispatchflow.shared`): typed IDs, the shared values and the domain's
+building blocks ([ADR-097](../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md),
 [ADR-106](../ADRs/ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md)). Beside it,
-`shared/adapter/out/persistence` is the persistence adapter every module shares ([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)):
-`VersionedSave`, which saves an aggregate so that its version moves by exactly 1, the converters that
-store the kernel's single-value types (the 14 typed IDs are in its `id` package), and the
+`shared/adapter/out/persistence` is the persistence adapter every module shares
+([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)):
+`VersionedSave`, which saves an aggregate so that its version moves by exactly 1, the converters
+that store the kernel's single-value types (the 14 typed IDs are in its `id` package), and the
 instantiators of the embeddable `TimeWindow`, `GeoPoint` and `DaySeconds`. That package is an
 adapter, not part of the kernel. `AggregateRoot` is a `@MappedSuperclass` that holds the `@Version`
 and publishes the events its methods raised when a repository's `save` runs. The `domain` packages

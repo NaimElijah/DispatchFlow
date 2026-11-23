@@ -62,7 +62,7 @@ public interface StopMessagesRepository {
      * take the cap's last place. It is refused when no transaction is open, because a lock taken
      * and released within the call would guard nothing. It writes what the transaction holds
      * unwritten before it locks, so called between a change and its save it would write the change
-     * there, and the save would then fail.
+     * there: the save may then fail, or what this reads may include the unsaved change (ADR-128).
      *
      * @param day the day, in {@code Asia/Jerusalem}
      * @return the cap as it stands
@@ -78,7 +78,7 @@ public interface StopMessagesRepository {
      * that it was sent that day, for {@link #capOn} to count; counting the same answer twice
      * changes nothing, and answers as the first count did. It writes what the transaction holds
      * unwritten before it locks, so called between a change and its save it would write the change
-     * there, and the save would then fail.
+     * there: the save may then fail, or what this reads may include the unsaved change (ADR-128).
      *
      * @param answer the answer's own ID, the reference the provider is given
      * @param day the day it is sent, in {@code Asia/Jerusalem}

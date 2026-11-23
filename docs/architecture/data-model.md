@@ -29,9 +29,10 @@ named after its package. Each module then adds its tables in one migration of it
 | `V7` | `V7__orders.sql` | `orders` |
 | `V8` | `V8__planning.sql` | `planning` |
 | `V9` | `V9__reporting.sql` | `reporting` |
+| `V10` | `V10__list_positions_start_at_0.sql` | every module's list tables |
 
-Every number from `V1` to `V9` is taken, and a later migration takes the next free number. `V0_*` is
-reserved for the test-only fixture in `src/test/resources/db/fixture/`, which only the tests run.
+Every number from `V1` to `V10` is taken, and a later migration takes the next free number. `V0_*`
+is reserved for the test-only fixture in `src/test/resources/db/fixture/`, which only the tests run.
 
 - **No grants yet.** No migration has a `GRANT`, because [ADR-041][ADR-041]'s roles do not exist
   ([ADR-127][ADR-127], decision 8). The core reads and writes as the one database user. The change
@@ -86,22 +87,25 @@ Every table is one of four kinds, and its kind decides its key.
 - **Ordered lists** have a `position integer NOT NULL` column and a `UNIQUE (owner, position)` that
   is `DEFERRABLE INITIALLY DEFERRED`, because Hibernate rewrites the indexes row by row. Nothing in
   the schema keeps the positions contiguous, and Hibernate loads a missing one as a `null` element,
-  so every root's load check refuses a gap first, through the kernel's `StoredLists`.
-- **Instants** are `timestamptz`, kept to the microsecond, so an instant the domain compares after
-  a load is cut to the microsecond before it is stored: the `Clock` port's `now()` and
-  `CorrectedTime`'s device times are. An Israel-local date and time (`IsraelDateTime`) is
-  `timestamp(6)` with no zone, a date is `date`, and a time of day is `time`, and the session runs
-  in UTC ([ADR-088][ADR-088]).
+  so every root's load check refuses a gap first, through the kernel's `StoredLists`. `V10` checks
+  `position >= 0` on each list table, because Hibernate fails on a negative position while it loads
+  the list, before any check runs ([ADR-128][ADR-128], decision 4).
+- **Instants** are `timestamptz`, kept to the microsecond, so an instant the domain compares after a
+  load is cut to the microsecond before it is stored: `CorrectedTime` cuts a device's instants, and
+  the `Clock` port requires its `now()` to be cut ([ADR-128][ADR-128], decision 5). An Israel-local
+  date and time (`IsraelDateTime`) is `timestamp(6)` with no zone, a date is `date`, and a time of
+  day is `time`, and the session runs in UTC ([ADR-088][ADR-088]).
 - **Weights and volumes** are `numeric(8, 2)` kilograms and `numeric(9, 2)` litres
   ([ADR-061][ADR-061]).
 - **Durations.** A bare `java.time.Duration` is `bigint` nanoseconds, through the shared adapter's
-  `DurationConverter`, so every module stores one the same way and exactly. `planning` does: a leg's
-  travel time (`leg_in_travel`, `leg_to_end_travel`), a late stop's `late`, a violation's
-  `exceeded_by` and the fixed cost per vehicle. A solve limit is nanoseconds too, through its own
-  converter. A service time is whole seconds in a `bigint` (`default_service_time`,
-  `service_time_seconds`), and `reporting.baseline.driver_hours` is `bigint` nanoseconds through its
-  own converter, so that a fraction of a second is kept ([ADR-109][ADR-109]). A time of day inside a
-  plan is `bigint` seconds (`*_seconds`) beside a `date`.
+  `DurationConverter`, so every module stores one the same way and exactly ([ADR-128][ADR-128],
+  decision 3). `planning` does: a leg's travel time (`leg_in_travel`, `leg_to_end_travel`), a late
+  stop's `late`, a violation's `exceeded_by` and the fixed cost per vehicle. A solve limit is
+  nanoseconds too, through its own converter. A service time is whole seconds in a `bigint`
+  (`default_service_time`, `service_time_seconds`), and `reporting.baseline.driver_hours` is
+  `bigint` nanoseconds through its own converter, so that a fraction of a second is kept
+  ([ADR-109][ADR-109]). A time of day inside a plan is `bigint` seconds (`*_seconds`) beside a
+  `date`.
 - **Personal data** is nullable where retention anonymizes a row in place (`user_account`, `driver`,
   `customer`, `customer_order`). In each, a `CHECK` keeps every column that anonymizing clears null
   in an anonymized row, and the load check enforces it too.
@@ -139,6 +143,11 @@ Every table is one of four kinds, and its kind decides its key.
   decision 12). See [`liveops`](#liveops-v5).
 - **Columns the database fills.** `fleet.driver.registration_order` and `messaging.opt_out.appended`
   are `GENERATED ALWAYS AS IDENTITY`. The entities do not write them, and a query orders by them.
+- **State no entity maps.** `reporting.baseline.outcome` is a column its default writes and the key
+  `baseline_settles_its_plan` reads, and `messaging.counted_answer` is a table only native SQL
+  writes and reads ([ADR-128][ADR-128], decision 2). Neither holds personal data.
+  `ddl-auto=validate` and `just core-schema-draft` don't see them or the two dates above, so a
+  migration drafted from the mapping must keep them.
 
 ## Schemas
 
@@ -748,3 +757,4 @@ The test helpers they share are in [code-structure.md](code-structure.md#srcback
 [ADR-125]: ../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md
 [ADR-126]: ../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md
 [ADR-127]: ../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md
+[ADR-128]: ../ADRs/ADR-128-the-persistence-rules-the-mapping-settled-after-adr-127.md

@@ -13,7 +13,8 @@ public interface ReplyLog {
     /**
      * Appends a reply unless one with its provider identifier is kept, in the caller's transaction.
      * It writes what the transaction holds unwritten before it appends, so called between a change
-     * and its save it would write the change there, and the save would then fail.
+     * and its save it would write the change there: the save may then fail, or what this reads may
+     * include the unsaved change (ADR-128).
      *
      * @param reply the reply
      * @return {@code true} when it was appended, {@code false} when the provider sent it before
