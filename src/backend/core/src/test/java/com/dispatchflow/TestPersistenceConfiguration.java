@@ -10,6 +10,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.event.EventListener;
 import org.springframework.orm.jpa.persistenceunit.ManagedClassNameFilter;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
@@ -39,6 +40,11 @@ public class TestPersistenceConfiguration {
         return configuration -> configuration.locations(
                 Stream.concat(Stream.of(configuration.getLocations()), Stream.of(FIXTURE_MIGRATIONS))
                         .toArray(Location[]::new));
+    }
+
+    @Bean
+    Transactions transactions(PlatformTransactionManager manager) {
+        return new Transactions(manager);
     }
 
     @Bean

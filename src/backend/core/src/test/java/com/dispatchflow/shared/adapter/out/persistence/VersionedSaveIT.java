@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.TestPersistenceConfiguration.RecordedEvents;
+import com.dispatchflow.Transactions;
 import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.DaySeconds;
 import com.dispatchflow.shared.DeliveryDate;
@@ -33,7 +34,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.UUID;
-import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,9 +42,6 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * The version helper against a real PostgreSQL (ADR-126 decisions 2, 3 and 5), on the test-only
@@ -74,7 +71,7 @@ class VersionedSaveIT {
     private VersionedSave versionedSave;
 
     @Autowired
-    private PlatformTransactionManager transactionManager;
+    private Transactions transactions;
 
     @Autowired
     private JdbcClient jdbc;
@@ -94,7 +91,7 @@ class VersionedSaveIT {
     void GivenANewLedger_WhenSaved_ThenItIsStoredAtVersionZeroAndItsEventCarriesZero() {
         UUID id = key(1);
 
-        Ledger saved = inTransaction(() -> save(Ledger.open(id, "Ledger", DATE, MORNING, DEPOT, NOW)));
+        Ledger saved = transactions.inTransaction(() -> save(Ledger.open(id, "Ledger", DATE, MORNING, DEPOT, NOW)));
 
         assertThat(storedVersion(id)).isEqualTo(FIRST_SAVE.value());
         assertThat(saved.version()).isEqualTo(FIRST_SAVE);
@@ -108,7 +105,7 @@ class VersionedSaveIT {
         UUID id = key(2);
         created(id);
 
-        inTransaction(() -> {
+        transactions.inTransaction(() -> {
             Ledger ledger = load(id);
             ledger.rename("Renamed", NOW);
             save(ledger);
@@ -125,7 +122,7 @@ class VersionedSaveIT {
         UUID entry = key(30);
         createdWithAnEntry(id, entry);
 
-        inTransaction(() -> {
+        transactions.inTransaction(() -> {
             Ledger ledger = load(id);
             ledger.reweigh(entry, TWELVE_AND_A_HALF, NOW);
             save(ledger);
@@ -142,7 +139,7 @@ class VersionedSaveIT {
         UUID id = key(4);
         created(id);
 
-        inTransaction(() -> {
+        transactions.inTransaction(() -> {
             Ledger ledger = load(id);
             ledger.addEntry(key(40), TEN, NOW);
             save(ledger);
@@ -159,7 +156,7 @@ class VersionedSaveIT {
         UUID entry = key(50);
         createdWithAnEntry(id, entry);
 
-        inTransaction(() -> {
+        transactions.inTransaction(() -> {
             Ledger ledger = load(id);
             ledger.rename("Renamed", NOW);
             ledger.reweigh(entry, TWELVE_AND_A_HALF, NOW);
@@ -179,7 +176,7 @@ class VersionedSaveIT {
         UUID id = key(6);
         created(id);
 
-        inTransaction(() -> {
+        transactions.inTransaction(() -> {
             save(load(id));
         });
 
@@ -191,9 +188,9 @@ class VersionedSaveIT {
         UUID id = key(7);
         created(id);
 
-        assertThatThrownBy(() -> inTransaction(() -> {
+        assertThatThrownBy(() -> transactions.inTransaction(() -> {
                     Ledger mine = load(id);
-                    inANewTransaction(() -> {
+                    transactions.inANewTransaction(() -> {
                         Ledger theirs = load(id);
                         theirs.rename("Theirs", NOW);
                         save(theirs);
@@ -217,9 +214,9 @@ class VersionedSaveIT {
         UUID entry = key(80);
         createdWithAnEntry(id, entry);
 
-        assertThatThrownBy(() -> inTransaction(() -> {
+        assertThatThrownBy(() -> transactions.inTransaction(() -> {
                     Ledger mine = load(id);
-                    inANewTransaction(() -> {
+                    transactions.inANewTransaction(() -> {
                         Ledger theirs = load(id);
                         theirs.rename("Theirs", NOW);
                         save(theirs);
@@ -244,9 +241,9 @@ class VersionedSaveIT {
         LedgerRenamed theirs = new LedgerRenamed(new EventId("LedgerRenamed", id, SECOND_SAVE, 0), NOW);
         LedgerRenamed mine = new LedgerRenamed(new EventId("LedgerRenamed", id, SECOND_SAVE, 0), LATER);
 
-        assertThatThrownBy(() -> inTransaction(() -> {
+        assertThatThrownBy(() -> transactions.inTransaction(() -> {
                     Ledger ledger = load(id);
-                    inANewTransaction(() -> {
+                    transactions.inANewTransaction(() -> {
                         Ledger other = load(id);
                         other.rename("Theirs", NOW);
                         save(other);
@@ -271,7 +268,7 @@ class VersionedSaveIT {
         DaySeconds due = DaySeconds.of(DATE, 36_000);
         TimeWindow afternoon = TimeWindow.on(DATE, LocalTime.of(13, 0), LocalTime.of(17, 0));
         Volume volume = Volume.litres(new BigDecimal("40"));
-        inTransaction(() -> {
+        transactions.inTransaction(() -> {
             Ledger ledger = Ledger.open(id, "Ledger", DATE, MORNING, DEPOT, NOW);
             ledger.addEntry(entry, TEN, NOW);
             ledger.describe(Priority.of(Priority.HIGHEST), plan, phone, cause);
@@ -279,7 +276,7 @@ class VersionedSaveIT {
             return save(ledger);
         });
 
-        Ledger loaded = inTransaction(() -> load(id));
+        Ledger loaded = transactions.inTransaction(() -> load(id));
 
         assertThat(loaded.name()).isEqualTo("Ledger");
         assertThat(loaded.status()).isEqualTo(Ledger.Status.OPEN);
@@ -327,9 +324,9 @@ class VersionedSaveIT {
     @Test
     void GivenALedgerWithNoDepot_WhenLoadedAgain_ThenItHasNone() {
         UUID id = key(11);
-        inTransaction(() -> save(Ledger.open(id, "Ledger", DATE, MORNING, null, NOW)));
+        transactions.inTransaction(() -> save(Ledger.open(id, "Ledger", DATE, MORNING, null, NOW)));
 
-        assertThat(inTransaction(() -> load(id)).depot()).isEmpty();
+        assertThat(transactions.inTransaction(() -> load(id)).depot()).isEmpty();
     }
 
     @Test
@@ -337,7 +334,7 @@ class VersionedSaveIT {
         UUID id = key(12);
         insertLedger(id, " ", LocalDateTime.of(2027, 7, 13, 8, 0), LocalDateTime.of(2027, 7, 13, 12, 0));
 
-        assertThatThrownBy(() -> inTransaction(() -> load(id)))
+        assertThatThrownBy(() -> transactions.inTransaction(() -> load(id)))
                 .isInstanceOfSatisfying(
                         StoredStateInvalid.class,
                         invalid -> assertThat(invalid.subject()).isEqualTo("Ledger"));
@@ -349,7 +346,7 @@ class VersionedSaveIT {
         insertLedger(id, "Ledger", LocalDateTime.of(2027, 7, 13, 12, 0), LocalDateTime.of(2027, 7, 13, 8, 0));
 
         // Hibernate's own record instantiator would throw TimeWindow's RuleViolation instead.
-        assertThatThrownBy(() -> inTransaction(() -> load(id)))
+        assertThatThrownBy(() -> transactions.inTransaction(() -> load(id)))
                 .isInstanceOfSatisfying(
                         StoredStateInvalid.class,
                         invalid -> assertThat(invalid.subject()).isEqualTo("TimeWindow"));
@@ -367,8 +364,8 @@ class VersionedSaveIT {
     void GivenARowTheDatabaseRefuses_WhenSaved_ThenNeitherTheErrorNorTheLogQuotesItsValues(CapturedOutput output) {
         UUID id = key(14);
 
-        Throwable refused = catchThrowable(
-                () -> inTransaction(() -> save(Ledger.open(id, "Refused by the database", DATE, MORNING, DEPOT, NOW))));
+        Throwable refused = catchThrowable(() -> transactions.inTransaction(
+                () -> save(Ledger.open(id, "Refused by the database", DATE, MORNING, DEPOT, NOW))));
 
         assertThat(refused).isNotNull().isNotInstanceOf(StaleVersion.class);
         for (Throwable cause = refused; cause != null; cause = cause.getCause()) {
@@ -386,7 +383,7 @@ class VersionedSaveIT {
         UUID entry = key(150);
         createdWithAnEntry(id, entry);
 
-        assertThatThrownBy(() -> inTransaction(() -> {
+        assertThatThrownBy(() -> transactions.inTransaction(() -> {
                     Ledger ledger = load(id);
                     ledger.rename("Renamed", NOW);
                     save(ledger);
@@ -407,7 +404,7 @@ class VersionedSaveIT {
         UUID entry = key(160);
         createdWithAnEntry(id, entry);
 
-        assertThatThrownBy(() -> inTransaction(() -> {
+        assertThatThrownBy(() -> transactions.inTransaction(() -> {
                     Ledger ledger = load(id);
                     ledger.rename("Renamed", NOW);
                     entityManager
@@ -428,11 +425,11 @@ class VersionedSaveIT {
         UUID id = key(17);
         created(id);
 
-        inTransaction(() -> {
+        transactions.inTransaction(() -> {
             Ledger holder = load(id);
             holder.rename("Held", NOW);
             save(holder);
-            assertThatThrownBy(() -> inANewTransaction(() -> {
+            assertThatThrownBy(() -> transactions.inANewTransaction(() -> {
                         jdbc.sql("SET LOCAL lock_timeout = '200ms'").update();
                         Ledger waiting = load(id);
                         waiting.rename("Waiting", NOW);
@@ -452,9 +449,9 @@ class VersionedSaveIT {
     void GivenTwoTransactionsCreatingTheSameLedger_WhenTheLaterOneSaves_ThenStaleVersionAndTheFirstStands() {
         UUID id = key(18);
 
-        assertThatThrownBy(() -> inTransaction(() -> {
+        assertThatThrownBy(() -> transactions.inTransaction(() -> {
                     Ledger mine = Ledger.open(id, "Mine", DATE, MORNING, DEPOT, NOW);
-                    inANewTransaction(() -> {
+                    transactions.inANewTransaction(() -> {
                         save(Ledger.open(id, "Theirs", DATE, MORNING, DEPOT, NOW));
                     });
                     save(mine);
@@ -472,8 +469,8 @@ class VersionedSaveIT {
     void GivenALedgerLoadedInAnEarlierTransaction_WhenSavedAfterAnotherChangeCommitted_ThenStaleVersion() {
         UUID id = key(19);
         created(id);
-        Ledger detached = inTransaction(() -> load(id));
-        inTransaction(() -> {
+        Ledger detached = transactions.inTransaction(() -> load(id));
+        transactions.inTransaction(() -> {
             Ledger ledger = load(id);
             ledger.rename("Theirs", NOW);
             save(ledger);
@@ -481,7 +478,7 @@ class VersionedSaveIT {
 
         detached.rename("Mine", NOW);
 
-        assertThatThrownBy(() -> inTransaction(() -> save(detached)))
+        assertThatThrownBy(() -> transactions.inTransaction(() -> save(detached)))
                 .isInstanceOfSatisfying(StaleVersion.class, stale -> {
                     assertThat(stale.kind()).isEqualTo("Ledger");
                     assertThat(stale.id()).isEqualTo(id);
@@ -501,20 +498,20 @@ class VersionedSaveIT {
                         """).params(key(200), id, DATE.value()).update();
 
         // Hibernate's own record instantiator would throw DaySeconds' RuleViolation instead.
-        assertThatThrownBy(() -> inTransaction(() -> load(id)))
+        assertThatThrownBy(() -> transactions.inTransaction(() -> load(id)))
                 .isInstanceOfSatisfying(
                         StoredStateInvalid.class,
                         invalid -> assertThat(invalid.subject()).isEqualTo("DaySeconds"));
     }
 
     private Ledger created(UUID id) {
-        Ledger ledger = inTransaction(() -> save(Ledger.open(id, "Ledger", DATE, MORNING, DEPOT, NOW)));
+        Ledger ledger = transactions.inTransaction(() -> save(Ledger.open(id, "Ledger", DATE, MORNING, DEPOT, NOW)));
         events.clear();
         return ledger;
     }
 
     private void createdWithAnEntry(UUID id, UUID entry) {
-        inTransaction(() -> {
+        transactions.inTransaction(() -> {
             Ledger ledger = Ledger.open(id, "Ledger", DATE, MORNING, DEPOT, NOW);
             ledger.addEntry(entry, TEN, NOW);
             return save(ledger);
@@ -549,24 +546,6 @@ class VersionedSaveIT {
                 .param(entry)
                 .query(BigDecimal.class)
                 .single();
-    }
-
-    private <T> T inTransaction(Supplier<T> work) {
-        T result = new TransactionTemplate(transactionManager).execute(status -> work.get());
-        if (result == null) {
-            throw new AssertionError("the transaction returned nothing");
-        }
-        return result;
-    }
-
-    private void inTransaction(Runnable work) {
-        new TransactionTemplate(transactionManager).executeWithoutResult(status -> work.run());
-    }
-
-    private void inANewTransaction(Runnable work) {
-        TransactionTemplate requiresNew = new TransactionTemplate(transactionManager);
-        requiresNew.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        requiresNew.executeWithoutResult(status -> work.run());
     }
 
     private static UUID key(int number) {
