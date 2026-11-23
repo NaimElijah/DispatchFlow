@@ -23,6 +23,16 @@ import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.RuleViolations;
 import com.dispatchflow.shared.StoredStateInvalid;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OrderColumn;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.Table;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -35,6 +45,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One uploaded order file, previewed and then confirmed all or nothing (DL §4.3, §9.4, ADR-086). It
@@ -50,8 +62,16 @@ import java.util.Set;
  * existing and imported, stay within the limit (BR-101, BR-113).
  *
  * <p>Its rows hold names, phones, addresses and entrance codes, which are personal data.
+ *
+ * <p>It is mapped for JPA (ADR-126): its key is its ID's UUID, its {@link State} a kind and the
+ * time the state was reached, and its rows an ordered element collection of {@link
+ * StoredPreviewRow}s (ADR-127 decision 3), which a confirmed, discarded or expired batch empties, so
+ * its save deletes them. Every method checks all its rules before it changes anything, and every
+ * change ends by checking the invariants at rest.
  */
-public final class ImportBatch extends AggregateRoot implements PersonalData {
+@Entity
+@Table(schema = "orders", name = "import_batch")
+public class ImportBatch extends AggregateRoot implements PersonalData {
 
     /** How long a preview may wait for confirmation (FR-399, ADR-086). */
     public static final Duration PREVIEW_LIFETIME = Duration.ofHours(1);
@@ -102,21 +122,58 @@ public final class ImportBatch extends AggregateRoot implements PersonalData {
         }
     }
 
-    private final ImportBatchId id;
-    private final FileHash hash;
-    private final FileEncoding encoding;
-    private List<PreviewRow> rows;
-    private final Instant previewedAt;
-    private State state;
+    /** Which {@link State} a batch is in. */
+    private enum StateKind {
+        PREVIEWED,
+        CONFIRMED,
+        DISCARDED,
+        EXPIRED
+    }
 
+    @Id
+    private UUID id;
+
+    private FileHash hash;
+
+    @Enumerated(EnumType.STRING)
+    private FileEncoding encoding;
+
+    // Row order, which the preview shows and the invariants check.
+    @ElementCollection
+    @CollectionTable(schema = "orders", name = "import_row", joinColumns = @JoinColumn(name = "import_batch_id"))
+    @OrderColumn(name = "position", nullable = false)
+    private List<StoredPreviewRow> rows = new ArrayList<>();
+
+    private Instant previewedAt;
+
+    @Enumerated(EnumType.STRING)
+    private StateKind state;
+
+    /** When a confirmed, discarded or expired batch reached its state; null while previewed. */
+    private @Nullable Instant stateSince;
+
+    /** For Hibernate, which sets the fields from the stored rows and then runs {@link #checkStored}. */
+    protected ImportBatch() {}
+
+    private ImportBatch(
+            ImportBatchId id, FileHash hash, FileEncoding encoding, List<PreviewRow> previewed, Instant previewedAt) {
+        this.id = id.value();
+        this.hash = hash;
+        this.encoding = encoding;
+        previewed.forEach(row -> rows.add(new StoredPreviewRow(row)));
+        this.previewedAt = previewedAt;
+        this.state = StateKind.PREVIEWED;
+    }
+
+    /** Builds the batch {@link #restore} checks; it goes with {@code restore} (ADR-126). */
     private ImportBatch(ImportBatchSnapshot snapshot) {
         super(snapshot.version());
-        this.id = snapshot.id();
+        this.id = snapshot.id().value();
         this.hash = snapshot.hash();
         this.encoding = snapshot.encoding();
-        this.rows = snapshot.rows();
+        snapshot.rows().forEach(row -> rows.add(new StoredPreviewRow(row)));
         this.previewedAt = snapshot.previewedAt();
-        this.state = snapshot.state();
+        moveTo(snapshot.state());
     }
 
     /**
@@ -154,8 +211,9 @@ public final class ImportBatch extends AggregateRoot implements PersonalData {
         for (int i = 0; i < ordered.size(); i++) {
             previewed.add(new PreviewRow(ordered.get(i), errors.get(i)));
         }
-        return new ImportBatch(
-                new ImportBatchSnapshot(id, hash, encoding, previewed, now, new State.Previewed(), null));
+        ImportBatch batch = new ImportBatch(id, hash, encoding, previewed, now);
+        batch.requireInvariants();
+        return batch;
     }
 
     /**
@@ -169,29 +227,58 @@ public final class ImportBatch extends AggregateRoot implements PersonalData {
      *     confirmed after its hour
      */
     public static ImportBatch restore(ImportBatchSnapshot snapshot) {
-        if (!(snapshot.state() instanceof State.Previewed) && !snapshot.rows().isEmpty()) {
-            throw new StoredStateInvalid(ImportBatch.class, "a confirmed, discarded or expired import keeps a row");
+        ImportBatch restored = new ImportBatch(snapshot);
+        restored.checkStored();
+        return restored;
+    }
+
+    /**
+     * Checks the batch as Hibernate loaded it against the invariants at rest that {@link #restore}
+     * checks (ADR-126 decision 8).
+     *
+     * @throws StoredStateInvalid when the stored state breaks one of them, or a stored row can't
+     *     become a {@link PreviewRow}
+     */
+    @PostLoad
+    void checkStored() {
+        brokenRule().ifPresent(broken -> {
+            throw new StoredStateInvalid(ImportBatch.class, broken);
+        });
+    }
+
+    /** The first invariant at rest the batch breaks, if any: those {@link #restore} names. */
+    private Optional<String> brokenRule() {
+        List<PreviewRow> previewRows = rows();
+        if (state != StateKind.PREVIEWED && !previewRows.isEmpty()) {
+            return Optional.of("a confirmed, discarded or expired import keeps a row");
         }
-        for (int i = 1; i < snapshot.rows().size(); i++) {
-            RowNumber previous = snapshot.rows().get(i - 1).row().number();
-            if (snapshot.rows().get(i).row().number().compareTo(previous) <= 0) {
-                throw new StoredStateInvalid(ImportBatch.class, "the row numbers are not unique and ascending");
+        for (int i = 1; i < previewRows.size(); i++) {
+            RowNumber previous = previewRows.get(i - 1).row().number();
+            if (previewRows.get(i).row().number().compareTo(previous) <= 0) {
+                return Optional.of("the row numbers are not unique and ascending");
             }
         }
-        Optional<Instant> changedAt = switch (snapshot.state()) {
-            case State.Previewed previewed -> Optional.empty();
-            case State.Confirmed confirmed -> Optional.of(confirmed.at());
-            case State.Discarded discarded -> Optional.of(discarded.at());
-            case State.Expired expired -> Optional.of(expired.at());
-        };
-        if (changedAt.filter(at -> at.isBefore(snapshot.previewedAt())).isPresent()) {
-            throw new StoredStateInvalid(ImportBatch.class, "the import's state is older than its preview");
+        if (stateSince != null && stateSince.isBefore(previewedAt)) {
+            return Optional.of("the import's state is older than its preview");
         }
-        if (snapshot.state() instanceof State.Confirmed confirmed
-                && !confirmed.at().isBefore(snapshot.previewedAt().plus(PREVIEW_LIFETIME))) {
-            throw new StoredStateInvalid(ImportBatch.class, "the import was confirmed after its hour");
+        if (state == StateKind.CONFIRMED
+                && stateSince != null
+                && !stateSince.isBefore(previewedAt.plus(PREVIEW_LIFETIME))) {
+            return Optional.of("the import was confirmed after its hour");
         }
-        return new ImportBatch(snapshot);
+        return Optional.empty();
+    }
+
+    /**
+     * Checks the state a command left against every invariant at rest (ADR-126 decision 11). Every
+     * rule a caller can break was checked before the command changed anything, so a broken
+     * invariant here is a bug in the command, not a refusal, and the error rolls its transaction
+     * back.
+     */
+    private void requireInvariants() {
+        brokenRule().ifPresent(broken -> {
+            throw new AssertionError("an import batch command left a state that breaks: " + broken);
+        });
     }
 
     /**
@@ -228,7 +315,7 @@ public final class ImportBatch extends AggregateRoot implements PersonalData {
         if (encoding == FileEncoding.WINDOWS_1255 && !encodingConfirmed) {
             throw new RuleViolation(new EncodingNotConfirmed());
         }
-        List<ImportRow> imported = rows.stream().map(PreviewRow::row).toList();
+        List<ImportRow> imported = rows().stream().map(PreviewRow::row).toList();
         List<List<DomainError>> errors = check(imported, context, today);
         List<RowRefused> refusals = new ArrayList<>();
         int rejectedRows = 0;
@@ -240,8 +327,9 @@ public final class ImportBatch extends AggregateRoot implements PersonalData {
         RuleViolations.throwIfAny(new ImportHasErrors(rejectedRows), refusals);
 
         ImportResult result = create(imported, context, ids, now);
-        rows = List.of();
-        state = new State.Confirmed(notBeforePreview(now));
+        rows.clear();
+        moveTo(new State.Confirmed(notBeforePreview(now)));
+        requireInvariants();
         return result;
     }
 
@@ -255,8 +343,9 @@ public final class ImportBatch extends AggregateRoot implements PersonalData {
      */
     public void discard(Instant now) {
         refuseUnlessPreviewed();
-        rows = List.of();
-        state = new State.Discarded(notBeforePreview(now));
+        rows.clear();
+        moveTo(new State.Discarded(notBeforePreview(now)));
+        requireInvariants();
     }
 
     /**
@@ -273,8 +362,9 @@ public final class ImportBatch extends AggregateRoot implements PersonalData {
         if (!isOverdue(now)) {
             throw new RuleViolation(new ImportNotYetExpired());
         }
-        rows = List.of();
-        state = new State.Expired(now);
+        rows.clear();
+        moveTo(new State.Expired(now));
+        requireInvariants();
     }
 
     /**
@@ -291,7 +381,7 @@ public final class ImportBatch extends AggregateRoot implements PersonalData {
     }
 
     private void refuseUnlessPreviewed() {
-        switch (state) {
+        switch (state()) {
             case State.Previewed previewed -> {}
             case State.Confirmed confirmed -> throw new RuleViolation(new ImportAlreadyConfirmed());
             case State.Discarded discarded -> throw new RuleViolation(new ImportDiscarded());
@@ -414,25 +504,55 @@ public final class ImportBatch extends AggregateRoot implements PersonalData {
      * @return the ID
      */
     public ImportBatchId id() {
-        return id;
+        return ImportBatchId.of(id);
     }
 
     /**
      * Where the batch is in its lifecycle.
      *
-     * @return the state
+     * @return the state its kind and its stored time make
      */
     public State state() {
-        return state;
+        return switch (state) {
+            case PREVIEWED -> new State.Previewed();
+            case CONFIRMED -> new State.Confirmed(since());
+            case DISCARDED -> new State.Discarded(since());
+            case EXPIRED -> new State.Expired(since());
+        };
+    }
+
+    /** The time a state other than the preview was reached, which every such state has. */
+    private Instant since() {
+        return Objects.requireNonNull(stateSince, "a batch no longer previewed has the time it changed");
+    }
+
+    /** Sets the state's kind and its time, in place. */
+    private void moveTo(State next) {
+        stateSince = null;
+        state = switch (next) {
+            case State.Previewed previewed -> StateKind.PREVIEWED;
+            case State.Confirmed confirmed -> {
+                stateSince = confirmed.at();
+                yield StateKind.CONFIRMED;
+            }
+            case State.Discarded discarded -> {
+                stateSince = discarded.at();
+                yield StateKind.DISCARDED;
+            }
+            case State.Expired expired -> {
+                stateSince = expired.at();
+                yield StateKind.EXPIRED;
+            }
+        };
     }
 
     /**
      * Its rows with their errors, for the preview screen (FR-203).
      *
-     * @return the rows in row order; empty once confirmed, discarded or expired
+     * @return the rows in row order, unmodifiable; empty once confirmed, discarded or expired
      */
     public List<PreviewRow> rows() {
-        return rows;
+        return rows.stream().map(StoredPreviewRow::row).toList();
     }
 
     /**
@@ -442,7 +562,13 @@ public final class ImportBatch extends AggregateRoot implements PersonalData {
      */
     public ImportBatchSnapshot snapshot() {
         return new ImportBatchSnapshot(
-                id, hash, encoding, rows, previewedAt, state, savedVersion().orElse(null));
+                id(),
+                hash,
+                encoding,
+                rows(),
+                previewedAt,
+                state(),
+                savedVersion().orElse(null));
     }
 
     /**

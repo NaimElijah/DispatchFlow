@@ -21,6 +21,7 @@ import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.DomainError;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PersonalData;
+import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.Priority;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.SharedKernelError.NonexistentLocalTime;
@@ -28,12 +29,21 @@ import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.TimeWindow;
 import com.dispatchflow.shared.Volume;
 import com.dispatchflow.shared.Weight;
+import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.Table;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -50,8 +60,15 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>Its recipient, delivery note, access details and outside reference are personal data, removed
  * 90 days after its date (NFR-257).
+ *
+ * <p>It is mapped for JPA (ADR-126) in {@code orders.customer_order}, because PostgreSQL reserves
+ * {@code order}: its key is its ID's UUID, its {@link State} a kind and the cancellation's time,
+ * and its recipient and access details nullable columns of their own. Every method checks all its
+ * rules before it changes anything, and every change ends by checking the invariants at rest.
  */
-public final class Order extends AggregateRoot implements PersonalData {
+@Entity
+@Table(schema = "orders", name = "customer_order")
+public class Order extends AggregateRoot implements PersonalData {
 
     /** Days after its date that an order's personal fields are kept (NFR-257). */
     public static final int RETENTION_DAYS = 90;
@@ -77,27 +94,94 @@ public final class Order extends AggregateRoot implements PersonalData {
         }
     }
 
-    private final OrderId id;
-    private final CustomerId customer;
+    /** Which {@link State} an order is in. */
+    private enum StateKind {
+        ACTIVE,
+        CANCELLED
+    }
+
+    @Id
+    private UUID id;
+
+    private CustomerId customer;
+
     private DeliveryDate date;
+
+    @Embedded
     private TimeWindow window;
+
+    @Column(name = "weight_kg")
     private Weight weight;
+
+    @Column(name = "volume_l")
     private Volume volume;
+
+    @Column(name = "service_time_seconds")
     private ServiceTime serviceTime;
+
     private Priority priority;
+
     private boolean leaveAtDoor;
+
     private @Nullable ExternalReference reference;
-    private Recipient recipient;
+
+    private @Nullable ContactName recipientName;
+
+    private @Nullable PhoneNumber recipientPhone;
+
     private @Nullable DriverNote note;
-    private AccessDetails access;
+
+    private @Nullable Floor floor;
+
+    private @Nullable Apartment apartment;
+
+    private @Nullable EntranceCode entranceCode;
+
     private Attempt attempt;
-    private State state;
+
+    @Enumerated(EnumType.STRING)
+    private StateKind state;
+
+    /** When a cancelled order was cancelled; null while active. */
+    private @Nullable Instant cancelledAt;
+
     private boolean anonymized;
+
     private Instant lastChangedAt;
 
+    /** For Hibernate, which sets the fields from the stored row and then runs {@link #checkStored}. */
+    protected Order() {}
+
+    private Order(
+            OrderId id,
+            CustomerId customer,
+            DeliveryDate date,
+            TimeWindow window,
+            ServiceTime serviceTime,
+            OrderDetails details,
+            Instant now) {
+        this.id = id.value();
+        this.customer = customer;
+        this.date = date;
+        this.window = window;
+        this.weight = details.weight();
+        this.volume = details.volume();
+        this.serviceTime = serviceTime;
+        this.priority = details.priority();
+        this.leaveAtDoor = details.leaveAtDoor();
+        this.reference = details.reference().orElse(null);
+        receiveBy(details.recipient());
+        this.note = details.note().orElse(null);
+        accessBy(details.access());
+        this.attempt = Attempt.FIRST;
+        this.state = StateKind.ACTIVE;
+        this.lastChangedAt = now;
+    }
+
+    /** Builds the order {@link #restore} checks; it goes with {@code restore} (ADR-126). */
     private Order(OrderSnapshot snapshot) {
         super(snapshot.version());
-        this.id = snapshot.id();
+        this.id = snapshot.id().value();
         this.customer = snapshot.customer();
         this.date = snapshot.date();
         this.window = snapshot.window();
@@ -107,11 +191,11 @@ public final class Order extends AggregateRoot implements PersonalData {
         this.priority = snapshot.priority();
         this.leaveAtDoor = snapshot.leaveAtDoor();
         this.reference = snapshot.reference().orElse(null);
-        this.recipient = snapshot.recipient();
+        receiveBy(snapshot.recipient());
         this.note = snapshot.note().orElse(null);
-        this.access = snapshot.access();
+        accessBy(snapshot.access());
         this.attempt = snapshot.attempt();
-        this.state = snapshot.state();
+        enter(snapshot.state());
         this.anonymized = snapshot.anonymized();
         this.lastChangedAt = snapshot.lastChangedAt();
     }
@@ -205,25 +289,9 @@ public final class Order extends AggregateRoot implements PersonalData {
         ServiceTime serviceTime = details.serviceTime()
                 .or(defaults::serviceTime)
                 .orElseThrow(() -> new RuleViolation(new NoServiceTime()));
-        return new Order(new OrderSnapshot(
-                id,
-                customer,
-                date,
-                windowOf(details, defaults, date),
-                details.weight(),
-                details.volume(),
-                serviceTime,
-                details.priority(),
-                details.leaveAtDoor(),
-                details.reference(),
-                details.recipient(),
-                details.note(),
-                details.access(),
-                Attempt.FIRST,
-                new State.Active(),
-                false,
-                now,
-                null));
+        Order order = new Order(id, customer, date, windowOf(details, defaults, date), serviceTime, details, now);
+        order.requireInvariants();
+        return order;
     }
 
     private static TimeWindow windowOf(OrderDetails details, OrderDefaults defaults, DeliveryDate date) {
@@ -240,21 +308,50 @@ public final class Order extends AggregateRoot implements PersonalData {
      *     holds a personal field, or the cancellation is later than the last change
      */
     public static Order restore(OrderSnapshot snapshot) {
-        if (!snapshot.window().date().equals(snapshot.date())) {
-            throw new StoredStateInvalid(Order.class, "the window lies off the order's date");
+        Order restored = new Order(snapshot);
+        restored.checkStored();
+        return restored;
+    }
+
+    /**
+     * Checks the order as Hibernate loaded it against the invariants at rest that {@link #restore}
+     * checks (ADR-126 decision 8).
+     *
+     * @throws StoredStateInvalid when the stored state breaks one of them
+     */
+    @PostLoad
+    void checkStored() {
+        brokenRule().ifPresent(broken -> {
+            throw new StoredStateInvalid(Order.class, broken);
+        });
+    }
+
+    /** The first invariant at rest the order breaks, if any: those {@link #restore} names. */
+    private Optional<String> brokenRule() {
+        if (!window.date().equals(date)) {
+            return Optional.of("the window lies off the order's date");
         }
-        boolean holdsPersonalFields = !snapshot.recipient().equals(Recipient.NONE)
-                || snapshot.note().isPresent()
-                || snapshot.access().isGiven()
-                || snapshot.reference().isPresent();
-        if (snapshot.anonymized() && holdsPersonalFields) {
-            throw new StoredStateInvalid(Order.class, "an anonymized order holds a personal field");
+        boolean holdsPersonalFields =
+                !recipient().equals(Recipient.NONE) || note != null || access().isGiven() || reference != null;
+        if (anonymized && holdsPersonalFields) {
+            return Optional.of("an anonymized order holds a personal field");
         }
-        if (snapshot.state() instanceof State.Cancelled cancelled
-                && cancelled.at().isAfter(snapshot.lastChangedAt())) {
-            throw new StoredStateInvalid(Order.class, "the order was cancelled after its last change");
+        if (cancelledAt != null && cancelledAt.isAfter(lastChangedAt)) {
+            return Optional.of("the order was cancelled after its last change");
         }
-        return new Order(snapshot);
+        return Optional.empty();
+    }
+
+    /**
+     * Checks the state a command left against every invariant at rest (ADR-126 decision 11). Every
+     * rule a caller can break was checked before the command changed anything, so a broken
+     * invariant here is a bug in the command, not a refusal, and the error rolls its transaction
+     * back.
+     */
+    private void requireInvariants() {
+        brokenRule().ifPresent(broken -> {
+            throw new AssertionError("an order command left a state that breaks: " + broken);
+        });
     }
 
     /**
@@ -279,10 +376,11 @@ public final class Order extends AggregateRoot implements PersonalData {
         serviceTime = change.serviceTime();
         priority = change.priority();
         leaveAtDoor = change.leaveAtDoor();
-        recipient = change.recipient();
+        receiveBy(change.recipient());
         note = change.note().orElse(null);
-        access = change.access();
+        accessBy(change.access());
         lastChangedAt = now;
+        requireInvariants();
     }
 
     /**
@@ -310,10 +408,11 @@ public final class Order extends AggregateRoot implements PersonalData {
         date = to;
         this.window = window;
         lastChangedAt = now;
+        requireInvariants();
         raise(
                 OrderRescheduled.class,
-                id.value(),
-                eventId -> new OrderRescheduled(eventId, now, id, from, to, attempt.number()));
+                id,
+                eventId -> new OrderRescheduled(eventId, now, id(), from, to, attempt.number()));
     }
 
     /**
@@ -326,12 +425,10 @@ public final class Order extends AggregateRoot implements PersonalData {
      */
     public void cancel(StopState progress, Instant now) {
         refuseUnlessOpen(progress);
-        state = new State.Cancelled(now);
+        enter(new State.Cancelled(now));
         lastChangedAt = now;
-        raise(
-                OrderCancelled.class,
-                id.value(),
-                eventId -> new OrderCancelled(eventId, now, id, date, attempt.number()));
+        requireInvariants();
+        raise(OrderCancelled.class, id, eventId -> new OrderCancelled(eventId, now, id(), date, attempt.number()));
     }
 
     /**
@@ -372,13 +469,11 @@ public final class Order extends AggregateRoot implements PersonalData {
         this.window = window;
         attempt = attempt.next();
         lastChangedAt = now;
+        requireInvariants();
         // On its own date the next solve or re-optimization replaces the old attempt's drop, so only
         // a move leaves another date's plan holding it (ADR-115).
         if (!to.equals(from)) {
-            raise(
-                    OrderPutBack.class,
-                    id.value(),
-                    eventId -> new OrderPutBack(eventId, now, id, from, to, ended.number()));
+            raise(OrderPutBack.class, id, eventId -> new OrderPutBack(eventId, now, id(), from, to, ended.number()));
         }
     }
 
@@ -393,31 +488,32 @@ public final class Order extends AggregateRoot implements PersonalData {
      */
     public void anonymize(LocalDate today) {
         if (anonymized) {
-            throw new RuleViolation(new OrderAnonymized(id));
+            throw new RuleViolation(new OrderAnonymized(id()));
         }
         if (today.isBefore(date.value().plusDays(RETENTION_DAYS))) {
             throw new RuleViolation(new RetentionNotOver());
         }
-        recipient = Recipient.NONE;
+        receiveBy(Recipient.NONE);
         note = null;
-        access = AccessDetails.NONE;
+        accessBy(AccessDetails.NONE);
         reference = null;
         anonymized = true;
+        requireInvariants();
     }
 
     private void refuseUnlessUncancelled() {
         if (anonymized) {
-            throw new RuleViolation(new OrderAnonymized(id));
+            throw new RuleViolation(new OrderAnonymized(id()));
         }
-        if (state instanceof State.Cancelled) {
-            throw new RuleViolation(new OrderAlreadyCancelled(id));
+        if (state == StateKind.CANCELLED) {
+            throw new RuleViolation(new OrderAlreadyCancelled(id()));
         }
     }
 
     private void refuseUnlessOpen(StopState progress) {
         refuseUnlessUncancelled();
         if (progress.hasFactFor(attempt)) {
-            throw new RuleViolation(new StopAlreadyHasFact(id));
+            throw new RuleViolation(new StopAlreadyHasFact(id()));
         }
     }
 
@@ -429,7 +525,7 @@ public final class Order extends AggregateRoot implements PersonalData {
         if (!newWindow.date().equals(to)) {
             throw new RuleViolation(new WindowNotOnDate(newWindow, to));
         }
-        List<OrdersError> problems = problemsJoining(target, Optional.of(id), Optional.ofNullable(reference));
+        List<OrdersError> problems = problemsJoining(target, Optional.of(id()), Optional.ofNullable(reference));
         if (!problems.isEmpty()) {
             throw new RuleViolation(problems.get(0));
         }
@@ -441,7 +537,7 @@ public final class Order extends AggregateRoot implements PersonalData {
      * @return the ID
      */
     public OrderId id() {
-        return id;
+        return OrderId.of(id);
     }
 
     /**
@@ -486,7 +582,7 @@ public final class Order extends AggregateRoot implements PersonalData {
      * @return {@code true} once cancelled
      */
     public boolean isCancelled() {
-        return state instanceof State.Cancelled;
+        return state == StateKind.CANCELLED;
     }
 
     /**
@@ -507,6 +603,53 @@ public final class Order extends AggregateRoot implements PersonalData {
         return lastChangedAt;
     }
 
+    /** The recipient its two columns make. */
+    private Recipient recipient() {
+        return new Recipient(Optional.ofNullable(recipientName), Optional.ofNullable(recipientPhone));
+    }
+
+    /** The access details its three columns make. */
+    private AccessDetails access() {
+        return new AccessDetails(
+                Optional.ofNullable(floor), Optional.ofNullable(apartment), Optional.ofNullable(entranceCode));
+    }
+
+    /** The state its kind and its cancellation's time make. */
+    private State state() {
+        return switch (state) {
+            case ACTIVE -> new State.Active();
+            case CANCELLED ->
+                new State.Cancelled(Objects.requireNonNull(cancelledAt, "a cancelled order has its cancellation time"));
+        };
+    }
+
+    /** Sets the recipient's columns, in place. */
+    private void receiveBy(Recipient next) {
+        recipientName = next.name().orElse(null);
+        recipientPhone = next.phone().orElse(null);
+    }
+
+    /** Sets the access details' columns, in place. */
+    private void accessBy(AccessDetails next) {
+        floor = next.floor().orElse(null);
+        apartment = next.apartment().orElse(null);
+        entranceCode = next.entranceCode().orElse(null);
+    }
+
+    /** Sets the state's kind and its time, in place. */
+    private void enter(State next) {
+        state = switch (next) {
+            case State.Active active -> {
+                cancelledAt = null;
+                yield StateKind.ACTIVE;
+            }
+            case State.Cancelled cancelled -> {
+                cancelledAt = cancelled.at();
+                yield StateKind.CANCELLED;
+            }
+        };
+    }
+
     /**
      * Everything the order holds, for the persistence adapter and the read side.
      *
@@ -514,7 +657,7 @@ public final class Order extends AggregateRoot implements PersonalData {
      */
     public OrderSnapshot snapshot() {
         return new OrderSnapshot(
-                id,
+                id(),
                 customer,
                 date,
                 window,
@@ -524,11 +667,11 @@ public final class Order extends AggregateRoot implements PersonalData {
                 priority,
                 leaveAtDoor,
                 Optional.ofNullable(reference),
-                recipient,
+                recipient(),
                 Optional.ofNullable(note),
-                access,
+                access(),
                 attempt,
-                state,
+                state(),
                 anonymized,
                 lastChangedAt,
                 savedVersion().orElse(null));

@@ -5,6 +5,8 @@ import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.SharedKernelError.NonexistentLocalTime;
 import com.dispatchflow.shared.TimeWindow;
+import jakarta.persistence.Column;
+import jakarta.persistence.Embeddable;
 import java.time.LocalTime;
 import java.util.Objects;
 
@@ -16,10 +18,18 @@ import java.util.Objects;
  * default, which Access's company profile holds and the application layer passes in (FR-125,
  * ADR-104).
  *
+ * <p>A customer embeds it, stored in two {@code time} columns. Its constructor checks a rule, so the
+ * persistence adapter's instantiator rebuilds it, and a stored pair the rule refuses is an incident
+ * (ADR-126).
+ *
  * @param start the opening time
  * @param end the closing time
  */
-public record DailyWindow(LocalTime start, LocalTime end) {
+@Embeddable
+public record DailyWindow(
+        // PostgreSQL reserves "end", so the window names its own columns, as TimeWindow's do.
+        @Column(name = "starts_at") LocalTime start,
+        @Column(name = "ends_at") LocalTime end) {
 
     /**
      * Checks the window.
