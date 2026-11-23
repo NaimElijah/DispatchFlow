@@ -50,8 +50,8 @@ class DispatchFlowApplicationIT {
     }
 
     /**
-     * The driver opens each session in the JVM's zone, so without the core's own setting the
-     * session would run in {@code Asia/Jerusalem} on a developer's machine and in UTC in CI.
+     * The driver opens each session in the JVM's zone, which the build pins to {@code
+     * Asia/Jerusalem}, so without the core's own setting the session would run in that zone.
      */
     @Test
     void GivenTheCoresDatabase_WhenItsSessionIsAskedItsZone_ThenUtc() {
