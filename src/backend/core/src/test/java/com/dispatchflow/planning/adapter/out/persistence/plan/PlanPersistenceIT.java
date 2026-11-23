@@ -894,12 +894,6 @@ class PlanPersistenceIT {
                         rows -> rows.run("UPDATE planning.planned_stop SET start_seconds = NULL WHERE route_id = "
                                 + FIRST_ROUTE)),
                 forbidden(
-                        "a stop kept by another plan than its route's",
-                        State.READY,
-                        rows -> rows.run("UPDATE planning.planned_stop SET plan_id ="
-                                + " (SELECT id FROM planning.plan WHERE id <> :plan LIMIT 1) WHERE route_id = "
-                                + FIRST_ROUTE)),
-                forbidden(
                         "two stops at one place on a route",
                         State.READY,
                         rows -> rows.run(
@@ -968,6 +962,25 @@ class PlanPersistenceIT {
         assertThatThrownBy(() -> damage.apply(rows)).isInstanceOf(DataIntegrityViolationException.class);
         assertThat(transactions.inTransaction(() -> repository.get(stored.id())))
                 .isPresent();
+    }
+
+    /**
+     * The test stores the other plan itself and names the constraint, so the write can't be refused
+     * for another reason, such as a plan that doesn't exist, while the stop's key goes untested.
+     */
+    @Test
+    void GivenAStopMovedToAnotherStoredPlan_WhenItsRowIsWritten_ThenTheKeyToItsRoutesPlanRefusesIt() {
+        Plan stored = State.READY.build(builder(1_300));
+        Plan other = State.DRAFT.build(builder(1_301));
+
+        Throwable refused = catchThrowable(
+                () -> jdbc.sql("UPDATE planning.planned_stop SET plan_id = :other WHERE route_id = " + FIRST_ROUTE)
+                        .param("plan", stored.id().value())
+                        .param("other", other.id().value())
+                        .update());
+
+        assertThat(refused).isInstanceOf(DataIntegrityViolationException.class);
+        assertThat(refused).rootCause().hasMessageContaining("\"planned_stop_on_a_route_of_its_plan\"");
     }
 
     private static Arguments damaged(String broken, State state, Damage damage, String subject, String detail) {
