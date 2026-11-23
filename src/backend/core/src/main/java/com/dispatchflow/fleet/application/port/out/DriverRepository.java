@@ -44,6 +44,7 @@ public interface DriverRepository {
      * Stores a new driver record (DL §3.6).
      *
      * @param driver the new record, never saved
+     * @throws StaleVersion when another call stored a driver for the account first
      */
     void add(Driver driver);
 
