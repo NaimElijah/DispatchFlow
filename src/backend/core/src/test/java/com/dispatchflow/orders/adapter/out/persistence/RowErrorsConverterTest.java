@@ -148,7 +148,24 @@ class RowErrorsConverterTest {
 
         assertThatThrownBy(() -> converter.convertToDatabaseColumn(errors))
                 .isInstanceOf(AssertionError.class)
-                .hasMessage("an import row's errors must read back as they were written");
+                .hasMessage("an import row's errors must read back as they were written: RowRefused")
+                .hasCauseInstanceOf(StoredStateInvalid.class);
+    }
+
+    /**
+     * An admitted record that reads back, but not as itself: a record compares an array component
+     * by reference, so the array Jackson rebuilds makes another error.
+     */
+    private record HoldsAnArray(int[] rows) implements DomainError {}
+
+    @Test
+    void GivenAnErrorThatReadsBackAsAnotherOne_WhenStored_ThenAssertionError() {
+        RowErrors errors = new RowErrors(List.of(new HoldsAnArray(new int[] {3, 4})));
+
+        assertThatThrownBy(() -> converter.convertToDatabaseColumn(errors))
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("an import row's errors must read back as they were written: HoldsAnArray")
+                .hasNoCause();
     }
 
     @Test

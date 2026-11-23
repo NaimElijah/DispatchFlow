@@ -9,6 +9,7 @@ import jakarta.persistence.Converter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.JsonNode;
@@ -41,6 +42,7 @@ public final class RowErrorsConverter extends StoredValueConverter<RowErrors, St
     private static final String ADMITTED_PACKAGE = "com.dispatchflow.";
     private static final String TYPE_REFUSED = "a stored error names a type that is not a DomainError record";
     private static final String NOT_WELL_FORMED = "a stored error list is not well formed";
+    private static final String READ_BACK = "an import row's errors must read back as they were written: ";
 
     // Strict, so a stored error with a missing, extra or null component is damaged, not defaulted.
     private static final JsonMapper JSON = JsonMapper.builder()
@@ -69,19 +71,25 @@ public final class RowErrorsConverter extends StoredValueConverter<RowErrors, St
             stored.addObject().put(TYPE, error.getClass().getName()).set(VALUE, JSON.valueToTree(error));
         }
         String text = JSON.writeValueAsString(stored);
-        if (!readsBackAs(text, errors)) {
-            throw new AssertionError("an import row's errors must read back as they were written");
+        RowErrors readBack;
+        try {
+            readBack = read(text);
+        } catch (StoredStateInvalid | RuleViolation unreadable) {
+            // Kept as the cause, which carries no stored text: its detail is a constant, and read
+            // drops Jackson's message.
+            throw new AssertionError(READ_BACK + typesOf(errors), unreadable);
+        }
+        if (!readBack.equals(errors)) {
+            throw new AssertionError(READ_BACK + typesOf(errors));
         }
         return text;
     }
 
-    private static boolean readsBackAs(String text, RowErrors written) {
-        try {
-            return read(text).equals(written);
-        } catch (StoredStateInvalid | RuleViolation unreadable) {
-            // The reader's refusal is the answer: this text could never be loaded again.
-            return false;
-        }
+    private static String typesOf(RowErrors errors) {
+        return errors.errors().stream()
+                .map(error -> error.getClass().getSimpleName())
+                .distinct()
+                .collect(Collectors.joining(", "));
     }
 
     private static RowErrors read(String stored) {
