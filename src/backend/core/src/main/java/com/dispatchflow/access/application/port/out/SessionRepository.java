@@ -14,15 +14,11 @@ import java.util.Optional;
 /**
  * Where sessions are kept, whole, with their contact times and refresh-token chains (DL §3.6,
  * §4.1).
- *
- * <p>Built in M5, M6, M8 and M13, method by method.
  */
 public interface SessionRepository {
 
     /**
      * The session with an ID.
-     *
-     * <p>Built in M5.
      *
      * @param id the session's ID
      * @return the session, or empty when no session has the ID
@@ -36,8 +32,6 @@ public interface SessionRepository {
      * so the cache sits in the adapter and {@code SessionValidity} keeps one implementation; {@link
      * RevocationCache#evict(SessionId)} drops the entry after a change.
      *
-     * <p>Built in M6.
-     *
      * @param session the token's session
      * @return the session's generation while it is live, or empty when no session has the ID or it
      *     is revoked
@@ -47,8 +41,6 @@ public interface SessionRepository {
     /**
      * The session whose chain holds a refresh token with the hash, current or not, which {@code
      * Session.exchange} judges (NFR-88, NFR-178), and which a sign-out revokes (NFR-89).
-     *
-     * <p>Built in M5.
      *
      * @param token the hash of the presented refresh token
      * @return the session, or empty when no chain keeps the token
@@ -63,8 +55,6 @@ public interface SessionRepository {
      * ran. A session revoked earlier, or begun under {@code revokedTo} or later, is left out, since
      * {@code revokeWithAccount} would change nothing on it.
      *
-     * <p>Built in M6.
-     *
      * @param account the account
      * @param revokedTo the account's generation after the revocation, which the event carries
      * @param revokedAt when the account's sessions were revoked
@@ -76,8 +66,6 @@ public interface SessionRepository {
      * Every live session of every account, which the restore's server step revokes (NFR-252). It
      * answers IDs, so each session is loaded, revoked and saved in its own transaction.
      *
-     * <p>Built in M13.
-     *
      * @return their IDs, in any order
      */
     List<SessionId> allLive();
@@ -85,8 +73,6 @@ public interface SessionRepository {
     /**
      * The contact times of every session of an account within a span, both ends included, revoked
      * sessions included: a session signed out since its contact still counts (BR-133, NFR-280).
-     *
-     * <p>Built in M8.
      *
      * @param account the reporting account
      * @param from the first instant of the span
@@ -98,8 +84,6 @@ public interface SessionRepository {
     /**
      * Stores a new session (DL §3.6).
      *
-     * <p>Built in M5.
-     *
      * @param session the new session, never saved
      */
     void add(Session session);
@@ -108,8 +92,6 @@ public interface SessionRepository {
      * Stores a changed session with a version check (DL §3.6, BR-76). A change that only recorded
      * or dropped contact times moves no version, so the adapter writes those times alone, with no
      * version check, and a contact never makes a refresh fail (DL §4.1).
-     *
-     * <p>Built in M5.
      *
      * @param session the changed session
      * @throws StaleVersion when the stored session is no longer at the version it was loaded at
@@ -130,8 +112,6 @@ public interface SessionRepository {
      * nothing un-revokes one, so the write can't overwrite a change it should have seen. A retry of
      * the whole exchange could meet a conflict each time, and lose the revocation in the end.
      *
-     * <p>Built in M5, for sign-out; refresh uses it from M6.
-     *
      * @param session the session, revoked by {@code Session.revoke} or {@code Session.exchange}
      * @throws IllegalArgumentException when the session is live: the use case saves a live session
      *     through {@link #save}, so this is a programming error rather than a refusal
@@ -144,8 +124,6 @@ public interface SessionRepository {
      * never revoked, so it may still hold a push address, which the caller removes by the IDs
      * answered.
      *
-     * <p>Built in M13.
-     *
      * @param cutoff the latest end that is due
      * @return the IDs of the sessions deleted, each once, in any order
      */
@@ -154,8 +132,6 @@ public interface SessionRepository {
     /**
      * The sessions holding a contact time older than an instant, whose old times the retention job
      * drops through {@code Session.dropOldContacts} (NFR-280).
-     *
-     * <p>Built in M13.
      *
      * @param cutoff the oldest contact time kept
      * @return their IDs, in any order

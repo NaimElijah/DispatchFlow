@@ -25,9 +25,24 @@ import com.dispatchflow.access.events.SessionsRevoked;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.AggregateRoot;
 import com.dispatchflow.shared.IsraelDateTime;
+import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StoredStateInvalid;
-import com.dispatchflow.shared.Version;
+import jakarta.persistence.AttributeOverride;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Embedded;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderColumn;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.Table;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.Period;
@@ -40,6 +55,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -61,8 +77,15 @@ import org.jspecify.annotations.Nullable;
  * account can't give it the Admin role; another Admin can, and doing so clears the record
  * (ADR-116). Nothing the account's own user does clears it. The address an Admin chose when
  * opening the account doesn't count: that is a new identity, not a takeover.
+ *
+ * <p>It is mapped for JPA (ADR-126): its key is its ID's UUID, its {@link AccountState} a kind
+ * plus the two times the states carry, its roles an element collection stored by name, and its
+ * links child entities, in the order they were sent. Every command ends by checking the invariants
+ * at rest that the load check runs.
  */
-public final class UserAccount extends AggregateRoot {
+@Entity
+@Table(schema = "access", name = "user_account")
+public class UserAccount extends AggregateRoot implements PersonalData {
 
     /** How long after deactivation an account is anonymized, in Israel's calendar (NFR-258). */
     public static final Period RETENTION = Period.ofYears(1);
@@ -79,40 +102,60 @@ public final class UserAccount extends AggregateRoot {
     private static final Set<LinkKind> PASSWORD_LINKS = EnumSet.of(LinkKind.SET_PASSWORD, LinkKind.RECOVERY);
     private static final Set<LinkKind> EMAIL_LINKS = EnumSet.of(LinkKind.EMAIL_CHANGE);
 
-    private final AccountId id;
-    private @Nullable EmailAddress email;
-    private @Nullable EmailSetByAnother emailSetByAnother;
-    private RoleSet roles;
-    private @Nullable PasswordHash passwordHash;
-    private AccountState state;
-    private Language language;
-    private AccountGeneration generation;
-    private @Nullable Instant termsAcceptedAt;
-    private final List<CredentialLink> links;
+    /** Which {@link AccountState} an account is in. */
+    private enum StateKind {
+        ACTIVE,
+        DEACTIVATED,
+        ANONYMIZED
+    }
 
-    private UserAccount(
-            @Nullable Version version,
-            AccountId id,
-            @Nullable EmailAddress email,
-            @Nullable EmailSetByAnother emailSetByAnother,
-            RoleSet roles,
-            @Nullable PasswordHash passwordHash,
-            AccountState state,
-            Language language,
-            AccountGeneration generation,
-            @Nullable Instant termsAcceptedAt,
-            List<CredentialLink> links) {
-        super(version);
-        this.id = Objects.requireNonNull(id, "id");
+    @Id
+    private UUID id;
+
+    private @Nullable EmailAddress email;
+
+    @Embedded
+    @AttributeOverride(name = "by", column = @Column(name = "email_set_by"))
+    @AttributeOverride(name = "at", column = @Column(name = "email_set_at"))
+    private @Nullable EmailSetByAnother emailSetByAnother;
+
+    @ElementCollection
+    @CollectionTable(schema = "access", name = "user_account_role", joinColumns = @JoinColumn(name = "user_account_id"))
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role")
+    private Set<Role> roles = EnumSet.noneOf(Role.class);
+
+    private @Nullable PasswordHash passwordHash;
+
+    @Enumerated(EnumType.STRING)
+    private StateKind state;
+
+    private @Nullable Instant deactivatedAt;
+
+    private @Nullable Instant anonymizedAt;
+
+    @Enumerated(EnumType.STRING)
+    private Language language;
+
+    private AccountGeneration generation;
+
+    private @Nullable Instant termsAcceptedAt;
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "user_account_id", nullable = false)
+    @OrderColumn(name = "position", nullable = false)
+    private List<CredentialLink> links = new ArrayList<>();
+
+    /** For Hibernate, which sets the fields from the stored rows and then runs {@link #checkStored}. */
+    protected UserAccount() {}
+
+    private UserAccount(AccountId id, EmailAddress email, RoleSet roles, Language language) {
+        this.id = id.value();
         this.email = email;
-        this.emailSetByAnother = emailSetByAnother;
-        this.roles = Objects.requireNonNull(roles, "roles");
-        this.passwordHash = passwordHash;
-        this.state = Objects.requireNonNull(state, "state");
+        this.roles.addAll(roles.roles());
+        this.state = StateKind.ACTIVE;
         this.language = Objects.requireNonNull(language, "language");
-        this.generation = Objects.requireNonNull(generation, "generation");
-        this.termsAcceptedAt = termsAcceptedAt;
-        this.links = new ArrayList<>(links);
+        this.generation = AccountGeneration.INITIAL;
     }
 
     /**
@@ -137,7 +180,7 @@ public final class UserAccount extends AggregateRoot {
             throw new RuleViolation(new NoRoleGiven());
         }
         requireFree(id, email, holder);
-        return fresh(id, email, roles, language);
+        return new UserAccount(id, email, roles, language);
     }
 
     /**
@@ -158,7 +201,7 @@ public final class UserAccount extends AggregateRoot {
             AccountId id, EmailAddress email, Language language, ActiveAdmins activeAdmins, EmailHolder holder) {
         activeAdmins.checkNoneActive();
         requireFree(id, email, holder);
-        return fresh(id, email, RoleSet.of(Role.ADMIN), language);
+        return new UserAccount(id, email, RoleSet.of(Role.ADMIN), language);
     }
 
     private static void requireFree(AccountId id, EmailAddress email, EmailHolder holder) {
@@ -170,26 +213,10 @@ public final class UserAccount extends AggregateRoot {
         }
     }
 
-    private static UserAccount fresh(AccountId id, EmailAddress email, RoleSet roles, Language language) {
-        return new UserAccount(
-                null,
-                id,
-                email,
-                null,
-                roles,
-                null,
-                new AccountState.Active(),
-                language,
-                AccountGeneration.INITIAL,
-                null,
-                List.of());
-    }
-
     /**
-     * Rebuilds a stored account. Only the persistence adapter calls it (DL §3.5).
+     * Checks the account as Hibernate loaded it against the invariants at rest (ADR-126 decision 8).
+     * Only Hibernate rebuilds an account, and it runs this check on every load.
      *
-     * @param stored the stored account
-     * @return the account at its stored version
      * @throws StoredStateInvalid when an anonymized account still holds an email, a password or a
      *     link, or any other account holds no email; when an anonymized account or an Admin records
      *     that another account set its email; when it records the account itself as the one that
@@ -197,65 +224,67 @@ public final class UserAccount extends AggregateRoot {
      *     ID or a token hash, or two open links share a kind; or when a link expires no later than
      *     it was sent
      */
-    public static UserAccount restore(UserAccountSnapshot stored) {
-        boolean anonymized = stored.state() instanceof AccountState.Anonymized;
-        if (anonymized == stored.email().isPresent()) {
-            throw invalid("an anonymized account holds no email, and every other account holds one");
-        }
-        if (anonymized && (stored.passwordHash().isPresent() || !stored.links().isEmpty())) {
-            throw invalid("an anonymized account holds no password and no link");
-        }
-        if (stored.emailSetByAnother().isPresent()
-                && (anonymized || stored.roles().contains(Role.ADMIN))) {
-            throw invalid("an email another account set belongs to an account that holds it and no Admin role");
-        }
-        if (stored.emailSetByAnother()
-                .filter(set -> set.by().equals(stored.id()))
-                .isPresent()) {
-            throw invalid("the account that set an email is another account");
-        }
-        if (stored.state() instanceof AccountState.Anonymized(Instant deactivatedAt, Instant anonymizedAt)
-                && anonymizedAt.isBefore(deactivatedAt)) {
-            throw invalid("an account is anonymized after it is deactivated");
-        }
-        checkLinks(stored.links());
-        return new UserAccount(
-                stored.version(),
-                stored.id(),
-                stored.email().orElse(null),
-                stored.emailSetByAnother().orElse(null),
-                stored.roles(),
-                stored.passwordHash().orElse(null),
-                stored.state(),
-                stored.language(),
-                stored.generation(),
-                stored.termsAcceptedAt().orElse(null),
-                stored.links().stream().map(CredentialLink::new).toList());
+    @PostLoad
+    void checkStored() {
+        brokenRule().ifPresent(broken -> {
+            throw new StoredStateInvalid(UserAccount.class, broken);
+        });
     }
 
-    private static void checkLinks(List<CredentialLinkSnapshot> links) {
+    /**
+     * Checks the state a command left against every invariant at rest (ADR-126 decision 11). Every
+     * rule a caller can break was checked before the command changed anything, so a broken
+     * invariant here is a bug in the command, not a refusal, and the error rolls its transaction
+     * back.
+     */
+    private void requireInvariants() {
+        brokenRule().ifPresent(broken -> {
+            throw new AssertionError("a user account command left a state that breaks: " + broken);
+        });
+    }
+
+    /** The one check of the invariants at rest, shared by the load check and every command. */
+    private Optional<String> brokenRule() {
+        boolean anonymized = state == StateKind.ANONYMIZED;
+        if (anonymized == (email != null)) {
+            return Optional.of("an anonymized account holds no email, and every other account holds one");
+        }
+        if (anonymized && (passwordHash != null || !links.isEmpty())) {
+            return Optional.of("an anonymized account holds no password and no link");
+        }
+        if (emailSetByAnother != null && (anonymized || roles.contains(Role.ADMIN))) {
+            return Optional.of("an email another account set belongs to an account that holds it and no Admin role");
+        }
+        if (emailSetByAnother != null && emailSetByAnother.by().equals(id())) {
+            return Optional.of("the account that set an email is another account");
+        }
+        if (state() instanceof AccountState.Anonymized(Instant deactivated, Instant anonymizedTime)
+                && anonymizedTime.isBefore(deactivated)) {
+            return Optional.of("an account is anonymized after it is deactivated");
+        }
+        return brokenLinkRule();
+    }
+
+    /** The links' part of {@link #brokenRule}: IDs and hashes apart, one open link a kind, a lifetime. */
+    private Optional<String> brokenLinkRule() {
         Set<CredentialLinkId> ids = new HashSet<>();
         Set<TokenHash> hashes = new HashSet<>();
         Set<LinkKind> openKinds = EnumSet.noneOf(LinkKind.class);
-        for (CredentialLinkSnapshot link : links) {
+        for (CredentialLink link : links) {
             if (!ids.add(link.id())) {
-                throw invalid("two links share an ID");
+                return Optional.of("two links share an ID");
             }
             if (!hashes.add(link.tokenHash())) {
-                throw invalid("two links share a token hash");
+                return Optional.of("two links share a token hash");
             }
-            if (link.status() == LinkStatus.OPEN
-                    && !openKinds.add(link.purpose().kind())) {
-                throw invalid("a newer link voids older open links of its kind");
+            if (link.status() == LinkStatus.OPEN && !openKinds.add(link.kind())) {
+                return Optional.of("a newer link voids older open links of its kind");
             }
             if (!link.expiresAt().isAfter(link.issuedAt())) {
-                throw invalid("a link expires after it is sent");
+                return Optional.of("a link expires after it is sent");
             }
         }
-    }
-
-    private static StoredStateInvalid invalid(String detail) {
-        return new StoredStateInvalid(UserAccount.class, detail);
+        return Optional.empty();
     }
 
     /**
@@ -308,20 +337,22 @@ public final class UserAccount extends AggregateRoot {
         if (newRoles.isEmpty()) {
             throw new RuleViolation(new NoRoleGiven());
         }
-        if (newRoles.equals(roles)) {
+        if (newRoles.equals(roles())) {
             return;
         }
         if (roles.contains(Role.ADMIN) && !newRoles.contains(Role.ADMIN)) {
-            activeAdmins.checkCanLose(id);
+            activeAdmins.checkCanLose(id());
         }
         boolean promoted = !roles.contains(Role.ADMIN) && newRoles.contains(Role.ADMIN);
         if (promoted && emailSetByAnother != null && emailSetByAnother.by().equals(by)) {
             throw new RuleViolation(new EmailSetByAnotherAccount());
         }
-        roles = newRoles;
+        roles.retainAll(newRoles.roles());
+        roles.addAll(newRoles.roles());
         if (promoted) {
             emailSetByAnother = null;
         }
+        requireInvariants();
         revokeEverySession(now);
     }
 
@@ -339,7 +370,8 @@ public final class UserAccount extends AggregateRoot {
         if (!roles.contains(Role.DRIVER)) {
             return;
         }
-        roles = roles.without(Role.DRIVER);
+        roles.remove(Role.DRIVER);
+        requireInvariants();
         revokeEverySession(now);
     }
 
@@ -358,7 +390,7 @@ public final class UserAccount extends AggregateRoot {
         Objects.requireNonNull(now, "now");
         requireActive();
         if (roles.contains(Role.ADMIN)) {
-            activeAdmins.checkCanLose(id);
+            activeAdmins.checkCanLose(id());
         }
         deactivated(now);
     }
@@ -383,8 +415,9 @@ public final class UserAccount extends AggregateRoot {
     }
 
     private void deactivated(Instant now) {
-        state = new AccountState.Deactivated(now);
+        moveTo(new AccountState.Deactivated(now));
         voidOpenLinks();
+        requireInvariants();
         revokeEverySession(now);
     }
 
@@ -396,11 +429,12 @@ public final class UserAccount extends AggregateRoot {
      *     AccessError.AccountAnonymized} once anonymized
      */
     public void reactivate() {
-        switch (state) {
+        switch (state()) {
             case AccountState.Active active -> throw new RuleViolation(new AccountNotDeactivated());
             case AccountState.Anonymized anonymized -> throw new RuleViolation(new AccessError.AccountAnonymized());
-            case AccountState.Deactivated deactivated -> state = new AccountState.Active();
+            case AccountState.Deactivated deactivated -> moveTo(new AccountState.Active());
         }
+        requireInvariants();
     }
 
     /**
@@ -415,6 +449,7 @@ public final class UserAccount extends AggregateRoot {
         Objects.requireNonNull(now, "now");
         requireActive();
         voidOpenLinks();
+        requireInvariants();
         revokeEverySession(now);
     }
 
@@ -472,6 +507,7 @@ public final class UserAccount extends AggregateRoot {
                 .forEach(CredentialLink::voidIt);
         links.add(new CredentialLink(
                 linkId, purpose, tokenHash, now, now.plus(purpose.kind().lifetime()), LinkStatus.OPEN));
+        requireInvariants();
     }
 
     private static boolean worksAt(CredentialLink link, Instant now) {
@@ -481,7 +517,7 @@ public final class UserAccount extends AggregateRoot {
     private void requireOwnEmailChangeForAnAdmin(LinkPurpose purpose) {
         if (purpose instanceof LinkPurpose.EmailChange change
                 && roles.contains(Role.ADMIN)
-                && !change.requestedBy().equals(id)) {
+                && !change.requestedBy().equals(id())) {
             throw new RuleViolation(new EmailOfAnotherAdmin());
         }
     }
@@ -542,15 +578,16 @@ public final class UserAccount extends AggregateRoot {
         requireOwnEmailChangeForAnAdmin(link.purpose());
         LinkPurpose.EmailChange change = (LinkPurpose.EmailChange) link.purpose();
         holder.checkIsFor(change.newEmail());
-        if (holder.isHeldByAnotherThan(id)) {
+        if (holder.isHeldByAnotherThan(id())) {
             throw new RuleViolation(new EmailInUse());
         }
         link.spend();
         email = change.newEmail();
-        if (!change.requestedBy().equals(id)) {
+        if (!change.requestedBy().equals(id())) {
             emailSetByAnother = new EmailSetByAnother(change.requestedBy(), now);
         }
         voidOpenLinks();
+        requireInvariants();
         revokeEverySession(now);
     }
 
@@ -582,6 +619,7 @@ public final class UserAccount extends AggregateRoot {
         Objects.requireNonNull(newLanguage, "newLanguage");
         requireActive();
         language = newLanguage;
+        requireInvariants();
     }
 
     /**
@@ -598,6 +636,7 @@ public final class UserAccount extends AggregateRoot {
         if (termsAcceptedAt == null) {
             termsAcceptedAt = now;
         }
+        requireInvariants();
     }
 
     /**
@@ -614,7 +653,7 @@ public final class UserAccount extends AggregateRoot {
      */
     public void anonymize(Instant now) {
         Objects.requireNonNull(now, "now");
-        AccountState.Deactivated deactivated = switch (state) {
+        AccountState.Deactivated deactivated = switch (state()) {
             case AccountState.Active active -> throw new RuleViolation(new AccountNotDeactivated());
             case AccountState.Anonymized anonymized -> throw new RuleViolation(new AccessError.AccountAnonymized());
             case AccountState.Deactivated d -> d;
@@ -628,12 +667,13 @@ public final class UserAccount extends AggregateRoot {
         emailSetByAnother = null;
         passwordHash = null;
         links.clear();
-        state = new AccountState.Anonymized(deactivated.at(), now);
-        raise(AccountAnonymized.class, id.value(), eventId -> new AccountAnonymized(eventId, now, id));
+        moveTo(new AccountState.Anonymized(deactivated.at(), now));
+        requireInvariants();
+        raise(AccountAnonymized.class, id, eventId -> new AccountAnonymized(eventId, now, id()));
     }
 
     private void requireActive() {
-        switch (state) {
+        switch (state()) {
             case AccountState.Active active -> {
                 // The only state every command may change.
             }
@@ -664,6 +704,7 @@ public final class UserAccount extends AggregateRoot {
     private void passwordChanged(PasswordHash newHash, Instant now) {
         passwordHash = newHash;
         voidOpenLinks();
+        requireInvariants();
         revokeEverySession(now);
     }
 
@@ -674,7 +715,25 @@ public final class UserAccount extends AggregateRoot {
     private void revokeEverySession(Instant now) {
         generation = generation.next();
         long revokedAt = generation.value();
-        raise(SessionsRevoked.class, id.value(), eventId -> new SessionsRevoked(eventId, now, id, revokedAt));
+        raise(SessionsRevoked.class, id, eventId -> new SessionsRevoked(eventId, now, id(), revokedAt));
+    }
+
+    /** Moves the account to another state, in place, clearing the times the old one carried. */
+    private void moveTo(AccountState next) {
+        deactivatedAt = null;
+        anonymizedAt = null;
+        state = switch (next) {
+            case AccountState.Active active -> StateKind.ACTIVE;
+            case AccountState.Deactivated deactivated -> {
+                deactivatedAt = deactivated.at();
+                yield StateKind.DEACTIVATED;
+            }
+            case AccountState.Anonymized anonymized -> {
+                deactivatedAt = anonymized.deactivatedAt();
+                anonymizedAt = anonymized.anonymizedAt();
+                yield StateKind.ANONYMIZED;
+            }
+        };
     }
 
     /**
@@ -683,7 +742,7 @@ public final class UserAccount extends AggregateRoot {
      * @return the ID
      */
     public AccountId id() {
-        return id;
+        return AccountId.of(id);
     }
 
     /**
@@ -701,7 +760,7 @@ public final class UserAccount extends AggregateRoot {
      * @return the roles, perhaps none (BR-123)
      */
     public RoleSet roles() {
-        return roles;
+        return new RoleSet(roles);
     }
 
     /**
@@ -719,7 +778,16 @@ public final class UserAccount extends AggregateRoot {
      * @return active, deactivated or anonymized
      */
     public AccountState state() {
-        return state;
+        return switch (state) {
+            case ACTIVE -> new AccountState.Active();
+            case DEACTIVATED ->
+                new AccountState.Deactivated(
+                        Objects.requireNonNull(deactivatedAt, "a deactivated account has its deactivation"));
+            case ANONYMIZED ->
+                new AccountState.Anonymized(
+                        Objects.requireNonNull(deactivatedAt, "an anonymized account has its deactivation"),
+                        Objects.requireNonNull(anonymizedAt, "an anonymized account has its anonymization"));
+        };
     }
 
     /**
@@ -742,22 +810,44 @@ public final class UserAccount extends AggregateRoot {
     }
 
     /**
-     * The account as it would be stored.
+     * Which other account's email-change link set the account's address, and when (ADR-116).
      *
-     * @return a snapshot of every field, the links in the order they were sent
+     * @return the record; empty when the address is the one the account was opened with or chose
+     *     itself, once another Admin gave it the Admin role, and once anonymized
      */
-    public UserAccountSnapshot snapshot() {
-        return new UserAccountSnapshot(
-                savedVersion().orElse(null),
-                id,
-                Optional.ofNullable(email),
-                Optional.ofNullable(emailSetByAnother),
-                roles,
-                Optional.ofNullable(passwordHash),
-                state,
-                language,
-                generation,
-                Optional.ofNullable(termsAcceptedAt),
-                links.stream().map(CredentialLink::snapshot).toList());
+    public Optional<EmailSetByAnother> emailSetByAnother() {
+        return Optional.ofNullable(emailSetByAnother);
+    }
+
+    /**
+     * When the user accepted the terms and the privacy notice (FR-77).
+     *
+     * @return the first acceptance; empty until the user accepts
+     */
+    public Optional<Instant> termsAcceptedAt() {
+        return Optional.ofNullable(termsAcceptedAt);
+    }
+
+    /**
+     * The account's credential links (DL §4.1). Only the account changes them: a link's own
+     * methods that change it are not public.
+     *
+     * @return an unmodifiable copy, in the order the links were sent; empty once anonymized
+     */
+    public List<CredentialLink> links() {
+        return List.copyOf(links);
+    }
+
+    /**
+     * A form that names the account and its standing, and leaves out its address, its password
+     * hash and its links, which hold token hashes and perhaps a new address (NFR-19).
+     *
+     * @return the account without personal data or credentials
+     */
+    @Override
+    public String toString() {
+        return "UserAccount[id=" + id() + ", email=" + (email == null ? "none" : "redacted") + ", roles=" + roles()
+                + ", password=" + (passwordHash == null ? "none" : "redacted") + ", state=" + state
+                + ", language=" + language + ", generation=" + generation + ", links=" + links.size() + "]";
     }
 }

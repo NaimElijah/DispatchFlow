@@ -91,20 +91,4 @@ public record RoleSet(Set<Role> roles) {
     public boolean isEmpty() {
         return roles.isEmpty();
     }
-
-    /**
-     * The set without one role.
-     *
-     * @param role the role to leave out
-     * @return a new set; this one when the role is not held
-     */
-    public RoleSet without(Role role) {
-        if (!roles.contains(role)) {
-            return this;
-        }
-        EnumSet<Role> rest = EnumSet.noneOf(Role.class);
-        rest.addAll(roles);
-        rest.remove(role);
-        return new RoleSet(rest);
-    }
 }
