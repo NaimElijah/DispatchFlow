@@ -8,20 +8,27 @@ import org.hibernate.metamodel.spi.ValueAccess;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Rebuilds a multi-column kernel value from its stored columns through {@link
- * StoredStateInvalid#whileRestoring} (ADR-126). All columns null is a null value; some of them null
- * is a damaged row.
+ * Rebuilds a multi-column value from its stored columns through {@link
+ * StoredStateInvalid#whileRestoring} (ADR-126), so a stored value its type refuses is an incident, not a
+ * refusal. All columns null is a null value; some of them null is a damaged row. The kernel's
+ * instantiators extend it, and so does a module's own when its value's constructor checks a rule
+ * (ADR-127); a value whose parts may be null on their own needs another instantiator.
  *
  * <p>Hibernate hands an embeddable's values in the alphabetical order of its attributes' names, so
  * each subclass reads them by that order, not the record's.
  *
- * @param <T> the kernel value
+ * @param <T> the value
  */
-abstract class KernelEmbeddableInstantiator<T> implements EmbeddableInstantiator {
+public abstract class StoredEmbeddableInstantiator<T> implements EmbeddableInstantiator {
 
     private final Class<T> type;
 
-    KernelEmbeddableInstantiator(Class<T> type) {
+    /**
+     * Creates the instantiator.
+     *
+     * @param type the value it rebuilds
+     */
+    protected StoredEmbeddableInstantiator(Class<T> type) {
         this.type = Objects.requireNonNull(type, "type");
     }
 
@@ -31,7 +38,7 @@ abstract class KernelEmbeddableInstantiator<T> implements EmbeddableInstantiator
      * @param values the stored values, in alphabetical order of the attributes' names
      * @return the value
      */
-    abstract T rebuild(ValueAccess values);
+    protected abstract T rebuild(ValueAccess values);
 
     /**
      * Rebuilds the stored value.
