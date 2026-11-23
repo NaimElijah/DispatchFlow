@@ -45,6 +45,15 @@ final class DomainPurityRules {
     private static final String MODULITH = "org.springframework.modulith";
     // The fixtures' stand-in keeps the simple name, so one name serves Modulith and the stand-in.
     private static final String NAMED_INTERFACE = "NamedInterface";
+    // ADR-126: a domain or kernel class may carry Jakarta Persistence's annotations, with the enums
+    // they take as values (such as EnumType), and these four from Hibernate and Spring Data. Only
+    // annotations: never an EntityManager, a Spring Data type or another Hibernate annotation.
+    private static final String JAKARTA_PERSISTENCE = "jakarta.persistence";
+    private static final Set<String> PERSISTENCE_ANNOTATIONS = Set.of(
+            "org.hibernate.annotations.OptimisticLock",
+            "org.hibernate.annotations.Immutable",
+            "org.springframework.data.domain.DomainEvents",
+            "org.springframework.data.domain.AfterDomainEventPublication");
 
     // A legacy date type or a Clock is a way to read the time inside the domain.
     private static final List<String> CLOCK_TYPES = List.of(
@@ -188,7 +197,8 @@ final class DomainPurityRules {
                 .should(dependOnlyOnAllowedPackages(root, moduleAnnotations))
                 .because("DL §3.9 rule 1 and §7.3: the kernel imports only the JDK, JSpecify and libphonenumber;"
                         + " a domain also its own domain and events, the kernel and JTS; events only the JDK,"
-                        + " JSpecify, the kernel and their own package");
+                        + " JSpecify, the kernel and their own package; the kernel and a domain may also carry"
+                        + " ADR-126's persistence annotations");
     }
 
     /** Rule 2: no clock. */
@@ -299,12 +309,14 @@ final class DomainPurityRules {
             public void check(JavaClass item, ConditionEvents events) {
                 List<String> allowed = allowedPackages(root, moduleAnnotations, item);
                 Set<String> allowedTypes = allowedTypes(root, moduleAnnotations, item);
+                boolean mayCarryMapping = mayCarryPersistenceAnnotations(root, item);
                 item.getDirectDependenciesFromSelf().stream()
                         .filter(dependency -> {
                             JavaClass target = baseType(dependency.getTargetClass());
                             return !target.isPrimitive()
                                     && !isInAny(target.getPackageName(), allowed)
-                                    && !allowedTypes.contains(target.getName());
+                                    && !allowedTypes.contains(target.getName())
+                                    && !(mayCarryMapping && isAPersistenceAnnotation(target));
                         })
                         .forEach(dependency ->
                                 events.add(SimpleConditionEvent.violated(dependency, dependency.getDescription())));
@@ -356,6 +368,30 @@ final class DomainPurityRules {
         return kernelApplication && item.getSimpleName().equals(PACKAGE_INFO)
                 ? Set.of(moduleAnnotations + "." + NAMED_INTERFACE)
                 : Set.of();
+    }
+
+    /**
+     * ADR-126: the kernel's own package and every module's domain may carry the persistence
+     * annotations that map them; an events package, the kernel's application package and a {@code
+     * package-info} may not.
+     */
+    private static boolean mayCarryPersistenceAnnotations(String root, JavaClass item) {
+        if (item.getSimpleName().equals(PACKAGE_INFO)) {
+            return false;
+        }
+        String[] segments = segmentsBelow(root, item);
+        boolean kernelRoot = segments.length == 1 && segments[0].equals(KERNEL);
+        boolean domain = segments.length > 1 && segments[1].equals(DOMAIN);
+        return kernelRoot || domain;
+    }
+
+    /**
+     * An annotation of Jakarta Persistence, or an enum one takes as a value, or one of the four
+     * Hibernate and Spring Data annotations ADR-126 allows.
+     */
+    private static boolean isAPersistenceAnnotation(JavaClass type) {
+        boolean jakarta = type.getPackageName().equals(JAKARTA_PERSISTENCE) && (type.isAnnotation() || type.isEnum());
+        return jakarta || PERSISTENCE_ANNOTATIONS.contains(type.getName());
     }
 
     /**

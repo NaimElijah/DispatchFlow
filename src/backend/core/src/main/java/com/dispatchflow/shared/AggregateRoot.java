@@ -1,29 +1,41 @@
 package com.dispatchflow.shared;
 
+import jakarta.persistence.MappedSuperclass;
+import jakarta.persistence.Transient;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
+import org.springframework.data.domain.AfterDomainEventPublication;
+import org.springframework.data.domain.DomainEvents;
 
 /**
  * The base of every aggregate root (DL §3.1, §3.6): it holds the {@link Version} the aggregate was
  * loaded at and the events its methods raised since. It needs no ID type, because aggregates are
  * keyed differently: most by a typed ID, some by another ID or a date, and singletons by nothing.
  *
- * <p>A never-saved aggregate has no version. Its first save stores 0, and every save after moves
- * the version by exactly 1 (ADR-126), so every event a change raises carries the version that
- * change is saved at. The repository publishes {@link #pullEvents()} in the same transaction. A
- * save that only keeps bookkeeping no business rule reads, and raises no event, may leave the
- * version where it is, as a session's contact times do (DL §4.1).
+ * <p>It is mapped for JPA (ADR-126): every root inherits its {@code @Version}, which Hibernate
+ * checks on every update. A never-saved aggregate has no version. Its first save stores 0, and
+ * every save after moves the version by exactly 1, so every event a change raises carries the
+ * version that change is saved at. Spring Data publishes the recorded events when the port's
+ * {@code save} runs, in the same transaction, and then forgets them. A save that only keeps
+ * bookkeeping no business rule reads, and raises no event, may leave the version where it is, as a
+ * session's contact times do (DL §4.1).
  */
+@MappedSuperclass
 public abstract class AggregateRoot {
 
     /** The version the first save stores (ADR-126). */
     private static final Version FIRST_SAVE = Version.of(0);
 
+    // A Long, not the kernel's Version: Jakarta Persistence applies no converter to a version
+    // attribute. Hibernate seeds a null version with 0 when it inserts the aggregate.
+    @jakarta.persistence.Version
     private @Nullable Long version;
+
+    @Transient
     private final List<DomainEvent> pendingEvents = new ArrayList<>();
 
     /** Starts an aggregate that has never been saved, so it has no version yet. */
@@ -108,13 +120,19 @@ public abstract class AggregateRoot {
     }
 
     /**
-     * Hands the recorded events to the save, which publishes them, and forgets them.
+     * The events Spring Data publishes when a repository's {@code save} runs (ADR-126). Spring Data
+     * finds and calls it by its annotation, so it needs no wider access.
      *
      * @return an unmodifiable copy, in the order raised
      */
-    public final List<DomainEvent> pullEvents() {
-        List<DomainEvent> pulled = List.copyOf(pendingEvents);
+    @DomainEvents
+    final List<DomainEvent> domainEvents() {
+        return List.copyOf(pendingEvents);
+    }
+
+    /** Forgets the recorded events once Spring Data has published them (ADR-126). */
+    @AfterDomainEventPublication
+    final void clearEvents() {
         pendingEvents.clear();
-        return pulled;
     }
 }

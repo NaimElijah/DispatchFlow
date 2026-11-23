@@ -113,6 +113,7 @@ class DomainPackageRulesTest {
                         ALPHA_DOMAIN + ".io.process",
                         ALPHA_DOMAIN + ".io.thread",
                         ALPHA_DOMAIN + ".logging",
+                        ALPHA_DOMAIN + ".mapping",
                         ALPHA_DOMAIN + ".personal",
                         ALPHA_DOMAIN + ".randomness",
                         ALPHA_DOMAIN + ".shape");

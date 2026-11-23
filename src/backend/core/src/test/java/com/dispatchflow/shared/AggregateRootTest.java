@@ -134,15 +134,6 @@ class AggregateRootTest {
     }
 
     @Test
-    void GivenRecordedEvents_WhenPulled_ThenTheyAreReturnedOnceAndCleared() {
-        Counter counter = Counter.open(NOW);
-
-        assertThat(counter.pullEvents()).hasSize(1);
-        assertThat(counter.pullEvents()).isEmpty();
-        assertThat(counter.pendingEvents()).isEmpty();
-    }
-
-    @Test
     void GivenRecordedEvents_WhenReadWithoutPulling_ThenTheyStay() {
         Counter counter = Counter.open(NOW);
 

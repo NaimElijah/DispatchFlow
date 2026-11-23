@@ -88,6 +88,11 @@ import com.dispatchflow.archfixture.alpha.domain.io.thread.UsesTheCommonPool;
 import com.dispatchflow.archfixture.alpha.domain.logging.LogsWithJul;
 import com.dispatchflow.archfixture.alpha.domain.logging.LogsWithSlf4j;
 import com.dispatchflow.archfixture.alpha.domain.logging.LogsWithTheSystemLogger;
+import com.dispatchflow.archfixture.alpha.domain.mapping.CarriesAnotherHibernateAnnotation;
+import com.dispatchflow.archfixture.alpha.domain.mapping.MappedWithHibernateAndSpringData;
+import com.dispatchflow.archfixture.alpha.domain.mapping.MappedWithJakartaPersistence;
+import com.dispatchflow.archfixture.alpha.domain.mapping.UsesASpringDataType;
+import com.dispatchflow.archfixture.alpha.domain.mapping.UsesTheEntityManager;
 import com.dispatchflow.archfixture.alpha.domain.randomness.ShufflesAList;
 import com.dispatchflow.archfixture.alpha.domain.randomness.UsesARandomGenerator;
 import com.dispatchflow.archfixture.alpha.domain.randomness.UsesMathRandom;
@@ -99,6 +104,7 @@ import com.dispatchflow.archfixture.alpha.events.EventCreatesAnIllegalState;
 import com.dispatchflow.archfixture.alpha.events.EventDependsOnAnotherModulesEvents;
 import com.dispatchflow.archfixture.alpha.events.EventDependsOnItsDomain;
 import com.dispatchflow.archfixture.alpha.events.EventDependsOnLibphonenumber;
+import com.dispatchflow.archfixture.alpha.events.EventWithAJpaAnnotation;
 import com.dispatchflow.archfixture.beta.application.BuildsARecordEvaluation;
 import com.dispatchflow.archfixture.modulith.NamedInterface;
 import com.dispatchflow.archfixture.planning.adapter.out.optimizer.OptimizerAdapter;
@@ -113,7 +119,9 @@ import com.dispatchflow.archfixture.planning.domain.ValidationReport;
 import com.dispatchflow.archfixture.shared.KernelCreatesAnIllegalArgument;
 import com.dispatchflow.archfixture.shared.KernelDependsOnAModule;
 import com.dispatchflow.archfixture.shared.KernelDependsOnJts;
+import com.dispatchflow.archfixture.shared.KernelMappedSuperclass;
 import com.dispatchflow.archfixture.shared.KernelValue;
+import com.dispatchflow.archfixture.shared.application.SharedPortCarriesAJpaAnnotation;
 import com.dispatchflow.archfixture.shared.application.SharedPortIsTransactional;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
@@ -158,14 +166,28 @@ class DomainPurityRulesTest {
                 KernelDependsOnAModule.class,
                 KernelDependsOnJts.class,
                 AnnotatedWithModulith.class,
-                SharedPortIsTransactional.class
+                SharedPortIsTransactional.class,
+                UsesTheEntityManager.class,
+                UsesASpringDataType.class,
+                CarriesAnotherHibernateAnnotation.class,
+                EventWithAJpaAnnotation.class,
+                SharedPortCarriesAJpaAnnotation.class
             })
     void GivenAForbiddenDependency_WhenRule1Evaluates_ThenItIsFlagged(Class<?> fixture) {
         assertThat(flags(rule1(), fixture)).isTrue();
     }
 
     @ParameterizedTest
-    @ValueSource(classes = {AlphaValue.class, AlphaEventKind.class, AlphaHappened.class, KernelValue.class})
+    @ValueSource(
+            classes = {
+                AlphaValue.class,
+                AlphaEventKind.class,
+                AlphaHappened.class,
+                KernelValue.class,
+                MappedWithJakartaPersistence.class,
+                MappedWithHibernateAndSpringData.class,
+                KernelMappedSuperclass.class
+            })
     void GivenOnlyAllowedDependencies_WhenRule1Evaluates_ThenNothingIsFlagged(Class<?> fixture) {
         assertThat(flags(rule1(), fixture)).isFalse();
     }

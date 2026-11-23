@@ -37,9 +37,9 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   `src/test/java/com/dispatchflow/architecture/`, holds the full lists and fails the build. What
   goes against Java's defaults:
   - A module's domain imports only the JDK, the kernel, its own domain and `events`, JSpecify,
-    libphonenumber and JTS. The kernel takes only the JDK, JSpecify and libphonenumber, and an
-    `events` package only the JDK, JSpecify, the kernel and itself. Spring Modulith annotations are
-    allowed on a `package-info` only.
+    libphonenumber and JTS; the kernel only the JDK, JSpecify and libphonenumber; an `events`
+    package only the JDK, JSpecify, the kernel and itself. A domain and the kernel also carry
+    [ADR-126]'s persistence annotations, nothing else of JPA. Modulith's go on `package-info` only.
   - They never read the clock (`now()`, `Clock`, `Date`, `System.currentTimeMillis()`,
     `Thread.sleep` and the like). They never call `UUID.randomUUID()`: factories take the new ID,
     and a method that creates many children takes a `FreshIds`.
@@ -88,7 +88,8 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
 - A value rebuilt from storage goes through `StoredStateInvalid.whileRestoring`, and a stored phone
   number through `PhoneNumber.ofStored`. So a damaged or since-refused value is an incident, never a
   user-facing refusal. No test checks this; review does.
-- Web and persistence types live in `adapter` and are mapped to domain objects.
+- Web types live in `adapter` and are mapped to domain objects. Every use case that changes an
+  aggregate calls its port's `save` or `add`, which publishes its events; a test fake's does too.
 - Another module is reached only through its `api`, `spi` and `events` packages ([DL §2.3]). Spring
   Modulith ([ADR-040]) isn't in the build yet: until its `verify()` runs, review checks this for
   adapters, which `ApplicationRules` doesn't cover. Each module owns its tables, in its own
@@ -108,10 +109,10 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
     data (NFR-94).
 - Every handler is authorized by role from its operation's `x-capability`. A check that depends on
   the data, such as a driver's own route, lives in the use case ([ADR-068]).
-- Flyway runs as `dispatchflow_owner` in a one-shot `migrate` step before the core starts. The owner
-  credential lives only in `migrate`'s environment. The core connects as `app` and never owns a
-  table ([ADR-041], [TS §6.3]). Spring Boot still runs Flyway when the core starts: the change that
-  adds `migrate` moves it there.
+- The schema changes only through a new migration, `src/main/resources/db/migration/V<n>__<x>.sql`:
+  never edit an applied one, and `ddl-auto` stays `validate`. Flyway runs as `dispatchflow_owner` in
+  a one-shot `migrate` step, which alone holds that credential; the core connects as `app`, which
+  owns no table ([ADR-041], [TS §6.3]). Until the change that adds `migrate`, Spring Boot runs it.
 - Optimistic locking is `UPDATE … WHERE id = ? AND version = ?` on the root table. Zero rows updated
   answers 412 `STALE_VERSION`, through `ETag` and `If-Match`, on a call that sent a version. A call
   that sent none is retried at once, up to three times, then answered 503 with `Retry-After`
@@ -122,13 +123,10 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   profile, and the core refuses to boot with the stand-in and any other profile active. Unless `dev`
   is the only active profile, the core refuses to boot with an access-token lifetime other than 15
   minutes. Each refusal has a test. M5 deletes the stand-in, and M6 the dev allowance ([ADR-121]).
-- The schema changes only through a new migration in `src/main/resources/db/migration/`,
-  `V<n>__<what_it_does>.sql`. Never edit a migration that has been applied anywhere; add the next
-  one.
 - No Lombok: records and plain classes. Configuration comes from environment variables.
-- Persistence is jOOQ through hand-written mappers ([ADR-041]; [TS §6.3]). The pom keeps Spring Data
-  JPA until M0 replaces it: never write new JPA code. jOOQ's plain-SQL API (methods annotated
-  `@PlainSQL`, such as `DSL.field(String)` and `DSL.condition(String)`) never takes input.
+- Persistence is JPA ([ADR-126], [TS §6.3]). An adapter implements its port with a package-private
+  Spring Data `Repository<Root, UUID>` that declares `save` and the port's lookups, never a
+  `CrudRepository` or `JpaRepository`. Native SQL binds every value; SQL and bind logging stay off.
 
 ## Tests
 
@@ -168,8 +166,7 @@ Run `just` recipes from the repository root, and `mvnw` from this folder (`.\mvn
 | `./mvnw -Dtest=FooTest test` | One unit test class |
 | `./mvnw -Dit.test=FooIT verify` | One integration test class, after the unit tests and the format check |
 
-- Spotless checks in `validate`, so every build (`test`, `verify`, `just core-run`) fails on an
-  unformatted file. Run `just core-format` first.
+- Spotless checks in `validate`, so any build fails on an unformatted file. Run `just core-format`.
 - `mvnw` must stay executable in git. When adding it again, use
   `git add --chmod=+x src/backend/core/mvnw`, or CI fails with "permission denied".
 
@@ -187,6 +184,7 @@ Run `just` recipes from the repository root, and `mvnw` from this folder (`.\mvn
 [ADR-120]: ../../../docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md
 [ADR-121]: ../../../docs/ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md
 [ADR-125]: ../../../docs/ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md
+[ADR-126]: ../../../docs/ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md
 [DL §2.1]: ../../../docs/architecture/domain_layer/domain_layer_design.md#21-module-graph
 [DL §2.3]: ../../../docs/architecture/domain_layer/domain_layer_design.md#23-rules-between-contexts
 [DL §3.9]: ../../../docs/architecture/domain_layer/domain_layer_design.md#39-purity
