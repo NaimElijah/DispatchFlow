@@ -30,13 +30,14 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-097](ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md) | The shared kernel also holds the building blocks every module's domain uses | Accepted; extended by ADR-106, ADR-111 and ADR-128; amended by ADR-126 |
 | [ADR-106](ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md) | Free text is normalized and capped by one kernel rule, and personal values carry a marker | Accepted; extended by ADR-111 |
 | [ADR-111](ADR-111-attempt-is-a-shared-kernel-value-and-names-and-addresses-drop-invisible-fillers.md) | Attempt is a shared-kernel value, and names and addresses drop invisible fillers | Accepted |
-| [ADR-119](ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md) | The application layer is declared ahead of its milestones, as signatures whose bodies throw | Accepted; amended by ADR-121 |
+| [ADR-119](ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md) | The application layer is declared ahead of its milestones, as signatures whose bodies throw | Accepted; amended by ADR-121 and ADR-129 |
 | [ADR-120](ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md) | The application layer takes an Actor and a CallContext, keeps its shared ports in shared.application, and reads through query ports | Accepted; extended by ADR-125; amended by ADR-121 |
 | [ADR-121](ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md) | The application skeleton's review settles its seams, its conflicts, its retention and its scoring inputs | Accepted; amended by ADR-126 |
 | [ADR-041](ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md) | Each module owns a PostgreSQL schema, read and written through jOOQ by a role that owns no table | Accepted; amended by ADR-126 and ADR-127 |
 | [ADR-126](ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) | JPA replaces jOOQ in the core, and the domain classes carry their own mapping | Accepted; amended by ADR-127 and ADR-128 |
 | [ADR-127](ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md) | How the 20 aggregates are mapped, and where their stored state is tested | Accepted; extended by ADR-128 |
 | [ADR-128](ADR-128-the-persistence-rules-the-mapping-settled-after-adr-127.md) | The persistence rules the JPA mapping settled after ADR-127 | Accepted |
+| [ADR-129](ADR-129-transactions-start-only-in-the-service-layer.md) | Transactions start only in the service layer | Accepted |
 | [ADR-043](ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md) | Code is generated from both contracts on both sides, and errors are RFC 9457 Problem Details | Accepted; extended by ADR-068, ADR-073, ADR-087 and ADR-094; amended by ADR-123 |
 | [ADR-094](ADR-094-each-pull-requests-contract-check-compares-against-its-base-branch.md) | Each pull request's contract check compares against its base branch | Accepted |
 | [ADR-044](ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md) | The solver port takes a start, a budget and a seed, and `Problem` alone judges a solution | Accepted; extended by ADR-050 and ADR-099; amended by ADR-105, ADR-120 and ADR-121 |
@@ -64,8 +65,8 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-061](ADR-061-capacity-is-weight-and-volume.md) | A vehicle's capacity is a weight in kilograms and a volume in litres, both required and positive | Accepted |
 | [ADR-062](ADR-062-fleet-checks-the-driver-role-when-it-reads.md) | Fleet asks Access for the Driver role each time it reads a driver, and keeps no copy | Accepted |
 | [ADR-103](ADR-103-fleet-normalizes-plates-keeps-one-pair-of-depot-hours-holds-no-vehicle-in-weekly-shifts-and-retires-and-anonymizes-drivers-through-events.md) | Fleet normalizes plates, keeps one pair of depot hours, holds no vehicle in weekly shifts, and retires and anonymizes drivers through events | Accepted |
-| [ADR-063](ADR-063-a-transaction-changes-one-aggregate-and-every-rule-has-one-owner.md) | A transaction changes one existing aggregate, and every business rule has exactly one owner | Accepted |
-| [ADR-064](ADR-064-events-only-where-they-earn-their-place-through-the-modulith-registry.md) | Events exist only where they earn their place, and Spring Modulith's registry delivers them | Accepted; amended by ADR-101, ADR-103, ADR-104, ADR-107 and ADR-115 |
+| [ADR-063](ADR-063-a-transaction-changes-one-aggregate-and-every-rule-has-one-owner.md) | A transaction changes one existing aggregate, and every business rule has exactly one owner | Accepted; extended by ADR-129 |
+| [ADR-064](ADR-064-events-only-where-they-earn-their-place-through-the-modulith-registry.md) | Events exist only where they earn their place, and Spring Modulith's registry delivers them | Accepted; extended by ADR-129; amended by ADR-101, ADR-103, ADR-104, ADR-107 and ADR-115 |
 | [ADR-065](ADR-065-facts-outrank-intent.md) | Facts outrank intent: an accepted report stands, the plan is corrected, and a person is told | Accepted; amended by ADR-121 |
 | [ADR-066](ADR-066-every-asynchronous-step-has-a-watcher.md) | Every asynchronous step that crosses a commit has a watcher | Accepted |
 | [ADR-067](ADR-067-live-arrivals-propagate-delay-along-stored-legs-when-asked.md) | Live arrival times propagate delay along the stored legs, and are computed when asked | Accepted |
@@ -162,4 +163,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > ADR-128, on 2026-11-23, records six persistence rules the mapping settled after ADR-127:
 > a session's writes, state no entity maps, durations, gaps in stored lists, instants to the
 > microsecond, and batch fetching.
+> ADR-129, on 2026-11-24, starts every transaction in the service layer: every service is
+> transactional, the adapters and listeners never are, and a use case with outside calls holds its
+> transaction in a second class.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.
