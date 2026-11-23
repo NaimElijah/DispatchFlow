@@ -15,16 +15,11 @@ import java.util.Optional;
  * capacity read under its lock and the lookups the use cases need. The events an order raised
  * leave with its save, in the same transaction (DL §3.6). It has no query for screens: {@link
  * OrdersViews} serves those.
- *
- * <p>Built in M2, in M13 for the retention lookup, and in an unscheduled milestone for the copy
- * lookup, method by method.
  */
 public interface OrderRepository {
 
     /**
      * Loads an order, whatever its state.
-     *
-     * <p>Built in M2.
      *
      * @param id the order's ID
      * @return the order at its stored version, or empty when none has the ID
@@ -34,8 +29,6 @@ public interface OrderRepository {
     /**
      * Stores a new order, in the caller's transaction.
      *
-     * <p>Built in M2.
-     *
      * @param order the order, never saved
      */
     void add(Order order);
@@ -43,8 +36,6 @@ public interface OrderRepository {
     /**
      * Stores a changed order and publishes the events it raised, in the caller's transaction, if
      * its stored version is still the one it was loaded at (BR-76, ADR-057, DL §3.6).
-     *
-     * <p>Built in M2.
      *
      * @param order the order
      * @throws StaleVersion when another change was saved since it was loaded
@@ -57,8 +48,6 @@ public interface OrderRepository {
      * Every use case that adds an order to a date reads it, so two of them can't both take the
      * date's last place or one reference.
      *
-     * <p>Built in M2.
-     *
      * @param date the date
      * @return the date's capacity, failed orders included (BR-113)
      */
@@ -68,8 +57,6 @@ public interface OrderRepository {
      * The orders whose personal fields are due for removal on a day: dated at least 90 days before
      * it and not yet anonymized (NFR-257, ADR-075). {@link Order#anonymize} decides each one.
      *
-     * <p>Built in M13.
-     *
      * @param today today in {@code Asia/Jerusalem}
      * @return the orders to anonymize, each once
      */
@@ -77,8 +64,6 @@ public interface OrderRepository {
 
     /**
      * A date's uncancelled orders, whole, which a copy to another date places again (FR-62).
-     *
-     * <p>Built in an unscheduled milestone.
      *
      * @param date the date copied from
      * @return the orders, each once; empty for a date with none
@@ -89,8 +74,6 @@ public interface OrderRepository {
      * Every order of a customer not yet anonymized, cancelled ones and every date included, which
      * retiring the customer asks Planning about. Planning owns whether a plan is completed, so this
      * filters by no date (BR-43, DL §4.3).
-     *
-     * <p>Built in M2.
      *
      * @param customer the customer
      * @return the orders' IDs, each once; empty when the customer has none

@@ -25,7 +25,6 @@ import static com.dispatchflow.orders.domain.OrdersTestData.litres;
 import static com.dispatchflow.orders.domain.OrdersTestData.tenToNoon;
 import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dispatchflow.orders.domain.OrdersError.AlreadyOnThatDate;
 import com.dispatchflow.orders.domain.OrdersError.DateFull;
@@ -48,7 +47,6 @@ import com.dispatchflow.shared.DomainError;
 import com.dispatchflow.shared.EventId;
 import com.dispatchflow.shared.Priority;
 import com.dispatchflow.shared.SharedKernelError.NonexistentLocalTime;
-import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.TimeWindow;
 import com.dispatchflow.shared.Version;
 import java.time.LocalDate;
@@ -76,9 +74,9 @@ class OrderTest {
 
     /** A refused call leaves the order and its pending events as they were. */
     private static void assertRefusedUnchanged(Order order, ThrowingCallable call, DomainError expected) {
-        OrderSnapshot before = order.snapshot();
+        OrderDescription before = OrderDescription.of(order);
         assertRefused(call, expected);
-        assertThat(order.snapshot()).isEqualTo(before);
+        assertThat(OrderDescription.of(order)).isEqualTo(before);
         assertThat(order.pendingEvents()).isEmpty();
     }
 
@@ -102,14 +100,13 @@ class OrderTest {
         void GivenValidDetails_WhenPlaced_ThenTheOrderHoldsThemAtTheFirstAttemptWithNoEvent() {
             Order order = Order.place(ORDER, CUSTOMER, details(TOMORROW), DEFAULTS, emptyDate(TOMORROW), TODAY, NOW);
 
-            OrderSnapshot placed = order.snapshot();
-            assertThat(placed.date()).isEqualTo(TOMORROW);
-            assertThat(placed.window()).isEqualTo(tenToNoon(TOMORROW));
-            assertThat(placed.serviceTime()).isEqualTo(ServiceTime.ofSeconds(180));
-            assertThat(placed.attempt()).isEqualTo(Attempt.FIRST);
-            assertThat(placed.state()).isEqualTo(new Order.State.Active());
-            assertThat(placed.lastChangedAt()).isEqualTo(NOW);
-            assertThat(placed.version()).isNull();
+            assertThat(order.date()).isEqualTo(TOMORROW);
+            assertThat(order.window()).isEqualTo(tenToNoon(TOMORROW));
+            assertThat(order.serviceTime()).isEqualTo(ServiceTime.ofSeconds(180));
+            assertThat(order.attempt()).isEqualTo(Attempt.FIRST);
+            assertThat(order.state()).isEqualTo(new Order.State.Active());
+            assertThat(order.lastChangedAt()).isEqualTo(NOW);
+            assertThat(order.savedVersion()).isEmpty();
             assertThat(order.pendingEvents()).isEmpty();
         }
 
@@ -126,7 +123,7 @@ class OrderTest {
             Order order = Order.place(ORDER, CUSTOMER, bareDetails(), DEFAULTS, emptyDate(TOMORROW), TODAY, NOW);
 
             assertThat(order.window()).isEqualTo(NINE_TO_FIVE.on(TOMORROW));
-            assertThat(order.snapshot().serviceTime()).isEqualTo(OrdersTestData.FIVE_MINUTES);
+            assertThat(order.serviceTime()).isEqualTo(OrdersTestData.FIVE_MINUTES);
         }
 
         @Test
@@ -215,15 +212,15 @@ class OrderTest {
 
         @Test
         void GivenAnActiveOrder_WhenChanged_ThenItHoldsTheNewValuesAndTheChangeTime() {
-            Order order = anOrder().restored();
+            Order order = anOrder().build();
 
-            OrderSnapshot before = order.snapshot();
+            OrderDescription before = OrderDescription.of(order);
             OrderChange change = changeOn(TOMORROW);
 
             order.change(change, NO_FACT, LATER);
 
-            assertThat(order.snapshot())
-                    .isEqualTo(new OrderSnapshot(
+            assertThat(OrderDescription.of(order))
+                    .isEqualTo(new OrderDescription(
                             before.id(),
                             before.customer(),
                             before.date(),
@@ -240,14 +237,13 @@ class OrderTest {
                             before.attempt(),
                             before.state(),
                             false,
-                            LATER,
-                            before.version()));
+                            LATER));
             assertThat(order.pendingEvents()).isEmpty();
         }
 
         @Test
         void GivenAWindowOnAnotherDate_WhenChanged_ThenWindowNotOnDate() {
-            Order order = anOrder().restored();
+            Order order = anOrder().build();
 
             assertRefusedUnchanged(
                     order,
@@ -257,7 +253,7 @@ class OrderTest {
 
         @Test
         void GivenAnArrivedStop_WhenChanged_ThenStopAlreadyHasFact() {
-            Order order = anOrder().restored();
+            Order order = anOrder().build();
 
             assertRefusedUnchanged(
                     order,
@@ -267,7 +263,7 @@ class OrderTest {
 
         @Test
         void GivenAFactOnlyOnAnEarlierAttempt_WhenChanged_ThenItIsChanged() {
-            Order order = anOrder().atAttempt(2).restored();
+            Order order = anOrder().atAttempt(2).build();
 
             order.change(changeOn(TOMORROW), new StopState.Failed(Attempt.FIRST), LATER);
 
@@ -280,7 +276,7 @@ class OrderTest {
 
         @Test
         void GivenAnActiveOrder_WhenRescheduled_ThenItMovesAndRaisesOrderRescheduled() {
-            Order order = anOrder().restored();
+            Order order = anOrder().build();
 
             order.reschedule(tenToNoon(NEXT_WEEK), emptyDate(NEXT_WEEK), NO_FACT, TODAY, LATER);
 
@@ -290,7 +286,7 @@ class OrderTest {
             assertThat(order.lastChangedAt()).isEqualTo(LATER);
             assertThat(order.pendingEvents())
                     .containsExactly(new OrderRescheduled(
-                            new EventId("OrderRescheduled", ORDER.value(), Version.of(4), 0),
+                            new EventId("OrderRescheduled", ORDER.value(), Version.of(1), 0),
                             LATER,
                             ORDER,
                             TOMORROW,
@@ -300,7 +296,7 @@ class OrderTest {
 
         @Test
         void GivenItsOwnDate_WhenRescheduled_ThenAlreadyOnThatDate() {
-            Order order = anOrder().restored();
+            Order order = anOrder().build();
 
             assertRefusedUnchanged(
                     order,
@@ -310,7 +306,7 @@ class OrderTest {
 
         @Test
         void GivenAPastDate_WhenRescheduled_ThenDateInPast() {
-            Order order = anOrder().restored();
+            Order order = anOrder().build();
 
             assertRefusedUnchanged(
                     order,
@@ -320,7 +316,7 @@ class OrderTest {
 
         @Test
         void GivenAWindowOffTheNewDate_WhenRescheduled_ThenWindowNotOnDate() {
-            Order order = anOrder().restored();
+            Order order = anOrder().build();
 
             assertRefusedUnchanged(
                     order,
@@ -330,7 +326,7 @@ class OrderTest {
 
         @Test
         void GivenItsReferenceTakenOnTheNewDate_WhenRescheduled_ThenDuplicateOrderReference() {
-            Order order = anOrder().restored();
+            Order order = anOrder().build();
 
             assertRefusedUnchanged(
                     order,
@@ -341,7 +337,7 @@ class OrderTest {
 
         @Test
         void GivenAFullNewDate_WhenRescheduled_ThenDateFull() {
-            Order order = anOrder().restored();
+            Order order = anOrder().build();
 
             assertRefusedUnchanged(
                     order,
@@ -351,7 +347,7 @@ class OrderTest {
 
         @Test
         void GivenADeliveredStop_WhenRescheduled_ThenStopAlreadyHasFact() {
-            Order order = anOrder().restored();
+            Order order = anOrder().build();
 
             assertRefusedUnchanged(
                     order,
@@ -370,28 +366,28 @@ class OrderTest {
 
         @Test
         void GivenAnActiveOrder_WhenCancelled_ThenItIsCancelledAndRaisesOrderCancelled() {
-            Order order = anOrder().restored();
+            Order order = anOrder().build();
 
             order.cancel(NO_FACT, LATER);
 
             assertThat(order.isCancelled()).isTrue();
-            assertThat(order.snapshot().state()).isEqualTo(new Order.State.Cancelled(LATER));
+            assertThat(order.state()).isEqualTo(new Order.State.Cancelled(LATER));
             assertThat(order.lastChangedAt()).isEqualTo(LATER);
             assertThat(order.pendingEvents())
                     .containsExactly(new OrderCancelled(
-                            new EventId("OrderCancelled", ORDER.value(), Version.of(4), 0), LATER, ORDER, TOMORROW, 1));
+                            new EventId("OrderCancelled", ORDER.value(), Version.of(1), 0), LATER, ORDER, TOMORROW, 1));
         }
 
         @Test
         void GivenACancelledOrder_WhenCancelled_ThenOrderAlreadyCancelled() {
-            Order order = anOrder().cancelledAt(NOW).restored();
+            Order order = anOrder().cancelledAt(NOW).build();
 
             assertRefusedUnchanged(order, () -> order.cancel(NO_FACT, LATER), new OrderAlreadyCancelled(ORDER));
         }
 
         @Test
         void GivenAnArrivedStop_WhenCancelled_ThenStopAlreadyHasFact() {
-            Order order = anOrder().restored();
+            Order order = anOrder().build();
 
             assertRefusedUnchanged(
                     order,
@@ -405,7 +401,7 @@ class OrderTest {
 
         @Test
         void GivenAFailedOrder_WhenPutBackOnAnotherDate_ThenItStartsTheNextAttemptThereAndRaisesOrderPutBack() {
-            Order order = anOrder().restored();
+            Order order = anOrder().build();
 
             order.putBack(
                     new Placement.Planned(Attempt.FIRST, PlanStanding.IN_FORCE),
@@ -421,7 +417,7 @@ class OrderTest {
             assertThat(order.lastChangedAt()).isEqualTo(LATER);
             assertThat(order.pendingEvents())
                     .containsExactly(new OrderPutBack(
-                            new EventId("OrderPutBack", ORDER.value(), Version.of(4), 0),
+                            new EventId("OrderPutBack", ORDER.value(), Version.of(1), 0),
                             LATER,
                             ORDER,
                             TOMORROW,
@@ -431,7 +427,7 @@ class OrderTest {
 
         @Test
         void GivenADroppedOrder_WhenPutBackOnAnotherDate_ThenItStartsTheNextAttemptAndRaisesOrderPutBack() {
-            Order order = anOrder().restored();
+            Order order = anOrder().build();
 
             order.putBack(DROPPED_IN_FORCE, NO_FACT, tenToNoon(NEXT_WEEK), emptyDate(NEXT_WEEK), TODAY, LATER);
 
@@ -439,7 +435,7 @@ class OrderTest {
             assertThat(order.date()).isEqualTo(NEXT_WEEK);
             assertThat(order.pendingEvents())
                     .containsExactly(new OrderPutBack(
-                            new EventId("OrderPutBack", ORDER.value(), Version.of(4), 0),
+                            new EventId("OrderPutBack", ORDER.value(), Version.of(1), 0),
                             LATER,
                             ORDER,
                             TOMORROW,
@@ -449,7 +445,7 @@ class OrderTest {
 
         @Test
         void GivenAnOrderOnItsSecondAttempt_WhenPutBackOnAnotherDate_ThenOrderPutBackNamesTheSecondAttempt() {
-            Order order = anOrder().atAttempt(2).restored();
+            Order order = anOrder().atAttempt(2).build();
 
             order.putBack(
                     new Placement.Dropped(Attempt.of(2), PlanStanding.IN_FORCE),
@@ -467,7 +463,7 @@ class OrderTest {
 
         @Test
         void GivenADroppedOrder_WhenPutBackOnItsOwnDate_ThenItStartsTheNextAttemptWithNoEvent() {
-            Order order = anOrder().restored();
+            Order order = anOrder().build();
 
             order.putBack(DROPPED_IN_FORCE, NO_FACT, tenToNoon(TOMORROW), emptyDate(TOMORROW), TODAY, LATER);
 
@@ -478,7 +474,7 @@ class OrderTest {
 
         @Test
         void GivenADroppedOrderOnAFullDate_WhenPutBackOnItsOwnDate_ThenItDoesNotCountAgain() {
-            Order order = anOrder().restored();
+            Order order = anOrder().build();
 
             order.putBack(
                     DROPPED_IN_FORCE, NO_FACT, tenToNoon(TOMORROW), dateWithAnd(TOMORROW, 199, ORDER), TODAY, LATER);
@@ -489,7 +485,7 @@ class OrderTest {
 
         @Test
         void GivenADroppedOrderWithAReference_WhenPutBackOnItsOwnDate_ThenItsOwnReferenceDoesNotCount() {
-            Order order = anOrder().restored();
+            Order order = anOrder().build();
             DateCapacity holdingItself = DateCapacity.readUnderLock(
                     TOMORROW, List.of(new DateCapacity.DatedOrder(ORDER, Optional.of(REFERENCE))));
 
@@ -501,7 +497,7 @@ class OrderTest {
 
         @Test
         void GivenADroppedOrderOnAFullOtherDate_WhenPutBack_ThenDateFull() {
-            Order order = anOrder().restored();
+            Order order = anOrder().build();
 
             assertRefusedUnchanged(
                     order,
@@ -512,7 +508,7 @@ class OrderTest {
 
         @Test
         void GivenItsReferenceTakenOnTheTargetDate_WhenPutBack_ThenDuplicateOrderReference() {
-            Order order = anOrder().restored();
+            Order order = anOrder().build();
 
             assertRefusedUnchanged(
                     order,
@@ -545,7 +541,7 @@ class OrderTest {
         @MethodSource("statusesThatAreNotPutBack")
         void GivenAnOrderNeitherFailedNorDropped_WhenPutBack_ThenOnlyFailedOrDroppedOrdersArePutBack(
                 Placement placement, StopState progress, OrderStatus status) {
-            Order order = anOrder().restored();
+            Order order = anOrder().build();
 
             assertRefusedUnchanged(
                     order,
@@ -555,7 +551,7 @@ class OrderTest {
 
         @Test
         void GivenAPastTargetDate_WhenPutBack_ThenDateInPast() {
-            Order order = anOrder().restored();
+            Order order = anOrder().build();
 
             assertRefusedUnchanged(
                     order,
@@ -566,7 +562,7 @@ class OrderTest {
 
         @Test
         void GivenAWindowOffTheTargetDate_WhenPutBack_ThenWindowNotOnDate() {
-            Order order = anOrder().restored();
+            Order order = anOrder().build();
 
             assertRefusedUnchanged(
                     order,
@@ -583,31 +579,30 @@ class OrderTest {
 
         @Test
         void GivenAnOrder90DaysPastItsDate_WhenAnonymized_ThenItsPersonalFieldsAreGoneAndItsFiguresStay() {
-            Order order = anOrder().on(longAgo).restored();
+            Order order = anOrder().on(longAgo).build();
 
             order.anonymize(TODAY);
 
-            OrderSnapshot anonymized = order.snapshot();
-            assertThat(anonymized.anonymized()).isTrue();
-            assertThat(anonymized.recipient()).isEqualTo(Recipient.NONE);
-            assertThat(anonymized.note()).isEmpty();
-            assertThat(anonymized.access()).isEqualTo(AccessDetails.NONE);
-            assertThat(anonymized.reference()).isEmpty();
-            assertThat(anonymized.weight()).isEqualTo(kilograms("12.5"));
-            assertThat(anonymized.customer()).isEqualTo(CUSTOMER);
+            assertThat(order.isAnonymized()).isTrue();
+            assertThat(order.recipient()).isEqualTo(Recipient.NONE);
+            assertThat(order.note()).isEmpty();
+            assertThat(order.access()).isEqualTo(AccessDetails.NONE);
+            assertThat(order.reference()).isEmpty();
+            assertThat(order.weight()).isEqualTo(kilograms("12.5"));
+            assertThat(order.customer()).isEqualTo(CUSTOMER);
             assertThat(order.pendingEvents()).isEmpty();
         }
 
         @Test
         void GivenAnOrder89DaysPastItsDate_WhenAnonymized_ThenRetentionNotOver() {
-            Order order = anOrder().on(longAgo).restored();
+            Order order = anOrder().on(longAgo).build();
 
             assertRefusedUnchanged(order, () -> order.anonymize(TODAY.minusDays(1)), new RetentionNotOver());
         }
 
         @Test
         void GivenAnAnonymizedOrder_WhenAnonymized_ThenOrderAnonymized() {
-            Order order = anOrder().on(longAgo).anonymized().restored();
+            Order order = anOrder().on(longAgo).anonymized().build();
 
             assertRefusedUnchanged(order, () -> order.anonymize(TODAY), new OrderAnonymized(ORDER));
         }
@@ -637,7 +632,7 @@ class OrderTest {
                         assertThat(order.date()).isEqualTo(NEXT_WEEK);
                         assertThat(order.pendingEvents())
                                 .containsExactly(new OrderRescheduled(
-                                        new EventId("OrderRescheduled", ORDER.value(), Version.of(4), 0),
+                                        new EventId("OrderRescheduled", ORDER.value(), Version.of(1), 0),
                                         LATER,
                                         ORDER,
                                         OLD,
@@ -645,10 +640,10 @@ class OrderTest {
                                         1));
                     }),
             CANCEL(order -> order.cancel(NO_FACT, LATER), (before, order) -> {
-                assertThat(order.snapshot().state()).isEqualTo(new Order.State.Cancelled(LATER));
+                assertThat(order.state()).isEqualTo(new Order.State.Cancelled(LATER));
                 assertThat(order.pendingEvents())
                         .containsExactly(new OrderCancelled(
-                                new EventId("OrderCancelled", ORDER.value(), Version.of(4), 0), LATER, ORDER, OLD, 1));
+                                new EventId("OrderCancelled", ORDER.value(), Version.of(1), 0), LATER, ORDER, OLD, 1));
             }),
             PUT_BACK(
                     order -> order.putBack(
@@ -658,7 +653,7 @@ class OrderTest {
                         assertThat(order.date()).isEqualTo(NEXT_WEEK);
                         assertThat(order.pendingEvents())
                                 .containsExactly(new OrderPutBack(
-                                        new EventId("OrderPutBack", ORDER.value(), Version.of(4), 0),
+                                        new EventId("OrderPutBack", ORDER.value(), Version.of(1), 0),
                                         LATER,
                                         ORDER,
                                         OLD,
@@ -666,7 +661,7 @@ class OrderTest {
                                         1));
                     }),
             ANONYMIZE(order -> order.anonymize(TODAY), (before, order) -> {
-                OrderSnapshot after = order.snapshot();
+                OrderDescription after = OrderDescription.of(order);
                 assertThat(after.anonymized()).isTrue();
                 assertThat(after.reference()).isEmpty();
                 assertThat(after.state()).isEqualTo(before.state());
@@ -674,9 +669,9 @@ class OrderTest {
             });
 
             private final Consumer<Order> call;
-            private final BiConsumer<OrderSnapshot, Order> expected;
+            private final BiConsumer<OrderDescription, Order> expected;
 
-            Command(Consumer<Order> call, BiConsumer<OrderSnapshot, Order> expected) {
+            Command(Consumer<Order> call, BiConsumer<OrderDescription, Order> expected) {
                 this.call = call;
                 this.expected = expected;
             }
@@ -685,9 +680,9 @@ class OrderTest {
         private static Order inState(OrderState state) {
             OrderBuilder builder = anOrder().on(OLD);
             return switch (state) {
-                case ACTIVE -> builder.restored();
-                case CANCELLED -> builder.cancelledAt(NOW).restored();
-                case ANONYMIZED -> builder.anonymized().restored();
+                case ACTIVE -> builder.build();
+                case CANCELLED -> builder.cancelledAt(NOW).build();
+                case ANONYMIZED -> builder.anonymized().build();
             };
         }
 
@@ -719,137 +714,12 @@ class OrderTest {
             Order order = inState(state);
 
             if (expected == null) {
-                OrderSnapshot before = order.snapshot();
+                OrderDescription before = OrderDescription.of(order);
                 command.call.accept(order);
                 command.expected.accept(before, order);
             } else {
                 assertRefusedUnchanged(order, () -> command.call.accept(order), expected);
             }
-        }
-    }
-
-    @Nested
-    class Restoring {
-
-        static Stream<Arguments> builderStates() {
-            return Stream.of(
-                    Arguments.of("placed", anOrder().placed()),
-                    Arguments.of("active", anOrder().restored()),
-                    Arguments.of(
-                            "without a reference", anOrder().withoutReference().restored()),
-                    Arguments.of("put back", anOrder().atAttempt(3).restored()),
-                    Arguments.of("cancelled", anOrder().cancelledAt(NOW).restored()),
-                    Arguments.of("anonymized", anOrder().anonymized().restored()));
-        }
-
-        @ParameterizedTest(name = "{0}")
-        @MethodSource("builderStates")
-        void GivenAnOrderInEachBuilderState_WhenRestoredFromItsSnapshot_ThenItIsTheSame(String state, Order order) {
-            assertThat(Order.restore(order.snapshot()).snapshot()).isEqualTo(order.snapshot());
-        }
-
-        @Test
-        void GivenAStoredWindowOffTheOrdersDate_WhenRestored_ThenStoredStateInvalid() {
-            OrderSnapshot good = anOrder().snapshot();
-            OrderSnapshot damaged = new OrderSnapshot(
-                    good.id(),
-                    good.customer(),
-                    good.date(),
-                    tenToNoon(NEXT_WEEK),
-                    good.weight(),
-                    good.volume(),
-                    good.serviceTime(),
-                    good.priority(),
-                    good.leaveAtDoor(),
-                    good.reference(),
-                    good.recipient(),
-                    good.note(),
-                    good.access(),
-                    good.attempt(),
-                    good.state(),
-                    good.anonymized(),
-                    good.lastChangedAt(),
-                    good.version());
-
-            assertThatThrownBy(() -> Order.restore(damaged))
-                    .isInstanceOfSatisfying(
-                            StoredStateInvalid.class,
-                            invalid -> assertThat(invalid.detail()).isEqualTo("the window lies off the order's date"));
-        }
-
-        static Stream<Arguments> personalFieldsLeftAfterAnonymizing() {
-            return Stream.of(
-                    Arguments.of(
-                            "a recipient",
-                            OrdersTestData.RECIPIENT,
-                            Optional.empty(),
-                            AccessDetails.NONE,
-                            Optional.empty()),
-                    Arguments.of(
-                            "a note",
-                            Recipient.NONE,
-                            Optional.of(OrdersTestData.NOTE),
-                            AccessDetails.NONE,
-                            Optional.empty()),
-                    Arguments.of(
-                            "access details",
-                            Recipient.NONE,
-                            Optional.empty(),
-                            OrdersTestData.ACCESS,
-                            Optional.empty()),
-                    Arguments.of(
-                            "a reference",
-                            Recipient.NONE,
-                            Optional.empty(),
-                            AccessDetails.NONE,
-                            Optional.of(REFERENCE)));
-        }
-
-        @ParameterizedTest(name = "{0}")
-        @MethodSource("personalFieldsLeftAfterAnonymizing")
-        void GivenAStoredAnonymizedOrderWithAPersonalField_WhenRestored_ThenStoredStateInvalid(
-                String field,
-                Recipient recipient,
-                Optional<DriverNote> note,
-                AccessDetails access,
-                Optional<ExternalReference> reference) {
-            OrderSnapshot good = anOrder().anonymized().snapshot();
-            OrderSnapshot damaged = new OrderSnapshot(
-                    good.id(),
-                    good.customer(),
-                    good.date(),
-                    good.window(),
-                    good.weight(),
-                    good.volume(),
-                    good.serviceTime(),
-                    good.priority(),
-                    good.leaveAtDoor(),
-                    reference,
-                    recipient,
-                    note,
-                    access,
-                    good.attempt(),
-                    good.state(),
-                    true,
-                    good.lastChangedAt(),
-                    good.version());
-
-            assertThatThrownBy(() -> Order.restore(damaged))
-                    .isInstanceOfSatisfying(
-                            StoredStateInvalid.class,
-                            invalid -> assertThat(invalid.detail())
-                                    .isEqualTo("an anonymized order holds a personal field"));
-        }
-
-        @Test
-        void GivenAStoredCancellationAfterTheLastChange_WhenRestored_ThenStoredStateInvalid() {
-            OrderBuilder damaged = anOrder().lastChangedAt(NOW).cancelledAt(LATER);
-
-            assertThatThrownBy(damaged::restored)
-                    .isInstanceOfSatisfying(
-                            StoredStateInvalid.class,
-                            invalid -> assertThat(invalid.detail())
-                                    .isEqualTo("the order was cancelled after its last change"));
         }
     }
 }
