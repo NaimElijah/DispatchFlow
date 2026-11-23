@@ -38,6 +38,7 @@ import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.ProposalId;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
+import com.dispatchflow.shared.StoredVersions;
 import com.dispatchflow.shared.VehicleId;
 import com.dispatchflow.shared.Version;
 import java.time.Duration;
@@ -52,7 +53,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.IntStream;
-import org.jspecify.annotations.Nullable;
 
 /**
  * Test data for Planning: fixed IDs, times and the one builder per aggregate ({@link #aPlan()},
@@ -159,7 +159,7 @@ public final class PlanningFixtures {
         PlanSnapshot s = plan.snapshot();
         return Plan.restore(new PlanSnapshot(
                 s.id(),
-                savedAt(s.version()),
+                StoredVersions.afterSave(plan),
                 s.date(),
                 s.openedAt(),
                 s.status(),
@@ -177,7 +177,7 @@ public final class PlanningFixtures {
         SolveJobSnapshot s = job.snapshot();
         return SolveJob.restore(new SolveJobSnapshot(
                 s.id(),
-                savedAt(s.version()),
+                StoredVersions.afterSave(job),
                 s.plan(),
                 s.lane(),
                 s.solver(),
@@ -509,10 +509,5 @@ public final class PlanningFixtures {
         Evaluation unavailable() {
             return Evaluation.unavailable(version);
         }
-    }
-
-    /** The version a save stores: 0 for an aggregate never saved, the loaded one plus 1 otherwise. */
-    private static Version savedAt(@Nullable Version loaded) {
-        return loaded == null ? Version.of(0) : loaded.next();
     }
 }
