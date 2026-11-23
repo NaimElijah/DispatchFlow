@@ -167,6 +167,7 @@ class DomainPackageRulesTest {
                                 root + ".shared.application.port",
                                 root + ".shared.adapter.out.persistence",
                                 root + ".shared.adapter.out.persistence.id",
+                                root + ".shared.adapter.util",
                                 root + ".alpha.events",
                                 root + ".alpha.events.kind",
                                 root + ".alpha.application.api",
@@ -184,6 +185,7 @@ class DomainPackageRulesTest {
                         root + ".alpha.application.api.plan",
                         root + ".alpha.application.spi.usage",
                         root + ".alpha.events.kind",
+                        root + ".shared.adapter.util",
                         root + ".shared.application.port",
                         root + ".shared.id");
     }

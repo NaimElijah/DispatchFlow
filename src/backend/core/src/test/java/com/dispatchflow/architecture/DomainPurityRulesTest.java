@@ -93,6 +93,7 @@ import com.dispatchflow.archfixture.alpha.domain.mapping.MappedWithHibernateAndS
 import com.dispatchflow.archfixture.alpha.domain.mapping.MappedWithJakartaPersistence;
 import com.dispatchflow.archfixture.alpha.domain.mapping.UsesASpringDataType;
 import com.dispatchflow.archfixture.alpha.domain.mapping.UsesTheEntityManager;
+import com.dispatchflow.archfixture.alpha.domain.mapping.UsesTheSharedAdapter;
 import com.dispatchflow.archfixture.alpha.domain.randomness.ShufflesAList;
 import com.dispatchflow.archfixture.alpha.domain.randomness.UsesARandomGenerator;
 import com.dispatchflow.archfixture.alpha.domain.randomness.UsesMathRandom;
@@ -104,6 +105,7 @@ import com.dispatchflow.archfixture.alpha.events.EventCreatesAnIllegalState;
 import com.dispatchflow.archfixture.alpha.events.EventDependsOnAnotherModulesEvents;
 import com.dispatchflow.archfixture.alpha.events.EventDependsOnItsDomain;
 import com.dispatchflow.archfixture.alpha.events.EventDependsOnLibphonenumber;
+import com.dispatchflow.archfixture.alpha.events.EventUsesTheSharedAdapter;
 import com.dispatchflow.archfixture.alpha.events.EventWithAJpaAnnotation;
 import com.dispatchflow.archfixture.beta.application.BuildsARecordEvaluation;
 import com.dispatchflow.archfixture.modulith.NamedInterface;
@@ -120,6 +122,7 @@ import com.dispatchflow.archfixture.shared.KernelCreatesAnIllegalArgument;
 import com.dispatchflow.archfixture.shared.KernelDependsOnAModule;
 import com.dispatchflow.archfixture.shared.KernelDependsOnJts;
 import com.dispatchflow.archfixture.shared.KernelMappedSuperclass;
+import com.dispatchflow.archfixture.shared.KernelUsesTheSharedAdapter;
 import com.dispatchflow.archfixture.shared.KernelValue;
 import com.dispatchflow.archfixture.shared.adapter.out.persistence.KernelAdapterUsesJpa;
 import com.dispatchflow.archfixture.shared.application.SharedPortCarriesAJpaAnnotation;
@@ -172,7 +175,10 @@ class DomainPurityRulesTest {
                 UsesASpringDataType.class,
                 CarriesAnotherHibernateAnnotation.class,
                 EventWithAJpaAnnotation.class,
-                SharedPortCarriesAJpaAnnotation.class
+                SharedPortCarriesAJpaAnnotation.class,
+                UsesTheSharedAdapter.class,
+                EventUsesTheSharedAdapter.class,
+                KernelUsesTheSharedAdapter.class
             })
     void GivenAForbiddenDependency_WhenRule1Evaluates_ThenItIsFlagged(Class<?> fixture) {
         assertThat(flags(rule1(), fixture)).isTrue();

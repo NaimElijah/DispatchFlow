@@ -37,6 +37,9 @@ final class DomainPurityRules {
     private static final String EVENTS = "events";
     private static final String APPLICATION = "application";
     private static final String ADAPTER = "adapter";
+    // ADR-126: the persistence adapter every module shares sits beside the kernel. It is no part
+    // of the kernel, so no purity rule holds it, and nothing pure may use it.
+    private static final String SHARED_PERSISTENCE_ADAPTER = KERNEL + "." + ADAPTER + ".out.persistence";
     private static final String PACKAGE_INFO = "package-info";
     private static final List<String> KERNEL_LIBRARIES = List.of("com.google.i18n.phonenumbers");
     private static final List<String> DOMAIN_LIBRARIES =
@@ -199,7 +202,7 @@ final class DomainPurityRules {
                 .because("DL §3.9 rule 1 and §7.3: the kernel imports only the JDK, JSpecify and libphonenumber;"
                         + " a domain also its own domain and events, the kernel and JTS; events only the JDK,"
                         + " JSpecify, the kernel and their own package; the kernel and a domain may also carry"
-                        + " ADR-126's persistence annotations");
+                        + " ADR-126's persistence annotations; none of them uses a shared adapter");
     }
 
     /** Rule 2: no clock. */
@@ -300,13 +303,14 @@ final class DomainPurityRules {
 
     /**
      * The classes the purity rules hold: those in {@link #pureLayers}, apart from {@code
-     * shared.adapter}, the persistence adapter every module shares, which ADR-126 puts beside the
-     * kernel without making it part of it.
+     * shared.adapter.out.persistence}, the persistence adapter every module shares, which ADR-126
+     * puts beside the kernel without making it part of it. Any other package below the kernel is
+     * still held.
      */
     static DescribedPredicate<JavaClass> inPureLayers(String root) {
         return JavaClass.Predicates.resideInAnyPackage(pureLayers(root))
                 .and(DescribedPredicate.not(
-                        JavaClass.Predicates.resideInAPackage(root + "." + KERNEL + "." + ADAPTER + "..")));
+                        JavaClass.Predicates.resideInAPackage(root + "." + SHARED_PERSISTENCE_ADAPTER + "..")));
     }
 
     private static ArchCondition<JavaClass> dependOnlyOnAllowedPackages(String root, String moduleAnnotations) {
@@ -316,13 +320,18 @@ final class DomainPurityRules {
                 List<String> allowed = allowedPackages(root, moduleAnnotations, item);
                 Set<String> allowedTypes = allowedTypes(root, moduleAnnotations, item);
                 boolean mayCarryMapping = mayCarryPersistenceAnnotations(root, item);
+                List<String> sharedAdapters = List.of(root + "." + KERNEL + "." + ADAPTER);
                 item.getDirectDependenciesFromSelf().stream()
                         .filter(dependency -> {
                             JavaClass target = baseType(dependency.getTargetClass());
-                            return !target.isPrimitive()
-                                    && !isInAny(target.getPackageName(), allowed)
-                                    && !allowedTypes.contains(target.getName())
-                                    && !(mayCarryMapping && isAPersistenceAnnotation(target));
+                            if (target.isPrimitive()) {
+                                return false;
+                            }
+                            // The kernel's prefix below would let the shared adapters through.
+                            return isInAny(target.getPackageName(), sharedAdapters)
+                                    || (!isInAny(target.getPackageName(), allowed)
+                                            && !allowedTypes.contains(target.getName())
+                                            && !(mayCarryMapping && isAPersistenceAnnotation(target)));
                         })
                         .forEach(dependency ->
                                 events.add(SimpleConditionEvent.violated(dependency, dependency.getDescription())));
