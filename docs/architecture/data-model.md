@@ -131,7 +131,8 @@ Every table is one of four kinds, and its kind decides its key.
   deletes them, and a route's list only says which stops it serves
   ([ADR-127][ADR-127], decision 11). See [`planning`](#planning-v8).
 - **A date the adapter writes after the insert.** `liveops.route_run.delivery_date` and
-  `liveops.alert.delivery_date` are columns the aggregates do not map. See [`liveops`](#liveops-v5).
+  `liveops.alert.delivery_date` are columns the aggregates do not map ([ADR-127][ADR-127],
+  decision 12). See [`liveops`](#liveops-v5).
 - **Columns the database fills.** `fleet.driver.registration_order` and `messaging.opt_out.appended`
   are `GENERATED ALWAYS AS IDENTITY`. The entities do not write them, and a query orders by them.
 

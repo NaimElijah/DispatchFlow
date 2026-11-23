@@ -40,10 +40,13 @@ cannot follow:
 - **Children that move.** A plan's stops move between its routes and keep their IDs. Jakarta
   Persistence forbids moving an orphan-removed entity to another relationship, which ADR-126's
   rule for collections would have each route's list do.
+- **Lookups by a value the root doesn't hold.** Live Ops finds a date's route runs, and the open
+  alerts of a date's plan, by delivery date. Neither `RouteRun` nor `Alert` holds that date: it is
+  their plan's, in Planning.
 
 ## Decision
 
-We map the 20 roots as ADR-126 decides, with these eleven decisions where it is silent or cannot be
+We map the 20 roots as ADR-126 decides, with these twelve decisions where it is silent or cannot be
 followed.
 
 1. **A stored-state check is tested where it runs: when the aggregate loads.** Each repository's
@@ -77,11 +80,12 @@ followed.
    - A singleton keys on a constant UUID that its class documents.
    - `DayRoster`, found by its date, takes a UUID from `IdGenerator`, beside a date its table keeps
      unique.
-6. **The four DL §3.2 records are stored through `@Immutable` entity classes in their module's
-   persistence adapter:** `KeptPosition`, `InboundReply`, `AuditRecord` and `OptOutRecord`. The
-   record types stay free of annotations. A row's key is the record's natural key where it has one,
-   such as an SMS reply's provider ID, and otherwise a random UUID that the adapter assigns and
-   nothing outside the table sees.
+6. **The four DL §3.2 records, and how a plan's baseline was settled, are stored through
+   `@Immutable` entity classes in their module's persistence adapter:** `KeptPosition`,
+   `InboundReply`, `AuditRecord` and `OptOutRecord`, and Reporting's `StoredBaselineOutcome`, which
+   its repository writes once per plan. The record types stay free of annotations. A row's key is
+   the record's natural key where it has one, such as an SMS reply's provider ID or the baseline's
+   plan, and otherwise a random UUID that the adapter assigns and nothing outside the table sees.
 7. **An import preview row's errors, and an unreadable row's field errors, are stored as JSON text,**
    each in a column of its own, through a converter in Orders'
    persistence adapter that uses Jackson, which Spring Boot already brings. Its type validator admits
@@ -116,6 +120,13 @@ followed.
     Persistence forbids moving an orphan-removed entity to another relationship, and Hibernate
     deletes each list's orphans as it flushes that list, so with ADR-126's mapping on the routes'
     lists, whether a moved stop survived depended on the order the flush visited the routes.
+12. **A value a root doesn't hold, kept only for a lookup, is a column its adapter writes.** A
+    `RouteRun` and an `Alert` are stored with their plan's delivery date in a `delivery_date`
+    column that neither class maps. Their repository's `add` takes the date from its caller and
+    writes it with a native `UPDATE` right after the insert, which must change exactly one row, so
+    the column is nullable and indexed. Only the by-date lookups read it: `RouteRunRepository`'s
+    `startedOn` and `LiveOpsViews`' `unacknowledgedAt` (FR-261, BR-102). Live Ops' date queries then
+    stay in its own schema, with no join into Planning's.
 
 **What this amends.**
 
@@ -124,6 +135,8 @@ followed.
   text (7). A session's contact times are a set, not an ordered list (10). A child that moves
   between parents has its lifecycle in the root's collection, not in its parent's list (11).
   `AsSaved` replaces ADR-126's test helper `StoredVersions.afterSave`, which is deleted (2).
+  A table may hold a column its root doesn't map, which only its adapter writes and only lookups
+  read (12).
 - **[ADR-041]:** a migration grants from the change that adds the roles, not before (8).
 
 ## Consequences
@@ -142,6 +155,13 @@ followed.
   its setter code must match the record.
 - **Hard:** the preview's errors are the one stored form a Java type does not check.
   Their converter's tests are what check it.
+- **Hard:** each stored error names its record's class, so renaming or moving a `DomainError`
+  record an import can raise leaves the preview rows that name it unloadable (`StoredStateInvalid`).
+  A change that renames or moves one carries a migration that rewrites the stored name. A preview's
+  rows are deleted at most two hours after it was made (FR-399), so few rows are ever at stake.
+- **Hard:** a run's or an alert's delivery date is in its table but not in its class, so no domain
+  rule can read it, and the column can't be `NOT NULL`, because Hibernate inserts the row before
+  the adapter writes the date. The adapter's one-row check keeps the two writes together.
 - **Hard:** a `Plan` keeps its stops in two collections, the root's and their route's, so each
   command that adds or takes off a stop changes both. The end check catches the two drifting apart.
 - **Risk:** decision 11 relies on Hibernate leaving a stop's `route_id` alone when the stop leaves
@@ -174,6 +194,10 @@ followed.
 - **Store the preview's errors relationally,** as a code and a list of parameters. Rejected: each
   error record has its own components, so rebuilding it needs the same per-type decoding as JSON,
   with more tables.
+- **Store each preview error under a stable code that a registry maps to its record.**
+  Rejected: the registry must list every `DomainError` record an import can raise, across modules,
+  and be kept in step with them, while a preview's rows live at most two hours, so a rename rarely
+  meets a stored row.
 - **Give each record an ID in the domain and map the record type itself.** Rejected: two of the
   types are Java records and two live in the application layer, so they can't carry the mapping,
   and an ID only the table uses would change every caller that builds one.
@@ -187,6 +211,12 @@ followed.
 - **Create the roles in `V1`.** Rejected: a role is cluster-wide, so creating it needs a privilege
   the migration's owner should not hold, and the `migrate` step that ADR-041 gives the owner
   credential to is not built.
+- **Give `RouteRun` and `Alert` a delivery date field.** Rejected: neither aggregate's rules use the
+  date, and every factory and test that makes one would have to be given it, only so that a query
+  can find it.
+- **Keep the delivery dates in a lookup table of their own.** Rejected: every by-date query would
+  join it, and it is one more table to keep in step with the runs and alerts, for no check the
+  column lacks.
 
 ## Revisit when
 
@@ -196,6 +226,10 @@ followed.
 - A Hibernate upgrade changes how a one-to-many deletes its rows, or how lazy loading behaves
   inside a callback (decision 11, and the load checks).
 - Retries of concurrent contacts on one session show in latency (decision 10).
+- A stored preview error must outlive its preview, or the error records an import can raise are
+  renamed often enough that their migrations cost more than a code registry (decision 7).
+- A domain rule needs a run's or an alert's delivery date, or a third root needs a column it
+  doesn't hold (decision 12).
 - Renumbering an element collection's positions costs more than giving its rows their own IDs,
   as a full undo journal's 100 rows might (decision 3).
 
