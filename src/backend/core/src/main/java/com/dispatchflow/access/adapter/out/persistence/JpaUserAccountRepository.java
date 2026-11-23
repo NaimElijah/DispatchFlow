@@ -21,7 +21,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.stereotype.Repository;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -35,7 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>{@link #activeGenerationOf} reads the database on every call: the revocation cache the port
  * names is not built yet.
  */
-@Repository
+@Component
 @Transactional
 class JpaUserAccountRepository implements UserAccountRepository {
 

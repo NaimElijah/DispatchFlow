@@ -5,14 +5,14 @@ import com.dispatchflow.access.domain.companyprofile.CompanyProfile;
 import com.dispatchflow.shared.adapter.out.persistence.VersionedSave;
 import java.util.Objects;
 import java.util.Optional;
-import org.springframework.stereotype.Repository;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Keeps the company's one {@link CompanyProfile} in {@code access.company_profile}, under {@link
  * CompanyProfile#KEY}.
  */
-@Repository
+@Component
 @Transactional
 class JpaCompanyProfileRepository implements CompanyProfileRepository {
 

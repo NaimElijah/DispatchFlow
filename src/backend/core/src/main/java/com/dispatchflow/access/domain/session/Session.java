@@ -21,6 +21,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.OrderColumn;
 import jakarta.persistence.PostLoad;
 import jakarta.persistence.Table;
@@ -57,8 +58,9 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>It is mapped for JPA (ADR-126): its key is its ID's UUID, its {@link SessionState} a kind and
  * the revocation's time, its refresh tokens child entities in the order they were issued, and its
- * contact times an ordered element collection that leaves the version alone (DL §4.1). Every
- * command ends by checking the invariants at rest that the load check runs.
+ * contact times a set of instants ordered by value that leaves the version alone (DL §4.1,
+ * ADR-127 decision 10). Every command ends by checking the invariants at rest that the load check
+ * runs.
  */
 @Entity
 @Table(schema = "access", name = "session")
@@ -106,13 +108,15 @@ public class Session extends AggregateRoot {
 
     private Instant lastPasswordAt;
 
-    // DL §4.1 lets keeping and dropping these leave the version alone (ADR-126).
+    // A set keyed by the instant, so a contact inserts one row and a drop deletes rows, and two
+    // saves of copies loaded at once each keep their own (ADR-127 decision 10). DL §4.1 lets
+    // keeping and dropping them leave the version alone.
     @ElementCollection
     @CollectionTable(schema = "access", name = "session_contact", joinColumns = @JoinColumn(name = "session_id"))
-    @OrderColumn(name = "position", nullable = false)
     @Column(name = "contacted_at")
+    @OrderBy
     @OptimisticLock(excluded = true)
-    private List<Instant> contactTimes = new ArrayList<>();
+    private Set<Instant> contactTimes = new HashSet<>();
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "session_id", nullable = false)
@@ -191,20 +195,28 @@ public class Session extends AggregateRoot {
     /**
      * Rebuilds a stored session. Only the persistence adapter calls it (DL §3.5). It checks no
      * order between the token times, so a server clock that stepped back can't make a stored
-     * session unreadable. Contact times may repeat, because {@link #recordContact} moves no
-     * version and two requests that loaded the session before either saved can keep one instant
-     * twice; they never decrease.
+     * session unreadable. The contact times are a set: two at one instant are kept once.
+     *
+     * <p>A snapshot's contact times are a list, so it still checks that they never decrease. The
+     * stored set is ordered by value and can't decrease, so the load check has no such check, and
+     * this one goes with {@code restore} (ADR-127 decision 10).
      *
      * @param stored the stored session
      * @return the session at its stored version
      * @throws StoredStateInvalid when it has no token; two tokens share an ID or a hash; a live
      *     session has not exactly one current token, or a revoked one has more than one; an
-     *     exchanged token's successor is itself or not in the chain; or a contact time is earlier
-     *     than the one before it
+     *     exchanged token's successor is itself or not in the chain; or a snapshot's contact time is
+     *     earlier than the one before it
      */
     public static Session restore(SessionSnapshot stored) {
         Session restored = new Session(stored);
         restored.checkStored();
+        List<Instant> contacts = stored.contactTimes();
+        for (int i = 1; i < contacts.size(); i++) {
+            if (contacts.get(i).isBefore(contacts.get(i - 1))) {
+                throw new StoredStateInvalid(Session.class, "contact times never decrease");
+            }
+        }
         return restored;
     }
 
@@ -233,22 +245,11 @@ public class Session extends AggregateRoot {
         });
     }
 
-    /** The one check of the invariants at rest, shared by the load check and every command. */
+    /**
+     * The one check of the invariants at rest, shared by the load check and every command. It reads
+     * the chain alone: the contact times are a set ordered by value, which can't decrease.
+     */
     private Optional<String> brokenRule() {
-        Optional<String> brokenChain = brokenTokenRule();
-        if (brokenChain.isPresent()) {
-            return brokenChain;
-        }
-        for (int i = 1; i < contactTimes.size(); i++) {
-            if (contactTimes.get(i).isBefore(contactTimes.get(i - 1))) {
-                return Optional.of("contact times never decrease");
-            }
-        }
-        return Optional.empty();
-    }
-
-    /** The chain's part of {@link #brokenRule}. */
-    private Optional<String> brokenTokenRule() {
         if (tokens.isEmpty()) {
             return Optional.of("a session holds at least one refresh token");
         }
@@ -481,14 +482,14 @@ public class Session extends AggregateRoot {
      * Keeps the time of a request from the session, which BR-133's contact window reads (NFR-280).
      * The caller calls it only for an account with the Driver role, and only for a request other
      * than a token refresh or an outbox send. After {@link #dropOldContacts dropping} the times
-     * older than 14 days, it keeps the time unless it is less than a minute after the last one
-     * kept, which includes a time before it once a clock stepped back. So it never makes the times
-     * decrease.
+     * older than 14 days, it keeps the time unless it is less than a minute after the latest one
+     * kept, which includes a time before it once a clock stepped back.
      *
      * <p>It is the one save that doesn't move the version, and it raises no event (DL §4.1): the
      * adapter writes the contact times alone, so recording a contact can never make a refresh
-     * fail on a stale version. Two requests that loaded the session before either saved can each
-     * keep a time, the same instant included, which {@link #restore} accepts.
+     * fail on a stale version. Two requests that loaded the session before either saved each keep
+     * their own time; two at the very same instant are kept once, as one set holds them (ADR-127
+     * decision 10).
      *
      * @param now when the request arrived
      * @throws RuleViolation with {@link SessionRevoked} when the session is revoked, because no
@@ -500,8 +501,10 @@ public class Session extends AggregateRoot {
             throw new RuleViolation(new SessionRevoked());
         }
         dropOldContacts(now);
-        boolean spaced = contactTimes.isEmpty()
-                || !now.isBefore(contactTimes.get(contactTimes.size() - 1).plus(CONTACT_SPACING));
+        boolean spaced = contactTimes.stream()
+                .max(Comparator.naturalOrder())
+                .map(latest -> !now.isBefore(latest.plus(CONTACT_SPACING)))
+                .orElse(true);
         if (spaced) {
             contactTimes.add(now);
         }
@@ -685,7 +688,7 @@ public class Session extends AggregateRoot {
                 state(),
                 openedAt,
                 lastPasswordAt,
-                contactTimes,
+                contactTimes.stream().sorted().toList(),
                 tokens.stream().map(RefreshToken::snapshot).toList());
     }
 }

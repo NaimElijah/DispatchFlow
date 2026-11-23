@@ -26,7 +26,6 @@ class SessionRestoreTest {
                 aSession(),
                 aSession().withState(new SessionState.Revoked(LATER)),
                 aSession().withContactTimes(OPENED, LATER, LATEST),
-                aSession().withContactTimes(OPENED, LATER, LATER),
                 aSession().withLastPasswordAt(LATER),
                 aSession()
                         .withTokens(

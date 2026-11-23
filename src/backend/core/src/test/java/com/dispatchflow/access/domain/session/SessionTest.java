@@ -652,23 +652,23 @@ class SessionTest {
     }
 
     @Test
-    void GivenTwoContactTimesSavedAtOneInstant_WhenContactIsRecordedAfterIt_ThenItIsKeptAndTheSessionStillRestores() {
-        // Two requests that loaded the session before either saved can each keep the same instant.
+    void GivenTwoContactTimesStoredAtOneInstant_WhenRestoredAndContactIsRecordedAfterIt_ThenTheInstantIsKeptOnce() {
+        // The contact times are a set, so one instant is kept once (ADR-127 decision 10).
         Session session = aSession().withContactTimes(NOW, NOW).build();
 
         session.recordContact(NOW.plusSeconds(60));
 
-        assertThat(session.snapshot().contactTimes()).containsExactly(NOW, NOW, NOW.plusSeconds(60));
+        assertThat(session.snapshot().contactTimes()).containsExactly(NOW, NOW.plusSeconds(60));
         assertThat(Session.restore(session.snapshot()).snapshot()).isEqualTo(session.snapshot());
     }
 
     @Test
-    void GivenTwoContactTimesSavedAtOneInstant_WhenContactIsRecordedAtThatInstant_ThenNoTimeIsAdded() {
+    void GivenTwoContactTimesStoredAtOneInstant_WhenContactIsRecordedAtThatInstant_ThenItIsKeptOnceAndNoTimeIsAdded() {
         Session session = aSession().withContactTimes(NOW, NOW).build();
 
         session.recordContact(NOW);
 
-        assertThat(session.snapshot().contactTimes()).containsExactly(NOW, NOW);
+        assertThat(session.snapshot().contactTimes()).containsExactly(NOW);
     }
 
     @Test

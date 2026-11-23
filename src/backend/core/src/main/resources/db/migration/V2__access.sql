@@ -106,11 +106,12 @@ CREATE INDEX refresh_token_token_hash ON access.refresh_token (token_hash);
 -- The retention job reads each session's current token to date its end (NFR-258).
 CREATE INDEX refresh_token_current ON access.refresh_token (session_id) WHERE state = 'CURRENT';
 
+-- A session's contact times are a set keyed by the instant, with no position, so a contact is one
+-- insert and a drop deletes only the old rows (ADR-127 decision 10).
 CREATE TABLE access.session_contact (
     session_id uuid NOT NULL REFERENCES access.session (id) ON DELETE CASCADE,
-    position integer NOT NULL,
     contacted_at timestamptz NOT NULL,
-    CONSTRAINT session_contact_position UNIQUE (session_id, position) DEFERRABLE INITIALLY DEFERRED
+    PRIMARY KEY (session_id, contacted_at)
 );
 
 -- BR-133's contact window and the retention job's drop read the times (NFR-280).

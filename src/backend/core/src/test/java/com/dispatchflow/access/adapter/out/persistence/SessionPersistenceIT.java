@@ -28,6 +28,7 @@ import com.dispatchflow.shared.application.StaleVersion;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -72,11 +73,7 @@ class SessionPersistenceIT {
 
     // --- round trips, mirroring the domain's restore round trips
 
-    /**
-     * The states the domain's restore round trip covers, reached through commands. One contact time
-     * kept twice is left out: one instance's commands never keep it, only two saves of copies
-     * loaded at once could.
-     */
+    /** The states the domain's restore round trip covers, reached through commands. */
     enum Scenario {
         LIVE,
         REVOKED,
@@ -255,6 +252,56 @@ class SessionPersistenceIT {
         assertThat(storedVersion(n)).isEqualTo(1L);
         assertThat(storedContacts(n)).containsExactly(at(2));
         assertThat(storedTokenState(token(n, 2))).isEqualTo("CURRENT");
+    }
+
+    @Test
+    void GivenTwoTransactionsEachRecordingAContact_WhenBothSave_ThenBothTimesAreKeptAndTheVersionStays() {
+        int n = 24;
+        transactions.inTransaction(() -> repository.add(opened(n)));
+
+        transactions.inTransaction(() -> {
+            Session mine = repository.get(session(n)).orElseThrow();
+            transactions.inANewTransaction(() -> {
+                Session theirs = repository.get(session(n)).orElseThrow();
+                theirs.recordContact(at(1));
+                repository.save(theirs);
+            });
+            // Neither copy saw the other's contact, so the spacing rule let both keep their own.
+            mine.recordContact(at(1).plusSeconds(20));
+            repository.save(mine);
+        });
+
+        assertThat(storedContacts(n)).containsExactly(at(1), at(1).plusSeconds(20));
+        assertThat(storedVersion(n)).isZero();
+    }
+
+    @Test
+    void
+            GivenADropOfOldTimesSavedWhileAContactHeldAnOlderCopy_WhenTheContactSaves_ThenTheOldTimeGoesAndBothOthersStay() {
+        int n = 25;
+        Instant recent = T.plus(Duration.ofDays(7));
+        Instant now = T.plus(Session.CONTACT_RETENTION).plusSeconds(1);
+        transactions.inTransaction(() -> {
+            Session session = opened(n);
+            session.recordContact(T);
+            session.recordContact(recent);
+            repository.add(session);
+        });
+
+        transactions.inTransaction(() -> {
+            Session contacted = repository.get(session(n)).orElseThrow();
+            transactions.inANewTransaction(() -> {
+                Session dropped = repository.get(session(n)).orElseThrow();
+                dropped.dropOldContacts(now);
+                repository.save(dropped);
+            });
+            // The contact drops the same old time from its own copy, a row already deleted.
+            contacted.recordContact(now);
+            repository.save(contacted);
+        });
+
+        assertThat(storedContacts(n)).containsExactly(recent, now);
+        assertThat(storedVersion(n)).isZero();
     }
 
     // --- the revocation written with no version check (NFR-88, NFR-89)
@@ -550,13 +597,7 @@ class SessionPersistenceIT {
                         1_008,
                         Base.EXCHANGED,
                         (Damage) rows -> rows.setOnToken(1, "successor = id"),
-                        successor),
-                Arguments.of(
-                        "contact times out of order",
-                        1_009,
-                        Base.TWO_CONTACTS,
-                        (Damage) Rows::swapTheTwoContacts,
-                        "contact times never decrease"));
+                        successor));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -581,7 +622,8 @@ class SessionPersistenceIT {
                 Arguments.of("an exchanged token naming no successor", 1_010, (Damage)
                         rows -> rows.setOnToken(1, "successor = NULL")),
                 Arguments.of("a revoked session with no revocation time", 1_011, (Damage)
-                        rows -> rows.setOnSession("state = 'REVOKED'")));
+                        rows -> rows.setOnSession("state = 'REVOKED'")),
+                Arguments.of("one contact time twice", 1_012, (Damage) Rows::insertOneContactTimeTwice));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -600,8 +642,7 @@ class SessionPersistenceIT {
         ONE_TOKEN,
         /** Token 1 exchanged for token 2, which is current. */
         EXCHANGED,
-        REVOKED_EXCHANGED,
-        TWO_CONTACTS;
+        REVOKED_EXCHANGED;
 
         Session build(int n) {
             return switch (this) {
@@ -610,12 +651,6 @@ class SessionPersistenceIT {
                 case REVOKED_EXCHANGED -> {
                     Session session = exchanged(n);
                     session.revoke(at(30));
-                    yield session;
-                }
-                case TWO_CONTACTS -> {
-                    Session session = opened(n);
-                    session.recordContact(at(1));
-                    session.recordContact(at(2));
                     yield session;
                 }
             };
@@ -653,10 +688,11 @@ class SessionPersistenceIT {
                     .update();
         }
 
-        /** Puts the first contact time second and the second first. */
-        void swapTheTwoContacts() {
-            jdbc.sql("UPDATE access.session_contact SET position = 1 - position WHERE session_id = ?")
-                    .param(session(n).value())
+        /** Stores one instant twice among the session's contact times, in one statement. */
+        void insertOneContactTimeTwice() {
+            OffsetDateTime contact = at(1).atOffset(ZoneOffset.UTC);
+            jdbc.sql("INSERT INTO access.session_contact (session_id, contacted_at) VALUES (?, ?), (?, ?)")
+                    .params(session(n).value(), contact, session(n).value(), contact)
                     .update();
         }
     }
@@ -749,7 +785,7 @@ class SessionPersistenceIT {
     }
 
     private List<Instant> storedContacts(int n) {
-        return jdbc.sql("SELECT contacted_at FROM access.session_contact WHERE session_id = ? ORDER BY position")
+        return jdbc.sql("SELECT contacted_at FROM access.session_contact WHERE session_id = ? ORDER BY contacted_at")
                 .param(session(n).value())
                 .query((row, index) -> row.getObject(1, OffsetDateTime.class).toInstant())
                 .list();

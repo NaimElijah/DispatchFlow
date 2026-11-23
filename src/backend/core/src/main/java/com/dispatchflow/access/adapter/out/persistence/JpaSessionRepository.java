@@ -28,11 +28,6 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>{@link #liveGenerationOf} reads the database on every call: the revocation cache the port
  * names is not built yet.
- *
- * <p>It is a {@code @Component}, not a {@code @Repository}: Spring translates the exceptions a
- * {@code @Repository} throws, and would turn the {@code IllegalArgumentException} {@link
- * #saveRevocation} owes a live session into an {@code InvalidDataAccessApiUsageException}. The
- * Spring Data interface translates its own exceptions either way.
  */
 @Component
 @Transactional
