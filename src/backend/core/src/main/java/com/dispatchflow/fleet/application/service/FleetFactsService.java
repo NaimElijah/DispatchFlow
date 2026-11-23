@@ -21,7 +21,7 @@ import java.util.Optional;
  * Operations read them, translated from Fleet's own values (DL §2.2, §2.3 rule 1, ADR-056).
  *
  * <p>Each driver's standing combines Access's {@link Accounts} answer, asked at each read, with the
- * driver record's {@code DriverStatus}, read through {@code Driver.snapshot} (ADR-062, ADR-103):
+ * driver record's {@code DriverStatus}, read through {@code Driver.status} (ADR-062, ADR-103):
  * {@link #rosterOn} asks {@code standingsOf} once for the date's drivers and keeps the active ones
  * (DL §4.2); {@link #driverOn} and {@link #assignability} ask {@code standingOf} for one. The
  * combined standing becomes the domain's {@code Standing} for {@code DayRoster.checkAssignable},

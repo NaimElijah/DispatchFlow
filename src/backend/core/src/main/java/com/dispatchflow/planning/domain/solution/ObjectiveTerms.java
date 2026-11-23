@@ -1,5 +1,6 @@
 package com.dispatchflow.planning.domain.solution;
 
+import jakarta.persistence.Embeddable;
 import java.time.Duration;
 import java.util.Objects;
 
@@ -13,6 +14,10 @@ import java.util.Objects;
  * counted in both (FR-256, BR-115). The preview's stability figure is their sum, {@link
  * #routeStability()} (FR-103).
  *
+ * <p>A proposal stores it in seven of its own columns, through this canonical constructor: it only
+ * checks that every term is present, which the table's {@code NOT NULL} columns keep, so it needs no
+ * instantiator of its own (ADR-126).
+ *
  * @param travel the unbuffered travel time of every leg (FR-402)
  * @param drops the drop penalties, without the moved-stop cost (BR-54, BR-126)
  * @param doorWindow the leave-at-door window penalty (BR-120)
@@ -22,6 +27,7 @@ import java.util.Objects;
  * @param movedStops the moved-stop cost of the stops that stay on their vehicle and are dropped
  *     (BR-115, FR-256)
  */
+@Embeddable
 public record ObjectiveTerms(
         Duration travel,
         Duration drops,

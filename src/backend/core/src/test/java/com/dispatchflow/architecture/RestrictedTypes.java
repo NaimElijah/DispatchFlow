@@ -9,14 +9,13 @@ import java.util.Set;
 
 /**
  * The types only one caller may build, named once for {@link DomainPurityRules} and {@link
- * DomainShapeRules}: aggregates rebuilt by {@code restore}, snapshots read by {@code readUnderLock}
- * (DL §3.5, §5), and Planning's optimizer results (DL §13). The optimizer results are matched by
+ * DomainShapeRules}: aggregates, which only their factories create and only Hibernate rebuilds,
+ * snapshots read by {@code readUnderLock} (DL §3.5, §5), and Planning's optimizer results (DL §13). The optimizer results are matched by
  * name in Planning's domain only, so another module's type, or a generated client model, that
  * shares a name is not caught.
  */
 final class RestrictedTypes {
 
-    static final String RESTORE = "restore";
     static final String READ_UNDER_LOCK = "readUnderLock";
 
     private static final Set<String> OPTIMIZER_RESULTS = Set.of("ValidationReport", "Evaluation");
@@ -25,7 +24,7 @@ final class RestrictedTypes {
 
     private RestrictedTypes() {}
 
-    /** Whether a type is an aggregate root, which only its {@code restore} rebuilds. */
+    /** Whether a type is an aggregate root, which only Hibernate rebuilds (ADR-126). */
     static boolean isAggregate(JavaClass type) {
         return type.isAssignableTo(AggregateRoot.class) && !type.isEquivalentTo(AggregateRoot.class);
     }

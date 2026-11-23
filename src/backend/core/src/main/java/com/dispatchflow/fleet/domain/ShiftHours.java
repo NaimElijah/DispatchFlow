@@ -2,6 +2,8 @@ package com.dispatchflow.fleet.domain;
 
 import com.dispatchflow.fleet.domain.FleetError.InvalidShift;
 import com.dispatchflow.shared.RuleViolation;
+import jakarta.persistence.Column;
+import jakarta.persistence.Embeddable;
 import java.time.LocalTime;
 import java.util.Objects;
 
@@ -14,10 +16,18 @@ import java.util.Objects;
  * <p>A shift that crosses midnight would need FR-114, which is not built, so the end is a time of
  * the same day.
  *
+ * <p>An entity embeds it, stored in two {@code time} columns, {@code starts_at} and {@code ends_at}
+ * unless the entity overrides them. Its constructor checks a rule, so the persistence adapter's
+ * instantiator rebuilds it, and a stored pair the rule refuses is an incident (ADR-126).
+ *
  * @param start when the shift starts
  * @param end when it ends
  */
-public record ShiftHours(LocalTime start, LocalTime end) {
+@Embeddable
+public record ShiftHours(
+        // PostgreSQL reserves "end", so the hours name their own columns, as TimeWindow's do.
+        @Column(name = "starts_at") LocalTime start,
+        @Column(name = "ends_at") LocalTime end) {
 
     /**
      * Checks the end is after the start (FR-190).

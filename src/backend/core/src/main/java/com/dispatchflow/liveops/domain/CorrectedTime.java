@@ -2,6 +2,7 @@ package com.dispatchflow.liveops.domain;
 
 import com.dispatchflow.liveops.domain.LiveOpsError.DeviceTimeOutOfRange;
 import com.dispatchflow.shared.RuleViolation;
+import jakarta.persistence.Embeddable;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
@@ -13,10 +14,15 @@ import java.util.Optional;
  * the receipt time minus the device's clock when it sent the report, and the corrected time is the
  * device time plus that offset (BR-114), cut to the receipt time if it would be later (BR-110).
  *
+ * <p>It is stored in its owner's three columns (ADR-126). Its constructor checks a rule, so Live
+ * Operations' persistence adapter registers an instantiator that rebuilds it through {@code
+ * StoredStateInvalid.whileRestoring}.
+ *
  * @param deviceTime when the device says the report was made
  * @param deviceClockAtSend the device's clock when it sent the report ({@code X-Device-Time})
  * @param receivedAt when the server received it
  */
+@Embeddable
 public record CorrectedTime(Instant deviceTime, Instant deviceClockAtSend, Instant receivedAt) {
 
     /** How far inside the report's span a contact must fall to hold it (BR-133). */

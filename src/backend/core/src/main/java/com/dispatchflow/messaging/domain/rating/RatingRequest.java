@@ -14,12 +14,28 @@ import com.dispatchflow.shared.RatingRequestId;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.StoredStateInvalid;
+import jakarta.persistence.AttributeOverride;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Embeddable;
+import jakarta.persistence.Embedded;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OrderColumn;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.Table;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 
@@ -35,9 +51,15 @@ import org.jspecify.annotations.Nullable;
  * <p>It is <em>closed</em> from 48 hours after the question was accepted, which is a matter of time
  * and is not stored ({@link #statusAt}). Its phone is removed 90 days after the question was
  * accepted, and each comment 90 days after its own reply was received; its rating stays (NFR-184,
- * NFR-193). Every method checks all its rules before it changes anything.
+ * NFR-193). Every method checks all its rules before it changes anything, and every change ends by
+ * checking the invariants at rest.
+ *
+ * <p>It is mapped for JPA (ADR-126): its key is its ID's UUID, its rating two nullable columns, and
+ * its comments an ordered element collection.
  */
-public final class RatingRequest extends AggregateRoot implements PersonalData {
+@Entity
+@Table(schema = "messaging", name = "rating_request")
+public class RatingRequest extends AggregateRoot implements PersonalData {
 
     /** How long after its question was accepted a reply answers it (FR-357). */
     public static final Duration ANSWER_WINDOW = Duration.ofHours(48);
@@ -71,11 +93,12 @@ public final class RatingRequest extends AggregateRoot implements PersonalData {
     }
 
     /**
-     * A delivery's rating.
+     * A delivery's rating, stored in its request's columns.
      *
      * @param rating the rating
      * @param at when its reply was received
      */
+    @Embeddable
     public record Rated(Rating rating, Instant at) {
 
         /** Checks every part is present. */
@@ -85,27 +108,46 @@ public final class RatingRequest extends AggregateRoot implements PersonalData {
         }
     }
 
-    private final RatingRequestId id;
-    private final StopId stop;
-    private final Instant acceptedAt;
+    @Id
+    private UUID id;
+
+    private StopId stop;
+
+    private Instant acceptedAt;
+
     private @Nullable PhoneNumber phone;
+
+    @Embedded
+    @AttributeOverride(name = "rating", column = @Column(name = "rating"))
+    @AttributeOverride(name = "at", column = @Column(name = "rated_at"))
     private @Nullable Rated rating;
-    private List<ReceivedComment> comments;
+
+    @ElementCollection
+    @CollectionTable(
+            schema = "messaging",
+            name = "rating_request_comment",
+            joinColumns = @JoinColumn(name = "rating_request_id"))
+    @OrderColumn(name = "position", nullable = false)
+    private List<ReceivedComment> comments = new ArrayList<>();
+
+    @Enumerated(EnumType.STRING)
     private OneTimeReply reminder;
+
+    @Enumerated(EnumType.STRING)
     private OneTimeReply thankYou;
+
     private @Nullable Instant removedAt;
 
-    private RatingRequest(RatingRequestSnapshot state) {
-        super(state.version());
-        this.id = state.id();
-        this.stop = state.stop();
-        this.acceptedAt = state.acceptedAt();
-        this.phone = state.phone().orElse(null);
-        this.rating = state.rating().orElse(null);
-        this.comments = state.comments();
-        this.reminder = state.reminder();
-        this.thankYou = state.thankYou();
-        this.removedAt = state.removedAt().orElse(null);
+    /** For Hibernate, which sets the fields from the stored rows and then runs {@link #checkStored}. */
+    protected RatingRequest() {}
+
+    private RatingRequest(RatingRequestId id, RatingQuestion question) {
+        this.id = id.value();
+        this.stop = question.stop();
+        this.acceptedAt = question.acceptedAt();
+        this.phone = question.phone();
+        this.reminder = OneTimeReply.NOT_YET;
+        this.thankYou = OneTimeReply.NOT_YET;
     }
 
     /**
@@ -117,36 +159,22 @@ public final class RatingRequest extends AggregateRoot implements PersonalData {
      * @return the request, open, never saved
      */
     public static RatingRequest open(RatingRequestId id, RatingQuestion question) {
-        Objects.requireNonNull(id, "id");
-        Objects.requireNonNull(question, "question");
-        return new RatingRequest(new RatingRequestSnapshot(
-                id,
-                null,
-                question.stop(),
-                Optional.of(question.phone()),
-                question.acceptedAt(),
-                Optional.empty(),
-                List.of(),
-                OneTimeReply.NOT_YET,
-                OneTimeReply.NOT_YET,
-                Optional.empty()));
+        return new RatingRequest(Objects.requireNonNull(id, "id"), Objects.requireNonNull(question, "question"));
     }
 
     /**
-     * Rebuilds a request from storage, checking the invariants that hold at rest: it has its phone
-     * exactly until it is removed; it keeps at most 20 comments; its rating and comments were
-     * received within its 48 hours; and its thank-you is due exactly when it is rated. Only
-     * persistence adapters call it (DL §3.5).
+     * Checks the request as Hibernate loaded it against the invariants that hold at rest (ADR-126
+     * decision 8): it has its phone exactly until it is removed; it keeps at most 20 comments; its
+     * rating and comments were received within its 48 hours; and its thank-you is due exactly when
+     * it is rated.
      *
-     * @param stored the stored state
-     * @return the request at the stored version
-     * @throws StoredStateInvalid when the stored state breaks one of those invariants
+     * @throws StoredStateInvalid when the stored state breaks one of them
      */
-    public static RatingRequest restore(RatingRequestSnapshot stored) {
-        brokenBy(stored).ifPresent(broken -> {
+    @PostLoad
+    void checkStored() {
+        brokenRule().ifPresent(broken -> {
             throw new StoredStateInvalid(RatingRequest.class, broken);
         });
-        return new RatingRequest(stored);
     }
 
     /**
@@ -205,16 +233,20 @@ public final class RatingRequest extends AggregateRoot implements PersonalData {
     public void removePersonalData(Instant now) {
         Objects.requireNonNull(now, "now");
         boolean phoneDue = phone != null && !now.isBefore(MessagingRetention.endOf(acceptedAt));
-        List<ReceivedComment> kept = comments.stream()
-                .filter(comment -> now.isBefore(MessagingRetention.endOf(comment.receivedAt())))
-                .toList();
-        if (!phoneDue && kept.size() == comments.size()) {
+        Predicate<ReceivedComment> commentDue =
+                comment -> !now.isBefore(MessagingRetention.endOf(comment.receivedAt()));
+        if (!phoneDue && comments.stream().noneMatch(commentDue)) {
             if (phone == null && comments.isEmpty()) {
                 return;
             }
             throw new RuleViolation(new RetentionNotOver());
         }
-        commit(phoneDue ? null : phone, rating, kept, reminder, thankYou, phoneDue ? now : removedAt);
+        comments.removeIf(commentDue);
+        if (phoneDue) {
+            phone = null;
+            removedAt = now;
+        }
+        requireInvariants();
     }
 
     /**
@@ -237,26 +269,79 @@ public final class RatingRequest extends AggregateRoot implements PersonalData {
      * @return the ID
      */
     public RatingRequestId id() {
-        return id;
+        return RatingRequestId.of(id);
     }
 
     /**
-     * The request as stored.
+     * The delivered stop the request is about.
      *
-     * @return a snapshot that {@link #restore} rebuilds
+     * @return the stop
      */
-    public RatingRequestSnapshot snapshot() {
-        return new RatingRequestSnapshot(
-                id,
-                savedVersion().orElse(null),
-                stop,
-                Optional.ofNullable(phone),
-                acceptedAt,
-                Optional.ofNullable(rating),
-                comments,
-                reminder,
-                thankYou,
-                Optional.ofNullable(removedAt));
+    public StopId stop() {
+        return stop;
+    }
+
+    /**
+     * The phone the question went to, until its retention ends (NFR-184).
+     *
+     * @return the phone; empty once removed
+     */
+    public Optional<PhoneNumber> phone() {
+        return Optional.ofNullable(phone);
+    }
+
+    /**
+     * When the provider accepted the question, from which the 48 hours run (FR-357).
+     *
+     * @return the time
+     */
+    public Instant acceptedAt() {
+        return acceptedAt;
+    }
+
+    /**
+     * The delivery's rating, once given; it stays when the personal data goes (FR-362).
+     *
+     * @return the rating and when its reply was received; empty before the first rating
+     */
+    public Optional<Rated> rating() {
+        return Optional.ofNullable(rating);
+    }
+
+    /**
+     * The replies kept as comments (FR-360).
+     *
+     * @return an unmodifiable copy, at most 20, in the order received
+     */
+    public List<ReceivedComment> comments() {
+        return List.copyOf(comments);
+    }
+
+    /**
+     * What became of the one format reminder (FR-359).
+     *
+     * @return not yet due, sent or skipped
+     */
+    public OneTimeReply reminder() {
+        return reminder;
+    }
+
+    /**
+     * What became of the one thank-you (FR-358).
+     *
+     * @return not yet due, sent or skipped
+     */
+    public OneTimeReply thankYou() {
+        return thankYou;
+    }
+
+    /**
+     * When the phone was removed (NFR-184); each comment goes on its own date.
+     *
+     * @return the time; empty while the phone is kept
+     */
+    public Optional<Instant> removedAt() {
+        return Optional.ofNullable(removedAt);
     }
 
     /**
@@ -266,7 +351,9 @@ public final class RatingRequest extends AggregateRoot implements PersonalData {
      */
     @Override
     public String toString() {
-        return "RatingRequest[" + snapshot() + "]";
+        return "RatingRequest[id=" + id() + ", stop=" + stop + ", phone=" + (phone == null ? "none" : "redacted")
+                + ", acceptedAt=" + acceptedAt + ", rating=" + rating + ", comments=" + comments.size()
+                + ", reminder=" + reminder + ", thankYou=" + thankYou + ", removedAt=" + removedAt + "]";
     }
 
     private boolean answersAt(Instant receivedAt) {
@@ -277,25 +364,28 @@ public final class RatingRequest extends AggregateRoot implements PersonalData {
 
     private Answer notARating(Optional<Comment> comment, OneTimeReply allowed, Instant receivedAt) {
         boolean remind = rating == null && reminder == OneTimeReply.NOT_YET;
-        commit(phone, rating, withComment(comment, receivedAt), remind ? allowed : reminder, thankYou, removedAt);
+        keep(comment, receivedAt);
+        if (remind) {
+            reminder = allowed;
+        }
+        requireInvariants();
         Answer.Counted counted = comment.isPresent() ? Answer.Counted.COMMENT : Answer.Counted.NOTHING;
         return new Answer(counted, dueIf(remind && allowed == OneTimeReply.SENT, ReplyMessage.FORMAT_REMINDER));
     }
 
     private Answer rated(Rating given, Optional<Comment> comment, OneTimeReply allowed, Instant receivedAt) {
         boolean first = rating == null;
-        commit(
-                phone,
-                first ? new Rated(given, receivedAt) : rating,
-                withComment(comment, receivedAt),
-                reminder,
-                first ? allowed : thankYou,
-                removedAt);
+        if (first) {
+            rating = new Rated(given, receivedAt);
+            thankYou = allowed;
+        }
+        keep(comment, receivedAt);
+        requireInvariants();
         if (first) {
             raise(
                     RatingReceived.class,
-                    id.value(),
-                    eventId -> new RatingReceived(eventId, receivedAt, id, stop, given.value()));
+                    id,
+                    eventId -> new RatingReceived(eventId, receivedAt, id(), stop, given.value()));
         }
         Answer.Counted counted;
         if (first) {
@@ -306,13 +396,8 @@ public final class RatingRequest extends AggregateRoot implements PersonalData {
         return new Answer(counted, dueIf(first && allowed == OneTimeReply.SENT, ReplyMessage.THANK_YOU));
     }
 
-    private List<ReceivedComment> withComment(Optional<Comment> comment, Instant receivedAt) {
-        if (comment.isEmpty()) {
-            return comments;
-        }
-        List<ReceivedComment> next = new ArrayList<>(comments);
-        next.add(new ReceivedComment(comment.get(), receivedAt));
-        return next;
+    private void keep(Optional<Comment> comment, Instant receivedAt) {
+        comment.ifPresent(kept -> comments.add(new ReceivedComment(kept, receivedAt)));
     }
 
     private static Optional<ReplyMessage> dueIf(boolean due, ReplyMessage message) {
@@ -320,56 +405,33 @@ public final class RatingRequest extends AggregateRoot implements PersonalData {
     }
 
     /**
-     * Replaces the state with the one a command built, after checking it holds every at-rest
-     * invariant; a broken one here is a bug in the command, not a refusal.
+     * Checks the state a command left against every invariant at rest (ADR-126 decision 11); a
+     * broken one here is a bug in the command, not a refusal, and the error rolls its transaction
+     * back.
      */
-    private void commit(
-            @Nullable PhoneNumber nextPhone,
-            @Nullable Rated nextRating,
-            List<ReceivedComment> nextComments,
-            OneTimeReply nextReminder,
-            OneTimeReply nextThankYou,
-            @Nullable Instant nextRemovedAt) {
-        RatingRequestSnapshot candidate = new RatingRequestSnapshot(
-                id,
-                savedVersion().orElse(null),
-                stop,
-                Optional.ofNullable(nextPhone),
-                acceptedAt,
-                Optional.ofNullable(nextRating),
-                nextComments,
-                nextReminder,
-                nextThankYou,
-                Optional.ofNullable(nextRemovedAt));
-        brokenBy(candidate).ifPresent(broken -> {
-            throw new AssertionError("a rating request command would leave a state that breaks: " + broken);
+    private void requireInvariants() {
+        brokenRule().ifPresent(broken -> {
+            throw new AssertionError("a rating request command left a state that breaks: " + broken);
         });
-        phone = nextPhone;
-        rating = nextRating;
-        comments = candidate.comments();
-        reminder = nextReminder;
-        thankYou = nextThankYou;
-        removedAt = nextRemovedAt;
     }
 
-    /** The one check of the invariants at rest, shared by {@link #restore} and every command. */
-    private static Optional<String> brokenBy(RatingRequestSnapshot state) {
-        boolean removed = state.removedAt().isPresent();
-        if (removed == state.phone().isPresent()) {
+    /** The one check of the invariants at rest, shared by the load check and every command. */
+    private Optional<String> brokenRule() {
+        if ((removedAt != null) == (phone != null)) {
             return Optional.of("a rating request has its phone exactly until it is removed");
         }
-        if (state.comments().size() > MOST_COMMENTS) {
+        if (comments.size() > MOST_COMMENTS) {
             return Optional.of("a rating request keeps at most 20 comments");
         }
-        Instant end = state.acceptedAt().plus(ANSWER_WINDOW);
+        Instant end = acceptedAt.plus(ANSWER_WINDOW);
         boolean outside = Stream.concat(
-                        state.rating().map(Rated::at).stream(),
-                        state.comments().stream().map(ReceivedComment::receivedAt))
-                .anyMatch(at -> at.isBefore(state.acceptedAt()) || at.isAfter(end));
+                        Stream.ofNullable(rating).map(Rated::at),
+                        comments.stream().map(ReceivedComment::receivedAt))
+                .anyMatch(at -> at.isBefore(acceptedAt) || at.isAfter(end));
         if (outside) {
             return Optional.of("a rating and comments are received within the 48 hours (FR-357, FR-360)");
         }
-        if (state.rating().isPresent() == (state.thankYou() == OneTimeReply.NOT_YET)) {
+        if ((rating != null) == (thankYou == OneTimeReply.NOT_YET)) {
             return Optional.of("a rating request's thank-you is due exactly when it is rated (FR-358)");
         }
         return Optional.empty();

@@ -50,28 +50,25 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
     `Locale`, and `formatted` and `DateTimeFormatter.ofLocalized*` are never used.
   - They never create an `IllegalArgumentException` or an `IllegalStateException`, or a subclass of
     either. They throw a `RuleViolation` with the module's named error, or `StoredStateInvalid`.
-  - Only persistence adapters call an aggregate's `restore`, which its lane replaces with a
-    `@PostLoad` check when it maps it ([ADR-126]), or a locked snapshot's `readUnderLock`. Only the
-    optimizer adapter makes `ValidationReport` or `Evaluation` ([DL §13]).
+  - Only persistence adapters call `readUnderLock`, and only the optimizer adapter makes
+    `ValidationReport` or `Evaluation` ([DL §13]).
 - `DomainShapeRules` checks the shape. What goes against Java's defaults:
   - The constructors of an aggregate root (bar Hibernate's protected no-argument one), a locked
-    snapshot, `ValidationReport`, `Evaluation` and `ValidatedSolution` are private. Every interface
-    that extends `DomainError` is sealed, and no error declares its own `code()`.
+    snapshot, `ValidationReport`, `Evaluation` and `ValidatedSolution` are private; a root's
+    constructors are called only from within it, and no class extends a root ([ADR-126]). Every
+    interface that extends `DomainError` is sealed, and no error declares its own `code()`.
   - Error fields become a response's `params` ([ADR-043]), so they never hold text, an `Object`, an
     array or anything personal ([ADR-106]).
-  - Every personal value implements `PersonalData`. No test checks that; review does. Every concrete
-    `PersonalData` type declares its own redacting `toString()`: a record's implicit one doesn't
-    count.
-  - An event's fields are typed IDs, `EventId`, `Version`, the shared values other than
-    `PhoneNumber`, `GeoPoint`, `PlainText` and `Attempt`, the package's own enums, `Instant`, `int`,
-    `long`, `boolean`, or lists of these (a field is never boxed). No field holds a `PersonalData`
-    value.
+  - Every personal value implements `PersonalData`, which review checks, not a test. Each concrete
+    `PersonalData` type declares its own redacting `toString()`, never a record's implicit one.
+  - An event's fields are typed IDs, `EventId`, `Version`, the shared values but `PhoneNumber`,
+    `GeoPoint`, `PlainText` and `Attempt`, the package's own enums, `Instant`, `int`, `long`,
+    `boolean`, or lists of these, never boxed, and none holds a `PersonalData` value.
 - `ApplicationRules` ([ADR-119], [ADR-120]) numbers its rules in its methods' Javadoc, with a
   fixture under `archfixture/zeta/` for each. What goes against the defaults:
   - The application layer imports only the JDK, JSpecify, the kernel, its own module's `domain`,
     `events` and `application`, and other modules' `api` and `events` (another module's `spi` only
-    as the rule allows). No `adapter`, no libphonenumber or JTS, and from Spring only
-    `@Transactional`.
+    as the rule allows). No `adapter`, libphonenumber or JTS, and from Spring only `@Transactional`.
   - Modules depend on each other along [DL §2.1]'s arrows and no others. No `api` or `spi` type uses
     a domain type.
   - Each `api` interface `X` has one implementation, `XService`, in its module's
@@ -114,8 +111,8 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   never edit an applied one, and `ddl-auto` stays `validate`. Flyway runs as `dispatchflow_owner` in
   a one-shot `migrate` step, which alone holds that credential; the core connects as `app`, which
   owns no table ([ADR-041], [TS §6.3]). Until the change that adds `migrate`, Spring Boot runs it.
-- Optimistic locking is `AggregateRoot`'s `@Version` ([ADR-057]): every adapter saves through
-  `VersionedSave`, which moves it by exactly 1, and the use case checks `If-Match` with
+- Optimistic locking is `AggregateRoot`'s `@Version` ([ADR-057]): every root's adapter saves
+  through `VersionedSave`, which moves it by exactly 1, and the use case checks `If-Match` with
   `StaleVersion.requireCurrent`. `STALE_VERSION` answers 412 to a call that sent a version; one that
   sent none is re-run whole in a new transaction, up to three times, then 503 ([ADR-121]).
 - The `e2e` profile's test-only endpoints exist only in that profile, and the profile refuses to
@@ -125,10 +122,14 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   is the only active profile, the core refuses to boot with an access-token lifetime other than 15
   minutes. Each refusal has a test. M5 deletes the stand-in, and M6 the dev allowance ([ADR-121]).
 - No Lombok: records and plain classes. Configuration comes from environment variables.
-- Persistence is JPA ([ADR-126], [TS §6.3]). An adapter implements its port with a package-private
-  Spring Data `Repository<Root, UUID>` that declares `save` and the port's lookups, never a
-  `CrudRepository` or `JpaRepository`. Native SQL binds every value; SQL and bind logging stay off.
-  `PersistenceRules` checks how the domain and the adapters are mapped.
+- Persistence is JPA ([ADR-126], [ADR-127], [TS §6.3]). A port's `@Component` works over a
+  package-private Spring Data `Repository<Root, UUID>` with `save` and the port's lookups only;
+  never `@Repository`, whose exception translation turns a port's own `IllegalArgumentException`
+  into a Spring one.
+  Native SQL binds every value; SQL and bind logging stay off. `PersistenceRules` checks the
+  mapping, a `*PersistenceIT` the stored state. A call that flushes (an `add`, or a query, which
+  flushes what is pending) writes every changed aggregate: save a changed aggregate before one, or
+  `VersionedSave` fails its one-step check. Renaming a stored error or its field needs a migration.
 
 ## Tests
 
@@ -138,8 +139,7 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
 - Test in layers ([DL §14], [TS §17.1]):
   - Domain tests use no Spring and no mocks. Aggregates take values, `now` and new IDs as
     parameters. Every invariant in [DL §4] has a test that breaks it and asserts the module's named
-    error. Every transition has one test that takes it, plus one per other state that must refuse
-    it.
+    error. Each transition has a test that takes it, plus one per other state that must refuse it.
   - A refusal test asserts through `DomainAssertions.assertRefused` (or `assertAllRefused` for a
     `RuleViolations`). It is a `@Test` or `@ParameterizedTest` whose name ends in
     `_Then<ErrorName>`, and may sit anywhere under its error's package.
@@ -148,12 +148,11 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
     event reaction) boot Spring, so they are not Surefire unit tests. Their suffix and container
     wiring are set with the first module (M0). Publish each event twice: after the second delivery
     the state equals the state after the first. Wait through `Scenario`, never `sleep`.
-  - Generate permission tests from the contract's `x-capability` mapping and the permission matrix
-    ([NFR-176]).
+  - Permission tests come from the contract's `x-capability` and the permission matrix ([NFR-176]).
   - A test sits in the package of the type it tests, and one that covers several packages' values
     sits in the module's root. A helper that several test packages use is public.
-  - Build test data with one builder per aggregate, such as `aPlan()`. No test reads a shared
-    fixture file that other tests also change.
+  - Build test data with one builder per aggregate, such as `aPlan()`, through its commands and
+    `AsSaved`. No test reads a shared fixture file that other tests also change.
   - The failure paths the design names are listed in `.claude/agents/df-tester.md`.
 
 ## Commands
@@ -187,6 +186,7 @@ Run `just` recipes from the repository root, and `mvnw` from this folder (`.\mvn
 [ADR-121]: ../../../docs/ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md
 [ADR-125]: ../../../docs/ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md
 [ADR-126]: ../../../docs/ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md
+[ADR-127]: ../../../docs/ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md
 [DL §2.1]: ../../../docs/architecture/domain_layer/domain_layer_design.md#21-module-graph
 [DL §2.3]: ../../../docs/architecture/domain_layer/domain_layer_design.md#23-rules-between-contexts
 [DL §3.9]: ../../../docs/architecture/domain_layer/domain_layer_design.md#39-purity

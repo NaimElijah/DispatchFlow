@@ -20,8 +20,8 @@ import com.dispatchflow.shared.application.IdGenerator;
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
- * <p>Domain gap: no domain method copies an order, and {@code Order} gives its details only through
- * its snapshot. The milestone that builds this adds the method, for example a factory that places
+ * <p>Domain gap: no domain method copies an order. The milestone that builds this adds the method,
+ * for example a factory that places
  * an order's details on another date's capacity. Each copy takes its customer's defaults through
  * {@code Customer.activeDefaults()}, which M2 adds for {@link PlaceOrder}, so a customer that isn't
  * active refuses.

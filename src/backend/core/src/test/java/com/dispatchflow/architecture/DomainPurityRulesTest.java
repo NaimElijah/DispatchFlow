@@ -2,12 +2,9 @@ package com.dispatchflow.architecture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.dispatchflow.archfixture.alpha.adapter.out.persistence.RestoresInPersistence;
+import com.dispatchflow.archfixture.alpha.adapter.out.persistence.ReadsUnderLockInPersistence;
 import com.dispatchflow.archfixture.alpha.application.AlphaUseCase;
 import com.dispatchflow.archfixture.alpha.application.ReadsUnderLockOutsidePersistence;
-import com.dispatchflow.archfixture.alpha.application.RestoresANonAggregate;
-import com.dispatchflow.archfixture.alpha.application.RestoresByReferenceOutsidePersistence;
-import com.dispatchflow.archfixture.alpha.application.RestoresOutsidePersistence;
 import com.dispatchflow.archfixture.alpha.domain.AlphaAggregate;
 import com.dispatchflow.archfixture.alpha.domain.AlphaCapacity;
 import com.dispatchflow.archfixture.alpha.domain.AlphaValue;
@@ -394,28 +391,18 @@ class DomainPurityRulesTest {
                 .isFalse();
     }
 
-    @ParameterizedTest
-    @ValueSource(
-            classes = {
-                RestoresOutsidePersistence.class,
-                RestoresByReferenceOutsidePersistence.class,
-                ReadsUnderLockOutsidePersistence.class
-            })
-    void GivenARestoreOutsidePersistence_WhenRule6Evaluates_ThenItIsFlagged(Class<?> fixture) {
-        assertThat(flags(DomainPurityRules.restoreOnlyFromPersistence(FIXTURE_ROOT), fixture))
+    @Test
+    void GivenALockReadOutsidePersistence_WhenRule6Evaluates_ThenItIsFlagged() {
+        assertThat(flags(
+                        DomainPurityRules.lockReadsOnlyFromPersistence(FIXTURE_ROOT),
+                        ReadsUnderLockOutsidePersistence.class))
                 .isTrue();
     }
 
     @ParameterizedTest
-    @ValueSource(
-            classes = {
-                RestoresInPersistence.class,
-                RestoresANonAggregate.class,
-                AlphaAggregate.class,
-                AlphaCapacity.class
-            })
-    void GivenARestoreInPersistenceOrByTheTypeItself_WhenRule6Evaluates_ThenNothingIsFlagged(Class<?> fixture) {
-        assertThat(flags(DomainPurityRules.restoreOnlyFromPersistence(FIXTURE_ROOT), fixture, AlphaUseCase.class))
+    @ValueSource(classes = {ReadsUnderLockInPersistence.class, AlphaCapacity.class})
+    void GivenALockReadInPersistenceOrByTheTypeItself_WhenRule6Evaluates_ThenNothingIsFlagged(Class<?> fixture) {
+        assertThat(flags(DomainPurityRules.lockReadsOnlyFromPersistence(FIXTURE_ROOT), fixture, AlphaUseCase.class))
                 .isFalse();
     }
 

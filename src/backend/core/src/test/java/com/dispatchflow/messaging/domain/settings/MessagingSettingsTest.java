@@ -19,15 +19,17 @@ class MessagingSettingsTest {
     void GivenADeployment_WhenTheSettingsAreCreated_ThenMessagesAndTheRatingQuestionStartOff() {
         MessagingSettings settings = MessagingSettings.create(DISPATCH);
 
-        assertThat(settings.snapshot())
-                .isEqualTo(new MessagingSettingsSnapshot(null, Switch.OFF, Switch.OFF, DISPATCH));
+        assertThat(settings.messages()).isEqualTo(Switch.OFF);
+        assertThat(settings.ratingQuestion()).isEqualTo(Switch.OFF);
+        assertThat(settings.dispatchPhone()).isEqualTo(DISPATCH);
+        assertThat(settings.savedVersion()).isEmpty();
         assertThat(settings.conditions(COMPANY, MessageLanguage.HEBREW, PhoneConsent.MAY_BE_MESSAGED)
                         .mayMessage())
                 .isFalse();
     }
 
     @Test
-    void GivenTheSettings_WhenEachIsChanged_ThenTheNewValuesAreKeptAndRestoreRoundTrips() {
+    void GivenTheSettings_WhenEachIsChanged_ThenTheNewValuesAreKept() {
         MessagingSettings settings = MessagingSettings.create(DISPATCH);
         DispatchPhone mobile = DispatchPhone.of(MOBILE);
 
@@ -35,9 +37,9 @@ class MessagingSettingsTest {
         settings.changeRatingQuestion(Switch.ON);
         settings.changeDispatchPhone(mobile);
 
-        MessagingSettingsSnapshot changed = settings.snapshot();
-        assertThat(changed).isEqualTo(new MessagingSettingsSnapshot(null, Switch.ON, Switch.ON, mobile));
-        assertThat(MessagingSettings.restore(changed).snapshot()).isEqualTo(changed);
+        assertThat(settings.messages()).isEqualTo(Switch.ON);
+        assertThat(settings.ratingQuestion()).isEqualTo(Switch.ON);
+        assertThat(settings.dispatchPhone()).isEqualTo(mobile);
         assertThat(settings.pendingEvents()).isEmpty();
     }
 

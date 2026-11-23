@@ -1,6 +1,6 @@
 package com.dispatchflow.liveops.application.port.out;
 
-import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.HeldReport;
+import com.dispatchflow.liveops.domain.outcome.HeldReport;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.StopId;

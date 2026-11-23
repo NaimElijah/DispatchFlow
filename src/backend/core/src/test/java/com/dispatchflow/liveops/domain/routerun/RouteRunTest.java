@@ -10,7 +10,7 @@ import static com.dispatchflow.liveops.domain.LiveOpsFixtures.ROUTE_A;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.STOP;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.T_0800;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.byA;
-import static com.dispatchflow.liveops.domain.LiveOpsFixtures.reload;
+import static com.dispatchflow.shared.AsSaved.asSaved;
 import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -29,12 +29,10 @@ import com.dispatchflow.liveops.events.RunStartCause;
 import com.dispatchflow.shared.DomainError;
 import com.dispatchflow.shared.EventId;
 import com.dispatchflow.shared.IsraelDateTime;
-import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.Version;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
@@ -64,21 +62,21 @@ class RouteRunTest {
             Instant.parse("2027-03-01T13:00:00Z"));
 
     private static RouteRun started() {
-        return reload(RouteRun.start(ROUTE_A, byA(ONLINE), DRIVER_A, DRIVER_A, RunStartCause.DRIVER_STARTED, NOW));
+        return asSaved(RouteRun.start(ROUTE_A, byA(ONLINE), DRIVER_A, DRIVER_A, RunStartCause.DRIVER_STARTED, NOW));
     }
 
     private static RouteRun finished() {
         RouteRun run = started();
         run.finish(byA(FINISH_1300), DRIVER_A, DRIVER_A, List.of(STOP));
-        return reload(run);
+        return asSaved(run);
     }
 
     private static void assertRefusedUnchanged(RouteRun run, ThrowingCallable call, DomainError expected) {
-        RouteRunSnapshot before = run.snapshot();
+        RouteRunDescription before = RouteRunDescription.of(run);
 
         assertRefused(call, expected);
 
-        assertThat(run.snapshot()).isEqualTo(before);
+        assertThat(RouteRunDescription.of(run)).isEqualTo(before);
         assertThat(run.pendingEvents()).isEmpty();
     }
 
@@ -95,7 +93,7 @@ class RouteRunTest {
                         DRIVER_A,
                         T_0800,
                         RunStartCause.FIRST_REPORT));
-        assertThat(run.snapshot().startedAt()).isEqualTo(T_0800);
+        assertThat(run.startedAt()).isEqualTo(T_0800);
     }
 
     enum Command {
@@ -158,7 +156,7 @@ class RouteRunTest {
                 RunStartCause.DRIVER_STARTED,
                 NOW);
 
-        assertThat(run.snapshot().startedBy()).isEqualTo(DRIVER_B);
+        assertThat(run.startedBy()).isEqualTo(DRIVER_B);
         assertThat(run.pendingEvents())
                 .containsExactly(new RouteStarted(
                         new EventId("RouteStarted", ROUTE_A.value(), Version.of(0), 0),
@@ -228,7 +226,7 @@ class RouteRunTest {
                 new NotYourRoute(ROUTE_A));
         run.finish(new DriverReport(DRIVER_B, ROUTE_A, FINISH_1300), DRIVER_B, DRIVER_B, List.of());
 
-        assertThat(run.snapshot().status())
+        assertThat(run.status())
                 .isEqualTo(new RunStatus.Finished(Instant.parse("2027-03-01T13:00:00Z"), DRIVER_B, List.of()));
     }
 
@@ -271,7 +269,7 @@ class RouteRunTest {
 
         run.finish(new DriverReport(DRIVER_B, ROUTE_A, FINISH_1300), DRIVER_B, DRIVER_B, List.of());
 
-        assertThat(run.snapshot().status())
+        assertThat(run.status())
                 .isEqualTo(new RunStatus.Finished(Instant.parse("2027-03-01T13:00:00Z"), DRIVER_B, List.of()));
     }
 
@@ -282,7 +280,7 @@ class RouteRunTest {
         run.finish(byA(FINISH_1300), DRIVER_A, DRIVER_A, List.of(STOP));
 
         assertThat(run.isFinished()).isTrue();
-        assertThat(run.snapshot().status())
+        assertThat(run.status())
                 .isEqualTo(new RunStatus.Finished(Instant.parse("2027-03-01T13:00:00Z"), DRIVER_A, List.of(STOP)));
         assertThat(run.pendingEvents()).isEmpty();
     }
@@ -301,7 +299,7 @@ class RouteRunTest {
     void GivenRev1Confirmed_WhenRev2Seen_ThenRev2Stored() {
         RouteRun run = started();
         run.acknowledge(DRIVER_A, DRIVER_A, REV_1, REV_1);
-        RouteRun reloaded = reload(run);
+        RouteRun reloaded = asSaved(run);
 
         reloaded.acknowledge(DRIVER_A, DRIVER_A, REV_2, REV_2);
 
@@ -330,14 +328,14 @@ class RouteRunTest {
     void GivenARevisionTheDriverConfirmed_WhenAnOlderOrTheSameOneArrives_ThenItIsIgnored() {
         RouteRun run = started();
         run.acknowledge(DRIVER_A, DRIVER_A, REV_2, REV_2);
-        RouteRun reloaded = reload(run);
-        RouteRunSnapshot before = reloaded.snapshot();
+        RouteRun reloaded = asSaved(run);
+        RouteRunDescription before = RouteRunDescription.of(reloaded);
 
         reloaded.acknowledge(DRIVER_A, DRIVER_A, REV_1, REV_2);
         reloaded.acknowledge(DRIVER_A, DRIVER_A, REV_2, REV_2);
 
         assertThat(reloaded.confirmed()).contains(REV_2);
-        assertThat(reloaded.snapshot()).isEqualTo(before);
+        assertThat(RouteRunDescription.of(reloaded)).isEqualTo(before);
     }
 
     @Test
@@ -466,32 +464,6 @@ class RouteRunTest {
         assertThat(run.isConfirmationOverdue(
                         REV_2, Instant.parse("2027-03-01T13:30:00Z"), Instant.parse("2027-03-01T14:00:00Z")))
                 .isFalse();
-    }
-
-    @Test
-    void GivenAFinishedRunNamingAStopTwice_WhenRestored_ThenStoredStateInvalid() {
-        RouteRunSnapshot s = finished().snapshot();
-        RouteRunSnapshot twice = new RouteRunSnapshot(
-                s.route(),
-                s.version(),
-                s.startedBy(),
-                s.cause(),
-                s.startedAt(),
-                new RunStatus.Finished(Instant.parse("2027-03-01T13:00:00Z"), DRIVER_A, List.of(STOP, STOP)),
-                Optional.empty());
-
-        assertThatThrownBy(() -> RouteRun.restore(twice)).isInstanceOfSatisfying(StoredStateInvalid.class, refused -> {
-            assertThat(refused.subject()).isEqualTo("RouteRun");
-            assertThat(refused.detail()).isEqualTo("a finished run names each pending stop once (FR-329)");
-        });
-    }
-
-    @ParameterizedTest(name = "{0}")
-    @CsvSource({"started", "finished"})
-    void GivenEveryBuilderState_WhenRestoredFromItsSnapshot_ThenTheSnapshotRoundTrips(String state) {
-        RouteRun run = state.equals("started") ? started() : finished();
-
-        assertThat(RouteRun.restore(run.snapshot()).snapshot()).isEqualTo(run.snapshot());
     }
 
     @Test

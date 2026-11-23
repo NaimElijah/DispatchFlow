@@ -16,16 +16,15 @@ import static com.dispatchflow.reporting.domain.baseline.BaselineBuilder.COMPUTE
 import static com.dispatchflow.reporting.domain.baseline.BaselineBuilder.LOADED;
 import static com.dispatchflow.reporting.domain.baseline.BaselineBuilder.aBaseline;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dispatchflow.reporting.domain.CancelledOrders;
 import com.dispatchflow.reporting.domain.PlannedOnTimeRate;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PlanId;
-import com.dispatchflow.shared.StoredStateInvalid;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -75,9 +74,10 @@ class BaselineTest {
         Baseline baseline = Baseline.compute(PLAN, BASELINE_FIGURES, NOW);
 
         assertThat(baseline.plan()).isEqualTo(PLAN);
-        assertThat(baseline.snapshot().version()).isNull();
-        assertThat(baseline.snapshot())
-                .isEqualTo(new BaselineSnapshot(PLAN, null, BASELINE_FIGURES, new BaselineCause.Published(), NOW));
+        assertThat(baseline.savedVersion()).isEmpty();
+        assertThat(BaselineDescription.of(baseline))
+                .isEqualTo(new BaselineDescription(
+                        PLAN, Optional.empty(), BASELINE_FIGURES, new BaselineCause.Published(), NOW));
         assertThat(baseline.pendingEvents()).isEmpty();
     }
 
@@ -89,10 +89,10 @@ class BaselineTest {
 
         baseline.recompute(List.of(UNAVAILABLE_1), List.of(), RECOMPUTED_FIGURES, NOW);
 
-        assertThat(baseline.snapshot())
-                .isEqualTo(new BaselineSnapshot(
+        assertThat(BaselineDescription.of(baseline))
+                .isEqualTo(new BaselineDescription(
                         PLAN,
-                        LOADED,
+                        Optional.of(LOADED),
                         RECOMPUTED_FIGURES,
                         new BaselineCause.Recomputed(List.of(UNAVAILABLE_1), List.of()),
                         NOW));
@@ -107,7 +107,7 @@ class BaselineTest {
 
         baseline.recompute(List.of(SHIFT_RAN_OUT_2, SHIFT_RAN_OUT_2, vehicle1Again), List.of(), BASELINE_FIGURES, NOW);
 
-        assertThat(baseline.snapshot().cause())
+        assertThat(baseline.cause())
                 .isEqualTo(new BaselineCause.Recomputed(List.of(UNAVAILABLE_1, SHIFT_RAN_OUT_2), List.of()));
     }
 
@@ -117,12 +117,12 @@ class BaselineTest {
     void
             GivenAVehicleWithdrawnAsUnavailable_WhenAnotherRunsOutOfShift_ThenTheSolveLeavesOutTheFirstAndKeepsTheSecond() {
         Baseline baseline = withdrawnOne().build();
-        BaselineSnapshot before = baseline.snapshot();
+        BaselineDescription before = BaselineDescription.of(baseline);
 
         WithdrawnFleet fleet = baseline.withdrawnFleetAfter(List.of(SHIFT_RAN_OUT_2));
 
         assertThat(fleet).isEqualTo(new WithdrawnFleet(List.of(VEHICLE_1), List.of(VEHICLE_2)));
-        assertThat(baseline.snapshot()).isEqualTo(before);
+        assertThat(BaselineDescription.of(baseline)).isEqualTo(before);
     }
 
     @Test
@@ -144,11 +144,11 @@ class BaselineTest {
     @Test
     void GivenARevisionThatWithdrewNoVehicle_WhenTheBaselineIsAskedToRecompute_ThenNothingChanges() {
         Baseline baseline = published().build();
-        BaselineSnapshot before = baseline.snapshot();
+        BaselineDescription before = BaselineDescription.of(baseline);
 
         baseline.recompute(List.of(), List.of(), RECOMPUTED_FIGURES, NOW);
 
-        assertThat(baseline.snapshot()).isEqualTo(before);
+        assertThat(BaselineDescription.of(baseline)).isEqualTo(before);
         assertThat(baseline.pendingEvents()).isEmpty();
     }
 
@@ -179,8 +179,12 @@ class BaselineTest {
                         (Supplier<BaselineBuilder>) BaselineTest::published,
                         List.of(),
                         List.of(),
-                        new BaselineSnapshot(
-                                PLAN, LOADED, BASELINE_FIGURES, new BaselineCause.Published(), COMPUTED_AT)),
+                        new BaselineDescription(
+                                PLAN,
+                                Optional.of(LOADED),
+                                BASELINE_FIGURES,
+                                new BaselineCause.Published(),
+                                COMPUTED_AT)),
                 Arguments.of(
                         "recomputed, another vehicle withdrawn",
                         (Supplier<BaselineBuilder>) BaselineTest::withdrawnOne,
@@ -198,17 +202,17 @@ class BaselineTest {
                         (Supplier<BaselineBuilder>) BaselineTest::withdrawnOne,
                         List.of(),
                         List.of(),
-                        new BaselineSnapshot(
+                        new BaselineDescription(
                                 PLAN,
-                                LOADED,
+                                Optional.of(LOADED),
                                 RECOMPUTED_FIGURES,
                                 new BaselineCause.Recomputed(List.of(UNAVAILABLE_1), List.of()),
                                 COMPUTED_AT)));
     }
 
-    private static BaselineSnapshot recomputedAtNow(List<Withdrawal> withdrawn, List<OrderId> added) {
-        return new BaselineSnapshot(
-                PLAN, LOADED, RECOMPUTED_FIGURES, new BaselineCause.Recomputed(withdrawn, added), NOW);
+    private static BaselineDescription recomputedAtNow(List<Withdrawal> withdrawn, List<OrderId> added) {
+        return new BaselineDescription(
+                PLAN, Optional.of(LOADED), RECOMPUTED_FIGURES, new BaselineCause.Recomputed(withdrawn, added), NOW);
     }
 
     @ParameterizedTest(name = "{0}")
@@ -218,12 +222,12 @@ class BaselineTest {
             Supplier<BaselineBuilder> state,
             List<Withdrawal> withdrawn,
             List<OrderId> added,
-            BaselineSnapshot expected) {
+            BaselineDescription expected) {
         Baseline baseline = state.get().build();
 
         baseline.recompute(withdrawn, added, RECOMPUTED_FIGURES, NOW);
 
-        assertThat(baseline.snapshot()).isEqualTo(expected);
+        assertThat(BaselineDescription.of(baseline)).isEqualTo(expected);
         assertThat(baseline.pendingEvents()).isEmpty();
     }
 
@@ -236,10 +240,10 @@ class BaselineTest {
 
         baseline.recompute(List.of(), List.of(ORDER_D), BASELINE_WITH_ADDED_ORDER, NOW);
 
-        assertThat(baseline.snapshot())
-                .isEqualTo(new BaselineSnapshot(
+        assertThat(BaselineDescription.of(baseline))
+                .isEqualTo(new BaselineDescription(
                         PLAN,
-                        LOADED,
+                        Optional.of(LOADED),
                         BASELINE_WITH_ADDED_ORDER,
                         new BaselineCause.Recomputed(List.of(), List.of(ORDER_D)),
                         NOW));
@@ -308,11 +312,11 @@ class BaselineTest {
     void GivenEachBaselineStateAndPlanStanding_WhenCompared_ThenTheComparisonIsTheExpectedOneAndNothingChanges(
             String cell, Supplier<BaselineBuilder> state, PlanStanding standing, BaselineComparison expected) {
         Baseline baseline = state.get().build();
-        BaselineSnapshot before = baseline.snapshot();
+        BaselineDescription before = BaselineDescription.of(baseline);
 
         assertThat(baseline.compareWith(standing, PLAN_FIGURES, CancelledOrders.none()))
                 .isEqualTo(expected);
-        assertThat(baseline.snapshot()).isEqualTo(before);
+        assertThat(BaselineDescription.of(baseline)).isEqualTo(before);
         assertThat(baseline.pendingEvents()).isEmpty();
     }
 
@@ -335,69 +339,12 @@ class BaselineTest {
                         new PlannedOnTimeRate.Measured(2, 2)));
     }
 
-    // --- restore
-
-    static Stream<Arguments> builderStates() {
-        return Stream.of(
-                Arguments.of("published", (Supplier<BaselineBuilder>) BaselineTest::published),
-                Arguments.of("one vehicle withdrawn", (Supplier<BaselineBuilder>) BaselineTest::withdrawnOne),
-                Arguments.of("two vehicles withdrawn", (Supplier<BaselineBuilder>)
-                        () -> aBaseline().withdrawn(SHIFT_RAN_OUT_2, UNAVAILABLE_1)),
-                Arguments.of("an order added", (Supplier<BaselineBuilder>)
-                        () -> aBaseline().added(ORDER_D).withResult(BASELINE_WITH_ADDED_ORDER)));
-    }
-
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("builderStates")
-    void GivenEachBuilderState_WhenItsSnapshotIsRestored_ThenTheSameStateComesBack(
-            String state, Supplier<BaselineBuilder> builder) {
-        Baseline baseline = builder.get().build();
-
-        assertThat(Baseline.restore(baseline.snapshot()).snapshot())
-                .isEqualTo(builder.get().snapshot());
-        assertThat(Baseline.restore(baseline.snapshot()).plan()).isEqualTo(PLAN);
-    }
+    // --- the key (ADR-127 decision 5)
 
     @Test
-    void GivenAStoredRecomputeNamingNothing_WhenRestored_ThenStoredStateInvalid() {
-        BaselineSnapshot stored = aBaseline()
-                .withCause(new BaselineCause.Recomputed(List.of(), List.of()))
-                .snapshot();
-
-        assertThatThrownBy(() -> Baseline.restore(stored)).isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
-            assertThat(invalid.subject()).isEqualTo("Baseline");
-            assertThat(invalid.detail()).isEqualTo("a recomputed baseline names a withdrawn vehicle or an added order");
-        });
-    }
-
-    @Test
-    void GivenAStoredWithdrawalNamingAVehicleTwiceWithTwoCauses_WhenRestored_ThenStoredStateInvalid() {
-        BaselineSnapshot stored = aBaseline()
-                .withdrawn(UNAVAILABLE_1, SHIFT_RAN_OUT_2, new Withdrawal(VEHICLE_1, WithdrawalCause.NO_DRIVER))
-                .snapshot();
-
-        assertThatThrownBy(() -> Baseline.restore(stored)).isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
-            assertThat(invalid.subject()).isEqualTo("Baseline");
-            assertThat(invalid.detail()).isEqualTo("a baseline names each withdrawn vehicle and added order once");
-        });
-    }
-
-    @Test
-    void GivenAStoredRecomputeNamingAnOrderTwice_WhenRestored_ThenStoredStateInvalid() {
-        BaselineSnapshot stored = aBaseline().added(ORDER_D, ORDER_C, ORDER_D).snapshot();
-
-        assertThatThrownBy(() -> Baseline.restore(stored)).isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
-            assertThat(invalid.subject()).isEqualTo("Baseline");
-            assertThat(invalid.detail()).isEqualTo("a baseline names each withdrawn vehicle and added order once");
-        });
-    }
-
-    @Test
-    void GivenAnotherPlansSnapshot_WhenRestored_ThenItIsKeyedByThatPlan() {
+    void GivenAnotherPublishedPlan_WhenItsBaselineIsComputed_ThenItIsKeyedByThatPlan() {
         PlanId other = PlanId.of(UUID.fromString("0190a5e2-0000-7000-a000-000000000009"));
-        BaselineSnapshot stored =
-                new BaselineSnapshot(other, LOADED, BASELINE_FIGURES, new BaselineCause.Published(), COMPUTED_AT);
 
-        assertThat(Baseline.restore(stored).plan()).isEqualTo(other);
+        assertThat(Baseline.compute(other, BASELINE_FIGURES, NOW).plan()).isEqualTo(other);
     }
 }

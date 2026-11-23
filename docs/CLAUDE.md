@@ -18,8 +18,8 @@ and never restates them.
 | `presentations/` | The proposal and ARD presentations | The planning material the requirements started from |
 
 `bounded-contexts.md` and `optimization-engine.md` describe the domain layers that are built and
-point to the design sections that define their topics. `data-model.md` points to them until a
-migration exists. `code-structure.md` describes the repository layout.
+point to the design sections that define their topics. `data-model.md` describes the tables the
+migrations build. `code-structure.md` describes the repository layout.
 `architecture/domain_layer/domain_layer_visual_guide.md` is the one file in its folder that decides
 nothing: a visual map of the domain layer as built, for reading the code. The domain document wins
 wherever the two differ.

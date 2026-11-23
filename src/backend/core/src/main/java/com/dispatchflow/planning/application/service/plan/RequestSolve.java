@@ -41,6 +41,9 @@ import java.util.Optional;
  * domain gap that M4 closes. Until M4 adds the field, a request with no solver runs OR-Tools, the
  * default that ADR-004 and FR-20 name.
  *
+ * <p>It saves the plan before it adds the job: adding the job writes at once everything the
+ * transaction holds, so the plan's change written there would make its own save fail.
+ *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *

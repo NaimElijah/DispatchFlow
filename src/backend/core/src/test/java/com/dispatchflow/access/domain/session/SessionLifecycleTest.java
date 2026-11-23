@@ -3,7 +3,6 @@ package com.dispatchflow.access.domain.session;
 import static com.dispatchflow.access.domain.session.SessionBuilder.ACCOUNT_GENERATION;
 import static com.dispatchflow.access.domain.session.SessionBuilder.FIRST_HASH;
 import static com.dispatchflow.access.domain.session.SessionBuilder.OPENED;
-import static com.dispatchflow.access.domain.session.SessionBuilder.SESSION_GENERATION;
 import static com.dispatchflow.access.domain.session.SessionBuilder.aSession;
 import static com.dispatchflow.access.domain.session.SessionBuilder.token;
 import static com.dispatchflow.access.domain.session.SessionBuilder.tokenId;
@@ -48,7 +47,7 @@ class SessionLifecycleTest {
     private sealed interface Expected {}
 
     /**
-     * The command is taken; the check gets the snapshot before, the session after and the answer.
+     * The command is taken; the check gets the session before, the session after and the answer.
      *
      * @param check the result's checks
      */
@@ -58,7 +57,7 @@ class SessionLifecycleTest {
 
     @FunctionalInterface
     private interface Check {
-        void verify(SessionSnapshot before, Session after, Object answer);
+        void verify(SessionDescription before, Session after, Object answer);
     }
 
     private record Command(String name, Function<Session, Object> call) {
@@ -95,40 +94,40 @@ class SessionLifecycleTest {
         return session;
     });
 
-    private static Expected taken(BiConsumer<SessionSnapshot, Session> check) {
+    private static Expected taken(BiConsumer<SessionDescription, Session> check) {
         return new Taken((before, after, answer) -> check.accept(before, after));
     }
 
-    /** A session with one contact time, when it opened. */
+    /** A session with one contact time, when it opened; the revoked one signed out then too. */
     private static Session in(State state) {
         return switch (state) {
             case LIVE -> aSession().withContactTimes(OPENED).build();
             case REVOKED ->
                 aSession()
-                        .withState(new SessionState.Revoked(OPENED))
                         .withContactTimes(OPENED)
+                        .withState(new SessionState.Revoked(OPENED))
                         .build();
         };
     }
 
     static Stream<Arguments> stateAndCommand() {
         Expected revoked = new Refused(new SessionRevoked());
-        Expected unchanged =
-                taken((before, after) -> assertThat(after.snapshot()).isEqualTo(before));
-        Expected contactsDropped = taken(
-                (before, after) -> assertThat(after.snapshot().contactTimes()).isEmpty());
+        Expected unchanged = taken(
+                (before, after) -> assertThat(SessionDescription.of(after)).isEqualTo(before));
+        Expected contactsDropped =
+                taken((before, after) -> assertThat(after.contactTimes()).isEmpty());
         return Stream.of(
                 Arguments.of(State.LIVE, EXCHANGE, new Taken((before, after, answer) -> {
                     assertThat(answer).isEqualTo(new RefreshOutcome.Issued(tokenId("2")));
-                    assertThat(after.snapshot().tokens())
+                    assertThat(TokenDescription.everyTokenOf(after))
                             .containsExactly(
                                     token("1", "first", OPENED, new TokenState.Exchanged(NOW, tokenId("2"))),
                                     token("2", "second", NOW, new TokenState.Current()));
                 })),
                 Arguments.of(State.LIVE, CONFIRM_PASSWORD, taken((before, after) -> {
-                    assertThat(after.generation()).isEqualTo(SESSION_GENERATION.next());
-                    assertThat(after.snapshot().lastPasswordAt()).isEqualTo(NOW);
-                    assertThat(after.snapshot().tokens())
+                    assertThat(after.generation()).isEqualTo(before.generation().next());
+                    assertThat(after.lastPasswordAt()).isEqualTo(NOW);
+                    assertThat(TokenDescription.everyTokenOf(after))
                             .containsExactly(
                                     token("1", "first", OPENED, new TokenState.Superseded(NOW)),
                                     token("2", "second", NOW, new TokenState.Current()));
@@ -138,19 +137,19 @@ class SessionLifecycleTest {
                         State.LIVE,
                         RECORD_CONTACT,
                         taken((before, after) ->
-                                assertThat(after.snapshot().contactTimes()).containsExactly(OPENED, NOW))),
+                                assertThat(after.contactTimes()).containsExactly(OPENED, NOW))),
                 Arguments.of(State.LIVE, DROP_OLD_CONTACTS, contactsDropped),
                 Arguments.of(State.LIVE, REVOKE, taken((before, after) -> {
                     assertThat(after.state()).isEqualTo(new SessionState.Revoked(NOW));
-                    assertThat(after.snapshot().tokens()).isEqualTo(before.tokens());
+                    assertThat(TokenDescription.everyTokenOf(after)).isEqualTo(before.tokens());
                 })),
                 Arguments.of(State.LIVE, REVOKE_WITH_ACCOUNT, taken((before, after) -> {
                     assertThat(after.state()).isEqualTo(new SessionState.Revoked(NOW));
-                    assertThat(after.snapshot().tokens()).isEqualTo(before.tokens());
+                    assertThat(TokenDescription.everyTokenOf(after)).isEqualTo(before.tokens());
                 })),
                 Arguments.of(State.REVOKED, EXCHANGE, new Taken((before, after, answer) -> {
                     assertThat(answer).isEqualTo(RefreshOutcome.refused());
-                    assertThat(after.snapshot()).isEqualTo(before);
+                    assertThat(SessionDescription.of(after)).isEqualTo(before);
                 })),
                 Arguments.of(State.REVOKED, CONFIRM_PASSWORD, revoked),
                 Arguments.of(State.REVOKED, REQUIRE_FRESH_STEP_UP, revoked),
@@ -165,17 +164,17 @@ class SessionLifecycleTest {
     void GivenASessionInEachState_WhenEachCommandIsCalled_ThenItIsTakenOrRefused(
             State state, Command command, Expected expected) {
         Session session = in(state);
-        SessionSnapshot before = session.snapshot();
+        SessionDescription before = SessionDescription.of(session);
 
         switch (expected) {
             case Taken taken ->
                 taken.check().verify(before, session, command.call().apply(session));
             case Refused refused -> {
                 assertRefused(() -> command.call().apply(session), refused.error());
-                assertThat(session.snapshot()).isEqualTo(before);
+                assertThat(SessionDescription.of(session)).isEqualTo(before);
             }
         }
-        assertThat(session.version()).isEqualTo(SessionBuilder.VERSION);
+        assertThat(session.version()).isEqualTo(SessionBuilder.LOADED);
         assertThat(session.pendingEvents()).isEmpty();
     }
 

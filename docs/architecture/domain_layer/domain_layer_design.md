@@ -614,7 +614,7 @@ classDiagram
     RevisionNo no
     Instant effectiveAt
     Cause cause
-    RoutesSnapshot routes
+    List~RevisionRoute~ routes
   }
   class SolveJob {
     <<AggregateRoot>>

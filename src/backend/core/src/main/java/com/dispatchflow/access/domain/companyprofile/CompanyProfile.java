@@ -2,9 +2,18 @@ package com.dispatchflow.access.domain.companyprofile;
 
 import com.dispatchflow.access.domain.Language;
 import com.dispatchflow.shared.AggregateRoot;
-import com.dispatchflow.shared.Version;
+import jakarta.persistence.AttributeOverride;
+import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.Table;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -15,25 +24,43 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>No change raises an event: Customers & Orders reads the defaults through Access's API when it
  * creates a customer, and each change is audited by its use case (FR-186).
+ *
+ * <p>It is mapped for JPA (ADR-126). Having no ID, it is stored under the constant {@link #KEY}
+ * (ADR-127 decision 5).
  */
-public final class CompanyProfile extends AggregateRoot {
+@Entity
+@Table(schema = "access", name = "company_profile")
+public class CompanyProfile extends AggregateRoot {
+
+    /**
+     * The one stored row's key. The profile has no ID, but every root keys on a UUID (ADR-126
+     * decision 10), so it keys on this constant, which the table allows as its only key.
+     */
+    public static final UUID KEY = UUID.fromString("9ef759c1-f6c0-401c-b963-140ab41b4be2");
+
+    @Id
+    private UUID id;
 
     private CompanyName name;
+
+    @Enumerated(EnumType.STRING)
     private Language language;
+
+    @Embedded
+    @AttributeOverride(name = "opens", column = @Column(name = "default_window_opens"))
+    @AttributeOverride(name = "closes", column = @Column(name = "default_window_closes"))
     private DefaultWindow defaultWindow;
+
     private @Nullable DefaultServiceTime defaultServiceTime;
 
-    private CompanyProfile(
-            @Nullable Version version,
-            CompanyName name,
-            Language language,
-            DefaultWindow defaultWindow,
-            @Nullable DefaultServiceTime defaultServiceTime) {
-        super(version);
+    /** For Hibernate, which sets the fields from the stored row and then runs {@link #checkStored}. */
+    protected CompanyProfile() {}
+
+    private CompanyProfile(CompanyName name, Language language, DefaultWindow defaultWindow) {
+        this.id = KEY;
         this.name = Objects.requireNonNull(name, "name");
         this.language = Objects.requireNonNull(language, "language");
         this.defaultWindow = Objects.requireNonNull(defaultWindow, "defaultWindow");
-        this.defaultServiceTime = defaultServiceTime;
     }
 
     /**
@@ -43,27 +70,19 @@ public final class CompanyProfile extends AggregateRoot {
      * @param name the company's name
      * @param language the default interface language
      * @param defaultWindow the time window a new customer starts with
-     * @return the new profile, raising no event
+     * @return the new profile, raising no event, never saved
      */
     public static CompanyProfile create(CompanyName name, Language language, DefaultWindow defaultWindow) {
-        return new CompanyProfile(null, name, language, defaultWindow, null);
+        return new CompanyProfile(name, language, defaultWindow);
     }
 
     /**
-     * Rebuilds the stored profile. Only the persistence adapter calls it (DL §3.5). Its values
-     * checked themselves when the adapter built them, and no rule ties them together, so there is
-     * nothing more to check.
-     *
-     * @param stored the stored profile
-     * @return the profile at its stored version
+     * The load check every root has (ADR-126 decision 8). It checks nothing: each value checked
+     * itself when its converter or instantiator rebuilt it, and no rule ties them together.
      */
-    public static CompanyProfile restore(CompanyProfileSnapshot stored) {
-        return new CompanyProfile(
-                stored.version(),
-                stored.name(),
-                stored.language(),
-                stored.defaultWindow(),
-                stored.defaultServiceTime().orElse(null));
+    @PostLoad
+    void checkStored() {
+        // Deliberately empty: see the Javadoc.
     }
 
     /**
@@ -139,15 +158,5 @@ public final class CompanyProfile extends AggregateRoot {
      */
     public Optional<DefaultServiceTime> defaultServiceTime() {
         return Optional.ofNullable(defaultServiceTime);
-    }
-
-    /**
-     * The profile as it would be stored.
-     *
-     * @return a snapshot of every field
-     */
-    public CompanyProfileSnapshot snapshot() {
-        return new CompanyProfileSnapshot(
-                savedVersion().orElse(null), name, language, defaultWindow, Optional.ofNullable(defaultServiceTime));
     }
 }

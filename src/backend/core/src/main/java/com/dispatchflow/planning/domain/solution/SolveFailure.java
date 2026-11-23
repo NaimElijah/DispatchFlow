@@ -38,8 +38,8 @@ public record SolveFailure(SolveFailureReason reason, List<Violation> violations
     }
 
     /**
-     * Rebuilds a stored failure; only the persistence adapter calls it, so a damaged row is an
-     * incident rather than a bug in a worker.
+     * Rebuilds a stored failure; only a stored job's phase is rebuilt through it, so a damaged row is
+     * an incident rather than a bug in a worker.
      *
      * @param reason the stored reason
      * @param violations the stored violations

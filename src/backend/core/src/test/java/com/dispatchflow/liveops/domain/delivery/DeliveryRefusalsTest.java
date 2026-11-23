@@ -26,6 +26,7 @@ import static com.dispatchflow.liveops.domain.LiveOpsFixtures.aDelivery;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.assertRefusedUnchanged;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.byA;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.byB;
+import static com.dispatchflow.shared.AsSaved.asSaved;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
@@ -100,7 +101,7 @@ class DeliveryRefusalsTest {
     private static Delivery failedWithOther() {
         Delivery delivery = aDelivery().fresh();
         delivery.fail(byA(ONLINE), FailureReason.other("gate locked"), ON_ROUTE, NO_HOLD, HELD_1, LATER);
-        return LiveOpsFixtures.reload(delivery);
+        return asSaved(delivery);
     }
 
     private static void correctToDeliveredAt(Delivery delivery, Instant stated) {
@@ -624,7 +625,7 @@ class DeliveryRefusalsTest {
     void GivenAConfirmedReport_WhenConfirmedAgain_ThenReportNotHeld() {
         Delivery delivery = aDelivery().held();
         delivery.confirmHeld(HELD_1, DISPATCHER, LATER);
-        Delivery reloaded = LiveOpsFixtures.reload(delivery);
+        Delivery reloaded = asSaved(delivery);
 
         assertRefusedUnchanged(
                 reloaded, () -> reloaded.confirmHeld(HELD_1, DISPATCHER, LATER), new ReportNotHeld(STOP, HELD_1));
@@ -673,7 +674,7 @@ class DeliveryRefusalsTest {
                         HELD_2,
                         LATER),
                 new SameOutcomeAlreadyRecorded(STOP, OutcomeKind.DELIVERED));
-        assertThat(delivery.snapshot().heldReports()).hasSize(1);
+        assertThat(delivery.heldReports()).hasSize(1);
     }
 
     @Test
@@ -710,6 +711,6 @@ class DeliveryRefusalsTest {
         assertThatThrownBy(() -> delivery.refuseHeld(HELD_1, DISPATCHER, null))
                 .isInstanceOf(NullPointerException.class);
         assertThatThrownBy(() -> delivery.eraseExpired(null)).isInstanceOf(NullPointerException.class);
-        assertThat(delivery.snapshot().outcomes()).isEmpty();
+        assertThat(delivery.outcomes()).isEmpty();
     }
 }

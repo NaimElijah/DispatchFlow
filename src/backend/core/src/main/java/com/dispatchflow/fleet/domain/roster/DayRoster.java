@@ -17,15 +17,25 @@ import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.SharedKernelError.NonexistentLocalTime;
 import com.dispatchflow.shared.StoredStateInvalid;
 import com.dispatchflow.shared.VehicleId;
-import com.dispatchflow.shared.Version;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OrderColumn;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.Table;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
+import java.util.UUID;
+import java.util.stream.IntStream;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -35,83 +45,127 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>Dispatchers change it, and so does Planning's hand-over listener through {@link
  * #moveVehicleWithRoute} (FR-191). Every method checks all its rules before it changes anything,
- * and no method raises an event.
+ * every change ends by checking the invariants at rest, and no method raises an event.
+ *
+ * <p>It is mapped for JPA (ADR-126): it is found by its date, which its table keeps unique, and
+ * keyed by a UUID beside it (ADR-127 decision 5). Its entries have no ID, so they are values,
+ * stored in the order the drivers were rostered and searched by driver (ADR-127 decisions 3 and
+ * 4); its unavailable vehicles are a list, in the order they were marked.
  */
-public final class DayRoster extends AggregateRoot {
+@Entity
+@Table(schema = "fleet", name = "day_roster")
+public class DayRoster extends AggregateRoot {
 
-    private final DeliveryDate date;
-    // Insertion order, so a snapshot lists drivers and vehicles the same way every time.
-    private final Map<AccountId, RosterEntry> entries = new LinkedHashMap<>();
-    private final Set<VehicleId> unavailableVehicles = new LinkedHashSet<>();
+    @Id
+    private UUID id;
 
-    private DayRoster(DeliveryDate date, @Nullable Version version) {
-        super(version);
-        this.date = Objects.requireNonNull(date, "date");
+    private DeliveryDate date;
+
+    // Insertion order, so the getters list drivers and vehicles the same way every time.
+    @ElementCollection
+    @CollectionTable(schema = "fleet", name = "roster_entry", joinColumns = @JoinColumn(name = "day_roster_id"))
+    @OrderColumn(name = "position", nullable = false)
+    private List<StoredRosterEntry> entries = new ArrayList<>();
+
+    @ElementCollection
+    @CollectionTable(schema = "fleet", name = "unavailable_vehicle", joinColumns = @JoinColumn(name = "day_roster_id"))
+    @OrderColumn(name = "position", nullable = false)
+    @Column(name = "vehicle")
+    private List<VehicleId> unavailableVehicles = new ArrayList<>();
+
+    /** For Hibernate, which sets the fields from the stored rows and then runs {@link #checkStored}. */
+    protected DayRoster() {}
+
+    private DayRoster(UUID id, DeliveryDate date) {
+        this.id = id;
+        this.date = date;
     }
 
     /**
      * Opens an empty roster for a date. {@link #fill} then gives it the drivers' defaults.
      *
+     * @param id the new roster's key, from {@code IdGenerator}; the date stays the roster's identity,
+     *     and its table refuses a second roster for one date
      * @param date the delivery date
      * @return the new roster, never saved
      */
-    public static DayRoster open(DeliveryDate date) {
-        return new DayRoster(date, null);
+    public static DayRoster open(UUID id, DeliveryDate date) {
+        return new DayRoster(Objects.requireNonNull(id, "id"), Objects.requireNonNull(date, "date"));
     }
 
     /**
-     * Rebuilds a roster from storage, checking the invariants that hold at rest: each driver and
-     * each unavailable vehicle appears once, no vehicle has two drivers, and every shift lies on the
-     * roster's date (FR-190). Only persistence adapters call it (DL §3.5).
+     * Checks the roster as Hibernate loaded it against the invariants that hold at rest (ADR-126
+     * decision 8): each driver and each unavailable vehicle appears once, no vehicle has two
+     * drivers, and every shift lies on the roster's date (FR-190).
      *
-     * @param stored the stored state
-     * @return the roster at the stored version
-     * @throws StoredStateInvalid when the stored state breaks one of those invariants
+     * @throws StoredStateInvalid when the stored state breaks one of them, or a stored shift falls in
+     *     an hour the clock skips on its date
      */
-    public static DayRoster restore(DayRosterSnapshot stored) {
-        DayRoster roster = new DayRoster(stored.date(), stored.version());
-        Set<VehicleId> driven = new LinkedHashSet<>();
-        for (RosterEntry entry : stored.entries()) {
-            if (roster.entries.putIfAbsent(entry.driver(), entry) != null) {
-                throw invalid("a driver appears twice");
+    @PostLoad
+    void checkStored() {
+        brokenRule().ifPresent(broken -> {
+            throw new StoredStateInvalid(DayRoster.class, broken);
+        });
+    }
+
+    /** The first invariant at rest the roster breaks, if any: those {@link #checkStored} names. */
+    private Optional<String> brokenRule() {
+        Set<AccountId> drivers = new HashSet<>();
+        Set<VehicleId> driven = new HashSet<>();
+        for (RosterEntry entry : entries()) {
+            if (!drivers.add(entry.driver())) {
+                return Optional.of("a driver appears twice");
             }
             if (entry.drivenVehicle().filter(vehicle -> !driven.add(vehicle)).isPresent()) {
-                throw invalid("a vehicle has two drivers");
+                return Optional.of("a vehicle has two drivers");
             }
-            if (!entry.shift().date().equals(stored.date())) {
-                throw invalid("a shift lies on another date");
-            }
-        }
-        for (VehicleId vehicle : stored.unavailableVehicles()) {
-            if (!roster.unavailableVehicles.add(vehicle)) {
-                throw invalid("a vehicle is marked unavailable twice");
+            if (!entry.shift().date().equals(date)) {
+                return Optional.of("a shift lies on another date");
             }
         }
-        return roster;
-    }
-
-    private static StoredStateInvalid invalid(String detail) {
-        return new StoredStateInvalid(DayRoster.class, detail);
+        if (Set.copyOf(unavailableVehicles).size() < unavailableVehicles.size()) {
+            return Optional.of("a vehicle is marked unavailable twice");
+        }
+        return Optional.empty();
     }
 
     /**
-     * The roster's state, for the repository to store and for Fleet's application layer to map into
-     * its API's own types.
-     *
-     * @return the stored form
+     * Checks the state a command left against every invariant at rest (ADR-126 decision 11). Every
+     * rule a caller can break was checked before the command changed anything, so a broken
+     * invariant here is a bug in the command, not a refusal, and the error rolls its transaction
+     * back.
      */
-    public DayRosterSnapshot snapshot() {
-        return new DayRosterSnapshot(
-                date, savedVersion().orElse(null), List.copyOf(entries.values()), List.copyOf(unavailableVehicles));
+    private void requireInvariants() {
+        brokenRule().ifPresent(broken -> {
+            throw new AssertionError("a day roster command left a state that breaks: " + broken);
+        });
     }
 
     /**
-     * The roster's key.
+     * The date the roster is for, which finds it; its table keeps one roster per date.
      *
-     * @return the delivery date it is for
+     * @return the delivery date
      */
     public DeliveryDate date() {
         return date;
+    }
+
+    /**
+     * Every driver on the roster (FR-54).
+     *
+     * @return one entry per rostered driver, unmodifiable, in the order they were rostered
+     */
+    public List<RosterEntry> entries() {
+        return entries.stream().map(StoredRosterEntry::entry).toList();
+    }
+
+    /**
+     * The vehicles marked unavailable on the date (FR-07, FR-301).
+     *
+     * @return an unmodifiable copy, in the order they were marked
+     */
+    public List<VehicleId> unavailableVehicles() {
+        return List.copyOf(unavailableVehicles);
     }
 
     /**
@@ -142,7 +196,7 @@ public final class DayRoster extends AggregateRoot {
         List<SkippedDriver> skipped = new ArrayList<>();
         for (RosterDefault fallback : defaults) {
             AccountId driver = fallback.driver();
-            RosterEntry current = entries.get(driver);
+            RosterEntry current = find(driver).orElse(null);
             boolean nothingToFill = current != null && !(current.vehicle() instanceof RosterVehicle.NotSet);
             // On a day off a driver not yet on the roster isn't rostered, so there is nothing to report.
             boolean dayOffAndNotRostered = current == null && fallback.hours().isEmpty();
@@ -155,8 +209,7 @@ public final class DayRoster extends AggregateRoot {
                 continue;
             }
             RosterVehicle vehicle = new RosterVehicle.Assigned(fallback.vehicle());
-            entries.put(
-                    driver,
+            put(
                     current == null
                             ? new RosterEntry(
                                     driver,
@@ -165,6 +218,9 @@ public final class DayRoster extends AggregateRoot {
                                     Availability.AVAILABLE)
                             : current.withVehicle(vehicle));
             filled.add(driver);
+        }
+        if (!filled.isEmpty()) {
+            requireInvariants();
         }
         return new RosterFill(filled, skipped);
     }
@@ -207,12 +263,10 @@ public final class DayRoster extends AggregateRoot {
         Objects.requireNonNull(standing, "standing");
         requireActiveDriver(driver, standing);
         Shift shift = Shift.on(date, hours);
-        RosterEntry current = entries.get(driver);
-        entries.put(
-                driver,
-                current == null
-                        ? new RosterEntry(driver, shift, new RosterVehicle.NotSet(), Availability.AVAILABLE)
-                        : current.withShift(shift));
+        put(find(driver)
+                .map(current -> current.withShift(shift))
+                .orElseGet(() -> new RosterEntry(driver, shift, new RosterVehicle.NotSet(), Availability.AVAILABLE)));
+        requireInvariants();
     }
 
     /**
@@ -248,7 +302,8 @@ public final class DayRoster extends AggregateRoot {
         if (own.isPresent()) {
             throw new RuleViolation(new DriverAlreadyHasVehicle(driver, own.get()));
         }
-        entries.put(driver, entry.withVehicle(new RosterVehicle.Assigned(vehicle)));
+        put(entry.withVehicle(new RosterVehicle.Assigned(vehicle)));
+        requireInvariants();
     }
 
     /**
@@ -259,7 +314,8 @@ public final class DayRoster extends AggregateRoot {
      * @throws RuleViolation with {@link DriverNotRostered} when the driver has no shift this date
      */
     public void unassign(AccountId driver) {
-        entries.put(driver, rostered(driver).withVehicle(new RosterVehicle.NoVehicle()));
+        put(rostered(driver).withVehicle(new RosterVehicle.NoVehicle()));
+        requireInvariants();
     }
 
     /**
@@ -270,7 +326,8 @@ public final class DayRoster extends AggregateRoot {
      * @throws RuleViolation with {@link DriverNotRostered} when the driver has no shift this date
      */
     public void markDriverUnavailable(AccountId driver) {
-        entries.put(driver, rostered(driver).withAvailability(Availability.UNAVAILABLE));
+        put(rostered(driver).withAvailability(Availability.UNAVAILABLE));
+        requireInvariants();
     }
 
     /**
@@ -281,7 +338,8 @@ public final class DayRoster extends AggregateRoot {
      * @throws RuleViolation with {@link DriverNotRostered} when the driver has no shift this date
      */
     public void markDriverAvailable(AccountId driver) {
-        entries.put(driver, rostered(driver).withAvailability(Availability.AVAILABLE));
+        put(rostered(driver).withAvailability(Availability.AVAILABLE));
+        requireInvariants();
     }
 
     /**
@@ -298,7 +356,10 @@ public final class DayRoster extends AggregateRoot {
         Objects.requireNonNull(vehicle, "vehicle");
         Objects.requireNonNull(standing, "standing");
         requireActiveVehicle(vehicle, standing);
-        unavailableVehicles.add(vehicle);
+        if (!unavailableVehicles.contains(vehicle)) {
+            unavailableVehicles.add(vehicle);
+        }
+        requireInvariants();
     }
 
     /**
@@ -309,6 +370,7 @@ public final class DayRoster extends AggregateRoot {
     public void markVehicleAvailable(VehicleId vehicle) {
         Objects.requireNonNull(vehicle, "vehicle");
         unavailableVehicles.remove(vehicle);
+        requireInvariants();
     }
 
     /**
@@ -352,8 +414,9 @@ public final class DayRoster extends AggregateRoot {
         if (own.isPresent()) {
             throw new RuleViolation(new DriverAlreadyHasVehicle(to, own.get()));
         }
-        holder.ifPresent(giver -> entries.put(giver, entries.get(giver).withVehicle(new RosterVehicle.NoVehicle())));
-        entries.put(to, receiver.withVehicle(new RosterVehicle.Assigned(vehicle)));
+        holder.ifPresent(giver -> put(rostered(giver).withVehicle(new RosterVehicle.NoVehicle())));
+        put(receiver.withVehicle(new RosterVehicle.Assigned(vehicle)));
+        requireInvariants();
     }
 
     /**
@@ -375,10 +438,11 @@ public final class DayRoster extends AggregateRoot {
         if (standing != Standing.ACTIVE) {
             return new Assignability.NotAssignable(new NotAnActiveDriver(driver));
         }
-        RosterEntry entry = entries.get(driver);
-        if (entry == null) {
+        Optional<RosterEntry> found = find(driver);
+        if (found.isEmpty()) {
             return new Assignability.NotAssignable(new DriverNotRostered(driver));
         }
+        RosterEntry entry = found.get();
         if (entry.availability() == Availability.UNAVAILABLE) {
             return new Assignability.NotAssignable(new DriverMarkedUnavailable(driver));
         }
@@ -396,22 +460,36 @@ public final class DayRoster extends AggregateRoot {
      * @return their entry, or empty when they are not on the roster
      */
     public Optional<RosterEntry> entryOf(AccountId driver) {
-        return Optional.ofNullable(entries.get(Objects.requireNonNull(driver, "driver")));
+        return find(Objects.requireNonNull(driver, "driver"));
+    }
+
+    private OptionalInt indexOf(AccountId driver) {
+        return IntStream.range(0, entries.size())
+                .filter(index -> entries.get(index).driver().equals(driver))
+                .findFirst();
+    }
+
+    private Optional<RosterEntry> find(AccountId driver) {
+        OptionalInt index = indexOf(driver);
+        return index.isPresent() ? Optional.of(entries.get(index.getAsInt()).entry()) : Optional.empty();
+    }
+
+    /** Replaces the driver's entry where it stands, or adds a driver not yet rostered at the end. */
+    private void put(RosterEntry entry) {
+        StoredRosterEntry stored = new StoredRosterEntry(entry);
+        indexOf(entry.driver()).ifPresentOrElse(index -> entries.set(index, stored), () -> entries.add(stored));
     }
 
     private Optional<AccountId> holderOf(VehicleId vehicle) {
-        return entries.values().stream()
+        return entries().stream()
                 .filter(entry -> entry.drives(vehicle))
                 .map(RosterEntry::driver)
                 .findFirst();
     }
 
     private RosterEntry rostered(AccountId driver) {
-        RosterEntry entry = entries.get(Objects.requireNonNull(driver, "driver"));
-        if (entry == null) {
-            throw new RuleViolation(new DriverNotRostered(driver));
-        }
-        return entry;
+        return find(Objects.requireNonNull(driver, "driver"))
+                .orElseThrow(() -> new RuleViolation(new DriverNotRostered(driver)));
     }
 
     private static void requireActiveDriver(AccountId driver, Standing standing) {

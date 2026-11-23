@@ -21,9 +21,9 @@ class OrderStatusTest {
     private static final Attempt SECOND = Attempt.of(2);
 
     static Stream<Arguments> cases() {
-        Order active = anOrder().restored();
-        Order cancelled = anOrder().cancelledAt(NOW).restored();
-        Order putBack = anOrder().atAttempt(2).restored();
+        Order active = anOrder().build();
+        Order cancelled = anOrder().cancelledAt(NOW).build();
+        Order putBack = anOrder().atAttempt(2).build();
         Placement planned = new Placement.Planned(FIRST, PlanStanding.IN_FORCE);
         Placement dropped = new Placement.Dropped(FIRST, PlanStanding.IN_FORCE);
         StopState noFact = new StopState.NoFact();

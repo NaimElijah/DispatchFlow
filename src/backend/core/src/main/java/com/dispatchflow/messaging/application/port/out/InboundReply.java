@@ -9,8 +9,6 @@ import java.util.Objects;
  * A recipient's SMS reply as the provider delivered it, a record in {@link ReplyLog} (DL §3.2,
  * FR-357). It holds a phone and free text, so it prints redacted.
  *
- * <p>Built in M12.
- *
  * @param providerId the provider's identifier for the inbound message, which makes a repeated call
  *     take effect once (NFR-199)
  * @param from the phone it came from

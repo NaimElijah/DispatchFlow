@@ -25,6 +25,7 @@ import com.dispatchflow.archfixture.alpha.domain.entity.SharesAnotherAggregatesC
 import com.dispatchflow.archfixture.alpha.domain.entity.StoresAnEnumAsAnOrdinal;
 import com.dispatchflow.archfixture.alpha.domain.entity.StoresAnEnumByPosition;
 import com.dispatchflow.archfixture.alpha.domain.entity.StoresEnumsByPositionInAList;
+import com.dispatchflow.archfixture.alpha.domain.entity.UnmappedRoot;
 import com.dispatchflow.archfixture.alpha.domain.entity.VersionedChild;
 import com.dispatchflow.archfixture.alpha.domain.entity.VersionsThroughAGetter;
 import com.dispatchflow.archfixture.alpha.domain.mapping.MappedWithJakartaPersistence;
@@ -114,6 +115,18 @@ class PersistenceRulesTest {
                         PersistenceRules.enumsAreStoredByName(FIXTURE_ROOT),
                         MappedRoot.class,
                         MappedWithJakartaPersistence.class))
+                .isFalse();
+    }
+
+    @Test
+    void GivenAnAggregateRootThatIsNotAnEntity_WhenChecked_ThenItIsFlagged() {
+        assertThat(flags(PersistenceRules.everyAggregateIsAnEntity(FIXTURE_ROOT), UnmappedRoot.class))
+                .isTrue();
+    }
+
+    @Test
+    void GivenAnEntityRootAndAChild_WhenEveryAggregateIsCheckedForItsMapping_ThenNothingIsFlagged() {
+        assertThat(flags(PersistenceRules.everyAggregateIsAnEntity(FIXTURE_ROOT), MappedRoot.class, MappedChild.class))
                 .isFalse();
     }
 

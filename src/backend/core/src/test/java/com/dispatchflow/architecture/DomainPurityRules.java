@@ -270,17 +270,19 @@ final class DomainPurityRules {
                 .because("DL §3.8 and §3.9 rule 5: a refusal is a named error");
     }
 
-    /** Rule 6: only persistence adapters rebuild aggregates and read the lock-read snapshots. */
-    static ArchRule restoreOnlyFromPersistence(String root) {
+    /**
+     * Rule 6: only persistence adapters read the snapshots read under a lock. Its other half, that
+     * only they rebuild an aggregate, went with {@code restore}: only Hibernate rebuilds one now
+     * (ADR-126, which amends ADR-040's rule 6).
+     */
+    static ArchRule lockReadsOnlyFromPersistence(String root) {
         return classes()
                 .that()
                 .resideInAPackage(root + "..")
                 .and()
                 .resideOutsideOfPackage(PERSISTENCE_ADAPTER)
-                .should(notAccess(
-                        "call an aggregate's static restore or a readUnderLock factory",
-                        DomainPurityRules::rebuildsStoredState))
-                .because("DL §3.5 and §3.9 rule 6: only persistence adapters call restore and readUnderLock");
+                .should(notAccess("call a readUnderLock factory", DomainPurityRules::readsUnderALock))
+                .because("DL §5 and §3.9 rule 6: only persistence adapters call readUnderLock");
     }
 
     /** DL §13: only the optimizer adapter builds a ValidationReport or an Evaluation. */
@@ -571,15 +573,11 @@ final class DomainPurityRules {
     }
 
     /**
-     * Matches by name, so a later module's aggregate or snapshot is covered without editing this
-     * rule. A type calling its own factory doesn't widen who can build it, so that is allowed.
+     * Matches by name, so a later module's snapshot is covered without editing this rule. A type
+     * calling its own factory doesn't widen who can build it, so that is allowed.
      */
-    private static boolean rebuildsStoredState(JavaAccess<?> access) {
-        AccessTarget target = access.getTarget();
-        boolean restoresAnAggregate = target.getName().equals(RestrictedTypes.RESTORE)
-                && RestrictedTypes.isAggregate(target.getOwner())
-                && isStatic(target);
-        return (restoresAnAggregate || target.getName().equals(RestrictedTypes.READ_UNDER_LOCK))
+    private static boolean readsUnderALock(JavaAccess<?> access) {
+        return access.getTarget().getName().equals(RestrictedTypes.READ_UNDER_LOCK)
                 && !RestrictedTypes.isWithin(access.getOriginOwner(), access.getTargetOwner());
     }
 

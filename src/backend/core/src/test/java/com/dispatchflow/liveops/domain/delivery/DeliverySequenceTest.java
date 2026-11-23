@@ -18,21 +18,21 @@ import static com.dispatchflow.liveops.domain.LiveOpsFixtures.aDelivery;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.byA;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.byB;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.byC;
-import static com.dispatchflow.liveops.domain.LiveOpsFixtures.reload;
 import static com.dispatchflow.liveops.domain.LiveOpsFixtures.uuid;
+import static com.dispatchflow.shared.AsSaved.asSaved;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dispatchflow.liveops.domain.CancellationKind;
 import com.dispatchflow.liveops.domain.CorrectedTime;
 import com.dispatchflow.liveops.domain.DriverReport;
 import com.dispatchflow.liveops.domain.HeldReportId;
-import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.HeldReport;
-import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.HeldState;
-import com.dispatchflow.liveops.domain.delivery.DeliverySnapshot.OutcomeRecord;
 import com.dispatchflow.liveops.domain.outcome.DispatcherOutcome;
 import com.dispatchflow.liveops.domain.outcome.FailureReason;
 import com.dispatchflow.liveops.domain.outcome.FailureReasonKind;
+import com.dispatchflow.liveops.domain.outcome.HeldReport;
+import com.dispatchflow.liveops.domain.outcome.HeldState;
 import com.dispatchflow.liveops.domain.outcome.Outcome;
+import com.dispatchflow.liveops.domain.outcome.OutcomeRecord;
 import com.dispatchflow.liveops.events.OutcomeKind;
 import com.dispatchflow.liveops.events.PutBackSuperseded;
 import com.dispatchflow.shared.AccountId;
@@ -53,11 +53,12 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Seeded sequences of commands on deliveries (DL §14), with random facts weighted towards late,
  * moved, in-contact and handed-over reports so held reports occur. A fresh delivery starts every {@link
  * #FRESH_EVERY} steps, and after an outcome followed by {@link #REFUSALS_BEFORE_FRESH} refusals.
- * After every step the invariants are recomputed from the snapshot in test code: the first outcome
- * never changes once recorded (BR-18), no report stays held beside an outcome, at most one held
- * report is confirmed, the state follows its precedence, and {@code restore} takes the snapshot
- * back. An accepted step raises exactly the events its states before and after call for. A refused
- * step leaves the snapshot and the events as they were. Each seed must reach a held
+ * After every step the invariants are recomputed from the delivery's description in test code: the
+ * first outcome never changes once recorded (BR-18), no report stays held beside an outcome, at most
+ * one held report is confirmed, and the state follows its precedence. Every invariant at rest is
+ * also checked by the command itself, which throws {@code AssertionError} when it breaks one, and
+ * the step fails then. An accepted step raises exactly the events its states before and after call
+ * for. A refused step leaves the description and the events as they were. Each seed must reach a held
  * report and have one confirmation and one refusal accepted, and the seeds together must supersede
  * a put-back. The message names the seed and the
  * step, so a failure replays.
@@ -142,7 +143,7 @@ class DeliverySequenceTest {
             }
             String command = COMMANDS.get(random.nextInt(COMMANDS.size()));
             String where = "seed " + seed + ", step " + step + ", " + command;
-            DeliverySnapshot before = delivery.snapshot();
+            DeliveryDescription before = DeliveryDescription.of(delivery);
             List<DomainEvent> eventsBefore = delivery.pendingEvents();
             try {
                 boolean putBackWithoutOutcome = run(command, delivery, random, step, counts);
@@ -150,13 +151,13 @@ class DeliverySequenceTest {
                                 .map(event -> event.eventId().eventType())
                                 .toList())
                         .as(where + ": events")
-                        .isEqualTo(expectedEvents(before, delivery.snapshot(), putBackWithoutOutcome));
+                        .isEqualTo(expectedEvents(before, DeliveryDescription.of(delivery), putBackWithoutOutcome));
                 if (delivery.pendingEvents().stream().anyMatch(PutBackSuperseded.class::isInstance)) {
                     counts.putBacksSuperseded++;
                 }
-                delivery = reload(delivery);
+                delivery = asSaved(delivery);
             } catch (RuleViolation refused) {
-                assertThat(delivery.snapshot()).as(where).isEqualTo(before);
+                assertThat(DeliveryDescription.of(delivery)).as(where).isEqualTo(before);
                 assertThat(delivery.pendingEvents()).as(where).isEqualTo(eventsBefore);
                 if (!before.outcomes().isEmpty()) {
                     refusalsAfterOutcome++;
@@ -164,7 +165,7 @@ class DeliverySequenceTest {
             } catch (RuntimeException | AssertionError unexpected) {
                 throw new AssertionError(where + ": " + unexpected, unexpected);
             }
-            DeliverySnapshot s = delivery.snapshot();
+            DeliveryDescription s = DeliveryDescription.of(delivery);
             if (firstOutcome.isPresent()) {
                 assertThat(s.outcomes().get(0).outcome().kind())
                         .as(where + ": the first outcome stays")
@@ -188,7 +189,7 @@ class DeliverySequenceTest {
      * (FR-404), and nothing otherwise.
      */
     private static List<String> expectedEvents(
-            DeliverySnapshot before, DeliverySnapshot after, boolean putBackWithoutOutcome) {
+            DeliveryDescription before, DeliveryDescription after, boolean putBackWithoutOutcome) {
         if (before.outcomes().isEmpty() && !after.outcomes().isEmpty()) {
             return List.of("OutcomeRecorded");
         }
@@ -202,7 +203,7 @@ class DeliverySequenceTest {
         return List.of();
     }
 
-    private static OutcomeKind effectiveKind(DeliverySnapshot state) {
+    private static OutcomeKind effectiveKind(DeliveryDescription state) {
         return state.outcomes().get(state.outcomes().size() - 1).outcome().kind();
     }
 
@@ -304,11 +305,11 @@ class DeliverySequenceTest {
     /** Mostly a held report the delivery has, sometimes one it doesn't, so both answers occur. */
     private static HeldReportId pickHeld(Delivery delivery, Random random, HeldReportId unknown) {
         List<HeldReportId> ids =
-                delivery.snapshot().heldReports().stream().map(HeldReport::id).toList();
+                delivery.heldReports().stream().map(HeldReport::id).toList();
         return ids.isEmpty() || random.nextInt(5) == 0 ? unknown : ids.get(random.nextInt(ids.size()));
     }
 
-    private static void checkInvariants(Delivery delivery, DeliverySnapshot s, String where) {
+    private static void checkInvariants(Delivery delivery, DeliveryDescription s, String where) {
         boolean anyOpen = s.heldReports().stream().anyMatch(HeldReport::isOpen);
         long confirmed = s.heldReports().stream()
                 .filter(report -> report.state() instanceof HeldState.Confirmed)
@@ -328,6 +329,5 @@ class DeliverySequenceTest {
             expected = s.arrival().isPresent() ? DeliveryStatus.ARRIVED : DeliveryStatus.PENDING;
         }
         assertThat(delivery.status()).as(where).isEqualTo(expected);
-        assertThat(Delivery.restore(s).snapshot()).as(where).isEqualTo(s);
     }
 }

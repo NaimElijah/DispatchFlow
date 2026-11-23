@@ -1,10 +1,13 @@
 package com.dispatchflow.planning.domain.plan;
 
+import com.dispatchflow.planning.domain.drop.DroppedOrder;
+import com.dispatchflow.planning.domain.solution.Violation;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.VehicleId;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -14,74 +17,103 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 /**
- * The invariants a plan holds at rest, checked in one place (DL §4.4, ADR-101). {@link Plan#restore}
- * refuses a stored state that breaks one; every command checks the state it is about to commit, so a
- * command can never leave a state that {@code restore} would refuse.
+ * The invariants a plan holds at rest, checked in one place over the plan's own fields (DL §4.4,
+ * ADR-101). The plan's load check refuses a stored state that breaks one, and every command checks
+ * the state it left, so a command can never leave a state that would not load again (ADR-126
+ * decisions 8 and 11).
  */
 final class PlanInvariants {
 
     private PlanInvariants() {}
 
     /**
-     * The first invariant a state breaks.
+     * The first invariant a plan breaks.
      *
-     * @return the broken rule, with no stored value in it; empty when the state holds every one
+     * @param plan the plan, as loaded or as a command left it
+     * @return the broken rule, with no stored value in it; empty when the plan holds every one
+     * @throws com.dispatchflow.shared.StoredStateInvalid when a stored value it reads is refused by
+     *     its own rules
      */
-    static Optional<String> brokenBy(PlanSnapshot s) {
-        Optional<String> state = stateFields(s);
+    static Optional<String> brokenBy(Plan plan) {
+        List<Route> routes = plan.routes();
+        List<DroppedOrder> dropped = plan.dropped();
+        List<Edit> undo = plan.undo();
+        List<Edit> redo = plan.redo();
+        Optional<String> state = stateFields(plan, routes, dropped, undo, redo);
         if (state.isPresent()) {
             return state;
         }
         List<StopKey> keys = new ArrayList<>();
-        s.routes().forEach(route -> route.stops().forEach(stop -> keys.add(new StopKey(stop.order(), stop.attempt()))));
-        s.dropped().forEach(drop -> keys.add(new StopKey(drop.order(), drop.attempt())));
+        routes.forEach(route -> keys.addAll(route.keys()));
+        dropped.forEach(drop -> keys.add(new StopKey(drop.order(), drop.attempt())));
         if (new HashSet<>(keys).size() != keys.size()) {
             return Optional.of("an order and attempt is served or dropped at most once");
         }
         Set<VehicleId> vehicles = new HashSet<>();
         Set<AccountId> drivers = new HashSet<>();
-        for (PlanSnapshot.RouteSnapshot route : s.routes()) {
-            if (route.withdrawal().isEmpty() && (!vehicles.add(route.vehicle()) || !drivers.add(route.driver()))) {
+        for (Route route : routes) {
+            if (!route.withdrawn() && (!vehicles.add(route.vehicle()) || !drivers.add(route.driver()))) {
                 return Optional.of("a vehicle or driver drives at most one route");
             }
         }
-        List<RouteId> routeIds =
-                s.routes().stream().map(PlanSnapshot.RouteSnapshot::id).toList();
-        List<StopId> stopIds = stopIds(s);
-        List<RouteIndex> indexes =
-                s.routes().stream().map(PlanSnapshot.RouteSnapshot::index).toList();
+        List<RouteId> routeIds = routes.stream().map(Route::id).toList();
+        List<StopId> stopIds =
+                routes.stream().flatMap(route -> route.stopIds().stream()).toList();
+        List<RouteIndex> indexes = routes.stream().map(Route::index).toList();
         if (new HashSet<>(routeIds).size() != routeIds.size()
                 || new HashSet<>(stopIds).size() != stopIds.size()
                 || new HashSet<>(indexes).size() != indexes.size()) {
             return Optional.of("route IDs, stop IDs and route indexes are unique");
         }
-        if (s.pins().stream().map(Pin::order).distinct().count() != s.pins().size()) {
+        List<Pin> pins = plan.pins();
+        if (pins.stream().map(Pin::order).distinct().count() != pins.size()) {
             return Optional.of("an order has at most one pin");
         }
+        // The commands insert into these lists in place, where the layout queries' sort puts each
+        // entry, so a list stored out of order would make every later edit leave another layout.
+        if (!inOrder(dropped, PlanLayout.DROP_ORDER)) {
+            return Optional.of("drops are in drop order");
+        }
+        if (!inOrder(pins, PlanLayout.PIN_ORDER)) {
+            return Optional.of("pins are in pin order");
+        }
         Set<RouteId> known = new HashSet<>(routeIds);
-        boolean violationsKnown = s.violations().stream()
+        boolean violationsKnown = plan.violations().stream()
                 .allMatch(violation -> violation.route().map(known::contains).orElse(true));
-        boolean editsKnown = Stream.concat(s.undo().stream(), s.redo().stream())
+        boolean editsKnown = Stream.concat(undo.stream(), redo.stream())
                 .allMatch(edit -> routesOf(edit).stream().allMatch(known::contains));
         if (!violationsKnown || !editsKnown) {
             return Optional.of("violations and edits name only routes of the plan");
         }
-        return journalTops(s, new HashSet<>(stopIds));
+        Optional<String> tops = journalTops(routes, dropped, undo, redo, new HashSet<>(stopIds));
+        if (tops.isPresent()) {
+            return tops;
+        }
+        // The plan's own collection creates and deletes its stops, so it must hold each stop on a
+        // route, and no other; on load the migration's foreign key already keeps it so.
+        Set<PlannedStop> onRoutes = new HashSet<>();
+        routes.forEach(route -> onRoutes.addAll(route.stops()));
+        if (!onRoutes.equals(plan.keptStops())) {
+            return Optional.of("the plan keeps exactly the stops on its routes");
+        }
+        return Optional.empty();
     }
 
-    private static Optional<String> stateFields(PlanSnapshot snapshot) {
-        boolean hasLayout = !snapshot.routes().isEmpty()
-                || !snapshot.dropped().isEmpty()
-                || !snapshot.excluded().isEmpty();
-        boolean hasJournal = !snapshot.undo().isEmpty() || !snapshot.redo().isEmpty();
-        boolean applied = snapshot.applied().isPresent();
-        Plan.Status status = snapshot.status();
+    private static Optional<String> stateFields(
+            Plan plan, List<Route> routes, List<DroppedOrder> dropped, List<Edit> undo, List<Edit> redo) {
+        List<Violation> violations = plan.violations();
+        boolean hasLayout =
+                !routes.isEmpty() || !dropped.isEmpty() || !plan.excluded().isEmpty();
+        boolean hasJournal = !undo.isEmpty() || !redo.isEmpty();
+        Optional<AppliedSolve> solved = plan.applied();
+        boolean applied = solved.isPresent();
+        Plan.Status status = plan.status();
         boolean afterPublishing = status instanceof Plan.Status.Published
                 || status instanceof Plan.Status.Completed
                 || status instanceof Plan.Status.Cancelled;
         switch (status) {
             case Plan.Status.Draft draft -> {
-                if (hasLayout || applied || hasJournal || !snapshot.violations().isEmpty()) {
+                if (hasLayout || applied || hasJournal || !violations.isEmpty()) {
                     return Optional.of(
                             "a draft plan has no routes, drops, excluded vehicles, solve, violations or journal");
                 }
@@ -90,8 +122,8 @@ final class PlanInvariants {
                 if (hasLayout && !applied) {
                     return Optional.of("a solving plan has routes only from an applied solve");
                 }
-                boolean waitsForApplied = snapshot.applied()
-                        .map(done -> done.basis().job().equals(solving.pending().job()))
+                boolean waitsForApplied = solved.map(done ->
+                                done.basis().job().equals(solving.pending().job()))
                         .orElse(false);
                 if (waitsForApplied) {
                     return Optional.of("a solving plan waits for a job it has not applied");
@@ -99,7 +131,7 @@ final class PlanInvariants {
                 if (hasJournal && !applied) {
                     return Optional.of("a journal belongs to a plan solved before");
                 }
-                if (!applied && !snapshot.violations().isEmpty()) {
+                if (!applied && !violations.isEmpty()) {
                     return Optional.of("a plan never solved holds no violations");
                 }
             }
@@ -117,23 +149,22 @@ final class PlanInvariants {
                 }
             }
         }
-        boolean factsOnRoutes = snapshot.routes().stream()
-                .anyMatch(route -> route.withdrawal().isPresent()
+        boolean factsOnRoutes = routes.stream()
+                .anyMatch(route -> route.withdrawn()
                         || route.confirmedReturn().isPresent()
                         || route.stops().stream().anyMatch(stop -> stop.late().isPresent()));
         if (factsOnRoutes && !afterPublishing) {
             return Optional.of("withdrawals, late outcomes and confirmed returns belong to a published plan");
         }
-        boolean locked =
-                snapshot.routes().stream().anyMatch(route -> route.lock().isPresent());
+        boolean locked = routes.stream().anyMatch(route -> route.lock().isPresent());
         if (locked && afterPublishing) {
             return Optional.of("locks belong to a plan not yet published");
         }
-        if (snapshot.undo().size() + snapshot.redo().size() > Plan.JOURNAL_LIMIT) {
+        if (undo.size() + redo.size() > Plan.JOURNAL_LIMIT) {
             return Optional.of("a journal holds at most " + Plan.JOURNAL_LIMIT + " edits");
         }
-        boolean appliedEarly = snapshot.applied()
-                .map(done -> done.appliedAt().isBefore(done.basis().requestedAt()))
+        boolean appliedEarly = solved.map(
+                        done -> done.appliedAt().isBefore(done.basis().requestedAt()))
                 .orElse(false);
         if (appliedEarly) {
             return Optional.of("a solve is applied no earlier than it was requested");
@@ -146,20 +177,14 @@ final class PlanInvariants {
      * and the position undoing or redoing it returns the stop to is in range. Only the last entries
      * are determined: an earlier edit's stop may have been moved, taken off or placed again since.
      */
-    private static Optional<String> journalTops(PlanSnapshot s, Set<StopId> present) {
-        Map<RouteId, List<StopId>> routes = new HashMap<>();
-        s.routes()
-                .forEach(route -> routes.put(
-                        route.id(),
-                        route.stops().stream()
-                                .map(PlanSnapshot.StopSnapshot::id)
-                                .toList()));
+    private static Optional<String> journalTops(
+            List<Route> routes, List<DroppedOrder> drops, List<Edit> undo, List<Edit> redo, Set<StopId> present) {
+        Map<RouteId, List<StopId>> stopsOf = new HashMap<>();
+        routes.forEach(route -> stopsOf.put(route.id(), route.stopIds()));
         Set<StopKey> dropped = new HashSet<>();
-        s.dropped().forEach(drop -> dropped.add(new StopKey(drop.order(), drop.attempt())));
-        boolean undoHolds =
-                s.undo().isEmpty() || leftAsDone(s.undo().get(s.undo().size() - 1), routes, present, dropped);
-        boolean redoHolds =
-                s.redo().isEmpty() || leftAsUndone(s.redo().get(s.redo().size() - 1), routes, present, dropped);
+        drops.forEach(drop -> dropped.add(new StopKey(drop.order(), drop.attempt())));
+        boolean undoHolds = undo.isEmpty() || leftAsDone(undo.get(undo.size() - 1), stopsOf, present, dropped);
+        boolean redoHolds = redo.isEmpty() || leftAsUndone(redo.get(redo.size() - 1), stopsOf, present, dropped);
         if (!undoHolds || !redoHolds) {
             return Optional.of("the last journal entries name stops where they left them");
         }
@@ -221,11 +246,13 @@ final class PlanInvariants {
         return stops != null && position >= 0 && position <= size;
     }
 
-    private static List<StopId> stopIds(PlanSnapshot s) {
-        return s.routes().stream()
-                .flatMap(route -> route.stops().stream())
-                .map(PlanSnapshot.StopSnapshot::id)
-                .toList();
+    private static <T> boolean inOrder(List<T> list, Comparator<? super T> order) {
+        for (int at = 1; at < list.size(); at++) {
+            if (order.compare(list.get(at - 1), list.get(at)) > 0) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static List<RouteId> routesOf(Edit edit) {

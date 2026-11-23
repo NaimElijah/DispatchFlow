@@ -4,7 +4,7 @@ import com.dispatchflow.access.application.api.Actor;
 import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.liveops.application.port.out.DeliveryRepository;
 import com.dispatchflow.liveops.application.port.out.LiveUpdates;
-import com.dispatchflow.liveops.domain.delivery.CorrectionReason;
+import com.dispatchflow.liveops.domain.outcome.CorrectionReason;
 import com.dispatchflow.liveops.domain.outcome.DispatcherOutcome;
 import com.dispatchflow.orders.application.api.StopOrders;
 import com.dispatchflow.planning.application.api.RouteMembership;

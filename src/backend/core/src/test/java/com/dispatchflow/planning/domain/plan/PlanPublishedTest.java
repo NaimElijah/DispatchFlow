@@ -31,7 +31,6 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.evaluationO
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.freshIds;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.noChanges;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.ordersOn;
-import static com.dispatchflow.planning.domain.plan.PlanningFixtures.reload;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.reoptimizationResult;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.roomIn;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.routeId;
@@ -40,6 +39,7 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.solved;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.stopId;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.uuid;
 import static com.dispatchflow.planning.domain.plan.PlanningFixtures.violation;
+import static com.dispatchflow.shared.AsSaved.asSaved;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dispatchflow.planning.domain.BasisChange;
@@ -93,7 +93,6 @@ import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.VehicleId;
 import com.dispatchflow.shared.Version;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.IntStream;
@@ -150,13 +149,13 @@ class PlanPublishedTest {
 
         plan.accept(proposal, noChanges(V2), freshIds(700), DISPATCHER, TODAY, LATER);
 
-        PlanSnapshot.RouteSnapshot withdrawn = plan.snapshot().routes().stream()
+        PlanDescription.RouteDescription withdrawn = PlanDescription.of(plan).routes().stream()
                 .filter(route -> route.vehicle().equals(V1))
                 .findFirst()
                 .orElseThrow();
         assertThat(withdrawn.withdrawal()).contains(new Withdrawal(WithdrawalCause.VEHICLE_UNAVAILABLE));
         assertThat(withdrawn.stops())
-                .extracting(PlanSnapshot.StopSnapshot::order)
+                .extracting(PlanDescription.StopDescription::order)
                 .containsExactly(O1);
         assertThat(((PlanRevised) plan.pendingEvents().get(0)).withdrawnVehicles())
                 .containsExactly(V1);
@@ -212,7 +211,7 @@ class PlanPublishedTest {
     void GivenARevisionSinceTheBasis_WhenAccepted_ThenProposalOutdated() {
         Plan published = aPlan().published();
         published.handOver(routeId(published, V1), D3_STANDS, Optional.empty(), false, DISPATCHER, TODAY, LATER);
-        Plan plan = reload(published);
+        Plan plan = asSaved(published);
 
         assertPlanRefused(
                 plan,
@@ -294,12 +293,12 @@ class PlanPublishedTest {
 
     @Test
     void GivenEveryRouteIndexTaken_WhenAProposalAddsARoute_ThenRouteIndexesUsedUp() {
-        Plan plan = Plan.restore(withThirtyRoutes(aPlan().published().snapshot()));
-        ReoptimizationProposal addsARoute = proposal(
+        Plan plan = PlanningFixtures.fifteenWithdrawnAndRoutedAgain(15);
+        ReoptimizationProposal addsARoute = PlanningFixtures.proposalOn(
+                plan,
                 IntStream.rangeClosed(1, 16)
                         .mapToObj(n -> solved(vehicle(n), driver(n)))
-                        .toList(),
-                List.of());
+                        .toList());
         VehicleId[] all = IntStream.rangeClosed(1, 16)
                 .mapToObj(PlanPublishedTest::vehicle)
                 .toArray(VehicleId[]::new);
@@ -401,7 +400,7 @@ class PlanPublishedTest {
         plan.handOver(v1, D3_STANDS, Optional.of(reserve), false, DISPATCHER, TODAY, LATER);
 
         assertThat(routeOf(plan, V1).driver()).isEqualTo(D3);
-        assertThat(plan.snapshot().violations()).containsExactly(violation("BR-105", v1));
+        assertThat(plan.violations()).containsExactly(violation("BR-105", v1));
     }
 
     @Test
@@ -420,7 +419,7 @@ class PlanPublishedTest {
 
         plan.handOver(v1, D3_STANDS, Optional.of(breaks), true, DISPATCHER, TODAY, LATER);
 
-        assertThat(plan.snapshot().violations()).containsExactly(violation("BR-105", v2), violation("BR-03", v1));
+        assertThat(plan.violations()).containsExactly(violation("BR-105", v2), violation("BR-03", v1));
     }
 
     @Test
@@ -436,7 +435,7 @@ class PlanPublishedTest {
         plan.handOver(v1, D3_STANDS, Optional.of(breaks), true, DISPATCHER, TODAY, LATER);
 
         assertThat(routeOf(plan, V1).confirmedReturn()).contains(PlanningFixtures.at(70_000));
-        assertThat(plan.snapshot().violations()).isEmpty();
+        assertThat(plan.violations()).isEmpty();
     }
 
     @Test
@@ -504,8 +503,8 @@ class PlanPublishedTest {
                 DISPATCHER,
                 TODAY,
                 LATER);
-        Plan plan = reload(accepted);
-        RouteId withdrawn = plan.snapshot().routes().stream()
+        Plan plan = asSaved(accepted);
+        RouteId withdrawn = PlanDescription.of(plan).routes().stream()
                 .filter(route -> route.withdrawal().isPresent())
                 .findFirst()
                 .orElseThrow()
@@ -550,7 +549,7 @@ class PlanPublishedTest {
 
         assertThat(ordersOn(plan, V1)).containsExactly(O2);
         assertThat(routeOf(plan, V1).check()).isEqualTo(CheckState.NOT_YET_CHECKED);
-        assertThat(plan.snapshot().undo()).isEmpty();
+        assertThat(plan.undo()).isEmpty();
         assertThat(plan.pendingEvents()).isEmpty();
     }
 
@@ -573,7 +572,7 @@ class PlanPublishedTest {
 
         plan.removeStopOf(O4, FIRST, RemovalCause.CORRECTED_AFTER_PUT_BACK, LATER);
 
-        assertThat(plan.snapshot().dropped()).extracting(DroppedOrder::order).containsExactly(O5);
+        assertThat(plan.dropped()).extracting(DroppedOrder::order).containsExactly(O5);
         PlanRevised revised = (PlanRevised) plan.pendingEvents().get(0);
         assertThat(revised.cause()).isEqualTo(RevisionCause.CORRECTED_AFTER_PUT_BACK);
         assertThat(revised.changedRoutes()).isEmpty();
@@ -585,23 +584,23 @@ class PlanPublishedTest {
     void GivenADroppedOrderPutBackOntoAnotherDate_WhenTheReadyPlanTakesItOff_ThenItsDropGoesAndThePlanPublishes() {
         Plan ready = aPlan().ready();
         ready.lockRoute(routeId(ready, V1), RouteLock.WHOLE_ROUTE, TODAY);
-        Plan plan = reload(ready);
+        Plan plan = asSaved(ready);
 
         plan.removePutBackOrder(O4, FIRST);
 
-        assertThat(plan.snapshot().dropped()).extracting(DroppedOrder::order).containsExactly(O5);
-        assertThat(plan.snapshot().undo()).isEmpty();
+        assertThat(plan.dropped()).extracting(DroppedOrder::order).containsExactly(O5);
+        assertThat(plan.undo()).isEmpty();
         assertThat(plan.pendingEvents()).isEmpty();
         assertThat(plan.pendingRevision()).isEmpty();
-        Plan reloaded = reload(plan);
-        reloaded.publish(PlanningFixtures.checksFor(reloaded), DISPATCHER, TODAY, LATER);
-        assertThat(reloaded.status()).isEqualTo(new Plan.Status.Published(RevisionNo.FIRST));
+        Plan saved = asSaved(plan);
+        saved.publish(PlanningFixtures.checksFor(saved), DISPATCHER, TODAY, LATER);
+        assertThat(saved.status()).isEqualTo(new Plan.Status.Published(RevisionNo.FIRST));
     }
 
     @Test
     void GivenAReadyPlanHoldingTheAttemptAsAStop_WhenItIsPutBackOntoAnotherDate_ThenTheStopStays() {
         Plan plan = aPlan().ready();
-        PlanSnapshot before = plan.snapshot();
+        PlanDescription before = PlanDescription.of(plan);
 
         plan.removePutBackOrder(O1, FIRST);
 
@@ -611,7 +610,7 @@ class PlanPublishedTest {
     @Test
     void GivenAPublishedPlanWhoseStopFailed_WhenItsOrderIsPutBackOntoAnotherDate_ThenTheFailedStopStays() {
         Plan plan = aPlan().published();
-        PlanSnapshot before = plan.snapshot();
+        PlanDescription before = PlanDescription.of(plan);
 
         plan.removePutBackOrder(O1, FIRST);
 
@@ -622,7 +621,7 @@ class PlanPublishedTest {
     @Test
     void GivenAPublishedPlan_WhenAnOrderItDroppedIsPutBackOntoAnotherDate_ThenTheDropStaysAsTheDaysHistory() {
         Plan plan = aPlan().published();
-        PlanSnapshot before = plan.snapshot();
+        PlanDescription before = PlanDescription.of(plan);
 
         plan.removePutBackOrder(O4, FIRST);
 
@@ -632,7 +631,7 @@ class PlanPublishedTest {
     @Test
     void GivenAReadyPlan_WhenAnOrderItDoesNotHoldIsPutBack_ThenNothingChanges() {
         Plan plan = aPlan().ready();
-        PlanSnapshot before = plan.snapshot();
+        PlanDescription before = PlanDescription.of(plan);
 
         plan.removePutBackOrder(O6, FIRST);
 
@@ -642,7 +641,7 @@ class PlanPublishedTest {
     @Test
     void GivenAnOrderThePlanDoesNotHold_WhenItsStopIsRemoved_ThenNothingChanges() {
         Plan plan = aPlan().published();
-        PlanSnapshot before = plan.snapshot();
+        PlanDescription before = PlanDescription.of(plan);
 
         plan.removeStopOf(O6, FIRST, RemovalCause.ORDER_CANCELLED, LATER);
 
@@ -652,7 +651,7 @@ class PlanPublishedTest {
     @Test
     void GivenACompletedPlan_WhenAStopIsRemoved_ThenNothingChanges() {
         Plan plan = aPlan().completed();
-        PlanSnapshot before = plan.snapshot();
+        PlanDescription before = PlanDescription.of(plan);
 
         plan.removeStopOf(O1, FIRST, RemovalCause.ORDER_CANCELLED, LATER);
 
@@ -664,7 +663,7 @@ class PlanPublishedTest {
     @Test
     void GivenAFactForAStopStillOnItsRoute_WhenReconciled_ThenNothingChanges() {
         Plan plan = aPlan().published();
-        PlanSnapshot before = plan.snapshot();
+        PlanDescription before = PlanDescription.of(plan);
 
         Reconciliation result = plan.reconcileLateOutcome(fact(plan, O1, V1), LATER);
 
@@ -698,7 +697,7 @@ class PlanPublishedTest {
 
         assertThat(result).isEqualTo(Reconciliation.of(ReconciliationKind.FROM_DROPPED));
         assertThat(ordersOn(plan, V2)).containsExactly(O3, O4);
-        assertThat(plan.snapshot().dropped()).extracting(DroppedOrder::order).containsExactly(O5);
+        assertThat(plan.dropped()).extracting(DroppedOrder::order).containsExactly(O5);
     }
 
     @Test
@@ -725,7 +724,7 @@ class PlanPublishedTest {
     @Test
     void GivenACancelledPlan_WhenALateFactIsReconciled_ThenItStaysCancelledWithItsRoutesUnchanged() {
         Plan plan = aPlan().cancelled();
-        PlanSnapshot before = plan.snapshot();
+        PlanDescription before = PlanDescription.of(plan);
 
         Reconciliation result = plan.reconcileLateOutcome(fact(plan, O1, V2), LATER);
 
@@ -748,14 +747,14 @@ class PlanPublishedTest {
     void GivenAnUncheckedRoute_WhenTheRecheckJobRecordsItsCheck_ThenItIsCheckedWithNoRevision() {
         Plan handed = aPlan().published();
         handed.handOver(routeId(handed, V1), D3_STANDS, Optional.empty(), false, DISPATCHER, TODAY, LATER);
-        Plan plan = reload(handed);
+        Plan plan = asSaved(handed);
         RouteId v1 = routeId(plan, V1);
         Violation shift = violation("BR-06", v1);
 
         plan.recordRouteCheck(evaluationOf(plan).withViolation(shift).build());
 
         assertThat(routeOf(plan, V1).check()).isEqualTo(CheckState.CHECKED);
-        assertThat(plan.snapshot().violations()).containsExactly(shift);
+        assertThat(plan.violations()).containsExactly(shift);
         assertThat(plan.pendingEvents()).isEmpty();
         assertThat(plan.pendingRevision()).isEmpty();
     }
@@ -763,7 +762,7 @@ class PlanPublishedTest {
     @Test
     void GivenTheOptimizerStillDown_WhenTheRecheckJobRecordsItsCheck_ThenNothingChanges() {
         Plan plan = aPlan().published();
-        PlanSnapshot before = plan.snapshot();
+        PlanDescription before = PlanDescription.of(plan);
 
         plan.recordRouteCheck(evaluationOf(plan).unavailable());
 
@@ -775,12 +774,12 @@ class PlanPublishedTest {
     @Test
     void GivenAPublishedPlanNothingHappenedOn_WhenCancelled_ThenItIsCancelledWithItsRoutesAndRaisesPlanCancelled() {
         Plan plan = aPlan().published();
-        List<PlanSnapshot.RouteSnapshot> routes = plan.snapshot().routes();
+        List<PlanDescription.RouteDescription> routes = PlanDescription.of(plan).routes();
 
         plan.cancel(StartedRoutes.none(), TODAY, LATER);
 
         assertThat(plan.status()).isEqualTo(new Plan.Status.Cancelled(RevisionNo.FIRST, LATER));
-        assertThat(plan.snapshot().routes()).isEqualTo(routes);
+        assertThat(PlanDescription.of(plan).routes()).isEqualTo(routes);
         assertThat(plan.pendingEvents())
                 .containsExactly(new PlanCancelled(
                         new EventId(
@@ -852,7 +851,7 @@ class PlanPublishedTest {
         plan.abandon(TOMORROW);
 
         assertThat(plan.status()).isEqualTo(new Plan.Status.Abandoned());
-        assertThat(plan.snapshot().undo()).isEmpty();
+        assertThat(plan.undo()).isEmpty();
     }
 
     @Test
@@ -887,38 +886,5 @@ class PlanPublishedTest {
 
     private static AccountId driver(int n) {
         return AccountId.of(uuid(6_000 + n));
-    }
-
-    /** A published plan with 15 active and 15 withdrawn routes, so every index is taken. */
-    private static PlanSnapshot withThirtyRoutes(PlanSnapshot published) {
-        List<PlanSnapshot.RouteSnapshot> routes = new ArrayList<>();
-        for (int n = 1; n <= 30; n++) {
-            int owner = n <= 15 ? n : n - 15;
-            routes.add(new PlanSnapshot.RouteSnapshot(
-                    RouteId.of(uuid(7_000 + n)),
-                    RouteIndex.of(n),
-                    vehicle(owner),
-                    driver(owner),
-                    Optional.empty(),
-                    CheckState.CHECKED,
-                    n <= 15 ? Optional.of(new Withdrawal(WithdrawalCause.SHIFT_RAN_OUT)) : Optional.empty(),
-                    Optional.empty(),
-                    PlanningFixtures.routePlan(50_000),
-                    List.of()));
-        }
-        return new PlanSnapshot(
-                published.id(),
-                published.version(),
-                published.date(),
-                published.openedAt(),
-                published.status(),
-                published.applied(),
-                routes,
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of());
     }
 }

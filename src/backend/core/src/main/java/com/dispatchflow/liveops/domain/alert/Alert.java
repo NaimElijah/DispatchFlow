@@ -1,12 +1,29 @@
 package com.dispatchflow.liveops.domain.alert;
 
+import com.dispatchflow.liveops.domain.HeldReportId;
 import com.dispatchflow.liveops.domain.LiveOpsError.AlertAlreadyAcknowledged;
+import com.dispatchflow.liveops.domain.RevisionNo;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.AggregateRoot;
 import com.dispatchflow.shared.AlertId;
+import com.dispatchflow.shared.PlanId;
+import com.dispatchflow.shared.RatingRequestId;
+import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.RuleViolation;
+import com.dispatchflow.shared.StopId;
+import com.dispatchflow.shared.StoredStateInvalid;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Something a dispatcher must look at (DL §4.5, §17), in one list for every kind (FR-157). Any module
@@ -14,20 +31,73 @@ import java.util.Objects;
  * independent, so the repository's unique index on the key makes a second raise do nothing (DL §5,
  * ADR-107). Acknowledging records who and when, once (FR-260). Screens and push follow the commit,
  * so it raises no event (DL §7.1, ADR-083).
+ *
+ * <p>It is mapped for JPA (ADR-126): its key is its ID's UUID, its {@link AlertSubject} a kind plus
+ * the nullable columns each kind names, its dedupe key a column of its own that the unique index
+ * reads, and its {@link AlertState} a kind plus who acknowledged it and when. The plan's delivery
+ * date, which the alert does not hold, is kept beside it by the persistence adapter.
  */
-public final class Alert extends AggregateRoot {
+@Entity
+@Table(schema = "liveops", name = "alert")
+public class Alert extends AggregateRoot {
 
-    private final AlertId id;
-    private final AlertSubject subject;
-    private final Instant raisedAt;
-    private AlertState state;
+    /** Which {@link AlertState} an alert is in. */
+    private enum StateKind {
+        OPEN,
+        ACKNOWLEDGED
+    }
 
-    private Alert(AlertSnapshot stored) {
-        super(stored.version());
-        this.id = stored.id();
-        this.subject = stored.subject();
-        this.raisedAt = stored.raisedAt();
-        this.state = stored.state();
+    @Id
+    private UUID id;
+
+    @Enumerated(EnumType.STRING)
+    private AlertKind kind;
+
+    private PlanId plan;
+
+    private @Nullable RouteId route;
+
+    private @Nullable StopId stop;
+
+    private @Nullable RevisionNo revision;
+
+    private @Nullable AccountId driver;
+
+    @Enumerated(EnumType.STRING)
+    private @Nullable DriverProblem problem;
+
+    private @Nullable RouteId leftRoute;
+
+    private @Nullable HeldReportId heldReport;
+
+    @Enumerated(EnumType.STRING)
+    private @Nullable RefusedFact refusedFact;
+
+    private @Nullable RatingRequestId ratingRequest;
+
+    // Derived from the subject and the ID, which never change; the load check refuses a stored copy
+    // that drifted from them, since the unique index and existsByDedupeKey read this column alone.
+    @Column(updatable = false)
+    private DedupeKey dedupeKey;
+
+    private Instant raisedAt;
+
+    @Enumerated(EnumType.STRING)
+    private StateKind state;
+
+    private @Nullable AccountId acknowledgedBy;
+
+    private @Nullable Instant acknowledgedAt;
+
+    /** For Hibernate, which sets the fields from the stored row and then runs {@link #checkStored}. */
+    protected Alert() {}
+
+    private Alert(AlertId id, AlertSubject subject, Instant raisedAt) {
+        this.id = id.value();
+        this.raisedAt = raisedAt;
+        this.state = StateKind.OPEN;
+        about(subject);
+        this.dedupeKey = subject.dedupeKey(id);
     }
 
     /**
@@ -42,27 +112,43 @@ public final class Alert extends AggregateRoot {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(subject, "subject");
         Objects.requireNonNull(now, "now");
-        return new Alert(new AlertSnapshot(id, null, subject, now, new AlertState.Open()));
+        Alert alert = new Alert(id, subject, now);
+        alert.requireInvariants();
+        return alert;
     }
 
     /**
-     * Rebuilds a stored alert; only the persistence adapter calls it (DL §3.5). Its types leave no
-     * at-rest invariant to check: the kind and the key are derived from the subject.
+     * Checks the alert as Hibernate loaded it against the invariant that holds at rest (ADR-126
+     * decision 8): its stored dedupe key is the one its subject defines. Each value checked itself
+     * when its converter rebuilt it, and the migration's {@code CHECK} constraints keep each kind's
+     * columns whole.
      *
-     * @param stored the stored state
-     * @return the alert at the stored version
+     * @throws StoredStateInvalid when the stored key is not its subject's
      */
-    public static Alert restore(AlertSnapshot stored) {
-        return new Alert(Objects.requireNonNull(stored, "stored"));
+    @PostLoad
+    void checkStored() {
+        brokenRule().ifPresent(broken -> {
+            throw new StoredStateInvalid(Alert.class, broken);
+        });
     }
 
     /**
-     * The alert's state, for the repository to store.
-     *
-     * @return the stored form
+     * Checks the state a command left against the invariant at rest (ADR-126 decision 11). No caller
+     * can break it, so a broken one here is a bug in the command, and the error rolls its
+     * transaction back.
      */
-    public AlertSnapshot snapshot() {
-        return new AlertSnapshot(id, savedVersion().orElse(null), subject, raisedAt, state);
+    private void requireInvariants() {
+        brokenRule().ifPresent(broken -> {
+            throw new AssertionError("an alert command left a state that breaks: " + broken);
+        });
+    }
+
+    /** The one check of the invariant at rest, shared by the load check and every command. */
+    private Optional<String> brokenRule() {
+        if (!dedupeKey.equals(subject().dedupeKey(id()))) {
+            return Optional.of("the dedupe key is the one its subject defines");
+        }
+        return Optional.empty();
     }
 
     /**
@@ -71,7 +157,7 @@ public final class Alert extends AggregateRoot {
      * @return the ID
      */
     public AlertId id() {
-        return id;
+        return AlertId.of(id);
     }
 
     /**
@@ -80,7 +166,63 @@ public final class Alert extends AggregateRoot {
      * @return its subject's kind
      */
     public AlertKind kind() {
-        return subject.kind();
+        return kind;
+    }
+
+    /**
+     * What the alert is about.
+     *
+     * @return the subject, which names its plan and the IDs its kind keys on
+     */
+    public AlertSubject subject() {
+        return switch (kind) {
+            case STOP_AT_RISK -> new AlertSubject.StopAtRisk(plan, route(), stop(), revision());
+            case DRIVER_PROBLEM ->
+                new AlertSubject.DriverProblemReported(
+                        plan, route(), driver(), Objects.requireNonNull(problem, "a driver's problem is named"));
+            case ROUTE_NOT_STARTED -> new AlertSubject.RouteNotStarted(plan, route());
+            case STOP_FAILED -> new AlertSubject.StopFailed(plan, route(), stop());
+            case ROUTE_CHANGE_UNCONFIRMED -> new AlertSubject.RouteChangeUnconfirmed(plan, route(), revision());
+            case LATE_REPORT -> new AlertSubject.LateReport(plan, route(), stop(), Optional.ofNullable(leftRoute));
+            case REPORT_HELD ->
+                new AlertSubject.ReportHeld(
+                        plan, route(), stop(), Objects.requireNonNull(heldReport, "a held report's alert names it"));
+            case REPORT_REFUSED ->
+                new AlertSubject.ReportRefused(
+                        plan,
+                        route(),
+                        stop(),
+                        driver(),
+                        Objects.requireNonNull(refusedFact, "a refusal's alert names what was refused"));
+            case ROUTE_FINISHED_WITH_PENDING_STOPS -> new AlertSubject.RouteFinishedWithPendingStops(plan, route());
+            case LOW_RATING ->
+                new AlertSubject.LowRating(
+                        plan, stop(), Objects.requireNonNull(ratingRequest, "a low rating's alert names its request"));
+        };
+    }
+
+    /**
+     * When the alert was raised.
+     *
+     * @return the time
+     */
+    public Instant raisedAt() {
+        return raisedAt;
+    }
+
+    /**
+     * Where the alert stands (FR-260).
+     *
+     * @return open, or acknowledged with who and when
+     */
+    public AlertState state() {
+        return switch (state) {
+            case OPEN -> new AlertState.Open();
+            case ACKNOWLEDGED ->
+                new AlertState.Acknowledged(
+                        Objects.requireNonNull(acknowledgedBy, "an acknowledgement names its dispatcher"),
+                        Objects.requireNonNull(acknowledgedAt, "an acknowledgement has its time"));
+        };
     }
 
     /**
@@ -89,7 +231,7 @@ public final class Alert extends AggregateRoot {
      * @return the key its subject defines
      */
     public DedupeKey dedupeKey() {
-        return subject.dedupeKey(id);
+        return dedupeKey;
     }
 
     /**
@@ -98,7 +240,7 @@ public final class Alert extends AggregateRoot {
      * @return {@code true} until it is acknowledged
      */
     public boolean isOpen() {
-        return state instanceof AlertState.Open;
+        return state == StateKind.OPEN;
     }
 
     /**
@@ -113,8 +255,75 @@ public final class Alert extends AggregateRoot {
         Objects.requireNonNull(by, "by");
         Objects.requireNonNull(now, "now");
         if (!isOpen()) {
-            throw new RuleViolation(new AlertAlreadyAcknowledged(id));
+            throw new RuleViolation(new AlertAlreadyAcknowledged(id()));
         }
-        state = new AlertState.Acknowledged(by, now);
+        state = StateKind.ACKNOWLEDGED;
+        acknowledgedBy = by;
+        acknowledgedAt = now;
+        requireInvariants();
+    }
+
+    /** Sets the subject's columns: the kind, and the parts that kind names. */
+    private void about(AlertSubject subject) {
+        this.kind = subject.kind();
+        this.plan = subject.plan();
+        switch (subject) {
+            case AlertSubject.StopAtRisk atRisk -> {
+                route = atRisk.route();
+                stop = atRisk.stop();
+                revision = atRisk.revision();
+            }
+            case AlertSubject.DriverProblemReported reported -> {
+                route = reported.route();
+                driver = reported.driver();
+                problem = reported.problem();
+            }
+            case AlertSubject.RouteNotStarted notStarted -> route = notStarted.route();
+            case AlertSubject.StopFailed failed -> {
+                route = failed.route();
+                stop = failed.stop();
+            }
+            case AlertSubject.RouteChangeUnconfirmed unconfirmed -> {
+                route = unconfirmed.route();
+                revision = unconfirmed.revision();
+            }
+            case AlertSubject.LateReport late -> {
+                route = late.servedOn();
+                stop = late.stop();
+                leftRoute = late.leftRoute().orElse(null);
+            }
+            case AlertSubject.ReportHeld held -> {
+                route = held.route();
+                stop = held.stop();
+                heldReport = held.report();
+            }
+            case AlertSubject.ReportRefused refused -> {
+                route = refused.route();
+                stop = refused.stop();
+                driver = refused.driver();
+                refusedFact = refused.refused();
+            }
+            case AlertSubject.RouteFinishedWithPendingStops finished -> route = finished.route();
+            case AlertSubject.LowRating low -> {
+                stop = low.stop();
+                ratingRequest = low.request();
+            }
+        }
+    }
+
+    private RouteId route() {
+        return Objects.requireNonNull(route, "this kind of alert names its route");
+    }
+
+    private StopId stop() {
+        return Objects.requireNonNull(stop, "this kind of alert names its stop");
+    }
+
+    private RevisionNo revision() {
+        return Objects.requireNonNull(revision, "this kind of alert names its revision");
+    }
+
+    private AccountId driver() {
+        return Objects.requireNonNull(driver, "this kind of alert names its driver");
     }
 }
