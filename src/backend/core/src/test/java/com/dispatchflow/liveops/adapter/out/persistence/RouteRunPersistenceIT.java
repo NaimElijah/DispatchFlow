@@ -253,6 +253,17 @@ class RouteRunPersistenceIT {
         assertThat(storedDate(n)).isEqualTo(dateOf(n).value());
     }
 
+    /** A save would store the run with no date, so {@code startedOn} would never find it (ADR-127 decision 12). */
+    @Test
+    void GivenARunNeverStored_WhenItIsSavedInsteadOfAdded_ThenAssertionErrorAndNothingIsStored() {
+        int n = 17;
+
+        assertThatThrownBy(() -> transactions.inTransaction(() -> repository.save(started(n))))
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("a new route run is added with its date, never saved");
+        assertThat(transactions.inTransaction(() -> repository.get(route(n)))).isEmpty();
+    }
+
     // --- the load check (ADR-127 decision 1)
 
     @Test
