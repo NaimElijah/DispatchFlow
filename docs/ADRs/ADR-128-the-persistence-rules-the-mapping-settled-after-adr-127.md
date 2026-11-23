@@ -1,6 +1,6 @@
 # ADR-128: The persistence rules the JPA mapping settled after ADR-127
 
-- **Status:** Proposed; would amend ADR-126 and extend ADR-097 and ADR-127
+- **Status:** Accepted
 - **Date:** 2026-11-23
 
 ## Context
@@ -40,6 +40,9 @@ records otherwise:
 - **Loads that read a collection twice.** A root's load check can read a collection its query
   didn't fetch, as `Delivery`'s reads its held reports, so loading several roots cost a statement
   per root.
+
+On 2026-11-23 the owner, Naim Elijah, accepted all six decisions after the review of
+[pull request #252][PR-252]. They are final.
 
 ## Decision
 
