@@ -1,8 +1,9 @@
 # DispatchFlow — Domain layer visual guide
 
 **Status:** Describes the code at commit `6e3028f` on `dev`, 15 November 2026. The shared kernel's
-`AggregateRoot` and `Version`, the `restore` and `snapshot()` pattern and the save sequences were brought up
-to date on 23 November 2026 for [ADR-126](../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md), and the roots' line counts with them.
+`AggregateRoot` and `Version`, the save sequences and the load check that replaced `restore` and the snapshots
+were brought up to date on 23 November 2026 for [ADR-126](../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) and [ADR-127](../../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md), and the file and line counts
+with them. The counts for Planning come from the branch that maps `Plan`, not yet merged.
 
 This guide is a map of the domain layer **as it is built today**, for a person learning the repository
 before building a milestone. After reading it you should be able to find any aggregate, value, event or
@@ -85,17 +86,21 @@ An arrow means *depends on*. The sources for each box:
 - **Declared, not built** ([ADR-119](../../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)).
   Each module's `application/` holds the use cases, ports and module APIs as signatures with Javadoc.
   A body that would do work throws `UnsupportedOperationException("Built in M<n>")`. At this commit
-  there are 243 such bodies in 181 files under `core/`, and 7 `NotImplementedError("Built in M<n>")`
-  in `optimizer/application/`. `grep -rn "Built in M5" src/backend` lists one milestone's remaining work.
+  there are 245 such bodies in 182 files under `core/`, and 7 `NotImplementedError("Built in M<n>")`
+  in `optimizer/application/`. Two of the 245 are the blanking methods of Planning's solve-job adapter. `grep -rn "Built in M5" src/backend` lists one milestone's remaining work.
   The two kernel errors in `shared/application/` (`NotFound`, `StaleVersion`) are complete classes; its
   three ports (`Clock`, `IdGenerator`, `ProcessedEvents`) are interfaces with no implementation.
-- **Absent.** No use case or port is wired, and the one adapter under `core/` is the shared persistence
-  adapter, `core/shared/adapter/out/persistence/`, which no repository uses yet. The Spring annotations
-  are `@SpringBootApplication` on the entry point `core/DispatchFlowApplication.java`,
-  `@RestControllerAdvice` on the one error handler in `core/web/`, `@Component` on `VersionedSave`, and
-  Spring Data's `@DomainEvents` and `@AfterDomainEventPublication` on `AggregateRoot`. The shared
-  adapter also carries Jakarta Persistence's `@Converter`, and the kernel's values and `AggregateRoot` carry
-  its mapping annotations ([ADR-126](../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)). The optimizer's only adapter is the liveness probe in `optimizer/adapters/inbound/http/app.py`.
+- **Wired.** No use case is wired. Each module has a persistence adapter, in
+  `core/<module>/adapter/out/persistence/`, which implements the module's repository and record
+  ports over the module's PostgreSQL schema, and nothing calls it yet. Planning's `Plan` has its own
+  in `core/planning/adapter/out/persistence/plan/`. The kernel has the shared one,
+  `core/shared/adapter/out/persistence/`. The Spring annotations are `@SpringBootApplication` on the
+  entry point `core/DispatchFlowApplication.java`, `@RestControllerAdvice` on the one error handler in
+  `core/web/`, `@Component` and `@Transactional` on the adapters and on `VersionedSave`, and Spring Data's
+  `@DomainEvents` and `@AfterDomainEventPublication` on `AggregateRoot`. The adapters also carry Jakarta
+  Persistence's `@Converter`, and the kernel's values, every aggregate and `AggregateRoot` carry its
+  mapping annotations ([ADR-126](../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md), [ADR-127](../../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md)). The optimizer's only adapter is the liveness probe in
+  `optimizer/adapters/inbound/http/app.py`.
 
 **Dependency direction.** Dependencies point inwards, as DL [§13](domain_layer_design.md#13-inside-each-module-hexagon)
 draws. The rules that keep the domain pure are DL [§2.3](domain_layer_design.md#23-rules-between-contexts)
@@ -154,20 +159,20 @@ arrows (or to Access or Audit), and `audit/` imports no other module.
 
 | Module (`core/`) | Domain packages | Domain files | Events |
 |---|---|---|---|
-| `access` | root, `account`, `session`, `companyprofile` | 38 | 2 |
+| `access` | root, `account`, `session`, `companyprofile` | 33 | 2 |
 | `audit` | flat | 11 | none |
-| `fleet` | root, `driver`, `register`, `roster` | 34 | 1 |
-| `liveops` | root, `delivery`, `outcome`, `proof`, `alert`, `routerun` | 47 | 3 |
-| `messaging` | root, `message`, `rating`, `settings` | 42 | 1 |
-| `orders` | flat | 41 | 3 |
-| `planning` | root, `plan`, `solution`, `drop`, `basis`, `revision`, `reconciliation`, `settings` | 81 | 6 |
-| `reporting` | root, `baseline` | 21 | none |
+| `fleet` | root, `driver`, `register`, `roster` | 30 | 1 |
+| `liveops` | root, `delivery`, `delivery.history`, `outcome`, `proof`, `alert`, `routerun` | 52 | 3 |
+| `messaging` | root, `message`, `rating`, `settings` | 39 | 1 |
+| `orders` | flat | 40 | 3 |
+| `planning` | root, `plan`, `solution`, `drop`, `basis`, `revision`, `reconciliation`, `settings` | 85 | 6 |
+| `reporting` | root, `baseline` | 20 | none |
 
 "Domain files" counts `.java` files under `<module>/domain/`, not counting `package-info.java`.
 A package above 20 files splits by aggregate, then by concept, wherever a group of 4 files can move
 ([ADR-118](../../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md), [ADR-125](../../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)):
 the root `domain/` keeps the module's error type and what several packages use, and imports none of its
-subpackages. `orders` has 41 files and stays flat, because its types form a cycle (`OrderStatus`,
+subpackages. `orders` has 40 files and stays flat, because its types form a cycle (`OrderStatus`,
 `OrdersError` and `Order` name each other) and `ImportBatch` calls package-private methods of `Customer`
 and `Order`; ADR-118 records it. The kernel and every `api/`, `spi/` and `events/` package stay flat
 (ADR-118, ADR-125).
@@ -178,26 +183,26 @@ There are 20 roots in Java (`extends AggregateRoot`). Audit has none, and the Py
 
 | Aggregate (module) | Key | Creation factory | Lines |
 |---|---|---|---|
-| `UserAccount` (Access) | `AccountId` | `open`, `openFirstAdmin` | 763 |
-| `Session` (Access) | `SessionId` | `open` | 574 |
-| `CompanyProfile` (Access) | none: one per company | `create` | 153 |
-| `FleetRegister` (Fleet) | none: one per company | `empty` | 369 |
-| `Driver` (Fleet) | `AccountId`, the driver's account | `register` | 272 |
-| `DayRoster` (Fleet) | `DeliveryDate` | `open` | 428 |
-| `Customer` (Orders) | `CustomerId` | `register` | 446 |
-| `Order` (Orders) | `OrderId` | `place` | 546 |
-| `ImportBatch` (Orders) | `ImportBatchId` | `preview` | 456 |
-| `Plan` (Planning) | `PlanId` | `open` | 2,112 |
-| `SolveJob` (Planning) | `JobId` | `queue`, package-private | 467 |
-| `ReoptimizationProposal` (Planning) | `ProposalId` | `create`, package-private | 177 |
-| `PlanningSettings` (Planning) | none: one per company | `startingValues` | 110 |
-| `Delivery` (Live Operations) | `StopId` | `firstFact` | 740 |
-| `RouteRun` (Live Operations) | `RouteId` | `start` | 340 |
-| `Alert` (Live Operations) | `AlertId` | `raise` | 120 |
-| `StopMessages` (Messaging) | `StopId` | `open` | 641 |
-| `RatingRequest` (Messaging) | `RatingRequestId` | `open` | 377 |
-| `MessagingSettings` (Messaging) | none: one per company | `create` | 103 |
-| `Baseline` (Reporting) | `PlanId` | `compute` | 239 |
+| `UserAccount` (Access) | `AccountId` | `open`, `openFirstAdmin` | 853 |
+| `Session` (Access) | `SessionId` | `open` | 693 |
+| `CompanyProfile` (Access) | none: one per company | `create` | 162 |
+| `FleetRegister` (Fleet) | none: one per company | `empty` | 427 |
+| `Driver` (Fleet) | `AccountId`, the driver's account | `register` | 428 |
+| `DayRoster` (Fleet) | `DeliveryDate` | `open` | 506 |
+| `Customer` (Orders) | `CustomerId` | `register` | 624 |
+| `Order` (Orders) | `OrderId` | `place` | 689 |
+| `ImportBatch` (Orders) | `ImportBatchId` | `preview` | 554 |
+| `Plan` (Planning) | `PlanId` | `open` | 2,697 |
+| `SolveJob` (Planning) | `JobId` | `queue`, package-private | 704 |
+| `ReoptimizationProposal` (Planning) | `ProposalId` | `create`, package-private | 566 |
+| `PlanningSettings` (Planning) | none: one per company | `startingValues` | 224 |
+| `Delivery` (Live Operations) | `StopId` | `firstFact` | 812 |
+| `RouteRun` (Live Operations) | `RouteId` | `start` | 423 |
+| `Alert` (Live Operations) | `AlertId` | `raise` | 301 |
+| `StopMessages` (Messaging) | `StopId` | `open` | 656 |
+| `RatingRequest` (Messaging) | `RatingRequestId` | `open` | 439 |
+| `MessagingSettings` (Messaging) | none: one per company | `create` | 146 |
+| `Baseline` (Reporting) | `PlanId` | `compute` | 401 |
 
 Lines are the line counts of the root's file at this commit. Where a root lives: `core/<module>/domain/`
 plus the aggregate's package from the table above (`Plan.java` is in `core/planning/domain/plan/`).
@@ -209,7 +214,7 @@ plus the aggregate's package from the table above (`Plan.java` is in `core/plann
 `core/shared/` holds what every module's domain is made of. DL [§2.3](domain_layer_design.md#23-rules-between-contexts)
 rule 5 and [ADR-097](../../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md) set what
 may go in it: building blocks, typed IDs, ten shared values and one text rule, and nothing that holds one
-context's rule. It is 38 files; its tests are the 21 files in `core-test/shared/`. Beside it, `core/shared/adapter/out/persistence/`
+context's rule. It is 38 files; its tests are the 25 files in `core-test/shared/`, which include `AsSaved`, the helper that saves an aggregate in memory (ADR-127 decision 2). Beside it, `core/shared/adapter/out/persistence/`
 holds the persistence adapter every module shares ([ADR-126](../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)): the converters and instantiators that store the
 kernel's values, and `VersionedSave`. That package is an adapter, not part of the kernel.
 
@@ -314,9 +319,7 @@ How the pieces work together:
   method `domainEvents()`, then calls `clearEvents()` (DL [§3.6](domain_layer_design.md#36-repositories)).
   `savedVersion()` returns the stored version, or empty before the first save, for a use case that holds an
   aggregate that may not be stored yet. An aggregate is saved once per transaction, with no flush between two
-  of its changes; the shared `VersionedSave` fails with `AssertionError` otherwise. The `AggregateRoot(Version)`
-  constructor is transitional: the snapshots still carry a version until each lane maps its aggregate, and it
-  goes with the last `restore`.
+  of its changes; the shared `VersionedSave` fails with `AssertionError` otherwise.
 - **`EventId`** has a text form, `<eventType>:<aggregateId>:<version>:<ordinal>`, which `toText` writes
   and `parse` reads. Optimistic locking lets one change commit per aggregate and version, so the four
   parts are unique without a random part.
@@ -383,8 +386,8 @@ DL [§3.3](domain_layer_design.md#33-value-objects) lists what each checks and t
 ## 4. Anatomy of one aggregate
 
 Most of the 20 roots follow one pattern. The clearest small example with an event is `Driver`
-(`core/fleet/domain/driver/Driver.java`, 272 lines). `Alert` (`core/liveops/domain/alert/Alert.java`,
-120 lines) is a small root that raises none.
+(`core/fleet/domain/driver/Driver.java`, 428 lines). `Alert` (`core/liveops/domain/alert/Alert.java`,
+301 lines) is a small root that raises none.
 
 ```mermaid
 classDiagram
@@ -401,8 +404,7 @@ classDiagram
     VehicleId defaultVehicle
     WeeklyShifts weeklyShifts
     register(id, contact, defaultShift, defaultVehicle, account) Driver
-    restore(DriverSnapshot) Driver
-    snapshot() DriverSnapshot
+    checkStored() "PostLoad"
     changeDetails(...)
     retire(uses, today, now)
     anonymize(now)
@@ -414,16 +416,6 @@ classDiagram
     Active
     Retired(Instant retiredAt)
     Anonymized(Optional retiredAt, Instant anonymizedAt)
-  }
-  class DriverSnapshot {
-    <<value>>
-    AccountId id
-    Version version
-    DriverStatus status
-    Optional contact
-    ShiftHours defaultShift
-    VehicleId defaultVehicle
-    WeeklyShifts weeklyShifts
   }
   class DriverRetired {
     <<event>>
@@ -442,7 +434,6 @@ classDiagram
   }
   AggregateRoot <|-- Driver
   Driver --> DriverStatus
-  Driver ..> DriverSnapshot : snapshot and restore
   Driver ..> DriverRetired : raises in retire
   Driver ..> DriverInUse : throws in RuleViolation
   Driver ..> PlanUses : retire is given it
@@ -450,23 +441,27 @@ classDiagram
 
 The pattern, with where `Driver` shows each part:
 
-1. **A private constructor**, which `DomainShapeRules` requires, usually taking the snapshot:
-   `private Driver(DriverSnapshot stored)`. A few roots take their fields instead (`UserAccount`,
-   `Session`, `CompanyProfile`, `FleetRegister`, `DayRoster`). Either way, nothing outside the class can
+1. **A private constructor**, which `DomainShapeRules` requires, taking what the factory has:
+   `private Driver(AccountId id, DriverContact contact, ...)`. A protected no-argument constructor
+   beside it is for Hibernate, which sets the fields from the stored row. Nothing outside the class can
    build an instance except through a static factory.
 2. **A creation factory checks every invariant of a new aggregate** and returns it with no version yet. Its
    name says what the business does: `register` here, `place`, `open`, `start`, `raise`, `compute` in the
    table of roots in §2. The new ID and `now` are parameters, never made inside (DL
    [§3.5](domain_layer_design.md#35-factories)). `Driver.register` also takes the account's `Standing`,
    a fact the driver can't see itself.
-3. **`restore(snapshot)` is for persistence only, and goes.** It rebuilds a stored aggregate and checks
-   its structure again, throwing `StoredStateInvalid` for a damaged row (`Driver.restore` checks that a
-   driver has a name and phone exactly until anonymized). Only a persistence adapter may call it; an
-   ArchUnit rule enforces that. [ADR-126](../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) has Hibernate rebuild an aggregate and a `@PostLoad` check on
-   its root run those same checks, so `restore` stays only until the lane that maps this aggregate
-   removes it. No aggregate is mapped yet.
-4. **`snapshot()` is the stored form**, including its version, which is null for a never-saved aggregate.
-   It goes with `restore`.
+3. **Only Hibernate rebuilds a stored aggregate, and a `@PostLoad` check refuses a damaged one.**
+   `checkStored` runs the invariants at rest and throws `StoredStateInvalid` for a damaged row (it checks
+   that a driver has a name and phone exactly until anonymized). A command that changes
+   state ends with the same check, which throws `AssertionError` and rolls the transaction back, so it
+   can't save a state that would not load. There is no `restore` and no snapshot record: only Hibernate
+   rebuilds an aggregate, and a domain test reaches a saved state through commands and `AsSaved`
+   ([ADR-126](../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md),
+   [ADR-127](../../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md)).
+4. **The mapping is on the class.** `@Entity` and `@Table(schema = "fleet")`, annotated fields, a key that
+   is the account's UUID, and a sealed state stored as a private kind (`StatusKind`) beside nullable
+   columns, which `DriverStatus` is built from. The tables are in
+   [data-model.md](../data-model.md#fleet-v4).
 5. **Business methods are named for what the business does** and are called once per command (`retire`,
    not `setStatus`). Each checks the current state first, then throws `new RuleViolation(new FleetError.X(...))`,
    then changes state, then raises events. A refused call changes nothing and records nothing.
@@ -595,10 +590,10 @@ classDiagram
 ```
 
 - **Packages** (`core/access/domain/`): the root holds `AccessError`, `AccountGeneration`,
-  `CommonPasswords`, `Language`, `NewPassword` and `TokenHash`; `account/` (18 files) holds
+  `CommonPasswords`, `Language`, `NewPassword` and `TokenHash`; `account/` (16 files) holds
   `UserAccount`, `CredentialLink`, `RoleSet`, `Role`, `Capability`, `ActiveAdmins`, `EmailAddress`,
-  `EmailHolder` and the states; `session/` (9) holds `Session`, `RefreshToken`, `TokenState`,
-  `RefreshOutcome`; `companyprofile/` (5) holds `CompanyProfile`, `CompanyName`, `DefaultWindow`,
+  `EmailHolder` and the states; `session/` (7) holds `Session`, `RefreshToken`, `TokenState`,
+  `RefreshOutcome`; `companyprofile/` (4) holds `CompanyProfile`, `CompanyName`, `DefaultWindow`,
   `DefaultServiceTime`. `session/` imports `account/` once: `Session.open` takes the `UserAccount`.
 - **Two counters, not one.** `AccountGeneration` is on the account and `SessionGeneration` on the
   session, as distinct types. A token issued under an older generation is refused (DL §3.3).
@@ -607,8 +602,8 @@ classDiagram
   `requireFreshStepUp` refuses an Admin-only operation once `STEP_UP_LIFETIME` (5 minutes) has passed
   since the password was last given. An Admin-only use case calls it rather than checking by itself.
 - **Events:** `SessionsRevoked` and `AccountAnonymized`, both raised by `UserAccount`.
-- **Start reading:** `CompanyProfile.java` (153 lines) for the pattern, then `Session.java` (574, the
-  refresh-token chain), then `UserAccount.java` (763). Tests: `core-test/access/domain/account/`
+- **Start reading:** `CompanyProfile.java` (162 lines) for the pattern, then `Session.java` (693, the
+  refresh-token chain), then `UserAccount.java` (853). Tests: `core-test/access/domain/account/`
   (`UserAccountTest`, `UserAccountLifecycleTest`, `CapabilityMatrixTest`), `session/` (`SessionTest`,
   `SessionLifecycleTest`) and `companyprofile/`.
 
@@ -698,8 +693,8 @@ classDiagram
 ```
 
 - **Packages** (`core/fleet/domain/`): the root holds `FleetError`, `PlanUse`, `PlanUses`, `RosterDefault`,
-  `ShiftHours` and `Standing`; `register/` (13 files) holds `FleetRegister`, `Depot`, `Vehicle`, `Plate`,
-  `Capacity`, `DepotHours`, `DepotName`, `VehicleName`; `driver/` (6) holds `Driver`, `DriverStatus`,
+  `ShiftHours` and `Standing`; `register/` (10 files) holds `FleetRegister`, `Depot`, `Vehicle`, `Plate`,
+  `Capacity`, `DepotHours`, `DepotName`, `VehicleName`; `driver/` (5) holds `Driver`, `DriverStatus`,
   `DriverName`, `WeeklyShifts`; `roster/` (9) holds `DayRoster`, `RosterEntry`, `Shift`, `RosterFill`, `Assignability`.
   The three aggregate packages import only the root.
 - **`Depot` and `Vehicle` are package-private classes.** Nothing outside `register/` can change one; the
@@ -711,8 +706,8 @@ classDiagram
 - **Events:** `DriverRetired`, raised by `Driver.retire`. `Driver.anonymize` and
   `anonymizeWithAccount` raise none; the second one is called from the listener for Access's
   `AccountAnonymized`.
-- **Start reading:** `Driver.java` (§4 above), then `FleetRegister.java` (368), then `DayRoster.java`
-  (427). Tests: `core-test/fleet/domain/driver/DriverTest`, `register/FleetRegisterTest`,
+- **Start reading:** `Driver.java` (§4 above), then `FleetRegister.java` (427), then `DayRoster.java`
+  (506). Tests: `core-test/fleet/domain/driver/DriverTest`, `register/FleetRegisterTest`,
   `roster/DayRosterTest`.
 
 ### 5.3 Customers & Orders
@@ -817,7 +812,7 @@ classDiagram
   OrderStatus ..> Order : derived, never stored
 ```
 
-- **Package:** one flat package, `core/orders/domain/` (41 files, the largest of the flat ones). Beyond
+- **Package:** one flat package, `core/orders/domain/` (40 files, the largest of the flat ones). Beyond
   the three roots: the personal-data values (`Address`, `ContactName`, `DriverNote`, `Floor`,
   `Apartment`, `EntranceCode`, `AccessDetails`, `Recipient`), `NormalizedAddress` and `CustomerMatch` for
   matching, `OrderDefaults` and `DailyWindow`, `ServiceArea` for the area test, and the import types
@@ -830,8 +825,8 @@ classDiagram
   [§6.1](domain_layer_design.md#61-the-rule)). ImportBatch's lifecycle is DL
   [§9.4](domain_layer_design.md#94-importbatch).
 - **Events:** `OrderCancelled`, `OrderRescheduled` and `OrderPutBack`, all raised by `Order`.
-- **Start reading:** `Order.java` (547) with `OrderStatus.java` and `DateCapacity.java`, then
-  `Customer.java` (447), then `ImportBatch.java` (457). Tests: `core-test/orders/domain/` (`OrderTest`,
+- **Start reading:** `Order.java` (689) with `OrderStatus.java` and `DateCapacity.java`, then
+  `Customer.java` (624), then `ImportBatch.java` (554). Tests: `core-test/orders/domain/` (`OrderTest`,
   `OrderStatusTest`, `CustomerTest`, `ImportBatchTest`, `CustomerMatchTest`, `NormalizedAddressTest`),
   with builders `OrderBuilder`, `CustomerBuilder`, `ImportBatchBuilder`.
 
@@ -840,20 +835,20 @@ classDiagram
 DL [§4.4](domain_layer_design.md#44-planning), whose class diagram already draws `Plan`, `Route`,
 `PlannedStop`, `PlanRevision`, `SolveJob` and `ReoptimizationProposal`. This guide adds what the DL
 does not draw: the package map, why three aggregates share one package, and what `Plan` holds beyond
-its routes. Planning is the largest module: 81 domain files and about 7,000 lines.
+its routes. Planning is the largest module: 85 domain files and about 9,000 lines.
 
 **Package map.** Arrows point from the package that imports to the package it imports (ADR-118 rule 7).
 The root imports none of its subpackages.
 
 ```mermaid
 flowchart LR
-  PLAN["plan (30 files)<br/>Plan, SolveJob,<br/>ReoptimizationProposal"]
+  PLAN["plan (35 files)<br/>Plan, SolveJob,<br/>ReoptimizationProposal"]
   SOL["solution (20)<br/>results, ValidationReport,<br/>ValidatedSolution"]
   DROP["drop (4)<br/>DroppedOrder, DropReason,<br/>ExcludedVehicle"]
   BAS["basis (4)<br/>SolveBasis, ProposalBasis,<br/>ChangesSinceBasis"]
   REV["revision (3)<br/>PlanRevision"]
   REC["reconciliation (4)<br/>LateFact, Reconciliation"]
-  SET["settings (8)<br/>PlanningSettings,<br/>TravelBuckets, Buffer"]
+  SET["settings (7)<br/>PlanningSettings,<br/>TravelBuckets, Buffer"]
   ROOT["root domain (8)<br/>PlanningError, RevisionNo,<br/>SolveTime, SolveLimit, RuleCode, PinTarget"]
   PLAN --> SOL
   PLAN --> DROP
@@ -899,8 +894,8 @@ The solid arrows are Java calls. The dotted one is an event (§7). Only the opti
 [§13](domain_layer_design.md#13-inside-each-module-hexagon); the rule is
 `DomainPurityRules.optimizerResultsOnlyFromOptimizerAdapter`, run by `DomainPurityTest`).
 
-**What `Plan` holds.** Its fields are in `core/planning/domain/plan/Plan.java`, and its stored form in
-`PlanSnapshot.java`.
+**What `Plan` holds.** Its fields are in `core/planning/domain/plan/Plan.java`, and the tables it is stored
+in are in [data-model.md](../data-model.md#planning-v8).
 
 ```mermaid
 classDiagram
@@ -912,7 +907,10 @@ classDiagram
     Instant openedAt
     Status status
     AppliedSolve applied
-    Layout layout
+    List routes
+    Set stops
+    List dropped
+    List pins
     List excluded
     List violations
     List undo
@@ -929,12 +927,6 @@ classDiagram
     Cancelled(RevisionNo revision, Instant at)
     Abandoned
   }
-  class Layout {
-    <<value>>
-    List routes
-    List dropped
-    List pins
-  }
   class Route {
     <<entity>>
     RouteId id
@@ -946,7 +938,7 @@ classDiagram
     Withdrawal withdrawal
     SolveTime confirmedReturn
     RoutePlan plan
-    List stops
+    List stops "which stops, in order"
   }
   class PlannedStop {
     <<entity>>
@@ -971,19 +963,22 @@ classDiagram
     RevisionNo number
     Instant effectiveAt
     RevisionCause cause
-    List routes
+    List~RevisionRoute~ routes
   }
   Plan --> Status
-  Plan "1" *-- "1" Layout
-  Layout "1" *-- "many" Route
-  Route "1" *-- "many" PlannedStop
+  Plan "1" *-- "many" Route
+  Plan "1" *-- "many" PlannedStop : creates and deletes
+  Route "1" o-- "many" PlannedStop : serves, in order
   Plan "1" *-- "many" Edit : undo and redo journals
   Plan "1" *-- "0..1" PlanRevision : pending
   PlannedStop ..> OrderId : order and attempt
 ```
 
-- **`Route` and `PlannedStop` are package-private records**, not public classes. Other code sees a plan
-  through `PlanLayout` (public: routes, dropped orders and pins by ID) and the `snapshot()`.
+- **`Route` and `PlannedStop` are package-private entity classes**, not public ones. A stop moves between
+  routes and keeps its ID, so `Plan` holds every stop in a collection of its own that alone creates and
+  deletes them, and a route's list only says which stops it serves ([ADR-127](../../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md), decision 11). Other code
+  sees a plan through `PlanLayout` (public: routes, dropped orders and pins by ID), a read-only view that
+  the `layout()` and `after…` queries return.
 - **`Edit` is the undo journal.** Each of the seven records stores what an edit changed, so `undo` and
   `redo` reverse it. DL [§4.4](domain_layer_design.md#44-planning) states its limit of 100 edits.
 - **The `after…` queries** (`afterMove`, `afterTakeOff`, `afterPlacing`, `afterPin`, `afterUnpin`,
@@ -1007,12 +1002,12 @@ records), `DroppedOrder`, `ExcludedVehicle` and `ExclusionCause`, which `solutio
 - **Events** (`core/planning/events/`): `PlanPublished`, `PlanRevised`, `RouteHandedOver`, `PlanCancelled`
   from `Plan`; `SolveSucceeded`, `SolveFailed` from `SolveJob`. The package also holds the enums these
   events use: `Lane`, `RevisionCause`, `SolveFailureReason`, `WithdrawalCause`.
-- **Start reading:** `SolveJob.java` (467) and `ReoptimizationProposal.java` (178) first. Then `Plan.java`
-  (2,112 lines) by section: its source has banner comments (`// ---- Solving ----`), and its tests are split
+- **Start reading:** `SolveJob.java` (704) and `ReoptimizationProposal.java` (566) first. Then `Plan.java`
+  (2,697 lines) by section: its source has banner comments (`// ---- Solving ----`), and its tests are split
   by topic, so read a section beside its test. Tests: `core-test/planning/domain/plan/`
   (`PlanLifecycleTest`, `PlanSolvingTest`, `PlanEditingTest`, `PlanPublishingTest`, `PlanPublishedTest`,
-  `PlanRoutesAndFactsTest`, `PlanSequenceTest`, `SolveJobTest`, `ReoptimizationProposalTest`,
-  `PlanRestoreTest`, `PlanRefusalsTest`) and `core-test/planning/events/PlanningEventsTest`.
+  `PlanRoutesAndFactsTest`, `PlanSequenceTest`, `PlanQueriesTest`, `PlanPendingRevisionTest`,
+  `PlanOptimizerOutputsTest`, `SolveJobTest`, `ReoptimizationProposalTest`, `PlanRefusalsTest`) and `core-test/planning/events/PlanningEventsTest`.
 
 ### 5.5 Live Operations
 
@@ -1156,10 +1151,13 @@ classDiagram
 
 - **Packages** (`core/liveops/domain/`): the root (8 files) holds `LiveOpsError`, `CorrectedTime`,
   `DriverReport`, `ContactWindow`, `RevisionNo`, `HeldReportId`, `CancellationKind`, `TrackingRefusal`;
-  `delivery/` (16) holds `Delivery`, its snapshot types, `ArrivalProjection`, `RetentionPeriods`;
+  `delivery/` (17) holds `Delivery`, the package-private types that store its outcome records and held
+  reports (`StoredOutcomeRecord`, `StoredOutcome`, `StoredHeldReport`), `ArrivalProjection`,
+  `RetentionPeriods`, and `delivery/history/` (6) holds the public values it keeps in columns of its own:
+  `ArrivalRecord`, `OutcomeRecord`, `HeldReport`, `HeldState`, `Origin`, `CorrectionReason`;
   `outcome/` (4) holds `Outcome`, `FailureReason`, `FailureReasonKind`, `DispatcherOutcome`, and uses
-  `proof/` (4), which holds `Proof`, `ProofId`, `ProofKind`, `ProofNote`; `alert/` (9) holds `Alert`, `AlertSubject`, `AlertKind`,
-  `DedupeKey`; `routerun/` (6) holds `RouteRun`, `RunStatus`, `TrackingWindow`, `ConfirmationDeadline`.
+  `proof/` (4), which holds `Proof`, `ProofId`, `ProofKind`, `ProofNote`; `alert/` (8) holds `Alert`, `AlertSubject`, `AlertKind`,
+  `DedupeKey`; `routerun/` (5) holds `RouteRun`, `RunStatus`, `TrackingWindow`, `ConfirmationDeadline`.
 - **`Delivery`'s status is derived.** `DeliveryStatus` (`PENDING`, `ARRIVED`, `HELD`, `DELIVERED`,
   `FAILED`) is computed from the outcomes and held reports, effective outcome first; it is not stored.
   DL [§9.3](domain_layer_design.md#93-delivery-br-87) draws it.
@@ -1172,7 +1170,7 @@ classDiagram
   [§4.5](domain_layer_design.md#45-live-operations)).
 - **Events** (`core/liveops/events/`): `OutcomeRecorded` and `PutBackSuperseded` from `Delivery`;
   `RouteStarted` from `RouteRun.start`. Enums beside them: `OutcomeKind`, `RunStartCause`.
-- **Start reading:** `Alert.java` (121), `RouteRun.java` (341), then `Delivery.java` (737) with
+- **Start reading:** `Alert.java` (301), `RouteRun.java` (423), then `Delivery.java` (812) with
   `DeliveryInvariants.java`. Tests: `core-test/liveops/domain/alert/AlertTest`, `routerun/RouteRunTest`,
   `delivery/` (`DeliveryLifecycleTest`, `DeliveryReportsTest`, `DeliveryCorrectionTest`,
   `DeliveryRefusalsTest`, `DeliverySequenceTest`, `ArrivalProjectionTest`).
@@ -1269,8 +1267,8 @@ classDiagram
 
 - **Packages** (`core/messaging/domain/`): the root (19 files) holds `MessagingError`, `MessageText`,
   `Wording`, `PhoneHash`, `OptOutRecord`, `OptOutStatus`, `QuarterHour`, `SendingConditions`;
-  `message/` (13) holds `StopMessages`, `OutgoingMessage`, `MessageState`, `MessageType`, `DailySendCap`;
-  `rating/` (8) holds `RatingRequest`, `Rating`, `Comment`, `Reply`, `ReplyText`; `settings/` (2) holds
+  `message/` (12) holds `StopMessages`, `OutgoingMessage`, `MessageState`, `MessageType`, `DailySendCap`;
+  `rating/` (7) holds `RatingRequest`, `Rating`, `Comment`, `Reply`, `ReplyText`; `settings/` (1) holds
   `MessagingSettings`.
 - **Records, not aggregates.** Opt-outs (`OptOutRecord`, `OptOutStatus`) and inbound replies are
   append-only records (DL [§3.2](domain_layer_design.md#32-records)). A message's lifecycle is DL
@@ -1278,8 +1276,8 @@ classDiagram
 - **`RatingRequest` has a status that is not stored.** `statusAt(now)` returns `OPEN`, `RATED` or
   `CLOSED`, and it is closed once 48 hours have passed (`ANSWER_WINDOW`).
 - **Event:** `RatingReceived`, raised by `RatingRequest.answer` (`core/messaging/events/`).
-- **Start reading:** `MessagingSettings.java` (104), `RatingRequest.java` (378), then `StopMessages.java`
-  (642). Tests: `core-test/messaging/domain/message/` (`StopMessagesTriggersTest`,
+- **Start reading:** `MessagingSettings.java` (146), `RatingRequest.java` (439), then `StopMessages.java`
+  (656). Tests: `core-test/messaging/domain/message/` (`StopMessagesTriggersTest`,
   `StopMessagesSendingTest`), `rating/` (`RatingRequestTest`, `ReplyTest`), `settings/`, and the root
   (`MessageTextTest`, `OptOutStatusTest`).
 
@@ -1337,9 +1335,8 @@ classDiagram
   BaselineComparison --> PlannedOnTimeRate
 ```
 
-- **Packages** (`core/reporting/domain/`, 21 files): the root (10) holds `ReportingError`, the two rate
-  types and the input facts `StopResult` and `StopOutcome`; `baseline/` (11) holds `Baseline`, its
-  snapshot, `Distance`, `DriverHours`, `WithdrawnFleet`, `Withdrawal`, `WithdrawalCause` and
+- **Packages** (`core/reporting/domain/`, 20 files): the root (10) holds `ReportingError`, the two rate
+  types and the input facts `StopResult` and `StopOutcome`; `baseline/` (10) holds `Baseline`, `Distance`, `DriverHours`, `WithdrawnFleet`, `Withdrawal`, `WithdrawalCause` and
   `PlanStanding`, and uses the root one way
   ([ADR-125](../../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)).
 - **The rates are exact shares of two counts.** `PlannedOnTimeRate` (in the diagram) and `OnTimeRate`
@@ -1348,7 +1345,7 @@ classDiagram
 - **`WithdrawalCause` here is Reporting's own copy**, mapped from Planning's `WithdrawalCause` event enum
   when `PlanRevised` is heard (§11).
 - **No events and no personal data.**
-- **Start reading:** `OnTimeRate.java` (87), then `baseline/Baseline.java` (238). Tests: `core-test/reporting/domain/`
+- **Start reading:** `OnTimeRate.java` (87), then `baseline/Baseline.java` (401). Tests: `core-test/reporting/domain/`
   (`OnTimeRateTest`, `PlannedOnTimeRateTest`, and in `baseline/`, `BaselineTest` and `WithdrawnFleetTest`).
 
 ### 5.8 Audit
@@ -1885,4 +1882,4 @@ component `CLAUDE.md` files).
 | 13. What is next | `core/planning/application/service/plan/RequestSolve.java`, then `grep -rn "Built in M0" src/backend` | none: bodies throw |
 
 After step 4 you can read any other aggregate with the §4 pattern in hand. Step 9 is the longest: `Plan.java`
-is 2,112 lines, so read it by the banner comments and keep the matching test open.
+is 2,697 lines, so read it by the banner comments and keep the matching test open.
