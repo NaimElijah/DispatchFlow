@@ -165,17 +165,6 @@ public class ImportBatch extends AggregateRoot implements PersonalData {
         this.state = StateKind.PREVIEWED;
     }
 
-    /** Builds the batch {@link #restore} checks; it goes with {@code restore} (ADR-126). */
-    private ImportBatch(ImportBatchSnapshot snapshot) {
-        super(snapshot.version());
-        this.id = snapshot.id().value();
-        this.hash = snapshot.hash();
-        this.encoding = snapshot.encoding();
-        snapshot.rows().forEach(row -> rows.add(new StoredPreviewRow(row)));
-        this.previewedAt = snapshot.previewedAt();
-        moveTo(snapshot.state());
-    }
-
     /**
      * Previews an uploaded file: every row is checked, and every error is kept with its row to be
      * shown (FR-203, ADR-086). A preview is never refused; its errors refuse the confirmation.
@@ -184,14 +173,14 @@ public class ImportBatch extends AggregateRoot implements PersonalData {
      * @param hash the file's hash
      * @param encoding how the reader decoded it
      * @param rows every row the reader parsed
-     * @param context the matches, date snapshots and company defaults the rows are checked against
+     * @param context the matches, date capacities and company defaults the rows are checked against
      * @param today today in {@code Asia/Jerusalem}
      * @param now the time of the preview, from which its hour counts
      * @return the batch, previewed, never saved, with its rows in row order
      * @throws java.util.NoSuchElementException when the context lacks a row's address or date, a
      *     programming error
      * @throws StoredStateInvalid when two rows share a number: the reader numbers rows, so this is a
-     *     reader bug, refused here so a stored batch never fails {@link #restore}
+     *     reader bug, refused here so a stored batch never fails {@link #checkStored}
      */
     public static ImportBatch preview(
             ImportBatchId id,
@@ -217,24 +206,9 @@ public class ImportBatch extends AggregateRoot implements PersonalData {
     }
 
     /**
-     * Rebuilds a stored batch, checking the rules that hold at rest. Only the persistence adapter
-     * calls it (DL §3.5).
-     *
-     * @param snapshot the stored batch
-     * @return the batch, at the stored version
-     * @throws StoredStateInvalid when a confirmed, discarded or expired batch keeps a row, the row
-     *     numbers are not unique and ascending, its state is older than its preview, or it was
-     *     confirmed after its hour
-     */
-    public static ImportBatch restore(ImportBatchSnapshot snapshot) {
-        ImportBatch restored = new ImportBatch(snapshot);
-        restored.checkStored();
-        return restored;
-    }
-
-    /**
-     * Checks the batch as Hibernate loaded it against the invariants at rest that {@link #restore}
-     * checks (ADR-126 decision 8).
+     * Checks the batch as Hibernate loaded it against the invariants at rest (ADR-126 decision 8):
+     * a confirmed, discarded or expired batch keeps no row, the row numbers are unique and
+     * ascending, its state is not older than its preview, and it was confirmed within its hour.
      *
      * @throws StoredStateInvalid when the stored state breaks one of them, or a stored row can't
      *     become a {@link PreviewRow}
@@ -246,7 +220,7 @@ public class ImportBatch extends AggregateRoot implements PersonalData {
         });
     }
 
-    /** The first invariant at rest the batch breaks, if any: those {@link #restore} names. */
+    /** The first invariant at rest the batch breaks, if any: those {@link #checkStored} names. */
     private Optional<String> brokenRule() {
         List<PreviewRow> previewRows = rows();
         if (state != StateKind.PREVIEWED && !previewRows.isEmpty()) {
@@ -291,12 +265,12 @@ public class ImportBatch extends AggregateRoot implements PersonalData {
      * made from the first of them (ADR-102). A row that gives no recipient, and whose name or phone
      * differs from the customer it matches or shares, makes them its order's recipient (ADR-115).
      *
-     * @param context the matches, date snapshots and company defaults, read again
+     * @param context the matches, date capacities and company defaults, read again
      * @param encodingConfirmed whether the dispatcher confirmed the decoded preview (FR-313)
      * @param ids new IDs: one per row, plus one per new customer
      * @param today today in {@code Asia/Jerusalem}
      * @param now the time of the confirmation; a time before the preview, from a clock that stepped
-     *     back, is recorded as the preview's, so the batch still restores (ADR-115)
+     *     back, is recorded as the preview's, so its state is never older than its preview (ADR-115)
      * @return the new customers and orders
      * @throws RuleViolation with {@link ImportAlreadyConfirmed}, {@link ImportDiscarded} or {@link
      *     ImportExpired}, for a batch no longer previewed or past its hour, then with {@link
@@ -328,7 +302,7 @@ public class ImportBatch extends AggregateRoot implements PersonalData {
 
         ImportResult result = create(imported, context, ids, now);
         rows.clear();
-        moveTo(new State.Confirmed(notBeforePreview(now)));
+        endIn(StateKind.CONFIRMED, notBeforePreview(now));
         requireInvariants();
         return result;
     }
@@ -337,14 +311,14 @@ public class ImportBatch extends AggregateRoot implements PersonalData {
      * Discards the preview at the dispatcher's request; its rows are deleted at once (FR-399).
      *
      * @param now the time of discarding; a time before the preview, from a clock that stepped back,
-     *     is recorded as the preview's, so the batch still restores (ADR-115)
+     *     is recorded as the preview's, so its state is never older than its preview (ADR-115)
      * @throws RuleViolation with {@link ImportAlreadyConfirmed}, {@link ImportDiscarded} or {@link
      *     ImportExpired}
      */
     public void discard(Instant now) {
         refuseUnlessPreviewed();
         rows.clear();
-        moveTo(new State.Discarded(notBeforePreview(now)));
+        endIn(StateKind.DISCARDED, notBeforePreview(now));
         requireInvariants();
     }
 
@@ -363,13 +337,13 @@ public class ImportBatch extends AggregateRoot implements PersonalData {
             throw new RuleViolation(new ImportNotYetExpired());
         }
         rows.clear();
-        moveTo(new State.Expired(now));
+        endIn(StateKind.EXPIRED, now);
         requireInvariants();
     }
 
     /**
      * The time a state change is recorded at: {@code now}, or the preview's time when a clock that
-     * stepped back gives an earlier one, which {@link #restore} would refuse. Expiring needs no such
+     * stepped back gives an earlier one, which {@link #checkStored} would refuse. Expiring needs no such
      * guard, because it is refused before the hour has passed.
      */
     private Instant notBeforePreview(Instant now) {
@@ -526,24 +500,37 @@ public class ImportBatch extends AggregateRoot implements PersonalData {
         return Objects.requireNonNull(stateSince, "a batch no longer previewed has the time it changed");
     }
 
-    /** Sets the state's kind and its time, in place. */
-    private void moveTo(State next) {
-        stateSince = null;
-        state = switch (next) {
-            case State.Previewed previewed -> StateKind.PREVIEWED;
-            case State.Confirmed confirmed -> {
-                stateSince = confirmed.at();
-                yield StateKind.CONFIRMED;
-            }
-            case State.Discarded discarded -> {
-                stateSince = discarded.at();
-                yield StateKind.DISCARDED;
-            }
-            case State.Expired expired -> {
-                stateSince = expired.at();
-                yield StateKind.EXPIRED;
-            }
-        };
+    /** Ends the preview in a confirmed, discarded or expired state, reached at a time, in place. */
+    private void endIn(StateKind ended, Instant at) {
+        state = ended;
+        stateSince = at;
+    }
+
+    /**
+     * The hash of the file the batch came from.
+     *
+     * @return the hash
+     */
+    public FileHash hash() {
+        return hash;
+    }
+
+    /**
+     * How the file was decoded (FR-61, FR-313).
+     *
+     * @return the encoding
+     */
+    public FileEncoding encoding() {
+        return encoding;
+    }
+
+    /**
+     * When the preview was made, from which its hour counts (FR-399).
+     *
+     * @return the time of the preview
+     */
+    public Instant previewedAt() {
+        return previewedAt;
     }
 
     /**
@@ -553,22 +540,6 @@ public class ImportBatch extends AggregateRoot implements PersonalData {
      */
     public List<PreviewRow> rows() {
         return rows.stream().map(StoredPreviewRow::row).toList();
-    }
-
-    /**
-     * Everything the batch holds, for the persistence adapter.
-     *
-     * @return the snapshot, at the loaded version
-     */
-    public ImportBatchSnapshot snapshot() {
-        return new ImportBatchSnapshot(
-                id(),
-                hash,
-                encoding,
-                rows(),
-                previewedAt,
-                state(),
-                savedVersion().orElse(null));
     }
 
     /**

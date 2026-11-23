@@ -9,21 +9,24 @@ import static com.dispatchflow.orders.domain.OrdersTestData.bareDetails;
 import static com.dispatchflow.orders.domain.OrdersTestData.customerId;
 import static com.dispatchflow.orders.domain.OrdersTestData.details;
 import static com.dispatchflow.orders.domain.OrdersTestData.emptyDate;
+import static com.dispatchflow.shared.AsSaved.asSaved;
 
 import com.dispatchflow.shared.DeliveryDate;
+import com.dispatchflow.shared.FreshIds;
 import com.dispatchflow.shared.ImportBatchId;
 import com.dispatchflow.shared.PhoneNumber;
-import com.dispatchflow.shared.Version;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.IntStream;
 
 /**
  * The one builder of {@link ImportBatch}es for tests: {@link #previewed()} goes through {@link
- * ImportBatch#preview}, and {@link #restored()} through {@link ImportBatch#restore} for a confirmed,
- * discarded or expired batch. It also builds rows and the context they are checked against.
+ * ImportBatch#preview}, and {@link #build()} then confirms, discards or expires the preview to reach
+ * the state asked for, and saves it (ADR-127 decision 2). It also builds rows and the context they
+ * are checked against.
  */
 final class ImportBatchBuilder {
 
@@ -135,18 +138,34 @@ final class ImportBatchBuilder {
         return ImportBatch.preview(BATCH, HASH, encoding, rowsOrOne(), context, TODAY, NOW);
     }
 
-    ImportBatchSnapshot snapshot() {
-        // Only a preview keeps rows: a confirmed, discarded or expired batch keeps none.
-        List<PreviewRow> preview = !(state instanceof ImportBatch.State.Previewed)
-                ? List.of()
-                : rowsOrOne().stream()
-                        .map(row -> new PreviewRow(row, List.of()))
-                        .toList();
-        return new ImportBatchSnapshot(BATCH, HASH, encoding, preview, NOW, state, Version.of(1));
+    /**
+     * Previews the rows at {@link OrdersTestData#NOW}, takes the command that leads to the state
+     * asked for, and saves the batch. A confirmation reads {@link #context()} again with the
+     * dispatcher's confirmation of the encoding, and needs every row to import.
+     *
+     * @return the batch, at version 0 with no pending event
+     * @throws AssertionError when the commands reach another state than the one asked for
+     */
+    ImportBatch build() {
+        ImportBatch batch = previewed();
+        switch (state) {
+            case ImportBatch.State.Previewed previewed -> {}
+            case ImportBatch.State.Confirmed(Instant at) ->
+                batch.confirm(context(), true, newIds(rowsOrOne().size()), TODAY, at);
+            case ImportBatch.State.Discarded(Instant at) -> batch.discard(at);
+            case ImportBatch.State.Expired(Instant at) -> batch.expire(at);
+        }
+        if (!batch.state().equals(state)) {
+            throw new AssertionError("the commands reached " + batch.state() + ", not " + state);
+        }
+        return asSaved(batch);
     }
 
-    ImportBatch restored() {
-        return ImportBatch.restore(snapshot());
+    /** A new customer's and an order's ID for each row, the most a confirmation draws. */
+    private static FreshIds newIds(int rows) {
+        return FreshIds.of(IntStream.range(0, 2 * rows)
+                .mapToObj(n -> new UUID(0x0190a5e200007000L, 0x80000000000b0000L | n))
+                .toList());
     }
 
     private List<ImportRow> rowsOrOne() {

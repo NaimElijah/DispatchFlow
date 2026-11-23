@@ -178,28 +178,6 @@ public class Order extends AggregateRoot implements PersonalData {
         this.lastChangedAt = now;
     }
 
-    /** Builds the order {@link #restore} checks; it goes with {@code restore} (ADR-126). */
-    private Order(OrderSnapshot snapshot) {
-        super(snapshot.version());
-        this.id = snapshot.id().value();
-        this.customer = snapshot.customer();
-        this.date = snapshot.date();
-        this.window = snapshot.window();
-        this.weight = snapshot.weight();
-        this.volume = snapshot.volume();
-        this.serviceTime = snapshot.serviceTime();
-        this.priority = snapshot.priority();
-        this.leaveAtDoor = snapshot.leaveAtDoor();
-        this.reference = snapshot.reference().orElse(null);
-        receiveBy(snapshot.recipient());
-        this.note = snapshot.note().orElse(null);
-        accessBy(snapshot.access());
-        this.attempt = snapshot.attempt();
-        enter(snapshot.state());
-        this.anonymized = snapshot.anonymized();
-        this.lastChangedAt = snapshot.lastChangedAt();
-    }
-
     /**
      * Places a new order on the capacity's date (FR-09, FR-11).
      *
@@ -262,7 +240,7 @@ public class Order extends AggregateRoot implements PersonalData {
     }
 
     /**
-     * The rules of an order joining a date through its snapshot: its reference is free there
+     * The rules of an order joining a date through its capacity: its reference is free there
      * (FR-211), and the date has room, unless the order is already one of its orders (BR-113).
      */
     static List<OrdersError> problemsJoining(
@@ -299,23 +277,9 @@ public class Order extends AggregateRoot implements PersonalData {
     }
 
     /**
-     * Rebuilds a stored order, checking the rules that hold at rest. Only the persistence adapter
-     * calls it (DL §3.5).
-     *
-     * @param snapshot the stored order
-     * @return the order, at the stored version
-     * @throws StoredStateInvalid when the window lies off the order's date, an anonymized order still
-     *     holds a personal field, or the cancellation is later than the last change
-     */
-    public static Order restore(OrderSnapshot snapshot) {
-        Order restored = new Order(snapshot);
-        restored.checkStored();
-        return restored;
-    }
-
-    /**
-     * Checks the order as Hibernate loaded it against the invariants at rest that {@link #restore}
-     * checks (ADR-126 decision 8).
+     * Checks the order as Hibernate loaded it against the invariants at rest (ADR-126 decision 8):
+     * its window lies on its date, an anonymized order holds no personal field, and it was not
+     * cancelled after its last change.
      *
      * @throws StoredStateInvalid when the stored state breaks one of them
      */
@@ -326,7 +290,7 @@ public class Order extends AggregateRoot implements PersonalData {
         });
     }
 
-    /** The first invariant at rest the order breaks, if any: those {@link #restore} names. */
+    /** The first invariant at rest the order breaks, if any: those {@link #checkStored} names. */
     private Optional<String> brokenRule() {
         if (!window.date().equals(date)) {
             return Optional.of("the window lies off the order's date");
@@ -425,7 +389,8 @@ public class Order extends AggregateRoot implements PersonalData {
      */
     public void cancel(StopState progress, Instant now) {
         refuseUnlessOpen(progress);
-        enter(new State.Cancelled(now));
+        state = StateKind.CANCELLED;
+        cancelledAt = now;
         lastChangedAt = now;
         requireInvariants();
         raise(OrderCancelled.class, id, eventId -> new OrderCancelled(eventId, now, id(), date, attempt.number()));
@@ -603,19 +568,95 @@ public class Order extends AggregateRoot implements PersonalData {
         return lastChangedAt;
     }
 
-    /** The recipient its two columns make. */
-    private Recipient recipient() {
+    /**
+     * The order's weight demand (BR-50).
+     *
+     * @return the weight
+     */
+    public Weight weight() {
+        return weight;
+    }
+
+    /**
+     * The order's volume demand (BR-50).
+     *
+     * @return the volume
+     */
+    public Volume volume() {
+        return volume;
+    }
+
+    /**
+     * How long its stop occupies the vehicle (BR-04, BR-124).
+     *
+     * @return the service time
+     */
+    public ServiceTime serviceTime() {
+        return serviceTime;
+    }
+
+    /**
+     * The order's priority (BR-53).
+     *
+     * @return the priority
+     */
+    public Priority priority() {
+        return priority;
+    }
+
+    /**
+     * Whether the order may be left at the door (FR-364).
+     *
+     * @return {@code true} when it may
+     */
+    public boolean leaveAtDoor() {
+        return leaveAtDoor;
+    }
+
+    /**
+     * The order's own delivery note (FR-135).
+     *
+     * @return the note, or empty when it has none or once anonymized
+     */
+    public Optional<DriverNote> note() {
+        return Optional.ofNullable(note);
+    }
+
+    /**
+     * Whether the order's personal fields were removed (NFR-257).
+     *
+     * @return {@code true} once anonymized
+     */
+    public boolean isAnonymized() {
+        return anonymized;
+    }
+
+    /**
+     * The order's own recipient (FR-87).
+     *
+     * @return the recipient, or {@link Recipient#NONE} when the customer receives it or once
+     *     anonymized
+     */
+    public Recipient recipient() {
         return new Recipient(Optional.ofNullable(recipientName), Optional.ofNullable(recipientPhone));
     }
 
-    /** The access details its three columns make. */
-    private AccessDetails access() {
+    /**
+     * The order's floor, apartment and entrance code (FR-86).
+     *
+     * @return the details, or {@link AccessDetails#NONE} when none was given or once anonymized
+     */
+    public AccessDetails access() {
         return new AccessDetails(
                 Optional.ofNullable(floor), Optional.ofNullable(apartment), Optional.ofNullable(entranceCode));
     }
 
-    /** The state its kind and its cancellation's time make. */
-    private State state() {
+    /**
+     * Whether the order is active or cancelled, with the cancellation's time.
+     *
+     * @return the state
+     */
+    public State state() {
         return switch (state) {
             case ACTIVE -> new State.Active();
             case CANCELLED ->
@@ -634,47 +675,6 @@ public class Order extends AggregateRoot implements PersonalData {
         floor = next.floor().orElse(null);
         apartment = next.apartment().orElse(null);
         entranceCode = next.entranceCode().orElse(null);
-    }
-
-    /** Sets the state's kind and its time, in place. */
-    private void enter(State next) {
-        state = switch (next) {
-            case State.Active active -> {
-                cancelledAt = null;
-                yield StateKind.ACTIVE;
-            }
-            case State.Cancelled cancelled -> {
-                cancelledAt = cancelled.at();
-                yield StateKind.CANCELLED;
-            }
-        };
-    }
-
-    /**
-     * Everything the order holds, for the persistence adapter and the read side.
-     *
-     * @return the snapshot, at the loaded version
-     */
-    public OrderSnapshot snapshot() {
-        return new OrderSnapshot(
-                id(),
-                customer,
-                date,
-                window,
-                weight,
-                volume,
-                serviceTime,
-                priority,
-                leaveAtDoor,
-                Optional.ofNullable(reference),
-                recipient(),
-                Optional.ofNullable(note),
-                access(),
-                attempt,
-                state(),
-                anonymized,
-                lastChangedAt,
-                savedVersion().orElse(null));
     }
 
     /**

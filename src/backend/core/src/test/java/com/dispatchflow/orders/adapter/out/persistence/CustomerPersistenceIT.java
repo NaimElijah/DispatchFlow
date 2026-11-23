@@ -11,10 +11,18 @@ import com.dispatchflow.orders.domain.AccessDetails;
 import com.dispatchflow.orders.domain.Address;
 import com.dispatchflow.orders.domain.ContactName;
 import com.dispatchflow.orders.domain.Customer;
+import com.dispatchflow.orders.domain.CustomerDescription;
 import com.dispatchflow.orders.domain.CustomerMatch;
 import com.dispatchflow.orders.domain.DailyWindow;
 import com.dispatchflow.orders.domain.DriverNote;
+import com.dispatchflow.orders.domain.FileEncoding;
+import com.dispatchflow.orders.domain.FileHash;
 import com.dispatchflow.orders.domain.GeocodeResult;
+import com.dispatchflow.orders.domain.ImportBatch;
+import com.dispatchflow.orders.domain.ImportContext;
+import com.dispatchflow.orders.domain.ImportLine;
+import com.dispatchflow.orders.domain.ImportResult;
+import com.dispatchflow.orders.domain.ImportRow;
 import com.dispatchflow.orders.domain.InUse;
 import com.dispatchflow.orders.domain.Location;
 import com.dispatchflow.orders.domain.MatchQuality;
@@ -23,12 +31,15 @@ import com.dispatchflow.orders.domain.Order;
 import com.dispatchflow.orders.domain.OrderDefaults;
 import com.dispatchflow.orders.domain.OrderDetails;
 import com.dispatchflow.orders.domain.Recipient;
+import com.dispatchflow.orders.domain.RowNumber;
 import com.dispatchflow.orders.domain.ServiceArea;
 import com.dispatchflow.orders.domain.ServiceTime;
 import com.dispatchflow.orders.domain.StopState;
 import com.dispatchflow.shared.CustomerId;
 import com.dispatchflow.shared.DeliveryDate;
+import com.dispatchflow.shared.FreshIds;
 import com.dispatchflow.shared.GeoPoint;
+import com.dispatchflow.shared.ImportBatchId;
 import com.dispatchflow.shared.IsraelDateTime;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PhoneNumber;
@@ -113,13 +124,14 @@ class CustomerPersistenceIT {
         NOT_FOUND,
         PLACED_BY_HAND,
         RETIRED,
-        ANONYMIZED
+        ANONYMIZED,
+        CREATED_BY_AN_IMPORT
     }
 
     @ParameterizedTest
     @EnumSource(Scenario.class)
     void GivenACustomer_WhenAddedAndLoadedInAnotherTransaction_ThenEveryPartComesBackAsAdded(Scenario scenario) {
-        int n = 1 + scenario.ordinal();
+        int n = 60 + scenario.ordinal();
         Customer added = transactions.inTransaction(() -> {
             Customer customer = switch (scenario) {
                 case REGISTERED -> registered(n);
@@ -137,6 +149,7 @@ class CustomerPersistenceIT {
                 case PLACED_BY_HAND -> placedByHand(n);
                 case RETIRED -> retired(n, LATER);
                 case ANONYMIZED -> anonymized(n);
+                case CREATED_BY_AN_IMPORT -> createdByAnImport(n);
             };
             repository.add(customer);
             return customer;
@@ -145,7 +158,7 @@ class CustomerPersistenceIT {
         Customer loaded =
                 transactions.inTransaction(() -> repository.get(customer(n)).orElseThrow());
 
-        assertThat(loaded.snapshot()).isEqualTo(added.snapshot());
+        assertThat(CustomerDescription.of(loaded)).isEqualTo(CustomerDescription.of(added));
         assertThat(loaded.id()).isEqualTo(customer(n));
         assertThat(loaded.location()).isEqualTo(added.location());
         assertThat(loaded.flags()).containsExactlyElementsOf(added.flags());
@@ -202,8 +215,8 @@ class CustomerPersistenceIT {
         });
 
         assertThat(List.of(added, flagged, storedVersion(n))).containsExactly(0L, 1L, 2L);
-        assertThat(transactions.inTransaction(() ->
-                        repository.get(customer(n)).orElseThrow().snapshot().address()))
+        assertThat(transactions.inTransaction(
+                        () -> repository.get(customer(n)).orElseThrow().address()))
                 .contains(address(100 + n));
     }
 
@@ -230,7 +243,7 @@ class CustomerPersistenceIT {
         Customer stored =
                 transactions.inTransaction(() -> repository.get(customer(n)).orElseThrow());
         assertThat(stored.version()).isEqualTo(Version.of(1));
-        assertThat(stored.snapshot().address()).contains(address(100 + n));
+        assertThat(stored.address()).contains(address(100 + n));
         assertThat(stored.location()).isEqualTo(new Location.Missing());
     }
 
@@ -350,7 +363,7 @@ class CustomerPersistenceIT {
         assertThat(end).isEqualTo(israel(LocalDateTime.of(2026, 3, 27, 12, 0)));
     }
 
-    // --- the load check (ADR-127 decision 1), mirroring the domain's damaged snapshots
+    // --- the load check (ADR-127 decision 1): the damaged stored states it refuses
 
     private static final String PERSONAL_DATA = "an anonymized customer holds personal data";
     private static final String INCOMPLETE = "a customer lacks its name, phone or address";
@@ -592,9 +605,52 @@ class CustomerPersistenceIT {
         return customer;
     }
 
+    /**
+     * The customer an import's one clean row creates when it is confirmed (FR-311): no note, and
+     * flagged for a location check. Only an import's confirmation makes one.
+     */
+    private Customer createdByAnImport(int n) {
+        DeliveryDate date = DeliveryDate.of(LocalDate.of(2031, 4, 1));
+        ImportRow row = new ImportRow.Parsed(
+                RowNumber.of(1),
+                new ImportLine(address(n), Optional.of(name(n)), Optional.of(phone(n)), date, bareDetails()));
+        ImportContext context = ImportContext.of(
+                List.of(new ImportContext.AddressMatch(
+                        NormalizedAddress.of(address(n)), new CustomerMatch.NoCustomer())),
+                List.of(orders.capacityUnderLock(date)),
+                DEFAULTS);
+        ImportBatch batch = ImportBatch.preview(
+                ImportBatchId.of(new UUID(KEY_PREFIX + 2, n)),
+                new FileHash("9f86d081"),
+                FileEncoding.UTF_8,
+                List.of(row),
+                context,
+                date.value(),
+                CREATED);
+        ImportResult result = batch.confirm(
+                context,
+                true,
+                FreshIds.of(List.of(customer(n).value(), new UUID(KEY_PREFIX + 2, 1_000 + n))),
+                date.value(),
+                CREATED.plusSeconds(60));
+        return result.customers().get(0);
+    }
+
     /** An order of customer {@code n} on a date, placed on that date. */
     private Order orderFor(int n, int o, DeliveryDate date) {
-        OrderDetails details = new OrderDetails(
+        return Order.place(
+                OrderId.of(new UUID(KEY_PREFIX + 1, 100L * n + o)),
+                customer(n),
+                bareDetails(),
+                DEFAULTS,
+                orders.capacityUnderLock(date),
+                date.value(),
+                CREATED);
+    }
+
+    /** No window, service time, reference, recipient, note or access details: the defaults decide. */
+    private static OrderDetails bareDetails() {
+        return new OrderDetails(
                 Optional.empty(),
                 Weight.kilograms(BigDecimal.ONE),
                 Volume.litres(BigDecimal.ONE),
@@ -605,14 +661,6 @@ class CustomerPersistenceIT {
                 Recipient.NONE,
                 Optional.empty(),
                 AccessDetails.NONE);
-        return Order.place(
-                OrderId.of(new UUID(KEY_PREFIX + 1, 100L * n + o)),
-                customer(n),
-                details,
-                DEFAULTS,
-                orders.capacityUnderLock(date),
-                date.value(),
-                CREATED);
     }
 
     // --- keys, values and stored rows

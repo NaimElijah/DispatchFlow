@@ -13,7 +13,8 @@ import org.junit.jupiter.api.Test;
 /** A customer as an import row's candidate (FR-60, FR-310): only an active customer is one. */
 class CustomerCandidateTest {
 
-    private static final Instant LAST_YEAR = Instant.parse("2025-06-01T09:00:00Z");
+    /** A year and five months after {@link CustomerBuilder#CREATED}, so a retention from it is over. */
+    private static final Instant LAST_YEAR = Instant.parse("2026-06-01T09:00:00Z");
 
     @Test
     void GivenAnActiveCustomer_WhenAskedForItsCandidate_ThenItIsItsIdContactAndDefaults() {
@@ -23,11 +24,11 @@ class CustomerCandidateTest {
 
     @Test
     void GivenARetiredCustomer_WhenAskedForItsCandidate_ThenThereIsNone() {
-        assertThat(aCustomer().retiredAt(LAST_YEAR).restored().asCandidate()).isEmpty();
+        assertThat(aCustomer().retiredAt(LAST_YEAR).build().asCandidate()).isEmpty();
     }
 
     @Test
     void GivenAnAnonymizedCustomer_WhenAskedForItsCandidate_ThenThereIsNone() {
-        assertThat(aCustomer().anonymizedAt(LAST_YEAR).restored().asCandidate()).isEmpty();
+        assertThat(aCustomer().anonymizedAt(LAST_YEAR).build().asCandidate()).isEmpty();
     }
 }

@@ -17,6 +17,7 @@ import com.dispatchflow.orders.domain.ExternalReference;
 import com.dispatchflow.orders.domain.FileEncoding;
 import com.dispatchflow.orders.domain.FileHash;
 import com.dispatchflow.orders.domain.ImportBatch;
+import com.dispatchflow.orders.domain.ImportBatchDescription;
 import com.dispatchflow.orders.domain.ImportContext;
 import com.dispatchflow.orders.domain.ImportLine;
 import com.dispatchflow.orders.domain.ImportRow;
@@ -135,7 +136,7 @@ class ImportBatchPersistenceIT {
         ImportBatch loaded =
                 transactions.inTransaction(() -> repository.get(batch(n)).orElseThrow());
 
-        assertThat(loaded.snapshot()).isEqualTo(added.snapshot());
+        assertThat(ImportBatchDescription.of(loaded)).isEqualTo(ImportBatchDescription.of(added));
         assertThat(loaded.id()).isEqualTo(batch(n));
         assertThat(loaded.state()).isEqualTo(added.state());
         assertThat(loaded.rows()).isEqualTo(added.rows());
@@ -275,7 +276,7 @@ class ImportBatchPersistenceIT {
         assertThat(older).filteredOn(ours::contains).containsExactly(batch(103), batch(104), batch(105), batch(101));
     }
 
-    // --- the load check (ADR-127 decision 1), mirroring the domain's damaged snapshots
+    // --- the load check (ADR-127 decision 1): the damaged stored states it refuses
 
     private static final String KEEPS_A_ROW = "a confirmed, discarded or expired import keeps a row";
     private static final String NOT_ASCENDING = "the row numbers are not unique and ascending";

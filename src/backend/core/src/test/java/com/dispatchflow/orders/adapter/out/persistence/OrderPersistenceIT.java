@@ -16,6 +16,7 @@ import com.dispatchflow.orders.domain.ExternalReference;
 import com.dispatchflow.orders.domain.Order;
 import com.dispatchflow.orders.domain.OrderChange;
 import com.dispatchflow.orders.domain.OrderDefaults;
+import com.dispatchflow.orders.domain.OrderDescription;
 import com.dispatchflow.orders.domain.OrderDetails;
 import com.dispatchflow.orders.domain.Placement;
 import com.dispatchflow.orders.domain.Recipient;
@@ -134,7 +135,7 @@ class OrderPersistenceIT {
         Order loaded =
                 transactions.inTransaction(() -> repository.get(order(n, 1)).orElseThrow());
 
-        assertThat(loaded.snapshot()).isEqualTo(added.snapshot());
+        assertThat(OrderDescription.of(loaded)).isEqualTo(OrderDescription.of(added));
         assertThat(loaded.id()).isEqualTo(order(n, 1));
         assertThat(loaded.date()).isEqualTo(added.date());
         assertThat(loaded.window()).isEqualTo(added.window());
@@ -314,9 +315,9 @@ class OrderPersistenceIT {
 
         List<Order> uncancelled = transactions.inTransaction(() -> repository.uncancelledOn(dateOf(n)));
 
-        assertThat(uncancelled.stream().map(Order::snapshot))
+        assertThat(uncancelled.stream().map(OrderDescription::of))
                 .containsExactlyInAnyOrderElementsOf(
-                        added.stream().map(Order::snapshot).toList());
+                        added.stream().map(OrderDescription::of).toList());
     }
 
     @Test
@@ -348,7 +349,7 @@ class OrderPersistenceIT {
                 .isEmpty();
     }
 
-    // --- the load check (ADR-127 decision 1), mirroring the domain's damaged snapshots
+    // --- the load check (ADR-127 decision 1): the damaged stored states it refuses
 
     private static final String PERSONAL_FIELD = "an anonymized order holds a personal field";
 

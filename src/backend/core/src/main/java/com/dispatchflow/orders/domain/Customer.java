@@ -187,22 +187,6 @@ public class Customer extends AggregateRoot implements PersonalData {
         this.createdAt = now;
     }
 
-    /** Builds the customer {@link #restore} checks; it goes with {@code restore} (ADR-126). */
-    private Customer(CustomerSnapshot snapshot) {
-        super(snapshot.version());
-        this.id = snapshot.id().value();
-        this.name = snapshot.name().orElse(null);
-        this.phone = snapshot.phone().orElse(null);
-        takeAddress(snapshot.address());
-        this.note = snapshot.note().orElse(null);
-        locateAt(snapshot.location());
-        this.flags.addAll(snapshot.flags());
-        this.defaultWindow = snapshot.defaults().window();
-        this.defaultServiceTime = snapshot.defaults().serviceTime().orElse(null);
-        enter(snapshot.state());
-        this.createdAt = snapshot.createdAt();
-    }
-
     /**
      * Registers a customer a dispatcher created (FR-08, FR-59). It has no location until geocoding
      * answers or a dispatcher places one.
@@ -250,24 +234,10 @@ public class Customer extends AggregateRoot implements PersonalData {
     }
 
     /**
-     * Rebuilds a stored customer, checking the rules that hold at rest. Only the persistence adapter
-     * calls it (DL §3.5).
-     *
-     * @param snapshot the stored customer
-     * @return the customer, at the stored version
-     * @throws StoredStateInvalid when an anonymized customer still holds personal data, a customer
-     *     not anonymized lacks its name, phone or address, a hand-placed location carries a flag, or
-     *     its retirement or anonymization is older than its creation
-     */
-    public static Customer restore(CustomerSnapshot snapshot) {
-        Customer restored = new Customer(snapshot);
-        restored.checkStored();
-        return restored;
-    }
-
-    /**
-     * Checks the customer as Hibernate loaded it against the invariants at rest that {@link
-     * #restore} checks (ADR-126 decision 8).
+     * Checks the customer as Hibernate loaded it against the invariants at rest (ADR-126 decision 8):
+     * an anonymized customer holds no personal data, a customer not anonymized has its name, phone
+     * and address, a hand-placed location carries no flag, and its retirement or anonymization is not
+     * older than its creation.
      *
      * @throws StoredStateInvalid when the stored state breaks one of them
      */
@@ -278,7 +248,7 @@ public class Customer extends AggregateRoot implements PersonalData {
         });
     }
 
-    /** The first invariant at rest the customer breaks, if any: those {@link #restore} names. */
+    /** The first invariant at rest the customer breaks, if any: those {@link #checkStored} names. */
     private Optional<String> brokenRule() {
         boolean holdsPersonalData = name != null
                 || phone != null
@@ -411,8 +381,8 @@ public class Customer extends AggregateRoot implements PersonalData {
      *
      * @param usage the plans not yet completed that use it, from Planning
      * @param now the time of retiring, from which its retention counts; a time before its creation,
-     *     from a clock that stepped back, is recorded as its creation's, so the customer still
-     *     restores (ADR-115)
+     *     from a clock that stepped back, is recorded as its creation's, so its state is never older
+     *     than its creation (ADR-115)
      * @throws RuleViolation with {@link CustomerAnonymized}, {@link CustomerRetired} or {@link
      *     CustomerInUse}, in that order
      */
@@ -421,7 +391,7 @@ public class Customer extends AggregateRoot implements PersonalData {
         if (usage.isInUse()) {
             throw new RuleViolation(new CustomerInUse(id(), usage.plans()));
         }
-        enter(new State.Retired(now.isBefore(createdAt) ? createdAt : now));
+        endIn(StateKind.RETIRED, now.isBefore(createdAt) ? createdAt : now);
         requireInvariants();
     }
 
@@ -454,7 +424,7 @@ public class Customer extends AggregateRoot implements PersonalData {
         note = null;
         locateAt(new Location.Missing());
         flags.clear();
-        enter(new State.Anonymized(now));
+        endIn(StateKind.ANONYMIZED, now);
         requireInvariants();
     }
 
@@ -486,6 +456,52 @@ public class Customer extends AggregateRoot implements PersonalData {
      */
     public CustomerId id() {
         return CustomerId.of(id);
+    }
+
+    /**
+     * Its name (FR-59).
+     *
+     * @return the name, or empty once anonymized
+     */
+    public Optional<ContactName> name() {
+        return Optional.ofNullable(name);
+    }
+
+    /**
+     * Its contact phone (FR-59).
+     *
+     * @return the phone, or empty once anonymized
+     */
+    public Optional<PhoneNumber> phone() {
+        return Optional.ofNullable(phone);
+    }
+
+    /**
+     * Its address as typed (FR-08).
+     *
+     * @return the address, or empty once anonymized
+     */
+    public Optional<Address> address() {
+        return Optional.ofNullable(address);
+    }
+
+    /**
+     * Its standing notes for drivers (FR-08).
+     *
+     * @return the note, or empty when it has none or once anonymized
+     */
+    public Optional<DriverNote> note() {
+        return Optional.ofNullable(note);
+    }
+
+    /**
+     * When it was registered, from which a customer with no order counts its retention (NFR-257,
+     * ADR-102).
+     *
+     * @return the time of registration
+     */
+    public Instant createdAt() {
+        return createdAt;
     }
 
     /**
@@ -590,42 +606,10 @@ public class Customer extends AggregateRoot implements PersonalData {
         };
     }
 
-    /** Sets the state's kind and its time, in place. */
-    private void enter(State next) {
-        state = switch (next) {
-            case State.Active active -> {
-                stateSince = null;
-                yield StateKind.ACTIVE;
-            }
-            case State.Retired retired -> {
-                stateSince = retired.at();
-                yield StateKind.RETIRED;
-            }
-            case State.Anonymized anonymized -> {
-                stateSince = anonymized.at();
-                yield StateKind.ANONYMIZED;
-            }
-        };
-    }
-
-    /**
-     * Everything the customer holds, for the persistence adapter and the read side.
-     *
-     * @return the snapshot, at the loaded version
-     */
-    public CustomerSnapshot snapshot() {
-        return new CustomerSnapshot(
-                id(),
-                Optional.ofNullable(name),
-                Optional.ofNullable(phone),
-                Optional.ofNullable(address),
-                Optional.ofNullable(note),
-                location(),
-                flags,
-                orderDefaults(),
-                state(),
-                createdAt,
-                savedVersion().orElse(null));
+    /** Moves the customer to the retired or anonymized state, reached at a time, in place. */
+    private void endIn(StateKind ended, Instant at) {
+        state = ended;
+        stateSince = at;
     }
 
     /**
