@@ -9,8 +9,9 @@ optimizer's code directly, with no HTTP and no `core`.
 ## Layout
 
 `src/dispatchflow_research/` holds `benchmark/`, `simulation/` and `generator/`. This folder also
-holds `instances/`, `results/` and `tests/` (pytest; `test_environment.py` checks that both the
-optimizer and PyVRP import).
+holds `results/` and `tests/` (pytest; `test_environment.py` checks that both the optimizer and
+PyVRP import). Benchmark instances go in the root `data/`, which git ignores, never here
+([ADR-123]).
 
 ## How it uses the optimizer
 
@@ -72,6 +73,7 @@ Google-style docstring, which ruff enforces; tests are exempt.
 [ADR-004]: ../../docs/ADRs/ADR-004-pluggable-solver-port.md
 [ADR-005]: ../../docs/ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md
 [ADR-091]: ../../docs/ADRs/ADR-091-study-design-for-the-solver-comparison.md
+[ADR-123]: ../../docs/ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md
 [NFR-115]: ../../docs/requirements/requirements.md#nfr-115
 [TS §7]: ../../docs/architecture/tech_stack.md#7-optimization-service-python
 [TS §8]: ../../docs/architecture/tech_stack.md#8-research-harness

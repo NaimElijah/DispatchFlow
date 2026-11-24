@@ -3,7 +3,8 @@
 Each of the core's eight bounded contexts has its domain built in code, ahead of its milestone. Each
 also has an `application` package, declared and not built, with every body that would do work
 throwing, and a persistence adapter under `adapter/out/persistence/` that stores its aggregates and
-that nothing calls yet ([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)). `src/backend/core/src/main/java/com/dispatchflow/`
+that nothing calls yet ([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)). A module's other
+`adapter/` packages are declared, empty ([ADR-130](../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md)). `src/backend/core/src/main/java/com/dispatchflow/`
 holds a module for each: `access`, `audit`, `fleet`, `liveops`, `messaging`, `orders`, `planning` and
 `reporting`, each with a `domain`, an `application` and an `adapter` package, and an `events` package except
 `audit` and `reporting`, which raise no event. It also holds the application entry point, a `web` package for

@@ -10,7 +10,6 @@ React 19, TypeScript 6.0, Vite 8, npm.
 
 ## Rules
 
-- Feature folders, `src/features/<context>`, mirror the bounded contexts ([TS §10]).
 - Mixed-direction text sits in `<bdi>` (NFR-136), and fonts come through Fontsource ([TS §10]).
 - Lay it out for a desktop screen, except the driver screens, which must also work in a phone's
   browser (NFR-15, NFR-219).

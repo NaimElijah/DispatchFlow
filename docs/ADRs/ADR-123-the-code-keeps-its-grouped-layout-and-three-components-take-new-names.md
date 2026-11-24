@@ -1,6 +1,6 @@
 # ADR-123: The code keeps its grouped layout, and three components take new names
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-130
 - **Date:** 2026-11-22
 
 ## Context

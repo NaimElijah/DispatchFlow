@@ -270,7 +270,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); out
   <main class="stack" id="stack"></main>
 
   <footer>
-    <span>Generated from the source at commit <code>3fb2a01</code> on 19 November 2026. The names, kinds and summaries come from the code and its Javadoc. The subpackages that ADR-125 split on 22 November 2026 were updated by hand. On 23 November 2026 the wording about the persistence adapters was changed by hand from jOOQ to JPA (ADR-126); on the same day the database lane was changed by hand: the persistence adapters now exist in every module, so the 24 repository and record ports they implement are drawn solid, and the adapters' own classes (<code>adapter/out/persistence</code> in each module and <code>shared/adapter/out/persistence</code>) are not drawn. Also by hand that day: the snapshot records and <code>Layout</code> that the mapping deleted are removed, <code>Route</code> and <code>PlannedStop</code> are classes, and the records of a delivery's history sit in <code>outcome</code> and <code>delivery</code>; the package-private stored forms the mapping added are not drawn. The planned adapters come from <code>docs/architecture/tech_stack.md</code> §6.3 and §6.4, and the append-only records from the domain document's §3.2.</span>
+    <span>Generated from the source at commit <code>3fb2a01</code> on 19 November 2026. The names, kinds and summaries come from the code and its Javadoc. The subpackages that ADR-125 split on 22 November 2026 were updated by hand. On 23 November 2026 the wording about the persistence adapters was changed by hand from jOOQ to JPA (ADR-126); on the same day the database lane was changed by hand: the persistence adapters now exist in every module, so the 24 repository and record ports they implement are drawn solid, and the adapters' own classes (<code>adapter/out/persistence</code> in each module and <code>shared/adapter/out/persistence</code>) are not drawn. Also by hand that day: the snapshot records and <code>Layout</code> that the mapping deleted are removed, <code>Route</code> and <code>PlannedStop</code> are classes, and the records of a delivery's history sit in <code>outcome</code> and <code>delivery</code>; the package-private stored forms the mapping added are not drawn. The planned adapters come from <code>docs/architecture/tech_stack.md</code> §6.3 and §6.4, and the append-only records from the domain document's §3.2. On 24 November 2026 the planned <code>adapter/in</code> list was changed by hand to add <code>in/listen</code> and <code>in/cli</code>, and each planned outbound adapter was changed by hand to name the empty package ADR-130 declares for it, and the migration folder's count was corrected by hand to V1 to V10.</span>
     <span>This page decides nothing. Where it differs from the code, the domain document, <code>tech_stack.md</code> or an ADR, they win.</span>
     <span>The optimizer (<code>src/backend/optimizer</code>, Python) has its own domain, application and adapter layers and is not drawn here.</span>
   </footer>
@@ -307,18 +307,18 @@ const isDbPort = r => r.l === "port" && (/Repository$|Views$/.test(r.n) || RECOR
 
 // The secondary ports tech_stack.md §6.4 pairs with an adapter, in its own words; §6.4 wins where they differ.
 const OUTBOUND = [
-  { ports: ["RouteOptimizer", "FeasibilityChecker", "BaselinePlanner"], adapter: "Optimizer HTTP client, generated from optimization-api; the anti-corruption layer" },
-  { ports: ["TravelTimes", "RouteShapes"], adapter: "OSRM table and route services; base durations only" },
-  { ports: ["Geocoder"], adapter: "GovMap adapter, fake; Nominatim only if GovMap's terms fail (ADR-085)" },
-  { ports: ["SmsGateway"], adapter: "Israeli provider adapter (Q-96); fake in every environment except production (NFR-206)" },
-  { ports: ["EmailSender"], adapter: "Amazon SES; Mailpit (SMTP) in development and tests" },
-  { ports: ["PushNotifier"], adapter: "Expo Push API; fake in tests" },
-  { ports: ["LiveUpdates"], adapter: "SSE emitter registry" },
-  { ports: ["ProofStore"], adapter: "Local disk (ADR-027)" },
-  { ports: ["Clock"], adapter: "System clock; a controllable clock in the end-to-end profile (NFR-175)" },
-  { ports: ["IdGenerator"], adapter: "UUIDv7 (uuid-creator)" },
-  { ports: ["PasswordHasher", "TokenSigner"], adapter: "Spring Security's Argon2id encoder; Nimbus JOSE + JWT" },
-  { ports: ["PhoneHasher"], adapter: "The JDK's Mac, a keyed hash (the Hmac of §6.4)" },
+  { ports: ["RouteOptimizer", "FeasibilityChecker", "BaselinePlanner"], adapter: "Optimizer HTTP client, generated from optimization-api into shared/adapter/out/optimizer; the anti-corruption layer. Package adapter/out/optimizer" },
+  { ports: ["TravelTimes", "RouteShapes"], adapter: "OSRM table and route services; base durations only. Package adapter/out/osrm" },
+  { ports: ["Geocoder"], adapter: "GovMap adapter, fake; Nominatim only if GovMap's terms fail (ADR-085). Package adapter/out/govmap" },
+  { ports: ["SmsGateway"], adapter: "Israeli provider adapter (Q-96); fake in every environment except production (NFR-206). Package adapter/out/sms" },
+  { ports: ["EmailSender"], adapter: "Amazon SES; Mailpit (SMTP) in development and tests. Package adapter/out/email" },
+  { ports: ["PushNotifier"], adapter: "Expo Push API; fake in tests. Package adapter/out/push" },
+  { ports: ["LiveUpdates"], adapter: "SSE emitter registry. Package adapter/out/sse" },
+  { ports: ["ProofStore"], adapter: "Local disk (ADR-027). Package adapter/out/disk" },
+  { ports: ["Clock"], adapter: "System clock; a controllable clock in the end-to-end profile (NFR-175). Package shared/adapter/out/clock" },
+  { ports: ["IdGenerator"], adapter: "UUIDv7 (uuid-creator). Package shared/adapter/out/uuid" },
+  { ports: ["PasswordHasher", "TokenSigner"], adapter: "Spring Security's Argon2id encoder; Nimbus JOSE + JWT. Package adapter/out/crypto" },
+  { ports: ["PhoneHasher"], adapter: "The JDK's Mac, a keyed hash (the Hmac of §6.4). Package adapter/out/crypto" },
 ];
 
 const BANDS = [
@@ -455,9 +455,11 @@ function renderWeb(band) {
   const builtBody = el("div", { class: "lane-body" }, group("web:built", "Whole application · web", null, built, () => true, { subOf: () => "" }));
   const planned = el("div", { class: "lane-body" }, el("ul", { class: "planned-list" },
     el("li", {}, el("span", { text: "in/web" }), el("span", { text: "Spring MVC controllers on virtual threads, implementing the interfaces openapi-generator makes from contracts/client-api (ADR-043). The contract declares no operation yet. Each handler checks the role the contract's x-capability names (ADR-068)." })),
+    el("li", {}, el("span", { text: "in/listen" }), el("span", { text: "Listeners that react to another module's event, such as Fleet's on DriverRetired, which removes the driver's role through Access's API. Each is idempotent, so a second delivery changes nothing (DL §7)." })),
     el("li", {}, el("span", { text: "in/job" }), el("span", { text: "Workers that run queued work, such as RunSolveJob in each solve lane." })),
     el("li", {}, el("span", { text: "in/schedule" }), el("span", { text: "Timed triggers, such as the midnight CloseDeliveryDate and the nightly retention steps." })),
     el("li", {}, el("span", { text: "in/callback" }), el("span", { text: "Provider callbacks, such as SMS delivery reports, verified by signature or a header secret." })),
+    el("li", {}, el("span", { text: "in/cli" }), el("span", { text: "Server steps a person runs at a prompt or from a runbook, such as CreateFirstAdmin." })),
   ));
   return [
     laneShell(band, { label: "built", hint: "The only web class today" }, builtBody),
@@ -471,7 +473,7 @@ function renderDb(band) {
     const ports = DATA.filter(r => r.c === c.id && isDbPort(r));
     if (ports.length) dbBody.append(group(`db:db:${c.id}`, c.name, c.id, ports, () => true, { plannedOf: r => !BUILT_PORTS.has(r.n), subOf: () => "" }));
   }
-  dbBody.append(el("p", { class: "foot", text: "A solid chip is a port that a Spring Data JPA adapter implements today: one repository per aggregate root, and the append-only records. A dashed chip is a port with no adapter yet, such as each module's read views. PostgreSQL 18 holds one schema per module, migrated by Flyway from src/main/resources/db/migration, which holds V1 to V9." }));
+  dbBody.append(el("p", { class: "foot", text: "A solid chip is a port that a Spring Data JPA adapter implements today: one repository per aggregate root, and the append-only records. A dashed chip is a port with no adapter yet, such as each module's read views. PostgreSQL 18 holds one schema per module, migrated by Flyway from src/main/resources/db/migration, which holds V1 to V10." }));
 
   const rows = OUTBOUND.map(row => {
     const ports = row.ports.flatMap(n => DATA.filter(r => r.n === n && (r.l === "port" || (r.c === "shared" && r.l === "application"))));
