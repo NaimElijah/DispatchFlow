@@ -1,6 +1,6 @@
 # ADR-016: One OSV-Scanner pass audits every lockfile, and an accepted vulnerability expires
 
-- **Status:** Accepted; extended by ADR-023 and ADR-072; amended by ADR-095
+- **Status:** Accepted; extended by ADR-023 and ADR-072; amended by ADR-095 and ADR-134
 - **Date:** 2026-10-30
 
 ## Context

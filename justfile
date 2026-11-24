@@ -7,6 +7,10 @@ mvnw := if os_family() == "windows" { ".\\mvnw.cmd" } else { "./mvnw" }
 redocly := "npx --yes @redocly/cli@2.72.1"
 # Pinned by digest as well as tag, so a re-pointed tag cannot change what scans the repository.
 osv_scanner_image := "ghcr.io/google/osv-scanner:v2.7.0@sha256:4f3b7e2c64b9d38a5febc5a7e4a3dfef1d1362f726dea7a2ef4762b46469fcd0"
+# Google's mirror of Maven Central, where the audit resolves the core's parent pom and BOMs. Central
+# answers shared CI runners with HTTP 429 now and then, and a parent the scan can't load fails the
+# audit (ADR-134).
+maven_mirror := "https://maven-central.storage-download.googleapis.com/maven2"
 
 # List every recipe.
 default:
@@ -146,4 +150,4 @@ contracts-check:
 
 # Scan every lockfile and the pom for known vulnerabilities. Needs Docker.
 audit:
-    docker run --rm -v "{{ justfile_directory() }}:/src:ro" {{ osv_scanner_image }} scan source -r /src
+    docker run --rm -v "{{ justfile_directory() }}:/src:ro" {{ osv_scanner_image }} scan source --maven-registry "{{ maven_mirror }}" -r /src

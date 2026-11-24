@@ -100,9 +100,10 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-013](ADR-013-java-tooling-maven-wrapper-and-spotless.md) | The core backend builds with the Maven wrapper and formats with Spotless and palantir-java-format | Accepted; amended by ADR-038 |
 | [ADR-014](ADR-014-real-dependencies-in-containers-for-tests-and-local-runs.md) | Integration tests and local runs use a real PostgreSQL in a container | Superseded by ADR-042 |
 | [ADR-015](ADR-015-ci-one-workflow-one-job-per-component.md) | CI is one workflow with one job per component, and Dependabot keeps dependencies current | Accepted; extended by ADR-021; amended by ADR-046 |
-| [ADR-016](ADR-016-dependency-audit-with-osv-scanner.md) | One OSV-Scanner pass audits every lockfile, and an accepted vulnerability expires | Accepted; extended by ADR-023 and ADR-072; amended by ADR-095 |
+| [ADR-016](ADR-016-dependency-audit-with-osv-scanner.md) | One OSV-Scanner pass audits every lockfile, and an accepted vulnerability expires | Accepted; extended by ADR-023 and ADR-072; amended by ADR-095 and ADR-134 |
 | [ADR-023](ADR-023-accept-minimatch-and-glob-advisories.md) | Accept the minimatch and glob advisories in the frontends' tooling until 2027-01-31 | Accepted; extended by ADR-095 |
 | [ADR-095](ADR-095-accept-the-zod-and-deepmerge-advisories-until-2027-01-31.md) | Accept the zod and deepmerge advisories in the phone app's tooling until 2027-01-31 | Accepted |
+| [ADR-134](ADR-134-the-audit-resolves-the-cores-pom-from-a-mirror-of-maven-central.md) | The audit resolves the core's pom from Google's mirror of Maven Central | Accepted |
 | [ADR-037](ADR-037-flat-layout-under-src-with-deploy-and-infra.md) | The code moves to a flat layout under `src/`, with deployment in `deploy/` and Terraform in `infra/` | Superseded by ADR-123 |
 | [ADR-123](ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md) | The code keeps its grouped layout, and three components take new names | Accepted; extended by ADR-130 |
 | [ADR-038](ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md) | mise pins every toolchain, and the core moves to Java 25 | Accepted |
@@ -180,4 +181,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > Implemented." and names no milestone.
 > ADR-133, on 2026-11-24, lets a `job` adapter be a step that runs once at startup, and declares
 > Access's `in/job` for the step that stores the seeded accounts.
+> ADR-134, on 2026-11-24, has the audit read the core's parent pom from Google's mirror of Maven
+> Central, which Central's rate limit had failed, and records that the core's Java dependencies are
+> audited.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.
