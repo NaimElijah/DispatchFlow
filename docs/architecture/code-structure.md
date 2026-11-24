@@ -202,8 +202,10 @@ It holds whichever of `api`, `spi`, `port/out` and `service` the module has some
 `audit` and `liveops` have no `spi`, and `messaging` and `reporting` have neither `api` nor `spi`.
 Every body that would do work throws `UnsupportedOperationException("Built in M<n>")`. Nothing is
 wired: the application layer registers no bean, and no use case calls a port. Its one Spring
-annotation is the class-level `@Transactional` on every service; a use case with outside calls, or
-one transaction per item, holds a transactional `<UseCase>Change` instead
+annotation is `@Transactional`: on every service's class, and on the read-only reads of a
+`<UseCase>Change`. A use case with outside calls, or one transaction per item, holds its
+transactional `Change`, and it carries no transaction itself; nor does a service that calls such a
+use case
 ([ADR-129](../ADRs/ADR-129-transactions-start-only-in-the-service-layer.md)). The ports every module uses sit in `shared/application`, and the caller is an `Actor`
 and a `CallContext`
 ([ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).

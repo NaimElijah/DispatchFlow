@@ -17,9 +17,9 @@ audit record ([NFR-23], [NFR-93]).
   the two keeps the order with no record. Nothing calls an adapter outside the integration tests
   yet, because nothing wires the use cases ([ADR-119], decision 4).
 - **Spring adds a transaction through a proxy.** In Spring Boot's default class-based mode, the
-  proxy is a generated subclass. 188 of the 195 classes in the services' packages are `final`.
-  Spring can't subclass a `final` class, so the context fails to start. A `final` method is skipped
-  with only a log line, and its call runs with no transaction.
+  proxy is a generated subclass. All 188 classes in the services' packages are `final`, and so are
+  their 5 records. Spring can't subclass a `final` class, so the context fails to start. A `final`
+  method is skipped with only a log line, and its call runs with no transaction.
 - **A call to the class's own method goes around the proxy.** It runs with no transaction and no
   error. TS §6.2's "outside calls first; then one `@Transactional` method" is that call when both
   steps sit in one class, as `RequestSolve`'s skeleton has them.
@@ -45,8 +45,9 @@ On 2026-11-24 the owner, Naim Elijah, decided where transactions start, and how,
    - The annotation sits on the class.
    - The skeletons carry it too: this is the one Spring annotation a skeleton has. A skeleton still
      registers no bean, so no throwing body is reachable.
-   - A service is a public class in `application.service` with a public constructor. A value, an
-     exception or a sealed result type in those packages isn't one.
+   - A service is a public top-level class in `application.service` that holds a port, an `api` or
+     another service. A value, an exception, a sealed result type or a package-private helper in
+     those packages isn't one.
    - A transactional class is not `final` and not a record, and declares no `final` method, so that
      Spring can subclass it.
    - **A service that calls a use case opening no transaction of its own carries none either.** That
@@ -82,12 +83,13 @@ On 2026-11-24 the owner, Naim Elijah, decided where transactions start, and how,
        call, made by the use case after its own transaction (decision 2).
      - These points were settled while the classes were split, so that one rule holds for every
        module.
-   - **Four service packages split under [ADR-125].** The `Change` classes took each past 20
-     files, so each moved a group by concept:
-     - `access.application.service.account.state`;
-     - `liveops.application.service.delivery.dispatcher`;
-     - `messaging.application.service.message`;
-     - `planning.application.service.plan.reaction`.
+   - **Four service folders split under [ADR-125].** The `Change` classes took each past 20
+     files, so every group that could move did, by concept, into seven new packages:
+     - `access.application.service.account.state` and `account.role`;
+     - `liveops.application.service.delivery.dispatcher` and `delivery.proof`;
+     - `messaging.application.service.message` and `service.optout`;
+     - `planning.application.service.plan.reaction`. The rest of `plan` forms no concept group of
+       four or more.
 4. **A service that changes nothing is `@Transactional(readOnly = true)`.**
    - Hibernate then skips its dirty checking and flush.
    - PostgreSQL refuses any write the service makes by mistake.
@@ -133,7 +135,8 @@ On 2026-11-24 the owner, Naim Elijah, decided where transactions start, and how,
 - **[ADR-063]:** a use case whose work around its transaction includes outside calls, or one
   transaction per item, is two classes (3). It is extended.
 - **[ADR-064]:** a listener's form, so that its retries work (7). It is extended.
-- **[ADR-125]:** four more service packages split by its rule (3). It is extended.
+- **[ADR-125]:** four more service folders split by its rule, into seven packages (3). It is
+  extended.
 - **[TS §6.2][TS-62]** is corrected to match: its "one `@Transactional` method" is the transactional
   service or its `Change`.
 
@@ -145,7 +148,7 @@ On 2026-11-24 the owner, Naim Elijah, decided where transactions start, and how,
     transactional method, because the one class that needs two steps is two classes.
 - **Easy:** a listener's and a web call's retries each run in a fresh transaction, as [ADR-064] and
   [ADR-121] decide.
-- **Hard:** about 69 use cases are two classes, and both need tests when their bodies are built.
+- **Hard:** 90 use cases are two classes, and both need tests when their bodies are built.
 - **Hard:** an adapter called outside any service writes half. Spring Data's `save` commits on its
   own, then the flush finds no transaction and throws. Only code that bypasses the service layer can
   do that, and review checks for it.

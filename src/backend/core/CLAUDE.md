@@ -98,12 +98,12 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   adapter. A milestone may change a declared signature or add a class, with every caller in the same
   pull request. Delete the Javadoc's "Built in M<n>" when the body is built.
 - A use case follows [TS §6.2], [ADR-063], [ADR-064] and [ADR-129]:
-  - One class per use case. A changing one changes one existing aggregate after its outside calls,
-    and writes its `AuditLog` record in that transaction, with no personal data (NFR-94).
-  - `TransactionRules` checks where transactions start: only on a service's class, `readOnly` if it
-    changes nothing, and in a `<UseCase>Change` for one with outside calls or per-item transactions.
+  - A use case is one class, or two when a `<UseCase>Change` holds its transaction. A changing one
+    changes one aggregate after its outside calls, and audits in that transaction (NFR-94).
+  - `TransactionRules` checks where transactions start. Review checks that a service changing
+    nothing is `readOnly`; a `Change` reads in `readOnly` methods, and a refusal audits after it.
   - `@Retryable` and `@ConcurrencyLimit` sit on the adapter that makes the outside call, where a
-    retry is safe. A listener has no transaction, so each retry gets a fresh one; it is idempotent.
+    retry is safe. A listener is `@Async`, so each retry gets a fresh transaction; it is idempotent.
 - Every handler is authorized by role from its operation's `x-capability`. A check that depends on
   the data, such as a driver's own route, lives in the use case ([ADR-068]).
 - The schema changes only through a new migration, `src/main/resources/db/migration/V<n>__<x>.sql`:

@@ -24,7 +24,7 @@ import org.springframework.transaction.interceptor.TransactionInterceptor;
 class TransactionTest {
 
     private static final String ROOT = ProductionClasses.ROOT;
-    /** Fewer than the 183 transactional services and 91 split use cases there are today. */
+    /** Fewer than the 180 transactional services and 90 split use cases there are today. */
     private static final int FEWEST_SERVICES = 250;
 
     private static List<JavaClass> services() {

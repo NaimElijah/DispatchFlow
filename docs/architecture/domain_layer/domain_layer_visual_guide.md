@@ -86,8 +86,8 @@ An arrow means *depends on*. The sources for each box:
 - **Declared, not built** ([ADR-119](../../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)).
   Each module's `application/` holds the use cases, ports and module APIs as signatures with Javadoc.
   A body that would do work throws `UnsupportedOperationException("Built in M<n>")`. At this commit
-  there are 245 such bodies in 182 files under `core/`, and 7 `NotImplementedError("Built in M<n>")`
-  in `optimizer/application/`. Two of the 245 are the blanking methods of Planning's solve-job adapter. `grep -rn "Built in M5" src/backend` lists one milestone's remaining work.
+  there are 386 such bodies in 271 files under `core/`, and 7 `NotImplementedError("Built in M<n>")`
+  in `optimizer/application/`. Two of the 386 are the blanking methods of Planning's solve-job adapter. `grep -rn "Built in M5" src/backend` lists one milestone's remaining work.
   The two kernel errors in `shared/application/` (`NotFound`, `StaleVersion`) are complete classes; its
   three ports (`Clock`, `IdGenerator`, `ProcessedEvents`) are interfaces with no implementation.
 - **Wired.** No use case is wired. Each module has a persistence adapter, in
@@ -96,7 +96,7 @@ An arrow means *depends on*. The sources for each box:
   in `core/planning/adapter/out/persistence/plan/`. The kernel has the shared one,
   `core/shared/adapter/out/persistence/`. The Spring annotations are `@SpringBootApplication` on the
   entry point `core/DispatchFlowApplication.java`, `@RestControllerAdvice` on the one error handler in
-  `core/web/`, `@Component` and `@Transactional` on the adapters and on `VersionedSave`, and Spring Data's
+  `core/web/`, `@Component` on the adapters and on `VersionedSave`, a class-level `@Transactional` on every service or its `<UseCase>Change` ([ADR-129](../../ADRs/ADR-129-transactions-start-only-in-the-service-layer.md)), and Spring Data's
   `@DomainEvents` and `@AfterDomainEventPublication` on `AggregateRoot`. The adapters also carry Jakarta
   Persistence's `@Converter`, and the kernel's values, every aggregate and `AggregateRoot` carry its
   mapping annotations ([ADR-126](../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md), [ADR-127](../../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md)). The optimizer's only adapter is the liveness probe in
@@ -1611,14 +1611,14 @@ flowchart LR
 | `SolveSucceeded` | `SolveJob.succeed` | `plan/reaction/ApplySolveResult` (Planning) |
 | `SolveFailed` | `SolveJob.fail`, `expireIfOverdue` | `plan/reaction/RecordSolveFailure` (Planning) |
 | `PlanPublished` | `Plan.publish` | `routerun/TellDriversRoutesReady` (Live Operations); `ComputeBaseline` (Reporting) |
-| `PlanRevised` | `Plan.accept`, `handOver`, `removeStopOf`, `reconcileLateOutcome` | `routerun/TellDriversOfRevision` (Live Operations); `MessagePlanRevised` (Messaging); `RecomputeBaseline` (Reporting) |
+| `PlanRevised` | `Plan.accept`, `handOver`, `removeStopOf`, `reconcileLateOutcome` | `routerun/TellDriversOfRevision` (Live Operations); `message/MessagePlanRevised` (Messaging); `RecomputeBaseline` (Reporting) |
 | `RouteHandedOver` | `Plan.handOver` | `plan/route/MoveRosterWithRoute` (Planning); `routerun/TellDriversOfRevision` (Live Operations) |
 | `PlanCancelled` | `Plan.cancel` | `routerun/TellDriversPlanCancelled` (Live Operations) |
-| `OrderCancelled` | `Order.cancel` | `plan/reaction/RemoveStopOfOrder` (Planning); `MessageDeliveryChanged` (Messaging) |
-| `OrderRescheduled` | `Order.reschedule` | `plan/reaction/RemoveStopOfOrder` (Planning); `MessageDeliveryChanged` (Messaging) |
+| `OrderCancelled` | `Order.cancel` | `plan/reaction/RemoveStopOfOrder` (Planning); `message/MessageDeliveryChanged` (Messaging) |
+| `OrderRescheduled` | `Order.reschedule` | `plan/reaction/RemoveStopOfOrder` (Planning); `message/MessageDeliveryChanged` (Messaging) |
 | `OrderPutBack` | `Order.putBack`, on another date only | `plan/reaction/RemovePutBackOrder` (Planning) |
-| `RouteStarted` | `RouteRun.start` | `MessageRouteStarted` (Messaging) |
-| `OutcomeRecorded` | `Delivery.deliver`, `fail`, `recordOnBehalf`, `confirmHeld` | `delivery/ReconcileOutcome` (Live Operations); `MessageOutcome` (Messaging) |
+| `RouteStarted` | `RouteRun.start` | `message/MessageRouteStarted` (Messaging) |
+| `OutcomeRecorded` | `Delivery.deliver`, `fail`, `recordOnBehalf`, `confirmHeld` | `delivery/ReconcileOutcome` (Live Operations); `message/MessageOutcome` (Messaging) |
 | `PutBackSuperseded` | `Delivery.correct` | `delivery/RemoveSupersededStop` (Live Operations) |
 | `RatingReceived` | `RatingRequest.answer` | `AlertLowRating` (Messaging) |
 | `DriverRetired` | `Driver.retire` | `RemoveRoleOfRetiredDriver` (Fleet) |
@@ -1731,59 +1731,68 @@ Nothing runs this today. This sequence follows DL [§6.1](domain_layer_design.md
 for the command "Request a solve" and shows the classes the code declares for it. **Everything outside
 `Plan`, `SolveJob` and the kernel is declared, not built.**
 
-The use case is `RequestSolve` (`core/planning/application/service/plan/RequestSolve.java`); the lane's
-worker is `RunSolveJob` (`core/planning/application/service/solvejob/`); the listener that ends the
-solve is `ApplySolveResult` (`service/plan/reaction/`). The repositories are ports in
-`core/planning/application/port/out/`.
+The use case is `RequestSolve` (`core/planning/application/service/plan/RequestSolve.java`), and its
+transaction is `RequestSolveChange` beside it. The lane's worker is `RunSolveJob`
+(`core/planning/application/service/solvejob/`), whose transactions are `RunSolveJobChange`'s. The
+listener that ends the solve is `ApplySolveResult` (`service/plan/reaction/`). The repositories are
+ports in `core/planning/application/port/out/`. A use case with outside calls makes them itself,
+outside any transaction, and its `Change` holds the transaction ([ADR-129](../../ADRs/ADR-129-transactions-start-only-in-the-service-layer.md)).
 
 ```mermaid
 sequenceDiagram
   participant Web as Web adapter (absent)
   participant UC as RequestSolve (declared)
+  participant C as RequestSolveChange (declared)
   participant Opt as RouteOptimizer (port)
   participant PR as PlanRepository
   participant JR as SolveJobRepository
   participant P as Plan
   participant J as SolveJob
   participant W as RunSolveJob (declared)
+  participant WC as RunSolveJobChange (declared)
   participant L as ApplySolveResult (declared)
   Web->>UC: request(actor, plan, solver, limit, expected)
   Note over UC,Opt: From M4: outside calls first, before any transaction (DL 6.3). M0 asks no list and runs OR-Tools
   UC->>Opt: solvers()
   Opt-->>UC: the solvers on offer
-  Note over UC,J: One transaction: one existing aggregate changes
-  UC->>PR: get(plan)
-  PR-->>UC: Plan, loaded whole
-  UC->>UC: StaleVersion.requireCurrent(Plan, id, plan.version(), expected)
-  UC->>JR: capacityUnderLock(Lane.DAILY)
-  JR-->>UC: LaneCapacity
-  UC->>P: requestSolve(jobId, solver, limit, seed, capacity, today, now)
+  UC->>C: apply(...)
+  Note over C,J: One transaction: one existing aggregate changes
+  C->>PR: get(plan)
+  PR-->>C: Plan, loaded whole
+  C->>C: StaleVersion.requireCurrent(Plan, id, plan.version(), expected)
+  C->>JR: capacityUnderLock(Lane.DAILY)
+  JR-->>C: LaneCapacity
+  C->>P: requestSolve(jobId, solver, limit, seed, capacity, today, now)
   P->>J: queue(jobId, plan, DAILY, ...)
   J-->>P: SolveJob, queued
   P->>P: status = Solving(SolveBasis)
-  P-->>UC: the new SolveJob
-  UC->>PR: save(plan), through VersionedSave, which checks the version again
-  UC->>JR: add(job)
-  Note over UC,JR: The audit record is written in this transaction
+  P-->>C: the new SolveJob
+  C->>PR: save(plan), through VersionedSave, which checks the version again
+  C->>JR: add(job)
+  Note over C,JR: The audit record is written in this transaction
+  C-->>UC: JobId, after the commit
   UC-->>Web: JobId
-  Note over W,J: Later, in the daily lane's worker. Each phase change is its own transaction: load, change, save
-  W->>JR: claimNext(Lane.DAILY)
-  JR-->>W: the oldest queued SolveJob, locked
-  W->>J: claim(now)
-  W->>JR: save(job)
+  Note over W,J: Later, in the daily lane's worker. Each phase is its own transaction in RunSolveJobChange
+  W->>WC: claim(Lane.DAILY)
+  WC->>JR: claimNext(Lane.DAILY)
+  JR-->>WC: the oldest queued SolveJob, locked
+  WC->>J: claim(now)
+  WC->>JR: save(job)
+  WC-->>W: the job, its plan and date
   Note over W,Opt: The matrix is built here, outside any transaction (M3)
-  W->>JR: get(job)
-  W->>J: searchStarted(now)
-  W->>JR: save(job)
+  W->>WC: searchStarted(job)
+  WC->>J: searchStarted(now)
+  WC->>JR: save(job)
   W->>Opt: solve(request), outside any transaction
   Opt-->>W: DailyAnswer
-  W->>PR: get(plan)
-  W->>P: locksBrokenBy(solution)
-  P-->>W: no lock broken
-  W->>JR: get(job)
-  W->>J: succeed(ValidatedSolution, now)
+  W->>WC: endDaily(job, request, answer)
+  WC->>PR: get(plan)
+  WC->>P: locksBrokenBy(solution)
+  P-->>WC: no lock broken
+  WC->>JR: get(job)
+  WC->>J: succeed(ValidatedSolution, now)
   J->>J: raises SolveSucceeded
-  W->>JR: save(job), which stores the event with it
+  WC->>JR: save(job), which stores the event with it
   Note over L,P: The event is delivered after the commit, at least once
   L->>P: applySolveResult(job, ids, now)
   P->>P: status = Ready

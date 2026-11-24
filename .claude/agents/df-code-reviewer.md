@@ -49,9 +49,9 @@ report findings.
   - Outside calls happen before the transaction, and a transaction changes one existing aggregate ([ADR-063]).
   - The application layer uses only `@Transactional` from Spring. `@Retryable` and `@ConcurrencyLimit` sit on the adapter that makes the outside call ([ADR-040], [TS §6.2][TS-62]).
   - Transactions start only in services ([ADR-129]), which `TransactionRules` checks. Review what it can't:
-    - a service marked `readOnly` changes nothing;
-    - a use case's outside calls, or its loop over items, sit in the use case, and its transaction in its `<UseCase>Change`;
-    - a new port that calls out of the process is added to `TransactionRules.OUTSIDE_CALL_PORTS`.
+    - a service that changes nothing is marked `readOnly`. The rules check only that an auditing one isn't, and a read-only one that writes fails at its first write;
+    - a refused attempt's record is written after the refused transaction has rolled back, never in a nested `REQUIRES_NEW` (ADR-129 decision 5);
+    - a new port that calls out of the process is added to `TransactionRules.OUTSIDE_CALL_PORTS`, and one that stores nothing to `STORELESS_PORTS`.
   - Listeners have no transaction of their own (`@Async @TransactionalEventListener`, never `@ApplicationModuleListener`), and are idempotent ([ADR-064], [ADR-129]).
   - An error that crosses `api` is an `api` type, since no domain object crosses a boundary ([DL §2.3][DL-23], rule 1). Inside a module, every refusal is a named error of the module's sealed type, with a stable code that the web adapter puts in the problem response ([DL §3.8][DL-38]).
   - Outbound adapters implement ports the inside declares, and an adapter reaches another only through a port ([TS §2.1][TS-21]).
