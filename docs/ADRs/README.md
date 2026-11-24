@@ -81,7 +81,8 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-084](ADR-084-maplibre-in-both-apps-with-self-hosted-protomaps-tiles.md) | Both apps draw maps with MapLibre, from self-hosted Protomaps tiles | Accepted |
 | [ADR-085](ADR-085-govmap-geocodes-addresses-with-nominatim-as-the-fallback.md) | GovMap geocodes addresses, and self-hosted Nominatim replaces it only if GovMap's terms fail | Accepted; amended by ADR-121 |
 | [ADR-086](ADR-086-csv-imports-upload-then-confirm-within-an-hour.md) | An order import is two calls, upload then confirm within an hour, and writes every row or none | Accepted; extended by ADR-102 |
-| [ADR-102](ADR-102-order-references-are-checked-on-every-move-to-a-date.md) | Order references are checked on every move to a date, and the abbreviation table starts with three | Accepted; amended by ADR-115 |
+| [ADR-102](ADR-102-order-references-are-checked-on-every-move-to-a-date.md) | Order references are checked on every move to a date, and the abbreviation table starts with three | Accepted; extended by ADR-137; amended by ADR-115 |
+| [ADR-137](ADR-137-the-address-abbreviation-table-gains-six-entries.md) | The address abbreviation table gains six entries, and ambiguous ones stay out | Accepted |
 | [ADR-115](ADR-115-import-rows-keep-their-own-recipient-put-backs-raise-an-event-and-orders-clamp-a-stepped-back-clock.md) | An import row keeps its own recipient, a put-back onto another date raises `OrderPutBack`, and Orders' commands clamp a clock that stepped back | Accepted |
 | [ADR-087](ADR-087-driver-reports-sync-through-an-idempotent-outbox.md) | Driver reports wait in an outbox on the phone and reach the server with a user-scoped idempotency key | Accepted; extended by ADR-121 |
 | [ADR-107](ADR-107-live-operations-alerts-once-per-key-corrects-a-put-back-by-event-and-treats-a-reschedule-as-a-cancellation.md) | Live Operations alerts once per key, corrects a put-back by event, and treats a reschedule as a cancellation | Accepted; extended by ADR-121; amended by ADR-114 |
@@ -190,4 +191,6 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > pull request wait for one approval.
 > ADR-136, on 2026-11-24, has every connection of the core wait at most 2 seconds for a lock, and
 > has the retry #162 builds re-run a call whose wait for a lock failed.
+> ADR-137, on 2026-11-24, adds six abbreviations to FR-398's table, among them שכ׳ for שכונה, and
+> names the ones left out, with the reason for each.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.
