@@ -253,10 +253,12 @@ src/
   backend/optimizer/   optimization service (FastAPI)
   frontend/web/        web app (React + Vite)
   frontend/mobile/     phone app (Expo)
+  frontend/packages/   shared TypeScript packages, as placeholder folders until each is built
   research/            benchmarks, simulation, order generator; never deployed
 contracts/             versioned OpenAPI contracts between the components
 tests/                 cross-component tests only: e2e/, load/
-infra/                 road-network data (osrm/) and deployment (deploy/)
+infra/                 road-network data (osrm/), deployment (deploy/) and, from M13, terraform/
+data/                  built map, routing and benchmark data; git ignores its contents
 logs/                  local log output; git ignores its contents
 docs/                  requirements, architecture and design, ADRs, the roadmap, presentations
 justfile               every command, the same locally and in CI

@@ -95,8 +95,10 @@ building blocks ([ADR-097](../ADRs/ADR-097-the-shared-kernel-holds-the-domains-b
 `VersionedSave`, which saves an aggregate so that its version moves by exactly 1, the converters
 that store the kernel's single-value types (the 14 typed IDs are in its `id` package), and the
 instantiators of the embeddable `TimeWindow`, `GeoPoint` and `DaySeconds`. That package is an
-adapter, not part of the kernel. Beside it, `shared/adapter/out/clock` and `shared/adapter/out/uuid`
-are declared, empty: they will implement `Clock` and `IdGenerator`. `AggregateRoot` is a `@MappedSuperclass` that holds the `@Version`
+adapter, not part of the kernel. Beside it, `shared/adapter/out/clock`, `shared/adapter/out/uuid`
+and `shared/adapter/out/optimizer` are declared, empty: the first two will implement `Clock` and
+`IdGenerator`, and the third will hold the client generated from `optimization-api`, which
+Planning's and Reporting's `optimizer` adapters wrap. `AggregateRoot` is a `@MappedSuperclass` that holds the `@Version`
 and publishes the events its methods raised when a repository's `save` runs. The `domain` packages
 of `access`, `audit`, `fleet`, `liveops`, `messaging`, `orders`, `planning` and `reporting` are
 built ahead of their milestones, with the `events` packages of the six modules that raise events
@@ -120,7 +122,7 @@ package per aggregate, then into concept packages, and an application package th
 Which modules are split, and into what, is in [bounded-contexts.md](bounded-contexts.md).
 
 Every module's `adapter/` also holds packages declared ahead, empty, as [ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)
-declared the application layer: 45 in all, each with a `package-info.java` that says what goes in it and
+declared the application layer: 45 in all (42 in the modules, 3 beside the kernel), each with a `package-info.java` that says what goes in it and
 carries `@NullMarked`, and no class. An inbound adapter is `adapter/in/<kind>`, of six kinds:
 `web`, `listen`, `schedule`, `job`, `callback` and `cli`. An outbound one is `adapter/out/<name>`,
 named for the outside system or channel it talks to, `persistence` for the module's own database,
@@ -191,9 +193,10 @@ have a `Dockerfile`, and neither runs as root
   rules 1 to 7 are [ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)'s
   decision 10, with rule 4 extended and rule 8 added by [ADR-121](../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md),
   and rule 7 widened to every application package by [ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md).
-  Rules 9 and 10 are [ADR-130](../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md)'s: the adapters of a module stay apart (no adapter uses another
-  adapter of its module, `in` and `out` included), and no adapter uses another module's adapter. Rule
-  5's `@NullMarked` check covers the adapter packages too.
+  Rules 9 to 11 are [ADR-130](../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md)'s: the adapters of a module stay apart (no adapter uses another
+  adapter of its module, `in` and `out` included), no adapter uses another module's adapter, and
+  no shared adapter uses a module. Rule 5's `@NullMarked` check covers the adapter packages too, and
+  a test holds the tree to the adapters ADR-130 declares.
   The purity rules also allow the persistence annotations that [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) lists in the domain and the
   kernel, and `PersistenceRules` has nine rules on how the domain is mapped: every aggregate root an
   `@Entity`, relationships only inside

@@ -108,6 +108,8 @@ src/backend/core/
                                    kernel
       adapter/out/clock/           declared, empty: the adapter of Clock
       adapter/out/uuid/            declared, empty: the adapter of IdGenerator
+      adapter/out/optimizer/       declared, empty: the client generated from optimization-api,
+                                   which Planning's and Reporting's optimizer adapters wrap
     access/                        a bounded context's module: domain/ (account, session,
                                    companyprofile), events/, application/ (declared) and
                                    adapter/ (below)
@@ -217,21 +219,22 @@ and a `CallContext`
 Each module's `adapter/` holds its persistence adapter, which is built, and packages declared
 ahead, empty ([ADR-130][ADR-130]). Every declared package holds a `package-info.java` and nothing
 else: its Javadoc says what goes in the package and which ports it implements, and it carries
-`@NullMarked`. There are 45 of them, and no adapter class exists beyond the persistence adapters.
+`@NullMarked`. There are 45 of them, 42 in the eight modules and 3 beside the kernel, and no adapter
+class exists beyond the persistence adapters.
 The names follow two rules:
 
 - An inbound adapter is `adapter/in/<kind>`, of six kinds: `web` (a screen calls the client API),
   `listen` (another module's event arrives), `schedule` (the clock says so), `job` (a worker takes
   queued work), `callback` (an outside service calls in) and `cli` (a person runs a server step).
-  There is no `in/sse`: the stream's endpoint is app-wide, in `web`.
+  There is no `in/sse`: the stream's endpoint is app-wide, and the `web` ADR (#143) places it.
 - An outbound adapter is `adapter/out/<name>`: named for the outside system or channel it talks to
   (`osrm`, `govmap`, `sms`, `disk`), `persistence` for the module's own database, or for the
-  technology it wraps when it calls nothing outside the process (`crypto`, `cache`, `config`,
-  `random`, `resources`, `roaddata`).
+  technology it wraps when it calls nothing outside the process (`crypto`, `config`, `random`,
+  `resources`, `roaddata`).
 
 ADR-130 decision 4 lists each module's packages and the ports they implement. Adapters meet only
-through ports: no adapter uses another adapter of its module, or an adapter of another module
-(`ApplicationRules`, rules 9 and 10).
+through ports: no adapter uses another adapter of its module or an adapter of another module, and
+no shared adapter uses a module (`ApplicationRules`, rules 9 to 11).
 
 Each of the eight modules has an
 `adapter/out/persistence/` package ([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md), [ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md)). A module's package holds:
@@ -440,8 +443,9 @@ The application rules are ArchUnit tests too, in `ApplicationRules`, numbered in
 [ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)'s
 decision 10, with rule 4 extended and rule 8 added by [ADR-121](../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md),
 and rule 7 widened to every application package by [ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md).
-Rules 9 and 10 are [ADR-130][ADR-130]'s: the adapters of a module stay apart, and no adapter uses
-another module's adapter. Rule 5's `@NullMarked` check covers the adapter packages too.
+Rules 9 to 11 are [ADR-130][ADR-130]'s: the adapters of a module stay apart, no adapter uses
+another module's adapter, and no shared adapter uses a module. Rule 5's `@NullMarked` check covers
+the adapter packages too, and a test holds the tree to the adapters ADR-130 declares.
 
 [Tech stack §2.2](tech_stack.md#22-enforcement) also plans Spring Modulith's `verify()` for the
 Alpha

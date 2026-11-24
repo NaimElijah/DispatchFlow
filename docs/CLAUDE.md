@@ -14,6 +14,7 @@ and never restates them.
 | `architecture/layers_visual.html` | The core's Java types by layer and bounded context, as a visual page | Generated from the source at the commit it names, by a script not in the repository; a hand edit is noted in its footer until the script is committed; adapters not built yet are drawn as `tech_stack.md` plans them and marked so; decides nothing |
 | `roadmap.md` | When each part is built: the course calendar, the milestones, the Alpha and its demo script, and who the team waits on | Dates and schedule only; it names the rows and ADRs it schedules and copies none of them |
 | `ADRs/` | Why each decision was taken | Append-only |
+| `operations/`, `guides/{he,en}/`, `research/usability/`, `architecture/generated/` | Placeholders ([ADR-130]): the runbook, the user guides, the usability study and the generated module diagrams ([TS §19][TS-19]) | Each is filled by the work that produces its files. The usability study commits its task scripts and summed scores only: recordings and raw answers stay on company storage in Israel (NFR-209) |
 | `requirements/ARD/` | The Application Requirements Document (ARD), as a PDF | Built outside the repository; the PDF is the only file here |
 | `presentations/` | The proposal and ARD presentations | The planning material the requirements started from |
 
@@ -94,3 +95,4 @@ wherever the two differ.
 - Before naming a version, a flag or a file, check it in the repository.
 
 [TS-19]: architecture/tech_stack.md#19-documentation-and-diagrams
+[ADR-130]: ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md

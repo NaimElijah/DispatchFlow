@@ -166,12 +166,12 @@ src/
             out/<name>/             named for the outside system or channel (osrm, optimizer,
                                     govmap, sms, email, push, disk, sse); persistence for the
                                     module's own database; a technology name for an adapter that
-                                    calls nothing outside the process (crypto, cache, config,
-                                    random, resources, roaddata); ADR-130 lists them by module
+                                    calls nothing outside the process (crypto, config, random,
+                                    resources, roaddata); ADR-130 lists them by module
         shared/                     shared kernel: typed IDs, DeliveryDate, IsraelDateTime, DaySeconds, TimeWindow,
                                     GeoPoint, Weight, Volume, Priority, PhoneNumber, and the domain's
                                     building blocks (errors, Version, AggregateRoot, events; ADR-097)
-          adapter/out/{persistence,clock,uuid}/   the adapters every module shares (ADR-130)
+          adapter/out/{persistence,clock,uuid,optimizer}/   the shared adapters (ADR-130)
       src/main/resources/db/migration/   Flyway migrations, one PostgreSQL schema per module
     optimizer/                    Python, FastAPI
       src/dispatchflow_optimizer/

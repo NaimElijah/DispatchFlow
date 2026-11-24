@@ -13,7 +13,7 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   - `shared/application/`, the application ports every module uses: `Clock`, `IdGenerator`,
     `ProcessedEvents`, `NotFound` and `StaleVersion` ([ADR-120]), a package of its own under the
     kernel's purity rules: no Spring, but `@NamedInterface` on its `package-info` ([ADR-121]).
-  - `shared/adapter/out/{persistence,clock,uuid}/`, the adapters every module shares: beside the
+  - `shared/adapter/out/{persistence,clock,uuid,optimizer}/`, the shared adapters: beside the
     kernel, outside its purity rules, imported by no application class ([ADR-126], [ADR-130]).
   ```text
   <module>/domain/, events/
@@ -89,7 +89,7 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   port's `save` or `add`, which publishes its events; a test fake's calls `SaveEvents.publish`.
 - Another module is reached only through its `api`, `spi` and `events` packages ([DL §2.3]).
   Review checks an adapter's use of another module until Modulith's `verify()` runs ([ADR-040]);
-  `ApplicationRules` rules 9 and 10 refuse an adapter using another adapter ([ADR-130]). Each
+  `ApplicationRules` rules 9 to 11 keep adapters apart and shared ones off modules ([ADR-130]). Each
   module owns its tables, in its own PostgreSQL schema: no SQL reads another module's schema.
 - An application body that would do work throws `UnsupportedOperationException("Built in M<n>")`
   until its milestone builds it. `grep "Built in M5"` lists a milestone's remaining work. To build a
