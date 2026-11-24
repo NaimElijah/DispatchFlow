@@ -1,6 +1,6 @@
 # ADR-126: JPA replaces jOOQ in the core, and the domain classes carry their own mapping
 
-- **Status:** Accepted; amended by ADR-127 and ADR-128
+- **Status:** Accepted; extended by ADR-130; amended by ADR-127 and ADR-128
 - **Date:** 2026-11-23
 
 ## Context

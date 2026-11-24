@@ -1,6 +1,6 @@
 # ADR-125: A source folder above 20 files splits wherever a group of four files can move
 
-- **Status:** Accepted; extended by ADR-126 and ADR-129
+- **Status:** Accepted; extended by ADR-126, ADR-129 and ADR-130
 - **Date:** 2026-11-22
 
 ## Context
