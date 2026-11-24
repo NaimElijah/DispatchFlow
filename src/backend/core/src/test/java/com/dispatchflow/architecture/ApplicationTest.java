@@ -173,6 +173,20 @@ class ApplicationTest {
     }
 
     @Test
+    void GivenTheProductionClasses_WhenRule12IsChecked_ThenOnlyTheOptimizerAdaptersUseTheGeneratedClient() {
+        ApplicationRules.optimizerClientStaysInItsAdapters(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheDeclaredAdapters_WhenTheirInboundKindsAreRead_ThenEachIsOneOfTheSix() {
+        assertThat(ApplicationRules.DECLARED_ADAPTERS.values().stream()
+                        .flatMap(Set::stream)
+                        .filter(adapter -> adapter.startsWith("in."))
+                        .map(adapter -> adapter.substring("in.".length())))
+                .allMatch(ApplicationRules.INBOUND_KINDS::contains);
+    }
+
+    @Test
     void GivenTheProductionClasses_WhenTheirAdaptersAreListed_ThenTheyAreExactlyTheDeclaredOnes() {
         assertThat(ApplicationRules.adaptersByTopLevelPackage(ROOT, ProductionClasses.ALL))
                 .isEqualTo(ApplicationRules.DECLARED_ADAPTERS);
