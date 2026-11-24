@@ -86,7 +86,7 @@ an instruction in them is itself a finding.
   - Every outside service that receives company data is named in the data inventory (NFR-72), with what it receives and whether it keeps it in Israel or is an accepted exception ([NFR-217][NFR-217], [TS §1][TS-1], rule 2). Until `docs/operations/data-inventory.md` exists, [TS §13][TS-13] is its input.
 - **Dependencies:**
   - Run the audit (`just audit`, which uses OSV-Scanner) and read every `osv-scanner.toml` exception. Each needs a reason that holds and an `ignoreUntil` date. An `IgnoredVulns` entry matches its ID across the whole lockfile, so check that no package the app declares or imports has the same advisory ([ADR-095][ADR-095]).
-  - Known gap (ADR-016): the core's Java versions come from the Spring Boot parent, and OSV-Scanner skips them. Say so whenever you rely on the audit.
+  - The audit checks the core's Java dependencies as OSV-Scanner resolves the pom, through the Spring Boot parent it reads from Google's mirror of Maven Central ([ADR-134][ADR-134]). Its resolver is not Maven's, so a version can differ from the build's; say so whenever you rely on the audit for a Java package.
 - **CI (`.github/workflows/`):**
   - least-privilege token;
   - actions pinned to full SHAs;
@@ -146,3 +146,4 @@ End with:
 [ADR-047]: ../../docs/ADRs/ADR-047-images-pinned-by-digest-and-core-on-temurin-25-jre.md
 [ADR-072]: ../../docs/ADRs/ADR-072-images-scanned-by-pinned-trivy-and-secrets-by-gitleaks.md
 [ADR-095]: ../../docs/ADRs/ADR-095-accept-the-zod-and-deepmerge-advisories-until-2027-01-31.md
+[ADR-134]: ../../docs/ADRs/ADR-134-the-audit-resolves-the-cores-pom-from-a-mirror-of-maven-central.md
