@@ -132,14 +132,15 @@ final class ApplicationRules {
     /**
      * ADR-130 decision 2: the kinds of inbound adapter, {@code <module>.adapter.in.<kind>}. A use
      * case starts from a screen ({@code web}), an event, its module's own or another's ({@code
-     * listen}), the clock ({@code schedule}), queued work ({@code job}), an outside service calling
-     * in ({@code callback}) or a person at a prompt ({@code cli}).
+     * listen}), the clock ({@code schedule}), queued work or the core's startup ({@code job},
+     * ADR-133), an outside service calling in ({@code callback}) or a person at a prompt ({@code
+     * cli}).
      */
     static final Set<String> INBOUND_KINDS = Set.of("web", "listen", "schedule", "job", "callback", "cli");
 
     /**
-     * ADR-130 decision 4 and ADR-131: each module's adapters, and the kernel's, by their names
-     * below its {@code adapter} package, such as {@code in.web} or {@code out.persistence}. A
+     * ADR-130 decision 4, ADR-131 and ADR-133: each module's adapters, and the kernel's, by their
+     * names below its {@code adapter} package, such as {@code in.web} or {@code out.persistence}. A
      * subpackage of an adapter, such as {@code out.persistence.plan}, counts as that adapter. The
      * tree must hold exactly these, so a new adapter, or a dropped one, is declared here on
      * purpose, as a new module joins {@link #MODULE_GRAPH}.
@@ -150,6 +151,7 @@ final class ApplicationRules {
                     "in.web",
                     "in.listen",
                     "in.schedule",
+                    "in.job",
                     "in.cli",
                     "out.persistence",
                     "out.email",
