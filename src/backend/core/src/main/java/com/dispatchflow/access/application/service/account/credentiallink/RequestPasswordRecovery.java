@@ -40,13 +40,20 @@ import com.dispatchflow.audit.application.api.CallContext;
  * cap. The residual risk: about 20 real addresses, each at FR-172's 5 an hour, can still spend the
  * day's cap within an hour; ADR-036 revisits the limits on a day the cap is reached.
  *
- * <p><b>The order.</b> The use case calls {@code UserAccount.issueLink} first, then {@link
- * RecoveryEmailCap#take}, and saves the account only when the take succeeds. On a refused take the
- * account isn't saved, so the link issued in memory is dropped and the account's earlier open link,
- * if it has one, stays valid. The take is in the same transaction as the save, so a version
- * conflict on the save rolls the take back and a lost race spends none of the cap. The email goes
- * to {@code EmailSender.sendLink} only after that transaction commits, as every Access email does,
- * so a rolled-back save sends nothing.
+ * <p><b>The order.</b> Nothing changes the account before the cap allows the email. The account
+ * is a managed entity, so a change made to it in memory would be flushed at the commit whether or
+ * not it is saved. So the transaction works in this order:
+ * <ol>
+ *   <li>It checks, without changing the account, that it may be sent a recovery link: the same
+ *       refusals {@code UserAccount.issueLink} makes. The domain gains that check at M6.
+ *   <li>It calls {@link RecoveryEmailCap#take}.
+ *   <li>Only then does it issue the link and save.
+ * </ol>
+ * <p>On a refused check or take the account is left as it was, so its earlier open link, if it has
+ * one, stays valid. The take is in the same transaction as the save, so a version conflict on the
+ * save rolls the take back and a lost race spends none of the cap. The email goes to {@code
+ * EmailSender.sendLink} only after that transaction commits, as every Access email does, so a
+ * rolled-back save sends nothing.
  *
  * <p><b>The transaction.</b> {@link RequestPasswordRecoveryChange} holds it: the account's lookup,
  * the link's issue, the take and the save, and the audit record. The use case answers its {@code

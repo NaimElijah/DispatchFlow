@@ -14,10 +14,17 @@ import java.util.Optional;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The transaction of {@link RequestPasswordRecovery} (ADR-129): it finds the account by the address,
- * issues the recovery link through {@code UserAccount.issueLink}, takes from {@link
- * RecoveryEmailCap}, saves the account only when the take succeeds, and writes the audit record
- * (NFR-23). Every refusal {@code RequestPasswordRecovery} answers alike is audited here, and none
+ * The transaction of {@link RequestPasswordRecovery} (ADR-129), in this order:
+ * <ol>
+ *   <li>It finds the account by the address.
+ *   <li>It checks, without changing it, that it may be sent a recovery link.
+ *   <li>It takes from {@link RecoveryEmailCap}.
+ *   <li>Only when the take succeeds does it issue the link through {@code UserAccount.issueLink} and
+ *       save the account.
+ *   <li>It writes the audit record (NFR-23).
+ * </ol>
+ * <p>A managed account changed in memory would be flushed at the commit whether or not it is saved.
+ * So a refused take must find the account still unchanged, and the earlier link still valid. Every refusal {@code RequestPasswordRecovery} answers alike is audited here, and none
  * leaves as a {@code RuleViolation}. The use case sends the link after the commit.
  *
  * <p>Built in M6.
