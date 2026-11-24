@@ -21,6 +21,7 @@ import com.dispatchflow.shared.JobId;
 import com.dispatchflow.shared.PersonalData;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.NotFound;
+import com.dispatchflow.shared.application.StaleVersion;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -34,9 +35,10 @@ import org.springframework.transaction.annotation.Transactional;
  * assembler fetched, or over the stored one (TS §2.1, DL §6.3, ADR-052, ADR-129). It stores
  * nothing.
  *
- * <p><b>Open for M0.</b> An order added, moved or cancelled between the two reads can leave the
- * fetched matrix without a location the build needs, or with one it no longer does. M0 decides
- * whether the build then reads the need again or refuses.
+ * <p>An order can be added, moved or cancelled between the two reads. So each build takes the
+ * {@link MatrixNeed} its matrix was fetched for. It refuses with {@code StaleVersion} when the facts
+ * it reads now need a location that need doesn't hold, and the caller reads the need again. A
+ * location the need holds but the facts no longer use costs nothing.
  *
  * <p>Built in M0, M4 and M9, method by method.
  */
@@ -99,7 +101,6 @@ public class SolveRequestAssemblerChange {
      * @return the locations, and whether the stored matrix serves; no positions
      * @throws NotFound when no job has the ID
      */
-    @Transactional(readOnly = true)
     public MatrixNeed dailyMatrixNeed(DeliveryDate date, JobId job) {
         throw new UnsupportedOperationException("Built in M0");
     }
@@ -117,7 +118,6 @@ public class SolveRequestAssemblerChange {
      * @return the locations, whether the stored matrix serves, and the positions
      * @throws NotFound when no job has the ID
      */
-    @Transactional(readOnly = true)
     public MatrixNeed reoptimizationMatrixNeed(DeliveryDate date, JobId job, Instant factsAt) {
         throw new UnsupportedOperationException("Built in M9");
     }
@@ -133,7 +133,6 @@ public class SolveRequestAssemblerChange {
      * @return the locations, and whether the stored matrix serves; no positions
      * @throws NotFound when the date has no uncancelled plan
      */
-    @Transactional(readOnly = true)
     public MatrixNeed evaluationMatrixNeed(DeliveryDate date, PlanLayout layout) {
         throw new UnsupportedOperationException("Built in M4");
     }
@@ -146,12 +145,14 @@ public class SolveRequestAssemblerChange {
      *
      * @param date the plan's delivery date
      * @param job the claimed job
+     * @param need what {@link #dailyMatrixNeed} read, which the matrix spans
      * @param newMatrix the matrix {@code TravelTimes.between} gave, or empty to build over the plan's
      *     stored matrix when that was built over the same locations (ADR-052)
      * @return the request
      * @throws NotFound when no job has the ID
+     * @throws StaleVersion when the facts read now need a location {@code need} doesn't hold
      */
-    public SolveRequest daily(DeliveryDate date, JobId job, Optional<TravelMatrix> newMatrix) {
+    public SolveRequest daily(DeliveryDate date, JobId job, MatrixNeed need, Optional<TravelMatrix> newMatrix) {
         throw new UnsupportedOperationException("Built in M0");
     }
 
@@ -165,14 +166,21 @@ public class SolveRequestAssemblerChange {
      * @param job the claimed job
      * @param factsAt the time the facts are gathered at, which becomes the proposal's fact time
      *     (BR-25)
+     * @param need what {@link #reoptimizationMatrixNeed} read, which the matrix spans
      * @param newMatrix the matrix {@code TravelTimes.between} gave over the new list of locations, or
      *     empty to build over the plan's stored matrix when that has every location (ADR-121)
      * @param positionRows the rows {@code TravelTimes.from} gave from each vehicle's latest position
      * @return the request
      * @throws NotFound when no job has the ID
+     * @throws StaleVersion when the facts read now need a location {@code need} doesn't hold
      */
     public ReoptimizationRequest reoptimization(
-            DeliveryDate date, JobId job, Instant factsAt, Optional<TravelMatrix> newMatrix, TravelRows positionRows) {
+            DeliveryDate date,
+            JobId job,
+            Instant factsAt,
+            MatrixNeed need,
+            Optional<TravelMatrix> newMatrix,
+            TravelRows positionRows) {
         throw new UnsupportedOperationException("Built in M9");
     }
 
@@ -185,13 +193,19 @@ public class SolveRequestAssemblerChange {
      * @param date the plan's delivery date
      * @param layout the plan as it is, or as a change would leave it
      * @param planVersion the version the layout was read from
+     * @param need what {@link #evaluationMatrixNeed} read, which the matrix spans
      * @param newMatrix the matrix {@code TravelTimes.between} gave over the new list of locations, or
      *     empty to build over the plan's stored matrix when that has every location (ADR-121)
      * @return the request
      * @throws NotFound when the date has no uncancelled plan
+     * @throws StaleVersion when the facts read now need a location {@code need} doesn't hold
      */
     public EvaluationRequest evaluation(
-            DeliveryDate date, PlanLayout layout, Version planVersion, Optional<TravelMatrix> newMatrix) {
+            DeliveryDate date,
+            PlanLayout layout,
+            Version planVersion,
+            MatrixNeed need,
+            Optional<TravelMatrix> newMatrix) {
         throw new UnsupportedOperationException("Built in M4");
     }
 

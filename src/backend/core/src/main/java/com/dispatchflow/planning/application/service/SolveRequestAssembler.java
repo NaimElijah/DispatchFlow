@@ -45,7 +45,9 @@ import java.time.Instant;
  * assembler reads every fact outside the calling use case's transaction (DL §6.3), in read-only
  * transactions of {@link SolveRequestAssemblerChange}: first which locations the matrix must span
  * and whether the stored one serves, then, after it asks {@link TravelTimes}, the facts the request
- * is built from (ADR-129).
+ * is built from, against that same need (ADR-129). When an order changed between the two, so the
+ * facts need a location the matrix doesn't span, the build refuses with {@code StaleVersion}, and
+ * the assembler reads the need again.
  *
  * <p>Every request's {@code ProblemFacts} carries the door-window rate and the break flag, and a
  * re-optimization's request adds the lateness rate and the moved-stop cost, all from {@link
