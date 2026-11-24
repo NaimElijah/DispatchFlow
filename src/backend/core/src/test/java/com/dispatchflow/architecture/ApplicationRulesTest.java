@@ -37,10 +37,16 @@ import com.dispatchflow.archfixture.zeta.report.application.service.ReportReadsA
 import com.dispatchflow.archfixture.zeta.report.application.service.ReportReadsTheApi;
 import com.dispatchflow.archfixture.zeta.report.application.service.ReportTakesTheActor;
 import com.dispatchflow.archfixture.zeta.shared.KernelRootUsesTheClock;
+import com.dispatchflow.archfixture.zeta.shared.adapter.out.clock.SharedClockReadsAModulesStore;
 import com.dispatchflow.archfixture.zeta.shared.application.SharedPortUsesSpring;
 import com.dispatchflow.archfixture.zeta.side.application.service.CallsAnSpiItDoesNotImplement;
 import com.dispatchflow.archfixture.zeta.side.application.service.UsageImplementedByTheWrongModuleService;
 import com.dispatchflow.archfixture.zeta.stray.StrayValue;
+import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.InboundUsesTheStore;
+import com.dispatchflow.archfixture.zeta.upper.adapter.out.mail.MailUsesTheStore;
+import com.dispatchflow.archfixture.zeta.upper.adapter.out.mirror.MirrorsTheLowerCache;
+import com.dispatchflow.archfixture.zeta.upper.adapter.out.store.UpperTable;
+import com.dispatchflow.archfixture.zeta.upper.adapter.out.store.rows.UpperRow;
 import com.dispatchflow.archfixture.zeta.upper.application.port.out.PortRootUsingASubpackage;
 import com.dispatchflow.archfixture.zeta.upper.application.port.out.UpperRecords;
 import com.dispatchflow.archfixture.zeta.upper.application.port.out.looped.LoopedRecords;
@@ -624,5 +630,87 @@ class ApplicationRulesTest {
     void GivenAReaderHearingASourcesEvent_WhenRule8Evaluates_ThenNothingIsFlagged() {
         assertThat(violators(rule8(), FixtureClasses.only(ReportHearsTheEvent.class)))
                 .isEmpty();
+    }
+
+    @Test
+    void GivenTheZetaFixtures_WhenRule9Evaluates_ThenExactlyTheAdaptersUsingAnotherAdapterOfTheirModuleAreFlagged() {
+        assertThat(violators(ApplicationRules.adaptersOfAModuleStayApart(ROOT), zeta()))
+                .containsExactlyInAnyOrder(namesOf(InboundUsesTheStore.class, MailUsesTheStore.class));
+    }
+
+    @Test
+    void GivenAnInboundAdapterUsingAnOutboundOne_WhenRule9Evaluates_ThenItIsFlagged() {
+        assertThat(violators(
+                        ApplicationRules.adaptersOfAModuleStayApart(ROOT),
+                        FixtureClasses.only(InboundUsesTheStore.class)))
+                .containsExactly(InboundUsesTheStore.class.getName());
+    }
+
+    @Test
+    void GivenAnOutboundAdapterUsingAnotherOutboundOne_WhenRule9Evaluates_ThenItIsFlagged() {
+        assertThat(violators(
+                        ApplicationRules.adaptersOfAModuleStayApart(ROOT), FixtureClasses.only(MailUsesTheStore.class)))
+                .containsExactly(MailUsesTheStore.class.getName());
+    }
+
+    @Test
+    void GivenAnAdapterUsingItsSubpackageAndTheSharedPersistenceAdapter_WhenRules9And10Evaluate_ThenNothingIsFlagged() {
+        JavaClasses store = FixtureClasses.only(UpperTable.class, UpperRow.class);
+
+        assertThat(violators(ApplicationRules.adaptersOfAModuleStayApart(ROOT), store))
+                .isEmpty();
+        assertThat(violators(ApplicationRules.adaptersUseNoOtherModulesAdapter(ROOT), store))
+                .isEmpty();
+    }
+
+    @Test
+    void GivenTheZetaFixtures_WhenRule10Evaluates_ThenExactlyTheAdaptersUsingAnotherModulesAdapterAreFlagged() {
+        assertThat(violators(ApplicationRules.adaptersUseNoOtherModulesAdapter(ROOT), zeta()))
+                .containsExactlyInAnyOrder(namesOf(MirrorsTheLowerCache.class, SharedClockReadsAModulesStore.class));
+    }
+
+    @Test
+    void GivenAnAdapterUsingAnotherModulesAdapterAlongAnArrow_WhenRule10Evaluates_ThenItIsFlaggedThoughRule2AllowsIt() {
+        JavaClasses mirror = FixtureClasses.only(MirrorsTheLowerCache.class);
+
+        assertThat(violators(ApplicationRules.modulesDependAlongTheGraph(ROOT, GRAPH), mirror))
+                .isEmpty();
+        assertThat(violators(ApplicationRules.adaptersUseNoOtherModulesAdapter(ROOT), mirror))
+                .containsExactly(MirrorsTheLowerCache.class.getName());
+    }
+
+    @Test
+    void GivenASharedAdapterUsingAModulesAdapter_WhenRule10Evaluates_ThenItIsFlagged() {
+        assertThat(violators(
+                        ApplicationRules.adaptersUseNoOtherModulesAdapter(ROOT),
+                        FixtureClasses.only(SharedClockReadsAModulesStore.class)))
+                .containsExactly(SharedClockReadsAModulesStore.class.getName());
+    }
+
+    @Test
+    void GivenTheZetaFixtures_WhenTheAdapterNullMarkedGuardChecks_ThenTheAdapterPackagesWithoutItAreReported() {
+        assertThat(ApplicationRules.adapterPackagesNotNullMarked(ROOT, zeta()))
+                .containsExactly(
+                        ROOT + ".lower.adapter.out",
+                        ROOT + ".report.adapter.out",
+                        ROOT + ".shared.adapter.out.persistence",
+                        ROOT + ".upper.adapter.out");
+    }
+
+    @Test
+    void GivenTheZetaFixtures_WhenAdapterNullMarkedSubjectsAreListed_ThenEveryAdapterPackageAndNoOtherIsAmongThem() {
+        assertThat(ApplicationRules.nullMarkedAdapterSubjects(ROOT, zeta()))
+                .containsExactly(
+                        ROOT + ".lower.adapter.out",
+                        ROOT + ".lower.adapter.out.cache",
+                        ROOT + ".report.adapter.out",
+                        ROOT + ".shared.adapter.out.clock",
+                        ROOT + ".shared.adapter.out.persistence",
+                        ROOT + ".upper.adapter.in.web",
+                        ROOT + ".upper.adapter.out",
+                        ROOT + ".upper.adapter.out.mail",
+                        ROOT + ".upper.adapter.out.mirror",
+                        ROOT + ".upper.adapter.out.store",
+                        ROOT + ".upper.adapter.out.store.rows");
     }
 }

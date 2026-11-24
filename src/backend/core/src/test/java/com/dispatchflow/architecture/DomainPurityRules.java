@@ -37,9 +37,10 @@ final class DomainPurityRules {
     private static final String EVENTS = "events";
     private static final String APPLICATION = "application";
     private static final String ADAPTER = "adapter";
-    // ADR-126: the persistence adapter every module shares sits beside the kernel. It is no part
-    // of the kernel, so no purity rule holds it, and nothing pure may use it.
-    private static final String SHARED_PERSISTENCE_ADAPTER = KERNEL + "." + ADAPTER + ".out.persistence";
+    // ADR-126 and ADR-130: the adapters every module shares, under shared.adapter.in.<x> and
+    // shared.adapter.out.<x>, sit beside the kernel. They are no part of it, so no purity rule holds
+    // them, and nothing pure may use them.
+    private static final List<String> SHARED_ADAPTER_DIRECTIONS = List.of("in", "out");
     private static final String PACKAGE_INFO = "package-info";
     private static final List<String> KERNEL_LIBRARIES = List.of("com.google.i18n.phonenumbers");
     private static final List<String> DOMAIN_LIBRARIES =
@@ -304,15 +305,25 @@ final class DomainPurityRules {
     }
 
     /**
-     * The classes the purity rules hold: those in {@link #pureLayers}, apart from {@code
-     * shared.adapter.out.persistence}, the persistence adapter every module shares, which ADR-126
-     * puts beside the kernel without making it part of it. Any other package below the kernel is
-     * still held.
+     * The classes the purity rules hold: those in {@link #pureLayers}, apart from those in, or
+     * below, {@code shared.adapter.in.<x>} and {@code shared.adapter.out.<x>}, the adapters every
+     * module shares, which ADR-126 and ADR-130 put beside the kernel without making them part of
+     * it: persistence, the clock and the IDs. Any other package below the kernel, {@code
+     * shared.adapter.util} or a class directly in {@code shared.adapter.out} among them, is still
+     * held.
      */
     static DescribedPredicate<JavaClass> inPureLayers(String root) {
         return JavaClass.Predicates.resideInAnyPackage(pureLayers(root))
-                .and(DescribedPredicate.not(
-                        JavaClass.Predicates.resideInAPackage(root + "." + SHARED_PERSISTENCE_ADAPTER + "..")));
+                .and(DescribedPredicate.not(DescribedPredicate.describe(
+                        "a shared inbound or outbound adapter",
+                        type -> isASharedAdapter(root, type.getPackageName()))));
+    }
+
+    /** Whether a package lies in, or below, {@code shared.adapter.in.<x>} or {@code shared.adapter.out.<x>}. */
+    private static boolean isASharedAdapter(String root, String packageName) {
+        String sharedAdapter = root + "." + KERNEL + "." + ADAPTER + ".";
+        return SHARED_ADAPTER_DIRECTIONS.stream()
+                .anyMatch(direction -> packageName.startsWith(sharedAdapter + direction + "."));
     }
 
     private static ArchCondition<JavaClass> dependOnlyOnAllowedPackages(String root, String moduleAnnotations) {

@@ -156,4 +156,20 @@ class ApplicationTest {
     void GivenTheProductionClasses_WhenRule8IsChecked_ThenReportingUsesOnlyTheEventsOfTheModulesItReports() {
         ApplicationRules.reportingHearsOnlyTheEventsOfItsSources(ROOT).check(ProductionClasses.ALL);
     }
+
+    @Test
+    void GivenTheProductionClasses_WhenRule9IsChecked_ThenNoAdapterUsesAnotherAdapterOfItsModule() {
+        ApplicationRules.adaptersOfAModuleStayApart(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenRule10IsChecked_ThenNoAdapterUsesAnotherModulesAdapter() {
+        ApplicationRules.adaptersUseNoOtherModulesAdapter(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenTheAdapterNullMarkedGuardChecks_ThenEveryAdapterPackageCarriesIt() {
+        assertThat(ApplicationRules.adapterPackagesNotNullMarked(ROOT, ProductionClasses.ALL))
+                .isEmpty();
+    }
 }
