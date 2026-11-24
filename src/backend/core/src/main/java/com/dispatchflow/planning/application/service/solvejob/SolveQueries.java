@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
  * (FR-16, FR-65, FR-142, FR-222). It is a dispatcher screen: a job belongs to a plan that a driver
  * never sees before it is published (BR-41).
  *
- * <p>Built in M4.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class SolveQueries {
@@ -35,7 +35,7 @@ public class SolveQueries {
     /**
      * Where a job is now.
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param job the job
@@ -43,6 +43,6 @@ public class SolveQueries {
      * @throws NotFound when no job has the ID
      */
     public SolveProgressView progress(Actor actor, JobId job) {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

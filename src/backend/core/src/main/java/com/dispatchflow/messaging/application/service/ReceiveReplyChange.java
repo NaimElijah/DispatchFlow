@@ -29,7 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
  * reply changed, and writes the audit record. It answers the counted messages, which {@link
  * ReceiveReply} sends after the commit.
  *
- * <p>Built in M12. Rows: FR-357 to FR-360, FR-363, FR-371, FR-376, FR-379, NFR-196, NFR-199,
+ * <p>To Be Implemented. Rows: FR-357 to FR-360, FR-363, FR-371, FR-376, FR-379, NFR-196, NFR-199,
  * NFR-203.
  */
 @Transactional
@@ -88,7 +88,7 @@ public class ReceiveReplyChange {
      * Applies one reply. A call received before, by the provider's identifier, changes nothing and
      * answers no message.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param providerId the provider's identifier for the inbound message (NFR-199)
      * @param from the phone it came from, as the adapter parsed it
@@ -100,7 +100,7 @@ public class ReceiveReplyChange {
      * @throws StaleVersion when another reply saved the rating request meanwhile
      */
     public List<Answer> apply(String providerId, PhoneNumber from, String text, Instant receivedAt, CallContext call) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**

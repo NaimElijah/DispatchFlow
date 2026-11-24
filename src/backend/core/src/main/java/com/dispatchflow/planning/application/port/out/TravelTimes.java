@@ -9,7 +9,7 @@ import java.util.List;
  * buffer (FR-321, FR-322). Building a solve's matrix counts toward the response time but not toward
  * the search limit (BR-75, NFR-07).
  *
- * <p>Built in M3 and M9, method by method.
+ * <p>To Be Implemented.
  */
 public interface TravelTimes {
 
@@ -20,7 +20,7 @@ public interface TravelTimes {
      * the plan's stored matrix lacks one of them, such as a new or late order's address (FR-35,
      * ADR-121).
      *
-     * <p>Built in M3.
+     * <p>To Be Implemented.
      *
      * @param points the points, each once; two orders at one address share a point (ADR-052)
      * @return the matrix over the points, in the order given, with {@link TravelMatrix#NO_ROUTE} for
@@ -38,7 +38,7 @@ public interface TravelTimes {
      * list (ADR-121). Whether a position is usable is the optimizer's to judge, so every latest
      * position gets its row (BR-80, ADR-050).
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param sources the points the rows start from, each once
      * @param targets the points the rows reach, each once

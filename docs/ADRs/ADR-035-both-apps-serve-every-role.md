@@ -9,10 +9,10 @@
 Dispatchers, and a phone app for drivers on iOS, Android and the browser. Its revisit trigger
 "a requirement asks for the dispatcher's tasks on a phone" has now fired.
 
-On 2026-11-11 the owner, Naim Elijah, aligned the requirements with the [ARD]. The ARD puts every
+On 2026-11-11 the requirements were aligned with the [ARD]. The ARD puts every
 role on a web app and on a phone app for iOS and Android ([NFR-15], [NFR-132]), and its Table 4.1
 lists a separate stack for each. Its actors table has a Dispatcher work "usually from the web app on
-a desktop, and also from the phone app when away from the desk". The owner went further and chose
+a desktop, and also from the phone app when away from the desk". The decision went further, to
 full parity:
 - Admins and Dispatchers can do everything in the phone app that they can do in the web app
   ([FR-120]);
@@ -113,7 +113,7 @@ for web, iOS and Android, was compared and turned down.
 
 ## Alternatives considered
 
-- **One Expo codebase for web, iOS and Android,** through `react-native-web`. Rejected by the owner
+- **One Expo codebase for web, iOS and Android,** through `react-native-web`. Rejected
   after a comparison on 2026-11-11:
   - map editing and dense tables on a desktop are weaker in `react-native-web`, and the map
     libraries the plan names, Leaflet and MapLibre, are written for the browser;
@@ -121,7 +121,7 @@ for web, iOS and Android, was compared and turned down.
 
   It would have cut the client work by roughly half.
 - **A phone app limited to work away from the desk** for Admins and Dispatchers, as the ARD's actors
-  table reads. Rejected: the owner wants parity.
+  table reads. Rejected: parity is wanted.
 - **Keeping [ADR-003]'s split by role.** Rejected: the ARD and the requirements now put every role
   on both apps.
 - **A web page instead of the phone app.** Rejected for the reason [ADR-003] gave: background
@@ -129,10 +129,10 @@ for web, iOS and Android, was compared and turned down.
 - **No driver screens in the web app.** Rejected: the ARD's demo and Alpha run on the web app alone
   (§4.2.1).
 - **A desktop-only web app for drivers,** with no location and proof photos uploaded from files.
-  Rejected by the owner: the dispatcher's map would show no position for its drivers, and a
+  Rejected: the dispatcher's map would show no position for its drivers, and a
   leave-at-door delivery needs a photo ([FR-368]).
 - **End-to-end tests on the web app only,** with component tests for the phone app and no web build.
-  Rejected by the owner on 2026-11-11: no automated test would then run the phone app's own screens.
+  Rejected on 2026-11-11: no automated test would then run the phone app's own screens.
 - **Sharing only validation and strings.** Not chosen: API calls and state contain no view code, so
   both apps can share them, which leaves only the views to write twice.
 - **Still rejected, for the reasons [ADR-003] gave:**

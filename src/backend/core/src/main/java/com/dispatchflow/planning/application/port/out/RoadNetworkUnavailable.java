@@ -9,7 +9,7 @@ import java.util.Objects;
  * fail the call. Its message and its cause never hold a point (NFR-19): the adapter wraps the I/O
  * error without the HTTP client's message, which holds the URL's coordinates.
  *
- * <p>Built in M3.
+ * <p>To Be Implemented.
  */
 public final class RoadNetworkUnavailable extends RuntimeException {
 

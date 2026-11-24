@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
  * the audit record. Settings no Admin has set yet already mean messages are off, so it changes
  * nothing then. It runs beside Access's {@code SecureAfterRestore} in the restore runbook.
  *
- * <p>Built in M13. Rows: NFR-252, FR-350.
+ * <p>To Be Implemented. Rows: NFR-252, FR-350.
  */
 @Transactional
 public class TurnMessagesOffAfterRestore {
@@ -42,13 +42,13 @@ public class TurnMessagesOffAfterRestore {
     /**
      * Turns messages to recipients off.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param call the step's server context
      * @throws StaleVersion when another writer saved the settings meanwhile; the restore runbook
      *     runs the step again
      */
     public void turnOff(CallContext call) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

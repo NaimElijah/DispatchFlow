@@ -5,7 +5,7 @@
 
 ## Context
 
-On 2026-11-13 the owner, Naim Elijah, decided for the team the rule that the requirements mark
+Decided on 2026-11-13: the rule that the requirements mark
 "ADR pending: capacity weight and volume" ([Q-11], [NFR-68]).
 
 A dispatcher registers each vehicle with a weight capacity and a volume capacity ([FR-05]) and

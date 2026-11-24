@@ -18,8 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
  * its own, with its audit record, so one stale save doesn't hold back the rest (ADR-129 decision
  * 3).
  *
- * <p>Built in M13, with the whole nightly retention run (ADR-121). Rows: NFR-184, NFR-193, NFR-260,
- * ADR-108.
+ * <p>To Be Implemented. It comes with the whole nightly retention run (ADR-121). Rows: NFR-184,
+ * NFR-193, NFR-260, ADR-108.
  */
 @Transactional
 public class EraseExpiredMessagesChange {
@@ -56,32 +56,32 @@ public class EraseExpiredMessagesChange {
      * Deletes each stop's messages 90 days after the last reached its state, and the replies 90
      * days after receipt.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param call the job's server step
      * @return how many stops' messages and replies it deleted, together
      */
     public int deleteExpired(CallContext call) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * The rating requests holding personal data whose retention has ended.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @return the requests, each once
      */
     @Transactional(readOnly = true)
     public List<RatingRequestId> due() {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Removes one request's phone and comments through {@code RatingRequest.removePersonalData},
      * keeping its rating, and writes its audit record.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param request the rating request
      * @param call the job's server step
@@ -91,6 +91,6 @@ public class EraseExpiredMessagesChange {
      *     it
      */
     public void apply(RatingRequestId request, CallContext call) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -12,14 +12,14 @@ import java.util.List;
  * <p>The question names the customer's orders, not the customer: Customers &amp; Orders knows which
  * orders are a customer's, and a plan holds orders, so Planning never needs to know customers.
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 public interface RecordUsage {
 
     /**
      * The plans not yet completed that serve or drop any of the given orders.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param orders every order of the customer not yet anonymized, cancelled ones included;
      *     Planning owns whether a plan is completed, so Customers &amp; Orders filters by no date

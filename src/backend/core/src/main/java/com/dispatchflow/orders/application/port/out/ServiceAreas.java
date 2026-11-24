@@ -8,14 +8,14 @@ import com.dispatchflow.orders.domain.ServiceArea;
  * hand-placed location must lie inside it, a geocoded one outside it is flagged (FR-63), and
  * Planning asks whether a vehicle's position lies inside it (ADR-050).
  *
- * <p>Built in M7.
+ * <p>To Be Implemented.
  */
 public interface ServiceAreas {
 
     /**
      * The service area now.
      *
-     * <p>Built in M7.
+     * <p>To Be Implemented.
      *
      * @return the area of the current road-data build
      */

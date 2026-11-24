@@ -14,7 +14,7 @@ no infrastructure". That needed an accepted exception to [NFR-209], because the 
 Israel and the data region was unconfirmed. It named self-hosted GlitchTip as the fallback if the
 exception was refused ([TS §10], [TS §11], [TS §13], [TS §22]).
 
-On 2026-11-13 the owner, Naim Elijah, decided for the team not to ask for the exception. Reports go
+On 2026-11-13 it was decided not to ask for the exception. Reports go
 to GlitchTip on the VM ([ADR-078]).
 
 ## Decision

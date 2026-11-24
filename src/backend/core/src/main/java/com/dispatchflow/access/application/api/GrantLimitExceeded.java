@@ -10,7 +10,7 @@ package com.dispatchflow.access.application.api;
  * record holds, answers {@code NotFound} instead, as {@code ProofQueries} does, so a 403 never
  * tells a caller which IDs exist.
  *
- * <p>Built in M4.
+ * <p>To Be Implemented.
  */
 public final class GrantLimitExceeded extends RuntimeException {
 

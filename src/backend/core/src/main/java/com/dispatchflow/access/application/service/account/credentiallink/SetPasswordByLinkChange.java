@@ -26,7 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
  * (FR-389), and writes the audit record (NFR-23). The use case evicts the account and sends the
  * notice after the commit.
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class SetPasswordByLinkChange {
@@ -66,7 +66,7 @@ public class SetPasswordByLinkChange {
     /**
      * Sets the password, spends the link, and saves the account.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param token the token the link carried
      * @param password the new password, as typed
@@ -81,14 +81,14 @@ public class SetPasswordByLinkChange {
      * @throws StaleVersion when the account changed between its read and its save (BR-76)
      */
     public PasswordSet apply(PresentedToken token, PresentedPassword password, CallContext call) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * What a password set through a link leaves the use case to do after the commit. The notice
      * holds the Admins' addresses, so it prints redacted (NFR-19).
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param account the account whose password was set, evicted from the revocation cache
      * @param adminNotice the notice every active Admin gets when it is an Admin's password;

@@ -9,7 +9,7 @@ import java.util.Objects;
  * reads the server's receipt time from the {@code Clock} and builds the domain's {@code
  * CorrectedTime} from the three, which checks the device's instants.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  *
  * @param deviceTime when the device says the report or the position was made
  * @param deviceClockAtSend the device's clock when it sent the request

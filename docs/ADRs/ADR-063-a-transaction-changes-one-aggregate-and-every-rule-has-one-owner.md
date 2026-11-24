@@ -5,8 +5,8 @@
 
 ## Context
 
-On 2026-11-14 the owner, Naim Elijah, decided for the team that the domain layer design (DL) is
-settled, and that its transaction rule and its rule owners each get an ADR. No "ADR pending" marker
+Decided on 2026-11-14: the domain layer design (DL) is
+settled, and its transaction rule and its rule owners each get an ADR. No "ADR pending" marker
 in requirements.md covers this decision. The implementation plan lists it among the decisions that
 need an ADR before the code they govern merges ([PL §25][PL-25]), and [ADR-040] deferred it.
 

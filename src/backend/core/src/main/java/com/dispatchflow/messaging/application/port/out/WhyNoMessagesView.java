@@ -7,7 +7,7 @@ import java.util.Objects;
  * Why a stop's recipient gets no messages, which the dispatcher sees (FR-378, FR-348, FR-350,
  * FR-363).
  *
- * <p>Built in M12.
+ * <p>To Be Implemented.
  *
  * @param stop the stop
  * @param reason why it gets none, or that it may get them
@@ -23,7 +23,7 @@ public record WhyNoMessagesView(StopId stop, Reason reason) {
     /**
      * What stands between a stop and its messages, the first that applies in this order.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      */
     public enum Reason {
         /** Messages are off for the company (FR-350). */

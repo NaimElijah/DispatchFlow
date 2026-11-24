@@ -16,7 +16,7 @@ import java.util.Objects;
  * <p>The plan and its date come from the stored revisions, not from the plans in force, so a report
  * on a stop whose plan was since cancelled (FR-336) still raises its alert with both.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  *
  * @param plan the plan that holds or held the stop
  * @param date that plan's delivery date

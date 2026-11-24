@@ -14,7 +14,7 @@ import java.util.Objects;
  * ADR-086): every row with every error found, the encoding the file was read in, and when the
  * preview expires. The rows are personal data, so it prints redacted.
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  *
  * @param batch the import
  * @param encoding how the file was decoded; Windows-1255 needs the dispatcher's confirmation

@@ -25,7 +25,7 @@ import java.util.List;
  * transaction (NFR-23, ADR-110). After the commit, when it kept any position, it tells the open
  * screens through {@link LiveUpdates}.
  *
- * <p>Built in M8. Rows: FR-31, FR-243, FR-328, NFR-30, NFR-285.
+ * <p>To Be Implemented. Rows: FR-31, FR-243, FR-328, NFR-30, NFR-285.
  */
 public final class RecordPositions {
 
@@ -47,7 +47,7 @@ public final class RecordPositions {
      * Keeps the batch's positions the tracking rule accepts, and drops the others silently, so a
      * phone that keeps sending after a hand-over or past the cut-off is not refused for the batch.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the sending driver
      * @param route the route the batch was sent for
@@ -67,6 +67,6 @@ public final class RecordPositions {
      *     resend gets the stored answer
      */
     public void record(Actor actor, RouteId route, List<PositionFix> fixes, IdempotencyKey key, RequestDigest digest) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

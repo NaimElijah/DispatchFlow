@@ -25,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>The operation is Admin-only in the permission matrix, so the acting session must have given
  * its password in the last 5 minutes, which {@code Session.requireFreshStepUp} checks (NFR-214,
- * NFR-227). The step-up arrives in M6.
+ * NFR-227). The step-up check is not built yet.
  *
  * <p><b>The first save creates the profile.</b> While no profile exists, the use case creates it
  * with {@code CompanyProfile.create} from the command's name, language and window, sets the
@@ -35,9 +35,9 @@ import org.springframework.transaction.annotation.Transactional;
  * it read.
  *
  * <p>{@code CompanyProfile} can't clear the default service time yet, so an empty one leaves the
- * current value; M2 adds the clearing method.
+ * current value; the clearing method is not added yet.
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ChangeCompanyProfile {
@@ -73,26 +73,27 @@ public class ChangeCompanyProfile {
     /**
      * Changes the company's settings.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param command the settings
      * @param expected the version of the profile the caller last read, from {@code If-Match}; or
      *     empty when it read none and sent {@code If-None-Match: *} (BR-76)
-     * @throws RuleViolation from M6, with {@code StepUpRequired} when the acting session gave its
-     *     password more than 5 minutes ago, or {@code SessionRevoked} when it is revoked (NFR-214)
+     * @throws RuleViolation once the step-up is built, with {@code StepUpRequired} when the
+     *     acting session gave its password more than 5 minutes ago, or {@code SessionRevoked} when
+     *     it is revoked (NFR-214)
      * @throws StaleVersion when the profile is no longer at {@code expected}, a profile exists and
      *     {@code expected} is empty, or another Admin stored one before the save
      *     (BR-76)
      */
     public void change(Actor actor, Command command, Optional<Version> expected) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * The company's settings as the Admin saves them (FR-125, FR-184).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param name the company's name (FR-382)
      * @param language the language a new user starts with (FR-182)

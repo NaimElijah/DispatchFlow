@@ -12,7 +12,7 @@ import java.util.Objects;
  * The plans of one delivery date, so a dispatcher opens the date's plan or creates one (FR-15,
  * BR-34): at most one uncancelled plan, and the cancelled ones before it (FR-336).
  *
- * <p>Built in M0.
+ * <p>To Be Implemented.
  *
  * @param date the date
  * @param plans the date's plans, oldest first; empty when it has none
@@ -28,7 +28,7 @@ public record DatePlansView(DeliveryDate date, List<Entry> plans) {
     /**
      * One plan of the date.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param plan the plan
      * @param version its version

@@ -18,7 +18,7 @@ Three forces meet:
   ([FR-248]), and a driver mid-route must keep working ([FR-69]).
 - Every call already reports the app's version, for the audit record ([NFR-93]).
 
-On 2026-11-13 the owner, Naim Elijah, confirmed [NFR-44] and [NFR-134] as written for the team.
+On 2026-11-13 [NFR-44] and [NFR-134] were confirmed as written.
 This ADR records the rule they state and the mechanism of [PL §19].
 
 ## Decision

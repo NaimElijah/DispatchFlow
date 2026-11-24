@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
  * LiveOpsViews#stopOfProof} gives the proof's stop, and Planning's {@link PublishedRoutes#routeOf}
  * that stop's route in force and its driver now.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class ProofQueriesChange {
@@ -35,7 +35,7 @@ public class ProofQueriesChange {
     /**
      * Checks the actor may see the proof, and returns if so.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher or Admin viewing it, or a Driver viewing a proof on their own
      *     route
@@ -44,6 +44,6 @@ public class ProofQueriesChange {
      *     no route in force that they drive, or no delivery names the proof (BR-02)
      */
     public void requireVisible(Actor actor, ProofId proof) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -30,7 +30,7 @@ has once a correction makes it *delivered*. Messaging found that a correction se
 
 ## Decision
 
-On 2026-11-14 the owner, Naim Elijah, decided:
+Decided on 2026-11-14:
 
 1. **A correction after a put-back is checked against the new stop, and announced by an event.**
    `Delivery.correct` takes the put-back's state as a fact (`LaterAttempt`): no put-back, a new stop
@@ -76,13 +76,13 @@ Reporting reads corrected figures from Live Operations' view, so no module would
 `OutcomeCorrected`. [ADR-064] allows an event only where it earns its place, so there is none. A
 correction after a put-back still raises `PutBackSuperseded`, which Planning hears.
 
-On 2026-11-15 the owner, Naim Elijah, decided:
+Decided on 2026-11-15:
 
 6. **One held report per driver and route on a stop.** While a driver's report from one route is
    held on a stop, their next report there is refused, so a phone can't flood the dispatcher
    with held reports: a repeat silently (`SameOutcomeAlreadyRecorded`), and a different one as a
    contradiction (`OutcomeAlreadyRecorded`, [BR-18]). A further late report from another driver or
-   route is still held. The owner allowed one edit to `requirements.md` for this, and only
+   route is still held. One edit to `requirements.md` was allowed for this, and only
    [BR-136]'s row was changed to say so.
 
 **The event catalogue.** This ADR amends [ADR-064]'s event catalogue: it removes
@@ -201,7 +201,7 @@ These rules no document settled; the code takes them.
   the reschedule would be lost, which [ADR-065] rules out.
 - **A route run in a *not started* state, created by Seen.** Not chosen: the first report or a
   confirmed held report would then change two existing aggregates in one transaction ([ADR-063]).
-- **A hold window that excludes its ends.** Not chosen: the owner's answer was "inclusive".
+- **A hold window that excludes its ends.** Not chosen: the decided answer was "inclusive".
 
 ## Revisit when
 

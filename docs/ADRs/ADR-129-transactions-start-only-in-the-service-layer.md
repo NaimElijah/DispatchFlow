@@ -32,8 +32,8 @@ audit record ([NFR-23], [NFR-93]).
   back the rest: the retention jobs, `DropOldLinks`, `AnonymizeDeactivatedAccounts` and
   `AnonymizeRetiredDrivers`. One transaction around the whole loop breaks that.
 
-On 2026-11-24 the owner, Naim Elijah, decided where transactions start, and how, for the team
-([issue #257][ISSUE-257]). The decisions are final.
+On 2026-11-24 it was decided where transactions start, and how ([issue #257][ISSUE-257]). The
+decisions are final.
 
 ## Decision
 

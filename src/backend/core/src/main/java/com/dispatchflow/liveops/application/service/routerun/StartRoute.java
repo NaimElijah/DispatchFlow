@@ -28,7 +28,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * audit record, a refused attempt's in its own transaction (NFR-23, ADR-110). After the commit, it
  * tells the open screens through {@link LiveUpdates}.
  *
- * <p>Built in M5; the request key in M8. Rows: FR-68, FR-70, FR-244, FR-327, BR-28, NFR-65,
+ * <p>To Be Implemented. Rows: FR-68, FR-70, FR-244, FR-327, BR-28, NFR-65,
  * NFR-130.
  */
 public final class StartRoute {
@@ -50,7 +50,7 @@ public final class StartRoute {
     /**
      * Starts the route. A resend with the same key and body returns having changed nothing.
      *
-     * <p>Built in M5; the request key in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the driver
      * @param route the route
@@ -72,6 +72,6 @@ public final class StartRoute {
      *     backs off and resends it with the same key (ADR-087)
      */
     public void start(Actor actor, RouteId route, DeviceClock time, IdempotencyKey key, RequestDigest digest) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

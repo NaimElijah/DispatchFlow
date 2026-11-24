@@ -11,14 +11,14 @@ import com.dispatchflow.shared.PhoneNumber;
  * for lookups only, while any opt-out remains under it, so a rotation never loses an opt-out
  * (NFR-202). {@code RehashOptOuts} copies the opt-outs whose phone is still stored to the new key.
  *
- * <p>Built in M12.
+ * <p>To Be Implemented.
  */
 public interface PhoneHasher {
 
     /**
      * The phone's keyed hashes under every key version still in use.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param phone the phone
      * @return its hash under the current key and under each older key still in use, each the same

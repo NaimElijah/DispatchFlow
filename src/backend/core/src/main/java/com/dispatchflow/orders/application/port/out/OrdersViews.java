@@ -20,17 +20,18 @@ import java.util.Optional;
  * read, straight from its own schema, without loading aggregates. A repository never grows a query
  * for a screen; this port holds them instead. Every answer is read now.
  *
- * <p>Built in M2, M5, M7, M9 and M12, method by method.
+ * <p>To Be Implemented.
  */
 public interface OrdersViews {
 
     /**
      * Every uncancelled order of a date, with its customer's location, its outside-service-area
      * flag and defaults applied (FR-15, FR-320, BR-22, BR-49, BR-124). Each order's {@code
-     * placedAt} has no column to read yet: M2 adds the time the order joined its date, set by
-     * {@code place}, {@code reschedule} and a put-back to another date (BR-71).
+     * placedAt} has no column to read yet: the time the order joined its date, set by
+     * {@code place}, {@code reschedule} and a put-back to another date (BR-71), is not recorded
+     * yet.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param date the date
      * @return the orders, each once; empty for a date with none
@@ -41,7 +42,7 @@ public interface OrdersViews {
      * What changed among a date's orders since an instant, from each order's last change time
      * (BR-25, BR-82, ADR-056).
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param date the date
      * @param since the instant the changes count from, excluded
@@ -53,7 +54,7 @@ public interface OrdersViews {
      * Orders' door flags and the fields a driver sees at their stops, in one read (FR-86, FR-87,
      * FR-135, FR-364).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param orders the orders, each once
      * @return one answer per order found, in any order; an ID that names no order has none
@@ -63,7 +64,7 @@ public interface OrdersViews {
     /**
      * Orders' recipient phones and their customers' contact phones, in one read (FR-348).
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param orders the orders, each once
      * @return one answer per order found, in any order, each with both phones where they exist; an
@@ -75,7 +76,7 @@ public interface OrdersViews {
      * The customers whose name, phone or address contains a text, retired ones included and
      * anonymized ones never (FR-134, FR-259).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param text what the dispatcher typed, matched against the name, the phone in any form the
      *     dispatcher types it, and the normalized address (FR-398)
@@ -87,7 +88,7 @@ public interface OrdersViews {
     /**
      * One customer, with its orders from today on.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param customer the customer
      * @param today today in {@code Asia/Jerusalem}, from which its orders are listed
@@ -99,7 +100,7 @@ public interface OrdersViews {
      * The active customers likely to duplicate one being saved: the same phone, or a matching
      * normalized address (FR-212).
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>To Be Implemented.
      *
      * @param phone the phone being saved
      * @param address the normalized address being saved
@@ -111,7 +112,7 @@ public interface OrdersViews {
     /**
      * Every active customer whose address carries a flag (FR-63, FR-149).
      *
-     * <p>Built in M7.
+     * <p>To Be Implemented.
      *
      * @return the flagged customers, each once, ordered by name
      */
@@ -121,7 +122,7 @@ public interface OrdersViews {
      * The geocoding outbox's backlog on one Israel day: how many requests wait, and whether the
      * day's tries reached {@value GeocodeRequests#DAILY_LOOKUPS} (NFR-135, FR-64).
      *
-     * <p>Built in M7.
+     * <p>To Be Implemented.
      *
      * @param today today in {@code Asia/Jerusalem}, whose tries the cap counts
      * @return the backlog
@@ -132,7 +133,7 @@ public interface OrdersViews {
      * Every order of a date, cancelled ones included, without their statuses, which the query
      * derives (FR-76, DL §9.6).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param date the date
      * @return the orders, each once, ordered by window
@@ -142,7 +143,7 @@ public interface OrdersViews {
     /**
      * Everything one order holds, without its status, which the query derives (DL §9.6).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param order the order
      * @return the order, or empty when none has the ID
@@ -152,7 +153,7 @@ public interface OrdersViews {
     /**
      * An import's preview, while it is still previewed (FR-203, ADR-086).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param batch the import
      * @return the preview, or empty when no import has the ID or it is no longer previewed, so its

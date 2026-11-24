@@ -19,7 +19,7 @@ import com.dispatchflow.messaging.application.port.out.SmsGateway;
  * SendDueMessagesChange} lists the stops, claims each stop's messages in one transaction, and
  * records each answer in one of its own (ADR-129).
  *
- * <p>Built in M12. Rows: NFR-190, NFR-191, NFR-198.
+ * <p>To Be Implemented. Rows: NFR-190, NFR-191, NFR-198.
  */
 public final class SendDueMessages {
 
@@ -41,12 +41,12 @@ public final class SendDueMessages {
     /**
      * Sends the messages now due. A claim another writer beat is retried on the next run (DL §11).
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param call the job's server step
      * @return how many messages the provider accepted, and how many were dropped as stale (NFR-190)
      */
     public SendRun sendDue(CallContext call) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
  * revocation (NFR-263). Like every changing call it writes its audit record, a refused attempt's in
  * its own transaction (NFR-23, ADR-110).
  *
- * <p>Built in M10.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RegisterPushToken {
@@ -38,13 +38,13 @@ public class RegisterPushToken {
     /**
      * Registers the address.
      *
-     * <p>Built in M10.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting, whose call always names its session, since {@code
      *     Actor} refuses one that names none
      * @param address the push service's token for the device
      */
     public void register(Actor actor, PushAddress address) {
-        throw new UnsupportedOperationException("Built in M10");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -30,7 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Every read is the dispatcher's, authorized by role from its operation (ADR-068); no driver
  * scope applies (BR-02), so no check depends on the data.
  *
- * <p>Built in M5 and an unscheduled milestone, method by method.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class SummaryQueries {
@@ -55,21 +55,21 @@ public class SummaryQueries {
      * the on-time percentage, the vehicles used and the dropped orders. Neither count includes a
      * cancelled order (BR-30).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param date the date
      * @return the summary, empty when the date has no published or completed plan
      */
     public DailySummaryView daily(Actor actor, DeliveryDate date) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * A plan set against its baseline (FR-39, FR-266, FR-269, FR-270): {@code Baseline.compareWith}
      * with the plan's standing, its current figures and the orders cancelled now.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the plan
@@ -77,24 +77,23 @@ public class SummaryQueries {
      * @throws NotFound when Planning's view has no published plan with the ID
      */
     public BaselineView baseline(Actor actor, PlanId plan) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * A date's planned distance, driving time and arrivals beside the actual ones (FR-106). The
      * actual arrivals come from {@link ReportingViews#stopResultsOf}; the actual distance and
-     * driving time from {@link ReportingViews#actualsOf}, which is unscheduled, so until it is
+     * driving time from {@link ReportingViews#actualsOf}, which is not planned yet, so until it is
      * built both are empty (Q-40, NFR-249).
      *
-     * <p>Built in M5 for the arrivals; the actual distance and driving time in an unscheduled
-     * milestone.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param date the date
      * @return the comparison, empty when the date has no published or completed plan
      */
     public PlannedVsActualView plannedVsActual(Actor actor, DeliveryDate date) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
@@ -103,9 +102,9 @@ public class SummaryQueries {
      *
      * <p>The web adapter bounds the range at the boundary, refusing one longer than a named
      * maximum, so one call never reads an unbounded span of dates; the bound is set when FR-161 is
-     * scheduled.
+     * planned.
      *
-     * <p>Built in an unscheduled milestone: FR-161, a Should, is in no milestone of the roadmap.
+     * <p>To Be Implemented. FR-161 is a Should.
      *
      * @param actor the dispatcher
      * @param from the first date, included
@@ -113,6 +112,6 @@ public class SummaryQueries {
      * @return the failures and drops of the range
      */
     public FailuresAndDropsView failuresAndDrops(Actor actor, DeliveryDate from, DeliveryDate to) {
-        throw new UnsupportedOperationException("Built in an unscheduled milestone");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

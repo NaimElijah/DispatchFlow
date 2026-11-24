@@ -28,7 +28,7 @@ ADR-048 stands.
 
 ## Decision
 
-On 2026-11-14 the owner, Naim Elijah, decided:
+Decided on 2026-11-14:
 
 - **Double precision.** The optimizer's `Problem` holds travel times, distances and the timings it
   computes as 64-bit floating point.

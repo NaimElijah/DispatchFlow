@@ -8,7 +8,7 @@ package com.dispatchflow.reporting.application.port.out;
  * #VALIDATOR_REJECTED}. So no free text from the optimizer reaches Reporting. A kind it doesn't know
  * is no cause: the adapter treats it like an optimizer that can't be reached.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 public enum RefusalCause {
 

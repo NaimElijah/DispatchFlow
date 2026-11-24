@@ -11,7 +11,7 @@ import java.util.Optional;
  * Messaging makes its {@code CompanyName} and {@code MessageLanguage} from the name and the
  * language.
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  *
  * @param name the company's name, normalized, at most 19 UTF-16 units (FR-382)
  * @param language the default interface language (FR-182)

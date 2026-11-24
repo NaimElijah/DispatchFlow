@@ -36,10 +36,10 @@ import com.dispatchflow.audit.application.api.CallContext;
  * runs it, and on a {@code StaleVersion} runs it once more in a new transaction, because the
  * conflict leaves the first one only to roll back (ADR-129).
  *
- * <p>The removal through {@code PushTokens} joins in M10, which builds that port; until then no
- * session has a push address.
+ * <p>The removal through {@code PushTokens} comes with that port, which is not built yet; until
+ * then no session has a push address.
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 public final class RefreshSession {
 
@@ -60,13 +60,13 @@ public final class RefreshSession {
     /**
      * Exchanges the token.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param token the refresh token the device presented
      * @param call the call's context: the client and the trace, and no user yet (ADR-110)
      * @return new tokens, or the one refusal
      */
     public RefreshAnswer refresh(PresentedToken token, CallContext call) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

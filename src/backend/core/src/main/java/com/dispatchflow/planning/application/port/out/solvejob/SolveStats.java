@@ -8,7 +8,7 @@ import java.util.Objects;
  * version and timings and can be replayed under the budget it reached (NFR-11, NFR-13, ADR-044). The
  * solver's name, the limit and the seed are the job's own, so they are not repeated here.
  *
- * <p>Built in M0.
+ * <p>To Be Implemented.
  *
  * @param solverVersion the solver's version, as the optimizer reports it
  * @param reached the budget that replays the search: the iterations or the solutions it reached
@@ -26,7 +26,7 @@ public record SolveStats(String solverVersion, Reached reached, Duration searchT
     /**
      * What a replay budget counts, as the solver counts it (ADR-044).
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      */
     public enum Counted {
         /** The search's iterations. */
@@ -38,7 +38,7 @@ public record SolveStats(String solverVersion, Reached reached, Duration searchT
     /**
      * The budget a search reached, which replays it (NFR-13, NFR-115).
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param counted what the count counts
      * @param count how many it reached

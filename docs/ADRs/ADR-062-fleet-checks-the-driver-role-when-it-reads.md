@@ -5,7 +5,7 @@
 
 ## Context
 
-On 2026-11-13 the owner, Naim Elijah, decided for the team the rule that the requirements mark "ADR
+Decided on 2026-11-13: the rule that the requirements mark "ADR
 pending: fleet checks the driver role when it reads". It settles Q-27 ([Q-27]): when a Driver's role
 changes, what happens to their driver record in fleet?
 

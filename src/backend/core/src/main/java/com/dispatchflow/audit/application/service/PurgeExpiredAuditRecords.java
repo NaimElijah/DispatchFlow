@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
  * that the purge ran, and when (NFR-93, FR-126). The new record is never older than a year, so the
  * purge never deletes it.
  *
- * <p>Built in M13, with the whole nightly retention run (ADR-121).
+ * <p>To Be Implemented. It comes with the whole nightly retention run (ADR-121).
  */
 @Transactional
 public class PurgeExpiredAuditRecords {
@@ -41,12 +41,12 @@ public class PurgeExpiredAuditRecords {
     /**
      * Deletes the expired audit records, and records the run.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param call the job's server step
      * @return how many records were deleted
      */
     public int purge(CallContext call) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

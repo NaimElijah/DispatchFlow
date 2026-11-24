@@ -14,7 +14,7 @@ import java.util.Optional;
  * §8, ADR-059, ADR-114). Live Operations judges a report, starts and finishes a route run, and
  * checks a correction after a put-back by them.
  *
- * <p>Built in M5, M8 and M12, method by method.
+ * <p>To Be Implemented.
  */
 public interface RouteMembership {
 
@@ -25,7 +25,7 @@ public interface RouteMembership {
      * from that revision, not the current plan, so a late report on a stop the plan has since taken
      * off still creates its {@code Delivery}.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param stop the reported stop
      * @param route the route the report came from
@@ -40,7 +40,7 @@ public interface RouteMembership {
      * A route's driver at a corrected time and its driver now, for a route's start or finish,
      * which name no stop (FR-68, FR-329, ADR-114).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param route the route
      * @param correctedTime the report's corrected time (BR-114)
@@ -53,7 +53,7 @@ public interface RouteMembership {
      * The stop a put-back gave the order after an attempt, if it was put back (FR-258, FR-404,
      * ADR-107).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param order the order
      * @param attempt the attempt whose stop is being corrected
@@ -66,7 +66,7 @@ public interface RouteMembership {
      * after Planning took the stop off (ADR-059). Recipient Messaging tells a recipient their
      * delivery changed from it (FR-354).
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param order the order
      * @param attempt the attempt

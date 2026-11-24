@@ -13,8 +13,8 @@ the web app and the phone app must be available in Hebrew, laid out right to lef
 and English only. Arabic and Russian for the driver screens stay a Could ([FR-121]), to be reopened
 when the company's drivers need them.
 
-On 2026-11-13 the owner, Naim Elijah, decided for the team to confirm that answer and the way the
-two apps carry it. The owner gave no reason for including English beside Hebrew.
+On 2026-11-13 it was decided to confirm that answer and the way the two apps carry it. No reason
+was given for including English beside Hebrew.
 
 Right to left touches every layer of the stack: layout, mixed-direction text, fonts, maps, printed
 routes and messages to recipients. The decision names how each is handled, so a later language does

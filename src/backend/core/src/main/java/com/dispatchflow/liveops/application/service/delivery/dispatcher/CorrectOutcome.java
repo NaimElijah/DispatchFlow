@@ -29,7 +29,7 @@ import java.util.Optional;
  * writes its audit record, a refused attempt's in its own transaction (NFR-23, ADR-110). After the
  * commit, it tells the open screens through {@link LiveUpdates}.
  *
- * <p>Built in M8. Rows: FR-333, FR-374, FR-404.
+ * <p>To Be Implemented. Rows: FR-333, FR-374, FR-404.
  */
 public final class CorrectOutcome {
 
@@ -50,7 +50,7 @@ public final class CorrectOutcome {
     /**
      * Corrects the outcome.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param stop the stop whose outcome is corrected
@@ -63,14 +63,14 @@ public final class CorrectOutcome {
      * @throws StaleVersion when the delivery changed since {@code expected}
      */
     public void correct(Actor actor, StopId stop, Command command, Version expected) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * A correction as the dispatcher states it. The outcome and the reason can name a person, so it
      * prints redacted.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param corrected the outcome the stop now has, which carries no proof (FR-367)
      * @param reason why (FR-333)

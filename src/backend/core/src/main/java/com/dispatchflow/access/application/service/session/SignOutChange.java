@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
  * removes its push address (NFR-263), and writes the audit record every sign-out leaves (NFR-23).
  * The use case evicts the session from the revocation cache after the commit.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class SignOutChange {
@@ -53,7 +53,7 @@ public class SignOutChange {
     /**
      * Revokes the session that keeps the token, and stores it.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param refreshToken the refresh token the device presented
      * @param call the call's context: the client and the trace, and no user or session, since the
@@ -61,6 +61,6 @@ public class SignOutChange {
      * @return the session signed out, or empty when no chain keeps the token
      */
     public Optional<SessionId> apply(PresentedToken refreshToken, CallContext call) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

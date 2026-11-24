@@ -32,7 +32,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
- * <p>Built in M4.
+ * <p>To Be Implemented.
  */
 public final class MoveStop {
 
@@ -63,7 +63,7 @@ public final class MoveStop {
     /**
      * Moves the stop.
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the plan
@@ -82,6 +82,6 @@ public final class MoveStop {
      *     built, which fails the call
      */
     public void move(Actor actor, PlanId plan, StopId stop, RouteId toRoute, int position, Version expected) {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

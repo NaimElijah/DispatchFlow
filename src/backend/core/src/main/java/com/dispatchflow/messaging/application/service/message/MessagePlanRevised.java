@@ -38,7 +38,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * phones in a read-only one, and {@link MessagePlanRevisedChange#joined} and {@link
  * MessagePlanRevisedChange#dropped} trigger each stop in one of its own (ADR-129).
  *
- * <p>Built in M12. Rows: FR-354, FR-372.
+ * <p>To Be Implemented. Rows: FR-354, FR-372.
  */
 public final class MessagePlanRevised {
 
@@ -59,7 +59,7 @@ public final class MessagePlanRevised {
     /**
      * Triggers the messages the revision calls for.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param event the revision
      * @param call the listener's server step
@@ -68,6 +68,6 @@ public final class MessagePlanRevised {
      *     the listener adapter retries the event at once, up to three times (DL §11)
      */
     public void on(PlanRevised event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -30,7 +30,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * account from the revocation cache and sends the Admins' notice, so a change that rolls back sends
  * nothing (ADR-129).
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 public final class ChangeRoles {
 
@@ -54,7 +54,7 @@ public final class ChangeRoles {
     /**
      * Changes the roles.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param account the user's account
@@ -72,6 +72,6 @@ public final class ChangeRoles {
      *     save (BR-76)
      */
     public void change(Actor actor, AccountId account, RoleSet roles, Version expected) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

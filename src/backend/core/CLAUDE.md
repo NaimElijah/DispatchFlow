@@ -91,11 +91,10 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   Review checks an adapter's use of another module until Modulith's `verify()` runs ([ADR-040]);
   `ApplicationRules` rules 9 to 12 keep adapters apart and shared ones off modules ([ADR-130]). Each
   module owns its tables, in its own PostgreSQL schema: no SQL reads another module's schema.
-- An application body that would do work throws `UnsupportedOperationException("Built in M<n>")`
-  until its milestone builds it. `grep "Built in M5"` lists a milestone's remaining work. To build a
-  body ([ADR-119], decision 5): write the failing test first, replace the `throw`, then build the
-  adapter. A milestone may change a declared signature or add a class, with every caller in the same
-  pull request. Delete the Javadoc's "Built in M<n>" when the body is built.
+- An unbuilt application body throws `UnsupportedOperationException("To Be Implemented.")`;
+  `grep -rF "To Be Implemented."` lists the work left ([ADR-132]). To build one ([ADR-119] decision
+  5): write the failing test, replace the `throw`, build the adapter, delete the tag. Building
+  may change a declared signature or add a class, with every caller in the same pull request.
 - A use case follows [TS §6.2], [ADR-063], [ADR-064] and [ADR-129]:
   - A use case is one class, or two when a `<UseCase>Change` holds its transaction. A changing one
     changes one aggregate after its outside calls, and audits in that transaction (NFR-94).
@@ -115,10 +114,10 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   version; one with none is re-run whole in a new transaction, up to 3 times, then 503 ([ADR-121]).
 - The `e2e` profile's test-only endpoints exist only in that profile, and the profile refuses to
   boot when the SMS credential is present, with a test for each (NFR-206).
-- Until M5's sign-in, the stand-in session exists only when `dev` or `test` is the only active
-  profile, and the core refuses to boot with the stand-in and any other profile active. Unless `dev`
-  is the only active profile, the core refuses to boot with an access-token lifetime other than 15
-  minutes. Each refusal has a test. M5 deletes the stand-in, and M6 the dev allowance ([ADR-121]).
+- Until sign-in is built, a stand-in session exists only when `dev` or `test` is the only active
+  profile; the core refuses to boot with it and any other profile active, and, unless `dev` is the
+  only active profile, with an access-token lifetime other than 15 minutes. Each refusal has a test.
+  Building sign-in deletes the stand-in, and building refresh the dev allowance ([ADR-121]).
 - No Lombok: records and plain classes. Configuration comes from environment variables.
 - Persistence is JPA ([ADR-126], [ADR-127], [TS §6.3]). A port's `@Component` works over a
   package-private Spring Data `Repository<Root, UUID>` with `save` and the port's own queries; never
@@ -144,7 +143,7 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   - Application tests run each use case against in-memory fakes of its ports.
   - Module and event tests (`@ApplicationModuleTest` boots one module alone; `Scenario` tests an
     event reaction) boot Spring, so they are not Surefire unit tests. Their suffix and container
-    wiring are set with the first module (M0). Publish each event twice: after the second delivery
+    wiring are set with the first module. Publish each event twice: after the second delivery
     the state equals the state after the first. Wait through `Scenario`, never `sleep`.
   - Permission tests come from the contract's `x-capability` and the permission matrix ([NFR-176]).
   - A test sits in the package of the type it tests, and one that covers several packages' values
@@ -187,6 +186,7 @@ Run `just` recipes from the repository root, and `mvnw` from this folder (`.\mvn
 [ADR-127]: ../../../docs/ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md
 [ADR-129]: ../../../docs/ADRs/ADR-129-transactions-start-only-in-the-service-layer.md
 [ADR-130]: ../../../docs/ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md
+[ADR-132]: ../../../docs/ADRs/ADR-132-unbuilt-bodies-say-to-be-implemented.md
 [DL §2.1]: ../../../docs/architecture/domain_layer/domain_layer_design.md#21-module-graph
 [DL §2.3]: ../../../docs/architecture/domain_layer/domain_layer_design.md#23-rules-between-contexts
 [DL §3.9]: ../../../docs/architecture/domain_layer/domain_layer_design.md#39-purity

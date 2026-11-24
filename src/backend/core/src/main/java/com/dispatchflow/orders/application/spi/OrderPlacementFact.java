@@ -6,7 +6,7 @@ import java.util.Objects;
 /**
  * One order and where its date's plan holds it, in a date's answer (BR-33, DL §9.6).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  *
  * @param order the order
  * @param placement where the plan holds it

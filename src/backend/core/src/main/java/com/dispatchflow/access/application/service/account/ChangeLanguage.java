@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
  * every device (FR-124, FR-181, NFR-27). It revokes nothing. Like every changing call it writes its
  * audit record, a refused attempt's in its own transaction (NFR-23, ADR-110).
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ChangeLanguage {
@@ -40,7 +40,7 @@ public class ChangeLanguage {
     /**
      * Changes the language.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param language the language
@@ -52,6 +52,6 @@ public class ChangeLanguage {
      *     Retry-After} (ADR-121)
      */
     public void change(Actor actor, Language language) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -71,7 +71,7 @@ We put both apps and the shared packages in one pnpm workspace.
     ([TS §10][TS-10]).
   - **In the phone app, a dependency is added with `npx expo install`,** so its version matches the
     Expo SDK. Not checked under pnpm.
-- **Decided in the M0 restructure pull request** (the owner, 2026-11-14), against the real tree:
+- **Decided in the M0 restructure pull request** (deferred to it on 2026-11-14), against the real tree:
   - whether the workspace keeps two ESLint majors, as [ADR-012] records (10 in the web app, 9 in
     the phone app), and how `@dispatchflow/eslint-config` then loads under both;
   - where Prettier's settings live: they are not among the packages;

@@ -3,7 +3,7 @@
 **Status:** Describes the code at commit `6e3028f` on `dev`, 15 November 2026. The shared kernel's
 `AggregateRoot` and `Version`, the save sequences and the load check that replaced `restore` and the snapshots
 were brought up to date on 23 November 2026 for [ADR-126](../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) and [ADR-127](../../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md), and the file and line counts
-with them.
+with them. The placeholder message was brought up to date on 24 November 2026 for [ADR-132](../../ADRs/ADR-132-unbuilt-bodies-say-to-be-implemented.md); the body counts are still those of `6e3028f`.
 
 This guide is a map of the domain layer **as it is built today**, for a person learning the repository
 before building a milestone. After reading it you should be able to find any aggregate, value, event or
@@ -85,9 +85,9 @@ An arrow means *depends on*. The sources for each box:
   `optimizer/domain/`. Their tests are in `core-test/` and `optimizer-test/domain/`.
 - **Declared, not built** ([ADR-119](../../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)).
   Each module's `application/` holds the use cases, ports and module APIs as signatures with Javadoc.
-  A body that would do work throws `UnsupportedOperationException("Built in M<n>")`. At this commit
-  there are 386 such bodies in 271 files under `core/`, and 7 `NotImplementedError("Built in M<n>")`
-  in `optimizer/application/`. Two of the 386 are the blanking methods of Planning's solve-job adapter. `grep -rn "Built in M5" src/backend` lists one milestone's remaining work.
+  A body that would do work throws `UnsupportedOperationException("To Be Implemented.")`. At this commit
+  there are 386 such bodies in 271 files under `core/`, and 7 `NotImplementedError("To Be Implemented.")`
+  in `optimizer/application/`. Two of the 386 are the blanking methods of Planning's solve-job adapter. `grep -rn "To Be Implemented." src/backend` lists the remaining work.
   The two kernel errors in `shared/application/` (`NotFound`, `StaleVersion`) are complete classes; its
   three ports (`Clock`, `IdGenerator`, `ProcessedEvents`) are interfaces with no implementation: the
   adapter packages for the first two, `shared/adapter/out/clock` and `uuid`, are declared, empty.
@@ -1831,7 +1831,7 @@ pull request closes each one. The ones below are the ones a reader is most likel
 |---|---|---|---|
 | Orders | `Order.endPutBack`, and a put-back keeping the earlier attempt's date and window ([ADR-121](../../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md)) | `orders/application/service/order/EndSupersededPutBackService.java` | M8 |
 | Orders | A `Customer` method that changes the customer's fields; `Customer.activeDefaults()` | `orders/application/service/customer/ChangeCustomer.java`, `order/PlaceOrder.java` | M2 |
-| Orders | A method that copies an order to another date | `orders/application/service/order/CopyOrdersFromDate.java` | the milestone that builds it |
+| Orders | A method that copies an order to another date | `orders/application/service/order/CopyOrdersFromDate.java` | unscheduled |
 | Planning | A default solver of each kind in `PlanningSettings` | `planning/application/service/plan/RequestSolve.java` | M4 |
 | Planning | `SolveJob.succeed` and `fail` keep no objective and no stats, which NFR-11 records | `planning/application/port/out/solvejob/DailyAnswer.java`, `planning/application/service/solvejob/RunSolveJob.java` | M0 |
 | Planning | Retention periods in Planning's domain | `planning/application/service/EraseExpiredLocations.java` | M13 |
@@ -1840,7 +1840,7 @@ pull request closes each one. The ones below are the ones a reader is most likel
 | Messaging | `Rating.isLow()`; a key version on `PhoneHash` and an `OptOutRecord` factory that copies an entry under a new hash | `messaging/application/service/AlertLowRating.java`, `RehashOptOuts.java` | M12 |
 | Reporting | `PlannedFigures` has a plain `Distance`, so a plan with an untimed route can't say so | `reporting/application/port/out/PlannedVsActualView.java` | M5 |
 
-The milestone for each row is the one the Javadoc names. [`roadmap.md`](../../roadmap.md) holds the dates.
+Each row's milestone is the roadmap's; the Javadoc names the feature, not the milestone. [`roadmap.md`](../../roadmap.md) holds the dates.
 
 ---
 
@@ -1891,7 +1891,7 @@ component `CLAUDE.md` files).
 | 10. Messaging and reporting | `core/messaging/domain/rating/RatingRequest.java`, `reporting/domain/OnTimeRate.java`, `baseline/Baseline.java` | `messaging/domain/rating/RatingRequestTest`, `reporting/domain/baseline/BaselineTest` |
 | 11. The optimizer | `optimizer/domain/solution.py`, `problem_view.py`, `feasibility.py`, `problem.py`, `factory.py` | `optimizer-test/domain/test_problem.py`, `test_violation_catalogue.py` |
 | 12. The guards | The rules: `core-test/architecture/DomainPurityRules.java`, `DomainShapeRules.java`, `DomainPackageRules.java`, `ApplicationRules.java`, `PersistenceRules.java`, which `DomainPurityTest`, `DomainShapeTest`, `DomainPackageTest`, `ApplicationTest` and `PersistenceTest` run over the production classes | `DomainPurityRulesTest`, `DomainShapeRulesTest`, `DomainPackageRulesTest`, `ApplicationRulesTest`, `PersistenceRulesTest`: each rule must flag its deliberately wrong fixture in `core-test/archfixture/` |
-| 13. What is next | `core/planning/application/service/plan/RequestSolve.java`, then `grep -rn "Built in M0" src/backend` | none: bodies throw |
+| 13. What is next | `core/planning/application/service/plan/RequestSolve.java`, then `grep -rn "To Be Implemented." src/backend` | none: bodies throw |
 
 After step 4 you can read any other aggregate with the §4 pattern in hand. Step 9 is the longest: `Plan.java`
 is 2,711 lines, so read it by the banner comments and keep the matching test open.

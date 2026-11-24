@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
  * with {@code Plan.applySolveResult}, saves the plan and writes the audit record (TS §6.2, ADR-063,
  * ADR-129).
  *
- * <p>Built in M0.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ApplySolveResultChange {
@@ -48,7 +48,7 @@ public class ApplySolveResultChange {
     /**
      * Applies the job's result.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param event the job's success
      * @param call the listener's server step, which the audit record names (ADR-110)
@@ -59,6 +59,6 @@ public class ApplySolveResultChange {
      *     adapter retries at once, up to three times (DL §11)
      */
     public void apply(SolveSucceeded event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

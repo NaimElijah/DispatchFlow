@@ -9,7 +9,7 @@ import com.dispatchflow.shared.application.NotFound;
  * current revision disagrees with the fact, after it has raised the dispatcher's alert from where
  * the stop is now, so a failure between the two can't lose the alert (ADR-121).
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 public interface ReconcileLateOutcome {
 
@@ -18,7 +18,7 @@ public interface ReconcileLateOutcome {
      * puts it, nothing changes and the answer is {@link ReconciliationFact.Kind#UNCHANGED}, so a
      * retried listener is safe (DL §8).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param fact the accepted outcome and the route that served it
      * @param call the listener's server step

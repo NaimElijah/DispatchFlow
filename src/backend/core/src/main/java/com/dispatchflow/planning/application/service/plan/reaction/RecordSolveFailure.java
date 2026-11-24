@@ -16,7 +16,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * <p>{@link RecordSolveFailureChange} holds the transaction, which records the failure and writes the
  * audit record; after it commits, the dispatchers' open screens are told (ADR-129).
  *
- * <p>Built in M0.
+ * <p>To Be Implemented.
  */
 public final class RecordSolveFailure {
 
@@ -37,7 +37,7 @@ public final class RecordSolveFailure {
     /**
      * Records the failure on the plan.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param event the job's failure
      * @param call the listener's server step, which the audit record names (ADR-110)
@@ -45,6 +45,6 @@ public final class RecordSolveFailure {
      *     adapter retries at once, up to three times (DL §11)
      */
     public void on(SolveFailed event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -17,7 +17,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * opens its own, and evicts the account's cached generation only after that commit (ADR-045,
  * ADR-129).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 public final class RemoveRoleOfRetiredDriver {
 
@@ -35,7 +35,7 @@ public final class RemoveRoleOfRetiredDriver {
     /**
      * Removes the Driver role.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param event the retirement
      * @param call the listener's server step
@@ -45,6 +45,6 @@ public final class RemoveRoleOfRetiredDriver {
      *     (DL §11)
      */
     public void on(DriverRetired event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

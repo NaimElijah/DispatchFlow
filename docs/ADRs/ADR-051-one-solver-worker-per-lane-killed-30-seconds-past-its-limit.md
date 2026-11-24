@@ -14,7 +14,7 @@ seconds past its limit fails, and the failed-solve transition returns the plan t
 ([BR-32], [BR-59]). The limit runs from the start of the search, after the travel-time matrix is
 built ([BR-75]). A queued job waits at most 5 minutes ([BR-112]).
 
-On 2026-11-13 the owner, Naim Elijah, decided the process model for the team. This ADR settles the
+On 2026-11-13 the process model was decided. This ADR settles the
 marker "ADR pending: solve job timeout". It follows [PL §7.6] and [TS §7.2].
 
 ## Decision

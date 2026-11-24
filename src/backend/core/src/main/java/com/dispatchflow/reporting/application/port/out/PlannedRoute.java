@@ -17,7 +17,7 @@ import java.util.Optional;
  * FR-106, ADR-041, ADR-109): what the daily summary's per-route line and the planned-against-actual
  * arrivals are built from. It holds IDs, times and figures only, never personal data.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  *
  * @param route the route
  * @param vehicle its vehicle
@@ -41,7 +41,7 @@ public record PlannedRoute(
     /**
      * A route's planned distance and driving time (FR-38, FR-341).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param distance the planned road distance
      * @param drivingTime the planned time driven, zero or more
@@ -58,7 +58,7 @@ public record PlannedRoute(
     /**
      * One stop of the route, with its planned arrival (FR-106).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param stop the stop
      * @param order its order

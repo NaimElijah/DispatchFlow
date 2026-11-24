@@ -28,7 +28,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  * raised calls {@link PushNotifier#alertStaff}, so a staff phone app in the background learns of it
  * (FR-405, ADR-083).
  *
- * <p>Built in M8; the push through {@link PushNotifier} in M10. Rows: FR-73, FR-257, FR-368, BR-134.
+ * <p>To Be Implemented. It comes with the push through {@link PushNotifier}. Rows: FR-73, FR-257,
+ * FR-368, BR-134.
  */
 public final class RecordOutcomeOnBehalf {
 
@@ -53,7 +54,7 @@ public final class RecordOutcomeOnBehalf {
     /**
      * Records the outcome, counting from now.
      *
-     * <p>Built in M8; the push in M10.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param stop the stop
@@ -68,6 +69,6 @@ public final class RecordOutcomeOnBehalf {
      *     (ADR-121)
      */
     public void record(Actor actor, StopId stop, RouteId route, DispatcherOutcome outcome) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

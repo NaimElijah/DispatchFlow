@@ -23,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
  * route's line runs through, which {@link RouteQueries} sends to the road network (TS §6.2,
  * ADR-129).
  *
- * <p>Built in M3 and later milestones, method by method.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class RouteQueriesChange {
@@ -54,7 +54,7 @@ public class RouteQueriesChange {
      * The points the route's line runs through, from its start depot through its stops to its end
      * depot, for the road network before the line is drawn (FR-24).
      *
-     * <p>Built in M3.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher, or the route's driver for a plan in force (BR-02, BR-41)
      * @param route the route
@@ -63,13 +63,13 @@ public class RouteQueriesChange {
      */
     @Transactional(readOnly = true)
     public Waypoints waypoints(Actor actor, RouteId route) {
-        throw new UnsupportedOperationException("Built in M3");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * The route to print or export (FR-72).
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher, or the route's driver for a plan in force (BR-02, BR-41)
      * @param route the route
@@ -77,13 +77,13 @@ public class RouteQueriesChange {
      * @throws NotFound when no plan holds the route, or the actor may not see it
      */
     public PrintableRouteView printable(Actor actor, RouteId route) {
-        throw new UnsupportedOperationException("Built in an unscheduled milestone");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * The route's loading list, the last stop first (FR-153).
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher, or the route's driver for a plan in force (BR-02, BR-41)
      * @param route the route
@@ -91,13 +91,13 @@ public class RouteQueriesChange {
      * @throws NotFound when no plan holds the route, or the actor may not see it
      */
     public LoadingListView loadingList(Actor actor, RouteId route) {
-        throw new UnsupportedOperationException("Built in an unscheduled milestone");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * What changed on the route since a revision the driver saw (FR-249, FR-97).
      *
-     * <p>Built in M10.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher, or the route's driver (BR-02, BR-41)
      * @param route the route
@@ -107,7 +107,7 @@ public class RouteQueriesChange {
      *     see it
      */
     public RouteChangesView changesSince(Actor actor, RouteId route, int revision) {
-        throw new UnsupportedOperationException("Built in M10");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**

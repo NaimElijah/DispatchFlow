@@ -17,7 +17,8 @@ import com.dispatchflow.planning.application.api.PublishedRoutes;
  * and calls {@link PushNotifier#alertStaff} for each, so a staff phone app in the background learns
  * of it (FR-405, ADR-083).
  *
- * <p>Built in M8; the push through {@link PushNotifier} in M10. Rows: FR-157, FR-250, ADR-107.
+ * <p>To Be Implemented. It comes with the push through {@link PushNotifier}. Rows: FR-157, FR-250,
+ * ADR-107.
  */
 public final class AlertUnconfirmedChanges {
 
@@ -42,12 +43,12 @@ public final class AlertUnconfirmedChanges {
     /**
      * Raises the alerts now due.
      *
-     * <p>Built in M8; the push in M10.
+     * <p>To Be Implemented.
      *
      * @param call the job's server step
      * @return how many alerts were raised; one whose key was taken doesn't count
      */
     public int alertDue(CallContext call) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

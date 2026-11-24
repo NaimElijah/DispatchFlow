@@ -14,7 +14,7 @@ import com.dispatchflow.messaging.application.port.out.PhoneHasher;
  * stored stays under its older key, which is kept for lookups only: the accepted risk is the key's
  * continued existence, never a lost opt-out (ADR-069).
  *
- * <p>Three parts don't exist yet, and M12 adds them:
+ * <p>Three parts are not built yet:
  *
  * <ul>
  *   <li>a read of every phone still stored, in Customers &amp; Orders' {@code api} and in
@@ -27,7 +27,7 @@ import com.dispatchflow.messaging.application.port.out.PhoneHasher;
  * <p>It opens no transaction of its own: it re-hashes the phones one by one, and {@link
  * RehashOptOutsChange} holds each phone's transaction (ADR-129).
  *
- * <p>Built in M12. Rows: NFR-202.
+ * <p>To Be Implemented. Rows: NFR-202.
  */
 public final class RehashOptOuts {
 
@@ -45,12 +45,12 @@ public final class RehashOptOuts {
     /**
      * Re-hashes the opt-outs whose phone is still stored under the current key.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param call the step's server context
      * @return how many phones' opt-outs it re-hashed
      */
     public int rehash(CallContext call) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -26,7 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
  * own, issues the email-change link through the account, saves it, and writes the audit record
  * (NFR-23). The use case sends the link after the commit.
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RequestEmailChangeChange {
@@ -70,7 +70,7 @@ public class RequestEmailChangeChange {
     /**
      * Issues the email-change link, and saves the account.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param account the account whose email changes
@@ -81,8 +81,9 @@ public class RequestEmailChangeChange {
      * @return the link's email, to the new address (FR-388)
      * @throws RuleViolation with {@code AccountDeactivated} or {@code AccountAnonymized} when the
      *     account is not active; {@code EmailOfAnotherAdmin} when the account holds the Admin role
-     *     and the actor is another account (FR-387); on the actor's own account, the refusal M6
-     *     adds when the current password is missing, or the one M5 adds when it is wrong (FR-387);
+     *     and the actor is another account (FR-387); on the actor's own account, the refusal
+     *     the email links add when the current password is missing, or the one {@code SignIn} adds
+     *     when it is wrong (FR-387);
      *     on another account, {@code StepUpRequired} when the acting session gave its password more
      *     than 5 minutes ago, or {@code SessionRevoked} when it is revoked (NFR-214)
      * @throws GrantLimitExceeded when the actor's roles give only the limited grant and {@code
@@ -97,6 +98,6 @@ public class RequestEmailChangeChange {
             EmailAddress newEmail,
             Optional<PresentedPassword> currentPassword,
             Version expected) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

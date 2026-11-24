@@ -16,8 +16,8 @@ import com.dispatchflow.audit.application.api.CallContext;
  *
  * <ul>
  *   <li>an address no account holds, for which its {@code Change} writes {@code AuditLog.refused}
- *       naming no account, with the code M5 adds to {@code AccessError} for an address no account
- *       holds ({@code SignIn}'s domain gap);
+ *       naming no account, with the code {@code SignIn} adds to {@code AccessError} for an
+ *       address no account holds ({@code SignIn}'s domain gap);
  *   <li>a refusal of {@code UserAccount.issueLink} for a recovery link: {@code AccountDeactivated},
  *       {@code AccountAnonymized} or {@code AccountHasNoRole} (BR-123). Its {@code Change} catches
  *       the {@code RuleViolation} itself, and writes {@code AuditLog.refused} with the domain's
@@ -45,7 +45,8 @@ import com.dispatchflow.audit.application.api.CallContext;
  * not it is saved. So the transaction works in this order:
  * <ol>
  *   <li>It checks, without changing the account, that it may be sent a recovery link: the same
- *       refusals {@code UserAccount.issueLink} makes. The domain gains that check at M6.
+ *       refusals {@code UserAccount.issueLink} makes. The domain gains that check when the email
+ *       links are built.
  *   <li>It calls {@link RecoveryEmailCap#take}.
  *   <li>Only then does it issue the link and save.
  * </ol>
@@ -63,7 +64,7 @@ import com.dispatchflow.audit.application.api.CallContext;
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 public final class RequestPasswordRecovery {
 
@@ -85,12 +86,12 @@ public final class RequestPasswordRecovery {
      * Sends the recovery link, when one may be sent and the day's cap has room. The caller answers
      * "sent" whether or not a link went out.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param email the address typed
      * @param call the call's context: no user or session, the client and the trace (ADR-110)
      */
     public void request(EmailAddress email, CallContext call) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -16,7 +16,7 @@ import java.util.Optional;
  * {@code @PostLoad} check checks (ADR-126), and stores the events it raised with the change
  * (ADR-064).
  *
- * <p>The two that blank a job's input are built in M13; every other method is built.
+ * <p>The two that blank a job's input are not built yet; every other method is built.
  */
 public interface SolveJobRepository {
 
@@ -100,7 +100,7 @@ public interface SolveJobRepository {
      * (NFR-257, NFR-260, ADR-121). The inputs keep everything else, so a job's result and failure
      * still read. An input already blanked is left as it is, so a second run blanks nothing.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param cutoff the first date whose plans' jobs keep their coordinates: today less 90 Israel
      *     calendar days (ADR-088)
@@ -115,7 +115,7 @@ public interface SolveJobRepository {
      * caller's transaction, as Live Operations deletes the positions themselves (NFR-184, NFR-260,
      * ADR-121). A position already blanked is left as it is.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param cutoff the first receipt time whose positions are kept: now less 7 Israel calendar
      *     days, the same wall-clock time on the date 7 days earlier (ADR-088)

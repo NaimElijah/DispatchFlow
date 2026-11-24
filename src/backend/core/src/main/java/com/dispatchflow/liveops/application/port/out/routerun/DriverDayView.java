@@ -23,7 +23,7 @@ import java.util.Optional;
  * customer details and notes (FR-27, FR-96, FR-154, FR-251, FR-324, placement P6). It holds the
  * recipients' details, so it prints redacted.
  *
- * <p>Built in M5; the projected arrivals in M8.
+ * <p>To Be Implemented.
  *
  * @param date the date
  * @param driver the driver, the only account it is read for (BR-41)
@@ -51,7 +51,7 @@ public record DriverDayView(DeliveryDate date, AccountId driver, List<DriverRout
     /**
      * One of the driver's routes.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param route the route
      * @param vehicle its vehicle
@@ -85,7 +85,7 @@ public record DriverDayView(DeliveryDate date, AccountId driver, List<DriverRout
     /**
      * One stop of the driver's route.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param stop the stop
      * @param order its order
@@ -138,7 +138,7 @@ public record DriverDayView(DeliveryDate date, AccountId driver, List<DriverRout
      * What a driver reads at a stop, from Customers &amp; Orders' {@code StopOrders}; a field
      * anonymization removed is empty (FR-86, FR-87, FR-135, NFR-257).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param address the customer's address as typed
      * @param floor the order's floor

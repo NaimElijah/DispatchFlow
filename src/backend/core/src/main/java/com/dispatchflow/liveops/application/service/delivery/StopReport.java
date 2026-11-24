@@ -13,14 +13,14 @@ import java.util.Optional;
  * The web adapter reads it from the request body and checks it against the contract; its time comes
  * beside it, as a {@link com.dispatchflow.liveops.application.service.DeviceClock}.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 public sealed interface StopReport {
 
     /**
      * The route the report was sent for.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @return the route
      */
@@ -29,7 +29,7 @@ public sealed interface StopReport {
     /**
      * The reported stop.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @return the stop
      */
@@ -38,7 +38,7 @@ public sealed interface StopReport {
     /**
      * The driver arrived at the stop (FR-29).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param route the route the report was sent for
      * @param stop the stop
@@ -56,7 +56,7 @@ public sealed interface StopReport {
      * The stop was delivered (FR-29, FR-30, FR-366). Its proof names the file the phone uploaded
      * first under its outbox row's ID (ADR-087); it holds the driver's note, so it prints redacted.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param route the route the report was sent for
      * @param stop the stop
@@ -89,7 +89,7 @@ public sealed interface StopReport {
      * The stop failed, for one of BR-109's reasons (FR-242). The reason's text can name a person, so
      * it prints redacted.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param route the route the report was sent for
      * @param stop the stop

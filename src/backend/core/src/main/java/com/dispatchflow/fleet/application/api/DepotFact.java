@@ -12,7 +12,7 @@ import java.util.Optional;
  * it is and when routes may leave and must be back. A depot with no location yet can't start or
  * end a route (FR-197). Its location is a kernel {@link GeoPoint}, so it prints redacted.
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  *
  * @param depot the depot
  * @param location where it is, or empty until it is placed
@@ -42,7 +42,7 @@ public record DepotFact(DepotId depot, Optional<GeoPoint> location, Optional<Ope
      * A depot's opening hours, which apply on every delivery date as Israel wall-clock times
      * (FR-129, ADR-103).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param opens when routes may first leave
      * @param closes when routes must be back, after {@code opens}

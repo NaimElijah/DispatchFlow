@@ -10,7 +10,7 @@ import com.dispatchflow.shared.OrderId;
  * (FR-404, FR-258, ADR-107, ADR-114). Live Operations' own listener on {@code PutBackSuperseded}
  * calls it with the event's fields, so Planning never listens to Live Operations.
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 public interface RemoveSupersededPutBack {
 
@@ -19,7 +19,7 @@ public interface RemoveSupersededPutBack {
      * CORRECTED_AFTER_PUT_BACK}. It is idempotent: when the stop is already gone, or the date has no
      * plan, nothing changes, so a retried listener is safe (ADR-114).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param order the corrected stop's order
      * @param laterAttempt the put-back's attempt, whose stop leaves

@@ -16,7 +16,7 @@ says `oasdiff` checks every change against `main`.
 
 ## Decision
 
-On 2026-11-14 the owner, Naim Elijah, decided:
+Decided on 2026-11-14:
 
 - `oasdiff` compares each pull request against its base branch: the pull request's merge result
   against the base branch's tip, so a change merged into the base after the branch was cut is not

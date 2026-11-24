@@ -24,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
  * creating the delivery on its first fact, with an alert per overtaken held report and the audit
  * record (ADR-107, NFR-23).
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RecordOutcomeOnBehalfChange {
@@ -68,7 +68,7 @@ public class RecordOutcomeOnBehalfChange {
     /**
      * Records the outcome, counting from now, and writes the audit record.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param stop the stop
@@ -82,6 +82,6 @@ public class RecordOutcomeOnBehalfChange {
      * @throws StaleVersion when another writer saved the stop's delivery meanwhile
      */
     public List<AlertId> apply(Actor actor, StopId stop, RouteId route, DispatcherOutcome outcome) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

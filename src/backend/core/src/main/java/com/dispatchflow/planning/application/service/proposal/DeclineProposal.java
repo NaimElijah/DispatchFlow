@@ -17,7 +17,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 public final class DeclineProposal {
 
@@ -38,7 +38,7 @@ public final class DeclineProposal {
     /**
      * Declines the proposal.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher, recorded as who declined it
      * @param proposal the proposal
@@ -49,6 +49,6 @@ public final class DeclineProposal {
      * @throws com.dispatchflow.shared.RuleViolation with Planning's {@code ProposalAlreadyDeclined}
      */
     public void decline(Actor actor, ProposalId proposal, Version expected) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

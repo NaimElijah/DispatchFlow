@@ -207,7 +207,7 @@ Each module also has an `application` package, declared ahead of its milestone a
 ([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)).
 It holds whichever of `api`, `spi`, `port/out` and `service` the module has something for: `access`,
 `audit` and `liveops` have no `spi`, and `messaging` and `reporting` have neither `api` nor `spi`.
-Every body that would do work throws `UnsupportedOperationException("Built in M<n>")`. Nothing is
+Every body that would do work throws `UnsupportedOperationException("To Be Implemented.")`. Nothing is
 wired: the application layer registers no bean, and no use case calls a port. Its one Spring
 annotation is `@Transactional`: on every service's class, and on the read-only reads of a
 `<UseCase>Change`. A use case with outside calls, or one transaction per item, holds its
@@ -367,8 +367,8 @@ placeholder folder for each bounded context ([TS §10](tech_stack.md#10-web-app)
 
 An Expo project. `src/index.ts` registers `src/App.tsx`, which renders a heading. `app.json`
 and `assets/` hold the Expo configuration and icons. `osv-scanner.toml` lists the vulnerabilities
-the audit ignores, each with a reason and an expiry date. The owner accepted the minimatch and glob
-entries in [ADR-023](../ADRs/ADR-023-accept-minimatch-and-glob-advisories.md), and the zod and
+the audit ignores, each with a reason and an expiry date. The minimatch and glob entries were
+accepted in [ADR-023](../ADRs/ADR-023-accept-minimatch-and-glob-advisories.md), and the zod and
 deepmerge entries in
 [ADR-095](../ADRs/ADR-095-accept-the-zod-and-deepmerge-advisories-until-2027-01-31.md). Its
 `src/features/` holds the same eight placeholder folders as the web app's. It has no route folder:

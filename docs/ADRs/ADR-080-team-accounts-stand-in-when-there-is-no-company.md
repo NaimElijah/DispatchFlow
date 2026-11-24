@@ -14,11 +14,11 @@ company is confirmed, and the team looks for one with no fixed date ([Q-01]). Sy
 before a company is named, but the app would then have to move to the company later. [NFR-186] says
 the pilot's phones are reached on "the company's developer accounts".
 
-On 2026-11-14 the owner, Naim Elijah, decided for the team what happens if there is still no
-company when the pilot milestone, M13, starts. The pilot protocol ([Q-40]) then becomes a staged
-pilot of 5 working days: synthetic data, classmates as drivers on their own phones, and a stand-in
-dispatcher, on a production-like deployment ([FR-344]). [NFR-32] compares against the
-nearest-neighbour baseline, and the report says the pilot was staged.
+On 2026-11-14 it was decided what happens if there is still no company when the pilot milestone,
+M13, starts. The pilot protocol ([Q-40]) then becomes a staged pilot of 5 working days: synthetic
+data, classmates as drivers on their own phones, and a stand-in dispatcher, on a production-like
+deployment ([FR-344]). [NFR-32] compares against the nearest-neighbour baseline,
+and the report says the pilot was staged.
 
 A staged pilot still needs somewhere to run and a way to get the app onto phones. The research
 study needs machines too.
@@ -30,8 +30,8 @@ is no company. With a company, [NFR-186] stands and the company's accounts are u
 
 - **Apple and Google:** the team's own Apple Developer Program account and Google Play account
   distribute the app through TestFlight and Google Play internal testing. The fees are about $99 a
-  year (about ₪320) and $25 once (about ₪80): about ₪400 in the first year. These are the owner's
-  conversions.
+  year (about ₪320) and $25 once (about ₪80): about ₪400 in the first year. These are the
+  conversions the decision used.
 - **AWS, one team account, which is also the research account:** a team-owned account in
   `il-central-1` runs three things, and the company's own account is added when there is a company:
   - the research study's machines;

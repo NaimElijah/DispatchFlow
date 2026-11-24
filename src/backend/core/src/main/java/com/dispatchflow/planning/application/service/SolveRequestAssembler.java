@@ -68,7 +68,7 @@ import java.time.Instant;
  * evaluation never refuses a problem for BR-20: the calling use case checks the roster itself (see
  * {@code PublishPlan} and {@code HandOverRoute}).
  *
- * <p>Built in M0, M4 and M9, method by method.
+ * <p>To Be Implemented.
  */
 public final class SolveRequestAssembler {
 
@@ -95,10 +95,10 @@ public final class SolveRequestAssembler {
      * reuses the matrix, and stores none (ADR-052). It carries the plan's locked routes, which the
      * adapter doesn't send until the optimizer has a lock rule (FR-147, ADR-112, ADR-121).
      *
-     * <p>Built in M0; in full in M2 and M3. M0 reads the seeded orders, fleet and roster, because
-     * Fleet's and Customers &amp; Orders' facts arrive in M2. {@code TravelTimes} and {@code
-     * StoredMatrices} arrive in M3, so where M0's matrix comes from until then is M0's choice; no
-     * document settles it.
+     * <p>To Be Implemented. It first reads the seeded orders, fleet and roster, because Fleet's and
+     * Customers &amp; Orders' facts arrive with the fleet and order records and the CSV import.
+     * {@code TravelTimes} and {@code StoredMatrices} arrive with travel times, so where the matrix
+     * comes from until then is its own choice; no document settles it.
      *
      * @param date the plan's delivery date
      * @param job the claimed job
@@ -108,7 +108,7 @@ public final class SolveRequestAssembler {
      *     <em>road network unavailable</em> (FR-65)
      */
     public SolveRequest daily(DeliveryDate date, JobId job) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
@@ -127,7 +127,7 @@ public final class SolveRequestAssembler {
      * stop a dispatcher put back for today (FR-75): the date's orders hold the order at a later
      * attempt than its failed stop's.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param date the plan's delivery date
      * @param job the claimed job
@@ -138,7 +138,7 @@ public final class SolveRequestAssembler {
      * @throws RoadNetworkUnavailable when the road network can't be reached
      */
     public ReoptimizationRequest reoptimization(DeliveryDate date, JobId job, Instant factsAt) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
@@ -152,17 +152,19 @@ public final class SolveRequestAssembler {
      * availability (ADR-105). So a hand-over is judged with the new driver's shift (ADR-112), and
      * BR-20's roster check is left to the calling use case.
      *
-     * <p><b>Gap until M9.</b> It builds the daily evaluation only: no reported stop, no position
-     * and no {@code now}. Whether evaluating a published plan mid-day takes the daily or the
-     * re-optimization rules is open, and M9 decides it (see {@code FeasibilityChecker}).
+     * <p><b>Gap until re-optimization is built.</b> It builds the daily evaluation only: no
+     * reported stop, no position and no {@code now}. Whether evaluating a published plan mid-day
+     * takes the daily or the re-optimization rules is open, and re-optimization decides it (see
+     * {@code FeasibilityChecker}).
      *
-     * <p><b>Open for M4.</b> A layout driver with no shift on the date's roster has none to send.
-     * A solve or a hand-over never leaves one, but a later roster change can, and so can a driver
-     * who retired or lost the Driver role since, whom {@code FleetFacts.rosterOn} leaves out. The
-     * evaluation reads the driver's shift through {@code FleetFacts.driverOn}, which reports the
-     * standing; M4 decides what it sends for a driver with no shift.
+     * <p><b>Open until solve jobs are built.</b> A layout driver with no shift on the date's
+     * roster has none to send. A solve or a hand-over never leaves one, but a later roster change
+     * can, and so can a driver who retired or lost the Driver role since, whom {@code
+     * FleetFacts.rosterOn} leaves out. The evaluation reads the driver's shift through {@code
+     * FleetFacts.driverOn}, which reports the standing; solve jobs decide what it sends for a
+     * driver with no shift.
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param date the plan's delivery date
      * @param layout the plan as it is, or as a change would leave it
@@ -174,6 +176,6 @@ public final class SolveRequestAssembler {
      *     layout's version
      */
     public EvaluationRequest evaluation(DeliveryDate date, PlanLayout layout, Version planVersion) {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

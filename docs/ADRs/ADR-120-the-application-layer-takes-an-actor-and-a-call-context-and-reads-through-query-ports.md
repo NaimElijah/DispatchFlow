@@ -30,8 +30,8 @@ another only through a port. So a screen's read needs a port that the applicatio
 **What the docs leave open.** The research for [#81] found about 30 gaps between the requirements, the
 domain document, the tech stack and the ADRs. Some of them decide where a class goes.
 
-On 2026-11-15 the owner, Naim Elijah, chose the shared package and the read side recorded here. He
-confirmed the shared package after being told that it amends ADR-118.
+Decided on 2026-11-15: the shared package and the read side recorded here. The shared package was
+confirmed once it was noted that it amends ADR-118.
 
 ## Decision
 
@@ -60,7 +60,7 @@ confirmed the shared package after being told that it amends ADR-118.
    - This amends [ADR-118] point 9 narrowly: the kernel's domain types stay flat, and the application
      ports have their own subpackage.
    - ADR-097's declined package was for domain building blocks, not ports.
-   - The owner's yes stands as the module owners' agreement that DL §2.3, rule 5 asks for.
+   - The decision stands as the module owners' agreement that DL §2.3, rule 5 asks for.
    - M0 exposes the package to Spring Modulith as a named interface.
 3. **The domain can't reach those ports.** An ArchUnit rule bans any class in a module's `domain` or
    `events`, and any in the kernel root, from depending on `shared.application`. Without it, the
@@ -108,7 +108,7 @@ confirmed the shared package after being told that it amends ADR-118.
      §11 names, and `ProjectArrivals` and the retention jobs, by their own contracts. A use case
      doesn't retry; it declares `StaleVersion`. The one exception is `RefreshSession`, which retries
      once on a stale version, for [NFR-178]'s grace.
-8. **Placements where the docs leave the owner open** (for the owner's veto):
+8. **Placements where the docs leave the choice open** (decided here):
    - **P1:** Access owns push tokens. Sign-out and revocation remove them ([NFR-263]).
    - **P2:** Live Operations owns the phone's request-key record (`ReportReceipts`, [ADR-087]). The
      shared `ProcessedEvents` holds the listeners' records.
@@ -195,7 +195,7 @@ confirmed the shared package after being told that it amends ADR-118.
     6. Decision 3.
     7. No cycle between a module's application packages, and the `service` and `port.out` roots import
        none of their own subpackages ([ADR-118]'s rules, carried to the application).
-11. **The solver port returns a `SearchResult`.** This amends [ADR-044]'s return type, which the owner
+11. **The solver port returns a `SearchResult`.** This amends [ADR-044]'s return type, which was
     decided on 2026-11-15:
     - the optimizer's `Solver.solve` returns `SearchResult(solution, reached)`, not a bare `Solution`.
       `reached` is the iterations or solutions the search reached ([ADR-004], ADR-044's own Risk line,
@@ -204,7 +204,7 @@ confirmed the shared package after being told that it amends ADR-118.
       never `None`. Only `SolveStats.reached` is `None`, in a `Failed` outcome;
     - a solver failure becomes a `Failed` outcome in `Solve`, `Reoptimize` and `Baseline` ([ADR-004]).
       The core has no failure reason for it: M0 adds a `SolveFailureReason` for it. That is a domain
-      change and an edit to [FR-65], so it is the owner's call;
+      change and an edit to [FR-65], so it is open for a decision;
     - Reporting's `BaselinePlanner` answers a sealed `BaselineAnswer`: `Planned` with the figures, or
       `BaselineAnswer.Refused(RefusalCause)`. `RefusalCause` is Reporting's own enum
       (`SOLVER_FAILED`, `NO_SOLUTION_WITHIN_BUDGET`, `VALIDATOR_REJECTED`); the optimizer adapter
@@ -231,17 +231,18 @@ confirmed the shared package after being told that it amends ADR-118.
   - A placement in decision 8 turns out wrong at its milestone. Each one is listed so the milestone
     can reopen it.
   - Spring Modulith must expose `shared.application`. M0 checks it with `verify()`.
-  - A flood of refused calls grows the audit table. [ADR-071]'s limits bound most of it, but not the
-    401s: no bucket counts a 401 on an operation that needs a token. Whether a limiter's repeated
-    429s for one key are coalesced is decided when the limiter is built (M6). **Owner item for M6:**
-    either count 401s per source address in a bucket like [NFR-102]'s, which extends [ADR-071], or
-    write at most one 401 record per source address and operation per window.
+  - A flood of refused calls grows the audit table. [ADR-071]'s limits bound most of it, but not
+    the 401s: no bucket counts a 401 on an operation that needs a token. Whether a limiter's
+    repeated 429s for one key are coalesced is decided when the limiter is built (M6). **Open
+    decision for M6:** either count 401s per source address in a bucket like [NFR-102]'s, which
+    extends [ADR-071], or write at most one 401 record per source address and operation per
+    window.
   - The `web` adapter is exempt from rule 2 until the pending `web` ADR ([ADR-040]) settles it. Its
     security filter will depend on Access's `SessionValidity`, which is an input to that ADR.
 
 ## Alternatives considered
 
-- **Put the shared ports in the kernel root.** Rejected by the owner on 2026-11-15:
+- **Put the shared ports in the kernel root.** Rejected on 2026-11-15:
   - ports would sit among the domain's building blocks;
   - keeping a domain away from `Clock` would need a rule that names each class.
 - **A copy of each shared port in every module.** Rejected: eight copies that must stay identical.

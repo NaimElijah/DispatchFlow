@@ -10,7 +10,7 @@ import java.util.Objects;
  * {@link #code()}, like its siblings, so the phone's outbox marks the row refused (ADR-087). The
  * message names the declared type only, never the content.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 public final class ProofFormatRefused extends RuntimeException {
 

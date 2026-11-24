@@ -21,8 +21,7 @@ The forces:
 - Google's and Mapbox's terms tie their results to their own maps, and Google's and HERE's limit
   how long results may be stored ([TS §9]).
 
-On 2026-11-13 the owner, Naim Elijah, decided for the team the maps for both apps, with self-hosted
-tiles.
+Decided on 2026-11-13: the maps for both apps, with self-hosted tiles.
 
 ## Decision
 

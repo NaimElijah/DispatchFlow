@@ -20,7 +20,7 @@ import java.util.Optional;
  * stop's status (FR-33, FR-74, FR-34, FR-397). It holds positions and addresses' coordinates, so it
  * prints redacted.
  *
- * <p>Built in M5; the positions in M8.
+ * <p>To Be Implemented.
  *
  * @param date the date shown
  * @param at the server's time the view was read at, which the positions' age counts to (FR-74)
@@ -48,7 +48,7 @@ public record LiveMapView(DeliveryDate date, Instant at, List<RouteOnMap> routes
     /**
      * One route on the map.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param route the route
      * @param vehicle its vehicle
@@ -91,7 +91,7 @@ public record LiveMapView(DeliveryDate date, Instant at, List<RouteOnMap> routes
     /**
      * A vehicle's latest position (FR-33, FR-74).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param at where it was
      * @param receivedAt when the server received it, which its age counts from (FR-74)
@@ -119,7 +119,7 @@ public record LiveMapView(DeliveryDate date, Instant at, List<RouteOnMap> routes
     /**
      * One stop on the map.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param stop the stop
      * @param order its order

@@ -29,7 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>A driver sees only their own routes (BR-02, BR-41): the routes are those whose current driver
  * is the acting account, whatever the request names.
  *
- * <p>Built in M5; the projected arrivals in M8. Rows: FR-27, FR-28, FR-96, FR-154, FR-324, FR-325,
+ * <p>To Be Implemented. Rows: FR-27, FR-28, FR-96, FR-154, FR-324, FR-325,
  * BR-41.
  */
 @Transactional(readOnly = true)
@@ -67,26 +67,26 @@ public class DriverDayQueries {
     /**
      * The acting driver's routes of a date.
      *
-     * <p>Built in M5; the projected arrivals in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the driver
      * @param date the date, today or a later one (FR-324)
      * @return the driver's routes; none when the date has no plan in force or the driver no route
      */
     public DriverDayView myDay(Actor actor, DeliveryDate date) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * The acting driver's routes from today on, each with its date, which the driver opens one date
      * at a time through {@link #myDay} (FR-324).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param actor the driver
      * @return the routes, by date; none when the driver has no route in a plan in force from today
      */
     public DriverRoutesAheadView myRoutesAhead(Actor actor) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

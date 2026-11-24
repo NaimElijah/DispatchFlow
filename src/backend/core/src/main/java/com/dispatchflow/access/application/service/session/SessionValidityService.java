@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
  * persistence adapter caches those reads (ADR-045), so this stays the one implementation of {@code
  * SessionValidity}, cached or not.
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class SessionValidityService implements SessionValidity {
@@ -37,10 +37,10 @@ public class SessionValidityService implements SessionValidity {
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      */
     @Override
     public boolean isCurrent(AccountId account, long accountGeneration, SessionId session, long sessionGeneration) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

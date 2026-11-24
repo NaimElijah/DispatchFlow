@@ -24,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
  * push address through {@code PushTokens.removeFor} (NFR-263), and writes the audit record (NFR-23).
  * The use case evicts a revoked session from the revocation cache after the commit.
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RefreshSessionChange {
@@ -72,7 +72,7 @@ public class RefreshSessionChange {
     /**
      * Exchanges the token once, and saves the session.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param token the refresh token the device presented
      * @param call the call's context: the client and the trace, and no user yet (ADR-110)
@@ -81,14 +81,14 @@ public class RefreshSessionChange {
      *     changed between its read and its save (BR-76); the use case exchanges once more
      */
     public Exchanged apply(PresentedToken token, CallContext call) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * What one exchange answers, and what it leaves the use case to evict after the commit. The
      * answer may hold tokens, which are secrets (NFR-19), so it prints redacted.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param answer new tokens, or the one refusal
      * @param revoked the session the exchange revoked, or empty when it revoked none

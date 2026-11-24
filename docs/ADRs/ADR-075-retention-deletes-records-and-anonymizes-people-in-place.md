@@ -5,11 +5,10 @@
 
 ## Context
 
-On 2026-11-13 the owner, Naim Elijah, adopted retention periods for every kind of personal data that
-[Q-14] left open, as defaults until legal advice ([Q-42]). On 2026-11-14 he decided how a period
-ends: customers and drivers are anonymized in place, and positions, proofs, messages and replies are
-deleted. He decided both for the team. This ADR records the pair, beside the retention row
-[NFR-184].
+On 2026-11-13 retention periods were adopted for every kind of personal data that [Q-14] left
+open, as defaults until legal advice ([Q-42]). On 2026-11-14 it was decided how a period ends:
+customers and drivers are anonymized in place, and positions, proofs, messages and replies are
+deleted. This ADR records the pair, beside the retention row [NFR-184].
 
 The forces:
 
@@ -47,7 +46,7 @@ A nightly job applies the periods below ([PL §16.4][PL-164]). A row that other 
 | Backups | 35 days | Age out of the bucket |
 
 The sources are [NFR-184] for the first, second and fourth rows, and [NFR-257] for the third. The
-rows after the fourth, except GlitchTip's, are the owner's defaults for [Q-14]. Logs, traces and
+rows after the fourth, except GlitchTip's, are the defaults decided for [Q-14]. Logs, traces and
 metrics are kept 7 days ([NFR-76]), and GlitchTip's event lifetime is set to 7 days to match
 [NFR-76].
 
@@ -57,8 +56,8 @@ metrics are kept 7 days ([NFR-76]), and GlitchTip's event lifetime is set to 7 d
   on audit, and `EXECUTE` on one function ([ADR-041]). That function is owned by
   `dispatchflow_owner`, deletes only audit records older than 1 year, and computes the cutoff
   itself. The core's nightly retention job calls it at 03:00 (`Asia/Jerusalem`), and its
-  Healthchecks.io ping alerts the team when a run fails or doesn't happen ([ADR-066]). The owner credential stays deploy-only, used once by `migrate` (the owner,
-  2026-11-14).
+  Healthchecks.io ping alerts the team when a run fails or doesn't happen ([ADR-066]). The owner
+  credential stays deploy-only, used once by `migrate` (decided 2026-11-14).
 - **Deleted** applies to positions, proofs, messages and replies. Each day's average rating and share
   answered stay ([NFR-193]).
 - **One check against the inventory.** A test compares the data inventory with an annotation,
@@ -81,7 +80,7 @@ metrics are kept 7 days ([NFR-76]), and GlitchTip's event lifetime is set to 7 d
 - **Hard:** "anonymized" must hold. Names, phones, addresses and coordinates are blanked, and so must
   anything else that identifies a person, such as free-text notes. The test finds only columns the
   team annotates.
-- **Hard:** the rows after the fourth, except GlitchTip's, are the owner's Q-14 defaults. Two of
+- **Hard:** the rows after the fourth, except GlitchTip's, are the Q-14 defaults as decided. Two of
   them, a customer never retired and every account, apply this ADR's rule (anonymize what other
   records refer to, delete the rest) to those defaults. The data inventory confirms each row before
   the pilot handles real data.
@@ -98,8 +97,8 @@ metrics are kept 7 days ([NFR-76]), and GlitchTip's event lifetime is set to 7 d
 
 - **Deleting every record at its deadline.** Rejected. It would break the history that a plan refers
   to ([BR-43], [BR-37]) and the figures that reports keep ([NFR-152]).
-- **Anonymizing positions, proofs, messages and replies too.** Not chosen: the owner decided that
-  these four are deleted. The sources give no further reason.
+- **Anonymizing positions, proofs, messages and replies too.** Not chosen: it was decided that these
+  four are deleted. The sources give no further reason.
 - **Keeping everything until the company leaves.** Lost on [NFR-31], which asks for a stated period
   for each kind.
 

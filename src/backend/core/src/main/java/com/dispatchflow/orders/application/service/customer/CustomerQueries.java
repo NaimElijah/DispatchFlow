@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
  * dispatcher's, authorized by role from its operation (ADR-068); no driver scope applies (BR-02),
  * so no check depends on the data.
  *
- * <p>Built in M2, M7 and an unscheduled milestone, method by method.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class CustomerQueries {
@@ -47,7 +47,7 @@ public class CustomerQueries {
      * Finds customers by name, phone or address (FR-134), so the dispatcher also finds an order by
      * its customer (FR-259).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param text what the dispatcher typed
@@ -59,13 +59,13 @@ public class CustomerQueries {
      *     sets it
      */
     public CustomerList search(Actor actor, String text, int limit) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * One customer's page, with its orders from today on (FR-56, FR-259).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param customer the customer
@@ -73,7 +73,7 @@ public class CustomerQueries {
      * @throws NotFound when no customer has the ID
      */
     public CustomerView show(Actor actor, CustomerId customer) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
@@ -81,7 +81,7 @@ public class CustomerQueries {
      * matching address, which the dispatcher is warned about before saving (FR-212). The warning
      * never refuses the save.
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param phone the phone being saved
@@ -90,7 +90,7 @@ public class CustomerQueries {
      * @return the likely duplicates, possibly none, never cut, so {@code more} is {@code false}
      */
     public CustomerList likelyDuplicates(Actor actor, PhoneNumber phone, Address address, Optional<CustomerId> except) {
-        throw new UnsupportedOperationException("Built in an unscheduled milestone");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
@@ -98,25 +98,25 @@ public class CustomerQueries {
      * the service area, or far from a road (FR-63). The map shows them apart from routed stops
      * (FR-149), and no flag stops a solve (FR-216).
      *
-     * <p>Built in M7.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @return the flagged customers
      */
     public FlaggedAddresses flagged(Actor actor) {
-        throw new UnsupportedOperationException("Built in M7");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * The geocoding lookups still waiting, which the screen of flagged addresses shows: how many
      * wait, and whether today's cap held them back to the next day (NFR-135, FR-64).
      *
-     * <p>Built in M7.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @return the backlog, today's in {@code Asia/Jerusalem}
      */
     public GeocodingBacklog geocodingBacklog(Actor actor) {
-        throw new UnsupportedOperationException("Built in M7");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

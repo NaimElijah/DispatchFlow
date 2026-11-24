@@ -11,7 +11,7 @@ import java.util.List;
  * ADR-050, ADR-101). Live Operations implements it as its {@code ExecutionFactsService} (DL §2.1's
  * dashed arrow).
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 public interface ExecutionFacts {
 
@@ -20,7 +20,7 @@ public interface ExecutionFacts {
      * the plan judges (FR-336). Planning names its own routes and stops, so Live Operations reads
      * only its own records and never asks Planning back.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param routes the plan's routes
      * @param stops the plan's stops
@@ -33,7 +33,7 @@ public interface ExecutionFacts {
      * Planning's {@code ChangesSinceBasis.reportedStops} holds. A report held for the dispatcher
      * doesn't count until it is confirmed (BR-132, ADR-101).
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param stops the plan's stops
      * @param since the instant the reports count from, excluded, by when the server recorded them
@@ -45,7 +45,7 @@ public interface ExecutionFacts {
      * What has happened on a plan's routes up to now, for a re-optimization (ADR-050 points 1 to
      * 3).
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param routes the plan's routes
      * @param stops the plan's stops

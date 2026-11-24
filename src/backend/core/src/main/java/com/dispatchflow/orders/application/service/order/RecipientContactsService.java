@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
  * Messaging to choose from, and refuses the request when any order is missing from the answer (DL
  * §2.2, FR-348).
  *
- * <p>Built in M12.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class RecipientContactsService implements RecipientContacts {
@@ -32,10 +32,10 @@ public class RecipientContactsService implements RecipientContacts {
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      */
     @Override
     public List<RecipientContactFact> of(List<OrderId> orders) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

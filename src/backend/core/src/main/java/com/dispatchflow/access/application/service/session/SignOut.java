@@ -30,12 +30,12 @@ import com.dispatchflow.audit.application.api.CallContext;
  * store, the push address's removal and the audit record. After its commit, the use case evicts the
  * session from the revocation cache (ADR-129).
  *
- * <p>In M5 it finds and revokes the session and writes the audit record. The eviction from {@code
- * RevocationCache} joins in M6, and the removal through {@code PushTokens} in M10, the milestones
- * that build those ports. Until M6 builds {@code SessionValidity}, nothing checks an access token's
+ * <p>When it is built, it finds and revokes the session and writes the audit record; the eviction
+ * from {@code RevocationCache} and the removal through {@code PushTokens} come with those ports,
+ * which are not built yet. Until {@code SessionValidity} is built, nothing checks an access token's
  * session, so an access token the signed-out session issued still works until it expires.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 public final class SignOut {
 
@@ -56,13 +56,13 @@ public final class SignOut {
     /**
      * Signs the session that keeps the token out.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param refreshToken the refresh token the device presented
      * @param call the call's context: the client and the trace, and no user or session, since the
      *     call carries no access token (ADR-110)
      */
     public void signOut(PresentedToken refreshToken, CallContext call) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

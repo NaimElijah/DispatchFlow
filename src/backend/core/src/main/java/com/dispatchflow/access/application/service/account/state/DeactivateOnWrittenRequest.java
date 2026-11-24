@@ -21,7 +21,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * its save and the audit record. After its commit, the step evicts the account from the revocation
  * cache (ADR-129).
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 public final class DeactivateOnWrittenRequest {
 
@@ -42,7 +42,7 @@ public final class DeactivateOnWrittenRequest {
     /**
      * Deactivates the Admin account.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param account the Admin account the request names
      * @param call the step's server context
@@ -52,6 +52,6 @@ public final class DeactivateOnWrittenRequest {
      * @throws StaleVersion when the account changed between its read and its save (BR-76)
      */
     public void deactivate(AccountId account, CallContext call) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

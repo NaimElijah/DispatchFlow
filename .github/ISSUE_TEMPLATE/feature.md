@@ -9,10 +9,6 @@ title: "feat: "
 <!-- The FR, BR, NFR or UC id in docs/requirements/requirements.md that this delivers. If no
 requirement covers it, add one before this issue goes to Ready. -->
 
-## Milestone
-
-<!-- M0 to M13: the milestone in section 2 of docs/roadmap.md that this belongs to. -->
-
 ## What changes
 
 ## Acceptance criteria

@@ -12,14 +12,14 @@ import java.util.List;
  * placement P9). Only an uncancelled plan for today or a later date blocks a retirement, which
  * Fleet's {@code PlanUses} decides.
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 public interface RecordUsage {
 
     /**
      * The plans dated today or later whose routes use a vehicle.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param vehicle the vehicle
      * @param today today's date in {@code Asia/Jerusalem}; an earlier plan never blocks
@@ -30,7 +30,7 @@ public interface RecordUsage {
     /**
      * The plans dated today or later whose routes start or end at a depot.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param depot the depot
      * @param today today's date in {@code Asia/Jerusalem}; an earlier plan never blocks
@@ -41,7 +41,7 @@ public interface RecordUsage {
     /**
      * The plans dated today or later whose routes a driver drives.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param driver the driver's account
      * @param today today's date in {@code Asia/Jerusalem}; an earlier plan never blocks

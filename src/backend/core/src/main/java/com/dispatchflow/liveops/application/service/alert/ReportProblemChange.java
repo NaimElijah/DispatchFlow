@@ -25,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
  * the audit record (ADR-107, NFR-23). A resend with the same key and body gets the stored receipt
  * and raises nothing (BR-28, NFR-65).
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ReportProblemChange {
@@ -65,7 +65,7 @@ public class ReportProblemChange {
     /**
      * Raises the alert for the problem, with the receipt and the audit record.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the driver
      * @param route the driver's route
@@ -82,6 +82,6 @@ public class ReportProblemChange {
      */
     public Optional<AlertId> apply(
             Actor actor, RouteId route, DriverProblem problem, IdempotencyKey key, RequestDigest digest) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

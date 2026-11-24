@@ -8,7 +8,7 @@ import java.util.List;
  * A list of customers, as a search finds them (FR-134, FR-259) or as the likely duplicates of a
  * customer being saved (FR-212). Each holds personal data, so the list prints redacted.
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  *
  * @param customers the customers, each once, ordered by name
  * @param more whether more customers matched than the list holds, so a search was cut at its

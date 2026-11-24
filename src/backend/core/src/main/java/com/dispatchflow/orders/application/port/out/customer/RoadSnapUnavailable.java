@@ -10,7 +10,7 @@ import java.util.Objects;
  * message and its cause never hold the point (NFR-19): the adapter wraps the I/O error without the
  * HTTP client's message, which holds the URL's coordinates.
  *
- * <p>Built in M7.
+ * <p>To Be Implemented.
  */
 public final class RoadSnapUnavailable extends RuntimeException {
 

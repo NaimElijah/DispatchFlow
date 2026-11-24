@@ -5,13 +5,13 @@
 
 ## Context
 
-On 2026-11-14 the owner, Naim Elijah, accepted four exceptions to [NFR-209] for the team, with
-conditions. [NFR-209] requires the server and its data, backups included, to be hosted in Israel.
-[TS §1] (rule 2) adds that anything touching personal data is self-hosted when that is cheap, "and an
-outside service needs an accepted exception". The tech stack's table of outside services
-([TS §13]) marked three rows "Accepted exception needed". This ADR is that acceptance. The fourth
-exception, Navigate's map apps ([FR-28], [FR-325]), is one the owner added the same day. The tech
-stack's rows will link to this ADR, and so will [NFR-209].
+On 2026-11-14 four exceptions to [NFR-209] were accepted, with conditions. [NFR-209] requires the
+server and its data, backups included, to be hosted in Israel. [TS §1] (rule 2) adds that anything
+touching personal data is self-hosted when that is cheap, "and an outside service needs an
+accepted exception". The tech stack's table of outside services ([TS §13]) marked three rows
+"Accepted exception needed". This ADR is that acceptance. The fourth exception, Navigate's map
+apps ([FR-28], [FR-325]), is one added the same day. The tech stack's rows will link to this ADR,
+and so will [NFR-209].
 
 Hosting itself, in AWS `il-central-1`, is [ADR-078]'s. Crash reports were another candidate. They
 stay in Israel on GlitchTip, so they need no exception ([ADR-079]).

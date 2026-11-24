@@ -11,7 +11,7 @@ import java.util.Optional;
  * RecipientPhone.choose} picks from in this order (FR-348). Both are personal data, so it prints
  * redacted.
  *
- * <p>Built in M12.
+ * <p>To Be Implemented.
  *
  * @param order the order the phones are for
  * @param orderRecipient the order's own recipient phone, if it has one (FR-87)

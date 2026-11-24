@@ -27,7 +27,7 @@ import java.util.Optional;
  * facts only, because the Python {@code ProblemFactory.reoptimization} applies every convention
  * (FR-35, BR-84, ADR-050). {@code SolveRequestAssembler.reoptimization} builds it.
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  *
  * @param job the job
  * @param plan the plan
@@ -90,7 +90,7 @@ public record ReoptimizationRequest(
     /**
      * Where a route's vehicle stands for the re-optimization (ADR-050 point 3).
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      */
     public enum VehicleState {
         /** Driving, or about to. */
@@ -110,7 +110,7 @@ public record ReoptimizationRequest(
     /**
      * What stands at a reported stop: in progress, delivered or failed (BR-10, BR-91).
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      */
     public enum ReportedState {
         /** The driver arrived, with no outcome yet. */
@@ -127,9 +127,9 @@ public record ReoptimizationRequest(
      * <p>The optimizer applies a confirmed return, as it applies the departure allowance: the core
      * sends it beside the driver's shift and never folds it into the shift times, so the Python
      * {@code ProblemFactory} alone decides how it binds the route (ADR-050, ADR-121). The factory
-     * has no per-driver input for it yet: a domain gap that M9 closes.
+     * has no per-driver input for it yet: a domain gap that re-optimization closes.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param route the route as the revision holds it
      * @param state where its vehicle stands
@@ -160,7 +160,7 @@ public record ReoptimizationRequest(
      * optimizer's {@code reported_at}, the corrected time of the stop's first report, from them: its
      * arrival when recorded, otherwise its outcome.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param stop the stop
      * @param progress what stands at it
@@ -184,7 +184,7 @@ public record ReoptimizationRequest(
      * area, which the core computes (ADR-050, FR-320). A driver's place is personal data, so it prints
      * redacted.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param at where the phone was
      * @param receivedAt when the server received it

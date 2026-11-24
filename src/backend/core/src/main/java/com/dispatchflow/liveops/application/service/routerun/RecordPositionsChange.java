@@ -23,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
  * {@link FleetFacts#driverOn}, keeps the fixes {@code RouteRun.acceptsPositionAt} accepts, and
  * appends them with the receipt and the audit record (NFR-285, NFR-23).
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RecordPositionsChange {
@@ -67,7 +67,7 @@ public class RecordPositionsChange {
     /**
      * Keeps the batch's positions the tracking rule accepts, with the receipt and the audit record.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the sending driver
      * @param route the route the batch was sent for
@@ -84,6 +84,6 @@ public class RecordPositionsChange {
      * @throws StaleVersion when a concurrent send recorded the key first
      */
     public int apply(Actor actor, RouteId route, List<PositionFix> fixes, IdempotencyKey key, RequestDigest digest) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

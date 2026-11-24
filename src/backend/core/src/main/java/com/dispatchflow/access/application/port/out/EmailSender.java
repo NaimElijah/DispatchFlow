@@ -7,7 +7,7 @@ import com.dispatchflow.access.domain.account.LinkKind;
 /**
  * Sends Access's emails: credential links and notices, through Amazon SES, and Mailpit in
  * development and tests (TS §6.4). No answer waits for an email to be sent (NFR-225); whether
- * emails get an outbox is decided in M6.
+ * emails get an outbox is decided when the email links are built.
  *
  * <p><b>Only after the commit.</b> A use case hands every email over only after its transaction
  * commits, never inside it. So a change that rolls back sends nothing, and the web adapter's retry
@@ -26,7 +26,7 @@ import com.dispatchflow.access.domain.account.LinkKind;
  *
  * <p>No email carries a secret but a link's token, which never enters a log (NFR-19, NFR-211).
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 public interface EmailSender {
 
@@ -36,7 +36,7 @@ public interface EmailSender {
      * adapter's Bucket4j limit (ADR-071), let the request through, and the use case took it from
      * NFR-215's {@link RecoveryEmailCap} in the transaction that saved the account.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param to the address the link goes to
      * @param kind what the link lets its holder do
@@ -48,7 +48,7 @@ public interface EmailSender {
     /**
      * Tells the old address that the account's email changed, without naming the new one (FR-388).
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param oldAddress the address the account no longer signs in with
      * @param language the language the email is written in
@@ -59,7 +59,7 @@ public interface EmailSender {
      * Tells every active Admin that an account gained the Admin role, an Admin account was
      * reactivated, or an Admin's password or email changed (FR-389).
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param notice what happened, and to whom it goes
      */

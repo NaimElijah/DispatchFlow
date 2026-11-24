@@ -10,11 +10,11 @@ until the academic advisor agreed them. [ADR-029] fixed them on 2026-11-04 witho
 ([Q-29], [Q-30], [Q-84]). The review of the same day left eleven gaps in the study design, which
 [Q-93] collects. A full run takes days, so each gap needs an answer before the first measured run.
 
-On 2026-11-13 the owner, Naim Elijah, decided the eleven answers for the team. On 2026-11-14 he
-added a twelfth decision, mutation testing of the validator. This ADR extends [ADR-005] and
-[ADR-029]. It changes one thing in [ADR-005]: the fallback edge, in item 11.
+The eleven answers were decided on 2026-11-13. On 2026-11-14 a twelfth decision was added,
+mutation testing of the validator. This ADR extends [ADR-005] and [ADR-029]. It changes one thing
+in [ADR-005]: the fallback edge, in item 11.
 
-The advisor has not yet seen these answers. The owner confirms them with the advisor before the first
+The advisor has not yet seen these answers. They are to be confirmed with the advisor before the
 measured run. [Q-29], [Q-30] and [Q-84] stay "to confirm with the advisor". If the advisor changes
 a value, this ADR is amended.
 
@@ -35,7 +35,7 @@ a value, this ADR is amended.
    OR-Tools could not serve from scratch and so were left out.
 7. **The tests are paired and one-sided.** [NFR-24] is tested on (gap - 0.05) and [NFR-117] on
    (ours - OR-Tools - margin), the margin being 1% of OR-Tools' mean objective, proposed to the
-   advisor (the owner, 2026-11-14). A one-sided test with no margin would ask whether ours is lower,
+   advisor (decided 2026-11-14). A one-sided test with no margin would ask whether ours is lower,
    which is stronger than "no worse". The advisor confirms the margin with the other values. The
    primary limit is 5 seconds ([NFR-25]). The test stays the Wilcoxon signed-rank test with the
    rank-biserial effect size at level 0.05 ([FR-288], [TS §8][TS-8]). This replaces [Q-84]'s plain
@@ -47,7 +47,7 @@ a value, this ADR is amended.
     [PL §22][PL-22]).
 11. **[ADR-005]'s fallback edge becomes drops and lateness under short limits.** [BR-106] keeps goods
     on their vehicle, so stability varies only through drops ([ADR-029]). If [ADR-005]'s trigger fires,
-    the ADR that answers it uses this edge. The owner records it in [Q-93]'s resolution.
+    the ADR that answers it uses this edge. It is recorded in [Q-93]'s resolution.
 12. **mutmut runs once over `Problem.validate` before the first measured run,** and every surviving
     mutant becomes a test or is recorded as equivalent, with its reason. The validator judges both solvers ([BR-42], [ADR-004]), so a rule it fails
     to enforce bends every result. PIT for Java stays optional ([TS §17.1][TS-171]).

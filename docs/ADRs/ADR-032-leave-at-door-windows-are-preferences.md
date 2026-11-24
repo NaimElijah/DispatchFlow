@@ -6,7 +6,7 @@
 ## Context
 
 Avi Segal, the seminar mentor, asked on 2026-11-10 that an order can be marked to be left at the
-door. Nobody needs to be home for such an order, so its time window matters less. The owner chose
+door. Nobody needs to be home for such an order, so its time window matters less. It was decided
 on the same day to keep the window as a preference rather than drop it, and to serve such a stop
 when the van arrives.
 
@@ -59,8 +59,8 @@ solution, and both solvers are scored by one objective ([BR-42], [BR-09]).
 
 ## Alternatives considered
 
-- **Ignore the window,** serving the order at any time in the shift. Not chosen: the owner wanted the
-  customer's preferred time to still count.
+- **Ignore the window,** serving the order at any time in the shift. Not chosen: the
+  customer's preferred time should still count.
 - **Keep the window binding,** with leaving at the door changing only what happens when nobody is
   home. Not chosen: it gives up the freedom in routing that leaving at the door allows.
 - **Penalise lateness only,** so an early van waits as at any stop. Not chosen: a van would wait

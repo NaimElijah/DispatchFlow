@@ -61,7 +61,7 @@ The forces:
 
 ## Decision
 
-On 2026-11-03 the owner, Naim Elijah, accepted both advisories. We ignore them in the audit until
+Both advisories were accepted on 2026-11-03. We ignore them in the audit until
 2027-01-31, the same date as the entries in [ADR-016].
 
 - **Three `[[IgnoredVulns]]` entries**, each with `ignoreUntil = 2027-01-31` and a reason:
@@ -69,7 +69,7 @@ On 2026-11-03 the owner, Naim Elijah, accepted both advisories. We ignore them i
   - `GHSA-g3hv-75wg-m249` in `src/frontend/web/osv-scanner.toml`, a new file.
 - **The lockfiles and `package.json` files do not change.** The flagged versions stay.
 - **This decision does not confirm the zod and deepmerge entries** from [ADR-016]. They still
-  await the owner's review.
+  await review.
 
 The phone app now has four entries and the web app one.
 

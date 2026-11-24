@@ -5,8 +5,8 @@
 
 ## Context
 
-On 2026-11-13 the owner, Naim Elijah, confirmed the rate-limit rows for the team: [NFR-53] as a
-Should and [NFR-102] as a Must. This ADR settles the marker "ADR pending: API rate limiting", and
+On 2026-11-13 the rate-limit rows were confirmed: [NFR-53] as a Should and [NFR-102] as a
+Must. This ADR settles the marker "ADR pending: API rate limiting", and
 names how every limit in the requirements is counted.
 
 The limits the requirements already set:

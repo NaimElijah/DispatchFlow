@@ -314,7 +314,7 @@ rules, the domains of `access`, `audit`, `fleet`, `liveops`, `messaging`, `order
 for each of those eight modules), and the optimizer's domain for daily solves and re-optimizations
 (the validator, the objective and the drop reasons). The application layer is declared ahead too, in the core and in
 the optimizer: every use case, query, port and module API has its signature, and every body that would
-do work throws "Built in M<n>" ([ADR-119](docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)). No use case calls a persistence adapter yet.
+do work throws "To Be Implemented." ([ADR-119](docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md), [ADR-132](docs/ADRs/ADR-132-unbuilt-bodies-say-to-be-implemented.md)). No use case calls a persistence adapter yet.
 
 Planned: the [roadmap](docs/roadmap.md) has the course calendar, the milestones M0 to M13, and the
 definition and demo script of the Alpha (M0 to M5).
@@ -325,7 +325,7 @@ Known limitations:
 - `docker compose` is not set up; each component runs on its own. `compose.dev.yaml` is part of
   the M0 walking skeleton (ADR-042, Accepted).
 - Four vulnerabilities in the phone app's build, lint and test tooling are ignored by the audit
-  until 2027-01-31. The owner accepted all four: minimatch and glob in ADR-023, zod and deepmerge
+  until 2027-01-31. All four were accepted: minimatch and glob in ADR-023, zod and deepmerge
   in ADR-095. The reasons are in `src/frontend/mobile/osv-scanner.toml`
   ([ADR-016](docs/ADRs/ADR-016-dependency-audit-with-osv-scanner.md),
   [ADR-023](docs/ADRs/ADR-023-accept-minimatch-and-glob-advisories.md),

@@ -31,7 +31,7 @@ steps and the rule that a confirmed import keeps no rows (decisions 3, 4 and 8).
 
 ## Decision
 
-On 2026-11-14 the owner, Naim Elijah, decided these for the team:
+Decided on 2026-11-14:
 
 1. **Orders takes the defaults as an input** ([ADR-104], [BR-124]). `Customer.register` takes a
    customer's defaults, and an import takes the company's in its `ImportContext`. The default service
@@ -43,7 +43,7 @@ On 2026-11-14 the owner, Naim Elijah, decided these for the team:
    the snapshot, so its reference no longer counts. An order's own reference never counts against it.
 3. **The abbreviation table starts with [ADR-086]'s three** ([FR-398]): רח׳ for רחוב, שד׳ for שדרות
    and ת״א for תל אביב. The rest is tracked in issue #69.
-4. **Punctuation becomes a space** ([FR-398], whose row the owner allowed changing to say so). Every
+4. **Punctuation becomes a space** ([FR-398], whose row was allowed to change to say so). Every
    character other than a letter, a digit, whitespace, the geresh or the gershayim becomes a space,
    and whitespace then collapses. `'`, `‘`, `’` and the backtick count as the geresh; two gereshes,
    so `''` and `’’` too, and `"`, `“` and `”` count as the gershayim; and a geresh ends its word, so

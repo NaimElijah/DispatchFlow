@@ -19,7 +19,7 @@ A dispatcher imports a day's orders from a CSV file ([FR-10]), or from an Excel 
 rules work together: how a file reaches the database, what a preview holds and for how long, and how
 a row finds its customer.
 
-On 2026-11-13 and 2026-11-14 the owner, Naim Elijah, decided for the team:
+Decided on 2026-11-13 and 2026-11-14:
 
 - the plan's design of an import as upload then confirm, with an explicit Windows-1255
   confirmation ([PL §15], [PL §25]);
@@ -76,7 +76,7 @@ The rows of a preview hold customers' names, phones and entrance codes (the colu
   import ([NFR-60], [ADR-085]).
 - **A preview lives one hour.** A batch not confirmed within the hour moves to *expired*, and its
   rows are deleted. A batch the dispatcher *discards* ([DL §9.4]) has its rows deleted at once
-  (the owner, 2026-11-14). `ImportBatch.confirm` checks the
+  (decided 2026-11-14). `ImportBatch.confirm` checks the
   hour on confirmation, and an hourly sweep expires the rest ([DL §10.3]). A requirement row beside
   [FR-313] states the hour.
 - **The Alpha builds the UTF-8 CSV path and the row checks.** Excel, Windows-1255 and geocoding come

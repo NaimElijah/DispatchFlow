@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
  * loads the account, anonymizes it through {@code UserAccount.anonymize} while its retention is
  * still over, saves it, and writes its audit record (NFR-23, NFR-258).
  *
- * <p>Built in M13, with the whole nightly retention run (ADR-121).
+ * <p>To Be Implemented. It comes with the whole nightly retention run (ADR-121).
  */
 @Transactional
 public class AnonymizeDeactivatedAccountsChange {
@@ -41,19 +41,19 @@ public class AnonymizeDeactivatedAccountsChange {
      * The accounts deactivated a year or more before the clock's instant, in Israel's calendar, and
      * not yet anonymized, through {@code UserAccountRepository.deactivatedBefore} (NFR-258).
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @return their IDs, in any order
      */
     @Transactional(readOnly = true)
     public List<AccountId> due() {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Anonymizes one account, and saves it.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param account an account {@link #due} listed
      * @param call the job's server step
@@ -63,6 +63,6 @@ public class AnonymizeDeactivatedAccountsChange {
      *     leaves it for the next night
      */
     public boolean apply(AccountId account, CallContext call) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

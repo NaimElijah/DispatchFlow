@@ -18,7 +18,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * <p>{@link ApplySolveResultChange} holds the transaction, which applies the result and writes the
  * audit record; after it commits, the dispatchers' open screens are told (ADR-129).
  *
- * <p>Built in M0.
+ * <p>To Be Implemented.
  */
 public final class ApplySolveResult {
 
@@ -39,7 +39,7 @@ public final class ApplySolveResult {
     /**
      * Applies the job's result.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param event the job's success
      * @param call the listener's server step, which the audit record names (ADR-110)
@@ -51,6 +51,6 @@ public final class ApplySolveResult {
      *     adapter retries at once, up to three times (DL §11)
      */
     public void on(SolveSucceeded event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

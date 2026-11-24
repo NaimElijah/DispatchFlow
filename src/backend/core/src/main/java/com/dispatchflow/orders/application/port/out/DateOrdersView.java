@@ -9,7 +9,7 @@ import java.util.Objects;
  * Every order of a date with its status (FR-76, BR-33). Each line holds personal data, so it prints
  * redacted.
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  *
  * @param date the date
  * @param orders every order of the date, cancelled ones included, each once, ordered by window

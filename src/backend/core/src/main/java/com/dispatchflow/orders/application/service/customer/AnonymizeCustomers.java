@@ -12,7 +12,7 @@ import com.dispatchflow.audit.application.api.CallContext;
  * <p>It lists the customers due, then anonymizes them one by one, and opens no transaction of its
  * own: {@link AnonymizeCustomersChange} holds each customer's (ADR-129).
  *
- * <p>Built in M13, with the whole nightly retention run (ADR-121).
+ * <p>To Be Implemented. It comes with the whole nightly retention run (ADR-121).
  */
 public final class AnonymizeCustomers {
 
@@ -30,12 +30,12 @@ public final class AnonymizeCustomers {
     /**
      * Anonymizes every customer due.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param call the job's server step
      * @return how many customers were anonymized
      */
     public int anonymizeDue(CallContext call) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

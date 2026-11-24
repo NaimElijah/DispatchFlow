@@ -36,14 +36,14 @@ import java.util.List;
  * {@link OptimizerRefusedRequest}, and {@code RunSolveJob} fails the job with {@code
  * REQUEST_REFUSED} and logs it as a defect.
  *
- * <p>Built in M0, M4 and M9, method by method.
+ * <p>To Be Implemented.
  */
 public interface RouteOptimizer {
 
     /**
      * Solves a day (FR-15, FR-17, FR-18).
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param request the daily solve
      * @return the validated solution with its objective and stats, or the failure: the optimizer
@@ -56,7 +56,7 @@ public interface RouteOptimizer {
     /**
      * Re-optimizes a published plan's remaining stops (FR-35, ADR-050).
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param request the re-optimization
      * @return the validated solution with what the optimizer computed for the preview, or the
@@ -70,7 +70,7 @@ public interface RouteOptimizer {
      * Python {@code ListSolvers} answers it, from a registry that holds only FR-20's solvers, so the
      * baseline's is never offered.
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @return the names, in the optimizer's order
      * @throws OptimizerUnavailable when the optimizer can't be reached

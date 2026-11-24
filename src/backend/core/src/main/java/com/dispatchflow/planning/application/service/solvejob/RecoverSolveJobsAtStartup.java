@@ -13,7 +13,7 @@ import com.dispatchflow.audit.application.api.CallContext;
  * <p>It loops over the jobs {@link RecoverSolveJobsAtStartupChange#unfinished} lists, and {@link
  * RecoverSolveJobsAtStartupChange} holds each job's transaction (ADR-129).
  *
- * <p>Built in M4.
+ * <p>To Be Implemented.
  */
 public final class RecoverSolveJobsAtStartup {
 
@@ -31,11 +31,11 @@ public final class RecoverSolveJobsAtStartup {
     /**
      * Recovers the jobs a restart interrupted.
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param call the startup step
      */
     public void recover(CallContext call) {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

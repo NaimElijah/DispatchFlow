@@ -8,7 +8,7 @@ import java.util.UUID;
  * driver acts (ADR-087). Scoped to the signed-in user, it makes a retried report, start, finish,
  * problem report or position batch take effect once (BR-28, NFR-65, NFR-285).
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  *
  * @param value the UUID the phone sent
  */

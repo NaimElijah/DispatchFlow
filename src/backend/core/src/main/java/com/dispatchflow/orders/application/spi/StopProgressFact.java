@@ -9,21 +9,22 @@ import java.util.Objects;
  * any correction (FR-333); a held report is not an outcome (BR-132). Each fact names the attempt
  * whose stop it is (FR-258).
  *
- * <p>Built in M2 and M5, case by case: M2 answers {@link NoFact} for every stop (ADR-121).
+ * <p>To Be Implemented. It is built case by case; at first every stop answers {@link NoFact}
+ * (ADR-121).
  */
 public sealed interface StopProgressFact {
 
     /**
      * No arrival and no outcome.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      */
     record NoFact() implements StopProgressFact {}
 
     /**
      * The driver arrived at the attempt's stop, with no outcome yet.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param attempt the attempt
      */
@@ -38,7 +39,7 @@ public sealed interface StopProgressFact {
     /**
      * The attempt's stop was delivered.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param attempt the attempt
      */
@@ -53,7 +54,7 @@ public sealed interface StopProgressFact {
     /**
      * The attempt's stop failed.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param attempt the attempt
      */

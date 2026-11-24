@@ -42,6 +42,6 @@ class JpaAuditRecords implements AuditRecords {
      */
     @Override
     public int purgeExpired() {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

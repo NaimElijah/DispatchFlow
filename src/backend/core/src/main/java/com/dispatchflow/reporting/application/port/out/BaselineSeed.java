@@ -5,7 +5,7 @@ package com.dispatchflow.reporting.application.port.out;
  * the same baseline (FR-39, NFR-13). Reporting can't use Planning's seed, a domain type of another
  * module (DL §2.3 rule 1).
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  *
  * @param value the seed
  */

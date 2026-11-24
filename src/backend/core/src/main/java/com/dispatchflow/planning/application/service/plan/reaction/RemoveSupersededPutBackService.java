@@ -16,7 +16,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * <p>{@link RemoveSupersededPutBackServiceChange} holds the transaction, which takes the stop off and
  * writes the audit record; after it commits, the dispatchers' open screens are told (ADR-129).
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 public final class RemoveSupersededPutBackService implements RemoveSupersededPutBack {
 
@@ -37,13 +37,13 @@ public final class RemoveSupersededPutBackService implements RemoveSupersededPut
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @throws StaleVersion when the plan changed between its read and its save; Live Operations'
      *     listener adapter retries at once, up to three times (DL §11)
      */
     @Override
     public void remove(OrderId order, Attempt laterAttempt, DeliveryDate date, CallContext call) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

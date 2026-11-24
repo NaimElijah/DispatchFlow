@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
  * jobs, and one per job that fails it as <em>interrupted</em> when a restart cut it off, saves it
  * and writes the audit record (TS §6.2, ADR-063, ADR-129).
  *
- * <p>Built in M4.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RecoverSolveJobsAtStartupChange {
@@ -40,20 +40,20 @@ public class RecoverSolveJobsAtStartupChange {
     /**
      * The jobs still queued, building their matrix or searching.
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @return the jobs, possibly none
      */
     @Transactional(readOnly = true)
     public List<JobId> unfinished() {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Recovers one job: fails it as <em>interrupted</em> when it was building its matrix or running,
      * or is a queued re-optimization, and leaves a queued daily solve queued (BR-74, BR-85).
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param job the job
      * @param call the startup step
@@ -64,6 +64,6 @@ public class RecoverSolveJobsAtStartupChange {
      *     job ended meanwhile; the recovery moves on
      */
     public void apply(JobId job, CallContext call) {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

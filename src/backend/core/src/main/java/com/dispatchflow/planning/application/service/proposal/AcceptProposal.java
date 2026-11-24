@@ -30,7 +30,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 public final class AcceptProposal {
 
@@ -51,7 +51,7 @@ public final class AcceptProposal {
     /**
      * Accepts the proposal.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher, recorded as who accepted it (FR-104)
      * @param proposal the proposal
@@ -67,6 +67,6 @@ public final class AcceptProposal {
      *     {@code RouteIndexesUsedUp}
      */
     public void accept(Actor actor, ProposalId proposal, Version planVersion) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

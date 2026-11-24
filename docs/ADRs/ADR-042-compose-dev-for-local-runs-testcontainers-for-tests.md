@@ -50,7 +50,7 @@ We start local services from `deploy/compose.dev.yaml`, and we keep Testcontaine
   ([PL §5], the Windows note).
 - **A long-lived local database has a reset.** The plan lists `just db-reset` and `just demo`,
   which resets the database and seeds the demo day ([PL §5]).
-- **Decided in the M0 restructure pull request** (the owner, 2026-11-14): whether
+- **Decided in the M0 restructure pull request** (deferred to it on 2026-11-14): whether
   `TestDispatchFlowApplication` and `just core-run` stay once `just dev` exists ([PL §5]).
 
 ## Consequences

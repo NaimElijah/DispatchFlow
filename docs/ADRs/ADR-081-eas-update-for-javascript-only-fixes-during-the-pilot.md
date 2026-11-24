@@ -11,11 +11,11 @@ each pilot build ([NFR-140]). A fix then costs "a day or more" per store build (
 
 During the pilot the drivers are real, and a fix that waits a day or more is a day on the road
 with the fault. Every call reports the app's version ([NFR-93]), and an app below the oldest supported version
-is told to update ([NFR-44], [NFR-134]). The tech stack listed over-the-air updates as Optional and
-put them to the owner as an open decision ([TS §22]).
+is told to update ([NFR-44], [NFR-134]). The tech stack listed over-the-air updates as Optional, and
+as an open decision ([TS §22]).
 
-On 2026-11-13 the owner, Naim Elijah, decided for the team to use EAS Update for JavaScript-only
-fixes during the pilot. This extends [ADR-028].
+Decided on 2026-11-13: use EAS Update for JavaScript-only fixes during the pilot. This extends
+[ADR-028].
 
 ## Decision
 

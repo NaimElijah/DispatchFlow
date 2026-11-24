@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>{@link #placementOf} reads only the plans of the date the caller names, so an order's old date
  * never answers for it after a reschedule.
  *
- * <p>Built in M2 (ADR-121).
+ * <p>To Be Implemented. ADR-121 settles it.
  */
 @Transactional(readOnly = true)
 public class OrderPlacementService implements OrderPlacement {
@@ -38,20 +38,20 @@ public class OrderPlacementService implements OrderPlacement {
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      */
     @Override
     public PlacementFact placementOf(OrderId order, DeliveryDate date, Attempt attempt) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      */
     @Override
     public List<OrderPlacementFact> placementsOn(DeliveryDate date) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

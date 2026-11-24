@@ -12,7 +12,7 @@ import java.util.Objects;
  * optimizer knows its solvers, so it is no {@code DomainError}: the web adapter answers it with 422
  * and {@link #code()}. The message names the solver only.
  *
- * <p>Built in M4.
+ * <p>To Be Implemented.
  */
 public final class SolverNotOffered extends RuntimeException {
 

@@ -105,8 +105,8 @@ docs/           requirements, architecture, ADRs
 ### Open before acceptance
 
 - **Whether to flatten at all.** The sources give no reason to drop `backend/` and `frontend/`, or to
-  rename `solver` to `optimizer`, `console` to `web` and `driver-app` to `mobile`. The owner gives
-  one, or keeps the grouping and adapts the tree to it, as [TS §4][TS-4] allows. Until then the
+  rename `solver` to `optimizer`, `console` to `web` and `driver-app` to `mobile`. A reason is still to be
+  given, or the grouping kept and the tree adapted to it, as [TS §4][TS-4] allows. Until then the
   decision above is the sources' tree, not a decided one.
 - **A home for the side-level `CLAUDE.md` rules,** and the other points Consequences leaves open:
   the new recipe names, the folders with no place in the tree (`tests/load/`, `logs/`,
@@ -165,7 +165,7 @@ docs/           requirements, architecture, ADRs
 - **Keep [ADR-008]'s layout, in whole or in part:** the `backend/` and `frontend/` folders, the
   `v1/` contract folders and root `tests/`, with the new folders added beside them. The sources
   draw the flat tree and compare it with none of these, so no source gives a reason against them.
-  The owner can add one.
+  A reason can still be added.
 - **One repository per component.** Still rejected, for [TS §4][TS-4]'s reason: no atomic
   contract changes, and four copies of CI. [ADR-008] gave the same reason.
 - **A root `tests/unit`, the research code inside the optimizer's package, and a separate

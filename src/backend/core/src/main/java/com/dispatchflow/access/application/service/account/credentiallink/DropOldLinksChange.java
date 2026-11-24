@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
  * its links sent more than {@code UserAccount.LINK_KEPT_FOR} before the clock's instant, saves it,
  * and writes its audit record naming the account (NFR-93).
  *
- * <p>Built in M13, with the whole nightly retention run (ADR-121).
+ * <p>To Be Implemented. It comes with the whole nightly retention run (ADR-121).
  */
 @Transactional
 public class DropOldLinksChange {
@@ -41,19 +41,19 @@ public class DropOldLinksChange {
      * The accounts holding a link sent more than {@code UserAccount.LINK_KEPT_FOR} before the
      * clock's instant, through {@code UserAccountRepository.withLinksSentBefore}.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @return their IDs, in any order
      */
     @Transactional(readOnly = true)
     public List<AccountId> due() {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Drops one account's old links, and saves it.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param account an account {@link #due} listed
      * @param call the job's server step
@@ -63,6 +63,6 @@ public class DropOldLinksChange {
      *     leaves it for the next night
      */
     public boolean apply(AccountId account, CallContext call) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

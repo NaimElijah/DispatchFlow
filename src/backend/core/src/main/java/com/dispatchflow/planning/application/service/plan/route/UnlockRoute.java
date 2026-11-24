@@ -9,7 +9,7 @@ import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 
 /**
- * Removes a route's lock in a ready plan (FR-147, FR-239). It is kept unscheduled with {@link
+ * Removes a route's lock in a ready plan (FR-147, FR-239). It is kept, not built yet, with {@link
  * LockRoute}, as an exception to ADR-120's P11 (ADR-121).
  *
  * <p>{@link UnlockRouteChange} holds the transaction, which removes the lock and writes the audit
@@ -18,7 +18,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
- * <p>Built in an unscheduled milestone.
+ * <p>To Be Implemented.
  */
 public final class UnlockRoute {
 
@@ -39,7 +39,7 @@ public final class UnlockRoute {
     /**
      * Unlocks the route.
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the plan
@@ -51,6 +51,6 @@ public final class UnlockRoute {
      *     DateInPast}, {@code RouteNotInPlan}, or {@code RouteNotLocked}
      */
     public void unlock(Actor actor, PlanId plan, RouteId route, Version expected) {
-        throw new UnsupportedOperationException("Built in an unscheduled milestone");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

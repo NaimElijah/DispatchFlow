@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
  * raises the {@code AlertSubject.LowRating} keyed on the rating request, with the audit record
  * (ADR-107 point 4, NFR-23).
  *
- * <p>Built in M12.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RaiseAlertServiceChange {
@@ -59,7 +59,7 @@ public class RaiseAlertServiceChange {
     /**
      * Raises the low-rating alert and writes the audit record.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param stop the rated stop
      * @param request the rating request, the alert's key
@@ -67,6 +67,6 @@ public class RaiseAlertServiceChange {
      * @return the alert raised, or empty when a retried listener finds its key taken
      */
     public Optional<AlertId> apply(StopId stop, RatingRequestId request, CallContext call) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

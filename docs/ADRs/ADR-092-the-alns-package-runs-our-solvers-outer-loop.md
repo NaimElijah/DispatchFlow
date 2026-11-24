@@ -11,13 +11,13 @@ project's research component. [TS §7][TS-7] left one question open, marked "Opt
 the advisor)": should the generic outer loop, which chooses an operator and decides whether to accept
 the result, come from a published package or from our own code?
 
-On 2026-11-13 the owner, Naim Elijah, decided for the team to use the `alns` package for the outer
-loop. The package is published under the MIT licence, according to the owner's decision. The licence
-is checked against the installed version when the package is added ([ADR-074]), and it is compatible
-with the project's proprietary licence ([NFR-51], [ADR-017]).
+Decided on 2026-11-13: use the `alns` package for the outer loop. The package is published under
+the MIT licence, as the decision states. The licence is checked against the installed version when
+the package is added ([ADR-074]), and it is compatible with the project's proprietary licence
+([NFR-51], [ADR-017]).
 
-The advisor has not yet confirmed that this counts as the team's solver. The owner confirms it with
-the advisor. Until then the fallback is to write the loop ourselves ([TS §7][TS-7]).
+The advisor has not yet confirmed that this counts as the team's solver. It is still to be confirmed
+with the advisor. Until then the fallback is to write the loop ourselves ([TS §7][TS-7]).
 
 What the solver is, and where the speed risk lies ([PL §10][PL-10]):
 

@@ -17,7 +17,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * refused attempt's in its own transaction (NFR-23, ADR-110). After the commit, it tells the open
  * screens through {@link LiveUpdates}.
  *
- * <p>Built in M8. Rows: FR-97, FR-250.
+ * <p>To Be Implemented. Rows: FR-97, FR-250.
  */
 public final class AcknowledgeRouteChange {
 
@@ -38,7 +38,7 @@ public final class AcknowledgeRouteChange {
     /**
      * Records the revision the driver saw.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the driver
      * @param route the route
@@ -51,6 +51,6 @@ public final class AcknowledgeRouteChange {
      *     call at once, up to three times, then answers 503 with {@code Retry-After} (ADR-121)
      */
     public void acknowledge(Actor actor, RouteId route, RevisionNo seen) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

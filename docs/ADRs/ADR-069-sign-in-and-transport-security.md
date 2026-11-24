@@ -5,10 +5,10 @@
 
 ## Context
 
-On 2026-11-13 the owner, Naim Elijah, confirmed for the team the security and access rows of the
-requirements and the core service's authentication rows in the tech stack. On 2026-11-14 he confirmed
-its infrastructure rows (network, domain and TLS, reverse proxy) and made three further decisions that
-this ADR records. It settles the marker "ADR pending: sign-in and transport security", which
+On 2026-11-13 the security and access rows of the requirements and the core service's
+authentication rows in the tech stack were confirmed. On 2026-11-14 the tech stack's infrastructure
+rows (network, domain and TLS, reverse proxy) were confirmed, and three further decisions were made
+that this ADR records. This ADR settles the marker "ADR pending: sign-in and transport security", which
 [NFR-26], [NFR-36] and [NFR-39] carry.
 
 This extends [ADR-036], which decided who signs in, with what, and how links and limits behave. It
@@ -97,7 +97,7 @@ The forces:
 ### The first-Admin and lost-Admin step
 
 The step that creates the first Admin, or replaces a lost one, is an audited server step behind a
-profile, run through SSM ([FR-291], [FR-292], [FR-346], [PL §16.2][PL-162]). On 2026-11-14 the owner
+profile, run through SSM ([FR-291], [FR-292], [FR-346], [PL §16.2][PL-162]). On 2026-11-14 it was
 decided that **every admin step that takes a person's identifier reads it at a prompt that does not
 echo** ([FR-393]): the first-Admin and lost-Admin steps, the deactivation of the Admins a request
 names ([FR-346]) and the data requests ([NFR-49], [NFR-185]). The identifier never enters a command line, the shell history or
@@ -143,7 +143,7 @@ decision goes into [FR-291]'s note and the runbook row ([TS §15]).
 - **bcrypt.** Lost on not being memory-hard, and on ignoring password bytes past 72 ([TS §6]).
 - **Composition rules for passwords** (a digit, a symbol). Lost on being longer to explain and no
   safer ([TS §6]).
-- **The email on the command line,** as the plan sketched. Rejected by the owner on 2026-11-14: the
+- **The email on the command line,** as the plan sketched. Rejected on 2026-11-14: the
   email would enter the history and the session log.
 - **SMS codes and a second factor for the pilot.** Rejected in [ADR-036] and [Q-81].
 

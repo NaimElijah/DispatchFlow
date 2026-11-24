@@ -33,7 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
  * #alertRefused} raises a contradicting report's <em>report refused</em> alert in a transaction of
  * its own, after {@link #apply} refused it (BR-90).
  *
- * <p>Built in M5; the request key, the hold, photos and the alerts in M8.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ReportStopChange {
@@ -95,7 +95,7 @@ public class ReportStopChange {
      * Takes the driver's report, with the receipt and the audit record. A resend with the same key
      * and body gets the stored receipt and changes nothing (BR-28, NFR-65).
      *
-     * <p>Built in M5; the request key, the hold, photos and the alerts in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the reporting driver
      * @param report what the driver reports, at which stop of which route
@@ -127,7 +127,7 @@ public class ReportStopChange {
             IdempotencyKey key,
             RequestDigest digest,
             Optional<ProofStore.StoredProof> storedProof) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
@@ -135,7 +135,7 @@ public class ReportStopChange {
      * refused, and writes the audit record, so the refusal's rollback doesn't take the alert with
      * it (BR-90).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the reporting driver
      * @param report the refused report
@@ -143,14 +143,14 @@ public class ReportStopChange {
      * @return the alert raised, or empty when an earlier send of the same report raised it
      */
     public Optional<AlertId> alertRefused(Actor actor, StopReport report, DeviceClock time) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * What {@link #apply} did: the answer the phone's outbox gets, and the alerts raised, which the
      * use case pushes after the commit.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param receipt what the report did, and whether it is a retry's stored answer
      * @param alertsRaised the dispatcher's alerts the report raised; none for a replayed answer

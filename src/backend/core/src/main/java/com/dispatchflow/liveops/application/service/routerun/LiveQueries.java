@@ -25,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
  * changes, with Live Operations' own rows from {@link LiveOpsViews}, and projects arrivals with the
  * domain's {@code ArrivalProjection} at the {@link Clock}'s now, never stored (DL §10.4).
  *
- * <p>Built in M5 and M8, method by method.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class LiveQueries {
@@ -58,14 +58,14 @@ public class LiveQueries {
      * The live map of a date: each vehicle's latest position and its age, and each stop's status
      * (FR-33, FR-74, FR-397).
      *
-     * <p>Built in M5; the positions in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param date the date
      * @return the map; with no routes when the date has no plan in force
      */
     public LiveMapView liveMap(Actor actor, DeliveryDate date) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
@@ -73,7 +73,7 @@ public class LiveQueries {
      * confirmation (FR-158, FR-250). It reads the date's routes, runs and stops in one pass, not one
      * route per call.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param date the date
@@ -81,41 +81,41 @@ public class LiveQueries {
      *     date has no plan in force
      */
     public List<RouteProgressView> routeProgress(Actor actor, DeliveryDate date) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * A date's stops at risk: projected later than their window end less 15 minutes, never a
      * leave-at-door stop (FR-34, FR-251, FR-253, FR-369).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param date the date
      * @return the stops at risk now
      */
     public AtRiskView atRisk(Actor actor, DeliveryDate date) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * A date's routes whose last change waits for its driver's confirmation (FR-250).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param date the date
      * @return the unconfirmed routes
      */
     public UnconfirmedView unconfirmed(Actor actor, DeliveryDate date) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * A stop's history: its arrival, its outcomes with every correction, and its held reports
      * (FR-333).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param stop the stop
@@ -123,6 +123,6 @@ public class LiveQueries {
      * @throws NotFound when nothing is recorded for the stop
      */
     public StopHistoryView stopHistory(Actor actor, StopId stop) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

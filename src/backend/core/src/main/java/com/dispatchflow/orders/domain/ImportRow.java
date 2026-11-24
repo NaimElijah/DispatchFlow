@@ -8,8 +8,8 @@ import java.util.Objects;
 
 /**
  * One row of an import file as the file reader parsed it (ADR-086): either every field read, or the
- * refusal of each field it could not read. The reader is M2's adapter; this context receives its
- * rows and never reads bytes.
+ * refusal of each field it could not read. The reader is the CSV import's adapter; this context
+ * receives its rows and never reads bytes.
  */
 public sealed interface ImportRow extends PersonalData {
 

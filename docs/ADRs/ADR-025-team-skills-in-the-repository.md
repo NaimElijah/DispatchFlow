@@ -6,7 +6,7 @@
 ## Context
 
 [ADR-018] left `.claude/skills/` as an empty placeholder, and named a trigger for revisiting that: the
-team agrees on shared skills. On 2026-11-04 the owner, Naim Elijah, decided that every teammate gets
+team agrees on shared skills. On 2026-11-04 it was decided that every teammate gets
 the same skills for the repeated steps of the branch workflow in `.claude/CLAUDE.md`. The team reviews
 them with the rest of `.claude/` at its meeting.
 
@@ -77,14 +77,14 @@ We commit three skills to `.claude/skills/`.
   shows up only in review.
 - **`just` recipes or shell scripts.** Rejected: resolving conflicts and judging review findings need
   judgement that a script cannot make.
-- **Committing the owner's personal skills as they are.** Rejected: `get-dev-updates` and
+- **Committing personal skills as they are.** Rejected: `get-dev-updates` and
   `workflow-gitwise` are written for any project, and `workflow-gitwise` merges its own pull requests,
   which this workflow leaves to a reviewer.
 - **Letting Claude start the skills by itself.** Rejected: a commit, a push or a posted comment should
   be a person's decision.
 - **More skills now:** `/start-work`, `/promote-dev-to-main`, `/review-pr`, `/check-changed`, `/fix-ci`,
-  `/fix-bug`, `/new-issue`, `/new-adr`, `/new-requirement` and `/change-contract`. The owner considered
-  them and chose these three.
+  `/fix-bug`, `/new-issue`, `/new-adr`, `/new-requirement` and `/change-contract`. They were
+  considered, and these three were chosen.
 
 ## Revisit when
 

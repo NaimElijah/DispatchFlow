@@ -7,7 +7,7 @@
  * (ADR-041, ADR-109).
  *
  * <p>A listener solves the baseline before its transaction opens, then stores it in one
- * transaction (DL §6.3). Each body throws until the milestone its Javadoc names builds it.
+ * transaction (DL §6.3). Each body throws until it is built.
  */
 @NullMarked
 package com.dispatchflow.reporting.application.service;

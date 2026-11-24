@@ -10,14 +10,14 @@ import java.util.List;
  * prints them on the printable route (FR-72). It answers many orders
  * in one read, so a driver's day costs one call.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 public interface StopOrders {
 
     /**
      * Each order's door flag and the fields a driver sees at its stop.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param orders the stops' orders, each once; one order for a single stop's report
      * @return one answer per order, in the order asked, read now

@@ -26,7 +26,7 @@ import com.dispatchflow.shared.application.Clock;
  * transaction: {@link GeocodeCustomersChange} claims the due requests in one, and records each
  * customer's answer in one of its own (ADR-129).
  *
- * <p>Built in M7.
+ * <p>To Be Implemented.
  */
 public final class GeocodeCustomers {
 
@@ -53,12 +53,12 @@ public final class GeocodeCustomers {
     /**
      * Works the due requests.
      *
-     * <p>Built in M7.
+     * <p>To Be Implemented.
      *
      * @param call the job's server step
      * @return how many requests were answered or given up on
      */
     public int geocodeDue(CallContext call) {
-        throw new UnsupportedOperationException("Built in M7");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

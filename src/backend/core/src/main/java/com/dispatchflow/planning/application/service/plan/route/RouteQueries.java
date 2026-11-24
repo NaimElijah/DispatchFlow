@@ -17,14 +17,14 @@ import com.dispatchflow.shared.application.NotFound;
  *
  * <p>Data scope: a driver sees only a route assigned to them, of a plan in force, never one of a
  * draft, solving, ready or abandoned plan, whatever the account's other roles (BR-02, BR-41). A
- * dispatcher sees every route. This class enforces it once its milestone builds it; the handler's role
- * check from {@code x-capability} can't, because it depends on the data (ADR-068).
+ * dispatcher sees every route. This class enforces it once it is built; the handler's role check
+ * from {@code x-capability} can't, because it depends on the data (ADR-068).
  *
  * <p>{@link RouteQueriesChange} holds the read-only transaction of each screen. For the line,
  * {@link RouteQueriesChange#waypoints} reads the route's points, and the line along the road
  * network is asked of {@link RouteShapes} after it (ADR-129).
  *
- * <p>Built in M3 and later milestones, method by method.
+ * <p>To Be Implemented.
  */
 public final class RouteQueries {
 
@@ -46,7 +46,7 @@ public final class RouteQueries {
      * The route's line along the road network, from its start depot through its stops to its end
      * depot (FR-24).
      *
-     * <p>Built in M3.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher, or the route's driver for a plan in force (BR-02, BR-41)
      * @param route the route
@@ -56,7 +56,7 @@ public final class RouteQueries {
      *     network can't be reached
      */
     public RouteShapeView shape(Actor actor, RouteId route) {
-        throw new UnsupportedOperationException("Built in M3");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
@@ -64,7 +64,7 @@ public final class RouteQueries {
      * StopOrders.of} call, which takes the route's orders as a list, each once, and answers them in
      * the order asked, so the printout keeps the route's order.
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher, or the route's driver for a plan in force (BR-02, BR-41)
      * @param route the route
@@ -72,13 +72,13 @@ public final class RouteQueries {
      * @throws NotFound when no plan holds the route, or the actor may not see it
      */
     public PrintableRouteView printable(Actor actor, RouteId route) {
-        throw new UnsupportedOperationException("Built in an unscheduled milestone");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * The route's loading list, the last stop first (FR-153).
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher, or the route's driver for a plan in force (BR-02, BR-41)
      * @param route the route
@@ -86,13 +86,13 @@ public final class RouteQueries {
      * @throws NotFound when no plan holds the route, or the actor may not see it
      */
     public LoadingListView loadingList(Actor actor, RouteId route) {
-        throw new UnsupportedOperationException("Built in an unscheduled milestone");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * What changed on the route since a revision the driver saw (FR-249, FR-97).
      *
-     * <p>Built in M10.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher, or the route's driver (BR-02, BR-41)
      * @param route the route
@@ -102,6 +102,6 @@ public final class RouteQueries {
      *     see it
      */
     public RouteChangesView changesSince(Actor actor, RouteId route, int revision) {
-        throw new UnsupportedOperationException("Built in M10");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

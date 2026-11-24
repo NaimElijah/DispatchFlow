@@ -22,7 +22,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>It lives in the service root because it changes two aggregates, the jobs and the plan.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 public final class CloseDeliveryDate {
 
@@ -43,7 +43,7 @@ public final class CloseDeliveryDate {
     /**
      * Closes a date that has ended.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param date the date that just ended
      * @param call the job's server step
@@ -53,6 +53,6 @@ public final class CloseDeliveryDate {
      *     adapter retries at once, up to three times (DL §11)
      */
     public void close(DeliveryDate date, CallContext call) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

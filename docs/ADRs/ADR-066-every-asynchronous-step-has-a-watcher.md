@@ -5,8 +5,8 @@
 
 ## Context
 
-On 2026-11-14 the owner, Naim Elijah, decided for the team that the domain layer design (DL) is
-settled, and that its watchers get their own ADR. No "ADR pending" marker covers this decision as a
+Decided on 2026-11-14: the domain layer design (DL) is
+settled, and its watchers get their own ADR. No "ADR pending" marker covers this decision as a
 whole. The requirements already fix three of its pieces: a failed solve returns the plan to `draft` or
 `ready` ([BR-59]), a solve that a restart interrupts fails ([BR-74]), and so does a re-optimization
 that a restart interrupts or finds queued ([BR-85]).

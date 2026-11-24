@@ -10,7 +10,7 @@ import java.util.Objects;
  * and {@code StopProgress} its {@code StopMessages.onDeliveryChanged} takes, for a stop the plan
  * may no longer hold.
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  *
  * @param route how far the route has come
  * @param stop how far the stop has come

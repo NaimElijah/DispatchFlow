@@ -16,8 +16,8 @@ carry start times. Its concern was the solver deciding the times, not the solver
 
 ## Decision
 
-On 2026-11-14 the owner, Naim Elijah, decided that a route in a `Solution` may carry the service
-starts its solver claims, one per stop (`planned_starts`). The validator still times every route
+On 2026-11-14 it was decided that a route in a `Solution` may carry the service starts its
+solver claims, one per stop (`planned_starts`). The validator still times every route
 itself, and its timings are the ones used, stored and shown ([ADR-048]). It compares each claim
 with its own timing:
 

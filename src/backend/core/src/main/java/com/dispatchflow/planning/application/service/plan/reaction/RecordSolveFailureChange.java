@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
  * The transaction of {@link RecordSolveFailure}: it loads the plan, records the failure with {@code
  * Plan.solveFailed}, saves the plan and writes the audit record (TS §6.2, ADR-063, ADR-129).
  *
- * <p>Built in M0.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RecordSolveFailureChange {
@@ -37,7 +37,7 @@ public class RecordSolveFailureChange {
     /**
      * Records the failure on the plan.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param event the job's failure
      * @param call the listener's server step, which the audit record names (ADR-110)
@@ -45,6 +45,6 @@ public class RecordSolveFailureChange {
      *     adapter retries at once, up to three times (DL §11)
      */
     public void apply(SolveFailed event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

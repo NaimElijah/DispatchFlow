@@ -21,9 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>These are dispatcher screens: the Driver role never reaches a plan that is draft, solving, ready
  * or abandoned, whatever the account's other roles (BR-41). The handler's role check from the
  * operation's {@code x-capability} keeps drivers out (ADR-068), and this class enforces BR-41 again
- * once its milestone builds it.
+ * once it is built.
  *
- * <p>Built in M0 and later milestones, method by method.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class PlanQueries {
@@ -48,21 +48,21 @@ public class PlanQueries {
     /**
      * A date's plans, so the dispatcher opens the date's plan or creates one (FR-15, BR-34).
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param date the date
      * @return the date's plans, possibly none
      */
     public DatePlansView ofDate(Actor actor, DeliveryDate date) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * A plan's workspace: its routes, stops, drops with their reasons, violations, pins and journal
      * (FR-18, FR-24, FR-25, FR-143, FR-144, FR-148 to FR-151, FR-223, FR-232, FR-241, FR-385).
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the plan
@@ -70,14 +70,14 @@ public class PlanQueries {
      * @throws NotFound when no plan has the ID
      */
     public PlanWorkspaceView workspace(Actor actor, PlanId plan) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * The pre-flight check before a solve, read from the plan's date's orders and roster now (FR-141,
      * FR-230, FR-231).
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the plan about to be solved
@@ -85,13 +85,13 @@ public class PlanQueries {
      * @throws NotFound when no plan has the ID
      */
     public PreflightView preflight(Actor actor, PlanId plan) {
-        throw new UnsupportedOperationException("Built in an unscheduled milestone");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * A plan's revisions: who made each, when, why, and which routes it changed (FR-104).
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the plan
@@ -99,6 +99,6 @@ public class PlanQueries {
      * @throws NotFound when no plan has the ID
      */
     public PlanHistoryView history(Actor actor, PlanId plan) {
-        throw new UnsupportedOperationException("Built in an unscheduled milestone");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
  * Dispatchers read (FR-360). It gives no per-route or per-driver figure until Q-42 is answered
  * (FR-381). The date's stops come from Planning's {@link PublishedRoutes}.
  *
- * <p>Built in M12. Rows: FR-360, FR-381.
+ * <p>To Be Implemented. Rows: FR-360, FR-381.
  */
 @Transactional(readOnly = true)
 public class RatingQueries {
@@ -34,13 +34,13 @@ public class RatingQueries {
     /**
      * A date's ratings and comments.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param actor the Admin or dispatcher
      * @param date the date
      * @return the stops that had a rating request; none when the date has no plan in force
      */
     public RatingsView ofDate(Actor actor, DeliveryDate date) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -22,7 +22,7 @@ import com.dispatchflow.planning.application.service.SolveRequestAssembler;
  * validator; {@link RecheckRoutesChange#apply} then holds the plan's transaction, and after it
  * commits, the dispatchers' open screens are told (ADR-129).
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 public final class RecheckRoutes {
 
@@ -53,7 +53,7 @@ public final class RecheckRoutes {
     /**
      * Re-checks every plan with an unchecked route.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param call the job's server step
      * @return how many plans had their routes checked
@@ -62,6 +62,6 @@ public final class RecheckRoutes {
      *     built, which fails the call
      */
     public int recheckDue(CallContext call) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

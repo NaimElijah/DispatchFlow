@@ -9,7 +9,7 @@ import java.util.Objects;
  * RouteRun} to refuse it, so it is no {@code DomainError}: the web adapter answers it with 409 and
  * {@link #code()}. A route a plan in force doesn't hold is {@code NotFound} instead.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 public final class RouteNotStarted extends RuntimeException {
 

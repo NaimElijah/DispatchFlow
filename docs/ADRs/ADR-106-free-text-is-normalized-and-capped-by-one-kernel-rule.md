@@ -38,8 +38,8 @@ it with two more.
 
 ## Decision
 
-On 2026-11-14 the owner, Naim Elijah, decided that every module's free text goes through one kernel
-value, `PlainText`, built by `PlainText.of(TextKind, String)`.
+Decided on 2026-11-14: every module's free text goes through one kernel value, `PlainText`, built
+by `PlainText.of(TextKind, String)`.
 
 - **Kinds and caps.** `TextKind` names the kind, and each kind has a cap in Unicode code points,
   counted after normalization. The caps are starting values:
@@ -93,7 +93,7 @@ value, `PlainText`, built by `PlainText.of(TextKind, String)`.
 - **Scope.** [NFR-203] cuts a recipient's comment to 500 characters. Cutting is not refusing: the
   Messaging context (wave 3) adds its own truncating path, and `PlainText` stays a rule that refuses.
 
-The owner also decided, the same day, that personal values are marked in their own type rather than
+It was also decided, the same day, that personal values are marked in their own type rather than
 listed by name:
 
 - **A marker.** The kernel's `PersonalData` interface marks a value that identifies or describes a

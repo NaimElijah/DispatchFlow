@@ -8,14 +8,14 @@ import java.util.Objects;
  * after a timeout or a broken call (NFR-198). The use case passes it to {@code StopMessages.accepted},
  * {@code refused} or {@code outcomeUnknown}.
  *
- * <p>Built in M12.
+ * <p>To Be Implemented.
  */
 public sealed interface SendAnswer {
 
     /**
      * The provider accepted the message.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param reference the provider's identifier for it
      */
@@ -30,14 +30,14 @@ public sealed interface SendAnswer {
     /**
      * The provider refused the message.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      */
     record Refused() implements SendAnswer {}
 
     /**
      * The call timed out or broke, so whether the message left is unknown (NFR-198).
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      */
     record Unknown() implements SendAnswer {}
 }

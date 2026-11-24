@@ -25,9 +25,10 @@ import java.util.Optional;
  * the account isn't their own, before the account is read, so the 403 confirms no ID. On the
  * actor's own account it needs the current password instead, which it checks through {@code
  * PasswordHasher.matches} (FR-387); a wrong one counts toward the sign-in limits, in the rate-limit
- * adapter (FR-177, ADR-071). Access's domain has no error for a missing or wrong password yet: M5
- * adds the wrong-password one, with {@code SignIn}, and M6 the missing one. Like every changing
- * call it writes its audit record, a refused attempt's in its own transaction (NFR-23, ADR-110).
+ * adapter (FR-177, ADR-071). Access's domain has no error for a missing or wrong password yet:
+ * {@code SignIn} adds the wrong-password one, and the email links the missing one. Like every
+ * changing call it writes its audit record, a refused attempt's in its own transaction (NFR-23,
+ * ADR-110).
  *
  * <p>The web adapter limits requests for an email-change link to 5 an hour per account that
  * requests them, keyed by the signed-in actor, so no one can spend another account's limit. It
@@ -38,7 +39,7 @@ import java.util.Optional;
  * password checks, the link's issue, its save and the audit record. After its commit, the use case
  * sends the link to the new address, so a request that rolls back sends nothing (ADR-129).
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 public final class RequestEmailChange {
 
@@ -59,7 +60,7 @@ public final class RequestEmailChange {
     /**
      * Sends the email-change link to the new address.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param account the account whose email changes
@@ -69,8 +70,9 @@ public final class RequestEmailChange {
      * @param expected the version of the account the caller last read (BR-76)
      * @throws RuleViolation with {@code AccountDeactivated} or {@code AccountAnonymized} when the
      *     account is not active; {@code EmailOfAnotherAdmin} when the account holds the Admin role
-     *     and the actor is another account (FR-387); on the actor's own account, the refusal M6
-     *     adds when the current password is missing, or the one M5 adds when it is wrong (FR-387);
+     *     and the actor is another account (FR-387); on the actor's own account, the refusal
+     *     the email links add when the current password is missing, or the one {@code SignIn} adds
+     *     when it is wrong (FR-387);
      *     on another account, {@code StepUpRequired} when the acting session gave its password more
      *     than 5 minutes ago, or {@code SessionRevoked} when it is revoked (NFR-214)
      * @throws GrantLimitExceeded when the actor's roles give only the limited grant, a Dispatcher's
@@ -86,6 +88,6 @@ public final class RequestEmailChange {
             EmailAddress newEmail,
             Optional<PresentedPassword> currentPassword,
             Version expected) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

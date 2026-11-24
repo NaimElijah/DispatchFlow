@@ -11,7 +11,7 @@ import java.util.Optional;
  * latest change and when (FR-380, FR-363). The entry singles out one person's phone, so it prints
  * redacted.
  *
- * <p>Built in M12.
+ * <p>To Be Implemented.
  *
  * @param consent whether messages may go to the phone
  * @param latest the latest entry of its history, which decides; empty when it has none

@@ -28,7 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
  * a <em>delivered</em> message's acceptance (DL §6.2). Each step that changes a stop writes its
  * audit record.
  *
- * <p>Built in M12. Rows: NFR-190, NFR-191, NFR-198.
+ * <p>To Be Implemented. Rows: NFR-190, NFR-191, NFR-198.
  */
 @Transactional
 public class SendDueMessagesChange {
@@ -72,13 +72,13 @@ public class SendDueMessagesChange {
     /**
      * The stops with a message to send.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @return the stops, each once, the oldest trigger first
      */
     @Transactional(readOnly = true)
     public List<StopId> pending() {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
@@ -87,7 +87,7 @@ public class SendDueMessagesChange {
      * StopMessagesRepository.capOn} under the day's lock, and its own phone's {@code PhoneConsent}
      * (NFR-196, FR-363, ADR-117).
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param stop the stop
      * @param call the job's server step
@@ -96,7 +96,7 @@ public class SendDueMessagesChange {
      *     retries the claim (DL §11)
      */
     public Claimed claim(StopId stop, CallContext call) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
@@ -104,7 +104,7 @@ public class SendDueMessagesChange {
      * {@code refused} or {@code outcomeUnknown} (NFR-198). An accepted <em>delivered</em> message
      * that asks for a rating opens its {@code RatingRequest} here (DL §6.2).
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param stop the message's stop
      * @param message the message
@@ -115,7 +115,7 @@ public class SendDueMessagesChange {
      */
     public void record(
             StopId stop, OutgoingMessageId message, SendAnswer answer, ProviderRepeats repeats, CallContext call) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**

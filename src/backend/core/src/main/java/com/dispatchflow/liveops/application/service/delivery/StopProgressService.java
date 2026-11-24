@@ -19,11 +19,13 @@ import org.springframework.transaction.annotation.Transactional;
  * report is not an outcome, though an arrival recorded before it counts (BR-132). A date's answer
  * takes the date's stops from Planning's {@link PublishedRoutes}.
  *
- * <p>M2's order screens and order changes need an answer before Live Operations records any report,
- * so M2 builds it answering <em>no report</em> for every stop: {@link StopProgressFact.NoFact} for
- * one attempt, and no entry for a date's orders. M5 builds it in full, from the deliveries (ADR-121).
+ * <p>The order screens and order changes, through the order records and the CSV import, need an
+ * answer before Live Operations records any report, so it first answers <em>no report</em> for
+ * every stop: {@link StopProgressFact.NoFact} for one attempt, and no entry for a date's orders. It
+ * answers in full, from the deliveries, once publishing and the drivers' reports are built
+ * (ADR-121).
  *
- * <p>Built in M2, answering no report for every stop; in full in M5.
+ * <p>To Be Implemented. It answers no report for every stop first.
  */
 @Transactional(readOnly = true)
 public class StopProgressService implements StopProgress {
@@ -45,20 +47,20 @@ public class StopProgressService implements StopProgress {
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M2, answering {@link StopProgressFact.NoFact}; in full in M5.
+     * <p>To Be Implemented. It answers {@link StopProgressFact.NoFact} first.
      */
     @Override
     public StopProgressFact stateOf(OrderId order, Attempt attempt) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M2, answering no entry; in full in M5.
+     * <p>To Be Implemented. It answers no entry first.
      */
     @Override
     public List<OrderStopProgress> statesOn(DeliveryDate date) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

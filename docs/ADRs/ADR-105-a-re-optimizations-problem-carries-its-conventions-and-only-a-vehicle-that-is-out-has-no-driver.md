@@ -89,7 +89,7 @@ vehicle's start time, and the rate is the larger of two. The rest of each stands
    lost its location or its road is dropped whatever the solver does, so the charge would only
    shift every solution's score by the same amount, as the orphans' constant does, without that
    constant's term to show it.
-8. **On 2026-11-14 the owner, Naim Elijah, decided four rules:**
+8. **Decided on 2026-11-14, four rules:**
    - **A stop on a vehicle that went out before any stop is a [BR-106] orphan.** The vehicle may
      be unavailable, without a driver or out of shift. A solution that keeps a stop there breaks
      BR-106; a route on a vehicle with no driver also breaks [BR-20].
@@ -100,7 +100,7 @@ vehicle's start time, and the rate is the larger of two. The rest of each stands
    - **The optimizer's lock rule waits for [FR-147]'s milestone.** Until then, Planning's
      `RouteLocked` check stands ([FR-238]). [BR-10]'s locked stops are built.
 
-   He also allowed one clause in [BR-126]. In a re-optimization, L also covers the longest a stop
+   One clause in [BR-126] was also allowed. In a re-optimization, L also covers the longest a stop
    can be served late within a shift, and the rate is the larger of the door-window and lateness
    rates. Both rates start at 5, so K is BR-126's 5L until one of them is tuned.
 

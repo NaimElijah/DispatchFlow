@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
  * The transaction of {@link RefuseHeldReport} (BR-132, BR-135): it calls {@code
  * Delivery.refuseHeld} with the audit record (NFR-23).
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RefuseHeldReportChange {
@@ -40,7 +40,7 @@ public class RefuseHeldReportChange {
     /**
      * Refuses the held report and writes the audit record.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param stop the stop the report is held on
@@ -52,6 +52,6 @@ public class RefuseHeldReportChange {
      * @throws StaleVersion when the delivery changed since {@code expected}
      */
     public void apply(Actor actor, StopId stop, HeldReportId report, Version expected) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

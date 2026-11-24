@@ -5,7 +5,7 @@
 
 ## Context
 
-On 2026-11-13 the owner, Naim Elijah, decided for the team how the system holds its size limits,
+Decided on 2026-11-13: how the system holds its size limits,
 the rule the requirements mark "ADR pending: hard limits on fleet and plan size" ([BR-36],
 [BR-101]).
 

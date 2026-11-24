@@ -15,13 +15,14 @@ import com.dispatchflow.shared.Version;
  * com.dispatchflow.planning.application.port.out.OptimizerRefusedRequest}, and the calling use case
  * lets it fail the call.
  *
- * <p><b>Gap until M9: a published plan's evaluation.</b> The publishing re-check, a hand-over and
- * the route re-check judge a plan that may already be driving, but an {@link EvaluationRequest}
- * carries no reported stop, no position and no {@code now}, and the optimizer's {@code Evaluate}
- * takes the daily inputs. Whether evaluating a published plan mid-day takes the daily or the
- * re-optimization rules is open; M9 decides it, with the request's fields.
+ * <p><b>Gap until re-optimization is built: a published plan's evaluation.</b> The publishing
+ * re-check, a hand-over and the route re-check judge a plan that may already be driving, but an
+ * {@link EvaluationRequest} carries no reported stop, no position and no {@code now}, and the
+ * optimizer's {@code Evaluate} takes the daily inputs. Whether evaluating a published plan mid-day
+ * takes the daily or the re-optimization rules is open; re-optimization decides it, with the
+ * request's fields.
  *
- * <p>Built in M4.
+ * <p>To Be Implemented.
  */
 public interface FeasibilityChecker {
 
@@ -30,7 +31,7 @@ public interface FeasibilityChecker {
      * evaluation, which an edit refuses, publishing refuses, and a hand-over records as <em>not yet
      * checked</em> (BR-70, FR-395, ADR-058, ADR-101).
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param request the layout, its plan version and the date's facts
      * @return every violation and the times of every route and stop the validator could time, or an
@@ -49,7 +50,7 @@ public interface FeasibilityChecker {
      * for an unreachable optimizer: an edit refuses, publishing refuses, and a hand-over records
      * <em>not yet checked</em> (BR-70, FR-395, ADR-058). It calls nothing.
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param planVersion the version the layout was read from
      * @return an unavailable evaluation for that version

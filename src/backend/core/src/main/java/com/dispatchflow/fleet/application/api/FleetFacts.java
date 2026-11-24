@@ -13,14 +13,14 @@ import java.util.Optional;
  * rule 1). A driver's standing combines Access's answer on the account, asked at each read, with
  * the driver record's state (ADR-062, ADR-103).
  *
- * <p>Built in M2 and M9, method by method.
+ * <p>To Be Implemented.
  */
 public interface FleetFacts {
 
     /**
      * The whole fleet register: its depots and vehicles (FR-04, FR-05, FR-129).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @return the register
      */
@@ -32,7 +32,7 @@ public interface FleetFacts {
      * the Driver role (DL §4.2, ADR-062, ADR-103, FR-193). A date nobody rostered yet has no
      * driver.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param date the date
      * @return the roster of that date, its active drivers only
@@ -45,7 +45,7 @@ public interface FleetFacts {
      * tracking cut-off (FR-101, FR-328, NFR-30). A route published before its driver lost the
      * standing keeps its driver (ADR-062), so this read doesn't drop them.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param date the date
      * @param driver the driver's account
@@ -58,7 +58,7 @@ public interface FleetFacts {
      * over (FR-302, DL §4.2): {@code DayRoster.checkAssignable}, given the driver's standing. It
      * changes nothing.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param date the route's date
      * @param vehicle the route's vehicle
@@ -73,7 +73,7 @@ public interface FleetFacts {
     /**
      * What changed in the fleet for a date since an instant (BR-25, BR-82, ADR-056).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param date the date
      * @param since the instant the changes count from, excluded

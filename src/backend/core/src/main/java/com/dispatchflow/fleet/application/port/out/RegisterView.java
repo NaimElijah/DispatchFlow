@@ -16,7 +16,7 @@ import java.util.Optional;
  * The fleet register as its screen shows it: every depot and vehicle, active or retired (FR-56,
  * FR-193). The version is the one every register change sends back (BR-76).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  *
  * @param depots every depot, in the order they were added
  * @param vehicles every vehicle, in the order they were added
@@ -36,7 +36,7 @@ public record RegisterView(List<DepotRow> depots, List<VehicleRow> vehicles, Opt
      * One depot as the register screen shows it (FR-04, FR-129, FR-197). Its location is a kernel
      * {@code GeoPoint}, so it prints redacted.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param depot the depot
      * @param name its name
@@ -70,7 +70,7 @@ public record RegisterView(List<DepotRow> depots, List<VehicleRow> vehicles, Opt
     /**
      * One vehicle as the register screen shows it (FR-05, FR-131, FR-198).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param vehicle the vehicle
      * @param details its name, plate, capacity and depots

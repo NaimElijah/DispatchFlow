@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
  * anonymized in one of its own, with its audit record, so one stale save doesn't hold back the rest
  * (ADR-129 decision 3).
  *
- * <p>Built in M13, with the whole nightly retention run (ADR-121).
+ * <p>To Be Implemented. It comes with the whole nightly retention run (ADR-121).
  */
 @Transactional
 public class AnonymizeCustomersChange {
@@ -40,20 +40,20 @@ public class AnonymizeCustomersChange {
     /**
      * The customers whose retention may be over now. {@link #apply} decides each one.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @return the customers to try, each once
      */
     @Transactional(readOnly = true)
     public List<CustomerId> due() {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Anonymizes one customer through {@code Customer.anonymize}, with its last delivery date, and
      * writes its audit record.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param customer the customer
      * @param call the job's server step
@@ -63,6 +63,6 @@ public class AnonymizeCustomersChange {
      *     retries it
      */
     public void apply(CustomerId customer, CallContext call) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

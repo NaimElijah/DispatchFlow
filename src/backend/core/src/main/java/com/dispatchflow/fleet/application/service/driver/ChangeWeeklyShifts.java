@@ -18,8 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
  * every changing call it writes its audit record, a refused attempt's in its own transaction
  * (NFR-23, ADR-110).
  *
- * <p>Built in an unscheduled milestone: the Alpha leaves weekly shifts out and seeds its rosters
- * (DL §4.2), and the roadmap names no milestone for them.
+ * <p>To Be Implemented. The first release leaves weekly shifts out and seeds its rosters
+ * (DL §4.2).
  */
 @Transactional
 public class ChangeWeeklyShifts {
@@ -44,7 +44,7 @@ public class ChangeWeeklyShifts {
     /**
      * Replaces the template.
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param driver the driver's account
@@ -57,6 +57,6 @@ public class ChangeWeeklyShifts {
      *     before the save (BR-76)
      */
     public void change(Actor actor, AccountId driver, WeeklyShifts weeklyShifts, Version expected) {
-        throw new UnsupportedOperationException("Built in an unscheduled milestone");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

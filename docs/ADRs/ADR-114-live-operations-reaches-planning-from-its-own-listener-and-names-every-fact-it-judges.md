@@ -49,7 +49,7 @@ A second review, of the fixes on this branch, found three gaps they left:
 
 ## Decision
 
-On 2026-11-15 the owner, Naim Elijah, decided:
+Decided on 2026-11-15:
 
 1. **Live Operations' own listener calls a Planning API to take off a superseded put-back's stop.**
    `Delivery.correct` still raises `PutBackSuperseded` as [ADR-107] has it. Live Operations' own

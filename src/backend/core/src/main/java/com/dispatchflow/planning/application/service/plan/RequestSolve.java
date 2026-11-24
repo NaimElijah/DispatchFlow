@@ -21,18 +21,18 @@ import java.util.Optional;
  * default solver for a daily solve (FR-20, ADR-004), and with no limit the settings' default limit
  * (FR-19, FR-183).
  *
- * <p>From M4, before its transaction it checks the chosen solver against {@link
+ * <p>Once solve jobs are built, before its transaction it checks the chosen solver against {@link
  * RouteOptimizer#solvers()}, which lists only FR-20's solvers, and refuses one the optimizer
  * doesn't offer with {@link SolverNotOffered}, so no job is queued for a solver the optimizer would
  * refuse (FR-224, DL §6.3). Planning's domain has no error for it, because only the optimizer knows
  * its solvers. When the optimizer can't be reached for the list, {@code solvers()} throws {@code
  * OptimizerUnavailable}, and the request goes on unchecked: the job is queued, and fails as
- * <em>optimizer unavailable</em> (FR-65), as it did before the check. M0 offers no choice and asks
- * no list: it runs OR-Tools.
+ * <em>optimizer unavailable</em> (FR-65), as it did before the check. Until then it offers no
+ * choice and asks no list: it runs OR-Tools.
  *
  * <p>{@code PlanningSettings} has no default solver of each kind yet, which ADR-004 puts there: a
- * domain gap that M4 closes. Until M4 adds the field, a request with no solver runs OR-Tools, the
- * default that ADR-004 and FR-20 name.
+ * domain gap that the solver choice closes. Until the field is added, a request with no solver runs
+ * OR-Tools, the default that ADR-004 and FR-20 name.
  *
  * <p>{@link RequestSolveChange} holds the transaction, which makes the plan solving, queues the job
  * and writes the audit record; after it commits, the dispatchers' open screens are told (ADR-129).
@@ -40,7 +40,7 @@ import java.util.Optional;
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
- * <p>Built in M0.
+ * <p>To Be Implemented.
  */
 public final class RequestSolve {
 
@@ -51,7 +51,8 @@ public final class RequestSolve {
     /**
      * Creates the use case.
      *
-     * @param optimizer the optimization service, for the solvers it offers (from M4)
+     * @param optimizer the optimization service, for the solvers it offers (once solve jobs are
+     *     built)
      * @param liveUpdates the dispatchers' open screens
      * @param change the request's transaction
      */
@@ -64,7 +65,7 @@ public final class RequestSolve {
     /**
      * Requests the solve.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the plan
@@ -73,7 +74,8 @@ public final class RequestSolve {
      * @param expected the plan's version the dispatcher saw (BR-76)
      * @return the new job's ID
      * @throws NotFound when no plan has the ID
-     * @throws SolverNotOffered from M4, when the optimizer doesn't offer the chosen solver
+     * @throws SolverNotOffered once solve jobs are built, when the optimizer doesn't offer the
+     *     chosen solver
      * @throws StaleVersion when the plan changed since {@code expected}
      * @throws com.dispatchflow.shared.RuleViolation with Planning's {@code PlanNotDraftOrReady},
      *     {@code DateInPast} (BR-118), or {@code SolveQueueFull} when the daily lane holds 5 queued
@@ -81,6 +83,6 @@ public final class RequestSolve {
      */
     public JobId request(
             Actor actor, PlanId plan, Optional<SolverName> solver, Optional<SolveLimit> limit, Version expected) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

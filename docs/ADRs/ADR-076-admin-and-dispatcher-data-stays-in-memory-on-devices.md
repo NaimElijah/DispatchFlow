@@ -5,8 +5,8 @@
 
 ## Context
 
-On 2026-11-13 the owner, Naim Elijah, answered [Q-98] for the team, together with three answers of
-[Q-92] that touch device storage (#3, #4 and #5). This extends [ADR-035], which listed what the apps
+On 2026-11-13 [Q-98] was answered, together with three answers of [Q-92] that touch device
+storage (#3, #4 and #5). This extends [ADR-035], which listed what the apps
 may keep for the Admin and Dispatcher roles under "Not decided here".
 
 Both apps serve every role ([ADR-035]), so a phone or a browser can hold an Admin's or a
@@ -82,12 +82,12 @@ Requirement rows beside [NFR-39], [NFR-98] and [NFR-179] carry the rules.
 
 ## Alternatives considered
 
-- **Encrypted storage for every role,** as [NFR-39] does for a driver. Not chosen: the owner decided
-  that nothing received through the Admin and Dispatcher roles is written to storage. [Q-98] ties the
-  question to ASVS 14.3.1. This ADR does not quote that item.
+- **Encrypted storage for every role,** as [NFR-39] does for a driver. Not chosen: it was decided
+  that nothing received through the Admin and Dispatcher roles is written to storage. [Q-98] ties
+  the question to ASVS 14.3.1. This ADR does not quote that item.
 - **Wiping at sign-out only,** and not at revocation. Not chosen: revocation is when a lost phone's
   account is cut off ([NFR-179]).
-- **Keeping the outbox after 14 days offline.** Not chosen by the owner ([Q-92] #3). The cost is the
+- **Keeping the outbox after 14 days offline.** Not chosen ([Q-92] #3). The cost is the
   loss named above.
 
 ## Revisit when

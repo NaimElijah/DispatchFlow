@@ -12,7 +12,7 @@ import java.util.List;
  * calls the {@link Geocoder} and {@code RoadSnap} for each request outside any transaction. So a
  * provider that is down never stops a customer being saved (FR-64).
  *
- * <p>Built in M7.
+ * <p>To Be Implemented.
  */
 public interface GeocodeRequests {
 
@@ -22,7 +22,7 @@ public interface GeocodeRequests {
     /**
      * Writes a request, in the caller's transaction, so it commits with the customer it is for.
      *
-     * <p>Built in M7.
+     * <p>To Be Implemented.
      *
      * @param customer the customer to geocode
      * @param address its normalized address
@@ -35,7 +35,7 @@ public interface GeocodeRequests {
      * minutes after its last try (FR-64). Each claimed request is marked tried at {@code now}, so a
      * request the job doesn't finish comes due again.
      *
-     * <p>Built in M7.
+     * <p>To Be Implemented.
      *
      * @param now the time of the job
      * @param max the most requests to claim, which keeps the day's lookups within {@value
@@ -47,7 +47,7 @@ public interface GeocodeRequests {
     /**
      * Removes an answered request, or one given up on after 24 hours (FR-64).
      *
-     * <p>Built in M7.
+     * <p>To Be Implemented.
      *
      * @param request the request
      */
@@ -56,7 +56,7 @@ public interface GeocodeRequests {
     /**
      * How many tries the job made on one Israel day, which {@value #DAILY_LOOKUPS} caps (NFR-135).
      *
-     * <p>Built in M7.
+     * <p>To Be Implemented.
      *
      * @param day the day, in {@code Asia/Jerusalem}
      * @return the number of requests claimed that day, 0 or more

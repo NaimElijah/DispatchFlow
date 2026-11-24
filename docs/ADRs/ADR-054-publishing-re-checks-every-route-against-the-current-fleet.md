@@ -15,7 +15,7 @@ publishing should catch those too. The requirements answered it on 2026-10-10 un
 pending: recheck every route when a plan is published", and the rows [BR-21] and [BR-66] to [BR-70]
 state the rule.
 
-On 2026-11-13 the owner, Naim Elijah, decided for the team to record it. This ADR settles the marker.
+On 2026-11-13 it was decided to record it. This ADR settles the marker.
 
 ## Decision
 

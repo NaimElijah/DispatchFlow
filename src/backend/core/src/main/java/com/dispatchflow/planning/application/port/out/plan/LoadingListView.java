@@ -14,7 +14,7 @@ import java.util.Objects;
  * their weight and volume, so the last stop's goods go in first (FR-153). Package counts wait for
  * FR-136, which is not built.
  *
- * <p>Built in an unscheduled milestone.
+ * <p>To Be Implemented.
  *
  * @param route the route
  * @param index its index from 1 to 30, its label (FR-148)
@@ -32,7 +32,7 @@ public record LoadingListView(RouteId route, RouteIndex index, List<Item> items)
     /**
      * One order to load.
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>To Be Implemented.
      *
      * @param stop the order's stop
      * @param order the order

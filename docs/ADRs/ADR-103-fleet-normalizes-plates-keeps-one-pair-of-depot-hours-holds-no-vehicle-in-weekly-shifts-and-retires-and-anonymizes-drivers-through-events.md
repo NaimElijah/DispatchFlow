@@ -37,7 +37,7 @@ Every date and time is Israel local time ([ADR-088]), so a shift's hours meet th
 
 ## Decision
 
-On 2026-11-14 the owner, Naim Elijah, decided the six rules:
+The six rules were decided on 2026-11-14:
 
 1. **A retired driver loses the Driver role through an event.** `Driver.retire` raises a new event,
    `DriverRetired`, in `fleet.events`, carrying the driver's account ID and nothing personal. A

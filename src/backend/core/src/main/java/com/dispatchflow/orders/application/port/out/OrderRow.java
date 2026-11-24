@@ -20,7 +20,7 @@ import java.util.Optional;
  * cancelled (BR-33, DL §9.6). The customer's name and address and the reference are personal data,
  * so it prints redacted.
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  *
  * @param order the order
  * @param customer its customer

@@ -11,14 +11,14 @@ import java.util.Optional;
  * placement P2). The listeners' {@code (listener, event ID)} pairs are the shared {@code
  * ProcessedEvents}, not this.
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 public interface ReportReceipts {
 
     /**
      * A request already taken under a key.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param user the signed-in user who sent it
      * @param key the request key
@@ -30,7 +30,7 @@ public interface ReportReceipts {
      * Records a request's answer under its key, in the transaction of the change and its audit
      * record (ADR-087).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param user the signed-in user who sent it
      * @param key the request key
@@ -44,7 +44,7 @@ public interface ReportReceipts {
     /**
      * A stored request: its body's hash and its answer.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param digest the body's hash, which a retry must match (NFR-130)
      * @param answer what the request did

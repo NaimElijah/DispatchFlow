@@ -10,9 +10,9 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * The re-optimization preview a dispatcher judges before accepting or declining it (FR-36, FR-103,
  * FR-334, BR-81). It is a dispatcher screen: the Driver role never sees a preview not yet accepted,
- * whatever the account's other roles (BR-41), which this class enforces once its milestone builds it.
+ * whatever the account's other roles (BR-41), which this class enforces once it is built.
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class ProposalQueries {
@@ -31,7 +31,7 @@ public class ProposalQueries {
     /**
      * A proposal's preview.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param proposal the proposal
@@ -41,6 +41,6 @@ public class ProposalQueries {
      * @throws NotFound when no proposal has the ID
      */
     public ProposalPreviewView preview(Actor actor, ProposalId proposal) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

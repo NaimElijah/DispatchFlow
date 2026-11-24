@@ -85,8 +85,8 @@ schema.
 - **A one-shot migration step gets the owner role.** A `migrate` container or command runs
   Flyway with the `dispatchflow_owner` credentials before the core starts, and Compose starts the
   core only after it exits successfully. The core process sees only `app`, so it can never re-grant
-  itself. [PL §23][PL-23] had Flyway in the core's startup instead; the owner chose the separate
-  step on 2026-11-14. An integration test connected as `app` asserts that `UPDATE` and `DELETE` on
+  itself. [PL §23][PL-23] had Flyway in the core's startup instead; the separate
+  step was chosen on 2026-11-14. An integration test connected as `app` asserts that `UPDATE` and `DELETE` on
   `audit_record` fail (SQLSTATE 42501).
 - **The owner credential stays deploy-only.** It is in `migrate`'s own environment only, and
   `migrate` uses it once per deploy. No other container or job holds it.
@@ -96,7 +96,7 @@ schema.
   revoked from `PUBLIC` and granted only to `app` ([ADR-075]). The core's nightly retention job
   calls it at 03:00 (`Asia/Jerusalem`), and its Healthchecks.io ping, missed when a run fails or
   doesn't happen, alerts the team ([ADR-066]). There is no separate `retention` step or container
-  (the owner, 2026-11-14).
+  (decided 2026-11-14).
   The same integration test, connected as `app`, asserts that the function removes only records
   older than 1 year. Another test, connected as a role other than `app`, asserts that it cannot run
   the function.
@@ -119,8 +119,8 @@ schema.
 - **Hard:** optimistic locking and the writes of child rows are written by hand ([TS §6.3][TS-63]).
 - **Hard:** a Maven build that runs code generation needs Docker even when tests are skipped. The
   bootstrap in [PL §5][PL-5] runs `./mvnw -q verify -DskipTests`. The generated code stays out of the
-  repository, and CI builds the core jar, which the image only copies in ([ADR-047], decided by the
-  owner on 2026-11-14). Today's core `Dockerfile` builds with `./mvnw package -DskipTests`, without
+  repository, and CI builds the core jar, which the image only copies in ([ADR-047], decided on
+  2026-11-14). Today's core `Dockerfile` builds with `./mvnw package -DskipTests`, without
   Docker, and changes with it.
 - **Hard:** a role with grants only needs every migration that adds a table to grant `app` what it
   needs. The core sees only `app` (see the one-shot step above), so a missing grant fails wherever the

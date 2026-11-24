@@ -20,7 +20,7 @@ import java.util.Optional;
  * request (FR-267, FR-271), and the per-driver changes and goods hand-overs it finds by comparing
  * the solution's routes with the request's (FR-36, FR-334).
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 public sealed interface ReoptimizationAnswer {
 
@@ -30,7 +30,7 @@ public sealed interface ReoptimizationAnswer {
      * Solved.excluded}, as for a daily solve; a vehicle excluded as withdrawn is one the worker
      * lists in the result's {@code withdrawn} (FR-197, FR-267).
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param solution the validated routes, drops and excluded vehicles
      * @param objective the shared objective's terms, route stability included (BR-09, BR-115,
@@ -69,9 +69,10 @@ public sealed interface ReoptimizationAnswer {
      * violation.
      *
      * <p><b>Domain gap.</b> {@code SolveJob.fail} keeps no stats, which NFR-11 records with every
-     * solve: M0 adds them beside the failure, and {@code RunSolveJob} passes them on.
+     * solve: the solve queue adds them beside the failure, and {@code RunSolveJob} passes
+     * them on.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param failure why
      * @param stats how the search ran, up to its failure, whenever the optimizer answered: a

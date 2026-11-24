@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
  * Planning aggregate: Fleet's {@code MoveVehicleWithRoute} changes the roster, ignores a repeat, and
  * writes its own audit record with the listener's server step, so this needs no {@code AuditLog}.
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class MoveRosterWithRoute {
@@ -31,7 +31,7 @@ public class MoveRosterWithRoute {
     /**
      * Moves the vehicle to the new driver.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param event the hand-over
      * @param call the listener's server step, which Fleet's call takes and audits (ADR-110)
@@ -41,6 +41,6 @@ public class MoveRosterWithRoute {
      *     adapter retries the event at once, up to three times (DL §11)
      */
     public void on(RouteHandedOver event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

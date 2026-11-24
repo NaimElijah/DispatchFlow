@@ -19,11 +19,11 @@ import org.springframework.transaction.annotation.Transactional;
  * date (FR-06, FR-132, FR-189). Whether the vehicle is active is not checked here: a fill skips a
  * driver whose default vehicle is not.
  *
- * <p>Fleet has no error yet for an account that already has a driver record; M2 adds it. Like every
- * changing call it writes its audit record, a refused attempt's in its own transaction (NFR-23,
- * ADR-110).
+ * <p>Fleet has no error yet for an account that already has a driver record; it is not added yet.
+ * Like every changing call it writes its audit record, a refused attempt's in its own transaction
+ * (NFR-23, ADR-110).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RegisterDriver {
@@ -51,7 +51,7 @@ public class RegisterDriver {
     /**
      * Registers the driver.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param driver the account the record is keyed by
@@ -64,6 +64,6 @@ public class RegisterDriver {
      */
     public void register(
             Actor actor, AccountId driver, DriverContact contact, ShiftHours defaultShift, VehicleId defaultVehicle) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

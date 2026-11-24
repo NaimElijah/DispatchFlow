@@ -2,14 +2,14 @@
 
 The manual-edit checks and the publishing re-check use the same validator as every solve (BR-21,
 BR-42, FR-233). It runs in the HTTP process, not in a solver worker (ADR-051). Whether a published
-plan's mid-day evaluation uses the daily or the re-optimization rules is decided in M9; until then
-it takes the daily inputs.
+plan's mid-day evaluation uses the daily or the re-optimization rules is decided when
+re-optimization is built; until then it takes the daily inputs.
 
 The core sends every vehicle the solution routes, each with that route's driver, whatever the
 vehicle's state and the driver's availability, so the factory never refuses the problem for a
 vehicle with no driver (ADR-105). The roster check, BR-20, is the core's.
 
-Built in M1.
+To Be Implemented.
 """
 
 from dispatchflow_optimizer.application.outcomes import EvaluationOutcome
@@ -21,7 +21,7 @@ class Evaluate:
 
     It runs no solver, so it takes no port.
 
-    Built in M1.
+    To Be Implemented.
     """
 
     def run(self, request: EvaluationRequest) -> EvaluationOutcome:
@@ -37,6 +37,6 @@ class Evaluate:
         Raises:
             InvalidProblemError: If an input is malformed or contradicts another.
             InvalidSolutionError: If the solution has an index past the problem.
-            NotImplementedError: Until M1 builds it.
+            NotImplementedError: To Be Implemented.
         """
-        raise NotImplementedError("Built in M1")
+        raise NotImplementedError("To Be Implemented.")

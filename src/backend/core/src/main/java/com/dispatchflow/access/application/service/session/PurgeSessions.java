@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
  * a session that ended by its token's expiry was never revoked, so its address is still kept
  * (NFR-263).
  *
- * <p>Built in M13, with the whole nightly retention run (ADR-121).
+ * <p>To Be Implemented. It comes with the whole nightly retention run (ADR-121).
  */
 @Transactional
 public class PurgeSessions {
@@ -43,12 +43,12 @@ public class PurgeSessions {
     /**
      * Deletes the ended sessions with their push addresses, and drops the old contact times.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param call the job's server step
      * @return how many sessions were deleted
      */
     public int purge(CallContext call) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

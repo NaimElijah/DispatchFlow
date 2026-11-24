@@ -10,7 +10,7 @@ import java.util.Objects;
  * Its time is corrected for the device's clock like a report's (BR-114). It is a person's location,
  * so it prints redacted.
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  *
  * @param at where the device was
  * @param time when the device recorded it, and the device's clock when it sent the batch

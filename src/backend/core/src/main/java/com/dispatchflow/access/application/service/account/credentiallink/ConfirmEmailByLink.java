@@ -31,9 +31,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  *       unspent link {@code LinkVoided} is what happened to it.
  * </ul>
  *
- * <p><b>Gap for M6.</b> {@code UserAccount} checks the account's state before the link's, so a spent
- * link would tell an active account from a deactivated one. M6 checks the link's state first, so a
- * spent link answers alike in every state (NFR-145).
+ * <p><b>Gap until the email links are built.</b> {@code UserAccount} checks the account's state
+ * before the link's, so a spent link would tell an active account from a deactivated one. The email
+ * links check the link's state first, so a spent link answers alike in every state (NFR-145).
  *
  * <p>{@code EmailInUse} is answered as itself: FR-392 refuses an address another account holds at
  * this step, and only here. Like every changing call it writes its audit record, a refused
@@ -44,7 +44,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * its commit, the use case evicts the account from the revocation cache, tells the old address and
  * sends the Admins' notice, so a confirmation that rolls back sends nothing (ADR-129).
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 public final class ConfirmEmailByLink {
 
@@ -69,7 +69,7 @@ public final class ConfirmEmailByLink {
     /**
      * Confirms the new address and spends the link.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param token the token the link carried
      * @param call the call's context: no user or session, the client and the trace (ADR-110)
@@ -84,6 +84,6 @@ public final class ConfirmEmailByLink {
      *     Retry-After} (ADR-121)
      */
     public void confirm(PresentedToken token, CallContext call) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

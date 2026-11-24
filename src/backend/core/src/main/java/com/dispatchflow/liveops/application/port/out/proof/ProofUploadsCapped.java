@@ -7,7 +7,7 @@ package com.dispatchflow.liveops.application.port.out.proof;
  * {@code Retry-After} and {@link #code()}, so ADR-087's sender waits and retries the upload instead
  * of marking its row refused.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 public final class ProofUploadsCapped extends RuntimeException {
 

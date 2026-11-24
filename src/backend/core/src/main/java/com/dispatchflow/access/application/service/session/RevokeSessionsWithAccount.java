@@ -23,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
  * idempotent by nature (ADR-064). It writes its audit record with the server step's context,
  * because ADR-110 audits server steps.
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RevokeSessionsWithAccount {
@@ -52,7 +52,7 @@ public class RevokeSessionsWithAccount {
     /**
      * Ends the account's older sessions, and dates each by the revocation.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param event the revocation, with the account's new generation
      * @param call the listener's server step
@@ -60,6 +60,6 @@ public class RevokeSessionsWithAccount {
      *     listener adapter retries at once, up to three times (DL §11)
      */
     public void on(SessionsRevoked event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

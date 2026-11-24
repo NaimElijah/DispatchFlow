@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
  * ReconcileLateOutcome}, a use case of its own that opens its own transaction (ADR-129), so a
  * failure there can't lose the alert.
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ReconcileOutcomeChange {
@@ -54,7 +54,7 @@ public class ReconcileOutcomeChange {
      * Raises the late-report alert when the current plan disagrees with the outcome, and writes the
      * audit record.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param event the recorded outcome
      * @param call the listener's server step, which the audit record carries
@@ -63,6 +63,6 @@ public class ReconcileOutcomeChange {
      * @throws NotFound when no plan holds the stop, so the delivery is retried
      */
     public Optional<AlertId> apply(OutcomeRecorded event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

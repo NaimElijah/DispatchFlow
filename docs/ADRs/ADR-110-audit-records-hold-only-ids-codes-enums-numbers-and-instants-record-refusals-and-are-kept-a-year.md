@@ -28,7 +28,7 @@ audit record and client error report ([TS §16][TS-16], [NFR-20]).
 
 ## Decision
 
-On 2026-11-14 the owner, Naim Elijah, decided these for the team:
+Decided on 2026-11-14:
 
 1. **Failures are audited, with an outcome field** ([NFR-23], [NFR-93]). `AuditOutcome` is
    *succeeded*, or *refused* with the refusal's error code (`ErrorCode`): a domain error's stable

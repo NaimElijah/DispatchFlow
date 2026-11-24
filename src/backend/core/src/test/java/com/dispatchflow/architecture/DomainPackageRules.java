@@ -130,12 +130,13 @@ final class DomainPackageRules {
     /**
      * ADR-125 decision 4: the names, among the given package names under a root, of the packages
      * that lie below one that stays flat whatever its size. A module's {@code application.api},
-     * {@code application.spi} and {@code events} are its contract (DL §2.3, rule 4), and the kernel's
-     * domain types stay flat until M0, so the kernel's one subpackage is {@code shared.application}
-     * (ADR-120 decision 2). A package in, or below, {@code shared.adapter.in.<x>} or {@code
-     * shared.adapter.out.<x>} is no kernel package but an adapter every module shares, such as
-     * persistence (ADR-126), the clock and the IDs (ADR-130 decision 5), so it may have subpackages.
-     * Any other package below {@code shared.adapter} is still the kernel's.
+     * {@code application.spi} and {@code events} are its contract (DL §2.3, rule 4), and the
+     * kernel's domain types stay flat, so the kernel's one subpackage is {@code
+     * shared.application} (ADR-120 decision 2). A package in, or below, {@code
+     * shared.adapter.in.<x>} or {@code shared.adapter.out.<x>} is no kernel package but an adapter
+     * every module shares, such as persistence (ADR-126), the clock and the IDs (ADR-130 decision
+     * 5), so it may have subpackages. Any other package below {@code shared.adapter} is still the
+     * kernel's.
      */
     static SortedSet<String> packagesBelowAFlatOne(String root, Collection<String> packageNames) {
         String prefix = root + ".";

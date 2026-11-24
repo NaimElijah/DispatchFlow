@@ -1,6 +1,6 @@
 # ADR-119: The application layer is declared ahead of its milestones, as signatures whose bodies throw
 
-- **Status:** Accepted; extended by ADR-130; amended by ADR-121 and ADR-129
+- **Status:** Accepted; extended by ADR-130; amended by ADR-121, ADR-129 and ADR-132
 - **Date:** 2026-11-15
 
 ## Context
@@ -22,9 +22,9 @@ parallel ([roadmap §2.1][RM-21]). Without a shared list:
 The module graph of [DL §2.1][DL-21] can only be checked once the application classes, and their
 dependencies, exist.
 
-On 2026-11-15 the owner, Naim Elijah, asked for the whole application layer's skeleton: every service
-class and every function in it, declared with its signature and no implementation. He chose the
-answers this ADR records ([#81]).
+On 2026-11-15 it was decided to declare the whole application layer's skeleton: every service class
+and every function in it, declared with its signature and no implementation. This ADR records the
+answers decided with it ([#81]).
 
 ## Decision
 
@@ -78,14 +78,14 @@ answers this ADR records ([#81]).
 ## Alternatives considered
 
 - **Declare each use case when its milestone builds it** (TS §6.2 as written). Rejected:
-  - the owner asked for the skeleton;
+  - the skeleton was decided on;
   - four parallel lanes need one shape;
   - DL §2.1 stays unchecked until the last module lands.
 - **An interface for every use case.** Rejected: [TS §6.2][TS-62] gives an interface only to what
   another module calls; one with one implementation and one caller earns nothing.
 - **A marker exception and a `Milestone` enum,** so a test can list unbuilt work per milestone. Rejected
-  by the owner on 2026-11-15: two more types for a report nobody has asked for.
-- **Commands only, reads later.** Rejected by the owner on 2026-11-15: the daily summary, the planning
+  on 2026-11-15: two more types for a report nobody has asked for.
+- **Commands only, reads later.** Rejected on 2026-11-15: the daily summary, the planning
   workspace and the live map would be missing.
 
 ## Revisit when

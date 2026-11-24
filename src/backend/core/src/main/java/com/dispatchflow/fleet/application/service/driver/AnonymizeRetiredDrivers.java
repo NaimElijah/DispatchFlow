@@ -12,7 +12,7 @@ import com.dispatchflow.audit.application.api.CallContext;
  * <p>It lists the drivers due, then anonymizes them one by one, and opens no transaction of its
  * own: {@link AnonymizeRetiredDriversChange} holds each driver's (ADR-129).
  *
- * <p>Built in M13, with the whole nightly retention run (ADR-121).
+ * <p>To Be Implemented. It comes with the whole nightly retention run (ADR-121).
  */
 public final class AnonymizeRetiredDrivers {
 
@@ -30,12 +30,12 @@ public final class AnonymizeRetiredDrivers {
     /**
      * Anonymizes the drivers whose retention is over.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param call the job's server step
      * @return how many drivers were anonymized
      */
     public int anonymizeDue(CallContext call) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

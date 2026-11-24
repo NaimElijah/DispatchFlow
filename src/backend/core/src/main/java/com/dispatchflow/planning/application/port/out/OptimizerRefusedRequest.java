@@ -10,7 +10,7 @@ import java.util.Objects;
  * DomainError} and fails loudly. Its message holds the optimizer's code only, never the request's
  * orders or places (NFR-19).
  *
- * <p>Built in M0.
+ * <p>To Be Implemented.
  */
 public final class OptimizerRefusedRequest extends RuntimeException {
 

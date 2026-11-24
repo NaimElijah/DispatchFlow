@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
  * call is one transaction of its own, so one stale delivery doesn't hold back the rest. Each step
  * that changes something writes its audit record, with the count and no personal data (ADR-110).
  *
- * <p>Built in M13.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class EraseExpiredExecutionDataChange {
@@ -44,26 +44,26 @@ public class EraseExpiredExecutionDataChange {
     /**
      * Deletes the positions received 7 days ago or more, and writes the audit record (NFR-184).
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param call the job's server step
      * @return how many positions were deleted
      */
     public int deletePositions(CallContext call) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * The stops whose delivery holds personal data past its retention, for the job to erase one at
      * a time (NFR-31, ADR-107).
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @return the stops, each once; none when nothing is due
      */
     @Transactional(readOnly = true)
     public List<StopId> dueStops() {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
@@ -71,7 +71,7 @@ public class EraseExpiredExecutionDataChange {
      * kind, and writes the audit record. It loads the delivery again, since {@link #dueStops} read
      * it in a transaction that has ended.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param stop the stop whose delivery is due
      * @param call the job's server step
@@ -79,6 +79,6 @@ public class EraseExpiredExecutionDataChange {
      *     the next night
      */
     public void apply(StopId stop, CallContext call) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

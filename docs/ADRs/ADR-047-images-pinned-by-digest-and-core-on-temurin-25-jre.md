@@ -55,14 +55,14 @@ per service and its non-root user stand.
   command and pass their health checks on Linux in CI, and on Windows and macOS through Docker
   Desktop, checked by hand before each pilot build ([NFR-208]).
 - **The registry and the pull:** CI pushes the images to GHCR, and an SSM command pulls them by
-  digest onto the VM ([TS §15], the *Deployment* row; [PL §23]). The owner confirmed that row on
+  digest onto the VM ([TS §15], the *Deployment* row; [PL §23]). That row was confirmed on
   2026-11-14, with hosting on AWS ([ADR-078], [NFR-209]).
-- **CI builds the core jar, and the image only copies it in** (decided by the owner on
+- **CI builds the core jar, and the image only copies it in** (decided on
   2026-11-14). jOOQ code generation ([ADR-041]) needs Docker, which CI has for Testcontainers and the
   image build does not. The generated code stays out of the repository, and the core `Dockerfile`
   becomes a runtime-only image.
 - **Digest pins start in January,** when Renovate arrives ([ADR-046], [TS §5]), not at the pilot.
-  The owner chose this on 2026-11-14, because `compose.dev.yaml`'s images run on every laptop from
+  This was chosen on 2026-11-14, because `compose.dev.yaml`'s images run on every laptop from
   M0.
 - **Not adopted for now:** a GraalVM native image, and distroless images. Both are reconsidered
   after the pilot ([TS §6]).
@@ -91,7 +91,7 @@ per service and its non-root user stand.
 - **Risk:** [TS §15] asks for a non-root user in every container. The sources do not say how the
   official `postgres`, OSRM and `caddy` images do it. Not verified.
 - **Risk:** [TS §18] says every image gets a digest, while [PL §5] lists the `compose.dev.yaml`
-  images by tag ([ADR-042]). The owner decided on 2026-11-14 that digest pins start in January and
+  images by tag ([ADR-042]). It was decided on 2026-11-14 that digest pins start in January and
   cover every image, the development file included. Until then those images run by tag.
 
 ## Alternatives considered

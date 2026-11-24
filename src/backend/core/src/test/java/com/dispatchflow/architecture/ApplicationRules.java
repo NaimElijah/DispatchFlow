@@ -64,7 +64,8 @@ final class ApplicationRules {
             "org.springframework.transaction.annotation.Transactional",
             "org.springframework.transaction.annotation.Propagation",
             "org.springframework.transaction.annotation.Isolation");
-    // M0 puts @ApplicationModule and @NamedInterface on these packages' package-info (ADR-040).
+    // Once Spring Modulith is added, @ApplicationModule and @NamedInterface go on these packages'
+    // package-info (ADR-040).
     private static final String MODULITH = "org.springframework.modulith";
 
     /**
@@ -238,7 +239,7 @@ final class ApplicationRules {
     /**
      * Rule 1, with the package whose annotations a {@code package-info} may carry given: Spring
      * Modulith's for production, a stand-in for the fixtures, because Modulith is not on the
-     * classpath before M0. The dashed arrows are given too, as rule 4 takes them.
+     * classpath yet. The dashed arrows are given too, as rule 4 takes them.
      *
      * @param implementers each {@code spi} interface, by its name below the root, and the module
      *     that implements it

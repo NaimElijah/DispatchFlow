@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
  * issues the set-password link through the account, saves it, and writes the audit record
  * (NFR-23). The use case sends the link after the commit.
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class SendSetPasswordLinkChange {
@@ -60,7 +60,7 @@ public class SendSetPasswordLinkChange {
     /**
      * Issues the link, and saves the account.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param account the user's account
@@ -75,6 +75,6 @@ public class SendSetPasswordLinkChange {
      *     save (BR-76)
      */
     public LinkEmail apply(Actor actor, AccountId account, Version expected) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

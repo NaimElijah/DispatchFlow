@@ -9,14 +9,14 @@ import java.util.Optional;
  * the aggregates (DL §13). The stops of a date come from Planning's {@code PublishedRoutes}; the
  * query classes join them with these rows.
  *
- * <p>Built in M12.
+ * <p>To Be Implemented.
  */
 public interface MessagingViews {
 
     /**
      * The rating requests of several stops (FR-360).
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param stops the stops, each once
      * @return one row per stop that had a rating request; the others are left out
@@ -26,7 +26,7 @@ public interface MessagingViews {
     /**
      * The messaging settings as the settings page shows them.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @return the settings, or empty before an Admin first set them
      */

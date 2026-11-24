@@ -11,7 +11,7 @@ import java.util.Objects;
  * refresh token (NFR-86, NFR-87, NFR-227). Both tokens are secrets, never logged (NFR-19), so it
  * prints redacted.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  *
  * @param session the device's session
  * @param accessToken the access token, accepted for 15 minutes (NFR-86)

@@ -14,10 +14,12 @@ and it hosts every solver behind one port ([ADR-004]). Python 3.14, FastAPI, Uvi
 | `adapters/inbound/worker/` | The solver worker per lane ([ADR-051]), apart from `http` so `spawn` never loads FastAPI in a solver process |
 | `adapters/outbound/clock/` | The `Stopwatch` adapter, over the monotonic clock |
 
-An unbuilt `application/` body raises `NotImplementedError("Built in M<n>")`, naming the milestone
-that builds it. To fill one, write the failing test, replace the `raise`, then build the adapter. A
-milestone may change a declared signature, with every caller in the same pull request, and drops the
-docstring's "Built in M<n>" when the body is built ([ADR-119]). `tests/` mirrors the package path.
+An unbuilt `application/` body raises `NotImplementedError("To Be Implemented.")`, and
+`grep -rF "To Be Implemented."` lists the work left ([ADR-132]). To fill one, write the failing
+test, replace the `raise`, then build the adapter. Building a body may change a declared signature,
+with every caller in the same pull request, and drops the docstring's "To Be Implemented."
+([ADR-119]).
+`tests/` mirrors the package path.
 
 ## Rules
 
@@ -127,6 +129,7 @@ Run `just` recipes from the repository root, and `uv` from this folder.
 [ADR-113]: ../../../docs/ADRs/ADR-113-route-stability-is-its-own-cost-the-rules-read-a-problem-through-a-protocol-and-untimed-outputs-are-documented.md
 [ADR-119]: ../../../docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md
 [ADR-120]: ../../../docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md
+[ADR-132]: ../../../docs/ADRs/ADR-132-unbuilt-bodies-say-to-be-implemented.md
 [TS §2.1]: ../../../docs/architecture/tech_stack.md#21-the-dependency-rule
 [TS §4]: ../../../docs/architecture/tech_stack.md#4-repository-layout
 [TS §7.1]: ../../../docs/architecture/tech_stack.md#71-the-hexagon

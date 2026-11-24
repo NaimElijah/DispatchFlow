@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>It reads {@code SessionRepository.contactsOf}, which covers every session of the account,
  * revoked ones included.
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class SessionContactsService implements SessionContacts {
@@ -34,10 +34,10 @@ public class SessionContactsService implements SessionContacts {
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      */
     @Override
     public List<Instant> contactsOf(AccountId account, Instant from, Instant to) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

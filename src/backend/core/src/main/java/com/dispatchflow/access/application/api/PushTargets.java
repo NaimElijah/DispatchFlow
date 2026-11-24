@@ -10,14 +10,14 @@ import java.util.List;
  * staff's (FR-405, ADR-026, ADR-083). Sign-out and revocation remove an address, and so does the
  * adapter through {@link #forget} when the push service reports the device gone (NFR-263).
  *
- * <p>Built in M10.
+ * <p>To Be Implemented.
  */
 public interface PushTargets {
 
     /**
      * The push addresses registered for an account's live sessions.
      *
-     * <p>Built in M10.
+     * <p>To Be Implemented.
      *
      * @param account the account
      * @return its addresses, one per live session that registered one; empty when there is none
@@ -29,7 +29,7 @@ public interface PushTargets {
      * background (FR-405, ADR-083): those of the live sessions of every active account that holds
      * the Admin or the Dispatcher role, read now.
      *
-     * <p>Built in M10.
+     * <p>To Be Implemented.
      *
      * @return the addresses, each once; empty when no such session registered one
      */
@@ -40,7 +40,7 @@ public interface PushTargets {
      * and writes the audit record, which names those sessions (NFR-263, ADR-083, ADR-110). An
      * address no session holds any longer changes nothing, so a repeated report is harmless.
      *
-     * <p>Built in M10.
+     * <p>To Be Implemented.
      *
      * @param address the address the push service reported gone
      * @param call the adapter's server step

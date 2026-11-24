@@ -28,7 +28,7 @@ comments to Messaging.
 
 ## Decision
 
-On 2026-11-14 the owner, Naim Elijah, decided the open rules:
+The open rules were decided on 2026-11-14:
 
 1. **Removing an opt-out appends an opt-in.** A phone's history is a list of entries, never
    changed: an opt-out by an opt-out word ([FR-363]), an opt-out a dispatcher records, or an opt-in
@@ -37,11 +37,11 @@ On 2026-11-14 the owner, Naim Elijah, decided the open rules:
    be messaged, and point 5 says which entry is the latest. `OptOutStatus` reads the history; an
    opt-in with no dispatcher can't be built or restored.
 2. **The wording is fixed per message type, in the company's default language.** The Hebrew is
-   ADR-031's, as written. The English below was drafted for the owner, who approved it as written
-   on 2026-11-15: it is short, plain, and keeps the Hebrew's meaning. Every text starts with the company's name and a colon. With a
-   name of 19 characters and a dispatch phone of 11, the longest text, "delivered at the door,
-   asking for a rating" in Hebrew, is exactly 70 characters ([FR-382]); `MessageTextTest` checks
-   every wording at those limits.
+   ADR-031's, as written. The English below was approved as written on 2026-11-15: it is short,
+   plain, and keeps the Hebrew's meaning. Every text starts with the company's name and a colon.
+   With a name of 19 characters and a dispatch phone of 11, the longest text, "delivered at the
+   door, asking for a rating" in Hebrew, is exactly 70 characters ([FR-382]); `MessageTextTest`
+   checks every wording at those limits.
 
    | Message | English |
    |---|---|
