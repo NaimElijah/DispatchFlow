@@ -60,7 +60,7 @@ paper, but only the inner one holds working code.
 ```mermaid
 flowchart TB
   subgraph CORE["core (Java): one module per context"]
-    CADP["adapters<br/>only the shared persistence adapter exists"]
+    CADP["adapters<br/>persistence only; the other packages are declared, empty"]
     CAPP["application: api, spi, port/out, service<br/>declared, not built"]
     CDOM["domain and events<br/>built and tested"]
     CKER["shared: the kernel<br/>and shared/application"]
@@ -89,18 +89,20 @@ An arrow means *depends on*. The sources for each box:
   there are 386 such bodies in 271 files under `core/`, and 7 `NotImplementedError("Built in M<n>")`
   in `optimizer/application/`. Two of the 386 are the blanking methods of Planning's solve-job adapter. `grep -rn "Built in M5" src/backend` lists one milestone's remaining work.
   The two kernel errors in `shared/application/` (`NotFound`, `StaleVersion`) are complete classes; its
-  three ports (`Clock`, `IdGenerator`, `ProcessedEvents`) are interfaces with no implementation.
+  three ports (`Clock`, `IdGenerator`, `ProcessedEvents`) are interfaces with no implementation: the
+  adapter packages for the first two, `shared/adapter/out/clock` and `uuid`, are declared, empty.
 - **Wired.** No use case is wired. Each module has a persistence adapter, in
   `core/<module>/adapter/out/persistence/`, which implements the module's repository and record
   ports over the module's PostgreSQL schema, and nothing calls it yet. Planning's `Plan` has its own
   in `core/planning/adapter/out/persistence/plan/`. The kernel has the shared one,
-  `core/shared/adapter/out/persistence/`. The Spring annotations are `@SpringBootApplication` on the
+  `core/shared/adapter/out/persistence/`. Every other adapter package of the core is declared, empty
+  ([ADR-130](../../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md)). The Spring annotations are `@SpringBootApplication` on the
   entry point `core/DispatchFlowApplication.java`, `@RestControllerAdvice` on the one error handler in
   `core/web/`, `@Component` on the adapters and on `VersionedSave`, a class-level `@Transactional` on every service or its `<UseCase>Change` ([ADR-129](../../ADRs/ADR-129-transactions-start-only-in-the-service-layer.md)), and Spring Data's
   `@DomainEvents` and `@AfterDomainEventPublication` on `AggregateRoot`. The adapters also carry Jakarta
   Persistence's `@Converter`, and the kernel's values, every aggregate and `AggregateRoot` carry its
   mapping annotations ([ADR-126](../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md), [ADR-127](../../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md)). The optimizer's only adapter is the liveness probe in
-  `optimizer/adapters/inbound/http/app.py`.
+  `optimizer/adapters/inbound/http/app.py`; its three solver packages are declared, empty.
 
 **Dependency direction.** Dependencies point inwards, as DL [§13](domain_layer_design.md#13-inside-each-module-hexagon)
 draws. The rules that keep the domain pure are DL [§2.3](domain_layer_design.md#23-rules-between-contexts)
@@ -1632,7 +1634,7 @@ the listeners:
   `(listener, event ID)` through `ProcessedEvents` first (DL
   [§7.3](domain_layer_design.md#73-shape-and-delivery)).
 - **`SessionsRevoked` has a second listener that is not declared.** DL §7.2 names a live-updates adapter
-  that closes the account's open streams. Adapters are absent, so only Access's own listener exists.
+  that closes the account's open streams. Adapter classes are absent (the packages are declared, empty), so only Access's own listener exists.
 
 ---
 

@@ -4,7 +4,9 @@ Where each kind of code and test lives, and which way dependencies point. It des
 repository as it is today. What the system must do is in
 [requirements.md](../requirements/requirements.md); why the repository is laid out this way is in
 [ADR-008](../ADRs/ADR-008-monorepo-layout-under-src.md) and
-[ADR-123](../ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md), and why it is built and checked the way
+[ADR-123](../ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md), why
+every folder the design draws is declared ahead is in
+[ADR-130](../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md), and why it is built and checked the way
 it is in [ADR-009](../ADRs/ADR-009-just-as-the-single-entry-point.md) to
 [ADR-016](../ADRs/ADR-016-dependency-audit-with-osv-scanner.md).
 
@@ -24,9 +26,10 @@ are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 
 > [!NOTE]
 > Most folders below are still empty. A folder listed as a placeholder holds only a `.gitkeep`
-> file. What is real today is the skeleton, the domain layer of `core` and `optimizer`, and the
-> persistence of every `core` module: each component builds, passes its own checks and runs a first
-> test.
+> file. A package that is declared, empty holds only a `package-info.java` (Java) or an `__init__.py`
+> with a docstring (Python) ([ADR-130][ADR-130]). What is real today is the skeleton, the domain
+> layer of `core` and `optimizer`, and the persistence of every `core` module: each component builds,
+> passes its own checks and runs a first test.
 
 ## Top level
 
@@ -39,9 +42,10 @@ are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 | `src/research/` | Benchmarks, simulation and the order generator: Python, uv. Never deployed |
 | `contracts/` | `client-api/v1` and `optimization-api/v1` (OpenAPI), and the Redocly lint setup |
 | `tests/` | Tests that span components: `e2e/` and `load/`. Both are placeholders |
-| `infra/` | `osrm/` and `deploy/`. Both are placeholders |
+| `infra/` | `osrm/`, `deploy/` (with `backup/` and `observability/`) and `terraform/`. All are placeholders |
+| `data/` | The OSM extract, OSRM files, PMTiles and benchmark instances, once built. Git keeps the folder and ignores everything in it |
 | `logs/` | Local log output. Git keeps the folder and ignores everything in it |
-| `docs/` | `CLAUDE.md`, `requirements/` (with `ARD/`), `architecture/` (with `domain_layer/` and `tech_stack.md`), `ADRs/`, `roadmap.md` and `presentations/` |
+| `docs/` | `CLAUDE.md`, `requirements/` (with `ARD/`), `architecture/` (with `domain_layer/` and `tech_stack.md`), `ADRs/`, `roadmap.md` and `presentations/`; the placeholders are `operations/`, `guides/he/`, `guides/en/`, `research/usability/` and `architecture/generated/` |
 | `.claude/` | Claude Code's context: the root `CLAUDE.md`, the team agents (`agents/`), the team skills (`skills/`), `settings.json`, and an empty `rules/` folder ([ADR-018](../ADRs/ADR-018-ai-assistant-context-in-the-repository.md), [ADR-020](../ADRs/ADR-020-team-subagents-in-the-repository.md), [ADR-025](../ADRs/ADR-025-team-skills-in-the-repository.md)) |
 | `.github/` | The CI workflow, Dependabot configuration, and issue and pull request templates |
 | `justfile` | Every command. CI runs the same recipes |
@@ -102,24 +106,24 @@ src/backend/core/
                                    converters and instantiators that store the kernel's values,
                                    and id/ with the 14 typed-ID converters; an adapter, not the
                                    kernel
+      adapter/out/clock/           declared, empty: the adapter of Clock
+      adapter/out/uuid/            declared, empty: the adapter of IdGenerator
     access/                        a bounded context's module: domain/ (account, session,
                                    companyprofile), events/, application/ (declared) and
-                                   adapter/out/persistence/
+                                   adapter/ (below)
     fleet/                         domain/ (register, roster, driver), events/, application/ and
-                                   adapter/out/persistence/
-    orders/                        domain/ (flat), events/, application/ and
-                                   adapter/out/persistence/
+                                   adapter/
+    orders/                        domain/ (flat), events/, application/ and adapter/
     planning/                      domain/ (plan, solution, drop, basis, revision,
                                    reconciliation, settings), events/, application/ and
-                                   adapter/out/persistence/ with plan/ for Plan
-    audit/                         domain/ (flat), application/ and adapter/out/persistence/; it
-                                   raises no event
-    reporting/                     domain/ (baseline), application/ and adapter/out/persistence/;
-                                   it raises no event
+                                   adapter/, with plan/ under out/persistence/ for Plan
+    audit/                         domain/ (flat), application/ and adapter/; it raises no event
+    reporting/                     domain/ (baseline), application/ and adapter/; it raises no
+                                   event
     messaging/                     domain/ (message, rating, settings), events/, application/ and
-                                   adapter/out/persistence/
+                                   adapter/
     liveops/                       domain/ (delivery, outcome, proof, alert,
-                                   routerun), events/, application/ and adapter/out/persistence/
+                                   routerun), events/, application/ and adapter/
     web/                           application-wide web concerns: the fallback for unexpected errors
       UnexpectedErrorHandler.java  answers an unhandled exception with a 500 problem body
       package-info.java
@@ -210,7 +214,26 @@ use case
 and a `CallContext`
 ([ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
 
-The only adapters are persistence adapters. Each of the eight modules has an
+Each module's `adapter/` holds its persistence adapter, which is built, and packages declared
+ahead, empty ([ADR-130][ADR-130]). Every declared package holds a `package-info.java` and nothing
+else: its Javadoc says what goes in the package and which ports it implements, and it carries
+`@NullMarked`. There are 45 of them, and no adapter class exists beyond the persistence adapters.
+The names follow two rules:
+
+- An inbound adapter is `adapter/in/<kind>`, of six kinds: `web` (a screen calls the client API),
+  `listen` (another module's event arrives), `schedule` (the clock says so), `job` (a worker takes
+  queued work), `callback` (an outside service calls in) and `cli` (a person runs a server step).
+  There is no `in/sse`: the stream's endpoint is app-wide, in `web`.
+- An outbound adapter is `adapter/out/<name>`: named for the outside system or channel it talks to
+  (`osrm`, `govmap`, `sms`, `disk`), `persistence` for the module's own database, or for the
+  technology it wraps when it calls nothing outside the process (`crypto`, `cache`, `config`,
+  `random`, `resources`, `roaddata`).
+
+ADR-130 decision 4 lists each module's packages and the ports they implement. Adapters meet only
+through ports: no adapter uses another adapter of its module, or an adapter of another module
+(`ApplicationRules`, rules 9 and 10).
+
+Each of the eight modules has an
 `adapter/out/persistence/` package ([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md), [ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md)). A module's package holds:
 
 - the `Jpa…` classes, which implement the module's repository and record ports;
@@ -240,7 +263,8 @@ are written to tech stack §4.
 (Accepted) makes each context a Spring Modulith module, and
 [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md)
 (Accepted, amended by [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) and [ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md)) gives each module its own schema, accessed through JPA with the
-mapping on the domain classes. ADR-040 is not in the tree yet. ADR-041 and ADR-126 are, for every
+mapping on the domain classes. ADR-040's module packages and adapter layout are in the tree
+(ADR-130 declared them); Spring Modulith, which it also adopts, is not. ADR-041 and ADR-126 are, for every
 module: their schemas, tables, mapped aggregates and persistence adapters exist, but the two
 database roles and the `migrate` step do not.
 [ADR-001](../ADRs/ADR-001-domain-driven-design-with-hexagonal-architecture.md)'s layout (one package
@@ -254,7 +278,7 @@ src/backend/optimizer/
   pyproject.toml, uv.lock, Dockerfile, .dockerignore
   CLAUDE.md                        the rules for this folder
   src/dispatchflow_optimizer/
-    __init__.py                    the package marker; one also in adapters/, inbound/ and http/
+    __init__.py                    the package marker; every package below has one
     py.typed                       marks the package as typed
     domain/                        Problem (validate, cost, explain_drop), ProblemFactory, Solution,
                                    TravelTimeModel, PenaltyScale, RuleId; problem_parts (the parts a
@@ -262,10 +286,11 @@ src/backend/optimizer/
                                    objective and the drop reasons read a problem through)
     application/                   declared, bodies not built (ADR-119): the Solver port, the
                                    registry, the requests and outcomes, and five use cases
-    solvers/
-      ortools/                     the OR-Tools adapter (placeholder)
-      alns/                        the DispatchFlow solver (placeholder)
     adapters/inbound/http/app.py   create_app(): the FastAPI app, with GET /health/liveness
+    adapters/outbound/solvers/     one package per solver, each declared, empty
+      ortools/                     the OR-Tools adapter
+      alns/                        the DispatchFlow solver
+      nearest_neighbour/           the baseline's solver, which the registry does not hold
   tests/                           mirrors the package path
     domain/                        the catalogue, properties, Solomon acceptance (data/solomon/)
     adapters/inbound/http/test_app.py
@@ -277,20 +302,22 @@ one `Solver` port and is chosen by name. The port's call is `solve(problem, star
 ([ADR-044](../ADRs/ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md),
 Accepted).
 [ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)
-(Accepted) moves the solvers under `adapters/outbound/solvers/`, where `nearest_neighbour` joins
-them. Neither is in the tree yet.
+puts the solvers under `adapters/outbound/solvers/`, and [ADR-130](../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md) declares them there.
+`nearest_neighbour` is the baseline's solver, which the registry does not hold
+([ADR-121](../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md),
+P16). No solver implements the port yet.
 
 ```mermaid
 flowchart TD
     http["adapters/inbound/http"] --> application["application"]
-    solvers["solvers/ortools, solvers/alns"] --> application
+    solvers["adapters/outbound/solvers"] --> application
     application --> domain["domain"]
 ```
 
 Everything may use `domain`. `domain` uses nothing else in the package.
 The solver registry is a type in `application`; `create_app()` in `adapters/inbound/http`, the
 process's entry point, fills it with the solvers. `application` therefore never imports
-`solvers`, and the two cannot form a cycle. The research harness builds its own registry.
+the solver adapters, and the two cannot form a cycle. The research harness builds its own registry.
 
 ### `src/research`
 
@@ -300,22 +327,25 @@ src/research/
   CLAUDE.md       the rules for this folder
   src/dispatchflow_research/
     __init__.py   the package marker
-    benchmark/    the benchmark harness (placeholder)
-    simulation/   the disruption simulation (placeholder)
-    generator/    the order generator (placeholder)
-  instances/      benchmark instances (placeholder)
+    benchmark/    the benchmark harness (declared, empty)
+    simulation/   the disruption simulation (declared, empty)
+    generator/    the order generator (declared, empty)
   results/        benchmark results (placeholder)
   tests/test_environment.py
 ```
 
 `test_environment.py` checks that the research environment holds both `dispatchflow_optimizer` and
-`pyvrp`.
+`pyvrp`. Benchmark instances live in the git-ignored `data/` at the repository root, not here
+([ADR-123](../ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md),
+[ADR-130][ADR-130]).
 
 ### `src/frontend/web`
 
 A Vite project. `src/main.tsx` mounts `src/App.tsx`, which renders a heading. `src/test/setup.ts`
 configures Vitest. The configuration files (`vite.config.ts`, `tsconfig*.json`,
-`eslint.config.js`, `.prettierrc.json`) sit at the project root.
+`eslint.config.js`, `.prettierrc.json`) sit at the project root. `src/features/` holds one
+placeholder folder for each bounded context that has screens: `access`, `audit`, `fleet`,
+`liveops`, `messaging`, `orders`, `planning` and `reporting` ([ADR-130][ADR-130]).
 
 ### `src/frontend/mobile`
 
@@ -324,9 +354,15 @@ and `assets/` hold the Expo configuration and icons. `osv-scanner.toml` lists th
 the audit ignores, each with a reason and an expiry date. The owner accepted the minimatch and glob
 entries in [ADR-023](../ADRs/ADR-023-accept-minimatch-and-glob-advisories.md), and the zod and
 deepmerge entries in
-[ADR-095](../ADRs/ADR-095-accept-the-zod-and-deepmerge-advisories-until-2027-01-31.md).
+[ADR-095](../ADRs/ADR-095-accept-the-zod-and-deepmerge-advisories-until-2027-01-31.md). Its
+`src/features/` holds the same eight placeholder folders as the web app's. It has no route folder:
+that comes with `expo-router` at M10 ([ADR-130][ADR-130]).
 
-The two apps share no code. `contracts/client-api/v1` declares no operation yet, so neither has an
+The two apps share no code. `src/frontend/packages/` holds seven placeholder folders: `api-client`,
+`schemas`, `i18n`, `map-style`, `formatters`, `eslint-config` and `tsconfig`. A folder is not a package:
+none has a `package.json` yet, and the ticket that first puts code in one adds it
+([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md),
+[ADR-130][ADR-130]). `contracts/client-api/v1` declares no operation yet, so neither app has an
 API client.
 [ADR-043](../ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md)
 (Accepted, not in the tree yet) generates code from the contracts on both sides.
@@ -393,8 +429,9 @@ constructors and that no class extends a root, and what an error or an event may
 four: no cycle between a module's domain packages, a domain root that imports none of its own
 subpackages, `@NullMarked` on the kernel and on every domain and events package
 ([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md)), and no package
-below a module's `api`, `spi` or `events` or below the kernel, except `shared.adapter.out.persistence`
-([ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)). The purity rules also forbid any pure class a dependency on `shared.adapter`. The nine JPA mapping rules
+below a module's `api`, `spi` or `events` or below the kernel, except `shared.adapter.in.<x>` and `shared.adapter.out.<x>`
+([ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md),
+widened by [ADR-130][ADR-130]). The purity rules also forbid any pure class a dependency on `shared.adapter`. The nine JPA mapping rules
 (`PersistenceRules`, [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)) are
 separate. The rest are conventions that review enforces.
 
@@ -403,11 +440,14 @@ The application rules are ArchUnit tests too, in `ApplicationRules`, numbered in
 [ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)'s
 decision 10, with rule 4 extended and rule 8 added by [ADR-121](../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md),
 and rule 7 widened to every application package by [ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md).
+Rules 9 and 10 are [ADR-130][ADR-130]'s: the adapters of a module stay apart, and no adapter uses
+another module's adapter. Rule 5's `@NullMarked` check covers the adapter packages too.
 
 [Tech stack §2.2](tech_stack.md#22-enforcement) also plans Spring Modulith's `verify()` for the
 Alpha
 ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md),
 Accepted).
 
+[ADR-130]: ../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md
 [NFR-10]: ../requirements/requirements.md#nfr-10
 [NFR-162]: ../requirements/requirements.md#nfr-162

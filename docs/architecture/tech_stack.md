@@ -137,7 +137,7 @@ screens and documents use the same words.
 
 ## 4. Repository layout
 
-**Decided ([ADR-123](../ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md)) · Alpha.** The grouped tree with ADR-123's component names. Inside `core` and `optimizer` it draws the target packages ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)), not today's.
+**Decided ([ADR-123](../ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md), [ADR-130](../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md)) · Alpha.** The grouped tree with ADR-123's component names. Inside `core` and `optimizer` it draws the target packages ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)), not today's. ADR-130 declares every folder it draws ahead of its code.
 `src/research` already exists (NFR-50).
 
 ```text
@@ -162,11 +162,16 @@ src/
             port/out/               repositories, logs and outside services
             service/                one class per use case, and application services
           adapter/
-            in/web/  in/job/  in/schedule/  in/callback/
-            out/persistence/  out/osrm/  out/optimizer/  out/...
+            in/web/  in/listen/  in/schedule/  in/job/  in/callback/  in/cli/
+            out/<name>/             named for the outside system or channel (osrm, optimizer,
+                                    govmap, sms, email, push, disk, sse); persistence for the
+                                    module's own database; a technology name for an adapter that
+                                    calls nothing outside the process (crypto, cache, config,
+                                    random, resources, roaddata); ADR-130 lists them by module
         shared/                     shared kernel: typed IDs, DeliveryDate, IsraelDateTime, DaySeconds, TimeWindow,
                                     GeoPoint, Weight, Volume, Priority, PhoneNumber, and the domain's
                                     building blocks (errors, Version, AggregateRoot, events; ADR-097)
+          adapter/out/{persistence,clock,uuid}/   the adapters every module shares (ADR-130)
       src/main/resources/db/migration/   Flyway migrations, one PostgreSQL schema per module
     optimizer/                    Python, FastAPI
       src/dispatchflow_optimizer/
@@ -174,8 +179,8 @@ src/
         adapters/inbound/http/
         adapters/outbound/solvers/{ortools,alns,nearest_neighbour}/
   frontend/
-    web/                          React web app
-    mobile/                       Expo phone app (from Semester B)
+    web/                          React web app; src/features/<context>
+    mobile/                       Expo phone app (from Semester B); src/features/<context>
     packages/                     api-client, schemas, i18n, map-style, formatters, eslint-config, tsconfig
   research/                       harness, study configs, results (no pilot-derived data, NFR-50)
 tests/
@@ -492,7 +497,9 @@ browser, driver screens included (Q-92, Q-98, [ADR-076](../ADRs/ADR-076-admin-an
 
 ## 11. Phone app
 
-Built from Semester B; the Alpha's driver screens run in the browser.
+Built from Semester B; the Alpha's driver screens run in the browser. Its `src/features/<context>`
+folders mirror the bounded contexts as the web app's do, and the route folder comes with
+`expo-router` at M10 ([ADR-130](../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md)).
 
 | Concern | Choice | Status | Why | Over |
 |---|---|---|---|---|
