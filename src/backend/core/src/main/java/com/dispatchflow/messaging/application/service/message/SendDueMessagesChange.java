@@ -119,17 +119,27 @@ public class SendDueMessagesChange {
     }
 
     /**
-     * What one stop's claim did.
+     * What one stop's claim did. Its messages hold phones, so it prints redacted.
      *
-     * @param dropped how many of the stop's messages it dropped as stale, 0 or more (NFR-190)
+     * @param dropped how many of the stop's messages it dropped as stale (NFR-190)
      * @param sends the messages it claimed, to send now
      */
-    public record Claimed(int dropped, List<Send> sends) {
+    public record Claimed(int dropped, List<Send> sends) implements PersonalData {
 
         /** Checks the parts are present, and keeps its own copy of the messages. */
         public Claimed {
             Objects.requireNonNull(sends, "sends");
             sends = List.copyOf(sends);
+        }
+
+        /**
+         * Names the type and hides the messages it holds.
+         *
+         * @return {@code SendDueMessagesChange.Claimed[redacted]}
+         */
+        @Override
+        public String toString() {
+            return "SendDueMessagesChange.Claimed[redacted]";
         }
     }
 
