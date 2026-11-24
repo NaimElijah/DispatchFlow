@@ -37,6 +37,13 @@ The documents also disagreed, or said nothing:
   adapters. The flat and purity guards let only `shared.adapter.out.persistence` through.
 - **Live updates.** Planning and Live Operations each declare a `LiveUpdates` port. Planning may
   not use Live Operations, so the registry of open streams fits neither module.
+- **State behind a port that calls nothing outside.** [NFR-215], a Must row, caps recovery emails
+  at 100 per Israel day. A count kept in memory restarts at 0 when the core restarts. GovMap's
+  cache of geocoded addresses ([FR-13]) and the proof store's bindings and tombstones are tables,
+  but the adapters that need them are `govmap` and `disk`, not `persistence`.
+- **The optimizer client.** [ADR-043] generates one client from `optimization-api`. Planning
+  solves and validates through it, and Reporting plans its baseline through it, but one module's
+  adapter may not use another's.
 
 On 2026-11-24 the owner, Naim Elijah, asked that every folder the project will need, to its end,
 be declared now, so that the team only adds files to the right places. He chose each answer below.
@@ -54,12 +61,12 @@ decision 4 and [ADR-126]. All of them stand.
      which ports it implements, and it carries `@NullMarked`. It compiles to a class that ArchUnit
      imports, so the rules see the package before it holds code.
    - A Python package gets an `__init__.py` with a Google-style docstring, which ruff requires.
-     import-linter checks a folder only once it is a package.
+     Where import-linter runs, as in the optimizer, it checks a folder only once it is a package.
    - Any other folder gets an empty `.gitkeep`. The first real file put in the folder deletes it.
    - No class, bean, stub test or `package.json` is added.
    - Nothing [ADR-090] cuts gets a folder.
 2. **Six inbound kinds,** `<module>/adapter/in/<kind>`, read off each use case's first parameters
-   ([ADR-120] decision 1):
+   and, where those don't tell, its Javadoc ([ADR-120] decision 1):
 
    | Kind | Starts a use case when |
    |---|---|
@@ -77,8 +84,8 @@ decision 4 and [ADR-126]. All of them stand.
      `sms`, `email`, `push`, `disk` and `sse`;
    - `persistence` for the module's own database ([ADR-126]);
    - for an adapter that calls nothing outside the process, named for the technology it wraps:
-     `crypto` (hashing and signing), `cache`, `config`, `random`, `resources` (files shipped with
-     the core) and `roaddata` (what the monthly road-data build produces).
+     `crypto` (hashing and signing), `config`, `random`, `resources` (files shipped with the core)
+     and `roaddata` (what the monthly road-data build produces).
 
    A second system behind the same port gets its own package beside the first. If GovMap's terms
    fail, Nominatim ([ADR-085]) is `nominatim`.
@@ -86,7 +93,7 @@ decision 4 and [ADR-126]. All of them stand.
 
    | Module | `adapter/in` | Other `adapter/out` packages, and the ports they implement |
    |---|---|---|
-   | access | `web`, `listen`, `schedule`, `cli` | `email` (`EmailSender`); `crypto` (`PasswordHasher`, `TokenSigner`, `SecretTokens`); `cache` (`RevocationCache`, `RecoveryEmailCap`); `resources` (`CommonPasswordList`) |
+   | access | `web`, `listen`, `schedule`, `cli` | `email` (`EmailSender`); `crypto` (`PasswordHasher`, `TokenSigner`, `SecretTokens`); `resources` (`CommonPasswordList`) |
    | audit | `schedule` | none |
    | fleet | `web`, `listen`, `schedule` | none |
    | orders | `web`, `schedule`, `job` | `govmap` (`Geocoder`); `osrm` (`RoadSnap`); `roaddata` (`ServiceAreas`) |
@@ -96,29 +103,50 @@ decision 4 and [ADR-126]. All of them stand.
    | reporting | `web`, `listen` | `optimizer` (`BaselinePlanner`) |
 
    - **Persistence-shaped ports go in the module's `persistence` package:** the `*Views` ports,
-     `GeocodeRequests`, `StoredMatrices`, `ReportReceipts` and `PushTokens`.
-   - **`RecoveryEmailCap` keeps its count in memory,** in `cache`, beside `RevocationCache`.
-   - **Planning and Reporting each have their own `optimizer` package,** and Planning and Orders
-     their own `osrm`. One module's adapter never uses another's (decision 7), and Reporting may
-     use no Planning class.
-5. **Two shared adapters.** `shared/adapter/out/clock` implements `Clock`: the system clock, and
-   the end-to-end profile's settable one. `shared/adapter/out/uuid` implements `IdGenerator`, with
-   UUIDv7. `ProcessedEvents` goes in `shared/adapter/out/persistence`.
+     `GeocodeRequests`, `StoredMatrices`, `ReportReceipts` and `PushTokens`, and Access's
+     `RevocationCache` and `RecoveryEmailCap`.
+   - **`RevocationCache` sits in `persistence`,** because the repositories answer
+     `activeGenerationOf` and `liveGenerationOf` through the cache's loader: "the cache sits in
+     the adapter", as `UserAccountRepository` says.
+   - **`RecoveryEmailCap` counts in the database:** the day's `RECOVERY` links in
+     `access.credential_link`, by `issued_at` in Israel time ([ADR-088]). A restart then keeps the
+     count, so the cap [NFR-215] sets holds all day, and no table is added.
+   - **An adapter that needs its module's tables reaches them through a port** that the
+     module's `persistence` adapter implements ([TS §2.1][TS-2-1]), never by mapping them itself:
+     GovMap's cache of geocoded addresses ([FR-13]) and the proof store's bindings and tombstones.
+     The milestone that builds the adapter declares the port, so every table stays in
+     `persistence`, and decision 7's first rule holds unchanged.
+   - **Planning and Reporting each have their own `optimizer` adapter,** and both wrap the one
+     generated client (decision 5). Planning and Orders each have their own `osrm`. One module's
+     adapter never uses another's (decision 7), and Reporting may use no Planning class.
+5. **Three shared adapters.** `shared/adapter/out/clock` implements `Clock`: the system clock,
+   and the end-to-end profile's settable one. `shared/adapter/out/uuid` implements `IdGenerator`,
+   with UUIDv7. `shared/adapter/out/optimizer` holds the client [ADR-043] generates from
+   `optimization-api`: one generator run and one set of types, which Planning's and Reporting's
+   `optimizer` adapters each wrap for their own ports. It implements no port, and its types stop
+   at those adapters. `ProcessedEvents` goes in `shared/adapter/out/persistence`.
    - The flat guard (`DomainPackageRules.packagesBelowAFlatOne`, [ADR-125] decision 4) and the
      purity rules (`DomainPurityRules.inPureLayers`) let any `shared.adapter.in.<x>` or
      `shared.adapter.out.<x>` through, not only `persistence` ([ADR-126]).
    - Any other kernel subpackage, such as `shared.adapter.util`, still fails.
-   - No pure class may use any `shared.adapter` class.
+   - No pure class may use any `shared.adapter` class, and a shared adapter uses no module
+     (decision 7).
 6. **Live updates.** Planning's and Live Operations' `LiveUpdates` adapters each go in their
-   module's `adapter/out/sse`. The registry of open streams and the stream's endpoint belong to the
-   app-wide `web` package, whose place [ADR-040] leaves to its own ADR ([issue #143][ISSUE-143]).
-7. **Adapters meet only through ports** ([TS §2.1][TS-2-1]). Two ArchUnit rules extend [ADR-120]
+   module's `adapter/out/sse`. The stream's endpoint, its registry of open streams and the listener
+   that closes an account's streams on `SessionsRevoked` belong to no module, nor do the end-to-end
+   profile's control endpoints, such as the one that sets the test clock. The app-wide `web` ADR
+   places them ([ADR-040], [issue #143][ISSUE-143]), and it also decides how an `out/sse`
+   adapter reaches the registry: today rule 2 refuses a module any dependency on `web`.
+7. **Adapters meet only through ports** ([TS §2.1][TS-2-1]). Three ArchUnit rules extend [ADR-120]
    decision 10:
    - **Within a module, adapters stay apart.** A class in one adapter (`adapter.in.<a>` or
      `adapter.out.<a>`, with its subpackages) uses no class of another. That covers `in` using
-     `out`, `out` using `in`, and two adapters of one kind.
-   - **No adapter uses another module's adapter.** `shared` and `web` are not modules, so the
-     shared adapters stay usable.
+     `out`, `out` using `in`, and two adapters of one kind. The adapters beside the kernel stay
+     apart from each other too.
+   - **No adapter uses another module's adapter.** `shared` and `web` are not modules, so this rule
+     leaves their adapters usable. Rule 2 still decides whether a module may reach `web`.
+   - **A shared adapter uses no module.** A class under `shared.adapter` uses no class of a
+     module, so no module reaches another through it, around DL §2.1's graph.
 
    Each rule has a fixture it must flag. `ApplicationRules` rule 5's `@NullMarked` guard covers
    the adapter packages too.
@@ -126,7 +154,9 @@ decision 4 and [ADR-126]. All of them stand.
    `adapters/outbound/solvers/{ortools,alns,nearest_neighbour}`, as [ADR-040] decided.
    `nearest_neighbour` is the baseline's solver, which the service's registry does not hold
    ([ADR-121] P16). The import-linter layers become `adapters`, `application`, `domain`, and the
-   optional `(solvers)` layer goes.
+   optional `(solvers)` layer goes. The HTTP adapter's `create_app()` is the composition root: it
+   fills the solver registry, so it imports the solver packages, which one `adapters` layer
+   allows. Decision 7's rules bind the core.
 9. **The apps and the shared packages.**
    - **Feature folders.** The web app and the phone app each get `src/features/<context>` for
      `access`, `audit`, `fleet`, `liveops`, `messaging`, `orders`, `planning` and `reporting`
@@ -158,7 +188,7 @@ decision 4 and [ADR-126]. All of them stand.
   the placeholders.
 - **Hard:** a name chosen before its code may prove wrong. An empty package is cheap to rename, but
   the issues that name it change too.
-- **Cost:** the 85 files, two ArchUnit rules with their fixtures, two widened guards, and the
+- **Cost:** the 85 files, three ArchUnit rules with their fixtures, two widened guards, and the
   documents that describe the tree.
 - **Risk:** a placeholder can outlive its purpose and mislead. The first trigger below deletes it.
 
@@ -181,6 +211,15 @@ decision 4 and [ADR-126]. All of them stand.
 - **An `in/sse` kind in each module.** Rejected: the browser would open one stream per module.
 - **Declare the stream's registry in `shared/adapter/out/sse` now.** Rejected by the owner: it
   settles part of the app-wide `web` ADR before that ADR is written.
+- **Keep `RecoveryEmailCap`'s count in memory, in an `access/adapter/out/cache`.** Rejected by
+  the owner: after a restart the count is 0, so up to 100 more recovery emails could go out that
+  day, against [NFR-215], a Must row.
+- **Let `govmap` and `disk` map their own tables.** Rejected by the owner: a module would have two
+  database adapters, and the cache could not reuse `persistence`'s converters.
+- **Split `Geocoder` now, so the geocoding job checks a cache port itself.** Rejected by the owner:
+  it changes the declared ports' contracts before the milestone that builds them.
+- **Each module generates its own optimizer client.** Rejected by the owner: two generator runs
+  and two identical sets of types.
 - **Leave the phone app until M10.** Rejected by the owner: its feature folders mirror the web
   app's.
 - **Keep `src/research/instances/`.** Rejected: [ADR-123] puts benchmark instances in the git-ignored
@@ -200,7 +239,9 @@ decision 4 and [ADR-126]. All of them stand.
 [ADR-027]: ADR-027-proof-files-on-the-vm-disk-with-hourly-backups.md
 [ADR-039]: ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md
 [ADR-040]: ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md
+[ADR-043]: ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md
 [ADR-085]: ADR-085-govmap-geocodes-addresses-with-nominatim-as-the-fallback.md
+[ADR-088]: ADR-088-israel-local-time-for-every-date-and-schedule.md
 [ADR-090]: ADR-090-scope-cuts-for-the-first-release.md
 [ADR-119]: ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md
 [ADR-120]: ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md
@@ -210,10 +251,12 @@ decision 4 and [ADR-126]. All of them stand.
 [ADR-126]: ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md
 [DL-1]: ../architecture/domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts
 [DL-13]: ../architecture/domain_layer/domain_layer_design.md#13-inside-each-module-hexagon
+[FR-13]: ../requirements/requirements.md#geocoding
 [ISSUE-102]: https://github.com/NaimElijah/DispatchFlow/issues/102
 [ISSUE-118]: https://github.com/NaimElijah/DispatchFlow/issues/118
 [ISSUE-142]: https://github.com/NaimElijah/DispatchFlow/issues/142
 [ISSUE-143]: https://github.com/NaimElijah/DispatchFlow/issues/143
+[NFR-215]: ../requirements/requirements.md#nfr-215
 [TS-2-1]: ../architecture/tech_stack.md#21-the-dependency-rule
 [TS-4]: ../architecture/tech_stack.md#4-repository-layout
 [TS-10]: ../architecture/tech_stack.md#10-web-app
