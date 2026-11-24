@@ -13,13 +13,17 @@ import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
+import java.lang.annotation.Annotation;
 import java.util.HashSet;
-import java.util.Locale;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
  * The rules on where a transaction starts (ADR-129), built for a root package. {@code
@@ -166,6 +170,33 @@ final class TransactionRules {
                     }
                 })
                 .because("ADR-129 decision 3: the use case never touches the database itself");
+    }
+
+    /**
+     * Rule 8: every transactional event listener is {@code @Async}, directly or through an
+     * annotation. A synchronous {@code AFTER_COMMIT} listener runs while the committed transaction
+     * still looks open on its thread. The service it calls would join that finished transaction,
+     * and its writes would be lost when the connection is released (ADR-129 decision 7).
+     */
+    static ArchRule everyListenerIsAsync(String root) {
+        return classes()
+                .that()
+                .resideInAPackage(root + "..")
+                .should(new ArchCondition<JavaClass>("run each transactional event listener asynchronously") {
+                    @Override
+                    public void check(JavaClass item, ConditionEvents events) {
+                        item.getMethods().stream()
+                                .filter(method -> carries(method, TransactionalEventListener.class))
+                                .filter(method -> !carries(method, Async.class) && !carries(item, Async.class))
+                                .forEach(method -> events.add(SimpleConditionEvent.violated(
+                                        method, method.getFullName() + " listens after a commit but isn't @Async")));
+                    }
+                })
+                .because("ADR-129 decision 7: a listener has no transaction of its own");
+    }
+
+    private static boolean carries(CanBeAnnotated element, Class<? extends Annotation> type) {
+        return element.isAnnotatedWith(type) || element.isMetaAnnotatedWith(type);
     }
 
     /**
@@ -328,35 +359,48 @@ final class TransactionRules {
                         if (!item.getPackageName().contains(".adapter.out.persistence")) {
                             return;
                         }
-                        item.getMethods().stream()
-                                .filter(method -> method.getMethodCallsFromSelf().stream()
-                                        .anyMatch(TransactionRules::takesATransactionScopedLock))
-                                .filter(method -> method.getMethodCallsFromSelf().stream()
-                                        .noneMatch(call -> call.getTargetOwner().isEquivalentTo(OpenTransaction.class)
-                                                && call.getName().equals("require")))
-                                .forEach(method -> events.add(SimpleConditionEvent.violated(
+                        item.getMethods().forEach(method -> {
+                            OptionalInt firstLock = method.getMethodCallsFromSelf().stream()
+                                    .filter(TransactionRules::takesATransactionScopedLock)
+                                    .mapToInt(JavaMethodCall::getLineNumber)
+                                    .min();
+                            if (firstLock.isEmpty()) {
+                                return;
+                            }
+                            boolean checkedFirst = method.getMethodCallsFromSelf().stream()
+                                    .filter(call -> call.getTargetOwner().isEquivalentTo(OpenTransaction.class)
+                                            && call.getName().equals("require"))
+                                    .anyMatch(call -> call.getLineNumber() < firstLock.getAsInt());
+                            if (!checkedFirst) {
+                                events.add(SimpleConditionEvent.violated(
                                         method,
                                         method.getFullName()
-                                                + " takes a transaction-scoped lock without OpenTransaction.require")));
+                                                + " takes a transaction-scoped lock without calling"
+                                                + " OpenTransaction.require first"));
+                            }
+                        });
                     }
                 })
                 .because("ADR-129 decision 6: a lock taken outside a transaction protects nothing");
     }
 
     /**
-     * Whether a call reaches a query whose SQL takes a {@code pg_advisory_xact_lock} or a {@code FOR
-     * UPDATE}, read from its {@code @Query}.
+     * Whether a call reaches a query whose SQL takes a lock that lasts only as long as its
+     * transaction, read from its {@code @Query}: an advisory transaction lock, tried or waited for, or
+     * a row lock of any strength ({@code FOR UPDATE}, {@code FOR NO KEY UPDATE}, {@code FOR SHARE},
+     * {@code FOR KEY SHARE}), however its words are spaced.
      */
     static boolean takesATransactionScopedLock(JavaMethodCall call) {
         return call.getTarget()
                 .resolveMember()
                 .flatMap(target -> target.tryGetAnnotationOfType(Query.class))
-                .map(query -> {
-                    String sql = query.value().toUpperCase(Locale.ROOT);
-                    return sql.contains("PG_ADVISORY_XACT_LOCK") || sql.contains("FOR UPDATE");
-                })
+                .map(query -> TRANSACTION_SCOPED_LOCK.matcher(query.value()).find())
                 .orElse(false);
     }
+
+    private static final Pattern TRANSACTION_SCOPED_LOCK = Pattern.compile(
+            "\\bPG_(TRY_)?ADVISORY_XACT_LOCK(_SHARED)?\\b|\\bFOR\\s+((NO\\s+KEY\\s+)?UPDATE|(KEY\\s+)?SHARE)\\b",
+            Pattern.CASE_INSENSITIVE);
 
     /**
      * Whether a class is a service: a public top-level class in a module's {@code
@@ -397,8 +441,13 @@ final class TransactionRules {
                 .findFirst();
     }
 
+    /**
+     * Whether an element carries a transaction, directly or through an annotation: Spring's
+     * {@code @Transactional}, or the {@code jakarta.transaction} one that hibernate-core brings and
+     * Spring honours too.
+     */
     private static boolean transactional(CanBeAnnotated element) {
-        return element.isAnnotatedWith(Transactional.class) || element.isMetaAnnotatedWith(Transactional.class);
+        return carries(element, Transactional.class) || carries(element, jakarta.transaction.Transactional.class);
     }
 
     private static Stream<JavaMember> transactionalMembers(JavaClass item) {

@@ -4,10 +4,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dispatchflow.archfixture.theta.adapter.in.listen.ListenerInATransaction;
+import com.dispatchflow.archfixture.theta.adapter.in.listen.ListensAsync;
+import com.dispatchflow.archfixture.theta.adapter.in.listen.ListensWithoutAsync;
 import com.dispatchflow.archfixture.theta.adapter.in.listen.OpensATransaction;
 import com.dispatchflow.archfixture.theta.adapter.in.listen.PlainListener;
+import com.dispatchflow.archfixture.theta.adapter.out.persistence.JakartaTransactionalLedgers;
 import com.dispatchflow.archfixture.theta.adapter.out.persistence.LedgersWithATransactionalMethod;
+import com.dispatchflow.archfixture.theta.adapter.out.persistence.LocksARowWithoutTheCheck;
 import com.dispatchflow.archfixture.theta.adapter.out.persistence.LocksAfterTheCheck;
+import com.dispatchflow.archfixture.theta.adapter.out.persistence.LocksBeforeTheCheck;
 import com.dispatchflow.archfixture.theta.adapter.out.persistence.LocksWithoutTheCheck;
 import com.dispatchflow.archfixture.theta.adapter.out.persistence.PlainLedgers;
 import com.dispatchflow.archfixture.theta.adapter.out.persistence.TransactionalLedgers;
@@ -32,6 +37,10 @@ import com.dispatchflow.archfixture.theta.application.service.SplitButHoldsLedge
 import com.dispatchflow.archfixture.theta.application.service.SplitButHoldsLedgersChange;
 import com.dispatchflow.archfixture.theta.application.service.SplitButTransactional;
 import com.dispatchflow.archfixture.theta.application.service.SplitButTransactionalChange;
+import com.dispatchflow.archfixture.theta.application.service.SplitWithATransactionalMethod;
+import com.dispatchflow.archfixture.theta.application.service.SplitWithATransactionalMethodChange;
+import com.dispatchflow.archfixture.theta.application.service.TransactionalOnAMethodOnly;
+import com.dispatchflow.archfixture.theta.application.service.TransactionalRecord;
 import com.dispatchflow.archfixture.theta.application.service.WaitsOnTheOptimizer;
 import com.tngtech.archunit.lang.ArchRule;
 import org.junit.jupiter.api.Test;
@@ -85,6 +94,7 @@ class TransactionRulesTest {
     @ValueSource(
             classes = {
                 TransactionalLedgers.class,
+                JakartaTransactionalLedgers.class,
                 LedgersWithATransactionalMethod.class,
                 ListenerInATransaction.class,
                 OpensATransaction.class
@@ -103,6 +113,21 @@ class TransactionRulesTest {
     @Test
     void GivenAServiceWithNoTransaction_WhenChecked_ThenItIsFlagged() {
         assertThat(flags(TransactionRules.everyServiceIsTransactional(FIXTURE_ROOT), ForgetsItsTransaction.class))
+                .isTrue();
+    }
+
+    @Test
+    void GivenASplitUseCaseWithATransactionalMethod_WhenChecked_ThenItIsFlagged() {
+        assertThat(flags(
+                        TransactionRules.everyServiceIsTransactional(FIXTURE_ROOT),
+                        SplitWithATransactionalMethod.class,
+                        SplitWithATransactionalMethodChange.class))
+                .isTrue();
+    }
+
+    @Test
+    void GivenAServiceTransactionalOnAMethodOnly_WhenChecked_ThenItIsFlagged() {
+        assertThat(flags(TransactionRules.everyServiceIsTransactional(FIXTURE_ROOT), TransactionalOnAMethodOnly.class))
                 .isTrue();
     }
 
@@ -155,7 +180,7 @@ class TransactionRulesTest {
     }
 
     @ParameterizedTest
-    @ValueSource(classes = {FinalService.class, FinalMethodService.class})
+    @ValueSource(classes = {FinalService.class, FinalMethodService.class, TransactionalRecord.class})
     void GivenAFinalTransactionalClassOrMethod_WhenChecked_ThenItIsFlagged(Class<?> fixture) {
         assertThat(flags(TransactionRules.transactionalClassesCanBeProxied(FIXTURE_ROOT), fixture))
                 .isTrue();
@@ -211,12 +236,31 @@ class TransactionRulesTest {
                 .isTrue();
     }
 
+    @ParameterizedTest
+    @ValueSource(classes = {LocksBeforeTheCheck.class, LocksARowWithoutTheCheck.class})
+    void GivenAnAdapterLockingBeforeOrWithoutTheCheck_WhenChecked_ThenItIsFlagged(Class<?> fixture) {
+        assertThat(flags(TransactionRules.lockTakingMethodsRequireATransaction(FIXTURE_ROOT), fixture, LEDGER_ROWS))
+                .isTrue();
+    }
+
     @Test
     void GivenAnAdapterCheckingBeforeItsLock_WhenChecked_ThenNothingIsFlagged() {
         assertThat(flags(
                         TransactionRules.lockTakingMethodsRequireATransaction(FIXTURE_ROOT),
                         LocksAfterTheCheck.class,
                         LEDGER_ROWS))
+                .isFalse();
+    }
+
+    @Test
+    void GivenAListenerThatRunsSynchronouslyAfterTheCommit_WhenChecked_ThenItIsFlagged() {
+        assertThat(flags(TransactionRules.everyListenerIsAsync(FIXTURE_ROOT), ListensWithoutAsync.class))
+                .isTrue();
+    }
+
+    @Test
+    void GivenAnAsyncListener_WhenChecked_ThenNothingIsFlagged() {
+        assertThat(flags(TransactionRules.everyListenerIsAsync(FIXTURE_ROOT), ListensAsync.class, PlainListener.class))
                 .isFalse();
     }
 

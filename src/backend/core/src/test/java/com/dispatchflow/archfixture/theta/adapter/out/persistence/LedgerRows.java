@@ -16,4 +16,16 @@ interface LedgerRows {
      */
     @Query(value = "SELECT count(*) FROM theta.ledger", nativeQuery = true)
     long countAll();
+
+    /**
+     * Counts the ledgers while locking their rows against a key change, with the {@code FOR} and its
+     * lock strength on separate lines.
+     *
+     * @return how many there are
+     */
+    @Query(value = """
+            SELECT count(*) FROM theta.ledger FOR NO KEY
+                UPDATE
+            """, nativeQuery = true)
+    long countLockingTheRows();
 }
