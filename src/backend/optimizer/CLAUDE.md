@@ -11,6 +11,8 @@ and it hosts every solver behind one port ([ADR-004]). Python 3.14, FastAPI, Uvi
 | `application/` | The `Solver` protocol, `SolverRegistry`, `Budget`, `Stopwatch`, the errors, the requests and outcomes, and the use cases `Solve`, `Reoptimize`, `Evaluate`, `Baseline` and `ListSolvers` |
 | `adapters/outbound/solvers/<name>/` | One adapter per solver: OR-Tools, ours and `nearest_neighbour` ([ADR-040], [TS §4]). Ours runs the `alns` package (MIT) as its outer loop; the rest is ours ([ADR-092]) |
 | `adapters/inbound/http/` | `create_app()`: the FastAPI app and its request and response models |
+| `adapters/inbound/worker/` | The solver worker per lane ([ADR-051]), apart from `http` so `spawn` never loads FastAPI in a solver process |
+| `adapters/outbound/clock/` | The `Stopwatch` adapter, over the monotonic clock |
 
 An unbuilt `application/` body raises `NotImplementedError("Built in M<n>")`, naming the milestone
 that builds it. To fill one, write the failing test, replace the `raise`, then build the adapter. A
@@ -25,9 +27,11 @@ docstring's "Built in M<n>" when the body is built ([ADR-119]). `tests/` mirrors
   `eval()` (ruff `TID251`, `PTH123`, `T20`, `S102`, `S307`; [ADR-113]). `application` imports no web
   framework, Pydantic, solver library or process model. `feasibility`, `objective` and `drops` read
   a problem through `ProblemView`, never `problem` ([ADR-113]). OR-Tools types live only in its
-  solver adapter ([ADR-001]), the process model in the adapter ([ADR-051]), and the `Solver` port
-  and registry in `application/ports.py` ([ADR-004]). The full lists are `pyproject.toml`'s
-  import-linter contracts and ruff `banned-api`, run by `just optimizer-check`.
+  solver adapter ([ADR-001]), the process model in `adapters/inbound/worker` ([ADR-051]), and the
+  `Solver` port and registry in `application/ports.py` ([ADR-004]). The full lists are
+  `pyproject.toml`'s import-linter contracts and ruff `banned-api`, run by `just optimizer-check`.
+  They also keep an outbound adapter from importing an inbound one, and each solver from importing
+  another.
 - Only the HTTP adapter uses the Pydantic models generated from the contract.
 - `Problem` owns `validate`, `cost` and `explain_drop` ([TS §7.1]). `validate` is the one definition
   of feasibility, and `cost` is the one objective. It charges route stability through two terms, and

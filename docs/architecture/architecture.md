@@ -81,8 +81,8 @@ entities that have tables, `Ledger` and its child `LedgerEntry`, and the test-on
 `src/test/resources/db/fixture/V0_1__persistence_fixture.sql`. Flyway applies it in every
 integration-test context and under `just core-run`, and only the version helper's tests use its
 tables. The `@Entity` classes under `archfixture/` are deliberately wrong fixtures for the mapping
-rules, and no schema maps them. `optimizer`'s solvers, `adapters/outbound/solvers/{ortools,alns,nearest_neighbour}`, are declared,
-empty packages; its `domain`
+rules, and no schema maps them. `optimizer`'s solvers, `adapters/outbound/solvers/{ortools,alns,nearest_neighbour}`, its
+`adapters/outbound/clock` and its `adapters/inbound/worker` are declared, empty packages; its `domain`
 holds the domain for daily solves and re-optimizations
 ([ADR-098](../ADRs/ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) fixes its
 numbers), and its `application` package declares the `Solver` port, the registry, the requests and
@@ -122,7 +122,7 @@ package per aggregate, then into concept packages, and an application package th
 Which modules are split, and into what, is in [bounded-contexts.md](bounded-contexts.md).
 
 Every module's `adapter/` also holds packages declared ahead, empty, as [ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)
-declared the application layer: 45 in all (42 in the modules, 3 beside the kernel), each with a `package-info.java` that says what goes in it and
+declared the application layer: 53 in all (50 in the modules, 3 beside the kernel), each with a `package-info.java` that says what goes in it and
 carries `@NullMarked`, and no class. An inbound adapter is `adapter/in/<kind>`, of six kinds:
 `web`, `listen`, `schedule`, `job`, `callback` and `cli`. An outbound one is `adapter/out/<name>`,
 named for the outside system or channel it talks to, `persistence` for the module's own database,
@@ -193,10 +193,12 @@ have a `Dockerfile`, and neither runs as root
   rules 1 to 7 are [ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)'s
   decision 10, with rule 4 extended and rule 8 added by [ADR-121](../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md),
   and rule 7 widened to every application package by [ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md).
-  Rules 9 to 11 are [ADR-130](../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md)'s: the adapters of a module stay apart (no adapter uses another
-  adapter of its module, `in` and `out` included), no adapter uses another module's adapter, and
-  no shared adapter uses a module. Rule 5's `@NullMarked` check covers the adapter packages too, and
-  a test holds the tree to the adapters ADR-130 declares.
+  Rules 9 to 11 are [ADR-130](../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md)'s, and rule 12 is
+  [ADR-131](../ADRs/ADR-131-the-declared-structures-review-tightens-its-rules-and-fills-its-gaps.md)'s: the adapters of a module stay apart (no adapter uses another
+  adapter of its module, `in` and `out` included), no adapter uses another module's adapter, no
+  shared adapter uses anything outside the kernel, and only the optimizer adapters use the generated
+  optimizer client. Rule 5's `@NullMarked` check covers the adapter packages too, and a test holds
+  the tree to the adapters ADR-130 and ADR-131 declare.
   The purity rules also allow the persistence annotations that [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) lists in the domain and the
   kernel, and `PersistenceRules` has nine rules on how the domain is mapped: every aggregate root an
   `@Entity`, relationships only inside
