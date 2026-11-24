@@ -488,9 +488,9 @@ saves with the batch in one transaction (§6.1). The batch then keeps no rows. R
 file reader, each read whole or with its fields' refusals. Rows whose addresses normalize alike, and match
 no customer, share one new customer, made from the first of them ([ADR-102]). A later row that gives no recipient and names another person or phone keeps them as its order's recipient, and one whose recipient columns leave the name or phone empty fills that part from the row where it differs from the customer's ([ADR-115]).
 
-**In the Alpha:** UTF-8 CSV imports matched to the seeded customers, which already have coordinates
-(FR-310). A new address has no coordinates until geocoding arrives, so its order drops as *missing
-location* (BR-14).
+**In the Alpha:** UTF-8 CSV imports. A confirmed import's new customers are geocoded after the
+commit, from the outbox row ([ADR-086], [ADR-139]). Until a match arrives, an order with no location
+drops as *missing location* (BR-14).
 
 ### 4.4 Planning
 
@@ -1583,7 +1583,7 @@ The most likely changes, and whether each fits by adding code or needs existing 
 | Likely change | Fits by |
 |---|---|
 | Excel and Windows-1255 imports (M7) | Adding a file reader. `ImportBatch` doesn't change |
-| Geocoding, or a second geocoder | Adding a `Geocoder` adapter. `Customer.recordGeocode` already exists |
+| A second geocoder, such as Nominatim if GovMap's terms fail | Adding a `Geocoder` adapter behind the same port. `Customer.recordGeocode` doesn't change |
 | Photo proofs, barcode checks (FR-98) | Adding a `Proof` variant. "A driver's *delivered* needs a proof" doesn't change |
 | A new solver, or a new OR-Tools version | Adding a `Solver` adapter in Python. The validator and the objective don't change |
 | A new message type or channel (email, WhatsApp) | Adding a `MessageType` and a channel adapter. `StopMessages`' frequency rules cover it |
@@ -1788,3 +1788,4 @@ Nothing. These ADRs record the decisions of this document:
 [ADR-125]: ../../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md
 [ADR-126]: ../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md
 [ADR-128]: ../../ADRs/ADR-128-the-persistence-rules-the-mapping-settled-after-adr-127.md
+[ADR-139]: ../../ADRs/ADR-139-govmap-geocoding-comes-into-the-alpha.md

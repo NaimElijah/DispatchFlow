@@ -4,10 +4,10 @@ The HTTP adapter builds these from the contract, so no transport type reaches a 
 rule 4). The inputs are `ProblemFactory`'s keyword arguments, which the use case hands it
 unchanged, so the factory alone decides each convention (ADR-050).
 
-Gap until geocoding is built: `OrderSpec` has no input for an order's outside-service-area flag
-(FR-320), so the core has nowhere to send it. Geocoding adds that input to the domain, and the
-factory then drops such an order as *unreachable location* (FR-66). The core never sets the flag
-for a location placed by hand or a missing one.
+Gap until the solve contract carries the flag: `OrderSpec` has no input for an order's
+outside-service-area flag (FR-320), so the core has nowhere to send it. The solve contract and this
+service add that input, and the factory then drops such an order as *unreachable location* (FR-66,
+ADR-139 decision 6). The core never sets the flag for a location placed by hand or a missing one.
 
 The rates and the break flag come from the core's configuration, fixed values no one changes on
 screen (ADR-029, ADR-121).

@@ -32,7 +32,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-111](ADR-111-attempt-is-a-shared-kernel-value-and-names-and-addresses-drop-invisible-fillers.md) | Attempt is a shared-kernel value, and names and addresses drop invisible fillers | Accepted |
 | [ADR-119](ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md) | The application layer is declared ahead of its milestones, as signatures whose bodies throw | Accepted; extended by ADR-130; amended by ADR-121, ADR-129 and ADR-132 |
 | [ADR-120](ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md) | The application layer takes an Actor and a CallContext, keeps its shared ports in shared.application, and reads through query ports | Accepted; extended by ADR-125, ADR-130 and ADR-131; amended by ADR-121 |
-| [ADR-121](ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md) | The application skeleton's review settles its seams, its conflicts, its retention and its scoring inputs | Accepted; extended by ADR-131 and ADR-136; amended by ADR-126 and ADR-132 |
+| [ADR-121](ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md) | The application skeleton's review settles its seams, its conflicts, its retention and its scoring inputs | Accepted; extended by ADR-131 and ADR-136; amended by ADR-126, ADR-132 and ADR-139 |
 | [ADR-041](ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md) | Each module owns a PostgreSQL schema, read and written through jOOQ by a role that owns no table | Accepted; amended by ADR-126 and ADR-127 |
 | [ADR-126](ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) | JPA replaces jOOQ in the core, and the domain classes carry their own mapping | Accepted; extended by ADR-130; amended by ADR-127 and ADR-128 |
 | [ADR-127](ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md) | How the 20 aggregates are mapped, and where their stored state is tested | Accepted; extended by ADR-128 |
@@ -79,8 +79,9 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-082](ADR-082-supported-phone-app-versions.md) | The server supports the current and the previous phone app version, and an older one still drains its queue | Accepted; amended by ADR-094 |
 | [ADR-083](ADR-083-admins-and-dispatchers-get-alerts-by-stream-and-push-in-the-phone-app.md) | Admins and Dispatchers get alerts in the phone app by event stream while it is open and by push in the background | Accepted |
 | [ADR-084](ADR-084-maplibre-in-both-apps-with-self-hosted-protomaps-tiles.md) | Both apps draw maps with MapLibre, from self-hosted Protomaps tiles | Accepted |
-| [ADR-085](ADR-085-govmap-geocodes-addresses-with-nominatim-as-the-fallback.md) | GovMap geocodes addresses, and self-hosted Nominatim replaces it only if GovMap's terms fail | Accepted; amended by ADR-121 |
-| [ADR-086](ADR-086-csv-imports-upload-then-confirm-within-an-hour.md) | An order import is two calls, upload then confirm within an hour, and writes every row or none | Accepted; extended by ADR-102 |
+| [ADR-085](ADR-085-govmap-geocodes-addresses-with-nominatim-as-the-fallback.md) | GovMap geocodes addresses, and self-hosted Nominatim replaces it only if GovMap's terms fail | Accepted; amended by ADR-121 and ADR-139 |
+| [ADR-086](ADR-086-csv-imports-upload-then-confirm-within-an-hour.md) | An order import is two calls, upload then confirm within an hour, and writes every row or none | Accepted; extended by ADR-102; amended by ADR-139 |
+| [ADR-139](ADR-139-govmap-geocoding-comes-into-the-alpha.md) | GovMap geocoding comes into the Alpha, behind the `Geocoder` port, and the demo reaches the real GovMap | Accepted |
 | [ADR-102](ADR-102-order-references-are-checked-on-every-move-to-a-date.md) | Order references are checked on every move to a date, and the abbreviation table starts with three | Accepted; extended by ADR-137; amended by ADR-115 |
 | [ADR-137](ADR-137-the-address-abbreviation-table-gains-six-entries.md) | The address abbreviation table gains six entries, and ambiguous ones stay out | Accepted |
 | [ADR-115](ADR-115-import-rows-keep-their-own-recipient-put-backs-raise-an-event-and-orders-clamp-a-stepped-back-clock.md) | An import row keeps its own recipient, a put-back onto another date raises `OrderPutBack`, and Orders' commands clamp a clock that stepped back | Accepted |
@@ -112,7 +113,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-123](ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md) | The code keeps its grouped layout, and three components take new names | Accepted; extended by ADR-130 |
 | [ADR-038](ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md) | mise pins every toolchain, and the core moves to Java 25 | Accepted |
 | [ADR-039](ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md) | Both apps and the shared TypeScript packages live in one pnpm workspace | Accepted; extended by ADR-130; amended by ADR-123 |
-| [ADR-042](ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md) | Local runs start their services from `compose.dev.yaml`; tests keep Testcontainers | Accepted; amended by ADR-123 |
+| [ADR-042](ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md) | Local runs start their services from `compose.dev.yaml`; tests keep Testcontainers | Accepted; amended by ADR-123 and ADR-139 |
 | [ADR-046](ADR-046-renovate-replaces-dependabot-and-targets-dev.md) | Renovate replaces Dependabot and keeps opening updates against `dev` | Accepted |
 | [ADR-072](ADR-072-images-scanned-by-pinned-trivy-and-secrets-by-gitleaks.md) | A pinned Trivy scans images and Terraform, and Gitleaks scans the full history for secrets | Accepted |
 | [ADR-074](ADR-074-dependency-licences-checked-against-an-allow-list.md) | Dependency licences are checked in CI against an allow-list, and GPL and AGPL services run unmodified | Accepted |
@@ -196,4 +197,9 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > names the ones left out, with the reason for each.
 > ADR-138, on 2026-11-24, returns the ruleset's Admin bypass to `always`, because the pull-request
 > bypass refused the merge commit from `dev` to `main`.
+> ADR-139, on 2026-11-25, brings GovMap geocoding into the Alpha behind the `Geocoder` port, with the
+> WireMock fake by default and the real GovMap for the demo, and moves ADR-085's accuracy test with
+> it. An order outside the service area now drops in the Alpha, and the core refuses a GovMap mode
+> that doesn't fit its profile. Depot geocoding, suggestions while typing and the cache's retention
+> stay later.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.
