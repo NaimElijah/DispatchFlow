@@ -4,7 +4,17 @@
 # Secrets — commit .env.example with keys and no values
 .env
 .env.*
+*.env
 !.env.example
+
+# Terraform's local files, which can hold values in plain text: its state, plans, variable files
+# and provider cache. The lock file, .terraform.lock.hcl, stays tracked.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfplan
+crash.log
 
 # Keys and certificates: they belong in a secret manager, never in the repository
 *.pem
@@ -20,6 +30,15 @@ logs/*
 # rebuilt from their sources, so never committed (ADR-123). The folder itself is kept (ADR-130).
 /data/*
 !/data/.gitkeep
+
+# Usability-study recordings and raw answers show the pilot's dispatcher and company data, so they
+# stay on company storage in Israel, never in this public repository (NFR-209, FR-48)
+/docs/research/usability/**/*.mkv
+/docs/research/usability/**/*.mp4
+/docs/research/usability/**/*.mov
+/docs/research/usability/**/*.webm
+/docs/research/usability/**/*.csv
+/docs/research/usability/**/*.xlsx
 
 # OS files
 .DS_Store
