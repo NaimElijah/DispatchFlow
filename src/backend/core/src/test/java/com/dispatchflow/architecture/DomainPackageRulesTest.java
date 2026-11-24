@@ -191,6 +191,30 @@ class DomainPackageRulesTest {
     }
 
     @Test
+    void GivenTheKernelsAdapterPackages_WhenTheFlatGuardChecks_ThenOnlyThoseNamingNoAdapterAreReported() {
+        String root = "com.example";
+
+        assertThat(DomainPackageRules.packagesBelowAFlatOne(
+                        root,
+                        List.of(
+                                root + ".shared.adapter",
+                                root + ".shared.adapter.in",
+                                root + ".shared.adapter.out",
+                                root + ".shared.adapter.in.cli",
+                                root + ".shared.adapter.out.clock",
+                                root + ".shared.adapter.out.clock.system",
+                                root + ".shared.adapter.out.uuid",
+                                root + ".shared.adapter.util",
+                                root + ".shared.adapter.util.text")))
+                .containsExactly(
+                        root + ".shared.adapter",
+                        root + ".shared.adapter.in",
+                        root + ".shared.adapter.out",
+                        root + ".shared.adapter.util",
+                        root + ".shared.adapter.util.text");
+    }
+
+    @Test
     void GivenAFixtureBelowAnEventsPackage_WhenTheFlatGuardChecksItsImportedClasses_ThenItsPackageIsReported() {
         List<String> packages = FixtureClasses.only(BelowTheEvents.class).stream()
                 .map(JavaClass::getPackageName)

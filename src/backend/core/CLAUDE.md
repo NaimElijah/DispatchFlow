@@ -13,13 +13,12 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   - `shared/application/`, the application ports every module uses: `Clock`, `IdGenerator`,
     `ProcessedEvents`, `NotFound` and `StaleVersion` ([ADR-120]), a package of its own under the
     kernel's purity rules: no Spring, but `@NamedInterface` on its `package-info` ([ADR-121]).
-  - `shared/adapter/out/persistence/`, the kernel's JPA converters and instantiators: an adapter
-    beside the kernel, outside its purity rules, that no application class imports ([ADR-126]).
+  - `shared/adapter/out/{persistence,clock,uuid,optimizer}/`, the shared adapters: beside the
+    kernel, outside its purity rules, imported by no application class ([ADR-126], [ADR-130]).
   ```text
   <module>/domain/, events/
   <module>/application/{api,spi,port/out,service}      bodies throw (ADR-119)
-  <module>/adapter/{in/web,in/job,in/listen,...,out/persistence,...}
-  modules: access fleet orders planning liveops messaging reporting audit
+  <module>/adapter/in/{web,listen,schedule,job,callback,cli}, out/<name>   declared (ADR-130)
   ```
 - Package size ([ADR-125], which amends ADR-118): its 20-file threshold counts Java files,
   not `package-info.java`. A domain splits by aggregate over a root, `domain/`, that holds its error
@@ -50,7 +49,7 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
     `Locale`, and `formatted` and `DateTimeFormatter.ofLocalized*` are never used.
   - They never create an `IllegalArgumentException` or an `IllegalStateException`, or a subclass of
     either. They throw a `RuleViolation` with the module's named error, or `StoredStateInvalid`.
-  - Only persistence adapters call `readUnderLock`, and only the optimizer adapter makes
+  - Only persistence adapters call `readUnderLock`, and only Planning's optimizer adapter makes
     `ValidationReport` or `Evaluation` ([DL §13]).
 - `DomainShapeRules` checks the shape. What goes against Java's defaults:
   - The constructors of an aggregate root (bar Hibernate's protected no-argument one), a locked
@@ -81,17 +80,17 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
 - Error codes and event names are unique across modules (the allow-listed codes mean the same
   thing), and every error has a refusal test: `ErrorCodeUniquenessTest`, `EventNameUniquenessTest`
   and `ErrorRefusalTestsTest`. Every rule has a deliberately wrong fixture under `archfixture/` that
-  it must flag, and a new module is covered without editing the tests.
+  it must flag. An adapter package missing from `DECLARED_ADAPTERS` fails `ApplicationTest`.
 - A value rebuilt from storage goes through `StoredStateInvalid.whileRestoring`, and a stored phone
   number through `PhoneNumber.ofStored`. So a damaged or since-refused value is an incident, never a
   user-facing refusal. No test checks this; review does.
-- Web types live in `adapter` and are mapped to domain objects. Every use case that changes an
-  aggregate calls its port's `save` or `add`, which publishes its events; a test fake's calls
-  `SaveEvents.publish`.
-- Another module is reached only through its `api`, `spi` and `events` packages ([DL §2.3]). Spring
-  Modulith ([ADR-040]) isn't in the build yet: until its `verify()` runs, review checks this for
-  adapters, which `ApplicationRules` doesn't cover. Each module owns its tables, in its own
-  PostgreSQL schema: no SQL reads another module's schema.
+- Web types live in `adapter/in/web`, mapped to domain objects; an `out/<name>` is the outside
+  system, else `persistence` or the technology. Every use case that changes an aggregate calls its
+  port's `save` or `add`, which publishes its events; a test fake's calls `SaveEvents.publish`.
+- Another module is reached only through its `api`, `spi` and `events` packages ([DL §2.3]).
+  Review checks an adapter's use of another module until Modulith's `verify()` runs ([ADR-040]);
+  `ApplicationRules` rules 9 to 12 keep adapters apart and shared ones off modules ([ADR-130]). Each
+  module owns its tables, in its own PostgreSQL schema: no SQL reads another module's schema.
 - An application body that would do work throws `UnsupportedOperationException("Built in M<n>")`
   until its milestone builds it. `grep "Built in M5"` lists a milestone's remaining work. To build a
   body ([ADR-119], decision 5): write the failing test first, replace the `throw`, then build the
@@ -187,6 +186,7 @@ Run `just` recipes from the repository root, and `mvnw` from this folder (`.\mvn
 [ADR-126]: ../../../docs/ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md
 [ADR-127]: ../../../docs/ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md
 [ADR-129]: ../../../docs/ADRs/ADR-129-transactions-start-only-in-the-service-layer.md
+[ADR-130]: ../../../docs/ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md
 [DL §2.1]: ../../../docs/architecture/domain_layer/domain_layer_design.md#21-module-graph
 [DL §2.3]: ../../../docs/architecture/domain_layer/domain_layer_design.md#23-rules-between-contexts
 [DL §3.9]: ../../../docs/architecture/domain_layer/domain_layer_design.md#39-purity

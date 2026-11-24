@@ -87,7 +87,7 @@ Dependencies point inward only.
 |---|---|---|---|
 | Domain | Aggregates, entities, value objects, records, domain events, named errors | The JDK; JSpecify annotations; the shared kernel; its own module's `events`; pure libraries with no I/O (libphonenumber, JTS; NumPy in Python); the persistence annotations that [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) lists, and only as annotations | Frameworks and persistence beyond those annotations, HTTP, JSON, the system clock, ID generation, unseeded randomness, other modules |
 | Application | One class per use case; the module's `api` (interfaces other modules call) and `spi` (ports it owns for them to implement); secondary ports; application services such as `SolveRequestAssembler` | Domain; other modules' `api`, `spi` and `events`; `@Transactional`, and nothing else from Spring | Adapters, web types, persistence types |
-| Adapters | Primary: web, event stream, job workers, schedulers, watchers, provider callbacks, CLI. Secondary: persistence, OSRM, optimizer, geocoder, SMS, email, push, file store | Application, frameworks | Other adapters (an adapter reaches another only through a port) |
+| Adapters | Primary, one package per kind in each module ([ADR-130](../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md)): `web`, `listen` (event listeners), `schedule`, `job` (queue workers), `callback` (provider callbacks) and `cli` (server steps); the event stream's endpoint is app-wide. Secondary: persistence, OSRM, optimizer, geocoder, SMS, email, push, file store | Application, frameworks | Other adapters (an adapter reaches another only through a port) |
 | Configuration | Wiring, profiles | Everything | — |
 
 Rules every module follows:
@@ -114,7 +114,7 @@ Rules every module follows:
 | Where | Tool | Status | What it checks | Why now, or why later |
 |---|---|---|---|---|
 | Core | **Spring Modulith** `ApplicationModules.verify()` | Decided ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)) · Alpha | No cycles between modules; modules use only each other's exposed API | It catches the most expensive mistake (a cycle), and it's one test |
-| Core | **ArchUnit** | Decided ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md), [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)) · Alpha | The six purity rules of the domain document (§3.9): domain packages import only the JDK, the shared kernel, their own domain, their own module's `events`, pure libraries and the persistence annotations of ADR-126 (never in an `events` package); no clock, no `UUID.randomUUID()`, no randomness or I/O; no generic exceptions for business rules; only Hibernate rebuilds an aggregate, and the lock-read snapshot factories are the one other exception. The nine persistence rules: relationships only inside one aggregate, `@Version` only on `AggregateRoot`, every enum stored by name, every aggregate root an entity, a `@PostLoad` check on every root, no `@GeneratedValue`, no interface that extends `CrudRepository`, `ListCrudRepository`, `JpaRepository` or `JpaSpecificationExecutor`, every mapped table in its module's schema, and no adapter that uses another module's entity, which is how each persistence adapter is kept to its own schema. Also: the application layer takes only `@Transactional` from Spring | A few rules keep the domain pure from day one. The package layout is the convention, so no annotation is needed. **Over jMolecules' hexagonal rules:** they check the same layering, at the price of annotating every type, and the package names already say it |
+| Core | **ArchUnit** | Decided ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md), [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)) · Alpha | The six purity rules of the domain document (§3.9): domain packages import only the JDK, the shared kernel, their own domain, their own module's `events`, pure libraries and the persistence annotations of ADR-126 (never in an `events` package); no clock, no `UUID.randomUUID()`, no randomness or I/O; no generic exceptions for business rules; only Hibernate rebuilds an aggregate, and the lock-read snapshot factories are the one other exception. The nine persistence rules: relationships only inside one aggregate, `@Version` only on `AggregateRoot`, every enum stored by name, every aggregate root an entity, a `@PostLoad` check on every root, no `@GeneratedValue`, no interface that extends `CrudRepository`, `ListCrudRepository`, `JpaRepository` or `JpaSpecificationExecutor`, every mapped table in its module's schema, and no adapter that uses another module's entity, which is how each persistence adapter is kept to its own schema. Also: the application layer takes only `@Transactional` from Spring. The adapter rules ([ADR-130](../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md), [ADR-131](../ADRs/ADR-131-the-declared-structures-review-tightens-its-rules-and-fills-its-gaps.md)): a module's adapters stay apart, no adapter uses another module's, a shared adapter uses nothing outside the kernel, and only Planning's and Reporting's optimizer adapters use the generated optimizer client | A few rules keep the domain pure from day one. The package layout is the convention, so no annotation is needed. **Over jMolecules' hexagonal rules:** they check the same layering, at the price of annotating every type, and the package names already say it |
 | Core | **Error Prone + NullAway**, with JSpecify annotations (as Spring Framework 7 uses) | Decided ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)) · Jan | Null safety at compile time | Error Prone needs JDK compiler flags that are a common source of build trouble. Added after the Alpha, in warning mode first, then as errors |
 | Optimizer, research | **import-linter** | Decided ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)) · Alpha | Layers; the domain imports no `fastapi`, `pydantic`, `ortools`, `pyvrp` or `numba`; product adapters never import `pyvrp` (FR-286) | Cheap, and it keeps PyVRP out of the product from the first commit |
 | Optimizer, research | **mypy** (strict) | Decided ([ADR-011](../ADRs/ADR-011-python-tooling-uv-ruff-mypy-pytest.md)) · Alpha | Types | Cheapest when the code is new |
@@ -137,7 +137,7 @@ screens and documents use the same words.
 
 ## 4. Repository layout
 
-**Decided ([ADR-123](../ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md)) · Alpha.** The grouped tree with ADR-123's component names. Inside `core` and `optimizer` it draws the target packages ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)), not today's.
+**Decided ([ADR-123](../ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md), [ADR-130](../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md)) · Alpha.** The grouped tree with ADR-123's component names. Inside `core` and `optimizer` it draws the target packages ([ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)), not today's. ADR-130 declares every folder it draws ahead of its code.
 `src/research` already exists (NFR-50).
 
 ```text
@@ -162,11 +162,16 @@ src/
             port/out/               repositories, logs and outside services
             service/                one class per use case, and application services
           adapter/
-            in/web/  in/job/  in/schedule/  in/callback/
-            out/persistence/  out/osrm/  out/optimizer/  out/...
+            in/web/  in/listen/  in/schedule/  in/job/  in/callback/  in/cli/
+            out/<name>/             named for the outside system or channel (osrm, optimizer,
+                                    govmap, sms, email, push, disk, sse); persistence for the
+                                    module's own database; a technology name for an adapter that
+                                    calls nothing outside the process (crypto, config, random,
+                                    resources, roaddata); ADR-130 lists them by module
         shared/                     shared kernel: typed IDs, DeliveryDate, IsraelDateTime, DaySeconds, TimeWindow,
                                     GeoPoint, Weight, Volume, Priority, PhoneNumber, and the domain's
                                     building blocks (errors, Version, AggregateRoot, events; ADR-097)
+          adapter/out/{persistence,clock,uuid,optimizer}/   the shared adapters (ADR-130)
       src/main/resources/db/migration/   Flyway migrations, one PostgreSQL schema per module
     optimizer/                    Python, FastAPI
       src/dispatchflow_optimizer/
@@ -174,8 +179,8 @@ src/
         adapters/inbound/http/
         adapters/outbound/solvers/{ortools,alns,nearest_neighbour}/
   frontend/
-    web/                          React web app
-    mobile/                       Expo phone app (from Semester B)
+    web/                          React web app; src/features/<context>
+    mobile/                       Expo phone app (from Semester B); src/features/<context>
     packages/                     api-client, schemas, i18n, map-style, formatters, eslint-config, tsconfig
   research/                       harness, study configs, results (no pilot-derived data, NFR-50)
 tests/
@@ -185,9 +190,9 @@ infra/
   deploy/                         compose.yaml  compose.dev.yaml  Caddyfile  backup/  observability/
   osrm/                           OSRM configuration
   terraform/                      AWS account resources (from M13)
-data/                             git-ignored: OSM extract, OSRM files, PMTiles, benchmark instances
+data/                             contents git-ignored, but for .gitkeep: OSM extract, OSRM files, PMTiles, benchmark instances
 docs/
-  architecture/  ADRs/  operations/  guides/{he,en}/  research/
+  architecture/{generated}/  ADRs/  operations/  guides/{he,en}/  research/usability/
 ```
 
 **Why one repository:** both contracts, both services and both apps change together, and one pull
@@ -337,7 +342,7 @@ sets `create` or `update`. `just core-schema-draft` writes the DDL Hibernate wou
 
 | Secondary port | Adapter | Notes |
 |---|---|---|
-| `RouteOptimizer`, `FeasibilityChecker`, `BaselinePlanner` | Optimizer HTTP client, generated from `optimization-api` | Anti-corruption layer. Also used for edit checks (FR-233) and the publishing re-check (BR-21). While the optimizer is down, hand-overs and cancellations complete and their routes show *not yet checked* until it returns; publishing refuses (BR-70, [ADR-058](../ADRs/ADR-058-routes-changed-while-the-optimizer-is-down-are-checked-when-it-returns.md)) |
+| `RouteOptimizer`, `FeasibilityChecker`, `BaselinePlanner` | Planning's and Reporting's `optimizer` adapters, over the HTTP client generated from `optimization-api` into `shared/adapter/out/optimizer` ([ADR-131](../ADRs/ADR-131-the-declared-structures-review-tightens-its-rules-and-fills-its-gaps.md)) | Anti-corruption layer. Also used for edit checks (FR-233) and the publishing re-check (BR-21). While the optimizer is down, hand-overs and cancellations complete and their routes show *not yet checked* until it returns; publishing refuses (BR-70, [ADR-058](../ADRs/ADR-058-routes-changed-while-the-optimizer-is-down-are-checked-when-it-returns.md)) |
 | `TravelTimes`, `RouteShapes` | OSRM `table` and `route` services | **Base durations only.** The Python `TravelTimeModel` applies the bucket factors and the buffer (FR-321, FR-322); the core never does |
 | `Geocoder` | GovMap adapter, fake; Nominatim only if GovMap's terms fail | Decided in [ADR-085](../ADRs/ADR-085-govmap-geocodes-addresses-with-nominatim-as-the-fallback.md) |
 | `SmsGateway` | Israeli provider adapter (Q-96); fake in every environment except production (NFR-206) | Callbacks verified by signature or header secret (NFR-192) |
@@ -492,7 +497,9 @@ browser, driver screens included (Q-92, Q-98, [ADR-076](../ADRs/ADR-076-admin-an
 
 ## 11. Phone app
 
-Built from Semester B; the Alpha's driver screens run in the browser.
+Built from Semester B; the Alpha's driver screens run in the browser. Its `src/features/<context>`
+folders mirror the bounded contexts as the web app's do, and the route folder comes with
+`expo-router` at M10 ([ADR-130](../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md)).
 
 | Concern | Choice | Status | Why | Over |
 |---|---|---|---|---|
@@ -720,7 +727,7 @@ runners with Docker already installed. **Over** a self-hosted runner: a machine 
 | Module diagrams and canvases | **Spring Modulith Documenter**, generated in CI (PlantUML / C4) | `docs/architecture/generated/` |
 | API reference | **Redocly CLI** builds HTML from both contracts in CI | CI artifact |
 | User guides, Hebrew and English | Markdown, shown in the web app's help pages (NFR-79) | `docs/guides/{he,en}/` |
-| Usability study | Task scripts in Markdown; the SUS questionnaire in a form; screen recording with consent (**OBS Studio**) (FR-48) | `docs/research/usability/` |
+| Usability study | Task scripts in Markdown; the SUS questionnaire in a form; screen recording with consent (**OBS Studio**) (FR-48). The recordings and raw answers stay out of the repository, which keeps only the Markdown (Q-60, NFR-50) | `docs/research/usability/` |
 | Course documents (ARD, ADD) | The faculty's templates. The ARD is a PDF built outside the repository. The ADD due on 5 January is assembled from this file, the domain document, the ADRs and the [roadmap](../roadmap.md), with diagrams exported from the repository | The ARD PDF in `docs/requirements/ARD/`; the ADD outside the repository |
 
 **Why Mermaid first:** diagrams live in the Markdown they explain, render on GitHub, and change in the

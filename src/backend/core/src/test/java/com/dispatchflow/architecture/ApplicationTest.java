@@ -156,4 +156,45 @@ class ApplicationTest {
     void GivenTheProductionClasses_WhenRule8IsChecked_ThenReportingUsesOnlyTheEventsOfTheModulesItReports() {
         ApplicationRules.reportingHearsOnlyTheEventsOfItsSources(ROOT).check(ProductionClasses.ALL);
     }
+
+    @Test
+    void GivenTheProductionClasses_WhenRule9IsChecked_ThenNoAdapterUsesAnotherAdapterOfItsModule() {
+        ApplicationRules.adaptersOfAModuleStayApart(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenRule10IsChecked_ThenNoAdapterUsesAnotherModulesAdapter() {
+        ApplicationRules.adaptersUseNoOtherModulesAdapter(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenRule11IsChecked_ThenNoSharedAdapterUsesAModule() {
+        ApplicationRules.sharedAdaptersUseNoModule(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenRule12IsChecked_ThenOnlyTheOptimizerAdaptersUseTheGeneratedClient() {
+        ApplicationRules.optimizerClientStaysInItsAdapters(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheDeclaredAdapters_WhenTheirInboundKindsAreRead_ThenEachIsOneOfTheSix() {
+        assertThat(ApplicationRules.DECLARED_ADAPTERS.values().stream()
+                        .flatMap(Set::stream)
+                        .filter(adapter -> adapter.startsWith("in."))
+                        .map(adapter -> adapter.substring("in.".length())))
+                .allMatch(ApplicationRules.INBOUND_KINDS::contains);
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenTheirAdaptersAreListed_ThenTheyAreExactlyTheDeclaredOnes() {
+        assertThat(ApplicationRules.adaptersByTopLevelPackage(ROOT, ProductionClasses.ALL))
+                .isEqualTo(ApplicationRules.DECLARED_ADAPTERS);
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenTheAdapterNullMarkedGuardChecks_ThenEveryAdapterPackageCarriesIt() {
+        assertThat(ApplicationRules.adapterPackagesNotNullMarked(ROOT, ProductionClasses.ALL))
+                .isEmpty();
+    }
 }

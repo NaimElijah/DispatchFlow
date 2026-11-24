@@ -91,6 +91,7 @@ import com.dispatchflow.archfixture.alpha.domain.mapping.MappedWithJakartaPersis
 import com.dispatchflow.archfixture.alpha.domain.mapping.UsesASpringDataType;
 import com.dispatchflow.archfixture.alpha.domain.mapping.UsesTheEntityManager;
 import com.dispatchflow.archfixture.alpha.domain.mapping.UsesTheSharedAdapter;
+import com.dispatchflow.archfixture.alpha.domain.mapping.UsesTheSharedClock;
 import com.dispatchflow.archfixture.alpha.domain.randomness.ShufflesAList;
 import com.dispatchflow.archfixture.alpha.domain.randomness.UsesARandomGenerator;
 import com.dispatchflow.archfixture.alpha.domain.randomness.UsesMathRandom;
@@ -121,7 +122,12 @@ import com.dispatchflow.archfixture.shared.KernelDependsOnJts;
 import com.dispatchflow.archfixture.shared.KernelMappedSuperclass;
 import com.dispatchflow.archfixture.shared.KernelUsesTheSharedAdapter;
 import com.dispatchflow.archfixture.shared.KernelValue;
+import com.dispatchflow.archfixture.shared.adapter.in.cli.CliReadsTheClock;
+import com.dispatchflow.archfixture.shared.adapter.out.DirectOutboundReadsTheClock;
+import com.dispatchflow.archfixture.shared.adapter.out.clock.SystemClockReadsTheClock;
 import com.dispatchflow.archfixture.shared.adapter.out.persistence.KernelAdapterUsesJpa;
+import com.dispatchflow.archfixture.shared.adapter.out.uuid.RandomIdsDrawAUuid;
+import com.dispatchflow.archfixture.shared.adapter.util.AdapterUtilityReadsTheClock;
 import com.dispatchflow.archfixture.shared.application.SharedPortCarriesAJpaAnnotation;
 import com.dispatchflow.archfixture.shared.application.SharedPortIsTransactional;
 import com.tngtech.archunit.core.domain.JavaClass;
@@ -174,6 +180,7 @@ class DomainPurityRulesTest {
                 EventWithAJpaAnnotation.class,
                 SharedPortCarriesAJpaAnnotation.class,
                 UsesTheSharedAdapter.class,
+                UsesTheSharedClock.class,
                 EventUsesTheSharedAdapter.class,
                 KernelUsesTheSharedAdapter.class
             })
@@ -204,6 +211,35 @@ class DomainPurityRulesTest {
                 .isFalse();
         assertThat(flags(DomainPurityRules.noLogging(FIXTURE_ROOT), KernelAdapterUsesJpa.class, KernelValue.class))
                 .isFalse();
+    }
+
+    @Test
+    void GivenTheSharedClockAndIdAdaptersBesideTheKernel_WhenThePurityRulesEvaluate_ThenNothingIsFlagged() {
+        assertThat(flags(
+                        DomainPurityRules.noSystemClock(FIXTURE_ROOT),
+                        SystemClockReadsTheClock.class,
+                        KernelValue.class))
+                .isFalse();
+        assertThat(flags(DomainPurityRules.noIdGeneration(FIXTURE_ROOT), RandomIdsDrawAUuid.class, KernelValue.class))
+                .isFalse();
+    }
+
+    @Test
+    void GivenASharedInboundAdapterBesideTheKernel_WhenRule2Evaluates_ThenNothingIsFlagged() {
+        assertThat(flags(DomainPurityRules.noSystemClock(FIXTURE_ROOT), CliReadsTheClock.class, KernelValue.class))
+                .isFalse();
+    }
+
+    @Test
+    void GivenAClassDirectlyInTheKernelsAdapterOut_WhenRule2Evaluates_ThenItIsFlagged() {
+        assertThat(flags(DomainPurityRules.noSystemClock(FIXTURE_ROOT), DirectOutboundReadsTheClock.class))
+                .isTrue();
+    }
+
+    @Test
+    void GivenAKernelAdapterPackageThatIsNeitherInboundNorOutbound_WhenRule2Evaluates_ThenItIsFlagged() {
+        assertThat(flags(DomainPurityRules.noSystemClock(FIXTURE_ROOT), AdapterUtilityReadsTheClock.class))
+                .isTrue();
     }
 
     @Test

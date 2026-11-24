@@ -13,6 +13,8 @@ Expo SDK 58, React Native 0.88, React 19, TypeScript 6.0, npm.
 ## Rules
 
 - Direction switches with `I18nManager.forceRTL` ([TS §11]).
+- Create no route folder before `expo-router` is installed at M10: the folder becomes the route
+  root once it is ([ADR-130]).
 - From the Pilot this app also sends its over-the-air update ID ([ADR-081], [TS §11]).
 - Add a dependency with `npx expo install <package>`, so its version matches SDK 58. Put
   tooling under `devDependencies`.
@@ -71,5 +73,6 @@ Run `just` recipes from the repository root, and `npm` or `npx` from this folder
 [ADR-076]: ../../../docs/ADRs/ADR-076-admin-and-dispatcher-data-stays-in-memory-on-devices.md
 [ADR-081]: ../../../docs/ADRs/ADR-081-eas-update-for-javascript-only-fixes-during-the-pilot.md
 [ADR-095]: ../../../docs/ADRs/ADR-095-accept-the-zod-and-deepmerge-advisories-until-2027-01-31.md
+[ADR-130]: ../../../docs/ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md
 [TS §11]: ../../../docs/architecture/tech_stack.md#11-phone-app
 [TS §23]: ../../../docs/architecture/tech_stack.md#23-alternatives-rejected-across-the-stack

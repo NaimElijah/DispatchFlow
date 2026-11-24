@@ -4,7 +4,31 @@
 # Secrets — commit .env.example with keys and no values
 .env
 .env.*
+*.env
 !.env.example
+
+# Terraform's local files, which can hold values in plain text: its state, saved plans (tfplan is
+# the name `terraform plan -out` usually gets), variable files, local overrides, CLI configuration
+# and crash logs. The lock file, .terraform.lock.hcl, stays tracked.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+/infra/terraform/**/*tfplan*
+/infra/terraform/**/crash*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Backup dumps from a restore drill hold the company's data, so they never enter the repository
+# (NFR-209); infra/deploy/backup/ keeps only the scripts and configuration that make backups
+/infra/deploy/backup/**/*.dump
+/infra/deploy/backup/**/*.sql*
+/infra/deploy/backup/**/*.tar*
 
 # Keys and certificates: they belong in a secret manager, never in the repository
 *.pem
@@ -17,8 +41,18 @@ logs/*
 !logs/.gitkeep
 
 # Built data files (the OSM extract, OSRM files, PMTiles and benchmark instances): large, and
-# rebuilt from their sources, so never committed (ADR-123)
-/data/
+# rebuilt from their sources, so never committed (ADR-123). The folder itself is kept (ADR-130).
+/data/*
+!/data/.gitkeep
+
+# The usability study's recordings, audio, transcripts, raw answers and consent forms show the pilot's
+# dispatcher, so they stay out of this public repository (Q-60, NFR-50, FR-48). Only its Markdown is
+# tracked: the task scripts and the summed scores. An allowlist, so that no file type, in either
+# case, gets through by being left off a list.
+/docs/research/usability/**
+!/docs/research/usability/**/
+!/docs/research/usability/**/*.md
+!/docs/research/usability/.gitkeep
 
 # OS files
 .DS_Store

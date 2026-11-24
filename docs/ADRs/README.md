@@ -24,24 +24,26 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-032](ADR-032-leave-at-door-windows-are-preferences.md) | A leave-at-door order's time window is a preference, priced into the objective | Accepted; extended by ADR-048; amended by ADR-100 |
 | [ADR-035](ADR-035-both-apps-serve-every-role.md) | Both apps serve Admins, Dispatchers and Drivers | Accepted; extended by ADR-076 and ADR-083; amended by ADR-037, ADR-039 and ADR-123 |
 | [ADR-036](ADR-036-one-account-per-person-signed-in-by-email.md) | Each person has one account, signed in with their email, holding one or more roles | Accepted; extended by ADR-069; amended by ADR-045 |
-| [ADR-040](ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md) | The core is a Spring Modulith monolith with one module per bounded context, checked in CI | Accepted; extended by ADR-097, ADR-118 and ADR-120; amended by ADR-126 |
+| [ADR-040](ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md) | The core is a Spring Modulith monolith with one module per bounded context, checked in CI | Accepted; extended by ADR-097, ADR-118, ADR-120 and ADR-130; amended by ADR-126 |
 | [ADR-118](ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md) | A domain package above 30 files splits into one package per aggregate, over a root that holds the module's error | Accepted; amended by ADR-120 and ADR-125 |
-| [ADR-125](ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md) | A source folder above 20 files splits wherever a group of four files can move | Accepted; extended by ADR-126 and ADR-129 |
+| [ADR-125](ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md) | A source folder above 20 files splits wherever a group of four files can move | Accepted; extended by ADR-126, ADR-129 and ADR-130 |
 | [ADR-097](ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md) | The shared kernel also holds the building blocks every module's domain uses | Accepted; extended by ADR-106, ADR-111 and ADR-128; amended by ADR-126 |
 | [ADR-106](ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md) | Free text is normalized and capped by one kernel rule, and personal values carry a marker | Accepted; extended by ADR-111 |
 | [ADR-111](ADR-111-attempt-is-a-shared-kernel-value-and-names-and-addresses-drop-invisible-fillers.md) | Attempt is a shared-kernel value, and names and addresses drop invisible fillers | Accepted |
-| [ADR-119](ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md) | The application layer is declared ahead of its milestones, as signatures whose bodies throw | Accepted; amended by ADR-121 and ADR-129 |
-| [ADR-120](ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md) | The application layer takes an Actor and a CallContext, keeps its shared ports in shared.application, and reads through query ports | Accepted; extended by ADR-125; amended by ADR-121 |
-| [ADR-121](ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md) | The application skeleton's review settles its seams, its conflicts, its retention and its scoring inputs | Accepted; amended by ADR-126 |
+| [ADR-119](ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md) | The application layer is declared ahead of its milestones, as signatures whose bodies throw | Accepted; extended by ADR-130; amended by ADR-121 and ADR-129 |
+| [ADR-120](ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md) | The application layer takes an Actor and a CallContext, keeps its shared ports in shared.application, and reads through query ports | Accepted; extended by ADR-125, ADR-130 and ADR-131; amended by ADR-121 |
+| [ADR-121](ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md) | The application skeleton's review settles its seams, its conflicts, its retention and its scoring inputs | Accepted; extended by ADR-131; amended by ADR-126 |
 | [ADR-041](ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md) | Each module owns a PostgreSQL schema, read and written through jOOQ by a role that owns no table | Accepted; amended by ADR-126 and ADR-127 |
-| [ADR-126](ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) | JPA replaces jOOQ in the core, and the domain classes carry their own mapping | Accepted; amended by ADR-127 and ADR-128 |
+| [ADR-126](ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) | JPA replaces jOOQ in the core, and the domain classes carry their own mapping | Accepted; extended by ADR-130; amended by ADR-127 and ADR-128 |
 | [ADR-127](ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md) | How the 20 aggregates are mapped, and where their stored state is tested | Accepted; extended by ADR-128 |
 | [ADR-128](ADR-128-the-persistence-rules-the-mapping-settled-after-adr-127.md) | The persistence rules the JPA mapping settled after ADR-127 | Accepted |
 | [ADR-129](ADR-129-transactions-start-only-in-the-service-layer.md) | Transactions start only in the service layer | Accepted |
+| [ADR-130](ADR-130-every-folder-is-declared-ahead-empty-and-documented.md) | Every folder the design draws is declared ahead, empty and documented | Accepted; amended by ADR-131 |
+| [ADR-131](ADR-131-the-declared-structures-review-tightens-its-rules-and-fills-its-gaps.md) | The declared structure's review tightens its rules and fills its gaps | Accepted |
 | [ADR-043](ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md) | Code is generated from both contracts on both sides, and errors are RFC 9457 Problem Details | Accepted; extended by ADR-068, ADR-073, ADR-087 and ADR-094; amended by ADR-123 |
 | [ADR-094](ADR-094-each-pull-requests-contract-check-compares-against-its-base-branch.md) | Each pull request's contract check compares against its base branch | Accepted |
 | [ADR-044](ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md) | The solver port takes a start, a budget and a seed, and `Problem` alone judges a solution | Accepted; extended by ADR-050 and ADR-099; amended by ADR-105, ADR-120 and ADR-121 |
-| [ADR-045](ADR-045-generation-counters-revoke-tokens.md) | Generation counters on the user and the session revoke tokens | Accepted; amended by ADR-104 |
+| [ADR-045](ADR-045-generation-counters-revoke-tokens.md) | Generation counters on the user and the session revoke tokens | Accepted; extended by ADR-131; amended by ADR-104 |
 | [ADR-048](ADR-048-travel-times-from-buckets-and-a-buffer-with-no-live-traffic.md) | Travel times come from time-of-day buckets and a buffer, with no live traffic | Accepted; amended by ADR-098 |
 | [ADR-098](ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) | The validator works in double precision, compares limits within 1e-6, and rounds only product travel times | Accepted |
 | [ADR-099](ADR-099-a-route-may-carry-the-starts-its-solver-claims.md) | A route may carry the service starts its solver claims, and the validator checks them | Accepted |
@@ -50,7 +52,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-050](ADR-050-re-optimization-conventions-live-only-in-the-python-problem-factory.md) | Re-optimization conventions live only in the Python problem factory | Accepted; extended by ADR-105 |
 | [ADR-105](ADR-105-a-re-optimizations-problem-carries-its-conventions-and-only-a-vehicle-that-is-out-has-no-driver.md) | A re-optimization's problem carries its conventions, and only a vehicle that is out has no driver | Accepted; amended by ADR-112 and ADR-113 |
 | [ADR-113](ADR-113-route-stability-is-its-own-cost-the-rules-read-a-problem-through-a-protocol-and-untimed-outputs-are-documented.md) | Route stability is a cost of its own, the rules read a problem through a protocol, and untimed and past-the-day outputs are documented | Accepted |
-| [ADR-051](ADR-051-one-solver-worker-per-lane-killed-30-seconds-past-its-limit.md) | Each lane has one solver worker process, killed 30 seconds past its limit | Accepted |
+| [ADR-051](ADR-051-one-solver-worker-per-lane-killed-30-seconds-past-its-limit.md) | Each lane has one solver worker process, killed 30 seconds past its limit | Accepted; extended by ADR-131 |
 | [ADR-052](ADR-052-each-plan-stores-the-matrix-and-values-it-was-solved-with.md) | Each plan stores the travel-time matrix and the values it was solved with | Accepted; amended by ADR-121 |
 | [ADR-053](ADR-053-plan-lifecycle-publishing-stability-drop-reasons-and-abandoned-plans.md) | A plan follows one lifecycle that ends in completed, cancelled or abandoned, and every drop has a reason | Accepted; amended by ADR-100 and ADR-101 |
 | [ADR-101](ADR-101-completed-plans-take-late-outcomes-as-revisions-and-routes-keep-an-index.md) | A completed plan takes late outcomes as revisions, a hand-over takes an optional check, and each route keeps an index from 1 to 30 | Accepted; amended by ADR-112 and ADR-126 |
@@ -100,9 +102,9 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-023](ADR-023-accept-minimatch-and-glob-advisories.md) | Accept the minimatch and glob advisories in the frontends' tooling until 2027-01-31 | Accepted; extended by ADR-095 |
 | [ADR-095](ADR-095-accept-the-zod-and-deepmerge-advisories-until-2027-01-31.md) | Accept the zod and deepmerge advisories in the phone app's tooling until 2027-01-31 | Accepted |
 | [ADR-037](ADR-037-flat-layout-under-src-with-deploy-and-infra.md) | The code moves to a flat layout under `src/`, with deployment in `deploy/` and Terraform in `infra/` | Superseded by ADR-123 |
-| [ADR-123](ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md) | The code keeps its grouped layout, and three components take new names | Accepted |
+| [ADR-123](ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md) | The code keeps its grouped layout, and three components take new names | Accepted; extended by ADR-130 |
 | [ADR-038](ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md) | mise pins every toolchain, and the core moves to Java 25 | Accepted |
-| [ADR-039](ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md) | Both apps and the shared TypeScript packages live in one pnpm workspace | Accepted; amended by ADR-123 |
+| [ADR-039](ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md) | Both apps and the shared TypeScript packages live in one pnpm workspace | Accepted; extended by ADR-130; amended by ADR-123 |
 | [ADR-042](ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md) | Local runs start their services from `compose.dev.yaml`; tests keep Testcontainers | Accepted; amended by ADR-123 |
 | [ADR-046](ADR-046-renovate-replaces-dependabot-and-targets-dev.md) | Renovate replaces Dependabot and keeps opening updates against `dev` | Accepted |
 | [ADR-072](ADR-072-images-scanned-by-pinned-trivy-and-secrets-by-gitleaks.md) | A pinned Trivy scans images and Terraform, and Gitleaks scans the full history for secrets | Accepted |
@@ -136,7 +138,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-069](ADR-069-sign-in-and-transport-security.md) | Sign-in uses signed access tokens, rotating refresh tokens and Argon2id, over HTTPS through Caddy | Accepted; extended by ADR-121 |
 | [ADR-070](ADR-070-security-and-accessibility-standards.md) | We self-check against OWASP ASVS 5.0 Level 1 and build to WCAG 2.2 AA, with no separate target for IS 5568 | Accepted |
 | [ADR-071](ADR-071-api-rate-limits-in-process-with-bucket4j.md) | API rate limits run in the core's process, with Bucket4j | Accepted; extended by ADR-121 |
-| [ADR-075](ADR-075-retention-deletes-records-and-anonymizes-people-in-place.md) | Retention deletes positions, proofs and messages, and anonymizes customers and drivers in place | Accepted; extended by ADR-121; amended by ADR-102 |
+| [ADR-075](ADR-075-retention-deletes-records-and-anonymizes-people-in-place.md) | Retention deletes positions, proofs and messages, and anonymizes customers and drivers in place | Accepted; extended by ADR-121; amended by ADR-102 and ADR-131 |
 | [ADR-110](ADR-110-audit-records-hold-only-ids-codes-enums-numbers-and-instants-record-refusals-and-are-kept-a-year.md) | Audit records hold only IDs, codes, enums, numbers and instants, record refusals, and are kept a year | Accepted; extended by ADR-114, ADR-120 and ADR-121 |
 | [ADR-076](ADR-076-admin-and-dispatcher-data-stays-in-memory-on-devices.md) | Admin and Dispatcher data stays in memory on devices, and sign-out wipes it | Accepted |
 | [ADR-077](ADR-077-push-builds-and-app-stores-are-accepted-exceptions-to-hosting-in-israel.md) | Push, app builds, the app stores and map-app links are accepted exceptions to hosting in Israel, on conditions | Accepted |
@@ -166,4 +168,10 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > ADR-129, on 2026-11-24, starts every transaction in the service layer: every service is
 > transactional, the adapters and listeners never are, and a use case with outside calls holds its
 > transaction in a second class.
+> ADR-130, on 2026-11-24, declares every folder the design draws, empty and documented: six
+> kinds of inbound adapter, a naming rule for the outbound ones, and three rules that keep adapters
+> apart and shared ones off the modules.
+> ADR-131, on 2026-11-24, settles that structure's review: rule 11 refuses `web`, rule 12 keeps the
+> optimizer client in its adapters, every module gets a `cli` for the steps that span them, and a
+> revoking server step reaches the serving core.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.

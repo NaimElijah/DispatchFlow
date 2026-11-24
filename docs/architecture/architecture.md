@@ -43,7 +43,7 @@ today.
 | `optimizer` (`src/backend/optimizer`) | FastAPI, Python 3.14, NumPy | Answers `GET /health/liveness` with `{"status":"UP"}`, and holds the domain for daily solves and re-optimizations (the validator, the objective and the drop reasons), and a declared application layer; nothing calls either yet |
 | `web` (`src/frontend/web`) | React, Vite | Renders a heading |
 | `mobile` (`src/frontend/mobile`) | React Native, Expo SDK 58 | Renders a heading |
-| `research` (`src/research`) | Python, uv; never deployed | Installs `optimizer` and PyVRP in one environment, and imports neither yet: `tests/test_environment.py` only checks that both can be found. `benchmark/`, `simulation/`, `generator/`, `instances/` and `results/` hold only `.gitkeep` |
+| `research` (`src/research`) | Python, uv; never deployed | Installs `optimizer` and PyVRP in one environment, and imports neither yet: `tests/test_environment.py` only checks that both can be found. `benchmark/`, `simulation/` and `generator/` are declared, empty packages, and `results/` holds only `.gitkeep`. Its benchmark instances will live in the git-ignored `data/` |
 
 `core` has no controller. Its `src/main/resources/db/migration/` holds ten Flyway migrations: `V1`
 creates the eight module schemas, `V2` to `V9` add one module's tables each, and `V10` refuses a
@@ -52,7 +52,8 @@ JPA entities: their domain classes carry the mapping, and only Hibernate rebuild
 `@PostLoad` check refusing a damaged row
 ([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md),
 [ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md)).
-Each module has an `adapter/out/persistence` package. It holds the module's package-private Spring
+Each module has an `adapter/out/persistence` package, and beside it declared, empty adapter packages
+(see below). The persistence package holds the module's package-private Spring
 Data interfaces, the converters and instantiators of its values, and the adapters that implement its
 repository ports. 20 of them, one for each root, save it through `VersionedSave`, except that two of
 a session's saves write without a version check by design: one that changes only its contact times
@@ -80,7 +81,8 @@ entities that have tables, `Ledger` and its child `LedgerEntry`, and the test-on
 `src/test/resources/db/fixture/V0_1__persistence_fixture.sql`. Flyway applies it in every
 integration-test context and under `just core-run`, and only the version helper's tests use its
 tables. The `@Entity` classes under `archfixture/` are deliberately wrong fixtures for the mapping
-rules, and no schema maps them. `optimizer`'s `solvers` folders hold only `.gitkeep`; its `domain`
+rules, and no schema maps them. `optimizer`'s solvers, `adapters/outbound/solvers/{ortools,alns,nearest_neighbour}`, its
+`adapters/outbound/clock` and its `adapters/inbound/worker` are declared, empty packages; its `domain`
 holds the domain for daily solves and re-optimizations
 ([ADR-098](../ADRs/ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) fixes its
 numbers), and its `application` package declares the `Solver` port, the registry, the requests and
@@ -93,7 +95,10 @@ building blocks ([ADR-097](../ADRs/ADR-097-the-shared-kernel-holds-the-domains-b
 `VersionedSave`, which saves an aggregate so that its version moves by exactly 1, the converters
 that store the kernel's single-value types (the 14 typed IDs are in its `id` package), and the
 instantiators of the embeddable `TimeWindow`, `GeoPoint` and `DaySeconds`. That package is an
-adapter, not part of the kernel. `AggregateRoot` is a `@MappedSuperclass` that holds the `@Version`
+adapter, not part of the kernel. Beside it, `shared/adapter/out/clock`, `shared/adapter/out/uuid`
+and `shared/adapter/out/optimizer` are declared, empty: the first two will implement `Clock` and
+`IdGenerator`, and the third will hold the client generated from `optimization-api`, which
+Planning's and Reporting's `optimizer` adapters wrap. `AggregateRoot` is a `@MappedSuperclass` that holds the `@Version`
 and publishes the events its methods raised when a repository's `save` runs. The `domain` packages
 of `access`, `audit`, `fleet`, `liveops`, `messaging`, `orders`, `planning` and `reporting` are
 built ahead of their milestones, with the `events` packages of the six modules that raise events
@@ -115,6 +120,16 @@ package per aggregate, then into concept packages, and an application package th
 ([ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md),
 [ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)).
 Which modules are split, and into what, is in [bounded-contexts.md](bounded-contexts.md).
+
+Every module's `adapter/` also holds packages declared ahead, empty, as [ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)
+declared the application layer: 53 in all (50 in the modules, 3 beside the kernel), each with a `package-info.java` that says what goes in it and
+carries `@NullMarked`, and no class. An inbound adapter is `adapter/in/<kind>`, of six kinds:
+`web`, `listen`, `schedule`, `job`, `callback` and `cli`. An outbound one is `adapter/out/<name>`,
+named for the outside system or channel it talks to, `persistence` for the module's own database,
+or the technology it wraps when it calls nothing outside the process. Each module's packages and the
+ports they implement are in [ADR-130](../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md) (decision 4). The web app's and the phone
+app's `src/features/<context>` folders, `src/frontend/packages/` and the infra, docs and data folders
+the tech stack draws are declared the same way, as `.gitkeep` placeholders.
 
 ## Communication
 
@@ -170,13 +185,20 @@ have a `Dockerfile`, and neither runs as root
   module's `domain` and `events` packages, the shape rules for restricted types, errors and events,
   and the package rules: no cycle between a module's domain packages, a domain root that imports
   none of its own subpackages, `@NullMarked` on the kernel and on every domain and events package,
-  and no package below a module's `api`, `spi` or `events` or below the kernel, except `shared.adapter.out.persistence`
+  and no package below a module's `api`, `spi` or `events` or below the kernel, except
+  `shared.adapter.in.<x>` and `shared.adapter.out.<x>`
   (`src/test/java/com/dispatchflow/architecture/`, [ADR-118](../ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md),
   [ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)).
   The application rules there are listed in [`ApplicationRules`](../../src/backend/core/src/test/java/com/dispatchflow/architecture/ApplicationRules.java);
   rules 1 to 7 are [ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)'s
   decision 10, with rule 4 extended and rule 8 added by [ADR-121](../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md),
   and rule 7 widened to every application package by [ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md).
+  Rules 9 to 11 are [ADR-130](../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md)'s, and rule 12 is
+  [ADR-131](../ADRs/ADR-131-the-declared-structures-review-tightens-its-rules-and-fills-its-gaps.md)'s: the adapters of a module stay apart (no adapter uses another
+  adapter of its module, `in` and `out` included), no adapter uses another module's adapter, no
+  shared adapter uses anything outside the kernel, and only the optimizer adapters use the generated
+  optimizer client. Rule 5's `@NullMarked` check covers the adapter packages too, and a test holds
+  the tree to the adapters ADR-130 and ADR-131 declare.
   The purity rules also allow the persistence annotations that [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) lists in the domain and the
   kernel, and `PersistenceRules` has nine rules on how the domain is mapped: every aggregate root an
   `@Entity`, relationships only inside

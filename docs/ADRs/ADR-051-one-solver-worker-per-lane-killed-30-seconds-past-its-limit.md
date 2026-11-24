@@ -1,6 +1,6 @@
 # ADR-051: Each lane has one solver worker process, killed 30 seconds past its limit
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-131
 - **Date:** 2026-11-13
 
 ## Context

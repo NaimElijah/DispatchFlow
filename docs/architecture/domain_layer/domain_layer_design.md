@@ -1011,7 +1011,7 @@ one may call anyway**: a direct call is simpler, unless it must be retried (reas
 | `PutBackSuperseded` | A failed stop was corrected to delivered after a put-back, so the put-back's stop is no longer needed (FR-404) | `Delivery` | Live Operations' own listener → Planning's API → `Plan.removeStopOf` on the plan of the date the event names, with the FR-404 cause, `CORRECTED_AFTER_PUT_BACK` ([ADR-107], [ADR-114]) | Planning is upstream, so the call must come from a retried listener on Live Operations' side (reason 2) |
 | `RatingReceived` | A recipient rated a delivery | `RatingRequest` | Messaging's own listener → a 1 to 4 rating raises a Live Operations alert (FR-361) | The alert must follow reliably (reason 2) |
 | `DriverRetired` | A driver was retired | `Driver` | Fleet's own listener → calls Access's API to remove the Driver role, keeping the account's other roles (FR-307, [ADR-103]) | Fleet is downstream of Access, so the call must come from a retried listener (reason 2; §2.3, rule 2) |
-| `SessionsRevoked` | Every token and session of an account stopped being valid | `UserAccount` | The live-updates adapter → closes that account's streams opened under an older generation, which the event carries (NFR-188); Access's own listener → `Session.revokeWithAccount` for the account's sessions begun under an older generation, where a revoked one keeps the earlier of the two revocations (NFR-258, [ADR-116]) | Several commands revoke (reason 3); the revocation cache itself is evicted at once, in the same thread, so "refused at once" doesn't wait for an event (NFR-177) |
+| `SessionsRevoked` | Every token and session of an account stopped being valid | `UserAccount` | The app-wide stream's listener ([ADR-130](../../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md) decision 6) → closes that account's streams opened under an older generation, which the event carries (NFR-188); Access's own listener → `Session.revokeWithAccount` for the account's sessions begun under an older generation, where a revoked one keeps the earlier of the two revocations (NFR-258, [ADR-116]) | Several commands revoke (reason 3); the revocation cache itself is evicted at once, in the same thread, so "refused at once" doesn't wait for an event (NFR-177) |
 | `AccountAnonymized` | An account's personal data was removed, a year after its deactivation (NFR-258) | `UserAccount` | Fleet → anonymizes the driver record keyed by the account ([ADR-104]) | Fleet depends on Access, so Access can't call it (reason 1) |
 
 ### 7.3 Shape and delivery
@@ -1501,10 +1501,10 @@ Each step that crosses a commit has a watcher, so a lost step can't leave someth
 ```mermaid
 flowchart LR
   subgraph IN["adapter/in"]
-    WEB["web (generated from client-api)"]
-    SSE["event stream"]
-    JOB["job workers, schedulers, watchers"]
-    LIS["listeners on events"]
+    WEB["web: controllers of the interfaces<br/>generated from client-api"]
+    LIS["listen: listeners on events"]
+    JOB["schedule, job: clock triggers,<br/>queue workers"]
+    CLI["callback, cli: provider replies,<br/>server steps"]
   end
   subgraph APP["application"]
     API["api: interfaces other modules call"]
@@ -1527,6 +1527,10 @@ flowchart LR
   POUT -.->|implemented by| OUT
 ```
 
+- **The adapters follow [ADR-130](../../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md) and [ADR-131](../../ADRs/ADR-131-the-declared-structures-review-tightens-its-rules-and-fills-its-gaps.md)**: six inbound kinds, an
+  outbound package named for the system it talks to, and adapters that meet only through ports. The
+  event stream is not a module's: the browser opens one stream, whose endpoint is app-wide, and each
+  module's `adapter/out/sse` implements its `LiveUpdates`.
 - **A module exposes three things**, each marked `@NamedInterface`: `api` (the use cases and queries
   other modules call), `events` (`<module>/events/`, a package beside `domain`, holding only IDs,
   shared-kernel values and its own enums, so the module's own domain may import it, §3.9), and `spi` (the

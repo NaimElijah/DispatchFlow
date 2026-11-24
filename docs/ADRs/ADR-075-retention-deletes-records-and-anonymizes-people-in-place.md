@@ -1,6 +1,6 @@
 # ADR-075: Retention deletes positions, proofs and messages, and anonymizes customers and drivers in place
 
-- **Status:** Accepted; extended by ADR-121; amended by ADR-102
+- **Status:** Accepted; extended by ADR-121; amended by ADR-102 and ADR-131
 - **Date:** 2026-11-14
 
 ## Context

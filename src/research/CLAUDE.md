@@ -8,9 +8,11 @@ optimizer's code directly, with no HTTP and no `core`.
 
 ## Layout
 
-`src/dispatchflow_research/` holds `benchmark/`, `simulation/` and `generator/`. This folder also
-holds `instances/`, `results/` and `tests/` (pytest; `test_environment.py` checks that both the
-optimizer and PyVRP import).
+`src/dispatchflow_research/` holds `benchmark/`, `simulation/`, `generator/` and `solvers/`, the
+harness's own solver adapters. This folder also holds `results/`, `studies/` (the YAML study files,
+NFR-122) and `tests/` (pytest; `test_environment.py` checks that both the optimizer and PyVRP
+import). Benchmark instances go in the root `data/`, which git ignores, never here
+([ADR-123]).
 
 ## How it uses the optimizer
 
@@ -18,8 +20,8 @@ optimizer and PyVRP import).
   dependency, so it always runs the optimizer's current code.
 - It uses the optimizer's `domain`, `application` and solver adapter packages, the last to build its
   own registry. It never imports the optimizer's HTTP adapter, `adapters/inbound/http`.
-- The harness builds its own solver registry, which adds a PyVRP adapter. PyVRP and its adapter
-  stay in this project ([ADR-004]).
+- The harness builds its own solver registry, which adds the PyVRP adapter in `solvers/pyvrp/`.
+  PyVRP and its adapter stay in this project ([ADR-004]).
 - After any change to the optimizer's `pyproject.toml`, run `uv lock` here.
 
 ## Benchmark rules ([ADR-005])
@@ -72,6 +74,7 @@ Google-style docstring, which ruff enforces; tests are exempt.
 [ADR-004]: ../../docs/ADRs/ADR-004-pluggable-solver-port.md
 [ADR-005]: ../../docs/ADRs/ADR-005-or-tools-first-research-solver-for-re-optimization.md
 [ADR-091]: ../../docs/ADRs/ADR-091-study-design-for-the-solver-comparison.md
+[ADR-123]: ../../docs/ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md
 [NFR-115]: ../../docs/requirements/requirements.md#nfr-115
 [TS §7]: ../../docs/architecture/tech_stack.md#7-optimization-service-python
 [TS §8]: ../../docs/architecture/tech_stack.md#8-research-harness

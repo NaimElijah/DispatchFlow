@@ -105,8 +105,9 @@ flowchart LR
   ([domain design](docs/architecture/domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts)).
   Each module's domain is built. Its application layer is declared, with bodies that throw
   ([ADR-119](docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md); the conventions are in
-  [ADR-120](docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)), and its only adapters store each module's aggregates in its own PostgreSQL schema
-  ([data model](docs/architecture/data-model.md)). A folder that passes
+  [ADR-120](docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)), and its only built adapters store each module's aggregates in its own PostgreSQL schema
+  ([data model](docs/architecture/data-model.md)); its other adapter packages are declared, empty
+  ([ADR-130](docs/ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md)). A folder that passes
   20 files splits wherever four of its files can move, a domain by aggregate
   ([ADR-118](docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md),
   [ADR-125](docs/ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md)).
@@ -252,10 +253,12 @@ src/
   backend/optimizer/   optimization service (FastAPI)
   frontend/web/        web app (React + Vite)
   frontend/mobile/     phone app (Expo)
+  frontend/packages/   shared TypeScript packages, as placeholder folders until each is built
   research/            benchmarks, simulation, order generator; never deployed
 contracts/             versioned OpenAPI contracts between the components
 tests/                 cross-component tests only: e2e/, load/
-infra/                 road-network data (osrm/) and deployment (deploy/)
+infra/                 road-network data (osrm/), deployment (deploy/) and, from M13, terraform/
+data/                  built map, routing and benchmark data; git ignores its contents
 logs/                  local log output; git ignores its contents
 docs/                  requirements, architecture and design, ADRs, the roadmap, presentations
 justfile               every command, the same locally and in CI

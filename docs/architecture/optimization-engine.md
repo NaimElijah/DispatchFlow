@@ -29,7 +29,9 @@ A request the service can't run raises `UnknownSolverError` or `UnsupportedBudge
 that returns no solution raises `SearchFailedError` with its `SearchFailure`, which the use case
 answers as `Failed`.
 Every body that would do work raises `NotImplementedError("Built in M<n>")`. No solver implements
-the port, and each `solvers` folder holds only a `.gitkeep`.
+the port, and the three solver packages under `adapters/outbound/solvers/`, `ortools`, `alns` and
+`nearest_neighbour`, are declared, empty
+([ADR-130](../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md)).
 [ADR-098](../ADRs/ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) fixes the
 validator's numbers.
 
