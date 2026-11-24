@@ -397,6 +397,11 @@ class StopMessagesPersistenceIT {
     void GivenNoTransaction_WhenAnAnswerIsCounted_ThenTheCallIsRefused() {
         assertThatThrownBy(() -> repository.countAnswer(answerId(50, 1), dayOf(50)))
                 .isInstanceOf(IllegalTransactionStateException.class);
+        assertThat(jdbc.sql("SELECT count(*) FROM messaging.counted_answer WHERE answer_id = ?")
+                        .param(answerId(50, 1).value())
+                        .query(Long.class)
+                        .single())
+                .isZero();
     }
 
     // --- the last acceptance to a phone (FR-363)
