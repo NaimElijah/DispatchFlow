@@ -39,6 +39,7 @@ are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 | `src/backend/optimizer/` | The optimization service: Python 3.14, FastAPI, NumPy, uv |
 | `src/frontend/web/` | The web app, for every role: React, TypeScript, Vite |
 | `src/frontend/mobile/` | The phone app, for every role: React Native, Expo SDK 58, TypeScript |
+| `src/frontend/packages/` | Seven placeholder folders for the shared TypeScript packages ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)); none has a `package.json` yet |
 | `src/research/` | Benchmarks, simulation and the order generator: Python, uv. Never deployed |
 | `contracts/` | `client-api/v1` and `optimization-api/v1` (OpenAPI), and the Redocly lint setup |
 | `tests/` | Tests that span components: `e2e/` and `load/`. Both are placeholders |
@@ -219,22 +220,26 @@ and a `CallContext`
 Each module's `adapter/` holds its persistence adapter, which is built, and packages declared
 ahead, empty ([ADR-130][ADR-130]). Every declared package holds a `package-info.java` and nothing
 else: its Javadoc says what goes in the package and which ports it implements, and it carries
-`@NullMarked`. There are 45 of them, 42 in the eight modules and 3 beside the kernel, and no adapter
+`@NullMarked`. There are 53 of them, 50 in the eight modules and 3 beside the kernel, and no adapter
 class exists beyond the persistence adapters.
 The names follow two rules:
 
 - An inbound adapter is `adapter/in/<kind>`, of six kinds: `web` (a screen calls the client API),
-  `listen` (another module's event arrives), `schedule` (the clock says so), `job` (a worker takes
-  queued work), `callback` (an outside service calls in) and `cli` (a person runs a server step).
+  `listen` (an event arrives, its module's own or another's), `schedule` (the clock says so), `job`
+  (a worker takes queued work), `callback` (an outside service calls in) and `cli` (a person runs a
+  server step).
   There is no `in/sse`: the stream's endpoint is app-wide, and the `web` ADR (#143) places it.
 - An outbound adapter is `adapter/out/<name>`: named for the outside system or channel it talks to
   (`osrm`, `govmap`, `sms`, `disk`), `persistence` for the module's own database, or for the
   technology it wraps when it calls nothing outside the process (`crypto`, `config`, `random`,
   `resources`, `roaddata`).
 
-ADR-130 decision 4 lists each module's packages and the ports they implement. Adapters meet only
-through ports: no adapter uses another adapter of its module or an adapter of another module, and
-no shared adapter uses a module (`ApplicationRules`, rules 9 to 11).
+ADR-130 decision 4 and [ADR-131][ADR-131] decision 4 list each module's packages and the ports
+they implement. Every module also has an `in/cli` for its part of the server steps that span the
+modules (ADR-131 decision 5). Adapters meet only through ports: no adapter uses another adapter of
+its module or an adapter of another module, no shared adapter uses anything outside the kernel,
+and only Planning's and Reporting's optimizer adapters use the generated optimizer client
+(`ApplicationRules`, rules 9 to 12).
 
 Each of the eight modules has an
 `adapter/out/persistence/` package ([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md), [ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md)). A module's package holds:
@@ -290,10 +295,12 @@ src/backend/optimizer/
     application/                   declared, bodies not built (ADR-119): the Solver port, the
                                    registry, the requests and outcomes, and five use cases
     adapters/inbound/http/app.py   create_app(): the FastAPI app, with GET /health/liveness
+    adapters/inbound/worker/       declared, empty: the solver worker per lane (ADR-051)
     adapters/outbound/solvers/     one package per solver, each declared, empty
       ortools/                     the OR-Tools adapter
       alns/                        the DispatchFlow solver
       nearest_neighbour/           the baseline's solver, which the registry does not hold
+    adapters/outbound/clock/       declared, empty: the Stopwatch adapter
   tests/                           mirrors the package path
     domain/                        the catalogue, properties, Solomon acceptance (data/solomon/)
     adapters/inbound/http/test_app.py
@@ -313,6 +320,7 @@ P16). No solver implements the port yet.
 ```mermaid
 flowchart TD
     http["adapters/inbound/http"] --> application["application"]
+    worker["adapters/inbound/worker"] --> application
     solvers["adapters/outbound/solvers"] --> application
     application --> domain["domain"]
 ```
@@ -321,6 +329,9 @@ Everything may use `domain`. `domain` uses nothing else in the package.
 The solver registry is a type in `application`; `create_app()` in `adapters/inbound/http`, the
 process's entry point, fills it with the solvers. `application` therefore never imports
 the solver adapters, and the two cannot form a cycle. The research harness builds its own registry.
+No outbound adapter imports an inbound one, and no solver imports another: two import-linter
+contracts check it ([ADR-131][ADR-131]). The workers sit apart from `http` because `spawn` mode
+re-imports the worker's module in each process, so FastAPI never loads in a solver process.
 
 ### `src/research`
 
@@ -333,7 +344,9 @@ src/research/
     benchmark/    the benchmark harness (declared, empty)
     simulation/   the disruption simulation (declared, empty)
     generator/    the order generator (declared, empty)
+    solvers/      the harness's own solvers: pyvrp/, the PyVRP adapter (declared, empty)
   results/        benchmark results (placeholder)
+  studies/        the YAML study files, validated by Pydantic (placeholder)
   tests/test_environment.py
 ```
 
@@ -347,7 +360,7 @@ src/research/
 A Vite project. `src/main.tsx` mounts `src/App.tsx`, which renders a heading. `src/test/setup.ts`
 configures Vitest. The configuration files (`vite.config.ts`, `tsconfig*.json`,
 `eslint.config.js`, `.prettierrc.json`) sit at the project root. `src/features/` holds one
-placeholder folder for each bounded context that has screens: `access`, `audit`, `fleet`,
+placeholder folder for each bounded context ([TS §10](tech_stack.md#10-web-app)): `access`, `audit`, `fleet`,
 `liveops`, `messaging`, `orders`, `planning` and `reporting` ([ADR-130][ADR-130]).
 
 ### `src/frontend/mobile`
@@ -443,9 +456,11 @@ The application rules are ArchUnit tests too, in `ApplicationRules`, numbered in
 [ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)'s
 decision 10, with rule 4 extended and rule 8 added by [ADR-121](../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md),
 and rule 7 widened to every application package by [ADR-125](../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md).
-Rules 9 to 11 are [ADR-130][ADR-130]'s: the adapters of a module stay apart, no adapter uses
-another module's adapter, and no shared adapter uses a module. Rule 5's `@NullMarked` check covers
-the adapter packages too, and a test holds the tree to the adapters ADR-130 declares.
+Rules 9 to 11 are [ADR-130][ADR-130]'s, and rule 12 is [ADR-131][ADR-131]'s: the adapters of a
+module stay apart, no adapter uses another module's adapter, no shared adapter uses anything
+outside the kernel, and only the optimizer adapters use the generated optimizer client. Rule 5's
+`@NullMarked` check covers the adapter packages too, and a test holds the tree to the adapters
+ADR-130 and ADR-131 declare.
 
 [Tech stack §2.2](tech_stack.md#22-enforcement) also plans Spring Modulith's `verify()` for the
 Alpha
@@ -453,5 +468,6 @@ Alpha
 Accepted).
 
 [ADR-130]: ../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md
+[ADR-131]: ../ADRs/ADR-131-the-declared-structures-review-tightens-its-rules-and-fills-its-gaps.md
 [NFR-10]: ../requirements/requirements.md#nfr-10
 [NFR-162]: ../requirements/requirements.md#nfr-162

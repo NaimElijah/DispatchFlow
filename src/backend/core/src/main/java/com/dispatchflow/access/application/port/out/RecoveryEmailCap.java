@@ -7,8 +7,11 @@ import java.time.LocalDate;
  * is about to be sent takes from it, so a request for an address no account holds, or a refused
  * one, uses none of it. Other emails never take from it, so they are never held back.
  *
- * <p>The adapter keeps the count per Israel calendar day (ADR-088) and alerts the team once a day,
- * the first time the cap refuses a take (NFR-215).
+ * <p>The adapter counts the recovery links issued in the Israel calendar day (ADR-088), between
+ * bounds computed in {@code Asia/Jerusalem}, because the database session runs in UTC. It counts
+ * under a transaction-scoped lock keyed by the day, so two takes at 99 can't both pass, and a
+ * restart keeps the count (ADR-131). It alerts the team once a day, the first time the cap
+ * refuses a take, and keeps that mark where a restart can't lose it (NFR-215).
  *
  * <p>Built in M6.
  */

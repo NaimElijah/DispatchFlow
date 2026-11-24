@@ -5,6 +5,9 @@
  * Operations' single-column values, and the {@code @Immutable} entity of the position record, which
  * the record type itself can't be (ADR-127 decision 6).
  *
+ * <p>It will also implement the ports ADR-130 decision 4 gives it, which no class implements yet:
+ * {@code LiveOpsViews} and {@code ReportReceipts}.
+ *
  * <p>Hibernate reads the registration below when it scans this package, so a stored {@code
  * CorrectedTime} is rebuilt through {@code StoredStateInvalid.whileRestoring}: a device instant its
  * range now refuses is an incident, not a refusal.

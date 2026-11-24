@@ -49,7 +49,7 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
     `Locale`, and `formatted` and `DateTimeFormatter.ofLocalized*` are never used.
   - They never create an `IllegalArgumentException` or an `IllegalStateException`, or a subclass of
     either. They throw a `RuleViolation` with the module's named error, or `StoredStateInvalid`.
-  - Only persistence adapters call `readUnderLock`, and only the optimizer adapter makes
+  - Only persistence adapters call `readUnderLock`, and only Planning's optimizer adapter makes
     `ValidationReport` or `Evaluation` ([DL §13]).
 - `DomainShapeRules` checks the shape. What goes against Java's defaults:
   - The constructors of an aggregate root (bar Hibernate's protected no-argument one), a locked
@@ -80,7 +80,7 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
 - Error codes and event names are unique across modules (the allow-listed codes mean the same
   thing), and every error has a refusal test: `ErrorCodeUniquenessTest`, `EventNameUniquenessTest`
   and `ErrorRefusalTestsTest`. Every rule has a deliberately wrong fixture under `archfixture/` that
-  it must flag, and a new module is covered without editing the tests.
+  it must flag. An adapter package missing from `DECLARED_ADAPTERS` fails `ApplicationTest`.
 - A value rebuilt from storage goes through `StoredStateInvalid.whileRestoring`, and a stored phone
   number through `PhoneNumber.ofStored`. So a damaged or since-refused value is an incident, never a
   user-facing refusal. No test checks this; review does.
@@ -89,7 +89,7 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   port's `save` or `add`, which publishes its events; a test fake's calls `SaveEvents.publish`.
 - Another module is reached only through its `api`, `spi` and `events` packages ([DL §2.3]).
   Review checks an adapter's use of another module until Modulith's `verify()` runs ([ADR-040]);
-  `ApplicationRules` rules 9 to 11 keep adapters apart and shared ones off modules ([ADR-130]). Each
+  `ApplicationRules` rules 9 to 12 keep adapters apart and shared ones off modules ([ADR-130]). Each
   module owns its tables, in its own PostgreSQL schema: no SQL reads another module's schema.
 - An application body that would do work throws `UnsupportedOperationException("Built in M<n>")`
   until its milestone builds it. `grep "Built in M5"` lists a milestone's remaining work. To build a

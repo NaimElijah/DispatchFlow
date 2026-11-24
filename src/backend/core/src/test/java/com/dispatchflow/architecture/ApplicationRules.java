@@ -130,18 +130,18 @@ final class ApplicationRules {
 
     /**
      * ADR-130 decision 2: the kinds of inbound adapter, {@code <module>.adapter.in.<kind>}. A use
-     * case starts from a screen ({@code web}), another module's event ({@code listen}), the clock
-     * ({@code schedule}), queued work ({@code job}), an outside service calling in ({@code
-     * callback}) or a person at a prompt ({@code cli}).
+     * case starts from a screen ({@code web}), an event, its module's own or another's ({@code
+     * listen}), the clock ({@code schedule}), queued work ({@code job}), an outside service calling
+     * in ({@code callback}) or a person at a prompt ({@code cli}).
      */
     static final Set<String> INBOUND_KINDS = Set.of("web", "listen", "schedule", "job", "callback", "cli");
 
     /**
-     * ADR-130 decision 4: each module's adapters, and the kernel's, by their names below its {@code
-     * adapter} package, such as {@code in.web} or {@code out.persistence}. A subpackage of an
-     * adapter, such as {@code out.persistence.plan}, counts as that adapter. The tree must hold
-     * exactly these, so a new adapter, or a dropped one, is declared here on purpose, as a new
-     * module joins {@link #MODULE_GRAPH}.
+     * ADR-130 decision 4 and ADR-131: each module's adapters, and the kernel's, by their names
+     * below its {@code adapter} package, such as {@code in.web} or {@code out.persistence}. A
+     * subpackage of an adapter, such as {@code out.persistence.plan}, counts as that adapter. The
+     * tree must hold exactly these, so a new adapter, or a dropped one, is declared here on
+     * purpose, as a new module joins {@link #MODULE_GRAPH}.
      */
     static final Map<String, Set<String>> DECLARED_ADAPTERS = Map.of(
             "access",
@@ -155,17 +155,26 @@ final class ApplicationRules {
                     "out.crypto",
                     "out.resources"),
             "audit",
-            Set.of("in.schedule", "out.persistence"),
+            Set.of("in.schedule", "in.cli", "out.persistence"),
             "fleet",
-            Set.of("in.web", "in.listen", "in.schedule", "out.persistence"),
+            Set.of("in.web", "in.listen", "in.schedule", "in.cli", "out.persistence", "out.govmap"),
             "orders",
-            Set.of("in.web", "in.schedule", "in.job", "out.persistence", "out.govmap", "out.osrm", "out.roaddata"),
+            Set.of(
+                    "in.web",
+                    "in.schedule",
+                    "in.job",
+                    "in.cli",
+                    "out.persistence",
+                    "out.govmap",
+                    "out.osrm",
+                    "out.roaddata"),
             "planning",
             Set.of(
                     "in.web",
                     "in.listen",
                     "in.schedule",
                     "in.job",
+                    "in.cli",
                     "out.persistence",
                     "out.optimizer",
                     "out.osrm",
@@ -173,7 +182,15 @@ final class ApplicationRules {
                     "out.random",
                     "out.config"),
             "liveops",
-            Set.of("in.web", "in.listen", "in.schedule", "out.persistence", "out.push", "out.sse", "out.disk"),
+            Set.of(
+                    "in.web",
+                    "in.listen",
+                    "in.schedule",
+                    "in.cli",
+                    "out.persistence",
+                    "out.push",
+                    "out.sse",
+                    "out.disk"),
             "messaging",
             Set.of(
                     "in.web",
@@ -185,9 +202,18 @@ final class ApplicationRules {
                     "out.sms",
                     "out.crypto"),
             "reporting",
-            Set.of("in.web", "in.listen", "out.persistence", "out.optimizer"),
+            Set.of("in.web", "in.listen", "in.cli", "out.persistence", "out.optimizer", "out.config"),
             KERNEL,
             Set.of("out.persistence", "out.clock", "out.uuid", "out.optimizer"));
+
+    /**
+     * ADR-130 decision 5: the client generated from {@code optimization-api}, below the root. Only
+     * the {@code optimizer} adapters of {@link #SOLVING_MODULES} may use it (rule 12).
+     */
+    static final String OPTIMIZER_CLIENT = KERNEL + "." + ADAPTER + "." + OUT + ".optimizer";
+
+    /** The modules that call the optimizer (DL §2.1): Planning solves, Reporting plans its baseline. */
+    static final Set<String> SOLVING_MODULES = Set.of("planning", REPORTING);
 
     private ApplicationRules() {}
 
@@ -555,23 +581,55 @@ final class ApplicationRules {
     }
 
     /**
-     * Rule 11: the adapters beside the kernel use no module. A class in, or below, {@code
-     * shared.adapter} depends on no class of a top-level package other than the kernel and {@code
-     * web}. Rule 2 skips the kernel's classes and rules 9 and 10 see only adapters, so without this
-     * rule one module could reach another through a shared adapter, along an arrow DL §2.1 lacks
-     * (ADR-130 decision 7).
+     * Rule 11: the adapters beside the kernel use nothing outside it. A class in, or below, {@code
+     * shared.adapter} depends on no class of another top-level package. Rule 2 skips the kernel's
+     * classes and rules 9 and 10 see only adapters, so without this rule one module could reach
+     * another through a shared adapter, along an arrow DL §2.1 lacks (ADR-130 decision 7). {@code
+     * web} is refused too: rule 2 skips it, so a shared adapter that used it could reach any module
+     * through it (ADR-131).
      */
     static ArchRule sharedAdaptersUseNoModule(String root) {
         return classes()
                 .that()
                 .resideInAPackage(root + "." + KERNEL + "." + ADAPTER + "..")
                 .should(dependOnlyOn(
-                        "no module",
+                        "nothing outside the kernel",
                         (item, target) -> topLevelPackage(root, target)
-                                .map(NOT_MODULES::contains)
+                                .map(KERNEL::equals)
                                 .orElse(true)))
-                .because("DL §2.1 and ADR-130 decision 7: every module depends on the kernel and never the"
-                        + " reverse, so a shared adapter that used a module would open an arrow the graph lacks");
+                .because("DL §2.1, ADR-130 decision 7 and ADR-131: every module depends on the kernel and never"
+                        + " the reverse, so a shared adapter that used a module, or web, would open an arrow the"
+                        + " graph lacks");
+    }
+
+    /**
+     * Rule 12: the generated optimizer client stays in the optimizer adapters. A class outside
+     * {@link #OPTIMIZER_CLIENT} that uses it lies in, or below, the {@code adapter.out.optimizer}
+     * of one of {@link #SOLVING_MODULES}, so the client's types stop at those adapters and no
+     * other module calls the optimizer (ADR-043, ADR-130 decision 5, ADR-131).
+     */
+    static ArchRule optimizerClientStaysInItsAdapters(String root) {
+        return generatedClientStaysIn(root, OPTIMIZER_CLIENT, SOLVING_MODULES);
+    }
+
+    /**
+     * Rule 12, for any client package below the root, such as a fixture's, and the modules whose
+     * {@code adapter.out.optimizer} may use it.
+     */
+    static ArchRule generatedClientStaysIn(String root, String client, Set<String> modules) {
+        String clientPackage = root + "." + client;
+        return classes()
+                .that()
+                .resideOutsideOfPackage(clientPackage + "..")
+                .should(dependOnlyOn(
+                        "the optimizer client from an optimizer adapter only",
+                        (item, target) -> !isIn(target.getPackageName(), clientPackage)
+                                || modules.stream()
+                                        .anyMatch(module -> isIn(
+                                                item.getPackageName(),
+                                                root + "." + module + "." + ADAPTER + "." + OUT + ".optimizer"))))
+                .because("ADR-043, ADR-130 decision 5 and ADR-131: generated types stop at the adapter that wraps"
+                        + " them, and only the modules DL §2.1 draws to the optimizer call it");
     }
 
     /**
@@ -584,12 +642,23 @@ final class ApplicationRules {
         return adapterPackages(root, classes)
                 .map(JavaPackage::getName)
                 .flatMap(name -> adapterOf(root, name).stream())
-                .map(adapter -> adapter.split("\\.", ADAPTER_SEGMENTS - 1))
                 .collect(Collectors.groupingBy(
-                        adapter -> adapter[0],
-                        Collectors.mapping(
-                                adapter -> adapter.length == ADAPTER_SEGMENTS - 1 ? adapter[2] : "",
-                                Collectors.toSet())));
+                        ApplicationRules::topLevelOfAnAdapter,
+                        Collectors.mapping(ApplicationRules::nameBelowItsAdapterPackage, Collectors.toSet())));
+    }
+
+    /** The top-level package of an adapter that {@link #adapterOf} names, such as {@code access}. */
+    private static String topLevelOfAnAdapter(String adapter) {
+        return adapter.substring(0, adapter.indexOf('.'));
+    }
+
+    /**
+     * An adapter's name below its top-level package's {@code adapter} package, such as {@code
+     * in.web}; empty for a class directly in that package.
+     */
+    private static String nameBelowItsAdapterPackage(String adapter) {
+        String adapterPackage = topLevelOfAnAdapter(adapter) + "." + ADAPTER;
+        return adapter.equals(adapterPackage) ? "" : adapter.substring(adapterPackage.length() + 1);
     }
 
     /** Each module's application layer, with the shared application package. */

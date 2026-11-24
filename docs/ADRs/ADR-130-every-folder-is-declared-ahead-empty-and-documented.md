@@ -1,6 +1,6 @@
 # ADR-130: Every folder the design draws is declared ahead, empty and documented
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-131
 - **Date:** 2026-11-24
 
 ## Context
@@ -71,7 +71,7 @@ decision 4 and [ADR-126]. All of them stand.
    | Kind | Starts a use case when |
    |---|---|
    | `web` | a screen calls the client API: an `Actor` first or, before sign-in, values and a `CallContext` |
-   | `listen` | another module's event arrives: the event, then a `CallContext` |
+   | `listen` | an event arrives, its module's own or another's: the event, then a `CallContext` |
    | `schedule` | the clock says so, over whatever is due: the midnight close, the minute jobs, the nightly retention steps |
    | `job` | a worker takes queued work: the solve lanes, the geocoding outbox, and the startup recovery that runs before the lanes |
    | `callback` | an outside service calls in: the SMS provider's reply |
@@ -118,7 +118,8 @@ decision 4 and [ADR-126]. All of them stand.
      `persistence`, and decision 7's first rule holds unchanged.
    - **Planning and Reporting each have their own `optimizer` adapter,** and both wrap the one
      generated client (decision 5). Planning and Orders each have their own `osrm`. One module's
-     adapter never uses another's (decision 7), and Reporting may use no Planning class.
+     adapter never uses another's (decision 7), and Reporting may use no Planning class but its
+     events.
 5. **Three shared adapters.** `shared/adapter/out/clock` implements `Clock`: the system clock,
    and the end-to-end profile's settable one. `shared/adapter/out/uuid` implements `IdGenerator`,
    with UUIDv7. `shared/adapter/out/optimizer` holds the client [ADR-043] generates from
@@ -167,7 +168,7 @@ decision 4 and [ADR-126]. All of them stand.
      folder is not a package: a package exists once its `package.json` does, and the ticket that
      first puts code in the folder adds it. Any eighth package still waits until hand-written code
      would otherwise be copied between the apps ([ADR-123]).
-10. **Infra, docs and data,** as [TS §4][TS-4] draws them:
+10. **Infra, docs and data,** as [TS §4][TS-4] and TS §19 draw them:
     - **infra:** `infra/terraform/`, `infra/deploy/backup/` and `infra/deploy/observability/`;
     - **docs:** `docs/operations/`, `docs/guides/he/`, `docs/guides/en/`,
       `docs/research/usability/` and `docs/architecture/generated/`;
