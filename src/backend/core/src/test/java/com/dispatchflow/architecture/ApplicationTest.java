@@ -30,6 +30,19 @@ class ApplicationTest {
                 .collect(Collectors.toSet());
     }
 
+    /**
+     * The kinds below each module's {@code adapter.in}, such as {@code web}; a class directly in
+     * {@code adapter.in} shows as an empty kind.
+     */
+    private static Set<String> inboundAdapterKinds() {
+        return ProductionClasses.ALL.stream()
+                .map(JavaClass::getPackageName)
+                .filter(name -> name.matches(ROOT.replace(".", "\\.") + "\\.[^.]+\\.adapter\\.in(\\..*)?"))
+                .map(name -> name.replaceFirst(ROOT.replace(".", "\\.") + "\\.[^.]+\\.adapter\\.in\\.?", ""))
+                .map(rest -> rest.split("\\.")[0])
+                .collect(Collectors.toSet());
+    }
+
     /** The module that owns an spi interface named below the root: its first segment. */
     private static String ownerOf(String nameBelowTheRoot) {
         return nameBelowTheRoot.substring(0, nameBelowTheRoot.indexOf('.'));
@@ -165,6 +178,24 @@ class ApplicationTest {
     @Test
     void GivenTheProductionClasses_WhenRule10IsChecked_ThenNoAdapterUsesAnotherModulesAdapter() {
         ApplicationRules.adaptersUseNoOtherModulesAdapter(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenAdapterNullMarkedSubjectsAreListed_ThenThePackagesDeclaredAheadAreAmongThem() {
+        assertThat(ApplicationRules.nullMarkedAdapterSubjects(ROOT, ProductionClasses.ALL))
+                .contains(
+                        ROOT + ".access.adapter.in.cli",
+                        ROOT + ".messaging.adapter.in.callback",
+                        ROOT + ".planning.adapter.in.job",
+                        ROOT + ".orders.adapter.out.govmap",
+                        ROOT + ".planning.adapter.out.osrm",
+                        ROOT + ".shared.adapter.out.clock",
+                        ROOT + ".shared.adapter.out.uuid");
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenTheirInboundAdapterKindsAreListed_ThenTheyAreTheSixKinds() {
+        assertThat(inboundAdapterKinds()).containsExactlyInAnyOrderElementsOf(ApplicationRules.INBOUND_KINDS);
     }
 
     @Test
