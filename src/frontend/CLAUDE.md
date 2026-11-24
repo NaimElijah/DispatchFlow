@@ -32,6 +32,8 @@ with its layout, rules and commands.
 - Both apps meet WCAG 2.2 AA (NFR-46, [ADR-070]).
 - Maps use MapLibre with the Protomaps tiles that Caddy serves, and show the attribution
   OpenStreetMap's licence requires ([ADR-084], [TS §9]).
+- Each app's feature folders, `src/features/<context>`, mirror the bounded contexts ([TS §10],
+  [ADR-130]).
 - Add a shared package once hand-written code, not generated code, would otherwise be copied
   between the two apps ([ADR-008], restated by [ADR-123]). [ADR-039] sets those packages up at the
   Alpha, in `src/frontend/packages/`, as `@dispatchflow/*` in a pnpm workspace that replaces
@@ -62,6 +64,7 @@ installs ([ADR-039]).
 [ADR-084]: ../../docs/ADRs/ADR-084-maplibre-in-both-apps-with-self-hosted-protomaps-tiles.md
 [ADR-088]: ../../docs/ADRs/ADR-088-israel-local-time-for-every-date-and-schedule.md
 [ADR-089]: ../../docs/ADRs/ADR-089-interface-languages.md
+[ADR-130]: ../../docs/ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md
 [roadmap §4.1]: ../../docs/roadmap.md#41-whats-in-what-waits
 [ADR-043]: ../../docs/ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md
 [TS §9]: ../../docs/architecture/tech_stack.md#9-routing-and-geodata
