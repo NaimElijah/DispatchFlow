@@ -18,7 +18,7 @@ import java.util.Optional;
  * effective outcomes, so a later correction changes it (FR-333, ADR-109). The distance is planned
  * distance (FR-341). It holds IDs, counts and figures only, never personal data.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  *
  * @param date the date
  * @param summary the summary of the date's published or completed plan, or empty when the date
@@ -39,7 +39,7 @@ public record DailySummaryView(DeliveryDate date, Optional<Summary> summary) {
      * routes that have one, since a route with no stops has no times and adds nothing, and empty
      * when a route with stops has none, so a total never leaves out a route that drove.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param plan the plan
      * @param distance the planned distance over every route (FR-341), or empty when a route with
@@ -80,7 +80,7 @@ public record DailySummaryView(DeliveryDate date, Optional<Summary> summary) {
     /**
      * One route's line of the summary (FR-38).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param route the route
      * @param vehicle its vehicle
@@ -117,7 +117,7 @@ public record DailySummaryView(DeliveryDate date, Optional<Summary> summary) {
      * Stops counted by their effective outcome (FR-38, FR-333). A stop of a cancelled order is left
      * out (BR-30).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param stops every stop counted, 0 or more
      * @param delivered the delivered ones

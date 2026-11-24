@@ -9,7 +9,7 @@ import java.util.Optional;
  * the one part of the messaging settings a driver may read (the permission matrix's <em>Read the
  * company's settings</em> row).
  *
- * <p>Built in M12.
+ * <p>To Be Implemented.
  *
  * @param dispatchPhone the dispatch phone, or empty before an Admin set one
  */

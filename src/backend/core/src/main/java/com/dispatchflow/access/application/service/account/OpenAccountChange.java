@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
  * with the Admin role (FR-389), and writes the audit record (NFR-23). The use case sends the emails
  * after the commit.
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class OpenAccountChange {
@@ -65,7 +65,7 @@ public class OpenAccountChange {
     /**
      * Opens the account with its set-password link.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param email the address the user signs in with
@@ -80,6 +80,6 @@ public class OpenAccountChange {
      *     default language (FR-182)
      */
     public OpenedAccount apply(Actor actor, EmailAddress email, RoleSet roles) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

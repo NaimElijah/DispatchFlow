@@ -11,7 +11,7 @@ import java.util.Optional;
  * FR-350, FR-375, FR-382, placement P7). Before the first change messages and the rating question
  * are off, and there is no dispatch phone.
  *
- * <p>Built in M12.
+ * <p>To Be Implemented.
  *
  * @param messages whether messages to recipients go (FR-350)
  * @param ratingQuestion whether the delivered message asks for a rating (FR-375)

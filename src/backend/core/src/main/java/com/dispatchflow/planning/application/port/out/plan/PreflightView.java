@@ -13,7 +13,7 @@ import java.util.Objects;
  * FR-230). It doesn't stop the solve, and a clean check doesn't promise that no order drops
  * (FR-231). It is read from the date's orders and roster now, not from the plan.
  *
- * <p>Built in an unscheduled milestone.
+ * <p>To Be Implemented.
  *
  * @param plan the plan about to be solved
  * @param date its delivery date

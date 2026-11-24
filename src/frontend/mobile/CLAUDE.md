@@ -13,7 +13,7 @@ Expo SDK 58, React Native 0.88, React 19, TypeScript 6.0, npm.
 ## Rules
 
 - Direction switches with `I18nManager.forceRTL` ([TS §11]).
-- Create no route folder before `expo-router` is installed at M10: the folder becomes the route
+- Create no route folder before `expo-router` is installed: the folder becomes the route
   root once it is ([ADR-130]).
 - From the Pilot this app also sends its over-the-air update ID ([ADR-081], [TS §11]).
 - Add a dependency with `npx expo install <package>`, so its version matches SDK 58. Put

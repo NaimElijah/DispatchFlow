@@ -23,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RescheduleOrder {
@@ -51,7 +51,7 @@ public class RescheduleOrder {
     /**
      * Moves the order.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param order the order
@@ -65,6 +65,6 @@ public class RescheduleOrder {
      * @throws StaleVersion when the order changed since {@code expected}
      */
     public void reschedule(Actor actor, OrderId order, TimeWindow window, Version expected) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

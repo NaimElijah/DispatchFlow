@@ -15,7 +15,8 @@ import com.dispatchflow.shared.application.Clock;
  * one per due delivery erases it, as the job loops over the due stops. The proof files are deleted
  * through {@link ProofStore#deleteOlderThan}, on disk, outside any transaction.
  *
- * <p>Built in M13, with the whole nightly retention run (ADR-121). Rows: NFR-184, NFR-260, ADR-075.
+ * <p>To Be Implemented. It comes with the whole nightly retention run (ADR-121). Rows: NFR-184,
+ * NFR-260, ADR-075.
  */
 public final class EraseExpiredExecutionData {
 
@@ -39,12 +40,12 @@ public final class EraseExpiredExecutionData {
     /**
      * Erases what is due. A delivery another writer saved meanwhile is left for the next night.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param call the job's server step
      * @return how many deliveries, positions and files it erased or deleted, together
      */
     public int erase(CallContext call) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

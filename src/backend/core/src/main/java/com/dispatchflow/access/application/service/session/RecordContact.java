@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>{@code Session.recordContact} keeps at most one time a minute and moves no version (DL §4.1).
  * It writes no audit record: NFR-23 audits the request's own operation.
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RecordContact {
@@ -38,13 +38,13 @@ public class RecordContact {
     /**
      * Records the contact.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @throws RuleViolation with Access's {@code SessionRevoked} when the session is revoked
      * @throws NotFound when the actor's session no longer exists
      */
     public void record(Actor actor) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

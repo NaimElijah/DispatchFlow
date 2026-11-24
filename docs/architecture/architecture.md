@@ -75,7 +75,7 @@ Hibernate batch-fetches the collections a load reads, 200 roots at a time
 ([ADR-128](../ADRs/ADR-128-the-persistence-rules-the-mapping-settled-after-adr-127.md)). Each
 module's `*PersistenceIT` tests its adapters against PostgreSQL. No aggregate keeps a `restore`
 factory or a snapshot record. Three adapter methods still throw: `SolveJobRepository`'s two blanking
-methods (`UnsupportedOperationException("Built in M13")`, because nothing stores a job's input yet)
+methods (`UnsupportedOperationException("To Be Implemented.")`, because nothing stores a job's input yet)
 and `AuditRecords.purgeExpired`, which waits for the database roles. `src/test` also holds two
 entities that have tables, `Ledger` and its child `LedgerEntry`, and the test-only migration
 `src/test/resources/db/fixture/V0_1__persistence_fixture.sql`. Flyway applies it in every
@@ -86,7 +86,7 @@ rules, and no schema maps them. `optimizer`'s solvers, `adapters/outbound/solver
 holds the domain for daily solves and re-optimizations
 ([ADR-098](../ADRs/ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) fixes its
 numbers), and its `application` package declares the `Solver` port, the registry, the requests and
-outcomes and five use cases, each body raising `NotImplementedError` ("Built in M<n>"). `core` holds
+outcomes and five use cases, each body raising `NotImplementedError("To Be Implemented.")`. `core` holds
 the shared kernel (`com.dispatchflow.shared`): typed IDs, the shared values and the domain's
 building blocks ([ADR-097](../ADRs/ADR-097-the-shared-kernel-holds-the-domains-building-blocks.md),
 [ADR-106](../ADRs/ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md)). Beside it,
@@ -106,7 +106,7 @@ built ahead of their milestones, with the `events` packages of the six modules t
 
 Each core module also has an `application` package, and the kernel has `shared/application`. They
 are declared ahead of their milestones: every use case, query, port and module API has its signature,
-and every body that would do work throws `UnsupportedOperationException("Built in M<n>")`. They are
+and every body that would do work throws `UnsupportedOperationException("To Be Implemented.")`. They are
 not built. No bean wires them, and nothing calls a port: the persistence adapters implement the
 repository ports, and no use case calls them, so the application context starts as before. Each
 service carries a class-level `@Transactional`, read-only where it changes nothing. A use case with

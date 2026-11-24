@@ -15,7 +15,7 @@ import java.util.Optional;
  * its users"; FR-02, FR-53, FR-294). It holds the account's address, so it prints redacted
  * (NFR-19).
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  *
  * @param account the account
  * @param email the address it signs in with; empty once anonymized (NFR-260)

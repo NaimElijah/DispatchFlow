@@ -25,13 +25,13 @@ import com.dispatchflow.shared.application.StaleVersion;
  * records the refusal's cause through {@link BaselineRepository#recordRefusal} and completes, so
  * the delivery isn't resubmitted 5 times and then alerted (ADR-064) for a refusal that asking again
  * may repeat, and a later recompute finds the plan settled. What the plan's summary shows then is
- * open for M5.
+ * decided when the baseline comparison is built.
  *
  * <p>The {@link BaselinePlanner} is an outside call, so this class opens no transaction: {@link
  * ComputeBaselineChange} reads the inputs and builds the request in one, before the solve, and
  * stores the answer in another (ADR-129).
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 public final class ComputeBaseline {
 
@@ -52,7 +52,7 @@ public final class ComputeBaseline {
     /**
      * Computes the baseline of the plan just published.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param event the publication
      * @param call the listener's server step, which the audit record is written with
@@ -66,6 +66,6 @@ public final class ComputeBaseline {
      *     the listener adapter retries the event, and the retry finds the plan settled
      */
     public void on(PlanPublished event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

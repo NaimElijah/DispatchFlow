@@ -12,7 +12,7 @@ import java.util.Objects;
  * reactivated, or an Admin's password changes or new email takes effect (FR-389). It names the
  * account by its ID only. It holds the Admins' addresses, so it prints redacted (NFR-19).
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  *
  * @param reason what happened
  * @param account the account it happened to
@@ -40,7 +40,7 @@ public record AdminNotice(Reason reason, AccountId account, List<Recipient> reci
     /**
      * Why the Admins are told (FR-389).
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      */
     public enum Reason {
         /** An account gained the Admin role, when it was opened or since. */
@@ -57,7 +57,7 @@ public record AdminNotice(Reason reason, AccountId account, List<Recipient> reci
      * One active Admin the notice goes to. It holds an email address, so it prints redacted
      * (NFR-19).
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param email the Admin's address
      * @param language the language the Admin reads

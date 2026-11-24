@@ -9,7 +9,7 @@ import java.util.Objects;
  * which is all that is stored (NFR-91, NFR-211). The secret is never logged (NFR-19, NFR-211), so
  * {@link #toString()} prints it redacted.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  *
  * @param value the token the client or the link carries
  * @param hash its hash, the only part stored

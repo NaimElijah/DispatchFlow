@@ -12,14 +12,14 @@ import java.util.Optional;
  * §10.4, ADR-067, ADR-114), and how far a route and a stop have come. Messaging's minute job asks
  * it instead of hearing an event, because projections change as time passes (DL §7.4).
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 public interface ArrivalProjections {
 
     /**
      * Every stop of a date's routes in force, with its projection.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param date the date
      * @param now the time to project at
@@ -32,7 +32,7 @@ public interface ArrivalProjections {
      * One stop's projection, if a route in force holds it now. A stop the plan took off since the
      * caller learned of it has none, which is an expected answer, not an error.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param stop the stop
      * @param now the time to project at
@@ -45,7 +45,7 @@ public interface ArrivalProjections {
      * and {@code Delivery}, whatever the plan holds now (FR-354, FR-373). Messaging asks it for a
      * stop the plan may already have taken off. It projects nothing, so it needs no route in force.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param route the route that held the stop
      * @param stop the stop

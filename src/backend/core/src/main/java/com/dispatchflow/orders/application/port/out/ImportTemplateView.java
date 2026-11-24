@@ -6,7 +6,7 @@ import java.util.List;
  * The order import's template: the fixed, named columns a file must have, in file order (FR-84,
  * FR-309). The web adapter writes it as the file the dispatcher downloads.
  *
- * <p>Built in an unscheduled milestone.
+ * <p>To Be Implemented.
  *
  * @param columns the column names, each once, in file order
  */

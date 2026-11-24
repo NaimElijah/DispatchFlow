@@ -18,8 +18,8 @@ import com.dispatchflow.planning.events.PlanCancelled;
  * <p>Delivery is at least once (ADR-064), and a repeated update or push only repeats a notice that
  * carries no data (NFR-218), so it records no {@code ProcessedEvents} pair.
  *
- * <p>Built in M9 for the stream, when plans are first cancelled; the push through {@link
- * PushNotifier} in M10. Rows: FR-337.
+ * <p>To Be Implemented. It serves the stream, when plans are first cancelled, and the push through
+ * {@link PushNotifier}. Rows: FR-337.
  */
 public final class TellDriversPlanCancelled {
 
@@ -44,12 +44,12 @@ public final class TellDriversPlanCancelled {
     /**
      * Tells each of the plan's drivers once.
      *
-     * <p>Built in M9 for the stream; the push in M10.
+     * <p>To Be Implemented. It serves the stream and the push.
      *
      * @param event the cancelled plan
      * @param call the listener's server step
      */
     public void on(PlanCancelled event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

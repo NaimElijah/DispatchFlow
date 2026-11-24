@@ -16,7 +16,7 @@ import java.util.Optional;
  * version is the one every change to the record sends back (BR-76). It holds the driver's name and
  * phone, so it prints redacted (NFR-19).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  *
  * @param driver the driver's account
  * @param status active, retired or anonymized (FR-56, FR-193)

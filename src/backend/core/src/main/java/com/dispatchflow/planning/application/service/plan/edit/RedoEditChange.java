@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
  * validator judged, saves the plan and writes the audit record (DL §6.3, TS §6.2, ADR-063,
  * ADR-129).
  *
- * <p>Built in M4.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RedoEditChange {
@@ -44,7 +44,7 @@ public class RedoEditChange {
     /**
      * Reads the plan as the redo would leave it, for the evaluation before the transaction.
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the plan
@@ -57,13 +57,13 @@ public class RedoEditChange {
      */
     @Transactional(readOnly = true)
     public LayoutToJudge layoutAfter(Actor actor, PlanId plan, Version expected) {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Redoes the edit, as the evaluation of the plan after the redo judged it.
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the plan
@@ -78,6 +78,6 @@ public class RedoEditChange {
      *     ValidatorUnavailable}
      */
     public void apply(Actor actor, PlanId plan, Version expected, Evaluation evaluation) {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

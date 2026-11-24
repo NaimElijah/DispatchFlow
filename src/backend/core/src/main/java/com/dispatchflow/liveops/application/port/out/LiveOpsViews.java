@@ -19,14 +19,14 @@ import java.util.Optional;
  * aggregates (DL §13). The routes and stops come from Planning's {@code PublishedRoutes} and the
  * orders' fields from Customers &amp; Orders; the query classes join them with these rows.
  *
- * <p>Built in M5 and M8, method by method.
+ * <p>To Be Implemented.
  */
 public interface LiveOpsViews {
 
     /**
      * Where several stops stand.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param stops the stops, each once
      * @return one row per stop that has a delivery; a pending stop is left out
@@ -36,7 +36,7 @@ public interface LiveOpsViews {
     /**
      * Where several routes' runs stand.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param routes the routes, each once
      * @return one row per route that has a run; a route left out has not started
@@ -46,7 +46,7 @@ public interface LiveOpsViews {
     /**
      * Each route's latest kept position (FR-33, FR-74).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param routes the routes, each once
      * @return one position per route that kept any
@@ -61,7 +61,7 @@ public interface LiveOpsViews {
      * AlertRepository#addUnlessKeyTaken}) with today. An unacknowledged alert raised before its plan
      * completed drops off the list then.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param today today's date in {@code Asia/Jerusalem} (ADR-088)
      * @return the alerts, the newest first; one whose plan's date is today or later, or one raised
@@ -73,7 +73,7 @@ public interface LiveOpsViews {
      * Every open held report, whatever its stop's date: a held report is a late one, so it waits
      * for a decision after its plan completes (BR-132, BR-135).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @return the reports, in the order they were held
      */
@@ -82,7 +82,7 @@ public interface LiveOpsViews {
     /**
      * One stop's history (FR-333).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param stop the stop
      * @return the history, or empty when nothing is recorded for the stop
@@ -94,7 +94,7 @@ public interface LiveOpsViews {
      * (BR-02, NFR-38). The delivery keeps the proof's ID after retention deletes the file
      * (ADR-107).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param proof the proof's ID
      * @return the stop, or empty when no delivery names the proof
@@ -104,7 +104,7 @@ public interface LiveOpsViews {
     /**
      * Where one stop stands.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param stop the stop
      * @param status its delivery's status
@@ -123,7 +123,7 @@ public interface LiveOpsViews {
     /**
      * Where one route's run stands.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param route the route
      * @param state in progress or finished
@@ -152,7 +152,7 @@ public interface LiveOpsViews {
     /**
      * A route's latest kept position. It is a person's location, so it prints redacted.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param route the route
      * @param at where the device was

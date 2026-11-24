@@ -21,11 +21,11 @@ import java.util.Optional;
  * Operations from Planning's {@code PublishedRoutes}, as its revision took them. Its location is a
  * kernel {@link GeoPoint}, so it prints redacted.
  *
- * <p>{@code Order} holds only its last change time, so {@code placedAt} has no source yet: M2 adds
- * the time the order joined its date, set by {@code place}, {@code reschedule} and a put-back to
- * another date (BR-71).
+ * <p>{@code Order} holds only its last change time, so {@code placedAt} has no source yet: the
+ * time the order joined its date, set by {@code place}, {@code reschedule} and a put-back to
+ * another date (BR-71), is not recorded yet.
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  *
  * @param order the order
  * @param attempt its current attempt (FR-258)

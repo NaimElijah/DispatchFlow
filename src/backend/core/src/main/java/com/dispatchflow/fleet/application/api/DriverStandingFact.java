@@ -6,7 +6,7 @@ package com.dispatchflow.fleet.application.api;
  * planned. When more than one reason holds, the first in this order is given: {@link #ANONYMIZED},
  * {@link #RETIRED}, {@link #NOT_A_DRIVER}.
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 public enum DriverStandingFact {
     /** The account is active and holds the Driver role, and the driver record is active. */

@@ -13,7 +13,7 @@ import java.util.Objects;
  * anonymized customer has no name, phone or address to show, so it is never in such a list. The
  * name, phone and address are personal data, so it prints redacted.
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  *
  * @param customer the customer
  * @param name its name (FR-59)

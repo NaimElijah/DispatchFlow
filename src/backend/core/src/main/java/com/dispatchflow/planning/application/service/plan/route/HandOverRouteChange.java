@@ -24,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
  * raises {@code PlanRevised} and {@code RouteHandedOver}, and writes the audit record (DL §6.3, TS
  * §6.2, ADR-062, ADR-063, ADR-129).
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class HandOverRouteChange {
@@ -53,7 +53,7 @@ public class HandOverRouteChange {
     /**
      * Reads the plan as the hand-over would leave it, for the evaluation before the transaction.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the plan
@@ -69,14 +69,14 @@ public class HandOverRouteChange {
      */
     @Transactional(readOnly = true)
     public LayoutToJudge layoutAfter(Actor actor, PlanId plan, RouteId route, AccountId toDriver, Version expected) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Hands the route over, with the new driver's standing read here and the evaluation read before
      * the transaction.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher, recorded as who handed it over
      * @param plan the plan
@@ -101,6 +101,6 @@ public class HandOverRouteChange {
             boolean breakConfirmed,
             Version expected,
             Optional<Evaluation> evaluation) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

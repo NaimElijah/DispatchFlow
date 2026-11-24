@@ -10,7 +10,7 @@ import java.util.Objects;
  * it: {@code RouteOptimizer} answers its {@code Failed} instead, and {@code FeasibilityChecker} an
  * unavailable evaluation. Its message never holds the request's orders or places (NFR-19).
  *
- * <p>Built in M4.
+ * <p>To Be Implemented.
  */
 public final class OptimizerUnavailable extends RuntimeException {
 

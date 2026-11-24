@@ -23,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
  * proposal's routes the plan's new revision with {@code Plan.accept}, saves the plan, which raises
  * {@code PlanRevised}, and writes the audit record (TS §6.2, ADR-063, ADR-129).
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class AcceptProposalChange {
@@ -77,7 +77,7 @@ public class AcceptProposalChange {
     /**
      * Accepts the proposal, with what was recorded since its basis.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher, recorded as who accepted it (FR-104)
      * @param proposal the proposal
@@ -94,6 +94,6 @@ public class AcceptProposalChange {
      *     {@code RouteIndexesUsedUp}
      */
     public PlanId apply(Actor actor, ProposalId proposal, Version planVersion) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

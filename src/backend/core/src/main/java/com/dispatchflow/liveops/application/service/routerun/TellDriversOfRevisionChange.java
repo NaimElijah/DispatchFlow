@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
  * The read-only transaction of {@link TellDriversOfRevision} (FR-71, FR-249): it reads each changed
  * route's current driver from Planning's {@link PublishedRoutes}, so the notices go out after it.
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class TellDriversOfRevisionChange {
@@ -30,13 +30,13 @@ public class TellDriversOfRevisionChange {
     /**
      * The driver of each route the revision changed.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param event the revision
      * @return each changed route with its current driver; none for a route the revision left with
      *     no driver
      */
     public Map<RouteId, AccountId> driversOf(PlanRevised event) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

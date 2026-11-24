@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
  * stop, reconciles the late fact with {@code Plan.reconcileLateOutcome}, saves the plan and writes the
  * audit record (DL §8, TS §6.2, ADR-063, ADR-101, ADR-129).
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ReconcileLateOutcomeServiceChange {
@@ -46,7 +46,7 @@ public class ReconcileLateOutcomeServiceChange {
     /**
      * Reconciles the late fact with the plan that holds or held its stop.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param fact the late outcome, as Live Operations recorded it
      * @param call Live Operations' listener step, which the audit record names (ADR-110)
@@ -55,7 +55,7 @@ public class ReconcileLateOutcomeServiceChange {
      *     listener adapter retries at once, up to three times (DL §11)
      */
     public Reconciled apply(LateOutcomeFact fact, CallContext call) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**

@@ -14,7 +14,7 @@ import java.util.Objects;
  * volume (FR-72). The route's own part is Planning's; each stop's details are Customers &amp; Orders',
  * read through {@code StopOrders} and {@code OrdersForDate} when it is printed.
  *
- * <p>Built in an unscheduled milestone.
+ * <p>To Be Implemented.
  *
  * @param route the route, its label, vehicle, driver and planned times (FR-148)
  * @param stops its stops' details, in the route's order
@@ -31,7 +31,7 @@ public record PrintableRouteView(RouteView route, List<Stop> stops) {
      * One stop's printed details. Its address, phones and notes are a person's data, so it prints
      * redacted.
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>To Be Implemented.
      *
      * @param stop the stop
      * @param order the order, its ID included, with its address, phones and notes as a driver sees

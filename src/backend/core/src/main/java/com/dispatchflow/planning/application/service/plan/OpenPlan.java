@@ -15,7 +15,7 @@ import com.dispatchflow.shared.PlanId;
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
- * <p>Built in M0.
+ * <p>To Be Implemented.
  */
 public final class OpenPlan {
 
@@ -36,7 +36,7 @@ public final class OpenPlan {
     /**
      * Opens the plan.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param date the delivery date
@@ -45,6 +45,6 @@ public final class OpenPlan {
      *     (BR-118), or {@code PlanAlreadyExists} when the date has an uncancelled plan (BR-34)
      */
     public PlanId open(Actor actor, DeliveryDate date) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

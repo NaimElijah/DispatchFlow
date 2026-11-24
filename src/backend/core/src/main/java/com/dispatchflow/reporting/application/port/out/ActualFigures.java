@@ -7,11 +7,11 @@ import java.util.Optional;
 
 /**
  * What a plan's vehicles actually drove, beside its planned figures (FR-106). Q-40 settled that
- * actuals come from the apps' report times and the position traces (NFR-249), but no milestone
+ * actuals come from the apps' report times and the position traces (NFR-249), but nothing
  * measures the distance and driving time from the traces yet, so each may be unknown.
  *
- * <p>Built in an unscheduled milestone (Q-40); the actual arrivals beside them, in {@link
- * PlannedVsActualView}, in M5.
+ * <p>To Be Implemented. The actual arrivals beside them, in {@link PlannedVsActualView}, are not
+ * built yet either (Q-40).
  *
  * @param distance the distance driven over every route, or empty when it was not measured
  * @param drivingTime the time driven over every route, or empty when it was not measured

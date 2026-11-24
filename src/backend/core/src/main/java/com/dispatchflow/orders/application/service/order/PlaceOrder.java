@@ -27,11 +27,11 @@ import org.springframework.transaction.annotation.Transactional;
  * transaction (NFR-23, ADR-110).
  *
  * <p>Domain gap: {@code Customer.orderDefaults} answers in every state, so no domain method yet
- * refuses an order for a customer that isn't active. M2 adds {@code Customer.activeDefaults()},
- * which answers an active customer's defaults and refuses a retired or anonymized one as its other
- * commands do.
+ * refuses an order for a customer that isn't active. {@code Customer.activeDefaults()} is not added
+ * yet; once added, it answers an active customer's defaults and refuses a retired or anonymized one
+ * as its other commands do.
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class PlaceOrder {
@@ -63,7 +63,7 @@ public class PlaceOrder {
     /**
      * Places the order.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param customer the order's customer
@@ -77,6 +77,6 @@ public class PlaceOrder {
      *     (BR-124); {@code DuplicateOrderReference} (FR-211); {@code DateFull} (BR-101)
      */
     public OrderId place(Actor actor, CustomerId customer, DeliveryDate date, OrderDetails details) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

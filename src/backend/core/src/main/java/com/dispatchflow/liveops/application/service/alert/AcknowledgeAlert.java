@@ -14,7 +14,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * it writes its audit record, a refused attempt's in its own transaction (NFR-23, ADR-110). After the
  * commit, it tells the open screens through {@link LiveUpdates}.
  *
- * <p>Built in M8. Rows: FR-260.
+ * <p>To Be Implemented. Rows: FR-260.
  */
 public final class AcknowledgeAlert {
 
@@ -35,7 +35,7 @@ public final class AcknowledgeAlert {
     /**
      * Acknowledges the alert.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param alert the alert
@@ -46,6 +46,6 @@ public final class AcknowledgeAlert {
      * @throws StaleVersion when the alert changed since {@code expected}
      */
     public void acknowledge(Actor actor, AlertId alert, Version expected) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

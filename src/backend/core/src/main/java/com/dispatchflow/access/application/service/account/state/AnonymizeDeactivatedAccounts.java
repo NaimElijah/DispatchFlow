@@ -16,7 +16,7 @@ import com.dispatchflow.audit.application.api.CallContext;
  * AnonymizeDeactivatedAccountsChange#apply}, one account's transaction (ADR-129). A {@code
  * StaleVersion} from one account is left for the next night, and the job goes on to the next.
  *
- * <p>Built in M13, with the whole nightly retention run (ADR-121).
+ * <p>To Be Implemented. It comes with the whole nightly retention run (ADR-121).
  */
 public final class AnonymizeDeactivatedAccounts {
 
@@ -34,12 +34,12 @@ public final class AnonymizeDeactivatedAccounts {
     /**
      * Anonymizes the accounts whose retention is over.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param call the job's server step
      * @return how many accounts were anonymized
      */
     public int anonymizeDue(CallContext call) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
  * it asks {@code ArrivalProjection.isAtRisk} of each stop and raises a <em>stop at risk</em> alert
  * keyed on the revision, with the audit record (ADR-107, NFR-23).
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class AlertStopsAtRiskChange {
@@ -61,12 +61,12 @@ public class AlertStopsAtRiskChange {
     /**
      * Raises the alerts now due and writes the audit record.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param call the job's server step
      * @return the alerts raised; none whose key was taken, and none when no stop is at risk
      */
     public List<AlertId> apply(CallContext call) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

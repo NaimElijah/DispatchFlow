@@ -10,7 +10,7 @@ import java.util.Objects;
  * An accepted outcome whose stop the current plan holds somewhere else, which Live Operations asks
  * Planning to reconcile (DL §8, BR-89, BR-130). Planning translates it into its {@code LateFact}.
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  *
  * @param stop the stop
  * @param order its order

@@ -24,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
  * the revision in force at the corrected time, not from the plan as it is now, so a late report on a
  * stop the plan no longer holds still names the order and attempt it served (BR-110, FR-258).
  *
- * <p>Built in M5, M8 and M12, method by method.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class RouteMembershipService implements RouteMembership {
@@ -43,40 +43,40 @@ public class RouteMembershipService implements RouteMembership {
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      */
     @Override
     public MembershipFact membershipAt(StopId stop, RouteId route, Instant correctedTime) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      */
     @Override
     public Optional<RouteDriversFact> driversAt(RouteId route, Instant correctedTime) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      */
     @Override
     public Optional<LaterStopFact> laterStopOf(OrderId order, Attempt attempt) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      */
     @Override
     public Optional<OrderStopFact> stopOf(OrderId order, Attempt attempt, DeliveryDate date) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

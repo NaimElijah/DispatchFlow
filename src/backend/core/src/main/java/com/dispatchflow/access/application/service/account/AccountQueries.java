@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
  * only it, and {@link #show} answers {@code NotFound} for any other, so it learns nothing of the
  * rest (the permission matrix; BR-02).
  *
- * <p>Built in M5 and M6, method by method.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class AccountQueries {
@@ -36,32 +36,32 @@ public class AccountQueries {
     /**
      * The signed-in user's own view, with FR-299's warning for an Admin.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @return the view
      * @throws NotFound when the actor's account no longer exists
      */
     public MeView me(Actor actor) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * The users the actor may read.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @return every account, or only the actor's own for a Driver
      */
     public List<AccountView> list(Actor actor) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * One user.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param account the account
@@ -70,6 +70,6 @@ public class AccountQueries {
      *     another
      */
     public AccountView show(Actor actor, AccountId account) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

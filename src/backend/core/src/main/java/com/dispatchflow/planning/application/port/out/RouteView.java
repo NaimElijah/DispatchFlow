@@ -31,7 +31,7 @@ import java.util.Optional;
  * &amp; Orders', and a vehicle's capacity and a driver's shift are Fleet's: the screen reads them
  * through those modules' queries, as {@code planning.application.api} says.
  *
- * <p>Built in M0.
+ * <p>To Be Implemented.
  *
  * @param plan the plan that holds the route
  * @param date the plan's delivery date
@@ -82,7 +82,7 @@ public record RouteView(
     /**
      * One stop of the route (FR-241, FR-385).
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param stop the stop
      * @param order its order

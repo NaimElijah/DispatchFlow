@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
  * UserAccountRepository.activeAdminRecipients} when it is an Admin account (FR-389), and writes the
  * audit record (NFR-23). The use case sends the notice after the commit.
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ReactivateAccountChange {
@@ -49,7 +49,7 @@ public class ReactivateAccountChange {
     /**
      * Reactivates the account, and saves it.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param account the user's account
@@ -64,6 +64,6 @@ public class ReactivateAccountChange {
      *     save (BR-76)
      */
     public Optional<AdminNotice> apply(Actor actor, AccountId account, Version expected) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

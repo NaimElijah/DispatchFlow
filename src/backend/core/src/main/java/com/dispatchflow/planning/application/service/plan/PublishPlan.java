@@ -36,7 +36,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 public final class PublishPlan {
 
@@ -67,7 +67,7 @@ public final class PublishPlan {
     /**
      * Publishes the plan.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher, recorded as who published it
      * @param plan the plan
@@ -87,6 +87,6 @@ public final class PublishPlan {
      *     built, which fails the call
      */
     public void publish(Actor actor, PlanId plan, Version expected) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -22,7 +22,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * link's issue, its save and the audit record. After its commit, the use case sends the link, so a
  * change that rolls back sends nothing (ADR-129).
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 public final class SendSetPasswordLink {
 
@@ -43,7 +43,7 @@ public final class SendSetPasswordLink {
     /**
      * Sends the link.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param account the user's account
@@ -57,6 +57,6 @@ public final class SendSetPasswordLink {
      *     save (BR-76)
      */
     public void send(Actor actor, AccountId account, Version expected) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

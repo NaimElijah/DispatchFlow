@@ -11,10 +11,10 @@ import java.util.Objects;
  * an opt-out whose phone is no longer stored is never re-hashed and stays under an older key, which
  * is kept for lookups only. Each hash still singles out one person's phone, so it prints redacted.
  *
- * <p>{@code PhoneHash} records no key version yet, so the hashes can't say which key made each: M12
- * adds the version to {@code PhoneHash} (a domain gap).
+ * <p>{@code PhoneHash} records no key version yet, so the hashes can't say which key made each:
+ * adding the version to {@code PhoneHash} is not built yet (a domain gap).
  *
- * <p>Built in M12.
+ * <p>To Be Implemented.
  *
  * @param current the hash under the current key, which a new entry is appended under
  * @param older the hashes under the older key versions still in use, the newest first; empty when

@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
  * BR-48). Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ReactivateVehicle {
@@ -42,7 +42,7 @@ public class ReactivateVehicle {
     /**
      * Reactivates the vehicle.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param vehicle the vehicle
@@ -56,6 +56,6 @@ public class ReactivateVehicle {
      *     the save (BR-76)
      */
     public void reactivate(Actor actor, VehicleId vehicle, Version expected) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

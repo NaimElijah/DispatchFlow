@@ -29,7 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
  * request's matrix on success and, for a re-optimization, adds its proposal (DL §6.1, §9.2, TS §6.2,
  * ADR-063, ADR-129).
  *
- * <p>Built in M0, in full in M4; its re-optimization's end in M9.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RunSolveJobChange {
@@ -75,7 +75,7 @@ public class RunSolveJobChange {
      * Claims the lane's oldest queued job, under the lane's lock, so it starts building its matrix
      * (BR-75, DL §9.2).
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param lane the worker's lane
      * @param call the worker's server step, which the audit record names (ADR-110)
@@ -83,14 +83,14 @@ public class RunSolveJobChange {
      *     queued
      */
     public Optional<Claimed> claim(Lane lane, CallContext call) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Starts the job's search, once its request and matrix are built, so its limit runs from now
      * (FR-19, BR-75).
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param job the claimed job
      * @param call the worker's server step, which the audit record names (ADR-110)
@@ -101,7 +101,7 @@ public class RunSolveJobChange {
      *     watchdog or the midnight job ended it meanwhile
      */
     public void searchStarted(JobId job, CallContext call) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
@@ -109,7 +109,7 @@ public class RunSolveJobChange {
      * that breaks a lock or no plan could hold it, and stores the request's matrix on success; it
      * fails with the answer's reason otherwise (FR-65, FR-238, ADR-052, ADR-112).
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param job the job
      * @param request the request the optimizer was asked, whose matrix a success stores
@@ -122,7 +122,7 @@ public class RunSolveJobChange {
      *     watchdog or the midnight job ended it meanwhile, and the worker drops the answer
      */
     public void endDaily(JobId job, SolveRequest request, DailyAnswer answer, CallContext call) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
@@ -131,7 +131,7 @@ public class RunSolveJobChange {
      * request's new matrix, unless the proposal refuses the result; it fails with the answer's
      * reason otherwise (FR-35, FR-36, ADR-052, ADR-112, ADR-121).
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param job the job
      * @param request the request the optimizer was asked, with its fact time, routes and matrix
@@ -145,14 +145,14 @@ public class RunSolveJobChange {
      */
     public void endReoptimization(
             JobId job, ReoptimizationRequest request, ReoptimizationAnswer answer, CallContext call) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Fails a job that got no answer to end with: an unreachable road network, a date with no
      * orders, or a request the optimizer refused (FR-65, ADR-121).
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param job the job
      * @param failure why it failed
@@ -164,7 +164,7 @@ public class RunSolveJobChange {
      *     watchdog or the midnight job ended it meanwhile
      */
     public void fail(JobId job, SolveFailure failure, CallContext call) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**

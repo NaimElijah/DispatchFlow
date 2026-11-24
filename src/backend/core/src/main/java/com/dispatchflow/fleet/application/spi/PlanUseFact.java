@@ -8,7 +8,7 @@ import java.util.Objects;
  * One plan that uses a depot, a vehicle or a driver, as Planning answers; Fleet translates it into
  * its own {@code PlanUse} (DL §4.2, FR-305).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  *
  * @param plan the plan
  * @param date the plan's delivery date

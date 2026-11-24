@@ -49,7 +49,7 @@ import java.time.Instant;
  * ReceiveReplyChange} holds the transaction of the reply's effect and answers the messages it
  * counted, and this class sends them after that commit (ADR-129).
  *
- * <p>Built in M12. Rows: FR-357 to FR-360, FR-363, FR-371, FR-376, FR-379, NFR-192, NFR-196,
+ * <p>To Be Implemented. Rows: FR-357 to FR-360, FR-363, FR-371, FR-376, FR-379, NFR-192, NFR-196,
  * NFR-199, NFR-201, NFR-203.
  */
 public final class ReceiveReply {
@@ -71,7 +71,7 @@ public final class ReceiveReply {
     /**
      * Takes one reply. The caller has checked the provider's signature or secret (NFR-192).
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param providerId the provider's identifier for the inbound message (NFR-199)
      * @param from the phone it came from, as the adapter parsed it
@@ -83,6 +83,6 @@ public final class ReceiveReply {
      *     and the provider sends the call again (ADR-121, NFR-201)
      */
     public void receive(String providerId, PhoneNumber from, String text, Instant receivedAt, CallContext call) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

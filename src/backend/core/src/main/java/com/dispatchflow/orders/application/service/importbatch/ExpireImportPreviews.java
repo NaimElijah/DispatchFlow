@@ -10,7 +10,7 @@ import com.dispatchflow.audit.application.api.CallContext;
  * <p>It lists the previews due, then expires them one by one, and opens no transaction of its own:
  * {@link ExpireImportPreviewsChange} holds each preview's (ADR-129).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 public final class ExpireImportPreviews {
 
@@ -28,12 +28,12 @@ public final class ExpireImportPreviews {
     /**
      * Expires every preview whose hour has passed.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param call the job's server step
      * @return how many previews were expired
      */
     public int expireDue(CallContext call) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

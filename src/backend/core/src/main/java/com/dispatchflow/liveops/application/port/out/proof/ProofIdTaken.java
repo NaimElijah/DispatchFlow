@@ -10,7 +10,7 @@ import java.util.Objects;
  * is no {@code DomainError}: the web adapter answers it with 409 and {@link #code()}. The message
  * names the ID only, never the uploader.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 public final class ProofIdTaken extends RuntimeException {
 

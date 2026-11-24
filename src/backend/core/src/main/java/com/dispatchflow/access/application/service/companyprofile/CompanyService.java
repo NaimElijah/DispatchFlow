@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
  * reads a new customer's defaults from, and Messaging the name and language of its messages
  * (FR-125, FR-184, FR-349, FR-382, ADR-104).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class CompanyService implements Company {
@@ -30,10 +30,10 @@ public class CompanyService implements Company {
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      */
     @Override
     public Optional<CompanyFacts> profile() {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

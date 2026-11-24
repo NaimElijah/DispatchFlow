@@ -9,14 +9,14 @@ import java.util.List;
  * HoldCheck} judges a late report by (BR-132, BR-133, ADR-107, placement P8). A token refresh and
  * an outbox send are not contact (DL §8).
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 public interface SessionContacts {
 
     /**
      * The contact times of every session of an account within a span, both ends included.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param account the reporting account
      * @param from the first instant of the span

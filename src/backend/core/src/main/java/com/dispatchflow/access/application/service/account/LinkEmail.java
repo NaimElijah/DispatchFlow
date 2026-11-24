@@ -12,7 +12,7 @@ import java.util.Objects;
  * EmailSender.sendLink} only after the commit, so a change that rolls back sends nothing (ADR-129).
  * The token is a secret, never logged (NFR-19, NFR-211), so it prints redacted.
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  *
  * @param to the address the link goes to: the one stored on the account for a set-password or
  *     recovery link (BR-125), the new one for an email-change link (FR-388)

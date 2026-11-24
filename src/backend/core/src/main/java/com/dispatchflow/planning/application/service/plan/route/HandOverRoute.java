@@ -25,8 +25,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  * active, which {@code Plan.handOver} refuses as {@code NotAnActiveDriver}; {@code
  * DRIVER_NOT_ROSTERED} and {@code DRIVER_MARKED_UNAVAILABLE} one not available, refused as {@code
  * DriverNotAvailable}. Planning's domain has no error for {@code DRIVER_ALREADY_HAS_VEHICLE}, a
- * driver rostered to another vehicle whose route is not in the plan; M9 adds it to {@code
- * DriverStanding} and {@code Plan.handOver}'s refusals.
+ * driver rostered to another vehicle whose route is not in the plan; re-optimization adds it to
+ * {@code DriverStanding} and {@code Plan.handOver}'s refusals.
  *
  * <p>Before its transaction it asks the validator about {@code Plan.afterHandOver}, whose layout
  * {@link HandOverRouteChange#layoutAfter} reads. The assembler rosters the route's vehicle to the new
@@ -47,7 +47,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 public final class HandOverRoute {
 
@@ -78,7 +78,7 @@ public final class HandOverRoute {
     /**
      * Hands the route over.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher, recorded as who handed it over
      * @param plan the plan
@@ -99,6 +99,6 @@ public final class HandOverRoute {
      */
     public void handOver(
             Actor actor, PlanId plan, RouteId route, AccountId toDriver, boolean breakConfirmed, Version expected) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

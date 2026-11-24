@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
  * The read-only transactions of {@link PlanningSettingsQueries}: the settings, and the default solvers
  * beside the ones the optimizer offers (FR-20, FR-183, TS §6.2, ADR-129).
  *
- * <p>Built in M4.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class PlanningSettingsQueriesChange {
@@ -33,7 +33,7 @@ public class PlanningSettingsQueriesChange {
      * The planning settings, or their starting values when an Admin never changed any. Only an Admin
      * or a Dispatcher reads them (FR-183).
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param actor the Admin or the Dispatcher
      * @return the settings, with their version, empty while never saved
@@ -41,20 +41,20 @@ public class PlanningSettingsQueriesChange {
      *     covers the company's name and dispatch phone and not these settings
      */
     public PlanningSettingsView settings(Actor actor) {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * The solvers on offer, with the planning settings' default solver of each kind of solve (FR-20,
      * ADR-004).
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param offered the solvers the optimizer offers, asked before the transaction
      * @return the solvers' names and the two defaults
      */
     public SolversView solvers(Actor actor, List<SolverName> offered) {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -11,7 +11,7 @@ package com.dispatchflow.access.application.service.session;
  * adapter answers it with 401 and {@link #code()}. Its message names nothing about the attempt
  * (NFR-19).
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 public final class SignInRefused extends RuntimeException {
 

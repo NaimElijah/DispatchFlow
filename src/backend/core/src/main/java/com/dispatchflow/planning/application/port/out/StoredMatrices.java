@@ -19,7 +19,7 @@ import java.util.Optional;
  * keeps working through the hash: a caller that holds a list finds the matrix by the list's hash
  * ({@link #matching}), and the list it holds gives the rows their locations again.
  *
- * <p>Built in M3 and M13, method by method.
+ * <p>To Be Implemented.
  */
 public interface StoredMatrices {
 
@@ -31,7 +31,7 @@ public interface StoredMatrices {
      * records (DL §9.7). A matrix over the same list as the stored one, by the list's hash, leaves
      * it as it is.
      *
-     * <p>Built in M3.
+     * <p>To Be Implemented.
      *
      * @param plan the plan
      * @param job the solve job that built it
@@ -43,7 +43,7 @@ public interface StoredMatrices {
      * The matrix the plan's latest stored solve was built with, with its list of locations, for an
      * edit check, the publishing re-check and a re-optimization to find which locations it has.
      *
-     * <p>Built in M3.
+     * <p>To Be Implemented.
      *
      * @param plan the plan
      * @return the matrix, or empty when the plan was never solved or retention dropped its list of
@@ -56,7 +56,7 @@ public interface StoredMatrices {
      * by the list's hash (ADR-052). It reads the numbers and the hash only, so it answers after
      * retention dropped the stored list (ADR-121).
      *
-     * <p>Built in M3.
+     * <p>To Be Implemented.
      *
      * @param plan the plan
      * @param locations the locations a new request needs, each once, in the order its matrix
@@ -71,7 +71,7 @@ public interface StoredMatrices {
      * numbers and its list's hash, in the caller's transaction (NFR-257, NFR-260, ADR-121). A plan
      * whose list is already dropped is left as it is, so a second run drops nothing.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param cutoff the first date whose plans keep their lists: today less 90 Israel calendar days
      *     (ADR-088)

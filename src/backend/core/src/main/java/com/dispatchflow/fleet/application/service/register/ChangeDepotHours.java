@@ -18,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
  * BR-46, ADR-103). Like every changing call it writes its audit record, a refused attempt's in its
  * own transaction (NFR-23, ADR-110).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ChangeDepotHours {
@@ -43,7 +43,7 @@ public class ChangeDepotHours {
     /**
      * Changes the hours.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param depot the depot
@@ -55,6 +55,6 @@ public class ChangeDepotHours {
      *     the save (BR-76)
      */
     public void change(Actor actor, DepotId depot, Optional<DepotHours> hours, Version expected) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

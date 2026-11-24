@@ -10,7 +10,7 @@ import java.util.List;
  * DL §9.6) and before it puts an order back (FR-75, FR-258). Planning implements it as its {@code
  * OrderPlacementService} (DL §2.1's dashed arrow).
  *
- * <p>Built in M2, for the order screens and a change's answer (ADR-121).
+ * <p>To Be Implemented. It serves the order screens and a change's answer (ADR-121).
  */
 public interface OrderPlacement {
 
@@ -20,7 +20,7 @@ public interface OrderPlacement {
      * view as {@link #placementsOn}, so the order screens and a change's answer agree (FR-396,
      * ADR-121).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param order the order
      * @param date the date whose plans are asked, the order's date
@@ -32,7 +32,7 @@ public interface OrderPlacement {
     /**
      * Where the plans of a date hold its orders, for the order list's statuses (FR-76, BR-33).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param date the date
      * @return one entry per order a plan of that date holds; an order left out is not placed

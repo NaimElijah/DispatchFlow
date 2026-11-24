@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
  * deactivates the account, saves it, and writes the audit record (NFR-23). The use case evicts the
  * account from the revocation cache after the commit.
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class DeactivateAccountChange {
@@ -46,7 +46,7 @@ public class DeactivateAccountChange {
     /**
      * Deactivates the account, and saves it.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param account the user's account
@@ -60,6 +60,6 @@ public class DeactivateAccountChange {
      *     save (BR-76)
      */
     public void apply(Actor actor, AccountId account, Version expected) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

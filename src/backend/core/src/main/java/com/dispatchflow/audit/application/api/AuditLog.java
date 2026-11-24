@@ -9,7 +9,7 @@ import java.util.List;
  * §2.1). It holds only IDs, codes, enums and instants, so no personal data or secret reaches a
  * record (NFR-94).
  *
- * <p>Built in M0.
+ * <p>To Be Implemented.
  */
 public interface AuditLog {
 
@@ -17,7 +17,7 @@ public interface AuditLog {
      * Records a successful attempt, in the transaction of the change it describes, so the record
      * and the change commit together (NFR-23, TS §6.2).
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param call who made the attempt, through which client, as which operation
      * @param at when the attempt was made
@@ -33,7 +33,7 @@ public interface AuditLog {
      * Records a refused attempt in a transaction of its own, so the refusal's rollback doesn't lose
      * it (NFR-23, ADR-110 point 1).
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param call who made the attempt, through which client, as which operation
      * @param at when the attempt was made

@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
  * so Planning answers from the orders its plans hold and keeps no customer of its own. Planning alone
  * decides which plans are not yet completed (DL §4.3).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class CustomerUsageService implements RecordUsage {
@@ -35,10 +35,10 @@ public class CustomerUsageService implements RecordUsage {
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      */
     @Override
     public List<PlanId> plansUsing(List<OrderId> orders) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

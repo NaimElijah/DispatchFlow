@@ -10,14 +10,14 @@ import java.util.List;
  * ADR-026, ADR-083). An address is removed at sign-out, at revocation and when the push service
  * reports the device gone (NFR-263).
  *
- * <p>Built in M10.
+ * <p>To Be Implemented.
  */
 public interface PushTokens {
 
     /**
      * Records a session's push address, replacing the one it had.
      *
-     * <p>Built in M10.
+     * <p>To Be Implemented.
      *
      * @param session the phone's session
      * @param account the session's account
@@ -29,7 +29,7 @@ public interface PushTokens {
      * Removes a session's address, at sign-out, when the session is revoked (NFR-263), and when the
      * retention job deletes it. Removing a missing one changes nothing.
      *
-     * <p>Built in M10.
+     * <p>To Be Implemented.
      *
      * @param session the session
      */
@@ -39,7 +39,7 @@ public interface PushTokens {
      * Removes an address from every session that holds it, when the push service reports the device
      * gone (NFR-263). Removing one no session holds changes nothing.
      *
-     * <p>Built in M10.
+     * <p>To Be Implemented.
      *
      * @param address the address reported gone
      * @return the sessions it was removed from, each once; empty when none held it
@@ -49,7 +49,7 @@ public interface PushTokens {
     /**
      * The addresses of an account's live sessions.
      *
-     * <p>Built in M10.
+     * <p>To Be Implemented.
      *
      * @param account the account
      * @return the addresses, possibly none
@@ -60,7 +60,7 @@ public interface PushTokens {
      * The addresses of the live sessions of every active account that holds the Admin or the
      * Dispatcher role, read in one query over Access's own accounts and sessions (FR-405, ADR-083).
      *
-     * <p>Built in M10.
+     * <p>To Be Implemented.
      *
      * @return the addresses, each once, possibly none
      */

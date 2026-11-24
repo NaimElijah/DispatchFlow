@@ -19,7 +19,7 @@ import com.dispatchflow.planning.application.port.out.solvejob.RouteOptimizer;
  * <p>{@link PlanningSettingsQueriesChange} holds the read-only transaction of each answer. The
  * solvers on offer are asked of {@link RouteOptimizer} before it (ADR-129).
  *
- * <p>Built in M4.
+ * <p>To Be Implemented.
  */
 public final class PlanningSettingsQueries {
 
@@ -41,7 +41,7 @@ public final class PlanningSettingsQueries {
      * The planning settings, or their starting values when an Admin never changed any. Only an Admin
      * or a Dispatcher reads them (FR-183).
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param actor the Admin or the Dispatcher
      * @return the settings, with their version, empty while never saved
@@ -49,14 +49,14 @@ public final class PlanningSettingsQueries {
      *     covers the company's name and dispatch phone and not these settings
      */
     public PlanningSettingsView settings(Actor actor) {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * The solvers on offer, and the planning settings' default solver of each kind of solve (FR-20,
      * ADR-004).
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @return the solvers' names and the two defaults
@@ -64,6 +64,6 @@ public final class PlanningSettingsQueries {
      *     can't be reached
      */
     public SolversView solvers(Actor actor) {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

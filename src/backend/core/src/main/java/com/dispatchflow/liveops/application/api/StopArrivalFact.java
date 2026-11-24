@@ -10,7 +10,7 @@ import java.util.Optional;
  * Messaging's minute job (FR-351 to FR-353, FR-373, DL §10.3, ADR-067, ADR-114). Messaging builds
  * its {@code ProjectedArrival} and {@code ArrivalFacts} from it.
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  *
  * @param stop the stop
  * @param arrival the stop's projected arrival, or empty when it has none: a stop with an arrival
@@ -38,7 +38,7 @@ public record StopArrivalFact(
     /**
      * What a projected arrival rests on (ADR-114).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      */
     public enum Basis {
         /** Carried forward along the stored legs from the route's start or its latest event. */
@@ -50,7 +50,7 @@ public record StopArrivalFact(
     /**
      * How far a stop's route has come (FR-352 to FR-354).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      */
     public enum RouteProgress {
         /** The driver has not started the route. */
@@ -64,7 +64,7 @@ public record StopArrivalFact(
     /**
      * The stop before this one in plan order (FR-352).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      */
     public enum PreviousStop {
         /** This stop is the route's first. */
@@ -78,7 +78,7 @@ public record StopArrivalFact(
     /**
      * How far a stop has come (FR-373).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      */
     public enum StopProgress {
         /** Neither arrived at nor given an outcome. */
@@ -92,7 +92,7 @@ public record StopArrivalFact(
     /**
      * When the stop is now expected to be reached, and on what basis (FR-254, ADR-067, ADR-114).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param at the projected arrival, never before the time it was projected at (FR-254)
      * @param basis whether it was carried forward or is a skipped stop's planned arrival

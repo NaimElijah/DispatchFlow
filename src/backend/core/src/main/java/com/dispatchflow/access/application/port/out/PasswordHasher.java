@@ -11,14 +11,14 @@ import com.dispatchflow.access.domain.account.PasswordHash;
  * <p>Sign-in runs the same hash work for an address no account holds, and for an account with no
  * password hash yet, as for an account with one, through {@link #checkDecoy} (NFR-145, NFR-225).
  *
- * <p>Built in M5 and M6, method by method.
+ * <p>To Be Implemented.
  */
 public interface PasswordHasher {
 
     /**
      * Hashes a new password.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param password the password, checked against the policy (NFR-95)
      * @return its salted hash
@@ -29,7 +29,7 @@ public interface PasswordHasher {
      * Whether a presented password is the one a hash was made from, in time that doesn't depend on
      * where they differ.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param presented the password as typed
      * @param hash the stored hash
@@ -44,7 +44,7 @@ public interface PasswordHasher {
      * answer takes as long as for an account with a password, and a pending account can't be told
      * from an unknown address (NFR-145, NFR-225).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param presented the password typed for an address no account holds, or for an account with
      *     no password hash

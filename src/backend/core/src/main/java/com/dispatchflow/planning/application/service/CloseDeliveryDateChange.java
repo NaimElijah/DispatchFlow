@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
  * date's plan, each saving its aggregate and writing its audit record (DL §6.1, §9.1, TS §6.2,
  * ADR-053, ADR-129).
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class CloseDeliveryDateChange {
@@ -48,7 +48,7 @@ public class CloseDeliveryDateChange {
     /**
      * The date's jobs still queued, building their matrix or searching.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param date the date that just ended
      * @return the jobs, possibly none
@@ -57,13 +57,13 @@ public class CloseDeliveryDateChange {
      */
     @Transactional(readOnly = true)
     public List<JobId> unfinishedJobsOn(DeliveryDate date) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Fails one job with the reason <em>its date passed</em> (BR-102, ADR-053).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param job the job
      * @param call the job's server step
@@ -73,13 +73,13 @@ public class CloseDeliveryDateChange {
      *     job ended meanwhile; the midnight job moves on to the next (DL §11)
      */
     public PlanId failJob(JobId job, CallContext call) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Completes the date's published plan, or abandons the plan still unpublished (BR-127, BR-128).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param date the date that just ended
      * @param call the job's server step
@@ -91,6 +91,6 @@ public class CloseDeliveryDateChange {
      *     adapter retries at once, up to three times (DL §11)
      */
     public Optional<PlanId> closePlan(DeliveryDate date, CallContext call) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

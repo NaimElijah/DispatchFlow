@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
  * driver and the plan's current revision from Planning's {@link PublishedRoutes}, and calls {@code
  * RouteRun.acknowledge} with the audit record (ADR-107, NFR-23).
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class AcknowledgeRouteChangeChange {
@@ -45,7 +45,7 @@ public class AcknowledgeRouteChangeChange {
     /**
      * Records the revision the driver saw and writes the audit record.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the driver
      * @param route the route
@@ -57,6 +57,6 @@ public class AcknowledgeRouteChangeChange {
      * @throws StaleVersion when another writer saved the run meanwhile
      */
     public void apply(Actor actor, RouteId route, RevisionNo seen) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -5,7 +5,7 @@ package com.dispatchflow.access.application.api;
  * ADR-089): Messaging writes its messages in it, as its {@code MessageLanguage}. Access's domain
  * keeps its own copy, {@code Language}.
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 public enum CompanyLanguage {
     /** Hebrew, laid out right to left. */

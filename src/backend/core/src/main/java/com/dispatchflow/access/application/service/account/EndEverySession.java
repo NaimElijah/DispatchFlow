@@ -24,7 +24,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * its save and the audit record. After its commit, the use case evicts the account from the
  * revocation cache (ADR-129).
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 public final class EndEverySession {
 
@@ -45,7 +45,7 @@ public final class EndEverySession {
     /**
      * Ends the sessions.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param account the user's account
@@ -58,6 +58,6 @@ public final class EndEverySession {
      *     save (BR-76)
      */
     public void end(Actor actor, AccountId account, Version expected) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

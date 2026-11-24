@@ -25,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
  * pair. The second checks that the baseline is still at the version the first read, because the
  * vehicles the solve leaves out came from that version.
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RecomputeBaselineChange {
@@ -63,7 +63,7 @@ public class RecomputeBaselineChange {
      * event's withdrawals, the plan's {@code BaselineInputs} through {@link
      * ReportingViews#baselineInputsOf}, and {@code BaselineSolve}'s seed and budget.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param event the revision
      * @return the solve to ask for; empty when the revision neither withdrew a vehicle nor added
@@ -75,7 +75,7 @@ public class RecomputeBaselineChange {
      */
     @Transactional(readOnly = true)
     public Optional<Solve> requestFor(PlanRevised event) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
@@ -83,7 +83,7 @@ public class RecomputeBaselineChange {
      * a {@link BaselineAnswer.Refused}. It records the {@code (listener, event ID)} pair in {@link
      * ProcessedEvents} and writes the audit record, and a repeated delivery changes nothing.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param event the revision
      * @param expected the version of the baseline the request was built from
@@ -96,7 +96,7 @@ public class RecomputeBaselineChange {
      *     three times (DL §11)
      */
     public void apply(PlanRevised event, Version expected, BaselineAnswer answer, CallContext call) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**

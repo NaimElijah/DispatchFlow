@@ -17,7 +17,7 @@ import java.util.Optional;
  * change that takes a version sends back as {@code If-Match} (BR-76); {@code FillDayRoster} sends
  * none.
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  *
  * @param date the roster's date
  * @param entries every rostered driver, each once, whatever their standing
@@ -40,7 +40,7 @@ public record RosterView(
     /**
      * One rostered driver and their standing.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param entry the driver's shift, vehicle and availability
      * @param standing whether they may be planned now, and why not (ADR-062)

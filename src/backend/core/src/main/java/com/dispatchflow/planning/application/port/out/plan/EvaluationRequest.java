@@ -19,9 +19,9 @@ import java.util.Objects;
  * now}. Its matrix is the plan's stored one, or, when that lacks a location, such as a late order's
  * on an edit check or the publishing re-check, a new one over the new list of locations (ADR-121).
  * Whether evaluating a published plan mid-day takes the daily or the re-optimization rules is open
- * until M9 (see {@link FeasibilityChecker}).
+ * until re-optimization is built (see {@link FeasibilityChecker}).
  *
- * <p>Built in M4.
+ * <p>To Be Implemented.
  *
  * @param plan the plan
  * @param planVersion the version the layout was read from, which the {@code Evaluation} names

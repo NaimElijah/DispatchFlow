@@ -8,7 +8,7 @@ import java.util.Objects;
  * dispatcher views (FR-30, FR-105, NFR-204). A photo of a door or a signature identifies a person,
  * so it prints redacted.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  *
  * <p>A class, not a record: a record holding an array compares it by identity and hands out
  * the array itself.

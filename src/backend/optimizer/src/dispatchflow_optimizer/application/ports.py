@@ -10,7 +10,7 @@ honour, raises `UnknownSolverError` or `UnsupportedBudgetError`, which propagate
 case. A search that ran and returned no solution raises `SearchFailedError` with its
 `SearchFailure`, which the use case answers as `Failed` (ADR-004).
 
-Built in M0.
+To Be Implemented.
 """
 
 from collections.abc import Sequence
@@ -162,7 +162,7 @@ class Solver(Protocol):
 class SolverRegistry:
     """The solvers the service holds, by name; it has no default (ADR-004).
 
-    Built in M0.
+    To Be Implemented.
     """
 
     def __init__(self, solvers: Sequence[Solver]) -> None:
@@ -185,9 +185,9 @@ class SolverRegistry:
         Raises:
             UnknownSolverError: If the registry holds no solver of that name; it never falls back
                 to another.
-            NotImplementedError: Until M0 builds it.
+            NotImplementedError: To Be Implemented.
         """
-        raise NotImplementedError("Built in M0")
+        raise NotImplementedError("To Be Implemented.")
 
     def names(self) -> tuple[str, ...]:
         """The names of the solvers held, in the order they were given (ADR-004).
@@ -196,9 +196,9 @@ class SolverRegistry:
             The names.
 
         Raises:
-            NotImplementedError: Until M0 builds it.
+            NotImplementedError: To Be Implemented.
         """
-        raise NotImplementedError("Built in M0")
+        raise NotImplementedError("To Be Implemented.")
 
 
 class Lap(Protocol):

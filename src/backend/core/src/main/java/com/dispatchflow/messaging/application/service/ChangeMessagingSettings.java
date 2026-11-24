@@ -25,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
  * changing call it writes its audit record, a refused attempt's in its own transaction (NFR-23,
  * ADR-110).
  *
- * <p>Built in M12. Rows: FR-199, FR-350, FR-375, FR-382, NFR-214.
+ * <p>To Be Implemented. Rows: FR-199, FR-350, FR-375, FR-382, NFR-214.
  */
 @Transactional
 public class ChangeMessagingSettings {
@@ -54,7 +54,7 @@ public class ChangeMessagingSettings {
     /**
      * Sets the three settings.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param actor the Admin
      * @param messages whether messages to recipients go
@@ -73,6 +73,6 @@ public class ChangeMessagingSettings {
             Switch ratingQuestion,
             DispatchPhone dispatchPhone,
             Optional<Version> expected) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

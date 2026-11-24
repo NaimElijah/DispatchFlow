@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
  * translates the departure allowance into a {@link Duration}, so no domain type crosses to Live
  * Operations (DL §2.3 rule 1, FR-67, FR-101).
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class PlanningSettingsFactsService implements PlanningSettingsFacts {
@@ -29,10 +29,10 @@ public class PlanningSettingsFactsService implements PlanningSettingsFacts {
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      */
     @Override
     public Duration departureAllowance() {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -13,7 +13,7 @@ import java.util.Objects;
  * yet completed, and one raised after its plan completed until it is acknowledged (FR-261). An alert
  * raised while the web app was closed waits here (FR-335).
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  *
  * @param alerts the alerts, the newest first
  */
@@ -27,7 +27,7 @@ public record OpenAlertsView(List<OpenAlert> alerts) {
     /**
      * One unacknowledged alert.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param alert the alert
      * @param subject what it is about: its kind and the records it names

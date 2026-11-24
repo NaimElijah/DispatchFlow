@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
  * jobs, and one per job that fails it with {@code SolveJob.expireIfOverdue} when it is past its
  * phase's deadline, saves it and writes the audit record (TS §6.2, ADR-063, ADR-129).
  *
- * <p>Built in M4.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ExpireOverdueSolveJobsChange {
@@ -42,19 +42,19 @@ public class ExpireOverdueSolveJobsChange {
     /**
      * The jobs still queued, building their matrix or searching.
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @return the jobs, possibly none
      */
     @Transactional(readOnly = true)
     public List<JobId> unfinished() {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Fails one job if it is past its phase's deadline.
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param job the job
      * @param call the job's server step
@@ -67,6 +67,6 @@ public class ExpireOverdueSolveJobsChange {
      *     job ended meanwhile; the watchdog moves on
      */
     public Optional<PlanId> apply(JobId job, CallContext call) {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

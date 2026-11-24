@@ -4,21 +4,22 @@ The HTTP adapter builds these from the contract, so no transport type reaches a 
 rule 4). The inputs are `ProblemFactory`'s keyword arguments, which the use case hands it
 unchanged, so the factory alone decides each convention (ADR-050).
 
-Gap until M7: `OrderSpec` has no input for an order's outside-service-area flag (FR-320), so the
-core has nowhere to send it. M7's geocoding adds that input to the domain, and the factory then
-drops such an order as *unreachable location* (FR-66). The core never sets the flag for a location
-placed by hand or a missing one.
+Gap until geocoding is built: `OrderSpec` has no input for an order's outside-service-area flag
+(FR-320), so the core has nowhere to send it. Geocoding adds that input to the domain, and the
+factory then drops such an order as *unreachable location* (FR-66). The core never sets the flag
+for a location placed by hand or a missing one.
 
 The rates and the break flag come from the core's configuration, fixed values no one changes on
 screen (ADR-029, ADR-121).
 
 Domain gap: the optimizer applies the departure allowance (FR-67) and a handed-over route's
 confirmed return (FR-394), and the core sends both as they are, never folded into the shift times
-(ADR-050, ADR-121). `ProblemFactory` has no input for either yet: M0 adds `departure_allowance` to
-`daily` and `reoptimization`, and M9 adds a per-driver `confirmed_return` to `reoptimization`. The
-core doesn't send its route locks until the domain has a lock rule (ADR-112, ADR-121).
+(ADR-050, ADR-121). `ProblemFactory` has no input for either yet: the daily solve adds
+`departure_allowance` to `daily` and `reoptimization`, and re-optimization adds a per-driver
+`confirmed_return` to `reoptimization`. The core doesn't send its route locks until the domain has
+a lock rule (ADR-112, ADR-121).
 
-Built in M0; the evaluation and baseline requests in M1, the re-optimization request in M9.
+To Be Implemented.
 """
 
 from dataclasses import dataclass
@@ -58,7 +59,7 @@ class DailyInputs:
             (FR-81, BR-105, ADR-121).
         removed_by_dispatcher: Orders a dispatcher took off the current routes (FR-146).
 
-    It has no `departure_allowance` yet, a domain gap M0 closes (FR-67, ADR-121).
+    It has no `departure_allowance` yet, a domain gap the daily solve closes (FR-67, ADR-121).
     """
 
     orders: tuple[OrderSpec, ...]
@@ -122,8 +123,8 @@ class ReoptimizationRequest:
         budget: What ends the search (ADR-044, BR-84).
         seed: The seed, so the re-optimization can be replayed (NFR-13).
 
-    It has no `departure_allowance` yet, a domain gap M0 closes, and no per-driver
-    `confirmed_return`, a domain gap M9 closes (FR-67, FR-394, ADR-121).
+    It has no `departure_allowance` yet, a domain gap the daily solve closes, and no
+    per-driver `confirmed_return`, a domain gap re-optimization closes (FR-67, FR-394, ADR-121).
     """
 
     now: float

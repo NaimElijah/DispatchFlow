@@ -29,9 +29,9 @@ import org.springframework.transaction.annotation.Transactional;
  * and its refusal becomes an {@link AssignabilityFact.Reason}.
  *
  * <p>Neither {@code FleetRegister} nor {@code DayRoster} records when an entry changed, which
- * {@link #changesSince} needs; M2 adds that record.
+ * {@link #changesSince} needs; that record is not added yet.
  *
- * <p>Built in M2 and M9, method by method.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class FleetFactsService implements FleetFacts {
@@ -63,50 +63,50 @@ public class FleetFactsService implements FleetFacts {
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      */
     @Override
     public RegisterFacts register() {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      */
     @Override
     public RosterFacts rosterOn(DeliveryDate date) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      */
     @Override
     public Optional<RosteredDriver> driverOn(DeliveryDate date, AccountId driver) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      */
     @Override
     public AssignabilityFact assignability(DeliveryDate date, VehicleId vehicle, AccountId driver) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      */
     @Override
     public FleetChanges changesSince(DeliveryDate date, Instant since) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -12,14 +12,14 @@ import com.dispatchflow.shared.GeoPoint;
  * <p>The geocoding job calls it before its transaction opens (DL §6.3), as it calls the {@link
  * Geocoder}.
  *
- * <p>Built in M7.
+ * <p>To Be Implemented.
  */
 public interface RoadSnap {
 
     /**
      * Measures how far a point lies from the nearest road.
      *
-     * <p>Built in M7.
+     * <p>To Be Implemented.
      *
      * @param point the point the geocoder found
      * @return the distance in metres, 0 or more

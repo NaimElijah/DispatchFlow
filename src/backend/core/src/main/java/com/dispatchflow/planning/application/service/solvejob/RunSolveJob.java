@@ -21,11 +21,12 @@ import com.dispatchflow.planning.events.Lane;
  *       SolveFailure.lockNotHonoured} (FR-238). Otherwise {@code SolveJob.succeed} keeps it, and a
  *       result no plan could hold ({@code OrderAlreadyInPlan}, {@code VehicleRoutedTwice}, {@code
  *       DriverRoutedTwice}) fails the job with {@code SolveFailure.rejected} instead (ADR-112).
- *   <li>From M3, a job's success transaction also stores the matrix its request was built with,
- *       through {@link StoredMatrices#store}, so a failed job stores none and the assembler only
- *       reads (ADR-052, BR-37). For a daily job that is its matrix; for a re-optimization, the new
- *       matrix the assembler fetched when the stored one lacked a location, which replaces the
- *       stored one (ADR-121). A matrix over the stored one's list leaves it as it is.
+ *   <li>With travel times, a job's success transaction also stores the matrix its request was
+ *       built with, through {@link StoredMatrices#store}, so a failed job stores none and the
+ *       assembler only reads (ADR-052, BR-37). For a daily job that is its matrix; for a
+ *       re-optimization, the new matrix the assembler fetched when the stored one lacked a
+ *       location, which replaces the stored one (ADR-121). A matrix over the stored one's list
+ *       leaves it as it is.
  *   <li>A re-optimization's answer becomes a {@code ReoptimizationResult}, which this step builds
  *       from the answer and the request: the request's fact time, each withdrawn vehicle's cause
  *       from its {@code VehicleState}, and the per-driver changes and goods hand-overs against the
@@ -55,11 +56,12 @@ import com.dispatchflow.planning.events.Lane;
  * any, and the dispatchers' open screens are told after each commits (ADR-129).
  *
  * <p><b>Domain gap.</b> {@code SolveJob.succeed} keeps no objective and no stats, which the daily
- * answer carries for NFR-11: M0 adds them to {@code SolveResult} (see {@code DailyAnswer.Solved}).
- * {@code SolveJob.fail} keeps no stats either, which a {@code Failed} answer carries when the
- * optimizer answered: M0 adds them beside the failure (see {@code DailyAnswer.Failed}).
+ * answer carries for NFR-11: the solve queue adds them to {@code SolveResult} (see {@code
+ * DailyAnswer.Solved}). {@code SolveJob.fail} keeps no stats either, which a {@code Failed} answer
+ * carries when the optimizer answered: the solve queue adds them beside the failure (see {@code
+ * DailyAnswer.Failed}).
  *
- * <p>Built in M0; in full in M4. M0 builds the daily lane, and the roadmap's M4 builds "the {@code
+ * <p>To Be Implemented. It comes first with the daily lane, and the solve queue builds "the {@code
  * solve_job} queue, one worker per lane" (ADR-051).
  */
 public final class RunSolveJob {
@@ -91,13 +93,13 @@ public final class RunSolveJob {
     /**
      * Runs the lane's next queued job to its end.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param lane the worker's lane
      * @param call the worker's server step, which the audit records name (ADR-110)
      * @return {@code true} when it ran a job, {@code false} when the lane had none queued
      */
     public boolean runNext(Lane lane, CallContext call) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

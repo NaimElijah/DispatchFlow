@@ -27,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
  * and answers empty when it finds none. {@link #progressOf} reads only the route's run and the stop's
  * delivery, and never asks Planning.
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class ArrivalProjectionsService implements ArrivalProjections {
@@ -54,30 +54,30 @@ public class ArrivalProjectionsService implements ArrivalProjections {
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      */
     @Override
     public List<StopArrivalFact> projectedOn(DeliveryDate date, Instant now) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      */
     @Override
     public Optional<StopArrivalFact> of(StopId stop, Instant now) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      */
     @Override
     public ProgressFact progressOf(RouteId route, StopId stop) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

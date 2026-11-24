@@ -13,7 +13,7 @@ import java.util.Objects;
  * the token check compares, and the roles it may use (NFR-86, NFR-177, NFR-227). It holds no
  * personal data.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  *
  * @param account the account, the token's {@code sub}
  * @param accountGeneration the account's generation, the token's {@code ugen}
@@ -21,10 +21,10 @@ import java.util.Objects;
  * @param sessionGeneration the session's generation, the token's {@code sgen}
  * @param roles the roles the account holds now
  * @param issuedAt when the token is issued
- * @param expiresAt when it stops being accepted, 15 minutes later by default (NFR-86); until M6
- *     builds refresh, the {@code dev} profile alone may set a longer lifetime (ADR-121), and
+ * @param expiresAt when it stops being accepted, 15 minutes later by default (NFR-86); until
+ *     refresh is built, the {@code dev} profile alone may set a longer lifetime (ADR-121), and
  *     unless {@code dev} is the only active profile the core refuses to boot with a lifetime other
- *     than 15 minutes, which M5 tests. M6 deletes the dev allowance
+ *     than 15 minutes, which sign-in's tests check. Building refresh deletes the dev allowance
  */
 public record AccessClaims(
         AccountId account,

@@ -18,7 +18,7 @@ import java.time.Period;
  * <p>The {@link Geocoder} is an outside call, so it deletes the entries before any transaction, and
  * {@link ForgetUnusedGeocodesChange} then records the run in one (ADR-129).
  *
- * <p>Built in M13, with the whole nightly retention run (ADR-121).
+ * <p>To Be Implemented. It comes with the whole nightly retention run (ADR-121).
  */
 public final class ForgetUnusedGeocodes {
 
@@ -46,12 +46,12 @@ public final class ForgetUnusedGeocodes {
     /**
      * Deletes the cache entries unused for {@link #UNUSED_FOR}, and records the run.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param call the job's server step
      * @return how many entries were deleted
      */
     public int forgetDue(CallContext call) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

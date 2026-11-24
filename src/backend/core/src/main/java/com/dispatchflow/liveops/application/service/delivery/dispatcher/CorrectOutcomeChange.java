@@ -18,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
  * reads the door flag from Customers &amp; Orders' {@link StopOrders}, and calls {@code
  * Delivery.correct} with the audit record (ADR-107, NFR-23).
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class CorrectOutcomeChange {
@@ -54,7 +54,7 @@ public class CorrectOutcomeChange {
     /**
      * Corrects the outcome and writes the audit record.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param stop the stop whose outcome is corrected
@@ -67,6 +67,6 @@ public class CorrectOutcomeChange {
      * @throws StaleVersion when the delivery changed since {@code expected}
      */
     public void apply(Actor actor, StopId stop, CorrectOutcome.Command command, Version expected) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

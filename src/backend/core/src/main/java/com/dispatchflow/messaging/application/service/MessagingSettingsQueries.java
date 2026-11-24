@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
  * web adapter's role check lets a Driver through (ADR-068), and {@link #settings} refuses a Driver
  * itself with {@link GrantLimitExceeded}.
  *
- * <p>Built in M12. Rows: FR-199, FR-350, FR-375.
+ * <p>To Be Implemented. Rows: FR-199, FR-350, FR-375.
  */
 @Transactional(readOnly = true)
 public class MessagingSettingsQueries {
@@ -37,7 +37,7 @@ public class MessagingSettingsQueries {
      * The messaging settings; before an Admin first set them, messages and the rating question are
      * off and there is no dispatch phone (FR-350, FR-375).
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param actor the Admin or Dispatcher
      * @return the settings, with the version a change sends back
@@ -45,18 +45,18 @@ public class MessagingSettingsQueries {
      *     covers the company's name and dispatch phone and not these settings
      */
     public MessagingSettingsView settings(Actor actor) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * The dispatch phone alone.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param actor any signed-in user, a driver included
      * @return the dispatch phone, if an Admin set one
      */
     public DispatchPhoneView dispatchPhone(Actor actor) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

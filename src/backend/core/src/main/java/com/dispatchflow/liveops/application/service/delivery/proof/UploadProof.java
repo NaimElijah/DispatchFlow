@@ -34,13 +34,13 @@ import com.dispatchflow.liveops.domain.proof.ProofKind;
  * it caps how many unnamed uploads one driver may hold, refusing one more with {@link
  * ProofUploadsCapped}, which the web adapter answers with 429 and {@code Retry-After} so the phone
  * waits instead of marking its row refused. Both are the store adapter's named settings, whose
- * values M5 fixes.
+ * values are decided when the proof upload is built.
  *
  * <p>The store's call goes first, on disk, outside any transaction. Then {@link UploadProofChange}
  * writes the audit record in its own. Like every changing call it writes its audit record, a refused
  * attempt's in its own transaction (NFR-23, ADR-110).
  *
- * <p>Built in M5. Rows: FR-30, FR-367, NFR-37, NFR-204, NFR-205, NFR-235.
+ * <p>To Be Implemented. Rows: FR-30, FR-367, NFR-37, NFR-204, NFR-205, NFR-235.
  */
 public final class UploadProof {
 
@@ -61,7 +61,7 @@ public final class UploadProof {
     /**
      * Stores the uploaded proof, and writes the audit record.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param actor the uploading driver
      * @param proof the proof's ID, the outbox row's
@@ -76,6 +76,6 @@ public final class UploadProof {
      *     as the store's cap allows
      */
     public void upload(Actor actor, ProofId proof, ProofKind kind, ProofUpload upload) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

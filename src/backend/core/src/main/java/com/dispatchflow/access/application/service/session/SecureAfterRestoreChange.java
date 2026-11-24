@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
  * {@link #voidLinks} voids one account's open credential links (NFR-275) and writes its audit
  * record (NFR-23).
  *
- * <p>Built in M13.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class SecureAfterRestoreChange {
@@ -55,51 +55,51 @@ public class SecureAfterRestoreChange {
     /**
      * The live sessions, through {@code SessionRepository.allLive}.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @return their IDs, in any order
      */
     @Transactional(readOnly = true)
     public List<SessionId> liveSessions() {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * The accounts that hold an open credential link, through {@code
      * UserAccountRepository.withOpenLinks}.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @return their IDs, in any order
      */
     @Transactional(readOnly = true)
     public List<AccountId> accountsWithOpenLinks() {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Revokes one session, and stores it.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param session a session {@link #liveSessions} listed
      * @param call the step's server context
      * @throws StaleVersion when the session changed between its read and its save (BR-76)
      */
     public void revoke(SessionId session, CallContext call) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Voids one account's open credential links, and saves it.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param account an account {@link #accountsWithOpenLinks} listed
      * @param call the step's server context
      * @throws StaleVersion when the account changed between its read and its save (BR-76)
      */
     public void voidLinks(AccountId account, CallContext call) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

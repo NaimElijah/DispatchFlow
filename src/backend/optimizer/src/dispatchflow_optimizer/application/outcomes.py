@@ -5,7 +5,7 @@ has scored it, whichever solver produced it (BR-09, BR-15, BR-42). A solver's ow
 is never reported (ADR-004). A solver that fails, or finds no solution within its budget, is a
 failed solve with its `SearchFailure` kind, and its message names the solver (ADR-004).
 
-Built in M0; the evaluation and baseline outcomes in M1, the re-optimization outcome in M9.
+To Be Implemented.
 """
 
 from collections.abc import Mapping

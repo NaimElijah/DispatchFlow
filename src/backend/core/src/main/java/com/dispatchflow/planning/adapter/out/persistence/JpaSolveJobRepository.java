@@ -127,7 +127,7 @@ class JpaSolveJobRepository implements SolveJobRepository {
      */
     @Override
     public int blankCoordinatesDatedBefore(DeliveryDate cutoff) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
@@ -139,7 +139,7 @@ class JpaSolveJobRepository implements SolveJobRepository {
      */
     @Override
     public int blankPositionsReceivedBefore(Instant cutoff) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**

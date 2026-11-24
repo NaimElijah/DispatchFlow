@@ -31,7 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
  * (NFR-23). A resend with the same key and body gets the stored receipt and changes nothing (BR-28,
  * NFR-65).
  *
- * <p>Built in M5; the request key and the pending-stops alert in M8.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class FinishRouteChange {
@@ -83,7 +83,7 @@ public class FinishRouteChange {
     /**
      * Finishes the route, with the receipt and the audit record.
      *
-     * <p>Built in M5; the request key and the alert in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the driver
      * @param route the route
@@ -104,6 +104,6 @@ public class FinishRouteChange {
      */
     public Optional<AlertId> apply(
             Actor actor, RouteId route, DeviceClock time, IdempotencyKey key, RequestDigest digest) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

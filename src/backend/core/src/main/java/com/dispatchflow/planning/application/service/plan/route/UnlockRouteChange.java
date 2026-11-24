@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
  * The transaction of {@link UnlockRoute}: it loads the plan, checks its version, removes the route's
  * lock, saves the plan and writes the audit record (TS §6.2, ADR-063, ADR-129).
  *
- * <p>Built in an unscheduled milestone.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class UnlockRouteChange {
@@ -40,7 +40,7 @@ public class UnlockRouteChange {
     /**
      * Unlocks the route.
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the plan
@@ -52,6 +52,6 @@ public class UnlockRouteChange {
      *     DateInPast}, {@code RouteNotInPlan}, or {@code RouteNotLocked}
      */
     public void apply(Actor actor, PlanId plan, RouteId route, Version expected) {
-        throw new UnsupportedOperationException("Built in an unscheduled milestone");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

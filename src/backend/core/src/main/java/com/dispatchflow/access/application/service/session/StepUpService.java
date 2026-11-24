@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
  * {@code Session.requireFreshStepUp} with the account's current generation and the server's time
  * (NFR-214, ADR-068, ADR-104).
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class StepUpService implements StepUp {
@@ -37,10 +37,10 @@ public class StepUpService implements StepUp {
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      */
     @Override
     public void requireFresh(Actor actor) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

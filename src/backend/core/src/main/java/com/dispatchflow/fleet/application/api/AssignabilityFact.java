@@ -8,14 +8,14 @@ import java.util.Objects;
  * it hands a route over (FR-302, DL §4.2). Fleet builds it from {@code DayRoster.checkAssignable},
  * given the driver's standing, and changes nothing (DL §2.3 rule 1).
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 public sealed interface AssignabilityFact {
 
     /**
      * Why the roster refuses a driver, mirroring {@code DayRoster.checkAssignable}'s refusals.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      */
     enum Reason {
         /** The driver's standing is not active: the account or the driver record (ADR-062). */
@@ -31,7 +31,7 @@ public sealed interface AssignabilityFact {
     /**
      * The driver may take the vehicle.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param shift their shift on the date, as Israel times on that date, which the hand-over's
      *     evaluation judges the route against (FR-304, ADR-112)
@@ -47,7 +47,7 @@ public sealed interface AssignabilityFact {
     /**
      * The driver may not take the vehicle.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param reason why
      */

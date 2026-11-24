@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
  * ends the account's sessions through the account, saves it, and writes the audit record (NFR-23).
  * The use case evicts the account from the revocation cache after the commit.
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class EndEverySessionChange {
@@ -46,7 +46,7 @@ public class EndEverySessionChange {
     /**
      * Ends the sessions, and saves the account.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param account the user's account
@@ -59,6 +59,6 @@ public class EndEverySessionChange {
      *     save (BR-76)
      */
     public void apply(Actor actor, AccountId account, Version expected) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

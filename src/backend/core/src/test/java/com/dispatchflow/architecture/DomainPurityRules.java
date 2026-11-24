@@ -46,8 +46,9 @@ final class DomainPurityRules {
     private static final List<String> DOMAIN_LIBRARIES =
             List.of("com.google.i18n.phonenumbers", "org.locationtech.jts");
     private static final List<String> ALWAYS_ALLOWED = List.of("java", "org.jspecify");
-    // M0 puts @ApplicationModule and @NamedInterface on these packages' package-info (ADR-040), and
-    // @NamedInterface alone on shared.application's (ADR-120 decision 2).
+    // Once Spring Modulith is added, @ApplicationModule and @NamedInterface go on these packages'
+    // package-info (ADR-040), and @NamedInterface alone on shared.application's (ADR-120 decision
+    // 2).
     private static final String MODULITH = "org.springframework.modulith";
     // The fixtures' stand-in keeps the simple name, so one name serves Modulith and the stand-in.
     private static final String NAMED_INTERFACE = "NamedInterface";
@@ -193,8 +194,8 @@ final class DomainPurityRules {
     /**
      * Rule 1, with the package whose annotations a {@code package-info} may carry given: Spring
      * Modulith's for production, a stand-in for the fixtures, because Modulith is not on the
-     * classpath before M0. Of that package, the kernel's application package-info may carry only
-     * the {@code NamedInterface} annotation.
+     * classpath before Spring Modulith is added. Of that package, the kernel's application
+     * package-info may carry only the {@code NamedInterface} annotation.
      */
     static ArchRule onlyAllowedDependencies(String root, String moduleAnnotations) {
         return classes()

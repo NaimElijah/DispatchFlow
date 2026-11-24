@@ -14,7 +14,7 @@ import java.util.Optional;
  * is in force once published, until it is cancelled; a completed plan still is, so late reports
  * and corrections find its routes.
  *
- * <p>Built in M5 and M12, method by method.
+ * <p>To Be Implemented.
  */
 public interface PublishedRoutes {
 
@@ -22,7 +22,7 @@ public interface PublishedRoutes {
      * Every route of a date's plan in force. Live Operations picks a driver's own routes from it
      * (FR-27).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param date the date
      * @return the routes, in the plan's order; empty when the date has no plan in force
@@ -33,7 +33,7 @@ public interface PublishedRoutes {
      * Every route of every plan in force from a date on, so a driver's later routes are listed with
      * their dates (FR-324). Live Operations picks a driver's own routes from it.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param from the first date, usually today
      * @return the routes, by date and then in each plan's order; empty when no plan in force is that
@@ -44,7 +44,7 @@ public interface PublishedRoutes {
     /**
      * One route of a plan in force.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param route the route
      * @return the route, or empty when no plan in force holds it now
@@ -56,7 +56,7 @@ public interface PublishedRoutes {
      * arrival, Live Operations checks a driver's access to a proof (BR-02), and Recipient Messaging
      * explains why a stop gets no message (FR-378), from it.
      *
-     * <p>Built in M5, for Live Operations' {@code ProofQueries}.
+     * <p>To Be Implemented. It serves Live Operations' {@code ProofQueries}.
      *
      * @param stop the stop
      * @return the route, or empty when no plan in force holds the stop now
@@ -66,7 +66,7 @@ public interface PublishedRoutes {
     /**
      * What one revision did to the plan's stops: which joined a route, moved, or left (ADR-059).
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param plan the plan
      * @param revision the revision's number, 1 or more

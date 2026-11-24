@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
  * dated today or later through {@link PlanningViews}; Fleet's {@code PlanUses} then decides that only
  * an uncancelled one blocks.
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class FleetUsageService implements RecordUsage {
@@ -35,30 +35,30 @@ public class FleetUsageService implements RecordUsage {
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      */
     @Override
     public List<PlanUseFact> usesOfVehicle(VehicleId vehicle, LocalDate today) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      */
     @Override
     public List<PlanUseFact> usesOfDepot(DepotId depot, LocalDate today) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      */
     @Override
     public List<PlanUseFact> usesOfDriver(AccountId driver, LocalDate today) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

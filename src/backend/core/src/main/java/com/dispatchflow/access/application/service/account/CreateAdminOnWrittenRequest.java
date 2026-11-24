@@ -24,7 +24,7 @@ import com.dispatchflow.shared.RuleViolation;
  * with its link, the Admins' addresses and the audit record. After its commit, the step sends the
  * set-password link and the Admins' notice, so a creation that rolls back sends nothing (ADR-129).
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 public final class CreateAdminOnWrittenRequest {
 
@@ -45,7 +45,7 @@ public final class CreateAdminOnWrittenRequest {
     /**
      * Creates the Admin and sends the set-password link.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param email the new Admin's address, read at a prompt that does not echo it
      * @param call the step's server context
@@ -56,6 +56,6 @@ public final class CreateAdminOnWrittenRequest {
      *     default language (FR-182)
      */
     public AccountId create(EmailAddress email, CallContext call) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

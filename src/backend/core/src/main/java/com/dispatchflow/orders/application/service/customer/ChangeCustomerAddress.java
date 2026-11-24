@@ -16,13 +16,13 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * A dispatcher changes a customer's address (BR-104): {@code Customer.changeAddress} clears the
  * location, hand-placed or not, and its flags. When the address changed, the use case writes a
- * geocoding request in the same transaction from M7 on (FR-12, DL §6.1). The screen warns the
- * dispatcher before.
+ * geocoding request in the same transaction once geocoding is built (FR-12, DL §6.1). The screen
+ * warns the dispatcher before.
  *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ChangeCustomerAddress {
@@ -51,7 +51,7 @@ public class ChangeCustomerAddress {
     /**
      * Changes the address; the same text changes nothing.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param customer the customer
@@ -62,6 +62,6 @@ public class ChangeCustomerAddress {
      * @throws StaleVersion when the customer changed since {@code expected}
      */
     public void change(Actor actor, CustomerId customer, Address address, Version expected) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

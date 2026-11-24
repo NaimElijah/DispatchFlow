@@ -10,7 +10,7 @@ import java.util.Objects;
  * leg and the stop's {@link PublishedStopFact#serviceTime}, and propagates delay along them without
  * re-applying a factor (DL §10.4).
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  *
  * @param travelIn the buffered travel from the depot or the stop before it, never negative
  * @param arrival when the vehicle is planned to reach the stop

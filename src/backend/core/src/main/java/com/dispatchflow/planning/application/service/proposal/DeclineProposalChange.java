@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
  * The transaction of {@link DeclineProposal}: it loads the proposal, checks its version, declines it,
  * saves it and writes the audit record (TS §6.2, ADR-063, ADR-129).
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class DeclineProposalChange {
@@ -40,7 +40,7 @@ public class DeclineProposalChange {
     /**
      * Declines the proposal.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher, recorded as who declined it
      * @param proposal the proposal
@@ -52,6 +52,6 @@ public class DeclineProposalChange {
      * @throws com.dispatchflow.shared.RuleViolation with Planning's {@code ProposalAlreadyDeclined}
      */
     public PlanId apply(Actor actor, ProposalId proposal, Version expected) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

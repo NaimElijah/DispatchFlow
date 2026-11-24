@@ -13,7 +13,7 @@ import java.util.Objects;
  * late one, so it still waits after its plan completes (BR-132, BR-135, FR-157). Each states an
  * outcome with its reason or proof, so it prints redacted.
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  *
  * @param reports the open held reports, in the order they were held
  */
@@ -37,7 +37,7 @@ public record HeldReportsView(List<HeldEntry> reports) implements PersonalData {
     /**
      * One open held report.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param stop the stop it is held on
      * @param date the delivery date of the stop's plan, so a report held past that date still shows

@@ -35,14 +35,14 @@ import java.util.Optional;
  * <p>The facts other modules read come back as Planning's {@code api} records, or as the records of
  * the {@code spi} Planning implements, so the services that implement them translate nothing twice.
  *
- * <p>Built in M0 to M10, method by method.
+ * <p>To Be Implemented.
  */
 public interface PlanningViews {
 
     /**
      * The plans of a date (FR-15, BR-34).
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param date the date
      * @return the date's plans, possibly none
@@ -52,7 +52,7 @@ public interface PlanningViews {
     /**
      * One plan's workspace (FR-24, FR-25, FR-143, FR-151, FR-223, FR-232).
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param plan the plan
      * @return the workspace, or empty when no plan has the ID
@@ -62,7 +62,7 @@ public interface PlanningViews {
     /**
      * One plan's revisions (FR-104).
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>To Be Implemented.
      *
      * @param plan the plan
      * @return the history, or empty when no plan has the ID
@@ -72,7 +72,7 @@ public interface PlanningViews {
     /**
      * One solve job's progress (FR-142).
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param job the job
      * @param asOf the server's time of the answer
@@ -83,7 +83,7 @@ public interface PlanningViews {
     /**
      * One route as the plan holds it now (FR-24, FR-72, FR-153).
      *
-     * <p>Built in M3.
+     * <p>To Be Implemented.
      *
      * @param route the route
      * @return the route, or empty when no plan holds it
@@ -93,7 +93,7 @@ public interface PlanningViews {
     /**
      * What changed on a route since a revision (FR-249).
      *
-     * <p>Built in M10.
+     * <p>To Be Implemented.
      *
      * @param route the route
      * @param since the revision compared from, 1 or more
@@ -104,7 +104,7 @@ public interface PlanningViews {
     /**
      * One re-optimization's preview (FR-36, FR-103, FR-334, BR-81).
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param proposal the proposal
      * @return the preview, or empty when no proposal has the ID
@@ -114,7 +114,7 @@ public interface PlanningViews {
     /**
      * The planning settings, or their starting values when an Admin never changed any (FR-183).
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @return the settings
      */
@@ -123,7 +123,7 @@ public interface PlanningViews {
     /**
      * Every route of a date's plan in force, from its current revision (ADR-059, ADR-067).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param date the date
      * @return the routes, in the plan's order; empty when the date has no plan in force
@@ -134,7 +134,7 @@ public interface PlanningViews {
      * Every route of every plan in force from a date on, from each plan's current revision (FR-324,
      * ADR-059).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param from the first date
      * @return the routes, by date and then in each plan's order; empty when no plan in force is
@@ -145,7 +145,7 @@ public interface PlanningViews {
     /**
      * One route of a plan in force, from its current revision.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param route the route
      * @return the route, or empty when no plan in force holds it now
@@ -158,7 +158,7 @@ public interface PlanningViews {
      * revision too, so a report on a stop the plan no longer holds still finds them, and so do the
      * plan and its date, so a cancelled plan still names both.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param stop the stop
      * @param route the route
@@ -171,7 +171,7 @@ public interface PlanningViews {
      * A route's driver in the revision in force at a time, and its driver now (FR-68, FR-329,
      * ADR-114).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param route the route
      * @param at the corrected time (BR-114)
@@ -182,7 +182,7 @@ public interface PlanningViews {
     /**
      * The stop a put-back gave an order after an attempt (FR-258, FR-404, ADR-107).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param order the order
      * @param attempt the earlier attempt
@@ -194,7 +194,7 @@ public interface PlanningViews {
      * The plan that holds a stop, or held it in any revision, so a late outcome finds its plan
      * after the stop left it (DL §8).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param stop the stop
      * @return the plan, or empty when no plan ever held the stop
@@ -204,7 +204,7 @@ public interface PlanningViews {
     /**
      * The plan that holds a route; a route never leaves its plan (ADR-101).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param route the route
      * @return the plan, or empty when no plan holds the route
@@ -215,7 +215,7 @@ public interface PlanningViews {
      * Where the plan of an order's date holds one attempt (BR-33, DL §9.6). It reads the same view
      * as {@link #placementsOn}, narrowed to the one order and attempt (ADR-121).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param order the order
      * @param date the order's delivery date, whose plans are read
@@ -227,7 +227,7 @@ public interface PlanningViews {
     /**
      * Where the plans of a date hold its orders (FR-76, BR-33).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param date the date
      * @return one entry per order a plan of that date holds
@@ -238,7 +238,7 @@ public interface PlanningViews {
      * The plans not yet completed that serve or drop any of the given orders (BR-43). The orders
      * carry no date filter, so this is where "not yet completed" is decided (DL §4.3).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param orders every order of a customer not yet anonymized, as Customers &amp; Orders names
      *     them
@@ -249,7 +249,7 @@ public interface PlanningViews {
     /**
      * The plans dated on or after a day whose routes use a vehicle (FR-305).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param vehicle the vehicle
      * @param from the first date that counts
@@ -260,7 +260,7 @@ public interface PlanningViews {
     /**
      * The plans dated on or after a day whose routes start or end at a depot (FR-305).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param depot the depot
      * @param from the first date that counts
@@ -271,7 +271,7 @@ public interface PlanningViews {
     /**
      * The plans dated on or after a day whose routes a driver drives (FR-305).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param driver the driver's account
      * @param from the first date that counts
@@ -282,7 +282,7 @@ public interface PlanningViews {
     /**
      * The route of a plan in force that holds a stop now, for {@code PublishedRoutes.routeOf}.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param stop the stop
      * @return the route, or empty
@@ -292,7 +292,7 @@ public interface PlanningViews {
     /**
      * One revision's stop changes, for {@code PublishedRoutes.changesIn}.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param plan the plan
      * @param revision the revision's number
@@ -304,7 +304,7 @@ public interface PlanningViews {
      * The stop that served an order's attempt on a date, and its last route, for {@code
      * RouteMembership.stopOf}.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param order the order
      * @param attempt the attempt

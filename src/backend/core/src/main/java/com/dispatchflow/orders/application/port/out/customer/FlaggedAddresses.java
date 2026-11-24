@@ -8,7 +8,7 @@ import java.util.List;
  * Every active customer whose address is flagged (FR-63, FR-149, FR-216): what the dispatcher
  * checks before a solve. Each holds personal data, so the list prints redacted.
  *
- * <p>Built in M7.
+ * <p>To Be Implemented.
  *
  * @param customers the flagged customers, each once, ordered by name
  */

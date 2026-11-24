@@ -25,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
  * email (FR-389), and writes the audit record (NFR-23). The use case evicts the account and sends
  * the emails after the commit.
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ConfirmEmailByLinkChange {
@@ -54,7 +54,7 @@ public class ConfirmEmailByLinkChange {
     /**
      * Confirms the new address, spends the link, and saves the account.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param token the token the link carried
      * @param call the call's context: no user or session, the client and the trace (ADR-110)
@@ -67,14 +67,14 @@ public class ConfirmEmailByLinkChange {
      * @throws StaleVersion when the account changed between its read and its save (BR-76)
      */
     public Confirmed apply(PresentedToken token, CallContext call) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * What a confirmed email leaves the use case to do after the commit. It holds addresses, so it
      * prints redacted (NFR-19).
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param account the account whose email changed, evicted from the revocation cache
      * @param oldAddress the address the account no longer signs in with, which is told (FR-388)

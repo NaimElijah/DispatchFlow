@@ -18,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
  * decision 3): one builds the {@code BaselineRequest} before the solve, and one stores the
  * planner's answer with its audit record.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ComputeBaselineChange {
@@ -48,7 +48,7 @@ public class ComputeBaselineChange {
      * builds the request from them with no vehicle withdrawn and with {@code BaselineSolve}'s seed
      * and budget.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param event the publication
      * @return what the planner is asked
@@ -57,7 +57,7 @@ public class ComputeBaselineChange {
      */
     @Transactional(readOnly = true)
     public BaselineRequest requestFor(PlanPublished event) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
@@ -65,7 +65,7 @@ public class ComputeBaselineChange {
      * BaselineAnswer.Refused} through {@link BaselineRepository#recordRefusal}, with the audit
      * record. A plan that already holds either changes nothing.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param event the publication
      * @param answer what the planner answered
@@ -76,6 +76,6 @@ public class ComputeBaselineChange {
      *     the listener adapter retries the event, and the retry finds the plan settled
      */
     public void apply(PlanPublished event, BaselineAnswer answer, CallContext call) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

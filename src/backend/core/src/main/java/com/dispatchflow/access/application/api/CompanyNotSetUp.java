@@ -7,7 +7,7 @@ package com.dispatchflow.access.application.api;
  * {@link Company#profile()} and finds it empty throws it, and so do Access's own use cases that
  * read the profile for a new user's language (FR-182).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 public final class CompanyNotSetUp extends RuntimeException {
 

@@ -10,7 +10,8 @@ import java.util.Objects;
  * What a succeeded re-optimization hands its job: the validated solution under the re-optimization
  * conventions (ADR-050), and the preview's facts (FR-36, FR-103, FR-334, BR-81). The worker builds it
  * from the optimizer's answer and the facts it gathered. Its preview lists keep IDs and durations
- * only, until the optimizer's re-optimization report settles their shape in M9 (ADR-101 point 41).
+ * only, until re-optimization is built and the optimizer's report settles their shape (ADR-101
+ * point 41).
  * No domain type owns FR-36's per-driver changes or FR-334's goods hand-overs until then (ADR-112).
  *
  * @param solution the validated routes and drops

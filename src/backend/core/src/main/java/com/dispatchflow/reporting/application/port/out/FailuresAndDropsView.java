@@ -10,7 +10,7 @@ import java.util.Objects;
  * and driver (FR-161). Its entries name customers, so it prints redacted; which of their fields
  * may be shown waits on legal advice (Q-42).
  *
- * <p>Built in an unscheduled milestone: FR-161, a Should, is in no milestone of the roadmap.
+ * <p>To Be Implemented. FR-161 is a Should.
  *
  * @param from the first date, included
  * @param to the last date, included

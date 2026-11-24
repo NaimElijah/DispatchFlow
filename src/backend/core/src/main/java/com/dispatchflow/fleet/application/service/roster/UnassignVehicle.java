@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
  * Like every changing call it writes its audit record, a refused attempt's in its own transaction
  * (NFR-23, ADR-110).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class UnassignVehicle {
@@ -44,7 +44,7 @@ public class UnassignVehicle {
     /**
      * Takes the vehicle off the driver.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param date the roster's date
@@ -57,6 +57,6 @@ public class UnassignVehicle {
      *     save (BR-76)
      */
     public void unassign(Actor actor, DeliveryDate date, AccountId driver, Optional<Version> expected) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

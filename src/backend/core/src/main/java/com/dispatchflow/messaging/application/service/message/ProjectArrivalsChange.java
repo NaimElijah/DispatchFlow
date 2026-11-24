@@ -27,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
  * (ADR-129 decision 3). The conditions come from Access's {@link Company}, the settings and the
  * phone's opt-out history, read in each stop's transaction.
  *
- * <p>Built in M12. Rows: FR-352, FR-353, FR-384.
+ * <p>To Be Implemented. Rows: FR-352, FR-353, FR-384.
  */
 @Transactional
 public class ProjectArrivalsChange {
@@ -85,21 +85,21 @@ public class ProjectArrivalsChange {
      * PublishedRoutes}, and their phones from {@link RecipientContacts} in one call for the day's
      * orders.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param now the time of the run, whose Israel date is today
      * @return today's stops, each with its projection and its order's phones
      */
     @Transactional(readOnly = true)
     public List<Stop> stopsOn(Instant now) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Judges one stop's projection, which may add <em>arriving soon</em> and <em>time changed</em>,
      * to the phone {@code RecipientPhone.choose} picks from the order's contacts (FR-348).
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param stop the stop, as {@link #stopsOn} read it
      * @param now when the projection was made
@@ -109,7 +109,7 @@ public class ProjectArrivalsChange {
      *     judges the stop again
      */
     public int apply(Stop stop, Instant now, CallContext call) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**

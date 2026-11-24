@@ -10,7 +10,7 @@ import java.util.Objects;
  * delivery, so Spring Modulith resubmits it (ADR-064, DL §12). Its message never holds the
  * request's orders or places (NFR-19).
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 public final class BaselineOptimizerUnavailable extends RuntimeException {
 

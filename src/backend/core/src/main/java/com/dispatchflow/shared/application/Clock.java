@@ -9,7 +9,7 @@ import java.time.LocalDate;
  * and {@code today} in. The system clock's adapter serves production, and the end-to-end profile's
  * adapter can be set by a test (NFR-175).
  *
- * <p>Built in M0.
+ * <p>To Be Implemented.
  */
 public interface Clock {
 
@@ -18,7 +18,7 @@ public interface Clock {
      * so an instant with nanoseconds would come back from a save as another one, and an aggregate
      * whose rules compare it could then fail its load check.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @return now, with no part below a microsecond
      */
@@ -27,7 +27,7 @@ public interface Clock {
     /**
      * Today's date in {@code Asia/Jerusalem}, the one zone of the system (BR-31, ADR-088).
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @return the calendar day {@link #now()} falls on in Israel
      */

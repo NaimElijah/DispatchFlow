@@ -13,7 +13,7 @@ import java.util.Objects;
  * rules keep it out of every error and event field (ADR-106). It is not checked against the policy:
  * a new password becomes a {@code NewPassword} first (NFR-95).
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  *
  * @param value the password as typed, not trimmed
  */

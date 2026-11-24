@@ -28,7 +28,7 @@ and outcomes, and five use cases, `Solve`, `Reoptimize`, `Evaluate`, `Baseline` 
 A request the service can't run raises `UnknownSolverError` or `UnsupportedBudgetError`, and a search
 that returns no solution raises `SearchFailedError` with its `SearchFailure`, which the use case
 answers as `Failed`.
-Every body that would do work raises `NotImplementedError("Built in M<n>")`. No solver implements
+Every body that would do work raises `NotImplementedError("To Be Implemented.")`. No solver implements
 the port, and the three solver packages under `adapters/outbound/solvers/`, `ortools`, `alns` and
 `nearest_neighbour`, are declared, empty
 ([ADR-130](../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md)).

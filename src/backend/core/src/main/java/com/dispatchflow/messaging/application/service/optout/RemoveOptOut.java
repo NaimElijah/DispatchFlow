@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
  * record. A phone with no opt-out standing gets no entry. Like every changing call it writes its
  * audit record, a refused attempt's in its own transaction (NFR-23, ADR-110).
  *
- * <p>Built in M12. Rows: FR-380, NFR-202.
+ * <p>To Be Implemented. Rows: FR-380, NFR-202.
  */
 @Transactional
 public class RemoveOptOut {
@@ -43,12 +43,12 @@ public class RemoveOptOut {
     /**
      * Removes the opt-out.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param phone the phone, as shown on the customer or the order
      */
     public void remove(Actor actor, PhoneNumber phone) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

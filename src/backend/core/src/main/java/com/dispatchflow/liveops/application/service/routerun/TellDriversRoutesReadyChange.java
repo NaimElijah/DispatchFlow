@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
  * of each of the plan's routes from Planning's {@link PublishedRoutes}, so the notices go out after
  * it.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class TellDriversRoutesReadyChange {
@@ -30,12 +30,12 @@ public class TellDriversRoutesReadyChange {
     /**
      * The drivers with a route on the published plan.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param event the published plan
      * @return each driver once, however many of the plan's routes they drive
      */
     public List<AccountId> driversOf(PlanPublished event) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

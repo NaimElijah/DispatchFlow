@@ -1,6 +1,6 @@
 """The solver list: the names and versions `GET /v1/solvers` answers with (ADR-004, ADR-044).
 
-Built in M4, with the core's solver choice (`PlanningSettingsQueries.solvers`).
+To Be Implemented. It comes with the core's solver choice (`PlanningSettingsQueries.solvers`).
 """
 
 from dispatchflow_optimizer.application.outcomes import SolverInfo
@@ -10,7 +10,7 @@ from dispatchflow_optimizer.application.ports import SolverRegistry
 class ListSolvers:
     """Lists the solvers a request may choose from (FR-20, ADR-004).
 
-    Built in M4.
+    To Be Implemented.
     """
 
     def __init__(self, solvers: SolverRegistry) -> None:
@@ -30,6 +30,6 @@ class ListSolvers:
             Each solver's name and version.
 
         Raises:
-            NotImplementedError: Until M4 builds it.
+            NotImplementedError: To Be Implemented.
         """
-        raise NotImplementedError("Built in M4")
+        raise NotImplementedError("To Be Implemented.")

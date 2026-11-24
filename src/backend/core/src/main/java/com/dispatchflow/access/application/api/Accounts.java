@@ -9,14 +9,14 @@ import java.util.List;
  * rosters or assigns a driver, and Planning before it hands a route over or publishes (FR-06,
  * FR-54, FR-302, BR-20).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 public interface Accounts {
 
     /**
      * One account's standing now.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param account the account
      * @return its standing
@@ -27,7 +27,7 @@ public interface Accounts {
     /**
      * Several accounts' standings now, in one read.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param accounts the accounts, each once
      * @return one standing per account, in the order asked

@@ -18,7 +18,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * <p>{@link RemoveStopOfOrderChange} holds the transaction, which takes the stop off and writes the
  * audit record; after it commits, the dispatchers' open screens are told (ADR-129).
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 public final class RemoveStopOfOrder {
 
@@ -40,7 +40,7 @@ public final class RemoveStopOfOrder {
      * Takes a cancelled order's stop off its date's plan, with the cause {@code ORDER_CANCELLED}
      * (FR-207).
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param event the cancellation
      * @param call the listener's server step, which the audit record names (ADR-110)
@@ -48,14 +48,14 @@ public final class RemoveStopOfOrder {
      *     adapter retries at once, up to three times (DL §11)
      */
     public void on(OrderCancelled event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Takes a rescheduled order's stop off its old date's plan, with the cause {@code
      * ORDER_RESCHEDULED} (FR-315). A reschedule within the same date changes no plan.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param event the reschedule
      * @param call the listener's server step, which the audit record names (ADR-110)
@@ -63,6 +63,6 @@ public final class RemoveStopOfOrder {
      *     adapter retries at once, up to three times (DL §11)
      */
     public void on(OrderRescheduled event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

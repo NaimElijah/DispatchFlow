@@ -15,8 +15,8 @@ public interface OptOutList {
      * an opt-out made before a key rotation still counts (ADR-069, NFR-202).
      *
      * <p>{@code OptOutStatus.of} takes one {@code PhoneHash} and refuses an entry under another, so
-     * it can't judge a history read under two keys yet: M12 lets it read one under several key
-     * versions, with the version {@code PhoneHash} gains then (a domain gap).
+     * it can't judge a history read under two keys yet. Reading one under several key versions,
+     * with the version {@code PhoneHash} gains then, is not built yet (a domain gap).
      *
      * @param phone the phone's keyed hashes, the current one and the older ones still in use
      * @return its entries under all of them, in the order they were appended; empty when it has none

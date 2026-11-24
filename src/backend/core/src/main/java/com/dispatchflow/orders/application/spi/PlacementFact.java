@@ -8,7 +8,7 @@ import java.util.Objects;
  * translates it into its {@code Placement} (DL §2.2, §9.6). Each answer names the attempt it is
  * about, because a put-back's new attempt is not yet on any plan (FR-258).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 public sealed interface PlacementFact {
 
@@ -18,7 +18,7 @@ public sealed interface PlacementFact {
      * #PUBLISHED} to its domain's in-force standing, and tells a dispatcher who changes an order on
      * a {@link #PUBLISHED} plan so at once (FR-396).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      */
     enum PlanStanding {
         /** A plan in force that is draft, solving or ready. */
@@ -34,14 +34,14 @@ public sealed interface PlacementFact {
     /**
      * No plan of the order's date holds it.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      */
     record NotPlaced() implements PlacementFact {}
 
     /**
      * A route of a plan serves the attempt.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param attempt the attempt the route serves
      * @param standing the plan's standing
@@ -58,7 +58,7 @@ public sealed interface PlacementFact {
     /**
      * The plan drops the attempt (FR-18).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param attempt the attempt dropped
      * @param standing the plan's standing

@@ -10,14 +10,14 @@ import java.util.Objects;
  * can't be reached, or answers what the adapter doesn't know, is no answer: the call fails with an
  * unchecked exception instead (see {@link BaselinePlanner}).
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 public sealed interface BaselineAnswer {
 
     /**
      * The optimizer solved the baseline and its validator accepted it.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param figures the baseline's distance, driver-hours and each order's planned service or drop
      */
@@ -35,7 +35,7 @@ public sealed interface BaselineAnswer {
      * same answer from a deterministic solver (NFR-13). The listener records the refusal and
      * completes instead of failing its delivery.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param cause why, as the adapter maps the optimizer's answer: its failure's closed kind, or its
      *     validator's rejection

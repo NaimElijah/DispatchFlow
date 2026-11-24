@@ -36,14 +36,15 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>When the planner answers {@link BaselineAnswer.Refused}, the use case stores no new baseline
  * and completes, so the delivery isn't resubmitted 5 times and then alerted (ADR-064) for a refusal
- * that asking again may repeat. What the plan's summary shows then is open for M5.
+ * that asking again may repeat. What the plan's summary shows then is decided when the baseline
+ * comparison is built.
  *
  * <p>The {@link BaselinePlanner} is an outside call, so this class opens no transaction: {@link
  * RecomputeBaselineChange} reads the baseline and the inputs and builds the request in one, before
  * the solve, and stores the answer in another, if the baseline is still the one the request was
  * built from (ADR-129).
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 public final class RecomputeBaseline {
 
@@ -64,7 +65,7 @@ public final class RecomputeBaseline {
     /**
      * Recomputes the baseline after a revision, if the revision withdrew a vehicle or added orders.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param event the revision
      * @param call the listener's server step, which the audit record is written with
@@ -79,6 +80,6 @@ public final class RecomputeBaseline {
      *     loaded; the listener's adapter retries at once, up to three times (DL §11)
      */
     public void on(PlanRevised event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

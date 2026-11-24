@@ -25,9 +25,10 @@ import com.dispatchflow.planning.events.RouteHandedOver;
  * <p>Delivery is at least once (ADR-064), and a repeated notice carries no data (NFR-218), so it
  * records no {@code ProcessedEvents} pair.
  *
- * <p>Built in M8 and M9, method by method, for the stream: M8 raises the first revision after
- * publishing, which the driver's web screens and the unconfirmed list hear, and M9 the hand-over.
- * The push through {@link PushNotifier} in M10. Rows: FR-71, FR-97, FR-249, FR-347, FR-391.
+ * <p>To Be Implemented. It serves the stream: the first revision after publishing, which the
+ * driver's web screens and the unconfirmed list hear, and the hand-over, which comes with
+ * re-optimization. The push goes through {@link PushNotifier}. Rows: FR-71, FR-97, FR-249, FR-347,
+ * FR-391.
  */
 public final class TellDriversOfRevision {
 
@@ -52,24 +53,24 @@ public final class TellDriversOfRevision {
     /**
      * Tells the driver of each changed route.
      *
-     * <p>Built in M8 for the stream; the push in M10.
+     * <p>To Be Implemented. It serves the stream and the push.
      *
      * @param event the revision
      * @param call the listener's server step
      */
     public void on(PlanRevised event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Tells the driver a handed-over route left that it is no longer theirs (FR-71).
      *
-     * <p>Built in M9 for the stream; the push in M10.
+     * <p>To Be Implemented. It serves the stream and the push.
      *
      * @param event the hand-over, naming the driver the route left
      * @param call the listener's server step
      */
     public void on(RouteHandedOver event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -25,14 +25,14 @@ import com.dispatchflow.planning.application.port.out.solvejob.SolveJobRepositor
  * 03:00 {@code Asia/Jerusalem} (DL §10.3). {@link EraseExpiredLocationsChange} holds the three
  * transactions, and this step runs them one after the other (ADR-129).
  *
- * <p><b>Domain gap.</b> Planning's domain holds no retention periods: M13 adds them, as Live
- * Operations' {@code RetentionPeriods} holds its own, so the cutoffs come from the domain and not
- * from this step.
+ * <p><b>Domain gap.</b> Planning's domain holds no retention periods: the retention jobs add them,
+ * as Live Operations' {@code RetentionPeriods} holds its own, so the cutoffs come from the domain
+ * and not from this step.
  *
  * <p>It lives in the service root because it changes two aggregates' records, the plans' stored
  * matrices and the solve jobs.
  *
- * <p>Built in M13.
+ * <p>To Be Implemented.
  */
 public final class EraseExpiredLocations {
 
@@ -50,12 +50,12 @@ public final class EraseExpiredLocations {
     /**
      * Drops and blanks what is due.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param call the job's server step
      * @return how many plans' lists were dropped and jobs' inputs blanked, together
      */
     public int erase(CallContext call) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

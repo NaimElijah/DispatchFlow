@@ -12,14 +12,14 @@ import java.util.Objects;
  * takes the order and attempt for a stop's first fact, so a late report on a stop the plan no longer
  * holds still creates its {@code Delivery}.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 public sealed interface EntitlementFact {
 
     /**
      * The stop was on the report's route.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param revision the number of the revision in force at the corrected time, 1 or more
      * @param driver the route's driver in that revision
@@ -42,7 +42,7 @@ public sealed interface EntitlementFact {
     /**
      * The stop was not on the report's route at that time, or the route was in no revision then.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      */
     record NotOnRoute() implements EntitlementFact {}
 }

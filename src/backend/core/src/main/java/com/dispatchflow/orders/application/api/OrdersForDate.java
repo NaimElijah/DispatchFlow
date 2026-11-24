@@ -8,18 +8,18 @@ import java.util.List;
  * A date's orders, as Planning and Live Operations read them (DL §2.2, BR-22). Each answer is read
  * now; the caller translates it into its own values (DL §2.3 rule 1).
  *
- * <p>Built in M2 and M9, method by method.
+ * <p>To Be Implemented.
  */
 public interface OrdersForDate {
 
     /**
      * Every uncancelled order of a date: what a solve and a publication read, and what Live
      * Operations takes for its live map and for Navigate, the orders' locations and last change
-     * times alone (FR-15, FR-325, FR-397, BR-22, BR-71). Each order's {@code
-     * placedAt} has no source yet: M2 adds the time the order joined its date, set by {@code
-     * place}, {@code reschedule} and a put-back to another date (BR-71).
+     * times alone (FR-15, FR-325, FR-397, BR-22, BR-71). Each order's {@code placedAt} has no
+     * source yet: the time the order joined its date, set by {@code place}, {@code reschedule} and
+     * a put-back to another date (BR-71), is not recorded yet.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param date the date
      * @return the orders, each once; empty for a date with none
@@ -29,7 +29,7 @@ public interface OrdersForDate {
     /**
      * What changed among a date's orders since an instant (BR-25, BR-82, ADR-056).
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param date the date
      * @param since the instant the changes count from, excluded

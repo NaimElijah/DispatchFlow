@@ -5,7 +5,7 @@ comparison is fair (ADR-004, ADR-044). Its solver is given to it directly, never
 registry, so no request can choose the baseline as a product solver (FR-20). It runs in the HTTP
 process, not in a solver worker (ADR-051).
 
-Built in M1.
+To Be Implemented.
 """
 
 from dispatchflow_optimizer.application.outcomes import BaselineOutcome
@@ -16,7 +16,7 @@ from dispatchflow_optimizer.application.requests import BaselineRequest
 class Baseline:
     """Builds the baseline a plan is compared with (FR-39, FR-342).
 
-    Built in M1.
+    To Be Implemented.
     """
 
     def __init__(self, solver: Solver, stopwatch: Stopwatch) -> None:
@@ -48,6 +48,6 @@ class Baseline:
             InvalidSolutionError: If the baseline solver returns a solution of the wrong shape.
             UnsupportedBudgetError: If the baseline solver cannot honour the budget's kind, which
                 is a refused request (ADR-044).
-            NotImplementedError: Until M1 builds it.
+            NotImplementedError: To Be Implemented.
         """
-        raise NotImplementedError("Built in M1")
+        raise NotImplementedError("To Be Implemented.")
