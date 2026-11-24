@@ -23,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>The ETA FR-76 asks for is Live Operations' projection, which Customers &amp; Orders can't read
  * (DL §2.1), so the screen takes it from Live Operations.
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class OrderQueries {
@@ -47,23 +47,23 @@ public class OrderQueries {
 
     /**
      * Every order of a date with its status (FR-76, BR-33). Live Operations' {@link StopProgress}
-     * answers no report for every stop in M2, and in full from M5 (ADR-121), so until M5 no order
-     * is delivered or failed.
+     * answers no report for every stop at first, and in full once driving and reporting are built
+     * (ADR-121), so until then no order is delivered or failed.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param date the date
      * @return the date's orders, cancelled ones included; empty for a date with none
      */
     public DateOrdersView ofDate(Actor actor, DeliveryDate date) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * One order with its status (FR-57, BR-33).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param order the order
@@ -71,6 +71,6 @@ public class OrderQueries {
      * @throws NotFound when no order has the ID
      */
     public OrderView show(Actor actor, OrderId order) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

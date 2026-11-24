@@ -8,14 +8,14 @@ import com.dispatchflow.shared.GeoPoint;
  * sends to a re-optimization: ADR-050 has the core compute each position's in-service-area flag,
  * and the optimizer treats a position outside the area as unusable.
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 public interface ServiceAreaCheck {
 
     /**
      * Whether a point lies inside the current service area.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param point the point to place, such as a vehicle's last position
      * @return {@code true} when the area contains the point

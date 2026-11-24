@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
  * each route the event names from Planning's {@link RouteMembership#driversAt}, at the
  * cancellation's time, so the notices go out after it.
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class TellDriversPlanCancelledChange {
@@ -30,12 +30,12 @@ public class TellDriversPlanCancelledChange {
     /**
      * The drivers who had a route on the cancelled plan.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param event the cancelled plan
      * @return each driver once, however many of the plan's routes they drove
      */
     public List<AccountId> driversOf(PlanCancelled event) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

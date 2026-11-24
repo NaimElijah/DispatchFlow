@@ -15,14 +15,14 @@ import com.dispatchflow.reporting.domain.baseline.PlannedFigures;
  * delivery, so Spring Modulith resubmits it (ADR-064, DL §12). An answer the adapter doesn't know,
  * such as a failure kind with no {@link RefusalCause}, is treated the same way.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 public interface BaselinePlanner {
 
     /**
      * Solves the baseline.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param request the day's orders and fleet, the withdrawn vehicles' treatment, and the seed
      *     and budget

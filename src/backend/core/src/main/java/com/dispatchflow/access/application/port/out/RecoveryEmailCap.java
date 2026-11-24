@@ -13,14 +13,14 @@ import java.time.LocalDate;
  * restart keeps the count (ADR-131). It alerts the team once a day, the first time the cap
  * refuses a take, and keeps that mark where a restart can't lose it (NFR-215).
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 public interface RecoveryEmailCap {
 
     /**
      * Takes one recovery email from a day's cap, when any is left.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param day the Israel calendar day the email is sent on (ADR-088)
      * @return {@code true} while the day is under the cap, and the email may be sent; {@code false}

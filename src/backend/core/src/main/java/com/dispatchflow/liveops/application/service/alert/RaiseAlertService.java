@@ -19,7 +19,7 @@ import com.dispatchflow.shared.StopId;
  * and calls {@link PushNotifier#alertStaff}, so a staff phone app in the background learns of it
  * (FR-405, ADR-083).
  *
- * <p>Built in M12.
+ * <p>To Be Implemented.
  */
 public final class RaiseAlertService implements RaiseAlert {
 
@@ -43,10 +43,10 @@ public final class RaiseAlertService implements RaiseAlert {
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      */
     @Override
     public void lowRating(StopId stop, RatingRequestId request, CallContext call) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

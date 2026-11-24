@@ -21,7 +21,7 @@ import java.util.Optional;
  * 1, ADR-109). A day has at most 200 orders (BR-101), so each answer is one pass over at most 200
  * rows.
  *
- * <p>Built in M5 and an unscheduled milestone, method by method.
+ * <p>To Be Implemented.
  */
 public interface ReportingViews {
 
@@ -29,7 +29,7 @@ public interface ReportingViews {
      * The plan of a date that the summary is about: the one published or completed, from
      * Planning's published view (ADR-041, ADR-109). A cancelled plan has no summary (FR-338).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param date the date
      * @return the plan, or empty when no plan of the date is published or completed
@@ -40,7 +40,7 @@ public interface ReportingViews {
      * Where a published plan is now, from Planning's published view (FR-338, DL §9.1, ADR-041,
      * ADR-109).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param plan the plan
      * @return published, completed or cancelled; empty when no published plan has the ID
@@ -54,7 +54,7 @@ public interface ReportingViews {
      * Orders' published view. The orders cancelled now are in it; {@link #cancelledOrdersOf} names
      * them, and the rates leave them out (BR-30).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param plan the plan
      * @return the figures, or empty when no published plan has the ID
@@ -69,7 +69,7 @@ public interface ReportingViews {
      * window and door flag, from Customers &amp; Orders' published view. A stop of an order
      * cancelled now is in it, and {@code OnTimeRate} leaves it out (BR-30).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param plan the plan
      * @return one result per stop, each once; empty for a plan with no stop or no published plan
@@ -81,7 +81,7 @@ public interface ReportingViews {
      * The orders of a plan's date that are cancelled now, from Customers &amp; Orders' published
      * view (BR-30, ADR-041, ADR-109).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param plan the plan
      * @return the cancelled orders, each once; none when no published plan has the ID
@@ -93,7 +93,7 @@ public interface ReportingViews {
      * completed or cancelled, from Planning's published view (FR-38, FR-106, ADR-041, ADR-109): the
      * per-route lines of the daily summary and the planned arrivals.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param plan the plan
      * @return the routes, in the plan's order; empty when no published plan has the ID
@@ -105,10 +105,11 @@ public interface ReportingViews {
      * ADR-109): the orders of its current revision and the fleet and depots its daily solve was
      * given, from Planning's published view, and each order's location, window, demand, service
      * time, priority and door flag, from Customers &amp; Orders' published view, leaving out the
-     * orders cancelled now. The matrix and the travel values are not in it: M5 decides how the
-     * baseline gets them (see {@link BaselineRequest}).
+     * orders cancelled now. The matrix and the travel values are not in it: how the baseline
+     * gets them is decided when the baseline's travel inputs are built (see {@link
+     * BaselineRequest}).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param plan the plan
      * @return the inputs, or empty when no published plan has the ID
@@ -118,10 +119,10 @@ public interface ReportingViews {
     /**
      * What a plan's vehicles actually drove, from Live Operations' published view (FR-106,
      * ADR-041, ADR-109). Q-40 settled that actuals come from the apps' report times and the
-     * position traces (NFR-249); no milestone measures the distance and driving time from the traces
-     * yet. The actual arrivals come from {@link #stopResultsOf}, in M5.
+     * position traces (NFR-249); nothing measures the distance and driving time from the traces
+     * yet. The actual arrivals come from {@link #stopResultsOf}.
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>To Be Implemented.
      *
      * @param plan the plan
      * @return the distance and the time driven, each if measured
@@ -136,7 +137,7 @@ public interface ReportingViews {
      * Orders'. The order's effective
      * outcome counts (FR-333), and a cancelled order is left out (BR-30).
      *
-     * <p>Built in an unscheduled milestone: FR-161, a Should, is in no milestone of the roadmap.
+     * <p>To Be Implemented. FR-161 is a Should.
      *
      * @param from the first date, included
      * @param to the last date, included; a range with {@code to} before {@code from} has none

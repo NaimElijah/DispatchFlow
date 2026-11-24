@@ -27,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
  * So a refused take must find the account still unchanged, and the earlier link still valid. Every refusal {@code RequestPasswordRecovery} answers alike is audited here, and none
  * leaves as a {@code RuleViolation}. The use case sends the link after the commit.
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RequestPasswordRecoveryChange {
@@ -68,7 +68,7 @@ public class RequestPasswordRecoveryChange {
      * Issues the recovery link and saves the account, when one may be sent and the day's cap has
      * room.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param email the address typed
      * @param call the call's context: no user or session, the client and the trace (ADR-110)
@@ -78,6 +78,6 @@ public class RequestPasswordRecoveryChange {
      *     use case answers it as a request that sent nothing
      */
     public Optional<LinkEmail> apply(EmailAddress email, CallContext call) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

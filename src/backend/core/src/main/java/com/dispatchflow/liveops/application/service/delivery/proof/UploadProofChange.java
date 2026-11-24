@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
  * The transaction of {@link UploadProof} (FR-30, NFR-23): it writes the audit record of an upload
  * the proof store kept, naming the proof's ID and kind and no personal data (NFR-94).
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class UploadProofChange {
@@ -33,13 +33,13 @@ public class UploadProofChange {
     /**
      * Writes the audit record of the stored upload.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param actor the uploading driver
      * @param proof the proof's ID, the outbox row's
      * @param kind a signature or a photo
      */
     public void apply(Actor actor, ProofId proof, ProofKind kind) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

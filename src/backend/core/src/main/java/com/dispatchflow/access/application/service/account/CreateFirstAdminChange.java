@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
  * creates the first Admin's account with its set-password link, adds it, and writes the audit
  * record, which holds the account ID only (FR-409). The step sends the link after the commit.
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class CreateFirstAdminChange {
@@ -52,7 +52,7 @@ public class CreateFirstAdminChange {
     /**
      * Creates the first Admin with its set-password link.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param email the first Admin's address, read at a prompt that does not echo it
      * @param language the first Admin's language
@@ -63,6 +63,6 @@ public class CreateFirstAdminChange {
      *     (FR-291); {@code EmailInUse} when an account holds the address (BR-45)
      */
     public OpenedAccount apply(EmailAddress email, Language language, CallContext call) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

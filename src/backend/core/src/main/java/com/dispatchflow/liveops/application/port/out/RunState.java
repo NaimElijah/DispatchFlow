@@ -5,7 +5,7 @@ package com.dispatchflow.liveops.application.port.out;
  * <em>finished</em> (FR-244). A route with no {@code RouteRun} is not started, which the domain's
  * {@code RunStatus} doesn't hold, so the views name the three here.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 public enum RunState {
     /** The route has no run. */

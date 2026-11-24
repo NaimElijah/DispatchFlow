@@ -8,7 +8,7 @@ import java.util.Objects;
  * driver {@code Standing}, and Planning into {@code DriverStanding.activeDriver} (FR-06, FR-302,
  * BR-20).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  *
  * @param account the account
  * @param activeDriver whether the account is active and holds the Driver role

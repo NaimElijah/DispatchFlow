@@ -9,9 +9,10 @@ import java.util.Objects;
  * runs when none is chosen, which the planning settings hold (FR-20, FR-224, ADR-004). Outside the
  * optimizer a solver is known only by its name.
  *
- * <p>{@code PlanningSettings} has no default solver of each kind yet: a domain gap that M4 closes.
+ * <p>{@code PlanningSettings} has no default solver of each kind yet: a domain gap that the solver
+ * choice closes.
  *
- * <p>Built in M4.
+ * <p>To Be Implemented.
  *
  * @param solvers the names the optimizer offers, in its order
  * @param dailyDefault the solver a daily solve without one runs, from the planning settings

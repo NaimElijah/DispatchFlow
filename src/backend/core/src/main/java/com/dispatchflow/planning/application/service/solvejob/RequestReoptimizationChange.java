@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
  * lane's capacity under its lock, queues the job with {@code Plan.requestReoptimization}, adds it and
  * writes the audit record (TS §6.2, ADR-063, ADR-101, ADR-129).
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RequestReoptimizationChange {
@@ -64,7 +64,7 @@ public class RequestReoptimizationChange {
     /**
      * Queues the re-optimization, with the solver already checked against the optimizer's list.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the published plan
@@ -76,6 +76,6 @@ public class RequestReoptimizationChange {
      *     SolveQueueFull} when the lane holds 5 queued jobs (BR-112)
      */
     public JobId apply(Actor actor, PlanId plan, Optional<SolverName> solver) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

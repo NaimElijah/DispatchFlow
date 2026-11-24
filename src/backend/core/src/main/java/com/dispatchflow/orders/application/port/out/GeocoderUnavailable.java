@@ -7,7 +7,7 @@ import java.util.Objects;
  * refusal: the geocoding job catches it, leaves the request in the outbox and tries it again 15
  * minutes later, for 24 hours (DL §12). Its message never holds the address looked up (NFR-19).
  *
- * <p>Built in M7.
+ * <p>To Be Implemented.
  */
 public final class GeocoderUnavailable extends RuntimeException {
 

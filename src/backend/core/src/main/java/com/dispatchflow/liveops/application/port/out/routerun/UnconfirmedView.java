@@ -13,7 +13,7 @@ import java.util.Optional;
  * The drivers who have not confirmed a change to their route (FR-97, FR-250). A revision that took
  * effect before a run started counts as seen (ADR-107).
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  *
  * @param date the date
  * @param routes the routes whose last change waits for its driver's confirmation, in the plan's order
@@ -29,7 +29,7 @@ public record UnconfirmedView(DeliveryDate date, List<UnconfirmedRoute> routes) 
     /**
      * One route whose change is unconfirmed.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param route the route
      * @param driver its current driver

@@ -11,7 +11,7 @@ import java.util.Optional;
  * failed (BR-15, BR-57, FR-65). The optimizer adapter builds it, and is the only builder of the
  * {@code ValidationReport} a {@link ValidatedSolution} comes from (DL §13).
  *
- * <p>Built in M0.
+ * <p>To Be Implemented.
  */
 public sealed interface DailyAnswer {
 
@@ -22,10 +22,10 @@ public sealed interface DailyAnswer {
      *
      * <p><b>Domain gap.</b> {@code SolveJob.succeed} and its {@code SolveResult} keep the routes,
      * the drops and the excluded vehicles only, so neither stores the objective nor the stats that
-     * NFR-11 records with every solve. M0 adds them to {@code SolveResult}, and {@code RunSolveJob}
-     * passes them on.
+     * NFR-11 records with every solve. The solve queue adds them to {@code SolveResult}, and
+     * {@code RunSolveJob} passes them on.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param solution the validated routes, drops and excluded vehicles
      * @param objective the shared objective's terms, as the optimizer scored the solution (BR-09,
@@ -53,9 +53,10 @@ public sealed interface DailyAnswer {
      * violation.
      *
      * <p><b>Domain gap.</b> {@code SolveJob.fail} keeps no stats, which NFR-11 records with every
-     * solve: M0 adds them beside the failure, and {@code RunSolveJob} passes them on.
+     * solve: the solve queue adds them beside the failure, and {@code RunSolveJob} passes
+     * them on.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param failure why
      * @param stats how the search ran, up to its failure, whenever the optimizer answered: a

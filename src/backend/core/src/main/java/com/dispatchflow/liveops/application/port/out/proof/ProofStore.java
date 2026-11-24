@@ -23,9 +23,9 @@ import java.util.Optional;
  * uploader may hold, refusing one more with {@link ProofUploadsCapped}. The window is longer than
  * the 14 days a phone may hold its queued reports offline (ADR-087, NFR-235), so a phone's late
  * report still finds its upload. The window and the cap are the adapter's named settings, whose
- * values M5 fixes.
+ * values are decided when the proof upload is built.
  *
- * <p>Built in M5 and M13, method by method.
+ * <p>To Be Implemented.
  */
 public interface ProofStore {
 
@@ -58,9 +58,10 @@ public interface ProofStore {
      *       twice.
      * </ol>
      *
-     * <p>Both caps are the adapter's settings, whose values M5 fixes.
+     * <p>Both caps are the adapter's settings, whose values are decided when the proof upload is
+     * built.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param uploader the account of the uploading driver
      * @param proof the proof's ID
@@ -80,7 +81,7 @@ public interface ProofStore {
     /**
      * Who uploaded a proof, and as which kind, without reading the file.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param proof the proof's ID
      * @return the uploader and the kind, or empty when none was uploaded or the ID is retired
@@ -90,7 +91,7 @@ public interface ProofStore {
     /**
      * Reads a stored proof.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param proof the proof's ID
      * @return the stored file, or empty when none was uploaded or the ID is retired
@@ -102,7 +103,7 @@ public interface ProofStore {
      * its binding to its uploader and kind, as a tombstone: {@link #store} refuses the ID from then
      * on, and {@link #find} and {@link #open} answer empty for it.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param cutoff the cutoff, from {@code RetentionPeriods.proofCutoff}
      * @return how many files were deleted
@@ -112,7 +113,7 @@ public interface ProofStore {
     /**
      * What the store knows of a proof besides its file.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param uploader the account that uploaded it
      * @param kind the kind it was uploaded as

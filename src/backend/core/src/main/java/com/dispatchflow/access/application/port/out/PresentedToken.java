@@ -11,7 +11,7 @@ import java.util.Objects;
  * <p>It is a credential, not personal data, but it is marked {@code PersonalData} so the shape
  * rules keep it out of every error and event field (ADR-106).
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  *
  * @param value the token as presented
  */

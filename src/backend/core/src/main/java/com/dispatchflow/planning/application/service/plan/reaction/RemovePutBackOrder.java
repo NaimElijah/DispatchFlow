@@ -16,7 +16,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * <p>{@link RemovePutBackOrderChange} holds the transaction, which takes the drop off and writes the
  * audit record; after it commits, the dispatchers' open screens are told (ADR-129).
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 public final class RemovePutBackOrder {
 
@@ -38,7 +38,7 @@ public final class RemovePutBackOrder {
      * Takes the put-back attempt's drop off its old date's plan. A put-back onto the same date changes
      * no plan (DL §6.2).
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param event the put-back
      * @param call the listener's server step, which the audit record names (ADR-110)
@@ -46,6 +46,6 @@ public final class RemovePutBackOrder {
      *     adapter retries at once, up to three times (DL §11)
      */
     public void on(OrderPutBack event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

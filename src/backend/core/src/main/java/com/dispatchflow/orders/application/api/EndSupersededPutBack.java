@@ -12,7 +12,7 @@ import com.dispatchflow.shared.OrderId;
  * Operations' own listener on {@code PutBackSuperseded} calls it after Planning's {@code
  * RemoveSupersededPutBack} has taken the put-back's stop off its plan (DL §2.1).
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 public interface EndSupersededPutBack {
 
@@ -21,7 +21,7 @@ public interface EndSupersededPutBack {
      * order's current attempt is no longer {@code laterAttempt}, nothing changes, so a retried
      * listener is safe.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param order the corrected stop's order
      * @param laterAttempt the put-back's attempt, which ends

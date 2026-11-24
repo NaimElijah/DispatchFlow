@@ -19,7 +19,7 @@ import java.util.Set;
  * FR-149), through {@code PlaceCustomerLocation}, which takes the version read here. The name,
  * address and location are personal data, so it prints redacted.
  *
- * <p>Built in M7.
+ * <p>To Be Implemented.
  *
  * @param customer the customer
  * @param name its name

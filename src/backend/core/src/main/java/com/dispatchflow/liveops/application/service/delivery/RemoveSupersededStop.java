@@ -22,7 +22,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * it records no {@code ProcessedEvents} pair. A failure between the two leaves the stop off and the
  * attempt open, and the retried event finishes the second step.
  *
- * <p>Built in M8. Rows: FR-404.
+ * <p>To Be Implemented. Rows: FR-404.
  */
 public final class RemoveSupersededStop {
 
@@ -45,7 +45,7 @@ public final class RemoveSupersededStop {
      * Asks Planning to take the put-back's stop off the plan of the date the event names, and then
      * Customers &amp; Orders to return the order to its earlier attempt.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param event the superseded put-back
      * @param call the listener's server step, which both calls carry
@@ -54,6 +54,6 @@ public final class RemoveSupersededStop {
      *     retries the event at once, up to three times (DL §11)
      */
     public void on(PutBackSuperseded event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

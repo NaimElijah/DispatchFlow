@@ -26,7 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>It saves the plan before it adds the job: adding the job writes at once everything the
  * transaction holds, so the plan's change written there would make its own save fail.
  *
- * <p>Built in M0.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RequestSolveChange {
@@ -70,7 +70,7 @@ public class RequestSolveChange {
     /**
      * Requests the solve, with the solver already checked against the optimizer's list.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the plan
@@ -86,6 +86,6 @@ public class RequestSolveChange {
      */
     public JobId apply(
             Actor actor, PlanId plan, Optional<SolverName> solver, Optional<SolveLimit> limit, Version expected) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

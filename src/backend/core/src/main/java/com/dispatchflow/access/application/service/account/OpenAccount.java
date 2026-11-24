@@ -27,7 +27,7 @@ import com.dispatchflow.shared.RuleViolation;
  * the set-password link and the Admins' notice, so an opening that rolls back sends nothing
  * (ADR-129).
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 public final class OpenAccount {
 
@@ -48,7 +48,7 @@ public final class OpenAccount {
     /**
      * Opens the account and sends its set-password link.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param email the address the user signs in with
@@ -62,6 +62,6 @@ public final class OpenAccount {
      *     default language (FR-182)
      */
     public AccountId open(Actor actor, EmailAddress email, RoleSet roles) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

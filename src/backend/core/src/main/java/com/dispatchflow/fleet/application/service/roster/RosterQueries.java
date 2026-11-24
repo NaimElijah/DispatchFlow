@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
  * FR-193). It reads the roster from {@link FleetViews}, with each driver record's state, and asks
  * Access's {@link Accounts#standingsOf} once for the date's drivers.
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class RosterQueries {
@@ -35,13 +35,13 @@ public class RosterQueries {
     /**
      * One date's roster.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param date the date
      * @return the roster, empty and with no version for a date nobody rostered
      */
     public RosterView roster(Actor actor, DeliveryDate date) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -25,17 +25,18 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>The change is Admin-only, so it first asks Access's {@link StepUp} whether the acting session
  * gave its password within the step-up window, before it reads the settings (NFR-214, ADR-068,
- * ADR-104). The step-up arrives in M6.
+ * ADR-104). The step-up check is not built yet.
  *
  * <p>{@code PlanningSettings} has no default solver of each kind yet, which ADR-004 puts there: a
- * domain gap that M4 closes (placement P3). Until M4 adds the field, the {@link Command} has no
- * default solver to change, and a solve with no solver runs OR-Tools, the default that ADR-004 and
- * FR-20 name. M4 adds the daily and the re-optimization defaults to the command with the field.
+ * domain gap that the solver choice closes (placement P3). Until the field is added, the {@link
+ * Command} has no default solver to change, and a solve with no solver runs OR-Tools, the default
+ * that ADR-004 and FR-20 name. The daily and the re-optimization defaults join the command with the
+ * field.
  *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
- * <p>Built in M4.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ChangePlanningSettings {
@@ -63,24 +64,25 @@ public class ChangePlanningSettings {
     /**
      * Changes the settings.
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param actor the Admin
      * @param command the new values
      * @param expected the settings' version the Admin saw, or empty while they are the starting
      *     values, never saved (BR-76)
-     * @throws com.dispatchflow.shared.RuleViolation from M6, with Access's {@code SessionRevoked} or
-     *     {@code StepUpRequired}, in that order, before any change (NFR-214)
+     * @throws com.dispatchflow.shared.RuleViolation once the session check and step-up are built,
+     *     with Access's {@code SessionRevoked} or {@code StepUpRequired}, in that order, before any
+     *     change (NFR-214)
      * @throws StaleVersion when the settings changed since {@code expected}
      */
     public void change(Actor actor, Command command, Optional<Version> expected) {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * The settings' new values, each already checked by its own type.
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param travelBuckets the travel-time buckets and their factors (FR-321, FR-408)
      * @param buffer the travel-time buffer (FR-227)

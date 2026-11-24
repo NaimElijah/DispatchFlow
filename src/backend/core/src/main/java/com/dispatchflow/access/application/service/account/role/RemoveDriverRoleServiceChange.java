@@ -12,10 +12,10 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * The transaction of {@link RemoveDriverRoleService} (ADR-129): it takes the Driver role off the
  * account through {@code UserAccount.removeDriverRole}, saves it, and writes the audit record with
- * the listener's server step (NFR-23, ADR-110). From M6 the service evicts the account from the
- * revocation cache after the commit.
+ * the listener's server step (NFR-23, ADR-110). Once the revocation cache is built, the service
+ * evicts the account from it after the commit.
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RemoveDriverRoleServiceChange {
@@ -40,7 +40,7 @@ public class RemoveDriverRoleServiceChange {
     /**
      * Takes the Driver role off the account, and saves it.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param driver the retired driver's account
      * @param call the listener's server step
@@ -48,6 +48,6 @@ public class RemoveDriverRoleServiceChange {
      * @throws StaleVersion when the account changed between its read and its save (BR-76)
      */
     public void apply(AccountId driver, CallContext call) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

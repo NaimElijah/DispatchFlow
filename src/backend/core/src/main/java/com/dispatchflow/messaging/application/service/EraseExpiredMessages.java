@@ -13,8 +13,8 @@ import com.dispatchflow.audit.application.api.CallContext;
  * and replies due in one, lists the requests due, and clears each request in one of its own
  * (ADR-129).
  *
- * <p>Built in M13, with the whole nightly retention run (ADR-121). Rows: NFR-184, NFR-193, NFR-260,
- * ADR-108.
+ * <p>To Be Implemented. It comes with the whole nightly retention run (ADR-121). Rows: NFR-184,
+ * NFR-193, NFR-260, ADR-108.
  */
 public final class EraseExpiredMessages {
 
@@ -33,12 +33,12 @@ public final class EraseExpiredMessages {
     /**
      * Erases what is due. A request another writer saved meanwhile is left for the next night.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param call the job's server step
      * @return how many stops' messages, replies and requests it deleted or cleared, together
      */
     public int erase(CallContext call) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

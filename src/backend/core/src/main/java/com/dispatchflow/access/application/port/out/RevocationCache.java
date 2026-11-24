@@ -15,14 +15,14 @@ import com.dispatchflow.shared.SessionId;
  * adapter also sends the evicted key on a PostgreSQL channel ({@code NOTIFY}) when the
  * transaction commits, and the serving core, which listens on it, drops the same entry (ADR-131).
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 public interface RevocationCache {
 
     /**
      * Drops an account's entry.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param account the account whose generation or state changed
      */
@@ -31,7 +31,7 @@ public interface RevocationCache {
     /**
      * Drops a session's entry.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param session the session whose generation or state changed
      */

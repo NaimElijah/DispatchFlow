@@ -10,7 +10,7 @@ import com.dispatchflow.shared.ProposalId;
  * then reads it through Planning's queries. A use case calls it after its transaction commits, so a
  * screen never reads a change that rolled back.
  *
- * <p>Built in M4 and M9, method by method.
+ * <p>To Be Implemented.
  */
 public interface LiveUpdates {
 
@@ -18,7 +18,7 @@ public interface LiveUpdates {
      * A solve job was queued, claimed, started its search, succeeded or failed (FR-16, FR-142,
      * FR-222).
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param job the job
      * @param plan the plan it solves
@@ -28,7 +28,7 @@ public interface LiveUpdates {
     /**
      * A plan changed: its state, its routes, its locks, its journal or its revision.
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param plan the plan
      */
@@ -37,7 +37,7 @@ public interface LiveUpdates {
     /**
      * A re-optimization finished, and its proposal waits for a dispatcher (FR-36, FR-255).
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param proposal the proposal
      * @param plan the plan it would change

@@ -8,7 +8,7 @@ import java.util.Objects;
  * A signed access token, a bearer credential (ADR-045). It is a secret: it is never logged
  * (NFR-19), so {@link #toString()} prints it redacted.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  *
  * @param value the compact JWT
  * @param expiresAt when it stops being accepted (NFR-86)

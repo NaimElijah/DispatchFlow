@@ -16,7 +16,7 @@ import java.util.Optional;
  * no route and no driver, so it gives no per-route or per-driver figure until Q-42 is answered
  * (FR-381). Comments are a person's words, so it prints redacted.
  *
- * <p>Built in M12.
+ * <p>To Be Implemented.
  *
  * @param date the date
  * @param stops the date's stops that had a rating request, in route and plan order
@@ -42,7 +42,7 @@ public record RatingsView(DeliveryDate date, List<RatedStop> stops) implements P
     /**
      * One stop's rating request.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param stop the stop
      * @param request its rating request

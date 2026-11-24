@@ -8,14 +8,14 @@ import com.dispatchflow.shared.SessionId;
  * denylist (ADR-045, NFR-267): the security filter and the event stream's heartbeat ask it. The
  * answer may come from the revocation cache (NFR-177).
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 public interface SessionValidity {
 
     /**
      * Whether the token's account and session generations are both the current ones.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param account the token's account
      * @param accountGeneration the account generation the token carries

@@ -20,13 +20,13 @@ import org.springframework.transaction.annotation.Transactional;
  * its audit record with the listener's server step (NFR-23, ADR-110).
  *
  * <p>Domain gap: {@code Order} has no method that ends a put-back attempt, and a put-back doesn't
- * keep the earlier attempt's date and window. M8 adds both (ADR-121): {@code Order.putBack} keeps
- * them, and {@code Order.endPutBack(Attempt, Instant)} returns the order to the attempt before the
- * one given, on that attempt's date and window. It frees the later date's capacity (BR-101), skips
- * the past-date check, and changes nothing when the order's current attempt is no longer that
- * one.
+ * keep the earlier attempt's date and window. Neither is built yet (ADR-121): {@code
+ * Order.putBack} keeps them, and {@code Order.endPutBack(Attempt, Instant)} returns the order to
+ * the attempt before the one given, on that attempt's date and window. It frees the later date's
+ * capacity (BR-101), skips the past-date check, and changes nothing when the order's current
+ * attempt is no longer that one.
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class EndSupersededPutBackService implements EndSupersededPutBack {
@@ -51,7 +51,7 @@ public class EndSupersededPutBackService implements EndSupersededPutBack {
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @throws NotFound when no order has the ID
      * @throws StaleVersion when the order changed between its read and its save (BR-76); Live
@@ -59,6 +59,6 @@ public class EndSupersededPutBackService implements EndSupersededPutBack {
      */
     @Override
     public void end(OrderId order, Attempt laterAttempt, CallContext call) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

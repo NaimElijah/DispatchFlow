@@ -24,7 +24,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * reactivation, its save, the Admins' addresses and the audit record. After its commit, the use
  * case sends the Admins' notice, so a reactivation that rolls back sends nothing (ADR-129).
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 public final class ReactivateAccount {
 
@@ -45,7 +45,7 @@ public final class ReactivateAccount {
     /**
      * Reactivates the account.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param account the user's account
@@ -59,6 +59,6 @@ public final class ReactivateAccount {
      *     save (BR-76)
      */
     public void reactivate(Actor actor, AccountId account, Version expected) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

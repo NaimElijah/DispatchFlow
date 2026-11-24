@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
- * <p>Built in M7.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class PlaceCustomerLocation {
@@ -51,7 +51,7 @@ public class PlaceCustomerLocation {
     /**
      * Places the location.
      *
-     * <p>Built in M7.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param customer the customer
@@ -64,6 +64,6 @@ public class PlaceCustomerLocation {
      * @throws StaleVersion when the customer changed since {@code expected}
      */
     public void place(Actor actor, CustomerId customer, GeoPoint point, Version expected) {
-        throw new UnsupportedOperationException("Built in M7");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -14,7 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
  * alone; the alert list asks it with today's date from the {@link Clock}. The phone app's Admin and
  * Dispatcher screens read the same list (FR-405).
  *
- * <p>Built in M8. Rows: FR-157, FR-261, FR-335, FR-405, BR-132.
+ * <p>To Be Implemented. Rows: FR-157, FR-261, FR-335, FR-405, BR-132.
  */
 @Transactional(readOnly = true)
 public class AlertQueries {
@@ -37,24 +37,24 @@ public class AlertQueries {
      * Every unacknowledged alert the list shows now: each of a plan not yet completed, and each
      * raised after its plan completed (FR-261).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher or Admin
      * @return the alerts, the newest first; none when no alert is open
      */
     public OpenAlertsView open(Actor actor) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Every report held for a decision, whatever its stop's date (BR-132).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @return the open held reports; none when no report is held
      */
     public HeldReportsView held(Actor actor) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

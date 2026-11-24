@@ -36,7 +36,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  * app in the background learns of it (FR-405, ADR-083). Pushing before Planning's call means that
  * a failure there, whose retry finds the alert's key taken and raises nothing, loses no push.
  *
- * <p>Built in M8; the push through {@link PushNotifier} in M10. Rows: DL §8, FR-157, BR-89, BR-130.
+ * <p>To Be Implemented. It comes with the push through {@link PushNotifier}. Rows: DL §8, FR-157,
+ * BR-89, BR-130.
  */
 public final class ReconcileOutcome {
 
@@ -69,7 +70,7 @@ public final class ReconcileOutcome {
      * Alerts the dispatcher when the current plan disagrees with an accepted outcome, and then
      * reconciles the plan with it.
      *
-     * <p>Built in M8; the push in M10.
+     * <p>To Be Implemented.
      *
      * @param event the recorded outcome
      * @param call the listener's server step, which Planning's call and the audit record carry
@@ -81,6 +82,6 @@ public final class ReconcileOutcome {
      *     event at once, up to three times (DL §11)
      */
     public void on(OutcomeRecorded event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

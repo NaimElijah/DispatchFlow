@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
  * UserAccountRepository.activeAdminRecipients} when it gains the Admin role (FR-389), and writes the
  * audit record (NFR-23). The use case evicts the account and sends the notice after the commit.
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ChangeRolesChange {
@@ -50,7 +50,7 @@ public class ChangeRolesChange {
     /**
      * Changes the roles, and saves the account.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param account the user's account
@@ -70,6 +70,6 @@ public class ChangeRolesChange {
      *     save (BR-76)
      */
     public Optional<AdminNotice> apply(Actor actor, AccountId account, RoleSet roles, Version expected) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

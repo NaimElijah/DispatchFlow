@@ -6,7 +6,7 @@ import java.util.List;
  * The fleet register as other modules read it (DL §2.2): every depot and every vehicle,
  * which the optimizer's inputs are built from (TS §2.1, {@code SolveRequestAssembler}).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  *
  * @param depots every depot, in the register's order
  * @param vehicles every vehicle, active or not, in the register's order

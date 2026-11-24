@@ -18,10 +18,10 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>It fills each {@code PublishedStopFact}'s window, service time and door flag from the revision,
  * as the revision took its order, never from the order as it is now, so a stop whose order changed
- * since keeps the leg it was planned with. The revision stores the three once M5 adds them to its
- * stops (FR-364, BR-49, BR-124).
+ * since keeps the leg it was planned with. The revision stores the three once they are added to
+ * its stops (FR-364, BR-49, BR-124).
  *
- * <p>Built in M5 and M12, method by method.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class PublishedRoutesService implements PublishedRoutes {
@@ -40,50 +40,50 @@ public class PublishedRoutesService implements PublishedRoutes {
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      */
     @Override
     public List<PublishedRouteFact> inForceOn(DeliveryDate date) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      */
     @Override
     public List<PublishedRouteFact> inForceFrom(DeliveryDate from) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      */
     @Override
     public Optional<PublishedRouteFact> route(RouteId route) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      */
     @Override
     public Optional<PublishedRouteFact> routeOf(StopId stop) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      */
     @Override
     public RevisionChangesFact changesIn(PlanId plan, int revision) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

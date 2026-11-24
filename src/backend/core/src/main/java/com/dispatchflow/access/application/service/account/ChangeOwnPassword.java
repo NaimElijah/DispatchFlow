@@ -19,7 +19,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * UserAccountRepository.activeAdminRecipients} and sends {@code EmailSender.sendAdminNotice}.
  *
  * <p>A wrong current password counts toward the sign-in limits, in the rate-limit adapter (FR-177,
- * ADR-071). Access's domain has no error for a wrong password yet; M5 adds it, with {@code SignIn}.
+ * ADR-071). Access's domain has no error for a wrong password yet; it comes with {@code SignIn}.
  * Like every changing call it writes its audit record, a refused attempt's in its own transaction
  * (NFR-23, ADR-110).
  *
@@ -28,7 +28,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * evicts the account from the revocation cache and sends the Admins' notice, so a change that rolls
  * back sends nothing (ADR-129).
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 public final class ChangeOwnPassword {
 
@@ -52,7 +52,7 @@ public final class ChangeOwnPassword {
     /**
      * Changes the password.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param current the current password, as typed
@@ -60,13 +60,13 @@ public final class ChangeOwnPassword {
      * @throws RuleViolation with {@code NewPassword}'s {@code PasswordHasUnpairedSurrogate}, {@code
      *     PasswordTooShort} or {@code PasswordTooCommon} for a new password the policy refuses
      *     (NFR-95); {@code AccountDeactivated} or {@code AccountAnonymized} when the account is not
-     *     active; the wrong-password refusal M5 adds
+     *     active; the wrong-password refusal {@code SignIn} adds
      * @throws NotFound when the actor's account no longer exists
      * @throws StaleVersion when the account changed between its read and its save (BR-76); the web
      *     adapter retries the call at once, up to three times, then answers 503 with {@code
      *     Retry-After} (ADR-121)
      */
     public void change(Actor actor, PresentedPassword current, PresentedPassword next) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

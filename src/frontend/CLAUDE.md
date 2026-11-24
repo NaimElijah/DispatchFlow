@@ -17,7 +17,7 @@ with its layout, rules and commands.
 - The client never decides feasibility. Violations come from the server's validator ([TS §10]).
 - An error is translated from its stable `code` through `@dispatchflow/i18n`. No stack trace and no
   bare code reaches a screen ([ADR-043]).
-- The phone app is built from Semester B (M10). Until then the driver screens run in the web
+- The phone app is built from Semester B. Until then the driver screens run in the web
   app's browser ([TS §11], [roadmap §4.1]).
 - The server decides what each role may do. The UI hides what a role cannot use, but never
   stands in for the server's check.

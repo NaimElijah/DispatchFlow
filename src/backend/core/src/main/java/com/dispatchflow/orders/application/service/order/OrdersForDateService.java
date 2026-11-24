@@ -15,10 +15,10 @@ import org.springframework.transaction.annotation.Transactional;
  * BR-22).
  *
  * <p>{@link OrderFact#placedAt} has no source yet, because {@code Order} holds only its last change
- * time: M2 adds the time the order joined its date, set by {@code place}, {@code reschedule} and a
- * put-back to another date (BR-71).
+ * time: the time the order joined its date, set by {@code place}, {@code reschedule} and a
+ * put-back to another date (BR-71), is not recorded yet.
  *
- * <p>Built in M2 and M9, method by method.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class OrdersForDateService implements OrdersForDate {
@@ -37,20 +37,20 @@ public class OrdersForDateService implements OrdersForDate {
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      */
     @Override
     public List<OrderFact> uncancelledOn(DeliveryDate date) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      */
     @Override
     public OrderChanges changesSince(DeliveryDate date, Instant since) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

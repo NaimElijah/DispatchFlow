@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
  * order, saves it, which raises {@code PlanPublished}, and writes the audit record (DL §6.3, TS §6.2,
  * ADR-063, ADR-129).
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class PublishPlanChange {
@@ -62,7 +62,7 @@ public class PublishPlanChange {
     /**
      * Reads the plan as it is, for the optimizer's re-check before the transaction.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the plan
@@ -74,13 +74,13 @@ public class PublishPlanChange {
      */
     @Transactional(readOnly = true)
     public LayoutToJudge currentLayout(Actor actor, PlanId plan, Version expected) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Publishes the plan, with the re-check made before the transaction.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher, recorded as who published it
      * @param plan the plan
@@ -100,6 +100,6 @@ public class PublishPlanChange {
      *     (BR-21, BR-67, BR-70)
      */
     public void apply(Actor actor, PlanId plan, Version expected, Evaluation recheck) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

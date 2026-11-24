@@ -14,7 +14,7 @@ import java.util.Optional;
  * from the shift's start and its {@code TrackingStanding} from the availability and the shift's end
  * (FR-101, FR-328, BR-20).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  *
  * @param driver the driver's account
  * @param shift their shift on the date, as Israel times on that date

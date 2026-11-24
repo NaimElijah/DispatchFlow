@@ -12,7 +12,7 @@ import java.util.Optional;
  * account opens with the Admin role (FR-389). It holds addresses and a token, so it prints redacted
  * (NFR-19).
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  *
  * @param account the new account's ID
  * @param link the set-password link's email

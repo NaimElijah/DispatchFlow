@@ -23,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RetireCustomer {
@@ -59,7 +59,7 @@ public class RetireCustomer {
     /**
      * Retires the customer.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param customer the customer
@@ -70,6 +70,6 @@ public class RetireCustomer {
      * @throws StaleVersion when the customer changed since {@code expected}
      */
     public void retire(Actor actor, CustomerId customer, Version expected) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

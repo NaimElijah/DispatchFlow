@@ -24,7 +24,7 @@ import java.util.Optional;
  * Planning's and Customers &amp; Orders' published views (ADR-041). The orders' and the depots'
  * locations are personal data, so it prints redacted.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  *
  * @param plan the plan
  * @param date the plan's delivery date
@@ -60,7 +60,7 @@ public record BaselineInputs(
      * One order the baseline is solved on, as Customers &amp; Orders' published view gives it (FR-342,
      * BR-119). Its location is a kernel {@link GeoPoint}, so it prints redacted.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param order the order
      * @param location its customer's coordinates, or empty when they are not known, so the order
@@ -109,7 +109,7 @@ public record BaselineInputs(
      * One vehicle of the fleet the plan's daily solve was given, as Planning's published view gives
      * it (FR-39, FR-271, FR-342): what it carries, its depots and its driver's shift.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param vehicle the vehicle
      * @param weightCapacity the most kilograms it carries
@@ -141,7 +141,7 @@ public record BaselineInputs(
      * One depot a vehicle starts or ends at, as Planning's published view gives the daily solve's
      * depot (FR-39, FR-342, BR-46). Its location is a kernel {@link GeoPoint}, so it prints redacted.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param depot the depot
      * @param location where it is
@@ -170,7 +170,7 @@ public record BaselineInputs(
     /**
      * A depot's opening hours, as Israel wall-clock times on every date (FR-129, ADR-103).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param opens when routes may first leave
      * @param closes when routes must be back, after {@code opens}

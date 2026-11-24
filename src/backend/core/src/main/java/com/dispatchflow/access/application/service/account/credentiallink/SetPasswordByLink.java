@@ -30,17 +30,17 @@ import com.dispatchflow.shared.application.StaleVersion;
  * Access's {@code LinkVoided} in their place. A deactivation voids every unspent link (NFR-224), so for an unspent link {@code
  * LinkVoided} is what happened to it.
  *
- * <p><b>Gap for M6.</b> {@code UserAccount} checks the account's state before the link's, so a
- * spent link answers {@code LinkAlreadyUsed} on an active account and {@code LinkVoided} on a
- * deactivated one. M6 checks the link's state first, so a spent link answers alike in every state
- * (NFR-145).
+ * <p><b>Gap until the email links are built.</b> {@code UserAccount} checks the account's state
+ * before the link's, so a spent link answers {@code LinkAlreadyUsed} on an active account and
+ * {@code LinkVoided} on a deactivated one. The email links check the link's state first, so a spent
+ * link answers alike in every state (NFR-145).
  *
  * <p><b>The transaction.</b> {@link SetPasswordByLinkChange} holds it: the link's lookup, the
  * password with the refusals above, its save, the Admins' addresses and the audit record. After its
  * commit, the use case evicts the account from the revocation cache and sends the Admins' notice,
  * so a change that rolls back sends nothing (ADR-129).
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 public final class SetPasswordByLink {
 
@@ -64,7 +64,7 @@ public final class SetPasswordByLink {
     /**
      * Sets the password and spends the link.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param token the token the link carried
      * @param password the new password, as typed
@@ -80,6 +80,6 @@ public final class SetPasswordByLink {
      *     Retry-After} (ADR-121)
      */
     public void set(PresentedToken token, PresentedPassword password, CallContext call) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

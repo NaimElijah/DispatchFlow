@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
  * {@code Session.confirmPassword}, issues the session's new tokens, saves it, and writes the audit
  * record (NFR-23). The use case evicts the session from the revocation cache after the commit.
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ConfirmPasswordChange {
@@ -68,18 +68,18 @@ public class ConfirmPasswordChange {
     /**
      * Confirms the password, and saves the session with its new tokens.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param password the current password, as typed
      * @return the session's new tokens
      * @throws RuleViolation with Access's {@code SessionRevoked} when the session is revoked, or
      *     its account's sessions were revoked after it began (NFR-177); or with the wrong-password
-     *     refusal M5 adds
+     *     refusal {@code SignIn} adds
      * @throws NotFound when the actor's session or account no longer exists
      * @throws StaleVersion when the session changed between its read and its save (BR-76)
      */
     public SignedIn apply(Actor actor, PresentedPassword password) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -11,7 +11,7 @@ import java.util.Objects;
  * Messaging reads it when an order is cancelled or rescheduled, because Planning hears the same
  * events and may have taken the stop off first (FR-354).
  *
- * <p>Built in M12.
+ * <p>To Be Implemented.
  *
  * @param plan the plan that held the stop
  * @param stop the stop

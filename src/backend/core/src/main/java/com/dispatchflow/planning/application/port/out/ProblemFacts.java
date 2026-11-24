@@ -31,7 +31,7 @@ import java.util.Optional;
  * the stored matrix; the optimizer adapter turns it into the {@code optimization-api} request, and the
  * Python {@code ProblemFactory} applies every rule (DL §10.2, ADR-050).
  *
- * <p>Built in M0.
+ * <p>To Be Implemented.
  *
  * @param date the delivery date
  * @param orders the date's uncancelled orders, each once, at their current attempt (BR-22, FR-258);
@@ -79,19 +79,19 @@ public record ProblemFacts(
      * One order to serve or drop, as Customers &amp; Orders answered (FR-15, BR-14, BR-49, BR-50,
      * BR-53, BR-124, FR-364, FR-320). Its location is a customer's place, so it prints redacted.
      *
-     * <p><b>Gap until M7.</b> The Python {@code OrderSpec} has no input for an order's
-     * outside-service-area flag (FR-320), so the optimizer adapter has nowhere to send it. M7's
-     * geocoding adds that input to the domain, and the factory then drops such an order as
+     * <p><b>Gap until geocoding is built.</b> The Python {@code OrderSpec} has no input for an
+     * order's outside-service-area flag (FR-320), so the optimizer adapter has nowhere to send it.
+     * Geocoding adds that input to the domain, and the factory then drops such an order as
      * <em>unreachable location</em> (FR-66).
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param order the order
      * @param attempt its current attempt
      * @param location its customer's coordinates, or empty, so it drops as <em>missing
      *     location</em> (BR-14, FR-223)
      * @param outsideServiceArea whether Customers &amp; Orders flagged its location as outside the
-     *     service area, so it drops as <em>unreachable location</em> once M7 adds the input
+     *     service area, so it drops as <em>unreachable location</em> once geocoding adds the input
      *     (FR-320, FR-66); never for a location placed by hand or a missing location
      * @param window its time window on the date
      * @param weight its weight demand
@@ -140,7 +140,7 @@ public record ProblemFacts(
      * One depot, with its opening hours (FR-129, FR-195). Its location is a place a person may be
      * found at, so it prints redacted, as Fleet's {@code DepotFact} does.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param depot the depot
      * @param location where it is, or empty, so its vehicles are left out (FR-197)
@@ -169,7 +169,7 @@ public record ProblemFacts(
     /**
      * A depot's opening hours, as Israel wall-clock times on the date (FR-129, ADR-088).
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param opens when routes may first leave
      * @param closes when routes must be back
@@ -186,7 +186,7 @@ public record ProblemFacts(
     /**
      * One vehicle of the request (FR-05, BR-05).
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param vehicle the vehicle
      * @param weightCapacity the most kilograms it carries
@@ -212,7 +212,7 @@ public record ProblemFacts(
      * The validator judges a route's shift by its vehicle's rostered driver (ADR-112), so an
      * evaluation gives each layout route's driver that route's vehicle.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param driver the driver's account
      * @param shift their shift on the date
@@ -237,9 +237,9 @@ public record ProblemFacts(
      * <p>The optimizer applies the departure allowance. The core sends it as it is and never folds
      * it into the shift times, so the Python {@code ProblemFactory} alone decides how a route's
      * start and its planned times take it (ADR-050, ADR-121). The factory has no input for it yet:
-     * a domain gap that M0 closes, for the daily solve and the re-optimization.
+     * a domain gap that the solve queue closes, for the daily solve and the re-optimization.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param buckets the travel-time buckets and their factors
      * @param buffer the travel-time buffer

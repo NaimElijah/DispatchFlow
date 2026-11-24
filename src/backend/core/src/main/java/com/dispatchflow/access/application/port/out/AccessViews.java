@@ -8,14 +8,14 @@ import java.util.Optional;
  * The read models of Access's screens: the signed-in user, the users list and the company's details
  * (DL §3.6, CQRS-lite). It never returns an aggregate; the query classes check who may read what.
  *
- * <p>Built in M2, M5 and M6, method by method.
+ * <p>To Be Implemented.
  */
 public interface AccessViews {
 
     /**
      * The signed-in user's own view (FR-03, FR-181, FR-299).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param account the signed-in account
      * @return the view, or empty when no account has the ID
@@ -26,7 +26,7 @@ public interface AccessViews {
      * Every account, anonymized ones included (the permission matrix, "Read the company's details
      * and its users").
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @return the accounts, in the order the screen lists them
      */
@@ -35,7 +35,7 @@ public interface AccessViews {
     /**
      * One account.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param account the account
      * @return the account, or empty when no account has the ID
@@ -45,7 +45,7 @@ public interface AccessViews {
     /**
      * The company's details (FR-125).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @return the details with the profile's version, which every save after the first sends as
      *     {@code If-Match}; or empty before the profile exists, when the first save sends {@code
@@ -57,7 +57,7 @@ public interface AccessViews {
      * How many active accounts hold the Admin role, for FR-299's warning (BR-19). It takes no lock:
      * the warning is advice, not a rule.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @return the count
      */

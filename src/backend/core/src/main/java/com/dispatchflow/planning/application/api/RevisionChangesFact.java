@@ -15,7 +15,7 @@ import java.util.Optional;
  * one the revision moved or took off a route (FR-354, FR-372); {@code PlanRevised} names only the
  * routes, because an event carries no copy of the plan (DL §7.3).
  *
- * <p>Built in M12.
+ * <p>To Be Implemented.
  *
  * @param plan the plan
  * @param revision the revision's number, 1 or more
@@ -32,7 +32,7 @@ public record RevisionChangesFact(PlanId plan, int revision, List<StopChange> st
     /**
      * How a revision changed one stop.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      */
     public enum Change {
         /** The stop is on a route in this revision and on none in the one before. */

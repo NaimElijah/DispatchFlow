@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
  * and the template file. Every read is the dispatcher's, authorized by role from its operation
  * (ADR-068); no driver scope applies.
  *
- * <p>Built in M2 and an unscheduled milestone, method by method.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class ImportQueries {
@@ -33,7 +33,7 @@ public class ImportQueries {
      * A preview with every row and every error (FR-203, FR-204), its encoding (FR-313) and when it
      * expires (FR-399).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param batch the import
@@ -41,18 +41,18 @@ public class ImportQueries {
      * @throws NotFound when no import has the ID, or it is no longer previewed
      */
     public ImportPreviewView preview(Actor actor, ImportBatchId batch) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * The order import's template: its fixed, named columns (FR-84, FR-309).
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @return the template's columns
      */
     public ImportTemplateView template(Actor actor) {
-        throw new UnsupportedOperationException("Built in an unscheduled milestone");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

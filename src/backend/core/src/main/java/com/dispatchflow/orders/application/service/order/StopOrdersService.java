@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
  * the fields a driver sees at their stops from its own read port in one read, and refuses the
  * request when any order is missing from the answer (DL §2.2, FR-86, FR-87, FR-135, FR-364).
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class StopOrdersService implements StopOrders {
@@ -31,10 +31,10 @@ public class StopOrdersService implements StopOrders {
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      */
     @Override
     public List<StopOrderFact> of(List<OrderId> orders) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

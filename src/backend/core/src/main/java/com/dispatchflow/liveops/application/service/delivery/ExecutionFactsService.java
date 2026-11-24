@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
  * corrected time of the first report of an outcome at the stop (BR-114), which a dispatcher's
  * correction keeps.
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class ExecutionFactsService implements ExecutionFacts {
@@ -47,30 +47,30 @@ public class ExecutionFactsService implements ExecutionFacts {
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      */
     @Override
     public StartedRoutesFact startedAmong(List<RouteId> routes, List<StopId> stops) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      */
     @Override
     public List<StopId> changesSince(List<StopId> stops, Instant since) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      */
     @Override
     public LiveStateFact liveStateOf(List<RouteId> routes, List<StopId> stops, Instant now) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

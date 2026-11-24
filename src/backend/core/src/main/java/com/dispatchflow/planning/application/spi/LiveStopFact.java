@@ -10,7 +10,7 @@ import java.util.Optional;
  * BR-91): its status and its times, each corrected for the device's clock (BR-114). A held report
  * is not a fact until a dispatcher confirms it (BR-132).
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  *
  * @param stop the stop
  * @param status what stands at the stop
@@ -26,7 +26,7 @@ public record LiveStopFact(StopId stop, Status status, Optional<Instant> arrived
     /**
      * What stands at a reported stop.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      */
     public enum Status {
         /** The driver arrived, with no outcome yet, so the stop is in progress. */

@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
  * asks {@code RouteRun.isConfirmationOverdue} and raises a <em>route change unconfirmed</em> alert
  * keyed on the revision, with the audit record (NFR-23).
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class AlertUnconfirmedChangesChange {
@@ -56,12 +56,12 @@ public class AlertUnconfirmedChangesChange {
     /**
      * Raises the alerts now due and writes the audit record.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param call the job's server step
      * @return the alerts raised; none whose key was taken, and none when no confirmation is overdue
      */
     public List<AlertId> apply(CallContext call) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

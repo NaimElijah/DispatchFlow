@@ -27,8 +27,8 @@ import java.util.Optional;
  * (FR-65), as it did before the check.
  *
  * <p>{@code PlanningSettings} has no default solver of each kind yet, which ADR-004 puts there: a
- * domain gap that M4 closes. Until M4 adds the field, a request with no solver runs OR-Tools, the
- * default that ADR-004 and FR-20 name.
+ * domain gap that the solver choice closes. Until the field is added, a request with no solver runs
+ * OR-Tools, the default that ADR-004 and FR-20 name.
  *
  * <p>It sends no chosen routes: FR-159, re-optimizing only chosen routes, is left out, because
  * ADR-101 point 32 deferred it while no rule of the domain needs it. Every route of the plan's
@@ -40,7 +40,7 @@ import java.util.Optional;
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 public final class RequestReoptimization {
 
@@ -65,7 +65,7 @@ public final class RequestReoptimization {
     /**
      * Requests the re-optimization.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the published plan
@@ -78,6 +78,6 @@ public final class RequestReoptimization {
      *     SolveQueueFull} when the lane holds 5 queued jobs (BR-112)
      */
     public JobId request(Actor actor, PlanId plan, Optional<SolverName> solver) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

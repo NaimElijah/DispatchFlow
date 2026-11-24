@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>{@link #whyNoMessages} finds the stop's order through {@code PublishedRoutes.routeOf}.
  *
- * <p>Built in M12. Rows: FR-378, FR-380.
+ * <p>To Be Implemented. Rows: FR-378, FR-380.
  */
 @Transactional(readOnly = true)
 public class OptOutQueries {
@@ -58,20 +58,20 @@ public class OptOutQueries {
     /**
      * A phone's opt-out standing.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param phone the phone, as shown on the customer or the order
      * @return whether it may be messaged, and the latest entry of its history
      */
     public OptOutStandingView standing(Actor actor, PhoneNumber phone) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Why a stop's recipient gets no messages.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param stop the stop
@@ -79,6 +79,6 @@ public class OptOutQueries {
      * @throws NotFound when no plan holds the stop, or its order is gone
      */
     public WhyNoMessagesView whyNoMessages(Actor actor, StopId stop) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

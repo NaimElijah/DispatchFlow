@@ -1,6 +1,6 @@
 /**
- * The fixtures' kernel application package, which carries a module annotation as M0's named
- * interface will.
+ * The fixtures' kernel application package, which carries a module annotation as the kernel's
+ * named interface will once Spring Modulith is added.
  */
 @NullMarked
 @NamedInterface

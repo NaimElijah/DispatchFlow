@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
  * uncancelled plan, takes the order's stop off with {@code Plan.removeStopOf}, saves the plan and
  * writes the audit record (TS §6.2, ADR-063, ADR-129).
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RemoveStopOfOrderChange {
@@ -42,7 +42,7 @@ public class RemoveStopOfOrderChange {
      * Takes a cancelled order's stop off its date's plan, with the cause {@code ORDER_CANCELLED}
      * (FR-207).
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param event the cancellation
      * @param call the listener's server step, which the audit record names (ADR-110)
@@ -51,14 +51,14 @@ public class RemoveStopOfOrderChange {
      *     adapter retries at once, up to three times (DL §11)
      */
     public Optional<PlanId> apply(OrderCancelled event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Takes a rescheduled order's stop off its old date's plan, with the cause {@code
      * ORDER_RESCHEDULED} (FR-315). A reschedule within the same date changes no plan.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param event the reschedule
      * @param call the listener's server step, which the audit record names (ADR-110)
@@ -67,6 +67,6 @@ public class RemoveStopOfOrderChange {
      *     adapter retries at once, up to three times (DL §11)
      */
     public Optional<PlanId> apply(OrderRescheduled event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

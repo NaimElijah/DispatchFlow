@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
  * put-back attempt's drop off with {@code Plan.removePutBackOrder}, saves the plan and writes the
  * audit record (TS §6.2, ADR-063, ADR-129).
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RemovePutBackOrderChange {
@@ -41,7 +41,7 @@ public class RemovePutBackOrderChange {
      * Takes the put-back attempt's drop off its old date's plan. A put-back onto the same date changes
      * no plan (DL §6.2).
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param event the put-back
      * @param call the listener's server step, which the audit record names (ADR-110)
@@ -50,6 +50,6 @@ public class RemovePutBackOrderChange {
      *     adapter retries at once, up to three times (DL §11)
      */
     public Optional<PlanId> apply(OrderPutBack event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

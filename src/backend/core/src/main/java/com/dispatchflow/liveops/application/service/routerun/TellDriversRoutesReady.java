@@ -18,8 +18,8 @@ import com.dispatchflow.planning.events.PlanPublished;
  * <p>Delivery is at least once (ADR-064), and a repeated update or push only repeats a notice that
  * carries no data (NFR-218), so it records no {@code ProcessedEvents} pair.
  *
- * <p>Built in M5 for the stream, which the driver's web screens hear; the push through {@link
- * PushNotifier} in M10. Rows: FR-152, FR-324, FR-391.
+ * <p>To Be Implemented. It serves the stream, which the driver's web screens hear, and the push
+ * through {@link PushNotifier}. Rows: FR-152, FR-324, FR-391.
  */
 public final class TellDriversRoutesReady {
 
@@ -44,12 +44,12 @@ public final class TellDriversRoutesReady {
     /**
      * Tells each of the plan's drivers once, however many routes they drive.
      *
-     * <p>Built in M5 for the stream; the push in M10.
+     * <p>To Be Implemented. It serves the stream and the push.
      *
      * @param event the published plan
      * @param call the listener's server step
      */
     public void on(PlanPublished event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

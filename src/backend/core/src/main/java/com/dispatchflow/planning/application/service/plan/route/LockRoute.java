@@ -14,9 +14,10 @@ import com.dispatchflow.shared.application.StaleVersion;
  * (FR-147, FR-238, FR-239). A lock changes no route, so it needs no evaluation; publishing clears
  * every lock (ADR-112).
  *
- * <p>FR-147 is a Could, and the class is kept although ADR-120's P11 gives a Could row no class until
- * it is scheduled, because the domain already holds locks (ADR-112, ADR-121). Until the optimizer has a lock
- * rule, a solve isn't sent the locks, and {@code Plan.locksBrokenBy} checks its result.
+ * <p>FR-147 is a Could, and the class is kept although ADR-120's P11 gives a Could row no class
+ * until it is planned, because the domain already holds locks (ADR-112, ADR-121). Until the
+ * optimizer has a lock rule, a solve isn't sent the locks, and {@code Plan.locksBrokenBy} checks
+ * its result.
  *
  * <p>{@link LockRouteChange} holds the transaction, which locks the route and writes the audit
  * record; after it commits, the dispatchers' open screens are told (ADR-129).
@@ -24,7 +25,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
- * <p>Built in an unscheduled milestone.
+ * <p>To Be Implemented.
  */
 public final class LockRoute {
 
@@ -45,7 +46,7 @@ public final class LockRoute {
     /**
      * Locks the route, replacing any lock it had.
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the plan
@@ -58,6 +59,6 @@ public final class LockRoute {
      *     DateInPast}, or {@code RouteNotInPlan}
      */
     public void lock(Actor actor, PlanId plan, RouteId route, RouteLock lock, Version expected) {
-        throw new UnsupportedOperationException("Built in an unscheduled milestone");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

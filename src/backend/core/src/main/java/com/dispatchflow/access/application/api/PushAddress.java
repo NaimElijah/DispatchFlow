@@ -8,7 +8,7 @@ import java.util.Objects;
  * (ADR-026, ADR-083, placement P1). It identifies a person's device and never enters a log, so it
  * prints redacted (NFR-19).
  *
- * <p>Built in M10.
+ * <p>To Be Implemented.
  *
  * @param token the push service's device token, as the phone registered it
  */

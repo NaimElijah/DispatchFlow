@@ -28,7 +28,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
- * <p>Built in M4.
+ * <p>To Be Implemented.
  */
 public final class UndoEdit {
 
@@ -59,7 +59,7 @@ public final class UndoEdit {
     /**
      * Undoes the edit.
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the plan
@@ -74,6 +74,6 @@ public final class UndoEdit {
      *     built, which fails the call
      */
     public void undo(Actor actor, PlanId plan, Version expected) {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

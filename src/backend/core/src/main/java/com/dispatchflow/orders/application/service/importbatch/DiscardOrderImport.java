@@ -18,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class DiscardOrderImport {
@@ -43,7 +43,7 @@ public class DiscardOrderImport {
     /**
      * Discards the preview.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param batch the import
@@ -54,6 +54,6 @@ public class DiscardOrderImport {
      * @throws StaleVersion when the import changed since {@code expected}
      */
     public void discard(Actor actor, ImportBatchId batch, Version expected) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

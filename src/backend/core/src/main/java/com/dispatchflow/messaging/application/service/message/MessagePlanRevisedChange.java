@@ -32,7 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
  * 3). The conditions come from Access's {@link Company}, the settings and the phone's opt-out
  * history, read in each stop's transaction.
  *
- * <p>Built in M12. Rows: FR-354, FR-372.
+ * <p>To Be Implemented. Rows: FR-354, FR-372.
  */
 @Transactional
 public class MessagePlanRevisedChange {
@@ -93,7 +93,7 @@ public class MessagePlanRevisedChange {
      * phones from {@link RecipientContacts} in one call for the stops' orders. A joined stop with
      * no projection, which a later revision already took off, is left out.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param event the revision
      * @param now the time the arrivals are projected for
@@ -102,14 +102,14 @@ public class MessagePlanRevisedChange {
      */
     @Transactional(readOnly = true)
     public Triggers stopsOf(PlanRevised event, Instant now) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Triggers <em>out for delivery</em> for a stop that joined a route in progress (FR-372), to
      * the phone {@code RecipientPhone.choose} picks from the order's contacts (FR-348).
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param stop the joined stop, as {@link #stopsOf} read it
      * @param now when the trigger is recorded, the time the arrival was projected for
@@ -118,7 +118,7 @@ public class MessagePlanRevisedChange {
      *     the listener adapter retries the event at once, up to three times (DL §11)
      */
     public void joined(Joined stop, Instant now, CallContext call) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
@@ -126,7 +126,7 @@ public class MessagePlanRevisedChange {
      * (FR-354), to the phone {@code RecipientPhone.choose} picks from the order's contacts
      * (FR-348).
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param stop the dropped stop, as {@link #stopsOf} read it
      * @param now when the trigger is recorded
@@ -135,7 +135,7 @@ public class MessagePlanRevisedChange {
      *     the listener adapter retries the event at once, up to three times (DL §11)
      */
     public void dropped(Dropped stop, Instant now, CallContext call) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**

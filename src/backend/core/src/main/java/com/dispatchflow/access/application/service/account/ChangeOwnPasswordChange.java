@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
  * UserAccountRepository.activeAdminRecipients} when it is an Admin's password (FR-389), and writes
  * the audit record (NFR-23). The use case evicts the account and sends the notice after the commit.
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ChangeOwnPasswordChange {
@@ -56,7 +56,7 @@ public class ChangeOwnPasswordChange {
     /**
      * Changes the password, and saves the account.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param current the current password, as typed
@@ -65,11 +65,11 @@ public class ChangeOwnPasswordChange {
      * @throws RuleViolation with {@code NewPassword}'s {@code PasswordHasUnpairedSurrogate}, {@code
      *     PasswordTooShort} or {@code PasswordTooCommon} for a new password the policy refuses
      *     (NFR-95); {@code AccountDeactivated} or {@code AccountAnonymized} when the account is not
-     *     active; the wrong-password refusal M5 adds
+     *     active; the wrong-password refusal {@code SignIn} adds
      * @throws NotFound when the actor's account no longer exists
      * @throws StaleVersion when the account changed between its read and its save (BR-76)
      */
     public Optional<AdminNotice> apply(Actor actor, PresentedPassword current, PresentedPassword next) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -10,7 +10,7 @@ import java.util.Objects;
  * refusal is an answer rather than a thrown error, because a reused token revokes the session and
  * that revocation is saved (NFR-88).
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 public sealed interface RefreshAnswer {
 
@@ -18,7 +18,7 @@ public sealed interface RefreshAnswer {
      * The refresh was granted. Both tokens are secrets, never logged (NFR-19), so it prints
      * redacted.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param accessToken the new access token (NFR-86)
      * @param refreshToken the refresh token that replaces the presented one
@@ -45,7 +45,7 @@ public sealed interface RefreshAnswer {
     /**
      * The refresh was refused. Every refusal looks the same (NFR-92).
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      */
     record Refused() implements RefreshAnswer {}
 }

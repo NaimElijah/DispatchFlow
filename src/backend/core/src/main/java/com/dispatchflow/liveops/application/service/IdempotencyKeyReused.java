@@ -9,7 +9,7 @@ import java.util.Objects;
  * (NFR-130, ADR-087). It is not a domain refusal, so it is no {@code DomainError}: the web adapter
  * answers it with 409 and {@link #code()}. The message names the key only, never the body.
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 public final class IdempotencyKeyReused extends RuntimeException {
 

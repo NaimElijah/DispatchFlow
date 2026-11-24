@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
  * key version still in use, and appends its latest entry again under the current key when none is
  * there yet, with the audit record (ADR-069, NFR-202, ADR-129 decision 3).
  *
- * <p>Built in M12. Rows: NFR-202.
+ * <p>To Be Implemented. Rows: NFR-202.
  */
 @Transactional
 public class RehashOptOutsChange {
@@ -42,13 +42,13 @@ public class RehashOptOutsChange {
      * Re-hashes one phone's opt-out under the current key. A phone with an entry under the current
      * key, or with no entry at all, is left alone.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param phone a phone still stored
      * @param call the step's server context
      * @return whether it appended an entry under the current key
      */
     public boolean apply(PhoneNumber phone, CallContext call) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

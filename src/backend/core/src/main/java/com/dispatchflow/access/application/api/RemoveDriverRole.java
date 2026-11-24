@@ -9,7 +9,7 @@ import com.dispatchflow.shared.application.NotFound;
  * the Driver role off the driver's account, keeping its other roles (FR-307, ADR-104). Like every
  * role change it revokes the account's sessions (NFR-90).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 public interface RemoveDriverRole {
 
@@ -17,7 +17,7 @@ public interface RemoveDriverRole {
      * Removes the Driver role. Delivery of the event is at least once, so the call works in every
      * state of the account, and a repeat changes nothing (ADR-104).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param driver the retired driver's account
      * @param call the listener's server step

@@ -4,7 +4,8 @@
  * company's export and its deletion (NFR-150) and the pilot-day export (FR-289). Each step works on
  * this module's own personal columns, as the data inventory lists them, in one audited transaction
  * of its own, and a rerun completes a run that stopped. One runbook script runs every module's step
- * in order (ADR-131). ADR-120 decision 9 leaves their use cases to the milestone that designs them.
+ * in order (ADR-131). The package leaves their use cases until the steps are designed (ADR-120
+ * decision 9).
  */
 @NullMarked
 package com.dispatchflow.fleet.adapter.in.cli;

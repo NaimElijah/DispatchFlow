@@ -16,7 +16,7 @@ import java.util.Optional;
  * BR-77, ADR-059). An accepted re-optimization names its proposal. The stops each change added,
  * removed or reordered on a route come from {@code RouteQueries.changesSince} (FR-249).
  *
- * <p>Built in an unscheduled milestone.
+ * <p>To Be Implemented.
  *
  * @param plan the plan
  * @param revisions its revisions, the first one first; empty for a plan never published
@@ -32,7 +32,7 @@ public record PlanHistoryView(PlanId plan, List<Revision> revisions) {
     /**
      * One revision.
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>To Be Implemented.
      *
      * @param number its number, 1 for the publication
      * @param effectiveAt when it took effect

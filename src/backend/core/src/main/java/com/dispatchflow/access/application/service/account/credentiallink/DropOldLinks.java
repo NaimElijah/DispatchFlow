@@ -20,12 +20,12 @@ import com.dispatchflow.audit.application.api.CallContext;
  * transaction. A {@code StaleVersion} from one account is left for the next night, and the job goes
  * on to the next (ADR-129).
  *
- * <p>Domain gap: {@code UserAccount} drops old links only inside {@code issueLink}. M13 adds {@code
- * UserAccount.dropOldLinks(now)}, the same pruning without a new link, in any state of the
- * account, as {@code Session.dropOldContacts} works on any session; it moves no generation and
- * raises no event.
+ * <p>Domain gap: {@code UserAccount} drops old links only inside {@code issueLink}. Building
+ * this job adds {@code UserAccount.dropOldLinks(now)}, the same pruning without a new link, in any
+ * state of the account, as {@code Session.dropOldContacts} works on any session; it moves no
+ * generation and raises no event.
  *
- * <p>Built in M13, with the whole nightly retention run (ADR-121).
+ * <p>To Be Implemented. It comes with the whole nightly retention run (ADR-121).
  */
 public final class DropOldLinks {
 
@@ -43,12 +43,12 @@ public final class DropOldLinks {
     /**
      * Drops the old links of every account that holds one.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param call the job's server step
      * @return how many accounts dropped links
      */
     public int dropDue(CallContext call) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

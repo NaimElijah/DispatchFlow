@@ -30,7 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Access's {@link Company#profile()} is empty before the first Admin sets the company up. With no
  * profile there is no sender name, so the trigger adds no message and changes nothing.
  *
- * <p>Built in M12. Rows: FR-355, FR-356, FR-374.
+ * <p>To Be Implemented. Rows: FR-355, FR-356, FR-374.
  */
 @Transactional
 public class MessageOutcome {
@@ -82,7 +82,7 @@ public class MessageOutcome {
     /**
      * Triggers <em>delivered</em> or <em>missed you</em> for the stop.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param event the first outcome
      * @param call the listener's server step
@@ -91,6 +91,6 @@ public class MessageOutcome {
      *     the listener adapter retries the event at once, up to three times (DL §11)
      */
     public void on(OutcomeRecorded event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

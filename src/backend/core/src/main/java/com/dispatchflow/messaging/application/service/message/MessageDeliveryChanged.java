@@ -37,7 +37,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Access's {@link Company#profile()} is empty before the first Admin sets the company up. With no
  * profile there is no sender name, so the trigger adds no message and changes nothing.
  *
- * <p>Built in M12. Rows: FR-354.
+ * <p>To Be Implemented. Rows: FR-354.
  */
 @Transactional
 public class MessageDeliveryChanged {
@@ -97,7 +97,7 @@ public class MessageDeliveryChanged {
     /**
      * Triggers <em>your delivery changed</em> for a cancelled order's stop.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param event the cancelled order
      * @param call the listener's server step
@@ -105,13 +105,13 @@ public class MessageDeliveryChanged {
      *     the listener adapter retries the event at once, up to three times (DL §11)
      */
     public void on(OrderCancelled event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Triggers <em>your delivery changed</em> for a rescheduled order's stop on the date it left.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param event the rescheduled order
      * @param call the listener's server step
@@ -119,6 +119,6 @@ public class MessageDeliveryChanged {
      *     the listener adapter retries the event at once, up to three times (DL §11)
      */
     public void on(OrderRescheduled event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

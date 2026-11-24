@@ -24,12 +24,13 @@ import org.springframework.transaction.annotation.Transactional;
  * defaults from the form or, when the form gives none, the company's (FR-125, ADR-104). The phone
  * arrives already checked and in E.164 form, because the web adapter builds the {@link
  * PhoneNumber} at the boundary (FR-377). The customer has no location until geocoding answers, so
- * the use case writes a geocoding request in the same transaction from M7 on (FR-12, DL §6.1).
+ * the use case writes a geocoding request in the same transaction once geocoding is built (FR-12,
+ * DL §6.1).
  *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RegisterCustomer {
@@ -69,7 +70,7 @@ public class RegisterCustomer {
     /**
      * Registers the customer.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param command what the form gives
@@ -78,13 +79,13 @@ public class RegisterCustomer {
      *     profile up yet
      */
     public CustomerId register(Actor actor, Command command) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * What the customer form gives (FR-08, FR-59). It holds personal data, so it prints redacted.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param name the customer's name
      * @param phone its contact phone, in E.164 form (FR-377)

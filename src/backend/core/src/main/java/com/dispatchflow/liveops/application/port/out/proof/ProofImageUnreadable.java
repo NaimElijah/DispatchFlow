@@ -7,7 +7,7 @@ package com.dispatchflow.liveops.application.port.out.proof;
  * it is no {@code DomainError}: the web adapter answers it with 422 and {@link #code()}. The message
  * names no detail of the decoder's failure, so the decoder is not probed through it.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 public final class ProofImageUnreadable extends RuntimeException {
 

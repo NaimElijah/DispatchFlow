@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
  * with {@code Plan.recordRouteCheck}, saves the plan and writes the audit record, in a transaction of
  * its own for each plan (DL §6.3, §12, TS §6.2, ADR-063, ADR-129).
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RecheckRoutesChange {
@@ -45,19 +45,19 @@ public class RecheckRoutesChange {
     /**
      * The plans that have a route <em>not yet checked</em>.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @return the plans, possibly none
      */
     @Transactional(readOnly = true)
     public List<PlanId> due() {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Reads one plan as it is, for its evaluation before the transaction.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param plan the plan
      * @return the plan's date, the version read and its layout
@@ -65,13 +65,13 @@ public class RecheckRoutesChange {
      */
     @Transactional(readOnly = true)
     public LayoutToJudge layoutOf(PlanId plan) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Records one plan's check.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param plan the plan
      * @param planVersion the version {@link #layoutOf} read
@@ -87,6 +87,6 @@ public class RecheckRoutesChange {
      *     evaluation describes another layout; the job leaves the plan for the next run
      */
     public PlanId apply(PlanId plan, Version planVersion, Evaluation evaluation, CallContext call) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

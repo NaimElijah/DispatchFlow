@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
  * Like every changing call it writes its audit record, a refused attempt's in its own transaction
  * (NFR-23, ADR-110).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ChangeDepot {
@@ -44,7 +44,7 @@ public class ChangeDepot {
     /**
      * Changes the depot.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param depot the depot
@@ -57,6 +57,6 @@ public class ChangeDepot {
      *     the save (BR-76)
      */
     public void change(Actor actor, DepotId depot, DepotName name, Optional<GeoPoint> location, Version expected) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

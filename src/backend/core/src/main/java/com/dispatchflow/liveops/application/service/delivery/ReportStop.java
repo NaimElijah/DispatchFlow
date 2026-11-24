@@ -59,10 +59,11 @@ import com.dispatchflow.shared.application.StaleVersion;
  * own, so the driver learns nothing of another driver's upload. The domain has no error of its own
  * for the uploader or the kind, so the use case raises that one.
  *
- * <p>Built in M5, online with a signature as the proof; the request key, the hold, photos and the
- * alerts through {@link AlertRepository} in M8; the push through {@link PushNotifier} in M10. Rows:
- * FR-29, FR-30, FR-70, FR-102, FR-242, FR-245 to FR-248, FR-298, FR-365 to FR-368, FR-405, BR-02,
- * BR-27, BR-28, BR-88 to BR-90, BR-110, BR-114, BR-132 to BR-136, NFR-65, NFR-130.
+ * <p>To Be Implemented. It comes online with a signature as the proof, with the request key, the
+ * hold, photos and the alerts through {@link AlertRepository}, and with the push through {@link
+ * PushNotifier}. Rows: FR-29, FR-30, FR-70, FR-102, FR-242, FR-245 to FR-248, FR-298, FR-365 to
+ * FR-368, FR-405, BR-02, BR-27, BR-28, BR-88 to BR-90, BR-110, BR-114, BR-132 to BR-136, NFR-65,
+ * NFR-130.
  */
 public final class ReportStop {
 
@@ -91,7 +92,7 @@ public final class ReportStop {
      * Takes a driver's report. The acting driver is the report's sender; a driver reports only a
      * stop that was on their route at the report's corrected time (BR-02, BR-110).
      *
-     * <p>Built in M5; the request key, the hold, photos and the alerts in M8; the push in M10.
+     * <p>To Be Implemented.
      *
      * @param actor the reporting driver
      * @param report what the driver reports, at which stop of which route
@@ -119,6 +120,6 @@ public final class ReportStop {
      */
     public ReportReceipt report(
             Actor actor, StopReport report, DeviceClock time, IdempotencyKey key, RequestDigest digest) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

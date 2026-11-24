@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
  * driver record, active or retired. A retired record is shown so it can be read, and is not offered
  * for new plans (FR-193).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class FleetQueries {
@@ -31,24 +31,24 @@ public class FleetQueries {
     /**
      * The fleet register.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @return every depot and vehicle
      */
     public RegisterView register(Actor actor) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * The driver records.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @return every driver record
      */
     public List<DriverView> drivers(Actor actor) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

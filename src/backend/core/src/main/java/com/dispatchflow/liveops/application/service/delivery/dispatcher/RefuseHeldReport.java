@@ -16,7 +16,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * its audit record, a refused attempt's in its own transaction (NFR-23, ADR-110). After the commit,
  * it tells the open screens through {@link LiveUpdates}.
  *
- * <p>Built in M8. Rows: BR-132, BR-135.
+ * <p>To Be Implemented. Rows: BR-132, BR-135.
  */
 public final class RefuseHeldReport {
 
@@ -37,7 +37,7 @@ public final class RefuseHeldReport {
     /**
      * Refuses the held report.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param stop the stop the report is held on
@@ -49,6 +49,6 @@ public final class RefuseHeldReport {
      * @throws StaleVersion when the delivery changed since {@code expected}
      */
     public void refuse(Actor actor, StopId stop, HeldReportId report, Version expected) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

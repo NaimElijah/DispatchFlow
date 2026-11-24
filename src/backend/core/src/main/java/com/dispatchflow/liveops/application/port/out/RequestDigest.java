@@ -8,7 +8,7 @@ import java.util.Objects;
  * NFR-130). It is a hash, never the body, so it holds no
  * personal data.
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  *
  * @param value the hash, in the adapter's encoding
  */

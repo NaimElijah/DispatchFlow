@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
  * ServiceArea} whether it contains a point, so Planning can flag each position it sends to a
  * re-optimization (FR-320, ADR-050).
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class ServiceAreaCheckService implements ServiceAreaCheck {
@@ -29,10 +29,10 @@ public class ServiceAreaCheckService implements ServiceAreaCheck {
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      */
     @Override
     public boolean contains(GeoPoint point) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

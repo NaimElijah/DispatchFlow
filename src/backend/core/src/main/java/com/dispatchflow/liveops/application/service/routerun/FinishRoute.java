@@ -35,9 +35,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  * tells the open screens through {@link LiveUpdates}, and for each alert raised calls {@link
  * PushNotifier#alertStaff}, so a staff phone app in the background learns of it (FR-405, ADR-083).
  *
- * <p>Built in M5; the request key and the pending-stops alert through {@link AlertRepository} in
- * M8, and the push through {@link PushNotifier} in M10. Rows: FR-68, FR-70, FR-329, BR-28, NFR-65,
- * NFR-130, ADR-107.
+ * <p>To Be Implemented. It comes with the request key and the pending-stops alert through {@link
+ * AlertRepository}, and the push through {@link PushNotifier}. Rows: FR-68, FR-70, FR-329, BR-28,
+ * NFR-65, NFR-130, ADR-107.
  */
 public final class FinishRoute {
 
@@ -61,7 +61,7 @@ public final class FinishRoute {
     /**
      * Finishes the route. A resend with the same key and body returns having changed nothing.
      *
-     * <p>Built in M5; the request key and the alert in M8, and the push in M10.
+     * <p>To Be Implemented.
      *
      * @param actor the driver
      * @param route the route
@@ -83,6 +83,6 @@ public final class FinishRoute {
      *     resends it with the same key (ADR-087)
      */
     public void finish(Actor actor, RouteId route, DeviceClock time, IdempotencyKey key, RequestDigest digest) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

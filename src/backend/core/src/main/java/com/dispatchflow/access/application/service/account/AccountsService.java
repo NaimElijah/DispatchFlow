@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
  * role, which Fleet and Planning translate into their own standings (DL §2.2, FR-06, FR-302,
  * BR-20).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class AccountsService implements Accounts {
@@ -31,20 +31,20 @@ public class AccountsService implements Accounts {
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      */
     @Override
     public AccountStanding standingOf(AccountId account) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      */
     @Override
     public List<AccountStanding> standingsOf(List<AccountId> accounts) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

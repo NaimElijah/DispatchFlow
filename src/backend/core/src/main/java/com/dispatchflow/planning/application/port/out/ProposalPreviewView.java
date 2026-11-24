@@ -21,9 +21,10 @@ import java.util.Objects;
 /**
  * A re-optimization's preview, before a dispatcher accepts or declines it; nothing changes for the
  * drivers until then (FR-36, FR-103, FR-255, FR-334, BR-81). Its lists keep IDs and durations only,
- * until the optimizer's re-optimization report settles their shape in M9 (ADR-101 point 41).
+ * until re-optimization is built and the optimizer's report settles their shape (ADR-101 point
+ * 41).
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  *
  * @param proposal the proposal
  * @param version the proposal's version, which a decline sends as {@code If-Match} (BR-76)
@@ -87,7 +88,7 @@ public record ProposalPreviewView(
     /**
      * A plan's totals, as the preview compares them (FR-103, FR-38).
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param metres the planned road distance
      * @param driving the planned driving time

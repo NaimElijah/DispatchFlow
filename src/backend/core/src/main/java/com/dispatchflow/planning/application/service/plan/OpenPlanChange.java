@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
  * The transaction of {@link OpenPlan}: it reads the date's uncancelled plan, opens the new one in
  * draft, adds it and writes the audit record (DL §5, TS §6.2, ADR-063, ADR-129).
  *
- * <p>Built in M0.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class OpenPlanChange {
@@ -41,7 +41,7 @@ public class OpenPlanChange {
     /**
      * Opens the plan.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param date the delivery date
@@ -50,6 +50,6 @@ public class OpenPlanChange {
      *     (BR-118), or {@code PlanAlreadyExists} when the date has an uncancelled plan (BR-34)
      */
     public PlanId apply(Actor actor, DeliveryDate date) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -7,7 +7,7 @@ import java.lang.annotation.Target;
 
 /**
  * Stands in for Spring Modulith's {@code @ApplicationModule}, a module annotation other than {@link
- * NamedInterface}, which is not on the classpath before M0.
+ * NamedInterface}, which is not on the classpath before Spring Modulith is added.
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.PACKAGE, ElementType.TYPE})

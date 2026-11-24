@@ -23,7 +23,7 @@ import com.dispatchflow.shared.application.Clock;
  * ProjectArrivalsChange#stopsOn} reads the projections, the routes and the phones in a read-only
  * one, and {@link ProjectArrivalsChange#apply} judges each stop in one of its own (ADR-129).
  *
- * <p>Built in M12. Rows: FR-352, FR-353, FR-384.
+ * <p>To Be Implemented. Rows: FR-352, FR-353, FR-384.
  */
 public final class ProjectArrivals {
 
@@ -45,12 +45,12 @@ public final class ProjectArrivals {
      * Projects today's arrivals and adds the messages now due. A stop another writer saved meanwhile
      * is judged again on the next run.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param call the job's server step
      * @return how many messages it added
      */
     public int projectDue(CallContext call) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

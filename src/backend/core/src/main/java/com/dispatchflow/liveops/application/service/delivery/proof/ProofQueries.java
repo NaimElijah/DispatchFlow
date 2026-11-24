@@ -21,7 +21,7 @@ import com.dispatchflow.shared.application.NotFound;
  * route's proofs. {@link ProofQueriesChange} makes that check in a read-only transaction; after it,
  * the file is read from {@link ProofStore}, on disk, outside any transaction.
  *
- * <p>Built in M5. Rows: FR-105, NFR-38, BR-02.
+ * <p>To Be Implemented. Rows: FR-105, NFR-38, BR-02.
  */
 public final class ProofQueries {
 
@@ -42,7 +42,7 @@ public final class ProofQueries {
     /**
      * One proof's file.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher or Admin viewing it, or a Driver viewing a proof on their own
      *     route
@@ -53,6 +53,6 @@ public final class ProofQueries {
      *     that they drive (BR-02)
      */
     public ProofUpload proof(Actor actor, ProofId proof) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

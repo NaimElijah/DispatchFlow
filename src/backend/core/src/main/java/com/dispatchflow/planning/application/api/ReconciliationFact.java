@@ -9,7 +9,7 @@ import java.util.Optional;
  * {@code Reconciliation} into it. Live Operations has raised the dispatcher's alert before it asks,
  * from where the stop was (ADR-121), so the answer reports the change and names no alert.
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  *
  * @param kind what was done
  * @param from the route the stop left, present exactly for {@link Kind#MOVED_FROM_ROUTE}
@@ -19,7 +19,7 @@ public record ReconciliationFact(Kind kind, Optional<RouteId> from) {
     /**
      * What reconciling did to the plan (DL §8's table, ADR-101).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      */
     public enum Kind {
         /** The stop was already on the route that served it. */

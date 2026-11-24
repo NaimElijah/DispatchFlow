@@ -14,7 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
  * acceptance is kept, and the apps never ask for it during a route. Like every changing call it
  * writes its audit record, a refused attempt's in its own transaction (NFR-23, ADR-110).
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class AcceptTerms {
@@ -39,7 +39,7 @@ public class AcceptTerms {
     /**
      * Records the acceptance.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @throws RuleViolation with {@code AccountDeactivated} or {@code AccountAnonymized} when the
@@ -50,6 +50,6 @@ public class AcceptTerms {
      *     Retry-After} (ADR-121)
      */
     public void accept(Actor actor) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

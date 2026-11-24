@@ -14,7 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
  * The transaction of {@link AcknowledgeAlert} (FR-260, ADR-107): it calls {@code
  * Alert.acknowledge} with the audit record (NFR-23).
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class AcknowledgeAlertChange {
@@ -39,7 +39,7 @@ public class AcknowledgeAlertChange {
     /**
      * Acknowledges the alert and writes the audit record.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param alert the alert
@@ -50,6 +50,6 @@ public class AcknowledgeAlertChange {
      * @throws StaleVersion when the alert changed since {@code expected}
      */
     public void apply(Actor actor, AlertId alert, Version expected) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -31,7 +31,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * MessageRouteStartedChange#stopsOf} reads the route, the arrivals and the phones in a read-only
  * one, and {@link MessageRouteStartedChange#apply} triggers each stop in one of its own (ADR-129).
  *
- * <p>Built in M12. Rows: FR-351, FR-373.
+ * <p>To Be Implemented. Rows: FR-351, FR-373.
  */
 public final class MessageRouteStarted {
 
@@ -52,7 +52,7 @@ public final class MessageRouteStarted {
     /**
      * Triggers <em>out for delivery</em> for the route's stops.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param event the started route
      * @param call the listener's server step
@@ -61,6 +61,6 @@ public final class MessageRouteStarted {
      *     the listener adapter retries the event at once, up to three times (DL §11)
      */
     public void on(RouteStarted event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

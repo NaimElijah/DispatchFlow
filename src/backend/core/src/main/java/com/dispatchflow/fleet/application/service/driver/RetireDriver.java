@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
  * role from the account, which keeps its other roles (FR-307, ADR-103). Like every changing call it
  * writes its audit record, a refused attempt's in its own transaction (NFR-23, ADR-110).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RetireDriver {
@@ -47,7 +47,7 @@ public class RetireDriver {
     /**
      * Retires the driver.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param driver the driver's account
@@ -59,6 +59,6 @@ public class RetireDriver {
      *     before the save (BR-76)
      */
     public void retire(Actor actor, AccountId driver, Version expected) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

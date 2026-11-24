@@ -22,7 +22,7 @@ import java.util.Objects;
  * (ADR-112, ADR-121). Until then {@code RunSolveJob} checks the validated result with {@code
  * Plan.locksBrokenBy}, and a broken lock fails the job (FR-238).
  *
- * <p>Built in M0; its locked routes in an unscheduled milestone, with {@code LockRoute}.
+ * <p>To Be Implemented. Its locked routes come with {@code LockRoute}.
  *
  * @param job the job
  * @param plan the plan it solves
@@ -65,7 +65,7 @@ public record SolveRequest(
      * One locked route and what its lock keeps: the whole route, or the sequence of its stops
      * (FR-147, ADR-101).
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>To Be Implemented.
      *
      * @param route the route as the plan holds it
      * @param lock the kind of lock

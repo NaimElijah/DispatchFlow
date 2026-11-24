@@ -13,7 +13,7 @@ import java.util.Objects;
  * A date's stops at risk of missing their window, which the dispatcher's list and the driver's list
  * mark (FR-34, FR-251, FR-253). A leave-at-door stop is never at risk (FR-369).
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  *
  * @param date the date
  * @param at the time the projections were made at
@@ -31,7 +31,7 @@ public record AtRiskView(DeliveryDate date, Instant at, List<StopAtRisk> stops) 
     /**
      * One stop at risk.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param stop the stop
      * @param route its route

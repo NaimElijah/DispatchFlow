@@ -12,16 +12,16 @@ import java.util.Objects;
  * with the seed and the budget that Reporting's application fixes for every baseline, so a
  * recompute replays under the same ones (NFR-13).
  *
- * <p>Open for M5: it has no field yet for the matrix and the travel values the plan was solved with
- * (ADR-052), the door-window rate, the break flag, the fixed vehicle cost or the departure
- * allowance. Reporting can't read Planning's {@code SolveConfiguration} or settings (ADR-120 P5).
- * At M5 it reads the scoring values, the door-window rate and the break flag, through a port of its
- * own, bound to the same configuration as Planning's (ADR-121); that port is not declared yet. M5
- * settles how the baseline gets the plan's travel model, fixed vehicle cost and departure
- * allowance, with the travel inputs. The orders' and the depots' locations are personal data, so it
- * prints redacted.
+ * <p>Still open until the baseline comparison is built: it has no field yet for the matrix and the
+ * travel values the plan was solved with (ADR-052), the door-window rate, the break flag, the fixed
+ * vehicle cost or the departure allowance. Reporting can't read Planning's {@code
+ * SolveConfiguration} or settings (ADR-120 P5). It will read the scoring values, the door-window
+ * rate and the break flag, through a port of its own, bound to the same configuration as Planning's
+ * (ADR-121); that port is not declared yet. How the baseline gets the plan's travel model, fixed
+ * vehicle cost and departure allowance is decided when the baseline's travel inputs are built. The
+ * orders' and the depots' locations are personal data, so it prints redacted.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  *
  * @param inputs the plan, its date, its orders, and its fleet with each driver's shift and depots;
  *     an order with no location drops as missing location (BR-14)

@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
  * decision 3): one claims the due requests, and each customer's answer is recorded in one of its
  * own, with its audit record, so one stale save doesn't hold back the rest.
  *
- * <p>Built in M7.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class GeocodeCustomersChange {
@@ -51,13 +51,13 @@ public class GeocodeCustomersChange {
      * GeocodeRequests#DAILY_LOOKUPS} lookups (NFR-135). Each is marked tried at {@code now}, so a
      * request the job doesn't finish comes due again (FR-64).
      *
-     * <p>Built in M7.
+     * <p>To Be Implemented.
      *
      * @param now the time of the job
      * @return the claimed requests, oldest first; none once the day's cap is reached
      */
     public List<GeocodeRequest> claimDue(Instant now) {
-        throw new UnsupportedOperationException("Built in M7");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
@@ -65,7 +65,7 @@ public class GeocodeCustomersChange {
      * flags the doubtful ones (FR-63), the customer's save with its audit record, and the request
      * done. An answer for an address the customer no longer has changes no customer (BR-104).
      *
-     * <p>Built in M7.
+     * <p>To Be Implemented.
      *
      * @param request the claimed request
      * @param result the answer built from the geocoder's and the road network's, or {@code
@@ -76,6 +76,6 @@ public class GeocodeCustomersChange {
      *     stays, and comes due again
      */
     public void record(GeocodeRequest request, GeocodeResult result, Instant now, CallContext call) {
-        throw new UnsupportedOperationException("Built in M7");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -8,7 +8,7 @@ import java.util.UUID;
  * {@code DomainError}: the web adapter answers it with 404 and {@link #code()}. The message names
  * the kind and the ID only, never personal data (NFR-19).
  *
- * <p>Built in M0.
+ * <p>To Be Implemented.
  */
 public final class NotFound extends RuntimeException {
 

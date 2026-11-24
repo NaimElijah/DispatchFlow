@@ -15,14 +15,14 @@ import com.dispatchflow.shared.application.StaleVersion;
  * evicts the account from the revocation cache after its commit (ADR-045). It writes its audit
  * record with the listener's server step (NFR-23, ADR-110).
  *
- * <p>In M2 it changes the account and writes the audit record. The eviction from {@link
- * RevocationCache} joins in M6, which builds the cache; until then the token check has no cache to
- * evict.
+ * <p>When it is built, it changes the account and writes the audit record; the eviction from
+ * {@link RevocationCache} comes with the revocation cache, which is not built yet. Until then the
+ * token check has no cache to evict.
  *
  * <p><b>The transaction.</b> {@link RemoveDriverRoleServiceChange} holds it: the change, its save
  * and the audit record. The eviction runs after its commit (ADR-129).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 public final class RemoveDriverRoleService implements RemoveDriverRole {
 
@@ -43,7 +43,7 @@ public final class RemoveDriverRoleService implements RemoveDriverRole {
     /**
      * {@inheritDoc}
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @throws NotFound when no account has the ID
      * @throws StaleVersion when the account changed between its read and its save (BR-76); Fleet's
@@ -51,6 +51,6 @@ public final class RemoveDriverRoleService implements RemoveDriverRole {
      */
     @Override
     public void remove(AccountId driver, CallContext call) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

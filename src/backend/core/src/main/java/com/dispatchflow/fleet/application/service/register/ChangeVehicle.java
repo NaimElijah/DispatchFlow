@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
  * and plates stay unique among active vehicles (BR-48). Like every changing call it writes its
  * audit record, a refused attempt's in its own transaction (NFR-23, ADR-110).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ChangeVehicle {
@@ -42,7 +42,7 @@ public class ChangeVehicle {
     /**
      * Changes the vehicle.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param vehicle the vehicle
@@ -57,6 +57,6 @@ public class ChangeVehicle {
      *     the save (BR-76)
      */
     public void change(Actor actor, VehicleId vehicle, VehicleDetails details, Version expected) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

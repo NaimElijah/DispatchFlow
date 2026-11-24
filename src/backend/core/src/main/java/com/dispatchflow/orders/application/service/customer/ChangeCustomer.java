@@ -22,13 +22,13 @@ import org.springframework.transaction.annotation.Transactional;
  * A dispatcher changes a customer's name, phone, notes for drivers or defaults (FR-56, FR-59). The
  * address changes through {@link ChangeCustomerAddress}, because it clears the location (BR-104).
  *
- * <p>Domain gap: {@code Customer} has no method that changes these fields yet; M2 adds it, refusing
- * a retired or anonymized customer as its other commands do.
+ * <p>Domain gap: {@code Customer} has no method that changes these fields yet; it is not added yet
+ * and will refuse a retired or anonymized customer as its other commands do.
  *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ChangeCustomer {
@@ -53,7 +53,7 @@ public class ChangeCustomer {
     /**
      * Changes the customer.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param customer the customer
@@ -64,14 +64,14 @@ public class ChangeCustomer {
      * @throws StaleVersion when the customer changed since {@code expected}
      */
     public void change(Actor actor, CustomerId customer, Command command, Version expected) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * The customer's new contact, notes and defaults (FR-08, FR-59). It holds personal data, so it
      * prints redacted.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param name the name
      * @param phone the contact phone, in E.164 form (FR-377)

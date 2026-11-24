@@ -8,14 +8,14 @@ import java.util.UUID;
  * (DL §3.9 rule 3), so a factory takes its new ID, and a method that creates many children takes a
  * {@link FreshIds}. The adapter makes UUID version 7, which the kernel's typed IDs carry.
  *
- * <p>Built in M0.
+ * <p>To Be Implemented.
  */
 public interface IdGenerator {
 
     /**
      * One new ID, for the caller to wrap in its typed ID.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @return a UUID no other record has
      */
@@ -25,7 +25,7 @@ public interface IdGenerator {
      * A supply of new IDs for a method that creates several children, such as a solve result's
      * routes and stops (DL §3.9 rule 3).
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param count how many IDs the supply holds, 0 or more
      * @return a supply of {@code count} new UUIDs

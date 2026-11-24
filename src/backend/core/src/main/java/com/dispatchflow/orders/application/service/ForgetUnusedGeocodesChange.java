@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
  * unused cache entries, it records the run through {@link AuditLog#succeeded}, naming no record
  * (NFR-93, ADR-110, ADR-129 decision 3).
  *
- * <p>Built in M13, with the whole nightly retention run (ADR-121).
+ * <p>To Be Implemented. It comes with the whole nightly retention run (ADR-121).
  */
 @Transactional
 public class ForgetUnusedGeocodesChange {
@@ -29,12 +29,12 @@ public class ForgetUnusedGeocodesChange {
     /**
      * Records the run.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param at the time of the job, which the cutoff counted back from
      * @param call the job's server step
      */
     public void recordRun(Instant at, CallContext call) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

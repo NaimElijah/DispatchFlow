@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
  * Plan.cancel}, saves it, which raises {@code PlanCancelled}, and writes the audit record (TS §6.2,
  * ADR-063, ADR-129).
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class CancelPlanChange {
@@ -45,7 +45,7 @@ public class CancelPlanChange {
     /**
      * Cancels the plan.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the plan
@@ -57,6 +57,6 @@ public class CancelPlanChange {
      *     StopAlreadyReported} naming every reported stop
      */
     public void apply(Actor actor, PlanId plan, Version expected) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

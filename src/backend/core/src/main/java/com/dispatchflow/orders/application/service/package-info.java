@@ -7,7 +7,7 @@
  *
  * <p>A command makes its outside calls first, then changes one existing aggregate in one
  * transaction, and writes its audit record in it (DL §6.1, §6.3; NFR-23). Each body throws until
- * the milestone its Javadoc names builds it.
+ * it is built.
  */
 @NullMarked
 package com.dispatchflow.orders.application.service;

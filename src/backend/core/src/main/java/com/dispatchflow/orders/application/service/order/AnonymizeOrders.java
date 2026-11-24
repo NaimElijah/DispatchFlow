@@ -11,7 +11,7 @@ import com.dispatchflow.audit.application.api.CallContext;
  * <p>It lists the orders due, then anonymizes them one by one, and opens no transaction of its own:
  * {@link AnonymizeOrdersChange} holds each order's (ADR-129).
  *
- * <p>Built in M13, with the whole nightly retention run (ADR-121).
+ * <p>To Be Implemented. It comes with the whole nightly retention run (ADR-121).
  */
 public final class AnonymizeOrders {
 
@@ -29,12 +29,12 @@ public final class AnonymizeOrders {
     /**
      * Anonymizes every order due.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param call the job's server step
      * @return how many orders were anonymized
      */
     public int anonymizeDue(CallContext call) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

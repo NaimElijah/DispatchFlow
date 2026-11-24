@@ -40,7 +40,7 @@ import org.springframework.transaction.annotation.Transactional;
  * it reads now need a location that need doesn't hold, and the caller reads the need again. A
  * location the need holds but the facts no longer use costs nothing.
  *
- * <p>Built in M0, M4 and M9, method by method.
+ * <p>To Be Implemented.
  */
 @Transactional(readOnly = true)
 public class SolveRequestAssemblerChange {
@@ -94,7 +94,7 @@ public class SolveRequestAssemblerChange {
      * Reads which locations the daily solve's matrix must span, and whether the plan's stored matrix
      * was built over exactly those, found by the list's hash (ADR-052).
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param date the plan's delivery date
      * @param job the claimed job
@@ -102,7 +102,7 @@ public class SolveRequestAssemblerChange {
      * @throws NotFound when no job has the ID
      */
     public MatrixNeed dailyMatrixNeed(DeliveryDate date, JobId job) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
@@ -110,7 +110,7 @@ public class SolveRequestAssemblerChange {
      * has every one, and each vehicle's latest position up to {@code factsAt}, for the position rows
      * (ADR-050, ADR-052, ADR-121).
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param date the plan's delivery date
      * @param job the claimed job
@@ -119,14 +119,14 @@ public class SolveRequestAssemblerChange {
      * @throws NotFound when no job has the ID
      */
     public MatrixNeed reoptimizationMatrixNeed(DeliveryDate date, JobId job, Instant factsAt) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Reads which locations an evaluation of the layout must span, and whether the plan's stored
      * matrix has every one, such as a late order's (ADR-121).
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param date the plan's delivery date
      * @param layout the plan as it is, or as a change would leave it
@@ -134,14 +134,14 @@ public class SolveRequestAssemblerChange {
      * @throws NotFound when the date has no uncancelled plan
      */
     public MatrixNeed evaluationMatrixNeed(DeliveryDate date, PlanLayout layout) {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Reads the daily solve's facts and builds its request (FR-15, FR-19, FR-20, FR-91, FR-146,
      * NFR-13, BR-120, FR-81).
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param date the plan's delivery date
      * @param job the claimed job
@@ -153,14 +153,14 @@ public class SolveRequestAssemblerChange {
      * @throws StaleVersion when the facts read now need a location {@code need} doesn't hold
      */
     public SolveRequest daily(DeliveryDate date, JobId job, MatrixNeed need, Optional<TravelMatrix> newMatrix) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Reads the re-optimization's facts up to {@code factsAt} and builds its request (FR-35, FR-394,
      * BR-115, BR-120, ADR-050, ADR-052).
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param date the plan's delivery date
      * @param job the claimed job
@@ -181,14 +181,14 @@ public class SolveRequestAssemblerChange {
             MatrixNeed need,
             Optional<TravelMatrix> newMatrix,
             TravelRows positionRows) {
-        throw new UnsupportedOperationException("Built in M9");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Reads the date's facts now and builds the evaluation of a layout of the date's plan (FR-23,
      * FR-233, BR-21, FR-395, BR-120, FR-81).
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param date the plan's delivery date
      * @param layout the plan as it is, or as a change would leave it
@@ -206,7 +206,7 @@ public class SolveRequestAssemblerChange {
             Version planVersion,
             MatrixNeed need,
             Optional<TravelMatrix> newMatrix) {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**

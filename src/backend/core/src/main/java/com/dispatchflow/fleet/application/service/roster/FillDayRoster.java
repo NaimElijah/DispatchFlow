@@ -27,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
  * state, read now (ADR-062). Like every changing call it writes its audit record, a refused
  * attempt's in its own transaction (NFR-23, ADR-110).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class FillDayRoster {
@@ -67,7 +67,7 @@ public class FillDayRoster {
     /**
      * Fills the roster.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param date the date to fill
@@ -78,6 +78,6 @@ public class FillDayRoster {
      *     Retry-After} (ADR-121)
      */
     public RosterFill fill(Actor actor, DeliveryDate date) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

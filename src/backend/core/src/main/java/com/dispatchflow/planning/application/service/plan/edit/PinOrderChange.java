@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
  * loads the plan again, checks the version that read returned, pins the order as the validator
  * judged, saves the plan and writes the audit record (DL §6.3, TS §6.2, ADR-063, ADR-129).
  *
- * <p>Built in M4.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class PinOrderChange {
@@ -45,7 +45,7 @@ public class PinOrderChange {
     /**
      * Reads the plan as the pin would leave it, for the evaluation before the transaction.
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the plan
@@ -60,13 +60,13 @@ public class PinOrderChange {
      */
     @Transactional(readOnly = true)
     public LayoutToJudge layoutAfter(Actor actor, PlanId plan, OrderId order, PinTarget target, Version expected) {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Pins the order, as the evaluation of the plan after the pin judged it.
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the plan
@@ -83,6 +83,6 @@ public class PinOrderChange {
      */
     public void apply(
             Actor actor, PlanId plan, OrderId order, PinTarget target, Version expected, Evaluation evaluation) {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

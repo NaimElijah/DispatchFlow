@@ -9,7 +9,7 @@ import com.dispatchflow.shared.application.NotFound;
  * Raises a dispatcher's alert for a fact another module heard (DL §2.2): today a recipient's low
  * rating, which Messaging's listener on {@code RatingReceived} reports (FR-361).
  *
- * <p>Built in M12.
+ * <p>To Be Implemented.
  */
 public interface RaiseAlert {
 
@@ -22,7 +22,7 @@ public interface RaiseAlert {
      * and {@code AlertSubject.LowRating} names only the plan, the stop and the request. The rating
      * itself stays Messaging's, on its ratings screen (FR-360).
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param stop the rated stop
      * @param request the rating request that was answered with a low rating

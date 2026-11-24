@@ -14,7 +14,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * the session from the revocation cache after its commit (ADR-045).
  *
  * <p>A wrong password counts toward the sign-in limits, in the rate-limit adapter (FR-177,
- * ADR-071). Access's domain has no error for a wrong password yet; M5 adds it, with {@code SignIn}.
+ * ADR-071). Access's domain has no error for a wrong password yet; it comes with {@code SignIn}.
  * Like every changing call it writes its audit record, a refused attempt's in its own transaction
  * (NFR-23, ADR-110).
  *
@@ -22,7 +22,7 @@ import com.dispatchflow.shared.application.StaleVersion;
  * confirmation, the new tokens, the save and the audit record. After its commit, the use case
  * evicts the session from the revocation cache (ADR-129).
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 public final class ConfirmPassword {
 
@@ -43,20 +43,20 @@ public final class ConfirmPassword {
     /**
      * Confirms the password.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param password the current password, as typed
      * @return the session's new tokens
      * @throws RuleViolation with Access's {@code SessionRevoked} when the session is revoked, or
      *     its account's sessions were revoked after it began (NFR-177); or with the wrong-password
-     *     refusal M5 adds
+     *     refusal {@code SignIn} adds
      * @throws NotFound when the actor's session or account no longer exists
      * @throws StaleVersion when the session changed between its read and its save (BR-76); the web
      *     adapter retries the call at once, up to three times, then answers 503 with {@code
      *     Retry-After} (ADR-121)
      */
     public SignedIn confirm(Actor actor, PresentedPassword password) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

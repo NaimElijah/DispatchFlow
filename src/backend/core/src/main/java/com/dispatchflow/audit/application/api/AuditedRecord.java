@@ -22,7 +22,7 @@ import java.util.UUID;
  * from the kernel's typed ID with an {@code of} factory, which keeps the kind matched to the ID
  * (ADR-110).
  *
- * <p>Built in M0.
+ * <p>To Be Implemented.
  *
  * @param kind what the ID names
  * @param id the named thing's UUID
@@ -38,168 +38,168 @@ public record AuditedRecord(AuditedKind kind, UUID id) {
     /**
      * Names an account, or the driver who shares its ID.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param id the account's ID
      * @return the audited record
      */
     public static AuditedRecord of(AccountId id) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Names a session.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param id the session's ID
      * @return the audited record
      */
     public static AuditedRecord of(SessionId id) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Names a depot.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param id the depot's ID
      * @return the audited record
      */
     public static AuditedRecord of(DepotId id) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Names a vehicle.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param id the vehicle's ID
      * @return the audited record
      */
     public static AuditedRecord of(VehicleId id) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Names a customer.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param id the customer's ID
      * @return the audited record
      */
     public static AuditedRecord of(CustomerId id) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Names an order.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param id the order's ID
      * @return the audited record
      */
     public static AuditedRecord of(OrderId id) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Names an import.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param id the import's ID
      * @return the audited record
      */
     public static AuditedRecord of(ImportBatchId id) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Names a plan.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param id the plan's ID
      * @return the audited record
      */
     public static AuditedRecord of(PlanId id) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Names a route.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param id the route's ID
      * @return the audited record
      */
     public static AuditedRecord of(RouteId id) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Names a stop.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param id the stop's ID
      * @return the audited record
      */
     public static AuditedRecord of(StopId id) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Names a solve job.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param id the job's ID
      * @return the audited record
      */
     public static AuditedRecord of(JobId id) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Names a re-optimization proposal.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param id the proposal's ID
      * @return the audited record
      */
     public static AuditedRecord of(ProposalId id) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Names an alert.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param id the alert's ID
      * @return the audited record
      */
     public static AuditedRecord of(AlertId id) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Names a rating request.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param id the rating request's ID
      * @return the audited record
      */
     public static AuditedRecord of(RatingRequestId id) {
-        throw new UnsupportedOperationException("Built in M0");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

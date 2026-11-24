@@ -18,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
  * CORRECTED_AFTER_PUT_BACK}, saves the plan and writes the audit record (FR-404, TS §6.2, ADR-063,
  * ADR-114, ADR-129).
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class RemoveSupersededPutBackServiceChange {
@@ -43,7 +43,7 @@ public class RemoveSupersededPutBackServiceChange {
     /**
      * Takes the later attempt's stop off the date's plan, if it is still there.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param order the order
      * @param laterAttempt the attempt the put-back started, whose stop the correction supersedes
@@ -54,6 +54,6 @@ public class RemoveSupersededPutBackServiceChange {
      *     listener adapter retries at once, up to three times (DL §11)
      */
     public Optional<PlanId> apply(OrderId order, Attempt laterAttempt, DeliveryDate date, CallContext call) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -207,7 +207,7 @@ Each module also has an `application` package, declared ahead of its milestone a
 ([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)).
 It holds whichever of `api`, `spi`, `port/out` and `service` the module has something for: `access`,
 `audit` and `liveops` have no `spi`, and `messaging` and `reporting` have neither `api` nor `spi`.
-Every body that would do work throws `UnsupportedOperationException("Built in M<n>")`. Nothing is
+Every body that would do work throws `UnsupportedOperationException("To Be Implemented.")`. Nothing is
 wired: the application layer registers no bean, and no use case calls a port. Its one Spring
 annotation is `@Transactional`: on every service's class, and on the read-only reads of a
 `<UseCase>Change`. A use case with outside calls, or one transaction per item, holds its

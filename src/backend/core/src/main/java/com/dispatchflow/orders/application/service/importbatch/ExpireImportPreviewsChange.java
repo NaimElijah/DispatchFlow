@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
  * and each preview is expired in one of its own, with its audit record, so one refusal doesn't hold
  * back the rest (ADR-129 decision 3).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ExpireImportPreviewsChange {
@@ -40,20 +40,20 @@ public class ExpireImportPreviewsChange {
     /**
      * The previews made more than a preview's hour before now.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @return the previews, each once, oldest first
      */
     @Transactional(readOnly = true)
     public List<ImportBatchId> due() {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Expires one preview through {@code ImportBatch.expire}, deleting its rows, and writes its
      * audit record.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param batch the preview
      * @param call the job's server step
@@ -62,6 +62,6 @@ public class ExpireImportPreviewsChange {
      * @throws StaleVersion when the preview changed between its read and its save
      */
     public void apply(ImportBatchId batch, CallContext call) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

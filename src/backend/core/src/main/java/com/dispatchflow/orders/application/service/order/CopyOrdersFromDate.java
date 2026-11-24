@@ -21,13 +21,12 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
- * <p>Domain gap: no domain method copies an order. The milestone that builds this adds the method,
- * for example a factory that places
- * an order's details on another date's capacity. Each copy takes its customer's defaults through
- * {@code Customer.activeDefaults()}, which M2 adds for {@link PlaceOrder}, so a customer that isn't
- * active refuses.
+ * <p>Domain gap: no domain method copies an order. Building this adds the method, for example
+ * a factory that places an order's details on another date's capacity. Each copy takes its
+ * customer's defaults through {@code Customer.activeDefaults()}, which {@link PlaceOrder} needs
+ * too and which is not added yet, so a customer that isn't active refuses.
  *
- * <p>Built in an unscheduled milestone.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class CopyOrdersFromDate {
@@ -59,7 +58,7 @@ public class CopyOrdersFromDate {
     /**
      * Copies every uncancelled order of one date to another.
      *
-     * <p>Built in an unscheduled milestone.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param from the date copied from
@@ -71,6 +70,6 @@ public class CopyOrdersFromDate {
      *     DuplicateOrderReference} (FR-211) or {@code DateFull} (BR-101)
      */
     public int copy(Actor actor, DeliveryDate from, DeliveryDate to) {
-        throw new UnsupportedOperationException("Built in an unscheduled milestone");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

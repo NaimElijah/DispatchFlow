@@ -25,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
  * refused</em> alert for each other held report it refuses, the route's first {@code RouteRun} when
  * due (ADR-114), and the audit record (NFR-23).
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ConfirmHeldReportChange {
@@ -74,7 +74,7 @@ public class ConfirmHeldReportChange {
      * Confirms the held report, alerting the dispatcher to each other held report it refuses, and
      * writes the audit record.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param stop the stop the report is held on
@@ -87,6 +87,6 @@ public class ConfirmHeldReportChange {
      * @throws StaleVersion when the delivery changed since {@code expected}
      */
     public List<AlertId> apply(Actor actor, StopId stop, HeldReportId report, Version expected) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

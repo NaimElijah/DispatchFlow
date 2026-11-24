@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
  * loads the plan again, checks the version that read returned, moves the stop as the validator
  * judged, saves the plan and writes the audit record (DL §6.3, TS §6.2, ADR-063, ADR-129).
  *
- * <p>Built in M4.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class MoveStopChange {
@@ -45,7 +45,7 @@ public class MoveStopChange {
     /**
      * Reads the plan as the move would leave it, for the evaluation before the transaction.
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the plan
@@ -63,13 +63,13 @@ public class MoveStopChange {
     @Transactional(readOnly = true)
     public LayoutToJudge layoutAfter(
             Actor actor, PlanId plan, StopId stop, RouteId toRoute, int position, Version expected) {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Moves the stop, as the evaluation of the plan after the move judged it.
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the plan
@@ -95,6 +95,6 @@ public class MoveStopChange {
             int position,
             Version expected,
             Evaluation evaluation) {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

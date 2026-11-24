@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
  * audit record, which holds the account ID only (FR-409). The step sends the emails after the
  * commit.
  *
- * <p>Built in M6.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class CreateAdminOnWrittenRequestChange {
@@ -59,7 +59,7 @@ public class CreateAdminOnWrittenRequestChange {
     /**
      * Creates the Admin with its set-password link.
      *
-     * <p>Built in M6.
+     * <p>To Be Implemented.
      *
      * @param email the new Admin's address, read at a prompt that does not echo it
      * @param call the step's server context
@@ -70,6 +70,6 @@ public class CreateAdminOnWrittenRequestChange {
      *     default language (FR-182)
      */
     public OpenedAccount apply(EmailAddress email, CallContext call) {
-        throw new UnsupportedOperationException("Built in M6");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

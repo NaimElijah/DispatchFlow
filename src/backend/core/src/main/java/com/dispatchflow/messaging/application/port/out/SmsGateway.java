@@ -9,7 +9,7 @@ import com.dispatchflow.shared.PhoneNumber;
  * The SMS provider: the Israeli provider's adapter in production, and a fake in every other
  * environment (Q-96, NFR-206, TS §6.4). Its inbound callbacks are verified by the adapter (NFR-192).
  *
- * <p>Built in M12.
+ * <p>To Be Implemented.
  */
 public interface SmsGateway {
 
@@ -18,7 +18,7 @@ public interface SmsGateway {
      * (NFR-198). It is called outside any transaction (TS §6.2), and never throws for the provider's
      * answer: a timeout or a broken call is {@link SendAnswer.Unknown}.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param message DispatchFlow's reference for the message
      * @param to the phone it goes to
@@ -31,7 +31,7 @@ public interface SmsGateway {
      * Whether the configured provider drops a repeated send by DispatchFlow's reference, which
      * decides whether a send of unknown outcome is retried (NFR-198).
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @return the provider's behaviour
      */

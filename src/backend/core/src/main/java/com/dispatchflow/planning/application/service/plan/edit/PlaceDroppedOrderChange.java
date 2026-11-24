@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
  * order as a new stop as the validator judged, saves the plan and writes the audit record (DL §6.3,
  * TS §6.2, ADR-063, ADR-129).
  *
- * <p>Built in M4.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class PlaceDroppedOrderChange {
@@ -48,7 +48,7 @@ public class PlaceDroppedOrderChange {
      * Reads the plan as placing the order under the new stop's ID would leave it, for the
      * evaluation before the transaction. The order's attempt is the one the plan drops.
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the plan
@@ -67,14 +67,14 @@ public class PlaceDroppedOrderChange {
     @Transactional(readOnly = true)
     public LayoutToJudge layoutAfter(
             Actor actor, PlanId plan, OrderId order, RouteId toRoute, int position, Version expected, StopId newStop) {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Places the order under the stop ID the evaluation was asked with, as the evaluation of the
      * plan after the placing judged it.
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the plan
@@ -102,6 +102,6 @@ public class PlaceDroppedOrderChange {
             Version expected,
             StopId newStop,
             Evaluation evaluation) {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

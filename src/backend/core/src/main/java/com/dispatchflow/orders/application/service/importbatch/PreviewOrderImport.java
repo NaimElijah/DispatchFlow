@@ -19,20 +19,20 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * A dispatcher uploads an order file, which is checked and kept as a preview for an hour (FR-10,
  * FR-203, FR-399, ADR-086). The file reader in the web adapter decodes it (FR-61, FR-313), refuses
- * a file it can't read (FR-209, FR-314), reads CSV and, from M7, Excel (FR-138), and parses each
- * row against the fixed columns (FR-309, FR-364). The use case builds the {@code ImportContext}:
- * for each distinct normalized address in the file, the active customers that have it (FR-60,
- * FR-205, FR-310 to FR-312, FR-398); for each distinct date, its capacity under the date's lock;
- * and the company's defaults for a customer a row creates (FR-311). It then calls {@code
- * ImportBatch.preview}, which keeps every error with its row. A preview is never refused: its
- * errors refuse the confirmation.
+ * a file it can't read (FR-209, FR-314), reads CSV and, once the Excel import is built, Excel
+ * (FR-138), and parses each row against the fixed columns (FR-309, FR-364). The use case builds the
+ * {@code ImportContext}: for each distinct normalized address in the file, the active customers
+ * that have it (FR-60, FR-205, FR-310 to FR-312, FR-398); for each distinct date, its capacity
+ * under the date's lock; and the company's defaults for a customer a row creates (FR-311). It then
+ * calls {@code ImportBatch.preview}, which keeps every error with its row. A preview is never
+ * refused: its errors refuse the confirmation.
  *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110). A file the reader refuses never reaches this use case, so the web
  * adapter's file reader writes that refusal's record itself, through {@code AuditLog.refused} with
  * the refusal's code (NFR-23).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class PreviewOrderImport {
@@ -76,7 +76,7 @@ public class PreviewOrderImport {
     /**
      * Previews the file.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param hash the file's hash
@@ -87,6 +87,6 @@ public class PreviewOrderImport {
      * @throws CompanyNotSetUp when no Admin has set the company profile up yet
      */
     public ImportBatchId preview(Actor actor, FileHash hash, FileEncoding encoding, List<ImportRow> rows) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

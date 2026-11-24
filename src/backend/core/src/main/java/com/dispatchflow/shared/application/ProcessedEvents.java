@@ -9,7 +9,7 @@ import com.dispatchflow.shared.EventId;
  * the pair and the next delivery runs it again, and it does nothing on a repeat. A phone's
  * idempotent request keys are Live Operations' own record, not this one (placement P2).
  *
- * <p>Built in M0.
+ * <p>To Be Implemented.
  */
 public interface ProcessedEvents {
 
@@ -18,7 +18,7 @@ public interface ProcessedEvents {
      * writes in the caller's transaction, so a rollback forgets the pair and the next delivery runs
      * the reaction again.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param listener the listener's stable name, the same on every delivery
      * @param event the delivered event's ID

@@ -15,10 +15,10 @@ import org.springframework.transaction.annotation.Transactional;
  * changes nothing, and so does a redelivered event (ADR-064). It writes its audit record with the
  * server step's context, because ADR-110 audits server steps.
  *
- * <p>It follows Access's {@code AnonymizeDeactivatedAccounts}, the only raiser of the event, into
- * M13.
+ * <p>It follows Access's {@code AnonymizeDeactivatedAccounts}, the only raiser of the event, in
+ * not being built yet.
  *
- * <p>Built in M13, with the whole nightly retention run (ADR-121).
+ * <p>To Be Implemented. It comes with the whole nightly retention run (ADR-121).
  */
 @Transactional
 public class AnonymizeDriverWithAccount {
@@ -43,7 +43,7 @@ public class AnonymizeDriverWithAccount {
     /**
      * Anonymizes the driver record.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param event the account's anonymization
      * @param call the listener's server step
@@ -51,6 +51,6 @@ public class AnonymizeDriverWithAccount {
      *     adapter retries at once, up to three times (ADR-120 decision 7, DL §11)
      */
     public void on(AccountAnonymized event, CallContext call) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

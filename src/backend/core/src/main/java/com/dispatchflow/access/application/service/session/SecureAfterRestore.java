@@ -29,11 +29,11 @@ import com.dispatchflow.shared.application.StaleVersion;
  * <p>The restore runbook's other steps are not declared yet: re-applying the changes made since the
  * backup (NFR-253), blanking the passwords and voiding the links of the accounts whose password or
  * email changed since it (NFR-274), and issuing the Admins their set-password links (NFR-282). They
- * follow ADR-045 and are built in M13.
+ * follow ADR-045.
  *
- * <p>Domain gap: {@code UserAccount} has no method that voids every open link yet; M13 adds it.
+ * <p>Domain gap: {@code UserAccount} has no method that voids every open link yet.
  *
- * <p>Built in M13.
+ * <p>To Be Implemented.
  */
 public final class SecureAfterRestore {
 
@@ -59,13 +59,13 @@ public final class SecureAfterRestore {
     /**
      * Rotates the signing key, then revokes every session and voids every open credential link.
      *
-     * <p>Built in M13.
+     * <p>To Be Implemented.
      *
      * @param call the step's server context
      * @throws StaleVersion when a session or an account changed between its read and its save
      *     (BR-76)
      */
     public void secure(CallContext call) {
-        throw new UnsupportedOperationException("Built in M13");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

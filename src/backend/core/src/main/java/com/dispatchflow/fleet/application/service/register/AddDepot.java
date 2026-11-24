@@ -17,11 +17,12 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * A dispatcher adds a depot (FR-04), which may have no location yet, and then starts and ends no
  * route (FR-197), and may have opening hours that routes keep to (FR-129, BR-46). Setting a
- * location by address waits for the geocoding port M7 settles (FR-130, placement P4). Before any
- * depot exists the register starts from {@code FleetRegister.empty()}. Like every changing call it
- * writes its audit record, a refused attempt's in its own transaction (NFR-23, ADR-110).
+ * location by address waits for the geocoding port, which is not declared yet (FR-130,
+ * placement P4). Before any depot exists the register starts from {@code FleetRegister.empty()}.
+ * Like every changing call it writes its audit record, a refused attempt's in its own transaction
+ * (NFR-23, ADR-110).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class AddDepot {
@@ -49,7 +50,7 @@ public class AddDepot {
     /**
      * Adds the depot.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param name the depot's name
@@ -67,6 +68,6 @@ public class AddDepot {
             Optional<GeoPoint> location,
             Optional<DepotHours> hours,
             Optional<Version> expected) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

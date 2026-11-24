@@ -27,14 +27,14 @@ import org.springframework.transaction.annotation.Transactional;
  * Planning, through the {@link OrderPlacement#placementOf} port Planning implements, asked with the
  * order's date and current attempt.
  *
- * <p>Both answers are built in M2 (ADR-121): {@code placementOf} in full, and {@code StopProgress}
- * answering no report for every stop until M5 builds it in full, so until then no change is refused
- * as {@code StopAlreadyHasFact}.
+ * <p>Neither answer is built yet (ADR-121): {@code placementOf} is missing in full, and {@code
+ * StopProgress} answers no report for every stop until driving and reporting build it in full, so
+ * until then no change is refused as {@code StopAlreadyHasFact}.
  *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ChangeOrder {
@@ -70,7 +70,7 @@ public class ChangeOrder {
     /**
      * Changes the order.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param order the order
@@ -83,13 +83,13 @@ public class ChangeOrder {
      * @throws StaleVersion when the order changed since {@code expected}
      */
     public ChangeOutcome change(Actor actor, OrderId order, OrderChange change, Version expected) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * What the dispatcher is told after a change (FR-396). It holds no personal data.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param onPublishedRoute whether a route of the order's published plan serves its current
      *     attempt, so the driver sees the change only after a re-optimization (FR-206, FR-396)

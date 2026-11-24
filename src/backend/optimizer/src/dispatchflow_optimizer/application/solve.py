@@ -3,7 +3,7 @@
 The worker process that runs it, its lane and the 30-second overrun kill live in the adapter
 (ADR-051, BR-32), so this use case is a plain function of its request.
 
-Built in M0.
+To Be Implemented.
 """
 
 from dispatchflow_optimizer.application.outcomes import SolveOutcome
@@ -14,7 +14,7 @@ from dispatchflow_optimizer.application.requests import DailyRequest
 class Solve:
     """Solves a date's orders with the solver the request names (FR-18, FR-20, ADR-044).
 
-    Built in M0.
+    To Be Implemented.
     """
 
     def __init__(self, solvers: SolverRegistry, stopwatch: Stopwatch) -> None:
@@ -56,6 +56,6 @@ class Solve:
                 request, not a failed search (ADR-004).
             UnsupportedBudgetError: If the solver cannot honour the budget's kind, which is a
                 refused request too (ADR-044).
-            NotImplementedError: Until M0 builds it.
+            NotImplementedError: To Be Implemented.
         """
-        raise NotImplementedError("Built in M0")
+        raise NotImplementedError("To Be Implemented.")

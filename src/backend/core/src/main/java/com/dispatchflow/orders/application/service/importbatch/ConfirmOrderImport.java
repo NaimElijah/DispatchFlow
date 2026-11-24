@@ -26,14 +26,14 @@ import org.springframework.transaction.annotation.Transactional;
  * reads the {@code ImportContext} again, because customers, references and capacity may have
  * changed since the preview, and calls {@code ImportBatch.confirm}. Every row is checked again,
  * and any error imports nothing (FR-204). In one transaction it saves the batch, adds every new
- * customer and order the confirmation returns (DL §6.1 point 1), and, from M7, writes a geocoding
- * request for each new customer (FR-12, FR-311). A Windows-1255 file needs the dispatcher's
- * confirmation of the decoded preview (FR-313).
+ * customer and order the confirmation returns (DL §6.1 point 1), and, once geocoding is built,
+ * writes a geocoding request for each new customer (FR-12, FR-311). A Windows-1255 file needs the
+ * dispatcher's confirmation of the decoded preview (FR-313).
  *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ConfirmOrderImport {
@@ -81,7 +81,7 @@ public class ConfirmOrderImport {
     /**
      * Confirms the import.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param batch the import
@@ -97,13 +97,13 @@ public class ConfirmOrderImport {
      * @throws StaleVersion when the import changed since {@code expected}
      */
     public ImportOutcome confirm(Actor actor, ImportBatchId batch, boolean encodingConfirmed, Version expected) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * What a confirmed import created, by ID only, so it holds no personal data (FR-204).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param orders the new orders, in row order
      * @param newCustomers the customers the import created, in the order of their first rows

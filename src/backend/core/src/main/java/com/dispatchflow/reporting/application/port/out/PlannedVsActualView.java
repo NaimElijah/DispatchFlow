@@ -16,8 +16,8 @@ import java.util.Optional;
  * A date's planned figures beside what actually happened (FR-106, FR-341): distance, driving time
  * and each stop's arrival. It holds IDs, times and figures only, never personal data.
  *
- * <p>Built in M5 for the arrivals; the actual distance and driving time in an unscheduled milestone
- * (Q-40, NFR-249), and until then both are empty.
+ * <p>To Be Implemented. Until the actual distance and driving time are measured (Q-40, NFR-249),
+ * both are empty.
  *
  * @param date the date
  * @param plan the comparison for the date's published or completed plan, or empty when the date
@@ -39,11 +39,10 @@ public record PlannedVsActualView(DeliveryDate date, Optional<PlanComparison> pl
      * route with stops has none, so the total never leaves out a route that drove.
      *
      * <p><b>Domain gap.</b> Reporting's {@code PlannedFigures} holds its distance as a plain {@code
-     * Distance}, so a plan with an untimed route has no way to say so there: M5 makes it optional
-     * by the same rule, for the baseline comparison too.
+     * Distance}, so a plan with an untimed route has no way to say so there: making it optional
+     * by the same rule, for the baseline comparison too, is not built yet.
      *
-     * <p>Built in M5 for the arrivals; the actual distance and driving time in an unscheduled
-     * milestone.
+     * <p>To Be Implemented.
      *
      * @param plan the plan
      * @param plannedDistance the planned distance over every route (FR-341), or empty when a route
@@ -75,7 +74,7 @@ public record PlannedVsActualView(DeliveryDate date, Optional<PlanComparison> pl
     /**
      * One stop's planned and actual arrival (FR-106).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param stop the stop
      * @param order its order

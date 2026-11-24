@@ -21,7 +21,7 @@ import java.util.Objects;
  * <p>It holds Planning's data only; the screen joins the orders' windows, demands and locations and
  * the fleet's capacities, depots and shifts from those modules' queries (FR-143, FR-149).
  *
- * <p>Built in M0.
+ * <p>To Be Implemented.
  *
  * @param plan the plan
  * @param date its delivery date

@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
  * rostered; the vehicle's standing comes from the register. Like every changing call it writes its
  * audit record, a refused attempt's in its own transaction (NFR-23, ADR-110).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class SetVehicleAvailability {
@@ -51,7 +51,7 @@ public class SetVehicleAvailability {
     /**
      * Sets the vehicle's availability.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param date the roster's date
@@ -66,6 +66,6 @@ public class SetVehicleAvailability {
      */
     public void set(
             Actor actor, DeliveryDate date, VehicleId vehicle, Availability availability, Optional<Version> expected) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

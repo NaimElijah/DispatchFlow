@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
  * changing call it writes its audit record, a refused attempt's in its own transaction (NFR-23,
  * ADR-110).
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class ChangeDriverDetails {
@@ -47,7 +47,7 @@ public class ChangeDriverDetails {
     /**
      * Changes the driver's details.
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param actor the signed-in user acting
      * @param driver the driver's account
@@ -60,13 +60,13 @@ public class ChangeDriverDetails {
      *     before the save (BR-76)
      */
     public void change(Actor actor, AccountId driver, Command command, Version expected) {
-        throw new UnsupportedOperationException("Built in M2");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * A driver record's details as a dispatcher saves them (FR-06, FR-189).
      *
-     * <p>Built in M2.
+     * <p>To Be Implemented.
      *
      * @param contact their name and phone
      * @param defaultShift the shift hours a date gets by default

@@ -11,7 +11,7 @@ import com.dispatchflow.shared.VehicleId;
  * RouteHandedOver} calls it. Planning checked {@link FleetFacts#assignability} before the hand-over
  * (DL §4.2), so a refusal here means the roster changed between that check and this call.
  *
- * <p>Built in M9.
+ * <p>To Be Implemented.
  */
 public interface MoveVehicleWithRoute {
 
@@ -19,7 +19,7 @@ public interface MoveVehicleWithRoute {
      * Gives the vehicle to the new driver and leaves the old one with no vehicle. Delivery of the
      * event is at least once, so a repeat changes nothing.
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param date the route's date
      * @param vehicle the route's vehicle

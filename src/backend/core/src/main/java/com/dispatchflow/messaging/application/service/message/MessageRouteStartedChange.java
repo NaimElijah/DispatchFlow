@@ -29,7 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
  * decision 3). The conditions come from Access's {@link Company}, the settings and the phone's
  * opt-out history, read in each stop's transaction.
  *
- * <p>Built in M12. Rows: FR-351, FR-373.
+ * <p>To Be Implemented. Rows: FR-351, FR-373.
  */
 @Transactional
 public class MessageRouteStartedChange {
@@ -88,7 +88,7 @@ public class MessageRouteStartedChange {
      * RecipientContacts} in one call for the route's orders. A stop the plan took off meanwhile has
      * no projection, and is left out.
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param event the started route
      * @param now the time the arrivals are projected for
@@ -97,14 +97,14 @@ public class MessageRouteStartedChange {
      */
     @Transactional(readOnly = true)
     public List<Stop> stopsOf(RouteStarted event, Instant now) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Triggers <em>out for delivery</em> for one stop of the route, with its projected arrival, to
      * the phone {@code RecipientPhone.choose} picks from the order's contacts (FR-348).
      *
-     * <p>Built in M12.
+     * <p>To Be Implemented.
      *
      * @param stop the stop, as {@link #stopsOf} read it
      * @param now when the trigger is recorded, the time the arrival was projected for
@@ -113,7 +113,7 @@ public class MessageRouteStartedChange {
      *     the listener adapter retries the event at once, up to three times (DL §11)
      */
     public void apply(Stop stop, Instant now, CallContext call) {
-        throw new UnsupportedOperationException("Built in M12");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**

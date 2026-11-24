@@ -11,16 +11,17 @@ import java.util.Objects;
  * fixed before the study's measured runs, so no Admin changes them on screen and they are not
  * planning settings (ADR-121).
  *
- * <p>The configuration adapter binds them from the core's configuration at M0.
+ * <p>The configuration adapter, which comes with the solve queue, binds them from the core's
+ * configuration.
  *
- * <p>Built in M0.
+ * <p>To Be Implemented.
  */
 public interface SolveConfiguration {
 
     /**
      * The values the core is configured with.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @return the values
      */
@@ -29,7 +30,7 @@ public interface SolveConfiguration {
     /**
      * The configured values, each in the unit the optimizer's {@code PenaltyScale} takes it in.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param doorWindowRate the seconds a leave-at-door stop adds to the objective for each second
      *     it is served outside its window, in solves and re-optimizations (BR-120)
@@ -60,7 +61,7 @@ public interface SolveConfiguration {
      * Seconds of objective per second of a measured time, such as {@code 5} for BR-115's and
      * BR-120's starting values. It is held in its normal form, so {@code 5.0} and {@code 5} are equal.
      *
-     * <p>Built in M0.
+     * <p>To Be Implemented.
      *
      * @param value the factor, zero or more
      */

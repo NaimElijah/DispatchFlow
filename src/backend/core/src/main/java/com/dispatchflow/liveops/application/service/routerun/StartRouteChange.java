@@ -25,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
  * record (NFR-23). A resend with the same key and body gets the stored receipt and changes nothing
  * (BR-28, NFR-65).
  *
- * <p>Built in M5; the request key in M8.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class StartRouteChange {
@@ -65,7 +65,7 @@ public class StartRouteChange {
     /**
      * Starts the route, with the receipt and the audit record.
      *
-     * <p>Built in M5; the request key in M8.
+     * <p>To Be Implemented.
      *
      * @param actor the driver
      * @param route the route
@@ -83,6 +83,6 @@ public class StartRouteChange {
      *     concurrent send recorded the key first
      */
     public void apply(Actor actor, RouteId route, DeviceClock time, IdempotencyKey key, RequestDigest digest) {
-        throw new UnsupportedOperationException("Built in M5");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

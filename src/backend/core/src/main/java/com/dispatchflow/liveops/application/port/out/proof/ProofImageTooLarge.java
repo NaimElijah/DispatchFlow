@@ -7,7 +7,7 @@ package com.dispatchflow.liveops.application.port.out.proof;
  * answers it with 422 and {@link #code()}. The message names no dimension, so the cap is not
  * probed through it.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 public final class ProofImageTooLarge extends RuntimeException {
 

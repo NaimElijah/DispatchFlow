@@ -8,7 +8,7 @@ import java.util.Objects;
  * recorded, or the report is held for a dispatcher, and whether this answer is the stored one of an
  * earlier send with the same key (BR-28). Either way the outbox deletes its row.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  *
  * @param answer what the report did
  * @param replayed whether the answer was stored by an earlier send of the same request, so nothing

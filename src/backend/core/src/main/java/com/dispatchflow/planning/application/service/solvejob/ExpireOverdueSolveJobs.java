@@ -17,7 +17,7 @@ import com.dispatchflow.planning.application.port.out.LiveUpdates;
  * ExpireOverdueSolveJobsChange} holds each job's transaction; after each commits, the dispatchers'
  * open screens are told of a job it failed (ADR-129).
  *
- * <p>Built in M4.
+ * <p>To Be Implemented.
  */
 public final class ExpireOverdueSolveJobs {
 
@@ -38,12 +38,12 @@ public final class ExpireOverdueSolveJobs {
     /**
      * Fails every overdue job.
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param call the job's server step
      * @return how many jobs it failed
      */
     public int expireOverdue(CallContext call) {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

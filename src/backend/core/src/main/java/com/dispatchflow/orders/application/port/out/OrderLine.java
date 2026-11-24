@@ -8,7 +8,7 @@ import java.util.Objects;
  * One order of a date's list with its derived status (FR-76, BR-33, DL §9.6). It holds the order's
  * row, which is personal data, so it prints redacted.
  *
- * <p>Built in M2.
+ * <p>To Be Implemented.
  *
  * @param order the order as the list shows it
  * @param status its status, derived from the order, Planning's placement and Live Operations'

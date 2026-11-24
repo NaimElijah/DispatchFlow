@@ -30,7 +30,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  * raised calls {@link PushNotifier#alertStaff}, so a staff phone app in the background learns of it
  * (FR-405, ADR-083).
  *
- * <p>Built in M8; the push through {@link PushNotifier} in M10. Rows: BR-90, BR-132, BR-135.
+ * <p>To Be Implemented. It comes with the push through {@link PushNotifier}. Rows: BR-90, BR-132,
+ * BR-135.
  */
 public final class ConfirmHeldReport {
 
@@ -54,7 +55,7 @@ public final class ConfirmHeldReport {
     /**
      * Confirms the held report, and alerts the dispatcher to each other held report it refuses.
      *
-     * <p>Built in M8; the push in M10.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param stop the stop the report is held on
@@ -67,6 +68,6 @@ public final class ConfirmHeldReport {
      * @throws StaleVersion when the delivery changed since {@code expected}
      */
     public void confirm(Actor actor, StopId stop, HeldReportId report, Version expected) {
-        throw new UnsupportedOperationException("Built in M8");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

@@ -8,14 +8,14 @@ import java.util.Objects;
  * Where a stop is in the current plan, compared with the route a report came from (DL §8, BR-89,
  * BR-130, BR-132). Live Operations translates it into its {@code StopWhereabouts}.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  */
 public sealed interface WhereaboutsFact {
 
     /**
      * What took a stop out of the plan before a late report reached it (BR-88, BR-130, ADR-107).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      */
     enum CancellationKind {
         /** The order was cancelled (FR-207). */
@@ -29,14 +29,14 @@ public sealed interface WhereaboutsFact {
     /**
      * Still on the route the report came from.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      */
     record OnServingRoute() implements WhereaboutsFact {}
 
     /**
      * On another route now (BR-89).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param route that route
      */
@@ -51,7 +51,7 @@ public sealed interface WhereaboutsFact {
     /**
      * Dropped by a later re-optimization, or on no route for another reason (DL §8).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      */
     record Dropped() implements WhereaboutsFact {}
 
@@ -59,7 +59,7 @@ public sealed interface WhereaboutsFact {
      * Gone because its order was cancelled or rescheduled, or its plan cancelled (BR-88, BR-130,
      * ADR-107).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param kind what happened
      * @param at when the revision that took the stop off, or the cancellation, took effect

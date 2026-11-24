@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
  * route as the validator judged, saves the plan and writes the audit record (DL §6.3, TS §6.2,
  * ADR-063, ADR-129).
  *
- * <p>Built in M4.
+ * <p>To Be Implemented.
  */
 @Transactional
 public class TakeStopOffRouteChange {
@@ -46,7 +46,7 @@ public class TakeStopOffRouteChange {
      * Reads the plan as taking the stop off would leave it, for the evaluation before the
      * transaction.
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the plan
@@ -60,13 +60,13 @@ public class TakeStopOffRouteChange {
      */
     @Transactional(readOnly = true)
     public LayoutToJudge layoutAfter(Actor actor, PlanId plan, StopId stop, Version expected) {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 
     /**
      * Takes the stop off, as the evaluation of the plan without it judged it.
      *
-     * <p>Built in M4.
+     * <p>To Be Implemented.
      *
      * @param actor the dispatcher
      * @param plan the plan
@@ -82,6 +82,6 @@ public class TakeStopOffRouteChange {
      *     StopNotInPlan}, or {@code RouteLocked}
      */
     public void apply(Actor actor, PlanId plan, StopId stop, Version expected, Evaluation evaluation) {
-        throw new UnsupportedOperationException("Built in M4");
+        throw new UnsupportedOperationException("To Be Implemented.");
     }
 }

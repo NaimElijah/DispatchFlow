@@ -9,14 +9,14 @@ import java.util.Objects;
  * judged again. Each call answers its own cases, so a stored case another call answers is refused
  * as {@code IdempotencyKeyReused}, whatever the body's hash.
  *
- * <p>Built in M8.
+ * <p>To Be Implemented.
  */
 public sealed interface RecordedReport {
 
     /**
      * The report's fact was recorded: an arrival or an outcome.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      */
     record Recorded() implements RecordedReport {}
 
@@ -24,7 +24,7 @@ public sealed interface RecordedReport {
      * The report is held for a dispatcher's decision; the outbox is told it was received (BR-132,
      * FR-248).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param report the held report
      */
@@ -39,21 +39,21 @@ public sealed interface RecordedReport {
     /**
      * A batch of positions was taken, each kept or refused by the tracking rule (NFR-285, FR-328).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      */
     record PositionsTaken() implements RecordedReport {}
 
     /**
      * The route was started, as the phone's outbox may send offline (FR-70, ADR-087).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      */
     record Started() implements RecordedReport {}
 
     /**
      * The route was finished, as the phone's outbox may send offline (FR-70, ADR-087).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      */
     record Finished() implements RecordedReport {}
 
@@ -61,7 +61,7 @@ public sealed interface RecordedReport {
      * A driver's problem was reported and its alert raised (FR-95), so a resent report raises no
      * second alert.
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      */
     record ProblemReported() implements RecordedReport {}
 }

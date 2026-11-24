@@ -17,10 +17,10 @@ import java.util.Optional;
  *
  * <p>Each revision's stops keep the three as their solve took them, as the legs are kept (ADR-052,
  * ADR-121). Planning's domain doesn't hold them yet: {@code PlannedStop} and {@code RevisionStop}
- * keep only the order, the attempt and the planned times, and M5 adds the three to both, and to
- * ADR-059's {@code plan_revision_stop} rows.
+ * keep only the order, the attempt and the planned times; adding the three to both, and to
+ * ADR-059's {@code plan_revision_stop} rows, is not built yet.
  *
- * <p>Built in M5.
+ * <p>To Be Implemented.
  *
  * @param stop the stop
  * @param order its order

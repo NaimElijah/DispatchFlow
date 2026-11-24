@@ -17,14 +17,14 @@ import java.util.Objects;
  * app learns of a route change only this way (FR-347), and alerts a driver who has it open on their
  * route (FR-391).
  *
- * <p>Built in M5, M8 and M9, case by case.
+ * <p>To Be Implemented.
  */
 public sealed interface LiveUpdate {
 
     /**
      * A stop's facts changed: an arrival, an outcome, a held report or a correction.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param stop the stop
      */
@@ -39,7 +39,7 @@ public sealed interface LiveUpdate {
     /**
      * A route's run changed: started, finished, or a revision confirmed.
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param route the route
      */
@@ -54,7 +54,7 @@ public sealed interface LiveUpdate {
     /**
      * A route kept new positions (FR-33).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param route the route
      */
@@ -69,7 +69,7 @@ public sealed interface LiveUpdate {
     /**
      * An alert was raised or acknowledged (FR-157, FR-260, FR-405).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param alert the alert
      */
@@ -86,7 +86,7 @@ public sealed interface LiveUpdate {
      * driver with the web app open is alerted and the route is listed with its date (FR-152,
      * FR-324, FR-391).
      *
-     * <p>Built in M5.
+     * <p>To Be Implemented.
      *
      * @param date the plan's date, which the app opens
      * @param driver the driver it is for
@@ -105,7 +105,7 @@ public sealed interface LiveUpdate {
      * the web app reads the route again and alerts the driver (FR-71, FR-347, FR-391). The
      * dispatcher's unconfirmed list follows it too (FR-250).
      *
-     * <p>Built in M8.
+     * <p>To Be Implemented.
      *
      * @param route the route
      * @param driver the driver it is for
@@ -122,7 +122,7 @@ public sealed interface LiveUpdate {
     /**
      * A date's plan was cancelled, told once to each driver who had a route on it (FR-337).
      *
-     * <p>Built in M9.
+     * <p>To Be Implemented.
      *
      * @param date the cancelled plan's date
      * @param driver the driver it is for
