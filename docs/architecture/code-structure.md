@@ -220,26 +220,26 @@ and a `CallContext`
 Each module's `adapter/` holds its persistence adapter, which is built, and packages declared
 ahead, empty ([ADR-130][ADR-130]). Every declared package holds a `package-info.java` and nothing
 else: its Javadoc says what goes in the package and which ports it implements, and it carries
-`@NullMarked`. There are 53 of them, 50 in the eight modules and 3 beside the kernel, and no adapter
+`@NullMarked`. There are 54 of them, 51 in the eight modules and 3 beside the kernel, and no adapter
 class exists beyond the persistence adapters.
 The names follow two rules:
 
 - An inbound adapter is `adapter/in/<kind>`, of six kinds: `web` (a screen calls the client API),
   `listen` (an event arrives, its module's own or another's), `schedule` (the clock says so), `job`
-  (a worker takes queued work), `callback` (an outside service calls in) and `cli` (a person runs a
-  server step).
+  (a worker takes queued work, or a step runs once at startup), `callback` (an outside service
+  calls in) and `cli` (a person runs a server step).
   There is no `in/sse`: the stream's endpoint is app-wide, and the `web` ADR (#143) places it.
 - An outbound adapter is `adapter/out/<name>`: named for the outside system or channel it talks to
   (`osrm`, `govmap`, `sms`, `disk`), `persistence` for the module's own database, or for the
   technology it wraps when it calls nothing outside the process (`crypto`, `config`, `random`,
   `resources`, `roaddata`).
 
-ADR-130 decision 4 and [ADR-131][ADR-131] decision 4 list each module's packages and the ports
-they implement. Every module also has an `in/cli` for its part of the server steps that span the
-modules (ADR-131 decision 5). Adapters meet only through ports: no adapter uses another adapter of
-its module or an adapter of another module, no shared adapter uses anything outside the kernel,
-and only Planning's and Reporting's optimizer adapters use the generated optimizer client
-(`ApplicationRules`, rules 9 to 12).
+ADR-130 decision 4 and [ADR-131][ADR-131] decision 4 list each module's packages and the ports they
+implement, and [ADR-133][ADR-133] adds Access's `in/job`. Every module also has an `in/cli` for its
+part of the server steps that span the modules (ADR-131 decision 5). Adapters meet only through
+ports: no adapter uses another adapter of its module or an adapter of another module, no shared
+adapter uses anything outside the kernel, and only Planning's and Reporting's optimizer adapters use
+the generated optimizer client (`ApplicationRules`, rules 9 to 12).
 
 Each of the eight modules has an
 `adapter/out/persistence/` package ([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md), [ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md)). A module's package holds:
@@ -469,5 +469,6 @@ Accepted).
 
 [ADR-130]: ../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md
 [ADR-131]: ../ADRs/ADR-131-the-declared-structures-review-tightens-its-rules-and-fills-its-gaps.md
+[ADR-133]: ../ADRs/ADR-133-a-startup-step-is-a-job-and-access-declares-one.md
 [NFR-10]: ../requirements/requirements.md#nfr-10
 [NFR-162]: ../requirements/requirements.md#nfr-162
