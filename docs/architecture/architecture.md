@@ -66,7 +66,8 @@ entities keep records. No adapter carries `@Transactional`: each runs in the cal
 ([ADR-129](../ADRs/ADR-129-transactions-start-only-in-the-service-layer.md)). The eight methods that take a lock lasting only as long as that transaction
 (the reads `activeAdminsUnderLock`, both `capacityUnderLock`, `claimNext` and `capOn`, and the
 writes `countAnswer`, `addUnlessKeyTaken` and the plan's `add`) call `OpenTransaction.require`
-first, and refuse a call outside one.
+first, as does `deleteEndedBefore`, whose `DELETE … RETURNING` would otherwise commit on its own.
+Each refuses a call outside a read-write transaction.
 `Plan`'s adapter sits in a `plan/` subpackage of Planning's, with the `@Immutable` entity its
 revisions are appended as. Every root's load check refuses a gap in its stored lists first, and
 Hibernate batch-fetches the collections a load reads, 200 roots at a time

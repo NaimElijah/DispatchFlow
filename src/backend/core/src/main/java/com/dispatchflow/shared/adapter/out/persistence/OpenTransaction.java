@@ -4,27 +4,40 @@ import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * The check a persistence adapter makes before it takes a lock that lasts only as long as its
- * transaction: a {@code pg_advisory_xact_lock}, a {@code FOR UPDATE} or a {@code SKIP LOCKED}
- * (ADR-129 decision 6). Outside a transaction the database releases such a lock when its statement
- * ends, so the check the lock guards would protect nothing. The adapters carry no
- * {@code @Transactional}; the service that calls them opens the transaction (ADR-129 decision 1).
+ * The check a persistence adapter makes before work that is only safe inside its caller's
+ * read-write transaction (ADR-129 decision 6). Two kinds of work need it:
+ * <ul>
+ *   <li>A lock that lasts only as long as the transaction: a {@code pg_advisory_xact_lock}, a {@code
+ *       FOR UPDATE} or a {@code SKIP LOCKED}. With no transaction the database releases it when its
+ *       statement ends. In a read-only one, which a {@code Change}'s read opens, it is released when
+ *       that read commits, before the write it guards. Either way the check it guards would protect
+ *       nothing.
+ *   <li>A write that would otherwise commit on its own, such as a {@code DELETE … RETURNING} that
+ *       runs as a query.
+ * </ul>
+ *
+ * <p>The adapters carry no {@code @Transactional}; the service that calls them opens the
+ * transaction (ADR-129 decision 1). It can't tell a listener that runs synchronously after a
+ * commit, which still sees that transaction as open: that is why a listener is {@code @Async}
+ * (decision 7).
  */
 public final class OpenTransaction {
 
     private OpenTransaction() {}
 
     /**
-     * Requires a transaction open on this thread.
+     * Requires a read-write transaction open on this thread.
      *
-     * @param method the adapter method that takes the lock, named in the error
-     * @throws IllegalTransactionStateException when none is open: the error Spring's {@code
-     *     MANDATORY} propagation throws, so a caller sees the same refusal either way
+     * @param method the adapter method that needs it, named in the error
+     * @throws IllegalTransactionStateException when none is open, or the one open is read-only: the
+     *     error Spring's {@code MANDATORY} propagation throws, so a caller sees the same refusal either
+     *     way
      */
     public static void require(String method) {
-        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new IllegalTransactionStateException(
-                    method + " takes a lock that lasts only as long as its transaction, and none is open");
+                    method + " needs its caller's read-write transaction, and none is open");
         }
     }
 }

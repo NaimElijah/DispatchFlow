@@ -96,15 +96,21 @@ On 2026-11-24 the owner, Naim Elijah, decided where transactions start, and how,
    record of a refused attempt, written in its own transaction ([ADR-110], point 1), which audit
    builds as `REQUIRES_NEW`.
 6. **The persistence adapters carry no `@Transactional`.**
-   - **A method that takes a lock that lasts only as long as its transaction** checks that one is
-     open, and throws `IllegalTransactionStateException` if not. A lock taken outside a transaction
-     is released at once, and the check it guards no longer protects anything. These methods are:
+   - **A method that takes a lock that lasts only as long as its transaction** checks, through
+     `OpenTransaction.require`, that a read-write transaction is open. It throws
+     `IllegalTransactionStateException` if none is, or if the open one is read-only. A lock taken
+     outside a transaction is released at once, and one taken in a `Change`'s read-only read is
+     released when that read commits. Either way the check it guards no longer protects anything.
+     These methods are:
      - the five reads under lock: `activeAdminsUnderLock`, both `capacityUnderLock`, `claimNext` and
        `capOn`;
      - the three writes that lock first: `countAnswer`, `addUnlessKeyTaken` and the plan's `add`.
-   - **Every other method relies on the service's transaction.**
-   - `TransactionRules` finds each method that takes such a lock by its query's SQL, and checks that
-     it calls the check.
+   - **The one write that would commit on its own outside a transaction** checks the same way:
+     `deleteEndedBefore`, whose `DELETE … RETURNING` runs as a query.
+   - **Every other method relies on the service's transaction.** Outside one it fails when it
+     writes.
+   - `TransactionRules` finds each method that takes such a lock by its query's SQL, row locks of
+     every strength included, and checks that it calls the check first.
 7. **Event listeners have no transaction of their own.**
    - A listener is `@Async` and `@TransactionalEventListener`, never `@ApplicationModuleListener`.
    - The service it calls opens each transaction, so each of the three retries gets a fresh one.

@@ -8,6 +8,7 @@ import com.dispatchflow.access.domain.session.SessionGeneration;
 import com.dispatchflow.access.domain.session.SessionState;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.SessionId;
+import com.dispatchflow.shared.adapter.out.persistence.OpenTransaction;
 import com.dispatchflow.shared.adapter.out.persistence.VersionedSave;
 import com.dispatchflow.shared.application.StaleVersion;
 import jakarta.persistence.EntityManager;
@@ -142,6 +143,7 @@ class JpaSessionRepository implements SessionRepository {
 
     @Override
     public List<SessionId> deleteEndedBefore(Instant cutoff) {
+        OpenTransaction.require("deleteEndedBefore");
         return ids(sessions.deleteEndedBy(cutoff, Session.REFRESH_TOKEN_LIFETIME.toString()));
     }
 
