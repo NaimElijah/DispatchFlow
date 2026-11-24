@@ -1,6 +1,6 @@
 # ADR-130: Every folder the design draws is declared ahead, empty and documented
 
-- **Status:** Accepted; amended by ADR-131 and ADR-132
+- **Status:** Accepted; amended by ADR-131, ADR-132 and ADR-133
 - **Date:** 2026-11-24
 
 ## Context

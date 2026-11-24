@@ -122,7 +122,7 @@ package per aggregate, then into concept packages, and an application package th
 Which modules are split, and into what, is in [bounded-contexts.md](bounded-contexts.md).
 
 Every module's `adapter/` also holds packages declared ahead, empty, as [ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)
-declared the application layer: 53 in all (50 in the modules, 3 beside the kernel), each with a `package-info.java` that says what goes in it and
+declared the application layer: 54 in all (51 in the modules, 3 beside the kernel), each with a `package-info.java` that says what goes in it and
 carries `@NullMarked`, and no class. An inbound adapter is `adapter/in/<kind>`, of six kinds:
 `web`, `listen`, `schedule`, `job`, `callback` and `cli`. An outbound one is `adapter/out/<name>`,
 named for the outside system or channel it talks to, `persistence` for the module's own database,

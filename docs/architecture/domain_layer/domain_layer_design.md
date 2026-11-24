@@ -1503,7 +1503,7 @@ flowchart LR
   subgraph IN["adapter/in"]
     WEB["web: controllers of the interfaces<br/>generated from client-api"]
     LIS["listen: listeners on events"]
-    JOB["schedule, job: clock triggers,<br/>queue workers"]
+    JOB["schedule, job: clock triggers,<br/>queue workers, startup steps"]
     CLI["callback, cli: provider replies,<br/>server steps"]
   end
   subgraph APP["application"]
