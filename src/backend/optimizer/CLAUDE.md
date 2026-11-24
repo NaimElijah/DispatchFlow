@@ -16,8 +16,6 @@ An unbuilt `application/` body raises `NotImplementedError("Built in M<n>")`, na
 that builds it. To fill one, write the failing test, replace the `raise`, then build the adapter. A
 milestone may change a declared signature, with every caller in the same pull request, and drops the
 docstring's "Built in M<n>" when the body is built ([ADR-119]). `tests/` mirrors the package path.
-Today's `solvers/ortools/` and `solvers/alns/` hold only `.gitkeep`: the first solver adapter moves
-them under `adapters/outbound/solvers/` and updates the import-linter layers in `pyproject.toml`.
 
 ## Rules
 

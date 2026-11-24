@@ -201,9 +201,9 @@ source_modules = ["dispatchflow_optimizer"]
 forbidden_modules = ["pyvrp"]
 
 [[tool.importlinter.contracts]]
-name = "Adapters and solvers sit on the application, which sits on the domain"
+name = "The adapters sit on the application, which sits on the domain"
 type = "layers"
 containers = ["dispatchflow_optimizer"]
-# Parentheses mark a layer that may not exist yet: the solvers are still placeholders. The
-# application exists, declared ahead (ADR-119), so it has none, and the contract fails if it goes.
-layers = ["adapters | (solvers)", "application", "domain"]
+# No layer is optional: the solver adapters are packages under adapters/outbound/solvers (ADR-130),
+# and the application is declared ahead (ADR-119), so the contract fails if any layer goes.
+layers = ["adapters", "application", "domain"]
