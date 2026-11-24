@@ -31,8 +31,9 @@ import org.jspecify.annotations.NullMarked;
 
 /**
  * The application layer's rules (TS §2.2, TS §4, DL §2.1, DL §2.3, ADR-120), and the adapters'
- * (TS §2.1, ADR-130), built for a root package as {@link DomainPurityRules} is. {@code com.dispatchflow} checks production code; {@code
- * com.dispatchflow.archfixture.zeta} checks the fixtures that prove each rule fires.
+ * (TS §2.1, ADR-130), built for a root package as {@link DomainPurityRules} is. {@code
+ * com.dispatchflow} checks production code; {@code com.dispatchflow.archfixture.zeta} checks the
+ * fixtures that prove each rule fires.
  *
  * <p>Every violation is reported against the class that breaks the rule, so a test can name the
  * exact violating classes.
@@ -134,6 +135,59 @@ final class ApplicationRules {
      * callback}) or a person at a prompt ({@code cli}).
      */
     static final Set<String> INBOUND_KINDS = Set.of("web", "listen", "schedule", "job", "callback", "cli");
+
+    /**
+     * ADR-130 decision 4: each module's adapters, and the kernel's, by their names below its {@code
+     * adapter} package, such as {@code in.web} or {@code out.persistence}. A subpackage of an
+     * adapter, such as {@code out.persistence.plan}, counts as that adapter. The tree must hold
+     * exactly these, so a new adapter, or a dropped one, is declared here on purpose, as a new
+     * module joins {@link #MODULE_GRAPH}.
+     */
+    static final Map<String, Set<String>> DECLARED_ADAPTERS = Map.of(
+            "access",
+            Set.of(
+                    "in.web",
+                    "in.listen",
+                    "in.schedule",
+                    "in.cli",
+                    "out.persistence",
+                    "out.email",
+                    "out.crypto",
+                    "out.resources"),
+            "audit",
+            Set.of("in.schedule", "out.persistence"),
+            "fleet",
+            Set.of("in.web", "in.listen", "in.schedule", "out.persistence"),
+            "orders",
+            Set.of("in.web", "in.schedule", "in.job", "out.persistence", "out.govmap", "out.osrm", "out.roaddata"),
+            "planning",
+            Set.of(
+                    "in.web",
+                    "in.listen",
+                    "in.schedule",
+                    "in.job",
+                    "out.persistence",
+                    "out.optimizer",
+                    "out.osrm",
+                    "out.sse",
+                    "out.random",
+                    "out.config"),
+            "liveops",
+            Set.of("in.web", "in.listen", "in.schedule", "out.persistence", "out.push", "out.sse", "out.disk"),
+            "messaging",
+            Set.of(
+                    "in.web",
+                    "in.listen",
+                    "in.schedule",
+                    "in.callback",
+                    "in.cli",
+                    "out.persistence",
+                    "out.sms",
+                    "out.crypto"),
+            "reporting",
+            Set.of("in.web", "in.listen", "out.persistence", "out.optimizer"),
+            KERNEL,
+            Set.of("out.persistence", "out.clock", "out.uuid", "out.optimizer"));
 
     private ApplicationRules() {}
 
@@ -460,7 +514,8 @@ final class ApplicationRules {
      * or {@code adapter.out.<a>} with its subpackages, uses no class of another adapter of its own
      * top-level package, so {@code in} never uses {@code out}, nor {@code out} {@code in}, nor one
      * adapter another of its kind (TS §2.1, ADR-130 decision 7). A class directly in {@code
-     * adapter.in} or {@code adapter.out} counts as an adapter of its own.
+     * adapter.in} or {@code adapter.out} counts as an adapter of its own. The adapters beside the
+     * kernel share its top-level package, so they stay apart from each other too.
      */
     static ArchRule adaptersOfAModuleStayApart(String root) {
         return classes()
@@ -478,9 +533,10 @@ final class ApplicationRules {
 
     /**
      * Rule 10: no adapter uses another module's adapter. The kernel and {@code web} are no modules
-     * ({@link #NOT_MODULES}), so the adapters they hold, such as {@code
-     * shared.adapter.out.persistence}, stay usable, and rule 2 still decides which modules an
-     * adapter may reach (ADR-130 decision 7).
+     * ({@link #NOT_MODULES}), so this rule leaves the adapters they hold, such as {@code
+     * shared.adapter.out.persistence}, usable. Rule 2 still decides whether a module may reach
+     * {@code web} at all, which it refuses until the app-wide {@code web} ADR decides otherwise
+     * (ADR-130 decisions 6 and 7).
      */
     static ArchRule adaptersUseNoOtherModulesAdapter(String root) {
         return classes()
@@ -496,6 +552,44 @@ final class ApplicationRules {
                                         || topLevelPackage(root, target).equals(topLevelPackage(root, item))))
                 .because("TS §2.1 and ADR-130 decision 7: modules meet through their api, spi and events,"
                         + " never through each other's adapters");
+    }
+
+    /**
+     * Rule 11: the adapters beside the kernel use no module. A class in, or below, {@code
+     * shared.adapter} depends on no class of a top-level package other than the kernel and {@code
+     * web}. Rule 2 skips the kernel's classes and rules 9 and 10 see only adapters, so without this
+     * rule one module could reach another through a shared adapter, along an arrow DL §2.1 lacks
+     * (ADR-130 decision 7).
+     */
+    static ArchRule sharedAdaptersUseNoModule(String root) {
+        return classes()
+                .that()
+                .resideInAPackage(root + "." + KERNEL + "." + ADAPTER + "..")
+                .should(dependOnlyOn(
+                        "no module",
+                        (item, target) -> topLevelPackage(root, target)
+                                .map(NOT_MODULES::contains)
+                                .orElse(true)))
+                .because("DL §2.1 and ADR-130 decision 7: every module depends on the kernel and never the"
+                        + " reverse, so a shared adapter that used a module would open an arrow the graph lacks");
+    }
+
+    /**
+     * The adapters under a root that hold a class, by top-level package, each named below its
+     * {@code adapter} package as {@link #DECLARED_ADAPTERS} names them. A class directly in {@code
+     * adapter.in} or {@code adapter.out} shows as {@code in} or {@code out}, and one directly in
+     * {@code adapter} as an empty name.
+     */
+    static Map<String, Set<String>> adaptersByTopLevelPackage(String root, JavaClasses classes) {
+        return adapterPackages(root, classes)
+                .map(JavaPackage::getName)
+                .flatMap(name -> adapterOf(root, name).stream())
+                .map(adapter -> adapter.split("\\.", ADAPTER_SEGMENTS - 1))
+                .collect(Collectors.groupingBy(
+                        adapter -> adapter[0],
+                        Collectors.mapping(
+                                adapter -> adapter.length == ADAPTER_SEGMENTS - 1 ? adapter[2] : "",
+                                Collectors.toSet())));
     }
 
     /** Each module's application layer, with the shared application package. */
@@ -519,18 +613,20 @@ final class ApplicationRules {
     }
 
     /**
-     * The adapter a package belongs to below the root, as {@code <module>.adapter.<in|out>.<name>},
-     * or {@code <module>.adapter.<in|out>} for a class directly under its direction; empty outside
-     * every adapter.
+     * The adapter a package belongs to below the root: {@code <module>.adapter.<in|out>.<name>}, or
+     * {@code <module>.adapter.<in|out>} for a class directly under its direction. Any other package
+     * under {@code adapter}, which ADR-130 declares none of, is an adapter of its own, {@code
+     * <module>.adapter.<x>}, or {@code <module>.adapter} for a class directly in it, so rules 9 and
+     * 10 see it on both sides of a dependency. Empty outside every adapter.
      */
     private static Optional<String> adapterOf(String root, String packageName) {
         String[] segments = segmentsBelow(root, packageName);
-        boolean inAnAdapter = segments.length >= ADAPTER_SEGMENTS - 1
-                && segments[1].equals(ADAPTER)
-                && (segments[2].equals(IN) || segments[2].equals(OUT));
-        return inAnAdapter
-                ? Optional.of(String.join(".", Arrays.copyOf(segments, Math.min(segments.length, ADAPTER_SEGMENTS))))
-                : Optional.empty();
+        if (segments.length < 2 || !segments[1].equals(ADAPTER)) {
+            return Optional.empty();
+        }
+        boolean underADirection = segments.length > 2 && (segments[2].equals(IN) || segments[2].equals(OUT));
+        int length = underADirection ? ADAPTER_SEGMENTS : ADAPTER_SEGMENTS - 1;
+        return Optional.of(String.join(".", Arrays.copyOf(segments, Math.min(segments.length, length))));
     }
 
     /**
