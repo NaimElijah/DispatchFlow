@@ -137,11 +137,11 @@ final class ApplicationRules {
     static final Set<String> INBOUND_KINDS = Set.of("web", "listen", "schedule", "job", "callback", "cli");
 
     /**
-     * ADR-130 decision 4: each module's adapters, and the kernel's, by their names below its {@code
-     * adapter} package, such as {@code in.web} or {@code out.persistence}. A subpackage of an
-     * adapter, such as {@code out.persistence.plan}, counts as that adapter. The tree must hold
-     * exactly these, so a new adapter, or a dropped one, is declared here on purpose, as a new
-     * module joins {@link #MODULE_GRAPH}.
+     * ADR-130 decision 4 and ADR-131: each module's adapters, and the kernel's, by their names
+     * below its {@code adapter} package, such as {@code in.web} or {@code out.persistence}. A
+     * subpackage of an adapter, such as {@code out.persistence.plan}, counts as that adapter. The
+     * tree must hold exactly these, so a new adapter, or a dropped one, is declared here on
+     * purpose, as a new module joins {@link #MODULE_GRAPH}.
      */
     static final Map<String, Set<String>> DECLARED_ADAPTERS = Map.of(
             "access",
@@ -155,17 +155,26 @@ final class ApplicationRules {
                     "out.crypto",
                     "out.resources"),
             "audit",
-            Set.of("in.schedule", "out.persistence"),
+            Set.of("in.schedule", "in.cli", "out.persistence"),
             "fleet",
-            Set.of("in.web", "in.listen", "in.schedule", "out.persistence"),
+            Set.of("in.web", "in.listen", "in.schedule", "in.cli", "out.persistence", "out.govmap"),
             "orders",
-            Set.of("in.web", "in.schedule", "in.job", "out.persistence", "out.govmap", "out.osrm", "out.roaddata"),
+            Set.of(
+                    "in.web",
+                    "in.schedule",
+                    "in.job",
+                    "in.cli",
+                    "out.persistence",
+                    "out.govmap",
+                    "out.osrm",
+                    "out.roaddata"),
             "planning",
             Set.of(
                     "in.web",
                     "in.listen",
                     "in.schedule",
                     "in.job",
+                    "in.cli",
                     "out.persistence",
                     "out.optimizer",
                     "out.osrm",
@@ -173,7 +182,15 @@ final class ApplicationRules {
                     "out.random",
                     "out.config"),
             "liveops",
-            Set.of("in.web", "in.listen", "in.schedule", "out.persistence", "out.push", "out.sse", "out.disk"),
+            Set.of(
+                    "in.web",
+                    "in.listen",
+                    "in.schedule",
+                    "in.cli",
+                    "out.persistence",
+                    "out.push",
+                    "out.sse",
+                    "out.disk"),
             "messaging",
             Set.of(
                     "in.web",
@@ -185,7 +202,7 @@ final class ApplicationRules {
                     "out.sms",
                     "out.crypto"),
             "reporting",
-            Set.of("in.web", "in.listen", "out.persistence", "out.optimizer"),
+            Set.of("in.web", "in.listen", "in.cli", "out.persistence", "out.optimizer", "out.config"),
             KERNEL,
             Set.of("out.persistence", "out.clock", "out.uuid", "out.optimizer"));
 
