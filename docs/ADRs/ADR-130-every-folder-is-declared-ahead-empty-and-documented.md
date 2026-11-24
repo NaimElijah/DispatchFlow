@@ -46,8 +46,8 @@ The documents also disagreed, or said nothing:
   adapter may not use another's.
 
 On 2026-11-24 the owner, Naim Elijah, asked that every folder the project will need, to its end,
-be declared now, so that the team only adds files to the right places. He chose each answer below.
-[Issue #118][ISSUE-118] and [issue #142][ISSUE-142] carry the work.
+be declared now, so that the team only adds files to the right places. The owner chose each
+answer below. [Issue #118][ISSUE-118] and [issue #142][ISSUE-142] carry the work.
 
 ## Decision
 
