@@ -19,9 +19,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p><b>Refusals answered as a voided link.</b> The holder of the new mailbox may not be the
  * account's user, so three of {@code UserAccount.confirmEmailByLink}'s refusals must not tell them
- * more than that the link no longer works. The use case catches each, writes {@code
- * AuditLog.refused} with the domain's specific code in its own transaction (ADR-110), and then
- * throws a {@code RuleViolation} with Access's {@code LinkVoided} in its place:
+ * more than that the link no longer works. Each is audited as a refused attempt with the domain's
+ * specific code, once the transaction it refused has rolled back (ADR-110, ADR-129 decision 5), and
+ * the use case throws a {@code RuleViolation} with Access's {@code LinkVoided} in its place:
  *
  * <ul>
  *   <li>{@code EmailOfAnotherAdmin}, so the holder learns nothing about the account's roles

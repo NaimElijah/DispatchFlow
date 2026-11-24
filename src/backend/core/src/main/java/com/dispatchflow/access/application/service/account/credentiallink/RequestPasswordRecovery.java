@@ -15,14 +15,14 @@ import com.dispatchflow.audit.application.api.CallContext;
  * whether the address has an account or why nothing was sent:
  *
  * <ul>
- *   <li>an address no account holds, for which the use case writes {@code AuditLog.refused} naming
- *       no account, in its own transaction (ADR-110), with the code M5 adds to {@code AccessError}
- *       for an address no account holds ({@code SignIn}'s domain gap);
+ *   <li>an address no account holds, for which its {@code Change} writes {@code AuditLog.refused}
+ *       naming no account, with the code M5 adds to {@code AccessError} for an address no account
+ *       holds ({@code SignIn}'s domain gap);
  *   <li>a refusal of {@code UserAccount.issueLink} for a recovery link: {@code AccountDeactivated},
- *       {@code AccountAnonymized} or {@code AccountHasNoRole} (BR-123). The use case catches the
- *       {@code RuleViolation} itself, and writes {@code AuditLog.refused} with the domain's
- *       specific code, naming the account, in its own transaction (ADR-110); no {@code
- *       RuleViolation} leaves it;
+ *       {@code AccountAnonymized} or {@code AccountHasNoRole} (BR-123). Its {@code Change} catches
+ *       the {@code RuleViolation} itself, and writes {@code AuditLog.refused} with the domain's
+ *       specific code, naming the account. No {@code RuleViolation} leaves it, so its transaction
+ *       commits with the record and changes nothing else (ADR-110);
  *   <li>NFR-215's cap of 100 recovery emails a day, reached;
  *   <li>a version conflict on the save, where a concurrent request for the same account won and is
  *       issuing the link, so no {@code StaleVersion} leaves the use case.

@@ -24,10 +24,10 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p><b>Refusals answered as a voided link</b> (NFR-145, NFR-224), as {@code ConfirmEmailByLink}
  * answers them. The holder of the link must learn nothing about the account's state, so the use
- * case catches {@code UserAccount.setPasswordByLink}'s {@code AccountDeactivated} and {@code
- * AccountAnonymized}, writes {@code AuditLog.refused} with the domain's specific code in its own
- * transaction (ADR-110), and then throws a {@code RuleViolation} with Access's {@code LinkVoided}
- * in its place. A deactivation voids every unspent link (NFR-224), so for an unspent link {@code
+ * case audits {@code UserAccount.setPasswordByLink}'s {@code AccountDeactivated} and {@code
+ * AccountAnonymized} as refused attempts with the domain's specific code, once the transaction they
+ * refused has rolled back (ADR-110, ADR-129 decision 5), and throws a {@code RuleViolation} with
+ * Access's {@code LinkVoided} in their place. A deactivation voids every unspent link (NFR-224), so for an unspent link {@code
  * LinkVoided} is what happened to it.
  *
  * <p><b>Gap for M6.</b> {@code UserAccount} checks the account's state before the link's, so a

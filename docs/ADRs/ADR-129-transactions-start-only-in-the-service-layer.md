@@ -92,9 +92,14 @@ On 2026-11-24 the owner, Naim Elijah, decided where transactions start, and how,
    - Hibernate then skips its dirty checking and flush.
    - PostgreSQL refuses any write the service makes by mistake.
    - A service that holds `AuditLog` changes something, so it is never read-only.
-5. **A service names another propagation only where an ADR decides it.** The one so far is the
-   record of a refused attempt, written in its own transaction ([ADR-110], point 1), which audit
-   builds as `REQUIRES_NEW`.
+5. **No service names another propagation, and a refused attempt's record follows the rollback.**
+   - The record goes in a transaction of its own ([ADR-110], point 1; `AuditLog.refused`).
+   - It is written once the refused call's transaction has rolled back, with no transaction open, so
+     its own is a fresh one.
+   - A `REQUIRES_NEW` nested inside the refused call would hold a second pooled connection while the
+     first waited, and enough refused calls at once would stall the pool.
+   - Which class writes it is audit's to settle ([issue #180][ISSUE-180]): the inbound adapter that
+     called the use case, or the use case once its `Change` has refused.
 6. **The persistence adapters carry no `@Transactional`.**
    - **A method that takes a lock that lasts only as long as its transaction** checks, through
      `OpenTransaction.require`, that a read-write transaction is open. It throws
@@ -177,6 +182,7 @@ On 2026-11-24 the owner, Naim Elijah, decided where transactions start, and how,
 
 [ISSUE-255]: https://github.com/NaimElijah/DispatchFlow/issues/255
 [ISSUE-257]: https://github.com/NaimElijah/DispatchFlow/issues/257
+[ISSUE-180]: https://github.com/NaimElijah/DispatchFlow/issues/180
 [ADR-063]: ADR-063-a-transaction-changes-one-aggregate-and-every-rule-has-one-owner.md
 [ADR-064]: ADR-064-events-only-where-they-earn-their-place-through-the-modulith-registry.md
 [ADR-110]: ADR-110-audit-records-hold-only-ids-codes-enums-numbers-and-instants-record-refusals-and-are-kept-a-year.md
