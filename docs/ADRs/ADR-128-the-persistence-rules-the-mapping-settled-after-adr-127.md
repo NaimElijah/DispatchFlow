@@ -41,8 +41,8 @@ records otherwise:
   didn't fetch, as `Delivery`'s reads its held reports, so loading several roots cost a statement
   per root.
 
-On 2026-11-23 the owner, Naim Elijah, accepted all six decisions after the review of
-[pull request #252][PR-252]. They are final.
+On 2026-11-23 all six decisions were accepted after the review of [pull request #252][PR-252].
+They are final.
 
 ## Decision
 

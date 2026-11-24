@@ -23,9 +23,9 @@ The forces:
 - Telemetry must stay in Israel, and the team, not a vendor, must set its retention ([NFR-76],
   [TS §23]).
 
-On 2026-11-14 the owner, Naim Elijah, decided the hosting for the team: AWS `il-central-1`, one VM
-built with Terraform, the 16 GB size with the Grafana stack, and a hosting cap of ₪550 a month with
-VAT. He had first set the cap at ₪450 and raised it once VAT was counted.
+Decided on 2026-11-14: the hosting is AWS `il-central-1`, one VM built with Terraform, the 16 GB
+size with the Grafana stack, and a hosting cap of ₪550 a month with VAT. The cap was first set at
+₪450 and raised once VAT was counted.
 
 ## Decision
 
@@ -54,7 +54,7 @@ VAT. He had first set the cap at ₪450 and raised it once VAT was counted.
 
 ### Deploy, update and backup bundle
 
-The owner adopted this bundle on 2026-11-14. Each part has a requirement behind it.
+This bundle was adopted on 2026-11-14. Each part has a requirement behind it.
 
 - **CI reaches AWS through OIDC,** with no stored access key. The deploy role trusts only a protected
   `production` environment of the repository: its trust policy pins both `aud` and `sub`, and `sub`
@@ -70,7 +70,7 @@ The owner adopted this bundle on 2026-11-14. Each part has a requirement behind 
 - **The backup secrets sit under a customer-managed KMS key** whose policy names the identities that may
   read them: the two named members, and the roles that write and prune backups ([NFR-273]). The key policy has no account-root statement beyond key
   administration.
-- **Goals for the VM's AWS access and the backups.** The owner decided these on 2026-11-14. The M13
+- **Goals for the VM's AWS access and the backups.** These were decided on 2026-11-14. The M13
   Terraform pull request designs the mechanisms against these goals, and gets an infrastructure
   review and a security review before it merges.
   1. **No container can use the VM's full AWS role.** Each container that calls AWS gets only what it
@@ -101,8 +101,8 @@ Every figure is an estimate. The team has not yet seen an AWS bill.
 | Disk, snapshots, S3, SES, the Route 53 zone | not itemised | Part of the total below |
 | Hosting total before VAT | about ₪440–450 a month | Estimate, not measured |
 | Hosting total with 18% VAT | about ₪520–530 a month | Estimate, not measured; AWS charges Israeli accounts VAT |
-| Cap | ₪550 a month, VAT included | The owner's decision |
-| Budgets alert | at 90%, about ₪495 | The owner's decision |
+| Cap | ₪550 a month, VAT included | Decided |
+| Budgets alert | at 90%, about ₪495 | Decided |
 
 SMS is outside this table. Its cost is an estimate, not measured: about ₪550–850 a month with VAT at
 150 deliveries a day ([Q-62]).

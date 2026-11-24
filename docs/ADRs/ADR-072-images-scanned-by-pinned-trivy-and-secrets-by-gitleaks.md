@@ -5,10 +5,9 @@
 
 ## Context
 
-On 2026-11-13 the owner, Naim Elijah, decided for the team to scan container images with a pinned
-Trivy and to scan for secrets with Gitleaks. On 2026-11-14 he added a Trivy check of the Terraform
-in `infra/`. This ADR settles the marker "ADR pending: image and secret scanning",
-which [NFR-54] and [NFR-103] carry.
+Decided on 2026-11-13: scan container images with a pinned Trivy and scan for secrets with
+Gitleaks. On 2026-11-14 a Trivy check of the Terraform in `infra/` was added. This ADR settles the
+marker "ADR pending: image and secret scanning", which [NFR-54] and [NFR-103] carry.
 
 It extends [ADR-016], which keeps the lockfiles. OSV-Scanner stays and scans dependencies. ADR-016
 says it does not scan base images, and names its own trigger: when container images are deployed,
@@ -37,7 +36,7 @@ The forces:
   - Trivy is pinned to a release verified clean after the March 2026 compromise. Its GitHub action is
     pinned to a commit SHA, never a tag.
   - Renovate waits a minimum release age of 3 days before it proposes a new Trivy release or action
-    SHA ([ADR-046]; the owner, 2026-11-14).
+    SHA ([ADR-046]; decided 2026-11-14).
   - The release's number is not named here. It is read from Trivy's release page when the tech
     stack's version baseline gets its row ([TS §21]).
 - **Terraform: `trivy config` on `infra/`, from the pilot.** A CI step runs it once the Terraform
@@ -72,7 +71,7 @@ The forces:
 
 ## Alternatives considered
 
-- **Grype for images.** Rejected by the owner in favour of a pinned Trivy. The sources record no
+- **Grype for images.** Rejected in favour of a pinned Trivy. The sources record no
   reason beyond that Trivy also checks the Terraform with the same tool. This ADR does not supply
   one.
 - **OSV-Scanner alone.** Lost on [ADR-016]'s own finding: it scans lockfiles and the pom, not base

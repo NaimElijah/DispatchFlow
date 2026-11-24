@@ -28,8 +28,7 @@ them has another home:
 
 ## Decision
 
-On 2026-11-14 the owner, Naim Elijah, put these building blocks in the shared kernel,
-`com.dispatchflow.shared`:
+On 2026-11-14 these building blocks were put in the shared kernel, `com.dispatchflow.shared`:
 
 - `DomainError`: what every module's sealed error type extends, with its stable `code()`;
 - `RuleViolation` and `RuleViolations`: the exceptions that carry one error, or a summary and the

@@ -44,7 +44,7 @@ which apostrophe, quote or dash they use, such as "Van-1" with U+2010 for its hy
 
 ## Decision
 
-On 2026-11-15 the owner, Naim Elijah, decided:
+Decided on 2026-11-15:
 
 1. **`Attempt` is a shared-kernel value.** `com.dispatchflow.shared.Attempt` replaces the three
    copies in Customers & Orders, Planning and Live Operations. It is numbered from 1, with `FIRST`,

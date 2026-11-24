@@ -19,8 +19,8 @@ packages held more than 30 Java files. The counts are as of the commit before ea
 | Fleet | 33 |
 
 Reporting held 18, Audit 11, and the ArchUnit fixtures 89 in `archfixture/alpha/domain`. On
-2026-11-15 the owner, Naim Elijah, asked for these folders to be split so that they read well. He left
-the scheme to the team.
+2026-11-15 it was decided that these folders are split so that they read well, with the scheme
+left to the team.
 
 Four things constrain a split:
 
@@ -128,7 +128,7 @@ Customers & Orders stays flat until its cycle is broken. So do Reporting, Audit,
 
 ## Alternatives considered
 
-- **Stay flat.** Rejected: up to 81 files in one folder, against the owner's request.
+- **Stay flat.** Rejected: up to 81 files in one folder, against what was decided.
 - **Split by kind** (`value`, `error`, `snapshot`, `invariants`). Rejected:
   - `PlanningError` and `RuleCode` form a cycle;
   - invariants and snapshots are bound to their aggregates;

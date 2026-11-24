@@ -61,13 +61,13 @@ older tokens. Everything else in ADR-036 stands.
     without deactivating them; [FR-188]: an access token issued before a session is ended is
     refused at once). [PL §16.1] cites FR-187 among the revocation triggers without naming the
     counter. This ADR reads it as one increment of the user counter, which ends that user's open
-    streams through the event ([NFR-188]). The owner confirmed this reading on 2026-11-14.
+    streams through the event ([NFR-188]). This reading was confirmed on 2026-11-14.
 - **The session counter** goes up when the session confirms its password ([NFR-214], [NFR-227]).
   That refuses the session's older tokens and leaves the user's other sessions alone.
 - **A sign-out** revokes its own session ([NFR-89]), which the check above reads from the session's
   state. Per [DL §4.1] it raises no event.
   - **An open event stream re-checks its session at each heartbeat, every 15 seconds, and closes
-    once the session is revoked** ([NFR-267]). The owner decided this on 2026-11-14. So the streams
+    once the session is revoked** ([NFR-267]). This was decided on 2026-11-14. So the streams
     of a signed-out session end at the next heartbeat, though a sign-out raises no event and only
     `SessionsRevoked` closes streams at once ([NFR-188]).
 - **Refresh tokens** are opaque, rotating and stored as hashes ([TS §6]): 256 random bits, hashed
@@ -76,7 +76,7 @@ older tokens. Everything else in ADR-036 stands.
   session without writing each one.
 - **Unchanged from ADR-036:** the 30-second refresh grace and reuse revocation ([NFR-178],
   [NFR-88]), the 5-minute step-up window, and the rate limits.
-- **A restore rotates the access-token signing key** ([NFR-272]; the owner, 2026-11-14). A restored
+- **A restore rotates the access-token signing key** ([NFR-272]; decided 2026-11-14). A restored
   database holds the counters of its snapshot, so a token issued after the snapshot, or one revoked
   after it, could read as valid. The new key refuses every older access token, and the restore
   revokes every session ([NFR-252]). No counter is moved: the key and the revoked sessions already

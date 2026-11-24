@@ -43,7 +43,7 @@ The proposed design adds forces ([TS §5], the *Dependency updates* row; [TS §1
   digest." On 19 March 2026, 76 of the 77 version tags of `aquasecurity/trivy-action` were
   force-pushed to credential-stealing code, and a pinned SHA cannot be moved ([TS §18]).
 - **The team works on `dev`, and `main` is production.** [TS §5]'s *Branching* row proposes
-  short-lived branches into `main`. The owner did not adopt it: `dev` and `main` stay
+  short-lived branches into `main`. It was not adopted: `dev` and `main` stay
   (`.claude/CLAUDE.md`, Git).
 
 ## Decision
@@ -61,7 +61,7 @@ We replace Dependabot with Renovate, grouped weekly, and Renovate targets `dev`.
   - a digest or SHA change with no version change needs the upstream release checked before
     merge, because a moved tag, the March 2026 `trivy-action` case, arrives that way ([TS §18]);
   - every update Renovate proposes (Maven, uv, pnpm, Compose and `Dockerfile` images, actions,
-    mise) waits a minimum release age of 3 days (the owner, 2026-11-14). That also covers npm's
+    mise) waits a minimum release age of 3 days (decided 2026-11-14). That also covers npm's
     72-hour unpublish window. Whether every update type, digest pins included, carries a release
     timestamp for the 3-day age is unverified. It is checked when Renovate is set up.
 - **Branch:** every update opens against `dev`, like any other pull request, as [ADR-021] decided.
@@ -75,7 +75,7 @@ We replace Dependabot with Renovate, grouped weekly, and Renovate targets `dev`.
   a Conventional Commit (`.claude/CLAUDE.md`, Git).
 - **ADR-015 otherwise stands:** one workflow, one job per component, actions pinned to SHAs, a
   read-only token. Only its Dependabot bullet, which says Dependabot runs weekly, is replaced.
-- **Renovate runs as Mend's hosted Renovate app,** decided by the owner on 2026-11-14. It is free,
+- **Renovate runs as Mend's hosted Renovate app,** decided on 2026-11-14. It is free,
   holds its own credentials, and uses no GitHub Actions minutes. It gets write access to the
   repository, which holds code only, never company data ([NFR-50]). Mend's app requires MFA on its
   accounts ([NFR-265]).
@@ -113,8 +113,8 @@ We replace Dependabot with Renovate, grouped weekly, and Renovate targets `dev`.
 - **Keep Dependabot, as ADR-021 has it.** Rejected: it cannot update `mise.toml` or turn tags into
   digests and SHAs ([TS §5]).
 - **Update pins by hand.** Rejected, as in [ADR-015]: it gets forgotten.
-- **Renovate against `main`, with short-lived branches** ([TS §5], *Branching*). Not chosen: the
-  owner kept `dev` and `main`.
+- **Renovate against `main`, with short-lived branches** ([TS §5], *Branching*). Not chosen: `dev`
+  and `main` were kept.
 
 ## Revisit when
 

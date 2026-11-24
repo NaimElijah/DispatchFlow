@@ -12,8 +12,8 @@ shared kernel, each `events` package and `orders/domain` flat. On 2026-11-22 onl
 was over 30, the ArchUnit `io` fixtures at 47 files, so a folder could still open onto 29 loose
 files.
 
-On 2026-11-22 the owner, Naim Elijah, asked that no folder open onto a long list of loose files,
-wherever its files can be grouped into subfolders.
+On 2026-11-22 it was decided that no folder opens onto a long list of loose files, wherever its
+files can be grouped into subfolders.
 
 What the tree held on 2026-11-22, on the branch that renamed the components ([ADR-123]). The counts
 leave out `package-info.java`:
@@ -101,12 +101,12 @@ domain now splits. It extends [ADR-120] decision 10, rule 7. The rest of both st
    - a module's `api`, `spi` and `events` packages, which are its contract ([ADR-040], DL §2.3
      rule 4);
    - the shared kernel's domain types, its `shared.application` ports ([ADR-120] decision 2) and
-     their tests, until M0 decides how Spring Modulith exposes `shared` (ADR-118 rule 9, the owner's
-     choice);
+     their tests, until M0 decides how Spring Modulith exposes `shared` (ADR-118 rule 9, as
+     decided);
    - files a tool reads from a fixed place: `package.json`, the `tsconfig` files, `pom.xml`, the
      Maven wrapper, `Dockerfile` and `.dockerignore`, and the dotfiles at the root;
    - `docs/ADRs`, which is not a source folder. It stays one folder, numbered, with
-     `docs/ADRs/README.md` grouping the ADRs by topic (the owner's choice).
+     `docs/ADRs/README.md` grouping the ADRs by topic (as decided).
 
    `DomainPackageRules.packagesBelowAFlatOne` fails the build on a package below a module's `api`,
    `spi` or `events`, and on any kernel package but its root and `shared.application`. It reads the
@@ -114,7 +114,7 @@ domain now splits. It extends [ADR-120] decision 10, rule 7. The rest of both st
 5. **Source apart from configuration.** A frontend app keeps its source in `src/`, beside the
    configuration its tools read at the app's root, whatever the root's size. The web app already
    did. The phone app's `index.ts`, `App.tsx` and `App.test.tsx` move there, and its 10 other files
-   stay. The owner chose this with the split.
+   stay. This was decided with the split.
 
 Applied now, this splits:
 
@@ -166,17 +166,17 @@ These stay flat:
 
 ## Alternatives considered
 
-- **Keep ADR-118's 30.** Rejected: folders of 21 to 30 loose files, against the owner's request.
-- **A threshold of 15.** Rejected by the owner. It adds groups of 3 to 4 files to folders that
+- **Keep ADR-118's 30.** Rejected: folders of 21 to 30 loose files, against what was decided.
+- **A threshold of 15.** Rejected. It adds groups of 3 to 4 files to folders that
   already read well, such as Access's `role` values and Messaging's services, and splits the
   optimizer's 16-file `tests/domain`.
 - **Every aggregate gets its subpackage, however small,** as Planning's one-file
   `port.out.proposal` does. Rejected: it makes folders of 2 and 3 files.
 - **Split the `api` packages.** Rejected: DL §2.3 makes a module's contract three packages, and
   whether one named interface covers its subpackages is unsettled until M0.
-- **Split the kernel now**, its 14 typed IDs into `shared.id`. Rejected by the owner for now: it
+- **Split the kernel now**, its 14 typed IDs into `shared.id`. Rejected for now: it
   changes the imports of 415 files, and M0 decides how Spring Modulith exposes `shared`.
-- **Move the ADRs into topic folders.** Rejected by the owner: about 2,500 link edits inside
+- **Move the ADRs into topic folders.** Rejected: about 2,500 link edits inside
   accepted ADRs, and every outside link to an ADR breaks.
 - **Break the Customers & Orders cycle now.** Rejected: [DL §9.6][DL-96] names
   `OrderStatus.derive(order, placement, progress)`, and without it 36 files would still be bound by

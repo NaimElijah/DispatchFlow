@@ -5,8 +5,8 @@
 
 ## Context
 
-On 2026-11-14 the owner, Naim Elijah, decided for the team that the domain layer design (DL) is
-settled, and that its event rules get their own ADR. No "ADR pending" marker covers this decision.
+Decided on 2026-11-14: the domain layer design (DL) is
+settled, and its event rules get their own ADR. No "ADR pending" marker covers this decision.
 [ADR-040] deferred it, with two points: when an event earns its place, and the event publication
 registry. Two of its rejections lean on this ADR. It turned down a
 Maven multi-module build and ArchUnit alone because neither has an event registry. Both reasons stand
@@ -45,7 +45,7 @@ names who raises it, who hears it and which of the three reasons applies. A new 
 
 **Left out** ([DL §7.4][DL-74]): a proposal is ready, a late outcome was reconciled, a route finished,
 a projected arrival changed, an order's details changed, a user's roles changed and a stop was arrived
-at. On 2026-11-14 the owner added an eighth: editing an order on a published plan. The command's answer
+at. On 2026-11-14 an eighth was added: editing an order on a published plan. The command's answer
 says at once that the order is on a published route, and the order's last-change time is enough for the
 live view to mark the stop "changed since publishing", so nothing needs an event.
 
@@ -54,7 +54,7 @@ live view to mark the stop "changed since publishing", so nothing needs an event
 - An event is a past-tense, immutable record. It lives in its module's `events` package, which is a
   Spring Modulith named interface: `<module>/events/`.
 - **It carries only IDs, shared-kernel values and small enums defined in its own `events`
-  package,** such as a revision cause or an outcome kind (the owner, 2026-11-14). It has its own ID,
+  package,** such as a revision cause or an outcome kind (decided 2026-11-14). It has its own ID,
   `occurredAt` and the aggregate's ID and version. It is never a copy of the aggregate's state. A listener that needs more asks the
   owner.
 - **The domain may import its own module's `events` package.** Aggregates raise events, so the

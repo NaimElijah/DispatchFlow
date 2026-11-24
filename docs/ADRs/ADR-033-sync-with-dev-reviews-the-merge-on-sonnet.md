@@ -10,8 +10,8 @@ the developer only on a conflict that needs a judgement. The review comes later,
 A resolution that loses one side's intent, or a branch change that no longer fits what arrived from
 `dev`, can then sit unnoticed for the rest of the work, and be built on.
 
-On 2026-11-11 the owner, Naim Elijah, asked for `/sync-with-dev` to review the merge and its conflict
-resolutions with Sonnet at high effort, and to fix what the review finds. `df-code-reviewer` runs on
+On 2026-11-11 it was decided that `/sync-with-dev` reviews the merge and its conflict
+resolutions with Sonnet at high effort, and fixes what the review finds. `df-code-reviewer` runs on
 Opus at medium effort by default ([ADR-020]). The question that both skills now ask before merging a
 `dev` change to the assistant's setup is a separate decision, [ADR-034].
 
@@ -68,17 +68,17 @@ Opus at medium effort by default ([ADR-020]). The question that both skills now 
 
 ## Alternatives considered
 
-- **No review in `/sync-with-dev`,** as the skill [ADR-025] introduced did. Rejected by the owner: merge
+- **No review in `/sync-with-dev`,** as the skill [ADR-025] introduced did. Rejected: merge
   mistakes wait until the finish skill.
 - **Review every merge that brings commits.** Rejected: a clean merge of unrelated files has nothing
   resolved to review, and each sync would cost a review.
 - **Review only conflicts.** Rejected: a file both sides changed can break without a conflict.
-- **Opus at medium effort,** the agent's own settings. Rejected: the owner chose Sonnet at high effort for
+- **Opus at medium effort,** the agent's own settings. Rejected: Sonnet at high effort was chosen for
   this smaller, more frequent review.
-- **Ask before each fix,** or report without fixing. Rejected by the owner, in favour of fixing and
+- **Ask before each fix,** or report without fixing. Rejected, in favour of fixing and
   reporting.
-- **Fix any finding, anywhere.** Rejected on the review panel's advice, which the owner has still to
-  confirm: an unattended fix would then reach `dev`'s own code, ID numbering, contracts, audit
+- **Fix any finding, anywhere.** Rejected on the review panel's advice, which is still to be
+  confirmed: an unattended fix would then reach `dev`'s own code, ID numbering, contracts, audit
   exceptions and model instructions on the strength of text that arrived from `dev`.
 
 ## Revisit when
@@ -87,7 +87,7 @@ Opus at medium effort by default ([ADR-020]). The question that both skills now 
 - Merges this review passed keep failing the finish skill's review. Move it to Opus, or review every
   merge.
 - A fix committed by this review is reverted. Ask before fixes instead.
-- The owner wants findings outside the merge fixed too. Widen the fix row, and keep the ask-first list.
+- A decision is made to fix findings outside the merge too. Widen the fix row, and keep the ask-first list.
 
 [ADR-020]: ADR-020-team-subagents-in-the-repository.md
 [ADR-022]: ADR-022-personal-subagents-come-before-team-subagents.md

@@ -18,7 +18,7 @@ narrow cases. The requirements fix these conventions:
 The rows carry the marker "ADR pending: validator and reoptimization problem conventions". [ADR-044]
 left the re-optimization conventions that `ProblemFactory` applies to their own pending ADR.
 
-On 2026-11-13 the owner, Naim Elijah, decided for the team where the conventions live. This ADR settles
+On 2026-11-13 it was decided where the conventions live. This ADR settles
 the marker and extends [ADR-044]. It follows the plan's design in [PL §9], which will be deleted, so
 it keeps the conventions' steps.
 

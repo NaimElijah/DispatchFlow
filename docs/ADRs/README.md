@@ -148,12 +148,12 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > kept their numbers.
 
 > [!IMPORTANT]
-> On 2026-11-13 and 2026-11-14 the owner, Naim Elijah, settled every proposed and open item in the
-> requirements and the design documents for the team. ADR-037 to ADR-047 were accepted then, and
+> On 2026-11-13 and 2026-11-14 every proposed and open item in the requirements and the design
+> documents was settled. ADR-037 to ADR-047 were accepted then, and
 > ADR-048 to ADR-093 record the rest, including every decision the requirements marked
 > `ADR pending`. ADR-094 to ADR-096, on 2026-11-14, settle three points that were found still open
 > afterwards. ADR-097 to ADR-110, from 2026-11-14, record decisions taken while the domain layer was
-> being built. ADR-111 to ADR-118, on 2026-11-15, record the owner's decisions on the review of that
+> being built. ADR-111 to ADR-118, on 2026-11-15, record the decisions on the review of that
 > layer, and the split of its packages. ADR-119 to ADR-121, on 2026-11-15, record the
 > application layer's skeleton and its review. ADR-122, on 2026-11-18, drops the finish skill's agent
 > review. ADR-123, on 2026-11-22, drops ADR-037's flat tree and renames three components. ADR-124,

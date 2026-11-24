@@ -367,8 +367,8 @@ placeholder folder for each bounded context ([TS §10](tech_stack.md#10-web-app)
 
 An Expo project. `src/index.ts` registers `src/App.tsx`, which renders a heading. `app.json`
 and `assets/` hold the Expo configuration and icons. `osv-scanner.toml` lists the vulnerabilities
-the audit ignores, each with a reason and an expiry date. The owner accepted the minimatch and glob
-entries in [ADR-023](../ADRs/ADR-023-accept-minimatch-and-glob-advisories.md), and the zod and
+the audit ignores, each with a reason and an expiry date. The minimatch and glob entries were
+accepted in [ADR-023](../ADRs/ADR-023-accept-minimatch-and-glob-advisories.md), and the zod and
 deepmerge entries in
 [ADR-095](../ADRs/ADR-095-accept-the-zod-and-deepmerge-advisories-until-2027-01-31.md). Its
 `src/features/` holds the same eight placeholder folders as the web app's. It has no route folder:

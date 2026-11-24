@@ -59,7 +59,7 @@ The context map and the enforcement it left open are settled here.
     and Audit, so each would depend on the other, and DL §2.1 requires that "no arrow points
     back". We read it this way: Audit depends only on the shared kernel, and `AuditLog` takes
     shared-kernel IDs (the account ID and the session ID), never an `Actor`. Access can then depend
-    on Audit, and the graph stays acyclic. The owner confirmed this reading on 2026-11-14, and
+    on Audit, and the graph stays acyclic. This reading was confirmed on 2026-11-14, and
     [DL §2.1][DL-21] states it.
   - Planning and Reporting reach the Python service over HTTP, through ports.
 - **A module's contract is three packages,** each marked `@NamedInterface`: `api` (what other
@@ -82,7 +82,7 @@ The context map and the enforcement it left open are settled here.
     `@Transactional` from Spring, and on nothing else from it;
   - adapters depend on the application layer and frameworks, never on each other.
   - **Only `@Transactional` in the application layer.** TS §2.1 also allowed `@Retryable` there,
-    while [TS §6.2][TS-62] allowed only `@Transactional`. On 2026-11-13 the owner settled it:
+    while [TS §6.2][TS-62] allowed only `@Transactional`. On 2026-11-13 it was settled:
     `@Retryable` and `@ConcurrencyLimit` sit on the adapter that makes the outside call, and an
     ArchUnit rule checks that the application layer uses no other Spring annotation.
 - **Six purity rules,** from [DL §3.9][DL-39], each an ArchUnit test:
@@ -116,7 +116,7 @@ The context map and the enforcement it left open are settled here.
   - when an event earns its place, and the event publication registry: [ADR-064];
   - facts outrank intent: [ADR-065]; the watchers: [ADR-066]; live arrival times: [ADR-067].
 - **The optimizer's solver adapters** sit under `adapters/outbound/solvers/`, as [TS §4][TS-4] draws
-  them, in place of [ADR-001]'s `solvers` package. The owner settled this on 2026-11-13.
+  them, in place of [ADR-001]'s `solvers` package. This was settled on 2026-11-13.
 - **Not decided here: where the app-wide `web` package goes.** It holds what belongs to no module:
   the security filter chain, the Problem Details handler and the code generated from the contract.
   The shared kernel's list has no place for it. Its own ADR decides it before the first web adapter

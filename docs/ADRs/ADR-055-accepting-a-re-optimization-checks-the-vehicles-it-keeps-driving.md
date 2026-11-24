@@ -20,7 +20,7 @@ relies on. The rows [BR-64] and [BR-65] add a separate check of every vehicle th
 driving, and carry the marker "ADR pending: check the vehicles when a re-optimization is
 accepted".
 
-On 2026-11-13 the owner, Naim Elijah, decided for the team. This ADR settles the marker.
+Decided on 2026-11-13. This ADR settles the marker.
 
 ## Decision
 
@@ -57,7 +57,7 @@ On 2026-11-13 the owner, Naim Elijah, decided for the team. This ADR settles the
 ## Alternatives considered
 
 - **No separate check,** relying on [BR-82] alone. Not chosen: it names what the proposal moves,
-  drops or relies on, and the owner chose a check of every kept vehicle ([BR-64]), so that no kept
+  drops or relies on, and a check of every kept vehicle was chosen ([BR-64]), so that no kept
   route can break [BR-20] after acceptance.
 - **Drop or reassign the changed vehicle's route at acceptance.** Not chosen: acceptance would apply
   something other than the preview the dispatcher reviewed, and nothing changes until it is

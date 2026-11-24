@@ -11,8 +11,8 @@ classes. [DL §3.9][DL-39] and [ADR-040] hold the domain to six purity rules tha
 types, and [ADR-097] has persistence rebuild an aggregate through its `restore` factory.
 
 On 2026-11-22 the team chose JPA, Hibernate through Spring Data JPA, over jOOQ for the core's
-persistence. `README.md` lists Spring Data JPA in the core's stack and calls it "the team's strongest
-stack". On 2026-11-23 the owner, Naim Elijah, decided how it is used, in 16 points
+persistence. `README.md` lists Spring Data JPA in the core's stack and calls it "the team's
+strongest stack". On 2026-11-23 it was decided how it is used, in 16 points
 ([issue #101][ISSUE-101]). They are final.
 
 What the repository held on 2026-11-23:
@@ -53,7 +53,7 @@ We replace jOOQ with JPA in the core's persistence adapters, and the domain clas
 mapping. This amends [ADR-001], [ADR-040], [ADR-041], [ADR-097], [ADR-101] and [ADR-121] (the list is at
 the end of this section), and extends [ADR-125].
 
-The numbers in parentheses are the owner's 16 decisions of 2026-11-23, in the order of
+The numbers in parentheses are the 16 decisions of 2026-11-23, in the order of
 [issue #101][ISSUE-101].
 
 **Mapping.**

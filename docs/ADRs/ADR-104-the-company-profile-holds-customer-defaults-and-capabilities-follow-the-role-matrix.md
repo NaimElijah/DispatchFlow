@@ -33,7 +33,7 @@ of its rules were left open by the design:
 
 ## Decision
 
-On 2026-11-14 the owner, Naim Elijah, decided these:
+Decided on 2026-11-14:
 
 1. **The company profile holds a new customer's defaults** ([FR-125], [FR-184]).
    - `CompanyProfile` holds a `DefaultWindow` and, once an Admin sets one, a `DefaultServiceTime`
@@ -79,14 +79,14 @@ On 2026-11-14 the owner, Naim Elijah, decided these:
    - On `issueLink`, an account drops each link that no longer works (spent, voided or expired) and
      was sent more than 72 hours ago, the longest a link works.
 5. **A deactivation, and an Admin ending every session ([FR-187]), void every open link.**
-   [NFR-224] says so now; the owner allowed that row's edit.
+   [NFR-224] says so now; that row's edit was allowed.
 6. **A set-password link is only for an account with no password yet.** `issueLink` refuses it
    otherwise with `PasswordAlreadySet`, and a reset goes through the 1-hour recovery link
    ([FR-294], [FR-345]).
 7. **`UserAccount.anonymize` raises `AccountAnonymized`,** naming the account. Fleet's listener
    anonymizes the driver record keyed by it ([NFR-258], [NFR-260]).
 
-One choice is this ADR's own, not the owner's. **`DefaultWindow` is not the kernel's
+One choice is this ADR's own, beyond those above. **`DefaultWindow` is not the kernel's
 `TimeWindow`,** because the kernel's value lies on one delivery date and a default belongs to no
 date. So Access models the window itself ([DL §2.3][DL-23], rule 1). `DefaultWindow` holds two
 wall-clock times and checks that the first is before the second ([BR-35]). Customers & Orders builds
@@ -121,7 +121,7 @@ the kernel `TimeWindow` on each order's date, where the date's skipped hour is c
 - **A new kernel value for a window of any day.** Not chosen: the kernel changes only with every
   module owner's agreement ([DL §2.3][DL-23], rule 5), and Access alone needs it now.
 - **Capabilities named for operations** (`PLAN_PUBLISH`, `USERS_MANAGE`), as [ADR-068]'s examples
-  are. Not chosen by the owner: one constant per row keeps the matrix and the code one-to-one.
+  are. Not chosen: one constant per row keeps the matrix and the code one-to-one.
 - **A qualified cell read as no grant.** Rejected: a Driver could then not read their own account
   or change their own email, which the matrix allows.
 - **Refusing to remove the last role.** Rejected: retiring a driver whose only role is Driver must

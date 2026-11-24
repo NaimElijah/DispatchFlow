@@ -45,8 +45,8 @@ known vulnerability fails the audit.
 | `GHSA-mrhx-c7xc-m3w5` | zod 3.25.76 | Reaches the app only through build tooling (`@expo/cli`, and `eslint-plugin-react-hooks` via `eslint-config-expo`), never the app bundle. It validates only our own config files. The only fix is zod 4, which `@expo/cli` does not accept. |
 | `GHSA-gcqx-w48m-w2h4` | deepmerge 4.3.1 | Reaches the app only through build and test tooling (`@expo/config`, `jest-config`), never the app bundle. It merges only our own config objects. No fixed version exists. |
 
-- **The owner has not yet confirmed accepting these two.** Until the owner reviews them, the
-  acceptance is a proposal written down so that the audit can pass. It is not a decision.
+- **Accepting these two is not yet confirmed.** Until they are reviewed, the acceptance is a
+  proposal written down so that the audit can pass. It is not a decision.
 
 ## Consequences
 
@@ -85,7 +85,7 @@ known vulnerability fails the audit.
 
 - **Expo accepts zod 4, or an accepted vulnerability reaches its `ignoreUntil` date.** Upgrade,
   or write a new justification with a new date.
-- **The owner rejects an accepted vulnerability.** Remove its entry, and fix or replace the
+- **An accepted vulnerability is rejected.** Remove its entry, and fix or replace the
   package that brings it in.
 - **The repository becomes public, or GitHub Advanced Security is paid for.** Compare GitHub's
   dependency scanning with this audit.

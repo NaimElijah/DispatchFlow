@@ -5,8 +5,8 @@
 
 ## Context
 
-On 2026-11-13 the owner, Naim Elijah, decided for the team what happens to a published or ready
-route that changes while the optimizer is down. He adopted the proposal that the tech stack's open
+Decided on 2026-11-13: what happens to a published or ready
+route that changes while the optimizer is down. The decision adopted the proposal that the tech stack's open
 decisions listed under "Validator while the optimizer is down". It completes what [NFR-42], [FR-304]
 and [FR-315] leave open: what a route shows until the optimizer answers.
 

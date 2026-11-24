@@ -60,7 +60,7 @@ each stands.
 
 ## Decision
 
-On 2026-11-15 the owner, Naim Elijah, decided:
+Decided on 2026-11-15:
 
 1. **Accepting a re-optimization keeps every route in force, with the stops the proposal neither
    serves nor drops, and keeps every order the plan held** ([BR-07], [BR-10], [BR-83], [BR-108],

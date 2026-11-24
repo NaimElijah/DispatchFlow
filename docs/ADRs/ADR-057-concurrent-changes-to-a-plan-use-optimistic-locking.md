@@ -5,7 +5,7 @@
 
 ## Context
 
-On 2026-11-13 the owner, Naim Elijah, decided for the team the rule that the requirements mark "ADR
+Decided on 2026-11-13: the rule that the requirements mark "ADR
 pending: concurrent changes to a plan" ([BR-38]). Two requirements meet there. A plan has at most one
 re-optimization running at a time ([BR-38]). Two dispatchers cannot silently overwrite each other's
 changes to a plan: an out-of-date change is refused with its reason ([BR-76]).

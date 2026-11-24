@@ -19,10 +19,9 @@ twice and a late one can arrive after the stop has left the driver's route. The 
   except as [BR-88] says ([BR-27]).
 
 These rows carried the marker "ADR pending: driver report sync and idempotency". On 2026-11-13
-the owner, Naim Elijah, decided for the team to adopt the design of [PL §13.3] and [PL §19]:
-user-scoped keys, a `request_key` store on the server, and a per-route order in the phone's outbox
-([PL §25]). This extends [ADR-043], which left idempotency keys on driver reports to an ADR of their
-own.
+it was decided to adopt the design of [PL §13.3] and [PL §19]: user-scoped keys, a `request_key`
+store on the server, and a per-route order in the phone's outbox ([PL §25]). This extends
+[ADR-043], which left idempotency keys on driver reports to an ADR of their own.
 
 ## Decision
 
@@ -74,7 +73,7 @@ own.
 - **A backdated report can be held.** A late report that would move a stop off another driver's
   route, or override a cancellation, waits for the dispatcher's confirmation if a session of the
   reporting account made contact with the server between 2 minutes after the report's corrected time
-  and 2 minutes before the report arrived ([BR-132]). The owner decided this on 2026-11-14.
+  and 2 minutes before the report arrived ([BR-132]). This was decided on 2026-11-14.
   - Contact is any request from any session of the reporting account, not only the session that sent
     the report, other than a token refresh or an outbox send. The server keeps contact times for 14
     days, as long as a late report can arrive ([NFR-235]), only for sessions of accounts with the

@@ -50,7 +50,7 @@ We pin every toolchain in one root file, `mise.toml`, and move the core to Java 
     files, because uv reads it ([ADR-010]).
   - Node.js: the current LTS ([TS §21][TS-21]). The sources do not name the major. [ADR-010]'s
     open question about Expo and Node 26 carries over, and the M0 restructure pull request
-    settles it when it writes `mise.toml` (decided by the owner on 2026-11-14).
+    settles it when it writes `mise.toml` (decided on 2026-11-14).
   - uv, pnpm, just and Terraform: exact versions, chosen when `mise.toml` is written.
 - **`mise.toml` replaces `.java-version`, `.python-version` and `.nvmrc`.** The root files in
   [TS §4][TS-4] list `mise.toml` and none of the three.

@@ -5,9 +5,9 @@
 
 ## Context
 
-[ADR-119] declared the application layer ahead of its milestones, and [ADR-120] set its conventions.
-Both merged in #82. Before the milestones build the bodies, Naim Elijah, the owner, asked for the
-skeleton to be checked and fixed.
+[ADR-119] declared the application layer ahead of its milestones, and [ADR-120] set its
+conventions. Both merged in #82. Before the milestones build the bodies, it was decided to have
+the skeleton checked and fixed.
 
 Nine reviewers read it:
 - four by module;
@@ -23,12 +23,12 @@ places:
   sign-out that needs an access token, and phone writes without a request key.
 
 Most fixes follow an accepted row or ADR. Eighteen needed a decision: thirteen after the review
-(decisions 1 to 13), and five after a seven-reviewer re-review of the fixes (decisions 14 to 18). Naim
-took each on 2026-11-15, all as recommended.
+(decisions 1 to 13), and five after a seven-reviewer re-review of the fixes (decisions 14 to 18).
+Each was decided on 2026-11-15, all as recommended.
 
 ## Decision
 
-### Naim's decisions
+### The decisions
 
 1. **The scoring rates live in the core's configuration.**
    - The values are:

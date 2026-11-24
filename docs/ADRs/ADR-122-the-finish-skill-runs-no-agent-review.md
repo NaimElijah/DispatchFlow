@@ -33,8 +33,8 @@ and nothing else in the skill does either. Today neither `just check` nor CI sca
 Alpha, and that scan runs only after a push. ADR-072 also plans for Gitleaks to block a commit that
 holds a secret, which would run before the push. Neither is built.
 
-On 2026-11-18 the owner, Naim Elijah, decided that the finish skill should run no agent review. He
-was offered three options and turned each of them down:
+Decided on 2026-11-18: the finish skill runs no agent review. Three options were offered and each
+was turned down:
 
 - each developer's own reviewers, with no review for anyone who has none;
 - one generic reviewer for everyone;
@@ -123,8 +123,8 @@ The rest of ADR-033 stands, its decision included.
 
 ## Alternatives considered
 
-- **Keep the df reviewers ([ADR-025]).** Rejected by the owner.
-- **Run each developer's own reviewers, and none for a developer who has none.** Rejected by the owner.
+- **Keep the df reviewers ([ADR-025]).** Rejected.
+- **Run each developer's own reviewers, and none for a developer who has none.** Rejected.
   The review would then differ from one machine to another, which ADR-025 avoided by naming the team
   agents.
 - **One generic reviewer for everyone,** such as the built-in `/code-review` or a `general-purpose`
@@ -132,8 +132,9 @@ The rest of ADR-033 stands, its decision included.
   agent does not know the project's rules.
 - **Remove the check for secrets along with the review.** Rejected: it is not a review, and nothing else
   in the workflow catches a secret before it is pushed.
-- **Keep only `df-security-reviewer`, on the changes its description lists.** Not put to the owner. The
-  security review of this change raised it, and it is recorded here for the revisit below.
+- **Keep only `df-security-reviewer`, on the changes its description lists.** Not offered as an
+  option. The security review of this change raised it, and it is recorded here for the revisit
+  below.
 
 ## Revisit when
 

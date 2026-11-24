@@ -5,9 +5,9 @@
 
 ## Context
 
-On 2026-11-13 the owner, Naim Elijah, confirmed for the team that the licence of every dependency
-must be compatible with the project's own ([NFR-51]), and that the notices its licences require ship
-with the apps ([NFR-154]). This ADR settles the marker "ADR pending: dependency licence check".
+On 2026-11-13 it was confirmed that the licence of every dependency must be compatible with the
+project's own ([NFR-51]), and that the notices its licences require ship with the apps
+([NFR-154]). This ADR settles the marker "ADR pending: dependency licence check".
 
 The project's own licence is proprietary, all rights reserved ([ADR-017]). That ADR found every
 planned dependency permissive and named three licences:

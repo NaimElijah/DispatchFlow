@@ -5,8 +5,8 @@
 
 ## Context
 
-On 2026-11-14 the owner, Naim Elijah, decided for the team that the domain layer design (DL) is
-settled, and that its projected arrivals get their own ADR. No "ADR pending" marker covers this
+Decided on 2026-11-14: the domain layer design (DL) is
+settled, and its projected arrivals get their own ADR. No "ADR pending" marker covers this
 decision. The implementation plan lists it among the decisions that need an ADR ([PL §25][PL-25]).
 
 Three requirements need a projected arrival time while a route is in progress:
@@ -45,7 +45,7 @@ back with the routes, and the plan stores them ([DL §10.2][DL-102]).
    waits there ([BR-122], [ADR-032]). Then `next arrival = start + service + leg`.
 
 **[FR-254] states this method.** It said "planned arrival plus the route's observed delay", which
-differs when waiting absorbs the delay or `now` binds. The owner chose this ADR's method on
+differs when waiting absorbs the delay or `now` binds. This ADR's method was chosen on
 2026-11-14, and FR-254 was reworded to match.
 
 **A delay that pushes a departure into another bucket keeps the planned bucket.** Exact re-timing

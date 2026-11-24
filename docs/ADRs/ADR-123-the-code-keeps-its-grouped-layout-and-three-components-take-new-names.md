@@ -47,8 +47,8 @@ Three names are also in question:
   names", line 63). The Expo app's `app.json` still says "DispatchFlow Driver", with the slug
   `dispatchflow-driver`. No EAS project ID is in `app.json`, so no store identity depends on either.
 
-On 2026-11-22 the owner, Naim Elijah, decided to drop the flat tree and rename the three components
-inside the grouped one.
+Decided on 2026-11-22: drop the flat tree and rename the three components inside the grouped
+one.
 
 ## Decision
 

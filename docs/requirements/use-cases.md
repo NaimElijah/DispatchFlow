@@ -1434,8 +1434,8 @@ FR-49, FR-348 to FR-363, FR-371 to FR-384, NFR-189 to NFR-193, NFR-196 to NFR-20
 ## Gaps
 
 Rows that no use case cites, and that describe something a person does. They may still be built and
-tested, but no use case, and so no usability session or end-to-end test, is anchored on them. The
-owner decides which of them, if any, need a use case. This file proposes none.
+tested, but no use case, and so no usability session or end-to-end test, is anchored on them. It is
+still to be decided which of them, if any, need a use case. This file proposes none.
 
 The table's last column says whether [ADR-090](../ADRs/ADR-090-scope-cuts-for-the-first-release.md)
 cuts the row. No row below is cut. Three are named there as the stand-in for a cut capability, and
@@ -1573,7 +1573,7 @@ These look like steps of a process that no use case describes:
 ## Discrepancies
 
 Each item is a mismatch between a UC row and a row it cites, or a gap in what the UC row cites.
-requirements.md is unchanged. The owner decides which to fix there.
+requirements.md is unchanged. Which to fix there is still to be decided.
 
 ### Words not used
 

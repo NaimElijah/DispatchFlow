@@ -15,7 +15,7 @@ whole problem, the matrix included ([PL §6]). The matrix is built from a `table
 and the distinct customer locations, at most 15 + 200 of them, about 47,000 entries, and it must be
 built within 5 seconds ([NFR-57], [PL §14]).
 
-On 2026-11-13 the owner, Naim Elijah, decided for the team how the matrix is sent and where it is
+On 2026-11-13 it was decided how the matrix is sent and where it is
 kept. This ADR settles the marker.
 
 ## Decision

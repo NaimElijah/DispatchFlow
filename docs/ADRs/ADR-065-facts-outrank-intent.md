@@ -5,9 +5,9 @@
 
 ## Context
 
-On 2026-11-14 the owner, Naim Elijah, decided for the team that the domain layer design (DL) is
-settled, and that its rule for a fact that contradicts the plan gets its own ADR. He also decided
-in the same round how an order's status ranks a cancellation against an outcome ([BR-33]). No
+Decided on 2026-11-14: the domain layer design (DL) is
+settled, and its rule for a fact that contradicts the plan gets its own ADR. How an order's status ranks a
+cancellation against an outcome ([BR-33]) was decided in the same round. No
 "ADR pending" marker covers either.
 
 Facts arrive late. A phone can work offline for hours ([FR-69], [FR-70]), so a report can reach the
@@ -53,17 +53,17 @@ corrected and a person is told.
 
    **The fourth row is the rule.** A report whose corrected time is before the cancellation is
    accepted as *served after cancellation* ([BR-130]), and the dispatcher is alerted; one timed after
-   it is refused and shown ([BR-88], [BR-90]). The owner chose this on 2026-11-14, and [BR-88] and
+   it is refused and shown ([BR-88], [BR-90]). This was chosen on 2026-11-14, and [BR-88] and
    [BR-90] were reworded to say it ([PL §24][PL-24] tests it).
 4. **No lock.** The cancel-versus-report race is the same path. `Order.cancel` refuses when the
    `StopState` it was given already shows a fact ([BR-92]). When the fact lands after that read, the
    table above settles it.
 5. **A corrected time later than the server's receipt time is cut to the receipt time** ([BR-110]).
-   The owner decided this on 2026-11-13 ([Q-92], answer 8).
+   This was decided on 2026-11-13 ([Q-92], answer 8).
 6. **A backdated report is held.** A late report that would move a stop off another driver's route,
    or override a cancellation, waits for the dispatcher's confirmation if a session of the reporting
    account made contact with the server between 2 minutes after the report's corrected time and 2
-   minutes before the report arrived ([BR-132]). The owner decided this on 2026-11-14.
+   minutes before the report arrived ([BR-132]). This was decided on 2026-11-14.
    - **Contact** is any request from any session of the reporting account, not only the session that
      sent the report, other than a token refresh or an outbox send. The server keeps contact times
      for 14 days, as long as a late report can arrive ([NFR-235]), only for sessions of accounts
@@ -83,7 +83,7 @@ corrected and a person is told.
    4. *unplanned*, including a put-back that starts a new attempt ([FR-258]) and an order on an
       abandoned plan.
 
-   A cancellation still shows beside an outcome. The owner decided this precedence on 2026-11-14 and
+   A cancellation still shows beside an outcome. This precedence was decided on 2026-11-14 and
    it is added to [BR-33]. The `OrderStatuses` query reads a whole date at once, so a screen of 200
    orders makes three queries.
 

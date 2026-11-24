@@ -6,7 +6,7 @@
 ## Context
 
 [ADR-130] declared every folder the project will need, and #263 merged it into `dev`. Before it
-reached `main`, the owner, Naim Elijah, asked for the merged work to be reviewed again. Six
+reached `main`, it was decided to review the merged work again. Six
 reviewers read it: code, tests, docs, security, architecture and infrastructure. None found a
 blocker. They found four kinds of gap:
 
@@ -34,7 +34,7 @@ blocker. They found four kinds of gap:
   transaction" over every module also conflicts with [ADR-063] and [ADR-129]: a transaction never
   spans modules.
 
-The owner chose each answer below on 2026-11-24, all as recommended.
+Each answer below was decided on 2026-11-24, all as recommended.
 
 ## Decision
 
@@ -134,10 +134,10 @@ stands.
   could reach any module.
 - **Only review keeps the generated client in its adapters.** Rejected: ADR-130 states the
   invariant, and a rule costs one fixture.
-- **Run a revoking server step with `core` stopped.** Not chosen by the owner: it costs a minute of
+- **Run a revoking server step with `core` stopped.** Not chosen: it costs a minute of
   downtime for every written request. The serving core hears the eviction instead.
-- **Design the cross-module steps at their milestone, and declare nothing now.** Not chosen by the
-  owner: each module will own its part anyway, and the company exit needs every module's export.
+- **Design the cross-module steps at their milestone, and declare nothing now.** Not chosen: each
+  module will own its part anyway, and the company exit needs every module's export.
 - **A top-level `admin` package that calls every module's `api`.** Rejected: it would be a third
   non-module beside `shared` and `web`, and the transaction conflict would remain.
 - **Put the solver workers in `adapters/inbound/http`.** Rejected: `spawn` mode would import
