@@ -10,8 +10,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * FR-398's normalization, step by step, as ADR-086 and ADR-102 define it: punctuation becomes a space,
- * and the geresh and gershayim stay. Each case names the step it shows; the abbreviation table holds
- * only ADR-086's three entries.
+ * and the geresh and gershayim stay. Each case names the step it shows. The abbreviation table holds
+ * ADR-086's three entries and ADR-137's six, each with a case of its own, and the abbreviations ADR-137
+ * leaves out stay as typed.
  */
 class NormalizedAddressTest {
 
@@ -43,7 +44,14 @@ class NormalizedAddressTest {
                 Arguments.of("the gershayim itself", "ת\u05f4א", "תל אביב"),
                 Arguments.of("שד\u05f3 expands to שדרות", "שד\u05f3 רוטשילד 1", "שדרות רוטשילד 1"),
                 Arguments.of("an abbreviation inside a word is left alone", "ברח\u05f3 3", "ברח\u05f3 3"),
-                Arguments.of("an abbreviation not in the table is left alone", "שכ\u05f3 התקווה", "שכ\u05f3 התקווה"),
+                Arguments.of("שכ\u05f3 expands to שכונה", "שכ\u05f3 ד\u05f3", "שכונה ד\u05f3"),
+                Arguments.of("סמ\u05f3 expands to סמטה", "סמ\u05f3 הגפן 2", "סמטה הגפן 2"),
+                Arguments.of("ת\u05f4ד expands to תא דואר", "ת\u05f4ד 1234", "תא דואר 1234"),
+                Arguments.of("דיר\u05f3 expands to דירה", "הרצל 5 דיר\u05f3 3", "הרצל 5 דירה 3"),
+                Arguments.of("כנ\u05f3 expands to כניסה", "הרצל 5 כנ\u05f3 ב\u05f3", "הרצל 5 כניסה ב\u05f3"),
+                Arguments.of("מס\u05f3 expands to מספר", "הרצל מס\u05f3 5", "הרצל מספר 5"),
+                Arguments.of(
+                        "an abbreviation touching a digit is left alone", "הרצל 5 דיר\u05f33", "הרצל 5 דיר\u05f33"),
                 Arguments.of("a geresh outside an abbreviation stays", "צ'רנחובסקי 4", "צ\u05f3 רנחובסקי 4"),
                 Arguments.of("punctuation becomes a space", "הרצל (5), דירה 3!", "הרצל 5 דירה 3"),
                 Arguments.of("a slash keeps numbers apart", "הרצל 5/3", "הרצל 5 3"),
@@ -61,17 +69,36 @@ class NormalizedAddressTest {
                 Arguments.of("caf\u00e9 5", "cafe\u200d\u0301 5"),
                 Arguments.of("caf\u00e9 5", "cafe\u200e\u0301 5"),
                 Arguments.of("\u0622 5", "\u0627\u061c\u0653 5"),
-                Arguments.of("רח'הרצל", "רח\u05f3 הרצל"));
+                Arguments.of("רח'הרצל", "רח\u05f3 הרצל"),
+                Arguments.of("שכ' ד', באר שבע", "שכונה ד\u05f3 באר שבע"),
+                Arguments.of("שכ\u05f3 התקווה", "שכונה התקווה"));
+    }
+
+    /** ADR-137 decision 2: each of these has two meanings or two full forms in an address. */
+    static Stream<String> leftOut() {
+        return Stream.of(
+                "הרצל 5 ד\u05f3",
+                "הרצל 5 ק\u05f3 2",
+                "כ\u05f3 המדינה 4",
+                "א\u05f4ת עמק שרה 7",
+                "אזה\u05f4ת עמק שרה 7",
+                "הרצל 5 ב\u05f4ש");
     }
 
     static Stream<Arguments> differentAddresses() {
-        return Stream.of(Arguments.of("הרצל 5/3", "הרצל 53"), Arguments.of("שכ\u05f3 התקווה", "שכונה התקווה"));
+        return Stream.of(Arguments.of("הרצל 5/3", "הרצל 53"), Arguments.of("הרצל 5 ק\u05f3 2", "הרצל 5 קומה 2"));
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("steps")
     void GivenAnAddress_WhenNormalized_ThenEachStepOfFr398Applies(String step, String typed, String normalized) {
         assertThat(NormalizedAddress.of(Address.of(typed)).text()).isEqualTo(normalized);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("leftOut")
+    void GivenAnAbbreviationTheTableLeavesOut_WhenNormalized_ThenItStaysAsTyped(String typed) {
+        assertThat(NormalizedAddress.of(Address.of(typed)).text()).isEqualTo(typed);
     }
 
     @ParameterizedTest(name = "{0} = {1}")

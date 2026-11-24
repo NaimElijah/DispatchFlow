@@ -32,8 +32,11 @@ import org.jspecify.annotations.Nullable;
  *   <li>Latin letters lower-cased. Hebrew has no case, and other scripts are left as they are.
  * </ol>
  *
- * <p>The table holds the three abbreviations ADR-086 names, and only those: רח׳ for רחוב, שד׳ for
- * שדרות and ת״א for תל אביב (ADR-102).
+ * <p>The table holds ADR-086's three abbreviations, רח׳ for רחוב, שד׳ for שדרות and ת״א for תל אביב
+ * (ADR-102), and the six ADR-137 adds: שכ׳ for שכונה, סמ׳ for סמטה, ת״ד for תא דואר, דיר׳ for דירה,
+ * כנ׳ for כניסה and מס׳ for מספר. An abbreviation that stands for more than one word, such as ד׳ (a
+ * flat, or Be'er Sheva's neighbourhood ד׳), ק׳ (a floor, or a town's קריית) or ב״ש (באר שבע, or בית
+ * שמש), stays out, because expanding it wrongly would merge two customers.
  *
  * <p>It is a class with one factory, so a normalized address is always computed from an {@link
  * Address} and never typed. It is personal data: {@link #toString()} hides it.
@@ -65,7 +68,13 @@ public final class NormalizedAddress implements PersonalData {
     private static final List<Abbreviation> ABBREVIATIONS = List.of(
             Abbreviation.of("רח" + GERESH, "רחוב"),
             Abbreviation.of("שד" + GERESH, "שדרות"),
-            Abbreviation.of("ת" + GERSHAYIM + "א", "תל אביב"));
+            Abbreviation.of("ת" + GERSHAYIM + "א", "תל אביב"),
+            Abbreviation.of("שכ" + GERESH, "שכונה"),
+            Abbreviation.of("סמ" + GERESH, "סמטה"),
+            Abbreviation.of("ת" + GERSHAYIM + "ד", "תא דואר"),
+            Abbreviation.of("דיר" + GERESH, "דירה"),
+            Abbreviation.of("כנ" + GERESH, "כניסה"),
+            Abbreviation.of("מס" + GERESH, "מספר"));
 
     private final String text;
 
