@@ -3,16 +3,14 @@ package com.dispatchflow.planning.application.service.plan.route;
 import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
-import com.dispatchflow.planning.domain.plan.PlanLayout;
+import com.dispatchflow.planning.application.service.plan.LayoutToJudge;
 import com.dispatchflow.planning.domain.solution.Evaluation;
-import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.util.List;
-import java.util.Objects;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -90,22 +88,5 @@ public class RecheckRoutesChange {
      */
     public PlanId apply(PlanId plan, Version planVersion, Evaluation evaluation, CallContext call) {
         throw new UnsupportedOperationException("Built in M9");
-    }
-
-    /**
-     * A plan as it is, with its date and the version it was read at, for the evaluation request.
-     *
-     * @param date the plan's delivery date
-     * @param planVersion the version the layout was read from
-     * @param layout the plan's routes, drops and pins
-     */
-    public record LayoutToJudge(DeliveryDate date, Version planVersion, PlanLayout layout) {
-
-        /** Checks every part is present. */
-        public LayoutToJudge {
-            Objects.requireNonNull(date, "date");
-            Objects.requireNonNull(planVersion, "planVersion");
-            Objects.requireNonNull(layout, "layout");
-        }
     }
 }

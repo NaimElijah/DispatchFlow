@@ -6,15 +6,12 @@ import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.fleet.application.api.FleetFacts;
 import com.dispatchflow.orders.application.api.OrdersForDate;
 import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
-import com.dispatchflow.planning.domain.plan.PlanLayout;
 import com.dispatchflow.planning.domain.solution.Evaluation;
-import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
-import java.util.Objects;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -104,22 +101,5 @@ public class PublishPlanChange {
      */
     public void apply(Actor actor, PlanId plan, Version expected, Evaluation recheck) {
         throw new UnsupportedOperationException("Built in M5");
-    }
-
-    /**
-     * A plan as it is, with its date and the version it was read at, for the re-check's request.
-     *
-     * @param date the plan's delivery date
-     * @param planVersion the version the layout was read from
-     * @param layout the plan's routes, drops and pins
-     */
-    public record LayoutToJudge(DeliveryDate date, Version planVersion, PlanLayout layout) {
-
-        /** Checks every part is present. */
-        public LayoutToJudge {
-            Objects.requireNonNull(date, "date");
-            Objects.requireNonNull(planVersion, "planVersion");
-            Objects.requireNonNull(layout, "layout");
-        }
     }
 }

@@ -3,17 +3,15 @@ package com.dispatchflow.planning.application.service.plan.edit;
 import com.dispatchflow.access.application.api.Actor;
 import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
+import com.dispatchflow.planning.application.service.plan.LayoutToJudge;
 import com.dispatchflow.planning.domain.PinTarget;
-import com.dispatchflow.planning.domain.plan.PlanLayout;
 import com.dispatchflow.planning.domain.solution.Evaluation;
-import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
-import java.util.Objects;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -86,23 +84,5 @@ public class PinOrderChange {
     public void apply(
             Actor actor, PlanId plan, OrderId order, PinTarget target, Version expected, Evaluation evaluation) {
         throw new UnsupportedOperationException("Built in M4");
-    }
-
-    /**
-     * The plan as {@code Plan.afterPin} gives it, with its date and the version it was read at, for
-     * the evaluation request.
-     *
-     * @param date the plan's delivery date
-     * @param planVersion the version the layout was read from
-     * @param layout the plan's routes, drops and pins as the change would leave them
-     */
-    public record LayoutToJudge(DeliveryDate date, Version planVersion, PlanLayout layout) {
-
-        /** Checks every part is present. */
-        public LayoutToJudge {
-            Objects.requireNonNull(date, "date");
-            Objects.requireNonNull(planVersion, "planVersion");
-            Objects.requireNonNull(layout, "layout");
-        }
     }
 }
