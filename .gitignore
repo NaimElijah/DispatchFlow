@@ -17,8 +17,9 @@ logs/*
 !logs/.gitkeep
 
 # Built data files (the OSM extract, OSRM files, PMTiles and benchmark instances): large, and
-# rebuilt from their sources, so never committed (ADR-123)
-/data/
+# rebuilt from their sources, so never committed (ADR-123). The folder itself is kept (ADR-130).
+/data/*
+!/data/.gitkeep
 
 # OS files
 .DS_Store

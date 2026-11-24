@@ -37,7 +37,8 @@ with its layout, rules and commands.
 - Add a shared package once hand-written code, not generated code, would otherwise be copied
   between the two apps ([ADR-008], restated by [ADR-123]). [ADR-039] sets those packages up at the
   Alpha, in `src/frontend/packages/`, as `@dispatchflow/*` in a pnpm workspace that replaces
-  npm.
+  npm. Its seven folders are placeholders until the ticket that first fills one adds its
+  `package.json` ([ADR-130]).
 - TypeScript is held at 6.0 in both apps, because typescript-eslint does not support 7 yet
   ([ADR-039], [TS §10]).
 
