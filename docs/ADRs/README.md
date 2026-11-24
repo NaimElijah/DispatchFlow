@@ -32,12 +32,13 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-111](ADR-111-attempt-is-a-shared-kernel-value-and-names-and-addresses-drop-invisible-fillers.md) | Attempt is a shared-kernel value, and names and addresses drop invisible fillers | Accepted |
 | [ADR-119](ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md) | The application layer is declared ahead of its milestones, as signatures whose bodies throw | Accepted; extended by ADR-130; amended by ADR-121, ADR-129 and ADR-132 |
 | [ADR-120](ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md) | The application layer takes an Actor and a CallContext, keeps its shared ports in shared.application, and reads through query ports | Accepted; extended by ADR-125, ADR-130 and ADR-131; amended by ADR-121 |
-| [ADR-121](ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md) | The application skeleton's review settles its seams, its conflicts, its retention and its scoring inputs | Accepted; extended by ADR-131; amended by ADR-126 and ADR-132 |
+| [ADR-121](ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md) | The application skeleton's review settles its seams, its conflicts, its retention and its scoring inputs | Accepted; extended by ADR-131 and ADR-136; amended by ADR-126 and ADR-132 |
 | [ADR-041](ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md) | Each module owns a PostgreSQL schema, read and written through jOOQ by a role that owns no table | Accepted; amended by ADR-126 and ADR-127 |
 | [ADR-126](ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) | JPA replaces jOOQ in the core, and the domain classes carry their own mapping | Accepted; extended by ADR-130; amended by ADR-127 and ADR-128 |
 | [ADR-127](ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md) | How the 20 aggregates are mapped, and where their stored state is tested | Accepted; extended by ADR-128 |
 | [ADR-128](ADR-128-the-persistence-rules-the-mapping-settled-after-adr-127.md) | The persistence rules the JPA mapping settled after ADR-127 | Accepted |
 | [ADR-129](ADR-129-transactions-start-only-in-the-service-layer.md) | Transactions start only in the service layer | Accepted |
+| [ADR-136](ADR-136-the-core-waits-two-seconds-for-a-lock-and-a-lock-it-cannot-get-is-retried.md) | The core waits at most 2 seconds for a lock, and a call that can't get one is retried | Accepted |
 | [ADR-130](ADR-130-every-folder-is-declared-ahead-empty-and-documented.md) | Every folder the design draws is declared ahead, empty and documented | Accepted; amended by ADR-131, ADR-132 and ADR-133 |
 | [ADR-131](ADR-131-the-declared-structures-review-tightens-its-rules-and-fills-its-gaps.md) | The declared structure's review tightens its rules and fills its gaps | Accepted |
 | [ADR-132](ADR-132-unbuilt-bodies-say-to-be-implemented.md) | Unbuilt bodies say "To Be Implemented." and name no milestone | Accepted |
@@ -80,7 +81,8 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-084](ADR-084-maplibre-in-both-apps-with-self-hosted-protomaps-tiles.md) | Both apps draw maps with MapLibre, from self-hosted Protomaps tiles | Accepted |
 | [ADR-085](ADR-085-govmap-geocodes-addresses-with-nominatim-as-the-fallback.md) | GovMap geocodes addresses, and self-hosted Nominatim replaces it only if GovMap's terms fail | Accepted; amended by ADR-121 |
 | [ADR-086](ADR-086-csv-imports-upload-then-confirm-within-an-hour.md) | An order import is two calls, upload then confirm within an hour, and writes every row or none | Accepted; extended by ADR-102 |
-| [ADR-102](ADR-102-order-references-are-checked-on-every-move-to-a-date.md) | Order references are checked on every move to a date, and the abbreviation table starts with three | Accepted; amended by ADR-115 |
+| [ADR-102](ADR-102-order-references-are-checked-on-every-move-to-a-date.md) | Order references are checked on every move to a date, and the abbreviation table starts with three | Accepted; extended by ADR-137; amended by ADR-115 |
+| [ADR-137](ADR-137-the-address-abbreviation-table-gains-six-entries.md) | The address abbreviation table gains six entries, and ambiguous ones stay out | Accepted |
 | [ADR-115](ADR-115-import-rows-keep-their-own-recipient-put-backs-raise-an-event-and-orders-clamp-a-stepped-back-clock.md) | An import row keeps its own recipient, a put-back onto another date raises `OrderPutBack`, and Orders' commands clamp a clock that stepped back | Accepted |
 | [ADR-087](ADR-087-driver-reports-sync-through-an-idempotent-outbox.md) | Driver reports wait in an outbox on the phone and reach the server with a user-scoped idempotency key | Accepted; extended by ADR-121 |
 | [ADR-107](ADR-107-live-operations-alerts-once-per-key-corrects-a-put-back-by-event-and-treats-a-reschedule-as-a-cancellation.md) | Live Operations alerts once per key, corrects a put-back by event, and treats a reschedule as a cancellation | Accepted; extended by ADR-121; amended by ADR-114 |
@@ -99,10 +101,13 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-012](ADR-012-javascript-tooling-npm-eslint-prettier.md) | Both frontend apps use npm, ESLint and Prettier, with TypeScript held at 6.0 | Superseded by ADR-039 |
 | [ADR-013](ADR-013-java-tooling-maven-wrapper-and-spotless.md) | The core backend builds with the Maven wrapper and formats with Spotless and palantir-java-format | Accepted; amended by ADR-038 |
 | [ADR-014](ADR-014-real-dependencies-in-containers-for-tests-and-local-runs.md) | Integration tests and local runs use a real PostgreSQL in a container | Superseded by ADR-042 |
-| [ADR-015](ADR-015-ci-one-workflow-one-job-per-component.md) | CI is one workflow with one job per component, and Dependabot keeps dependencies current | Accepted; extended by ADR-021; amended by ADR-046 |
-| [ADR-016](ADR-016-dependency-audit-with-osv-scanner.md) | One OSV-Scanner pass audits every lockfile, and an accepted vulnerability expires | Accepted; extended by ADR-023 and ADR-072; amended by ADR-095 |
+| [ADR-015](ADR-015-ci-one-workflow-one-job-per-component.md) | CI is one workflow with one job per component, and Dependabot keeps dependencies current | Accepted; extended by ADR-021; amended by ADR-046 and ADR-135 |
+| [ADR-016](ADR-016-dependency-audit-with-osv-scanner.md) | One OSV-Scanner pass audits every lockfile, and an accepted vulnerability expires | Accepted; extended by ADR-023 and ADR-072; amended by ADR-095 and ADR-134 |
 | [ADR-023](ADR-023-accept-minimatch-and-glob-advisories.md) | Accept the minimatch and glob advisories in the frontends' tooling until 2027-01-31 | Accepted; extended by ADR-095 |
 | [ADR-095](ADR-095-accept-the-zod-and-deepmerge-advisories-until-2027-01-31.md) | Accept the zod and deepmerge advisories in the phone app's tooling until 2027-01-31 | Accepted |
+| [ADR-134](ADR-134-the-audit-resolves-the-cores-pom-from-a-mirror-of-maven-central.md) | The audit resolves the core's pom from Google's mirror of Maven Central | Accepted |
+| [ADR-135](ADR-135-the-seven-ci-jobs-are-required-checks-and-a-pull-request-needs-one-approval.md) | The seven CI jobs are required checks on `dev` and `main`, and a pull request needs one approval | Accepted; amended by ADR-138 |
+| [ADR-138](ADR-138-the-admin-bypass-returns-to-always-because-a-pull-request-bypass-refuses-the-promotion.md) | The Admin bypass returns to `always`, because a pull-request bypass refuses the merge from `dev` to `main` | Accepted |
 | [ADR-037](ADR-037-flat-layout-under-src-with-deploy-and-infra.md) | The code moves to a flat layout under `src/`, with deployment in `deploy/` and Terraform in `infra/` | Superseded by ADR-123 |
 | [ADR-123](ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md) | The code keeps its grouped layout, and three components take new names | Accepted; extended by ADR-130 |
 | [ADR-038](ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md) | mise pins every toolchain, and the core moves to Java 25 | Accepted |
@@ -180,4 +185,15 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > Implemented." and names no milestone.
 > ADR-133, on 2026-11-24, lets a `job` adapter be a step that runs once at startup, and declares
 > Access's `in/job` for the step that stores the seeded accounts.
+> ADR-134, on 2026-11-24, has the audit read the core's parent pom from Google's mirror of Maven
+> Central, which Central's rate limit had failed, and records that the core's Java dependencies are
+> audited.
+> ADR-135, on 2026-11-24, makes the seven CI jobs required checks on `dev` and `main` and has a
+> pull request wait for one approval.
+> ADR-136, on 2026-11-24, has every connection of the core wait at most 2 seconds for a lock, and
+> has the retry #162 builds re-run a call whose wait for a lock failed.
+> ADR-137, on 2026-11-24, adds six abbreviations to FR-398's table, among them שכ׳ for שכונה, and
+> names the ones left out, with the reason for each.
+> ADR-138, on 2026-11-24, returns the ruleset's Admin bypass to `always`, because the pull-request
+> bypass refused the merge commit from `dev` to `main`.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.
