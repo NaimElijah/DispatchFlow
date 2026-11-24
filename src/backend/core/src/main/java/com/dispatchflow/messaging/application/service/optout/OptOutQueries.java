@@ -1,4 +1,4 @@
-package com.dispatchflow.messaging.application.service;
+package com.dispatchflow.messaging.application.service.optout;
 
 import com.dispatchflow.access.application.api.Actor;
 import com.dispatchflow.messaging.application.port.out.MessagingViews;

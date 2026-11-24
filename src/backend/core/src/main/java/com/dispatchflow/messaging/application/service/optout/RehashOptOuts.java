@@ -1,4 +1,4 @@
-package com.dispatchflow.messaging.application.service;
+package com.dispatchflow.messaging.application.service.optout;
 
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.messaging.application.port.out.PhoneHasher;

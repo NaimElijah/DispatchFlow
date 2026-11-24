@@ -4,8 +4,8 @@
  * retention job. A dispatcher's use cases on a delivery, a record on a driver's behalf, a correction
  * and a decision on a held report, sit in {@code dispatcher} below (ADR-125). It also holds the
  * implementations of Live Operations' {@code ArrivalProjections}, of Planning's {@code
- * ExecutionFacts} and of Customers &amp; Orders' {@code StopProgress}, which read deliveries, and the
- * proof query.
+ * ExecutionFacts} and of Customers &amp; Orders' {@code StopProgress}, which read deliveries. A
+ * stop's proof, its upload and its query, sits in {@code proof} below.
  */
 @NullMarked
 package com.dispatchflow.liveops.application.service.delivery;

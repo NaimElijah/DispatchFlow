@@ -1,4 +1,4 @@
-package com.dispatchflow.messaging.application.service;
+package com.dispatchflow.messaging.application.service.optout;
 
 import com.dispatchflow.access.application.api.Actor;
 import com.dispatchflow.audit.application.api.AuditLog;
@@ -9,16 +9,16 @@ import com.dispatchflow.shared.application.Clock;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * A dispatcher records a phone's opt-out at the person's own request by phone, noting who did it
- * and when (FR-380, NFR-202). The phone's keyed hash from {@link PhoneHasher} finds its history,
- * {@code OptOutStatus.recordByDispatcher} decides the entry, and one transaction appends it with
- * the audit record. A phone already opted out gets no second entry. Like every changing call it
- * writes its audit record, a refused attempt's in its own transaction (NFR-23, ADR-110).
+ * A dispatcher removes a phone's opt-out at the person's own request by phone, by appending an
+ * opt-in, noting who did it and when; the latest entry wins (FR-380, NFR-202, ADR-108). {@code
+ * OptOutStatus.removeByDispatcher} decides the entry, and one transaction appends it with the audit
+ * record. A phone with no opt-out standing gets no entry. Like every changing call it writes its
+ * audit record, a refused attempt's in its own transaction (NFR-23, ADR-110).
  *
  * <p>Built in M12. Rows: FR-380, NFR-202.
  */
 @Transactional
-public class RecordOptOut {
+public class RemoveOptOut {
 
     private final PhoneHasher phoneHasher;
     private final OptOutList optOuts;
@@ -33,7 +33,7 @@ public class RecordOptOut {
      * @param clock the server's time
      * @param auditLog the audit trail
      */
-    public RecordOptOut(PhoneHasher phoneHasher, OptOutList optOuts, Clock clock, AuditLog auditLog) {
+    public RemoveOptOut(PhoneHasher phoneHasher, OptOutList optOuts, Clock clock, AuditLog auditLog) {
         this.phoneHasher = phoneHasher;
         this.optOuts = optOuts;
         this.clock = clock;
@@ -41,14 +41,14 @@ public class RecordOptOut {
     }
 
     /**
-     * Records the opt-out.
+     * Removes the opt-out.
      *
      * <p>Built in M12.
      *
      * @param actor the dispatcher
      * @param phone the phone, as shown on the customer or the order
      */
-    public void record(Actor actor, PhoneNumber phone) {
+    public void remove(Actor actor, PhoneNumber phone) {
         throw new UnsupportedOperationException("Built in M12");
     }
 }
