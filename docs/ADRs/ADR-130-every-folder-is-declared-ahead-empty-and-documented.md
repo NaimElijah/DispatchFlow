@@ -45,9 +45,9 @@ The documents also disagreed, or said nothing:
   solves and validates through it, and Reporting plans its baseline through it, but one module's
   adapter may not use another's.
 
-On 2026-11-24 the owner, Naim Elijah, asked that every folder the project will need, to its end,
-be declared now, so that the team only adds files to the right places. The owner chose each
-answer below. [Issue #118][ISSUE-118] and [issue #142][ISSUE-142] carry the work.
+On 2026-11-24 it was decided that every folder the project will need, to its end, is declared now,
+so that the team only adds files to the right places. Each answer below was decided.
+[Issue #118][ISSUE-118] and [issue #142][ISSUE-142] carry the work.
 
 ## Decision
 
@@ -199,29 +199,29 @@ decision 4 and [ADR-126]. All of them stand.
   weeks and would each invent a place ([issue #102][ISSUE-102]).
 - **A README in each folder instead of `package-info.java`.** Rejected: ArchUnit can't see a README,
   and a Java folder with no class is no package to the rules.
-- **Five inbound kinds, with the server steps under `job`.** Rejected by the owner: a job takes
+- **Five inbound kinds, with the server steps under `job`.** Rejected: a job takes
   queued work, and a step a person types at a prompt is not one.
 - **`security` for the hashing and signing adapters.** Rejected: it reads like Spring Security's
   filter chain, which is app-wide.
 - **`proofstore`, named for the port.** Rejected: an adapter is named for what it talks to, here the
   VM's disk ([ADR-027]).
-- **One `shared/adapter/out/system` for the clock and the IDs.** Rejected by the owner: the name
+- **One `shared/adapter/out/system` for the clock and the IDs.** Rejected: the name
   says less about what is inside.
-- **A top-level `config` package for the clock and the IDs.** Rejected by the owner: it would be a
+- **A top-level `config` package for the clock and the IDs.** Rejected: it would be a
   third non-module beside `shared` and `web`.
 - **An `in/sse` kind in each module.** Rejected: the browser would open one stream per module.
-- **Declare the stream's registry in `shared/adapter/out/sse` now.** Rejected by the owner: it
+- **Declare the stream's registry in `shared/adapter/out/sse` now.** Rejected: it
   settles part of the app-wide `web` ADR before that ADR is written.
-- **Keep `RecoveryEmailCap`'s count in memory, in an `access/adapter/out/cache`.** Rejected by
-  the owner: after a restart the count is 0, so up to 100 more recovery emails could go out that
+- **Keep `RecoveryEmailCap`'s count in memory, in an `access/adapter/out/cache`.** Rejected: after a
+  restart the count is 0, so up to 100 more recovery emails could go out that
   day, against [NFR-215], a Must row.
-- **Let `govmap` and `disk` map their own tables.** Rejected by the owner: a module would have two
+- **Let `govmap` and `disk` map their own tables.** Rejected: a module would have two
   database adapters, and the cache could not reuse `persistence`'s converters.
-- **Split `Geocoder` now, so the geocoding job checks a cache port itself.** Rejected by the owner:
+- **Split `Geocoder` now, so the geocoding job checks a cache port itself.** Rejected:
   it changes the declared ports' contracts before the milestone that builds them.
-- **Each module generates its own optimizer client.** Rejected by the owner: two generator runs
+- **Each module generates its own optimizer client.** Rejected: two generator runs
   and two identical sets of types.
-- **Leave the phone app until M10.** Rejected by the owner: its feature folders mirror the web
+- **Leave the phone app until M10.** Rejected: its feature folders mirror the web
   app's.
 - **Keep `src/research/instances/`.** Rejected: [ADR-123] puts benchmark instances in the git-ignored
   `data/`.

@@ -9,7 +9,7 @@ Until now the requirements described a product that many small businesses share.
 up an organization, every record belonged to exactly one organization, the backend had to enforce
 that isolation on every read and write, and a platform operator could suspend an organization.
 
-On 2026-11-03 the owner, Naim Elijah, decided that DispatchFlow is made for a single customer: one
+Decided on 2026-11-03: DispatchFlow is made for a single customer, one
 delivery company. That company is the pilot's company too, and it is not named yet ([Q-01]).
 
 Nothing has to be undone in code. `src/` and `contracts/` have no organization or tenant concept

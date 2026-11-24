@@ -5,7 +5,7 @@
 
 ## Context
 
-On 2026-11-14 the owner, Naim Elijah, decided for the team how a published plan keeps its history.
+Decided on 2026-11-14: how a published plan keeps its history.
 A published plan changes only by a new revision that records its cause ([BR-77], [DL §9.1][DL-91]).
 Revisions come from an accepted re-optimization, a hand-over, a removed stop (a cancelled or
 rescheduled order) and a late outcome. Revision 1 is the publication.

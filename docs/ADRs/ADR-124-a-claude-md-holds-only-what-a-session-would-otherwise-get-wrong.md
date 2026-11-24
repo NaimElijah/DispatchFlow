@@ -37,7 +37,7 @@ What the files held on 2026-11-22, on this branch:
 - **Link definitions.** The reference-link definitions at the bottom of the files were 149 lines and
   12,800 characters, 16% of the total.
 
-On 2026-11-22 the owner, Naim Elijah, decided for the team how the files are to be kept.
+Decided on 2026-11-22: how the files are to be kept.
 
 ## Decision
 
@@ -60,14 +60,14 @@ We keep a line in a `CLAUDE.md` only when a session would otherwise get somethin
 - **Budgets:** the root at most 200 lines and 12,000 characters, because every session loads it;
   `src/backend/core/CLAUDE.md` under 200 lines, the documentation's figure;
   `src/backend/optimizer/CLAUDE.md` at most 150 lines; every other `CLAUDE.md` at most 100 lines.
-  The owner set them on the measured rewrite. A first estimate of 120 lines and 8,000 characters for
+  They were set on the measured rewrite. A first estimate of 120 lines and 8,000 characters for
   the root, 150 lines for core and 100 for the rest would have cut rules that pass the four tests. A
   rule that passes them is never cut to meet a budget: the file is split, or a new ADR changes the
   budget.
 - **The root keeps the team's general working rules** (how we work, code style, testing), shortened
-  to the ones that change behaviour, because a teammate may not have the owner's personal global
-  file. The owner chose this over dropping them.
-- **Reference-link definitions stay,** each only while the text cites it. The owner chose this over
+  to the ones that change behaviour, because a teammate may not have a personal global
+  file. This was chosen over dropping them.
+- **Reference-link definitions stay,** each only while the text cites it. This was chosen over
   plain IDs.
 - **No `.claude/rules/` files for now.** Both Dockerfiles are under `src/backend/`, and `tests/` and
   `infra/` hold no code yet. Two gaps are accepted: the CI conventions sit in the header comment of
@@ -78,8 +78,8 @@ We keep a line in a `CLAUDE.md` only when a session would otherwise get somethin
   `CLAUDE.md`, comes when such a concern outgrows that.
 - **Review catches drift, and no script does.** The root's "Where rules live" section states this
   policy and tells whoever reviews a `CLAUDE.md` change to check it. `df-code-reviewer` ([ADR-020])
-  carries the check, which also asks that every removed rule still holds elsewhere. The owner chose
-  review first.
+  carries the check, which also asks that every removed rule still holds elsewhere. Review first was
+  chosen.
 - **Headings that agents, skills and documents cite stay:** the root's Commands, Engineering
   judgment (which [ADR-074] and [ADR-118] cite), Testing (which [ADR-014] cites), Security, Git and
   Documentation; each component's Commands, with its one-test command; and `docs/CLAUDE.md`'s ADRs.
@@ -98,7 +98,7 @@ We keep a line in a `CLAUDE.md` only when a session would otherwise get somethin
 - **Hard:** a rule has one home, so someone must decide which folder is the narrowest, and a
   reviewer must notice a rule put in the wrong one.
 - **Cost:** one rewrite of ten files and a two-sentence change to `df-code-reviewer`. The saving is
-  smaller than cutting the general rules and the links would give, which the owner chose to keep.
+  smaller than cutting the general rules and the links would give, which were chosen to be kept.
 - **Risk:** a rule is lost in the rewrite. An independent check of the old files against the new
   ones runs before the commit.
 - **Risk:** a person who reviews with their own `code-reviewer`, as [ADR-022] lets them, may not run
@@ -116,10 +116,10 @@ We keep a line in a `CLAUDE.md` only when a session would otherwise get somethin
   files already follow, and a rename would have to edit them.
 - **`@import` to split long files.** Rejected: an import loads with the file that imports it, so it
   saves no context.
-- **Drop the link definitions and use plain IDs.** Rejected by the owner: it saves 16%, while exact
+- **Drop the link definitions and use plain IDs.** Rejected: it saves 16%, while exact
   paths let the assistant open an ADR in one read and keep the links clickable.
 - **A `just` check that fails on an over-budget file, a status phrase or a missing recipe.**
-  Deferred by the owner: review comes first.
+  Deferred: review comes first.
 - **Drop the root's general working rules.** Rejected: a teammate may not have the global file
   ([ADR-018]).
 

@@ -9,9 +9,9 @@
 address, and gave Admins and Dispatchers recovery by email. The requirements gave a person who both
 dispatches and drives two accounts, one per role.
 
-On 2026-11-11 the owner, Naim Elijah, aligned the requirements with the [ARD]. Its FR-52 says a new
+On 2026-11-11 the requirements were aligned with the [ARD]. Its FR-52 says a new
 user "will receive first credentials from an Admin, and any user will be able to recover a forgotten
-password through an emailed link". He also decided that each person has one account, which can hold
+password through an emailed link". It was also decided that each person has one account, which can hold
 several roles.
 
 [ADR-031] notes that drivers' sign-in "stays as ADR-030 decided", because [FR-200] keeps a driver's
@@ -20,8 +20,8 @@ recovery. A mailbox, even one read on the same phone, is a different channel: it
 its own.
 
 A security review of that change, the same day, found two new exposures. Email becomes every user's
-only sign-in identifier and recovery channel, and a phone may now carry the Admin role. The owner
-answered its findings the same day. A self-check against Level 1 of OWASP ASVS 5.0 must pass before
+only sign-in identifier and recovery channel, and a phone may now carry the Admin role. The review's
+findings were answered the same day. A self-check against Level 1 of OWASP ASVS 5.0 must pass before
 the pilot handles real data ([NFR-40]). With one company, no platform operator can rescue a lost
 Admin ([ADR-024]).
 
@@ -106,7 +106,7 @@ Admin ([ADR-024]).
   phone as on a desk.
 - **Cost:** one lookup on every API call, as [ADR-030] found. The email sender now carries every
   set-password link, recovery link and Admin alert, and the data inventory names it ([NFR-217]).
-- **Risk, accepted by the owner on 2026-11-11:** an account that holds Driver with Dispatcher or
+- **Risk, accepted on 2026-11-11:** an account that holds Driver with Dispatcher or
   Admin can record *delivered* on a stop of its own route without a proof ([FR-73]). It can also
   correct its own outcomes ([FR-333]). A driver alone is refused both, by [FR-367] and [BR-18]. The
   audit records name who recorded each outcome ([NFR-23], [NFR-93]).
@@ -138,16 +138,16 @@ Admin ([ADR-024]).
 
 ## Alternatives considered
 
-- **Two accounts for a person with two roles,** one role each, as the requirements had it. Rejected
-  by the owner: switching accounts to change role.
+- **Two accounts for a person with two roles,** one role each, as the requirements had it. Rejected:
+  switching accounts to change role.
 - **Usernames for drivers, with resets issued by an Admin,** as [ADR-030] decided. Rejected: the ARD
   lets every user recover by email.
 - **An optional email,** with Admin-issued resets for drivers who have none. Rejected: not every
   user could recover by email.
-- **An Admin-issued first password,** as [ADR-030] decided. Rejected by the owner: the Admin knows
+- **An Admin-issued first password,** as [ADR-030] decided. Rejected: the Admin knows
   it, and nothing proves the address.
 - **Refusing outcomes on an account's own route,** so another Dispatcher or Admin records them.
-  Rejected by the owner: the union of roles stays whole.
+  Rejected: the union of roles stays whole.
 - **An app lock or a second factor for accounts holding the Admin role.** Not chosen for the pilot;
   [Q-81] keeps the second factor out.
 - **Still rejected, as [ADR-030] found:**

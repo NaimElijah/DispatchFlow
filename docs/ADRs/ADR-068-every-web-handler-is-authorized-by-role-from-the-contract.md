@@ -5,7 +5,7 @@
 
 ## Context
 
-On 2026-11-13 the owner, Naim Elijah, decided for the team how the server enforces roles. This ADR
+On 2026-11-13 it was decided how the server enforces roles. This ADR
 settles the marker "ADR pending: authorize every web handler by role", which the permission matrix
 under [FR-03] carries.
 

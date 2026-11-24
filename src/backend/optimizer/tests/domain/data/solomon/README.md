@@ -9,7 +9,7 @@ Test data for the validator's acceptance of published best-known solutions (NFR-
 | `solutions/` | The best-known solution of each instance above | SINTEF's best-known solutions page: <https://www.sintef.no/projectweb/top/vrptw/100-customers/> |
 
 - **Retrieved:** 2026-11-14.
-- **Licence:** neither page states one. The owner approved committing these files.
+- **Licence:** neither page states one. Committing these files was approved.
 - **Changes:** line endings converted from CRLF to LF and trailing spaces removed. `vrplib`
   parses each file to the same values before and after.
 - **Published distances**, which the test asserts the travel total rounds to: c101 828.94,

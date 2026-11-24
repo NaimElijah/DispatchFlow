@@ -31,7 +31,7 @@ a vehicle mid-route, and then the comparison drops driver-hours and names the wi
 
 ## Decision
 
-On 2026-11-14 the owner, Naim Elijah, decided one rule for every module, and one for the baseline:
+Two rules were decided on 2026-11-14, one for every module and one for the baseline:
 
 1. **Each module owns its retention periods.** Reporting holds no personal data. A `Baseline` holds
    a plan ID, order and vehicle IDs, windows, planned times, metres and driver-hours. So Reporting

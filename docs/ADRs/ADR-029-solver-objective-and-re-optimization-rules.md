@@ -10,8 +10,8 @@ so these rules bind both, and the comparison depends on them. [Q-06], [Q-20], [Q
 and [Q-52] left them open. From Python, OR-Tools' travel-time callback takes only from and to, not the
 time of day.
 
-[ADR-005] says the study's values stay open until the academic advisor agrees them. The owner fixed
-them on 2026-11-04 instead ([Q-29], [Q-30], [Q-84]), so this ADR extends it, and the advisor has not
+[ADR-005] says the study's values stay open until the academic advisor agrees them. They were fixed
+on 2026-11-04 instead ([Q-29], [Q-30], [Q-84]), so this ADR extends it, and the advisor has not
 seen them.
 
 ## Decision
@@ -56,7 +56,7 @@ None of this has been tried in either solver.
 ## Alternatives considered
 
 - **Strict drop penalties,** each priority outweighing all lower ones. Not chosen: it needs a rule for
-  pins and locks, and a many-for-one trade is acceptable to the owner.
+  pins and locks, and a many-for-one trade is acceptable.
 - **Hard windows in a re-optimization.** Not chosen: a stop 10 minutes late would drop with its goods
   on the van.
 - **Any stop may move between vans,** with the preview naming transfers. Rejected: only the stability

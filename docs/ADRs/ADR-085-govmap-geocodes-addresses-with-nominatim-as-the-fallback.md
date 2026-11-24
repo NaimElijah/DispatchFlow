@@ -22,8 +22,8 @@ Google's terms. [TS §9] records what the terms of the big providers say:
 The system must also keep the server and its data in Israel ([NFR-209], [ADR-078]). [TS §13] lists
 GovMap as holding the data it receives, customer and depot addresses, in Israel.
 
-On 2026-11-13 the owner, Naim Elijah, decided for the team: GovMap, through the `Geocoder` port.
-The owner gave no reason for preferring GovMap to Nominatim. Three facts about GovMap have not been
+Decided on 2026-11-13: GovMap, through the `Geocoder` port. No reason was given for preferring
+GovMap to Nominatim. Three facts about GovMap have not been
 checked: its price, its request limits and its coordinate system. It may answer in the Israeli grid
 (ITM), which the adapter would convert to WGS84. Unverified.
 
@@ -90,7 +90,7 @@ checked: its price, its request limits and its coordinate system. It may answer 
 - **Self-hosted Nominatim first.** Not chosen first. It needs a container and about 2 GB of the VM.
   It stays as the fallback behind the same port.
 - **Choosing the provider by a test against an alternative,** as [Q-02] first planned. Dropped:
-  the owner chose GovMap first, and the test now measures it alone.
+  GovMap was chosen first, and the test now measures it alone.
 
 ## Revisit when
 

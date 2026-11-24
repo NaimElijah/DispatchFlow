@@ -61,8 +61,8 @@ phase.
 
 ## Alternatives considered
 
-Both are choices the owner made without a recorded reason. The trade-offs below are what can
-be observed, not the owner's stated reasons.
+Both choices were made without a recorded reason. The trade-offs below are what can be
+observed, not stated reasons.
 
 - **Gradle instead of Maven.** Rejected. Gradle has a build cache and incremental builds, and
   its build logic is code in Groovy or Kotlin. Maven's build is declarative XML, with one

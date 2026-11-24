@@ -26,7 +26,7 @@ A review of the whole domain layer found two defects in that shape, and one in h
 
 ## Decision
 
-On 2026-11-15 the owner, Naim Elijah, decided, and accepted the review's fix for the opt-out word:
+Decided on 2026-11-15, with the review's fix for the opt-out word accepted:
 
 1. **Each outgoing message keeps the phone it goes to, set when it is created.** The phone is the
    one [FR-348] chose for the trigger that added the message, and it was an Israeli mobile then

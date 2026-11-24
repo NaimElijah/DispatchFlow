@@ -12,8 +12,7 @@ both loaded, it could pick either. Only an @-mention settles it; naming an agent
 leaves the choice to Claude ([subagents documentation][sub-agents]). ADR-020 named this
 competition as a reason to revisit it.
 
-On 2026-10-30 the owner, Naim Elijah, decided that each person's own agents take precedence over
-the team's.
+Decided on 2026-10-30: each person's own agents take precedence over the team's.
 
 Claude Code's own priority does not cover this. It applies only when two subagents share a
 `name`, and then the project's `.claude/agents/` outranks the user's `~/.claude/agents/`
@@ -52,7 +51,7 @@ personal one with the same name ([ADR-020]).
 
 - **Leave the choice open, as ADR-020 did.** Rejected: Claude could pick either agent for the same
   job, so a person's own agent was not reliably the one used.
-- **Team agents first, personal agents as the fallback.** Rejected by the owner: a person's own
+- **Team agents first, personal agents as the fallback.** Rejected: a person's own
   agents encode how they work, and the team agents exist for those who have none ([ADR-020]).
 - **Only the per-person deny rule, with no rule in `.claude/CLAUDE.md`.** Rejected as the team's
   rule, kept as a personal option: it works only on the machine where it is set, and each person

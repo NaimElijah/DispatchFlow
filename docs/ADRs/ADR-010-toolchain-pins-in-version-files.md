@@ -41,7 +41,7 @@ The reason for each language version:
 - **Python 3.14** is the newest version for which OR-Tools 9.15.6755 ships wheels. It publishes
   wheels for CPython 3.9 to 3.14. PyVRP 0.14.1 ships wheels for 3.11 to 3.15.
 - **Node 24** (codename Krypton) is a long-term-support line, and it is the version installed on
-  the owner's machine (v24.16.0). Node 26 (Lithium) entered long-term support on 2026-10-28,
+  the machine the project was set up on (v24.16.0). Node 26 (Lithium) entered long-term support on 2026-10-28,
   two days before this decision. We did not check whether Expo SDK 58 supports it.
 
 The versions are repeated where a file cannot read the version files. They change together:

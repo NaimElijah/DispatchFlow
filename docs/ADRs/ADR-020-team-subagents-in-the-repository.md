@@ -7,7 +7,7 @@
 
 [ADR-018] put the AI assistant's context in the repository. It kept each person's own agents
 private, and named a trigger for revisiting that: the team agrees on shared agents. That trigger
-has fired: on 2026-10-30 the owner, Naim Elijah, decided that every teammate gets the same
+has fired: on 2026-10-30 it was decided that every teammate gets the same
 specialised agents for the tasks that recur on this project: reviewing code, reviewing security,
 debugging, and writing tests. Not every teammate has agents of their own. The team reviews them
 with the rest of `.claude/` at its meeting (#1).
@@ -57,7 +57,7 @@ shares a name with, and so never shadows, anyone's personal agent.
 
 - **No shared agents; each person writes their own.** Rejected: teammates without agents get no
   specialised help, and those who have them get different reviews of the same rules.
-- **Committing the owner's personal agents as they are.** Rejected: they are written for any
+- **Committing personal agents as they are.** Rejected: they are written for any
   project, not for DispatchFlow's layout, rules and commands, and they would shadow nobody's agents
   only by luck of naming.
 - **Unprefixed names such as `code-reviewer`.** Rejected: a project agent outranks a user agent with

@@ -13,8 +13,8 @@ no order drops just to save travel" ([BR-54], [BR-55]). It gave no number. Three
 - a leave-at-door order's drop penalty exceeds the largest window penalty its date allows, so *time
   window* is never its drop reason ([BR-121], [ADR-032]).
 
-[Q-93] asked how large the drop penalty is, "as a number or a formula". On 2026-11-13 the owner, Naim
-Elijah, adopted a formula for the team. He confirms it with the academic advisor before the first
+[Q-93] asked how large the drop penalty is, "as a number or a formula". On 2026-11-13 a formula was
+adopted. It is to be confirmed with the academic advisor before the first
 measured run of the study. This ADR extends [ADR-029]. It keeps the derivation from [PL §7.4],
 because the plan that holds it will be deleted.
 
@@ -79,7 +79,7 @@ and has no simple bound.
 - **A fixed number.** Not chosen: K must exceed a sum that depends on the date's longest shift, the
   largest matrix entry and the fixed cost, so a constant is too small on some days.
 - **Strict penalties,** each priority outweighing all lower ones. Rejected by [ADR-029]: it needs a
-  rule for pins and locks, and the owner accepts a many-for-one trade.
+  rule for pins and locks, and a many-for-one trade is accepted.
 - **Adding service time to K.** Not chosen: it is not a cost term in the objective.
 
 ## Revisit when

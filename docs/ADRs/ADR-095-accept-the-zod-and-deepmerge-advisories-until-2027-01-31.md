@@ -5,8 +5,8 @@
 
 ## Context
 
-[ADR-016] listed two advisories in `src/frontend/mobile/osv-scanner.toml` that the owner had not
-yet confirmed, and [ADR-023] left them open:
+[ADR-016] listed two advisories in `src/frontend/mobile/osv-scanner.toml` that had not
+yet been confirmed, and [ADR-023] left them open:
 
 - `GHSA-mrhx-c7xc-m3w5`, zod 3.25.76: memory exhaustion while validating oversized constrained
   collections. Rated High (CVSS 3.1 7.5, availability only). Every zod before 4.6.6 is affected,
@@ -38,8 +38,8 @@ The check, made on 2026-11-14 from `package-lock.json` and the installed package
 
 ## Decision
 
-The owner, Naim Elijah, accepts both advisories until 2027-01-31, as `osv-scanner.toml` records
-them. At that date each is fixed, justified again or removed ([ADR-016]).
+Both advisories are accepted until 2027-01-31, as `osv-scanner.toml` records them. At that date
+each is fixed, justified again or removed ([ADR-016]).
 
 An `IgnoredVulns` entry matches the advisory's ID across the whole of the phone app's lockfile. Two
 rules follow:
@@ -67,10 +67,10 @@ rules follow:
 - **Scope the zod entry to version 3.25.76** with a `[[PackageOverrides]]` entry instead of
   `[[IgnoredVulns]]`. That would keep reporting a vulnerable zod the app declares. But it would hide
   every advisory against 3.25.76, not just this one, and it would still miss an undeclared import.
-  Not chosen now: the owner accepted the entries as they stand. It is the first option when the app
+  Not chosen now: the entries were accepted as they stand. It is the first option when the app
   adds its own zod.
 - **Patch deepmerge.** Rejected: no fixed version exists.
-- **Leave both pending.** Rejected: the owner has reviewed them.
+- **Leave both pending.** Rejected: both have been reviewed.
 
 ## Revisit when
 

@@ -34,7 +34,7 @@ outputs of [ADR-098]'s validator beside [ADR-101] point 19.
 
 ## Decision
 
-On 2026-11-15 the owner, Naim Elijah, decided:
+Decided on 2026-11-15:
 
 1. **The objective reports route stability in a term of its own, `moved_stops`** ([BR-115],
    [FR-256], [BR-56]). `Cost` gains `moved_stops`: the moved-stop cost times the unserved orders
@@ -48,7 +48,7 @@ On 2026-11-15 the owner, Naim Elijah, decided:
    - Together they are the route-stability cost the objective charges ([BR-115]), and no stop is
      counted in both. This differs from [FR-256]'s count of the stops that leave their vehicle by
      the stops that stay on it but can't be routed there: FR-256 counts such a stop, and ADR-105
-     decision 7 charges it nothing. The owner accepted the difference knowingly. A daily solve has
+     decision 7 charges it nothing. The difference was accepted knowingly. A daily solve has
      neither term, so both are 0.
 
    `total` holds the same terms as before, so a solution's score is unchanged but for the order of
@@ -131,7 +131,7 @@ On 2026-11-15 the owner, Naim Elijah, decided:
 
 - **`drop_penalties` holds K x (6 − p) only, and the solver-facing sum is computed apart.** Not
   chosen: every solver adapter would then add the moved-stop cost itself, and a solver that forgot
-  would drop a stop that should stay. The owner allowed the solver-facing sum to stay as it is.
+  would drop a stop that should stay. The solver-facing sum was allowed to stay as it is.
 - **A moved-stop term that also counts a stop that stays but can't be routed.** Rejected: it
   reverses ADR-105 decision 7, and the charge would only shift every solution's score by the same
   amount.

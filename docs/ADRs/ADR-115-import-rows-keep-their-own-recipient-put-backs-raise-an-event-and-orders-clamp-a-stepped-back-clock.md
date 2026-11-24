@@ -31,7 +31,7 @@ Orders ([DL §4.3][DL-43]).
 
 ## Decision
 
-On 2026-11-15 the owner, Naim Elijah, decided:
+Decided on 2026-11-15:
 
 1. **An import row that names someone else gives its order that person as the recipient**
    ([FR-87], [FR-348], [FR-311]). When a row gives no recipient, and its name or its phone differs

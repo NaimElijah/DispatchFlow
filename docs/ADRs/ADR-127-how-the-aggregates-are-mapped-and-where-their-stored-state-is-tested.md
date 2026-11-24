@@ -44,7 +44,7 @@ cannot follow:
   alerts of a date's plan, by delivery date. Neither `RouteRun` nor `Alert` holds that date: it is
   their plan's, in Planning.
 
-On 2026-11-23 the owner, Naim Elijah, accepted decisions 1 to 9 with the plan for
+On 2026-11-23 decisions 1 to 9 were accepted with the plan for
 [issue #112][ISSUE-112], and, after the review of [pull request #244][PR-244], decision 6 as
 rewritten, decisions 10 to 12, and decision 7's consequence below. They are final.
 

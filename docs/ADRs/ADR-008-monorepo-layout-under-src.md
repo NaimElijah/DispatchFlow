@@ -93,7 +93,7 @@ component.
   coordinated pull requests, and the contracts would need a home of their own ([ADR-006]). Three
   people do not need the separation.
 - **`services/` and `apps/` at the root instead of `src/backend` and `src/frontend`.**
-  Rejected: the owner chose `backend/` and `frontend/` under `src/`.
+  Rejected: `backend/` and `frontend/` under `src/` were chosen.
 - **A root `tests/unit`, with every component's tests moved into it.** Rejected: it fights the
   convention of every tool in use. Maven, pytest, Vitest and Jest would each need configuration
   to find tests outside their project.

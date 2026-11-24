@@ -66,7 +66,7 @@ public class RatingRequest extends AggregateRoot implements PersonalData {
     public static final Duration ANSWER_WINDOW = Duration.ofHours(48);
 
     /**
-     * The most comments a request keeps; a starting value the owner set, not a requirement, so a
+     * The most comments a request keeps; a decided starting value, not a requirement, so a
      * phone can't fill a request without end (ADR-108).
      */
     public static final int MOST_COMMENTS = 20;

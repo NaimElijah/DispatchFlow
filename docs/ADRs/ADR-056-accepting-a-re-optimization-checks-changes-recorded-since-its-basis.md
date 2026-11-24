@@ -5,7 +5,7 @@
 
 ## Context
 
-On 2026-11-13 the owner, Naim Elijah, decided for the team the rule that the requirements mark "ADR
+Decided on 2026-11-13: the rule that the requirements mark "ADR
 pending: check recorded changes when a re-optimization is accepted" ([BR-25]).
 
 A re-optimization has a limit of 20 seconds from the start of its search, and has failed if it has

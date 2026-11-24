@@ -31,7 +31,7 @@ ADR-053 stands.
 
 ## Decision
 
-On 2026-11-14 the owner, Naim Elijah, decided points 1 to 12.
+Points 1 to 12 were decided on 2026-11-14.
 
 1. **A completed plan accepts only a late outcome,** through `reconcileLateOutcome`. It is recorded
    as a new revision, and the plan stays *completed*: it is never republished ([BR-89], [BR-102],
@@ -254,15 +254,15 @@ reading of the requirements.
 
 ## Alternatives considered
 
-- **Refuse a late outcome on a completed plan.** Rejected by the owner, as the recommendation
+- **Refuse a late outcome on a completed plan.** Rejected, as the recommendation
   advised: the fact happened, and facts outrank intent ([ADR-065]).
 - **Refuse a hand-over while the optimizer is down.** Rejected: [NFR-42] and [ADR-058] keep
   hand-overs working.
 - **Tie the route index to the 15-vehicle limit,** an index from 1 to 15. This was the
-  recommendation, and the owner rejected it, saying the index doesn't follow the fleet limit. A
+  recommendation, and it was rejected because the index doesn't follow the fleet limit. A
   withdrawn route and its vehicle's new route both need an index.
 - **Let the watchdog fail a matrix build at the queue's 5 minutes.** This was the recommendation,
-  and the owner rejected it in favour of a deadline of its own. The recommendation's case was that
+  and it was rejected in favour of a deadline of its own. The recommendation's case was that
   one deadline is simpler; a separate one also stops a stuck build from holding the lane as long.
 - **Store the `ValidatedSolution` on the job and rebuild it on load.** Rejected: only the optimizer
   adapter may build a `ValidationReport`, so rebuilding one in persistence would open BR-15's door.

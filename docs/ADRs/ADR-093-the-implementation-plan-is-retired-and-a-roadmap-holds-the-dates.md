@@ -11,9 +11,9 @@ every one of those decisions was recorded or settled in ADR-037 to ADR-092. The 
 drifted from them: it still named Sentry, put `@Retryable` on a listener, and had no *abandoned*
 plan state.
 
-On 2026-11-13 the owner, Naim Elijah, decided to retire it: a set-in-stone plan misleads once the
-work moves. On 2026-11-14 he settled how the documents rank once it is gone, and one rule that
-lived only in the plan.
+Decided on 2026-11-13: retire it, because a set-in-stone plan misleads once the work moves. On
+2026-11-14 it was settled how the documents rank once it is gone, and one rule that lived only in
+the plan.
 
 ## Decision
 
@@ -44,8 +44,8 @@ lived only in the plan.
     ([NFR-19]);
   - the VM's secrets land in a file only root can read.
 
-  Position batches carry a user-scoped idempotency key, as driver reports do. The owner decided that
-  on 2026-11-14, and it became [NFR-285].
+  Position batches carry a user-scoped idempotency key, as driver reports do. This was decided on
+  2026-11-14, and it became [NFR-285].
 
 ## Consequences
 
@@ -65,12 +65,12 @@ lived only in the plan.
 
 - **Keep the plan, updated as the work moves.** Rejected: it would be a second source for decisions
   that already live in the ADRs. It had drifted within a day of the decisions.
-- **Put the roadmap in the README.** Rejected by the owner: the README routes a stranger to the
+- **Put the roadmap in the README.** Rejected: the README routes a stranger to the
   docs, and dates change too often for it.
 - **Move the schema sketch into `docs/architecture/data-model.md` as "proposed".** Rejected:
   `docs/architecture/` describes the system as it is, never ahead of it.
-- **Let the design document win over an ADR.** Rejected by the owner: an ADR is a dated decision with
-  its reasons, and a careless edit to a design document would silently override it.
+- **Let the design document win over an ADR.** Rejected: an ADR is a dated decision with its
+  reasons, and a careless edit to a design document would silently override it.
 
 ## Revisit when
 

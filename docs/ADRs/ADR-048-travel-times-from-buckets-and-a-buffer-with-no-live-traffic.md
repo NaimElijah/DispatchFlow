@@ -20,7 +20,7 @@ lateness penalty use, whether the validator ignores the buffer, and what an earl
 door stop. [ADR-032] added door stops that are served on arrival ([BR-122]) and left the last point
 to Q-20.
 
-On 2026-11-13 the owner, Naim Elijah, decided all five for the team. This ADR settles the marker "ADR
+All five were decided on 2026-11-13. This ADR settles the marker "ADR
 pending: no live traffic". It extends [ADR-029] and [ADR-032].
 
 ## Decision

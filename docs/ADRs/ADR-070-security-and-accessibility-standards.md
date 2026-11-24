@@ -5,10 +5,10 @@
 
 ## Context
 
-On 2026-11-13 the owner, Naim Elijah, decided for the team which standards the security and the
+Decided on 2026-11-13: which standards the security and the
 accessibility work is measured against. This ADR settles the marker
 "ADR pending: security and accessibility standards", which [NFR-40] and [NFR-46] carry. It also
-records his answer to [Q-59] on IS 5568, the Israeli web-accessibility standard.
+records the answer to [Q-59] on IS 5568, the Israeli web-accessibility standard.
 
 The forces:
 
@@ -42,7 +42,7 @@ The forces:
   - Lint rules help while code is written: `jsx-a11y` in the web app, the React Native accessibility
     rules in the phone app ([TS §10], [TS §11]).
   - Dragging has a non-drag alternative, as WCAG 2.2 SC 2.5.7 asks ([TS §10]).
-- **IS 5568 ([Q-59]), the owner's answer:** nothing changes in what is built. WCAG 2.2 AA covers the
+- **IS 5568 ([Q-59]), as answered:** nothing changes in what is built. WCAG 2.2 AA covers the
   standard's technical bar. Whether its legal duties, such as an accessibility statement, reach the
   apps joins the legal advice of [Q-42]. They are assumed to apply to the public tracking page
   ([FR-117]). This ADR does not check that claim against the text of IS 5568.
@@ -62,7 +62,7 @@ The forces:
   accepts that for Admins.
 - **Risk:** IS 5568 may ask for more than WCAG 2.2 AA says, or for a statement the apps lack. Legal
   advice comes before the pilot handles real data ([Q-42]), and until then the claim rests on the
-  owner's answer.
+  team's answer, not on legal advice.
 - **Risk:** a self-check is the team checking itself. The sources name no outside tester.
 
 ## Alternatives considered
@@ -73,7 +73,7 @@ The forces:
   private ([ADR-017], [TS §17.3]). Semgrep Community Edition is free for private ones.
 - **Automated accessibility checks only.** Lost on [NFR-142]: automation does not cover every
   criterion, so a person audits the rest.
-- **IS 5568 as a second, separate target.** Lost on the owner's answer to [Q-59]: WCAG 2.2 AA already
+- **IS 5568 as a second, separate target.** Lost on the answer to [Q-59]: WCAG 2.2 AA already
   covers its technical bar, and the legal question belongs to the legal advice.
 
 ## Revisit when

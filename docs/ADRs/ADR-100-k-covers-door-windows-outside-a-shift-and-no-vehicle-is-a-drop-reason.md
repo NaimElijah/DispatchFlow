@@ -25,8 +25,8 @@ when every depot lacks coordinates ([FR-197]). Every order of the date is then d
 reported *capacity*, with a largest capacity of 0 kg: true in arithmetic, and misleading to a
 dispatcher, who would look at the order instead of the depots.
 
-On 2026-11-14 the owner, Naim Elijah, decided both, and allowed the edits to [BR-126] and
-[FR-223]. He also allowed one phrase of [BR-121] to be aligned with the new L: the window penalty
+Both were decided on 2026-11-14, and the edits to [BR-126] and [FR-223] were allowed. One phrase
+of [BR-121] was also allowed to be aligned with the new L: the window penalty
 "the longest shift on its date allows" became the one "a leave-at-door stop on its date can
 incur". This ADR amends [ADR-032]'s statement of that bound, [ADR-049]'s definition of L and
 [ADR-053]'s list and order of drop reasons. The rest of each stands.

@@ -46,7 +46,7 @@ Expo SDK 58, React Native 0.88, React 19, TypeScript 6.0, npm.
 - `tsconfig.json` sets `"types": ["jest"]`, because TypeScript 6 no longer loads every
   installed `@types` package by default. A new global type package goes into that list.
 - `osv-scanner.toml` lists the vulnerabilities the audit ignores, each with a reason and an
-  `ignoreUntil` date ([ADR-016], [ADR-023]). The owner accepted the zod and deepmerge entries in
+  `ignoreUntil` date ([ADR-016], [ADR-023]). The zod and deepmerge entries were accepted in
   [ADR-095]. Add an entry only with both, and fix or re-justify an entry when it expires.
 
 ## Tests

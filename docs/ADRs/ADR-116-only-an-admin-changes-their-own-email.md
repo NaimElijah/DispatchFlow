@@ -28,7 +28,7 @@ below settle:
 
 ## Decision
 
-On 2026-11-15 the owner, Naim Elijah, decided:
+Decided on 2026-11-15:
 
 1. **Only an Admin changes their own email.** No account changes the email of an account that holds
    the Admin role, unless it is that account. The user's own change, with their current password,
@@ -39,7 +39,7 @@ On 2026-11-15 the owner, Naim Elijah, decided:
    - It applies whatever other roles the account holds, because the Admin role is what recovery
      would hand over.
 
-Some choices are this record's own, not the owner's:
+Some choices are this record's own, beyond the decision above:
 
 - **The email-change link records who asked, and the rule is checked twice.**
   `LinkPurpose.EmailChange` holds the address and the `AccountId` that asked. `issueLink` refuses
@@ -116,7 +116,7 @@ Some choices are this record's own, not the owner's:
   account. A, signed in as D, gives B the Admin role back: D is not the account the record names,
   so the promotion is allowed and clears the record. A then deactivates D, and holds both of the
   two Admins [BR-19] requires. Closing this path means restricting who may create an Admin, which
-  changes [FR-02] and awaits the owner's decision. Until then it is detected, not prevented: every
+  changes [FR-02] and awaits the team's decision. Until then it is detected, not prevented: every
   step is an audit record naming its acting account ([NFR-93]), and the confirmation of B's new
   email tells B's old address ([FR-388]).
 
@@ -128,12 +128,12 @@ Some choices are this record's own, not the owner's:
   second credential flowing through another person's session, and the target can simply change
   the address themselves.
 - **Require a second Admin to approve the change.** Not chosen: with two Admins the approver is the
-  target, which is the owner's rule with more steps, and there is no approval workflow to build it
+  target, which is the decided rule with more steps, and there is no approval workflow to build it
   on.
-- **Void every open email-change link when an account gains the Admin role.** This closes the
-  same path around the first check, and needs no new field. Not chosen: it adds a voiding rule to
-  [NFR-224]'s list, which the owner did not decide, while recording who asked keeps the rule in one
-  predicate checked where an address takes effect.
+- **Void every open email-change link when an account gains the Admin role.** This closes the same
+  path around the first check, and needs no new field. Not chosen: it adds a voiding rule to
+  [NFR-224]'s list, which was not among the decisions, while recording who asked keeps the rule in
+  one predicate checked where an address takes effect.
 - **Refuse another account's email change while the account held the Admin role recently.** Not
   chosen: "recently" needs a window that no requirement sets, and the account would have to keep
   its role history; recording who set the current address needs neither.
@@ -161,8 +161,8 @@ Some choices are this record's own, not the owner's:
 - An account gains a role other than Admin that recovery could hand over to another person.
 - A promotion needs proof that the promoted person is back, beyond a second Admin's word: for
   example a second factor that the Admin who set the address can't hold.
-- The owner decides who may create an Admin ([FR-02]), which closes or accepts the puppet-account
-  path.
+- A decision is made on who may create an Admin ([FR-02]), which closes or accepts the
+  puppet-account path.
 - Session retention moves to the database, where a revocation could date sessions in one statement.
 
 [ADR-104]: ADR-104-the-company-profile-holds-customer-defaults-and-capabilities-follow-the-role-matrix.md

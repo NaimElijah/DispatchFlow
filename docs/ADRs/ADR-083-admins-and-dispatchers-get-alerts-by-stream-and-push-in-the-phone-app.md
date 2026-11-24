@@ -19,7 +19,7 @@ The forces:
   in memory only ([ADR-076]).
 - An alert raised while nobody has the app open must wait in the alert list ([FR-335]).
 
-On 2026-11-13 the owner, Naim Elijah, decided for the team how these alerts reach the phone app.
+On 2026-11-13 it was decided how these alerts reach the phone app.
 This extends [ADR-026] and [ADR-035].
 
 ## Decision

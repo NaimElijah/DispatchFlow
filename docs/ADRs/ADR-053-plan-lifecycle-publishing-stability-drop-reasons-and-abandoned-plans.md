@@ -20,8 +20,8 @@ or published ([BR-118]), and the domain refuses to solve or change one (`DateInP
 a plan that nobody published by the end of its date has no transition left. It would stay `draft`,
 `solving` or `ready` for good.
 
-On 2026-11-13 and 2026-11-14 the owner, Naim Elijah, decided for the team. On 2026-11-14 he added the
-end state for such a plan, which he named *abandoned*. He rejected leaving the plan in its state. The
+Decided on 2026-11-13 and 2026-11-14. The decision of 2026-11-14 added the
+end state for such a plan, named *abandoned*. Leaving the plan in its state was rejected. The
 case for leaving it overstated the cost of the new state: the midnight job that completes published
 plans already exists. The cost is one state, its transitions and its tests.
 
@@ -57,12 +57,12 @@ drop-penalty scale.
 - **At midnight after its date, an unpublished plan becomes *abandoned*.** The job that completes
   published plans does it. An abandoned plan is terminal and read-only.
 - **Every queued or running solve job of that date fails with the reason "its date passed",**
-  whether its plan is published or not (the owner, 2026-11-14). The midnight job then completes the
+  whether its plan is published or not (decided 2026-11-14). The midnight job then completes the
   plan if it was published, or abandons it if not, including a plan in `solving`. A `SolveFailed`
   that reaches an abandoned plan changes nothing ([DL §4.4]). The jobs fail because a
   re-optimization of a finished day could never be accepted.
 - **A plan that was already published becomes *completed*,** as before ([BR-102]).
-- **Orders on an abandoned plan show *unplanned*** ([BR-33]; the owner, 2026-11-14). The plan never
+- **Orders on an abandoned plan show *unplanned*** ([BR-33]; decided 2026-11-14). The plan never
   reached a driver, so *planned* would claim something that did not happen.
 
 ### Publishing
@@ -116,7 +116,7 @@ drop-penalty scale.
 
 ## Alternatives considered
 
-- **Leave an unpublished plan in its state** after its date. Rejected by the owner, on 2026-11-14.
+- **Leave an unpublished plan in its state** after its date. Rejected on 2026-11-14.
   The plan would stay `draft`, `solving` or `ready`, with no transition out and no way to be solved
   or published ([BR-118]).
 - **Cancel it** with the published plans' state. Not chosen: `cancelled` is for a published plan that

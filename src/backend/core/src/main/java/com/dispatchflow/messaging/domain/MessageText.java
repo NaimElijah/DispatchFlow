@@ -12,7 +12,7 @@ import org.jspecify.annotations.Nullable;
  * A message's text: the company's name, then the fixed wording of its type in the company's
  * language, within one SMS of 70 characters (FR-349, FR-382, DL §3.3, §3.7).
  *
- * <p>The Hebrew is ADR-031's wording as written. The English is ADR-108's, approved by the owner.
+ * <p>The Hebrew is ADR-031's wording as written. The English is ADR-108's, as decided.
  * With a company name of 19 characters and a dispatch phone of 11, the longest
  * text is exactly 70, so {@link #of} never meets a longer one; the length is counted in UTF-16
  * units, the units an SMS is counted in.
@@ -122,7 +122,7 @@ public final class MessageText implements PersonalData {
         };
     }
 
-    /** ADR-108's English wording, approved by the owner. */
+    /** ADR-108's English wording, as decided. */
     private static String english(Wording wording) {
         return switch (wording) {
             case Wording.OutForDelivery(QuarterHour arrival) ->

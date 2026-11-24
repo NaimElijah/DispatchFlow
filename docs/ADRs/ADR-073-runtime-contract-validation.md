@@ -5,9 +5,9 @@
 
 ## Context
 
-On 2026-11-13 the owner, Naim Elijah, confirmed for the team that [NFR-56] stands as a Should: a
-request that breaks its OpenAPI contract is refused with the reason before anything acts on it. This
-ADR settles the marker "ADR pending: runtime contract validation".
+On 2026-11-13 it was confirmed that [NFR-56] stands as a Should: a request that breaks its OpenAPI
+contract is refused with the reason before anything acts on it. This ADR settles the marker "ADR
+pending: runtime contract validation".
 
 [ADR-043] chose the generators for both sides of both contracts, and left three decisions to ADRs of
 their own. One was "runtime validation of requests against the contract". This extends [ADR-043] by

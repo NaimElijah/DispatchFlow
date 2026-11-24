@@ -17,7 +17,7 @@ the day goes wrong and measures the result ([Purpose and scope][PS]). No company
 identified yet, and the synthetic-data fallback stands until one is ([Q-01]). Every cut below is
 therefore a judgement made before a real company could be asked.
 
-On 2026-11-13 the owner, Naim Elijah, confirmed all eight proposed non-goals for the team. The same
+On 2026-11-13 all eight proposed non-goals were confirmed. The same
 decision records the four older cuts, so that one ADR holds every cut and the trigger each
 non-goal already states.
 
@@ -73,8 +73,8 @@ scale ([Q-90]) and the solver comparison ([ADR-005]).
 - **Leave them as non-goals with an "ADR pending" marker.** Rejected: the triggers lived only in the
   requirements, and the project records a decision not to adopt something as an ADR, with the
   trigger that would reopen it.
-- **Keep them as proposed non-goals, or decide later.** Rejected: the owner confirmed the eight
-  proposed non-goals on 2026-11-13.
+- **Keep them as proposed non-goals, or decide later.** Rejected: the eight proposed
+  non-goals were confirmed on 2026-11-13.
 
 ## Revisit when
 

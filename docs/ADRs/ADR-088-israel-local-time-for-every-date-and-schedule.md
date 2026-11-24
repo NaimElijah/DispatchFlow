@@ -14,8 +14,8 @@ time in the hour it repeats reads as its first occurrence ([BR-111]).
 
 [BR-31] carried the marker "ADR pending: Israel local time". The decision touches the shared kernel,
 the solve, the database, the schedules and both apps, so it needs one place where the rule is
-written. On 2026-11-13 the owner, Naim Elijah, decided for the team that the rule stands as [BR-31]
-and the design documents cited below state it.
+written. On 2026-11-13 it was decided that the rule stands as [BR-31] and the design documents cited
+below state it.
 
 Four things make the rule hard to keep:
 
