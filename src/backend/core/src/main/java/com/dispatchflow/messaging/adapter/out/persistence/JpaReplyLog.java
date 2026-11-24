@@ -5,11 +5,9 @@ import com.dispatchflow.messaging.application.port.out.ReplyLog;
 import java.time.Instant;
 import java.util.Objects;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /** Keeps the replies in {@code messaging.inbound_reply}, one row per provider identifier. */
 @Component
-@Transactional
 class JpaReplyLog implements ReplyLog {
 
     private final StoredReplies replies;

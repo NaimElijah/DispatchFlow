@@ -4,12 +4,12 @@ import com.dispatchflow.liveops.application.port.out.AlertRepository;
 import com.dispatchflow.liveops.domain.alert.Alert;
 import com.dispatchflow.shared.AlertId;
 import com.dispatchflow.shared.DeliveryDate;
+import com.dispatchflow.shared.adapter.out.persistence.OpenTransaction;
 import com.dispatchflow.shared.adapter.out.persistence.VersionedSave;
 import jakarta.persistence.EntityManager;
 import java.util.Objects;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Keeps alerts in {@code liveops.alert}, each unique by its dedupe key.
@@ -25,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
  * column is nullable for that reason; only this adapter writes the table.
  */
 @Component
-@Transactional
 class JpaAlertRepository implements AlertRepository {
 
     private final Alerts alerts;
@@ -58,6 +57,7 @@ class JpaAlertRepository implements AlertRepository {
      */
     @Override
     public boolean addUnlessKeyTaken(Alert alert, DeliveryDate date) {
+        OpenTransaction.require("addUnlessKeyTaken");
         Objects.requireNonNull(date, "date");
         alerts.lockKey(alert.dedupeKey().value());
         if (alerts.existsByDedupeKey(alert.dedupeKey())) {

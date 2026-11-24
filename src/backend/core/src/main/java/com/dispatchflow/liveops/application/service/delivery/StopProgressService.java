@@ -9,6 +9,7 @@ import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.OrderId;
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Live Operations' implementation of Customers &amp; Orders' {@link StopProgress} spi (DL §2.1's
@@ -24,7 +25,8 @@ import java.util.List;
  *
  * <p>Built in M2, answering no report for every stop; in full in M5.
  */
-public final class StopProgressService implements StopProgress {
+@Transactional(readOnly = true)
+public class StopProgressService implements StopProgress {
 
     private final DeliveryRepository deliveries;
     private final PublishedRoutes publishedRoutes;

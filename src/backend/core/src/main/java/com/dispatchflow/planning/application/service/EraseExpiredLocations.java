@@ -1,10 +1,8 @@
 package com.dispatchflow.planning.application.service;
 
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.planning.application.port.out.StoredMatrices;
 import com.dispatchflow.planning.application.port.out.solvejob.SolveJobRepository;
-import com.dispatchflow.shared.application.Clock;
 
 /**
  * The nightly retention job's Planning step: Planning keeps copies of customers' coordinates and of
@@ -24,7 +22,8 @@ import com.dispatchflow.shared.application.Clock;
  * <p>Each of the three steps runs in a transaction of its own and writes its audit record there,
  * with the count and no personal data (ADR-110). A step already done finds nothing, so a run
  * repeated after a failure is harmless. The scheduler runs it with the other retention steps at
- * 03:00 {@code Asia/Jerusalem} (DL §10.3).
+ * 03:00 {@code Asia/Jerusalem} (DL §10.3). {@link EraseExpiredLocationsChange} holds the three
+ * transactions, and this step runs them one after the other (ADR-129).
  *
  * <p><b>Domain gap.</b> Planning's domain holds no retention periods: M13 adds them, as Live
  * Operations' {@code RetentionPeriods} holds its own, so the cutoffs come from the domain and not
@@ -37,25 +36,15 @@ import com.dispatchflow.shared.application.Clock;
  */
 public final class EraseExpiredLocations {
 
-    private final StoredMatrices storedMatrices;
-    private final SolveJobRepository jobs;
-    private final Clock clock;
-    private final AuditLog auditLog;
+    private final EraseExpiredLocationsChange change;
 
     /**
      * Creates the job.
      *
-     * @param storedMatrices each plan's stored matrix, whose list of locations is dropped
-     * @param jobs where solve jobs are kept, with their inputs
-     * @param clock the server's time, for {@code today} and {@code now}
-     * @param auditLog where each step's audit record is written
+     * @param change the three steps' transactions
      */
-    public EraseExpiredLocations(
-            StoredMatrices storedMatrices, SolveJobRepository jobs, Clock clock, AuditLog auditLog) {
-        this.storedMatrices = storedMatrices;
-        this.jobs = jobs;
-        this.clock = clock;
-        this.auditLog = auditLog;
+    public EraseExpiredLocations(EraseExpiredLocationsChange change) {
+        this.change = change;
     }
 
     /**

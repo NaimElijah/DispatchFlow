@@ -15,6 +15,7 @@ import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.VehicleId;
 import java.time.Instant;
 import java.util.Optional;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Fleet's implementation of {@code FleetFacts}: the register and the rosters as Planning and Live
@@ -32,7 +33,8 @@ import java.util.Optional;
  *
  * <p>Built in M2 and M9, method by method.
  */
-public final class FleetFactsService implements FleetFacts {
+@Transactional(readOnly = true)
+public class FleetFactsService implements FleetFacts {
 
     private final FleetRegisterRepository registers;
     private final DayRosterRepository rosters;

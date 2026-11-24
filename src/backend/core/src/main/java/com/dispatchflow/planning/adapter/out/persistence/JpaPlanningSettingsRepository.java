@@ -5,14 +5,12 @@ import com.dispatchflow.planning.domain.settings.PlanningSettings;
 import com.dispatchflow.shared.adapter.out.persistence.VersionedSave;
 import java.util.Objects;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Keeps the company's one {@link PlanningSettings} in {@code planning.planning_settings}, under
  * {@link PlanningSettings#KEY}.
  */
 @Component
-@Transactional
 class JpaPlanningSettingsRepository implements PlanningSettingsRepository {
 
     private final AllPlanningSettings settings;

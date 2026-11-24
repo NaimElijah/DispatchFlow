@@ -13,7 +13,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Keeps each stop's {@link Delivery} in {@code liveops.delivery}, its outcome records in {@code
@@ -23,7 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
  * Delivery.eraseExpired} compares with, so the job loads exactly the deliveries that erasure changes.
  */
 @Component
-@Transactional
 class JpaDeliveryRepository implements DeliveryRepository {
 
     private final Deliveries deliveries;

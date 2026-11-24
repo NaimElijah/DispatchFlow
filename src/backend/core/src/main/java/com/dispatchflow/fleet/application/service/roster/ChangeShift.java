@@ -14,6 +14,7 @@ import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.util.Optional;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher sets a driver's shift on a date (FR-54, FR-190). A driver not yet on the roster is
@@ -27,7 +28,8 @@ import java.util.Optional;
  *
  * <p>Built in M2.
  */
-public final class ChangeShift {
+@Transactional
+public class ChangeShift {
 
     private final DayRosterRepository rosters;
     private final DriverRepository drivers;

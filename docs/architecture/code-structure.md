@@ -126,10 +126,10 @@ src/backend/core/
   src/main/resources/
     application.properties
     application-schema-draft.properties  the profile `just core-schema-draft` runs
-    db/migration/                  Flyway migrations, one per module: V1 creates the eight
-                                   schemas, then V2 access, V3 audit, V4 fleet, V5 liveops, V6
-                                   messaging, V7 orders, V8 planning and V9 reporting
-                                   (data-model.md)
+    db/migration/                  Flyway migrations: V1 creates the eight schemas, then one per
+                                   module, V2 access, V3 audit, V4 fleet, V5 liveops, V6
+                                   messaging, V7 orders, V8 planning and V9 reporting; V10 refuses
+                                   a negative list position on every list table (data-model.md)
   src/test/java/com/dispatchflow/
     shared/                        the kernel's tests, and DomainAssertions, the refusal helper
                                    every module's domain tests use; AsSaved, which does to an
@@ -139,15 +139,17 @@ src/backend/core/
                                    helper that in-memory fakes use to publish events as a save
                                    does;
                                    adapter/out/persistence/ holds the shared adapter's tests and
-                                   the test-only entity Ledger
+                                   the test-only entities Ledger and its child LedgerEntry
     architecture/                  the domain purity, shape and package rules, the application
-                                   rules and the JPA mapping rules (ArchUnit), and the error-code,
+                                   rules, the JPA mapping rules and the transaction rules
+                                   (ArchUnit), and the error-code,
                                    event-name and refusal-test checks
     archfixture/                   deliberately wrong classes that each rule must flag, one
                                    subpackage per rule under alpha/domain/ (split by kind above
                                    20 files), epsilon/ for the package rules, zeta/ for the
-                                   application rules, and entity/ and mapping/ under alpha/domain/
-                                   and adapter/out/persistence/ for the mapping rules
+                                   application rules, entity/ and mapping/ under alpha/domain/
+                                   and adapter/out/persistence/ for the mapping rules, and theta/
+                                   for the transaction rules
     access/                        that module's domain tests, in the package of the type each
                                    tests, and its adapter/out/persistence/ tests: a *PersistenceIT
                                    for each aggregate or record, and the converters' tests
@@ -171,8 +173,9 @@ src/backend/core/
                                          location, no archfixture in Hibernate's scan, the
                                          Transactions bean, and a recorder of published events
   src/test/resources/
-    db/fixture/                    V0_1__persistence_fixture.sql, the test-only table behind Ledger
-                                   (migration versions V0_* are reserved for tests)
+    db/fixture/                    V0_1__persistence_fixture.sql, the test-only schema
+                                   persistence_fixture and its two tables behind Ledger and
+                                   LedgerEntry (migration versions V0_* are reserved for tests)
 ```
 
 The shared kernel exists
@@ -198,8 +201,12 @@ Each module also has an `application` package, declared ahead of its milestone a
 It holds whichever of `api`, `spi`, `port/out` and `service` the module has something for: `access`,
 `audit` and `liveops` have no `spi`, and `messaging` and `reporting` have neither `api` nor `spi`.
 Every body that would do work throws `UnsupportedOperationException("Built in M<n>")`. Nothing is
-wired: the application layer carries no Spring annotation and registers no bean, and no use case
-calls a port. The ports every module uses sit in `shared/application`, and the caller is an `Actor`
+wired: the application layer registers no bean, and no use case calls a port. Its one Spring
+annotation is `@Transactional`: on every service's class, and on the read-only reads of a
+`<UseCase>Change`. A use case with outside calls, or one transaction per item, holds its
+transactional `Change`, and it carries no transaction itself; nor does a service that calls such a
+use case
+([ADR-129](../ADRs/ADR-129-transactions-start-only-in-the-service-layer.md)). The ports every module uses sit in `shared/application`, and the caller is an `Actor`
 and a `CallContext`
 ([ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
 
@@ -232,7 +239,7 @@ are written to tech stack §4.
 [ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)
 (Accepted) makes each context a Spring Modulith module, and
 [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md)
-(Accepted, amended by [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)) gives each module its own schema, accessed through JPA with the
+(Accepted, amended by [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) and [ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md)) gives each module its own schema, accessed through JPA with the
 mapping on the domain classes. ADR-040 is not in the tree yet. ADR-041 and ADR-126 are, for every
 module: their schemas, tables, mapped aggregates and persistence adapters exist, but the two
 database roles and the `migrate` step do not.
@@ -365,8 +372,8 @@ These follow from
 
 Three sets of rules are checked automatically today:
 - the PyVRP rule;
-- in `core`, the domain's purity rules, the shape rules, the package rules and the application
-  rules;
+- in `core`, the domain's purity rules, the shape rules, the package rules, the application
+  rules, the JPA mapping rules and the transaction rules;
 - in `optimizer`, the import-linter contracts in `pyproject.toml`: the domain imports no framework,
   solver or standard-library module that reads a clock, draws randomness or does I/O; the validator,
   the objective and the drop reasons never import `problem`; `application` imports no FastAPI,

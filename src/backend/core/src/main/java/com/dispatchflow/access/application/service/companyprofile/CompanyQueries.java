@@ -4,6 +4,7 @@ import com.dispatchflow.access.application.api.Actor;
 import com.dispatchflow.access.application.port.out.AccessViews;
 import com.dispatchflow.access.application.port.out.CompanyView;
 import java.util.Optional;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The company settings page's query (FR-125, FR-184).
@@ -13,7 +14,8 @@ import java.util.Optional;
  *
  * <p>Built in M2.
  */
-public final class CompanyQueries {
+@Transactional(readOnly = true)
+public class CompanyQueries {
 
     private final AccessViews views;
 

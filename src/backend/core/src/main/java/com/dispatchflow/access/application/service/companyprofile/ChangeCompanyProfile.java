@@ -15,6 +15,7 @@ import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.util.Objects;
 import java.util.Optional;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * An Admin changes the company's settings in one place: its name, its default language, and the
@@ -38,7 +39,8 @@ import java.util.Optional;
  *
  * <p>Built in M2.
  */
-public final class ChangeCompanyProfile {
+@Transactional
+public class ChangeCompanyProfile {
 
     private final CompanyProfileRepository companyProfiles;
     private final UserAccountRepository accounts;

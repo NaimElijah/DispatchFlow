@@ -8,6 +8,7 @@ import com.dispatchflow.access.domain.session.SessionGeneration;
 import com.dispatchflow.access.domain.session.SessionState;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.SessionId;
+import com.dispatchflow.shared.adapter.out.persistence.OpenTransaction;
 import com.dispatchflow.shared.adapter.out.persistence.VersionedSave;
 import com.dispatchflow.shared.application.StaleVersion;
 import jakarta.persistence.EntityManager;
@@ -19,7 +20,6 @@ import java.util.UUID;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Keeps sessions in {@code access.session}, their refresh tokens in {@code access.refresh_token}
@@ -33,7 +33,6 @@ import org.springframework.transaction.annotation.Transactional;
  * names is not built yet.
  */
 @Component
-@Transactional
 class JpaSessionRepository implements SessionRepository {
 
     // The entity's name, which the shared save also gives a conflict as its kind.
@@ -144,6 +143,7 @@ class JpaSessionRepository implements SessionRepository {
 
     @Override
     public List<SessionId> deleteEndedBefore(Instant cutoff) {
+        OpenTransaction.require("deleteEndedBefore");
         return ids(sessions.deleteEndedBy(cutoff, Session.REFRESH_TOKEN_LIFETIME.toString()));
     }
 

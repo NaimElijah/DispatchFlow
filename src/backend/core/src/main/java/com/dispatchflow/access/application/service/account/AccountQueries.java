@@ -7,6 +7,7 @@ import com.dispatchflow.access.application.port.out.MeView;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.application.NotFound;
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The account screens' queries: the signed-in user's own view, and the users list and one user
@@ -18,7 +19,8 @@ import java.util.List;
  *
  * <p>Built in M5 and M6, method by method.
  */
-public final class AccountQueries {
+@Transactional(readOnly = true)
+public class AccountQueries {
 
     private final AccessViews views;
 

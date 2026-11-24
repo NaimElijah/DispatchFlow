@@ -62,8 +62,12 @@ and its revocation
 P20). Four store a record by insert (`audit`'s audit records, `liveops`' kept positions, and
 `messaging`'s opt-outs and its SMS replies, whose insert skips a reply already kept), and
 `reporting` keeps a baseline's outcome as a record row of its own, so five `@Immutable` `Stored…`
-entities keep records. The reads under a lock (`activeAdminsUnderLock`, both `capacityUnderLock`,
-`claimNext` and `capOn`) run only in the caller's transaction, and refuse a call outside one.
+entities keep records. No adapter carries `@Transactional`: each runs in the caller's transaction
+([ADR-129](../ADRs/ADR-129-transactions-start-only-in-the-service-layer.md)). The eight methods that take a lock lasting only as long as that transaction
+(the reads `activeAdminsUnderLock`, both `capacityUnderLock`, `claimNext` and `capOn`, and the
+writes `countAnswer`, `addUnlessKeyTaken` and the plan's `add`) call `OpenTransaction.require`
+first, as does `deleteEndedBefore`, whose `DELETE … RETURNING` would otherwise commit on its own.
+Each refuses a call outside a read-write transaction.
 `Plan`'s adapter sits in a `plan/` subpackage of Planning's, with the `@Immutable` entity its
 revisions are appended as. Every root's load check refuses a gap in its stored lists first, and
 Hibernate batch-fetches the collections a load reads, 200 roots at a time
@@ -71,10 +75,11 @@ Hibernate batch-fetches the collections a load reads, 200 roots at a time
 module's `*PersistenceIT` tests its adapters against PostgreSQL. No aggregate keeps a `restore`
 factory or a snapshot record. Three adapter methods still throw: `SolveJobRepository`'s two blanking
 methods (`UnsupportedOperationException("Built in M13")`, because nothing stores a job's input yet)
-and `AuditRecords.purgeExpired`, which waits for the database roles. `src/test` also holds one
-entity that has a table, `Ledger` with its child `LedgerEntry`, and the test-only migration
-`src/test/resources/db/fixture/V0_1__persistence_fixture.sql`, which only the version helper's tests
-run. The `@Entity` classes under `archfixture/` are deliberately wrong fixtures for the mapping
+and `AuditRecords.purgeExpired`, which waits for the database roles. `src/test` also holds two
+entities that have tables, `Ledger` and its child `LedgerEntry`, and the test-only migration
+`src/test/resources/db/fixture/V0_1__persistence_fixture.sql`. Flyway applies it in every
+integration-test context and under `just core-run`, and only the version helper's tests use its
+tables. The `@Entity` classes under `archfixture/` are deliberately wrong fixtures for the mapping
 rules, and no schema maps them. `optimizer`'s `solvers` folders hold only `.gitkeep`; its `domain`
 holds the domain for daily solves and re-optimizations
 ([ADR-098](../ADRs/ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) fixes its
@@ -97,9 +102,11 @@ built ahead of their milestones, with the `events` packages of the six modules t
 Each core module also has an `application` package, and the kernel has `shared/application`. They
 are declared ahead of their milestones: every use case, query, port and module API has its signature,
 and every body that would do work throws `UnsupportedOperationException("Built in M<n>")`. They are
-not built. No Spring annotation or bean wires them, and nothing calls a port: the persistence
-adapters implement the repository ports, and no use case calls them, so the application
-context starts as before. Why they are declared now is in [ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md). The caller
+not built. No bean wires them, and nothing calls a port: the persistence adapters implement the
+repository ports, and no use case calls them, so the application context starts as before. Each
+service carries a class-level `@Transactional`, read-only where it changes nothing. A use case with
+outside calls, or one transaction per item, carries none and holds a transactional
+`<UseCase>Change` ([ADR-129](../ADRs/ADR-129-transactions-start-only-in-the-service-layer.md)). Why they are declared now is in [ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md). The caller
 is an `Actor` and a `CallContext`, the shared ports are in `shared/application`, and screens read
 through query ports ([ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
 
@@ -177,7 +184,14 @@ have a `Dockerfile`, and neither runs as root
   every entity root, no `@GeneratedValue`, no Spring Data interface wider than its port needs, every mapped
   table in its module's schema, and no adapter that uses another module's entity. They check every
   production class, so a module mapped later is covered without editing a rule, and they fire on
-  deliberately wrong fixtures.
+  deliberately wrong fixtures. `TransactionRules` has six on where a transaction starts
+  ([ADR-129](../ADRs/ADR-129-transactions-start-only-in-the-service-layer.md)):
+  - `@Transactional` only in the services, directly or through an annotation;
+  - every service transactional at class level, or holding the `<UseCase>Change` that is;
+  - no transactional class or method that Spring can't subclass;
+  - no outside-call port in a transactional class;
+  - no read-only service that writes an audit record;
+  - `OpenTransaction.require` before every transaction-scoped lock.
   The other dependency rules are enforced by review.
 - **Every solver sits behind one `Solver` port** and is chosen by name
   ([ADR-004](../ADRs/ADR-004-pluggable-solver-port.md), amended by
@@ -186,7 +200,7 @@ have a `Dockerfile`, and neither runs as root
   `application/ports.py` ([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)); no solver implements the port yet.
 - **PyVRP stays out of `optimizer`.** `src/backend/optimizer/tests/test_dependency_boundary.py` holds two
   tests. One fails if PyVRP is installed there, and the other if PyVRP is locked in its `uv.lock`.
-  With `core`'s purity, shape, package and application rules, and `optimizer`'s import-linter contracts and the ruff
+  With `core`'s purity, shape, package, application, mapping and transaction rules, and `optimizer`'s import-linter contracts and the ruff
   bans in its domain (lint steps in `just optimizer-check`), they are the only architecture rules
   checked automatically today.
 - **Flyway owns the schema.** `core` sets `spring.jpa.hibernate.ddl-auto=validate`, so Hibernate

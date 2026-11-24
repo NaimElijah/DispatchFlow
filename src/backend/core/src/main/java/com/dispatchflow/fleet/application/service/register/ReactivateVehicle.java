@@ -9,6 +9,7 @@ import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher makes a retired vehicle active again, so new plans may use it (FR-193). It counts
@@ -18,7 +19,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>Built in M2.
  */
-public final class ReactivateVehicle {
+@Transactional
+public class ReactivateVehicle {
 
     private final FleetRegisterRepository registers;
     private final Clock clock;

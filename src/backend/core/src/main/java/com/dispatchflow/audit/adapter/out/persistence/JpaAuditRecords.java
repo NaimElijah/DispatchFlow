@@ -6,7 +6,6 @@ import jakarta.persistence.EntityManager;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Keeps audit records in {@code audit.audit_record}, and the records each names in {@code
@@ -16,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
  * merge} a row whose key is already set, which reads before it writes.
  */
 @Component
-@Transactional
 class JpaAuditRecords implements AuditRecords {
 
     private final EntityManager entityManager;

@@ -9,6 +9,7 @@ import com.dispatchflow.orders.application.spi.StopProgress;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.application.NotFound;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The order screens' reads (FR-76, BR-33): a date's orders and one order, each with its status. The
@@ -24,7 +25,8 @@ import com.dispatchflow.shared.application.NotFound;
  *
  * <p>Built in M2.
  */
-public final class OrderQueries {
+@Transactional(readOnly = true)
+public class OrderQueries {
 
     private final OrdersViews views;
     private final OrderPlacement orderPlacement;

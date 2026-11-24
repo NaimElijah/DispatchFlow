@@ -10,6 +10,7 @@ import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher retires a driver, whose record stays (FR-56, BR-43). No uncancelled plan for today
@@ -20,7 +21,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>Built in M2.
  */
-public final class RetireDriver {
+@Transactional
+public class RetireDriver {
 
     private final DriverRepository drivers;
     private final RecordUsage recordUsage;

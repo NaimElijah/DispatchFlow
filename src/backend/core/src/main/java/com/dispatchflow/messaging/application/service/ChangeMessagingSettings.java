@@ -11,6 +11,7 @@ import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.util.Optional;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * An Admin changes the messaging part of the company settings: messages on or off, the rating
@@ -26,7 +27,8 @@ import java.util.Optional;
  *
  * <p>Built in M12. Rows: FR-199, FR-350, FR-375, FR-382, NFR-214.
  */
-public final class ChangeMessagingSettings {
+@Transactional
+public class ChangeMessagingSettings {
 
     private final MessagingSettingsRepository settings;
     private final StepUp stepUp;

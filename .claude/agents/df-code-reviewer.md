@@ -48,7 +48,11 @@ report findings.
   - Use cases are `service` classes. An interface in `api` exists only when another module calls the use case ([DL §13][DL-13]).
   - Outside calls happen before the transaction, and a transaction changes one existing aggregate ([ADR-063]).
   - The application layer uses only `@Transactional` from Spring. `@Retryable` and `@ConcurrencyLimit` sit on the adapter that makes the outside call ([ADR-040], [TS §6.2][TS-62]).
-  - Listeners are idempotent ([ADR-064]).
+  - Transactions start only in services ([ADR-129]), which `TransactionRules` checks. Review what it can't:
+    - a service that changes nothing is marked `readOnly`. The rules check only that an auditing one isn't, and a read-only one that writes fails at its first write;
+    - a refused attempt's record is written after the refused transaction has rolled back, never in a nested `REQUIRES_NEW` (ADR-129 decision 5);
+    - a new port that calls out of the process is added to `TransactionRules.OUTSIDE_CALL_PORTS`, and one that stores nothing to `STORELESS_PORTS`.
+  - Listeners have no transaction of their own (`@Async @TransactionalEventListener`, never `@ApplicationModuleListener`), and are idempotent ([ADR-064], [ADR-129]).
   - An error that crosses `api` is an `api` type, since no domain object crosses a boundary ([DL §2.3][DL-23], rule 1). Inside a module, every refusal is a named error of the module's sealed type, with a stable code that the web adapter puts in the problem response ([DL §3.8][DL-38]).
   - Outbound adapters implement ports the inside declares, and an adapter reaches another only through a port ([TS §2.1][TS-21]).
   - No Lombok ([TS §6][TS-6]).
@@ -62,9 +66,9 @@ report findings.
 - **Persistence (Flyway, which [ADR-041] keeps from ADR-007):**
   - Schema changes only through a new Flyway migration; an applied migration is never edited.
   - Queries are parameterised: JPQL and native queries take bound parameters, never a string built from input.
-  - A module's persistence goes through JPA in its own schema ([ADR-041], amended by [ADR-126]; the shared adapter and the kernel's mapping are in the tree, no aggregate is mapped yet):
-    - an adapter implements its port with a package-private Spring Data `Repository<Root, UUID>` interface, never `CrudRepository`, `ListCrudRepository` or `JpaRepository`;
-    - its `add` and `save` go through `VersionedSave`, so every save moves the version by exactly 1;
+  - A module's persistence goes through JPA in its own schema ([ADR-041], amended by [ADR-126] and [ADR-127]; every aggregate is mapped, [ADR-128]):
+    - an adapter implements its port with a package-private Spring Data `Repository<Root, UUID>` interface, never `CrudRepository`, `ListCrudRepository`, `JpaRepository` or `JpaSpecificationExecutor`;
+    - its `save` goes through `VersionedSave`, which moves the version by exactly 1, except a session's save of a change that only kept or dropped contact times ([ADR-128] decision 1); an `add` goes through it where another transaction may store the same aggregate first, and any other `add` inserts and flushes itself;
     - PostgreSQL-specific SQL is a native query with bound parameters and an adapter test;
     - every entity names its module's schema in `@Table`. ArchUnit checks the repository and schema rules, and review checks the rest.
 - **Code style:**
@@ -103,6 +107,9 @@ No praise, and no restating what the code does. End with:
 [ADR-040]: ../../docs/ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md
 [ADR-041]: ../../docs/ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md
 [ADR-126]: ../../docs/ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md
+[ADR-127]: ../../docs/ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md
+[ADR-128]: ../../docs/ADRs/ADR-128-the-persistence-rules-the-mapping-settled-after-adr-127.md
+[ADR-129]: ../../docs/ADRs/ADR-129-transactions-start-only-in-the-service-layer.md
 [ADR-044]: ../../docs/ADRs/ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md
 [ADR-063]: ../../docs/ADRs/ADR-063-a-transaction-changes-one-aggregate-and-every-rule-has-one-owner.md
 [ADR-064]: ../../docs/ADRs/ADR-064-events-only-where-they-earn-their-place-through-the-modulith-registry.md

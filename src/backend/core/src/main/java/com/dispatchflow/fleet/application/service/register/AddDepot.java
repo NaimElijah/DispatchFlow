@@ -12,6 +12,7 @@ import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.IdGenerator;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.util.Optional;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher adds a depot (FR-04), which may have no location yet, and then starts and ends no
@@ -22,7 +23,8 @@ import java.util.Optional;
  *
  * <p>Built in M2.
  */
-public final class AddDepot {
+@Transactional
+public class AddDepot {
 
     private final FleetRegisterRepository registers;
     private final IdGenerator ids;

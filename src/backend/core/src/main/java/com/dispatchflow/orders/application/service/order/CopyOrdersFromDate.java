@@ -8,6 +8,7 @@ import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.IdGenerator;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher copies a previous date's orders to a new date, to change them before solving
@@ -28,7 +29,8 @@ import com.dispatchflow.shared.application.IdGenerator;
  *
  * <p>Built in an unscheduled milestone.
  */
-public final class CopyOrdersFromDate {
+@Transactional
+public class CopyOrdersFromDate {
 
     private final OrderRepository orders;
     private final CustomerRepository customers;

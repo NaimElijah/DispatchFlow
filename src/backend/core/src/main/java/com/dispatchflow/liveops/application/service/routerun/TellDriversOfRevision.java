@@ -10,15 +10,17 @@ import com.dispatchflow.planning.events.RouteHandedOver;
 /**
  * Live Operations' listener on {@code PlanRevised}: the driver of each route the revision changed
  * gets a change notice, even with the app in the background, and confirms it with <em>Seen</em>
- * (FR-71, FR-97, FR-249). The drivers come from Planning's {@link PublishedRoutes}. Each changed
- * route's driver gets one {@code LiveUpdate.RouteRevised} through {@link LiveUpdates}, which the web
- * app open on the route hears and reads the route again from (FR-347, FR-391), and which the
- * dispatcher's unconfirmed list follows (FR-250); and one {@code DriverNotice.RouteChanged} through
- * {@link PushNotifier}, which reaches the phone app in the background (ADR-026, ADR-083).
+ * (FR-71, FR-97, FR-249). The drivers come from Planning's {@link PublishedRoutes}, read in {@link
+ * TellDriversOfRevisionChange}'s read-only transaction. After it, each changed route's driver gets
+ * one {@code LiveUpdate.RouteRevised} through {@link LiveUpdates}, which the web app open on the
+ * route hears and reads the route again from (FR-347, FR-391), and which the dispatcher's
+ * unconfirmed list follows (FR-250); and one {@code DriverNotice.RouteChanged} through {@link
+ * PushNotifier}, which reaches the phone app in the background (ADR-026, ADR-083).
  *
  * <p>A route handed over has a new driver in the current revision. The driver it left is in no
  * route of that revision, so {@link #on(RouteHandedOver, CallContext)} tells them from Planning's
- * {@code RouteHandedOver}, which names both drivers (FR-71), with the same update and push.
+ * {@code RouteHandedOver}, which names both drivers (FR-71), with the same update and push. It reads
+ * nothing, so it opens no transaction.
  *
  * <p>Delivery is at least once (ADR-064), and a repeated notice carries no data (NFR-218), so it
  * records no {@code ProcessedEvents} pair.
@@ -30,20 +32,21 @@ import com.dispatchflow.planning.events.RouteHandedOver;
 public final class TellDriversOfRevision {
 
     private final PushNotifier pushNotifier;
-    private final PublishedRoutes publishedRoutes;
     private final LiveUpdates liveUpdates;
+    private final TellDriversOfRevisionChange change;
 
     /**
      * Creates the listener's use case.
      *
      * @param pushNotifier the drivers' phones
-     * @param publishedRoutes Planning's routes in force, for each changed route's driver
      * @param liveUpdates the open screens, the drivers' web app among them
+     * @param change the read of each changed route's driver
      */
-    public TellDriversOfRevision(PushNotifier pushNotifier, PublishedRoutes publishedRoutes, LiveUpdates liveUpdates) {
+    public TellDriversOfRevision(
+            PushNotifier pushNotifier, LiveUpdates liveUpdates, TellDriversOfRevisionChange change) {
         this.pushNotifier = pushNotifier;
-        this.publishedRoutes = publishedRoutes;
         this.liveUpdates = liveUpdates;
+        this.change = change;
     }
 
     /**

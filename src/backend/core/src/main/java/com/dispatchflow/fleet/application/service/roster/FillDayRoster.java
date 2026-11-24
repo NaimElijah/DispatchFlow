@@ -11,6 +11,7 @@ import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Fills a date's roster from each driver's defaults and weekly shifts, setting only the values
@@ -28,7 +29,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>Built in M2.
  */
-public final class FillDayRoster {
+@Transactional
+public class FillDayRoster {
 
     private final DayRosterRepository rosters;
     private final DriverRepository drivers;

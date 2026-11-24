@@ -10,6 +10,7 @@ import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
 import java.time.Instant;
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Live Operations' implementation of Planning's {@link ExecutionFacts} spi (DL §2.1's dashed arrow,
@@ -23,7 +24,8 @@ import java.util.List;
  *
  * <p>Built in M9.
  */
-public final class ExecutionFactsService implements ExecutionFacts {
+@Transactional(readOnly = true)
+public class ExecutionFactsService implements ExecutionFacts {
 
     private final DeliveryRepository deliveries;
     private final RouteRunRepository runs;

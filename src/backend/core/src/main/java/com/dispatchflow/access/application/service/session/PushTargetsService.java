@@ -8,6 +8,7 @@ import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.application.Clock;
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Access's implementation of {@code PushTargets}: the push addresses of an account's live sessions
@@ -19,7 +20,8 @@ import java.util.List;
  *
  * <p>Built in M10.
  */
-public final class PushTargetsService implements PushTargets {
+@Transactional
+public class PushTargetsService implements PushTargets {
 
     private final PushTokens pushTokens;
     private final Clock clock;

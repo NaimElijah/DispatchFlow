@@ -392,6 +392,18 @@ class StopMessagesPersistenceIT {
         assertThatThrownBy(() -> repository.capOn(dayOf(15))).isInstanceOf(IllegalTransactionStateException.class);
     }
 
+    /** A day's lock taken in a transaction of the call's own would be gone before the count is written. */
+    @Test
+    void GivenNoTransaction_WhenAnAnswerIsCounted_ThenTheCallIsRefused() {
+        assertThatThrownBy(() -> repository.countAnswer(answerId(50, 1), dayOf(50)))
+                .isInstanceOf(IllegalTransactionStateException.class);
+        assertThat(jdbc.sql("SELECT count(*) FROM messaging.counted_answer WHERE answer_id = ?")
+                        .param(answerId(50, 1).value())
+                        .query(Long.class)
+                        .single())
+                .isZero();
+    }
+
     // --- the last acceptance to a phone (FR-363)
 
     @Test

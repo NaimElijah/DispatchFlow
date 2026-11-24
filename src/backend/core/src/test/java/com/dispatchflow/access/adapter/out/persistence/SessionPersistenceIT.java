@@ -51,6 +51,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.IllegalTransactionStateException;
 
 /**
  * {@link SessionRepository} against a real PostgreSQL (ADR-126, ADR-127): what a session stores and
@@ -671,6 +672,18 @@ class SessionPersistenceIT {
     }
 
     // --- retention (NFR-258, NFR-280), in 2021
+
+    /** The delete runs as a query, so with no transaction it would commit on its own. */
+    @Test
+    void GivenNoTransaction_WhenTheEndedSessionsAreDeleted_ThenTheCallIsRefusedAndNoneGoes() {
+        int n = 29;
+        Instant cutoff = Instant.parse("2021-06-01T06:00:00Z");
+        transactions.inTransaction(() -> repository.add(revokedAt(n, n, cutoff.minus(Duration.ofDays(2)))));
+
+        assertThatThrownBy(() -> repository.deleteEndedBefore(cutoff))
+                .isInstanceOf(IllegalTransactionStateException.class);
+        assertThat(transactions.inTransaction(() -> repository.get(session(n)))).isPresent();
+    }
 
     @Test
     void GivenSessionsEndingAroundACutoff_WhenTheEndedOnesAreDeleted_ThenThoseEndedAtOrBeforeItGoWithTheirRows() {

@@ -15,6 +15,7 @@ import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import java.time.Duration;
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The dispatcher's live screens: the map, each route's progress, the stops at risk, the unconfirmed
@@ -26,7 +27,8 @@ import java.util.List;
  *
  * <p>Built in M5 and M8, method by method.
  */
-public final class LiveQueries {
+@Transactional(readOnly = true)
+public class LiveQueries {
 
     /** How old a position may be before the map marks it stale, by the server's clock (FR-74). */
     public static final Duration POSITION_STALE_AFTER = Duration.ofMinutes(5);

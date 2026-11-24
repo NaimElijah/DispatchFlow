@@ -1,67 +1,42 @@
 package com.dispatchflow.liveops.application.service.alert;
 
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
-import com.dispatchflow.liveops.application.port.out.AlertRepository;
 import com.dispatchflow.liveops.application.port.out.LiveUpdates;
 import com.dispatchflow.liveops.application.port.out.PushNotifier;
-import com.dispatchflow.liveops.application.port.out.RouteRunRepository;
 import com.dispatchflow.planning.application.api.PublishedRoutes;
-import com.dispatchflow.shared.application.Clock;
-import com.dispatchflow.shared.application.IdGenerator;
 
 /**
  * The minute job that alerts the dispatcher when a driver on a started route hasn't confirmed a
  * change 10 minutes after its revision took effect (FR-97, FR-157, FR-250, ADR-107, DL §12). For
  * today's runs it asks {@code RouteRun.isConfirmationOverdue} with the revision and time Planning's
  * {@link PublishedRoutes} gives each route, and raises a <em>route change unconfirmed</em> alert,
- * keyed on the revision, so each overdue revision alerts once.
+ * keyed on the revision, so each overdue revision alerts once. {@link AlertUnconfirmedChangesChange}
+ * holds that transaction.
  *
- * <p>For each alert it raises, it calls {@link PushNotifier#alertStaff} after the commit, so a
- * staff phone app in the background learns of it (FR-405, ADR-083).
+ * <p>After the commit, it tells the open screens of each alert raised through {@link LiveUpdates},
+ * and calls {@link PushNotifier#alertStaff} for each, so a staff phone app in the background learns
+ * of it (FR-405, ADR-083).
  *
  * <p>Built in M8; the push through {@link PushNotifier} in M10. Rows: FR-157, FR-250, ADR-107.
  */
 public final class AlertUnconfirmedChanges {
 
-    private final RouteRunRepository runs;
-    private final PublishedRoutes publishedRoutes;
-    private final AlertRepository alerts;
     private final PushNotifier pushNotifier;
-    private final Clock clock;
-    private final IdGenerator ids;
-    private final AuditLog auditLog;
     private final LiveUpdates liveUpdates;
+    private final AlertUnconfirmedChangesChange change;
 
     /**
      * Creates the job.
      *
-     * @param runs where route runs are kept
-     * @param publishedRoutes Planning's routes in force, for each route's last change
-     * @param alerts where alerts are kept
      * @param pushNotifier the staff's phones, told of each alert raised
-     * @param clock the server's time and today's date
-     * @param ids new IDs, for the alerts
-     * @param auditLog the audit trail
      * @param liveUpdates the open screens
+     * @param change the job's transaction
      */
     public AlertUnconfirmedChanges(
-            RouteRunRepository runs,
-            PublishedRoutes publishedRoutes,
-            AlertRepository alerts,
-            PushNotifier pushNotifier,
-            Clock clock,
-            IdGenerator ids,
-            AuditLog auditLog,
-            LiveUpdates liveUpdates) {
-        this.runs = runs;
-        this.publishedRoutes = publishedRoutes;
-        this.alerts = alerts;
+            PushNotifier pushNotifier, LiveUpdates liveUpdates, AlertUnconfirmedChangesChange change) {
         this.pushNotifier = pushNotifier;
-        this.clock = clock;
-        this.ids = ids;
-        this.auditLog = auditLog;
         this.liveUpdates = liveUpdates;
+        this.change = change;
     }
 
     /**

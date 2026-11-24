@@ -6,6 +6,7 @@ import com.dispatchflow.planning.application.port.out.SolveProgressView;
 import com.dispatchflow.shared.JobId;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The solve's progress, which the dispatcher's screen reads when the event stream says a job changed
@@ -14,7 +15,8 @@ import com.dispatchflow.shared.application.NotFound;
  *
  * <p>Built in M4.
  */
-public final class SolveQueries {
+@Transactional(readOnly = true)
+public class SolveQueries {
 
     private final PlanningViews views;
     private final Clock clock;

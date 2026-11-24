@@ -1,12 +1,9 @@
 package com.dispatchflow.orders.application.service.customer;
 
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
-import com.dispatchflow.orders.application.port.out.CustomerRepository;
 import com.dispatchflow.orders.application.port.out.GeocodeRequests;
 import com.dispatchflow.orders.application.port.out.Geocoder;
 import com.dispatchflow.orders.application.port.out.GeocoderUnavailable;
-import com.dispatchflow.orders.application.port.out.ServiceAreas;
 import com.dispatchflow.orders.application.port.out.customer.RoadSnap;
 import com.dispatchflow.orders.application.port.out.customer.RoadSnapUnavailable;
 import com.dispatchflow.shared.application.Clock;
@@ -25,44 +22,32 @@ import com.dispatchflow.shared.application.Clock;
  * dispatcher to place its location by hand (FR-64). Past the day's cap the requests wait for the
  * next day, and the dispatcher is told through {@link CustomerQueries#geocodingBacklog} (NFR-135).
  *
+ * <p>The {@link Geocoder} and the {@link RoadSnap} are outside calls, so this class opens no
+ * transaction: {@link GeocodeCustomersChange} claims the due requests in one, and records each
+ * customer's answer in one of its own (ADR-129).
+ *
  * <p>Built in M7.
  */
 public final class GeocodeCustomers {
 
-    private final GeocodeRequests geocodeRequests;
     private final Geocoder geocoder;
     private final RoadSnap roadSnap;
-    private final CustomerRepository customers;
-    private final ServiceAreas serviceAreas;
     private final Clock clock;
-    private final AuditLog auditLog;
+    private final GeocodeCustomersChange change;
 
     /**
      * Creates the job.
      *
-     * @param geocodeRequests the geocoding outbox
      * @param geocoder the outside geocoding service
      * @param roadSnap the road network's distance from a found point to the nearest road
-     * @param customers where customers are kept
-     * @param serviceAreas the company's service area, which a found point is checked against
      * @param clock the time of the job, and the Israel day the cap counts
-     * @param auditLog the audit trail
+     * @param change the transactions that claim the due requests and record each answer
      */
-    public GeocodeCustomers(
-            GeocodeRequests geocodeRequests,
-            Geocoder geocoder,
-            RoadSnap roadSnap,
-            CustomerRepository customers,
-            ServiceAreas serviceAreas,
-            Clock clock,
-            AuditLog auditLog) {
-        this.geocodeRequests = geocodeRequests;
+    public GeocodeCustomers(Geocoder geocoder, RoadSnap roadSnap, Clock clock, GeocodeCustomersChange change) {
         this.geocoder = geocoder;
         this.roadSnap = roadSnap;
-        this.customers = customers;
-        this.serviceAreas = serviceAreas;
         this.clock = clock;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

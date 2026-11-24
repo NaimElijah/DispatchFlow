@@ -13,6 +13,7 @@ import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.StopId;
 import java.time.Instant;
 import java.util.Optional;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Planning's implementation of {@link RouteMembership}: it reads the stored revisions through {@link
@@ -25,7 +26,8 @@ import java.util.Optional;
  *
  * <p>Built in M5, M8 and M12, method by method.
  */
-public final class RouteMembershipService implements RouteMembership {
+@Transactional(readOnly = true)
+public class RouteMembershipService implements RouteMembership {
 
     private final PlanningViews views;
 

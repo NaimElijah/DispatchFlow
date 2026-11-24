@@ -10,6 +10,7 @@ import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher replaces an active driver's weekly shift template, which fills the per-date values
@@ -20,7 +21,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  * <p>Built in an unscheduled milestone: the Alpha leaves weekly shifts out and seeds its rosters
  * (DL §4.2), and the roadmap names no milestone for them.
  */
-public final class ChangeWeeklyShifts {
+@Transactional
+public class ChangeWeeklyShifts {
 
     private final DriverRepository drivers;
     private final Clock clock;

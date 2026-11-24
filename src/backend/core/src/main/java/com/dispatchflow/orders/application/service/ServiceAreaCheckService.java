@@ -3,6 +3,7 @@ package com.dispatchflow.orders.application.service;
 import com.dispatchflow.orders.application.api.ServiceAreaCheck;
 import com.dispatchflow.orders.application.port.out.ServiceAreas;
 import com.dispatchflow.shared.GeoPoint;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Customers &amp; Orders' implementation of {@link ServiceAreaCheck}: it asks the current {@code
@@ -11,7 +12,8 @@ import com.dispatchflow.shared.GeoPoint;
  *
  * <p>Built in M9.
  */
-public final class ServiceAreaCheckService implements ServiceAreaCheck {
+@Transactional(readOnly = true)
+public class ServiceAreaCheckService implements ServiceAreaCheck {
 
     private final ServiceAreas serviceAreas;
 

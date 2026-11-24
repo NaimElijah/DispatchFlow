@@ -11,6 +11,7 @@ import com.dispatchflow.planning.application.port.out.plan.PreflightView;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.application.NotFound;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The dispatcher's planning screens: a date's plans, a plan's workspace on the map, the timeline and
@@ -24,7 +25,8 @@ import com.dispatchflow.shared.application.NotFound;
  *
  * <p>Built in M0 and later milestones, method by method.
  */
-public final class PlanQueries {
+@Transactional(readOnly = true)
+public class PlanQueries {
 
     private final PlanningViews views;
     private final FleetFacts fleetFacts;

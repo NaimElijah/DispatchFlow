@@ -8,6 +8,7 @@ import com.dispatchflow.shared.Attempt;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.OrderId;
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Planning's implementation of Customers &amp; Orders' {@link OrderPlacement} (DL §2.1's dashed arrow,
@@ -20,7 +21,8 @@ import java.util.List;
  *
  * <p>Built in M2 (ADR-121).
  */
-public final class OrderPlacementService implements OrderPlacement {
+@Transactional(readOnly = true)
+public class OrderPlacementService implements OrderPlacement {
 
     private final PlanningViews views;
 

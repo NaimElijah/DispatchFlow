@@ -43,12 +43,13 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
  * {@link RatingRequestRepository} against a real PostgreSQL (ADR-126, ADR-127): what a request
  * stores and loads as, the version, the request a reply answers, the requests whose personal data
- * is due, and the stored states the load check refuses.
+ * is due, the stored states the load check refuses, and the half rating the database refuses.
  *
  * <p>The database is shared and never cleaned, and the retention query reads every request. So test
  * {@code n} keys its own requests ({@code request(n)}, {@code request(100 + n)}, …) and phones, and
@@ -375,6 +376,34 @@ class RatingRequestPersistenceIT {
                     assertThat(invalid.subject()).isEqualTo("RatingRequest");
                     assertThat(invalid.detail()).isEqualTo(detail);
                 });
+    }
+
+    // --- what the database refuses: a rating is stored whole, with its time, or not at all
+
+    static Stream<Arguments> halfRatings() {
+        return Stream.of(
+                Arguments.of(
+                        "a rating with no time",
+                        1_009,
+                        "UPDATE messaging.rating_request SET rated_at = NULL WHERE id = ?"),
+                Arguments.of(
+                        "a time with no rating",
+                        1_010,
+                        "UPDATE messaging.rating_request SET rating = NULL WHERE id = ?"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("halfRatings")
+    void GivenARatedRequest_WhenHalfItsRatingIsCleared_ThenTheDatabaseRefusesIt(String broken, int n, String damage) {
+        transactions.inTransaction(() -> {
+            RatingRequest request = opened(n, tenOn(n), phone(n));
+            Scenario.RATED_WITH_THE_THANK_YOU_SKIPPED.reach(request, tenOn(n));
+            repository.add(request);
+        });
+
+        assertThatThrownBy(() -> jdbc.sql(damage).param(request(n).value()).update())
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("rating_request_rated_whole");
     }
 
     // --- states, reached through the domain's commands

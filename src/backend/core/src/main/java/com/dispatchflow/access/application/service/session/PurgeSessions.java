@@ -5,6 +5,7 @@ import com.dispatchflow.access.application.port.out.session.PushTokens;
 import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.shared.application.Clock;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The nightly retention job's session step: it deletes every session 30 days after it ended
@@ -16,7 +17,8 @@ import com.dispatchflow.shared.application.Clock;
  *
  * <p>Built in M13, with the whole nightly retention run (ADR-121).
  */
-public final class PurgeSessions {
+@Transactional
+public class PurgeSessions {
 
     private final SessionRepository sessions;
     private final PushTokens pushTokens;

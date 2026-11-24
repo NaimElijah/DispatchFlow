@@ -5,6 +5,7 @@ import com.dispatchflow.access.application.api.Accounts;
 import com.dispatchflow.access.application.port.out.UserAccountRepository;
 import com.dispatchflow.shared.AccountId;
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Access's implementation of {@code Accounts}: whether accounts are active and hold the Driver
@@ -13,7 +14,8 @@ import java.util.List;
  *
  * <p>Built in M2.
  */
-public final class AccountsService implements Accounts {
+@Transactional(readOnly = true)
+public class AccountsService implements Accounts {
 
     private final UserAccountRepository accounts;
 

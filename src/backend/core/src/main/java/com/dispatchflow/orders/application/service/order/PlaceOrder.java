@@ -12,6 +12,7 @@ import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.IdGenerator;
 import com.dispatchflow.shared.application.NotFound;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher enters an order through the form (FR-09): {@code Order.place} on the date's
@@ -32,7 +33,8 @@ import com.dispatchflow.shared.application.NotFound;
  *
  * <p>Built in M2.
  */
-public final class PlaceOrder {
+@Transactional
+public class PlaceOrder {
 
     private final CustomerRepository customers;
     private final OrderRepository orders;

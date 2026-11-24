@@ -9,6 +9,7 @@ import com.dispatchflow.messaging.domain.message.StopMessages;
 import com.dispatchflow.shared.IsraelDateTime;
 import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.StopId;
+import com.dispatchflow.shared.adapter.out.persistence.OpenTransaction;
 import com.dispatchflow.shared.adapter.out.persistence.VersionedSave;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.time.Instant;
@@ -19,8 +20,6 @@ import java.util.Optional;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Keeps each stop's {@link StopMessages} in {@code messaging.stop_messages} and its messages in
@@ -34,7 +33,6 @@ import org.springframework.transaction.annotation.Transactional;
  * today too, which errs on the side of NFR-196's limit.
  */
 @Component
-@Transactional
 class JpaStopMessagesRepository implements StopMessagesRepository {
 
     // The entity's name, which the shared save also gives a conflict as its kind.
@@ -101,14 +99,15 @@ class JpaStopMessagesRepository implements StopMessagesRepository {
     }
 
     @Override
-    @Transactional(propagation = Propagation.MANDATORY)
     public DailySendCap capOn(LocalDate day) {
+        OpenTransaction.require("capOn");
         stopMessages.lockDay(day.toString());
         return counted(day);
     }
 
     @Override
     public boolean countAnswer(OutgoingMessageId answer, LocalDate day) {
+        OpenTransaction.require("countAnswer");
         stopMessages.lockDay(day.toString());
         if (stopMessages.isAnswerCounted(answer.value())) {
             return true;

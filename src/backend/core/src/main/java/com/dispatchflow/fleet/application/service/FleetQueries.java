@@ -5,6 +5,7 @@ import com.dispatchflow.fleet.application.port.out.DriverView;
 import com.dispatchflow.fleet.application.port.out.FleetViews;
 import com.dispatchflow.fleet.application.port.out.RegisterView;
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The register and drivers screens' queries (FR-56, FR-132, FR-193): every depot, vehicle and
@@ -13,7 +14,8 @@ import java.util.List;
  *
  * <p>Built in M2.
  */
-public final class FleetQueries {
+@Transactional(readOnly = true)
+public class FleetQueries {
 
     private final FleetViews views;
 

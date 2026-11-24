@@ -1,9 +1,6 @@
 package com.dispatchflow.access.application.service.account.credentiallink;
 
-import com.dispatchflow.access.application.port.out.UserAccountRepository;
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
-import com.dispatchflow.shared.application.Clock;
 
 /**
  * The nightly retention job's link step: it drops every credential link that no longer works and
@@ -18,6 +15,11 @@ import com.dispatchflow.shared.application.Clock;
  * saved in its own transaction, with its audit record naming the account (NFR-93), so one stale
  * save doesn't hold back the rest; the next night retries it.
  *
+ * <p><b>The transactions.</b> The job lists the accounts through {@link DropOldLinksChange#due}, a
+ * read-only transaction, then hands each to {@link DropOldLinksChange#apply}, one account's
+ * transaction. A {@code StaleVersion} from one account is left for the next night, and the job goes
+ * on to the next (ADR-129).
+ *
  * <p>Domain gap: {@code UserAccount} drops old links only inside {@code issueLink}. M13 adds {@code
  * UserAccount.dropOldLinks(now)}, the same pruning without a new link, in any state of the
  * account, as {@code Session.dropOldContacts} works on any session; it moves no generation and
@@ -27,21 +29,15 @@ import com.dispatchflow.shared.application.Clock;
  */
 public final class DropOldLinks {
 
-    private final UserAccountRepository accounts;
-    private final Clock clock;
-    private final AuditLog auditLog;
+    private final DropOldLinksChange change;
 
     /**
      * Creates the job.
      *
-     * @param accounts where accounts are kept
-     * @param clock the time the cutoff counts back from
-     * @param auditLog where the audit records are written
+     * @param change the transactions that list the accounts and drop one account's old links
      */
-    public DropOldLinks(UserAccountRepository accounts, Clock clock, AuditLog auditLog) {
-        this.accounts = accounts;
-        this.clock = clock;
-        this.auditLog = auditLog;
+    public DropOldLinks(DropOldLinksChange change) {
+        this.change = change;
     }
 
     /**

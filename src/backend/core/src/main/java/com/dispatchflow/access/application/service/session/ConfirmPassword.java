@@ -1,17 +1,9 @@
 package com.dispatchflow.access.application.service.session;
 
 import com.dispatchflow.access.application.api.Actor;
-import com.dispatchflow.access.application.port.out.PasswordHasher;
 import com.dispatchflow.access.application.port.out.PresentedPassword;
 import com.dispatchflow.access.application.port.out.RevocationCache;
-import com.dispatchflow.access.application.port.out.SecretTokens;
-import com.dispatchflow.access.application.port.out.SessionRepository;
-import com.dispatchflow.access.application.port.out.UserAccountRepository;
-import com.dispatchflow.access.application.port.out.session.TokenSigner;
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.shared.RuleViolation;
-import com.dispatchflow.shared.application.Clock;
-import com.dispatchflow.shared.application.IdGenerator;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 
@@ -26,52 +18,26 @@ import com.dispatchflow.shared.application.StaleVersion;
  * Like every changing call it writes its audit record, a refused attempt's in its own transaction
  * (NFR-23, ADR-110).
  *
+ * <p><b>The transaction.</b> {@link ConfirmPasswordChange} holds it: the password check, the
+ * confirmation, the new tokens, the save and the audit record. After its commit, the use case
+ * evicts the session from the revocation cache (ADR-129).
+ *
  * <p>Built in M6.
  */
 public final class ConfirmPassword {
 
-    private final UserAccountRepository accounts;
-    private final SessionRepository sessions;
-    private final PasswordHasher passwordHasher;
-    private final SecretTokens secretTokens;
-    private final TokenSigner tokenSigner;
-    private final IdGenerator ids;
     private final RevocationCache revocationCache;
-    private final Clock clock;
-    private final AuditLog auditLog;
+    private final ConfirmPasswordChange change;
 
     /**
      * Creates the use case.
      *
-     * @param accounts where accounts are kept
-     * @param sessions where sessions are kept
-     * @param passwordHasher hashes passwords and checks a presented one
-     * @param secretTokens makes refresh and link tokens, and hashes a presented one
-     * @param tokenSigner signs access tokens
-     * @param ids makes new IDs
      * @param revocationCache the token check's cache, evicted after a change
-     * @param clock the time
-     * @param auditLog where the audit record is written
+     * @param change the transaction that confirms the password
      */
-    public ConfirmPassword(
-            UserAccountRepository accounts,
-            SessionRepository sessions,
-            PasswordHasher passwordHasher,
-            SecretTokens secretTokens,
-            TokenSigner tokenSigner,
-            IdGenerator ids,
-            RevocationCache revocationCache,
-            Clock clock,
-            AuditLog auditLog) {
-        this.accounts = accounts;
-        this.sessions = sessions;
-        this.passwordHasher = passwordHasher;
-        this.secretTokens = secretTokens;
-        this.tokenSigner = tokenSigner;
-        this.ids = ids;
+    public ConfirmPassword(RevocationCache revocationCache, ConfirmPasswordChange change) {
         this.revocationCache = revocationCache;
-        this.clock = clock;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

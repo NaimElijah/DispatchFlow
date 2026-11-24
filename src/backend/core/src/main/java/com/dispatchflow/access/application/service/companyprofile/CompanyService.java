@@ -4,6 +4,7 @@ import com.dispatchflow.access.application.api.Company;
 import com.dispatchflow.access.application.api.CompanyFacts;
 import com.dispatchflow.access.application.port.out.CompanyProfileRepository;
 import java.util.Optional;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Access's implementation of {@code Company}: the company's profile, which Customers &amp; Orders
@@ -12,7 +13,8 @@ import java.util.Optional;
  *
  * <p>Built in M2.
  */
-public final class CompanyService implements Company {
+@Transactional(readOnly = true)
+public class CompanyService implements Company {
 
     private final CompanyProfileRepository companyProfiles;
 

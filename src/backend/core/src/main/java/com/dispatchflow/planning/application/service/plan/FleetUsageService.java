@@ -8,6 +8,7 @@ import com.dispatchflow.shared.DepotId;
 import com.dispatchflow.shared.VehicleId;
 import java.time.LocalDate;
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Planning's implementation of Fleet's {@link RecordUsage}, which Fleet asks before it retires a
@@ -17,7 +18,8 @@ import java.util.List;
  *
  * <p>Built in M2.
  */
-public final class FleetUsageService implements RecordUsage {
+@Transactional(readOnly = true)
+public class FleetUsageService implements RecordUsage {
 
     private final PlanningViews views;
 

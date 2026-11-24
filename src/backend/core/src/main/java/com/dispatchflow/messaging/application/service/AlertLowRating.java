@@ -18,6 +18,9 @@ import com.dispatchflow.shared.application.NotFound;
  * <p>Delivery is at least once (ADR-064); the alert is raised once per rating request (ADR-107
  * point 4), so it records no {@code ProcessedEvents} pair.
  *
+ * <p>It opens no transaction of its own: Live Operations' {@link RaiseAlert} is a use case that
+ * opens its own, and pushes the alert only after that commit (ADR-129).
+ *
  * <p>Built in M12. Rows: FR-361.
  */
 public final class AlertLowRating {

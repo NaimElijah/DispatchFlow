@@ -10,9 +10,10 @@ import com.dispatchflow.planning.events.PlanCancelled;
  * Live Operations' listener on {@code PlanCancelled}: each driver with a route on the cancelled plan
  * is alerted (FR-337, ADR-101). A cancelled plan is no longer in force, so the drivers come from
  * Planning's {@link RouteMembership#driversAt} for each route the event names, at the cancellation's
- * time. Each driver gets one {@code LiveUpdate.PlanCancelled} through {@link LiveUpdates}, which the
- * web app hears (FR-347), and one {@code DriverNotice.PlanCancelled} through {@link PushNotifier},
- * which reaches the phone app in the background (ADR-026, ADR-083).
+ * time, read in {@link TellDriversPlanCancelledChange}'s read-only transaction. After it, each
+ * driver gets one {@code LiveUpdate.PlanCancelled} through {@link LiveUpdates}, which the web app
+ * hears (FR-347), and one {@code DriverNotice.PlanCancelled} through {@link PushNotifier}, which
+ * reaches the phone app in the background (ADR-026, ADR-083).
  *
  * <p>Delivery is at least once (ADR-064), and a repeated update or push only repeats a notice that
  * carries no data (NFR-218), so it records no {@code ProcessedEvents} pair.
@@ -23,20 +24,21 @@ import com.dispatchflow.planning.events.PlanCancelled;
 public final class TellDriversPlanCancelled {
 
     private final PushNotifier pushNotifier;
-    private final RouteMembership membership;
     private final LiveUpdates liveUpdates;
+    private final TellDriversPlanCancelledChange change;
 
     /**
      * Creates the listener's use case.
      *
      * @param pushNotifier the drivers' phones
-     * @param membership Planning's answers on a route's drivers at a time
      * @param liveUpdates the open screens, the drivers' web app among them
+     * @param change the read of the plan's drivers
      */
-    public TellDriversPlanCancelled(PushNotifier pushNotifier, RouteMembership membership, LiveUpdates liveUpdates) {
+    public TellDriversPlanCancelled(
+            PushNotifier pushNotifier, LiveUpdates liveUpdates, TellDriversPlanCancelledChange change) {
         this.pushNotifier = pushNotifier;
-        this.membership = membership;
         this.liveUpdates = liveUpdates;
+        this.change = change;
     }
 
     /**

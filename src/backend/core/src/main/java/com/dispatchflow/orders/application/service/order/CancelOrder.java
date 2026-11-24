@@ -10,6 +10,7 @@ import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher cancels an order (FR-58): {@code Order.cancel}, after Live Operations' {@link
@@ -22,7 +23,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>Built in M9.
  */
-public final class CancelOrder {
+@Transactional
+public class CancelOrder {
 
     private final OrderRepository orders;
     private final StopProgress stopProgress;

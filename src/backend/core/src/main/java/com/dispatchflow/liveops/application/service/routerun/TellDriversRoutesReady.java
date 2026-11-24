@@ -9,7 +9,8 @@ import com.dispatchflow.planning.events.PlanPublished;
 /**
  * Live Operations' listener on {@code PlanPublished}: every driver with a route on the plan is told
  * their route is ready, through the channel of FR-71's route-change alerts (FR-152, FR-324). The
- * drivers come from Planning's {@link PublishedRoutes}. Each driver gets one {@code
+ * drivers come from Planning's {@link PublishedRoutes}, read in {@link
+ * TellDriversRoutesReadyChange}'s read-only transaction. After it, each driver gets one {@code
  * LiveUpdate.RoutesPublished} through {@link LiveUpdates}, which the web app open on the driver's
  * routes hears (FR-391), and one {@code DriverNotice.RoutesReady} through {@link PushNotifier}, which
  * reaches the phone app in the background (ADR-026, ADR-083).
@@ -23,20 +24,21 @@ import com.dispatchflow.planning.events.PlanPublished;
 public final class TellDriversRoutesReady {
 
     private final PushNotifier pushNotifier;
-    private final PublishedRoutes publishedRoutes;
     private final LiveUpdates liveUpdates;
+    private final TellDriversRoutesReadyChange change;
 
     /**
      * Creates the listener's use case.
      *
      * @param pushNotifier the drivers' phones
-     * @param publishedRoutes Planning's routes in force, for each route's driver
      * @param liveUpdates the open screens, the drivers' web app among them
+     * @param change the read of the plan's drivers
      */
-    public TellDriversRoutesReady(PushNotifier pushNotifier, PublishedRoutes publishedRoutes, LiveUpdates liveUpdates) {
+    public TellDriversRoutesReady(
+            PushNotifier pushNotifier, LiveUpdates liveUpdates, TellDriversRoutesReadyChange change) {
         this.pushNotifier = pushNotifier;
-        this.publishedRoutes = publishedRoutes;
         this.liveUpdates = liveUpdates;
+        this.change = change;
     }
 
     /**

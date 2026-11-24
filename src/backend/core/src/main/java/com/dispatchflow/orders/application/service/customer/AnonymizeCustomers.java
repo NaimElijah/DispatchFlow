@@ -1,9 +1,6 @@
 package com.dispatchflow.orders.application.service.customer;
 
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
-import com.dispatchflow.orders.application.port.out.CustomerRepository;
-import com.dispatchflow.shared.application.Clock;
 
 /**
  * The nightly retention job's customer step (BR-98, NFR-257, ADR-075, ADR-102, DL §12): {@code
@@ -12,25 +9,22 @@ import com.dispatchflow.shared.application.Clock;
  * its last order, one customer per transaction. A customer whose retention a new order extended
  * refuses with {@code RetentionNotOver}, and the job moves on.
  *
+ * <p>It lists the customers due, then anonymizes them one by one, and opens no transaction of its
+ * own: {@link AnonymizeCustomersChange} holds each customer's (ADR-129).
+ *
  * <p>Built in M13, with the whole nightly retention run (ADR-121).
  */
 public final class AnonymizeCustomers {
 
-    private final CustomerRepository customers;
-    private final Clock clock;
-    private final AuditLog auditLog;
+    private final AnonymizeCustomersChange change;
 
     /**
      * Creates the job.
      *
-     * @param customers where customers are kept, with each one's last delivery date
-     * @param clock the time of the job
-     * @param auditLog the audit trail
+     * @param change the transaction that lists the customers due, and each customer's own
      */
-    public AnonymizeCustomers(CustomerRepository customers, Clock clock, AuditLog auditLog) {
-        this.customers = customers;
-        this.clock = clock;
-        this.auditLog = auditLog;
+    public AnonymizeCustomers(AnonymizeCustomersChange change) {
+        this.change = change;
     }
 
     /**
