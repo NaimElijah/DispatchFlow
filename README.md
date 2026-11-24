@@ -291,7 +291,9 @@ never waits on research. Cost: the research solver must earn its place in measur
 **One command runner, one workflow** ([ADR-009](docs/ADRs/ADR-009-just-as-the-single-entry-point.md),
 [ADR-015](docs/ADRs/ADR-015-ci-one-workflow-one-job-per-component.md)): CI calls the same `just`
 recipes developers run, and jobs are never skipped by path filters, so a required check never
-hangs. Cost: every contributor installs `just`, and CI builds every component on every push.
+hangs. All seven jobs are required checks on `dev` and `main`
+([ADR-135](docs/ADRs/ADR-135-the-seven-ci-jobs-are-required-checks-and-a-pull-request-needs-one-approval.md)).
+Cost: every contributor installs `just`, and CI builds every component on every push.
 
 The other decisions, including the repository layout, the two clients and the tooling, are in
 the [ADR index](docs/ADRs/README.md). It also lists ADR-037 to ADR-047, accepted in this round, on
@@ -335,7 +337,10 @@ Known limitations:
 
 Work starts from an issue on the [board](https://github.com/users/NaimElijah/projects/9). Use the
 issue templates (feature, bug, spike) and the pull request template. Run `just check` before you
-push.
+push. A pull request into `dev` or `main` merges once all seven CI checks pass and one other person
+approves it; a push after the approval, a merge of `dev` included, needs a new one. An Admin can
+merge past both
+([ADR-135](docs/ADRs/ADR-135-the-seven-ci-jobs-are-required-checks-and-a-pull-request-needs-one-approval.md)).
 
 ## Licence
 
