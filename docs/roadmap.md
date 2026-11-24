@@ -68,7 +68,7 @@ Four people, four lanes. A lane has one owner, and the others help. The team fil
 | M0 | Walking skeleton | 12–22 Nov | `mise`, `justfile` and `compose.dev.yaml` (in `infra/deploy/`); both contracts with one endpoint each; the core with a Planning module, Flyway V1 through the `migrate` step, and its first JPA repository (ADR-126); the optimizer with an OR-Tools adapter and a validator for capacity, windows and shifts; `just seed`; a web page that shows the solved routes on a MapLibre map; CI with unit tests and `ApplicationModules.verify()`. The tooling details deferred to M0 are settled: the Node major (ADR-038), the ESLint majors, Prettier's settings and Renovate's pins (ADR-039), and `TestDispatchFlowApplication` and `just core-run` (ADR-042). The web app is checked to render under the CSP (ADR-069) | On all four laptops: `just dev`, click *Solve* on a seeded day, and routes appear on the map; `just check` passes locally and in CI |
 | M0–M1 | The app-wide `web` package | before the first web adapter merges | Its own ADR, once the generator's package layout is visible (ADR-040). Its inputs: ADR-120's rule-2 exemption, `SessionValidity` and the `shared.application` named interface; ADR-121's stand-in session, dev-only token, retry-then-503 and the status of a stale version sent in a body, with the core's refusals to boot (the stand-in unless `dev` or `test` is the only active profile, the token unless `dev` is); ADR-130 decision 6's and ADR-131 decision 8's placements: the stream's endpoint and registry, the `SessionsRevoked` listener, the end-to-end control endpoints, the code generated from `client-api`, the component that builds the `Actor`, the capability check and the bean wiring, and how `in/web` and `out/sse` reach them under rule 2 | The ADR is accepted |
 | M1 | Optimizer for daily solves | 16 Nov–6 Dec | `Problem` with `validate` for every daily rule, `cost` and `explain_drop`; `ProblemFactory.daily`, `Solution`, `TravelTimeModel`, `PenaltyScale`, `nearest_neighbour`; `/v1/evaluate` and `/v1/baseline`. The re-optimization conventions wait for M9 | Accepts best-known Solomon solutions; rejects the crafted violation catalogue, naming each rule; a 200-stop synthetic day solves inside its limit. The demo day is solved both at the upper bound and at per-bucket times, and the result goes to ADR-048's trigger |
-| M2 | Records and CSV import | 23 Nov–6 Dec | Fleet, Customers & Orders, per-date rosters; UTF-8 CSV import with upload and confirm, all or nothing, address matching (ADR-086) | The import tests: all or nothing, every row error listed together, address matching |
+| M2 | Records, CSV import and geocoding | 23 Nov–6 Dec | Fleet, Customers & Orders, per-date rosters; UTF-8 CSV import with upload and confirm, all or nothing, address matching (ADR-086); GovMap behind the `Geocoder` port (ADR-139), its cache, retries and flags, the geocoding of each new customer, placing a location by hand, and the drop of an order outside the service area | The import tests: all or nothing, every row error listed together, address matching; GovMap's terms read (#153) and its token in hand before the geocoding code is built; the accuracy test run on GovMap over the 100 public addresses (#175), and its results set FR-63's rules |
 | M3 | Travel times | 23–29 Nov | The OSRM adapter, the matrix builder with deduplicated locations, unreachable points, route shapes | A 216-point matrix in under 5 s on a laptop (NFR-57); unreachable points detected; OSRM's memory measured against the 16 GB VM (ADR-078) |
 | M4 | Solve jobs and the planning workspace | 30 Nov–13 Dec | The `solve_job` queue, one worker per lane (ADR-051), the queue watchdog, event resubmission; progress over the event stream; map, timeline and table with one shared selection | A solve requested in the browser finishes without a reload; a core killed mid-solve leaves the plan *draft* or *ready* |
 | M5 | Publish, drive, report | 7–20 Dec | Publishing checks in BR-72's order, plan revisions (ADR-059); driver screens in the browser, online only, with a signature as proof; `Delivery` and `RouteRun`; live status on the dispatcher's screen; the daily summary and the baseline comparison | The demo script ([4.3](#43-demo-script)) runs end to end, under Playwright in CI and by hand. The CI minutes are decided from the real run times ([TS §22](architecture/tech_stack.md#22-open-decisions)) |
@@ -84,7 +84,7 @@ Sized in weeks. The dates go in once the Semester B calendar is known.
 | # | Milestone | Weeks | What gets built | Done when |
 |---|---|---|---|---|
 | M6 | Access in full | 2 | Sessions, refresh rotation, revocation and the stream's heartbeat re-check (ADR-045), links, rate limits (ADR-071), step-up for Admin operations | Every Access row has a passing API test; the permission-matrix test is generated |
-| M7 | Imports in full and geocoding | 2 | Excel import, and Windows-1255 with confirmation; GovMap behind the `Geocoder` port (ADR-085), its cache, retries and flags | GovMap's terms read and its token in hand before the code starts; the accuracy test run on GovMap, and its results set FR-63's rules; the full import suite, encodings included |
+| M7 | Imports in full and depot geocoding | 2 | Excel import, and Windows-1255 with confirmation; depot geocoding through Fleet's own port (ADR-120 P4) | The full import suite, encodings included |
 | M8 | Live operations | 3 | Idempotent reports (ADR-087), clock correction, positions, late-outcome reconciliation and the hold for backdated reports (BR-132), arrival projection (ADR-067), at-risk stops, alerts | A replayed report stream gives the same state twice; the live map updates within 5 s |
 | M9 | Re-optimization | 3 | The `ProblemFactory` conventions (ADR-050), warm start, immutable proposals, `Plan.accept`; hand-over, cancel and reschedule | UC-10 and UC-11 pass end to end; NFR-07 measured at the 95th percentile |
 | M10 | Phone app | 4 | The Expo app, the encrypted store, the outbox, background location, push, the route-change diff, the native Admin and Dispatcher screens (ADR-035) | The device checklist passes on one Android phone and one iPhone |
@@ -114,7 +114,7 @@ team's accounts (ADR-080).
 | Area | In the Alpha | Waits for | Why it can wait |
 |---|---|---|---|
 | Orders | UTF-8 CSV import, upload then confirm | Excel and Windows-1255 (M7) | The demo file is ours; the encoding rules matter with real company files |
-| Locations | Customers come from `just seed` with coordinates; the demo CSV names them by address, so the import matches them (FR-310) | Geocoding (M7) | Synthetic addresses are drawn from the OSM extract and already carry coordinates. A row with a new address creates a customer without coordinates, and its order drops as *missing location* (BR-14), which the demo can show |
+| Locations | A new customer, from a form or an import, is geocoded through GovMap after it is saved, and a doubtful match is flagged and dragged into place (ADR-139); the demo CSV's rows create new customers (FR-311), each geocoded. Until a match arrives, the customer's order drops as *missing location* (BR-14) | Depot geocoding (M7) | An Alpha depot's location is set by coordinates (#195) |
 | Optimizer | Daily rules, OR-Tools, nearest neighbour | Re-optimization conventions (M9), ALNS (M11) | Nothing in the Alpha re-optimizes |
 | Planning | Solve, view, publish | Manual edits with undo (FR-145, a Should): in if M4 finishes early | The demo story doesn't need it |
 | Drivers | Browser screens, online, with a signature as proof | Photo proofs, the offline outbox, the phone app (M10) | A driver's *delivered* needs a proof (FR-367), and a signature is the cheapest one that works with a mouse |
@@ -129,7 +129,7 @@ The Alpha is a local, web-only DispatchFlow on synthetic data. A dispatcher impo
 solves the day with OR-Tools, sees routes on a map, timeline and table, and publishes. A driver, in a
 browser, sees only their own route and reports each stop, signing for each delivery. The dispatcher
 watches the reports arrive and ends with a daily summary that compares the plan with a
-nearest-neighbour baseline. Out of scope for the Alpha: geocoding, Excel imports, photos, the phone app,
+nearest-neighbour baseline. Out of scope for the Alpha: Excel imports, photos, the phone app,
 re-optimization and recipient messages ([4.1](#41-whats-in-what-waits)). The mentor sets the final
 scope on 1 December.
 
@@ -138,8 +138,9 @@ scope on 1 December.
 The same script runs under Playwright in CI and by hand at the hackathon and on 12 January.
 
 1. Sign in as a dispatcher. Open tomorrow's date.
-2. Import a CSV of 200 synthetic orders for the seeded customers. One row has an error, and the preview
-   names it. Fix it, and confirm.
+2. Import a CSV of 200 synthetic orders, whose rows create new customers. One row has an error, and
+   the preview names it. Fix it, and confirm. The new customers are geocoded, one address is flagged
+   as doubtful, and the dispatcher drags its pin into place.
 3. Show the roster: 12 vehicles, 12 drivers, two depots.
 4. Solve with OR-Tools, with a 45-second limit. The progress bar moves by itself.
 5. Routes appear on the map, the timeline and the table. Select a stop in one, and it's selected in all
