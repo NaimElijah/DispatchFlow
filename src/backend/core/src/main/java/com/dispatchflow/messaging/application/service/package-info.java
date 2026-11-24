@@ -3,7 +3,9 @@
  * settings, a dispatcher's opt-out record or removal, the provider's reply callback, the listeners
  * that trigger messages and raise the low-rating alert, the minute and five-second jobs that project
  * arrivals and send, the retention job, the restore step that turns messages off, the key
- * rotation's re-hash step, and the screens' queries.
+ * rotation's re-hash step, and the screens' queries. The {@code StopMessages} aggregate's triggers,
+ * projection job and sender sit in their own package, {@code message}, and the opt-out list's use
+ * cases in {@code optout} (ADR-125); this package holds the rest.
  *
  * <p>Every trigger builds the {@code SendingConditions} it is judged by from Access's {@code
  * Company} (the name and language), the {@code MessagingSettings}, and the phone's {@code

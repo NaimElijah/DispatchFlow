@@ -11,6 +11,7 @@ import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.util.Optional;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher marks a rostered driver unavailable for the rest of a date, so a re-optimization
@@ -22,7 +23,8 @@ import java.util.Optional;
  *
  * <p>Built in M2.
  */
-public final class SetDriverAvailability {
+@Transactional
+public class SetDriverAvailability {
 
     private final DayRosterRepository rosters;
     private final Clock clock;

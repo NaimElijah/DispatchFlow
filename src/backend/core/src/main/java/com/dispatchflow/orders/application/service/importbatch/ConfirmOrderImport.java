@@ -19,6 +19,7 @@ import com.dispatchflow.shared.application.IdGenerator;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher confirms an import preview within its hour (FR-204, FR-399, ADR-086): the use case
@@ -34,7 +35,8 @@ import java.util.List;
  *
  * <p>Built in M2.
  */
-public final class ConfirmOrderImport {
+@Transactional
+public class ConfirmOrderImport {
 
     private final ImportBatchRepository imports;
     private final CustomerRepository customers;

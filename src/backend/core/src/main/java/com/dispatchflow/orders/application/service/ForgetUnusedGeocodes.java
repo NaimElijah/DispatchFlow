@@ -1,6 +1,5 @@
 package com.dispatchflow.orders.application.service;
 
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.orders.application.port.out.Geocoder;
 import com.dispatchflow.shared.application.Clock;
@@ -12,9 +11,12 @@ import java.time.Period;
  * Israel's calendar, through {@link Geocoder#forgetUnusedSince}. The customers keep the coordinates
  * they copied.
  *
- * <p>It records its own run through {@link AuditLog#succeeded}, naming no record, as Audit's own
+ * <p>It records its own run through {@code AuditLog.succeeded}, naming no record, as Audit's own
  * purge does: so an Admin can see that the step ran, and when (NFR-93, FR-126). A cache entry has
  * no ID an audit record could name, only an address, which is personal data (ADR-110, NFR-94).
+ *
+ * <p>The {@link Geocoder} is an outside call, so it deletes the entries before any transaction, and
+ * {@link ForgetUnusedGeocodesChange} then records the run in one (ADR-129).
  *
  * <p>Built in M13, with the whole nightly retention run (ADR-121).
  */
@@ -25,7 +27,7 @@ public final class ForgetUnusedGeocodes {
 
     private final Geocoder geocoder;
     private final Clock clock;
-    private final AuditLog auditLog;
+    private final ForgetUnusedGeocodesChange change;
 
     /**
      * Creates the job.
@@ -33,12 +35,12 @@ public final class ForgetUnusedGeocodes {
      * @param geocoder the outside geocoding service, whose adapter keeps the cache
      * @param clock the time of the job, which the cutoff counts back from and the run is recorded
      *     at
-     * @param auditLog where the run's own audit record is written
+     * @param change the transaction that records the run
      */
-    public ForgetUnusedGeocodes(Geocoder geocoder, Clock clock, AuditLog auditLog) {
+    public ForgetUnusedGeocodes(Geocoder geocoder, Clock clock, ForgetUnusedGeocodesChange change) {
         this.geocoder = geocoder;
         this.clock = clock;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

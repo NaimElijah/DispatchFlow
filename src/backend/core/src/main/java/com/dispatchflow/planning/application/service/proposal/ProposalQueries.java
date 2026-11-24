@@ -5,6 +5,7 @@ import com.dispatchflow.planning.application.port.out.PlanningViews;
 import com.dispatchflow.planning.application.port.out.ProposalPreviewView;
 import com.dispatchflow.shared.ProposalId;
 import com.dispatchflow.shared.application.NotFound;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The re-optimization preview a dispatcher judges before accepting or declining it (FR-36, FR-103,
@@ -13,7 +14,8 @@ import com.dispatchflow.shared.application.NotFound;
  *
  * <p>Built in M9.
  */
-public final class ProposalQueries {
+@Transactional(readOnly = true)
+public class ProposalQueries {
 
     private final PlanningViews views;
 

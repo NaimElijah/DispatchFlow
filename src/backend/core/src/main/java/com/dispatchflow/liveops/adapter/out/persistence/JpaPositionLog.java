@@ -9,11 +9,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /** Keeps the positions routes kept in {@code liveops.kept_position}, one row each. */
 @Component
-@Transactional
 class JpaPositionLog implements PositionLog {
 
     private final StoredPositions positions;

@@ -5,6 +5,7 @@ import com.dispatchflow.orders.application.api.StopOrders;
 import com.dispatchflow.orders.application.port.out.OrdersViews;
 import com.dispatchflow.shared.OrderId;
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Customers &amp; Orders' implementation of {@link StopOrders}: it reads the orders' door flags and
@@ -13,7 +14,8 @@ import java.util.List;
  *
  * <p>Built in M5.
  */
-public final class StopOrdersService implements StopOrders {
+@Transactional(readOnly = true)
+public class StopOrdersService implements StopOrders {
 
     private final OrdersViews views;
 

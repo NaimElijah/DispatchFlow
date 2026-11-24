@@ -11,6 +11,7 @@ import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher moves an order to another date (FR-57, FR-315): {@code Order.reschedule} on the new
@@ -24,7 +25,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>Built in M9.
  */
-public final class RescheduleOrder {
+@Transactional
+public class RescheduleOrder {
 
     private final OrderRepository orders;
     private final StopProgress stopProgress;

@@ -2,13 +2,8 @@ package com.dispatchflow.access.application.service.account.credentiallink;
 
 import com.dispatchflow.access.application.port.out.EmailSender;
 import com.dispatchflow.access.application.port.out.RecoveryEmailCap;
-import com.dispatchflow.access.application.port.out.SecretTokens;
-import com.dispatchflow.access.application.port.out.UserAccountRepository;
 import com.dispatchflow.access.domain.account.EmailAddress;
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
-import com.dispatchflow.shared.application.Clock;
-import com.dispatchflow.shared.application.IdGenerator;
 
 /**
  * A user who forgot their password asks for a recovery link at their address (FR-386). The link
@@ -20,14 +15,14 @@ import com.dispatchflow.shared.application.IdGenerator;
  * whether the address has an account or why nothing was sent:
  *
  * <ul>
- *   <li>an address no account holds, for which the use case writes {@code AuditLog.refused} naming
- *       no account, in its own transaction (ADR-110), with the code M5 adds to {@code AccessError}
- *       for an address no account holds ({@code SignIn}'s domain gap);
+ *   <li>an address no account holds, for which its {@code Change} writes {@code AuditLog.refused}
+ *       naming no account, with the code M5 adds to {@code AccessError} for an address no account
+ *       holds ({@code SignIn}'s domain gap);
  *   <li>a refusal of {@code UserAccount.issueLink} for a recovery link: {@code AccountDeactivated},
- *       {@code AccountAnonymized} or {@code AccountHasNoRole} (BR-123). The use case catches the
- *       {@code RuleViolation} itself, and writes {@code AuditLog.refused} with the domain's
- *       specific code, naming the account, in its own transaction (ADR-110); no {@code
- *       RuleViolation} leaves it;
+ *       {@code AccountAnonymized} or {@code AccountHasNoRole} (BR-123). Its {@code Change} catches
+ *       the {@code RuleViolation} itself, and writes {@code AuditLog.refused} with the domain's
+ *       specific code, naming the account. No {@code RuleViolation} leaves it, so its transaction
+ *       commits with the record and changes nothing else (ADR-110);
  *   <li>NFR-215's cap of 100 recovery emails a day, reached;
  *   <li>a version conflict on the save, where a concurrent request for the same account won and is
  *       issuing the link, so no {@code StaleVersion} leaves the use case.
@@ -45,13 +40,25 @@ import com.dispatchflow.shared.application.IdGenerator;
  * cap. The residual risk: about 20 real addresses, each at FR-172's 5 an hour, can still spend the
  * day's cap within an hour; ADR-036 revisits the limits on a day the cap is reached.
  *
- * <p><b>The order.</b> The use case calls {@code UserAccount.issueLink} first, then {@link
- * RecoveryEmailCap#take}, and saves the account only when the take succeeds. On a refused take the
- * account isn't saved, so the link issued in memory is dropped and the account's earlier open link,
- * if it has one, stays valid. The take is in the same transaction as the save, so a version
- * conflict on the save rolls the take back and a lost race spends none of the cap. The email goes
- * to {@code EmailSender.sendLink} only after that transaction commits, as every Access email does,
- * so a rolled-back save sends nothing.
+ * <p><b>The order.</b> Nothing changes the account before the cap allows the email. The account
+ * is a managed entity, so a change made to it in memory would be flushed at the commit whether or
+ * not it is saved. So the transaction works in this order:
+ * <ol>
+ *   <li>It checks, without changing the account, that it may be sent a recovery link: the same
+ *       refusals {@code UserAccount.issueLink} makes. The domain gains that check at M6.
+ *   <li>It calls {@link RecoveryEmailCap#take}.
+ *   <li>Only then does it issue the link and save.
+ * </ol>
+ * <p>On a refused check or take the account is left as it was, so its earlier open link, if it has
+ * one, stays valid. The take is in the same transaction as the save, so a version conflict on the
+ * save rolls the take back and a lost race spends none of the cap. The email goes to {@code
+ * EmailSender.sendLink} only after that transaction commits, as every Access email does, so a
+ * rolled-back save sends nothing.
+ *
+ * <p><b>The transaction.</b> {@link RequestPasswordRecoveryChange} holds it: the account's lookup,
+ * the link's issue, the take and the save, and the audit record. The use case answers its {@code
+ * StaleVersion} as a request that sent nothing, and after its commit hands the link it returns to
+ * {@code EmailSender.sendLink} (ADR-129).
  *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
@@ -60,40 +67,18 @@ import com.dispatchflow.shared.application.IdGenerator;
  */
 public final class RequestPasswordRecovery {
 
-    private final UserAccountRepository accounts;
-    private final SecretTokens secretTokens;
     private final EmailSender emailSender;
-    private final RecoveryEmailCap recoveryEmailCap;
-    private final IdGenerator ids;
-    private final Clock clock;
-    private final AuditLog auditLog;
+    private final RequestPasswordRecoveryChange change;
 
     /**
      * Creates the use case.
      *
-     * @param accounts where accounts are kept
-     * @param secretTokens makes refresh and link tokens, and hashes a presented one
      * @param emailSender sends links and notices by email
-     * @param recoveryEmailCap NFR-215's daily cap of recovery emails, taken from before each send
-     * @param ids makes new IDs
-     * @param clock the time
-     * @param auditLog where the audit record is written
+     * @param change the transaction that issues the recovery link
      */
-    public RequestPasswordRecovery(
-            UserAccountRepository accounts,
-            SecretTokens secretTokens,
-            EmailSender emailSender,
-            RecoveryEmailCap recoveryEmailCap,
-            IdGenerator ids,
-            Clock clock,
-            AuditLog auditLog) {
-        this.accounts = accounts;
-        this.secretTokens = secretTokens;
+    public RequestPasswordRecovery(EmailSender emailSender, RequestPasswordRecoveryChange change) {
         this.emailSender = emailSender;
-        this.recoveryEmailCap = recoveryEmailCap;
-        this.ids = ids;
-        this.clock = clock;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

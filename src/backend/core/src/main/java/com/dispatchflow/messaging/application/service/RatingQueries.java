@@ -5,6 +5,7 @@ import com.dispatchflow.messaging.application.port.out.MessagingViews;
 import com.dispatchflow.messaging.application.port.out.RatingsView;
 import com.dispatchflow.planning.application.api.PublishedRoutes;
 import com.dispatchflow.shared.DeliveryDate;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The ratings screen: a date's ratings and the comments kept on each delivery, which Admins and
@@ -13,7 +14,8 @@ import com.dispatchflow.shared.DeliveryDate;
  *
  * <p>Built in M12. Rows: FR-360, FR-381.
  */
-public final class RatingQueries {
+@Transactional(readOnly = true)
+public class RatingQueries {
 
     private final MessagingViews views;
     private final PublishedRoutes publishedRoutes;

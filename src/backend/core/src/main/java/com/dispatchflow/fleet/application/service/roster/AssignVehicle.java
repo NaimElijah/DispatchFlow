@@ -15,6 +15,7 @@ import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.util.Optional;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher gives a rostered driver a vehicle for a date (FR-54). On the date a driver drives at
@@ -28,7 +29,8 @@ import java.util.Optional;
  *
  * <p>Built in M2.
  */
-public final class AssignVehicle {
+@Transactional
+public class AssignVehicle {
 
     private final DayRosterRepository rosters;
     private final DriverRepository drivers;

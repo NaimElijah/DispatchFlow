@@ -9,6 +9,7 @@ import com.dispatchflow.orders.application.api.StopOrders;
 import com.dispatchflow.planning.application.api.PublishedRoutes;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.application.Clock;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The driver's day: their own routes of a date, the stops in order with projected arrivals,
@@ -31,7 +32,8 @@ import com.dispatchflow.shared.application.Clock;
  * <p>Built in M5; the projected arrivals in M8. Rows: FR-27, FR-28, FR-96, FR-154, FR-324, FR-325,
  * BR-41.
  */
-public final class DriverDayQueries {
+@Transactional(readOnly = true)
+public class DriverDayQueries {
 
     private final LiveOpsViews views;
     private final PublishedRoutes publishedRoutes;

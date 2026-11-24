@@ -1,53 +1,38 @@
 package com.dispatchflow.liveops.application.service.routerun;
 
 import com.dispatchflow.access.application.api.Actor;
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.liveops.application.port.out.LiveUpdates;
-import com.dispatchflow.liveops.application.port.out.RouteRunRepository;
 import com.dispatchflow.liveops.domain.RevisionNo;
 import com.dispatchflow.planning.application.api.PublishedRoutes;
 import com.dispatchflow.shared.RouteId;
-import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * A driver confirms they have seen a change to their route: <em>Seen</em> (FR-97, FR-250). Planning's
- * {@link PublishedRoutes} gives the route's current driver and the plan's current revision, and one
- * transaction calls {@code RouteRun.acknowledge} with the audit record. The confirmed revision never
- * goes back, and a route with no run stores nothing (ADR-107). Like every changing call it writes its
- * audit record, a refused attempt's in its own transaction (NFR-23, ADR-110).
+ * {@link PublishedRoutes} gives the route's current driver and the plan's current revision, and
+ * {@link AcknowledgeRouteChangeChange} holds the one transaction, which calls {@code
+ * RouteRun.acknowledge} with the audit record. The confirmed revision never goes back, and a route
+ * with no run stores nothing (ADR-107). Like every changing call it writes its audit record, a
+ * refused attempt's in its own transaction (NFR-23, ADR-110). After the commit, it tells the open
+ * screens through {@link LiveUpdates}.
  *
  * <p>Built in M8. Rows: FR-97, FR-250.
  */
 public final class AcknowledgeRouteChange {
 
-    private final RouteRunRepository runs;
-    private final PublishedRoutes publishedRoutes;
-    private final Clock clock;
-    private final AuditLog auditLog;
     private final LiveUpdates liveUpdates;
+    private final AcknowledgeRouteChangeChange change;
 
     /**
      * Creates the use case.
      *
-     * @param runs where route runs are kept
-     * @param publishedRoutes Planning's routes in force, for the current driver and revision
-     * @param clock the server's time, for the audit record
-     * @param auditLog the audit trail
      * @param liveUpdates the open screens
+     * @param change the use case's transaction
      */
-    public AcknowledgeRouteChange(
-            RouteRunRepository runs,
-            PublishedRoutes publishedRoutes,
-            Clock clock,
-            AuditLog auditLog,
-            LiveUpdates liveUpdates) {
-        this.runs = runs;
-        this.publishedRoutes = publishedRoutes;
-        this.clock = clock;
-        this.auditLog = auditLog;
+    public AcknowledgeRouteChange(LiveUpdates liveUpdates, AcknowledgeRouteChangeChange change) {
         this.liveUpdates = liveUpdates;
+        this.change = change;
     }
 
     /**

@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Keeps the imports in {@code orders.import_batch}, keyed by their IDs, and a preview's rows in
@@ -18,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
  * save deletes their rows from the table (NFR-31).
  */
 @Component
-@Transactional
 class JpaImportBatchRepository implements ImportBatchRepository {
 
     private final ImportBatches batches;

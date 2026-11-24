@@ -7,7 +7,6 @@ import com.dispatchflow.shared.adapter.out.persistence.VersionedSave;
 import java.util.Objects;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Keeps the day rosters in {@code fleet.day_roster}, one per date, with their entries in {@code
@@ -17,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
  * into the same persistence context, so the two lists never multiply each other's rows.
  */
 @Component
-@Transactional
 class JpaDayRosterRepository implements DayRosterRepository {
 
     private final DayRosters rosters;

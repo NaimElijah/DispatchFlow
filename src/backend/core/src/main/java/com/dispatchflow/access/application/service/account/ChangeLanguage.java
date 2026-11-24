@@ -8,6 +8,7 @@ import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The signed-in user chooses their interface language, Hebrew or English, which follows them to
@@ -16,7 +17,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>Built in M6.
  */
-public final class ChangeLanguage {
+@Transactional
+public class ChangeLanguage {
 
     private final UserAccountRepository accounts;
     private final Clock clock;

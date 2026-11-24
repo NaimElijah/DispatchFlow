@@ -1,18 +1,11 @@
 package com.dispatchflow.messaging.application.service;
 
 import com.dispatchflow.access.application.api.Company;
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
-import com.dispatchflow.messaging.application.port.out.MessagingSettingsRepository;
-import com.dispatchflow.messaging.application.port.out.OptOutList;
-import com.dispatchflow.messaging.application.port.out.PhoneHasher;
-import com.dispatchflow.messaging.application.port.out.RatingRequestRepository;
-import com.dispatchflow.messaging.application.port.out.ReplyLog;
 import com.dispatchflow.messaging.application.port.out.SmsGateway;
 import com.dispatchflow.messaging.application.port.out.StopMessagesRepository;
 import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.application.Clock;
-import com.dispatchflow.shared.application.IdGenerator;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.time.Instant;
 
@@ -52,62 +45,27 @@ import java.time.Instant;
  * no profile there is no sender name, so no message was ever sent and no rating request is open: an
  * opt-out word still opts the phone out, any other reply is discarded, and no answer is sent.
  *
+ * <p>The {@link SmsGateway} is an outside call, so this class opens no transaction: {@link
+ * ReceiveReplyChange} holds the transaction of the reply's effect and answers the messages it
+ * counted, and this class sends them after that commit (ADR-129).
+ *
  * <p>Built in M12. Rows: FR-357 to FR-360, FR-363, FR-371, FR-376, FR-379, NFR-192, NFR-196,
  * NFR-199, NFR-201, NFR-203.
  */
 public final class ReceiveReply {
 
-    private final ReplyLog replies;
-    private final RatingRequestRepository ratingRequests;
-    private final StopMessagesRepository stopMessages;
-    private final OptOutList optOuts;
-    private final PhoneHasher phoneHasher;
-    private final MessagingSettingsRepository settings;
-    private final Company company;
     private final SmsGateway smsGateway;
-    private final Clock clock;
-    private final IdGenerator ids;
-    private final AuditLog auditLog;
+    private final ReceiveReplyChange change;
 
     /**
      * Creates the use case.
      *
-     * @param replies where replies are kept
-     * @param ratingRequests where rating requests are kept
-     * @param stopMessages where stops' messages are kept, for the phone's last accepted message and
-     *     the day's cap, which the answers count toward
-     * @param optOuts the phones' opt-out history
-     * @param phoneHasher the keyed phone hash
-     * @param settings where the messaging settings are kept
-     * @param company Access's company profile, for the name and language the answers are written in
      * @param smsGateway the SMS provider, for the answers
-     * @param clock today's Israel date, for the cap
-     * @param ids new IDs, for each answer sent
-     * @param auditLog the audit trail
+     * @param change the transaction of the reply's effect
      */
-    public ReceiveReply(
-            ReplyLog replies,
-            RatingRequestRepository ratingRequests,
-            StopMessagesRepository stopMessages,
-            OptOutList optOuts,
-            PhoneHasher phoneHasher,
-            MessagingSettingsRepository settings,
-            Company company,
-            SmsGateway smsGateway,
-            Clock clock,
-            IdGenerator ids,
-            AuditLog auditLog) {
-        this.replies = replies;
-        this.ratingRequests = ratingRequests;
-        this.stopMessages = stopMessages;
-        this.optOuts = optOuts;
-        this.phoneHasher = phoneHasher;
-        this.settings = settings;
-        this.company = company;
+    public ReceiveReply(SmsGateway smsGateway, ReceiveReplyChange change) {
         this.smsGateway = smsGateway;
-        this.clock = clock;
-        this.ids = ids;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

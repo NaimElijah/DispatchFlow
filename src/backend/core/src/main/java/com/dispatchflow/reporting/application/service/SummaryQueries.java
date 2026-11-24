@@ -10,6 +10,7 @@ import com.dispatchflow.reporting.application.port.out.ReportingViews;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.application.NotFound;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The daily summary's and the baseline comparison's reads (FR-38, FR-39, FR-106, FR-161). Every
@@ -31,7 +32,8 @@ import com.dispatchflow.shared.application.NotFound;
  *
  * <p>Built in M5 and an unscheduled milestone, method by method.
  */
-public final class SummaryQueries {
+@Transactional(readOnly = true)
+public class SummaryQueries {
 
     private final ReportingViews views;
     private final BaselineRepository baselines;

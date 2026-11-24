@@ -14,6 +14,7 @@ import com.dispatchflow.shared.ImportBatchId;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.IdGenerator;
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher uploads an order file, which is checked and kept as a preview for an hour (FR-10,
@@ -33,7 +34,8 @@ import java.util.List;
  *
  * <p>Built in M2.
  */
-public final class PreviewOrderImport {
+@Transactional
+public class PreviewOrderImport {
 
     private final ImportBatchRepository imports;
     private final CustomerRepository customers;

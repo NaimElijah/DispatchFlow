@@ -11,6 +11,7 @@ import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher changes a customer's address (BR-104): {@code Customer.changeAddress} clears the
@@ -23,7 +24,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>Built in M2.
  */
-public final class ChangeCustomerAddress {
+@Transactional
+public class ChangeCustomerAddress {
 
     private final CustomerRepository customers;
     private final GeocodeRequests geocodeRequests;

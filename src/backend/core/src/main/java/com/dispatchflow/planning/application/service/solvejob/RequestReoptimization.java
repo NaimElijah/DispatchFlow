@@ -1,19 +1,12 @@
 package com.dispatchflow.planning.application.service.solvejob;
 
 import com.dispatchflow.access.application.api.Actor;
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.planning.application.port.out.LiveUpdates;
-import com.dispatchflow.planning.application.port.out.Seeds;
-import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
-import com.dispatchflow.planning.application.port.out.settings.PlanningSettingsRepository;
 import com.dispatchflow.planning.application.port.out.solvejob.RouteOptimizer;
-import com.dispatchflow.planning.application.port.out.solvejob.SolveJobRepository;
 import com.dispatchflow.planning.application.service.SolverNotOffered;
 import com.dispatchflow.planning.domain.plan.SolverName;
 import com.dispatchflow.shared.JobId;
 import com.dispatchflow.shared.PlanId;
-import com.dispatchflow.shared.application.Clock;
-import com.dispatchflow.shared.application.IdGenerator;
 import com.dispatchflow.shared.application.NotFound;
 import java.util.Optional;
 
@@ -41,6 +34,9 @@ import java.util.Optional;
  * ADR-101 point 32 deferred it while no rule of the domain needs it. Every route of the plan's
  * current revision goes to the optimizer.
  *
+ * <p>{@link RequestReoptimizationChange} holds the transaction, which queues the job and writes the
+ * audit record; after it commits, the dispatchers' open screens are told (ADR-129).
+ *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
@@ -48,48 +44,22 @@ import java.util.Optional;
  */
 public final class RequestReoptimization {
 
-    private final PlanRepository plans;
-    private final SolveJobRepository jobs;
-    private final PlanningSettingsRepository settings;
     private final RouteOptimizer optimizer;
-    private final Seeds seeds;
-    private final Clock clock;
-    private final IdGenerator ids;
     private final LiveUpdates liveUpdates;
-    private final AuditLog auditLog;
+    private final RequestReoptimizationChange change;
 
     /**
      * Creates the use case.
      *
-     * @param plans where plans are kept
-     * @param jobs where solve jobs are kept, and the re-optimization lane's capacity under its lock
-     * @param settings the planning settings, for the default solver
      * @param optimizer the optimization service, for the solvers it offers
-     * @param seeds the new job's seed (NFR-13)
-     * @param clock the time, for {@code today} and {@code now}
-     * @param ids the new job's ID
      * @param liveUpdates the dispatchers' open screens
-     * @param auditLog the audit trail, written in the job's transaction (TS §6.2)
+     * @param change the request's transaction
      */
     public RequestReoptimization(
-            PlanRepository plans,
-            SolveJobRepository jobs,
-            PlanningSettingsRepository settings,
-            RouteOptimizer optimizer,
-            Seeds seeds,
-            Clock clock,
-            IdGenerator ids,
-            LiveUpdates liveUpdates,
-            AuditLog auditLog) {
-        this.plans = plans;
-        this.jobs = jobs;
-        this.settings = settings;
+            RouteOptimizer optimizer, LiveUpdates liveUpdates, RequestReoptimizationChange change) {
         this.optimizer = optimizer;
-        this.seeds = seeds;
-        this.clock = clock;
-        this.ids = ids;
         this.liveUpdates = liveUpdates;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

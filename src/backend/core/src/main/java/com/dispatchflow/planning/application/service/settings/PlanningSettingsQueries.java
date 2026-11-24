@@ -3,7 +3,6 @@ package com.dispatchflow.planning.application.service.settings;
 import com.dispatchflow.access.application.api.Actor;
 import com.dispatchflow.access.application.api.GrantLimitExceeded;
 import com.dispatchflow.planning.application.port.out.PlanningSettingsView;
-import com.dispatchflow.planning.application.port.out.PlanningViews;
 import com.dispatchflow.planning.application.port.out.settings.SolversView;
 import com.dispatchflow.planning.application.port.out.solvejob.RouteOptimizer;
 
@@ -17,22 +16,25 @@ import com.dispatchflow.planning.application.port.out.solvejob.RouteOptimizer;
  * is limited, not empty, so the web adapter's role check lets a Driver through (ADR-068), and {@link
  * #settings(Actor)} refuses a Driver itself with {@link GrantLimitExceeded}.
  *
+ * <p>{@link PlanningSettingsQueriesChange} holds the read-only transaction of each answer. The
+ * solvers on offer are asked of {@link RouteOptimizer} before it (ADR-129).
+ *
  * <p>Built in M4.
  */
 public final class PlanningSettingsQueries {
 
-    private final PlanningViews views;
     private final RouteOptimizer optimizer;
+    private final PlanningSettingsQueriesChange change;
 
     /**
      * Creates the queries.
      *
-     * @param views Planning's read side
      * @param optimizer the optimization service, for the solvers it offers
+     * @param change the answers' read-only transactions
      */
-    public PlanningSettingsQueries(PlanningViews views, RouteOptimizer optimizer) {
-        this.views = views;
+    public PlanningSettingsQueries(RouteOptimizer optimizer, PlanningSettingsQueriesChange change) {
         this.optimizer = optimizer;
+        this.change = change;
     }
 
     /**

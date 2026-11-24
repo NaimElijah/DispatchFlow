@@ -1,22 +1,22 @@
 package com.dispatchflow.planning.application.service.plan;
 
 import com.dispatchflow.access.application.api.Actor;
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.planning.application.port.out.LiveUpdates;
-import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
-import com.dispatchflow.planning.application.spi.ExecutionFacts;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.Version;
-import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * Cancels a published plan for a day that doesn't run, while no route has started and no stop is
- * reported (FR-336 to FR-338, BR-103). Before its transaction it asks Live Operations, through {@code
- * ExecutionFacts.startedAmong} with the plan's own routes and stops, which have started or are
- * reported. Its routes stay as they were, and it makes no revision. It raises {@code PlanCancelled},
- * so the drivers are alerted and the orders return to unplanned (FR-337).
+ * reported (FR-336 to FR-338, BR-103). In its transaction, {@link CancelPlanChange#apply} asks Live
+ * Operations, through {@code ExecutionFacts.startedAmong} with the plan's own routes and stops, which
+ * have started or are reported: an in-process call, not an outside one (DL §6.3). Its routes stay as
+ * they were, and it makes no revision. It raises {@code PlanCancelled}, so the drivers are alerted
+ * and the orders return to unplanned (FR-337).
+ *
+ * <p>{@link CancelPlanChange} holds the transaction, which cancels the plan and writes the audit
+ * record; after it commits, the dispatchers' open screens are told (ADR-129).
  *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
@@ -25,32 +25,18 @@ import com.dispatchflow.shared.application.StaleVersion;
  */
 public final class CancelPlan {
 
-    private final PlanRepository plans;
-    private final ExecutionFacts executionFacts;
-    private final Clock clock;
     private final LiveUpdates liveUpdates;
-    private final AuditLog auditLog;
+    private final CancelPlanChange change;
 
     /**
      * Creates the use case.
      *
-     * @param plans where plans are kept
-     * @param executionFacts Live Operations' started routes and reported stops, among the plan's own
-     * @param clock the time, for {@code today} and {@code now}
      * @param liveUpdates the dispatchers' open screens
-     * @param auditLog the audit trail, written in the change's transaction (TS §6.2)
+     * @param change the cancellation's transaction
      */
-    public CancelPlan(
-            PlanRepository plans,
-            ExecutionFacts executionFacts,
-            Clock clock,
-            LiveUpdates liveUpdates,
-            AuditLog auditLog) {
-        this.plans = plans;
-        this.executionFacts = executionFacts;
-        this.clock = clock;
+    public CancelPlan(LiveUpdates liveUpdates, CancelPlanChange change) {
         this.liveUpdates = liveUpdates;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

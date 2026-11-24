@@ -1,6 +1,6 @@
 # ADR-063: A transaction changes one existing aggregate, and every business rule has exactly one owner
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-129
 - **Date:** 2026-11-14
 
 ## Context

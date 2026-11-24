@@ -6,6 +6,7 @@ import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.fleet.application.port.out.DriverRepository;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.StaleVersion;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Fleet's listener on Access's {@code AccountAnonymized}: it removes the driver record's name and
@@ -19,7 +20,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>Built in M13, with the whole nightly retention run (ADR-121).
  */
-public final class AnonymizeDriverWithAccount {
+@Transactional
+public class AnonymizeDriverWithAccount {
 
     private final DriverRepository drivers;
     private final Clock clock;

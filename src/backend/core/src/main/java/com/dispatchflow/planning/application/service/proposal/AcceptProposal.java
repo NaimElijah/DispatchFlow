@@ -1,35 +1,31 @@
 package com.dispatchflow.planning.application.service.proposal;
 
-import com.dispatchflow.access.application.api.Accounts;
 import com.dispatchflow.access.application.api.Actor;
-import com.dispatchflow.audit.application.api.AuditLog;
-import com.dispatchflow.fleet.application.api.FleetFacts;
-import com.dispatchflow.orders.application.api.OrdersForDate;
 import com.dispatchflow.planning.application.port.out.LiveUpdates;
-import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
-import com.dispatchflow.planning.application.port.out.proposal.ProposalRepository;
-import com.dispatchflow.planning.application.spi.ExecutionFacts;
 import com.dispatchflow.shared.ProposalId;
 import com.dispatchflow.shared.Version;
-import com.dispatchflow.shared.application.Clock;
-import com.dispatchflow.shared.application.IdGenerator;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 
 /**
  * Accepts a re-optimization: its routes, drops and excluded vehicles replace the plan's as a new
  * revision that cites it, and the drivers on the road receive the change (FR-32, FR-36, FR-104,
- * FR-255, BR-25, BR-62, BR-64, BR-65, BR-82, BR-83, ADR-055, ADR-056). Before its transaction it
- * reads what was recorded since the proposal's basis, as {@code ChangesSinceBasis}: the reported
- * stops from Live Operations' {@code ExecutionFacts.changesSince}, asked with the plan's own stops,
- * the cancelled and changed orders, the changed vehicles and drivers, and each vehicle's BR-20
- * standing from Fleet's roster and Access's Driver role. It changes the plan, not the proposal, and
- * raises {@code PlanRevised}.
+ * FR-255, BR-25, BR-62, BR-64, BR-65, BR-82, BR-83, ADR-055, ADR-056). In its transaction, {@link
+ * AcceptProposalChange#apply} reads what was recorded since the proposal's basis, as {@code
+ * ChangesSinceBasis}: the reported stops from Live Operations' {@code ExecutionFacts.changesSince},
+ * asked with the plan's own stops, the cancelled and changed orders, the changed vehicles and
+ * drivers, and each vehicle's BR-20 standing from Fleet's roster and Access's Driver role. These are
+ * in-process calls, not outside ones (DL §6.3). It changes the plan, not the proposal, and raises
+ * {@code PlanRevised}.
  *
  * <p>The request's target is the proposal, but the call changes the plan, so the plan's version
  * travels in the request body, not in {@code If-Match}: the preview gives it as {@code
  * ProposalPreviewView.planVersion} (BR-76, ADR-057). Which status a stale plan version answers is
  * for the {@code web} adapter's ADR to decide.
+ *
+ * <p>{@link AcceptProposalChange} holds the transaction, which reads those changes, accepts the
+ * proposal and writes the audit record; after it commits, the dispatchers' open screens are told
+ * (ADR-129).
  *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
@@ -38,54 +34,18 @@ import com.dispatchflow.shared.application.StaleVersion;
  */
 public final class AcceptProposal {
 
-    private final ProposalRepository proposals;
-    private final PlanRepository plans;
-    private final ExecutionFacts executionFacts;
-    private final OrdersForDate ordersForDate;
-    private final FleetFacts fleetFacts;
-    private final Accounts accounts;
-    private final IdGenerator ids;
-    private final Clock clock;
     private final LiveUpdates liveUpdates;
-    private final AuditLog auditLog;
+    private final AcceptProposalChange change;
 
     /**
      * Creates the use case.
      *
-     * @param proposals where proposals are kept
-     * @param plans where plans are kept
-     * @param executionFacts Live Operations' stops reported since the basis, among the plan's own
-     *     (BR-25, BR-132)
-     * @param ordersForDate the orders cancelled or changed since the basis (BR-82)
-     * @param fleetFacts the vehicles and drivers changed since the basis, and the roster (BR-64)
-     * @param accounts Access's answer on whether each driver holds the Driver role (BR-20, BR-64)
-     * @param ids new IDs for the proposal's new routes and stops: one per route and one per stop
-     *     (ADR-112)
-     * @param clock the time, for {@code today} and {@code now}
      * @param liveUpdates the dispatchers' open screens
-     * @param auditLog the audit trail, written in the change's transaction (TS §6.2)
+     * @param change the acceptance's transaction
      */
-    public AcceptProposal(
-            ProposalRepository proposals,
-            PlanRepository plans,
-            ExecutionFacts executionFacts,
-            OrdersForDate ordersForDate,
-            FleetFacts fleetFacts,
-            Accounts accounts,
-            IdGenerator ids,
-            Clock clock,
-            LiveUpdates liveUpdates,
-            AuditLog auditLog) {
-        this.proposals = proposals;
-        this.plans = plans;
-        this.executionFacts = executionFacts;
-        this.ordersForDate = ordersForDate;
-        this.fleetFacts = fleetFacts;
-        this.accounts = accounts;
-        this.ids = ids;
-        this.clock = clock;
+    public AcceptProposal(LiveUpdates liveUpdates, AcceptProposalChange change) {
         this.liveUpdates = liveUpdates;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

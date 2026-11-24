@@ -11,6 +11,7 @@ import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher places a customer's location by hand, to fix a bad match or when geocoding found
@@ -23,7 +24,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>Built in M7.
  */
-public final class PlaceCustomerLocation {
+@Transactional
+public class PlaceCustomerLocation {
 
     private final CustomerRepository customers;
     private final ServiceAreas serviceAreas;

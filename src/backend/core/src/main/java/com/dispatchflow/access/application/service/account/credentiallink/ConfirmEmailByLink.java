@@ -3,12 +3,8 @@ package com.dispatchflow.access.application.service.account.credentiallink;
 import com.dispatchflow.access.application.port.out.EmailSender;
 import com.dispatchflow.access.application.port.out.PresentedToken;
 import com.dispatchflow.access.application.port.out.RevocationCache;
-import com.dispatchflow.access.application.port.out.SecretTokens;
-import com.dispatchflow.access.application.port.out.UserAccountRepository;
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.shared.RuleViolation;
-import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.StaleVersion;
 
 /**
@@ -23,9 +19,9 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p><b>Refusals answered as a voided link.</b> The holder of the new mailbox may not be the
  * account's user, so three of {@code UserAccount.confirmEmailByLink}'s refusals must not tell them
- * more than that the link no longer works. The use case catches each, writes {@code
- * AuditLog.refused} with the domain's specific code in its own transaction (ADR-110), and then
- * throws a {@code RuleViolation} with Access's {@code LinkVoided} in its place:
+ * more than that the link no longer works. Each is audited as a refused attempt with the domain's
+ * specific code, once the transaction it refused has rolled back (ADR-110, ADR-129 decision 5), and
+ * the use case throws a {@code RuleViolation} with Access's {@code LinkVoided} in its place:
  *
  * <ul>
  *   <li>{@code EmailOfAnotherAdmin}, so the holder learns nothing about the account's roles
@@ -43,40 +39,31 @@ import com.dispatchflow.shared.application.StaleVersion;
  * this step, and only here. Like every changing call it writes its audit record, a refused
  * attempt's in its own transaction (NFR-23, ADR-110).
  *
+ * <p><b>The transaction.</b> {@link ConfirmEmailByLinkChange} holds it: the link's lookup, the
+ * confirmation with the refusals above, its save, the Admins' addresses and the audit record. After
+ * its commit, the use case evicts the account from the revocation cache, tells the old address and
+ * sends the Admins' notice, so a confirmation that rolls back sends nothing (ADR-129).
+ *
  * <p>Built in M6.
  */
 public final class ConfirmEmailByLink {
 
-    private final UserAccountRepository accounts;
-    private final SecretTokens secretTokens;
     private final RevocationCache revocationCache;
     private final EmailSender emailSender;
-    private final Clock clock;
-    private final AuditLog auditLog;
+    private final ConfirmEmailByLinkChange change;
 
     /**
      * Creates the use case.
      *
-     * @param accounts where accounts are kept
-     * @param secretTokens makes refresh and link tokens, and hashes a presented one
      * @param revocationCache the token check's cache, evicted after a change
      * @param emailSender sends links and notices by email
-     * @param clock the time
-     * @param auditLog where the audit record is written
+     * @param change the transaction that confirms the new address
      */
     public ConfirmEmailByLink(
-            UserAccountRepository accounts,
-            SecretTokens secretTokens,
-            RevocationCache revocationCache,
-            EmailSender emailSender,
-            Clock clock,
-            AuditLog auditLog) {
-        this.accounts = accounts;
-        this.secretTokens = secretTokens;
+            RevocationCache revocationCache, EmailSender emailSender, ConfirmEmailByLinkChange change) {
         this.revocationCache = revocationCache;
         this.emailSender = emailSender;
-        this.clock = clock;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

@@ -7,6 +7,7 @@ import com.dispatchflow.planning.domain.plan.PlansOnDate;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.RuleViolation;
+import com.dispatchflow.shared.adapter.out.persistence.OpenTransaction;
 import com.dispatchflow.shared.adapter.out.persistence.VersionedSave;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDate;
@@ -15,7 +16,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Keeps plans in {@code planning.plan}, with their routes and stops as rows of their own, a table
@@ -29,7 +29,6 @@ import org.springframework.transaction.annotation.Transactional;
  * violation passes through as the bug it would be.
  */
 @Component
-@Transactional
 class JpaPlanRepository implements PlanRepository {
 
     private final Plans plans;
@@ -64,6 +63,7 @@ class JpaPlanRepository implements PlanRepository {
      */
     @Override
     public void add(Plan plan) {
+        OpenTransaction.require("add");
         LocalDate date = plan.date().value();
         plans.lockDate(date.toString());
         Optional<UUID> existing = plans.uncancelledOn(date);

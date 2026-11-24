@@ -5,6 +5,7 @@ import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.messaging.application.port.out.MessagingSettingsRepository;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.StaleVersion;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The server step a restore runs before the core serves again: messages to recipients stay off
@@ -18,7 +19,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>Built in M13. Rows: NFR-252, FR-350.
  */
-public final class TurnMessagesOffAfterRestore {
+@Transactional
+public class TurnMessagesOffAfterRestore {
 
     private final MessagingSettingsRepository settings;
     private final Clock clock;

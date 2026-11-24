@@ -42,6 +42,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.IllegalTransactionStateException;
 
 /**
  * {@link AlertRepository} against a real PostgreSQL (ADR-126, ADR-127): what an alert stores and
@@ -141,6 +142,14 @@ class AlertPersistenceIT {
                 .isInstanceOf(AssertionError.class)
                 .hasMessage("a new alert is added under its key, never saved");
         assertThat(transactions.inTransaction(() -> repository.get(alert(n)))).isEmpty();
+    }
+
+    /** A dedupe key's lock taken in a transaction of the call's own would be gone before the insert. */
+    @Test
+    void GivenNoTransaction_WhenAnAlertIsAddedUnlessItsKeyIsTaken_ThenTheCallIsRefused() {
+        assertThatThrownBy(() -> repository.addUnlessKeyTaken(stopFailed(301, 301), dateOf(301)))
+                .isInstanceOf(IllegalTransactionStateException.class);
+        assertThat(transactions.inTransaction(() -> repository.get(alert(301)))).isEmpty();
     }
 
     // --- versions and conflicts

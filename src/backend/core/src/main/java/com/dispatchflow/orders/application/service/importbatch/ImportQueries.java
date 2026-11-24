@@ -6,6 +6,7 @@ import com.dispatchflow.orders.application.port.out.ImportTemplateView;
 import com.dispatchflow.orders.application.port.out.OrdersViews;
 import com.dispatchflow.shared.ImportBatchId;
 import com.dispatchflow.shared.application.NotFound;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The order import screens' reads (FR-84, FR-203, ADR-086): a preview to check before confirming,
@@ -14,7 +15,8 @@ import com.dispatchflow.shared.application.NotFound;
  *
  * <p>Built in M2 and an unscheduled milestone, method by method.
  */
-public final class ImportQueries {
+@Transactional(readOnly = true)
+public class ImportQueries {
 
     private final OrdersViews views;
 

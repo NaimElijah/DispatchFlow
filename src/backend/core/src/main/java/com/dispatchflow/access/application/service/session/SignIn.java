@@ -11,6 +11,7 @@ import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.IdGenerator;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Signs a device in with an email address and a password (FR-296, FR-03): it checks the password,
@@ -47,7 +48,8 @@ import com.dispatchflow.shared.application.IdGenerator;
  *
  * <p>Built in M5.
  */
-public final class SignIn {
+@Transactional
+public class SignIn {
 
     private final UserAccountRepository accounts;
     private final SessionRepository sessions;

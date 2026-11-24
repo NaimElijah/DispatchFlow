@@ -11,6 +11,7 @@ import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.VehicleId;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher registers a driver for an account that is active and holds the Driver role, with
@@ -24,7 +25,8 @@ import com.dispatchflow.shared.application.NotFound;
  *
  * <p>Built in M2.
  */
-public final class RegisterDriver {
+@Transactional
+public class RegisterDriver {
 
     private final DriverRepository drivers;
     private final Accounts accounts;

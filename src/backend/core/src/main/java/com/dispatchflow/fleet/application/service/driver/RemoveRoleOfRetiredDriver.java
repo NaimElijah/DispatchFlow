@@ -13,6 +13,10 @@ import com.dispatchflow.shared.application.StaleVersion;
  * is harmless (ADR-064). It changes no Fleet aggregate, so it writes no audit record itself: it
  * passes its server step to Access, which writes the record with it (ADR-110).
  *
+ * <p>It opens no transaction of its own: Access's {@code RemoveDriverRole} is a use case that
+ * opens its own, and evicts the account's cached generation only after that commit (ADR-045,
+ * ADR-129).
+ *
  * <p>Built in M2.
  */
 public final class RemoveRoleOfRetiredDriver {

@@ -3,6 +3,7 @@ package com.dispatchflow.planning.application.service.settings;
 import com.dispatchflow.planning.application.api.PlanningSettingsFacts;
 import com.dispatchflow.planning.application.port.out.settings.PlanningSettingsRepository;
 import java.time.Duration;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Planning's implementation of {@link PlanningSettingsFacts}: it reads the current settings and
@@ -11,7 +12,8 @@ import java.time.Duration;
  *
  * <p>Built in M8.
  */
-public final class PlanningSettingsFactsService implements PlanningSettingsFacts {
+@Transactional(readOnly = true)
+public class PlanningSettingsFactsService implements PlanningSettingsFacts {
 
     private final PlanningSettingsRepository settings;
 

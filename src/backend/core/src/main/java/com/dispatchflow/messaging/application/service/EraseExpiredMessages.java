@@ -1,11 +1,6 @@
 package com.dispatchflow.messaging.application.service;
 
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
-import com.dispatchflow.messaging.application.port.out.RatingRequestRepository;
-import com.dispatchflow.messaging.application.port.out.ReplyLog;
-import com.dispatchflow.messaging.application.port.out.StopMessagesRepository;
-import com.dispatchflow.shared.application.Clock;
 
 /**
  * The nightly retention job's Messaging step (NFR-184, NFR-193, NFR-260, ADR-075, ADR-108): it
@@ -14,37 +9,25 @@ import com.dispatchflow.shared.application.Clock;
  * RatingRequest.removePersonalData}, one request per transaction, keeping its rating. The opt-out
  * history stays (NFR-202). The scheduler calls it at 03:00 {@code Asia/Jerusalem} (DL §10.3).
  *
+ * <p>It opens no transaction of its own: {@link EraseExpiredMessagesChange} deletes the messages
+ * and replies due in one, lists the requests due, and clears each request in one of its own
+ * (ADR-129).
+ *
  * <p>Built in M13, with the whole nightly retention run (ADR-121). Rows: NFR-184, NFR-193, NFR-260,
  * ADR-108.
  */
 public final class EraseExpiredMessages {
 
-    private final StopMessagesRepository stopMessages;
-    private final RatingRequestRepository ratingRequests;
-    private final ReplyLog replies;
-    private final Clock clock;
-    private final AuditLog auditLog;
+    private final EraseExpiredMessagesChange change;
 
     /**
      * Creates the job.
      *
-     * @param stopMessages where stops' messages are kept
-     * @param ratingRequests where rating requests are kept
-     * @param replies where replies are kept
-     * @param clock the server's time
-     * @param auditLog the audit trail
+     * @param change the transactions that delete the messages and replies due, list the requests
+     *     due, and clear each request
      */
-    public EraseExpiredMessages(
-            StopMessagesRepository stopMessages,
-            RatingRequestRepository ratingRequests,
-            ReplyLog replies,
-            Clock clock,
-            AuditLog auditLog) {
-        this.stopMessages = stopMessages;
-        this.ratingRequests = ratingRequests;
-        this.replies = replies;
-        this.clock = clock;
-        this.auditLog = auditLog;
+    public EraseExpiredMessages(EraseExpiredMessagesChange change) {
+        this.change = change;
     }
 
     /**

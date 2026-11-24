@@ -12,6 +12,7 @@ import com.dispatchflow.shared.PhoneNumber;
 import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.NotFound;
 import java.util.Optional;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The customer screens' reads (FR-56, FR-63, FR-134, FR-149, FR-212, FR-216, FR-259): finding a
@@ -22,7 +23,8 @@ import java.util.Optional;
  *
  * <p>Built in M2, M7 and an unscheduled milestone, method by method.
  */
-public final class CustomerQueries {
+@Transactional(readOnly = true)
+public class CustomerQueries {
 
     /** The most customers one search answers, so a short text can't read the whole table. */
     public static final int MAX_SEARCH_RESULTS = 50;

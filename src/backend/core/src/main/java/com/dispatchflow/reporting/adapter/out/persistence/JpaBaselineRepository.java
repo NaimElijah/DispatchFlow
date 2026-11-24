@@ -10,7 +10,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Keeps baselines in {@code reporting.baseline}, with their planned orders, withdrawn vehicles and
@@ -23,7 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
  * ends in {@code StaleVersion}, and its retry finds the plan settled.
  */
 @Component
-@Transactional
 class JpaBaselineRepository implements BaselineRepository {
 
     // The entity's name, which the shared save also gives a conflict as its kind.

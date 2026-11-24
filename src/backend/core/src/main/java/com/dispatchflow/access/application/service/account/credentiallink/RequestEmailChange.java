@@ -3,18 +3,11 @@ package com.dispatchflow.access.application.service.account.credentiallink;
 import com.dispatchflow.access.application.api.Actor;
 import com.dispatchflow.access.application.api.GrantLimitExceeded;
 import com.dispatchflow.access.application.port.out.EmailSender;
-import com.dispatchflow.access.application.port.out.PasswordHasher;
 import com.dispatchflow.access.application.port.out.PresentedPassword;
-import com.dispatchflow.access.application.port.out.SecretTokens;
-import com.dispatchflow.access.application.port.out.SessionRepository;
-import com.dispatchflow.access.application.port.out.UserAccountRepository;
 import com.dispatchflow.access.domain.account.EmailAddress;
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.Version;
-import com.dispatchflow.shared.application.Clock;
-import com.dispatchflow.shared.application.IdGenerator;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.util.Optional;
@@ -41,48 +34,26 @@ import java.util.Optional;
  * counts them with Bucket4j, and answers a request over the limit 429 before it reaches this use
  * case (FR-411, ADR-071, ADR-121).
  *
+ * <p><b>The transaction.</b> {@link RequestEmailChangeChange} holds it: the grant, step-up and
+ * password checks, the link's issue, its save and the audit record. After its commit, the use case
+ * sends the link to the new address, so a request that rolls back sends nothing (ADR-129).
+ *
  * <p>Built in M6.
  */
 public final class RequestEmailChange {
 
-    private final UserAccountRepository accounts;
-    private final SessionRepository sessions;
-    private final PasswordHasher passwordHasher;
-    private final SecretTokens secretTokens;
     private final EmailSender emailSender;
-    private final IdGenerator ids;
-    private final Clock clock;
-    private final AuditLog auditLog;
+    private final RequestEmailChangeChange change;
 
     /**
      * Creates the use case.
      *
-     * @param accounts where accounts are kept
-     * @param sessions where sessions are kept
-     * @param passwordHasher hashes passwords and checks a presented one
-     * @param secretTokens makes refresh and link tokens, and hashes a presented one
      * @param emailSender sends links and notices by email
-     * @param ids makes new IDs
-     * @param clock the time
-     * @param auditLog where the audit record is written
+     * @param change the transaction that issues the email-change link
      */
-    public RequestEmailChange(
-            UserAccountRepository accounts,
-            SessionRepository sessions,
-            PasswordHasher passwordHasher,
-            SecretTokens secretTokens,
-            EmailSender emailSender,
-            IdGenerator ids,
-            Clock clock,
-            AuditLog auditLog) {
-        this.accounts = accounts;
-        this.sessions = sessions;
-        this.passwordHasher = passwordHasher;
-        this.secretTokens = secretTokens;
+    public RequestEmailChange(EmailSender emailSender, RequestEmailChangeChange change) {
         this.emailSender = emailSender;
-        this.ids = ids;
-        this.clock = clock;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

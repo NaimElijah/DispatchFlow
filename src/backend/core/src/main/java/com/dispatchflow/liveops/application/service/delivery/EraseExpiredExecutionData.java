@@ -1,9 +1,6 @@
 package com.dispatchflow.liveops.application.service.delivery;
 
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
-import com.dispatchflow.liveops.application.port.out.DeliveryRepository;
-import com.dispatchflow.liveops.application.port.out.PositionLog;
 import com.dispatchflow.liveops.application.port.out.proof.ProofStore;
 import com.dispatchflow.shared.application.Clock;
 
@@ -14,32 +11,29 @@ import com.dispatchflow.shared.application.Clock;
  * transaction, keeping every record and kind. The cutoffs come from {@code RetentionPeriods}. The
  * scheduler calls it at 03:00 {@code Asia/Jerusalem} (DL §10.3).
  *
+ * <p>{@link EraseExpiredExecutionDataChange} holds each transaction: one deletes the positions, and
+ * one per due delivery erases it, as the job loops over the due stops. The proof files are deleted
+ * through {@link ProofStore#deleteOlderThan}, on disk, outside any transaction.
+ *
  * <p>Built in M13, with the whole nightly retention run (ADR-121). Rows: NFR-184, NFR-260, ADR-075.
  */
 public final class EraseExpiredExecutionData {
 
-    private final DeliveryRepository deliveries;
-    private final PositionLog positions;
     private final ProofStore proofs;
     private final Clock clock;
-    private final AuditLog auditLog;
+    private final EraseExpiredExecutionDataChange change;
 
     /**
      * Creates the job.
      *
-     * @param deliveries where deliveries are kept
-     * @param positions where positions are kept
      * @param proofs where proof files are kept
-     * @param clock the server's time
-     * @param auditLog the audit trail
+     * @param clock the server's time, for the proof files' cutoff
+     * @param change the job's transactions
      */
-    public EraseExpiredExecutionData(
-            DeliveryRepository deliveries, PositionLog positions, ProofStore proofs, Clock clock, AuditLog auditLog) {
-        this.deliveries = deliveries;
-        this.positions = positions;
+    public EraseExpiredExecutionData(ProofStore proofs, Clock clock, EraseExpiredExecutionDataChange change) {
         this.proofs = proofs;
         this.clock = clock;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

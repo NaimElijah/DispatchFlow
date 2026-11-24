@@ -1,16 +1,13 @@
 package com.dispatchflow.planning.application.service.plan.edit;
 
 import com.dispatchflow.access.application.api.Actor;
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.planning.application.port.out.LiveUpdates;
 import com.dispatchflow.planning.application.port.out.plan.FeasibilityChecker;
-import com.dispatchflow.planning.application.port.out.plan.PlanRepository;
 import com.dispatchflow.planning.application.service.SolveRequestAssembler;
 import com.dispatchflow.shared.OrderId;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.RouteId;
 import com.dispatchflow.shared.Version;
-import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.IdGenerator;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
@@ -27,6 +24,12 @@ import com.dispatchflow.shared.application.StaleVersion;
  * optimizer. An edit checks no roster: BR-20 binds when the plan is published, where {@code
  * PublishPlan} checks it.
  *
+ * <p>Before its transaction it draws the stop's ID, reads the plan as the change would leave it
+ * through {@link PlaceDroppedOrderChange#layoutAfter}, builds the evaluation request and asks the
+ * validator; {@link PlaceDroppedOrderChange#apply} then holds the transaction, which loads the plan
+ * again, places the order under that ID as judged and writes the audit record; after it commits,
+ * the dispatchers' open screens are told (ADR-129).
+ *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).
  *
@@ -34,40 +37,32 @@ import com.dispatchflow.shared.application.StaleVersion;
  */
 public final class PlaceDroppedOrder {
 
-    private final PlanRepository plans;
     private final SolveRequestAssembler assembler;
     private final FeasibilityChecker checker;
-    private final Clock clock;
     private final IdGenerator ids;
     private final LiveUpdates liveUpdates;
-    private final AuditLog auditLog;
+    private final PlaceDroppedOrderChange change;
 
     /**
      * Creates the use case.
      *
-     * @param plans where plans are kept
      * @param assembler builds the evaluation request
      * @param checker the optimizer's validator
-     * @param clock the time, for {@code today}
      * @param ids the new stop's ID
      * @param liveUpdates the dispatchers' open screens
-     * @param auditLog the audit trail, written in the change's transaction (TS §6.2)
+     * @param change the placing's transaction
      */
     public PlaceDroppedOrder(
-            PlanRepository plans,
             SolveRequestAssembler assembler,
             FeasibilityChecker checker,
-            Clock clock,
             IdGenerator ids,
             LiveUpdates liveUpdates,
-            AuditLog auditLog) {
-        this.plans = plans;
+            PlaceDroppedOrderChange change) {
         this.assembler = assembler;
         this.checker = checker;
-        this.clock = clock;
         this.ids = ids;
         this.liveUpdates = liveUpdates;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

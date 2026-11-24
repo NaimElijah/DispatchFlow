@@ -12,6 +12,7 @@ import com.dispatchflow.shared.application.IdGenerator;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.util.Optional;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher registers a vehicle with its capacities, its start and end depots, a display name
@@ -21,7 +22,8 @@ import java.util.Optional;
  *
  * <p>Built in M2.
  */
-public final class AddVehicle {
+@Transactional
+public class AddVehicle {
 
     private final FleetRegisterRepository registers;
     private final IdGenerator ids;

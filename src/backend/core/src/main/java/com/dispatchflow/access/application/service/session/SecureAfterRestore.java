@@ -1,13 +1,8 @@
 package com.dispatchflow.access.application.service.session;
 
 import com.dispatchflow.access.application.port.out.RevocationCache;
-import com.dispatchflow.access.application.port.out.SessionRepository;
-import com.dispatchflow.access.application.port.out.UserAccountRepository;
-import com.dispatchflow.access.application.port.out.session.PushTokens;
 import com.dispatchflow.access.application.port.out.session.TokenSigner;
-import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
-import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.StaleVersion;
 
 /**
@@ -25,6 +20,12 @@ import com.dispatchflow.shared.application.StaleVersion;
  * SessionRepository.allLive} names, and voids the links of each account {@code
  * UserAccountRepository.withOpenLinks} names, each in its own transaction.
  *
+ * <p><b>The transactions.</b> The key's rotation runs before any transaction. {@link
+ * SecureAfterRestoreChange} lists the live sessions and the accounts with open links, each in a
+ * read-only transaction, and holds each session's revocation and each account's voiding, one
+ * transaction each (ADR-129). After each revocation commits, the step evicts the session from the
+ * revocation cache (ADR-045).
+ *
  * <p>The restore runbook's other steps are not declared yet: re-applying the changes made since the
  * backup (NFR-253), blanking the passwords and voiding the links of the accounts whose password or
  * email changed since it (NFR-274), and issuing the Admins their set-password links (NFR-282). They
@@ -36,40 +37,23 @@ import com.dispatchflow.shared.application.StaleVersion;
  */
 public final class SecureAfterRestore {
 
-    private final SessionRepository sessions;
-    private final UserAccountRepository accounts;
     private final TokenSigner tokenSigner;
     private final RevocationCache revocationCache;
-    private final PushTokens pushTokens;
-    private final Clock clock;
-    private final AuditLog auditLog;
+    private final SecureAfterRestoreChange change;
 
     /**
      * Creates the step.
      *
-     * @param sessions where sessions are kept
-     * @param accounts where accounts are kept, with their credential links
      * @param tokenSigner signs access tokens
      * @param revocationCache the token check's cache, evicted after a change
-     * @param pushTokens the phones' push addresses, each revoked session's removed (NFR-263)
-     * @param clock the time
-     * @param auditLog where the audit record is written
+     * @param change the transactions that list the sessions and accounts, revoke one session and
+     *     void one account's links
      */
     public SecureAfterRestore(
-            SessionRepository sessions,
-            UserAccountRepository accounts,
-            TokenSigner tokenSigner,
-            RevocationCache revocationCache,
-            PushTokens pushTokens,
-            Clock clock,
-            AuditLog auditLog) {
-        this.sessions = sessions;
-        this.accounts = accounts;
+            TokenSigner tokenSigner, RevocationCache revocationCache, SecureAfterRestoreChange change) {
         this.tokenSigner = tokenSigner;
         this.revocationCache = revocationCache;
-        this.pushTokens = pushTokens;
-        this.clock = clock;
-        this.auditLog = auditLog;
+        this.change = change;
     }
 
     /**

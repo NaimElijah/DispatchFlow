@@ -6,6 +6,7 @@ import com.dispatchflow.orders.domain.Order;
 import com.dispatchflow.shared.CustomerId;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.OrderId;
+import com.dispatchflow.shared.adapter.out.persistence.OpenTransaction;
 import com.dispatchflow.shared.adapter.out.persistence.VersionedSave;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDate;
@@ -13,8 +14,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Keeps the orders in {@code orders.customer_order}, keyed by their IDs. A date's capacity is read
@@ -22,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
  * decision 9), which the caller's transaction holds until it ends.
  */
 @Component
-@Transactional
 class JpaOrderRepository implements OrderRepository {
 
     private final Orders orders;
@@ -59,8 +57,8 @@ class JpaOrderRepository implements OrderRepository {
     }
 
     @Override
-    @Transactional(propagation = Propagation.MANDATORY)
     public DateCapacity capacityUnderLock(DeliveryDate date) {
+        OpenTransaction.require("capacityUnderLock");
         orders.lockDate(date.value().toString());
         return DateCapacity.readUnderLock(
                 date,

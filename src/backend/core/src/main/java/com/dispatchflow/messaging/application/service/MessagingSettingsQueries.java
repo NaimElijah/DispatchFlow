@@ -5,6 +5,7 @@ import com.dispatchflow.access.application.api.GrantLimitExceeded;
 import com.dispatchflow.messaging.application.port.out.DispatchPhoneView;
 import com.dispatchflow.messaging.application.port.out.MessagingSettingsView;
 import com.dispatchflow.messaging.application.port.out.MessagingViews;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The messaging part of the company settings page, which an Admin or a Dispatcher reads (FR-125,
@@ -18,7 +19,8 @@ import com.dispatchflow.messaging.application.port.out.MessagingViews;
  *
  * <p>Built in M12. Rows: FR-199, FR-350, FR-375.
  */
-public final class MessagingSettingsQueries {
+@Transactional(readOnly = true)
+public class MessagingSettingsQueries {
 
     private final MessagingViews views;
 

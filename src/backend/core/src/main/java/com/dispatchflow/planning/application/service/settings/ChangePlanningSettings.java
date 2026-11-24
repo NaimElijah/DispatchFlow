@@ -14,6 +14,7 @@ import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.util.Objects;
 import java.util.Optional;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Changes the planning settings, all in one place, from the Admin's settings page (FR-183, FR-19,
@@ -36,7 +37,8 @@ import java.util.Optional;
  *
  * <p>Built in M4.
  */
-public final class ChangePlanningSettings {
+@Transactional
+public class ChangePlanningSettings {
 
     private final PlanningSettingsRepository settings;
     private final StepUp stepUp;

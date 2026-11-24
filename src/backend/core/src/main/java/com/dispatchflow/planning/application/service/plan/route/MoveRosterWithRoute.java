@@ -4,6 +4,7 @@ import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.fleet.application.api.MoveVehicleWithRoute;
 import com.dispatchflow.planning.events.RouteHandedOver;
 import com.dispatchflow.shared.application.StaleVersion;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Moves the route's vehicle on the date's roster to the driver it was handed to, so the roster follows
@@ -13,7 +14,8 @@ import com.dispatchflow.shared.application.StaleVersion;
  *
  * <p>Built in M9.
  */
-public final class MoveRosterWithRoute {
+@Transactional
+public class MoveRosterWithRoute {
 
     private final MoveVehicleWithRoute moveVehicleWithRoute;
 

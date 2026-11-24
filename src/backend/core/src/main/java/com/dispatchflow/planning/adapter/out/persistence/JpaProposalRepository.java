@@ -8,14 +8,12 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Keeps re-optimization proposals in {@code planning.reoptimization_proposal}, with each of their
  * lists in a table of its own.
  */
 @Component
-@Transactional
 class JpaProposalRepository implements ProposalRepository {
 
     private final Proposals proposals;

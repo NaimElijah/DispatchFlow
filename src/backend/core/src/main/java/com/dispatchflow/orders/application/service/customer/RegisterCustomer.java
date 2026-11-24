@@ -17,6 +17,7 @@ import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.shared.application.IdGenerator;
 import java.util.Objects;
 import java.util.Optional;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A dispatcher creates a customer (FR-08, FR-59): {@code Customer.register} with a new ID, its
@@ -30,7 +31,8 @@ import java.util.Optional;
  *
  * <p>Built in M2.
  */
-public final class RegisterCustomer {
+@Transactional
+public class RegisterCustomer {
 
     private final CustomerRepository customers;
     private final GeocodeRequests geocodeRequests;
