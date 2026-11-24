@@ -1,6 +1,6 @@
 # ADR-135: The seven CI jobs are required checks on `dev` and `main`, and a pull request needs one approval
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-138
 - **Date:** 2026-11-24
 
 ## Context
