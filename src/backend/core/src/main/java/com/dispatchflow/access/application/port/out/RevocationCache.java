@@ -11,6 +11,10 @@ import com.dispatchflow.shared.SessionId;
  * generation or state, evicts the entry right after its commit, in the same thread, so the next
  * request sees the change. Entries also expire after 60 seconds.
  *
+ * <p>An eviction reaches every core process. A server step runs in a process of its own, so the
+ * adapter also sends the evicted key on a PostgreSQL channel ({@code NOTIFY}) when the
+ * transaction commits, and the serving core, which listens on it, drops the same entry (ADR-131).
+ *
  * <p>Built in M6.
  */
 public interface RevocationCache {

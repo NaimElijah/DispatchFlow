@@ -5,6 +5,9 @@
  * the auto-applied converters of Messaging's single-column values, and the {@code @Immutable}
  * entities of the two records, which the record types themselves can't be (ADR-127 decision 6).
  *
+ * <p>It will also implement the ports ADR-130 decision 4 gives it, which no class implements yet:
+ * {@code MessagingViews}.
+ *
  * <p>Messaging's multi-column values ({@code Rated}, {@code ReceivedComment}) can't refuse a stored
  * value, and the migration's {@code NOT NULL} and {@code CHECK} constraints keep their columns
  * whole, so Hibernate builds them through their canonical constructors and no instantiator is

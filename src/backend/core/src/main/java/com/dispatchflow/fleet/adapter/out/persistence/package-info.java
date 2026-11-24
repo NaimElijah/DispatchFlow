@@ -3,6 +3,9 @@
  * {@code Driver}, {@code FleetRegister} and {@code DayRoster}, over the tables of the {@code fleet}
  * schema, with the auto-applied converters of Fleet's single-column values.
  *
+ * <p>It will also implement the ports ADR-130 decision 4 gives it, which no class implements yet:
+ * {@code FleetViews}.
+ *
  * <p>Hibernate reads the registrations below when it scans this package, so {@code ShiftHours} and
  * {@code DepotHours}, whose constructors check a rule, are rebuilt through {@code
  * StoredStateInvalid.whileRestoring}: stored hours a since-tightened rule refuses are an incident,

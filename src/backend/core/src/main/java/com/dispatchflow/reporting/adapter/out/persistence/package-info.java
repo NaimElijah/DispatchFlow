@@ -3,6 +3,9 @@
  * BaselineRepository} over the tables of the {@code reporting} schema, with the auto-applied
  * converters of the baseline's two single-column figures.
  *
+ * <p>It will also implement the ports ADR-130 decision 4 gives it, which no class implements yet:
+ * {@code ReportingViews}.
+ *
  * <p>A plan is settled once, by a baseline or by the optimizer's refusal of one, and never by both
  * (FR-39). Each settled plan has one row in {@code reporting.baseline_outcome}, which also keeps a
  * refusal's cause, and a baseline's row refers to that row as a computed one, so the database

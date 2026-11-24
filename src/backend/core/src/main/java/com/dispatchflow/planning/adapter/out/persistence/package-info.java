@@ -5,6 +5,9 @@
  * {@code Plan}'s repository and the entities its revisions are appended as live in the {@code plan}
  * subpackage, which these converters serve too (ADR-125).
  *
+ * <p>It will also implement the ports ADR-130 decision 4 gives it, which no class implements yet:
+ * {@code PlanningViews} and {@code StoredMatrices}.
+ *
  * <p>Hibernate reads the registrations below when it scans this package, so {@code TravelBucket} and
  * {@code TravelBuckets}, whose constructors check a rule, are rebuilt through {@code
  * StoredStateInvalid.whileRestoring}: stored buckets a since-tightened rule refuses are an incident,
