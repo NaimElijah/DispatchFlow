@@ -1651,6 +1651,7 @@ where the company's own word differs. "—" in the Hebrew column marks a design 
 | Step-up | Access | Confirming the password before an Admin-only operation | אימות סיסמה חוזר | `Session.confirmPassword` |
 | Capability | Access | One row of the permission matrix: what a role may do (FR-03) | — | `Capability` |
 | Credential link | Access | A one-time emailed link to set a password or confirm an email | קישור לאימות | `CredentialLink` |
+| Fleet | Fleet | What delivers: depots, vehicles, drivers and who drives what on a date; the context, and the screens' area of that name | צי רכב | `fleet` |
 | Fleet register | Fleet | The company's depots and vehicles | מאגר רכבים | `FleetRegister` |
 | Depot | Fleet, Planning | Where vehicles start and end | מרכז הפצה | `Depot` |
 | Vehicle | Fleet, Planning, Live Operations | A delivery vehicle. Not "van" | רכב | `Vehicle` |
