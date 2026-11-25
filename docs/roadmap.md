@@ -138,9 +138,9 @@ scope on 1 December.
 The same script runs under Playwright in CI and by hand at the hackathon and on 12 January.
 
 1. Sign in as a dispatcher. Open tomorrow's date.
-2. Import a CSV of 200 synthetic orders, whose rows create new customers. One row has an error, and
-   the preview names it. Fix it, and confirm. The new customers are geocoded, one address is flagged
-   as doubtful, and the dispatcher drags its pin into place.
+2. Import a CSV of 200 synthetic orders, whose rows create new customers, each geocoded. One row has
+   an error, and the preview names it. Fix it, and confirm. Then type one more customer into the
+   form: its address is flagged as doubtful, and the dispatcher drags its pin into place.
 3. Show the roster: 12 vehicles, 12 drivers, two depots.
 4. Solve with OR-Tools, with a 45-second limit. The progress bar moves by itself.
 5. Routes appear on the map, the timeline and the table. Select a stop in one, and it's selected in all
