@@ -41,6 +41,9 @@ with its layout, rules and commands.
   fills it adds its `package.json` ([ADR-130]).
 - pnpm fails an import that a package doesn't declare: declare each one in that package's own
   `package.json`.
+- Depend on a `@dispatchflow/*` package only as `workspace:*`, added with `pnpm add --workspace`:
+  a plain `pnpm add` resolves the name from the public registry. `web/src/test/workspace.test.ts`
+  fails when `pnpm-lock.yaml` resolves one from a registry.
 - A dependency with an install script fails the install until `allowBuilds` in
   `pnpm-workspace.yaml` lists it: `true` runs the script, `false` skips it.
 - A relative path in a shared tsconfig resolves against the shared file, so `include` and
@@ -65,6 +68,8 @@ installs ([ADR-039]).
 
 - `@dispatchflow/eslint-config` is for ESLint 10 only: the phone app keeps its own configuration
   until it joins.
+- Every package has `format` and `format:check` scripts: `requiredScripts` in
+  `pnpm-workspace.yaml` fails `just web-format` and `just web-check` without them ([ADR-141]).
 - Prettier's one file is `.prettierrc.json` here, for the web app and every package ([ADR-141]).
   Leave the phone app's identical copy alone: #147 deletes it.
 

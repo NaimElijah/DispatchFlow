@@ -452,7 +452,7 @@ API client.
 | `core`, integration (`*IT`) | `src/backend/core/src/test/java` | Failsafe, with a PostgreSQL container |
 | `optimizer` | `src/backend/optimizer/tests`, mirroring the package path | pytest |
 | `research` | `src/research/tests` | pytest |
-| `web` | next to the code, in `src/` (`App.test.tsx`, `test/setup.test.ts`) | Vitest, in jsdom, with MSW |
+| `web` | next to the code, in `src/` (`App.test.tsx`, `test/setup.test.ts`, and `test/workspace.test.ts`, which checks the workspace's lockfile) | Vitest, in jsdom, with MSW |
 | `mobile` | next to the code, in `src/` (`App.test.tsx`) | Jest, through `jest-expo` |
 | End-to-end and load | `tests/e2e`, `tests/load` | No tool is configured yet |
 

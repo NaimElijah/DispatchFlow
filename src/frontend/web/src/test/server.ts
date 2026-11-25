@@ -12,7 +12,7 @@ export const server = setupServer(...handlers)
 
 /**
  * Starts the server so that every request no handler answers fails with a network error and is
- * recorded, for `setup.ts` to fail the test that sent it. A function rather than MSW's `'error'`
+ * recorded, for `endTest` to fail the test that sent it. A function rather than MSW's `'error'`
  * strategy, which lets requests to asset-like paths (`.json`, `.csv`, `.pdf` and the like) through
  * to the network.
  */
@@ -30,6 +30,22 @@ export function listen(): void {
 /** Returns the requests no handler answered since the last call, and forgets them. */
 export function takeUnhandledRequests(): string[] {
   return unhandledRequests.splice(0)
+}
+
+/**
+ * Ends a test: drops the handlers it added with `server.use()`, then fails it if a request went
+ * unanswered, even one the code under test caught, so a missing or mistyped handler can't let a
+ * test pass for the wrong reason. `setup.ts` calls it after every test and after a file's last.
+ *
+ * @throws Error naming each request no handler answered since the last `endTest` or
+ *   `takeUnhandledRequests`, an HTTP one by its method and path
+ */
+export function endTest(): void {
+  server.resetHandlers()
+  const unhandled = takeUnhandledRequests()
+  if (unhandled.length > 0) {
+    throw new Error(`No MSW handler answered: ${unhandled.join(', ')}`)
+  }
 }
 
 /** Names a frame by its method and path, never its query or body, which can carry values. */
