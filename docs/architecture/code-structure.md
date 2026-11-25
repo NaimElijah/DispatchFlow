@@ -234,10 +234,10 @@ and a `CallContext`
 
 Each module's `adapter/` holds its persistence adapter, which is built, and packages declared
 ahead, empty ([ADR-130][ADR-130]). Every declared package holds a `package-info.java`, and nothing
-else until its first class (a stand-in, or a module's `<Module>Configuration`, arrives with its
-issue): its Javadoc says what goes in the package and which ports it implements, and it carries
-`@NullMarked`. There are 56 of them, 51 in the eight modules and 5 beside the kernel, and no adapter
-class exists beyond the persistence adapters.
+else until its first class (a stand-in, which arrives with its issue): its Javadoc says what goes
+in the package and which ports it implements, and it carries `@NullMarked`. There are 56 of them,
+51 in the eight modules and 5 beside the kernel, and no adapter class exists beyond the
+persistence adapters.
 The names follow two rules:
 
 - An inbound adapter is `adapter/in/<kind>`, of six kinds: `web` (a screen calls the client API),

@@ -38,12 +38,12 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-127](ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md) | How the 20 aggregates are mapped, and where their stored state is tested | Accepted; extended by ADR-128 |
 | [ADR-128](ADR-128-the-persistence-rules-the-mapping-settled-after-adr-127.md) | The persistence rules the JPA mapping settled after ADR-127 | Accepted |
 | [ADR-129](ADR-129-transactions-start-only-in-the-service-layer.md) | Transactions start only in the service layer | Accepted |
-| [ADR-136](ADR-136-the-core-waits-two-seconds-for-a-lock-and-a-lock-it-cannot-get-is-retried.md) | The core waits at most 2 seconds for a lock, and a call that can't get one is retried | Accepted |
+| [ADR-136](ADR-136-the-core-waits-two-seconds-for-a-lock-and-a-lock-it-cannot-get-is-retried.md) | The core waits at most 2 seconds for a lock, and a call that can't get one is retried | Accepted; amended by ADR-140 |
 | [ADR-130](ADR-130-every-folder-is-declared-ahead-empty-and-documented.md) | Every folder the design draws is declared ahead, empty and documented | Accepted; extended by ADR-140; amended by ADR-131, ADR-132 and ADR-133 |
 | [ADR-131](ADR-131-the-declared-structures-review-tightens-its-rules-and-fills-its-gaps.md) | The declared structure's review tightens its rules and fills its gaps | Accepted; extended by ADR-140 |
 | [ADR-132](ADR-132-unbuilt-bodies-say-to-be-implemented.md) | Unbuilt bodies say "To Be Implemented." and name no milestone | Accepted |
 | [ADR-133](ADR-133-a-startup-step-is-a-job-and-access-declares-one.md) | A step that runs once at startup is a `job` adapter, and Access declares one | Accepted |
-| [ADR-140](ADR-140-the-app-wide-web-package-sits-above-the-modules.md) | The app-wide `web` package sits above the modules, and the generated code, the capability annotation, the stream registry and the caller's `Actor` sit below it | Accepted |
+| [ADR-140](ADR-140-the-app-wide-web-package-sits-above-the-modules.md) | The app-wide `web` package sits above the modules, and what they need from it sits beside the kernel | Accepted |
 | [ADR-043](ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md) | Code is generated from both contracts on both sides, and errors are RFC 9457 Problem Details | Accepted; extended by ADR-068, ADR-073, ADR-087, ADR-094 and ADR-140; amended by ADR-123 |
 | [ADR-094](ADR-094-each-pull-requests-contract-check-compares-against-its-base-branch.md) | Each pull request's contract check compares against its base branch | Accepted |
 | [ADR-044](ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md) | The solver port takes a start, a budget and a seed, and `Problem` alone judges a solution | Accepted; extended by ADR-050 and ADR-099; amended by ADR-105, ADR-120 and ADR-121 |
@@ -64,7 +64,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-054](ADR-054-publishing-re-checks-every-route-against-the-current-fleet.md) | Publishing re-checks every route against the current fleet and orders | Accepted |
 | [ADR-055](ADR-055-accepting-a-re-optimization-checks-the-vehicles-it-keeps-driving.md) | Accepting a re-optimization checks the vehicles it keeps driving | Accepted |
 | [ADR-056](ADR-056-accepting-a-re-optimization-checks-changes-recorded-since-its-basis.md) | Accepting a re-optimization re-checks every change recorded since its preview | Accepted |
-| [ADR-057](ADR-057-concurrent-changes-to-a-plan-use-optimistic-locking.md) | Concurrent changes to a plan use optimistic locking, and one re-optimization runs at a time | Accepted; amended by ADR-121 |
+| [ADR-057](ADR-057-concurrent-changes-to-a-plan-use-optimistic-locking.md) | Concurrent changes to a plan use optimistic locking, and one re-optimization runs at a time | Accepted; amended by ADR-121 and ADR-140 |
 | [ADR-058](ADR-058-routes-changed-while-the-optimizer-is-down-are-checked-when-it-returns.md) | A route changed while the optimizer is down is marked not yet checked, and checked when it returns | Accepted |
 | [ADR-059](ADR-059-plan-revisions-are-stored-as-rows.md) | Each published plan revision is stored as rows, one per stop | Accepted; extended by ADR-121 |
 | [ADR-060](ADR-060-hard-limits-on-fleet-and-plan-size.md) | The system refuses a sixteenth vehicle and a date's 201st order | Accepted |
@@ -77,7 +77,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-066](ADR-066-every-asynchronous-step-has-a-watcher.md) | Every asynchronous step that crosses a commit has a watcher | Accepted |
 | [ADR-067](ADR-067-live-arrivals-propagate-delay-along-stored-legs-when-asked.md) | Live arrival times propagate delay along the stored legs, and are computed when asked | Accepted |
 | [ADR-073](ADR-073-runtime-contract-validation.md) | A request that breaks its contract is refused by validation generated from the contract | Accepted; extended by ADR-140 |
-| [ADR-082](ADR-082-supported-phone-app-versions.md) | The server supports the current and the previous phone app version, and an older one still drains its queue | Accepted; amended by ADR-094 |
+| [ADR-082](ADR-082-supported-phone-app-versions.md) | The server supports the current and the previous phone app version, and an older one still drains its queue | Accepted; extended by ADR-140; amended by ADR-094 |
 | [ADR-083](ADR-083-admins-and-dispatchers-get-alerts-by-stream-and-push-in-the-phone-app.md) | Admins and Dispatchers get alerts in the phone app by event stream while it is open and by push in the background | Accepted |
 | [ADR-084](ADR-084-maplibre-in-both-apps-with-self-hosted-protomaps-tiles.md) | Both apps draw maps with MapLibre, from self-hosted Protomaps tiles | Accepted |
 | [ADR-085](ADR-085-govmap-geocodes-addresses-with-nominatim-as-the-fallback.md) | GovMap geocodes addresses, and self-hosted Nominatim replaces it only if GovMap's terms fail | Accepted; amended by ADR-121 and ADR-139 |
@@ -144,7 +144,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-068](ADR-068-every-web-handler-is-authorized-by-role-from-the-contract.md) | Every web handler is authorized by role, from the `x-capability` of its contract operation | Accepted; extended by ADR-140; amended by ADR-104 and ADR-120 |
 | [ADR-104](ADR-104-the-company-profile-holds-customer-defaults-and-capabilities-follow-the-role-matrix.md) | The company profile holds a new customer's defaults, and capabilities follow the role matrix | Accepted; extended by ADR-121; amended by ADR-116 |
 | [ADR-116](ADR-116-only-an-admin-changes-their-own-email.md) | Only an Admin changes their own email | Accepted |
-| [ADR-069](ADR-069-sign-in-and-transport-security.md) | Sign-in uses signed access tokens, rotating refresh tokens and Argon2id, over HTTPS through Caddy | Accepted; extended by ADR-121 |
+| [ADR-069](ADR-069-sign-in-and-transport-security.md) | Sign-in uses signed access tokens, rotating refresh tokens and Argon2id, over HTTPS through Caddy | Accepted; extended by ADR-121 and ADR-140 |
 | [ADR-070](ADR-070-security-and-accessibility-standards.md) | We self-check against OWASP ASVS 5.0 Level 1 and build to WCAG 2.2 AA, with no separate target for IS 5568 | Accepted |
 | [ADR-071](ADR-071-api-rate-limits-in-process-with-bucket4j.md) | API rate limits run in the core's process, with Bucket4j | Accepted; extended by ADR-121 |
 | [ADR-075](ADR-075-retention-deletes-records-and-anonymizes-people-in-place.md) | Retention deletes positions, proofs and messages, and anonymizes customers and drivers in place | Accepted; extended by ADR-121; amended by ADR-102 and ADR-131 |

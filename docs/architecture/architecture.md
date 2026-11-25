@@ -213,7 +213,8 @@ have a `Dockerfile`, and neither runs as root
   the tree to the adapters ADR-130, ADR-131 and ADR-140 declare. Rule 13 is [ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md)'s: `web`
   uses, of the modules, only their `application.api` and `events`, and rule 2 refuses every module a
   dependency on `web`, so `web` sits above the modules. Rule 14, also ADR-140's, lets only
-  `web` and the modules' `adapter.in.web` use `CurrentActor` and `CurrentCall`, the holders of a web call's caller.
+  `web` and the modules' `adapter.in.web` use `CurrentActor` and `CurrentCall`, the holders of a web call's caller;
+  neither exists yet (#170).
   The purity rules also allow the persistence annotations that [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) lists in the domain and the
   kernel, and `PersistenceRules` has nine rules on how the domain is mapped: every aggregate root an
   `@Entity`, relationships only inside

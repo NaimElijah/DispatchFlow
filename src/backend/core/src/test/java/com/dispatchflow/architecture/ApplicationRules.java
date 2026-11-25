@@ -241,6 +241,9 @@ final class ApplicationRules {
 
     /**
      * The holders of what a web call knows of its caller, which rule 14 keeps from the use cases.
+     * Rule 14 matches them by name, so a holder built under another name would pass it unseen: the
+     * issue that builds them (#170) adds a check that each name here is a production class
+     * (ADR-140 decision 4).
      */
     static final Set<String> CALLS_HOLDERS = Set.of(CURRENT_ACTOR, CURRENT_CALL);
 

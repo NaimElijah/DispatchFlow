@@ -20,7 +20,7 @@ Both are OpenAPI 3.1. `client-api` is served under `/api/v1`.
 - A breaking change gets a new major version in its own folder (`v2/`), next to `v1/`.
   Breaking changes include removing or renaming an operation or field, changing a type, making
   an optional field required, changing the status a code answers with, and a new enum value in a
-  response. Adding an optional field or a new operation is not breaking.
+  response, except `Problem.code`. Adding an optional field or a new operation is not breaking.
 - `oasdiff` checks each pull request against its base branch for breaking changes, from January: a
   pull request into `dev` against `dev`, and `dev` into `main` against `main`, which holds what is
   released ([NFR-134]; [ADR-043], [ADR-094]). Until then, the reviewer catches them.
@@ -41,24 +41,34 @@ Both are OpenAPI 3.1. `client-api` is served under `/api/v1`.
     (`unevaluatedProperties: false` under `allOf`), never reused in a response, so an undeclared
     property answers 400. Response schemas stay open, because an optional field added to one isn't
     breaking;
-  - a request property is deployed in the core before any app sends it, and a retired one stays
-    declared until no supported app version sends it ([ADR-082]);
-  - RFC 9457 errors with `code`, `params` and `traceId` ([ADR-043]; today's `Problem` lacks them);
+  - an app sends a new request property only once the core release that declares it won't be rolled
+    back past. On the phone's writes a request property stays declared for the life of v1; elsewhere
+    a retired one stays accepted and ignored, never removed in v1 ([ADR-082]);
+  - RFC 9457 errors: `Problem` has `type` `about:blank`, `code`, `params` and `traceId` ([ADR-043];
+    today's `Problem` lacks them). `code` is a string, never an enum, with the codes listed in its
+    description, so a new code isn't breaking. A new one is a public name: it needs its entry there,
+    and Hebrew and English text with a next step (NFR-144);
   - refusals that [NFR-92] and [NFR-145] require to look the same share one `code`, one status and
-    empty `params`, and `params` never carries personal data, secrets or tokens;
-  - a new error `code` is a public name: it needs a contract entry, and Hebrew and English text with
-    a next step ([ADR-043], NFR-144);
-  - statuses: 400 only for a request that breaks the contract, listing every failing field or row
-    at once with a pointer and a code, never the value ([ADR-043]); 422 for a refused rule; 401,
-    with exactly `WWW-Authenticate: Bearer` and one code, for any refused access token; 403 for the
-    role, step-up and own-route refusals;
-  - `ETag`, `If-Match` and `If-None-Match`: a stale one answers 412 `STALE_VERSION`, and a stale
-    version sent in a body, as accepting a proposal sends the plan's, answers 409 `STALE_VERSION`;
-    neither is retried. A call that sent no version, and any failed lock wait, is retried, then
-    answered 503 with `Retry-After` ([ADR-057], [ADR-121]);
+    empty `params`, and `params` never carries personal data, secrets or tokens. So the refresh
+    token is a plain string, with no pattern, length or format;
+  - statuses:
+    - 400 only for a request that breaks the contract. A failed validation lists every failing field
+      or row at once; an unreadable body, a duplicate key or an unknown property is reported alone,
+      as the first one found. Each item has a pointer into the body, or the parameter's name and
+      place, and a code, never the value ([ADR-043]). A missing required header, such as `If-Match`,
+      answers 400;
+    - 413, with its own code, for a body over its size limit; the proof and report operations'
+      limits sit above the domain's own;
+    - 422 for a refused rule; 401, with exactly `WWW-Authenticate: Bearer` and one code, for any
+      refused access token (an open operation ignores `Authorization`); 403 for the role, step-up,
+      own-route and `GRANT_LIMIT_EXCEEDED` refusals;
+  - `ETag`, `If-Match` and `If-None-Match`: a failed `If-Match` or `If-None-Match` answers 412
+    `STALE_VERSION`, any `StaleVersion` on such a call included; a stale version sent in a body, as
+    accepting a proposal sends the plan's, answers 409 `STALE_VERSION`; neither is retried. A call
+    with no precondition header, and any failed lock wait, is retried, then 503 with `Retry-After`
+    ([ADR-057], [ADR-121]);
   - `Idempotency-Key` on driver reports, route starts and finishes, problem reports ([ADR-087],
-    [ADR-121]) and position batches ([NFR-285]),
-    and the client headers ([ADR-082]).
+    [ADR-121]) and position batches ([NFR-285]), and the client headers ([ADR-082]).
 - The optimizer API is stateless: each call carries the whole problem. The travel-time matrix is
   base64 little-endian `int32` over distinct locations ([ADR-052](../docs/ADRs/ADR-052-each-plan-stores-the-matrix-and-values-it-was-solved-with.md)).
 - Lint findings are fixed, not ignored. If a rule does not apply, add the exception to

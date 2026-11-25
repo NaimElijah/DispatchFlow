@@ -63,10 +63,8 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
     `events` and `application`, and other modules' `api` and `events` (another module's `spi` only
     as the rule allows). No `adapter`, libphonenumber or JTS, and from Spring only `@Transactional`.
   - Modules depend only along [DL §2.1]'s arrows. No `api` or `spi` type uses a domain type.
-  - Each `api` interface `X` has one implementation, `XService`, in its module's
-    `application.service`. Each `spi` interface has one, in the module DL §2.1's dashed arrow names
-    (`SPI_IMPLEMENTERS`): `XService`, or `FleetUsageService` and `CustomerUsageService` for the two
-    `RecordUsage` ports.
+  - An `api` interface `X` has one `XService` in its module's `application.service`; an `spi` one
+    has one in the module its dashed arrow names (`SPI_IMPLEMENTERS`, `SPI_IMPLEMENTATION_NAMES`).
   - No cycle between a module's application packages. No domain, `events` or kernel-root class
     imports `shared.application`. Reporting uses `liveops`, `planning` and `orders` only through
     their `events`, and Access's `api` only through `Actor` and `ActorRole` ([ADR-121]).
@@ -80,8 +78,8 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
 - A controller in `adapter/in/web` implements a tag's generated `<Tag>Api`, maps web types to domain
   objects and passes the `Actor` from `CurrentActor`, or the `CallContext` from `CurrentCall` before
   sign-in, to the use case. Only `web` and the `in/web` adapters use the two (`ApplicationRules` 14,
-  [ADR-140]), and neither exists yet (#170). Every use case that changes an aggregate calls its
-  port's `save` or `add`, which publishes its events; a test fake's calls `SaveEvents.publish`.
+  [ADR-140]); neither exists yet (#170). Every use case that changes an aggregate calls its port's
+  `save` or `add`, which publishes its events; a test fake's calls `SaveEvents.publish`.
 - Another module is reached only through its `api`, `spi` and `events` packages ([DL §2.3]).
   Review checks an adapter's use of another module until Modulith's `verify()` runs ([ADR-040]);
   `ApplicationRules` rules 9 to 12 keep adapters apart and shared ones off modules ([ADR-130]). Each
@@ -95,13 +93,14 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   - A use case is one class, or two when a `<UseCase>Change` holds its transaction. A changing one
     changes one aggregate after its outside calls, and audits in that transaction (NFR-94).
   - `TransactionRules` checks where transactions start. Review checks that a service changing
-    nothing is `readOnly`; a `Change` reads in `readOnly` methods, and a refusal audits after it.
+    nothing is `readOnly`; a `Change` reads in `readOnly` methods, and a refusal audits after it
+    (not a `StaleVersion` or ADR-136's lock-wait types: the call wrapper writes that one record).
   - `@Retryable` and `@ConcurrencyLimit` sit on the adapter that makes the outside call, where a
     retry is safe. A listener is `@Async`, so each retry gets a fresh transaction; it is idempotent.
-- Every handler is authorized by role from its `x-capability`, in `web.security`'s interceptor,
-  which answers every 401 and 403 once the handler is chosen, before the body is validated; the
-  security filter answers none. Neither exists yet (#170, #171). A check on the data, such as a
-  driver's own route, lives in the use case ([ADR-068], [ADR-140]).
+- Every handler is authorized by role from its `x-capability`, in `web.security`'s interceptor
+  (unbuilt: 401 in #170, 403 in #171), once the handler is chosen, before the body is validated. A
+  token filter of our own (#199) replaces Spring Security's bearer filter and answers none. A check
+  on the data, such as a driver's own route, lives in the use case ([ADR-068], [ADR-140]).
 - The schema changes only through a new migration, `src/main/resources/db/migration/V<n>__<x>.sql`:
   never edit an applied one, and `ddl-auto` stays `validate`. Flyway runs as `dispatchflow_owner` in
   a one-shot `migrate` step, which alone holds that credential; the core connects as `app`, which
@@ -109,14 +108,15 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
 - Optimistic locking is `AggregateRoot`'s `@Version` ([ADR-057]): every `save` but a session's
   contact-only one goes through `VersionedSave`, which moves it by 1, and a use case checks a sent
   version with `StaleVersion.requireCurrent`. `STALE_VERSION` answers 412 to `If-Match` or
-  `If-None-Match` and 409 to a body version, neither retried; a call with none, and any failed lock
-  wait, is re-run in a new transaction, up to 3 times, then 503 ([ADR-121], [ADR-140]).
-- The `e2e` profile's test-only endpoints, in `web.e2e`, exist only in that profile, and the profile
-  refuses to boot when the SMS credential is present, with a test for each (NFR-206).
-- Until sign-in is built, a stand-in session (`web.security`, #170, unbuilt) exists only when `dev`
-  or `test` is the only active profile; the core refuses to boot with it beside any other profile,
-  and, unless `dev` is the only one, with an access-token lifetime other than 15 minutes. Each
-  refusal has a test. Building sign-in deletes it, and refresh the dev allowance ([ADR-121]).
+  `If-None-Match`, 409 to a body version, never retried; the call wrapper re-runs a call that sent
+  none, and any failed lock wait, up to 3 times in new transactions, then 503 ([ADR-140]).
+- A stand-in session (#170, unbuilt) exists only when the active profiles are exactly `dev` or
+  exactly `test`, and serves only a request with no `Authorization` or refresh cookie. The core
+  refuses to boot with it under other profiles or in a deployed environment (`DISPATCHFLOW_DEPLOYED`
+  or a provider credential). The dev stack binds `127.0.0.1`. A `<Port>StandIn` takes that
+  condition, not `@Profile({"dev","test"})`. Sign-in deletes the session; #199 refuses to boot with
+  a token lifetime but 15 minutes unless `dev` is alone ([ADR-121], [ADR-140]). The `e2e` endpoints
+  exist only under `e2e`, which refuses a deployed environment (NFR-206). Each refusal has a test.
 - No Lombok: records and plain classes. Configuration comes from environment variables.
 - Persistence is JPA ([ADR-126], [ADR-127], [TS §6.3]). A port's `@Component` works over a
   package-private Spring Data `Repository<Root, UUID>` with `save` and the port's own queries; never
