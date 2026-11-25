@@ -1,6 +1,6 @@
 # ADR-073: A request that breaks its contract is refused by validation generated from the contract
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-140
 - **Date:** 2026-11-13
 
 ## Context

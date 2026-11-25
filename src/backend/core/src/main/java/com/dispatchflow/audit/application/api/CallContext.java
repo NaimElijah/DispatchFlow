@@ -8,8 +8,9 @@ import java.util.Optional;
 /**
  * Who made a call or a server step, through which client, as which operation, under which trace
  * (NFR-93, ADR-110): what an audit record says about the attempt beside its time, its records and
- * its outcome. The web adapter builds one per call and puts it in the {@code Actor}; a job, a
- * listener or a CLI step builds one with {@link #serverStep}.
+ * its outcome. {@code web.security} builds the caller, and {@code web} binds one for every web
+ * call, signed in or not, through {@code CurrentCall}; a signed-in call's {@code Actor} carries it
+ * too (ADR-140). A job, a listener or a CLI step builds one with {@link #serverStep}.
  *
  * <p>The user and the session are each recorded when known, independently: a refused sign-in
  * typically knows neither (ADR-110).

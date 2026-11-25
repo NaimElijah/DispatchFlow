@@ -53,7 +53,10 @@ import com.dispatchflow.archfixture.zeta.shared.application.SharedPortUsesSpring
 import com.dispatchflow.archfixture.zeta.side.application.service.CallsAnSpiItDoesNotImplement;
 import com.dispatchflow.archfixture.zeta.side.application.service.UsageImplementedByTheWrongModuleService;
 import com.dispatchflow.archfixture.zeta.stray.StrayValue;
+import com.dispatchflow.archfixture.zeta.upper.adapter.in.listen.ListenerReadsTheCurrentCaller;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.listen.ListenerUsesTheWebAdapter;
+import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.ControllerReachesTheWeb;
+import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.ControllerReadsTheCurrentCaller;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.InboundUsesTheStore;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.WebCallsTheSolverClient;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.WebUsesTheLowerCache;
@@ -72,6 +75,7 @@ import com.dispatchflow.archfixture.zeta.upper.adapter.out.store.StoreSavesThrou
 import com.dispatchflow.archfixture.zeta.upper.adapter.out.store.UpperTable;
 import com.dispatchflow.archfixture.zeta.upper.adapter.out.store.rows.RowReadsTheRequest;
 import com.dispatchflow.archfixture.zeta.upper.adapter.out.store.rows.UpperRow;
+import com.dispatchflow.archfixture.zeta.upper.application.api.UpperCurrentCaller;
 import com.dispatchflow.archfixture.zeta.upper.application.port.out.PortRootUsingASubpackage;
 import com.dispatchflow.archfixture.zeta.upper.application.port.out.UpperRecords;
 import com.dispatchflow.archfixture.zeta.upper.application.port.out.looped.LoopedRecords;
@@ -85,6 +89,7 @@ import com.dispatchflow.archfixture.zeta.upper.application.service.DependsOnAnot
 import com.dispatchflow.archfixture.zeta.upper.application.service.DependsOnItsOwnAdapter;
 import com.dispatchflow.archfixture.zeta.upper.application.service.DependsOnTheKernelsAdapter;
 import com.dispatchflow.archfixture.zeta.upper.application.service.LowerUsageService;
+import com.dispatchflow.archfixture.zeta.upper.application.service.ServiceReadsTheCurrentCaller;
 import com.dispatchflow.archfixture.zeta.upper.application.service.ServiceRootUsingASubpackage;
 import com.dispatchflow.archfixture.zeta.upper.application.service.UpperUseCase;
 import com.dispatchflow.archfixture.zeta.upper.application.service.looped.LoopedUseCase;
@@ -93,7 +98,16 @@ import com.dispatchflow.archfixture.zeta.upper.application.service.prefix.UsesAS
 import com.dispatchflow.archfixture.zeta.upper.application.service.prefixed.SiblingWithALongerName;
 import com.dispatchflow.archfixture.zeta.upper.application.service.upward.UsesTheServiceRoot;
 import com.dispatchflow.archfixture.zeta.upper.application.service.used.UsedByTheServiceRoot;
+import com.dispatchflow.archfixture.zeta.web.WebBindsTheCurrentCaller;
+import com.dispatchflow.archfixture.zeta.web.WebReadsAModulesDomain;
+import com.dispatchflow.archfixture.zeta.web.WebUsesAModulesAdapter;
+import com.dispatchflow.archfixture.zeta.web.WebUsesAModulesPort;
+import com.dispatchflow.archfixture.zeta.web.WebUsesAModulesRoot;
+import com.dispatchflow.archfixture.zeta.web.WebUsesAModulesSpi;
+import com.dispatchflow.archfixture.zeta.web.WebUsesAStrayModule;
+import com.dispatchflow.archfixture.zeta.web.ZetaWebEndpoint;
 import com.dispatchflow.archfixture.zeta.web.ZetaWebHandler;
+import com.dispatchflow.archfixture.zeta.web.security.SessionUsesTheService;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.lang.ArchRule;
@@ -157,6 +171,8 @@ class ApplicationRulesTest {
     // The fixtures' stand-in for the generated optimizer client, and the one module that solves.
     private static final String CLIENT = "shared.adapter.out.optimizer";
     private static final Set<String> SOLVING_MODULES = Set.of("upper");
+    // The fixtures' stand-in for Access's CurrentActor.
+    private static final Set<String> CALLS_HOLDERS = Set.of("upper.application.api.UpperCurrentCaller");
 
     private static ArchRule rule1() {
         return ApplicationRules.onlyAllowedDependencies(ROOT, FIXTURE_MODULE_ANNOTATIONS, SPI_IMPLEMENTERS);
@@ -168,6 +184,10 @@ class ApplicationRulesTest {
 
     private static ArchRule rule12() {
         return ApplicationRules.generatedClientStaysIn(ROOT, CLIENT, SOLVING_MODULES);
+    }
+
+    private static ArchRule rule14() {
+        return ApplicationRules.onlyTheWebReadsTheCallsHolders(ROOT, CALLS_HOLDERS);
     }
 
     private static ArchRule rule8() {
@@ -322,8 +342,19 @@ class ApplicationRulesTest {
     @Test
     void GivenTheZetaFixtures_WhenRule2Evaluates_ThenExactlyTheOffGraphClassesAreFlagged() {
         assertThat(violators(ApplicationRules.modulesDependAlongTheGraph(ROOT, GRAPH), zeta()))
-                .containsExactlyInAnyOrder(
-                        namesOf(LowerReachesUp.class, LowerAdapterReachesUp.class, StrayValue.class));
+                .containsExactlyInAnyOrder(namesOf(
+                        LowerReachesUp.class,
+                        LowerAdapterReachesUp.class,
+                        StrayValue.class,
+                        ControllerReachesTheWeb.class));
+    }
+
+    @Test
+    void GivenAModulesControllerUsingAWebClass_WhenRule2Evaluates_ThenItIsFlagged() {
+        assertThat(violators(
+                        ApplicationRules.modulesDependAlongTheGraph(ROOT, GRAPH),
+                        FixtureClasses.only(ControllerReachesTheWeb.class)))
+                .containsExactly(ControllerReachesTheWeb.class.getName());
     }
 
     @Test
@@ -927,6 +958,113 @@ class ApplicationRulesTest {
     void GivenTheOptimizerAdapterOfAModuleThatDoesNotSolve_WhenRule12Evaluates_ThenItIsFlagged() {
         assertThat(violators(rule12(), FixtureClasses.only(LowerOptimizer.class)))
                 .containsExactly(LowerOptimizer.class.getName());
+    }
+
+    @Test
+    void
+            GivenTheZetaFixtures_WhenRule13Evaluates_ThenExactlyTheWebClassesUsingMoreThanTheModulesApiAndEventsAreFlagged() {
+        assertThat(violators(ApplicationRules.webUsesOnlyTheModulesApiAndEvents(ROOT), zeta()))
+                .containsExactlyInAnyOrder(namesOf(
+                        ZetaWebHandler.class,
+                        WebReadsAModulesDomain.class,
+                        WebUsesAModulesSpi.class,
+                        WebUsesAModulesPort.class,
+                        WebUsesAModulesAdapter.class,
+                        WebUsesAModulesRoot.class,
+                        WebUsesAStrayModule.class,
+                        SessionUsesTheService.class));
+    }
+
+    @Test
+    void GivenWebClassesUsingAModulesDomainSpiPortAdapterAndRoot_WhenRule13Evaluates_ThenEachIsFlagged() {
+        assertThat(violators(
+                        ApplicationRules.webUsesOnlyTheModulesApiAndEvents(ROOT),
+                        FixtureClasses.only(
+                                WebReadsAModulesDomain.class,
+                                WebUsesAModulesSpi.class,
+                                WebUsesAModulesPort.class,
+                                WebUsesAModulesAdapter.class,
+                                WebUsesAModulesRoot.class)))
+                .containsExactlyInAnyOrder(namesOf(
+                        WebReadsAModulesDomain.class,
+                        WebUsesAModulesSpi.class,
+                        WebUsesAModulesPort.class,
+                        WebUsesAModulesAdapter.class,
+                        WebUsesAModulesRoot.class));
+    }
+
+    @Test
+    void GivenAWebClassUsingAModuleMissingFromTheGraph_WhenRule13Evaluates_ThenItIsFlagged() {
+        assertThat(violators(
+                        ApplicationRules.webUsesOnlyTheModulesApiAndEvents(ROOT),
+                        FixtureClasses.only(WebUsesAStrayModule.class)))
+                .containsExactly(WebUsesAStrayModule.class.getName());
+    }
+
+    @Test
+    void GivenAClassBelowTheWebUsingAModulesService_WhenRule13Evaluates_ThenItIsFlagged() {
+        assertThat(violators(
+                        ApplicationRules.webUsesOnlyTheModulesApiAndEvents(ROOT),
+                        FixtureClasses.only(SessionUsesTheService.class)))
+                .containsExactly(SessionUsesTheService.class.getName());
+    }
+
+    @Test
+    void GivenAWebClassUsingTheModulesServices_WhenRule13Evaluates_ThenItIsFlaggedThoughRule2AllowsIt() {
+        JavaClasses handler = FixtureClasses.only(ZetaWebHandler.class);
+
+        assertThat(violators(ApplicationRules.modulesDependAlongTheGraph(ROOT, GRAPH), handler))
+                .isEmpty();
+        assertThat(violators(ApplicationRules.webUsesOnlyTheModulesApiAndEvents(ROOT), handler))
+                .containsExactly(ZetaWebHandler.class.getName());
+    }
+
+    @Test
+    void GivenAWebClassUsingAnApiAnEventTheKernelAKernelAdapterAndTheWeb_WhenRule13Evaluates_ThenNothingIsFlagged() {
+        assertThat(violators(
+                        ApplicationRules.webUsesOnlyTheModulesApiAndEvents(ROOT),
+                        FixtureClasses.only(ZetaWebEndpoint.class)))
+                .isEmpty();
+    }
+
+    @Test
+    void GivenTheZetaFixtures_WhenRule14Evaluates_ThenExactlyTheClassesOutsideTheWebReadingTheHolderAreFlagged() {
+        assertThat(violators(rule14(), zeta()))
+                .containsExactlyInAnyOrder(
+                        namesOf(ServiceReadsTheCurrentCaller.class, ListenerReadsTheCurrentCaller.class));
+    }
+
+    @Test
+    void GivenAUseCaseReadingTheHolder_WhenRule14Evaluates_ThenItIsFlaggedThoughRule1AllowsIt() {
+        JavaClasses service = FixtureClasses.only(ServiceReadsTheCurrentCaller.class);
+
+        assertThat(violators(rule1(), service)).isEmpty();
+        assertThat(violators(rule14(), service)).containsExactly(ServiceReadsTheCurrentCaller.class.getName());
+    }
+
+    @Test
+    void GivenAListenerAdapterReadingTheHolder_WhenRule14Evaluates_ThenItIsFlagged() {
+        assertThat(violators(rule14(), FixtureClasses.only(ListenerReadsTheCurrentCaller.class)))
+                .containsExactly(ListenerReadsTheCurrentCaller.class.getName());
+    }
+
+    @Test
+    void GivenTheHolderAModulesControllerAndAWebClassReadingIt_WhenRule14Evaluates_ThenNothingIsFlagged() {
+        assertThat(violators(
+                        rule14(),
+                        FixtureClasses.only(
+                                UpperCurrentCaller.class,
+                                ControllerReadsTheCurrentCaller.class,
+                                WebBindsTheCurrentCaller.class)))
+                .isEmpty();
+    }
+
+    @Test
+    void GivenHoldersThatNoClassIsYet_WhenRule14Evaluates_ThenItChecksTheClassesAndFlagsNothing() {
+        assertThat(ApplicationRules.onlyTheWebReadsTheCallsHolders(ROOT)
+                        .evaluate(zeta())
+                        .hasViolation())
+                .isFalse();
     }
 
     @Test

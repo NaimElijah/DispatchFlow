@@ -6,20 +6,14 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
 
 ## Layout
 
-- `src/main/java/com/dispatchflow/` holds `DispatchFlowApplication`, `web/` (the error handler that
-  belongs to no context), and:
-  - `shared/`, the shared kernel: typed IDs, shared values with their errors (`Attempt` is one,
-    [ADR-111]) and building blocks ([ADR-097], [ADR-106]). Add no type holding one context's rule.
-  - `shared/application/`, the application ports every module uses: `Clock`, `IdGenerator`,
-    `ProcessedEvents`, `NotFound` and `StaleVersion` ([ADR-120]), a package of its own under the
-    kernel's purity rules: no Spring, but `@NamedInterface` on its `package-info` ([ADR-121]).
-  - `shared/adapter/out/{persistence,clock,uuid,optimizer}/`, the shared adapters: beside the
-    kernel, outside its purity rules, imported by no application class ([ADR-126], [ADR-130]).
-  ```text
-  <module>/domain/, events/
-  <module>/application/{api,spi,port/out,service}      bodies throw (ADR-119)
-  <module>/adapter/in/{web,listen,schedule,job,callback,cli}, out/<name>   declared (ADR-130)
-  ```
+- `src/main/java/com/dispatchflow/` holds `DispatchFlowApplication`, `web/` (above the modules, used
+  by none, using only their `api` and `events`: `ApplicationRules` 2, 11 and 13, [ADR-140]) and:
+  - `shared/`, the shared kernel ([ADR-097], [ADR-106], [ADR-111]): add no type holding one
+    context's rule. `shared/application/`, the ports every module uses ([ADR-120]), keeps the
+    kernel's purity rules (no Spring) but has `@NamedInterface` on its `package-info` ([ADR-121]).
+  - `shared/adapter/{in/web,out/{persistence,clock,uuid,optimizer,sse}}/`, shared adapters beside
+    the kernel, outside its purity rules, imported by no application class ([ADR-126], [ADR-130]).
+  - A module's `adapter/out/<name>` is the outside system, else `persistence` or the technology.
 - Package size ([ADR-125], which amends ADR-118): its 20-file threshold counts Java files,
   not `package-info.java`. A domain splits by aggregate over a root, `domain/`, that holds its error
   and shared values, then by concept; an application package splits by aggregate, then by a concept
@@ -68,8 +62,7 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   - The application layer imports only the JDK, JSpecify, the kernel, its own module's `domain`,
     `events` and `application`, and other modules' `api` and `events` (another module's `spi` only
     as the rule allows). No `adapter`, libphonenumber or JTS, and from Spring only `@Transactional`.
-  - Modules depend on each other along [DL §2.1]'s arrows and no others. No `api` or `spi` type uses
-    a domain type.
+  - Modules depend only along [DL §2.1]'s arrows. No `api` or `spi` type uses a domain type.
   - Each `api` interface `X` has one implementation, `XService`, in its module's
     `application.service`. Each `spi` interface has one, in the module DL §2.1's dashed arrow names
     (`SPI_IMPLEMENTERS`): `XService`, or `FleetUsageService` and `CustomerUsageService` for the two
@@ -84,8 +77,10 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
 - A value rebuilt from storage goes through `StoredStateInvalid.whileRestoring`, and a stored phone
   number through `PhoneNumber.ofStored`. So a damaged or since-refused value is an incident, never a
   user-facing refusal. No test checks this; review does.
-- Web types live in `adapter/in/web`, mapped to domain objects; an `out/<name>` is the outside
-  system, else `persistence` or the technology. Every use case that changes an aggregate calls its
+- A controller in `adapter/in/web` implements a tag's generated `<Tag>Api`, maps web types to domain
+  objects and passes the `Actor` from `CurrentActor`, or the `CallContext` from `CurrentCall` before
+  sign-in, to the use case. Only `web` and the `in/web` adapters use the two (`ApplicationRules` 14,
+  [ADR-140]), and neither exists yet (#170). Every use case that changes an aggregate calls its
   port's `save` or `add`, which publishes its events; a test fake's calls `SaveEvents.publish`.
 - Another module is reached only through its `api`, `spi` and `events` packages ([DL §2.3]).
   Review checks an adapter's use of another module until Modulith's `verify()` runs ([ADR-040]);
@@ -93,7 +88,8 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   module owns its tables, in its own PostgreSQL schema: no SQL reads another module's schema.
 - An unbuilt application body throws `UnsupportedOperationException("To Be Implemented.")`;
   `grep -rF "To Be Implemented."` lists the work left ([ADR-132]). To build one ([ADR-119] decision
-  5): write the failing test, replace the `throw`, build the adapter, delete the tag. Building
+  5): write the failing test, replace the `throw`, build the adapter, add the use case to its
+  module's `<Module>Configuration` ([ADR-140]; the first comes with #162), delete the tag. Building
   may change a declared signature or add a class, with every caller in the same pull request.
 - A use case follows [TS §6.2], [ADR-063], [ADR-064] and [ADR-129]:
   - A use case is one class, or two when a `<UseCase>Change` holds its transaction. A changing one
@@ -102,22 +98,25 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
     nothing is `readOnly`; a `Change` reads in `readOnly` methods, and a refusal audits after it.
   - `@Retryable` and `@ConcurrencyLimit` sit on the adapter that makes the outside call, where a
     retry is safe. A listener is `@Async`, so each retry gets a fresh transaction; it is idempotent.
-- Every handler is authorized by role from its operation's `x-capability`. A check that depends on
-  the data, such as a driver's own route, lives in the use case ([ADR-068]).
+- Every handler is authorized by role from its `x-capability`, in `web.security`'s interceptor,
+  which answers every 401 and 403 once the handler is chosen, before the body is validated; the
+  security filter answers none. Neither exists yet (#170, #171). A check on the data, such as a
+  driver's own route, lives in the use case ([ADR-068], [ADR-140]).
 - The schema changes only through a new migration, `src/main/resources/db/migration/V<n>__<x>.sql`:
   never edit an applied one, and `ddl-auto` stays `validate`. Flyway runs as `dispatchflow_owner` in
   a one-shot `migrate` step, which alone holds that credential; the core connects as `app`, which
   owns no table ([ADR-041], [TS §6.3]). Until #160, Spring Boot runs Flyway as the core's own user.
 - Optimistic locking is `AggregateRoot`'s `@Version` ([ADR-057]): every `save` but a session's
-  contact-only one goes through `VersionedSave`, which moves it by 1, and the use case checks
-  `If-Match` with `StaleVersion.requireCurrent`. `STALE_VERSION` answers 412 to a call that sent a
-  version; one with none is re-run whole in a new transaction, up to 3 times, then 503 ([ADR-121]).
-- The `e2e` profile's test-only endpoints exist only in that profile, and the profile refuses to
-  boot when the SMS credential is present, with a test for each (NFR-206).
-- Until sign-in is built, a stand-in session exists only when `dev` or `test` is the only active
-  profile; the core refuses to boot with it and any other profile active, and, unless `dev` is the
-  only active profile, with an access-token lifetime other than 15 minutes. Each refusal has a test.
-  Building sign-in deletes the stand-in, and building refresh the dev allowance ([ADR-121]).
+  contact-only one goes through `VersionedSave`, which moves it by 1, and a use case checks a sent
+  version with `StaleVersion.requireCurrent`. `STALE_VERSION` answers 412 to `If-Match` or
+  `If-None-Match` and 409 to a body version, neither retried; a call with none, and any failed lock
+  wait, is re-run in a new transaction, up to 3 times, then 503 ([ADR-121], [ADR-140]).
+- The `e2e` profile's test-only endpoints, in `web.e2e`, exist only in that profile, and the profile
+  refuses to boot when the SMS credential is present, with a test for each (NFR-206).
+- Until sign-in is built, a stand-in session (`web.security`, #170, unbuilt) exists only when `dev`
+  or `test` is the only active profile; the core refuses to boot with it beside any other profile,
+  and, unless `dev` is the only one, with an access-token lifetime other than 15 minutes. Each
+  refusal has a test. Building sign-in deletes it, and refresh the dev allowance ([ADR-121]).
 - No Lombok: records and plain classes. Configuration comes from environment variables.
 - Persistence is JPA ([ADR-126], [ADR-127], [TS §6.3]). A port's `@Component` works over a
   package-private Spring Data `Repository<Root, UUID>` with `save` and the port's own queries; never
@@ -187,6 +186,7 @@ Run `just` recipes from the repository root, and `mvnw` from this folder (`.\mvn
 [ADR-129]: ../../../docs/ADRs/ADR-129-transactions-start-only-in-the-service-layer.md
 [ADR-130]: ../../../docs/ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md
 [ADR-132]: ../../../docs/ADRs/ADR-132-unbuilt-bodies-say-to-be-implemented.md
+[ADR-140]: ../../../docs/ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md
 [DL §2.1]: ../../../docs/architecture/domain_layer/domain_layer_design.md#21-module-graph
 [DL §2.3]: ../../../docs/architecture/domain_layer/domain_layer_design.md#23-rules-between-contexts
 [DL §3.9]: ../../../docs/architecture/domain_layer/domain_layer_design.md#39-purity

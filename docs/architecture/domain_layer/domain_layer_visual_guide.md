@@ -343,7 +343,7 @@ How the pieces work together:
 | A business rule refuses | `RuleViolation` with one `DomainError`, or `RuleViolations` with all of them (publishing, an import) | `core/shared/` |
 | Stored state can't become a valid object | `StoredStateInvalid`, not a `DomainError`: a damaged row is an incident | `core/shared/` |
 | A use case is asked about a record that does not exist | `NotFound` (404) | `core/shared/application/` |
-| A version moved since the caller read it | `StaleVersion` (412, or 503 after three retries for a call that sent no version) | `core/shared/application/` |
+| A version moved since the caller read it | `StaleVersion` (412 for a version sent in `If-Match`, 409 for a version sent in the body ([ADR-140](../../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md)), or 503 after three retries for a call that sent no version) | `core/shared/application/` |
 | An aggregate's caller broke a contract | `AssertionError` in `AggregateRoot.raise`, `NoSuchElementException` in `FreshIds.next` | `core/shared/` |
 
 ### Typed IDs

@@ -3,6 +3,7 @@ package com.dispatchflow.architecture;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
+import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaModifier;
@@ -30,10 +31,10 @@ import java.util.stream.Stream;
 import org.jspecify.annotations.NullMarked;
 
 /**
- * The application layer's rules (TS §2.2, TS §4, DL §2.1, DL §2.3, ADR-120), and the adapters'
- * (TS §2.1, ADR-130), built for a root package as {@link DomainPurityRules} is. {@code
- * com.dispatchflow} checks production code; {@code com.dispatchflow.archfixture.zeta} checks the
- * fixtures that prove each rule fires.
+ * The application layer's rules (TS §2.2, TS §4, DL §2.1, DL §2.3, ADR-120), the adapters' (TS
+ * §2.1, ADR-130) and {@code web}'s (rules 13 and 14, ADR-140), built for a root package as {@link
+ * DomainPurityRules} is. {@code com.dispatchflow} checks production code; {@code
+ * com.dispatchflow.archfixture.zeta} checks the fixtures that prove each rule fires.
  *
  * <p>Every violation is reported against the class that breaks the rule, so a test can name the
  * exact violating classes.
@@ -125,7 +126,10 @@ final class ApplicationRules {
             Map.of("access", Set.of("access.application.api.Actor", "access.application.api.ActorRole"));
 
     /**
-     * The top-level packages under the root that are no module: the kernel and the web concerns.
+     * The top-level packages under the root that are no module: the kernel, below every module, and
+     * {@code web}, the app-wide web concerns, above them all. Rule 2 refuses every module a
+     * dependency on {@code web}, and rule 13 limits {@code web} to the modules' {@code api} and
+     * {@code events} (ADR-140).
      */
     static final Set<String> NOT_MODULES = Set.of(KERNEL, WEB);
 
@@ -143,7 +147,10 @@ final class ApplicationRules {
      * names below its {@code adapter} package, such as {@code in.web} or {@code out.persistence}. A
      * subpackage of an adapter, such as {@code out.persistence.plan}, counts as that adapter. The
      * tree must hold exactly these, so a new adapter, or a dropped one, is declared here on
-     * purpose, as a new module joins {@link #MODULE_GRAPH}.
+     * purpose, as a new module joins {@link #MODULE_GRAPH}. The kernel's {@code in.web}, the code
+     * generated from {@code client-api}, and its {@code out.sse}, the registry of open event
+     * streams, sit beside it so that the modules reach them without depending on {@code web}
+     * (ADR-140).
      */
     static final Map<String, Set<String>> DECLARED_ADAPTERS = Map.of(
             "access",
@@ -207,7 +214,7 @@ final class ApplicationRules {
             "reporting",
             Set.of("in.web", "in.listen", "in.cli", "out.persistence", "out.optimizer", "out.config"),
             KERNEL,
-            Set.of("out.persistence", "out.clock", "out.uuid", "out.optimizer"));
+            Set.of("in.web", "out.persistence", "out.clock", "out.uuid", "out.optimizer", "out.sse"));
 
     /**
      * ADR-130 decision 5: the client generated from {@code optimization-api}, below the root. Only
@@ -217,6 +224,25 @@ final class ApplicationRules {
 
     /** The modules that call the optimizer (DL §2.1): Planning solves, Reporting plans its baseline. */
     static final Set<String> SOLVING_MODULES = Set.of("planning", REPORTING);
+
+    /**
+     * The holder of the signed-in caller's {@code Actor}, below the root: a {@code
+     * ScopedValue<Actor>} that {@code web} binds around a signed-in call (ADR-140 decision 4).
+     * Only {@code web} and the modules' {@code adapter.in.web} may use it (rule 14).
+     */
+    static final String CURRENT_ACTOR = "access.application.api.CurrentActor";
+
+    /**
+     * The holder of the call's {@code CallContext}, below the root: a {@code
+     * ScopedValue<CallContext>} that {@code web} binds around every web call, signed in or not
+     * (ADR-140). Only {@code web} and the modules' {@code adapter.in.web} may use it (rule 14).
+     */
+    static final String CURRENT_CALL = "audit.application.api.CurrentCall";
+
+    /**
+     * The holders of what a web call knows of its caller, which rule 14 keeps from the use cases.
+     */
+    static final Set<String> CALLS_HOLDERS = Set.of(CURRENT_ACTOR, CURRENT_CALL);
 
     private ApplicationRules() {}
 
@@ -564,8 +590,7 @@ final class ApplicationRules {
      * Rule 10: no adapter uses another module's adapter. The kernel and {@code web} are no modules
      * ({@link #NOT_MODULES}), so this rule leaves the adapters they hold, such as {@code
      * shared.adapter.out.persistence}, usable. Rule 2 still decides whether a module may reach
-     * {@code web} at all, which it refuses until the app-wide {@code web} ADR decides otherwise
-     * (ADR-130 decisions 6 and 7).
+     * {@code web} at all, and refuses it for good: nothing depends on {@code web} (ADR-140).
      */
     static ArchRule adaptersUseNoOtherModulesAdapter(String root) {
         return classes()
@@ -588,8 +613,8 @@ final class ApplicationRules {
      * shared.adapter} depends on no class of another top-level package. Rule 2 skips the kernel's
      * classes and rules 9 and 10 see only adapters, so without this rule one module could reach
      * another through a shared adapter, along an arrow DL §2.1 lacks (ADR-130 decision 7). {@code
-     * web} is refused too: rule 2 skips it, so a shared adapter that used it could reach any module
-     * through it (ADR-131).
+     * web} is refused too: nothing depends on it (ADR-140), and rule 2 skips it, so a shared adapter
+     * that used it could reach the modules through it (ADR-131).
      */
     static ArchRule sharedAdaptersUseNoModule(String root) {
         return classes()
@@ -633,6 +658,56 @@ final class ApplicationRules {
                                                 root + "." + module + "." + ADAPTER + "." + OUT + ".optimizer"))))
                 .because("ADR-043, ADR-130 decision 5 and ADR-131: generated types stop at the adapter that wraps"
                         + " them, and only the modules DL §2.1 draws to the optimizer call it");
+    }
+
+    /**
+     * Rule 13: {@code web} uses the modules only through what they publish. A class in, or below,
+     * {@code web} uses, among the classes of the modules, only those in, or below, a module's
+     * {@code application.api} or {@code events}. The kernel, {@code web} itself, the root's own
+     * package and anything outside the root are open to it. Rule 2 skips {@code web}, which is no
+     * module, and refuses every module a dependency on it, so {@code web} sits above the modules;
+     * this rule keeps it from reaching into one (ADR-140).
+     */
+    static ArchRule webUsesOnlyTheModulesApiAndEvents(String root) {
+        return classes()
+                .that()
+                .resideInAPackage(root + "." + WEB + "..")
+                .should(dependOnlyOn(
+                        "the api and events of the modules among their classes",
+                        (item, target) -> isNoModuleOrItsApiOrEvents(root, target)))
+                .because("ADR-140: web reaches the modules only through their application.api and events");
+    }
+
+    /**
+     * Rule 14, for production's holders, {@link #CALLS_HOLDERS}. Neither exists yet, and the rule
+     * holds already: its subject is every class outside {@code web} and the modules' {@code
+     * adapter.in.web}, which is never empty, so {@code archRule.failOnEmptyShould} can't fail it.
+     */
+    static ArchRule onlyTheWebReadsTheCallsHolders(String root) {
+        return onlyTheWebReadsTheCallsHolders(root, CALLS_HOLDERS);
+    }
+
+    /**
+     * Rule 14, with the holders given, so the fixtures can bring their own: a class that depends on
+     * a holder lies in, or below, {@code web} or a module's {@code adapter.in.web}, or is that
+     * holder, whose use of itself ArchUnit reports as no dependency. The kernel's {@code
+     * adapter.in.web} is no module's, so it may not. A use case takes its {@code Actor} as a
+     * parameter, and a listener, a job or a CLI step has no web call to read (ADR-140 decision 4).
+     *
+     * @param holders the holders, by their names below the root, such as {@code
+     *     access.application.api.CurrentActor}
+     */
+    static ArchRule onlyTheWebReadsTheCallsHolders(String root, Set<String> holders) {
+        Set<String> holderNames =
+                holders.stream().map(holder -> root + "." + holder).collect(Collectors.toUnmodifiableSet());
+        return classes()
+                .that(DescribedPredicate.describe(
+                        "lie outside web and the modules' adapter.in.web", type -> !mayReadTheCallsHolders(root, type)))
+                .should(dependOnlyOn(
+                        "no holder of the call's caller but itself " + new TreeSet<>(holders),
+                        (item, target) -> !holderNames.contains(target.getName())))
+                .because("ADR-140 decision 4: only web and the modules' controllers read the call's Actor and"
+                        + " CallContext; a use case takes its Actor as a parameter");
     }
 
     /**
@@ -738,16 +813,10 @@ final class ApplicationRules {
     private static boolean isPublishedToTheModule(
             String root, JavaClass target, String itemModule, Map<String, String> implementers) {
         String[] segments = segmentsBelow(root, target.getPackageName());
-        if (segments.length >= 2 && segments[1].equals(EVENTS)) {
+        if (isInAnApiOrEvents(segments)) {
             return true;
         }
-        if (segments.length < 3 || !segments[1].equals(APPLICATION)) {
-            return false;
-        }
-        if (segments[2].equals(API)) {
-            return true;
-        }
-        if (!segments[2].equals(SPI)) {
+        if (segments.length < 3 || !segments[1].equals(APPLICATION) || !segments[2].equals(SPI)) {
             return false;
         }
         Optional<String> arrowsImplementer = target.isInterface()
@@ -874,6 +943,38 @@ final class ApplicationRules {
                 && segments[1].equals(APPLICATION)
                 && segments[2].equals(API);
         return !inANarrowedApi || narrowedApis.get(segments[0]).contains(nameBelow(root, target));
+    }
+
+    /**
+     * Whether a class lies in, or below, {@code web} or a module's {@code adapter.in.web}, where
+     * rule 14 lets it read the call's holders.
+     */
+    private static boolean mayReadTheCallsHolders(String root, JavaClass type) {
+        String[] segments = segmentsBelow(root, type.getPackageName());
+        return (segments.length >= 1 && segments[0].equals(WEB))
+                || (segments.length >= 4
+                        && !NOT_MODULES.contains(segments[0])
+                        && segments[1].equals(ADAPTER)
+                        && segments[2].equals(IN)
+                        && segments[3].equals(WEB));
+    }
+
+    /**
+     * Whether a target is in no module, or in, or below, a module's {@code application.api} or
+     * {@code events}.
+     */
+    private static boolean isNoModuleOrItsApiOrEvents(String root, JavaClass target) {
+        String[] segments = segmentsBelow(root, target.getPackageName());
+        return segments.length == 0 || NOT_MODULES.contains(segments[0]) || isInAnApiOrEvents(segments);
+    }
+
+    /**
+     * Whether a package, by its segments below the root, is in, or below, a top-level package's
+     * {@code application.api} or {@code events}.
+     */
+    private static boolean isInAnApiOrEvents(String[] segments) {
+        return (segments.length >= 2 && segments[1].equals(EVENTS))
+                || (segments.length >= 3 && segments[1].equals(APPLICATION) && segments[2].equals(API));
     }
 
     /** Whether a module of the graph reaches itself by following its arrows. */

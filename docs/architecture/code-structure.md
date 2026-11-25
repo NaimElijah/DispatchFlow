@@ -111,6 +111,12 @@ src/backend/core/
       adapter/out/uuid/            declared, empty: the adapter of IdGenerator
       adapter/out/optimizer/       declared, empty: the client generated from optimization-api,
                                    which Planning's and Reporting's optimizer adapters wrap
+      adapter/in/web/              declared, empty: the code generated from client-api, at every
+                                   build and never committed, and @RequiresCapability; every
+                                   module's controllers use it (ADR-140)
+      adapter/out/sse/             declared, empty: the registry of open event streams, which
+                                   Planning's and Live Operations' sse adapters send through
+                                   (ADR-140)
     access/                        a bounded context's module: domain/ (account, session,
                                    companyprofile), events/, application/ (declared) and
                                    adapter/ (below)
@@ -127,8 +133,15 @@ src/backend/core/
                                    adapter/
     liveops/                       domain/ (delivery, outcome, proof, alert,
                                    routerun), events/, application/ and adapter/
-    web/                           application-wide web concerns: the fallback for unexpected errors
+    web/                           application-wide web concerns, above the modules: nothing depends
+                                   on it, and it uses only their api and events (ADR-140)
       UnexpectedErrorHandler.java  answers an unhandled exception with a 500 problem body
+      security/                    declared, empty: the stand-in session, then the filter chain, and
+                                   the capability interceptor
+      stream/                      declared, empty: the event stream's endpoint, its heartbeat and
+                                   the SessionsRevoked listener
+      e2e/                         declared, empty: the end-to-end tests' control endpoints, under
+                                   the e2e profile
       package-info.java
   src/main/resources/
     application.properties
@@ -208,7 +221,9 @@ Each module also has an `application` package, declared ahead of its milestone a
 It holds whichever of `api`, `spi`, `port/out` and `service` the module has something for: `access`,
 `audit` and `liveops` have no `spi`, and `messaging` and `reporting` have neither `api` nor `spi`.
 Every body that would do work throws `UnsupportedOperationException("To Be Implemented.")`. Nothing is
-wired: the application layer registers no bean, and no use case calls a port. Its one Spring
+wired: the application layer registers no bean, and no use case calls a port. A use case will be
+wired in its module's `<Module>Configuration`, at the module's root
+([ADR-140][ADR-140]); none exists yet. The layer's one Spring
 annotation is `@Transactional`: on every service's class, and on the read-only reads of a
 `<UseCase>Change`. A use case with outside calls, or one transaction per item, holds its
 transactional `Change`, and it carries no transaction itself; nor does a service that calls such a
@@ -218,9 +233,10 @@ and a `CallContext`
 ([ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
 
 Each module's `adapter/` holds its persistence adapter, which is built, and packages declared
-ahead, empty ([ADR-130][ADR-130]). Every declared package holds a `package-info.java` and nothing
-else: its Javadoc says what goes in the package and which ports it implements, and it carries
-`@NullMarked`. There are 54 of them, 51 in the eight modules and 3 beside the kernel, and no adapter
+ahead, empty ([ADR-130][ADR-130]). Every declared package holds a `package-info.java`, and nothing
+else until its first class (a stand-in, or a module's `<Module>Configuration`, arrives with its
+issue): its Javadoc says what goes in the package and which ports it implements, and it carries
+`@NullMarked`. There are 56 of them, 51 in the eight modules and 5 beside the kernel, and no adapter
 class exists beyond the persistence adapters.
 The names follow two rules:
 
@@ -228,18 +244,21 @@ The names follow two rules:
   `listen` (an event arrives, its module's own or another's), `schedule` (the clock says so), `job`
   (a worker takes queued work, or a step runs once at startup), `callback` (an outside service
   calls in) and `cli` (a person runs a server step).
-  There is no `in/sse`: the stream's endpoint is app-wide, and the `web` ADR (#143) places it.
+  There is no `in/sse`: the stream's endpoint is app-wide, in `web.stream`, and the registry of open
+  streams is the kernel's `shared/adapter/out/sse` ([ADR-140][ADR-140]).
 - An outbound adapter is `adapter/out/<name>`: named for the outside system or channel it talks to
   (`osrm`, `govmap`, `sms`, `disk`), `persistence` for the module's own database, or for the
   technology it wraps when it calls nothing outside the process (`crypto`, `config`, `random`,
   `resources`, `roaddata`).
 
 ADR-130 decision 4 and [ADR-131][ADR-131] decision 4 list each module's packages and the ports they
-implement, and [ADR-133][ADR-133] adds Access's `in/job`. Every module also has an `in/cli` for its
+implement, [ADR-133][ADR-133] adds Access's `in/job`, and ADR-140 adds the kernel's `in/web`, the code
+generated from `client-api`, and `out/sse`. Every module also has an `in/cli` for its
 part of the server steps that span the modules (ADR-131 decision 5). Adapters meet only through
 ports: no adapter uses another adapter of its module or an adapter of another module, no shared
 adapter uses anything outside the kernel, and only Planning's and Reporting's optimizer adapters use
-the generated optimizer client (`ApplicationRules`, rules 9 to 12).
+the generated optimizer client (`ApplicationRules`, rules 9 to 12). The kernel's `in/web` and `out/sse`
+sit below `web`, so every module's controllers and `sse` adapter reach them without depending on it.
 
 Each of the eight modules has an
 `adapter/out/persistence/` package ([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md), [ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md)). A module's package holds:
@@ -460,7 +479,13 @@ Rules 9 to 11 are [ADR-130][ADR-130]'s, and rule 12 is [ADR-131][ADR-131]'s: the
 module stay apart, no adapter uses another module's adapter, no shared adapter uses anything
 outside the kernel, and only the optimizer adapters use the generated optimizer client. Rule 5's
 `@NullMarked` check covers the adapter packages too, and a test holds the tree to the adapters
-ADR-130 and ADR-131 declare.
+ADR-130, ADR-131 and ADR-140 declare.
+
+Rule 13 is [ADR-140][ADR-140]'s. `web` is no module: rule 2 refuses every module a dependency on it, so
+it sits above them, and rule 13 limits it to the modules' `application.api` and `events`, besides the
+kernel and the frameworks. Rule 14, also ADR-140's, keeps the two holders of a web call's caller, `CurrentActor` (in
+Access's `application.api`) and `CurrentCall` (in Audit's), to `web` and the modules' `adapter.in.web`:
+a use case takes its `Actor` and `CallContext` as parameters. Neither holder exists yet.
 
 [Tech stack §2.2](tech_stack.md#22-enforcement) also plans Spring Modulith's `verify()` for the
 Alpha
@@ -470,5 +495,6 @@ Accepted).
 [ADR-130]: ../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md
 [ADR-131]: ../ADRs/ADR-131-the-declared-structures-review-tightens-its-rules-and-fills-its-gaps.md
 [ADR-133]: ../ADRs/ADR-133-a-startup-step-is-a-job-and-access-declares-one.md
+[ADR-140]: ../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md
 [NFR-10]: ../requirements/requirements.md#nfr-10
 [NFR-162]: ../requirements/requirements.md#nfr-162
