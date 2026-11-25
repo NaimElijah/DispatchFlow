@@ -801,9 +801,11 @@ final class ApplicationRules {
      * Rule 15, for every other class: outside a module's root configuration, no class's {@code
      * @Import}, direct or through another annotation, names a class in, or below, a module's {@code
      * application.service}, and no {@code @Bean} method returns or constructs one. With the first
-     * half, a module's root configuration is the one way a use case becomes a bean (ADR-140
-     * decision 10, ADR-142): a configuration elsewhere, or a scan of the test tree, can't wire a
-     * throwing body or write its constructor twice.
+     * half, a module's root configuration is the one class whose {@code @Import} list may name a use
+     * case, and no {@code @Bean} method anywhere makes one (ADR-140 decision 10, ADR-142). It reads
+     * only those two. A use case carries no Spring annotation but {@code @Transactional} (rule 1),
+     * so a plain component scan registers none; one registered any other way, such as through a
+     * scan's include filter or {@code registerBean}, is left to review.
      *
      * <p>Its subject is every class under the root, the root's own package included, which is never
      * empty.

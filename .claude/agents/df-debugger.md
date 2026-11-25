@@ -39,7 +39,7 @@ You find out why something in DispatchFlow fails. You prove the cause; you do no
    - Use the project's naming conventions:
      - Java and TypeScript: `GivenX_WhenY_ThenZ`;
      - Python: `test_given_x_when_y_then_z`.
-   - Core integration tests use `@IntegrationTest`.
+   - Core integration tests use `@IntegrationTest`, or `@TomcatIntegrationTest`, a context of its own, only for what MockMvc can't show; a unit test reads log lines through `CapturedLogs`, an integration test through `CapturedOutput`.
    - Fake only our own ports.
 
 ## Report

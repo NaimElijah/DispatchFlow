@@ -28,11 +28,12 @@ components:
     Problem:
       type: object
       description: |-
-        An error, as RFC 9457 defines it (ADR-043, ADR-140). `type` is always `about:blank`, so
-        `title` is the status's own phrase. A client acts on `status` and `code`, shows its own
-        text for `code` with `params` filled in, and shows `traceId` beside it. For a code it
-        doesn't know, it shows its generic text and the `traceId`. `code` is a string, never an
-        enum, so a new code isn't a breaking change.
+        An error in RFC 9457's shape (ADR-043, ADR-140); `code`, not `type`, names the problem.
+        `type` is `about:blank`, which the core always sends and RFC 9457 assumes when it is
+        absent, so `title` is the status's own phrase. A client acts on `status` and `code`, shows its own text for `code` with `params`
+        filled in, and shows `traceId` beside it. For a code it doesn't know, it shows its generic
+        text and the `traceId`. `code` is a string, never an enum, so a new code isn't a breaking
+        change.
 
         Besides the codes each operation lists, any operation can answer:
 
@@ -56,7 +57,6 @@ components:
         or a cookie), `REQUIRED`, `WRONG_SIZE`, `TOO_SMALL`, `TOO_LARGE`, `WRONG_FORMAT` and
         `INVALID_VALUE`.
       required:
-        - type
         - title
         - status
         - code
@@ -73,6 +73,12 @@ components:
           type: integer
           minimum: 400
           maximum: 599
+        detail:
+          type: string
+          deprecated: true
+          description: >-
+            Never set by the server: `code` and `params` say what went wrong, and a client shows
+            its own text for them.
         instance:
           type: string
           format: uri-reference
@@ -125,7 +131,8 @@ components:
           maxLength: 128
           description: >-
             An RFC 6901 JSON Pointer into the request body, cut to its deepest ancestor within 128
-            characters; empty for the whole body.
+            characters; empty for the whole body, or for the whole request when no field or
+            parameter can be named.
         parameter:
           $ref: '#/components/schemas/ProblemParameter'
         params:

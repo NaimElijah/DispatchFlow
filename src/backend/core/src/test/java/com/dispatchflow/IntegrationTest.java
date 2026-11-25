@@ -11,7 +11,8 @@ import org.springframework.context.annotation.Import;
 /**
  * Marks an integration test: the whole application against a real PostgreSQL container, driven
  * through {@code MockMvcTester}. Every {@code *IT} uses this one annotation, so they share one
- * cached Spring context and one container instead of starting their own.
+ * cached Spring context and one container instead of starting their own, but for one that needs a
+ * real Tomcat, which takes {@link TomcatIntegrationTest} and its context.
  *
  * <p>It turns the scheduled jobs off, so none runs against the shared database mid-test. #165 or
  * #170, whichever adds the {@code test} profile first, moves this property into it.

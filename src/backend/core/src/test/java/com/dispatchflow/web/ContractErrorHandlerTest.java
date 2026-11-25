@@ -2,30 +2,34 @@ package com.dispatchflow.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import com.dispatchflow.CapturedLogs;
 import com.dispatchflow.orders.domain.OrdersError;
 import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.adapter.in.web.Problems;
 import com.jayway.jsonpath.JsonPath;
 import jakarta.servlet.ServletInputStream;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.tomcat.util.http.InvalidParameterException;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.boot.test.system.CapturedOutput;
-import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.format.support.DefaultFormattingConversionService;
 import org.springframework.format.support.FormattingConversionService;
 import org.springframework.http.HttpHeaders;
@@ -38,6 +42,7 @@ import org.springframework.mock.web.MockPart;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -47,11 +52,13 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.databind.json.JsonMapper;
 
-@ExtendWith(OutputCaptureExtension.class)
 class ContractErrorHandlerTest {
 
     private static final String PERSONAL_NAME = "Dana Levi";
@@ -60,7 +67,20 @@ class ContractErrorHandlerTest {
     private static final DeliveryDate DATE = DeliveryDate.of(LocalDate.of(2026, 3, 15));
     private static final String ORDERS = "/contract-error-handler-test/orders";
     private static final String BATCHES = "/contract-error-handler-test/batches";
-    private static final Pattern LOGGED_ITEM = Pattern.compile("REQUIRED at (/lines/[0-9]+/name)");
+    private static final String LINES = "/contract-error-handler-test/lines";
+    private static final String UNDECODABLE = "/contract-error-handler-test/undecodable";
+    private static final String FORM_TOO_LARGE = "/contract-error-handler-test/form-too-large";
+    private static final String LINES_BY_KEY = "/contract-error-handler-test/lines-by-key";
+    private static final String COMMITTED_THEN_UNDECODABLE = "/contract-error-handler-test/committed-then-undecodable";
+    // A value that occurs in no other line.
+    private static final String SENTINEL = "zq7ContractSentinel";
+    private static final String REFUSAL_LINE = "Refused a request that breaks the contract";
+
+    @RegisterExtension
+    final CapturedLogs logs = CapturedLogs.of(ContractErrorHandler.class);
+
+    @RegisterExtension
+    final CapturedLogs everyLine = CapturedLogs.ofEveryLogger();
 
     private final MockMvcTester mvc = MockMvcTester.create(MockMvcBuilders.standaloneSetup(new ContractController())
             .setMessageConverters(new JacksonJsonHttpMessageConverter(
@@ -89,11 +109,19 @@ class ContractErrorHandlerTest {
                 .collect(Collectors.joining(",", "{\"lines\":[", "]}"));
     }
 
-    private static String loggedBy(CapturedOutput output, Class<?> logger) {
-        return output.getOut()
-                .lines()
-                .filter(line -> line.contains(logger.getName()))
-                .collect(Collectors.joining("\n"));
+    /** The handler's one line, a refusal at WARN. */
+    private ILoggingEvent theRefusalLine() {
+        assertThat(logs.events()).singleElement().satisfies(event -> {
+            assertThat(event.getLevel()).isEqualTo(Level.WARN);
+            assertThat(event.getFormattedMessage()).isEqualTo(REFUSAL_LINE);
+        });
+        return logs.events().getFirst();
+    }
+
+    private void noLineCarries(String value) {
+        assertThat(everyLine.events())
+                .isNotEmpty()
+                .allSatisfy(event -> assertThat(CapturedLogs.textsOf(event)).noneMatch(text -> text.contains(value)));
     }
 
     private MvcTestResult postOrder(String body) {
@@ -140,8 +168,8 @@ class ContractErrorHandlerTest {
 
     @Test
     void GivenAnUnknownProperty_WhenTheBodyIsRead_Then400NamingItsPointerAlone() {
-        MvcTestResult result =
-                postOrder("{\"name\":\"Dana\",\"items\":[\"box\"],\"address\":{\"city\":\"Haifa\",\"zip\":\"1\"}}");
+        MvcTestResult result = postOrder(
+                "{\"name\":\"Dana\",\"items\":[\"box\"],\"address\":{\"city\":\"Haifa\",\"zip\":\"1\",\"floor\":\"2\"}}");
 
         isAnInvalidRequest(result);
         assertThat(result)
@@ -382,13 +410,17 @@ class ContractErrorHandlerTest {
     }
 
     @Test
-    void GivenAStatusTheContractDoesNotList_WhenSpringAnswersIt_Then500LoggedAtErrorAsABug(CapturedOutput output) {
+    void GivenAStatusTheContractDoesNotList_WhenSpringAnswersIt_Then500LoggedAtErrorAsABug() {
         MvcTestResult result =
                 mvc.get().uri("/contract-error-handler-test/gone").exchange();
 
         assertThat(result).hasStatus(HttpStatus.INTERNAL_SERVER_ERROR);
         assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo(WebCodes.UNEXPECTED_ERROR);
-        assertThat(loggedBy(output, ContractErrorHandler.class)).contains("ERROR");
+        assertThat(logs.events()).singleElement().satisfies(event -> {
+            assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+            assertThat(CapturedLogs.keyValues(event)).containsEntry("status", HttpStatus.GONE.value());
+            assertThat(event.getThrowableProxy()).isNotNull();
+        });
     }
 
     @Test
@@ -438,8 +470,7 @@ class ContractErrorHandlerTest {
     }
 
     @Test
-    void GivenMoreFailingItemsThanTheCap_WhenValidated_ThenTheBodyAndTheLogListTheFirstHundred(CapturedOutput output)
-            throws Exception {
+    void GivenMoreFailingItemsThanTheCap_WhenValidated_ThenTheBodyAndTheLogListTheFirstHundred() throws Exception {
         int lines = Problems.MAX_ITEMS + 50;
 
         MvcTestResult result = mvc.post()
@@ -455,19 +486,208 @@ class ContractErrorHandlerTest {
                 .asNumber()
                 .isEqualTo(Problems.MAX_ITEMS);
         List<String> answered = JsonPath.read(result.getResponse().getContentAsString(), "$.errors[*].pointer");
-        String logged = loggedBy(output, ContractErrorHandler.class);
-        assertThat(logged).contains("itemCount=\"" + lines + "\"");
-        assertThat(LOGGED_ITEM.matcher(logged).results().map(item -> item.group(1)))
-                .containsExactlyElementsOf(answered);
+        Map<String, Object> logged = CapturedLogs.keyValues(theRefusalLine());
+        assertThat(logged).containsEntry("itemCount", lines);
+        assertThat(logged.get("items"))
+                .isEqualTo(answered.stream()
+                        .map(pointer -> "REQUIRED at " + pointer)
+                        .toList());
     }
 
     @Test
-    void GivenATooLongValueInTheBody_WhenItIsRefused_ThenTheLogLineNeverCarriesIt(CapturedOutput output) {
+    void GivenATooLongValueInTheBody_WhenItIsRefused_ThenTheLogLineNeverCarriesIt() {
         MvcTestResult result = postOrder("{\"name\":\"" + PERSONAL_NAME + "\",\"items\":[\"box\"]}");
 
         isAnInvalidRequest(result);
-        assertThat(loggedBy(output, ContractErrorHandler.class)).contains("WRONG_SIZE");
-        assertThat(output.getOut()).doesNotContain(PERSONAL_NAME);
+        assertThat(CapturedLogs.keyValues(theRefusalLine())).containsEntry("items", List.of("WRONG_SIZE at /name"));
+        noLineCarries(PERSONAL_NAME);
+    }
+
+    @Test
+    void GivenAQueryParameterTomcatCannotDecode_WhenAHandlerReadsIt_Then400WithTheWholeRequestAndNoValueLogged() {
+        MvcTestResult result = mvc.get().uri(UNDECODABLE).exchange();
+
+        isAnInvalidRequest(result);
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.errors[0].code")
+                .asString()
+                .isEqualTo(WebCodes.INVALID_VALUE);
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.errors[0].pointer")
+                .asString()
+                .isEmpty();
+        assertThat(CapturedLogs.keyValues(theRefusalLine()))
+                .containsEntry("exception", InvalidParameterException.class.getSimpleName());
+        noLineCarries(PERSONAL_NAME);
+    }
+
+    @Test
+    void GivenAFormBodyOverTomcatsCap_WhenAHandlerReadsItsParameters_Then413WithItsOwnCodeLoggedAtWarn() {
+        MvcTestResult result = mvc.post().uri(FORM_TOO_LARGE).exchange();
+
+        assertThat(result).hasStatus(HttpStatus.CONTENT_TOO_LARGE);
+        assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo(WebCodes.BODY_TOO_LARGE);
+        assertThat(CapturedLogs.keyValues(theRefusalLine()))
+                .containsEntry("status", HttpStatus.CONTENT_TOO_LARGE.value())
+                .containsEntry("exception", InvalidParameterException.class.getSimpleName());
+    }
+
+    @Test
+    void GivenATopLevelListBodyWithTwoInvalidElements_WhenValidated_ThenEachPointerStartsWithItsIndex() {
+        MvcTestResult result = mvc.post()
+                .uri(LINES)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("[{\"name\":\"a\"},{\"name\":\"\"},{\"name\":\"\"}]")
+                .exchange();
+
+        isAnInvalidRequest(result);
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.errors[*].pointer")
+                .asArray()
+                .containsExactlyInAnyOrder("/1/name", "/2/name");
+    }
+
+    @Test
+    void GivenAMapBodyWhoseKeyHasASlash_WhenAnElementFailsValidation_ThenThePointerEscapesTheKey() {
+        MvcTestResult result = mvc.post()
+                .uri(LINES_BY_KEY)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"a/b\":{\"name\":\"\"}}")
+                .exchange();
+
+        isAnInvalidRequest(result);
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.errors[*].pointer")
+                .asArray()
+                .containsExactly("/a~1b/name");
+    }
+
+    @Test
+    void GivenTomcatsRefusalAfterTheResponseIsCommitted_WhenSpringIgnoresIt_ThenNoLineCarriesTheValue() {
+        mvc.get().uri(COMMITTED_THEN_UNDECODABLE).exchange();
+
+        assertThat(logs.events())
+                .anySatisfy(event -> assertThat(CapturedLogs.keyValues(event))
+                        .containsEntry("exception", InvalidParameterException.class.getSimpleName()));
+        noLineCarries(SENTINEL);
+    }
+
+    @Test
+    void GivenAPathWithABracketNoOperationHas_WhenTheRequestArrives_Then404WithThePathQuotedAsItsInstance() {
+        MvcTestResult result = mvc.perform(
+                context -> new MockHttpServletRequest(context, "GET", "/contract-error-handler-test/no[where]"));
+
+        assertThat(result).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo(WebCodes.NO_SUCH_OPERATION);
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.instance")
+                .asString()
+                .isEqualTo("/contract-error-handler-test/no%5Bwhere%5D");
+    }
+
+    @Test
+    void GivenAnUploadOverItsLimit_WhenTheMultipartResolverRefusesIt_Then413WithItsOwnCode() {
+        MvcTestResult result =
+                mvc.post().uri("/contract-error-handler-test/upload-too-large").exchange();
+
+        assertThat(result).hasStatus(HttpStatus.CONTENT_TOO_LARGE);
+        assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo(WebCodes.BODY_TOO_LARGE);
+    }
+
+    @Test
+    void GivenAMultipartBodyThatCannotBeParsed_WhenItIsRead_Then400WithAnUnreadableBody() {
+        MvcTestResult result =
+                mvc.post().uri("/contract-error-handler-test/unreadable-upload").exchange();
+
+        isAnInvalidRequest(result);
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.errors[0].code")
+                .asString()
+                .isEqualTo(WebCodes.UNREADABLE_BODY);
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.errors[0].pointer")
+                .asString()
+                .isEmpty();
+    }
+
+    @Test
+    void GivenAMissingRequiredQueryParameter_WhenTheRequestArrives_Then400NamingItInQuery() {
+        MvcTestResult result =
+                mvc.get().uri("/contract-error-handler-test/search").exchange();
+
+        isAnInvalidRequest(result);
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.errors[0].code")
+                .asString()
+                .isEqualTo(WebCodes.MISSING_PARAMETER);
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.errors[0].parameter.name")
+                .asString()
+                .isEqualTo("q");
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.errors[0].parameter.in")
+                .asString()
+                .isEqualTo("query");
+    }
+
+    @Test
+    void GivenAMissingRequiredCookie_WhenTheRequestArrives_Then400NamingItInCookie() {
+        MvcTestResult result =
+                mvc.get().uri("/contract-error-handler-test/session").exchange();
+
+        isAnInvalidRequest(result);
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.errors[0].code")
+                .asString()
+                .isEqualTo(WebCodes.MISSING_PARAMETER);
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.errors[0].parameter.name")
+                .asString()
+                .isEqualTo("refresh");
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.errors[0].parameter.in")
+                .asString()
+                .isEqualTo("cookie");
+    }
+
+    @Test
+    void GivenAnAsynchronousRequestThatTimedOut_WhenSpringAnswersIt_Then503WithRetryAfter() {
+        MvcTestResult result =
+                mvc.get().uri("/contract-error-handler-test/timed-out").exchange();
+
+        assertThat(result).hasStatus(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo(WebCodes.TRY_AGAIN_LATER);
+        assertThat(result).headers().hasValue(HttpHeaders.RETRY_AFTER, String.valueOf(Race.RETRY_AFTER_SECONDS));
+    }
+
+    @Test
+    void GivenA400_WhenItIsLogged_ThenItsOneLineIsAtWarnNeverError() {
+        isAnInvalidRequest(postOrder("{\"name\":"));
+
+        assertThat(CapturedLogs.keyValues(theRefusalLine())).containsEntry("status", HttpStatus.BAD_REQUEST.value());
+    }
+
+    @Test
+    void GivenA413_WhenItIsLogged_ThenItsOneLineIsAtWarnNeverError() {
+        MvcTestResult result =
+                postOrder("{\"name\":\"" + "a".repeat(BodySizeLimit.MAX_BODY_BYTES) + "\",\"items\":[\"box\"]}");
+
+        assertThat(result).hasStatus(HttpStatus.CONTENT_TOO_LARGE);
+        assertThat(CapturedLogs.keyValues(theRefusalLine()))
+                .containsEntry("status", HttpStatus.CONTENT_TOO_LARGE.value());
     }
 
     @Test
@@ -607,6 +827,65 @@ class ContractErrorHandlerTest {
         @PostMapping(BATCHES)
         String batch(@Valid @RequestBody Batch batch) {
             return String.valueOf(batch.lines().size());
+        }
+
+        @PostMapping(LINES)
+        String lines(@Valid @RequestBody List<@Valid Line> lines) {
+            return String.valueOf(lines.size());
+        }
+
+        /** Tomcat's refusal of a parameter it can't decode, whose message quotes the value. */
+        @GetMapping(UNDECODABLE)
+        String undecodable() {
+            throw new InvalidParameterException(
+                    "Character decoding failed. Parameter [name] with value [" + PERSONAL_NAME + "] has been ignored.");
+        }
+
+        /** Tomcat's refusal of a form body over its cap. */
+        @PostMapping(FORM_TOO_LARGE)
+        String formTooLarge() {
+            throw new InvalidParameterException(
+                    "Parameters were not parsed because the size of the posted data was too big.",
+                    HttpStatus.CONTENT_TOO_LARGE.value());
+        }
+
+        @PostMapping("/contract-error-handler-test/upload-too-large")
+        String uploadTooLarge() {
+            throw new MaxUploadSizeExceededException(BodySizeLimit.MAX_BODY_BYTES);
+        }
+
+        @PostMapping("/contract-error-handler-test/unreadable-upload")
+        String unreadableUpload() {
+            throw new MultipartException("Failed to parse multipart servlet request");
+        }
+
+        @GetMapping("/contract-error-handler-test/search")
+        String search(@RequestParam("q") String query) {
+            return query;
+        }
+
+        @GetMapping("/contract-error-handler-test/session")
+        String session(@CookieValue("refresh") String refresh) {
+            return refresh;
+        }
+
+        @PostMapping(LINES_BY_KEY)
+        String linesByKey(@Valid @RequestBody Map<String, @Valid Line> lines) {
+            return String.valueOf(lines.size());
+        }
+
+        /** Tomcat's refusal once the response is committed, when Spring can only ignore it. */
+        @GetMapping(COMMITTED_THEN_UNDECODABLE)
+        void committedThenUndecodable(HttpServletResponse response) throws IOException {
+            response.getWriter().write("begun");
+            response.flushBuffer();
+            throw new InvalidParameterException(
+                    "Character decoding failed. Parameter [name] with value [" + SENTINEL + "] has been ignored.");
+        }
+
+        @GetMapping("/contract-error-handler-test/timed-out")
+        String timedOut() {
+            throw new AsyncRequestTimeoutException();
         }
     }
 

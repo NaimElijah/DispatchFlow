@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import ch.qos.logback.classic.Level;
+import com.dispatchflow.CapturedLogs;
 import com.dispatchflow.audit.domain.TraceId;
 import com.dispatchflow.orders.domain.OrdersError;
 import com.dispatchflow.orders.domain.RowNumber;
@@ -17,20 +19,20 @@ import java.util.Map;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.MDC;
-import org.springframework.boot.test.system.CapturedOutput;
-import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 
-@ExtendWith(OutputCaptureExtension.class)
 class ProblemsTest {
 
     private static final String TRACE = "4bf92f3577b34da6a3ce929d0e0e4736";
     private static final DeliveryDate DATE = DeliveryDate.of(LocalDate.of(2026, 3, 15));
+
+    @RegisterExtension
+    final CapturedLogs logs = CapturedLogs.of(Problems.class);
 
     @AfterEach
     void clearTheMdc() {
@@ -51,6 +53,17 @@ class ProblemsTest {
     }
 
     @Test
+    void GivenAPathWithBracketsAndAnEscape_WhenAProblemIsPlacedAtIt_ThenOnlyTheBracketsAreQuoted() {
+        MDC.put(Problems.TRACE_ID, TRACE);
+
+        ProblemDetail problem =
+                Problems.at(Problems.of(HttpStatus.NOT_FOUND, "NO_SUCH_OPERATION"), "/plans/caf%C3%A9[1]");
+
+        assertThat(problem.getInstance()).isEqualTo(URI.create("/plans/caf%C3%A9%5B1%5D"));
+        assertThat(logs.events()).isEmpty();
+    }
+
+    @Test
     void GivenATraceIdInTheMdc_WhenAProblemIsMade_ThenItCarriesIt() {
         MDC.put(Problems.TRACE_ID, TRACE);
 
@@ -59,7 +72,7 @@ class ProblemsTest {
     }
 
     @Test
-    void GivenNoTraceIdInTheMdc_WhenAProblemIsMade_ThenItCarriesAFreshValidOneAndSaysSoAtWarn(CapturedOutput output) {
+    void GivenNoTraceIdInTheMdc_WhenAProblemIsMade_ThenItCarriesAFreshValidOneAndSaysSoAtWarn() {
         Object traceId = Problems.of(HttpStatus.CONFLICT, "STALE_VERSION")
                 .getProperties()
                 .get(Problems.TRACE_ID);
@@ -68,8 +81,11 @@ class ProblemsTest {
                 .isInstanceOfSatisfying(
                         String.class,
                         fresh -> assertThatCode(() -> TraceId.of(fresh)).doesNotThrowAnyException());
-        assertThat(output.getOut())
-                .containsPattern("WARN .*" + Problems.class.getName() + ".*outside a traced request");
+        assertThat(logs.events()).singleElement().satisfies(event -> {
+            assertThat(event.getLevel()).isEqualTo(Level.WARN);
+            assertThat(event.getFormattedMessage()).contains("outside a traced request");
+            assertThat(CapturedLogs.keyValues(event)).containsEntry(Problems.TRACE_ID, traceId);
+        });
     }
 
     @Test

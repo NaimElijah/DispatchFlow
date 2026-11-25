@@ -3,6 +3,7 @@ package com.dispatchflow.shared.adapter.in.web;
 import com.dispatchflow.shared.DomainError;
 import com.dispatchflow.shared.RuleViolations;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,17 +43,20 @@ public final class Problems {
 
     /**
      * The most items a 400 lists, in the order validation found them, which needn't be the body's
-     * order (decided on 25 November 2026, ADR-142). A crafted body can fail validation a great many times, and the answer and its log
-     * line stay small. A 422's refusals are not capped: the domain bounds them, as an import's rows.
+     * order (decided on 25 November 2026, ADR-142). A crafted body can fail validation a great many
+     * times, and the answer and its log line stay small. A 422's refusals are not capped: the
+     * domain bounds them, as an import's rows.
      */
     public static final int MAX_ITEMS = 100;
 
     /** The code of a request that breaks the contract, answered with 400 and its items. */
     public static final String INVALID_REQUEST = "INVALID_REQUEST";
 
-    // Spring Framework 7 leaves a ProblemDetail's type unset, which the body would then omit, but
-    // the contract requires the member.
+    // Spring Framework 7 leaves a ProblemDetail's type unset, which the body would then omit; the
+    // core always sends it, so a client never has to know RFC 9457's default.
     private static final URI ABOUT_BLANK = URI.create("about:blank");
+    private static final String QUOTED_OPEN_BRACKET = "%5B";
+    private static final String QUOTED_CLOSE_BRACKET = "%5D";
     private static final String CODE = "code";
     private static final String PARAMS = "params";
     private static final String ERRORS = "errors";
@@ -153,6 +157,29 @@ public final class Problems {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .header(HttpHeaders.WWW_AUTHENTICATE, BEARER_CHALLENGE)
                 .body(of(HttpStatus.UNAUTHORIZED, code));
+    }
+
+    /**
+     * Sets a problem's {@code instance} to the path of the request that failed, as the contract
+     * defines it: the path, without its query. Every handler that answers a problem sets it here,
+     * because Spring otherwise sets it with {@code URI.create} on the raw path, which throws on the
+     * {@code [} and {@code ]} that Tomcat accepts in a path, and the handler's answer is lost.
+     * Those two are the only characters Tomcat lets through and {@code java.net.URI} refuses, so
+     * only they are quoted, and an escape the path already has is left as it is.
+     *
+     * @param problem the problem, given its {@code instance}
+     * @param requestPath the request's path as Tomcat holds it, not decoded
+     * @return the same problem; its {@code instance} is left unset only for a path {@code
+     *     java.net.URI} still refuses, which no path Tomcat accepts is
+     */
+    public static ProblemDetail at(ProblemDetail problem, String requestPath) {
+        String quoted = requestPath.replace("[", QUOTED_OPEN_BRACKET).replace("]", QUOTED_CLOSE_BRACKET);
+        try {
+            problem.setInstance(new URI(quoted));
+        } catch (URISyntaxException unreachable) {
+            log.atWarn().log("A request path stayed no URI reference once quoted, so its problem has no instance");
+        }
+        return problem;
     }
 
     private static String traceId() {

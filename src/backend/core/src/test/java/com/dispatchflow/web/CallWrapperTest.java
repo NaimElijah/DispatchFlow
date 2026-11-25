@@ -26,6 +26,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionSystemException;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionStatus;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -186,6 +187,26 @@ class CallWrapperTest {
         });
     }
 
+    /**
+     * A commit whose outcome is unknown: spring-tx tells the listeners {@code afterCommit} with the
+     * failure, and the change may be stored, so a later race must not re-run the call.
+     */
+    @Test
+    void GivenATryWhoseCommitFailed_WhenALaterStepFailsALockWait_ThenItIsNotRetriedAndAnswers500() {
+        run(fixture -> {
+            RacingController controller = fixture.controller();
+            fixture.context().getBean(StubTransactionManager.class).commitsFail = true;
+
+            MvcTestResult result = fixture.post(RacingController.FAILED_COMMIT_THEN_LOCK_WAIT, new HttpHeaders());
+
+            assertThat(result).hasStatus(HttpStatus.INTERNAL_SERVER_ERROR);
+            assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo(WebCodes.UNEXPECTED_ERROR);
+            assertThat(controller.tries).hasValue(1);
+            assertThat(fixture.context().getBean(CallRetryTest.RecordingAuditLog.class).refusals)
+                    .isEmpty();
+        });
+    }
+
     /** A note the client sends; the handler keeps each instance it is given. */
     record Note(String text) {}
 
@@ -197,6 +218,7 @@ class CallWrapperTest {
         static final String STALE_AFTER_LOCK_WAIT = "/call-wrapper-test/stale-after-lock-wait";
         static final String COMMIT_THEN_LOCK_WAIT = "/call-wrapper-test/commit-then-lock-wait";
         static final String READ_ONLY_COMMIT_THEN_LOCK_WAIT = "/call-wrapper-test/read-only-commit-then-lock-wait";
+        static final String FAILED_COMMIT_THEN_LOCK_WAIT = "/call-wrapper-test/failed-commit-then-lock-wait";
 
         final AtomicInteger tries = new AtomicInteger();
         final List<Note> notes = new ArrayList<>();
@@ -235,10 +257,26 @@ class CallWrapperTest {
             }
             return note.text();
         }
+
+        @PostMapping(FAILED_COMMIT_THEN_LOCK_WAIT)
+        String failedCommitThenLockWait(@RequestBody Note note) {
+            tries.incrementAndGet();
+            try {
+                new TransactionTemplate(transactions).executeWithoutResult(status -> {});
+            } catch (TransactionSystemException unknownOutcome) {
+                // A use case's later step runs on after a commit it can't confirm.
+            }
+            throw new PessimisticLockException("lock wait");
+        }
     }
 
-    /** A transaction manager with no resource, whose commits only notify its listeners. */
+    /**
+     * A transaction manager with no resource, whose commits only notify its listeners, or fail as a
+     * database's commit can when {@link #commitsFail} is set.
+     */
     static final class StubTransactionManager extends AbstractPlatformTransactionManager {
+
+        boolean commitsFail;
 
         @Override
         protected Object doGetTransaction() {
@@ -252,7 +290,9 @@ class CallWrapperTest {
 
         @Override
         protected void doCommit(DefaultTransactionStatus status) {
-            // Nothing to commit.
+            if (commitsFail) {
+                throw new TransactionSystemException("the commit's outcome is unknown");
+            }
         }
 
         @Override

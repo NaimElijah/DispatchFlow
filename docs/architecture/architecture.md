@@ -41,7 +41,7 @@ today.
 
 | Component | Is | Does today |
 |---|---|---|
-| `core` (`src/backend/core`) | Spring Boot 4.1.2, Java 25 | Starts, connects to PostgreSQL and migrates it, answers `GET /actuator/health`, answers every error as the client API's `Problem` with a `code` and the request's trace ID, re-runs a call that lost a race, and stores every module's aggregates through its persistence adapters |
+| `core` (`src/backend/core`) | Spring Boot 4.1.2, Java 25 | Starts, connects to PostgreSQL and migrates it, answers `GET /actuator/health`, answers every error that reaches Spring MVC's exception handlers or Tomcat's error dispatch as the client API's `Problem` with a `code` and the request's trace ID, re-runs a call that lost a race, and stores every module's aggregates through its persistence adapters |
 | `optimizer` (`src/backend/optimizer`) | FastAPI, Python 3.14, NumPy | Answers `GET /health/liveness` with `{"status":"UP"}`, and holds the domain for daily solves and re-optimizations (the validator, the objective and the drop reasons), and a declared application layer; nothing calls either yet |
 | `web` (`src/frontend/web`) | React, Vite | Renders a heading |
 | `mobile` (`src/frontend/mobile`) | React Native, Expo SDK 58 | Renders a heading |
@@ -152,20 +152,22 @@ placeholders.
 The application-wide `web` package, `com.dispatchflow.web`, is no module. It holds:
 
 - `TraceIdFilter` and `Traceparent`: every request's trace ID, from a valid `traceparent` or made
-  fresh, put in the MDC;
+  fresh, put in the MDC; the filter also hands an exception that escaped every handler to Tomcat's
+  error dispatch while the ID is still in the MDC;
 - the call wrapper: `CallWrapper`, the `WebMvcRegistrations` whose handler adapter wraps every
   handler's invocation, `CallRetry`, which re-runs a call that lost a race and writes its one refused
   audit record, `CommitWatch`, the transaction listener that stops a retry once a try committed, and
   `Race`, which classifies the exception thrown;
-- the handlers: `ContractErrorHandler`, with `ContractBreaks`, of requests that break the contract
-  and of Spring MVC's own errors, `KernelErrorHandler`, of the kernel's errors, and
-  `UnexpectedErrorHandler`, of the rest, with `WebCodes`, the codes they answer of their own;
+- the handlers: `ContractErrorHandler`, with `ContractBreaks`, of requests that break the contract,
+  of Spring MVC's own errors and of Tomcat's refusals of a request's parameters,
+  `KernelErrorHandler`, of the kernel's errors, and `UnexpectedErrorHandler`, of the rest, with
+  `WebCodes`, the codes they answer of their own;
 - `ErrorEndpoint`, the last resort: the `@RestController` behind Spring Boot's error path, which
   answers as a `Problem` an error that no handler answered or that a servlet filter raised;
 - `ServedJson`, which makes the served JSON converter refuse unknown properties and duplicate keys,
-  and `BodySizeLimit`, which caps a request body at 1 MiB. No handler takes a streaming parameter
-  (`ApplicationRules` rule 16), and Spring's form-content filter is off, so the cap covers every
-  read of a body.
+  and `BodySizeLimit`, which caps at 1 MiB a request body that a converter reads. No handler takes
+  a streaming parameter (`ApplicationRules` rule 16), and Spring's form-content filter is off; a
+  form POST's parameters, which Spring reads before any converter, have Tomcat's own cap of 1 MiB.
 
 Beside it, `web.security`, `web.stream` and `web.e2e` are declared ahead, empty: the stand-in
 session and the security filter chain, the event stream's endpoint, and the end-to-end tests'
@@ -205,8 +207,11 @@ inside its own component:
   read-write transaction of the try has committed. An exception goes to the first handler, in `HandlerOrder`,
   that maps it, which answers the `Problem` that `Problems` builds, with the trace ID, and logs one
   JSON line (Elastic Common Schema) carrying the same ID. An error that no handler answers, or that
-  a servlet filter raises, reaches `ErrorEndpoint`, which answers the same `Problem`. `web`'s `*Test`
-  classes drive each step through MockMvc, and `WebIT` checks the wiring in the whole application.
+  a servlet filter raises, reaches `ErrorEndpoint`, which answers the same `Problem`: for one that
+  escaped every handler, `TraceIdFilter` asks Tomcat for that error dispatch, so `ErrorEndpoint`
+  logs it once, with the ID. `web`'s `*Test` classes drive each step through MockMvc, `WebIT`
+  checks the wiring in the whole application, and `WebOverTomcatIT` sends requests to a real Tomcat
+  for its refusals of a request's parameters and its error dispatch.
 - A save and a load through a persistence adapter: each module's `*PersistenceIT` saves an
   aggregate into a PostgreSQL container and loads it in another transaction, and where a stored
   value can be damaged it damages one with SQL to check that the load refuses it
@@ -300,13 +305,26 @@ have a `Dockerfile`, and neither runs as root
 - **An error that no handler answers is still a `Problem`.** One that escapes every handler, or that
   a servlet filter raises, reaches `ErrorEndpoint`, which implements Spring Boot's `ErrorController`
   so that `BasicErrorController` backs off. It answers the status Tomcat dispatched, with a code
-  from `WebCodes`, and logs a 5xx at ERROR and a 4xx at INFO (ADR-142, decision 5).
+  from `WebCodes`, and logs a 5xx at ERROR and a 4xx at INFO (ADR-142, decision 5). `TraceIdFilter`
+  catches an exception that escapes every handler, on a request or async dispatch, and asks Tomcat
+  for the error dispatch with `sendError(500)`, the exception in `jakarta.servlet.error.exception`,
+  so Tomcat logs no line of its own without the trace ID. Tomcat's own refusals keep the quiet
+  answer Tomcat gives them: an `InvalidParameterException` asks for its error code and a
+  `BadRequestException` for 400, with no exception attached, so `ErrorEndpoint` logs the 4xx at
+  INFO with its status alone and no parameter's value. Once the response is committed, the
+  exception escapes as before, and Tomcat cuts the connection; once Tomcat allows no more I/O on
+  the connection, it runs no error dispatch, and the exception goes unlogged.
 - **A 400 lists at most 100 of its failing items,** in the body and in its log line, which also
   carries the total. A 422 lists every refusal, which the domain bounds (ADR-142, decision 3).
-- **No read of a body goes around the cap.** No handler takes a streaming parameter, which
-  `ApplicationRules` rule 16 checks, and `application.properties` turns Spring's form-content
-  filter off, which would read a PUT, PATCH or DELETE form body whole before the request is routed
-  (ADR-142, decision 6).
+- **Every read of a body has one of two caps of 1 MiB.** `BodySizeLimit` caps what a converter
+  reads. No handler takes a streaming parameter, which `ApplicationRules` rule 16 checks, and
+  `application.properties` turns Spring's form-content filter off, which would read a PUT, PATCH or
+  DELETE form body whole before the request is routed (ADR-142, decision 6). A form POST's
+  parameters, which Spring reads for a handler before any converter, and which a filter could read
+  too, have Tomcat's own cap, `server.tomcat.max-http-form-post-size`. Tomcat refuses one over it,
+  or a parameter it can't decode, with an `InvalidParameterException`. Thrown while Spring MVC
+  resolves a handler's arguments, `ContractErrorHandler` answers it, 413 or 400; thrown in a filter,
+  `TraceIdFilter` asks Tomcat for its status, and `ErrorEndpoint` answers it.
 - **A call that lost a race runs again.** `CallWrapper`'s handler adapter invokes each handler
   through `CallRetry`, with the arguments Spring already read and validated. A save's
   `StaleVersion` on a call that sent no version, and a failed lock wait on any call, matched on the

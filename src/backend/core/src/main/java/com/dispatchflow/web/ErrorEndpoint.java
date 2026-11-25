@@ -2,7 +2,6 @@ package com.dispatchflow.web;
 
 import com.dispatchflow.shared.adapter.in.web.Problems;
 import jakarta.servlet.RequestDispatcher;
-import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -47,7 +46,8 @@ class ErrorEndpoint implements ErrorController {
      *
      * @param status the status Tomcat records, absent when the error path was requested directly
      * @param exception the exception that escaped, if any
-     * @param path the failed request's path, which becomes the problem's {@code instance}
+     * @param path the failed request's path, which becomes the problem's {@code instance}, a
+     *     {@code [} or {@code ]} in it quoted, as {@link Problems#at} does for every handler
      * @return the problem, as {@code application/problem+json}
      */
     @RequestMapping("${spring.web.error.path:${error.path:/error}}")
@@ -62,8 +62,9 @@ class ErrorEndpoint implements ErrorController {
         ProblemDetail problem = answered.value() == HttpStatus.BAD_REQUEST.value()
                 ? Problems.invalidRequest(List.of(ContractBreaks.wholeRequest()))
                 : Problems.of(answered, listed.orElse(WebCodes.UNEXPECTED_ERROR));
+        // Left unset, Spring would set the error path itself, which no client asked for.
         if (path != null) {
-            problem.setInstance(URI.create(path));
+            Problems.at(problem, path);
         }
         ResponseEntity.BodyBuilder answer =
                 ResponseEntity.status(answered).contentType(MediaType.APPLICATION_PROBLEM_JSON);

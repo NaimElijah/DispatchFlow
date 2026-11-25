@@ -18,7 +18,9 @@ import org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHan
  * only once. No handler takes a streaming parameter ({@code ApplicationRules} rule 16), so every
  * argument a retry reuses is one a converter or a resolver already read in full, under the body's
  * size limit. The rule reads raw parameter types, so a stream inside a type argument, as in {@code
- * HttpEntity<InputStream>}, is left to review.
+ * HttpEntity<InputStream>}, is left to review. A retry passes the very same argument objects, not
+ * copies, so a handler must never mutate its arguments, or the next try would see the change;
+ * review checks this.
  *
  * <p>Spring Boot takes this bean with {@code getIfUnique}, so a second {@code WebMvcRegistrations}
  * would silently switch both off: #170 extends this class, to bind the call's holders, instead of

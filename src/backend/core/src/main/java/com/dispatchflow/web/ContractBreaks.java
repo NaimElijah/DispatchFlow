@@ -103,7 +103,17 @@ final class ContractBreaks {
      *     error
      */
     static List<ProblemItem> invalidFields(Errors errors) {
-        return errors.getAllErrors().stream().map(ContractBreaks::itemOf).toList();
+        return invalidFields(WHOLE_BODY, errors);
+    }
+
+    /**
+     * Every failing field of one validated element, each pointer under the element's own: Spring's
+     * method validation reports each element of a list or map body apart, with its index or key.
+     */
+    private static List<ProblemItem> invalidFields(String element, Errors errors) {
+        return errors.getAllErrors().stream()
+                .map(error -> itemOf(element, error))
+                .toList();
     }
 
     /**
@@ -127,7 +137,7 @@ final class ContractBreaks {
 
             @Override
             public void modelAttribute(@Nullable ModelAttribute modelAttribute, ParameterErrors errors) {
-                items.addAll(invalidFields(errors));
+                items.addAll(invalidFields(containerPointer(errors), errors));
             }
 
             @Override
@@ -137,7 +147,7 @@ final class ContractBreaks {
 
             @Override
             public void requestBody(RequestBody requestBody, ParameterErrors errors) {
-                items.addAll(invalidFields(errors));
+                items.addAll(invalidFields(containerPointer(errors), errors));
             }
 
             @Override
@@ -162,7 +172,7 @@ final class ContractBreaks {
 
             @Override
             public void requestPart(RequestPart requestPart, ParameterErrors errors) {
-                items.addAll(invalidFields(errors));
+                items.addAll(invalidFields(containerPointer(errors), errors));
             }
 
             @Override
@@ -250,8 +260,8 @@ final class ContractBreaks {
                 .collect(Collectors.joining());
     }
 
-    private static ProblemItem itemOf(ObjectError error) {
-        String pointer = error instanceof FieldError field ? fieldPointer(field.getField()) : WHOLE_BODY;
+    private static ProblemItem itemOf(String element, ObjectError error) {
+        String pointer = element + (error instanceof FieldError field ? fieldPointer(field.getField()) : WHOLE_BODY);
         if (error instanceof FieldError field && field.isBindingFailure()) {
             return ProblemItem.pointer(WebCodes.WRONG_TYPE, pointer);
         }

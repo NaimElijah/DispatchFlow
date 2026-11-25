@@ -6,6 +6,7 @@ import com.dispatchflow.shared.adapter.in.web.ProblemItem.Place;
 import com.dispatchflow.shared.adapter.in.web.Problems;
 import java.util.List;
 import java.util.Optional;
+import org.apache.tomcat.util.http.InvalidParameterException;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.multipart.MultipartException;
@@ -37,9 +39,10 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  *
  * <ul>
  *   <li>400 {@code INVALID_REQUEST}, with every failing field or parameter of a failed validation
- *       at once, or the first problem of an unreadable body alone; never with no item, and with at
- *       most its first {@link Problems#MAX_ITEMS};
- *   <li>413 {@code BODY_TOO_LARGE} for a body or an upload over its limit;
+ *       at once, or the first problem of an unreadable body alone, or the whole request when Tomcat
+ *       refuses its parameters; never with no item, and with at most its first {@link
+ *       Problems#MAX_ITEMS};
+ *   <li>413 {@code BODY_TOO_LARGE} for a body, an upload or a form body over its limit;
  *   <li>404 {@code NO_SUCH_OPERATION}, 405, 406 and 415, each with a code of its own;
  *   <li>503 {@code TRY_AGAIN_LATER} for a timed-out asynchronous request, and 500 {@code
  *       UNEXPECTED_ERROR} for Spring's own server errors;
@@ -66,6 +69,7 @@ class ContractErrorHandler extends ResponseEntityExceptionHandler {
     // The exception's type, never its message: it tells apart the 400s that name no item.
     private static final String EXCEPTION = "exception";
     private static final String WHOLE_BODY = "";
+    private static final String PARAMETERS_REFUSED = "Tomcat refused the request's parameters";
 
     /**
      * Answers a body over {@link BodySizeLimit#MAX_BODY_BYTES} that {@link BodySizeLimit} refused
@@ -75,6 +79,30 @@ class ContractErrorHandler extends ResponseEntityExceptionHandler {
     @Nullable
     ResponseEntity<Object> bodyTooLarge(BodySizeLimit.BodyTooLarge tooLarge, WebRequest request) {
         return handleExceptionInternal(tooLarge, null, new HttpHeaders(), HttpStatus.CONTENT_TOO_LARGE, request);
+    }
+
+    /**
+     * Answers Tomcat's refusal of the request's parameters when Spring MVC reads them, as it does a
+     * form body's for a handler that takes a body, before any converter, so {@link BodySizeLimit}
+     * never sees one. Tomcat throws it from its {@code getParameter} methods for a query or form
+     * parameter that fails to decode, for too many parameters, and for a form body over {@code
+     * server.tomcat.max-http-form-post-size}. Tomcat's own 413 answers 413, and every other code
+     * 400 for the whole request. One thrown outside Spring MVC, as by a servlet filter, reaches
+     * {@code TraceIdFilter} instead.
+     *
+     * <p>Its message quotes the parameter's name and value, so Spring is given a stand-in of the
+     * same type with a message of its own: Spring's line for a response already committed quotes
+     * the exception it is given, and the refusal's own line names only the type.
+     */
+    @ExceptionHandler(InvalidParameterException.class)
+    @Nullable
+    ResponseEntity<Object> unreadableParameters(InvalidParameterException unreadable, WebRequest request) {
+        HttpStatus status = unreadable.getErrorCode() == HttpStatus.CONTENT_TOO_LARGE.value()
+                ? HttpStatus.CONTENT_TOO_LARGE
+                : HttpStatus.BAD_REQUEST;
+        InvalidParameterException valueFree =
+                new InvalidParameterException(PARAMETERS_REFUSED, unreadable.getErrorCode());
+        return handleExceptionInternal(valueFree, null, new HttpHeaders(), status, request);
     }
 
     /** Answers a multipart body that can't be parsed; one over its limits answers 413 instead. */
@@ -101,7 +129,7 @@ class ContractErrorHandler extends ResponseEntityExceptionHandler {
                     .log("Spring MVC chose a status the contract doesn't list");
             return super.handleExceptionInternal(
                     thrown,
-                    Problems.of(HttpStatus.INTERNAL_SERVER_ERROR, WebCodes.UNEXPECTED_ERROR),
+                    located(Problems.of(HttpStatus.INTERNAL_SERVER_ERROR, WebCodes.UNEXPECTED_ERROR), request),
                     headers,
                     HttpStatus.INTERNAL_SERVER_ERROR,
                     request);
@@ -111,7 +139,14 @@ class ContractErrorHandler extends ResponseEntityExceptionHandler {
         List<ProblemItem> items = invalid ? itemsOf(thrown) : List.of();
         ProblemDetail problem = invalid ? Problems.invalidRequest(items) : Problems.of(chosen, code);
         log(thrown, chosen, code, items);
-        return super.handleExceptionInternal(thrown, problem, withRetryAfter(headers, chosen), chosen, request);
+        return super.handleExceptionInternal(
+                thrown, located(problem, request), withRetryAfter(headers, chosen), chosen, request);
+    }
+
+    private static ProblemDetail located(ProblemDetail problem, WebRequest request) {
+        return request instanceof ServletWebRequest servlet
+                ? Problems.at(problem, servlet.getRequest().getRequestURI())
+                : problem;
     }
 
     /** The failing items of a 400, never none: the whole request when the exception names none. */
