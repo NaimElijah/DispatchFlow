@@ -269,7 +269,7 @@ atomic contract changes, and four copies of CI.
 | Pure domain libraries; IDs | **libphonenumber** (FR-377, FR-378) and **JTS** (service area, FR-320) in the domain; **uuid-creator** (UUIDv7) in the `IdGenerator` adapter | Decided · Alpha | The two libraries have no I/O, so the domain may use them. IDs exist before persistence, but the domain doesn't make them: factories take them as parameters, so tests choose them | **The JDK's `UUID`:** Java 25 makes only random and name-based UUIDs, and v7 keys index better. JDK 26 adds `UUID.ofEpochMillis` for v7, but 25 is the LTS release. **PostGIS for the service area:** a spatial extension for one point-in-polygon check |
 | HTTP clients | Spring `RestClient` for OSRM, the geocoder, SMS and push; the optimizer client generated from its contract (openapi-generator, `java` with the RestClient library) | Decided · Alpha | Synchronous code on virtual threads; integrates with observability and `@Retryable` | **WebClient:** reactive. **OkHttp or Apache HttpClient:** a second HTTP stack to configure |
 | Email | **AWS SDK for Java v2** (SES v2) in `il-central-1`, with a configuration set with link and open tracking off (NFR-223) | Decided ([ADR-078](../ADRs/ADR-078-hosting-on-one-aws-vm-in-tel-aviv-built-with-terraform.md)) · Pilot (Mailpit before) | Email stays in Israel (NFR-209), and the SDK authenticates with the VM's IAM role | **SMTP to SES:** needs SMTP credentials to store and rotate. **SendGrid or Mailgun:** data leaves Israel |
-| Observability | **OpenTelemetry Java agent** for traces; **Micrometer** for domain metrics (NFR-161), exported over OTLP; Spring Boot structured JSON logs carrying the trace ID (NFR-20, NFR-159), where a log converter scrubs the fields the data inventory names and request bodies are never logged (NFR-19); **Actuator** health and readiness (NFR-160) | Decided · Alpha (logs, health), Pilot (traces, metrics) | The agent instruments JDBC, HTTP clients and Spring with no code | **Micrometer Tracing alone:** works, but needs per-library setup. **Vendor agents:** tie the data to one vendor |
+| Observability | **OpenTelemetry Java agent** for traces; **Micrometer** for domain metrics (NFR-161), exported over OTLP; Spring Boot structured JSON logs (ECS) carrying the trace ID (NFR-20, NFR-159), where a log converter scrubs the fields the data inventory names and request bodies are never logged (NFR-19); **Actuator** health and readiness (NFR-160) | Decided · Alpha (logs, health), Pilot (traces, metrics) | The agent instruments JDBC, HTTP clients and Spring with no code | **Micrometer Tracing alone:** works, but needs per-library setup. **Vendor agents:** tie the data to one vendor |
 | Runtime image | **Eclipse Temurin 25 JRE**, non-root, with `-XX:MaxRAMPercentage` set for the container's memory limit | Decided ([ADR-047](../ADRs/ADR-047-images-pinned-by-digest-and-core-on-temurin-25-jre.md)) · Pilot | `linux/amd64` (NFR-208); a shell is available for debugging during the pilot | **GraalVM native image:** slow builds and reflection configuration for Spring, Hibernate and POI, to save startup time a long-running VM doesn't need. **Distroless:** smaller, but no shell; reconsider after the pilot |
 
 ### 6.1 Domain conventions
@@ -771,6 +771,7 @@ come from the projects' release announcements. Maven Central couldn't be queried
 the Java libraries to the versions Spring Boot manages, and check the rest when the build files are
 written. The GlitchTip, Trivy and `alns` rows were read on 14 November 2026: `alns` from PyPI, the
 other two from their projects' release pages.
+The uuid-creator row was read on 25 November 2026, from Maven Central.
 
 | Component | Baseline | Note |
 |---|---|---|
@@ -803,6 +804,7 @@ other two from their projects' release pages.
 | GlitchTip | 7.0.0, released 9 November 2026 | The latest release on the project's GitLab page. Read its release notes before pinning: 7.0 is days old, and it runs HTTP, the worker and the scheduler as one process |
 | Trivy | 0.76.2, released 5 November 2026 | The latest release on GitHub. The compromise hit v0.69.4 to v0.69.6; verify the release the way the advisory describes before pinning it (not verified here) |
 | `alns` | 7.0.0, released 21 October 2024; MIT | The latest on PyPI. It declares Python 3.9 and later, so check it on 3.14 when adopted |
+| uuid-creator | 6.1.1; MIT | The latest release, with no runtime dependency; the core's `IdGenerator` adapter uses it |
 
 ---
 

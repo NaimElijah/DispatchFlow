@@ -99,27 +99,34 @@ src/backend/core/
   .env.example                     the database connection keys, with no values
   src/main/java/com/dispatchflow/
     DispatchFlowApplication.java   the Spring Boot entry point
+    SchedulingConfiguration.java   @EnableAsync always, @EnableScheduling behind
+                                   dispatchflow.scheduling.enabled, and the executor's cap
+    MdcTaskDecorator.java          copies the caller's MDC to an asynchronous listener's thread
     shared/                        the shared kernel: the typed IDs, the shared values, their
                                    errors, and the building blocks every module's domain uses
       application/                 the ports every module uses: Clock, IdGenerator,
-                                   ProcessedEvents, NotFound, StaleVersion (declared)
+                                   ProcessedEvents (declared), NotFound, StaleVersion
       adapter/out/persistence/     the persistence adapter every module shares: VersionedSave, the
                                    converters and instantiators that store the kernel's values,
                                    and id/ with the 14 typed-ID converters; an adapter, not the
                                    kernel
-      adapter/out/clock/           declared, empty: the adapter of Clock
-      adapter/out/uuid/            declared, empty: the adapter of IdGenerator
+      adapter/out/clock/           SystemClock, the adapter of Clock
+      adapter/out/uuid/            UuidV7Generator, the adapter of IdGenerator (uuid-creator)
       adapter/out/optimizer/       declared, empty: the client generated from optimization-api,
                                    which Planning's and Reporting's optimizer adapters wrap
-      adapter/in/web/              declared, empty: the code generated from client-api, at every
-                                   build and never committed, and @RequiresCapability; every
-                                   module's controllers use it (ADR-140)
+      adapter/in/web/              Problems, the factory of every error body, ProblemItem,
+                                   TraceIds, which makes a fresh trace ID, and HandlerOrder; later
+                                   the code generated from client-api, at every build and never
+                                   committed, and @RequiresCapability; every module's controllers
+                                   and handlers use it (ADR-140)
       adapter/out/sse/             declared, empty: the registry of open event streams, which
                                    Planning's and Live Operations' sse adapters send through
                                    (ADR-140)
     access/                        a bounded context's module: domain/ (account, session,
                                    companyprofile), events/, application/ (declared) and
-                                   adapter/ (below)
+                                   adapter/ (below); at its root only package-info.java and
+                                   AccessConfiguration, the @Import list of its built use cases;
+                                   every module's root holds the same, as <Module>Configuration
     fleet/                         domain/ (register, roster, driver), events/, application/ and
                                    adapter/
     orders/                        domain/ (flat), events/, application/ and adapter/
@@ -135,7 +142,23 @@ src/backend/core/
                                    routerun), events/, application/ and adapter/
     web/                           application-wide web concerns, above the modules: nothing depends
                                    on it, and it uses only their api and events (ADR-140)
+      TraceIdFilter.java           each request's trace ID, from traceparent (Traceparent.java)
+                                   or made fresh, in the MDC
+      CallWrapper.java             the handler adapter that runs every handler through CallRetry
+      CallRetry.java               re-runs a call that lost a race, and audits the race it answers;
+                                   after a commit it audits nothing and answers 500
+      CommitWatch.java             marks a try committed, so it isn't re-run
+      Race.java                    what a lost race answers: 412, 409 or a retry, then 503
+      ContractErrorHandler.java    400, 404, 405, 406, 413 and 415, and Spring MVC's other errors;
+                                   ContractBreaks.java builds the failing items
+      KernelErrorHandler.java      the kernel's errors: 401, 403, 404, 409, 412, 422 and 503, and
+                                   500 for a damaged stored value and a race after a commit
       UnexpectedErrorHandler.java  answers an unhandled exception with a 500 problem body
+      ErrorEndpoint.java           the last resort: answers as a problem an error no handler
+                                   answered, or that a servlet filter raised
+      WebCodes.java                the codes web answers of its own
+      ServedJson.java              the served JSON converter refuses unknown and duplicate keys
+      BodySizeLimit.java           caps a request body at 1 MiB
       security/                    declared, empty: the stand-in session, then the filter chain, and
                                    the capability interceptor
       stream/                      declared, empty: the event stream's endpoint, its heartbeat and
@@ -181,8 +204,16 @@ src/backend/core/
     reporting/                     the same as access/
     messaging/                     the same as access/
     liveops/                       the same as access/
-    web/UnexpectedErrorHandlerTest.java  the 500 problem body keeps the cause out
-    IntegrationTest.java                 the one annotation every *IT uses: the whole app and PostgreSQL
+    shared/adapter/in/web/         the problem factory's tests, ErrorParamsTest among them:
+                                   every production error's params have a mapping
+    shared/adapter/out/            the clock's and the ID generator's tests, in clock/ and uuid/
+    web/                           a test per class: the handlers, the error endpoint, the trace
+                                   filter and the call wrapper through MockMvc; WebIT checks them
+                                   wired in the whole application
+    SchedulingConfigurationTest.java     the executor, its MDC copy and the scheduling property
+    TransactionalBeanTest.java           a final transactional bean fails the context
+    IntegrationTest.java                 the one annotation every *IT uses: the whole app and
+                                         PostgreSQL, with the scheduled jobs off
     DispatchFlowApplicationIT.java       the health probe answers UP against PostgreSQL
     TestDispatchFlowApplication.java     what `just core-run` starts
     TestcontainersConfiguration.java     the PostgreSQL container
@@ -221,9 +252,10 @@ Each module also has an `application` package, declared ahead of its milestone a
 It holds whichever of `api`, `spi`, `port/out` and `service` the module has something for: `access`,
 `audit` and `liveops` have no `spi`, and `messaging` and `reporting` have neither `api` nor `spi`.
 Every body that would do work throws `UnsupportedOperationException("To Be Implemented.")`. Nothing is
-wired: the application layer registers no bean, and no use case calls a port. A use case will be
-wired in its module's `<Module>Configuration`, at the module's root
-([ADR-140][ADR-140]); none exists yet. The layer's one Spring
+wired: the application layer registers no bean, and no use case calls a port. A use case is wired
+in its module's package-private `<Module>Configuration`, at the module's root, by joining its
+`@Import` list in the pull request that builds its body ([ADR-140][ADR-140]); every list is still
+empty, and `ApplicationRules` rule 15 keeps the root to that class and its `package-info`. The layer's one Spring
 annotation is `@Transactional`: on every service's class, and on the read-only reads of a
 `<UseCase>Change`. A use case with outside calls, or one transaction per item, holds its
 transactional `Change`, and it carries no transaction itself; nor does a service that calls such a
@@ -235,9 +267,10 @@ and a `CallContext`
 Each module's `adapter/` holds its persistence adapter, which is built, and packages declared
 ahead, empty ([ADR-130][ADR-130]). Every declared package holds a `package-info.java`, and nothing
 else until its first class (a stand-in, which arrives with its issue): its Javadoc says what goes
-in the package and which ports it implements, and it carries `@NullMarked`. There are 56 of them,
-51 in the eight modules and 5 beside the kernel, and no adapter class exists beyond the
-persistence adapters.
+in the package and which ports it implements, and it carries `@NullMarked`. There are 53 of them,
+51 in the eight modules and 2 beside the kernel. The adapter classes beyond the persistence adapters
+are the kernel's: `in/web`'s problem factory, `out/clock`'s `SystemClock` and `out/uuid`'s
+`UuidV7Generator`.
 The names follow two rules:
 
 - An inbound adapter is `adapter/in/<kind>`, of six kinds: `web` (a screen calls the client API),
@@ -485,7 +518,15 @@ Rule 13 is [ADR-140][ADR-140]'s. `web` is no module: rule 2 refuses every module
 it sits above them, and rule 13 limits it to the modules' `application.api` and `events`, besides the
 kernel and the frameworks. Rule 14, also ADR-140's, keeps the two holders of a web call's caller, `CurrentActor` (in
 Access's `application.api`) and `CurrentCall` (in Audit's), to `web` and the modules' `adapter.in.web`:
-a use case takes its `Actor` and `CallContext` as parameters. Neither holder exists yet.
+a use case takes its `Actor` and `CallContext` as parameters. Neither holder exists yet. Rule 15,
+also ADR-140's, keeps each module's root to its `package-info` and a package-private
+`<Module>Configuration` that declares no `@Bean` and no scan, and imports only its own module's
+`application.service` classes.
+
+Rule 16 is [ADR-142][ADR-142]'s: no request handler, a method of a `@Controller` or one annotated
+`@RequestMapping` or a variant, declares a streaming parameter (`InputStream`, `Reader`,
+`OutputStream`, `Writer`, or a servlet request or response), because the call wrapper re-invokes a
+handler with the arguments it already read.
 
 [Tech stack §2.2](tech_stack.md#22-enforcement) also plans Spring Modulith's `verify()` for the
 Alpha
@@ -496,5 +537,6 @@ Accepted).
 [ADR-131]: ../ADRs/ADR-131-the-declared-structures-review-tightens-its-rules-and-fills-its-gaps.md
 [ADR-133]: ../ADRs/ADR-133-a-startup-step-is-a-job-and-access-declares-one.md
 [ADR-140]: ../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md
+[ADR-142]: ../ADRs/ADR-142-the-call-wrappers-retry-its-400s-and-its-error-endpoint-as-162-built-them.md
 [NFR-10]: ../requirements/requirements.md#nfr-10
 [NFR-162]: ../requirements/requirements.md#nfr-162
