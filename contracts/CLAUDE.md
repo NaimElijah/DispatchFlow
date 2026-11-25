@@ -44,13 +44,14 @@ Both are OpenAPI 3.1. `client-api` is served under `/api/v1`.
   - an app sends a new request property only once the core release that declares it won't be rolled
     back past. On the phone's writes a request property stays declared for the life of v1; elsewhere
     a retired one stays accepted and ignored, never removed in v1 ([ADR-082]);
-  - RFC 9457 errors: `Problem` has `type` `about:blank`, `code`, `params` and `traceId` ([ADR-043];
-    today's `Problem` lacks them). `code` is a string, never an enum, with the codes listed in its
-    description, so a new code isn't breaking. A new one is a public name: it needs its entry there,
-    and Hebrew and English text with a next step (NFR-144);
+  - RFC 9457 errors: `Problem` has `type` `about:blank`, `code`, `params` and `traceId`, and
+    `errors` on a 400 and on a 422 that lists several ([ADR-043]). `code` is a string, never an
+    enum, with the codes listed in its description, so a new code isn't breaking. A new one is a
+    public name: it needs its entry there, and Hebrew and English text with a next step (NFR-144);
   - refusals that [NFR-92] and [NFR-145] require to look the same share one `code`, one status and
     empty `params`, and `params` never carries personal data, secrets or tokens. So the refresh
-    token is a plain string, with no pattern, length or format;
+    token is a plain string, with no pattern, length or format. A path parameter carries an ID,
+    never personal data, because `Problem.instance` echoes the path;
   - statuses:
     - 400 only for a request that breaks the contract. A failed validation lists every failing field
       or row at once; an unreadable body, a duplicate key or an unknown property is reported alone,
