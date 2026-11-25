@@ -33,11 +33,13 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorB
     if (!this.state.failed) {
       return this.props.children
     }
-    const t = this.props.i18n.getFixedT(null, 'shell')
+    const { i18n } = this.props
+    const t = i18n.getFixedT(null, 'shell')
+    // Its own language and direction: when the first render fails, <html> never got them.
     return (
-      <main>
+      <main lang={i18n.language} dir={i18n.dir()}>
         <h1>{t('error.title')}</h1>
-        <p>{t('error.body')}</p>
+        <p>{t('error.reload')}</p>
       </main>
     )
   }

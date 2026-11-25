@@ -123,3 +123,20 @@ test('GivenAStyleElementInTheDocument_WhenTheStyleCheckRuns_ThenItThrowsNamingIt
 test.fails('GivenAComponentThatRendersAStyleElement_WhenItsTestEnds_ThenSetupFailsThatTest', () => {
   render(createElement('style', null, 'p { color: red }'))
 })
+
+test.fails(
+  'GivenAStyleElementThatComesAndGoesWithinATest_WhenItsTestEnds_ThenSetupFailsThatTest',
+  () => {
+    const { unmount } = render(createElement('style', null, 'p { color: red }'))
+    unmount()
+  },
+)
+
+test('GivenAStyleElementAddedAndRemovedWithinATest_WhenTheStyleCheckRuns_ThenItThrowsNamingIt', () => {
+  const style = document.createElement('style')
+  style.dataset.mantineStyles = 'inline'
+  document.head.append(style)
+  style.remove()
+
+  expect(checkNoStyleElements).toThrow("1 <style> element(s) (inline), which ADR-069's")
+})

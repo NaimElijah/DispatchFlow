@@ -1,13 +1,30 @@
 import { Burger, NavLink, type NavLinkProps } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { createLink, Link, Outlet } from '@tanstack/react-router'
+import { createLink, Link, Outlet, useRouterState } from '@tanstack/react-router'
 import { useId, type ComponentPropsWithRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import classes from './AppLayout.module.css'
 
+/**
+ * Whether the address is one no route knows, which only the catch-all route matched. It belongs to
+ * no area, so no navigation item is current, though the router marks one whose path the address
+ * begins with: `/plans/2026-02-30` would mark Planning. Inside an area, a page that finds its
+ * subject missing keeps its area current, as any of the area's pages does.
+ */
+function useShowsUnknownAddress(): boolean {
+  return useRouterState({
+    select: (state) => state.matches.some((match) => match.routeId === '/_shell/$'),
+  })
+}
+
 /** Mantine's navigation item on a plain anchor, highlighted when the router marks it current. */
-function NavigationAnchor(props: NavLinkProps & ComponentPropsWithRef<'a'>) {
-  return <NavLink {...props} active={props['aria-current'] === 'page'} />
+function NavigationAnchor({
+  'aria-current': ariaCurrent,
+  ...props
+}: NavLinkProps & ComponentPropsWithRef<'a'>) {
+  const unknownAddress = useShowsUnknownAddress()
+  const current = ariaCurrent === 'page' && !unknownAddress
+  return <NavLink {...props} active={current} aria-current={current ? 'page' : undefined} />
 }
 
 /** A navigation item typed as the router's `Link`, which sets `aria-current` on the current one. */

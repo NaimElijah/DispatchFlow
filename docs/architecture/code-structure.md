@@ -439,14 +439,20 @@ src/frontend/web/
                          route and page, the error page
     features/<context>/  each area's pages and its routes.ts; access/ holds the Settings page,
                          planning/ the /plans and /plans/$date routes and their dates
-    components/          the UI no area owns: NotBuiltPage, TextLink, usePageTitle; map/ (declared, empty)
+    components/          the UI no area owns: NotBuiltPage, TextLink, usePageTitle; map/, the map's
+                         (#174, empty until then)
     lib/                 the code no layer owns: the language setting
-    test/                Vitest's setup, renderApp, the one MSW server and the <style> check
+    test/                Vitest's setup, renderApp, the one MSW server, the <style> check, and the
+                         tests of the lint rules
 ```
 
 Imports point one way, from `src/` itself to `features/`, `routes/`, `components/` and `lib/`:
-a feature parents its routes on the shell's `shellRoute`, and the shell imports no feature.
-`eslint.config.js` fails an import that points back. `src/features/` holds one folder for each
+a feature parents its routes on the shell's `shellRoute`, the shell imports no feature, no feature
+imports another, nothing below `src/` imports the modules that assemble the app, and only tests
+import `src/test/`. `eslint.config.js` refuses each static import that breaks these, and
+`src/test/importDirection.test.ts` pins them
+([ADR-144](../ADRs/ADR-144-the-web-apps-features-stay-apart-and-its-lower-folders-never-import-upward.md)).
+`src/features/` holds one folder for each
 bounded context ([TS §10](tech_stack.md#10-web-app)): `access`, `fleet`, `orders` and `planning`
 hold their routes and pages, and `audit`, `liveops`, `messaging` and `reporting` are placeholders
 ([ADR-130][ADR-130]). `src/test/setup.ts` starts the

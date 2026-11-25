@@ -41,6 +41,9 @@ with its layout, rules and commands.
   ([ADR-039]): `pnpm-workspace.yaml` lists `web` and `packages/*`, with one `pnpm-lock.yaml`, and
   each package is `@dispatchflow/*`. A `packages/` folder is a placeholder until the ticket that
   fills it adds its `package.json` ([ADR-130]).
+- A hand-written package ships its source, as `i18n` does: `exports` points at `src/index.ts`,
+  its imports carry `.ts`, and its `build` is `tsc -b`, a type check. A generated one runs its
+  generation before lint and test ([ADR-143], [ADR-144]).
 - pnpm fails an import that a package doesn't declare: declare each one in that package's own
   `package.json`.
 - Depend on a `@dispatchflow/*` package only as `workspace:*`, added with `pnpm add --workspace`:
@@ -89,6 +92,7 @@ installs ([ADR-039]).
 [ADR-130]: ../../docs/ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md
 [ADR-141]: ../../docs/ADRs/ADR-141-prettiers-settings-live-in-one-file-in-src-frontend.md
 [ADR-143]: ../../docs/ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md
+[ADR-144]: ../../docs/ADRs/ADR-144-the-web-apps-features-stay-apart-and-its-lower-folders-never-import-upward.md
 [roadmap §4.1]: ../../docs/roadmap.md#41-whats-in-what-waits
 [ADR-043]: ../../docs/ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md
 [TS §9]: ../../docs/architecture/tech_stack.md#9-routing-and-geodata

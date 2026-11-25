@@ -1,6 +1,7 @@
 import { fireEvent, screen } from '@testing-library/react'
 import { beforeEach, expect, onTestFinished, test, vi } from 'vitest'
 import { LANGUAGE_STORAGE_KEY } from '../lib/languageSetting.ts'
+import { expectNoErrorDetail } from '../test/errorDetail.ts'
 import { renderApp } from '../test/renderApp.tsx'
 
 const MARKER = 'internal-detail-7f3a'
@@ -41,7 +42,7 @@ test('GivenAComponentThatThrows_WhenRendered_ThenATranslatedMessageShowsAndNoSta
   ).toBeDefined()
   expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined()
   expect(screen.getByRole('navigation', { name: 'Main' })).toBeDefined()
-  expect(document.body.textContent).not.toContain(MARKER)
+  expectNoErrorDetail(MARKER)
   expect(document.body.textContent).not.toMatch(/\.tsx:\d+/)
 })
 
@@ -52,7 +53,7 @@ test('GivenHebrewAndAComponentThatThrows_WhenRendered_ThenTheMessageIsInHebrew',
   renderApp({ path: '/fleet' })
 
   expect(await screen.findByRole('heading', { level: 1, name: 'משהו השתבש' })).toBeDefined()
-  expect(document.body.textContent).not.toContain(MARKER)
+  expectNoErrorDetail(MARKER)
 })
 
 test('GivenAnErrorThatHasCleared_WhenTryAgainIsPressed_ThenThePageShows', async () => {

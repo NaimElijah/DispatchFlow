@@ -1,7 +1,7 @@
 import { cleanup } from '@testing-library/react'
-import { afterAll, afterEach, beforeAll } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest'
 import { endTest, listen, server } from './server.ts'
-import { checkNoStyleElements, removeStyleElements } from './styleCheck.ts'
+import { checkNoStyleElements, removeStyleElements, watchForStyleElements } from './styleCheck.ts'
 
 // Taken before any test can install fake timers, which would leave the yield below pending forever.
 const realSetTimeout = globalThis.setTimeout
@@ -27,6 +27,11 @@ beforeAll(() => {
   listen()
 })
 
+// From the test's first render, so a <style> element the test adds and removes is caught too.
+beforeEach(() => {
+  watchForStyleElements()
+})
+
 /** Resolves after one turn of the event loop, on the real timer whatever a test faked. */
 function oneEventLoopTurn(): Promise<void> {
   return new Promise((resolve) => realSetTimeout(resolve, 0))
@@ -46,7 +51,7 @@ function recordingFailure(errors: unknown[], step: () => void): void {
 // handler or a <style> element, nor the reverse.
 afterEach(async () => {
   const errors: unknown[] = []
-  // Before unmounting, while the screen the test left is still in the document.
+  // Before unmounting: what the test left in the document, and what it added and took away.
   recordingFailure(errors, checkNoStyleElements)
   recordingFailure(errors, cleanup)
   removeStyleElements()

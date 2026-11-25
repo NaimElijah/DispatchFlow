@@ -1,30 +1,73 @@
+import { readdirSync } from 'node:fs'
 import { reactVite } from '@dispatchflow/eslint-config'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
+/** The modules directly under `src/` that assemble the app: nothing below them imports them. */
+const APP_MODULES = [
+  'main',
+  'App',
+  'AppErrorBoundary',
+  'DocumentLanguage',
+  'i18n',
+  'router',
+  'routeTree',
+]
+
+/** The feature folders, one per bounded context (ADR-130), read from `src/features/`. */
+const FEATURES = readdirSync(new URL('./src/features/', import.meta.url), { withFileTypes: true })
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => entry.name)
+
+/** Tests may import anything: they assemble the app through `src/test/`. */
+const TEST_FILES = ['**/*.test.{ts,tsx}']
+
+const toAppModules = {
+  regex: `^(\\.\\./)+(${APP_MODULES.join('|')})(\\.tsx?)?$`,
+  message:
+    'Only src/ itself, the router and the tests assemble the app: import what you need from below, not from src/ (ADR-143, ADR-144).',
+}
+
+const toTestCode = {
+  regex: '(^|/)test(/|$)',
+  message: 'Test code stays out of the app: only a test file imports src/test/ (ADR-144).',
+}
+
 /**
- * Bans imports from the named folders of `src/`, so the folders depend one way (ADR-143):
- * `src/` itself → `features/` → `routes/` → `components/` → `lib/`.
+ * The pattern that refuses an import into any of the named folders, a bare `../features` included.
  *
  * @param {string[]} folders the folders the files may not import from
  */
-function noImportsFrom(folders) {
+function toFolders(folders) {
   return {
-    'no-restricted-imports': [
-      'error',
-      {
-        patterns: folders.map((folder) => ({
-          regex: `(^|/)${folder}/`,
-          message: `Imports point from src/ to features/, routes/, components/ and lib/, in that order, never back: this file may not import from ${folder}/ (ADR-143).`,
-        })),
-      },
-    ],
+    regex: `(^|/)(${folders.join('|')})(/|$)`,
+    message: `Imports point from src/ to features/, routes/, components/ and lib/, never back, and no feature imports another: this file may not import from ${folders.join(', ')} (ADR-143, ADR-144).`,
   }
+}
+
+/**
+ * Refuses the given import patterns in the given non-test files. ESLint checks static imports and
+ * re-exports, type-only ones included, and not `import()` expressions.
+ *
+ * @param {string[]} files the files the patterns apply to
+ * @param {object[]} patterns `no-restricted-imports` patterns; a later block replaces, not merges
+ */
+function restrict(files, patterns) {
+  return { files, ignores: TEST_FILES, rules: { 'no-restricted-imports': ['error', { patterns }] } }
 }
 
 export default defineConfig([
   globalIgnores(['dist']),
   reactVite,
-  { files: ['src/routes/**'], rules: noImportsFrom(['features']) },
-  { files: ['src/components/**'], rules: noImportsFrom(['features', 'routes']) },
-  { files: ['src/lib/**'], rules: noImportsFrom(['features', 'routes', 'components']) },
+  ...FEATURES.map((feature) =>
+    restrict(
+      [`src/features/${feature}/**`],
+      [toAppModules, toTestCode, toFolders(FEATURES.filter((other) => other !== feature))],
+    ),
+  ),
+  restrict(['src/routes/**'], [toAppModules, toTestCode, toFolders(['features'])]),
+  restrict(['src/components/**'], [toAppModules, toTestCode, toFolders(['features', 'routes'])]),
+  restrict(
+    ['src/lib/**'],
+    [toAppModules, toTestCode, toFolders(['features', 'routes', 'components'])],
+  ),
 ])

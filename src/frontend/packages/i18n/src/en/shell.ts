@@ -25,5 +25,6 @@ export const shell = {
     title: 'Something went wrong',
     body: 'This page could not be shown. Try again, and reload the page if it keeps happening.',
     retry: 'Try again',
+    reload: 'The app could not be shown. Reload the page.',
   },
 } as const
