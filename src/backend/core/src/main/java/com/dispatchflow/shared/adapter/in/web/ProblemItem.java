@@ -10,8 +10,9 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * One entry of a problem's {@code errors} (the contract's {@code ProblemItem}): a failing item of a
- * 400, which says where it failed, by a pointer into the body or a parameter's name and place, and
- * never the value; or one refusal of a 422 that lists several, with its own code and params.
+ * 400, which says where it failed, by a pointer into the body, a parameter's name and place, or
+ * neither for the request as a whole, and never the value; or one refusal of a 422 that lists
+ * several, with its own code and params.
  *
  * @param code the item's stable code, such as {@code UNKNOWN_PROPERTY}
  * @param pointer an RFC 6901 JSON Pointer into the body, or {@code null} when the item names a

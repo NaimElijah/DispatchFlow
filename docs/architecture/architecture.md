@@ -153,7 +153,7 @@ The application-wide `web` package, `com.dispatchflow.web`, is no module. It hol
 
 - `TraceIdFilter` and `Traceparent`: every request's trace ID, from a valid `traceparent` or made
   fresh, put in the MDC; the filter also hands an exception that escaped every handler to Tomcat's
-  error dispatch while the ID is still in the MDC;
+  error dispatch while the ID is still in the MDC, and refuses with 400 a path Spring can't parse;
 - the call wrapper: `CallWrapper`, the `WebMvcRegistrations` whose handler adapter wraps every
   handler's invocation, `CallRetry`, which re-runs a call that lost a race and writes its one refused
   audit record, `CommitWatch`, the transaction listener that stops a retry once a try committed, and
@@ -295,8 +295,10 @@ have a `Dockerfile`, and neither runs as root
   migrations, which [data-model.md](data-model.md#migrations) lists; no migration grants anything
   yet ([ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md), decision 8).
 - **Every error body is the contract's `Problem`.** `shared.adapter.in.web.Problems` builds each
-  one, with `type` `about:blank`, a `code`, its `params`, the trace ID from the MDC and, as
-  `instance`, the request's path, and never a `detail` ([ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md), decision 5). The handlers run in `HandlerOrder`'s order: each module's
+  one, with `type` `about:blank`, a `code`, its `params` and the trace ID from the MDC, and never a
+  `detail` ([ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md), decision 5).
+  Its `instance`, the request's path, is set by Spring, and by `Problems.at` for `ErrorEndpoint`
+  (ADR-142, decision 5). The handlers run in `HandlerOrder`'s order: each module's
   own, `web`'s handler of the contract's breaks, which replaces Spring Boot's handler of Spring
   MVC's errors, the kernel's, and `UnexpectedErrorHandler` last, so a response never names the
   cause. Spring asks each handler for the thrown type and then for its causes, before it asks the
