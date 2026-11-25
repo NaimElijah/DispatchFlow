@@ -127,7 +127,9 @@ steps.**
    - Never use `--amend` or `--no-verify`. If a fix or a commit fails, stop and report the state of the
      working tree.
 5. After the fixes, show `git log -p <merge>..HEAD`, then run `just <component>-check` for each component
-   a fix touched. They run code that just arrived from `dev`, so the permission prompt for each is the
+   a fix touched. If the merge changed a lockfile, run that component's `just <component>-setup` first
+   (`just web-setup` for `src/frontend/pnpm-lock.yaml`): the web app's scripts fail on stale
+   dependencies. Both run code that just arrived from `dev`, so the permission prompt for each is the
    developer's go-ahead. They can take minutes: give them a long timeout or run them in the background.
    Report each result.
    A red check is reported, not fixed here. If a check cannot run, for example without Docker, report

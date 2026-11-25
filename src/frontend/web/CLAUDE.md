@@ -29,9 +29,9 @@ React 19, TypeScript 6.0, Vite 8, pnpm.
 
 - Vitest with Testing Library, in jsdom. MSW answers API calls in tests ([TS §10]).
 - A request no handler answers, asset-like paths included, fails with a network error, and the
-  test that sent it fails (`server.ts`, `setup.ts`). Happy paths go in `handlers.ts`; a test
-  overrides an answer with `server.use()`, and nothing else calls `setupServer`. Import `http` and
-  `HttpResponse` from `msw/http`.
+  test that sent it fails, one sent on unmount included (`endTest` in `server.ts`, called by
+  `setup.ts`). Happy paths go in `handlers.ts`; a test overrides an answer with `server.use()`,
+  and nothing else calls `setupServer`. Import `http` and `HttpResponse` from `msw/http`.
 - Vitest globals are off: import every Vitest API you use (`test`, `expect`, `vi`, …) from
   `vitest`, as `App.test.tsx` does.
 
@@ -46,7 +46,8 @@ Run `just` recipes from the repository root, and `pnpm` from this folder.
 | `just web-run`                          | Vite dev server                                                |
 | `pnpm exec vitest run src/App.test.tsx` | One test file                                                  |
 
-`web-check` and `web-format` run each script in this app and in every shared package that has it.
+`web-check` and `web-format` run each script in this app and in every shared package that has it,
+and fail on a package without the two `src/frontend/CLAUDE.md` requires of every package.
 
 [ADR-026]: ../../../docs/ADRs/ADR-026-server-sent-events-and-push-for-live-updates.md
 [ADR-035]: ../../../docs/ADRs/ADR-035-both-apps-serve-every-role.md
