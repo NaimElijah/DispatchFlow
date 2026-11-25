@@ -9,10 +9,11 @@ import java.util.Objects;
 /**
  * Every token and session of an account stopped being valid (DL §7.2): its roles, password or
  * email changed, it was deactivated, or an Admin ended its sessions (NFR-90, FR-187, BR-123). Two
- * listeners hear it: the live-updates adapter closes the account's open streams (NFR-188), and
- * Access's own listener ends each of the account's sessions begun under an older generation, dated
- * by {@code occurredAt}, through {@code Session.revokeWithAccount}, so the retention job deletes it
- * 30 days after the revocation (NFR-258, ADR-116).
+ * listeners hear it: {@code web.stream}'s closes the account's streams opened under an older
+ * generation (NFR-188, ADR-140), and Access's own listener ends each of the account's sessions
+ * begun under an older generation, dated by {@code occurredAt}, through {@code
+ * Session.revokeWithAccount}, so the retention job deletes it 30 days after the revocation
+ * (NFR-258, ADR-116).
  *
  * <p>The revocation itself is the account's new generation, which the token check reads at once
  * (NFR-177), so nothing waits for this event. The event carries that generation, so a redelivered

@@ -1,6 +1,6 @@
 # ADR-121: The application skeleton's review settles its seams, its conflicts, its retention and its scoring inputs
 
-- **Status:** Accepted; extended by ADR-131 and ADR-136; amended by ADR-126, ADR-132 and ADR-139
+- **Status:** Accepted; extended by ADR-131, ADR-136 and ADR-140; amended by ADR-126, ADR-132 and ADR-139
 - **Date:** 2026-11-15
 
 ## Context

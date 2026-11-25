@@ -100,7 +100,11 @@ instantiators of the embeddable `TimeWindow`, `GeoPoint` and `DaySeconds`. That 
 adapter, not part of the kernel. Beside it, `shared/adapter/out/clock`, `shared/adapter/out/uuid`
 and `shared/adapter/out/optimizer` are declared, empty: the first two will implement `Clock` and
 `IdGenerator`, and the third will hold the client generated from `optimization-api`, which
-Planning's and Reporting's `optimizer` adapters wrap. `AggregateRoot` is a `@MappedSuperclass` that holds the `@Version`
+Planning's and Reporting's `optimizer` adapters wrap. `shared/adapter/in/web` and
+`shared/adapter/out/sse` are declared, empty too: the first will hold the code generated from
+`client-api`, built at every build and never committed, and `@RequiresCapability`; the second the
+registry of open event streams. They sit below `web`, so a module's controllers and `sse` adapters
+reach them without depending on it ([ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md)). `AggregateRoot` is a `@MappedSuperclass` that holds the `@Version`
 and publishes the events its methods raised when a repository's `save` runs. The `domain` packages
 of `access`, `audit`, `fleet`, `liveops`, `messaging`, `orders`, `planning` and `reporting` are
 built ahead of their milestones, with the `events` packages of the six modules that raise events
@@ -124,7 +128,7 @@ package per aggregate, then into concept packages, and an application package th
 Which modules are split, and into what, is in [bounded-contexts.md](bounded-contexts.md).
 
 Every module's `adapter/` also holds packages declared ahead, empty, as [ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)
-declared the application layer: 54 in all (51 in the modules, 3 beside the kernel), each with a `package-info.java` that says what goes in it and
+declared the application layer: 56 in all (51 in the modules, 5 beside the kernel), each with a `package-info.java` that says what goes in it and
 carries `@NullMarked`, and no class. An inbound adapter is `adapter/in/<kind>`, of six kinds:
 `web`, `listen`, `schedule`, `job`, `callback` and `cli`. An outbound one is `adapter/out/<name>`,
 named for the outside system or channel it talks to, `persistence` for the module's own database,
@@ -132,6 +136,12 @@ or the technology it wraps when it calls nothing outside the process. Each modul
 ports they implement are in [ADR-130](../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md) (decision 4). The web app's and the phone
 app's `src/features/<context>` folders, `src/frontend/packages/` and the infra, docs and data folders
 the tech stack draws are declared the same way, as `.gitkeep` placeholders.
+
+The application-wide `web` package, `com.dispatchflow.web`, is no module. Today it holds
+`UnexpectedErrorHandler`, and beside it `web.security`, `web.stream` and `web.e2e`, declared ahead,
+empty: the stand-in session and the security filter chain, the event stream's endpoint, and the
+end-to-end tests' control endpoints. Nothing depends on `web`, and it uses only the modules'
+`application.api` and `events` ([ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md)).
 
 ## Communication
 
@@ -200,7 +210,11 @@ have a `Dockerfile`, and neither runs as root
   adapter of its module, `in` and `out` included), no adapter uses another module's adapter, no
   shared adapter uses anything outside the kernel, and only the optimizer adapters use the generated
   optimizer client. Rule 5's `@NullMarked` check covers the adapter packages too, and a test holds
-  the tree to the adapters ADR-130 and ADR-131 declare.
+  the tree to the adapters ADR-130, ADR-131 and ADR-140 declare. Rule 13 is [ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md)'s: `web`
+  uses, of the modules, only their `application.api` and `events`, and rule 2 refuses every module a
+  dependency on `web`, so `web` sits above the modules. Rule 14, also ADR-140's, lets only
+  `web` and the modules' `adapter.in.web` use `CurrentActor` and `CurrentCall`, the holders of a web call's caller;
+  neither exists yet (#170).
   The purity rules also allow the persistence annotations that [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) lists in the domain and the
   kernel, and `PersistenceRules` has nine rules on how the domain is mapped: every aggregate root an
   `@Entity`, relationships only inside

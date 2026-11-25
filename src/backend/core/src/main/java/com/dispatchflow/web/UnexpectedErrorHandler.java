@@ -15,7 +15,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * keeps it.
  *
  * <p>It runs last. Spring Boot's handler for Spring MVC's own exceptions runs at order 0, and each
- * context's handler runs first of all, so this one sees only what they leave.
+ * module's handler, and {@code web}'s handler of the kernel's errors, run first, so this one sees
+ * only what they leave.
  */
 @RestControllerAdvice
 @Order(Ordered.LOWEST_PRECEDENCE)

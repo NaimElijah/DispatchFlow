@@ -1,6 +1,6 @@
 # ADR-068: Every web handler is authorized by role, from the `x-capability` of its contract operation
 
-- **Status:** Accepted; amended by ADR-104 and ADR-120
+- **Status:** Accepted; extended by ADR-140; amended by ADR-104 and ADR-120
 - **Date:** 2026-11-13
 
 ## Context

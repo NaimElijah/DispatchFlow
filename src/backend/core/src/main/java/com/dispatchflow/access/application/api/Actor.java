@@ -9,13 +9,14 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * The signed-in user a web call acts for, which the web adapter passes first to every web-called
- * use case (DL §2.1). The handler was already authorized by role from its operation's {@code
- * x-capability}; a check that depends on the data, such as a driver's own route, is the use
- * case's (ADR-068).
+ * The signed-in user a web call acts for, which a module's controller passes first to every
+ * web-called use case (DL §2.1). The controller gets it from {@code CurrentActor}, which {@code
+ * web} binds around the call (ADR-140). The handler was already authorized by role from its
+ * operation's {@code x-capability}; a check that depends on the data, such as a driver's own
+ * route, is the use case's (ADR-068).
  *
- * <p>Sign-in is not built yet. Until it is, the web adapter builds the actor from a stand-in
- * session of a seeded account (ADR-121). The stand-in fails closed: it exists only when
+ * <p>Sign-in is not built yet. Until it is, {@code web.security} builds the actor from a stand-in
+ * session of a seeded account (ADR-121, ADR-140). The stand-in fails closed: it exists only when
  * {@code dev} or {@code test} is the only active profile, and the core refuses to boot with the
  * stand-in and any other profile active, which a test proves. Building sign-in deletes the
  * stand-in. So the calls built before sign-in, which take an actor, run before sign-in exists.

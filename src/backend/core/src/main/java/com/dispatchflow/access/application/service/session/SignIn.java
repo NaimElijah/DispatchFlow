@@ -42,10 +42,10 @@ import org.springframework.transaction.annotation.Transactional;
  * lifetime other than NFR-86's 15 minutes, which sign-in's tests check. Building refresh deletes
  * the dev allowance.
  *
- * <p>This use case replaces the stand-in session that the web adapter builds the {@code Actor} from
- * before sign-in is built. The stand-in exists only when {@code dev} or {@code test} is the only
- * active profile, and the core refuses to boot with it and any other profile active, which a test
- * proves. Building sign-in deletes the stand-in (ADR-121).
+ * <p>This use case replaces the stand-in session from which {@code web.security} builds the
+ * caller's {@code Actor} before sign-in is built (ADR-140). The stand-in exists only when {@code
+ * dev} or {@code test} is the only active profile, and the core refuses to boot with it and any
+ * other profile active, which a test proves. Building sign-in deletes the stand-in (ADR-121).
  *
  * <p>To Be Implemented.
  */

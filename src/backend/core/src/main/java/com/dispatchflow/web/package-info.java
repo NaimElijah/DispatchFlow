@@ -1,5 +1,17 @@
 /**
- * Web concerns that belong to the whole application rather than to one bounded context, such as
- * the error that answers when nothing else handled an exception.
+ * The web concerns of the whole application rather than of one module (ADR-140). This package
+ * holds {@code UnexpectedErrorHandler}, which answers an exception nothing else handled, and will
+ * hold the trace-ID filter, the call wrapper that binds the call's holders and retries, the
+ * handler of the kernel's errors and the handler of requests that break the contract. {@code
+ * web.security} will hold who the caller is, {@code web.stream} the event stream, and {@code
+ * web.e2e} the end-to-end tests' controls.
+ *
+ * <p>Nothing depends on {@code web}: it sits above the modules, and uses of them only their {@code
+ * application.api} and {@code events}, besides the kernel and the frameworks. What a module must
+ * reach sits below it, beside the kernel, in {@code shared.adapter.in.web} and {@code
+ * shared.adapter.out.sse}. {@code ApplicationRules} rules 2, 11 and 13 enforce this.
  */
+@NullMarked
 package com.dispatchflow.web;
+
+import org.jspecify.annotations.NullMarked;

@@ -1,6 +1,6 @@
 # ADR-082: The server supports the current and the previous phone app version, and an older one still drains its queue
 
-- **Status:** Accepted; amended by ADR-094
+- **Status:** Accepted; extended by ADR-140; amended by ADR-094
 - **Date:** 2026-11-13
 
 ## Context
