@@ -5,14 +5,16 @@ How DispatchFlow is built, as it is today. What it must do is in
 [ADRs](../ADRs/README.md). Where each file lives is in [code-structure.md](code-structure.md).
 
 > [!NOTE]
-> Only the skeleton, the domain layer, the declared application layer and the persistence of every
-> `core` module exist. Each component builds, passes its checks and runs a first test. The domain
-> layers of `core` and `optimizer` are built and tested. The persistence of `access`, `audit`,
-> `fleet`, `liveops`, `messaging`, `orders`, `planning` and `reporting` is built: a migration, mapped
-> aggregates and a persistence adapter each. The application layers are
-> declared, not built: every body that would do work throws, and no use case calls a persistence
-> adapter. The design the team is heading for is in [Target design](#target-design); this file
-> describes none of it as built beyond that.
+> Only the skeleton, the domain layer, the declared application layer, the persistence of every
+> `core` module and `core`'s web plumbing exist. Each component builds, passes its checks and runs a
+> first test. The domain layers of `core` and `optimizer` are built and tested. The persistence of
+> `access`, `audit`, `fleet`, `liveops`, `messaging`, `orders`, `planning` and `reporting` is built: a
+> migration, mapped aggregates and a persistence adapter each. The web plumbing is built: the
+> `Clock` and `IdGenerator` adapters, `web`'s trace-ID filter, error handlers, call wrapper and
+> error endpoint, the JSON logs and `SchedulingConfiguration`. The application layers are declared,
+> not built: every body that would do work throws, no use case calls a persistence adapter, and no
+> operation is served. The design the team is heading for is in [Target design](#target-design);
+> this file describes none of it as built beyond that.
 
 ## Architecture overview
 
@@ -39,7 +41,7 @@ today.
 
 | Component | Is | Does today |
 |---|---|---|
-| `core` (`src/backend/core`) | Spring Boot 4.1.2, Java 25 | Starts, connects to PostgreSQL and migrates it, answers `GET /actuator/health`, turns an unhandled exception into a 500 problem body, and stores every module's aggregates through its persistence adapters |
+| `core` (`src/backend/core`) | Spring Boot 4.1.2, Java 25 | Starts, connects to PostgreSQL and migrates it, answers `GET /actuator/health`, answers every error as the client API's `Problem` with a `code` and the request's trace ID, re-runs a call that lost a race, and stores every module's aggregates through its persistence adapters |
 | `optimizer` (`src/backend/optimizer`) | FastAPI, Python 3.14, NumPy | Answers `GET /health/liveness` with `{"status":"UP"}`, and holds the domain for daily solves and re-optimizations (the validator, the objective and the drop reasons), and a declared application layer; nothing calls either yet |
 | `web` (`src/frontend/web`) | React, Vite | Renders a heading |
 | `mobile` (`src/frontend/mobile`) | React Native, Expo SDK 58 | Renders a heading |
@@ -97,14 +99,17 @@ building blocks ([ADR-097](../ADRs/ADR-097-the-shared-kernel-holds-the-domains-b
 `VersionedSave`, which saves an aggregate so that its version moves by exactly 1, the converters
 that store the kernel's single-value types (the 14 typed IDs are in its `id` package), and the
 instantiators of the embeddable `TimeWindow`, `GeoPoint` and `DaySeconds`. That package is an
-adapter, not part of the kernel. Beside it, `shared/adapter/out/clock`, `shared/adapter/out/uuid`
-and `shared/adapter/out/optimizer` are declared, empty: the first two will implement `Clock` and
-`IdGenerator`, and the third will hold the client generated from `optimization-api`, which
-Planning's and Reporting's `optimizer` adapters wrap. `shared/adapter/in/web` and
-`shared/adapter/out/sse` are declared, empty too: the first will hold the code generated from
-`client-api`, built at every build and never committed, and `@RequiresCapability`; the second the
-registry of open event streams. They sit below `web`, so a module's controllers and `sse` adapters
-reach them without depending on it ([ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md)). `AggregateRoot` is a `@MappedSuperclass` that holds the `@Version`
+adapter, not part of the kernel. Beside it, `shared/adapter/out/clock` holds `SystemClock`, the
+`Clock` of production, which reads the system's UTC clock cut to the microsecond and today's date in
+Israel, and `shared/adapter/out/uuid` holds `UuidV7Generator`, the `IdGenerator`, which makes UUID
+version 7 through `uuid-creator`. `shared/adapter/out/optimizer` is declared, empty: it will hold the
+client generated from `optimization-api`, which Planning's and Reporting's `optimizer` adapters
+wrap. `shared/adapter/in/web` holds `Problems`, the one factory of every error body, its
+`ProblemItem`, and `HandlerOrder`, the order of every exception handler; it will also hold the code
+generated from `client-api`, built at every build and never committed, and `@RequiresCapability`.
+`shared/adapter/out/sse` is declared, empty: it will hold the registry of open event streams. These
+two sit below `web`, so a module's controllers, handlers and `sse` adapters reach them without
+depending on it ([ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md)). `AggregateRoot` is a `@MappedSuperclass` that holds the `@Version`
 and publishes the events its methods raised when a repository's `save` runs. The `domain` packages
 of `access`, `audit`, `fleet`, `liveops`, `messaging`, `orders`, `planning` and `reporting` are
 built ahead of their milestones, with the `events` packages of the six modules that raise events
@@ -113,8 +118,14 @@ built ahead of their milestones, with the `events` packages of the six modules t
 Each core module also has an `application` package, and the kernel has `shared/application`. They
 are declared ahead of their milestones: every use case, query, port and module API has its signature,
 and every body that would do work throws `UnsupportedOperationException("To Be Implemented.")`. They are
-not built. No bean wires them, and nothing calls a port: the persistence adapters implement the
-repository ports, and no use case calls them, so the application context starts as before. Each
+not built. Each module's root package holds only its `package-info` and a package-private
+`<Module>Configuration`, whose `@Import` list is empty: a use case and its `Change` join it in the
+pull request that builds its body, so no bean wires a throwing one ([ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md),
+decision 10). Nothing calls a port: the persistence adapters implement the repository ports, and no
+use case calls them. `com.dispatchflow.SchedulingConfiguration` turns on the asynchronous listeners
+always, on Spring Boot's executor capped at 4 threads, with `MdcTaskDecorator` copying the caller's
+MDC to each, and the scheduled jobs unless `dispatchflow.scheduling.enabled` is off, as the
+integration tests set it. Each
 service carries a class-level `@Transactional`, read-only where it changes nothing. A use case with
 outside calls, or one transaction per item, carries none and holds a transactional
 `<UseCase>Change` ([ADR-129](../ADRs/ADR-129-transactions-start-only-in-the-service-layer.md)). Why they are declared now is in [ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md). The caller
@@ -128,7 +139,7 @@ package per aggregate, then into concept packages, and an application package th
 Which modules are split, and into what, is in [bounded-contexts.md](bounded-contexts.md).
 
 Every module's `adapter/` also holds packages declared ahead, empty, as [ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)
-declared the application layer: 56 in all (51 in the modules, 5 beside the kernel), each with a `package-info.java` that says what goes in it and
+declared the application layer: 53 in all (51 in the modules, 2 beside the kernel), each with a `package-info.java` that says what goes in it and
 carries `@NullMarked`, and no class. An inbound adapter is `adapter/in/<kind>`, of six kinds:
 `web`, `listen`, `schedule`, `job`, `callback` and `cli`. An outbound one is `adapter/out/<name>`,
 named for the outside system or channel it talks to, `persistence` for the module's own database,
@@ -138,10 +149,27 @@ app's `src/features/<context>` folders, the five unfilled folders of `src/fronte
 infra, docs and data folders the tech stack draws are declared the same way, as `.gitkeep`
 placeholders.
 
-The application-wide `web` package, `com.dispatchflow.web`, is no module. Today it holds
-`UnexpectedErrorHandler`, and beside it `web.security`, `web.stream` and `web.e2e`, declared ahead,
-empty: the stand-in session and the security filter chain, the event stream's endpoint, and the
-end-to-end tests' control endpoints. Nothing depends on `web`, and it uses only the modules'
+The application-wide `web` package, `com.dispatchflow.web`, is no module. It holds:
+
+- `TraceIdFilter` and `Traceparent`: every request's trace ID, from a valid `traceparent` or made
+  fresh, put in the MDC;
+- the call wrapper: `CallWrapper`, the `WebMvcRegistrations` whose handler adapter wraps every
+  handler's invocation, `CallRetry`, which re-runs a call that lost a race and writes its one refused
+  audit record, `CommitWatch`, the transaction listener that stops a retry once a try committed, and
+  `Race`, which classifies the exception thrown;
+- the handlers: `ContractErrorHandler`, with `ContractBreaks`, of requests that break the contract
+  and of Spring MVC's own errors, `KernelErrorHandler`, of the kernel's errors, and
+  `UnexpectedErrorHandler`, of the rest, with `WebCodes`, the codes they answer of their own;
+- `ErrorEndpoint`, the last resort: the `@RestController` behind Spring Boot's error path, which
+  answers as a `Problem` an error that no handler answered or that a servlet filter raised;
+- `ServedJson`, which makes the served JSON converter refuse unknown properties and duplicate keys,
+  and `BodySizeLimit`, which caps a request body at 1 MiB. No handler takes a streaming parameter
+  (`ApplicationRules` rule 16), and Spring's form-content filter is off, so the cap covers every
+  read of a body.
+
+Beside it, `web.security`, `web.stream` and `web.e2e` are declared ahead, empty: the stand-in
+session and the security filter chain, the event stream's endpoint, and the end-to-end tests'
+control endpoints. Nothing depends on `web`, and it uses only the modules'
 `application.api` and `events` ([ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md)).
 
 ## Communication
@@ -150,8 +178,9 @@ Components meet only at the two contracts under `contracts/`
 ([ADR-006](../ADRs/ADR-006-versioned-openapi-contracts.md)):
 
 - `contracts/client-api/v1/openapi.yaml` has `/api/v1` as its `servers` entry. Its `paths` is
-  empty, so `core` serves no operation from it yet. It defines the `Problem` schema (RFC 9457) and
-  the `UnexpectedProblem` response.
+  empty, so `core` serves no operation from it yet. It defines the `Problem` schema (RFC 9457), with
+  its `code`, `params`, `traceId` and `errors` and the codes any operation can answer, its
+  `ProblemItem` and `ProblemParameter`, and the `UnexpectedProblem` response.
 - `contracts/optimization-api/v1/openapi.yaml` is served by `optimizer`. It defines one operation,
   `getLiveness`, which is `GET /health/liveness`.
 
@@ -171,6 +200,13 @@ inside its own component:
 - The `optimizer` liveness probe: `src/backend/optimizer/tests/adapters/inbound/http/test_app.py` asserts
   through `TestClient(create_app())` that `GET /health/liveness` answers 200 with
   `{"status":"UP"}`.
+- An error inside `core`: `TraceIdFilter` gives the request its trace ID, from its `traceparent`
+  or made fresh, in the MDC. The call wrapper runs the handler, again while it loses a race and no
+  read-write transaction of the try has committed. An exception goes to the first handler, in `HandlerOrder`,
+  that maps it, which answers the `Problem` that `Problems` builds, with the trace ID, and logs one
+  JSON line (Elastic Common Schema) carrying the same ID. An error that no handler answers, or that
+  a servlet filter raises, reaches `ErrorEndpoint`, which answers the same `Problem`. `web`'s `*Test`
+  classes drive each step through MockMvc, and `WebIT` checks the wiring in the whole application.
 - A save and a load through a persistence adapter: each module's `*PersistenceIT` saves an
   aggregate into a PostgreSQL container and loads it in another transaction, and where a stored
   value can be damaged it damages one with SQL to check that the load refuses it
@@ -215,7 +251,9 @@ have a `Dockerfile`, and neither runs as root
   uses, of the modules, only their `application.api` and `events`, and rule 2 refuses every module a
   dependency on `web`, so `web` sits above the modules. Rule 14, also ADR-140's, lets only
   `web` and the modules' `adapter.in.web` use `CurrentActor` and `CurrentCall`, the holders of a web call's caller;
-  neither exists yet (#170).
+  neither exists yet (#170). Rule 15, also ADR-140's, keeps each module's root package to its
+  `package-info` and its package-private `<Module>Configuration`, which declares no `@Bean` and no
+  scan and imports only its own module's `application.service` classes.
   The purity rules also allow the persistence annotations that [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) lists in the domain and the
   kernel, and `PersistenceRules` has nine rules on how the domain is mapped: every aggregate root an
   `@Entity`, relationships only inside
@@ -250,8 +288,38 @@ have a `Dockerfile`, and neither runs as root
   database connection. At startup `validate` checks each mapped table and column against the
   migrations, which [data-model.md](data-model.md#migrations) lists; no migration grants anything
   yet ([ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md), decision 8).
-- **Every error body is an RFC 9457 problem.** `UnexpectedErrorHandler` runs last, after Spring
-  MVC's own problem handling, so a response never names the cause.
+- **Every error body is the contract's `Problem`.** `shared.adapter.in.web.Problems` builds each
+  one, with `type` `about:blank`, a `code`, its `params` and the trace ID from the MDC, and never a
+  `detail` ([ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md), decision 5). The handlers run in `HandlerOrder`'s order: each module's
+  own, `web`'s handler of the contract's breaks, which replaces Spring Boot's handler of Spring
+  MVC's errors, the kernel's, and `UnexpectedErrorHandler` last, so a response never names the
+  cause. Spring asks each handler for the thrown type and then for its causes, before it asks the
+  next. So a module's exception that wraps a Spring MVC one reaches its module, and a `RuleViolation`
+  that a converter wraps in a type mismatch answers 400, not the kernel's 422
+  ([ADR-142](../ADRs/ADR-142-the-call-wrappers-retry-its-400s-and-its-error-endpoint-as-162-built-them.md), decision 4).
+- **An error that no handler answers is still a `Problem`.** One that escapes every handler, or that
+  a servlet filter raises, reaches `ErrorEndpoint`, which implements Spring Boot's `ErrorController`
+  so that `BasicErrorController` backs off. It answers the status Tomcat dispatched, with a code
+  from `WebCodes`, and logs a 5xx at ERROR and a 4xx at INFO (ADR-142, decision 5).
+- **A 400 lists at most 100 of its failing items,** in the body and in its log line, which also
+  carries the total. A 422 lists every refusal, which the domain bounds (ADR-142, decision 3).
+- **No read of a body goes around the cap.** No handler takes a streaming parameter, which
+  `ApplicationRules` rule 16 checks, and `application.properties` turns Spring's form-content
+  filter off, which would read a PUT, PATCH or DELETE form body whole before the request is routed
+  (ADR-142, decision 6).
+- **A call that lost a race runs again.** `CallWrapper`'s handler adapter invokes each handler
+  through `CallRetry`, with the arguments Spring already read and validated. A save's
+  `StaleVersion` on a call that sent no version, and a failed lock wait on any call, matched on the
+  type thrown, run up to 3 more times, each in new transactions, while no read-write transaction of
+  the try has committed, which `CommitWatch` hears from the transaction manager; a read-only commit
+  doesn't count. Then 503. A `StaleVersion` on a call that sent `If-Match` or `If-None-Match`
+  answers 412, and one that compared a body's version 409, at once (ADR-140, decision 6). A race
+  after a read-write commit answers 500 `UNEXPECTED_ERROR` and is neither retried nor audited,
+  because the change is stored and a 503 would invite a duplicate ([ADR-142](../ADRs/ADR-142-the-call-wrappers-retry-its-400s-and-its-error-endpoint-as-162-built-them.md), decisions 1
+  and 2). The refused audit record of a 412, 409 or 503 waits for #180: `CallRetry` looks `AuditLog`
+  up only when it writes one, and no bean exists yet, so until then a race answers 500.
+- **Every log line is JSON.** The console writes Elastic Common Schema, with the MDC, so every line
+  of a request carries its `traceId`.
 
 ## Target design
 

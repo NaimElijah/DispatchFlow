@@ -69,4 +69,28 @@ class StaleVersionTest {
                         "CompanyProfile", ID, Optional.of(Version.of(4)), Optional.of(Version.of(3))))
                 .isInstanceOf(StaleVersion.class);
     }
+
+    @Test
+    void GivenAVersionTheCallerSent_WhenRequireCurrentRefusesIt_ThenTheStaleVersionComparedTheRequestsVersion() {
+        assertThatThrownBy(() -> StaleVersion.requireCurrent("Plan", ID, Version.of(5), Version.of(4)))
+                .isInstanceOfSatisfying(
+                        StaleVersion.class,
+                        stale -> assertThat(stale.comparedTheRequestsVersion()).isTrue());
+    }
+
+    @Test
+    void GivenOptionalVersions_WhenRequireCurrentRefusesThem_ThenTheStaleVersionComparedTheRequestsVersion() {
+        assertThatThrownBy(() ->
+                        StaleVersion.requireCurrent("CompanyProfile", ID, Optional.of(Version.of(0)), Optional.empty()))
+                .isInstanceOfSatisfying(
+                        StaleVersion.class,
+                        stale -> assertThat(stale.comparedTheRequestsVersion()).isTrue());
+    }
+
+    @Test
+    void GivenASavesConflict_WhenAStaleVersionIsMadeWithItsConstructors_ThenItComparedNoRequestsVersion() {
+        assertThat(new StaleVersion("Plan", ID).comparedTheRequestsVersion()).isFalse();
+        assertThat(new StaleVersion("Plan", ID, new IllegalStateException("conflict")).comparedTheRequestsVersion())
+                .isFalse();
+    }
 }

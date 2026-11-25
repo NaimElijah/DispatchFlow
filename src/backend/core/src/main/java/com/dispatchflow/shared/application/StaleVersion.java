@@ -20,31 +20,34 @@ import java.util.UUID;
  * <p>Two checks throw it (ADR-126): {@link #requireCurrent}, in the use case, against the version
  * the caller read; and the persistence adapter's save, when another transaction saved the
  * aggregate after this one loaded it. One that {@code requireCurrent} throws compares the version
- * the request sent, so it is never retried (ADR-140). A retry re-runs the whole use case in a new
- * transaction.
+ * the request sent, and says so through {@link #comparedTheRequestsVersion()}, so the call wrapper
+ * never retries it: {@code web} can't see a version sent in a body, so only this flag tells it the
+ * 409 apart from a save's conflict (ADR-140 decisions 6 and 7). A retry re-runs the whole use case
+ * in a new transaction.
  */
 public final class StaleVersion extends RuntimeException {
 
     private final String kind;
     private final UUID id;
+    private final boolean comparedTheRequestsVersion;
 
     /** The stable code {@code web}'s handler answers with, beside the 412 or 409 status. */
     public static final String CODE = "STALE_VERSION";
 
     /**
-     * Creates the error.
+     * Creates the error of a save's or a settle's conflict, which compared no version the request
+     * sent.
      *
      * @param kind what was changed, such as {@code Plan}
      * @param id the changed record's ID
      */
     public StaleVersion(String kind, UUID id) {
-        super(message(kind, id));
-        this.kind = kind;
-        this.id = id;
+        this(kind, id, false);
     }
 
     /**
-     * Creates the error, keeping the optimistic-lock failure that showed it.
+     * Creates the error of a save's or a settle's conflict, which compared no version the request
+     * sent, keeping the optimistic-lock failure that showed it.
      *
      * @param kind what was changed, such as {@code Plan}
      * @param id the changed record's ID
@@ -55,6 +58,14 @@ public final class StaleVersion extends RuntimeException {
         super(message(kind, id), Objects.requireNonNull(cause, "cause"));
         this.kind = kind;
         this.id = id;
+        this.comparedTheRequestsVersion = false;
+    }
+
+    private StaleVersion(String kind, UUID id, boolean comparedTheRequestsVersion) {
+        super(message(kind, id));
+        this.kind = kind;
+        this.id = id;
+        this.comparedTheRequestsVersion = comparedTheRequestsVersion;
     }
 
     private static String message(String kind, UUID id) {
@@ -72,13 +83,13 @@ public final class StaleVersion extends RuntimeException {
      * @param id the changed record's ID
      * @param loaded the version the use case just loaded
      * @param expected the version the caller last read
-     * @throws StaleVersion when the two differ
+     * @throws StaleVersion when the two differ, marked as comparing the request's version
      */
     public static void requireCurrent(String kind, UUID id, Version loaded, Version expected) {
         Objects.requireNonNull(loaded, "loaded");
         Objects.requireNonNull(expected, "expected");
         if (!loaded.equals(expected)) {
-            throw new StaleVersion(kind, id);
+            throw new StaleVersion(kind, id, true);
         }
     }
 
@@ -92,13 +103,13 @@ public final class StaleVersion extends RuntimeException {
      * @param expected the version the caller last read, or empty when it read none and sent {@code
      *     If-None-Match: *}
      * @throws StaleVersion when the two differ: one is empty and the other isn't, or both are there
-     *     and unequal
+     *     and unequal; marked as comparing the request's version
      */
     public static void requireCurrent(String kind, UUID id, Optional<Version> loaded, Optional<Version> expected) {
         Objects.requireNonNull(loaded, "loaded");
         Objects.requireNonNull(expected, "expected");
         if (!loaded.equals(expected)) {
-            throw new StaleVersion(kind, id);
+            throw new StaleVersion(kind, id, true);
         }
     }
 
@@ -127,5 +138,15 @@ public final class StaleVersion extends RuntimeException {
      */
     public UUID id() {
         return id;
+    }
+
+    /**
+     * Whether this compared the version the request sent, so the call wrapper never retries it.
+     *
+     * @return {@code true} when {@link #requireCurrent} threw it, {@code false} for a save's or a
+     *     settle's conflict
+     */
+    public boolean comparedTheRequestsVersion() {
+        return comparedTheRequestsVersion;
     }
 }

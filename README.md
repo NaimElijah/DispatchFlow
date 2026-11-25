@@ -112,8 +112,9 @@ flowchart LR
   ([domain design](docs/architecture/domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts)).
   Each module's domain is built. Its application layer is declared, with bodies that throw
   ([ADR-119](docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md); the conventions are in
-  [ADR-120](docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)), and its only built adapters store each module's aggregates in its own PostgreSQL schema
-  ([data model](docs/architecture/data-model.md)); its other adapter packages are declared, empty
+  [ADR-120](docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)), and its built adapters store each module's aggregates in its own PostgreSQL schema
+  ([data model](docs/architecture/data-model.md)), and the kernel's give the clock, new IDs and
+  the error bodies; its other adapter packages are declared, empty
   ([ADR-130](docs/ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md)). A folder that passes
   20 files splits wherever four of its files can move, a domain by aggregate
   ([ADR-118](docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md),
@@ -161,7 +162,7 @@ progress to the web app over server-sent events
 
 | Layer | Technology | Version | Why |
 |---|---|---|---|
-| Core backend | Java, Spring Boot, Spring Data JPA; libphonenumber, JTS, JSpecify | 25, 4.1.2; 9.0.43, 1.20.0, version from the Spring Boot parent | The team's strongest stack; mature ecosystem for the adapters. libphonenumber parses phone numbers and JTS checks the service area, both in the pure domain; JSpecify marks null-safe packages |
+| Core backend | Java, Spring Boot, Spring Data JPA; libphonenumber, JTS, JSpecify; uuid-creator | 25, 4.1.2; 9.0.43, 1.20.0, version from the Spring Boot parent; 6.1.1 | The team's strongest stack; mature ecosystem for the adapters. libphonenumber parses phone numbers and JTS checks the service area, both in the pure domain; JSpecify marks null-safe packages; uuid-creator makes the UUIDv7 IDs, which the JDK can't |
 | Database | PostgreSQL 18.6; Flyway (version from the Spring Boot parent) | 18.6 | Relational data with real constraints; versioned SQL migrations |
 | Optimizer | Python, FastAPI, NumPy | 3.14, 0.162, 2.5.4 | OR-Tools' richest bindings; algorithm work iterates apart from the backend; NumPy holds the validator's arrays |
 | Web app | React, TypeScript, Vite | 19.3, 6.0, 8.3 | Web app for every role; its driver screens also work in a phone's browser |
@@ -240,8 +241,8 @@ comments. The rules apply to people and to coding assistants alike.
 
 | Layer | Covers | Command |
 |---|---|---|
-| Core unit (`*Test`) | Domain and use cases, no I/O. Today: the shared kernel's values, the eight modules' domains, the ArchUnit rules (purity, shape, package structure, the application layer's shape and the JPA mapping) and the web error handler; every use case is declared and none is built, so none has a behaviour test yet | `just core-check` |
-| Core integration (`*IT`) | Against a real PostgreSQL in a container. Today: the application starts, each module's aggregates are saved and loaded, with a damaged stored value refused, and the shared version helper's saves, conflicts and storing of the kernel's values are checked | `just core-check` |
+| Core unit (`*Test`) | Domain and use cases, no I/O. Today: the shared kernel's values, the eight modules' domains, the ArchUnit rules (purity, shape, package structure, the application layer's shape and the JPA mapping), the clock and ID adapters, the problem factory, and `web`'s trace filter, error handlers and call wrapper; every use case is declared and none is built, so none has a behaviour test yet | `just core-check` |
+| Core integration (`*IT`) | Against a real PostgreSQL in a container. Today: the application starts, each module's aggregates are saved and loaded, with a damaged stored value refused, the shared version helper's saves, conflicts and storing of the kernel's values are checked, and `web`'s pieces are wired in the whole application | `just core-check` |
 | Optimizer | The domain (the validator's crafted-violation catalogue, Hypothesis properties, Solomon best-known solutions accepted), the HTTP adapter, the dependency boundary and import-linter | `just optimizer-check` |
 | Research | Its environment: the optimizer and PyVRP are installed | `just research-check` |
 | Web app | Components in jsdom (Vitest + Testing Library), with MSW failing any request no handler answers; the shared packages' lint and format | `just web-check` |

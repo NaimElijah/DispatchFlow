@@ -18,8 +18,8 @@ components:
   responses:
     UnexpectedProblem:
       description: >-
-        Any other error, such as an unsupported media type or an unexpected failure on the server.
-        The body never says what went wrong inside the server.
+        An error any operation can answer, with one of the codes `Problem` lists. The body never
+        says what went wrong inside the server.
       content:
         application/problem+json:
           schema:
@@ -27,20 +27,127 @@ components:
   schemas:
     Problem:
       type: object
-      description: An error, as RFC 9457 defines it.
+      description: |-
+        An error, as RFC 9457 defines it (ADR-043, ADR-140). `type` is always `about:blank`, so
+        `title` is the status's own phrase. A client acts on `status` and `code`, shows its own
+        text for `code` with `params` filled in, and shows `traceId` beside it. For a code it
+        doesn't know, it shows its generic text and the `traceId`. `code` is a string, never an
+        enum, so a new code isn't a breaking change.
+
+        Besides the codes each operation lists, any operation can answer:
+
+        | Status | Code | Meaning |
+        |---|---|---|
+        | 400 | `INVALID_REQUEST` | The request breaks this contract. `errors` names every failing field or parameter of a failed validation at once, up to 100 of them. An unreadable body, an unknown property or a duplicate key is named alone, as the first one found. |
+        | 404 | `NOT_FOUND` | The record doesn't exist; `params` has its `kind` and `id`. |
+        | 404 | `NO_SUCH_OPERATION` | No operation has this path. |
+        | 405 | `METHOD_NOT_ALLOWED` | With `Allow`. |
+        | 406 | `NOT_ACCEPTABLE` | |
+        | 415 | `UNSUPPORTED_MEDIA_TYPE` | With `Accept`. |
+        | 409 | `STALE_VERSION` | The version sent in the body is no longer current. `params` has `kind` and `id`. |
+        | 412 | `STALE_VERSION` | `If-Match` or `If-None-Match` failed. `params` has `kind` and `id`; neither is retried. |
+        | 413 | `BODY_TOO_LARGE` | The body is over its size limit. |
+        | 422 | Its own code and `params` | A refused rule. One that lists several refusals has `errors`, each with its own `code` and `params`. |
+        | 503 | `TRY_AGAIN_LATER` | With `Retry-After`. The call lost a race for a record, or waited too long for a lock, on four tries; or an asynchronous request timed out. |
+        | 500 | `UNEXPECTED_ERROR` | The server failed. A change the call made may be stored: reload before sending it again. |
+
+        The 400 item codes are `UNREADABLE_BODY`, `UNKNOWN_PROPERTY`, `DUPLICATE_PROPERTY`,
+        `WRONG_TYPE`, `MISSING_PARAMETER` (a required header such as `If-Match`, a query parameter
+        or a cookie), `REQUIRED`, `WRONG_SIZE`, `TOO_SMALL`, `TOO_LARGE`, `WRONG_FORMAT` and
+        `INVALID_VALUE`.
       required:
-        - status
+        - type
         - title
+        - status
+        - code
+        - params
+        - traceId
       properties:
         type:
           type: string
           format: uri-reference
+          const: about:blank
         title:
           type: string
         status:
           type: integer
-        detail:
-          type: string
+          minimum: 400
+          maximum: 599
         instance:
           type: string
           format: uri-reference
+          description: The request's path, without its query.
+        code:
+          type: string
+          pattern: '^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$'
+        params:
+          type: object
+          additionalProperties: true
+          description: >-
+            The values the code's text needs: IDs, numbers, booleans, short strings, enum names,
+            ISO-8601 dates and times (Israel's local time unless an instant), lists of these, a
+            nested refusal as `{code, params}` and a variant as `{kind, ...}`; never personal data,
+            a secret or a token. Empty when the code needs none.
+        traceId:
+          type: string
+          pattern: '^[0-9a-f]{32}$'
+          description: >-
+            The request's W3C trace-id: from its `traceparent` when that is valid, else made by the
+            core. Give it when reporting the error (NFR-74).
+        errors:
+          type: array
+          minItems: 1
+          description: >-
+            A 400 lists at most 100 of its failing items; a 422 lists every refusal.
+          items:
+            $ref: '#/components/schemas/ProblemItem'
+      if:
+        properties:
+          status:
+            const: 400
+      then:
+        properties:
+          errors:
+            maxItems: 100
+    ProblemItem:
+      type: object
+      description: >-
+        One failing item of a 400, or one refusal of a 422 that lists several. A 400 item says where
+        it failed, by `pointer` or `parameter`, and never the value.
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          pattern: '^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$'
+        pointer:
+          type: string
+          maxLength: 128
+          description: >-
+            An RFC 6901 JSON Pointer into the request body, cut to its deepest ancestor within 128
+            characters; empty for the whole body.
+        parameter:
+          $ref: '#/components/schemas/ProblemParameter'
+        params:
+          type: object
+          additionalProperties: true
+          description: >-
+            The values the item's code needs, such as a constraint's bounds. A 400 item never
+            carries the value.
+    ProblemParameter:
+      type: object
+      required:
+        - name
+        - in
+      properties:
+        name:
+          type: string
+        in:
+          type: string
+          description: >-
+            OpenAPI 3.1's parameter places, closed for v1; a multipart part is named by `pointer`.
+          enum:
+            - path
+            - query
+            - header
+            - cookie

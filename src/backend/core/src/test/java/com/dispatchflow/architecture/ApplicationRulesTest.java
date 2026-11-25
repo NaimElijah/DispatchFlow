@@ -3,7 +3,9 @@ package com.dispatchflow.architecture;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dispatchflow.archfixture.modulith.NamedInterface;
+import com.dispatchflow.archfixture.zeta.ImportsPeersUseCase;
 import com.dispatchflow.archfixture.zeta.ZetaApplication;
+import com.dispatchflow.archfixture.zeta.lower.LowerRootValue;
 import com.dispatchflow.archfixture.zeta.lower.adapter.in.web.LowerForm;
 import com.dispatchflow.archfixture.zeta.lower.adapter.out.ImplementedOutsideTheServiceService;
 import com.dispatchflow.archfixture.zeta.lower.adapter.out.LowerAdapterReachesUp;
@@ -53,10 +55,15 @@ import com.dispatchflow.archfixture.zeta.shared.application.SharedPortUsesSpring
 import com.dispatchflow.archfixture.zeta.side.application.service.CallsAnSpiItDoesNotImplement;
 import com.dispatchflow.archfixture.zeta.side.application.service.UsageImplementedByTheWrongModuleService;
 import com.dispatchflow.archfixture.zeta.stray.StrayValue;
+import com.dispatchflow.archfixture.zeta.upper.UpperConfiguration;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.listen.ListenerReadsTheCurrentCaller;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.listen.ListenerUsesTheWebAdapter;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.ControllerReachesTheWeb;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.ControllerReadsTheCurrentCaller;
+import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.ControllerTakesAStream;
+import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.ControllerTakesAStreamedResource;
+import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.ControllerTakesItsArguments;
+import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.HandlerWritesTheResponse;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.InboundUsesTheStore;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.WebCallsTheSolverClient;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.WebUsesTheLowerCache;
@@ -108,6 +115,7 @@ import com.dispatchflow.archfixture.zeta.web.WebUsesAStrayModule;
 import com.dispatchflow.archfixture.zeta.web.ZetaWebEndpoint;
 import com.dispatchflow.archfixture.zeta.web.ZetaWebHandler;
 import com.dispatchflow.archfixture.zeta.web.security.SessionUsesTheService;
+import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.lang.ArchRule;
@@ -188,6 +196,35 @@ class ApplicationRulesTest {
 
     private static ArchRule rule14() {
         return ApplicationRules.onlyTheWebReadsTheCallsHolders(ROOT, CALLS_HOLDERS);
+    }
+
+    // Rule 15's fixtures that are package-private, by name.
+    private static final String PEER_CONFIGURATION = ROOT + ".peer.PeerConfiguration";
+    private static final String SIDE_CONFIGURATION = ROOT + ".side.SideConfiguration";
+    private static final String GATE_CONFIGURATION = ROOT + ".gate.GateConfiguration";
+    private static final String SCANNING_CONFIGURATION = ROOT + ".gate.ScanningConfiguration";
+    private static final String SCANS_CONFIGURATION = ROOT + ".gate.ScansConfiguration";
+    private static final String RESOURCE_CONFIGURATION = ROOT + ".gate.ResourceConfiguration";
+    private static final String META_IMPORT_CONFIGURATION = ROOT + ".gate.MetaImportConfiguration";
+    private static final String IMPORTS_A_USE_CASE = ROOT + ".ZetaImportsAUseCase";
+    private static final String IMPORTS_THROUGH_AN_ANNOTATION = ROOT + ".ZetaImportsAUseCaseThroughAnAnnotation";
+    private static final String MAKES_A_USE_CASE = ROOT + ".ZetaMakesAUseCase";
+
+    private static ArchRule rule15Elsewhere() {
+        return ApplicationRules.onlyTheModulesConfigurationsWireTheirUseCases(ROOT);
+    }
+
+    private static ArchRule rule16() {
+        return ApplicationRules.noHandlerTakesAStreamingParameter(ROOT);
+    }
+
+    private static ArchRule rule15() {
+        return ApplicationRules.moduleRootsHoldOnlyTheirConfiguration(ROOT);
+    }
+
+    private static JavaClasses named(String... names) {
+        Set<String> wanted = Set.of(names);
+        return zeta().that(DescribedPredicate.describe("one of " + wanted, type -> wanted.contains(type.getName())));
     }
 
     private static ArchRule rule8() {
@@ -1134,5 +1171,110 @@ class ApplicationRulesTest {
                                 "out.store"),
                         "web",
                         Set.of("out.streams")));
+    }
+
+    @Test
+    void GivenTheZetaFixtures_WhenRule15Evaluates_ThenExactlyTheRootsOtherClassesAndBadConfigurationsAreFlagged() {
+        assertThat(violators(rule15(), zeta()))
+                .containsExactlyInAnyOrder(
+                        LowerRootValue.class.getName(),
+                        StrayValue.class.getName(),
+                        SIDE_CONFIGURATION,
+                        UpperConfiguration.class.getName(),
+                        GATE_CONFIGURATION,
+                        SCANNING_CONFIGURATION,
+                        SCANS_CONFIGURATION,
+                        RESOURCE_CONFIGURATION,
+                        META_IMPORT_CONFIGURATION);
+    }
+
+    @Test
+    void GivenAConfigurationThatScansForComponents_WhenTheConfigurationRuleRuns_ThenItIsReported() {
+        assertThat(violators(rule15(), named(SCANNING_CONFIGURATION))).containsExactly(SCANNING_CONFIGURATION);
+    }
+
+    @Test
+    void GivenAConfigurationThatScansThroughComponentScans_WhenTheConfigurationRuleRuns_ThenItIsReported() {
+        assertThat(violators(rule15(), named(SCANS_CONFIGURATION))).containsExactly(SCANS_CONFIGURATION);
+    }
+
+    @Test
+    void GivenAConfigurationThatImportsAResource_WhenTheConfigurationRuleRuns_ThenItIsReported() {
+        assertThat(violators(rule15(), named(RESOURCE_CONFIGURATION))).containsExactly(RESOURCE_CONFIGURATION);
+    }
+
+    @Test
+    void GivenAConfigurationWhoseImportArrivesThroughAnAnnotation_WhenTheConfigurationRuleRuns_ThenItIsReported() {
+        assertThat(violators(rule15(), named(META_IMPORT_CONFIGURATION))).containsExactly(META_IMPORT_CONFIGURATION);
+    }
+
+    @Test
+    void GivenTheZetaFixtures_WhenRule15ChecksTheRestOfTheTree_ThenExactlyWhatWiresAUseCaseOutsideARootIsFlagged() {
+        assertThat(violators(rule15Elsewhere(), zeta()))
+                .containsExactlyInAnyOrder(
+                        ImportsPeersUseCase.class.getName(),
+                        IMPORTS_A_USE_CASE,
+                        IMPORTS_THROUGH_AN_ANNOTATION,
+                        MAKES_A_USE_CASE);
+    }
+
+    @Test
+    void GivenAModulesRootConfigurations_WhenRule15ChecksTheRestOfTheTree_ThenNoneIsFlagged() {
+        assertThat(violators(rule15Elsewhere(), named(PEER_CONFIGURATION, SIDE_CONFIGURATION)))
+                .isEmpty();
+    }
+
+    @Test
+    void GivenABeanMethodThatMakesAUseCaseBehindItsApi_WhenRule15ChecksTheRestOfTheTree_ThenItIsReported() {
+        assertThat(violators(rule15Elsewhere(), named(MAKES_A_USE_CASE))).containsExactly(MAKES_A_USE_CASE);
+    }
+
+    @Test
+    void GivenTheZetaFixtures_WhenRule16Evaluates_ThenExactlyTheHandlersThatTakeAStreamAreFlagged() {
+        assertThat(violators(rule16(), zeta()))
+                .containsExactlyInAnyOrder(
+                        ControllerTakesAStream.class.getName(),
+                        ControllerTakesAStreamedResource.class.getName(),
+                        HandlerWritesTheResponse.class.getName());
+    }
+
+    @Test
+    void GivenAControllerWhoseHandlerTakesWhatAConverterRead_WhenRule16Evaluates_ThenNothingIsFlagged() {
+        assertThat(violators(rule16(), FixtureClasses.only(ControllerTakesItsArguments.class)))
+                .isEmpty();
+    }
+
+    @Test
+    void GivenAModuleRootHoldingAnotherClass_WhenTheConfigurationRuleRuns_ThenItIsReported() {
+        assertThat(violators(rule15(), FixtureClasses.only(LowerRootValue.class)))
+                .containsExactly(LowerRootValue.class.getName());
+    }
+
+    @Test
+    void GivenAConfigurationImportingAnotherModulesService_WhenTheConfigurationRuleRuns_ThenItIsReported() {
+        JavaClasses side = named(SIDE_CONFIGURATION);
+
+        assertThat(violators(ApplicationRules.modulesDependAlongTheGraph(ROOT, GRAPH), side))
+                .isEmpty();
+        assertThat(violators(rule15(), side)).containsExactly(SIDE_CONFIGURATION);
+    }
+
+    @Test
+    void GivenAPublicConfiguration_WhenTheConfigurationRuleRuns_ThenItIsReported() {
+        assertThat(violators(rule15(), FixtureClasses.only(UpperConfiguration.class)))
+                .containsExactly(UpperConfiguration.class.getName());
+    }
+
+    @Test
+    void GivenAConfigurationWithABeanMethod_WhenTheConfigurationRuleRuns_ThenItIsReported() {
+        assertThat(violators(rule15(), named(GATE_CONFIGURATION))).containsExactly(GATE_CONFIGURATION);
+    }
+
+    @Test
+    void GivenAConfigurationImportingItsOwnService_WhenTheConfigurationRuleRuns_ThenNothingIsFlagged() {
+        JavaClasses peer = named(PEER_CONFIGURATION);
+
+        assertThat(peer.stream().map(JavaClass::getName)).containsExactly(PEER_CONFIGURATION);
+        assertThat(violators(rule15(), peer)).isEmpty();
     }
 }

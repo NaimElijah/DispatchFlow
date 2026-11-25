@@ -21,6 +21,7 @@ class ApplicationTest {
 
     private static final String ROOT = ProductionClasses.ROOT;
     private static final String SPI_PACKAGE = ".application.spi";
+    private static final String CONFIGURATION_SUFFIX = "Configuration";
 
     private static Set<String> topLevelPackages() {
         return ProductionClasses.ALL.stream()
@@ -185,6 +186,32 @@ class ApplicationTest {
     @Test
     void GivenTheProductionClasses_WhenRule14IsChecked_ThenOnlyTheWebAndTheControllersReadTheCallsHolders() {
         ApplicationRules.onlyTheWebReadsTheCallsHolders(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenRule15IsChecked_ThenEachModuleRootHoldsOnlyItsConfiguration() {
+        ApplicationRules.moduleRootsHoldOnlyTheirConfiguration(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenRule15ChecksTheRestOfTheTree_ThenOnlyTheModulesConfigurationsWireUseCases() {
+        ApplicationRules.onlyTheModulesConfigurationsWireTheirUseCases(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenRule16IsChecked_ThenNoHandlerTakesAStreamingParameter() {
+        ApplicationRules.noHandlerTakesAStreamingParameter(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheModuleGraph_WhenEachModulesRootIsRead_ThenItHoldsExactlyOneConfiguration() {
+        assertThat(ApplicationRules.MODULE_GRAPH.keySet())
+                .allSatisfy(module -> assertThat(ProductionClasses.ALL.stream()
+                                .filter(type -> type.getPackageName().equals(ROOT + "." + module))
+                                .map(JavaClass::getSimpleName)
+                                .filter(name -> name.endsWith(CONFIGURATION_SUFFIX)))
+                        .as("the configurations at %s's root", module)
+                        .hasSize(1));
     }
 
     @Test
