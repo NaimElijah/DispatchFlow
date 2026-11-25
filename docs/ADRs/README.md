@@ -113,7 +113,8 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-037](ADR-037-flat-layout-under-src-with-deploy-and-infra.md) | The code moves to a flat layout under `src/`, with deployment in `deploy/` and Terraform in `infra/` | Superseded by ADR-123 |
 | [ADR-123](ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md) | The code keeps its grouped layout, and three components take new names | Accepted; extended by ADR-130 |
 | [ADR-038](ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md) | mise pins every toolchain, and the core moves to Java 25 | Accepted |
-| [ADR-039](ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md) | Both apps and the shared TypeScript packages live in one pnpm workspace | Accepted; extended by ADR-130; amended by ADR-123 |
+| [ADR-039](ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md) | Both apps and the shared TypeScript packages live in one pnpm workspace | Accepted; extended by ADR-130 and ADR-141; amended by ADR-123 |
+| [ADR-141](ADR-141-prettiers-settings-live-in-one-file-in-src-frontend.md) | Prettier's settings live in one file in `src/frontend`, for the web app and every workspace package | Accepted |
 | [ADR-042](ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md) | Local runs start their services from `compose.dev.yaml`; tests keep Testcontainers | Accepted; amended by ADR-123 and ADR-139 |
 | [ADR-046](ADR-046-renovate-replaces-dependabot-and-targets-dev.md) | Renovate replaces Dependabot and keeps opening updates against `dev` | Accepted |
 | [ADR-072](ADR-072-images-scanned-by-pinned-trivy-and-secrets-by-gitleaks.md) | A pinned Trivy scans images and Terraform, and Gitleaks scans the full history for secrets | Accepted |
@@ -207,4 +208,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > their `api` and `events`, and rule 14 keeps the call's holders to `web` and the controllers. It
 > settles the generated code, the caller, the error statuses, the retry, the trace ID and where the
 > use cases become beans.
+> ADR-141, on 2026-11-25, moves the web app's `.prettierrc.json` up to `src/frontend`, where the
+> web app and every package of the new pnpm workspace read it; the phone app's identical copy stays
+> until #147.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.
