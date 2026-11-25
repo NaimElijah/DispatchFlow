@@ -67,6 +67,8 @@ class ErrorEndpointTest {
         assertThat(result).bodyJson().extractingPath("$.type").asString().isEqualTo("about:blank");
         assertThat(result).bodyJson().extractingPath("$.traceId").asString().hasSize(32);
         assertThat(result).bodyJson().extractingPath("$.instance").asString().isEqualTo(FAILED_PATH);
+        // The value Spring's own download check sets on an unsafe path, so it never runs here.
+        assertThat(result).headers().hasValue(HttpHeaders.CONTENT_DISPOSITION, "inline;filename=f.txt");
     }
 
     /** The endpoint's one line, at a level, with the status it carries. */
@@ -125,11 +127,7 @@ class ErrorEndpointTest {
                 .extractingPath("$.errors[0].code")
                 .asString()
                 .isEqualTo(WebCodes.INVALID_VALUE);
-        assertThat(result)
-                .bodyJson()
-                .extractingPath("$.errors[0].pointer")
-                .asString()
-                .isEmpty();
+        assertThat(result).bodyJson().doesNotHavePath("$.errors[0].pointer").doesNotHavePath("$.errors[0].parameter");
     }
 
     @Test

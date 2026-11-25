@@ -29,7 +29,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -163,20 +162,6 @@ class KernelErrorHandlerTest {
         });
     }
 
-    @Test
-    void GivenAPathWithABracket_WhenARefusalIsAnswered_ThenItsInstanceIsThePathQuoted() {
-        MvcTestResult result = mvc.perform(
-                context -> new MockHttpServletRequest(context, "GET", ThrowingController.LABELLED + "/a[1]"));
-
-        assertThat(result).hasStatus(HttpStatus.UNPROCESSABLE_CONTENT);
-        assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo("DATE_IN_PAST");
-        assertThat(result)
-                .bodyJson()
-                .extractingPath("$.instance")
-                .asString()
-                .isEqualTo(ThrowingController.LABELLED + "/a%5B1%5D");
-    }
-
     @ParameterizedTest
     @ValueSource(strings = {"step-up-required", "not-your-route", "stop-not-on-your-route"})
     void GivenAnOverrideCode_WhenARuleViolationCarriesIt_Then403(String failure) {
@@ -211,6 +196,7 @@ class KernelErrorHandlerTest {
             assertThat(CapturedLogs.keyValues(event)).containsEntry("code", "DATE_IN_PAST");
         });
         assertThat(everyLine.events())
+                .isNotEmpty()
                 .allSatisfy(event -> assertThat(CapturedLogs.textsOf(event))
                         .noneMatch(text -> text.contains(DATE.value().toString())));
     }
@@ -292,12 +278,6 @@ class KernelErrorHandlerTest {
     static class ThrowingController {
 
         static final String BROKEN_RULE = "a stop is listed twice";
-        static final String LABELLED = "/kernel-error-handler-test/labelled";
-
-        @GetMapping(LABELLED + "/{label}")
-        String labelled(@PathVariable String label) {
-            throw new RuleViolation(new OrdersError.DateInPast(DATE));
-        }
 
         @GetMapping("/kernel-error-handler-test/{failure}")
         String fail(@PathVariable String failure) {

@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import org.apache.coyote.BadRequestException;
@@ -154,10 +155,39 @@ class TraceIdFilterTest {
         IllegalStateException raw = new IllegalStateException("thrown by a filter");
         IOException io = new IOException("the body could not be read");
         IllegalStateException twiceWrapped = new IllegalStateException("wrapped twice");
+        ServletException causeless = new ServletException("no cause");
         return Stream.of(
                 Arguments.of(raw, raw),
                 Arguments.of(io, io),
-                Arguments.of(new ServletException("outer", new ServletException("inner", twiceWrapped)), twiceWrapped));
+                Arguments.of(new ServletException("outer", new ServletException("inner", twiceWrapped)), twiceWrapped),
+                Arguments.of(causeless, causeless));
+    }
+
+    @Test
+    void GivenAPathParameterWithAMalformedEscape_WhenTheRequestArrives_Then400AndTheChainNeverRuns() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/trace-id-filter-test/health;a=%zz");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        AtomicBoolean chainRan = new AtomicBoolean();
+
+        new TraceIdFilter().doFilter(request, response, (passed, answered) -> chainRan.set(true));
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getErrorMessage()).isNull();
+        assertThat(request.getAttribute(RequestDispatcher.ERROR_EXCEPTION)).isNull();
+        assertThat(chainRan).isFalse();
+        assertThat(MDC.get(Problems.TRACE_ID)).isNull();
+    }
+
+    @Test
+    void GivenAPathParameterWithAValidEscape_WhenTheRequestArrives_ThenTheChainRuns() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/trace-id-filter-test/health;a=%C3%A9");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        AtomicBoolean chainRan = new AtomicBoolean();
+
+        new TraceIdFilter().doFilter(request, response, (passed, answered) -> chainRan.set(true));
+
+        assertThat(chainRan).isTrue();
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
     }
 
     @ParameterizedTest
@@ -217,7 +247,7 @@ class TraceIdFilterTest {
     @ParameterizedTest
     @EnumSource(
             value = DispatcherType.class,
-            names = {"ERROR", "INCLUDE"})
+            names = {"ERROR", "INCLUDE", "FORWARD"})
     void GivenAnExceptionThatEscapesADispatchInsideTheErrorPage_WhenFiltered_ThenItIsRethrownAndNoOtherIsAsked(
             DispatcherType dispatch) {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/error");

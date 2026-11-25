@@ -26,46 +26,60 @@ import org.slf4j.event.KeyValuePair;
  * keep asserting on the console through {@code CapturedOutput}, because there the JSON line is the
  * point.
  *
- * <p>For each test it pins the logger at INFO, the level the application runs its own loggers at,
- * and puts back the level it had: logback's unconfigured default, DEBUG, would record lines
- * production never writes. It changes shared logback state, so it is not for tests that run
+ * <p>{@link #of} records its logger's events at INFO and above, the level the application runs
+ * its own loggers at, and changes no level: logback's unconfigured default, DEBUG, would otherwise
+ * record lines production never writes. {@link #ofEveryLogger} pins the root at INFO, so a
+ * framework's DEBUG lines, which quote values the core doesn't control, stay off, and {@code
+ * com.dispatchflow} at TRACE, so a check that a value leaks nowhere sees the application's own
+ * lines at every level, those of a class another capture reads included; it puts both levels back
+ * after each test. It changes shared logback state, so it is not for tests that run
  * concurrently.
  */
 public final class CapturedLogs implements BeforeEachCallback, AfterEachCallback {
 
     private static final Level PRODUCTION_LEVEL = Level.INFO;
+    private static final String APPLICATION_LOGGER = "com.dispatchflow";
 
     private final Logger logger;
-    private final Recorder recorder = new Recorder();
-    private @Nullable Level levelBefore;
+    private final Map<Logger, Level> pinned;
+    private final Map<Logger, @Nullable Level> levelsBefore = new LinkedHashMap<>();
+    private final Recorder recorder;
 
-    private CapturedLogs(Logger logger) {
+    private CapturedLogs(Logger logger, Level lowest, Map<Logger, Level> pinned) {
         this.logger = logger;
+        this.pinned = pinned;
+        this.recorder = new Recorder(lowest);
     }
 
     /**
-     * The events one class's logger writes.
+     * The events one class's logger writes, at INFO and above.
      *
      * @param source the class whose logger to read
      * @return the capture, attached once JUnit runs a test
      */
     public static CapturedLogs of(Class<?> source) {
-        return new CapturedLogs((Logger) LoggerFactory.getLogger(source));
+        return new CapturedLogs((Logger) LoggerFactory.getLogger(source), PRODUCTION_LEVEL, Map.of());
     }
 
     /**
-     * The events every logger writes, for a test that a value never reaches any line.
+     * The events every logger writes, for a test that a value never reaches any line: the
+     * application's at every level, the frameworks' at INFO and above.
      *
      * @return the capture, attached once JUnit runs a test
      */
     public static CapturedLogs ofEveryLogger() {
-        return new CapturedLogs((Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME));
+        Logger root = (Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
+        Logger application = (Logger) LoggerFactory.getLogger(APPLICATION_LOGGER);
+        return new CapturedLogs(root, Level.TRACE, Map.of(root, PRODUCTION_LEVEL, application, Level.TRACE));
     }
 
     @Override
     public void beforeEach(ExtensionContext context) {
-        levelBefore = logger.getLevel();
-        logger.setLevel(PRODUCTION_LEVEL);
+        levelsBefore.clear();
+        pinned.forEach((pinnedLogger, level) -> {
+            levelsBefore.put(pinnedLogger, pinnedLogger.getLevel());
+            pinnedLogger.setLevel(level);
+        });
         recorder.list.clear();
         recorder.start();
         logger.addAppender(recorder);
@@ -75,7 +89,7 @@ public final class CapturedLogs implements BeforeEachCallback, AfterEachCallback
     public void afterEach(ExtensionContext context) {
         logger.detachAppender(recorder);
         recorder.stop();
-        logger.setLevel(levelBefore);
+        levelsBefore.forEach(Logger::setLevel);
     }
 
     /**
@@ -134,13 +148,24 @@ public final class CapturedLogs implements BeforeEachCallback, AfterEachCallback
         return texts;
     }
 
-    /** Keeps each event whole: logback reads an event's MDC lazily, and the request clears it. */
+    /**
+     * Keeps each event at or above its lowest level, whole: logback reads an event's MDC lazily,
+     * and the request clears it.
+     */
     private static final class Recorder extends ListAppender<ILoggingEvent> {
+
+        private final Level lowest;
+
+        Recorder(Level lowest) {
+            this.lowest = lowest;
+        }
 
         @Override
         protected void append(ILoggingEvent event) {
-            event.prepareForDeferredProcessing();
-            super.append(event);
+            if (event.getLevel().isGreaterOrEqual(lowest)) {
+                event.prepareForDeferredProcessing();
+                super.append(event);
+            }
         }
     }
 }

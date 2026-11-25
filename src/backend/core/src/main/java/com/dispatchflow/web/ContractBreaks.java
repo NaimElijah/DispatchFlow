@@ -197,10 +197,10 @@ final class ContractBreaks {
      * The item of a 400 whose exception names no field or parameter, such as a parameter condition
      * the request doesn't meet, so that every 400 lists at least one item, as the contract requires.
      *
-     * @return an invalid-value item, at the whole request
+     * @return an invalid-value item for the whole request, with neither a pointer nor a parameter
      */
     static ProblemItem wholeRequest() {
-        return ProblemItem.pointer(WebCodes.INVALID_VALUE, WHOLE_BODY);
+        return ProblemItem.request(WebCodes.INVALID_VALUE);
     }
 
     /**

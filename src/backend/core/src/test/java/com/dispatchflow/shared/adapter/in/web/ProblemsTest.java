@@ -64,6 +64,27 @@ class ProblemsTest {
     }
 
     @Test
+    void GivenAPathParameterWithAMalformedEscape_WhenAProblemIsPlacedAtIt_ThenItsPercentIsQuoted() {
+        MDC.put(Problems.TRACE_ID, TRACE);
+
+        ProblemDetail problem =
+                Problems.at(Problems.of(HttpStatus.BAD_REQUEST, "INVALID_REQUEST"), "/actuator/health;a=%zz");
+
+        assertThat(problem.getInstance()).isEqualTo(URI.create("/actuator/health;a=%25zz"));
+        assertThat(logs.events()).isEmpty();
+    }
+
+    @Test
+    void GivenAValidEscapeBesideAMalformedOne_WhenAProblemIsPlacedAtIt_ThenOnlyTheMalformedPercentIsQuoted() {
+        MDC.put(Problems.TRACE_ID, TRACE);
+
+        ProblemDetail problem =
+                Problems.at(Problems.of(HttpStatus.BAD_REQUEST, "INVALID_REQUEST"), "/plans/caf%C3%A9;a=%z1%");
+
+        assertThat(problem.getInstance()).isEqualTo(URI.create("/plans/caf%C3%A9;a=%25z1%25"));
+    }
+
+    @Test
     void GivenATraceIdInTheMdc_WhenAProblemIsMade_ThenItCarriesIt() {
         MDC.put(Problems.TRACE_ID, TRACE);
 

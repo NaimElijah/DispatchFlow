@@ -24,7 +24,6 @@ import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.multipart.MultipartException;
@@ -52,9 +51,9 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  *
  * <p>It runs before the kernel's handler ({@link HandlerOrder#CONTRACT}), so a converter's
  * exception that wraps a refusal still answers 400. A 400 or a 413 is logged at WARN with its codes
- * and cut pointers, the first {@link Problems#MAX_ITEMS} of them and their count; a 404, 405, 406
- * or 415 at INFO; and a 500 at ERROR. A refusal's line never carries a value nor the exception's
- * message.
+ * and cut pointers, the first {@link Problems#MAX_ITEMS} of them and their count; a 503 at WARN; a
+ * 404, 405, 406 or 415 at INFO; and a 500 at ERROR. A refusal's line never carries a value nor the
+ * exception's message.
  */
 @RestControllerAdvice
 @Order(HandlerOrder.CONTRACT)
@@ -69,6 +68,8 @@ class ContractErrorHandler extends ResponseEntityExceptionHandler {
     // The exception's type, never its message: it tells apart the 400s that name no item.
     private static final String EXCEPTION = "exception";
     private static final String WHOLE_BODY = "";
+    // How the log line names an item that has neither a pointer nor a parameter.
+    private static final String WHOLE_REQUEST = "the whole request";
     private static final String PARAMETERS_REFUSED = "Tomcat refused the request's parameters";
 
     /**
@@ -85,8 +86,9 @@ class ContractErrorHandler extends ResponseEntityExceptionHandler {
      * Answers Tomcat's refusal of the request's parameters when Spring MVC reads them, as it does a
      * form body's for a handler that takes a body, before any converter, so {@link BodySizeLimit}
      * never sees one. Tomcat throws it from its {@code getParameter} methods for a query or form
-     * parameter that fails to decode, for too many parameters, and for a form body over {@code
-     * server.tomcat.max-http-form-post-size}. Tomcat's own 413 answers 413, and every other code
+     * parameter that fails to decode, for too many parameters, for a form body that can't be read,
+     * with 400, and for a form body over {@code server.tomcat.max-http-form-post-size}, with 413.
+     * Tomcat's own 413 answers 413, and every other code
      * 400 for the whole request. One thrown outside Spring MVC, as by a servlet filter, reaches
      * {@code TraceIdFilter} instead.
      *
@@ -129,7 +131,7 @@ class ContractErrorHandler extends ResponseEntityExceptionHandler {
                     .log("Spring MVC chose a status the contract doesn't list");
             return super.handleExceptionInternal(
                     thrown,
-                    located(Problems.of(HttpStatus.INTERNAL_SERVER_ERROR, WebCodes.UNEXPECTED_ERROR), request),
+                    Problems.of(HttpStatus.INTERNAL_SERVER_ERROR, WebCodes.UNEXPECTED_ERROR),
                     headers,
                     HttpStatus.INTERNAL_SERVER_ERROR,
                     request);
@@ -139,14 +141,7 @@ class ContractErrorHandler extends ResponseEntityExceptionHandler {
         List<ProblemItem> items = invalid ? itemsOf(thrown) : List.of();
         ProblemDetail problem = invalid ? Problems.invalidRequest(items) : Problems.of(chosen, code);
         log(thrown, chosen, code, items);
-        return super.handleExceptionInternal(
-                thrown, located(problem, request), withRetryAfter(headers, chosen), chosen, request);
-    }
-
-    private static ProblemDetail located(ProblemDetail problem, WebRequest request) {
-        return request instanceof ServletWebRequest servlet
-                ? Problems.at(problem, servlet.getRequest().getRequestURI())
-                : problem;
+        return super.handleExceptionInternal(thrown, problem, withRetryAfter(headers, chosen), chosen, request);
     }
 
     /** The failing items of a 400, never none: the whole request when the exception names none. */
@@ -214,9 +209,15 @@ class ContractErrorHandler extends ResponseEntityExceptionHandler {
     /** An item's code and where it failed, its cut pointer or its parameter: never a value. */
     private static String describe(ProblemItem item) {
         ProblemItem.Parameter parameter = item.parameter();
-        String place = parameter == null
-                ? String.valueOf(item.pointer())
-                : parameter.name() + " in " + parameter.in().wireName();
+        String pointer = item.pointer();
+        String place;
+        if (parameter != null) {
+            place = parameter.name() + " in " + parameter.in().wireName();
+        } else if (pointer != null) {
+            place = pointer;
+        } else {
+            place = WHOLE_REQUEST;
+        }
         return item.code() + " at " + place;
     }
 }

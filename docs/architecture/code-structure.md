@@ -163,7 +163,7 @@ src/backend/core/
                                    answered, or that a servlet filter raised
       WebCodes.java                the codes web answers of its own
       ServedJson.java              the served JSON converter refuses unknown and duplicate keys
-      BodySizeLimit.java           caps a request body at 1 MiB
+      BodySizeLimit.java           caps at 1 MiB what a converter reads of a request body
       security/                    declared, empty: the stand-in session, then the filter chain, and
                                    the capability interceptor
       stream/                      declared, empty: the event stream's endpoint, its heartbeat and
@@ -210,7 +210,8 @@ src/backend/core/
     messaging/                     the same as access/
     liveops/                       the same as access/
     shared/adapter/in/web/         the problem factory's tests, ErrorParamsTest among them:
-                                   every production error's params have a mapping
+                                   every production error's params have a mapping; and
+                                   TraceIdsTest, a fresh trace ID is never all zeros
     shared/adapter/out/            the clock's and the ID generator's tests, in clock/ and uuid/
     web/                           a test per class: the handlers, the error endpoint, the trace
                                    filter and the call wrapper through MockMvc; WebIT checks them

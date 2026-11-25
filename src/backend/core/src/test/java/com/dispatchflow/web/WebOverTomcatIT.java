@@ -11,6 +11,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.net.ConnectException;
+import java.net.InetAddress;
+import java.net.Socket;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -18,13 +20,17 @@ import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.net.http.HttpTimeoutException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.Callable;
 import org.apache.tomcat.util.http.InvalidParameterException;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
@@ -61,6 +67,9 @@ class WebOverTomcatIT {
     private static final String SENTINEL = "zq7WebOverTomcatSentinel";
     // The line Tomcat writes, with no trace ID, when an exception escapes the servlet.
     private static final String TOMCATS_OWN_LINE = "Servlet.service()";
+    private static final int STATUS_DIGITS = 3;
+    // Where an answer's headers end and its body starts.
+    private static final String BLANK_LINE = "\r\n\r\n";
 
     @LocalServerPort
     private int port;
@@ -71,9 +80,120 @@ class WebOverTomcatIT {
     private final HttpClient client =
             HttpClient.newBuilder().connectTimeout(TIMEOUT).build();
 
+    private CapturedOutput output;
+    private int outputBefore;
+
+    /**
+     * Marks where this test's output starts: the capture also holds what the context's startup and
+     * earlier tests wrote, late lines included.
+     */
+    @BeforeEach
+    void markTheOutput(CapturedOutput captured) {
+        output = captured;
+        outputBefore = captured.getOut().length();
+    }
+
     @AfterEach
     void closeTheClient() {
         client.close();
+    }
+
+    /** What the console got since this test began. */
+    private String newOutput() {
+        return output.getOut().substring(outputBefore);
+    }
+
+    /** A log line's level, as Elastic Common Schema nests it. */
+    private static String levelOf(JsonNode line) {
+        return line.path("log").path("level").asString();
+    }
+
+    /** The JSON lines written since this test began, each read as the one object it is. */
+    private List<JsonNode> newJsonLines() {
+        return newOutput()
+                .lines()
+                .filter(line -> line.startsWith("{"))
+                .map(json::readTree)
+                .toList();
+    }
+
+    /** The lines written since this test began at ERROR. */
+    private List<JsonNode> newErrorLines() {
+        return newJsonLines().stream()
+                .filter(line -> levelOf(line).equals("ERROR"))
+                .toList();
+    }
+
+    /**
+     * Sends a request target that {@code java.net.http} refuses to send, over a raw socket to this
+     * test's own server. HTTP/1.0, so Tomcat closes the connection after one unchunked answer.
+     */
+    private RawResponse sendRaw(String target) throws IOException {
+        try (Socket socket = new Socket(InetAddress.getLoopbackAddress(), port)) {
+            socket.setSoTimeout((int) TIMEOUT.toMillis());
+            String request =
+                    "GET " + target + " HTTP/1.0\r\nHost: localhost\r\ntraceparent: " + TRACEPARENT + "\r\n\r\n";
+            socket.getOutputStream().write(request.getBytes(StandardCharsets.US_ASCII));
+            String answer = new String(socket.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            int statusStart = answer.indexOf(' ') + 1;
+            int headersEnd = answer.indexOf(BLANK_LINE);
+            return new RawResponse(
+                    Integer.parseInt(answer.substring(statusStart, statusStart + STATUS_DIGITS)),
+                    answer.substring(0, headersEnd),
+                    answer.substring(headersEnd + BLANK_LINE.length()));
+        }
+    }
+
+    /** A raw answer: its status, its status line and headers as sent, and its body. */
+    private record RawResponse(int status, String head, String body) {}
+
+    /**
+     * Tomcat refuses a {@code [}, a {@code ]}, a {@code {} or a malformed escape in the path itself,
+     * with its own 400 page, before any filter runs, so no problem body and no trace ID can answer
+     * it (ADR-142: a connector-level refusal never reaches the application). No line may quote the
+     * request target: Tomcat's own line for a request line it can't parse would, at INFO once a day,
+     * before any filter sets a trace ID.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"/actuator/health[1]", "/actuator/health%zz", "/actuator/health{1}"})
+    void GivenAPathTomcatCannotParse_WhenItArrives_ThenTomcatAnswers400AndNoLineQuotesIt(String target)
+            throws Exception {
+        assertThat(sendRaw(target).status()).isEqualTo(400);
+        assertThat(newErrorLines()).isEmpty();
+        assertThat(newOutput()).doesNotContain(target);
+    }
+
+    /**
+     * Tomcat passes a path parameter's escape undecoded, so a malformed one reaches the trace
+     * filter, which refuses it before Spring parses the path; the error endpoint answers the 400.
+     */
+    @Test
+    void GivenAPathParameterWithAMalformedEscape_WhenItArrives_Then400ForTheWholeRequestLoggedAtInfoAlone()
+            throws Exception {
+        RawResponse response = sendRaw("/actuator/health;a=%zz");
+
+        assertThat(response.status()).isEqualTo(400);
+        assertThat(response.head()).containsIgnoringCase(HttpHeaders.CONTENT_DISPOSITION + ":");
+        JsonNode problem = json.readTree(response.body());
+        assertThat(problem.path("code").asString()).isEqualTo(Problems.INVALID_REQUEST);
+        assertThat(problem.path(Problems.TRACE_ID).asString()).isEqualTo(TRACE_ID);
+        assertThat(problem.path("instance").asString()).isEqualTo("/actuator/health;a=%25zz");
+        assertThat(problem.path("errors")).hasSize(1);
+        assertThat(problem.path("errors").path(0).path("code").asString()).isEqualTo(WebCodes.INVALID_VALUE);
+        assertThat(problem.path("errors").path(0).has("pointer")).isFalse();
+        assertThat(problem.path("errors").path(0).has("parameter")).isFalse();
+        List<JsonNode> lines = newJsonLines();
+        assertThat(lines)
+                .filteredOn(line -> line.path("log").path("logger").asString().equals(ErrorEndpoint.class.getName()))
+                .singleElement()
+                .satisfies(line -> {
+                    assertThat(levelOf(line)).isEqualTo("INFO");
+                    assertThat(line.path("status").asInt()).isEqualTo(400);
+                });
+        assertThat(lines)
+                .noneMatch(
+                        line -> levelOf(line).equals("ERROR") || levelOf(line).equals("WARN"));
+        assertThat(newOutput()).doesNotContain(TOMCATS_OWN_LINE);
     }
 
     private HttpRequest.Builder to(String pathAndQuery) {
@@ -98,9 +218,9 @@ class WebOverTomcatIT {
         return problem;
     }
 
-    /** The captured lines that mention a text, each read as the one JSON object it must be. */
-    private List<JsonNode> linesMentioning(CapturedOutput output, String text) {
-        return output.getOut()
+    /** The lines written since this test began that mention a text, each read as the one JSON object it is. */
+    private List<JsonNode> linesMentioning(String text) {
+        return newOutput()
                 .lines()
                 .filter(line -> line.contains(text))
                 .map(json::readTree)
@@ -108,34 +228,35 @@ class WebOverTomcatIT {
     }
 
     /** Exactly one line tells of the escaped exception: at ERROR, as one JSON line with the trace ID. */
-    private void theOneErrorLine(CapturedOutput output) {
-        assertThat(linesMentioning(output, EscapedEveryAdvice.class.getName()))
+    private void theOneErrorLine() {
+        assertThat(linesMentioning(EscapedEveryAdvice.class.getName()))
                 .singleElement()
                 .satisfies(line -> {
                     assertThat(line.path(Problems.TRACE_ID).asString()).isEqualTo(TRACE_ID);
-                    assertThat(line.toString()).contains("\"ERROR\"");
+                    assertThat(levelOf(line)).isEqualTo("ERROR");
                 });
-        assertThat(output.getOut()).doesNotContain(TOMCATS_OWN_LINE);
+        assertThat(newOutput()).doesNotContain(TOMCATS_OWN_LINE);
     }
 
     @Test
-    void GivenAQueryParameterThatIsNoUtf8_WhenTheHealthProbeReadsIt_Then400ForTheWholeRequestAndNoValueLogged(
-            CapturedOutput output) throws Exception {
+    void GivenAQueryParameterThatIsNoUtf8_WhenTheHealthProbeReadsIt_Then400ForTheWholeRequestAndNoValueLogged()
+            throws Exception {
         HttpResponse<String> response =
                 send(to("/actuator/health?name=" + SENTINEL + "%E0%E1").GET());
 
         JsonNode problem = problemOf(response, 400, Problems.INVALID_REQUEST);
         assertThat(problem.path("errors").path(0).path("code").asString()).isEqualTo(WebCodes.INVALID_VALUE);
-        assertThat(problem.path("errors").path(0).path("pointer").asString()).isEmpty();
-        assertThat(linesMentioning(output, TRACE_ID))
+        assertThat(problem.path("errors").path(0).has("pointer")).isFalse();
+        assertThat(problem.path("errors").path(0).has("parameter")).isFalse();
+        assertThat(response.body()).doesNotContain(SENTINEL);
+        assertThat(linesMentioning(TRACE_ID))
                 .singleElement()
-                .satisfies(line -> assertThat(line.toString()).contains("\"WARN\""));
-        assertThat(output.getOut()).doesNotContain(SENTINEL).doesNotContain(TOMCATS_OWN_LINE);
+                .satisfies(line -> assertThat(levelOf(line)).isEqualTo("WARN"));
+        assertThat(newOutput()).doesNotContain(SENTINEL).doesNotContain(TOMCATS_OWN_LINE);
     }
 
     @Test
-    void GivenAFormPostOverTomcatsCap_WhenAHandlerReadsItsBody_Then413BodyTooLarge(CapturedOutput output)
-            throws Exception {
+    void GivenAFormPostOverTomcatsCap_WhenAHandlerReadsItsBody_Then413BodyTooLarge() throws Exception {
         String form = "note=" + "a".repeat(BodySizeLimit.MAX_BODY_BYTES);
 
         HttpResponse<String> response = send(to(EscapingController.FORM)
@@ -144,42 +265,43 @@ class WebOverTomcatIT {
 
         problemOf(response, 413, WebCodes.BODY_TOO_LARGE);
         // Tomcat's cap refused it, not BodySizeLimit, whose refusal is a BodyTooLarge.
-        assertThat(linesMentioning(output, TRACE_ID))
-                .singleElement()
-                .satisfies(line -> assertThat(line.toString())
-                        .contains("\"WARN\"")
-                        .contains("\"exception\":\"" + InvalidParameterException.class.getSimpleName() + "\""));
-        assertThat(output.getOut()).doesNotContain(TOMCATS_OWN_LINE);
+        assertThat(linesMentioning(TRACE_ID)).singleElement().satisfies(line -> {
+            assertThat(levelOf(line)).isEqualTo("WARN");
+            assertThat(line.toString())
+                    .contains("\"exception\":\"" + InvalidParameterException.class.getSimpleName() + "\"");
+        });
+        assertThat(newOutput()).doesNotContain(TOMCATS_OWN_LINE);
     }
 
     @Test
-    void GivenAFilterThatReadsAParameterTomcatCannotDecode_WhenTheRequestArrives_Then400AndNoLineCarriesTheValue(
-            CapturedOutput output) throws Exception {
+    void GivenAFilterThatReadsAParameterTomcatCannotDecode_WhenTheRequestArrives_Then400AndNoLineCarriesTheValue()
+            throws Exception {
         HttpResponse<String> response = send(
                 to(ParameterReadingFilter.PATH + "?name=" + SENTINEL + "%E0%E1").GET());
 
         problemOf(response, 400, Problems.INVALID_REQUEST);
-        assertThat(output.getOut()).doesNotContain(SENTINEL).doesNotContain(TOMCATS_OWN_LINE);
+        assertThat(response.body()).doesNotContain(SENTINEL);
+        assertThat(newOutput()).doesNotContain(SENTINEL).doesNotContain(TOMCATS_OWN_LINE);
     }
 
     @Test
-    void GivenAnExceptionThatEscapesEveryAdvice_WhenTomcatDispatchesIt_ThenA500ProblemAndOneJsonErrorLine(
-            CapturedOutput output) throws Exception {
+    void GivenAnExceptionThatEscapesEveryAdvice_WhenTomcatDispatchesIt_ThenA500ProblemAndOneJsonErrorLine()
+            throws Exception {
         HttpResponse<String> response = send(to(EscapingController.ESCAPING).GET());
 
         JsonNode problem = problemOf(response, 500, WebCodes.UNEXPECTED_ERROR);
         assertThat(problem.path("instance").asString()).isEqualTo(EscapingController.ESCAPING);
-        theOneErrorLine(output);
+        theOneErrorLine();
     }
 
     @Test
-    void GivenAnAsyncHandlerWhoseExceptionEscapesEveryAdvice_WhenTomcatDispatchesIt_ThenA500ProblemAndOneErrorLine(
-            CapturedOutput output) throws Exception {
+    void GivenAnAsyncHandlerWhoseExceptionEscapesEveryAdvice_WhenTomcatDispatchesIt_ThenA500ProblemAndOneErrorLine()
+            throws Exception {
         HttpResponse<String> response =
                 send(to(EscapingController.ESCAPING_LATER).GET());
 
         problemOf(response, 500, WebCodes.UNEXPECTED_ERROR);
-        theOneErrorLine(output);
+        theOneErrorLine();
     }
 
     /**
@@ -188,14 +310,13 @@ class WebOverTomcatIT {
      * whole one. The error endpoint's line still carries the trace ID.
      */
     @Test
-    void GivenAnExceptionThatEscapesAfterTheResponseIsCommitted_WhenItLeavesTheHandler_ThenTomcatAbortsTheResponse(
-            CapturedOutput output) {
+    void GivenAnExceptionThatEscapesAfterTheResponseIsCommitted_WhenItLeavesTheHandler_ThenTomcatAbortsTheResponse() {
         assertThatThrownBy(
                         () -> send(to(EscapingController.ESCAPING_AFTER_COMMIT).GET()))
                 .isInstanceOf(IOException.class)
                 .isNotInstanceOf(HttpTimeoutException.class)
                 .isNotInstanceOf(ConnectException.class);
-        assertThat(linesMentioning(output, EscapedEveryAdvice.class.getName()))
+        assertThat(linesMentioning(EscapedEveryAdvice.class.getName()))
                 .anySatisfy(line ->
                         assertThat(line.path(Problems.TRACE_ID).asString()).isEqualTo(TRACE_ID));
     }

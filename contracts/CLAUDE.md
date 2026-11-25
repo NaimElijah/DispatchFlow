@@ -44,10 +44,10 @@ Both are OpenAPI 3.1. `client-api` is served under `/api/v1`.
   - an app sends a new request property only once the core release that declares it won't be rolled
     back past. On the phone's writes a request property stays declared for the life of v1; elsewhere
     a retired one stays accepted and ignored, never removed in v1 ([ADR-082]);
-  - RFC 9457 errors: `Problem` has `type` `about:blank` (optional, always sent), `code`, `params`
-    and `traceId`, `errors` on a 400 and a 422 that lists several ([ADR-043]), and a deprecated
-    `detail`, never set. `code` is a string, never an enum, so a new code isn't breaking; each needs
-    its entry in the description, and Hebrew and English text with a next step (NFR-144);
+  - RFC 9457 errors: `Problem` has `type` `about:blank`, `code`, `params` and `traceId`, `errors` on
+    a 400 and a 422 that lists several ([ADR-043]), and a deprecated `detail`, never set. `code` is
+    a string, never an enum, so a new code isn't breaking; each needs its entry in the description,
+    and Hebrew and English text with a next step (NFR-144);
   - refusals that [NFR-92] and [NFR-145] require to look the same share one `code`, one status and
     empty `params`, and `params` never carries personal data, secrets or tokens. So the refresh
     token is a plain string, with no pattern, length or format. A path parameter or a body's map key
@@ -55,9 +55,9 @@ Both are OpenAPI 3.1. `client-api` is served under `/api/v1`.
   - statuses:
     - 400 only for a request that breaks the contract. A failed validation lists its failing fields
       or rows at once, up to 100 (ADR-142); an unreadable body, a duplicate key or an unknown
-      property is reported alone, as the first one found. Each item has a pointer into the body, or
-      the parameter's name and place, and a code, never the value ([ADR-043]). A missing required
-      header, such as `If-Match`, answers 400;
+      property is reported alone, as the first one found. Each item has a pointer into the body, the
+      parameter's name and place, or neither for the request as a whole, and a code, never the value
+      ([ADR-043]). A missing required header, such as `If-Match`, answers 400;
     - 413, with its own code, for a body over its size limit; the proof and report operations'
       limits sit above the domain's own;
     - 422 for a refused rule; 401, with exactly `WWW-Authenticate: Bearer` and one code, for any

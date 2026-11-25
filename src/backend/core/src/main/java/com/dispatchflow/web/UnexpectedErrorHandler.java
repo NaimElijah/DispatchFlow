@@ -2,7 +2,6 @@ package com.dispatchflow.web;
 
 import com.dispatchflow.shared.adapter.in.web.HandlerOrder;
 import com.dispatchflow.shared.adapter.in.web.Problems;
-import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
@@ -29,9 +28,8 @@ class UnexpectedErrorHandler {
     private static final Logger log = LoggerFactory.getLogger(UnexpectedErrorHandler.class);
 
     @ExceptionHandler(Exception.class)
-    ProblemDetail unexpected(Exception exception, HttpServletRequest request) {
+    ProblemDetail unexpected(Exception exception) {
         log.error("Unhandled exception while serving a request", exception);
-        return Problems.at(
-                Problems.of(HttpStatus.INTERNAL_SERVER_ERROR, WebCodes.UNEXPECTED_ERROR), request.getRequestURI());
+        return Problems.of(HttpStatus.INTERNAL_SERVER_ERROR, WebCodes.UNEXPECTED_ERROR);
     }
 }

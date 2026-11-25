@@ -11,7 +11,6 @@ import jakarta.persistence.LockTimeoutException;
 import jakarta.persistence.PessimisticLockException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
-import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
@@ -60,37 +59,35 @@ class KernelErrorHandler {
     private static final Logger log = LoggerFactory.getLogger(KernelErrorHandler.class);
 
     @ExceptionHandler(RuleViolation.class)
-    ResponseEntity<ProblemDetail> refused(RuleViolation violation, HttpServletRequest request) {
+    ResponseEntity<ProblemDetail> refused(RuleViolation violation) {
         String code = violation.error().code();
         HttpStatus status = OVERRIDES.getOrDefault(code, REFUSED);
         logRefusal(status, code);
         if (status == HttpStatus.UNAUTHORIZED) {
-            return located(Problems.unauthorized(code), request);
+            return Problems.unauthorized(code);
         }
-        return located(ResponseEntity.status(status).body(Problems.of(status, violation.error())), request);
+        return ResponseEntity.status(status).body(Problems.of(status, violation.error()));
     }
 
     @ExceptionHandler(RuleViolations.class)
-    ResponseEntity<ProblemDetail> refused(RuleViolations violations, HttpServletRequest request) {
+    ResponseEntity<ProblemDetail> refused(RuleViolations violations) {
         String code = violations.summary().code();
         HttpStatus status = OVERRIDES.getOrDefault(code, REFUSED);
         logRefusal(status, code);
         if (status == HttpStatus.UNAUTHORIZED) {
-            return located(Problems.unauthorized(code), request);
+            return Problems.unauthorized(code);
         }
-        return located(ResponseEntity.status(status).body(Problems.of(status, violations)), request);
+        return ResponseEntity.status(status).body(Problems.of(status, violations));
     }
 
     @ExceptionHandler(NotFound.class)
-    ResponseEntity<ProblemDetail> notFound(NotFound missing, HttpServletRequest request) {
+    ResponseEntity<ProblemDetail> notFound(NotFound missing) {
         logRefusal(HttpStatus.NOT_FOUND, missing.code());
-        return located(
-                ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(Problems.of(
-                                HttpStatus.NOT_FOUND,
-                                missing.code(),
-                                Map.of(KIND, missing.kind(), ID, missing.id().toString()))),
-                request);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Problems.of(
+                        HttpStatus.NOT_FOUND,
+                        missing.code(),
+                        Map.of(KIND, missing.kind(), ID, missing.id().toString())));
     }
 
     /**
@@ -106,36 +103,28 @@ class KernelErrorHandler {
     })
     ResponseEntity<ProblemDetail> race(Exception thrown, HttpServletRequest request) {
         Race race = Race.of(thrown, Race.preconditionSent(request));
-        return located(
-                switch (race) {
-                    case NONE -> unexpected(thrown);
-                    case RETRY -> {
-                        log.atWarn()
-                                .addKeyValue(CODE, race.code())
-                                .log("A call lost every try to a race or a lock wait");
-                        yield ResponseEntity.status(race.status())
-                                .header(HttpHeaders.RETRY_AFTER, String.valueOf(Race.RETRY_AFTER_SECONDS))
-                                .body(Problems.of(race.status(), race.code()));
-                    }
-                    case PRECONDITION_FAILED, STALE_BODY_VERSION -> {
-                        StaleVersion stale = (StaleVersion) thrown;
-                        logRefusal(race.status(), race.code());
-                        yield ResponseEntity.status(race.status())
-                                .body(Problems.of(
-                                        race.status(),
-                                        race.code(),
-                                        Map.of(
-                                                KIND,
-                                                stale.kind(),
-                                                ID,
-                                                stale.id().toString())));
-                    }
-                },
-                request);
+        return switch (race) {
+            case NONE -> unexpected(thrown);
+            case RETRY -> {
+                log.atWarn().addKeyValue(CODE, race.code()).log("A call lost every try to a race or a lock wait");
+                yield ResponseEntity.status(race.status())
+                        .header(HttpHeaders.RETRY_AFTER, String.valueOf(Race.RETRY_AFTER_SECONDS))
+                        .body(Problems.of(race.status(), race.code()));
+            }
+            case PRECONDITION_FAILED, STALE_BODY_VERSION -> {
+                StaleVersion stale = (StaleVersion) thrown;
+                logRefusal(race.status(), race.code());
+                yield ResponseEntity.status(race.status())
+                        .body(Problems.of(
+                                race.status(),
+                                race.code(),
+                                Map.of(KIND, stale.kind(), ID, stale.id().toString())));
+            }
+        };
     }
 
     @ExceptionHandler(StoredStateInvalid.class)
-    ResponseEntity<ProblemDetail> storedStateInvalid(StoredStateInvalid damaged, HttpServletRequest request) {
+    ResponseEntity<ProblemDetail> storedStateInvalid(StoredStateInvalid damaged) {
         // Its subject and detail are value-free by contract, so this line may carry them and the
         // exception; the body says nothing of the cause.
         log.atError()
@@ -143,24 +132,14 @@ class KernelErrorHandler {
                 .addKeyValue("detail", damaged.detail())
                 .setCause(damaged)
                 .log("Stored state could not be rebuilt");
-        return located(
-                ResponseEntity.internalServerError()
-                        .body(Problems.of(HttpStatus.INTERNAL_SERVER_ERROR, WebCodes.UNEXPECTED_ERROR)),
-                request);
+        return ResponseEntity.internalServerError()
+                .body(Problems.of(HttpStatus.INTERNAL_SERVER_ERROR, WebCodes.UNEXPECTED_ERROR));
     }
 
     private ResponseEntity<ProblemDetail> unexpected(Exception thrown) {
         log.error("Unhandled exception while serving a request", thrown);
         return ResponseEntity.internalServerError()
                 .body(Problems.of(HttpStatus.INTERNAL_SERVER_ERROR, WebCodes.UNEXPECTED_ERROR));
-    }
-
-    /** The answer with its problem's {@code instance} set to the failed request's path. */
-    private static ResponseEntity<ProblemDetail> located(
-            ResponseEntity<ProblemDetail> answer, HttpServletRequest request) {
-        Problems.at(
-                Objects.requireNonNull(answer.getBody(), "every answer here has a problem"), request.getRequestURI());
-        return answer;
     }
 
     private static void logRefusal(HttpStatus status, String code) {

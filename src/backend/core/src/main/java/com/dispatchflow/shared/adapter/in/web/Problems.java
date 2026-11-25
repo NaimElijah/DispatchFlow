@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -52,11 +53,14 @@ public final class Problems {
     /** The code of a request that breaks the contract, answered with 400 and its items. */
     public static final String INVALID_REQUEST = "INVALID_REQUEST";
 
-    // Spring Framework 7 leaves a ProblemDetail's type unset, which the body would then omit; the
-    // core always sends it, so a client never has to know RFC 9457's default.
+    // Spring Framework 7 leaves a ProblemDetail's type unset, which the body would then omit, but
+    // the contract requires the member.
     private static final URI ABOUT_BLANK = URI.create("about:blank");
     private static final String QUOTED_OPEN_BRACKET = "%5B";
     private static final String QUOTED_CLOSE_BRACKET = "%5D";
+    // A percent sign that doesn't start a valid %XX escape, so the path stays as it is otherwise.
+    private static final Pattern MALFORMED_PERCENT = Pattern.compile("%(?![0-9A-Fa-f]{2})");
+    private static final String QUOTED_PERCENT = "%25";
     private static final String CODE = "code";
     private static final String PARAMS = "params";
     private static final String ERRORS = "errors";
@@ -160,20 +164,29 @@ public final class Problems {
     }
 
     /**
-     * Sets a problem's {@code instance} to the path of the request that failed, as the contract
-     * defines it: the path, without its query. Every handler that answers a problem sets it here,
-     * because Spring otherwise sets it with {@code URI.create} on the raw path, which throws on the
-     * {@code [} and {@code ]} that Tomcat accepts in a path, and the handler's answer is lost.
-     * Those two are the only characters Tomcat lets through and {@code java.net.URI} refuses, so
-     * only they are quoted, and an escape the path already has is left as it is.
+     * Sets a problem's {@code instance} to the raw path of the request that failed, as the contract
+     * defines it: the path, without its query. {@code ErrorEndpoint} is the one caller: it gets
+     * the raw path from Tomcat's error dispatch, and Spring would otherwise set the error path
+     * itself. Every other handler answers a path Spring has already parsed, and Spring's own
+     * {@code instance} is the same value.
+     *
+     * <p>Tomcat refuses a {@code [}, a {@code ]} or a malformed escape in the path itself with its
+     * own 400, before any filter runs. It passes a path parameter's escape undecoded, though, and
+     * one that is malformed reaches the error dispatch, through {@code TraceIdFilter}'s 400. So a
+     * {@code %} that starts no valid escape is quoted, then the two brackets as a defence; a valid
+     * escape is left as it is.
      *
      * @param problem the problem, given its {@code instance}
      * @param requestPath the request's path as Tomcat holds it, not decoded
-     * @return the same problem; its {@code instance} is left unset only for a path {@code
-     *     java.net.URI} still refuses, which no path Tomcat accepts is
+     * @return the same problem; its {@code instance} is left unset, with a WARN line, only for a
+     *     path {@code java.net.URI} still refuses once quoted, which no path Tomcat accepts is
      */
     public static ProblemDetail at(ProblemDetail problem, String requestPath) {
-        String quoted = requestPath.replace("[", QUOTED_OPEN_BRACKET).replace("]", QUOTED_CLOSE_BRACKET);
+        String quoted = MALFORMED_PERCENT
+                .matcher(requestPath)
+                .replaceAll(QUOTED_PERCENT)
+                .replace("[", QUOTED_OPEN_BRACKET)
+                .replace("]", QUOTED_CLOSE_BRACKET);
         try {
             problem.setInstance(new URI(quoted));
         } catch (URISyntaxException unreachable) {

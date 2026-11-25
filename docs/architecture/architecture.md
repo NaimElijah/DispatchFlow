@@ -167,7 +167,8 @@ The application-wide `web` package, `com.dispatchflow.web`, is no module. It hol
 - `ServedJson`, which makes the served JSON converter refuse unknown properties and duplicate keys,
   and `BodySizeLimit`, which caps at 1 MiB a request body that a converter reads. No handler takes
   a streaming parameter (`ApplicationRules` rule 16), and Spring's form-content filter is off; a
-  form POST's parameters, which Spring reads before any converter, have Tomcat's own cap of 1 MiB.
+  form POST's parameters, which Spring reads before any converter, and a multipart body have caps
+  of their own (see below).
 
 Beside it, `web.security`, `web.stream` and `web.e2e` are declared ahead, empty: the stand-in
 session and the security filter chain, the event stream's endpoint, and the end-to-end tests'
@@ -294,8 +295,8 @@ have a `Dockerfile`, and neither runs as root
   migrations, which [data-model.md](data-model.md#migrations) lists; no migration grants anything
   yet ([ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md), decision 8).
 - **Every error body is the contract's `Problem`.** `shared.adapter.in.web.Problems` builds each
-  one, with `type` `about:blank`, a `code`, its `params` and the trace ID from the MDC, and never a
-  `detail` ([ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md), decision 5). The handlers run in `HandlerOrder`'s order: each module's
+  one, with `type` `about:blank`, a `code`, its `params`, the trace ID from the MDC and, as
+  `instance`, the request's path, and never a `detail` ([ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md), decision 5). The handlers run in `HandlerOrder`'s order: each module's
   own, `web`'s handler of the contract's breaks, which replaces Spring Boot's handler of Spring
   MVC's errors, the kernel's, and `UnexpectedErrorHandler` last, so a response never names the
   cause. Spring asks each handler for the thrown type and then for its causes, before it asks the
@@ -305,26 +306,39 @@ have a `Dockerfile`, and neither runs as root
 - **An error that no handler answers is still a `Problem`.** One that escapes every handler, or that
   a servlet filter raises, reaches `ErrorEndpoint`, which implements Spring Boot's `ErrorController`
   so that `BasicErrorController` backs off. It answers the status Tomcat dispatched, with a code
-  from `WebCodes`, and logs a 5xx at ERROR and a 4xx at INFO (ADR-142, decision 5). `TraceIdFilter`
-  catches an exception that escapes every handler, on a request or async dispatch, and asks Tomcat
-  for the error dispatch with `sendError(500)`, the exception in `jakarta.servlet.error.exception`,
-  so Tomcat logs no line of its own without the trace ID. Tomcat's own refusals keep the quiet
-  answer Tomcat gives them: an `InvalidParameterException` asks for its error code and a
-  `BadRequestException` for 400, with no exception attached, so `ErrorEndpoint` logs the 4xx at
-  INFO with its status alone and no parameter's value. Once the response is committed, the
-  exception escapes as before, and Tomcat cuts the connection; once Tomcat allows no more I/O on
-  the connection, it runs no error dispatch, and the exception goes unlogged.
+  from `WebCodes`; it logs a listed 5xx at ERROR, a listed 4xx at INFO with its status alone, and a
+  status the contract doesn't list at ERROR, answered 500 (ADR-142, decision 5). Its `instance` is
+  the failed request's raw path, quoted by `Problems.at` where `java.net.URI` would refuse it.
+  `TraceIdFilter` catches an exception that escapes every handler, on a request or async dispatch,
+  and asks Tomcat for the error dispatch with `sendError(500)`, the exception in
+  `jakarta.servlet.error.exception`, so Tomcat logs no line of its own without the trace ID.
+  Tomcat's own refusals keep the quiet answer Tomcat gives them: an `InvalidParameterException` asks
+  for its error code and a `BadRequestException` for 400, with no exception attached, so
+  `ErrorEndpoint` logs the 4xx at INFO with its status alone and no parameter's value. Once the
+  response is committed, the exception escapes as before, and Tomcat cuts the connection; once
+  Tomcat allows no more I/O on the connection, it runs no error dispatch, and the exception goes
+  unlogged. On a request dispatch, the filter first parses the path as Spring will, and asks Tomcat
+  for a 400 for a path Spring can't parse, which only a malformed escape in a path parameter is,
+  since Tomcat passes that undecoded: Spring parses the path outside its exception handling.
+  `ErrorEndpoint` answers that 400 for the whole request and logs it at INFO. Every answer of
+  `ErrorEndpoint` carries `Content-Disposition: inline;filename=f.txt`, the value Spring's
+  reflected-file-download check sets itself, so that check never decodes the failed request's path
+  parameters, which it would throw on. A path Tomcat itself can't parse, with a `[`, a `]`, a `{` or
+  a malformed escape outside a path parameter, gets Tomcat's own 400 page before any filter runs: a
+  connector-level refusal, which ADR-142 accepts, so no `Problem` answers it.
 - **A 400 lists at most 100 of its failing items,** in the body and in its log line, which also
   carries the total. A 422 lists every refusal, which the domain bounds (ADR-142, decision 3).
-- **Every read of a body has one of two caps of 1 MiB.** `BodySizeLimit` caps what a converter
-  reads. No handler takes a streaming parameter, which `ApplicationRules` rule 16 checks, and
-  `application.properties` turns Spring's form-content filter off, which would read a PUT, PATCH or
-  DELETE form body whole before the request is routed (ADR-142, decision 6). A form POST's
-  parameters, which Spring reads for a handler before any converter, and which a filter could read
-  too, have Tomcat's own cap, `server.tomcat.max-http-form-post-size`. Tomcat refuses one over it,
-  or a parameter it can't decode, with an `InvalidParameterException`. Thrown while Spring MVC
-  resolves a handler's arguments, `ContractErrorHandler` answers it, 413 or 400; thrown in a filter,
-  `TraceIdFilter` asks Tomcat for its status, and `ErrorEndpoint` answers it.
+- **Every read of a body has a cap.** `BodySizeLimit` caps what a converter reads at 1 MiB, Tomcat's
+  form cap a form POST's parameters, and a multipart body has its own, 8 MB per file and 10 MB per
+  request (`application.properties`). No handler takes a streaming parameter, which
+  `ApplicationRules` rule 16 checks, and `application.properties` turns Spring's form-content filter
+  off, which would read a PUT, PATCH or DELETE form body whole before the request is routed
+  (ADR-142, decision 6). A form POST's parameters, which Spring reads for a handler before any
+  converter, and which a filter could read too, have Tomcat's own cap,
+  `server.tomcat.max-http-form-post-size`, of 1 MiB. Tomcat refuses one over it, or a parameter it
+  can't decode, with an `InvalidParameterException`. Thrown while Spring MVC resolves a handler's
+  arguments, `ContractErrorHandler` answers it, 413 or 400; thrown in a filter, `TraceIdFilter` asks
+  Tomcat for its status, and `ErrorEndpoint` answers it.
 - **A call that lost a race runs again.** `CallWrapper`'s handler adapter invokes each handler
   through `CallRetry`, with the arguments Spring already read and validated. A save's
   `StaleVersion` on a call that sent no version, and a failed lock wait on any call, matched on the

@@ -17,6 +17,7 @@ import org.apache.tomcat.util.http.InvalidParameterException;
 import org.slf4j.MDC;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.server.RequestPath;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -37,6 +38,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * dispatch it to {@code ErrorEndpoint}, which answers it as the contract's {@code Problem} and logs
  * it once, with the ID (ADR-142 decision 5). Left to escape, Tomcat would log it a second time,
  * with no ID, after this filter cleared the MDC.
+ *
+ * <p>On a request dispatch, a path Spring can't parse, which only a malformed escape in a path
+ * parameter can be, gets {@code sendError(400)} before the chain runs, with no exception in the
+ * request, so no handler sees it.
  *
  * <p>Tomcat's own refusals of the request keep their quiet answer, as Tomcat gives them when they
  * escape the servlet: an {@code InvalidParameterException} asks for its error code, and a {@code
@@ -82,6 +87,10 @@ class TraceIdFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         MDC.put(Problems.TRACE_ID, traceIdOf(request));
         try {
+            if (request.getDispatcherType() == DispatcherType.REQUEST && !hasAPathSpringCanParse(request)) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return;
+            }
             chain.doFilter(request, response);
         } catch (ServletException | IOException | RuntimeException escaped) {
             if (!HANDED_TO_THE_ERROR_PAGE.contains(request.getDispatcherType()) || response.isCommitted()) {
@@ -102,6 +111,23 @@ class TraceIdFilter extends OncePerRequestFilter {
                 request.setAttribute(RequestDispatcher.ERROR_EXCEPTION, cause);
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             }
+        }
+    }
+
+    /**
+     * Whether Spring can parse the request's path, as it will before it routes the request. Spring
+     * parses it in {@code DispatcherServlet.doService}, outside its exception handling, and Tomcat
+     * passes a path parameter's escape undecoded, so a malformed one, as in {@code ;a=%zz}, would
+     * escape as a 500 and an ERROR line that any client could write at will (ADR-142 decision 5).
+     * The parse caches nothing; Spring parses the path again itself.
+     */
+    private static boolean hasAPathSpringCanParse(HttpServletRequest request) {
+        try {
+            RequestPath.parse(request.getRequestURI(), request.getContextPath());
+            return true;
+        } catch (IllegalArgumentException malformed) {
+            // A refusal, not a failure: the 400 answers it, and no line names the path.
+            return false;
         }
     }
 

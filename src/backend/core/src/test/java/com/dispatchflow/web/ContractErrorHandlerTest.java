@@ -402,11 +402,7 @@ class ContractErrorHandlerTest {
                 .extractingPath("$.errors[0].code")
                 .asString()
                 .isEqualTo(WebCodes.INVALID_VALUE);
-        assertThat(result)
-                .bodyJson()
-                .extractingPath("$.errors[0].pointer")
-                .asString()
-                .isEmpty();
+        assertThat(result).bodyJson().doesNotHavePath("$.errors[0].pointer").doesNotHavePath("$.errors[0].parameter");
     }
 
     @Test
@@ -504,7 +500,8 @@ class ContractErrorHandlerTest {
     }
 
     @Test
-    void GivenAQueryParameterTomcatCannotDecode_WhenAHandlerReadsIt_Then400WithTheWholeRequestAndNoValueLogged() {
+    void GivenTomcatsRefusalOfAnUndecodableParameter_WhenAHandlerThrowsIt_Then400ForTheWholeRequestAndNoValueAnywhere()
+            throws Exception {
         MvcTestResult result = mvc.get().uri(UNDECODABLE).exchange();
 
         isAnInvalidRequest(result);
@@ -513,13 +510,11 @@ class ContractErrorHandlerTest {
                 .extractingPath("$.errors[0].code")
                 .asString()
                 .isEqualTo(WebCodes.INVALID_VALUE);
-        assertThat(result)
-                .bodyJson()
-                .extractingPath("$.errors[0].pointer")
-                .asString()
-                .isEmpty();
+        assertThat(result).bodyJson().doesNotHavePath("$.errors[0].pointer").doesNotHavePath("$.errors[0].parameter");
         assertThat(CapturedLogs.keyValues(theRefusalLine()))
-                .containsEntry("exception", InvalidParameterException.class.getSimpleName());
+                .containsEntry("exception", InvalidParameterException.class.getSimpleName())
+                .containsEntry("items", List.of("INVALID_VALUE at the whole request"));
+        assertThat(result.getResponse().getContentAsString()).doesNotContain(PERSONAL_NAME);
         noLineCarries(PERSONAL_NAME);
     }
 
@@ -574,20 +569,6 @@ class ContractErrorHandlerTest {
                 .anySatisfy(event -> assertThat(CapturedLogs.keyValues(event))
                         .containsEntry("exception", InvalidParameterException.class.getSimpleName()));
         noLineCarries(SENTINEL);
-    }
-
-    @Test
-    void GivenAPathWithABracketNoOperationHas_WhenTheRequestArrives_Then404WithThePathQuotedAsItsInstance() {
-        MvcTestResult result = mvc.perform(
-                context -> new MockHttpServletRequest(context, "GET", "/contract-error-handler-test/no[where]"));
-
-        assertThat(result).hasStatus(HttpStatus.NOT_FOUND);
-        assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo(WebCodes.NO_SUCH_OPERATION);
-        assertThat(result)
-                .bodyJson()
-                .extractingPath("$.instance")
-                .asString()
-                .isEqualTo("/contract-error-handler-test/no%5Bwhere%5D");
     }
 
     @Test
