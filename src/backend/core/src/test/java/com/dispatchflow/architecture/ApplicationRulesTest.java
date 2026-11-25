@@ -60,11 +60,16 @@ import com.dispatchflow.archfixture.zeta.upper.adapter.in.listen.ListenerReadsTh
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.listen.ListenerUsesTheWebAdapter;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.ControllerReachesTheWeb;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.ControllerReadsTheCurrentCaller;
+import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.ControllerTakesAReader;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.ControllerTakesAStream;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.ControllerTakesAStreamedResource;
+import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.ControllerTakesAWriter;
+import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.ControllerTakesAnOutputStream;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.ControllerTakesItsArguments;
+import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.ControllerTakesTheRequest;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.HandlerWritesTheResponse;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.InboundUsesTheStore;
+import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.PlainClassTakesAStream;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.WebCallsTheSolverClient;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.WebUsesTheLowerCache;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.form.FormUsesTheRows;
@@ -120,6 +125,7 @@ import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.ViolationHandler;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -206,6 +212,8 @@ class ApplicationRulesTest {
     private static final String SCANS_CONFIGURATION = ROOT + ".gate.ScansConfiguration";
     private static final String RESOURCE_CONFIGURATION = ROOT + ".gate.ResourceConfiguration";
     private static final String META_IMPORT_CONFIGURATION = ROOT + ".gate.MetaImportConfiguration";
+    private static final String LOWER_CONFIGURATION = ROOT + ".lower.LowerConfiguration";
+    private static final String SIBLING_IMPORT_CONFIGURATION = ROOT + ".gate.SiblingImportConfiguration";
     private static final String IMPORTS_A_USE_CASE = ROOT + ".ZetaImportsAUseCase";
     private static final String IMPORTS_THROUGH_AN_ANNOTATION = ROOT + ".ZetaImportsAUseCaseThroughAnAnnotation";
     private static final String MAKES_A_USE_CASE = ROOT + ".ZetaMakesAUseCase";
@@ -242,6 +250,14 @@ class ApplicationRulesTest {
                 (violating, message) -> violating.forEach(type -> names.add(type.getName()));
         rule.evaluate(classes).handleViolations(collect);
         return names;
+    }
+
+    /** Every message a rule reports, one per violation. */
+    private static List<String> violationMessages(ArchRule rule, JavaClasses classes) {
+        List<String> messages = new ArrayList<>();
+        ViolationHandler<JavaClass> collect = (violating, message) -> messages.add(message);
+        rule.evaluate(classes).handleViolations(collect);
+        return messages;
     }
 
     /** Rule 7's cycle report: one detail per cycle found. */
@@ -585,6 +601,7 @@ class ApplicationRulesTest {
         assertThat(ApplicationRules.nullMarkedSubjects(ROOT, zeta()))
                 .containsExactly(
                         ROOT + ".gate.application.api",
+                        ROOT + ".gate.application.serviceold",
                         ROOT + ".lower.application.api",
                         ROOT + ".lower.application.service",
                         ROOT + ".lower.application.spi",
@@ -1185,7 +1202,28 @@ class ApplicationRulesTest {
                         SCANNING_CONFIGURATION,
                         SCANS_CONFIGURATION,
                         RESOURCE_CONFIGURATION,
-                        META_IMPORT_CONFIGURATION);
+                        META_IMPORT_CONFIGURATION,
+                        LOWER_CONFIGURATION,
+                        SIBLING_IMPORT_CONFIGURATION);
+    }
+
+    @Test
+    void GivenAConfigurationImportingItsOwnModulesAdapterAndDomain_WhenTheConfigurationRuleRuns_ThenItIsReported() {
+        assertThat(violators(rule15(), named(LOWER_CONFIGURATION))).containsExactly(LOWER_CONFIGURATION);
+    }
+
+    @Test
+    void
+            GivenAConfigurationImportingASubpackageOfItsOwnService_WhenTheConfigurationRuleRuns_ThenOnlyBeingPublicIsReported() {
+        List<String> reported = violationMessages(rule15(), FixtureClasses.only(UpperConfiguration.class));
+
+        assertThat(reported).singleElement().asString().endsWith(" is public");
+    }
+
+    @Test
+    void GivenAConfigurationImportingFromASiblingNamedLikeItsService_WhenTheConfigurationRuleRuns_ThenItIsReported() {
+        assertThat(violators(rule15(), named(SIBLING_IMPORT_CONFIGURATION)))
+                .containsExactly(SIBLING_IMPORT_CONFIGURATION);
     }
 
     @Test
@@ -1234,6 +1272,10 @@ class ApplicationRulesTest {
         assertThat(violators(rule16(), zeta()))
                 .containsExactlyInAnyOrder(
                         ControllerTakesAStream.class.getName(),
+                        ControllerTakesAReader.class.getName(),
+                        ControllerTakesTheRequest.class.getName(),
+                        ControllerTakesAnOutputStream.class.getName(),
+                        ControllerTakesAWriter.class.getName(),
                         ControllerTakesAStreamedResource.class.getName(),
                         HandlerWritesTheResponse.class.getName());
     }
@@ -1241,6 +1283,12 @@ class ApplicationRulesTest {
     @Test
     void GivenAControllerWhoseHandlerTakesWhatAConverterRead_WhenRule16Evaluates_ThenNothingIsFlagged() {
         assertThat(violators(rule16(), FixtureClasses.only(ControllerTakesItsArguments.class)))
+                .isEmpty();
+    }
+
+    @Test
+    void GivenAPlainClassWhoseMethodTakesAStream_WhenRule16Evaluates_ThenItIsLeftAlone() {
+        assertThat(violators(rule16(), FixtureClasses.only(PlainClassTakesAStream.class)))
                 .isEmpty();
     }
 

@@ -97,7 +97,19 @@ class BodySizeLimit extends RequestBodyAdviceAdapter {
             return count;
         }
 
-        private void count(int bytes) {
+        // FilterInputStream's skip goes straight to the body, so without this a skip would pass the
+        // cap uncounted. It skips at most one byte past the cap, so a huge skip never drains the
+        // rest of a body that is already refused.
+        @Override
+        public long skip(long bytes) throws IOException {
+            long skipped = super.skip(Math.min(bytes, MAX_BODY_BYTES + 1L - read));
+            if (skipped > 0) {
+                count(skipped);
+            }
+            return skipped;
+        }
+
+        private void count(long bytes) {
             read += bytes;
             if (read > MAX_BODY_BYTES) {
                 throw new BodyTooLarge();

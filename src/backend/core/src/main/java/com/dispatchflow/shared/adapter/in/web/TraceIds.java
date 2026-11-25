@@ -2,6 +2,7 @@ package com.dispatchflow.shared.adapter.in.web;
 
 import java.security.SecureRandom;
 import java.util.HexFormat;
+import java.util.function.Consumer;
 
 /**
  * Makes a fresh W3C trace-id, for a request that brought no valid {@code traceparent} and for a
@@ -26,9 +27,20 @@ public final class TraceIds {
      * @return 32 lower-case hex digits
      */
     public static String fresh() {
+        return fresh(RANDOM::nextBytes);
+    }
+
+    /**
+     * A trace-id from a given source of bytes, drawn again while it is all zeros, for tests: the
+     * strong source makes an all-zero draw too rare to test through {@link #fresh()}.
+     *
+     * @param source fills a 16-byte array with the next draw
+     * @return 32 lower-case hex digits, never all zeros
+     */
+    static String fresh(Consumer<byte[]> source) {
         byte[] traceId = new byte[TRACE_ID_BYTES];
         do {
-            RANDOM.nextBytes(traceId);
+            source.accept(traceId);
         } while (isAllZeros(traceId));
         return LOWER_CASE_HEX.formatHex(traceId);
     }

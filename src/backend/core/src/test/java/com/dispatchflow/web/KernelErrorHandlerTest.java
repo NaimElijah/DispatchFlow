@@ -2,6 +2,8 @@ package com.dispatchflow.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ch.qos.logback.classic.Level;
+import com.dispatchflow.CapturedLogs;
 import com.dispatchflow.access.domain.AccessError;
 import com.dispatchflow.liveops.domain.LiveOpsError;
 import com.dispatchflow.orders.domain.OrdersError;
@@ -20,13 +22,10 @@ import jakarta.persistence.PessimisticLockException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.springframework.boot.test.system.CapturedOutput;
-import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -37,12 +36,17 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
-@ExtendWith(OutputCaptureExtension.class)
 class KernelErrorHandlerTest {
 
     private static final UUID ID = UUID.fromString("0190a5e2-7c3b-7def-8a12-3456789abcde");
     private static final String VERSION_TAG = "\"3\"";
     private static final DeliveryDate DATE = DeliveryDate.of(LocalDate.of(2026, 3, 15));
+
+    @RegisterExtension
+    final CapturedLogs logs = CapturedLogs.of(KernelErrorHandler.class);
+
+    @RegisterExtension
+    final CapturedLogs everyLine = CapturedLogs.ofEveryLogger();
 
     private final MockMvcTester mvc = MockMvcTester.create(MockMvcBuilders.standaloneSetup(new ThrowingController())
             .setControllerAdvice(new KernelErrorHandler(), new UnexpectedErrorHandler())
@@ -87,6 +91,11 @@ class KernelErrorHandlerTest {
                 .extractingPath("$.errors[*].code")
                 .asArray()
                 .containsExactly("ROW_REFUSED", "ROW_REFUSED");
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.errors[*].params.row")
+                .asArray()
+                .containsExactly(2, 5);
         assertThat(result)
                 .bodyJson()
                 .extractingPath("$.errors[1].params.reason.code")
@@ -138,13 +147,33 @@ class KernelErrorHandlerTest {
         MvcTestResult result = getWithIfMatch(failure);
 
         assertThat(result).hasStatus(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo(WebCodes.TRY_AGAIN_LATER);
         assertThat(result).headers().hasValue(HttpHeaders.RETRY_AFTER, String.valueOf(Race.RETRY_AFTER_SECONDS));
+    }
+
+    @Test
+    void GivenARaceLostOnEveryTry_WhenItIsAnswered_ThenItsOneLineIsAtWarnWithItsCode() {
+        get("save-conflict");
+
+        assertThat(logs.events()).singleElement().satisfies(event -> {
+            assertThat(event.getLevel()).isEqualTo(Level.WARN);
+            assertThat(CapturedLogs.keyValues(event)).containsEntry("code", WebCodes.TRY_AGAIN_LATER);
+            assertThat(event.getThrowableProxy()).isNull();
+        });
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"step-up-required", "not-your-route", "stop-not-on-your-route"})
     void GivenAnOverrideCode_WhenARuleViolationCarriesIt_Then403(String failure) {
         assertThat(get(failure)).hasStatus(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void GivenRuleViolationsSummarisedByAForbiddenCode_WhenThrown_Then403WithTheSummarysCode() {
+        MvcTestResult result = get("step-up-required-with-reasons");
+
+        assertThat(result).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo("STEP_UP_REQUIRED");
     }
 
     @Test
@@ -159,15 +188,17 @@ class KernelErrorHandlerTest {
     }
 
     @Test
-    void GivenARuleViolation_WhenItIsAnswered_ThenItIsLoggedAtInfoWithItsCodeAndNoValue(CapturedOutput output) {
+    void GivenARuleViolation_WhenItIsAnswered_ThenItIsLoggedAtInfoWithItsCodeAndNoValue() {
         get("date-in-past");
 
-        String logged = output.getOut()
-                .lines()
-                .filter(line -> line.contains(KernelErrorHandler.class.getName()))
-                .collect(Collectors.joining("\n"));
-        assertThat(logged).contains("INFO").contains("DATE_IN_PAST").doesNotContain("WARN", "ERROR");
-        assertThat(output.getOut()).doesNotContain(DATE.value().toString());
+        assertThat(logs.events()).singleElement().satisfies(event -> {
+            assertThat(event.getLevel()).isEqualTo(Level.INFO);
+            assertThat(CapturedLogs.keyValues(event)).containsEntry("code", "DATE_IN_PAST");
+        });
+        assertThat(everyLine.events())
+                .isNotEmpty()
+                .allSatisfy(event -> assertThat(CapturedLogs.textsOf(event))
+                        .noneMatch(text -> text.contains(DATE.value().toString())));
     }
 
     @Test
@@ -208,6 +239,12 @@ class KernelErrorHandlerTest {
         assertThat(result).hasStatus(HttpStatus.INTERNAL_SERVER_ERROR);
         assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo(WebCodes.UNEXPECTED_ERROR);
         assertThat(result.getResponse().getHeader(HttpHeaders.RETRY_AFTER)).isNull();
+        assertThat(logs.events()).singleElement().satisfies(event -> {
+            assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+            assertThat(event.getThrowableProxy().getClassName()).isEqualTo(IllegalStateException.class.getName());
+            assertThat(event.getThrowableProxy().getCause().getClassName())
+                    .isEqualTo(PessimisticLockException.class.getName());
+        });
     }
 
     @Test
@@ -219,6 +256,22 @@ class KernelErrorHandlerTest {
         assertThat(result.getResponse().getContentAsString())
                 .doesNotContain(ThrowingController.BROKEN_RULE)
                 .doesNotContain(ThrowingController.class.getSimpleName());
+    }
+
+    @Test
+    void GivenStoredStateInvalid_WhenThrown_ThenOneErrorLineNamesItsSubjectAndTheBodyNone() throws Exception {
+        MvcTestResult result = get("stored-state-invalid");
+
+        assertThat(logs.events()).singleElement().satisfies(event -> {
+            assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+            assertThat(CapturedLogs.keyValues(event))
+                    .containsEntry("subject", ThrowingController.class.getSimpleName())
+                    .containsEntry("detail", ThrowingController.BROKEN_RULE);
+            assertThat(event.getThrowableProxy().getClassName()).isEqualTo(StoredStateInvalid.class.getName());
+        });
+        assertThat(result.getResponse().getContentAsString())
+                .doesNotContain(ThrowingController.class.getSimpleName())
+                .doesNotContain(ThrowingController.BROKEN_RULE);
     }
 
     @RestController
@@ -247,6 +300,9 @@ class KernelErrorHandlerTest {
                 case "refresh-refused-with-reasons" ->
                     thrown(() -> RuleViolations.throwIfAny(
                             new AccessError.RefreshRefused(), List.of(new AccessError.SessionRevoked())));
+                case "step-up-required-with-reasons" ->
+                    thrown(() -> RuleViolations.throwIfAny(
+                            new AccessError.StepUpRequired(), List.of(new AccessError.SessionRevoked())));
                 case "stale-after-lock-wait" -> new StaleVersion("Plan", ID, new PessimisticLockException("lock wait"));
                 case "wrapped-lock" -> new IllegalStateException("wrapped", new PessimisticLockException("lock wait"));
                 case "stored-state-invalid" -> new StoredStateInvalid(ThrowingController.class, BROKEN_RULE);

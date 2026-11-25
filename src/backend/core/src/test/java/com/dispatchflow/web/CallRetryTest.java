@@ -101,11 +101,11 @@ class CallRetryTest {
     @Test
     void GivenFourConflicts_WhenACallWithoutAVersionRuns_ThenTheLastConflictIsRethrownAsARaceThatAnswers503() {
         assertThatThrownBy(() -> retry.run(withoutAVersion, OPERATION, failingFirst(4, attempt -> savesConflict())))
-                .isInstanceOfSatisfying(
-                        StaleVersion.class,
-                        stale -> assertThat(Race.of(stale, false)).isEqualTo(Race.RETRY));
+                .isInstanceOfSatisfying(StaleVersion.class, stale -> {
+                    assertThat(Race.of(stale, false)).isEqualTo(Race.RETRY);
+                    assertThat(Race.of(stale, false).status().value()).isEqualTo(503);
+                });
         assertThat(tries).hasValue(1 + CallRetry.MORE_TRIES);
-        assertThat(Race.RETRY.status().value()).isEqualTo(503);
     }
 
     @Test
@@ -205,11 +205,11 @@ class CallRetryTest {
                         withoutAVersion,
                         OPERATION,
                         failingFirst(2, attempt -> attempt == 1 ? savesConflict() : requireCurrentsRefusal())))
-                .isInstanceOfSatisfying(
-                        StaleVersion.class,
-                        stale -> assertThat(Race.of(stale, false)).isEqualTo(Race.STALE_BODY_VERSION));
+                .isInstanceOfSatisfying(StaleVersion.class, stale -> {
+                    assertThat(Race.of(stale, false)).isEqualTo(Race.STALE_BODY_VERSION);
+                    assertThat(Race.of(stale, false).status().value()).isEqualTo(409);
+                });
         assertThat(tries).hasValue(2);
-        assertThat(Race.STALE_BODY_VERSION.status().value()).isEqualTo(409);
     }
 
     @Test
@@ -236,6 +236,23 @@ class CallRetryTest {
                     throw new AssertionError("an error, not an exception");
                 }))
                 .isInstanceOf(AssertionError.class);
+        assertThat(tries).hasValue(1);
+    }
+
+    @Test
+    void GivenAnAuditLogThatFails_WhenARaceIsAudited_ThenItsFailureIsThrownWithTheRaceSuppressed() {
+        IllegalStateException auditDown = new IllegalStateException("the audit store is down");
+        StaleVersion race = requireCurrentsRefusal();
+        CallRetry failingAudit = new CallRetry(
+                () -> {
+                    throw auditDown;
+                },
+                new FixedClock());
+
+        assertThatThrownBy(() -> failingAudit.run(withoutAVersion, OPERATION, failingFirst(1, attempt -> race)))
+                .isSameAs(auditDown)
+                .hasMessage("the audit store is down")
+                .satisfies(thrown -> assertThat(thrown.getSuppressed()).containsExactly(race));
         assertThat(tries).hasValue(1);
     }
 

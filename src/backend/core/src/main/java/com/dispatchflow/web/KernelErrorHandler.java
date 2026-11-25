@@ -28,9 +28,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * unless {@link #OVERRIDES} names its code. Each module's own application exceptions go to that
  * module's handler, which runs first ({@link HandlerOrder}).
  *
- * <p>A refusal is logged at INFO with its code alone, a race lost on every try at WARN, and damaged
- * stored state at ERROR. No line carries a refused value or an exception's message, which can
- * quote one.
+ * <p>A refusal is logged at INFO with its code alone, and a race lost on every try at WARN: neither
+ * line carries a refused value or the exception's message, which can quote one. Damaged stored
+ * state is logged at ERROR with its subject, detail and exception, which are value-free by
+ * contract. A 500 for an exception that is no race, such as a lock wait wrapped in another
+ * exception or a race after a commit, is logged at ERROR with the whole exception on purpose, as
+ * {@code UnexpectedErrorHandler} does: it is a bug or an incident, and its stack trace tells which.
  */
 @RestControllerAdvice
 @Order(HandlerOrder.KERNEL)

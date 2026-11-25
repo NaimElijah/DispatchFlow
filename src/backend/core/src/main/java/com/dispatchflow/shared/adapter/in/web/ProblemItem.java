@@ -99,6 +99,18 @@ public record ProblemItem(
     }
 
     /**
+     * An item of a 400 for the request as a whole, when no field of the body and no parameter can
+     * be named: it has neither a pointer, whose empty value would mean the whole body, nor a
+     * parameter.
+     *
+     * @param code the item's code, such as {@code INVALID_VALUE}
+     * @return the item, with empty params
+     */
+    public static ProblemItem request(String code) {
+        return new ProblemItem(code, null, null, Map.of());
+    }
+
+    /**
      * One refusal of a 422 that lists several.
      *
      * @param error the refusal

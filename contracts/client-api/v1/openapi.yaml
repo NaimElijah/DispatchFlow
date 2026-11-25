@@ -28,11 +28,11 @@ components:
     Problem:
       type: object
       description: |-
-        An error, as RFC 9457 defines it (ADR-043, ADR-140). `type` is always `about:blank`, so
-        `title` is the status's own phrase. A client acts on `status` and `code`, shows its own
-        text for `code` with `params` filled in, and shows `traceId` beside it. For a code it
-        doesn't know, it shows its generic text and the `traceId`. `code` is a string, never an
-        enum, so a new code isn't a breaking change.
+        An error in RFC 9457's shape (ADR-043, ADR-140). `type` is always `about:blank`, so
+        `title` is the status's own phrase; `code`, not `type`, names the problem. A client acts
+        on `status` and `code`, shows its own text for `code` with `params` filled in, and shows
+        `traceId` beside it. For a code it doesn't know, it shows its generic text and the
+        `traceId`. `code` is a string, never an enum, so a new code isn't a breaking change.
 
         Besides the codes each operation lists, any operation can answer:
 
@@ -73,6 +73,12 @@ components:
           type: integer
           minimum: 400
           maximum: 599
+        detail:
+          type: string
+          deprecated: true
+          description: >-
+            Never set by the server: `code` and `params` say what went wrong, and a client shows
+            its own text for them.
         instance:
           type: string
           format: uri-reference
@@ -106,6 +112,8 @@ components:
           status:
             const: 400
       then:
+        required:
+          - errors
         properties:
           errors:
             maxItems: 100
@@ -113,7 +121,8 @@ components:
       type: object
       description: >-
         One failing item of a 400, or one refusal of a 422 that lists several. A 400 item says where
-        it failed, by `pointer` or `parameter`, and never the value.
+        it failed, by `pointer` or `parameter`, or by neither for the request as a whole, and never
+        the value.
       required:
         - code
       properties:

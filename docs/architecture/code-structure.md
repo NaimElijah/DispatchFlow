@@ -146,14 +146,16 @@ src/backend/core/
     web/                           application-wide web concerns, above the modules: nothing depends
                                    on it, and it uses only their api and events (ADR-140)
       TraceIdFilter.java           each request's trace ID, from traceparent (Traceparent.java)
-                                   or made fresh, in the MDC
+                                   or made fresh, in the MDC; hands an escaped exception to
+                                   Tomcat's error dispatch
       CallWrapper.java             the handler adapter that runs every handler through CallRetry
       CallRetry.java               re-runs a call that lost a race, and audits the race it answers;
                                    after a commit it audits nothing and answers 500
       CommitWatch.java             marks a try committed, so it isn't re-run
       Race.java                    what a lost race answers: 412, 409 or a retry, then 503
-      ContractErrorHandler.java    400, 404, 405, 406, 413 and 415, and Spring MVC's other errors;
-                                   ContractBreaks.java builds the failing items
+      ContractErrorHandler.java    400, 404, 405, 406, 413 and 415, Spring MVC's other errors and
+                                   Tomcat's parameter refusals; ContractBreaks.java builds the
+                                   failing items
       KernelErrorHandler.java      the kernel's errors: 401, 403, 404, 409, 412, 422 and 503, and
                                    500 for a damaged stored value and a race after a commit
       UnexpectedErrorHandler.java  answers an unhandled exception with a 500 problem body
@@ -161,7 +163,7 @@ src/backend/core/
                                    answered, or that a servlet filter raised
       WebCodes.java                the codes web answers of its own
       ServedJson.java              the served JSON converter refuses unknown and duplicate keys
-      BodySizeLimit.java           caps a request body at 1 MiB
+      BodySizeLimit.java           caps at 1 MiB what a converter reads of a request body
       security/                    declared, empty: the stand-in session, then the filter chain, and
                                    the capability interceptor
       stream/                      declared, empty: the event stream's endpoint, its heartbeat and
@@ -208,15 +210,19 @@ src/backend/core/
     messaging/                     the same as access/
     liveops/                       the same as access/
     shared/adapter/in/web/         the problem factory's tests, ErrorParamsTest among them:
-                                   every production error's params have a mapping
+                                   every production error's params have a mapping; and
+                                   TraceIdsTest, a fresh trace ID is never all zeros
     shared/adapter/out/            the clock's and the ID generator's tests, in clock/ and uuid/
     web/                           a test per class: the handlers, the error endpoint, the trace
                                    filter and the call wrapper through MockMvc; WebIT checks them
-                                   wired in the whole application
+                                   wired in the whole application, and WebOverTomcatIT behind a
+                                   real Tomcat
     SchedulingConfigurationTest.java     the executor, its MDC copy and the scheduling property
     TransactionalBeanTest.java           a final transactional bean fails the context
-    IntegrationTest.java                 the one annotation every *IT uses: the whole app and
-                                         PostgreSQL, with the scheduled jobs off
+    IntegrationTest.java                 the annotation every *IT uses but one that needs a real
+                                         Tomcat: the whole app and PostgreSQL, scheduled jobs off
+    TomcatIntegrationTest.java           the same on a random port, in a context of its own
+    CapturedLogs.java                    a unit test's view of a logger's events, read from logback
     DispatchFlowApplicationIT.java       the health probe answers UP against PostgreSQL
     TestDispatchFlowApplication.java     what `just core-run` starts
     TestcontainersConfiguration.java     the PostgreSQL container

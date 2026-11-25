@@ -2,13 +2,12 @@ package com.dispatchflow.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ch.qos.logback.classic.Level;
+import com.dispatchflow.CapturedLogs;
 import com.dispatchflow.shared.adapter.in.web.Problems;
 import jakarta.servlet.RequestDispatcher;
-import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.boot.test.system.CapturedOutput;
-import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -24,12 +23,15 @@ import org.springframework.web.bind.annotation.RestController;
  * The error endpoint as Tomcat reaches it: MockMvc never dispatches to the error path, so each test
  * sends the request attributes that Tomcat sets on an error dispatch.
  */
-@ExtendWith(OutputCaptureExtension.class)
 class ErrorEndpointTest {
 
     private static final String ERROR_PATH = "/error";
     private static final String FAILED_PATH = "/api/v1/plans/0190a5e2-7c3b-7def-8a12-3456789abcde";
     private static final String SECRET = "connection to db-host:5432 refused";
+    private static final String STATUS = "status";
+
+    @RegisterExtension
+    final CapturedLogs logs = CapturedLogs.of(ErrorEndpoint.class);
 
     private final MockMvcTester mvc =
             MockMvcTester.create(MockMvcBuilders.standaloneSetup(new ErrorEndpoint(), new EscapingController())
@@ -65,33 +67,54 @@ class ErrorEndpointTest {
         assertThat(result).bodyJson().extractingPath("$.type").asString().isEqualTo("about:blank");
         assertThat(result).bodyJson().extractingPath("$.traceId").asString().hasSize(32);
         assertThat(result).bodyJson().extractingPath("$.instance").asString().isEqualTo(FAILED_PATH);
+        // The value Spring's own download check sets on an unsafe path, so it never runs here.
+        assertThat(result).headers().hasValue(HttpHeaders.CONTENT_DISPOSITION, "inline;filename=f.txt");
     }
 
-    private static String loggedBy(CapturedOutput output, Class<?> logger) {
-        return output.getOut()
-                .lines()
-                .filter(line -> line.contains(logger.getName()))
-                .collect(Collectors.joining("\n"));
+    /** The endpoint's one line, at a level, with the status it carries. */
+    private void loggedOnceAt(Level level, int status) {
+        assertThat(logs.events()).singleElement().satisfies(event -> {
+            assertThat(event.getLevel()).isEqualTo(level);
+            assertThat(CapturedLogs.keyValues(event)).containsEntry(STATUS, status);
+        });
     }
 
     @Test
-    void GivenAnErrorDispatchOfA500WithAnException_WhenTheEndpointAnswers_ThenAProblemAndAnErrorLineWithTheException(
-            CapturedOutput output) throws Exception {
+    void GivenAnErrorDispatchOfA500WithAnException_WhenTheEndpointAnswers_ThenAProblemAndAnErrorLineWithTheException()
+            throws Exception {
         MvcTestResult result = errorDispatch(500, new IllegalStateException(SECRET));
 
         isAProblem(result, HttpStatus.INTERNAL_SERVER_ERROR, WebCodes.UNEXPECTED_ERROR);
         assertThat(result.getResponse().getContentAsString()).doesNotContain(SECRET);
-        assertThat(loggedBy(output, ErrorEndpoint.class)).contains("ERROR");
-        assertThat(output.getOut()).contains(IllegalStateException.class.getName());
+        loggedOnceAt(Level.ERROR, 500);
+        assertThat(logs.events().getFirst().getThrowableProxy().getClassName())
+                .isEqualTo(IllegalStateException.class.getName());
     }
 
     @Test
-    void GivenAnErrorDispatchOfA404WithoutAnException_WhenTheEndpointAnswers_ThenNoSuchOperationLoggedAtInfo(
-            CapturedOutput output) {
+    void GivenAnErrorDispatchOfA404WithoutAnException_WhenTheEndpointAnswers_ThenNoSuchOperationLoggedAtInfo() {
         MvcTestResult result = errorDispatch(404);
 
         isAProblem(result, HttpStatus.NOT_FOUND, WebCodes.NO_SUCH_OPERATION);
-        assertThat(loggedBy(output, ErrorEndpoint.class)).contains("INFO").doesNotContain("ERROR");
+        loggedOnceAt(Level.INFO, 404);
+    }
+
+    @Test
+    void GivenAFailedPathWithABracket_WhenTheEndpointAnswers_ThenTheInstanceIsThePathWithItsBracketsQuoted() {
+        MvcTestResult result = mvc.get()
+                .uri(ERROR_PATH)
+                .requestAttr(RequestDispatcher.ERROR_STATUS_CODE, 404)
+                .requestAttr(RequestDispatcher.ERROR_REQUEST_URI, "/api/v1/plans/caf%C3%A9[1]")
+                .exchange();
+
+        assertThat(result).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo(WebCodes.NO_SUCH_OPERATION);
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.instance")
+                .asString()
+                .isEqualTo("/api/v1/plans/caf%C3%A9%5B1%5D");
+        loggedOnceAt(Level.INFO, 404);
     }
 
     @Test
@@ -104,11 +127,7 @@ class ErrorEndpointTest {
                 .extractingPath("$.errors[0].code")
                 .asString()
                 .isEqualTo(WebCodes.INVALID_VALUE);
-        assertThat(result)
-                .bodyJson()
-                .extractingPath("$.errors[0].pointer")
-                .asString()
-                .isEmpty();
+        assertThat(result).bodyJson().doesNotHavePath("$.errors[0].pointer").doesNotHavePath("$.errors[0].parameter");
     }
 
     @Test
@@ -120,33 +139,37 @@ class ErrorEndpointTest {
     }
 
     @Test
-    void GivenAnErrorDispatchOfAStatusTheContractDoesNotList_WhenTheEndpointAnswers_Then500LoggedAtError(
-            CapturedOutput output) {
+    void GivenAnErrorDispatchOfAStatusTheContractDoesNotList_WhenTheEndpointAnswers_Then500LoggedAtError() {
         MvcTestResult result = errorDispatch(HttpStatus.GONE.value());
 
         isAProblem(result, HttpStatus.INTERNAL_SERVER_ERROR, WebCodes.UNEXPECTED_ERROR);
-        assertThat(loggedBy(output, ErrorEndpoint.class)).contains("ERROR");
+        loggedOnceAt(Level.ERROR, HttpStatus.GONE.value());
     }
 
     @Test
-    void GivenARequestForTheErrorPathItself_WhenItArrives_Then404NoSuchOperationLoggedAtInfo(CapturedOutput output) {
+    void GivenARequestForTheErrorPathItself_WhenItArrives_Then404NoSuchOperationLoggedAtInfo() {
         MvcTestResult result = mvc.get().uri(ERROR_PATH).exchange();
 
         assertThat(result).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo(WebCodes.NO_SUCH_OPERATION);
-        assertThat(loggedBy(output, ErrorEndpoint.class)).contains("INFO").doesNotContain("ERROR");
+        loggedOnceAt(Level.INFO, 404);
     }
 
     @Test
     void GivenAnExceptionWrappingASpringMvcException_WhenNoAdviceAnswers_ThenTheErrorEndpointAnswersAProblem() {
         MvcTestResult escaped = mvc.get().uri(EscapingController.PATH).exchange();
 
-        // The servlet wraps what escaped Spring MVC, and Tomcat dispatches that to the error path.
-        assertThat(escaped.getUnresolvedException()).hasCauseInstanceOf(EscapingController.Escaped.class);
+        // The trace filter hands what escaped Spring MVC, unwrapped, to Tomcat's error page, which
+        // MockMvc never dispatches to.
+        assertThat(escaped).hasStatus(HttpStatus.INTERNAL_SERVER_ERROR);
+        assertThat(escaped.getUnresolvedException()).isNull();
+        Object handedOver = escaped.getRequest().getAttribute(RequestDispatcher.ERROR_EXCEPTION);
+        assertThat(handedOver).isInstanceOf(EscapingController.Escaped.class);
 
-        MvcTestResult result = errorDispatch(500, escaped.getUnresolvedException());
+        MvcTestResult result = errorDispatch(500, (Throwable) handedOver);
 
         isAProblem(result, HttpStatus.INTERNAL_SERVER_ERROR, WebCodes.UNEXPECTED_ERROR);
+        loggedOnceAt(Level.ERROR, 500);
     }
 
     @RestController

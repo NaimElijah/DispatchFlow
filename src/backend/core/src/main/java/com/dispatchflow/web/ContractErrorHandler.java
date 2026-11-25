@@ -6,6 +6,7 @@ import com.dispatchflow.shared.adapter.in.web.ProblemItem.Place;
 import com.dispatchflow.shared.adapter.in.web.Problems;
 import java.util.List;
 import java.util.Optional;
+import org.apache.tomcat.util.http.InvalidParameterException;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,9 +38,10 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  *
  * <ul>
  *   <li>400 {@code INVALID_REQUEST}, with every failing field or parameter of a failed validation
- *       at once, or the first problem of an unreadable body alone; never with no item, and with at
- *       most its first {@link Problems#MAX_ITEMS};
- *   <li>413 {@code BODY_TOO_LARGE} for a body or an upload over its limit;
+ *       at once, or the first problem of an unreadable body alone, or the whole request when Tomcat
+ *       refuses its parameters; never with no item, and with at most its first {@link
+ *       Problems#MAX_ITEMS};
+ *   <li>413 {@code BODY_TOO_LARGE} for a body, an upload or a form body over its limit;
  *   <li>404 {@code NO_SUCH_OPERATION}, 405, 406 and 415, each with a code of its own;
  *   <li>503 {@code TRY_AGAIN_LATER} for a timed-out asynchronous request, and 500 {@code
  *       UNEXPECTED_ERROR} for Spring's own server errors;
@@ -49,9 +51,9 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  *
  * <p>It runs before the kernel's handler ({@link HandlerOrder#CONTRACT}), so a converter's
  * exception that wraps a refusal still answers 400. A 400 or a 413 is logged at WARN with its codes
- * and cut pointers, the first {@link Problems#MAX_ITEMS} of them and their count; a 404, 405, 406
- * or 415 at INFO; and a 500 at ERROR. A refusal's line never carries a value nor the exception's
- * message.
+ * and cut pointers, the first {@link Problems#MAX_ITEMS} of them and their count; a 503 at WARN; a
+ * 404, 405, 406 or 415 at INFO; and a 500 at ERROR. A refusal's line never carries a value nor the
+ * exception's message.
  */
 @RestControllerAdvice
 @Order(HandlerOrder.CONTRACT)
@@ -66,6 +68,9 @@ class ContractErrorHandler extends ResponseEntityExceptionHandler {
     // The exception's type, never its message: it tells apart the 400s that name no item.
     private static final String EXCEPTION = "exception";
     private static final String WHOLE_BODY = "";
+    // How the log line names an item that has neither a pointer nor a parameter.
+    private static final String WHOLE_REQUEST = "the whole request";
+    private static final String PARAMETERS_REFUSED = "Tomcat refused the request's parameters";
 
     /**
      * Answers a body over {@link BodySizeLimit#MAX_BODY_BYTES} that {@link BodySizeLimit} refused
@@ -75,6 +80,31 @@ class ContractErrorHandler extends ResponseEntityExceptionHandler {
     @Nullable
     ResponseEntity<Object> bodyTooLarge(BodySizeLimit.BodyTooLarge tooLarge, WebRequest request) {
         return handleExceptionInternal(tooLarge, null, new HttpHeaders(), HttpStatus.CONTENT_TOO_LARGE, request);
+    }
+
+    /**
+     * Answers Tomcat's refusal of the request's parameters when Spring MVC reads them, as it does a
+     * form body's for a handler that takes a body, before any converter, so {@link BodySizeLimit}
+     * never sees one. Tomcat throws it from its {@code getParameter} methods for a query or form
+     * parameter that fails to decode, for too many parameters, for a form body that can't be read,
+     * with 400, and for a form body over {@code server.tomcat.max-http-form-post-size}, with 413.
+     * Tomcat's own 413 answers 413, and every other code
+     * 400 for the whole request. One thrown outside Spring MVC, as by a servlet filter, reaches
+     * {@code TraceIdFilter} instead.
+     *
+     * <p>Its message quotes the parameter's name and value, so Spring is given a stand-in of the
+     * same type with a message of its own: Spring's line for a response already committed quotes
+     * the exception it is given, and the refusal's own line names only the type.
+     */
+    @ExceptionHandler(InvalidParameterException.class)
+    @Nullable
+    ResponseEntity<Object> unreadableParameters(InvalidParameterException unreadable, WebRequest request) {
+        HttpStatus status = unreadable.getErrorCode() == HttpStatus.CONTENT_TOO_LARGE.value()
+                ? HttpStatus.CONTENT_TOO_LARGE
+                : HttpStatus.BAD_REQUEST;
+        InvalidParameterException valueFree =
+                new InvalidParameterException(PARAMETERS_REFUSED, unreadable.getErrorCode());
+        return handleExceptionInternal(valueFree, null, new HttpHeaders(), status, request);
     }
 
     /** Answers a multipart body that can't be parsed; one over its limits answers 413 instead. */
@@ -179,9 +209,15 @@ class ContractErrorHandler extends ResponseEntityExceptionHandler {
     /** An item's code and where it failed, its cut pointer or its parameter: never a value. */
     private static String describe(ProblemItem item) {
         ProblemItem.Parameter parameter = item.parameter();
-        String place = parameter == null
-                ? String.valueOf(item.pointer())
-                : parameter.name() + " in " + parameter.in().wireName();
+        String pointer = item.pointer();
+        String place;
+        if (parameter != null) {
+            place = parameter.name() + " in " + parameter.in().wireName();
+        } else if (pointer != null) {
+            place = pointer;
+        } else {
+            place = WHOLE_REQUEST;
+        }
         return item.code() + " at " + place;
     }
 }

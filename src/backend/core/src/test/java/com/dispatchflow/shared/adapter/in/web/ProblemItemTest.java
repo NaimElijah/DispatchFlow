@@ -98,4 +98,11 @@ class ProblemItemTest {
 
         assertThat(item.asMap()).isEqualTo(Map.of("code", "DATE_IN_PAST", "params", Map.of("date", "2026-03-15")));
     }
+
+    @Test
+    void GivenTheRequestAsAWhole_WhenAnItemIsMadeForIt_ThenItHasNeitherAPointerNorAParameter() {
+        ProblemItem item = ProblemItem.request("INVALID_VALUE");
+
+        assertThat(item.asMap()).isEqualTo(Map.of("code", "INVALID_VALUE", "params", Map.of()));
+    }
 }

@@ -131,8 +131,8 @@ only client (`contracts/optimization-api/v1`): Java 25, Spring Boot 4.1, JPA, Fl
 
 ## Tests
 
-- `*Test` classes are Surefire unit tests; `*IT` classes, Failsafe integration tests against a real
-  PostgreSQL in Docker, carry `@IntegrationTest`, so all share one Spring context and container.
+- `*Test` classes are Surefire unit tests; `*IT` classes, Failsafe tests against a real PostgreSQL
+  in Docker, carry `@IntegrationTest` and share one context, or `@TomcatIntegrationTest` for Tomcat.
 - Test in layers ([DL §14], [TS §17.1]):
   - Domain tests use no Spring and no mocks. Aggregates take values, `now` and new IDs as
     parameters. Every invariant in [DL §4] has a test that breaks it and asserts the module's named

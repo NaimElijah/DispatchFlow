@@ -17,10 +17,10 @@ Both are OpenAPI 3.1. `client-api` is served under `/api/v1`.
 - A request that breaks the contract is refused by validation generated from it, on both servers.
   Never hand-write a second check. A rule the contract cannot state, such as the limit on a day's
   orders (BR-101), stays with the domain ([ADR-073]).
-- A breaking change gets a new major version in its own folder (`v2/`), next to `v1/`.
-  Breaking changes include removing or renaming an operation or field, changing a type, making
-  an optional field required, changing the status a code answers with, and a new enum value in a
-  response, except `Problem.code`. Adding an optional field or a new operation is not breaking.
+- A breaking change gets a new major version in its own folder (`v2/`), next to `v1/`. Breaking
+  changes include removing or renaming an operation or field, changing a type, making a request
+  field required or a response field optional, changing the status a code answers with, and a new
+  enum value in a response, except `Problem.code`. Adding an optional field or an operation isn't.
 - `oasdiff` checks each pull request against its base branch for breaking changes, from January: a
   pull request into `dev` against `dev`, and `dev` into `main` against `main`, which holds what is
   released ([NFR-134]; [ADR-043], [ADR-094]). Until then, the reviewer catches them.
@@ -44,20 +44,20 @@ Both are OpenAPI 3.1. `client-api` is served under `/api/v1`.
   - an app sends a new request property only once the core release that declares it won't be rolled
     back past. On the phone's writes a request property stays declared for the life of v1; elsewhere
     a retired one stays accepted and ignored, never removed in v1 ([ADR-082]);
-  - RFC 9457 errors: `Problem` has `type` `about:blank`, `code`, `params` and `traceId`, and
-    `errors` on a 400 and on a 422 that lists several ([ADR-043]). `code` is a string, never an
-    enum, with the codes listed in its description, so a new code isn't breaking. A new one is a
-    public name: it needs its entry there, and Hebrew and English text with a next step (NFR-144);
+  - RFC 9457 errors: `Problem` has `type` `about:blank`, `code`, `params` and `traceId`, `errors` on
+    a 400 and a 422 that lists several ([ADR-043]), and a deprecated `detail`, never set. `code` is
+    a string, never an enum, so a new code isn't breaking; each needs its entry in the description,
+    and Hebrew and English text with a next step (NFR-144);
   - refusals that [NFR-92] and [NFR-145] require to look the same share one `code`, one status and
     empty `params`, and `params` never carries personal data, secrets or tokens. So the refresh
-    token is a plain string, with no pattern, length or format. A path parameter carries an ID,
-    never personal data, because `Problem.instance` echoes the path;
+    token is a plain string, with no pattern, length or format. A path parameter or a body's map key
+    carries an ID, never personal data: `Problem.instance` echoes the path, a 400's pointer the key;
   - statuses:
-    - 400 only for a request that breaks the contract. A failed validation lists every failing field
-      or row at once; an unreadable body, a duplicate key or an unknown property is reported alone,
-      as the first one found. Each item has a pointer into the body, or the parameter's name and
-      place, and a code, never the value ([ADR-043]). A missing required header, such as `If-Match`,
-      answers 400;
+    - 400 only for a request that breaks the contract. A failed validation lists its failing fields
+      or rows at once, up to 100 (ADR-142); an unreadable body, a duplicate key or an unknown
+      property is reported alone, as the first one found. Each item has a pointer into the body, the
+      parameter's name and place, or neither for the request as a whole, and a code, never the value
+      ([ADR-043]). A missing required header, such as `If-Match`, answers 400;
     - 413, with its own code, for a body over its size limit; the proof and report operations'
       limits sit above the domain's own;
     - 422 for a refused rule; 401, with exactly `WWW-Authenticate: Bearer` and one code, for any

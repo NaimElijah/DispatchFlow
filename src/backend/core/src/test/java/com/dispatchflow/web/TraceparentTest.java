@@ -75,4 +75,19 @@ class TraceparentTest {
     void GivenNoHeader_WhenRead_ThenNone() {
         assertThat(Traceparent.traceIdOf(List.of())).isEmpty();
     }
+
+    @Test
+    void GivenAVersion00HeaderShorterThanItsLayout_WhenRead_ThenNone() {
+        assertThat(Traceparent.traceIdOf(List.of(VALID.substring(0, VALID.length() - 1))))
+                .isEmpty();
+    }
+
+    @Test
+    void GivenAHigherVersionShorterThanVersion00sLayout_WhenRead_ThenNone() {
+        String exact = "01-" + TRACE_ID + "-" + PARENT_ID + "-01";
+
+        assertThat(Traceparent.traceIdOf(List.of(exact.substring(0, exact.length() - 1))))
+                .isEmpty();
+        assertThat(Traceparent.traceIdOf(List.of("01-" + TRACE_ID))).isEmpty();
+    }
 }

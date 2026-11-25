@@ -62,6 +62,47 @@ class BodySizeLimitTest {
     }
 
     @Test
+    void GivenAChunkedBodyPastTheLimit_WhenItIsSkipped_ThenBodyTooLarge() throws IOException {
+        InputStream body = read(new byte[BodySizeLimit.MAX_BODY_BYTES + 1], new HttpHeaders())
+                .getBody();
+
+        assertThatThrownBy(() -> body.skip(BodySizeLimit.MAX_BODY_BYTES + 1L))
+                .isInstanceOf(BodySizeLimit.BodyTooLarge.class);
+    }
+
+    @Test
+    void GivenAChunkedBodySkippedToTheLimit_WhenItsNextByteIsRead_ThenBodyTooLarge() throws IOException {
+        InputStream body = read(new byte[BodySizeLimit.MAX_BODY_BYTES + 1], new HttpHeaders())
+                .getBody();
+
+        assertThat(body.skip(BodySizeLimit.MAX_BODY_BYTES)).isEqualTo(BodySizeLimit.MAX_BODY_BYTES);
+        assertThatThrownBy(body::read).isInstanceOf(BodySizeLimit.BodyTooLarge.class);
+    }
+
+    @Test
+    void GivenABodyFarPastTheLimit_WhenEverythingIsSkipped_ThenNoMoreThanOneBytePastTheLimitIsDrained()
+            throws IOException {
+        int beyond = 1_000;
+        ByteArrayInputStream underlying = new ByteArrayInputStream(new byte[BodySizeLimit.MAX_BODY_BYTES + beyond]);
+        HttpInputMessage message = new HttpInputMessage() {
+            @Override
+            public InputStream getBody() {
+                return underlying;
+            }
+
+            @Override
+            public HttpHeaders getHeaders() {
+                return new HttpHeaders();
+            }
+        };
+        InputStream body = limit.beforeBodyRead(message, null, String.class, JacksonJsonHttpMessageConverter.class)
+                .getBody();
+
+        assertThatThrownBy(() -> body.skip(Long.MAX_VALUE)).isInstanceOf(BodySizeLimit.BodyTooLarge.class);
+        assertThat(underlying.available()).isEqualTo(beyond - 1);
+    }
+
+    @Test
     void GivenAContentLengthExactlyAtTheLimit_WhenTheBodyIsRead_ThenEveryByteIsRead() throws IOException {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentLength(BodySizeLimit.MAX_BODY_BYTES);
