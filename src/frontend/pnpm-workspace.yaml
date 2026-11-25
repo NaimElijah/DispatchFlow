@@ -33,8 +33,15 @@ trustPolicy: no-downgrade
 # brings them up to date.
 verifyDepsBeforeRun: error
 
-# Which dependencies may run their install scripts: true runs one, false skips it, and a dependency
-# that is not listed fails the install. fsevents is macOS-only, comes in through Vite, and ships its
-# binary in the tarball, so it needs no build.
-allowBuilds:
-  fsevents: false
+# What each dependency may do, the one place pnpm records it: `pnpm approve` and
+# `pnpm approve-builds` write here. A request not listed fails the install (a build) or waits for
+# `pnpm approve` (skills); `true` grants it and `false` refuses it.
+# - `build` runs a dependency's install script. fsevents is macOS-only, comes in through Vite, and
+#   ships its binary in the tarball, so it needs no build.
+# - `skills` links instruction files for AI coding agents. None may: they would steer anyone's
+#   agent in this repository from outside it (ADR-143).
+permissions:
+  fsevents:
+    build: false
+  '@tanstack/react-router':
+    skills: false

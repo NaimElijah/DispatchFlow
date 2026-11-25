@@ -41,7 +41,7 @@ and ADR-014 are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 | `src/frontend/` | The pnpm workspace's root, over `web/` and `packages/*` ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)): `package.json`, `pnpm-workspace.yaml` and its one lockfile, `pnpm-lock.yaml`; and `.prettierrc.json`, Prettier's one file for the web app and the packages ([ADR-141](../ADRs/ADR-141-prettiers-settings-live-in-one-file-in-src-frontend.md)) |
 | `src/frontend/web/` | The web app, for every role: React, TypeScript, Vite, pnpm |
 | `src/frontend/mobile/` | The phone app, for every role: React Native, Expo SDK 58, TypeScript |
-| `src/frontend/packages/` | The shared TypeScript packages ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)): `eslint-config` and `tsconfig` are workspace packages, and five placeholder folders have no `package.json` yet |
+| `src/frontend/packages/` | The shared TypeScript packages ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)): `eslint-config`, `tsconfig` and `i18n` are workspace packages, and four placeholder folders have no `package.json` yet |
 | `src/research/` | Benchmarks, simulation and the order generator: Python, uv. Never deployed |
 | `contracts/` | `client-api/v1` and `optimization-api/v1` (OpenAPI), and the Redocly lint setup |
 | `tests/` | Tests that span components: `e2e/` and `load/`. Both are placeholders |
@@ -419,15 +419,42 @@ src/research/
 
 ### `src/frontend/web`
 
-A Vite project in the pnpm workspace. `src/main.tsx` mounts `src/App.tsx`, which renders a heading.
-`src/test/setup.ts` configures Vitest and starts the tests' one MSW server, `src/test/server.ts`,
-over the handlers in `src/test/handlers.ts`; a request no handler answers fails its test. The
-configuration files (`vite.config.ts`, `tsconfig*.json`, `eslint.config.js`) sit at the project
+A Vite project in the pnpm workspace ([ADR-143](../ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md)):
+
+```text
+src/frontend/web/
+  index.html             <html lang="en" dir="ltr">, until DocumentLanguage sets the chosen language
+  vite.config.ts         Vite and Vitest; ADR-069's policy on `vite preview`
+  src/
+    main.tsx             reads the language setting, then builds i18next, the query cache and the router
+    App.tsx              the providers: i18next, TanStack Query, Mantine's direction and theme, the router
+    AppErrorBoundary.tsx the last error boundary, around the whole app
+    router.ts            createAppRouter, over routeTree.ts
+    routeTree.ts         gathers every area's routes under the shell's layout route
+    i18n.ts              createI18n, over @dispatchflow/i18n
+    i18next.d.ts         types t() keys against the strings
+    DocumentLanguage.tsx keeps <html lang> and the direction in step with the language
+    styles/theme.css     what Mantine would inject as <style>: the font and the hiddenFrom rules
+    routes/              the shell: the root route, shellRoute and its layout, /, the not-found
+                         route and page, the error page
+    features/<context>/  each area's pages and its routes.ts; access/ holds the Settings page,
+                         planning/ the /plans and /plans/$date routes and their dates
+    components/          the UI no area owns: NotBuiltPage, TextLink, usePageTitle; map/ (declared, empty)
+    lib/                 the code no layer owns: the language setting
+    test/                Vitest's setup, renderApp, the one MSW server and the <style> check
+```
+
+Imports point one way, from `src/` itself to `features/`, `routes/`, `components/` and `lib/`:
+a feature parents its routes on the shell's `shellRoute`, and the shell imports no feature.
+`eslint.config.js` fails an import that points back. `src/features/` holds one folder for each
+bounded context ([TS §10](tech_stack.md#10-web-app)): `access`, `fleet`, `orders` and `planning`
+hold their routes and pages, and `audit`, `liveops`, `messaging` and `reporting` are placeholders
+([ADR-130][ADR-130]). `src/test/setup.ts` starts the
+tests' one MSW server, `src/test/server.ts`, over the handlers in `src/test/handlers.ts`; a
+request no handler answers fails its test, and so does a `<style>` element left in the document.
+The configuration files (`vite.config.ts`, `tsconfig*.json`, `eslint.config.js`) sit at the project
 root: the two `tsconfig` files extend `@dispatchflow/tsconfig`, and `eslint.config.js` uses
 `@dispatchflow/eslint-config`. Prettier reads `src/frontend/.prettierrc.json` ([ADR-141](../ADRs/ADR-141-prettiers-settings-live-in-one-file-in-src-frontend.md)).
-`src/features/` holds one
-placeholder folder for each bounded context ([TS §10](tech_stack.md#10-web-app)): `access`, `audit`, `fleet`,
-`liveops`, `messaging`, `orders`, `planning` and `reporting` ([ADR-130][ADR-130]).
 
 ### `src/frontend/mobile`
 
@@ -437,13 +464,16 @@ the audit ignores, each with a reason and an expiry date. The minimatch and glob
 accepted in [ADR-023](../ADRs/ADR-023-accept-minimatch-and-glob-advisories.md), and the zod and
 deepmerge entries in
 [ADR-095](../ADRs/ADR-095-accept-the-zod-and-deepmerge-advisories-until-2027-01-31.md). Its
-`src/features/` holds the same eight placeholder folders as the web app's. It has no route folder:
+`src/features/` holds eight placeholder folders, one per bounded context, named as the web app's
+are. It has no route folder:
 that comes with `expo-router` at M10 ([ADR-130][ADR-130]).
 
-The two apps share no code. `src/frontend/packages/` holds seven folders. Two are workspace
+The two apps share no code. `src/frontend/packages/` holds seven folders. Three are workspace
 packages that only the web app uses so far: `eslint-config` (`@dispatchflow/eslint-config`, the
-ESLint 10 flat configs) and `tsconfig` (`@dispatchflow/tsconfig`, the `base`, `app` and `node`
-presets). The other five, `api-client`, `schemas`, `i18n`, `map-style` and `formatters`, are
+ESLint 10 flat configs), `tsconfig` (`@dispatchflow/tsconfig`, the `base`, `app` and `node`
+presets) and `i18n` (`@dispatchflow/i18n`, the English and Hebrew strings as TypeScript, one
+namespace per area in `src/en/` and `src/he/`; the app compiles its source, and its `build`
+script is its type check). The other four, `api-client`, `schemas`, `map-style` and `formatters`, are
 placeholders: a folder is not a package until the ticket that first puts code in it adds its
 `package.json` ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md),
 [ADR-130][ADR-130]). `contracts/client-api/v1` declares no operation yet, so neither app has an

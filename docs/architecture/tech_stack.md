@@ -479,9 +479,9 @@ solver stays a pure function (NFR-13). Recorded in [ADR-051](../ADRs/ADR-051-one
 |---|---|---|---|---|
 | Base | **React 19**, **TypeScript 6.0** (strict), **Vite 8**; a single-page app served by Caddy from the same origin as the API (NFR-15, NFR-58, NFR-67) | Decided · Alpha | React lets the web and phone apps share packages and skills. TypeScript 7 (the native compiler) is out, but typescript-eslint supports only versions below 6.1, so stay on 6.0 until it does | **Next.js:** nothing needs server rendering, and it adds a server. **Angular:** heavier, and nothing shared with React Native. **Vue or Svelte:** nothing shared with the phone app. **TypeScript 7:** loses type-aware lint rules for now |
 | Server state | **TanStack Query** (not persisted) over the generated API client | Decided · Alpha | Caching, refetch on stream events and mutations, all built in | **RTK Query:** brings Redux. **SWR:** fewer mutation features |
-| Routing | **TanStack Router** | Decided · Alpha | Typed route parameters and search parameters (`/plans/$date`), and the same family as Query and Table. Deciding before the first screen saves a rewrite | **React Router:** fine too, with weaker typing of parameters |
-| UI kit | **Mantine 9**, with `@mantine/dates`, `@mantine/notifications`, `@mantine/charts` (NFR-27, NFR-46, FR-41) | Decided · Alpha | Right-to-left through one `DirectionProvider`, plus dates, notifications and charts in one kit | **MUI:** right-to-left needs an Emotion plugin set up by hand, and its date pickers are a separate product. **shadcn/ui:** copy-in components on Radix and Tailwind, more assembly. **Ant Design:** heavy, with an enterprise look |
-| Icons and fonts | **Tabler Icons**; a Hebrew-capable font (Heebo or Rubik), self-hosted through **Fontsource** (NFR-27) | Decided · Alpha | Fonts come from our origin, not a font CDN | **Google Fonts CDN:** a request to an outside service on every load |
+| Routing | **TanStack Router**, with code-based routes that each context declares in its own folder ([ADR-143](../ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md)) | Decided · Alpha | Typed route parameters and search parameters (`/plans/$date`), and the same family as Query and Table. Deciding before the first screen saves a rewrite | **React Router:** fine too, with weaker typing of parameters. **File-based routes through the router's Vite plugin:** every route away from its context, and one generated file that parallel pull requests conflict in |
+| UI kit | **Mantine 9**, with `@mantine/dates`, `@mantine/notifications`, `@mantine/charts` (NFR-27, NFR-46, FR-41). Its run-time `<style>` elements stay off, so `AppShell`, `Grid`, `SimpleGrid` and responsive style props are not used ([ADR-143](../ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md)) | Decided · Alpha | Right-to-left through one `DirectionProvider`, plus dates, notifications and charts in one kit | **MUI:** right-to-left needs an Emotion plugin set up by hand, and its date pickers are a separate product. **shadcn/ui:** copy-in components on Radix and Tailwind, more assembly. **Ant Design:** heavy, with an enterprise look |
+| Icons and fonts | **Tabler Icons**; **Heebo**, self-hosted through **Fontsource** (NFR-27, [ADR-143](../ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md)) | Decided · Alpha | Fonts come from our origin, not a font CDN. Heebo is narrow, for dense tables | **Google Fonts CDN:** a request to an outside service on every load. **Rubik:** rounded and wider |
 | Tables | **TanStack Table** (FR-151) | Decided · Alpha | Headless, so right-to-left and accessibility stay in our hands | **AG Grid:** capable, but heavy, and it styles everything its own way |
 | Forms | **React Hook Form** + **Zod 4** (schemas shared with the phone app) (NFR-69) | Decided · Alpha | One schema validates in both apps | **Formik:** slower development and maintenance. **TanStack Form:** newer, with fewer examples |
 | UI state | **Zustand**: one selection shared by map, timeline and table (FR-150) | Decided · Alpha | A small store with no boilerplate | **Redux Toolkit:** boilerplate for a few fields. **React context:** re-renders the whole workspace on every selection |
@@ -500,7 +500,8 @@ solver stays a pure function (NFR-13). Recorded in [ADR-051](../ADRs/ADR-051-one
 | Unit and component tests | **Vitest**, **React Testing Library**, **MSW** | Decided · Alpha | Same config as Vite | **Jest:** a second transform pipeline next to Vite |
 | Bundle size | A bundle visualizer (rollup-plugin-visualizer; check it with Vite 8 in M0) (NFR-58) | Decided · Jan | Finds what makes the first load slow | — |
 
-**Structure:** `src/features/<context>` mirrors the bounded contexts. Only `@dispatchflow/api-client`
+**Structure:** `src/features/<context>` mirrors the bounded contexts, and each declares its own
+routes, which `src/routeTree.ts` gathers ([ADR-143](../ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md)). Only `@dispatchflow/api-client`
 talks to the server. The client never decides feasibility: violations come from the validator. Sign-out sends
 `Clear-Site-Data` and deletes the refresh cookie, so nothing an account received stays in the
 browser, driver screens included (Q-92, Q-98, [ADR-076](../ADRs/ADR-076-admin-and-dispatcher-data-stays-in-memory-on-devices.md)).
@@ -798,6 +799,8 @@ The uuid-creator row was read on 25 November 2026, from Maven Central.
 | MSW | 3.0.7, released 18 November 2026; MIT | Read from npm on 25 November 2026. Needs Node 22.12 or later, and ships ES modules only |
 | Mantine | 9.x | |
 | TanStack Query, Router, Table | 5.x, 1.x, 9.x | |
+| Heebo (`@fontsource-variable/heebo`) | 5.3.0; SIL OFL 1.1 | Read from npm on 25 November 2026. One variable font per script, 12 KB for Hebrew and 30 KB for Latin, each loaded only when the page shows that script |
+| i18next, react-i18next | 27.x, 18.x; MIT | Read from npm on 25 November 2026. Both need Node 22 or later; i18next publishes without provenance, so its exact pin and pnpm's one-day release age stand in |
 | MapLibre GL JS, react-map-gl | 6.x, 8.x | |
 | Playwright | 1.65.x | |
 | Expo SDK | 58 (React Native 0.88) | |

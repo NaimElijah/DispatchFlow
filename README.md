@@ -134,8 +134,10 @@ dependencies point one way: the domain imports no framework, I/O or transport ty
 adapters depend on the domain.
 
 None of the calls between components exists in code yet. Today the optimizer answers its liveness
-probe, the core its health probe, and the two apps render a heading; the domain layers, in the core
-and in the optimizer, are built and tested, and their application layers are declared but not built.
+probe, the core its health probe, the web app its shell (navigation, routes, and English, or Hebrew
+right to left once its Settings page says so), and the phone app a heading; the domain layers, in
+the core and in the optimizer, are built and tested, and their application layers are declared but
+not built.
 The core's persistence adapters store every module's aggregates in PostgreSQL, and no use case calls
 them.
 [architecture.md](docs/architecture/architecture.md) describes that system as it is, and
@@ -165,7 +167,7 @@ progress to the web app over server-sent events
 | Core backend | Java, Spring Boot, Spring Data JPA; libphonenumber, JTS, JSpecify; uuid-creator | 25, 4.1.2; 9.0.43, 1.20.0, version from the Spring Boot parent; 6.1.1 | The team's strongest stack; mature ecosystem for the adapters. libphonenumber parses phone numbers and JTS checks the service area, both in the pure domain; JSpecify marks null-safe packages; uuid-creator makes the UUIDv7 IDs, which the JDK can't |
 | Database | PostgreSQL 18.6; Flyway (version from the Spring Boot parent) | 18.6 | Relational data with real constraints; versioned SQL migrations |
 | Optimizer | Python, FastAPI, NumPy | 3.14, 0.162, 2.5.4 | OR-Tools' richest bindings; algorithm work iterates apart from the backend; NumPy holds the validator's arrays |
-| Web app | React, TypeScript, Vite | 19.3, 6.0, 8.3 | Web app for every role; its driver screens also work in a phone's browser |
+| Web app | React, TypeScript, Vite; TanStack Router and Query, Mantine, i18next | 19.3, 6.0, 8.3; 1.170, 5.108, 9.8, 27.2 | Web app for every role; its driver screens also work in a phone's browser. Typed routes, an in-memory server cache, right to left through one provider, and one strings package for both apps |
 | Phone app | React Native, Expo | 0.88, SDK 58 | One codebase for iOS and Android, for every role |
 | Contracts | OpenAPI, Redocly CLI | 3.1, 2.72 | Each side is built against the contract, not against the other side |
 | Tests | JUnit + Testcontainers, ArchUnit, pytest + Hypothesis, vrplib, import-linter, Vitest, MSW, Jest | ArchUnit 1.5.1, Hypothesis 6.170, vrplib 2.2.0, import-linter 2.16, MSW 3.0 | Real PostgreSQL in tests, never an in-memory stand-in; ArchUnit, import-linter and ruff keep each domain pure; vrplib reads the Solomon instances the validator is checked against |
@@ -262,7 +264,7 @@ src/
   backend/optimizer/   optimization service (FastAPI)
   frontend/web/        web app (React + Vite)
   frontend/mobile/     phone app (Expo)
-  frontend/packages/   shared TypeScript packages: eslint-config and tsconfig, and five placeholders
+  frontend/packages/   shared TypeScript packages: eslint-config, tsconfig and i18n, and four placeholders
   research/            benchmarks, simulation, order generator; never deployed
 contracts/             versioned OpenAPI contracts between the components
 tests/                 cross-component tests only: e2e/, load/

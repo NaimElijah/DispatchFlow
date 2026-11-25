@@ -26,6 +26,8 @@ with its layout, rules and commands.
   prompt on them hides the route (NFR-139).
 - Every screen is in Hebrew, right to left, and in English, with strings from i18next (NFR-27,
   [ADR-089]).
+- The strings are `@dispatchflow/i18n`'s, one namespace per area: `src/he/<area>.ts` is typed
+  against `src/en/<area>.ts` (`tsc`), and `resources.test.ts` fails a gap between them.
 - Times are shown with `Intl` and `timeZone: 'Asia/Jerusalem'` ([ADR-088], [TS §10]).
 - Every call carries `X-App-Version` and `X-App`, and a driver's calls also `X-Device-Time`
   ([ADR-082]).
@@ -44,8 +46,10 @@ with its layout, rules and commands.
 - Depend on a `@dispatchflow/*` package only as `workspace:*`, added with `pnpm add --workspace`:
   a plain `pnpm add` resolves the name from the public registry. `web/src/test/workspace.test.ts`
   fails when `pnpm-lock.yaml` resolves one from a registry.
-- A dependency with an install script fails the install until `allowBuilds` in
-  `pnpm-workspace.yaml` lists it: `true` runs the script, `false` skips it.
+- `permissions` in `pnpm-workspace.yaml` holds what each dependency may do; never add
+  `allowBuilds`, which it overrides. A dependency with an install script fails the install until
+  it has `build: true` or `build: false`. One that asks to install agent skills waits for
+  `pnpm approve`: refuse it with `skills: false` ([ADR-143]).
 - A relative path in a shared tsconfig resolves against the shared file, so `include` and
   `tsBuildInfoFile` stay in each project's own tsconfig. So does `types`: each project names the
   type packages it declares.
@@ -84,6 +88,7 @@ installs ([ADR-039]).
 [ADR-089]: ../../docs/ADRs/ADR-089-interface-languages.md
 [ADR-130]: ../../docs/ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md
 [ADR-141]: ../../docs/ADRs/ADR-141-prettiers-settings-live-in-one-file-in-src-frontend.md
+[ADR-143]: ../../docs/ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md
 [roadmap §4.1]: ../../docs/roadmap.md#41-whats-in-what-waits
 [ADR-043]: ../../docs/ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md
 [TS §9]: ../../docs/architecture/tech_stack.md#9-routing-and-geodata

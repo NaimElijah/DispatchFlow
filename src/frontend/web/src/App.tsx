@@ -1,10 +1,47 @@
-/** The web app's root component. */
-function App() {
-  return (
-    <main>
-      <h1>DispatchFlow</h1>
-    </main>
-  )
+import { DirectionProvider, MantineProvider } from '@mantine/core'
+import { QueryClientProvider, type QueryClient } from '@tanstack/react-query'
+import { RouterProvider } from '@tanstack/react-router'
+import type { i18n } from 'i18next'
+import { I18nextProvider } from 'react-i18next'
+import { AppErrorBoundary } from './AppErrorBoundary.tsx'
+import { DocumentLanguage } from './DocumentLanguage.tsx'
+import type { AppRouter } from './router.ts'
+
+/** What the app runs on: `main.tsx` makes the browser's, and each test makes its own. */
+export interface AppProps {
+  /** The router, holding the routes and their context. */
+  router: AppRouter
+  /** The app's i18next instance, already set to the language to open in. */
+  i18n: i18n
+  /** The one server-state cache, in memory only and never persisted (NFR-269). */
+  queryClient: QueryClient
 }
 
-export default App
+/**
+ * The web app's root: its providers, then the router, which renders the shell and every page,
+ * all inside the last error boundary.
+ *
+ * Mantine's run-time `<style>` elements are off, because ADR-069's Content Security Policy blocks
+ * every one; `src/styles/theme.css` carries what they would hold (ADR-143). Forcing the light colour
+ * scheme also keeps Mantine from storing a colour-scheme choice in the browser.
+ */
+export function App({ router, i18n, queryClient }: AppProps) {
+  return (
+    <AppErrorBoundary i18n={i18n}>
+      <I18nextProvider i18n={i18n}>
+        <QueryClientProvider client={queryClient}>
+          <DirectionProvider initialDirection={i18n.dir()}>
+            <MantineProvider
+              withCssVariables={false}
+              withGlobalClasses={false}
+              forceColorScheme="light"
+            >
+              <DocumentLanguage />
+              <RouterProvider router={router} />
+            </MantineProvider>
+          </DirectionProvider>
+        </QueryClientProvider>
+      </I18nextProvider>
+    </AppErrorBoundary>
+  )
+}

@@ -1,6 +1,6 @@
 # ADR-089: Both apps are available in Hebrew, right to left, and in English only
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-143
 - **Date:** 2026-11-13
 
 ## Context

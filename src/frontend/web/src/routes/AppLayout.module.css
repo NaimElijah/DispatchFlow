@@ -1,0 +1,66 @@
+/*
+ * The shell's layout. Logical properties only (inline, block), so right to left mirrors it with no
+ * rule of its own: the navigation sits on the right in Hebrew and on the left in English.
+ */
+.layout {
+  display: grid;
+  grid-template-areas:
+    'header header'
+    'navigation main';
+  grid-template-columns: 15rem minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  min-block-size: 100dvh;
+}
+
+.header {
+  grid-area: header;
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  padding-block: var(--mantine-spacing-xs);
+  padding-inline: var(--mantine-spacing-md);
+  border-block-end: 1px solid var(--mantine-color-gray-3);
+}
+
+.productName {
+  font-size: var(--mantine-font-size-lg);
+  font-weight: 700;
+  color: inherit;
+  text-decoration: none;
+}
+
+.navigation {
+  grid-area: navigation;
+  padding: var(--mantine-spacing-xs);
+  border-inline-end: 1px solid var(--mantine-color-gray-3);
+}
+
+/* A column that hands its page the remaining height, for a page such as the map's to fill. */
+.main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  padding: var(--mantine-spacing-md);
+}
+
+/* Below Mantine's `sm` breakpoint (48em), the same edge the menu button's `hiddenFrom` uses. */
+@media (max-width: 47.99375em) {
+  .layout {
+    grid-template-areas:
+      'header'
+      'navigation'
+      'main';
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+
+  .navigation {
+    display: none;
+    border-inline-end: 0;
+    border-block-end: 1px solid var(--mantine-color-gray-3);
+  }
+
+  .navigation[data-open] {
+    display: block;
+  }
+}
