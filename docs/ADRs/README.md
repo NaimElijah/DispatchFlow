@@ -93,7 +93,8 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-109](ADR-109-reporting-computes-exact-on-time-shares-from-current-facts-and-keeps-no-personal-data.md) | Reporting computes exact on-time shares from current facts and keeps no personal data | Accepted; extended by ADR-112 |
 | [ADR-088](ADR-088-israel-local-time-for-every-date-and-schedule.md) | Every date, time window, shift and schedule is Israel local time, held as elapsed seconds in a solve | Accepted; amended by ADR-098 |
 | [ADR-089](ADR-089-interface-languages.md) | Both apps are available in Hebrew, right to left, and in English only | Accepted; extended by ADR-143 |
-| [ADR-143](ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md) | The web app's shell declares routes per area, opens in English, and renders no `<style>` element | Accepted |
+| [ADR-143](ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md) | The web app's shell declares routes per area, opens in English, and renders no `<style>` element | Accepted; amended by ADR-144 |
+| [ADR-144](ADR-144-the-web-apps-features-stay-apart-and-its-lower-folders-never-import-upward.md) | The web app's features stay apart, its lower folders never import upward, and sign-in stands beside the shell | Accepted |
 | [ADR-090](ADR-090-scope-cuts-for-the-first-release.md) | The first release cuts ten capabilities, and each has its own trigger to reopen | Accepted |
 | [ADR-091](ADR-091-study-design-for-the-solver-comparison.md) | The solver comparison follows eleven fixed design choices, and a mutation run checks the validator first | Accepted |
 | [ADR-092](ADR-092-the-alns-package-runs-our-solvers-outer-loop.md) | The `alns` package runs our solver's outer loop, and the rest of the solver stays ours | Accepted |
@@ -224,4 +225,9 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > until FR-124, shared packages ship their source, the font is Heebo, no error reaches the screen,
 > `permissions` holds what each dependency may do, and the app renders no `<style>` element, so
 > ADR-069's policy holds unchanged, as the check in Chrome showed.
+> ADR-144, on 2026-11-25, amends ADR-143 after a review of the shell: no feature imports another,
+> nothing below `src/` imports the modules that assemble the app or its tests, lint enforces both,
+> sign-in stands beside the shell with its session in `lib/`, writing HTML into the page fails lint,
+> a generated package generates before lint and test, and a missing subject shows the not-found page
+> inside the shell.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.

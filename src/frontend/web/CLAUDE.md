@@ -23,10 +23,19 @@ React 19, TypeScript 6.0, Vite 8, pnpm; TanStack Router and Query, Mantine 9, i1
   A route file is `.ts`, with no JSX. A page reaches its route by ID,
   `getRouteApi('/_shell/plans/$date')`, never by importing the route, which imports the page.
 - A path parameter is checked in `params.parse`, which returns `false` for a bad value, so the
-  address shows the not-found page, as `/plans/$date` does.
-- Imports point from `src/` to `features/`, `routes/`, `components/` and `lib/`, never back, and
-  no feature imports another (ESLint enforces the first: `eslint.config.js`).
-- **No `<style>` element** (`setup.ts` fails the test that leaves one; ADR-069's policy refuses it):
+  address shows the not-found page, as `/plans/$date` does. A loader that finds its subject
+  missing throws `notFound()`; a page that does so while rendering sets
+  `notFoundComponent: NotFoundPage` on its route, or the shell is lost ([ADR-144]).
+- Imports point from `src/` to `features/`, `routes/`, `components/` and `lib/`, never back; no
+  feature imports another; only tests import `src/test/` (`eslint.config.js`, pinned by
+  `src/test/importDirection.test.ts`; `import()` is not checked). What two features need goes in
+  `lib/`, `components/` or a package ([ADR-144]).
+- **Sign-in** stands outside the shell: its route is parented on `rootRoute` and listed beside
+  `shellRoute` in `routeTree.ts`, the session sits in `lib/` and reaches routes through the router
+  context, and `shellRoute`'s `beforeLoad` guards every page ([ADR-144]).
+- Writing HTML into the page fails ESLint, `dangerouslySetInnerHTML` and `innerHTML` included:
+  translations are not HTML-escaped. Render text as text, or markup through `Trans`.
+- **No `<style>` element** (`setup.ts` fails the test that adds one; ADR-069's policy refuses it):
   no `AppShell`, `Grid`, `SimpleGrid` or responsive style props; use a CSS module. A theme change
   is a CSS variable in `src/styles/theme.css`: `createTheme` reaches no CSS ([ADR-143]).
 - A page title, path or search parameter carries IDs and dates only, never personal data: the
@@ -82,4 +91,5 @@ and fail on a package without the two `src/frontend/CLAUDE.md` requires of every
 [ADR-035]: ../../../docs/ADRs/ADR-035-both-apps-serve-every-role.md
 [ADR-076]: ../../../docs/ADRs/ADR-076-admin-and-dispatcher-data-stays-in-memory-on-devices.md
 [ADR-143]: ../../../docs/ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md
+[ADR-144]: ../../../docs/ADRs/ADR-144-the-web-apps-features-stay-apart-and-its-lower-folders-never-import-upward.md
 [TS §10]: ../../../docs/architecture/tech_stack.md#10-web-app

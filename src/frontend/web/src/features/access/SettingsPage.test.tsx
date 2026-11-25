@@ -22,6 +22,17 @@ test('GivenTheShellInEnglish_WhenHebrewIsChosenInTheSettings_ThenItIsRightToLeft
   expect(document.title).toBe('הגדרות · DispatchFlow')
 })
 
+test('GivenALanguageChosenInTheSettings_WhenStorageIsRead_ThenTheLanguageIsTheOnlyThingKept', async () => {
+  renderApp({ path: '/settings' })
+
+  await chooseLanguage('עברית')
+  await screen.findByRole('heading', { level: 1, name: 'הגדרות' })
+
+  // ADR-076 and ADR-143: nothing else the app does reaches browser storage.
+  expect(Object.keys(localStorage)).toEqual([LANGUAGE_STORAGE_KEY])
+  expect(Object.keys(sessionStorage)).toEqual([])
+})
+
 test('GivenHebrewChosenInTheSettings_WhenTheAppIsOpenedAgain_ThenItOpensInHebrew', async () => {
   const first = renderApp({ path: '/settings' })
   await chooseLanguage('עברית')

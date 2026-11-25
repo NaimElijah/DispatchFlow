@@ -14,8 +14,8 @@ How DispatchFlow is built, as it is today. What it must do is in
 > error handlers, call wrapper and error endpoint, the JSON logs and `SchedulingConfiguration`. The
 > web app's shell is built: its routes, layout, languages and Settings page; no screen of it calls
 > the API. The application layers are declared, not built: every body that would do work throws, no
-> use case calls a persistence adapter, and no operation is served. The design the team is heading for is in [Target design](#target-design);
-> this file describes none of it as built beyond that.
+> use case calls a persistence adapter, and no operation is served. The design the team is heading
+> for is in [Target design](#target-design); this file describes none of it as built beyond that.
 
 ## Architecture overview
 
@@ -285,14 +285,20 @@ have a `Dockerfile`, and neither runs as root
   `application/ports.py` ([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)); no solver implements the port yet.
 - **PyVRP stays out of `optimizer`.** `src/backend/optimizer/tests/test_dependency_boundary.py` holds two
   tests. One fails if PyVRP is installed there, and the other if PyVRP is locked in its `uv.lock`.
-  With `core`'s purity, shape, package, application, mapping and transaction rules, `optimizer`'s import-linter contracts and the ruff
-  bans in its domain (lint steps in `just optimizer-check`), and the web app's folder rule below,
-  they are the only architecture rules checked automatically today.
-- **The web app's folders depend one way.** `src/` itself imports `features/`, which import
-  `routes/`, then `components/`, then `lib/`, never back: an area parents its routes on the shell's
-  `shellRoute`, and `src/routeTree.ts`, above both, gathers them. ESLint's `no-restricted-imports`
-  in `src/frontend/web/eslint.config.js` fails an import that points back
-  ([ADR-143](../ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md)).
+  With `core`'s purity, shape, package, application, mapping and transaction rules,
+  `optimizer`'s import-linter contracts and the ruff bans in its domain (lint steps in
+  `just optimizer-check`), and the web app's folder rules below, they are the only architecture
+  rules checked automatically today.
+- **The web app's folders depend one way, and its features stay apart.** `src/` itself imports
+  `features/`, which import `routes/`, then `components/`, then `lib/`, never back: an area parents
+  its routes on the shell's `shellRoute`, and `src/routeTree.ts`, above both, gathers them. No
+  feature imports another, nothing below `src/` imports the modules that assemble the app
+  (`main`, `App`, `router`, `routeTree` and the rest), and only tests import `src/test/`.
+  ESLint's `no-restricted-imports` in `src/frontend/web/eslint.config.js` checks every static
+  import and re-export, type-only ones included, but not `import()` expressions, and
+  `src/test/importDirection.test.ts` pins each rule
+  ([ADR-143](../ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md),
+  [ADR-144](../ADRs/ADR-144-the-web-apps-features-stay-apart-and-its-lower-folders-never-import-upward.md)).
 - **Flyway owns the schema.** `core` sets `spring.jpa.hibernate.ddl-auto=validate`, so Hibernate
   never changes it ([ADR-007](../ADRs/ADR-007-postgresql-with-flyway-migrations.md), superseded by
   [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md),

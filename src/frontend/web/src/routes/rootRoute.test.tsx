@@ -1,5 +1,6 @@
 import { screen } from '@testing-library/react'
 import { expect, onTestFinished, test, vi } from 'vitest'
+import { expectNoErrorDetail } from '../test/errorDetail.ts'
 import { renderApp } from '../test/renderApp.tsx'
 
 const MARKER = 'internal-detail-9c41'
@@ -25,5 +26,7 @@ test('GivenTheShellItselfThrows_WhenRendered_ThenATranslatedMessageShowsAndNoSta
     await screen.findByRole('heading', { level: 1, name: 'Something went wrong' }),
   ).toBeDefined()
   expect(screen.queryByRole('navigation')).toBeNull()
-  expect(document.body.textContent).not.toContain(MARKER)
+  // The router's error page, not the last boundary's plain message, which offers no retry.
+  expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined()
+  expectNoErrorDetail(MARKER)
 })

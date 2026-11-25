@@ -1,6 +1,7 @@
 import { screen } from '@testing-library/react'
 import { expect, onTestFinished, test, vi } from 'vitest'
 import { LANGUAGE_STORAGE_KEY } from './lib/languageSetting.ts'
+import { expectNoErrorDetail } from './test/errorDetail.ts'
 import { renderApp } from './test/renderApp.tsx'
 
 const MARKER = 'internal-detail-51d0'
@@ -35,17 +36,23 @@ test('GivenTheErrorPageItselfThrows_WhenRendered_ThenTheLastBoundaryShowsATransl
   expect(
     await screen.findByRole('heading', { level: 1, name: 'Something went wrong' }),
   ).toBeDefined()
-  expect(document.body.textContent).not.toContain(MARKER)
-  // The router's own fallback offered a "Show Error" button that revealed the message.
+  expectNoErrorDetail(MARKER)
+  // The router's own fallback offered a "Show Error" button that revealed the message; this one
+  // offers nothing to press, so it asks for a reload.
   expect(screen.queryByRole('button')).toBeNull()
+  expect(screen.getByText('The app could not be shown. Reload the page.')).toBeDefined()
 })
 
-test('GivenHebrewAndTheErrorPageThrows_WhenRendered_ThenTheLastBoundaryShowsTheHebrewMessage', async () => {
+test('GivenHebrewAndTheErrorPageThrows_WhenRendered_ThenTheLastBoundaryShowsTheHebrewMessageRightToLeft', async () => {
   silenceTheErrorReport()
   localStorage.setItem(LANGUAGE_STORAGE_KEY, 'he')
 
   renderApp({ path: '/fleet' })
 
   expect(await screen.findByRole('heading', { level: 1, name: 'משהו השתבש' })).toBeDefined()
-  expect(document.body.textContent).not.toContain(MARKER)
+  // Set on the message itself, for when the first render fails before <html> gets them.
+  const message = screen.getByRole('main')
+  expect(message.getAttribute('lang')).toBe('he')
+  expect(message.getAttribute('dir')).toBe('rtl')
+  expectNoErrorDetail(MARKER)
 })

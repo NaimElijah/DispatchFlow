@@ -12,15 +12,23 @@ import { defineConfig } from 'eslint/config'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
+/** What a writer of HTML into the page is told, whichever way it writes it. */
+const HTML_SINK_MESSAGE =
+  'Render text as text, or markup through react-i18next Trans: translations are not HTML-escaped, and text from a user or the server would become markup.'
+
 /**
  * The rules for a React app that Vite bundles: ESLint's and typescript-eslint's recommended
- * rules, the rules of hooks, and the Fast Refresh export rule, over every `.ts` and `.tsx` file,
- * with the browser's globals. `dangerouslySetInnerHTML` is refused: translated text is not
- * HTML-escaped (React escapes what it renders as text), so markup built from it could carry a
- * user's input into the page.
+ * rules, the rules of hooks, and the Fast Refresh export rule, over every `.ts`, `.tsx` and `.jsx`
+ * file, with the browser's globals.
+ *
+ * Writing HTML into the page is refused, in each form short of a computed property name:
+ * `dangerouslySetInnerHTML` as an attribute or as an object's key, an assignment to `innerHTML` or
+ * `outerHTML`, `insertAdjacentHTML`, and `document.write`. Translated text is not HTML-escaped
+ * (React escapes what it renders as text), so markup built from it could carry a user's input into
+ * the page. `no-restricted-syntax` takes one list: a later config that sets it replaces this one.
  */
 export const reactVite = defineConfig({
-  files: ['**/*.{ts,tsx}'],
+  files: ['**/*.{ts,tsx,jsx}'],
   extends: [
     js.configs.recommended,
     tseslint.configs.recommended,
@@ -34,11 +42,13 @@ export const reactVite = defineConfig({
   rules: {
     'no-restricted-syntax': [
       'error',
-      {
-        selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
-        message:
-          'Render text as text, or markup through react-i18next Trans: translations are not HTML-escaped.',
-      },
+      ...[
+        "JSXAttribute[name.name='dangerouslySetInnerHTML']",
+        "Property[key.name='dangerouslySetInnerHTML'], Property[key.value='dangerouslySetInnerHTML']",
+        'AssignmentExpression > MemberExpression.left[property.name=/^(innerHTML|outerHTML)$/]',
+        "CallExpression[callee.property.name='insertAdjacentHTML']",
+        "CallExpression[callee.object.name='document'][callee.property.name=/^write(ln)?$/]",
+      ].map((selector) => ({ selector, message: HTML_SINK_MESSAGE })),
     ],
   },
 })
