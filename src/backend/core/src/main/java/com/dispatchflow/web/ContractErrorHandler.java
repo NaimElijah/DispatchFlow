@@ -51,7 +51,8 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  *
  * <p>It runs before the kernel's handler ({@link HandlerOrder#CONTRACT}), so a converter's
  * exception that wraps a refusal still answers 400. A 400 or a 413 is logged at WARN with its codes
- * and cut pointers, the first {@link Problems#MAX_ITEMS} of them and their count; a 503 at WARN; a
+ * and where each failed (a cut pointer, a parameter or the whole request), the first {@link
+ * Problems#MAX_ITEMS} of them and their count; a 503 at WARN; a
  * 404, 405, 406 or 415 at INFO; and a 500 at ERROR. A refusal's line never carries a value nor the
  * exception's message.
  */
@@ -88,9 +89,8 @@ class ContractErrorHandler extends ResponseEntityExceptionHandler {
      * never sees one. Tomcat throws it from its {@code getParameter} methods for a query or form
      * parameter that fails to decode, for too many parameters, for a form body that can't be read,
      * with 400, and for a form body over {@code server.tomcat.max-http-form-post-size}, with 413.
-     * Tomcat's own 413 answers 413, and every other code
-     * 400 for the whole request. One thrown outside Spring MVC, as by a servlet filter, reaches
-     * {@code TraceIdFilter} instead.
+     * Tomcat's own 413 answers 413, and every other code answers 400 for the whole request. One
+     * thrown outside Spring MVC, as by a servlet filter, reaches {@code TraceIdFilter} instead.
      *
      * <p>Its message quotes the parameter's name and value, so Spring is given a stand-in of the
      * same type with a message of its own: Spring's line for a response already committed quotes
@@ -206,7 +206,10 @@ class ContractErrorHandler extends ResponseEntityExceptionHandler {
         }
     }
 
-    /** An item's code and where it failed, its cut pointer or its parameter: never a value. */
+    /**
+     * An item's code and where it failed, its cut pointer, its parameter or the whole request:
+     * never a value.
+     */
     private static String describe(ProblemItem item) {
         ProblemItem.Parameter parameter = item.parameter();
         String pointer = item.pointer();

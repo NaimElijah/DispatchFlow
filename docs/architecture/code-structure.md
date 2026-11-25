@@ -147,7 +147,8 @@ src/backend/core/
                                    on it, and it uses only their api and events (ADR-140)
       TraceIdFilter.java           each request's trace ID, from traceparent (Traceparent.java)
                                    or made fresh, in the MDC; hands an escaped exception to
-                                   Tomcat's error dispatch
+                                   Tomcat's error dispatch; refuses with 400 a path Spring
+                                   can't parse
       CallWrapper.java             the handler adapter that runs every handler through CallRetry
       CallRetry.java               re-runs a call that lost a race, and audits the race it answers;
                                    after a commit it audits nothing and answers 500

@@ -151,8 +151,8 @@ class WebOverTomcatIT {
      * Tomcat refuses a {@code [}, a {@code ]}, a {@code {} or a malformed escape in the path itself,
      * with its own 400 page, before any filter runs, so no problem body and no trace ID can answer
      * it (ADR-142: a connector-level refusal never reaches the application). No line may quote the
-     * request target: Tomcat's own line for a request line it can't parse would, at INFO once a day,
-     * before any filter sets a trace ID.
+     * request target: Tomcat's own line for a request line it can't parse would, at INFO once a day
+     * per connection processor, before any filter sets a trace ID.
      */
     @ParameterizedTest
     @ValueSource(strings = {"/actuator/health[1]", "/actuator/health%zz", "/actuator/health{1}"})

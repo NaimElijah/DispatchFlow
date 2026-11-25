@@ -39,8 +39,9 @@ import tools.jackson.databind.exc.UnrecognizedPropertyException;
 
 /**
  * The failing items of a request that breaks the contract (ADR-140 decisions 5 and 9). Each says
- * where it failed, by a pointer into the body or a parameter's name and place, and never the
- * value: an item's {@code params} carry only a constraint's own bounds.
+ * where it failed, by a pointer into the body, a parameter's name and place, or neither for the
+ * request as a whole, and never the value: an item's {@code params} carry only a constraint's own
+ * bounds.
  */
 final class ContractBreaks {
 
