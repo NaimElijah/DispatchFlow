@@ -134,8 +134,9 @@ carries `@NullMarked`, and no class. An inbound adapter is `adapter/in/<kind>`, 
 named for the outside system or channel it talks to, `persistence` for the module's own database,
 or the technology it wraps when it calls nothing outside the process. Each module's packages and the
 ports they implement are in [ADR-130](../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md) (decision 4). The web app's and the phone
-app's `src/features/<context>` folders, `src/frontend/packages/` and the infra, docs and data folders
-the tech stack draws are declared the same way, as `.gitkeep` placeholders.
+app's `src/features/<context>` folders, the five unfilled folders of `src/frontend/packages/` and the
+infra, docs and data folders the tech stack draws are declared the same way, as `.gitkeep`
+placeholders.
 
 The application-wide `web` package, `com.dispatchflow.web`, is no module. Today it holds
 `UnexpectedErrorHandler`, and beside it `web.security`, `web.stream` and `web.e2e`, declared ahead,

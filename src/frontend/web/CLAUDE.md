@@ -1,12 +1,13 @@
 # Web app
 
 The web app for admins, dispatchers and drivers ([ADR-035]). Drivers work in it online only.
-React 19, TypeScript 6.0, Vite 8, npm.
+React 19, TypeScript 6.0, Vite 8, pnpm.
 
 ## Layout
 
 - `src/main.tsx` mounts `src/App.tsx`.
 - `src/test/setup.ts` configures Vitest; `vite.config.ts` sets the jsdom environment.
+- `src/test/server.ts` is the tests' one MSW server, over the handlers in `src/test/handlers.ts`.
 
 ## Rules
 
@@ -26,21 +27,26 @@ React 19, TypeScript 6.0, Vite 8, npm.
 
 ## Tests
 
-- Vitest with Testing Library, in jsdom. From the Alpha ([TS §10], Decided), MSW answers API calls
-  in tests.
+- Vitest with Testing Library, in jsdom. MSW answers API calls in tests ([TS §10]).
+- A request no handler answers, asset-like paths included, fails with a network error, and the
+  test that sent it fails (`server.ts`, `setup.ts`). Happy paths go in `handlers.ts`; a test
+  overrides an answer with `server.use()`, and nothing else calls `setupServer`. Import `http` and
+  `HttpResponse` from `msw/http`.
 - Vitest globals are off: import every Vitest API you use (`test`, `expect`, `vi`, …) from
   `vitest`, as `App.test.tsx` does.
 
 ## Commands
 
-Run `just` recipes from the repository root, and `npm` or `npx` from this folder.
+Run `just` recipes from the repository root, and `pnpm` from this folder.
 
-| Command                           | What it does                                                   |
-| --------------------------------- | -------------------------------------------------------------- |
-| `just web-check`                  | ESLint, Prettier check, Vitest, then `tsc -b` and `vite build` |
-| `just web-format`                 | Prettier                                                       |
-| `just web-run`                    | Vite dev server                                                |
-| `npx vitest run src/App.test.tsx` | One test file                                                  |
+| Command                                 | What it does                                                   |
+| --------------------------------------- | -------------------------------------------------------------- |
+| `just web-check`                        | ESLint, Prettier check, Vitest, then `tsc -b` and `vite build` |
+| `just web-format`                       | Prettier                                                       |
+| `just web-run`                          | Vite dev server                                                |
+| `pnpm exec vitest run src/App.test.tsx` | One test file                                                  |
+
+`web-check` and `web-format` run each script in this app and in every shared package that has it.
 
 [ADR-026]: ../../../docs/ADRs/ADR-026-server-sent-events-and-push-for-live-updates.md
 [ADR-035]: ../../../docs/ADRs/ADR-035-both-apps-serve-every-role.md
