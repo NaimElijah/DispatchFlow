@@ -4,8 +4,9 @@
  * com.dispatchflow.shared.application.IdGenerator}, the listeners' idempotency record {@link
  * com.dispatchflow.shared.application.ProcessedEvents} (DL §7.3), and the two errors a use case
  * raises outside the domain, {@link com.dispatchflow.shared.application.NotFound} (404) and {@link
- * com.dispatchflow.shared.application.StaleVersion} (412, or 503 after three retries for a call
- * that sent no version, ADR-121).
+ * com.dispatchflow.shared.application.StaleVersion} (412 to {@code If-Match} or {@code
+ * If-None-Match}, 409 to a version sent in the body, or 503 after three retries for a call that
+ * sent none, ADR-121, ADR-140).
  *
  * <p>It sits under the kernel, so the ArchUnit purity rules check it with the kernel: it imports
  * only the JDK, JSpecify and the kernel. A change here needs the agreement of every module's owner

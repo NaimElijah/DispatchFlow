@@ -178,6 +178,16 @@ class ApplicationTest {
     }
 
     @Test
+    void GivenTheProductionClasses_WhenRule13IsChecked_ThenWebUsesOnlyTheModulesApiAndEvents() {
+        ApplicationRules.webUsesOnlyTheModulesApiAndEvents(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenRule14IsChecked_ThenOnlyTheWebAndTheControllersReadTheCallsHolders() {
+        ApplicationRules.onlyTheWebReadsTheCallsHolders(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
     void GivenTheDeclaredAdapters_WhenTheirInboundKindsAreRead_ThenEachIsOneOfTheSix() {
         assertThat(ApplicationRules.DECLARED_ADAPTERS.values().stream()
                         .flatMap(Set::stream)

@@ -8,22 +8,27 @@ import java.util.UUID;
 /**
  * A change was made against a version of an aggregate that is no longer current, so optimistic
  * locking refuses it (BR-76, ADR-057). It is not a domain refusal, so it is no {@code DomainError}.
- * The web adapter answers a call that sent {@code If-Match}, a use case's {@code Version expected},
- * with 412 and {@link #code()}, through {@code ETag}. A call that sent no version never saw the
- * version it lost to, so the adapter retries it at once, up to three times, and then answers 503
- * with {@code Retry-After} (ADR-121), as a listener adapter retries (DL §11). The message names the
- * kind and the ID only, never personal data (NFR-19).
+ * {@code web}'s handler answers a call that sent {@code If-Match} or {@code If-None-Match}, a use
+ * case's expected version, with 412 and {@link #code()}, through {@code ETag}. A call that sent the
+ * version in its request body, such as accepting a proposal, gets 409 and the same code and is
+ * never retried, for the client did send a version (ADR-121 P31, ADR-140). A call that sent no
+ * version never saw the version it lost to, so {@code web}'s call wrapper re-runs it at once, up to
+ * three times, and then answers 503 with {@code Retry-After} (ADR-121, ADR-140), as a listener
+ * adapter retries (DL §11). The message names the kind and the ID only, never personal data
+ * (NFR-19).
  *
  * <p>Two checks throw it (ADR-126): {@link #requireCurrent}, in the use case, against the version
  * the caller read; and the persistence adapter's save, when another transaction saved the
- * aggregate after this one loaded it. A retry re-runs the whole use case in a new transaction.
+ * aggregate after this one loaded it. One that {@code requireCurrent} throws compares the version
+ * the request sent, so it is never retried (ADR-140). A retry re-runs the whole use case in a new
+ * transaction.
  */
 public final class StaleVersion extends RuntimeException {
 
     private final String kind;
     private final UUID id;
 
-    /** The stable code the web adapter answers with, beside the 412 status. */
+    /** The stable code {@code web}'s handler answers with, beside the 412 or 409 status. */
     public static final String CODE = "STALE_VERSION";
 
     /**

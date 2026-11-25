@@ -1,6 +1,6 @@
 # ADR-131: The declared structure's review tightens its rules and fills its gaps
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-140
 - **Date:** 2026-11-24
 
 ## Context

@@ -1,7 +1,7 @@
 /**
  * Planning's live-updates adapter (ADR-130): implements {@code LiveUpdates} over the event stream.
- * The stream's endpoint and its registry of open streams are the app-wide {@code web} ADR's to
- * place (ADR-040, ADR-130 decision 6).
+ * It sends through the registry of open streams in {@code shared.adapter.out.sse}; the stream's
+ * endpoint is in {@code web.stream} (ADR-140).
  */
 @NullMarked
 package com.dispatchflow.planning.adapter.out.sse;

@@ -1,6 +1,6 @@
 # ADR-086: An order import is two calls, upload then confirm within an hour, and writes every row or none
 
-- **Status:** Accepted; extended by ADR-102
+- **Status:** Accepted; extended by ADR-102; amended by ADR-139
 - **Date:** 2026-11-14
 
 ## Context
