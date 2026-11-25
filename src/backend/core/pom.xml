@@ -24,6 +24,7 @@
 		<libphonenumber.version>9.0.43</libphonenumber.version>
 		<palantir-java-format.version>2.103.0</palantir-java-format.version>
 		<spotless-maven-plugin.version>3.11.0</spotless-maven-plugin.version>
+		<uuid-creator.version>6.1.1</uuid-creator.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -55,6 +56,12 @@
 			<groupId>org.locationtech.jts</groupId>
 			<artifactId>jts-core</artifactId>
 			<version>${jts.version}</version>
+		</dependency>
+		<!-- The JDK makes no UUID version 7, the IDs the kernel's typed IDs carry (tech_stack.md, section 6). -->
+		<dependency>
+			<groupId>com.github.f4b6a3</groupId>
+			<artifactId>uuid-creator</artifactId>
+			<version>${uuid-creator.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.jspecify</groupId>
