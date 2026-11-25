@@ -92,7 +92,8 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-114](ADR-114-live-operations-reaches-planning-from-its-own-listener-and-names-every-fact-it-judges.md) | Live Operations reaches Planning from its own listener, and names every fact it judges | Accepted; extended by ADR-121 |
 | [ADR-109](ADR-109-reporting-computes-exact-on-time-shares-from-current-facts-and-keeps-no-personal-data.md) | Reporting computes exact on-time shares from current facts and keeps no personal data | Accepted; extended by ADR-112 |
 | [ADR-088](ADR-088-israel-local-time-for-every-date-and-schedule.md) | Every date, time window, shift and schedule is Israel local time, held as elapsed seconds in a solve | Accepted; amended by ADR-098 |
-| [ADR-089](ADR-089-interface-languages.md) | Both apps are available in Hebrew, right to left, and in English only | Accepted |
+| [ADR-089](ADR-089-interface-languages.md) | Both apps are available in Hebrew, right to left, and in English only | Accepted; extended by ADR-143 |
+| [ADR-143](ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md) | The web app's shell declares routes per area, opens in English, and renders no `<style>` element | Accepted |
 | [ADR-090](ADR-090-scope-cuts-for-the-first-release.md) | The first release cuts ten capabilities, and each has its own trigger to reopen | Accepted |
 | [ADR-091](ADR-091-study-design-for-the-solver-comparison.md) | The solver comparison follows eleven fixed design choices, and a mutation run checks the validator first | Accepted |
 | [ADR-092](ADR-092-the-alns-package-runs-our-solvers-outer-loop.md) | The `alns` package runs our solver's outer loop, and the rest of the solver stays ours | Accepted |
@@ -114,7 +115,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-037](ADR-037-flat-layout-under-src-with-deploy-and-infra.md) | The code moves to a flat layout under `src/`, with deployment in `deploy/` and Terraform in `infra/` | Superseded by ADR-123 |
 | [ADR-123](ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md) | The code keeps its grouped layout, and three components take new names | Accepted; extended by ADR-130 |
 | [ADR-038](ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md) | mise pins every toolchain, and the core moves to Java 25 | Accepted |
-| [ADR-039](ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md) | Both apps and the shared TypeScript packages live in one pnpm workspace | Accepted; extended by ADR-130 and ADR-141; amended by ADR-123 |
+| [ADR-039](ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md) | Both apps and the shared TypeScript packages live in one pnpm workspace | Accepted; extended by ADR-130, ADR-141 and ADR-143; amended by ADR-123 |
 | [ADR-141](ADR-141-prettiers-settings-live-in-one-file-in-src-frontend.md) | Prettier's settings live in one file in `src/frontend`, for the web app and every workspace package | Accepted |
 | [ADR-042](ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md) | Local runs start their services from `compose.dev.yaml`; tests keep Testcontainers | Accepted; amended by ADR-123 and ADR-139 |
 | [ADR-046](ADR-046-renovate-replaces-dependabot-and-targets-dev.md) | Renovate replaces Dependabot and keeps opening updates against `dev` | Accepted |
@@ -146,7 +147,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-068](ADR-068-every-web-handler-is-authorized-by-role-from-the-contract.md) | Every web handler is authorized by role, from the `x-capability` of its contract operation | Accepted; extended by ADR-140; amended by ADR-104 and ADR-120 |
 | [ADR-104](ADR-104-the-company-profile-holds-customer-defaults-and-capabilities-follow-the-role-matrix.md) | The company profile holds a new customer's defaults, and capabilities follow the role matrix | Accepted; extended by ADR-121; amended by ADR-116 |
 | [ADR-116](ADR-116-only-an-admin-changes-their-own-email.md) | Only an Admin changes their own email | Accepted |
-| [ADR-069](ADR-069-sign-in-and-transport-security.md) | Sign-in uses signed access tokens, rotating refresh tokens and Argon2id, over HTTPS through Caddy | Accepted; extended by ADR-121 and ADR-140 |
+| [ADR-069](ADR-069-sign-in-and-transport-security.md) | Sign-in uses signed access tokens, rotating refresh tokens and Argon2id, over HTTPS through Caddy | Accepted; extended by ADR-121, ADR-140 and ADR-143 |
 | [ADR-070](ADR-070-security-and-accessibility-standards.md) | We self-check against OWASP ASVS 5.0 Level 1 and build to WCAG 2.2 AA, with no separate target for IS 5568 | Accepted |
 | [ADR-071](ADR-071-api-rate-limits-in-process-with-bucket4j.md) | API rate limits run in the core's process, with Bucket4j | Accepted; extended by ADR-121 |
 | [ADR-075](ADR-075-retention-deletes-records-and-anonymizes-people-in-place.md) | Retention deletes positions, proofs and messages, and anonymizes customers and drivers in place | Accepted; extended by ADR-121; amended by ADR-102 and ADR-131 |
@@ -217,4 +218,10 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > items, the handlers run module, contract, kernel, unexpected, a last-resort endpoint answers every
 > error as a `Problem`, no handler takes a streaming parameter, and the async queue stays unbounded
 > until a load test shows it growing.
+> ADR-143, on 2026-11-25, settles #163's web app shell: each area declares its own routes in code
+> under one layout route, the web app's folders depend one way, `/` opens tomorrow's plan, the app
+> opens in English and turns Hebrew only through its Settings page, remembered in one storage key
+> until FR-124, shared packages ship their source, the font is Heebo, no error reaches the screen,
+> `permissions` holds what each dependency may do, and the app renders no `<style>` element, so
+> ADR-069's policy holds unchanged, as the check in Chrome showed.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.

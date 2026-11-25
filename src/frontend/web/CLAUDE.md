@@ -1,16 +1,41 @@
 # Web app
 
 The web app for admins, dispatchers and drivers ([ADR-035]). Drivers work in it online only.
-React 19, TypeScript 6.0, Vite 8, pnpm.
+React 19, TypeScript 6.0, Vite 8, pnpm; TanStack Router and Query, Mantine 9, i18next.
 
 ## Layout
 
-- `src/main.tsx` mounts `src/App.tsx`.
+- `src/main.tsx` builds the language setting, i18next, the query cache and the router, and mounts
+  `src/App.tsx`, which holds the providers. `src/routeTree.ts` gathers every area's routes.
+- `src/routes/` is the shell: the root route, `shellRoute` and its layout, `/`, the not-found and
+  error pages.
+- `src/features/<context>/` holds an area's pages and its `routes.ts`. `src/components/` holds the
+  UI no area owns, the map's in `components/map/`, and `src/lib/` the code no layer owns.
+- `src/styles/theme.css` holds what Mantine would otherwise inject as `<style>` elements.
 - `src/test/setup.ts` configures Vitest; `vite.config.ts` sets the jsdom environment.
 - `src/test/server.ts` is the tests' one MSW server, over the handlers in `src/test/handlers.ts`.
 
 ## Rules
 
+- **Routes** ([ADR-143]). An area declares its routes in its own `routes.ts`, exports them as
+  `<area>Routes = [...] as const`, and a new area adds its list to `src/routeTree.ts`:
+  `createRoute({ getParentRoute: () => shellRoute, path: 'fleet/depots', component: DepotsPage })`.
+  A route file is `.ts`, with no JSX. A page reaches its route by ID,
+  `getRouteApi('/_shell/plans/$date')`, never by importing the route, which imports the page.
+- A path parameter is checked in `params.parse`, which returns `false` for a bad value, so the
+  address shows the not-found page, as `/plans/$date` does.
+- Imports point from `src/` to `features/`, `routes/`, `components/` and `lib/`, never back, and
+  no feature imports another (ESLint enforces the first: `eslint.config.js`).
+- **No `<style>` element** (`setup.ts` fails the test that leaves one; ADR-069's policy refuses it):
+  no `AppShell`, `Grid`, `SimpleGrid` or responsive style props; use a CSS module. A theme change
+  is a CSS variable in `src/styles/theme.css`: `createTheme` reaches no CSS ([ADR-143]).
+- A page title, path or search parameter carries IDs and dates only, never personal data: the
+  browser keeps them in its history, which sign-out cannot clear ([ADR-076]).
+- **Text on screen** comes from `@dispatchflow/i18n` through `useTranslation('<namespace>')`, never
+  as a literal, and a page names its browser tab with `usePageTitle`.
+- **Language.** The app opens in English, and only the Settings page changes it. The choice is kept
+  under `dispatchflow.language`, the one key the app writes to browser storage, until FR-124 keeps
+  it on the account ([ADR-143]).
 - Mixed-direction text sits in `<bdi>` (NFR-136), and fonts come through Fontsource ([TS §10]).
 - Lay it out for a desktop screen, except the driver screens, which must also work in a phone's
   browser (NFR-15, NFR-219).
@@ -28,6 +53,9 @@ React 19, TypeScript 6.0, Vite 8, pnpm.
 ## Tests
 
 - Vitest with Testing Library, in jsdom. MSW answers API calls in tests ([TS §10]).
+- Open the whole app at an address with `renderApp({ path, now })` from `src/test/renderApp.tsx`,
+  and query it with `findBy…`: the router renders its first route asynchronously. `setup.ts`
+  clears `localStorage` after each test, and stubs `matchMedia` and `scrollTo`, which jsdom lacks.
 - A request no handler answers, asset-like paths included, fails with a network error, and the
   test that sent it fails, one sent on unmount included (`endTest` in `server.ts`, called by
   `setup.ts`). Happy paths go in `handlers.ts`; a test overrides an answer with `server.use()`,
@@ -39,12 +67,13 @@ React 19, TypeScript 6.0, Vite 8, pnpm.
 
 Run `just` recipes from the repository root, and `pnpm` from this folder.
 
-| Command                                 | What it does                                                   |
-| --------------------------------------- | -------------------------------------------------------------- |
-| `just web-check`                        | ESLint, Prettier check, Vitest, then `tsc -b` and `vite build` |
-| `just web-format`                       | Prettier                                                       |
-| `just web-run`                          | Vite dev server                                                |
-| `pnpm exec vitest run src/App.test.tsx` | One test file                                                  |
+| Command                                 | What it does                                                    |
+| --------------------------------------- | --------------------------------------------------------------- |
+| `just web-check`                        | ESLint, Prettier check, Vitest, then `tsc -b` and `vite build`  |
+| `just web-format`                       | Prettier                                                        |
+| `just web-run`                          | Vite dev server, which sends no Content Security Policy         |
+| `pnpm run build && pnpm run preview`    | The production build, served under ADR-069's policy, on `:4173` |
+| `pnpm exec vitest run src/App.test.tsx` | One test file                                                   |
 
 `web-check` and `web-format` run each script in this app and in every shared package that has it,
 and fail on a package without the two `src/frontend/CLAUDE.md` requires of every package.
@@ -52,4 +81,5 @@ and fail on a package without the two `src/frontend/CLAUDE.md` requires of every
 [ADR-026]: ../../../docs/ADRs/ADR-026-server-sent-events-and-push-for-live-updates.md
 [ADR-035]: ../../../docs/ADRs/ADR-035-both-apps-serve-every-role.md
 [ADR-076]: ../../../docs/ADRs/ADR-076-admin-and-dispatcher-data-stays-in-memory-on-devices.md
+[ADR-143]: ../../../docs/ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md
 [TS §10]: ../../../docs/architecture/tech_stack.md#10-web-app

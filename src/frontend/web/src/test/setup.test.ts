@@ -3,6 +3,7 @@ import { http, HttpResponse } from 'msw/http'
 import { createElement, useEffect } from 'react'
 import { expect, onTestFinished, test, vi } from 'vitest'
 import { endTest, server, takeUnhandledRequests } from './server.ts'
+import { checkNoStyleElements, removeStyleElements } from './styleCheck.ts'
 
 /** Renders nothing, and sends a request no handler answers when it unmounts. */
 function SendsOnUnmount() {
@@ -106,4 +107,19 @@ test.fails('GivenARequestTheTestDidNotAwait_WhenItsTestEnds_ThenSetupFailsThatTe
 
 test.fails('GivenARequestSentOnUnmount_WhenItsTestEnds_ThenSetupFailsThatTest', () => {
   render(createElement(SendsOnUnmount))
+})
+
+test('GivenAStyleElementInTheDocument_WhenTheStyleCheckRuns_ThenItThrowsNamingIt', () => {
+  const style = document.createElement('style')
+  style.dataset.mantineStyles = 'inline'
+  document.head.append(style)
+
+  expect(checkNoStyleElements).toThrow("1 <style> element(s) (inline), which ADR-069's")
+
+  removeStyleElements()
+  expect(document.querySelector('style')).toBeNull()
+})
+
+test.fails('GivenAComponentThatRendersAStyleElement_WhenItsTestEnds_ThenSetupFailsThatTest', () => {
+  render(createElement('style', null, 'p { color: red }'))
 })

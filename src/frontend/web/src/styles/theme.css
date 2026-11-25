@@ -1,0 +1,72 @@
+/*
+ * What MantineProvider would otherwise inject at run time as <style> elements, which ADR-069's
+ * Content Security Policy blocks (ADR-143). App.tsx turns both off: `withCssVariables` and
+ * `withGlobalClasses`. Mantine's own styles.css already holds the default theme, so only what
+ * differs from it is here, and a theme change goes here as a CSS variable: a `createTheme` override
+ * would reach no CSS. This file loads after styles.css, so its :root wins.
+ */
+
+/* The interface font, self-hosted through Fontsource (NFR-209), then Mantine's default stack. */
+:root {
+  --mantine-font-family:
+    'Heebo Variable', -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial,
+    sans-serif, Apple Color Emoji, Segoe UI Emoji;
+  --mantine-font-family-headings: var(--mantine-font-family);
+}
+
+/*
+ * The rules behind the `hiddenFrom` and `visibleFrom` props, as Mantine 9's MantineClasses writes
+ * them for its default breakpoints (xs 36em, sm 48em, md 62em, lg 75em, xl 88em): each hides an
+ * element below or from its breakpoint, one-tenth of a pixel apart. Copied from
+ * @mantine/core/esm/core/MantineProvider/MantineClasses/MantineClasses.mjs; follow it on upgrades.
+ */
+@media (max-width: 35.99375em) {
+  .mantine-visible-from-xs {
+    display: none !important;
+  }
+}
+@media (min-width: 36em) {
+  .mantine-hidden-from-xs {
+    display: none !important;
+  }
+}
+@media (max-width: 47.99375em) {
+  .mantine-visible-from-sm {
+    display: none !important;
+  }
+}
+@media (min-width: 48em) {
+  .mantine-hidden-from-sm {
+    display: none !important;
+  }
+}
+@media (max-width: 61.99375em) {
+  .mantine-visible-from-md {
+    display: none !important;
+  }
+}
+@media (min-width: 62em) {
+  .mantine-hidden-from-md {
+    display: none !important;
+  }
+}
+@media (max-width: 74.99375em) {
+  .mantine-visible-from-lg {
+    display: none !important;
+  }
+}
+@media (min-width: 75em) {
+  .mantine-hidden-from-lg {
+    display: none !important;
+  }
+}
+@media (max-width: 87.99375em) {
+  .mantine-visible-from-xl {
+    display: none !important;
+  }
+}
+@media (min-width: 88em) {
+  .mantine-hidden-from-xl {
+    display: none !important;
+  }
+}

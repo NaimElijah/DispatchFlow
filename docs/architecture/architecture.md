@@ -6,14 +6,15 @@ How DispatchFlow is built, as it is today. What it must do is in
 
 > [!NOTE]
 > Only the skeleton, the domain layer, the declared application layer, the persistence of every
-> `core` module and `core`'s web plumbing exist. Each component builds, passes its checks and runs a
-> first test. The domain layers of `core` and `optimizer` are built and tested. The persistence of
-> `access`, `audit`, `fleet`, `liveops`, `messaging`, `orders`, `planning` and `reporting` is built: a
-> migration, mapped aggregates and a persistence adapter each. The web plumbing is built: the
-> `Clock` and `IdGenerator` adapters, `web`'s trace-ID filter, error handlers, call wrapper and
-> error endpoint, the JSON logs and `SchedulingConfiguration`. The application layers are declared,
-> not built: every body that would do work throws, no use case calls a persistence adapter, and no
-> operation is served. The design the team is heading for is in [Target design](#target-design);
+> `core` module, `core`'s web plumbing and the web app's shell exist. Each component builds, passes
+> its checks and runs a first test. The domain layers of `core` and `optimizer` are built and
+> tested. The persistence of `access`, `audit`, `fleet`, `liveops`, `messaging`, `orders`,
+> `planning` and `reporting` is built: a migration, mapped aggregates and a persistence adapter
+> each. The web plumbing is built: the `Clock` and `IdGenerator` adapters, `web`'s trace-ID filter,
+> error handlers, call wrapper and error endpoint, the JSON logs and `SchedulingConfiguration`. The
+> web app's shell is built: its routes, layout, languages and Settings page; no screen of it calls
+> the API. The application layers are declared, not built: every body that would do work throws, no
+> use case calls a persistence adapter, and no operation is served. The design the team is heading for is in [Target design](#target-design);
 > this file describes none of it as built beyond that.
 
 ## Architecture overview
@@ -43,7 +44,7 @@ today.
 |---|---|---|
 | `core` (`src/backend/core`) | Spring Boot 4.1.2, Java 25 | Starts, connects to PostgreSQL and migrates it, answers `GET /actuator/health`, answers every error that reaches Spring MVC's exception handlers or Tomcat's error dispatch as the client API's `Problem` with a `code` and the request's trace ID, re-runs a call that lost a race, and stores every module's aggregates through its persistence adapters |
 | `optimizer` (`src/backend/optimizer`) | FastAPI, Python 3.14, NumPy | Answers `GET /health/liveness` with `{"status":"UP"}`, and holds the domain for daily solves and re-optimizations (the validator, the objective and the drop reasons), and a declared application layer; nothing calls either yet |
-| `web` (`src/frontend/web`) | React, Vite | Renders a heading |
+| `web` (`src/frontend/web`) | React 19, Vite 8, TanStack Router and Query, Mantine 9, i18next | Renders its shell: a header, the navigation, and pages for planning (`/plans/$date`, where `/` leads to tomorrow's), orders, import, fleet and settings, with not-found and error pages. It is in English, or in Hebrew right to left once its Settings page says so. The planning page shows its date over an empty area for the map (#174), every page but planning and settings says it is not built yet, and no page calls the API ([ADR-143](../ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md)) |
 | `mobile` (`src/frontend/mobile`) | React Native, Expo SDK 58 | Renders a heading |
 | `research` (`src/research`) | Python, uv; never deployed | Installs `optimizer` and PyVRP in one environment, and imports neither yet: `tests/test_environment.py` only checks that both can be found. `benchmark/`, `simulation/` and `generator/` are declared, empty packages, and `results/` holds only `.gitkeep`. Its benchmark instances will live in the git-ignored `data/` |
 
@@ -144,8 +145,9 @@ carries `@NullMarked`, and no class. An inbound adapter is `adapter/in/<kind>`, 
 `web`, `listen`, `schedule`, `job`, `callback` and `cli`. An outbound one is `adapter/out/<name>`,
 named for the outside system or channel it talks to, `persistence` for the module's own database,
 or the technology it wraps when it calls nothing outside the process. Each module's packages and the
-ports they implement are in [ADR-130](../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md) (decision 4). The web app's and the phone
-app's `src/features/<context>` folders, the five unfilled folders of `src/frontend/packages/` and the
+ports they implement are in [ADR-130](../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md) (decision 4). The phone app's
+`src/features/<context>` folders, the web app's `audit`, `liveops`, `messaging` and `reporting`
+ones and its `src/components/map/`, the four unfilled folders of `src/frontend/packages/` and the
 infra, docs and data folders the tech stack draws are declared the same way, as `.gitkeep`
 placeholders.
 
@@ -283,9 +285,14 @@ have a `Dockerfile`, and neither runs as root
   `application/ports.py` ([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)); no solver implements the port yet.
 - **PyVRP stays out of `optimizer`.** `src/backend/optimizer/tests/test_dependency_boundary.py` holds two
   tests. One fails if PyVRP is installed there, and the other if PyVRP is locked in its `uv.lock`.
-  With `core`'s purity, shape, package, application, mapping and transaction rules, and `optimizer`'s import-linter contracts and the ruff
-  bans in its domain (lint steps in `just optimizer-check`), they are the only architecture rules
-  checked automatically today.
+  With `core`'s purity, shape, package, application, mapping and transaction rules, `optimizer`'s import-linter contracts and the ruff
+  bans in its domain (lint steps in `just optimizer-check`), and the web app's folder rule below,
+  they are the only architecture rules checked automatically today.
+- **The web app's folders depend one way.** `src/` itself imports `features/`, which import
+  `routes/`, then `components/`, then `lib/`, never back: an area parents its routes on the shell's
+  `shellRoute`, and `src/routeTree.ts`, above both, gathers them. ESLint's `no-restricted-imports`
+  in `src/frontend/web/eslint.config.js` fails an import that points back
+  ([ADR-143](../ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md)).
 - **Flyway owns the schema.** `core` sets `spring.jpa.hibernate.ddl-auto=validate`, so Hibernate
   never changes it ([ADR-007](../ADRs/ADR-007-postgresql-with-flyway-migrations.md), superseded by
   [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md),
