@@ -79,10 +79,10 @@ public record ProblemFacts(
      * One order to serve or drop, as Customers &amp; Orders answered (FR-15, BR-14, BR-49, BR-50,
      * BR-53, BR-124, FR-364, FR-320). Its location is a customer's place, so it prints redacted.
      *
-     * <p><b>Gap until geocoding is built.</b> The Python {@code OrderSpec} has no input for an
-     * order's outside-service-area flag (FR-320), so the optimizer adapter has nowhere to send it.
-     * Geocoding adds that input to the domain, and the factory then drops such an order as
-     * <em>unreachable location</em> (FR-66).
+     * <p><b>Gap until the solve contract carries the flag.</b> The Python {@code OrderSpec} has no
+     * input for an order's outside-service-area flag (FR-320), so the optimizer adapter has nowhere
+     * to send it. The solve contract and its provider add that input, and the factory then drops
+     * such an order as <em>unreachable location</em> (FR-66, ADR-139 decision 6).
      *
      * <p>To Be Implemented.
      *
@@ -91,8 +91,9 @@ public record ProblemFacts(
      * @param location its customer's coordinates, or empty, so it drops as <em>missing
      *     location</em> (BR-14, FR-223)
      * @param outsideServiceArea whether Customers &amp; Orders flagged its location as outside the
-     *     service area, so it drops as <em>unreachable location</em> once geocoding adds the input
-     *     (FR-320, FR-66); never for a location placed by hand or a missing location
+     *     service area, so it drops as <em>unreachable location</em> once the solve contract
+     *     carries it (FR-320, FR-66, ADR-139); never for a location placed by hand or a missing
+     *     location
      * @param window its time window on the date
      * @param weight its weight demand
      * @param volume its volume demand

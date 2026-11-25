@@ -46,7 +46,7 @@ are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 | `infra/` | `osrm/`, `deploy/` (with `backup/` and `observability/`) and `terraform/`. All are placeholders |
 | `data/` | The OSM extract, OSRM files, PMTiles and benchmark instances, once built. Git keeps the folder and ignores everything in it |
 | `logs/` | Local log output. Git keeps the folder and ignores everything in it |
-| `docs/` | `CLAUDE.md`, `requirements/` (with `ARD/`), `architecture/` (with `domain_layer/` and `tech_stack.md`), `ADRs/`, `roadmap.md` and `presentations/`; the placeholders are `operations/`, `guides/he/`, `guides/en/`, `research/usability/` and `architecture/generated/` |
+| `docs/` | `CLAUDE.md`, `requirements/` (with `ARD/`), `architecture/` (with `domain_layer/` and `tech_stack.md`), `ADRs/`, `roadmap.md`, `operations/` (with `data-inventory.md`) and `presentations/`; the placeholders are `guides/he/`, `guides/en/`, `research/usability/` and `architecture/generated/` |
 | `.claude/` | Claude Code's context: the root `CLAUDE.md`, the team agents (`agents/`), the team skills (`skills/`), `settings.json`, and an empty `rules/` folder ([ADR-018](../ADRs/ADR-018-ai-assistant-context-in-the-repository.md), [ADR-020](../ADRs/ADR-020-team-subagents-in-the-repository.md), [ADR-025](../ADRs/ADR-025-team-skills-in-the-repository.md)) |
 | `.github/` | The CI workflow, Dependabot configuration, and issue and pull request templates |
 | `justfile` | Every command. CI runs the same recipes |
