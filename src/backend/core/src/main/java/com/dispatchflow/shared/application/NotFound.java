@@ -7,8 +7,6 @@ import java.util.UUID;
  * A use case was asked about a record that doesn't exist. It is not a domain refusal, so it is no
  * {@code DomainError}: the web adapter answers it with 404 and {@link #code()}. The message names
  * the kind and the ID only, never personal data (NFR-19).
- *
- * <p>To Be Implemented.
  */
 public final class NotFound extends RuntimeException {
 

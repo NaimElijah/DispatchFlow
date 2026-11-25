@@ -6,13 +6,17 @@ import com.tngtech.archunit.core.importer.ImportOption;
 
 /**
  * The production classes, imported once for every architecture test. Test classes, and so the
- * fixtures under {@code com.dispatchflow.archfixture}, are left out.
+ * fixtures under {@code com.dispatchflow.archfixture}, are left out. It is public because tests
+ * outside the architecture package, such as the problem factory's and {@code web}'s code checks,
+ * read the same import.
  */
-final class ProductionClasses {
+public final class ProductionClasses {
 
-    static final String ROOT = "com.dispatchflow";
+    /** The production root package. */
+    public static final String ROOT = "com.dispatchflow";
 
-    static final JavaClasses ALL = new ClassFileImporter()
+    /** Every production class under {@link #ROOT}, imported once. */
+    public static final JavaClasses ALL = new ClassFileImporter()
             .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
             .importPackages(ROOT);
 

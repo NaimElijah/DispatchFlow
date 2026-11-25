@@ -1,8 +1,10 @@
 /**
  * The web concerns of the whole application rather than of one module (ADR-140). This package
- * holds {@code UnexpectedErrorHandler}, which answers an exception nothing else handled, and will
- * hold the trace-ID filter, the call wrapper that binds the call's holders and retries, the
- * handler of the kernel's errors and the handler of requests that break the contract. {@code
+ * holds the trace-ID filter, the call wrapper that retries a call that lost a race (and, with
+ * #170, binds the call's holders), the handler of requests that break the contract, the handler of
+ * the kernel's errors and {@code UnexpectedErrorHandler}, which answers an exception nothing else
+ * handled, and {@code ErrorEndpoint}, which answers every error Tomcat dispatches to the error path,
+ * with the served JSON converter's strictness and the request body's size limit. {@code
  * web.security} will hold who the caller is, {@code web.stream} the event stream, and {@code
  * web.e2e} the end-to-end tests' controls.
  *

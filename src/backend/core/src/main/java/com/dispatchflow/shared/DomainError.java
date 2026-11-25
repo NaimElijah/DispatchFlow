@@ -24,10 +24,13 @@ public interface DomainError {
      * NonexistentLocalTime} becomes {@code NONEXISTENT_LOCAL_TIME}, and a run of capitals stays one
      * word ({@code SMSGatewayDown} becomes {@code SMS_GATEWAY_DOWN}).
      *
-     * @param type the error type, a named (not anonymous) class
+     * <p>It takes any type, so a problem's {@code params} can name the kind of a sealed variant
+     * that is no error, such as Planning's {@code BasisChange}, by the same rule.
+     *
+     * @param type the error type, or another named (not anonymous) class
      * @return the simple name in upper snake case
      */
-    static String codeOf(Class<? extends DomainError> type) {
+    static String codeOf(Class<?> type) {
         String name = type.getSimpleName();
         StringBuilder code = new StringBuilder(name.length() + 8);
         for (int i = 0; i < name.length(); i++) {
