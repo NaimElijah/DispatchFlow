@@ -68,8 +68,8 @@ steps.**
      add the other path too.
    - **Added on both sides:** a new file under `docs/ADRs/` or `db/migration/` counts as shared when
      the other side added one with the same ADR number or migration version.
-   - **Lockfiles:** take `package-lock.json` and `uv.lock` out of both lists. The version changes the
-     merge steps reported stand in for them.
+   - **Lockfiles:** take `package-lock.json`, `pnpm-lock.yaml` and `uv.lock` out of both lists. The
+     version changes the merge steps reported stand in for them.
    - **Both lists empty:** skip the review, and say so in the report.
 2. Run the Agent tool with `subagent_type: df-code-reviewer`, `model: sonnet` and `effort: high`. This
    selects the team agent even if the developer has one of their own ([ADR-033]). Give it:
@@ -81,10 +81,10 @@ steps.**
      files, and any lockfile version changes;
    - the scope:
      - `git show --remerge-diff <merge> -- . ':(exclude,glob)**/package-lock.json'
-       ':(exclude,glob)**/uv.lock'`, for each resolution against git's own automatic merge, a dropped
-       side included. It needs git 2.36 or later: if `git --version` is older, use `git show --cc
-       <merge>` with the same pathspec, and tell the reviewer that it can hide a side the resolution
-       dropped;
+       ':(exclude,glob)**/pnpm-lock.yaml' ':(exclude,glob)**/uv.lock'`, for each resolution against
+       git's own automatic merge, a dropped side included. It needs git 2.36 or later: if
+       `git --version` is older, use `git show --cc <merge>` with the same pathspec, and tell the
+       reviewer that it can hide a side the resolution dropped;
      - only when there are conflicted files, `git diff <merge-base> <merge>^1 -- <conflicted files>` and
        `git diff <merge-base> <merge>^2 -- <conflicted files>`, for what each side meant;
      - `git diff -M <merge>^1 <merge> -- <shared files>`, for what arrived in the shared files;

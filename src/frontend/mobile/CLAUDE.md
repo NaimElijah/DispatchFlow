@@ -16,6 +16,9 @@ Expo SDK 58, React Native 0.88, React 19, TypeScript 6.0, npm.
 - Create no route folder before `expo-router` is installed: the folder becomes the route
   root once it is ([ADR-130]).
 - From the Pilot this app also sends its over-the-air update ID ([ADR-081], [TS §11]).
+- Use npm here, never pnpm: this app is outside the workspace in `src/frontend` until M10
+  ([ADR-039]). So it takes no `@dispatchflow/*` package: npm would look for one on the public
+  registry, where anyone can publish under that name.
 - Add a dependency with `npx expo install <package>`, so its version matches SDK 58. Put
   tooling under `devDependencies`.
 - The web build (`expo export --platform web`) is a development aid and an end-to-end test target,
@@ -70,6 +73,7 @@ Run `just` recipes from the repository root, and `npm` or `npx` from this folder
 [ADR-023]: ../../../docs/ADRs/ADR-023-accept-minimatch-and-glob-advisories.md
 [ADR-026]: ../../../docs/ADRs/ADR-026-server-sent-events-and-push-for-live-updates.md
 [ADR-035]: ../../../docs/ADRs/ADR-035-both-apps-serve-every-role.md
+[ADR-039]: ../../../docs/ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md
 [ADR-076]: ../../../docs/ADRs/ADR-076-admin-and-dispatcher-data-stays-in-memory-on-devices.md
 [ADR-081]: ../../../docs/ADRs/ADR-081-eas-update-for-javascript-only-fixes-during-the-pilot.md
 [ADR-095]: ../../../docs/ADRs/ADR-095-accept-the-zod-and-deepmerge-advisories-until-2027-01-31.md

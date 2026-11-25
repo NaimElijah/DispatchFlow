@@ -189,7 +189,8 @@ src/
         domain/  application/
         adapters/inbound/http/
         adapters/outbound/solvers/{ortools,alns,nearest_neighbour}/
-  frontend/
+  frontend/                       the pnpm workspace's root: package.json, pnpm-workspace.yaml,
+                                  pnpm-lock.yaml; .prettierrc.json, Prettier's one file (ADR-141)
     web/                          React web app; src/features/<context>
     mobile/                       Expo phone app (from Semester B); src/features/<context>
     packages/                     api-client, schemas, i18n, map-style, formatters, eslint-config, tsconfig
@@ -789,9 +790,11 @@ other two from their projects' release pages.
 | pandas | 3.1.x | Copy-on-write and the string dtype are the defaults since 3.0 |
 | OSRM | 26.x (26.7 latest) | |
 | Node.js | Current LTS, pinned in `mise.toml` | |
+| pnpm | 12.23.0, released 22 November 2026; MIT | Read from npm on 25 November 2026. Pinned exactly by `packageManager` in `src/frontend/package.json`; a native executable that the npm package `pnpm` fetches. It writes `pnpm-lock.yaml` as two YAML documents, which GitHub's dependency graph doesn't read, so `just audit` (OSV-Scanner 2.7, which reads both) is the web workspace's only vulnerability check |
 | TypeScript | 6.0.x | typescript-eslint supports TypeScript below 6.1 |
 | React | 19.3.x | |
 | Vite, Vitest | 8.x, 5.x | |
+| MSW | 3.0.7, released 18 November 2026; MIT | Read from npm on 25 November 2026. Needs Node 22.12 or later, and ships ES modules only |
 | Mantine | 9.x | |
 | TanStack Query, Router, Table | 5.x, 1.x, 9.x | |
 | MapLibre GL JS, react-map-gl | 6.x, 8.x | |
@@ -808,7 +811,7 @@ other two from their projects' release pages.
 
 ## 22. Open decisions
 
-Three decisions are open. Every other row of this file is decided, and its reasoning is in its ADR. Some details are deferred to M0: ADR-038's Node major; ADR-039's ESLint, Prettier and Renovate pins; ADR-042's `TestDispatchFlowApplication` and `just core-run`.
+Three decisions are open. Every other row of this file is decided, and its reasoning is in its ADR. Some details are deferred to M0: ADR-038's Node major; ADR-039's ESLint and Renovate pins; ADR-042's `TestDispatchFlowApplication` and `just core-run`.
 
 | Decision | Proposed answer | Refs |
 |---|---|---|
