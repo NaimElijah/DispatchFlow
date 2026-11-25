@@ -1,0 +1,31 @@
+# The web app and the shared @dispatchflow/* packages, with one lockfile (ADR-039).
+#
+# The phone app stays on npm, outside the workspace, until M10: Metro under pnpm is unchecked
+# (ADR-039, Hard). Never widen these patterns to cover mobile/, `*` included, or Expo takes this
+# folder as the phone app's workspace root. A packages/ folder joins once the ticket that fills it
+# adds its package.json; until then pnpm skips it.
+packages:
+  - web
+  - packages/*
+
+# `pnpm add` writes the exact version (TS §1 rule 4).
+saveExact: true
+
+# pnpm refuses a version published less than a day ago. 1440 is pnpm's default, written out so the
+# rule shows here, and because Dependabot reads it from this file and then proposes no version
+# pnpm would refuse.
+minimumReleaseAge: 1440
+
+# A version published with less trust than the ones before it, such as one without the provenance
+# its predecessors had, fails the install: the sign of a stolen publishing token.
+trustPolicy: no-downgrade
+
+# A script run with stale node_modules fails, rather than testing old dependencies; `just web-setup`
+# brings them up to date.
+verifyDepsBeforeRun: error
+
+# Which dependencies may run their install scripts: true runs one, false skips it, and a dependency
+# that is not listed fails the install. fsevents is macOS-only, comes in through Vite, and ships its
+# binary in the tarball, so it needs no build.
+allowBuilds:
+  fsevents: false

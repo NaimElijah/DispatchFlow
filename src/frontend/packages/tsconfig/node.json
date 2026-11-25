@@ -1,0 +1,7 @@
+/* For the files Node runs, such as vite.config.ts. */
+{
+  "extends": "./base.json",
+  "compilerOptions": {
+    "module": "nodenext"
+  }
+}

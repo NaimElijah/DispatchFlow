@@ -47,8 +47,11 @@ updates:
       - dependency-name: uv-build
         versions: [">= 0.13"]
 
+  # The pnpm workspace: the web app and the shared packages, one lockfile (ADR-039). Dependabot
+  # still proposes updates for it, but GitHub's dependency graph doesn't read pnpm 12's
+  # two-document lockfile, so `just audit` (OSV-Scanner) is what checks it for vulnerabilities.
   - package-ecosystem: npm
-    directory: /src/frontend/web
+    directory: /src/frontend
     target-branch: dev
     schedule:
       interval: weekly
@@ -58,7 +61,7 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
-    # TypeScript stays on 6 until typescript-eslint supports 7 (ADR-012), and @types/node follows
+    # TypeScript stays on 6 until typescript-eslint supports 7 (ADR-039), and @types/node follows
     # the Node line in .nvmrc (ADR-038). See ADR-021.
     ignore:
       - dependency-name: typescript
