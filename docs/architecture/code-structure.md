@@ -16,13 +16,14 @@ ADR-123 (Accepted) keeps this tree and gives three components the names they hav
 Also Accepted and not in the tree yet:
 [ADR-038](../ADRs/ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md) (`mise` pins every
 toolchain; the core already runs its Java 25),
-[ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md) (one pnpm
-workspace for both apps),
 [ADR-042](../ADRs/ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md) (`compose.dev.yaml`
 for local runs) and
 [ADR-046](../ADRs/ADR-046-renovate-replaces-dependabot-and-targets-dev.md) (Renovate replaces
-Dependabot). They supersede or amend some of ADR-009 to ADR-016 above: ADR-010, ADR-012 and ADR-014
-are superseded; ADR-009, ADR-013 and ADR-015 are amended.
+Dependabot).
+[ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md) (one pnpm
+workspace for both apps) is in the tree for the web app and the shared packages; the phone app
+joins it at M10. These four supersede or amend some of ADR-009 to ADR-016 above: ADR-010, ADR-012
+and ADR-014 are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 
 > [!NOTE]
 > Most folders below are still empty. A folder listed as a placeholder holds only a `.gitkeep`
@@ -37,9 +38,10 @@ are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 |---|---|
 | `src/backend/core/` | The REST API and system of record: Java 25, Spring Boot 4.1.2, Maven |
 | `src/backend/optimizer/` | The optimization service: Python 3.14, FastAPI, NumPy, uv |
-| `src/frontend/web/` | The web app, for every role: React, TypeScript, Vite |
+| `src/frontend/` | The pnpm workspace's root, over `web/` and `packages/*` ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)): `package.json`, `pnpm-workspace.yaml` and its one lockfile, `pnpm-lock.yaml`; and `.prettierrc.json`, Prettier's one file for the web app and the packages ([ADR-141](../ADRs/ADR-141-prettiers-settings-live-in-one-file-in-src-frontend.md)) |
+| `src/frontend/web/` | The web app, for every role: React, TypeScript, Vite, pnpm |
 | `src/frontend/mobile/` | The phone app, for every role: React Native, Expo SDK 58, TypeScript |
-| `src/frontend/packages/` | Seven placeholder folders for the shared TypeScript packages ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)); none has a `package.json` yet |
+| `src/frontend/packages/` | The shared TypeScript packages ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)): `eslint-config` and `tsconfig` are workspace packages, and five placeholder folders have no `package.json` yet |
 | `src/research/` | Benchmarks, simulation and the order generator: Python, uv. Never deployed |
 | `contracts/` | `client-api/v1` and `optimization-api/v1` (OpenAPI), and the Redocly lint setup |
 | `tests/` | Tests that span components: `e2e/` and `load/`. Both are placeholders |
@@ -54,8 +56,9 @@ are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 | `.java-version`, `.python-version`, `.nvmrc` | Toolchain pins: Java 25, Python 3.14, Node 24 |
 | `LICENSE` | Proprietary, all rights reserved ([ADR-017](../ADRs/ADR-017-proprietary-licence.md)) |
 
-Each component has its own manifest, and each except `core` (Maven) has a lockfile. The one link
-at build time is `research`'s path dependency on `optimizer`, below.
+Each component has its own manifest, and each except `core` (Maven) has a lockfile. The web app's
+lockfile is the workspace's, `src/frontend/pnpm-lock.yaml`, which it shares with the packages. The
+one link at build time is `research`'s path dependency on `optimizer`, below.
 
 `src/backend`, `src/frontend`, each component, `contracts/` and `docs/` also hold a `CLAUDE.md` with
 the rules for that folder.
@@ -409,9 +412,13 @@ src/research/
 
 ### `src/frontend/web`
 
-A Vite project. `src/main.tsx` mounts `src/App.tsx`, which renders a heading. `src/test/setup.ts`
-configures Vitest. The configuration files (`vite.config.ts`, `tsconfig*.json`,
-`eslint.config.js`, `.prettierrc.json`) sit at the project root. `src/features/` holds one
+A Vite project in the pnpm workspace. `src/main.tsx` mounts `src/App.tsx`, which renders a heading.
+`src/test/setup.ts` configures Vitest and starts the tests' one MSW server, `src/test/server.ts`,
+over the handlers in `src/test/handlers.ts`; a request no handler answers fails its test. The
+configuration files (`vite.config.ts`, `tsconfig*.json`, `eslint.config.js`) sit at the project
+root: the two `tsconfig` files extend `@dispatchflow/tsconfig`, and `eslint.config.js` uses
+`@dispatchflow/eslint-config`. Prettier reads `src/frontend/.prettierrc.json` ([ADR-141](../ADRs/ADR-141-prettiers-settings-live-in-one-file-in-src-frontend.md)).
+`src/features/` holds one
 placeholder folder for each bounded context ([TS §10](tech_stack.md#10-web-app)): `access`, `audit`, `fleet`,
 `liveops`, `messaging`, `orders`, `planning` and `reporting` ([ADR-130][ADR-130]).
 
@@ -426,10 +433,12 @@ deepmerge entries in
 `src/features/` holds the same eight placeholder folders as the web app's. It has no route folder:
 that comes with `expo-router` at M10 ([ADR-130][ADR-130]).
 
-The two apps share no code. `src/frontend/packages/` holds seven placeholder folders: `api-client`,
-`schemas`, `i18n`, `map-style`, `formatters`, `eslint-config` and `tsconfig`. A folder is not a package:
-none has a `package.json` yet, and the ticket that first puts code in one adds it
-([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md),
+The two apps share no code. `src/frontend/packages/` holds seven folders. Two are workspace
+packages that only the web app uses so far: `eslint-config` (`@dispatchflow/eslint-config`, the
+ESLint 10 flat configs) and `tsconfig` (`@dispatchflow/tsconfig`, the `base`, `app` and `node`
+presets). The other five, `api-client`, `schemas`, `i18n`, `map-style` and `formatters`, are
+placeholders: a folder is not a package until the ticket that first puts code in it adds its
+`package.json` ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md),
 [ADR-130][ADR-130]). `contracts/client-api/v1` declares no operation yet, so neither app has an
 API client.
 [ADR-043](../ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md)
@@ -443,7 +452,7 @@ API client.
 | `core`, integration (`*IT`) | `src/backend/core/src/test/java` | Failsafe, with a PostgreSQL container |
 | `optimizer` | `src/backend/optimizer/tests`, mirroring the package path | pytest |
 | `research` | `src/research/tests` | pytest |
-| `web` | next to the code, in `src/` (`App.test.tsx`) | Vitest, in jsdom |
+| `web` | next to the code, in `src/` (`App.test.tsx`, `test/setup.test.ts`) | Vitest, in jsdom, with MSW |
 | `mobile` | next to the code, in `src/` (`App.test.tsx`) | Jest, through `jest-expo` |
 | End-to-end and load | `tests/e2e`, `tests/load` | No tool is configured yet |
 

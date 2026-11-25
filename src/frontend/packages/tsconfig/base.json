@@ -1,0 +1,23 @@
+/*
+ * The settings every DispatchFlow TypeScript project shares: strict, ES2023, checked by tsc and
+ * emitted by the bundler. Extend app.json or node.json rather than this file. Paths stay in the
+ * project's own tsconfig: a relative path here would resolve against this file.
+ */
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "es2023",
+    "lib": ["ES2023"],
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* Linting */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  }
+}
