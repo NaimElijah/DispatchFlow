@@ -131,7 +131,8 @@ in A, state the result and ask again.
 ## Check
 
 If a component's dependencies are missing, as in a fresh clone or worktree, run `just setup` first. If
-merging `dev` changed a lockfile, run that component's `just <component>-setup` first. Then run
+merging `dev` changed a lockfile, run that component's `just <component>-setup` first
+(`just web-setup` for `src/frontend/pnpm-lock.yaml`, which sits above the web app's folder). Then run
 `just check`. It runs every component and can take minutes, so give it a long timeout or run it in the
 background. It is left out of `allowed-tools` on purpose: it runs the code that the merge from `dev`, a
 change asked for at the checkpoint or a fix for a red check brought in, so the developer gets a prompt

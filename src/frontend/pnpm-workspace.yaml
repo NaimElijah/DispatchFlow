@@ -11,9 +11,18 @@ packages:
 # `pnpm add` writes the exact version (TS §1 rule 4).
 saveExact: true
 
-# pnpm refuses a version published less than a day ago. 1440 is pnpm's default, written out so the
-# rule shows here, and because Dependabot reads it from this file and then proposes no version
-# pnpm would refuse.
+# Every package formats its own files (ADR-141 decision 4). `pnpm -r run` skips a package without
+# the script it runs, so instead a package missing format:check fails `just web-check`, and one
+# missing format fails `just web-format`. The workspace's root is never selected, so it needs none.
+requiredScripts:
+  - format
+  - format:check
+
+# pnpm refuses a version published less than a day ago. 1440 is pnpm's default, but written out it
+# also turns on minimumReleaseAgeStrict: when no version in range is a day old, pnpm doesn't fall
+# back to a younger one on its own. It fails, or in a terminal asks first, and writes a younger
+# version it was allowed to use to minimumReleaseAgeExclude. Dependabot's version updates read it
+# from this file too, and then propose no version pnpm would refuse; its security updates skip it.
 minimumReleaseAge: 1440
 
 # A version published with less trust than the ones before it, such as one without the provenance
