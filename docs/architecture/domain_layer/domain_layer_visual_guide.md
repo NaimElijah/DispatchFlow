@@ -89,16 +89,22 @@ An arrow means *depends on*. The sources for each box:
   there are 386 such bodies in 271 files under `core/`, and 7 `NotImplementedError("To Be Implemented.")`
   in `optimizer/application/`. Two of the 386 are the blanking methods of Planning's solve-job adapter. `grep -rn "To Be Implemented." src/backend` lists the remaining work.
   The two kernel errors in `shared/application/` (`NotFound`, `StaleVersion`) are complete classes; its
-  three ports (`Clock`, `IdGenerator`, `ProcessedEvents`) are interfaces with no implementation: the
-  adapter packages for the first two, `shared/adapter/out/clock` and `uuid`, are declared, empty.
+  three ports (`Clock`, `IdGenerator`, `ProcessedEvents`) are interfaces. `Clock` and `IdGenerator`
+  have implementations, `SystemClock` in `shared/adapter/out/clock` and `UuidV7Generator` in
+  `shared/adapter/out/uuid`; only `ProcessedEvents` has none.
 - **Wired.** No use case is wired. Each module has a persistence adapter, in
   `core/<module>/adapter/out/persistence/`, which implements the module's repository and record
   ports over the module's PostgreSQL schema, and nothing calls it yet. Planning's `Plan` has its own
   in `core/planning/adapter/out/persistence/plan/`. The kernel has the shared one,
-  `core/shared/adapter/out/persistence/`. Every other adapter package of the core is declared, empty
+  `core/shared/adapter/out/persistence/`, and beside it the problem factory in `shared/adapter/in/web/`
+  and the clock and ID adapters. Every other adapter package of the core is declared, empty
   ([ADR-130](../../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md)). The Spring annotations are `@SpringBootApplication` on the
-  entry point `core/DispatchFlowApplication.java`, `@RestControllerAdvice` on the one error handler in
-  `core/web/`, `@Component` on the adapters and on `VersionedSave`, a class-level `@Transactional` on every service or its `<UseCase>Change` ([ADR-129](../../ADRs/ADR-129-transactions-start-only-in-the-service-layer.md)), and Spring Data's
+  entry point `core/DispatchFlowApplication.java`; in `core/web/`, `@RestControllerAdvice` on the three
+  error handlers, `@ControllerAdvice` on `BodySizeLimit`, `@RestController` on the error endpoint,
+  `@Configuration` on `ServedJson` and `@Component` on the filter and the call wrapper's classes, while
+  `Race`, `WebCodes`, `Traceparent` and `ContractBreaks` carry none; `@Configuration` on `SchedulingConfiguration`
+  and on each module's root `<Module>Configuration`; `@Component` on the adapters, `SystemClock` and
+  `UuidV7Generator` among them, and on `VersionedSave`; a class-level `@Transactional` on every service or its `<UseCase>Change` ([ADR-129](../../ADRs/ADR-129-transactions-start-only-in-the-service-layer.md)), and Spring Data's
   `@DomainEvents` and `@AfterDomainEventPublication` on `AggregateRoot`. The adapters also carry Jakarta
   Persistence's `@Converter`, and the kernel's values, every aggregate and `AggregateRoot` carry its
   mapping annotations ([ADR-126](../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md), [ADR-127](../../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md)). The optimizer's only adapter is the liveness probe in

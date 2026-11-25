@@ -6,8 +6,8 @@ with its layout, rules and commands.
 
 | Folder | Who uses it | Runs on | Stack |
 |---|---|---|---|
-| `web/`, the web app | Admins, dispatchers and drivers (drivers online only) | Desktop browsers; its driver screens also phone browsers | React, TypeScript, Vite, npm |
-| `mobile/`, the phone app | Admins, dispatchers and drivers, with every capability | iOS and Android, from one codebase; its web build is a development aid and a test target | React Native, Expo SDK 58, TypeScript, npm |
+| `web/`, the web app | Admins, dispatchers and drivers (drivers online only) | Desktop browsers; its driver screens also phone browsers | React, TypeScript, Vite, pnpm |
+| `mobile/`, the phone app | Admins, dispatchers and drivers, with every capability | iOS and Android, from one codebase; its web build is a development aid and a test target | React Native, Expo SDK 58, TypeScript, npm, outside the workspace until M10 |
 
 ## Rules
 
@@ -35,10 +35,20 @@ with its layout, rules and commands.
 - Each app's feature folders, `src/features/<context>`, mirror the bounded contexts ([TS §10],
   [ADR-130]).
 - Add a shared package once hand-written code, not generated code, would otherwise be copied
-  between the two apps ([ADR-008], restated by [ADR-123]). [ADR-039] sets those packages up at the
-  Alpha, in `src/frontend/packages/`, as `@dispatchflow/*` in a pnpm workspace that replaces
-  npm. Its seven folders are placeholders until the ticket that first fills one adds its
-  `package.json` ([ADR-130]).
+  between the two apps ([ADR-008], restated by [ADR-123]). The pnpm workspace is rooted here
+  ([ADR-039]): `pnpm-workspace.yaml` lists `web` and `packages/*`, with one `pnpm-lock.yaml`, and
+  each package is `@dispatchflow/*`. A `packages/` folder is a placeholder until the ticket that
+  fills it adds its `package.json` ([ADR-130]).
+- pnpm fails an import that a package doesn't declare: declare each one in that package's own
+  `package.json`.
+- Depend on a `@dispatchflow/*` package only as `workspace:*`, added with `pnpm add --workspace`:
+  a plain `pnpm add` resolves the name from the public registry. `web/src/test/workspace.test.ts`
+  fails when `pnpm-lock.yaml` resolves one from a registry.
+- A dependency with an install script fails the install until `allowBuilds` in
+  `pnpm-workspace.yaml` lists it: `true` runs the script, `false` skips it.
+- A relative path in a shared tsconfig resolves against the shared file, so `include` and
+  `tsBuildInfoFile` stay in each project's own tsconfig. So does `types`: each project names the
+  type packages it declares.
 - TypeScript is held at 6.0 in both apps, because typescript-eslint does not support 7 yet
   ([ADR-039], [TS §10]).
 
@@ -56,6 +66,13 @@ ESLint and Prettier in both apps, with the same Prettier style: no semicolons, s
 100 columns. The web app uses ESLint 10 and the phone app ESLint 9, the version Expo SDK 58
 installs ([ADR-039]).
 
+- `@dispatchflow/eslint-config` is for ESLint 10 only: the phone app keeps its own configuration
+  until it joins.
+- Every package has `format` and `format:check` scripts: `requiredScripts` in
+  `pnpm-workspace.yaml` fails `just web-format` and `just web-check` without them ([ADR-141]).
+- Prettier's one file is `.prettierrc.json` here, for the web app and every package ([ADR-141]).
+  Leave the phone app's identical copy alone: #147 deletes it.
+
 [ADR-035]: ../../docs/ADRs/ADR-035-both-apps-serve-every-role.md
 [ADR-008]: ../../docs/ADRs/ADR-008-monorepo-layout-under-src.md
 [ADR-123]: ../../docs/ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md
@@ -66,6 +83,7 @@ installs ([ADR-039]).
 [ADR-088]: ../../docs/ADRs/ADR-088-israel-local-time-for-every-date-and-schedule.md
 [ADR-089]: ../../docs/ADRs/ADR-089-interface-languages.md
 [ADR-130]: ../../docs/ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md
+[ADR-141]: ../../docs/ADRs/ADR-141-prettiers-settings-live-in-one-file-in-src-frontend.md
 [roadmap §4.1]: ../../docs/roadmap.md#41-whats-in-what-waits
 [ADR-043]: ../../docs/ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md
 [TS §9]: ../../docs/architecture/tech_stack.md#9-routing-and-geodata

@@ -4,8 +4,10 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
 import com.tngtech.archunit.base.DescribedPredicate;
+import com.tngtech.archunit.core.domain.JavaAnnotation;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.domain.JavaMethod;
 import com.tngtech.archunit.core.domain.JavaModifier;
 import com.tngtech.archunit.core.domain.JavaPackage;
 import com.tngtech.archunit.core.domain.PackageMatcher;
@@ -16,6 +18,7 @@ import com.tngtech.archunit.lang.SimpleConditionEvent;
 import com.tngtech.archunit.library.dependencies.SliceAssignment;
 import com.tngtech.archunit.library.dependencies.SliceIdentifier;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashSet;
@@ -32,7 +35,8 @@ import org.jspecify.annotations.NullMarked;
 
 /**
  * The application layer's rules (TS §2.2, TS §4, DL §2.1, DL §2.3, ADR-120), the adapters' (TS
- * §2.1, ADR-130) and {@code web}'s (rules 13 and 14, ADR-140), built for a root package as {@link
+ * §2.1, ADR-130), {@code web}'s (rules 13 and 14, ADR-140), the modules' configurations' (rule
+ * 15, ADR-140 decision 10) and the handlers' (rule 16, ADR-142), built for a root package as {@link
  * DomainPurityRules} is. {@code com.dispatchflow} checks production code; {@code
  * com.dispatchflow.archfixture.zeta} checks the fixtures that prove each rule fires.
  *
@@ -56,6 +60,33 @@ final class ApplicationRules {
     private static final String SERVICE = "service";
     private static final String SERVICE_SUFFIX = "Service";
     private static final String PACKAGE_INFO = "package-info";
+    private static final String CONFIGURATION_SUFFIX = "Configuration";
+    // Read by name, so the rule needs no Spring type of its own: ArchUnit reads @Import's classes as
+    // JavaClass values without loading them.
+    private static final String BEAN = "org.springframework.context.annotation.Bean";
+    private static final String COMPONENT_SCAN = "org.springframework.context.annotation.ComponentScan";
+    private static final String IMPORT = "org.springframework.context.annotation.Import";
+    private static final String IMPORT_RESOURCE = "org.springframework.context.annotation.ImportResource";
+    private static final String COMPONENT_SCANS = "org.springframework.context.annotation.ComponentScans";
+    private static final String IMPORTED = "value";
+    private static final String CONTROLLER = "org.springframework.stereotype.Controller";
+    private static final String REQUEST_MAPPING = "org.springframework.web.bind.annotation.RequestMapping";
+
+    /**
+     * The parameter types no handler declares (rule 16), each with its subtypes: each reads the
+     * request's body or writes the response itself, past the converters, or, as an {@code
+     * InputStreamResource} does, hands over a live stream a retry would find read. The rule reads a
+     * parameter's raw type, so a type argument, as in {@code HttpEntity<InputStream>}, is review's.
+     */
+    static final List<String> STREAMING_TYPES = List.of(
+            "java.io.InputStream",
+            "java.io.Reader",
+            "java.io.OutputStream",
+            "java.io.Writer",
+            "jakarta.servlet.ServletRequest",
+            "jakarta.servlet.ServletResponse",
+            "org.springframework.core.io.InputStreamResource");
+
     private static final List<String> ALWAYS_ALLOWED = List.of("java", "org.jspecify");
     // TS §2.2: the one Spring annotation the application may carry, so a use case can mark its
     // transaction. ArchUnit counts an annotation's members, defaults included, as dependencies, so
@@ -711,6 +742,222 @@ final class ApplicationRules {
                         (item, target) -> !holderNames.contains(target.getName())))
                 .because("ADR-140 decision 4: only web and the modules' controllers read the call's Actor and"
                         + " CallContext; a use case takes its Actor as a parameter");
+    }
+
+    /**
+     * Rule 15: a module's root package holds its {@code package-info} and its {@code
+     * <Module>Configuration} alone, and that configuration only lists its own module's use cases
+     * (ADR-140 decision 10, ADR-119 decision 4). A class directly in a module's root, a top-level
+     * package outside {@link #NOT_MODULES}, is a {@code package-info} or a class whose name ends in
+     * {@code Configuration}; such a class isn't public, declares no {@code @Bean} method and no
+     * {@code @ComponentScan}, and every class its {@code @Import} names lies in, or below, its own
+     * module's {@code application.service}. So no constructor is written twice, and no throwing body
+     * is wired by a scan.
+     *
+     * <p>A {@code @Import} that arrives through another annotation, an {@code @ImportResource} and a
+     * {@code @ComponentScans} are refused too, since each wires beans that the list doesn't show.
+     *
+     * <p>Its subject is every class in or below a top-level package, which is never empty, so {@code
+     * archRule.failOnEmptyShould} can't fail it, as rule 14's can't; only those directly in a
+     * module's root are checked. {@link #onlyTheModulesConfigurationsWireTheirUseCases} is the
+     * rule's other half.
+     */
+    static ArchRule moduleRootsHoldOnlyTheirConfiguration(String root) {
+        return classes()
+                .that()
+                .resideInAPackage(root + ".*..")
+                .should(
+                        new ArchCondition<>("be, directly in a module's root, its package-info or its package-private"
+                                + " configuration, which declares no @Bean or @ComponentScan and imports only its own"
+                                + " module's services") {
+                            @Override
+                            public void check(JavaClass item, ConditionEvents events) {
+                                Optional<String> module =
+                                        topLevelPackage(root, item).filter(name -> !NOT_MODULES.contains(name));
+                                if (module.isEmpty()
+                                        || !item.getPackageName().equals(root + "." + module.get())
+                                        || item.getSimpleName().equals(PACKAGE_INFO)) {
+                                    return;
+                                }
+                                if (!item.getSimpleName().endsWith(CONFIGURATION_SUFFIX)) {
+                                    events.add(
+                                            SimpleConditionEvent.violated(
+                                                    item,
+                                                    item.getName() + " is in module " + module.get()
+                                                            + "'s root, which holds only its package-info and its configuration"));
+                                    return;
+                                }
+                                String services = root + "." + module.get() + "." + APPLICATION + "." + SERVICE;
+                                configurationViolations(item, services)
+                                        .forEach(violation ->
+                                                events.add(SimpleConditionEvent.violated(item, violation)));
+                            }
+                        })
+                .because("ADR-140 decision 10: each module's use cases become beans only through the @Import of"
+                        + " its package-private configuration, in the pull request that builds each body");
+    }
+
+    /**
+     * Rule 15, for every other class: outside a module's root configuration, no class's {@code
+     * @Import}, direct or through another annotation, names a class in, or below, a module's {@code
+     * application.service}, and no {@code @Bean} method returns or constructs one. With the first
+     * half, a module's root configuration is the one class whose {@code @Import} list may name a use
+     * case, and no {@code @Bean} method anywhere makes one (ADR-140 decision 10, ADR-142). It reads
+     * only those two. A use case carries no Spring annotation but {@code @Transactional} (rule 1),
+     * so a plain component scan registers none; one registered any other way, such as through a
+     * scan's include filter or {@code registerBean}, is left to review.
+     *
+     * <p>Its subject is every class under the root, the root's own package included, which is never
+     * empty.
+     */
+    static ArchRule onlyTheModulesConfigurationsWireTheirUseCases(String root) {
+        return classes()
+                .that()
+                .resideInAPackage(root + "..")
+                .should(
+                        new ArchCondition<>("import no module's service and make none in a @Bean method, unless it is"
+                                + " that module's root configuration") {
+                            @Override
+                            public void check(JavaClass item, ConditionEvents events) {
+                                if (isAModulesRootConfiguration(root, item)) {
+                                    return;
+                                }
+                                importsOf(item)
+                                        .filter(imported -> isAService(root, imported))
+                                        .forEach(imported -> events.add(SimpleConditionEvent.violated(
+                                                item, item.getName() + " imports the use case " + imported.getName())));
+                                item.getMethods().stream()
+                                        .filter(method ->
+                                                method.isAnnotatedWith(BEAN) || method.isMetaAnnotatedWith(BEAN))
+                                        .filter(method -> makesAService(root, method))
+                                        .forEach(method -> events.add(SimpleConditionEvent.violated(
+                                                item,
+                                                method.getFullName() + " is a @Bean method that makes a use case")));
+                            }
+                        })
+                .because("ADR-140 decision 10: each module's use cases become beans only through the @Import of"
+                        + " its package-private configuration");
+    }
+
+    /**
+     * Rule 16: no handler takes a streaming parameter. No method of a class annotated, directly or
+     * through another annotation, {@code @Controller} (as {@code @RestController} is), and no
+     * method annotated {@code @RequestMapping} or one of its variants, declares a parameter of one
+     * of {@link #STREAMING_TYPES} or a subtype. The call wrapper re-invokes a handler with the
+     * arguments it already read (ADR-140 decision 6), and the body's size limit covers only what a
+     * converter reads, so a handler that read its own stream would read an empty one on a retry and
+     * an unlimited one on the first try (ADR-142).
+     *
+     * <p>The annotations are read by name, as rule 15's are. Its subject is every class under the
+     * root, which is never empty, so {@code archRule.failOnEmptyShould} can't fail it before the
+     * modules have controllers; only their handler methods are checked.
+     */
+    static ArchRule noHandlerTakesAStreamingParameter(String root) {
+        return classes()
+                .that()
+                .resideInAPackage(root + "..")
+                .should(new ArchCondition<>("declare no handler method that takes one of " + STREAMING_TYPES) {
+                    @Override
+                    public void check(JavaClass item, ConditionEvents events) {
+                        boolean controller = item.isAnnotatedWith(CONTROLLER) || item.isMetaAnnotatedWith(CONTROLLER);
+                        item.getMethods().stream()
+                                .filter(method -> controller
+                                        || method.isAnnotatedWith(REQUEST_MAPPING)
+                                        || method.isMetaAnnotatedWith(REQUEST_MAPPING))
+                                .forEach(method -> method.getRawParameterTypes().stream()
+                                        .filter(ApplicationRules::isStreaming)
+                                        .forEach(parameter -> events.add(SimpleConditionEvent.violated(
+                                                item,
+                                                method.getFullName() + " is a handler that takes a "
+                                                        + parameter.getName()))));
+                    }
+                })
+                .because("ADR-140 decision 6 and ADR-142: the call wrapper retries a handler with the arguments"
+                        + " Spring already read, and only a converter's read is capped");
+    }
+
+    /** What a module's configuration does that rule 15 forbids, one message each. */
+    private static Stream<String> configurationViolations(JavaClass configuration, String services) {
+        Stream<String> isPublic = configuration.getModifiers().contains(JavaModifier.PUBLIC)
+                ? Stream.of(configuration.getName() + " is public")
+                : Stream.empty();
+        Stream<String> beans = configuration.getMethods().stream()
+                .filter(method -> method.isAnnotatedWith(BEAN) || method.isMetaAnnotatedWith(BEAN))
+                .map(method -> method.getFullName() + " is a @Bean method");
+        Stream<String> scans = isAnnotatedOrMetaAnnotatedWith(configuration, COMPONENT_SCAN)
+                        || isAnnotatedOrMetaAnnotatedWith(configuration, COMPONENT_SCANS)
+                ? Stream.of(configuration.getName() + " scans for components")
+                : Stream.empty();
+        Stream<String> resources = isAnnotatedOrMetaAnnotatedWith(configuration, IMPORT_RESOURCE)
+                ? Stream.of(configuration.getName() + " imports a resource")
+                : Stream.empty();
+        Stream<String> metaImports = configuration.getAnnotations().stream()
+                .map(JavaAnnotation::getRawType)
+                .filter(annotation ->
+                        !annotation.getName().equals(IMPORT) && isAnnotatedOrMetaAnnotatedWith(annotation, IMPORT))
+                .map(annotation ->
+                        configuration.getName() + " imports through @" + annotation.getSimpleName() + ", not its list");
+        Stream<String> imports = configuration
+                .tryGetAnnotationOfType(IMPORT)
+                .flatMap(annotation -> annotation.get(IMPORTED))
+                .map(imported -> Arrays.stream((JavaClass[]) imported))
+                .orElseGet(Stream::empty)
+                .filter(imported -> !isIn(imported.getPackageName(), services))
+                .map(imported -> configuration.getName() + " imports " + imported.getName() + ", outside " + services);
+        return Stream.of(isPublic, beans, scans, resources, metaImports, imports)
+                .flatMap(Function.identity());
+    }
+
+    private static boolean isAnnotatedOrMetaAnnotatedWith(JavaClass type, String annotation) {
+        return type.isAnnotatedWith(annotation) || type.isMetaAnnotatedWith(annotation);
+    }
+
+    /** A class directly in a module's root whose name ends in {@code Configuration}. */
+    private static boolean isAModulesRootConfiguration(String root, JavaClass type) {
+        return topLevelPackage(root, type)
+                        .filter(module -> !NOT_MODULES.contains(module))
+                        .filter(module -> type.getPackageName().equals(root + "." + module))
+                        .isPresent()
+                && type.getSimpleName().endsWith(CONFIGURATION_SUFFIX);
+    }
+
+    /**
+     * Every class an {@code @Import} names on a type, directly or through its annotations and
+     * theirs, each annotation type read once.
+     */
+    private static Stream<JavaClass> importsOf(JavaClass type) {
+        List<JavaClass> imported = new ArrayList<>();
+        collectImports(type.getAnnotations(), new HashSet<>(), imported);
+        return imported.stream();
+    }
+
+    private static void collectImports(
+            Set<? extends JavaAnnotation<?>> annotations, Set<String> read, List<JavaClass> imported) {
+        for (JavaAnnotation<?> annotation : annotations) {
+            JavaClass type = annotation.getRawType();
+            if (type.getName().equals(IMPORT)) {
+                annotation.get(IMPORTED).ifPresent(value -> imported.addAll(Arrays.asList((JavaClass[]) value)));
+            } else if (read.add(type.getName())) {
+                collectImports(type.getAnnotations(), read, imported);
+            }
+        }
+    }
+
+    /** Whether a class lies in, or below, a module's {@code application.service}. */
+    private static boolean isAService(String root, JavaClass type) {
+        String[] segments = segmentsBelow(root, type.getPackageName());
+        return segments.length >= 3 && segments[1].equals(APPLICATION) && segments[2].equals(SERVICE);
+    }
+
+    /** Whether a {@code @Bean} method returns a service's type or calls a service's constructor. */
+    private static boolean makesAService(String root, JavaMethod method) {
+        return isAService(root, method.getRawReturnType())
+                || method.getConstructorCallsFromSelf().stream()
+                        .anyMatch(call -> isAService(root, call.getTargetOwner()));
+    }
+
+    private static boolean isStreaming(JavaClass type) {
+        return STREAMING_TYPES.stream().anyMatch(type::isAssignableTo);
     }
 
     /**

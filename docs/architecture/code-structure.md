@@ -16,13 +16,14 @@ ADR-123 (Accepted) keeps this tree and gives three components the names they hav
 Also Accepted and not in the tree yet:
 [ADR-038](../ADRs/ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md) (`mise` pins every
 toolchain; the core already runs its Java 25),
-[ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md) (one pnpm
-workspace for both apps),
 [ADR-042](../ADRs/ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md) (`compose.dev.yaml`
 for local runs) and
 [ADR-046](../ADRs/ADR-046-renovate-replaces-dependabot-and-targets-dev.md) (Renovate replaces
-Dependabot). They supersede or amend some of ADR-009 to ADR-016 above: ADR-010, ADR-012 and ADR-014
-are superseded; ADR-009, ADR-013 and ADR-015 are amended.
+Dependabot).
+[ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md) (one pnpm
+workspace for both apps) is in the tree for the web app and the shared packages; the phone app
+joins it at M10. These four supersede or amend some of ADR-009 to ADR-016 above: ADR-010, ADR-012
+and ADR-014 are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 
 > [!NOTE]
 > Most folders below are still empty. A folder listed as a placeholder holds only a `.gitkeep`
@@ -37,9 +38,10 @@ are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 |---|---|
 | `src/backend/core/` | The REST API and system of record: Java 25, Spring Boot 4.1.2, Maven |
 | `src/backend/optimizer/` | The optimization service: Python 3.14, FastAPI, NumPy, uv |
-| `src/frontend/web/` | The web app, for every role: React, TypeScript, Vite |
+| `src/frontend/` | The pnpm workspace's root, over `web/` and `packages/*` ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)): `package.json`, `pnpm-workspace.yaml` and its one lockfile, `pnpm-lock.yaml`; and `.prettierrc.json`, Prettier's one file for the web app and the packages ([ADR-141](../ADRs/ADR-141-prettiers-settings-live-in-one-file-in-src-frontend.md)) |
+| `src/frontend/web/` | The web app, for every role: React, TypeScript, Vite, pnpm |
 | `src/frontend/mobile/` | The phone app, for every role: React Native, Expo SDK 58, TypeScript |
-| `src/frontend/packages/` | Seven placeholder folders for the shared TypeScript packages ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)); none has a `package.json` yet |
+| `src/frontend/packages/` | The shared TypeScript packages ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)): `eslint-config` and `tsconfig` are workspace packages, and five placeholder folders have no `package.json` yet |
 | `src/research/` | Benchmarks, simulation and the order generator: Python, uv. Never deployed |
 | `contracts/` | `client-api/v1` and `optimization-api/v1` (OpenAPI), and the Redocly lint setup |
 | `tests/` | Tests that span components: `e2e/` and `load/`. Both are placeholders |
@@ -54,8 +56,9 @@ are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 | `.java-version`, `.python-version`, `.nvmrc` | Toolchain pins: Java 25, Python 3.14, Node 24 |
 | `LICENSE` | Proprietary, all rights reserved ([ADR-017](../ADRs/ADR-017-proprietary-licence.md)) |
 
-Each component has its own manifest, and each except `core` (Maven) has a lockfile. The one link
-at build time is `research`'s path dependency on `optimizer`, below.
+Each component has its own manifest, and each except `core` (Maven) has a lockfile. The web app's
+lockfile is the workspace's, `src/frontend/pnpm-lock.yaml`, which it shares with the packages. The
+one link at build time is `research`'s path dependency on `optimizer`, below.
 
 `src/backend`, `src/frontend`, each component, `contracts/` and `docs/` also hold a `CLAUDE.md` with
 the rules for that folder.
@@ -99,27 +102,34 @@ src/backend/core/
   .env.example                     the database connection keys, with no values
   src/main/java/com/dispatchflow/
     DispatchFlowApplication.java   the Spring Boot entry point
+    SchedulingConfiguration.java   @EnableAsync always, @EnableScheduling behind
+                                   dispatchflow.scheduling.enabled, and the executor's cap
+    MdcTaskDecorator.java          copies the caller's MDC to an asynchronous listener's thread
     shared/                        the shared kernel: the typed IDs, the shared values, their
                                    errors, and the building blocks every module's domain uses
       application/                 the ports every module uses: Clock, IdGenerator,
-                                   ProcessedEvents, NotFound, StaleVersion (declared)
+                                   ProcessedEvents (declared), NotFound, StaleVersion
       adapter/out/persistence/     the persistence adapter every module shares: VersionedSave, the
                                    converters and instantiators that store the kernel's values,
                                    and id/ with the 14 typed-ID converters; an adapter, not the
                                    kernel
-      adapter/out/clock/           declared, empty: the adapter of Clock
-      adapter/out/uuid/            declared, empty: the adapter of IdGenerator
+      adapter/out/clock/           SystemClock, the adapter of Clock
+      adapter/out/uuid/            UuidV7Generator, the adapter of IdGenerator (uuid-creator)
       adapter/out/optimizer/       declared, empty: the client generated from optimization-api,
                                    which Planning's and Reporting's optimizer adapters wrap
-      adapter/in/web/              declared, empty: the code generated from client-api, at every
-                                   build and never committed, and @RequiresCapability; every
-                                   module's controllers use it (ADR-140)
+      adapter/in/web/              Problems, the factory of every error body, ProblemItem,
+                                   TraceIds, which makes a fresh trace ID, and HandlerOrder; later
+                                   the code generated from client-api, at every build and never
+                                   committed, and @RequiresCapability; every module's controllers
+                                   and handlers use it (ADR-140)
       adapter/out/sse/             declared, empty: the registry of open event streams, which
                                    Planning's and Live Operations' sse adapters send through
                                    (ADR-140)
     access/                        a bounded context's module: domain/ (account, session,
                                    companyprofile), events/, application/ (declared) and
-                                   adapter/ (below)
+                                   adapter/ (below); at its root only package-info.java and
+                                   AccessConfiguration, the @Import list of its built use cases;
+                                   every module's root holds the same, as <Module>Configuration
     fleet/                         domain/ (register, roster, driver), events/, application/ and
                                    adapter/
     orders/                        domain/ (flat), events/, application/ and adapter/
@@ -135,7 +145,26 @@ src/backend/core/
                                    routerun), events/, application/ and adapter/
     web/                           application-wide web concerns, above the modules: nothing depends
                                    on it, and it uses only their api and events (ADR-140)
+      TraceIdFilter.java           each request's trace ID, from traceparent (Traceparent.java)
+                                   or made fresh, in the MDC; hands an escaped exception to
+                                   Tomcat's error dispatch; refuses with 400 a path Spring
+                                   can't parse
+      CallWrapper.java             the handler adapter that runs every handler through CallRetry
+      CallRetry.java               re-runs a call that lost a race, and audits the race it answers;
+                                   after a commit it audits nothing and answers 500
+      CommitWatch.java             marks a try committed, so it isn't re-run
+      Race.java                    what a lost race answers: 412, 409 or a retry, then 503
+      ContractErrorHandler.java    400, 404, 405, 406, 413 and 415, Spring MVC's other errors and
+                                   Tomcat's parameter refusals; ContractBreaks.java builds the
+                                   failing items
+      KernelErrorHandler.java      the kernel's errors: 401, 403, 404, 409, 412, 422 and 503, and
+                                   500 for a damaged stored value and a race after a commit
       UnexpectedErrorHandler.java  answers an unhandled exception with a 500 problem body
+      ErrorEndpoint.java           the last resort: answers as a problem an error no handler
+                                   answered, or that a servlet filter raised
+      WebCodes.java                the codes web answers of its own
+      ServedJson.java              the served JSON converter refuses unknown and duplicate keys
+      BodySizeLimit.java           caps at 1 MiB what a converter reads of a request body
       security/                    declared, empty: the stand-in session, then the filter chain, and
                                    the capability interceptor
       stream/                      declared, empty: the event stream's endpoint, its heartbeat and
@@ -181,8 +210,20 @@ src/backend/core/
     reporting/                     the same as access/
     messaging/                     the same as access/
     liveops/                       the same as access/
-    web/UnexpectedErrorHandlerTest.java  the 500 problem body keeps the cause out
-    IntegrationTest.java                 the one annotation every *IT uses: the whole app and PostgreSQL
+    shared/adapter/in/web/         the problem factory's tests, ErrorParamsTest among them:
+                                   every production error's params have a mapping; and
+                                   TraceIdsTest, a fresh trace ID is never all zeros
+    shared/adapter/out/            the clock's and the ID generator's tests, in clock/ and uuid/
+    web/                           a test per class: the handlers, the error endpoint, the trace
+                                   filter and the call wrapper through MockMvc; WebIT checks them
+                                   wired in the whole application, and WebOverTomcatIT behind a
+                                   real Tomcat
+    SchedulingConfigurationTest.java     the executor, its MDC copy and the scheduling property
+    TransactionalBeanTest.java           a final transactional bean fails the context
+    IntegrationTest.java                 the annotation every *IT uses but one that needs a real
+                                         Tomcat: the whole app and PostgreSQL, scheduled jobs off
+    TomcatIntegrationTest.java           the same on a random port, in a context of its own
+    CapturedLogs.java                    a unit test's view of a logger's events, read from logback
     DispatchFlowApplicationIT.java       the health probe answers UP against PostgreSQL
     TestDispatchFlowApplication.java     what `just core-run` starts
     TestcontainersConfiguration.java     the PostgreSQL container
@@ -221,9 +262,10 @@ Each module also has an `application` package, declared ahead of its milestone a
 It holds whichever of `api`, `spi`, `port/out` and `service` the module has something for: `access`,
 `audit` and `liveops` have no `spi`, and `messaging` and `reporting` have neither `api` nor `spi`.
 Every body that would do work throws `UnsupportedOperationException("To Be Implemented.")`. Nothing is
-wired: the application layer registers no bean, and no use case calls a port. A use case will be
-wired in its module's `<Module>Configuration`, at the module's root
-([ADR-140][ADR-140]); none exists yet. The layer's one Spring
+wired: the application layer registers no bean, and no use case calls a port. A use case is wired
+in its module's package-private `<Module>Configuration`, at the module's root, by joining its
+`@Import` list in the pull request that builds its body ([ADR-140][ADR-140]); every list is still
+empty, and `ApplicationRules` rule 15 keeps the root to that class and its `package-info`. The layer's one Spring
 annotation is `@Transactional`: on every service's class, and on the read-only reads of a
 `<UseCase>Change`. A use case with outside calls, or one transaction per item, holds its
 transactional `Change`, and it carries no transaction itself; nor does a service that calls such a
@@ -235,9 +277,10 @@ and a `CallContext`
 Each module's `adapter/` holds its persistence adapter, which is built, and packages declared
 ahead, empty ([ADR-130][ADR-130]). Every declared package holds a `package-info.java`, and nothing
 else until its first class (a stand-in, which arrives with its issue): its Javadoc says what goes
-in the package and which ports it implements, and it carries `@NullMarked`. There are 56 of them,
-51 in the eight modules and 5 beside the kernel, and no adapter class exists beyond the
-persistence adapters.
+in the package and which ports it implements, and it carries `@NullMarked`. There are 53 of them,
+51 in the eight modules and 2 beside the kernel. The adapter classes beyond the persistence adapters
+are the kernel's: `in/web`'s problem factory, `out/clock`'s `SystemClock` and `out/uuid`'s
+`UuidV7Generator`.
 The names follow two rules:
 
 - An inbound adapter is `adapter/in/<kind>`, of six kinds: `web` (a screen calls the client API),
@@ -376,9 +419,13 @@ src/research/
 
 ### `src/frontend/web`
 
-A Vite project. `src/main.tsx` mounts `src/App.tsx`, which renders a heading. `src/test/setup.ts`
-configures Vitest. The configuration files (`vite.config.ts`, `tsconfig*.json`,
-`eslint.config.js`, `.prettierrc.json`) sit at the project root. `src/features/` holds one
+A Vite project in the pnpm workspace. `src/main.tsx` mounts `src/App.tsx`, which renders a heading.
+`src/test/setup.ts` configures Vitest and starts the tests' one MSW server, `src/test/server.ts`,
+over the handlers in `src/test/handlers.ts`; a request no handler answers fails its test. The
+configuration files (`vite.config.ts`, `tsconfig*.json`, `eslint.config.js`) sit at the project
+root: the two `tsconfig` files extend `@dispatchflow/tsconfig`, and `eslint.config.js` uses
+`@dispatchflow/eslint-config`. Prettier reads `src/frontend/.prettierrc.json` ([ADR-141](../ADRs/ADR-141-prettiers-settings-live-in-one-file-in-src-frontend.md)).
+`src/features/` holds one
 placeholder folder for each bounded context ([TS §10](tech_stack.md#10-web-app)): `access`, `audit`, `fleet`,
 `liveops`, `messaging`, `orders`, `planning` and `reporting` ([ADR-130][ADR-130]).
 
@@ -393,10 +440,12 @@ deepmerge entries in
 `src/features/` holds the same eight placeholder folders as the web app's. It has no route folder:
 that comes with `expo-router` at M10 ([ADR-130][ADR-130]).
 
-The two apps share no code. `src/frontend/packages/` holds seven placeholder folders: `api-client`,
-`schemas`, `i18n`, `map-style`, `formatters`, `eslint-config` and `tsconfig`. A folder is not a package:
-none has a `package.json` yet, and the ticket that first puts code in one adds it
-([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md),
+The two apps share no code. `src/frontend/packages/` holds seven folders. Two are workspace
+packages that only the web app uses so far: `eslint-config` (`@dispatchflow/eslint-config`, the
+ESLint 10 flat configs) and `tsconfig` (`@dispatchflow/tsconfig`, the `base`, `app` and `node`
+presets). The other five, `api-client`, `schemas`, `i18n`, `map-style` and `formatters`, are
+placeholders: a folder is not a package until the ticket that first puts code in it adds its
+`package.json` ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md),
 [ADR-130][ADR-130]). `contracts/client-api/v1` declares no operation yet, so neither app has an
 API client.
 [ADR-043](../ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md)
@@ -410,7 +459,7 @@ API client.
 | `core`, integration (`*IT`) | `src/backend/core/src/test/java` | Failsafe, with a PostgreSQL container |
 | `optimizer` | `src/backend/optimizer/tests`, mirroring the package path | pytest |
 | `research` | `src/research/tests` | pytest |
-| `web` | next to the code, in `src/` (`App.test.tsx`) | Vitest, in jsdom |
+| `web` | next to the code, in `src/` (`App.test.tsx`, `test/setup.test.ts`, and `test/workspace.test.ts`, which checks the workspace's lockfile) | Vitest, in jsdom, with MSW |
 | `mobile` | next to the code, in `src/` (`App.test.tsx`) | Jest, through `jest-expo` |
 | End-to-end and load | `tests/e2e`, `tests/load` | No tool is configured yet |
 
@@ -485,7 +534,15 @@ Rule 13 is [ADR-140][ADR-140]'s. `web` is no module: rule 2 refuses every module
 it sits above them, and rule 13 limits it to the modules' `application.api` and `events`, besides the
 kernel and the frameworks. Rule 14, also ADR-140's, keeps the two holders of a web call's caller, `CurrentActor` (in
 Access's `application.api`) and `CurrentCall` (in Audit's), to `web` and the modules' `adapter.in.web`:
-a use case takes its `Actor` and `CallContext` as parameters. Neither holder exists yet.
+a use case takes its `Actor` and `CallContext` as parameters. Neither holder exists yet. Rule 15,
+also ADR-140's, keeps each module's root to its `package-info` and a package-private
+`<Module>Configuration` that declares no `@Bean` and no scan, and imports only its own module's
+`application.service` classes.
+
+Rule 16 is [ADR-142][ADR-142]'s: no request handler, a method of a `@Controller` or one annotated
+`@RequestMapping` or a variant, declares a streaming parameter (`InputStream`, `Reader`,
+`OutputStream`, `Writer`, or a servlet request or response), because the call wrapper re-invokes a
+handler with the arguments it already read.
 
 [Tech stack §2.2](tech_stack.md#22-enforcement) also plans Spring Modulith's `verify()` for the
 Alpha
@@ -496,5 +553,6 @@ Accepted).
 [ADR-131]: ../ADRs/ADR-131-the-declared-structures-review-tightens-its-rules-and-fills-its-gaps.md
 [ADR-133]: ../ADRs/ADR-133-a-startup-step-is-a-job-and-access-declares-one.md
 [ADR-140]: ../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md
+[ADR-142]: ../ADRs/ADR-142-the-call-wrappers-retry-its-400s-and-its-error-endpoint-as-162-built-them.md
 [NFR-10]: ../requirements/requirements.md#nfr-10
 [NFR-162]: ../requirements/requirements.md#nfr-162

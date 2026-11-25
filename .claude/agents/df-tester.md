@@ -62,7 +62,7 @@ Cover each one that the change touches. The sources say how:
     - For `Plan` and `Delivery`, also run seeded random command sequences and check the invariants after every step. The seeds are fixed in the test, or come from a fixed list, and a failure prints its seed so it replays ([DL §14][DL-14]).
     - Application tests call a use case, which is a `service` class (an interface in `api` exists only when another module calls it). They use in-memory fakes of the context's secondary ports.
   - Module and event tests (`@ApplicationModuleTest`, the `Scenario` API) boot Spring, and a module with persistence needs the database, so they are not Surefire unit tests. The suffix and the container wiring are decided with the first module. Publish each event twice: after the second delivery the state equals the state after the first. Wait through `Scenario`, never `sleep`.
-  - Integration tests `*IT` (Failsafe): annotate them with `@IntegrationTest` so they share one Spring context and one PostgreSQL 18.6 container. Drive HTTP with `MockMvcTester` under `/api/v1/…`, and check the response against `contracts/client-api/v1`: status, fields, `Location`, and `application/problem+json` errors with `status` and `title`.
+  - Integration tests `*IT` (Failsafe): annotate them with `@IntegrationTest` so they share one Spring context and one PostgreSQL 18.6 container. Drive HTTP with `MockMvcTester` under `/api/v1/…`, and check the response against `contracts/client-api/v1`: status, fields, `Location`, and `application/problem+json` errors with `status`, `title`, `code`, `params` and `traceId`. Use `@TomcatIntegrationTest`, which starts a context of its own, only for what MockMvc can't show, such as Tomcat's refusals and its error dispatch. A unit test asserts on log lines through `CapturedLogs`, and an integration test through `CapturedOutput`.
   - Method names: `GivenX_WhenY_ThenZ`.
 - **`src/backend/optimizer` and `src/research`:**
   - pytest; names `test_given_x_when_y_then_z`; tests mirror the package path.
@@ -70,7 +70,7 @@ Cover each one that the change touches. The sources say how:
   - Use Hypothesis property tests (`tests/domain/properties.py`): every generated instance's solution passes the validator. They run from a recorded seed ([NFR-82][NFR-82]).
   - Once the DispatchFlow solver exists, a property test checks that the same input, seed and iteration budget give the same solution in separate processes ([NFR-174][NFR-174]). No solver exists yet, so no such test does.
   - Solver and property tests run on iteration or solution budgets, never wall-clock limits ([NFR-82][NFR-82], [NFR-175][NFR-175]). The Solvers row of [TS §17.1][TS-171] cites NFR-170 to NFR-174: cover each one the change touches.
-- **`src/frontend/web`:** Vitest with Testing Library in jsdom. Tests sit next to the code as `*.test.tsx` and query by role, label or text. From the Alpha, MSW answers API calls ([TS §17.1][TS-171]).
+- **`src/frontend/web`:** Vitest with Testing Library in jsdom. Tests sit next to the code as `*.test.tsx` and query by role, label or text. MSW answers API calls ([TS §17.1][TS-171]): `src/test/setup.ts` fails any request no handler answers, happy paths go in `src/test/handlers.ts`, and a test overrides an answer with `server.use()`, never its own `setupServer`.
 - **`src/frontend/mobile`:** Jest through `jest-expo`, with React Native Testing Library; `toBeOnTheScreen()`. In React Native Testing Library 14, `render`, `rerender`, `unmount`, `renderHook`, `act` and every `fireEvent` call return a promise: `await` each, as `App.test.tsx` does with `render`.
 - **End to end:** `tests/e2e` is a placeholder, and no end-to-end tool is configured. [TS §17.1][TS-171] decides on Playwright, which [ADR-123][ADR-123] (Accepted) keeps in `tests/e2e/`. Don't add it without the team. When it exists, the tests run under the `e2e` profile ([NFR-175][NFR-175], [TS §17.1][TS-171]): a controllable clock, solves under an iteration budget, fake push, SMS and email, a fixed OSRM extract and no outside network. The profile's own tests are in the failure list above.
 
@@ -78,10 +78,10 @@ Cover each one that the change touches. The sources say how:
 
 Format only the test files you wrote, never the whole component, because a component's format recipe also rewrites production code:
 - `uv run --locked ruff format <file>` (Python);
-- `npx prettier --write <file>` (TypeScript);
+- `pnpm exec prettier --write <file>` (TypeScript in the web app and the shared packages), `npx prettier --write <file>` (the phone app);
 - `./mvnw spotless:apply -DspotlessFiles=<path regex>` (Java).
 
-Run each from the component's folder: `src/backend/core` for `./mvnw` (`.\mvnw.cmd` in PowerShell), and the app or project folder for `uv` and `npx`.
+Run each from the component's folder: `src/backend/core` for `./mvnw` (`.\mvnw.cmd` in PowerShell), and the app or project folder for `uv`, `pnpm` and `npx`.
 
 Then run the component's checks (`just <component>-check`, or the commands in its `CLAUDE.md`).
 

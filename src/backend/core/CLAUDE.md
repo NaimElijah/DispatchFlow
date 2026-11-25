@@ -1,8 +1,7 @@
 # Core
 
-The REST API that both clients call (`contracts/client-api/v1`) and DispatchFlow's system of
-record. It is the only client of the optimizer (`contracts/optimization-api/v1`). Java 25, Spring
-Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
+The REST API of both clients (`contracts/client-api/v1`), the system of record, and the optimizer's
+only client (`contracts/optimization-api/v1`): Java 25, Spring Boot 4.1, JPA, Flyway and Maven.
 
 ## Layout
 
@@ -14,22 +13,20 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   - `shared/adapter/{in/web,out/{persistence,clock,uuid,optimizer,sse}}/`, shared adapters beside
     the kernel, outside its purity rules, imported by no application class ([ADR-126], [ADR-130]).
   - A module's `adapter/out/<name>` is the outside system, else `persistence` or the technology.
-- Package size ([ADR-125], which amends ADR-118): its 20-file threshold counts Java files,
-  not `package-info.java`. A domain splits by aggregate over a root, `domain/`, that holds its error
-  and shared values, then by concept; an application package splits by aggregate, then by a concept
-  beneath it (`service/plan/edit`). Files the language binds (package-private access, a sealed
-  hierarchy) or a dependency cycle holds stay together: never widen production visibility or add a
-  cycle to split. The kernel's domain types and every `api`, `spi` and `events` package stay flat.
-  Each new package carries `@NullMarked`. `DomainPackageRules` and `ApplicationRules` check the
-  cycles, the root imports, `@NullMarked` and that the flat packages have no subpackage.
+- Package size ([ADR-125], amending ADR-118): the 20-file threshold counts Java files, not
+  `package-info.java`. A domain splits by aggregate under a root `domain/` of its error and shared
+  values, then by concept; an application package likewise (`service/plan/edit`). Never widen
+  production visibility or add a cycle to split: what the language binds (package-private access, a
+  sealed hierarchy) or a cycle holds stays together. The kernel's domain types and every `api`,
+  `spi` and `events` package stay flat; new packages are `@NullMarked`. `DomainPackageRules` and
+  `ApplicationRules` check cycles, root imports, `@NullMarked` and flatness.
 - `src/test/java/com/dispatchflow/` holds the tests, `TestDispatchFlowApplication` (`just core-run`)
   and `TestcontainersConfiguration`: PostgreSQL 18.6, with `db/fixture`'s `V0_*` test migrations.
 
 ## Rules
 
-- `domain`, `events` and `shared` stay pure ([DL §3.9], [ADR-097]). `DomainPurityRules`, in
-  `src/test/java/com/dispatchflow/architecture/`, holds the full lists and fails the build. What
-  goes against Java's defaults:
+- `domain`, `events` and `shared` stay pure ([DL §3.9], [ADR-097]). `DomainPurityRules` (in the test
+  `architecture/`) holds the full lists and fails the build. What goes against Java's defaults:
   - A module's domain imports only the JDK, the kernel, its own domain and `events`, JSpecify,
     libphonenumber and JTS; the kernel only the JDK, JSpecify and libphonenumber; an `events`
     package only the JDK, JSpecify, the kernel and itself. A domain and the kernel also carry
@@ -80,23 +77,27 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   sign-in, to the use case. Only `web` and the `in/web` adapters use the two (`ApplicationRules` 14,
   [ADR-140]); neither exists yet (#170). Every use case that changes an aggregate calls its port's
   `save` or `add`, which publishes its events; a test fake's calls `SaveEvents.publish`.
+- No handler takes a streaming parameter (`ApplicationRules` 16). A module's handler builds its body
+  with `shared.adapter.in.web.Problems` and takes `@Order(HandlerOrder.MODULE)` (ADR-142).
 - Another module is reached only through its `api`, `spi` and `events` packages ([DL §2.3]).
   Review checks an adapter's use of another module until Modulith's `verify()` runs ([ADR-040]);
   `ApplicationRules` rules 9 to 12 keep adapters apart and shared ones off modules ([ADR-130]). Each
   module owns its tables, in its own PostgreSQL schema: no SQL reads another module's schema.
-- An unbuilt application body throws `UnsupportedOperationException("To Be Implemented.")`;
-  `grep -rF "To Be Implemented."` lists the work left ([ADR-132]). To build one ([ADR-119] decision
-  5): write the failing test, replace the `throw`, build the adapter, add the use case to its
-  module's `<Module>Configuration` ([ADR-140]; the first comes with #162), delete the tag. Building
-  may change a declared signature or add a class, with every caller in the same pull request.
+- An unbuilt application body throws `UnsupportedOperationException("To Be Implemented.")`; `grep
+  -rF "To Be Implemented."` lists them ([ADR-132]). To build one ([ADR-119] decision 5): write the
+  failing test, replace the `throw`, build the adapter, add it and its `Change` to the `@Import` of
+  its module's package-private root `<Module>Configuration` (no `@Bean`, no scan: `ApplicationRules`
+  15), delete the tag. A changed signature or new class needs every caller in the same pull request.
 - A use case follows [TS §6.2], [ADR-063], [ADR-064] and [ADR-129]:
   - A use case is one class, or two when a `<UseCase>Change` holds its transaction. A changing one
     changes one aggregate after its outside calls, and audits in that transaction (NFR-94).
-  - `TransactionRules` checks where transactions start. Review checks that a service changing
-    nothing is `readOnly`; a `Change` reads in `readOnly` methods, and a refusal audits after it
-    (not a `StaleVersion` or ADR-136's lock-wait types: the call wrapper writes that one record).
+  - `TransactionRules` checks where transactions start, and that no transactional class or method is
+    `final`, which Spring Boot's class-based proxy can't subclass. Review checks that a service
+    changing nothing is `readOnly`, a `Change` reads in `readOnly` methods, and a refusal audits
+    after it (not a `StaleVersion` or ADR-136's lock waits: the call wrapper writes that record).
   - `@Retryable` and `@ConcurrencyLimit` sit on the adapter that makes the outside call, where a
-    retry is safe. A listener is `@Async`, so each retry gets a fresh transaction; it is idempotent.
+    retry is safe. A listener is `@Async` and a job `@Scheduled`, through `SchedulingConfiguration`:
+    add no `@Enable*`. A listener is idempotent, and each retry gets a fresh transaction.
 - Every handler is authorized by role from its `x-capability`, in `web.security`'s interceptor
   (unbuilt: 401 in #170, 403 in #171), once the handler is chosen, before the body is validated. A
   token filter of our own (#199) replaces Spring Security's bearer filter and answers none. A check
@@ -106,32 +107,32 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
   a one-shot `migrate` step, which alone holds that credential; the core connects as `app`, which
   owns no table ([ADR-041], [TS §6.3]). Until #160, Spring Boot runs Flyway as the core's own user.
 - Optimistic locking is `AggregateRoot`'s `@Version` ([ADR-057]): every `save` but a session's
-  contact-only one goes through `VersionedSave`, which moves it by 1, and a use case checks a sent
-  version with `StaleVersion.requireCurrent`. `STALE_VERSION` answers 412 to `If-Match` or
-  `If-None-Match`, 409 to a body version, never retried; the call wrapper re-runs a call that sent
-  none, and any failed lock wait, up to 3 times in new transactions, then 503 ([ADR-140]).
+  contact-only one goes through `VersionedSave`, which moves it by 1; `StaleVersion.requireCurrent`
+  checks a sent version and marks the error. `STALE_VERSION` answers 412 to `If-Match` or
+  `If-None-Match`, 409 to a body version, never retried. The call wrapper re-runs any other, and a
+  failed lock wait (by thrown type, not cause), up to 3 times until a read-write transaction of the
+  try commits, then 503; after such a commit a race answers 500 ([ADR-140], ADR-142).
 - A stand-in session (#170, unbuilt) exists only when the active profiles are exactly `dev` or
   exactly `test`, and serves only a request with no `Authorization` or refresh cookie. The core
   refuses to boot with it under other profiles or in a deployed environment (`DISPATCHFLOW_DEPLOYED`
-  or a provider credential). The dev stack binds `127.0.0.1`. A `<Port>StandIn` takes that
-  condition, not `@Profile({"dev","test"})`. Sign-in deletes the session; #199 refuses to boot with
-  a token lifetime but 15 minutes unless `dev` is alone ([ADR-121], [ADR-140]). The `e2e` endpoints
-  exist only under `e2e`, which refuses a deployed environment (NFR-206). Each refusal has a test.
+  or a provider credential). The dev stack binds `127.0.0.1`. A port with no adapter yet gets a
+  `<Port>StandIn` `@Component` in its declared adapter folder, naming its replacing issue, under
+  that condition, never `@Profile({"dev","test"})`. Sign-in deletes the session; #199 refuses to
+  boot with a token lifetime but 15 minutes unless `dev` is alone ([ADR-121], [ADR-140]). Only `e2e`
+  has the `e2e` endpoints, and it refuses a deployed environment (NFR-206). Each refusal has a test.
 - No Lombok: records and plain classes. Configuration comes from environment variables.
-- Persistence is JPA ([ADR-126], [ADR-127], [TS §6.3]). A port's `@Component` works over a
-  package-private Spring Data `Repository<Root, UUID>` with `save` and the port's own queries; never
-  `@Repository`, whose exception translation turns a port's own `IllegalArgumentException` into a
-  Spring one. Native SQL binds every value; SQL and bind logging stay off. `PersistenceRules` checks
-  the mapping, a `*PersistenceIT` the stored state; a load check refuses a list gap first. A call
-  that flushes (an `add`, a native statement, or a query that reads a changed table) writes every
-  changed aggregate: save a changed aggregate before one, or `VersionedSave` fails its one-step
-  check. Renaming a stored error or its field needs a migration.
+- Persistence is JPA ([ADR-126], [ADR-127], [TS §6.3]): a port's `@Component` works over a
+  package-private Spring Data `Repository<Root, UUID>` with `save` and its queries, never
+  `@Repository`, whose exception translation rewraps a port's `IllegalArgumentException`. Native SQL
+  binds every value; SQL and bind logging stay off. `PersistenceRules` checks the mapping, a
+  `*PersistenceIT` the stored state; a load check refuses a list gap first. A flushing call (an
+  `add`, native SQL, a query of a changed table) writes every changed aggregate: save those first,
+  or `VersionedSave` fails its one-step check. A renamed stored error or field needs a migration.
 
 ## Tests
 
-- `*Test` classes are unit tests, run by Surefire. `*IT` classes are integration tests, run by
-  Failsafe against a real PostgreSQL: annotate them with `@IntegrationTest`, so they all share one
-  Spring context and one container. They need Docker.
+- `*Test` classes are Surefire unit tests; `*IT` classes, Failsafe tests against a real PostgreSQL
+  in Docker, carry `@IntegrationTest` and share one context, or `@TomcatIntegrationTest` for Tomcat.
 - Test in layers ([DL §14], [TS §17.1]):
   - Domain tests use no Spring and no mocks. Aggregates take values, `now` and new IDs as
     parameters. Every invariant in [DL §4] has a test that breaks it and asserts the module's named
@@ -140,10 +141,9 @@ Boot 4.1, Spring Data JPA, Flyway, PostgreSQL, Maven through the wrapper.
     `RuleViolations`). It is a `@Test` or `@ParameterizedTest` whose name ends in
     `_Then<ErrorName>`, and may sit anywhere under its error's package.
   - Application tests run each use case against in-memory fakes of its ports.
-  - Module and event tests (`@ApplicationModuleTest` boots one module alone; `Scenario` tests an
-    event reaction) boot Spring, so they are not Surefire unit tests. Their suffix and container
-    wiring are set with the first module. Publish each event twice: after the second delivery
-    the state equals the state after the first. Wait through `Scenario`, never `sleep`.
+  - Module and event tests (`@ApplicationModuleTest`, `Scenario`) boot Spring, so they aren't
+    Surefire unit tests; their suffix and container wiring come with the first module. Publish each
+    event twice: a second delivery changes nothing. Wait through `Scenario`, never `sleep`.
   - Permission tests come from the contract's `x-capability` and the permission matrix ([NFR-176]).
   - A test sits in the package of the type it tests, and one that covers several packages' values
     sits in the module's root. A helper that several test packages use is public.

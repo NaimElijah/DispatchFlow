@@ -46,6 +46,7 @@ This README is ordered for contributors, so Quick start comes before Architectur
 | Git | any recent | |
 | JDK | 25 (`.java-version`) | `src/backend/core` |
 | Node.js | 24 LTS (`.nvmrc`) | both frontends, contract lint |
+| pnpm | 12.23.0 (`packageManager` in `src/frontend/package.json`) | the web app and the shared packages |
 | uv | 0.12+ | both Python projects; installs Python 3.14 (`.python-version`) by itself |
 | Docker | running daemon | core's integration tests, `just core-run`, `just audit` |
 | just | 1.59 | every command below |
@@ -56,6 +57,12 @@ Install `just` through uv, which you already have:
 
 ```bash
 uv tool install rust-just==1.59.0
+```
+
+Install pnpm with npm, which comes with Node:
+
+```bash
+npm install --global pnpm@12.23.0
 ```
 
 Then, from a clean clone:
@@ -105,8 +112,9 @@ flowchart LR
   ([domain design](docs/architecture/domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts)).
   Each module's domain is built. Its application layer is declared, with bodies that throw
   ([ADR-119](docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md); the conventions are in
-  [ADR-120](docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)), and its only built adapters store each module's aggregates in its own PostgreSQL schema
-  ([data model](docs/architecture/data-model.md)); its other adapter packages are declared, empty
+  [ADR-120](docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)), and its built adapters store each module's aggregates in its own PostgreSQL schema
+  ([data model](docs/architecture/data-model.md)), and the kernel's give the clock, new IDs and
+  the error bodies; its other adapter packages are declared, empty
   ([ADR-130](docs/ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md)). A folder that passes
   20 files splits wherever four of its files can move, a domain by aggregate
   ([ADR-118](docs/ADRs/ADR-118-a-domain-package-above-30-files-splits-by-aggregate.md),
@@ -154,24 +162,24 @@ progress to the web app over server-sent events
 
 | Layer | Technology | Version | Why |
 |---|---|---|---|
-| Core backend | Java, Spring Boot, Spring Data JPA; libphonenumber, JTS, JSpecify | 25, 4.1.2; 9.0.43, 1.20.0, version from the Spring Boot parent | The team's strongest stack; mature ecosystem for the adapters. libphonenumber parses phone numbers and JTS checks the service area, both in the pure domain; JSpecify marks null-safe packages |
+| Core backend | Java, Spring Boot, Spring Data JPA; libphonenumber, JTS, JSpecify; uuid-creator | 25, 4.1.2; 9.0.43, 1.20.0, version from the Spring Boot parent; 6.1.1 | The team's strongest stack; mature ecosystem for the adapters. libphonenumber parses phone numbers and JTS checks the service area, both in the pure domain; JSpecify marks null-safe packages; uuid-creator makes the UUIDv7 IDs, which the JDK can't |
 | Database | PostgreSQL 18.6; Flyway (version from the Spring Boot parent) | 18.6 | Relational data with real constraints; versioned SQL migrations |
 | Optimizer | Python, FastAPI, NumPy | 3.14, 0.162, 2.5.4 | OR-Tools' richest bindings; algorithm work iterates apart from the backend; NumPy holds the validator's arrays |
 | Web app | React, TypeScript, Vite | 19.3, 6.0, 8.3 | Web app for every role; its driver screens also work in a phone's browser |
 | Phone app | React Native, Expo | 0.88, SDK 58 | One codebase for iOS and Android, for every role |
 | Contracts | OpenAPI, Redocly CLI | 3.1, 2.72 | Each side is built against the contract, not against the other side |
-| Tests | JUnit + Testcontainers, ArchUnit, pytest + Hypothesis, vrplib, import-linter, Vitest, Jest | ArchUnit 1.5.1, Hypothesis 6.170, vrplib 2.2.0, import-linter 2.16 | Real PostgreSQL in tests, never an in-memory stand-in; ArchUnit, import-linter and ruff keep each domain pure; vrplib reads the Solomon instances the validator is checked against |
-| Tooling | just, uv, npm, OSV-Scanner | 1.59, 0.12, 11, 2.7 | One command set locally and in CI; one audit across every ecosystem |
+| Tests | JUnit + Testcontainers, ArchUnit, pytest + Hypothesis, vrplib, import-linter, Vitest, MSW, Jest | ArchUnit 1.5.1, Hypothesis 6.170, vrplib 2.2.0, import-linter 2.16, MSW 3.0 | Real PostgreSQL in tests, never an in-memory stand-in; ArchUnit, import-linter and ruff keep each domain pure; vrplib reads the Solomon instances the validator is checked against |
+| Tooling | just, uv, pnpm (web app), npm (phone app), OSV-Scanner | 1.59, 0.12, 12.23, 11, 2.7 | One command set locally and in CI; one audit across every ecosystem |
 
 TypeScript is held at 6.0 because typescript-eslint does not support 7 yet
-([ADR-012](docs/ADRs/ADR-012-javascript-tooling-npm-eslint-prettier.md), superseded by ADR-039,
-not in the code yet).
+([ADR-039](docs/ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)).
 
 This table is what the code uses today. [tech_stack.md](docs/architecture/tech_stack.md) decides
 the stack for the Alpha and after, and ADR-038 to ADR-047 (Accepted, in the
-[ADR index](docs/ADRs/README.md)) record where it departs from today's: Spring Modulith, pnpm
-and mise. None of it is in the tree yet; each change lands with the milestone that needs it.
-ADR-038's Java 25 is already in the tree, and
+[ADR index](docs/ADRs/README.md)) record where it departs from today's: Spring Modulith, mise,
+and the phone app's move to pnpm. Spring Modulith and mise are not in the tree yet; each lands
+with the milestone that needs it. ADR-039's pnpm workspace in `src/frontend` already holds the
+web app and the shared packages, and the phone app joins it at M10. ADR-038's Java 25 is already in the tree, and
 [ADR-123](docs/ADRs/ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md)
 keeps the layout and renames three components, which the tree already uses.
 
@@ -209,7 +217,8 @@ commit, never a squash.
 | `just <component>-run` | Start it (core, optimizer, web, mobile) |
 
 The components are `core`, `optimizer`, `research`, `web` and `mobile`. `just` lists every
-recipe; `just check` and `just format` run them all.
+recipe; `just check` and `just format` run them all. The `web` recipes run from the pnpm
+workspace in `src/frontend`, so they also set up and check the shared packages.
 
 **Adding a feature end to end:** start from the requirement it delivers in
 [requirements.md](docs/requirements/requirements.md), the aggregate that owns its rule in the
@@ -232,11 +241,11 @@ comments. The rules apply to people and to coding assistants alike.
 
 | Layer | Covers | Command |
 |---|---|---|
-| Core unit (`*Test`) | Domain and use cases, no I/O. Today: the shared kernel's values, the eight modules' domains, the ArchUnit rules (purity, shape, package structure, the application layer's shape and the JPA mapping) and the web error handler; every use case is declared and none is built, so none has a behaviour test yet | `just core-check` |
-| Core integration (`*IT`) | Against a real PostgreSQL in a container. Today: the application starts, each module's aggregates are saved and loaded, with a damaged stored value refused, and the shared version helper's saves, conflicts and storing of the kernel's values are checked | `just core-check` |
+| Core unit (`*Test`) | Domain and use cases, no I/O. Today: the shared kernel's values, the eight modules' domains, the ArchUnit rules (purity, shape, package structure, the application layer's shape and the JPA mapping), the clock and ID adapters, the problem factory, and `web`'s trace filter, error handlers and call wrapper; every use case is declared and none is built, so none has a behaviour test yet | `just core-check` |
+| Core integration (`*IT`) | Against a real PostgreSQL in a container. Today: the application starts, each module's aggregates are saved and loaded, with a damaged stored value refused, the shared version helper's saves, conflicts and storing of the kernel's values are checked, and `web`'s pieces are wired in the whole application | `just core-check` |
 | Optimizer | The domain (the validator's crafted-violation catalogue, Hypothesis properties, Solomon best-known solutions accepted), the HTTP adapter, the dependency boundary and import-linter | `just optimizer-check` |
 | Research | Its environment: the optimizer and PyVRP are installed | `just research-check` |
-| Web app | Components in jsdom (Vitest + Testing Library) | `just web-check` |
+| Web app | Components in jsdom (Vitest + Testing Library), with MSW failing any request no handler answers; the shared packages' lint and format | `just web-check` |
 | Phone app | Components (Jest + React Native Testing Library) | `just mobile-check` |
 | Contracts | Both OpenAPI documents lint clean | `just contracts-check` |
 | Dependencies | Known vulnerabilities in every lockfile and the pom | `just audit` |
@@ -253,7 +262,7 @@ src/
   backend/optimizer/   optimization service (FastAPI)
   frontend/web/        web app (React + Vite)
   frontend/mobile/     phone app (Expo)
-  frontend/packages/   shared TypeScript packages, as placeholder folders until each is built
+  frontend/packages/   shared TypeScript packages: eslint-config and tsconfig, and five placeholders
   research/            benchmarks, simulation, order generator; never deployed
 contracts/             versioned OpenAPI contracts between the components
 tests/                 cross-component tests only: e2e/, load/

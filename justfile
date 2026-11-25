@@ -94,28 +94,29 @@ research-format:
     uv run --locked ruff format .
     uv run --locked ruff check --fix .
 
-# --- frontend/web: React, TypeScript, Vite, npm ---
+# --- frontend/web: React, TypeScript, Vite; the pnpm workspace in src/frontend ---
 
-[working-directory('src/frontend/web')]
+# Install the web app's and the shared packages' dependencies from the workspace lockfile.
+[working-directory('src/frontend')]
 web-setup:
-    npm ci
+    pnpm ci
 
-# Lint, format check, tests and a production build.
-[working-directory('src/frontend/web')]
+# Lint, format check, tests and a production build, in the web app and every shared package.
+[working-directory('src/frontend')]
 web-check:
-    npm run lint
-    npm run format:check
-    npm test
-    npm run build
+    pnpm -r run lint
+    pnpm -r run format:check
+    pnpm -r run test
+    pnpm -r run build
 
-[working-directory('src/frontend/web')]
+[working-directory('src/frontend')]
 web-format:
-    npm run format
+    pnpm -r run format
 
 # Start the web app's dev server.
-[working-directory('src/frontend/web')]
+[working-directory('src/frontend')]
 web-run:
-    npm run dev
+    pnpm --filter dispatchflow-web run dev
 
 # --- frontend/mobile: React Native, Expo, npm ---
 

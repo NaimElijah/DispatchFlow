@@ -1,0 +1,5 @@
+{
+  "name": "dispatchflow-frontend",
+  "private": true,
+  "packageManager": "pnpm@12.23.0"
+}

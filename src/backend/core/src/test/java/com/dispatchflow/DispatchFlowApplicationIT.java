@@ -12,7 +12,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.logging.LogLevel;
 import org.springframework.boot.logging.LoggingSystem;
+import org.springframework.context.ApplicationContext;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.scheduling.config.TaskManagementConfigUtils;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
@@ -40,6 +42,18 @@ class DispatchFlowApplicationIT {
 
     @Autowired
     private LoggingSystem loggingSystem;
+
+    @Autowired
+    private ApplicationContext context;
+
+    /** A scheduled job would run against the shared test database at any moment (ADR-140). */
+    @Test
+    void GivenTheIntegrationTestProperties_WhenTheContextStarts_ThenSchedulingIsOff() {
+        assertThat(context.containsBean(TaskManagementConfigUtils.SCHEDULED_ANNOTATION_PROCESSOR_BEAN_NAME))
+                .isFalse();
+        assertThat(context.containsBean(TaskManagementConfigUtils.ASYNC_ANNOTATION_PROCESSOR_BEAN_NAME))
+                .isTrue();
+    }
 
     @Test
     void GivenAPostgresDatabase_WhenHealthIsProbed_ThenUp() {

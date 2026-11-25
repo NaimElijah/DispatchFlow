@@ -1,0 +1,17 @@
+{
+  "name": "@dispatchflow/tsconfig",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./base.json": "./base.json",
+    "./app.json": "./app.json",
+    "./node.json": "./node.json"
+  },
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "3.10.1"
+  }
+}

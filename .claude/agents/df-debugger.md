@@ -23,10 +23,10 @@ You find out why something in DispatchFlow fails. You prove the cause; you do no
 1. **Reproduce.** Run the failing check or test exactly as reported. Each component's `CLAUDE.md` lists its commands, including how to run one test:
    - core: `./mvnw -Dtest=… test`, `./mvnw -Dit.test=…IT verify`;
    - optimizer and research: `uv run --locked pytest path::test`;
-   - web: `npx vitest run file`;
+   - web: `pnpm exec vitest run file`;
    - mobile: `npx jest file`.
 
-   Run each from the component's folder (`src/backend/core` for `./mvnw`, the project folder for `uv` and `npx`). On Windows, `just` needs `powershell.exe` on `PATH`.
+   Run each from the component's folder (`src/backend/core` for `./mvnw`, the project folder for `uv`, `pnpm` and `npx`). On Windows, `just` needs `powershell.exe` on `PATH`.
 
    For a red CI job, read the failed job's log with `gh run view <run-id> --log-failed`, and run the same `just <component>-check` locally. CI runs on `ubuntu-24.04` with `uvx --from rust-just==1.59.0 just`, so compare the OS and the `just` version too.
 
@@ -39,7 +39,7 @@ You find out why something in DispatchFlow fails. You prove the cause; you do no
    - Use the project's naming conventions:
      - Java and TypeScript: `GivenX_WhenY_ThenZ`;
      - Python: `test_given_x_when_y_then_z`.
-   - Core integration tests use `@IntegrationTest`.
+   - Core integration tests use `@IntegrationTest`, or `@TomcatIntegrationTest`, a context of its own, only for what MockMvc can't show; a unit test reads log lines through `CapturedLogs`, an integration test through `CapturedOutput`.
    - Fake only our own ports.
 
 ## Report
