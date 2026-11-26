@@ -41,7 +41,7 @@ class CallRetryTest {
     private static final Pattern LOCK_TIMEOUT = Pattern.compile("lock_timeout=(\\d+)s");
 
     private final RecordingAuditLog auditLog = new RecordingAuditLog();
-    private final CallRetry retry = new CallRetry(() -> auditLog, new FixedClock());
+    private final CallRetry retry = new CallRetry(auditLog, new FixedClock());
     private final MockHttpServletRequest withoutAVersion = new MockHttpServletRequest();
     private final MockHttpServletRequest withIfMatch = new MockHttpServletRequest();
     private final AtomicInteger tries = new AtomicInteger();
@@ -243,11 +243,7 @@ class CallRetryTest {
     void GivenAnAuditLogThatFails_WhenARaceIsAudited_ThenItsFailureIsThrownWithTheRaceSuppressed() {
         IllegalStateException auditDown = new IllegalStateException("the audit store is down");
         StaleVersion race = requireCurrentsRefusal();
-        CallRetry failingAudit = new CallRetry(
-                () -> {
-                    throw auditDown;
-                },
-                new FixedClock());
+        CallRetry failingAudit = new CallRetry(new FailingAuditLog(auditDown), new FixedClock());
 
         assertThatThrownBy(() -> failingAudit.run(withoutAVersion, OPERATION, failingFirst(1, attempt -> race)))
                 .isSameAs(auditDown)
@@ -296,6 +292,26 @@ class CallRetryTest {
             assertThat(call.user()).isEmpty();
             assertThat(records).isEmpty();
             refusals.add(new Refusal(call.operation(), call.traceId(), at, errorCode));
+        }
+    }
+
+    /** An audit log whose store is down: each refused record fails with the given failure. */
+    private static final class FailingAuditLog implements AuditLog {
+
+        private final RuntimeException failure;
+
+        FailingAuditLog(RuntimeException failure) {
+            this.failure = failure;
+        }
+
+        @Override
+        public void succeeded(CallContext call, Instant at, List<AuditedRecord> records) {
+            throw new AssertionError("the call wrapper records no success");
+        }
+
+        @Override
+        public void refused(CallContext call, Instant at, List<AuditedRecord> records, String errorCode) {
+            throw failure;
         }
     }
 

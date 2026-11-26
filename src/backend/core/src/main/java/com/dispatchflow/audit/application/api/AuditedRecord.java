@@ -22,8 +22,6 @@ import java.util.UUID;
  * from the kernel's typed ID with an {@code of} factory, which keeps the kind matched to the ID
  * (ADR-110).
  *
- * <p>To Be Implemented.
- *
  * @param kind what the ID names
  * @param id the named thing's UUID
  */
@@ -38,168 +36,140 @@ public record AuditedRecord(AuditedKind kind, UUID id) {
     /**
      * Names an account, or the driver who shares its ID.
      *
-     * <p>To Be Implemented.
-     *
      * @param id the account's ID
      * @return the audited record
      */
     public static AuditedRecord of(AccountId id) {
-        throw new UnsupportedOperationException("To Be Implemented.");
+        return new AuditedRecord(AuditedKind.ACCOUNT, id.value());
     }
 
     /**
      * Names a session.
      *
-     * <p>To Be Implemented.
-     *
      * @param id the session's ID
      * @return the audited record
      */
     public static AuditedRecord of(SessionId id) {
-        throw new UnsupportedOperationException("To Be Implemented.");
+        return new AuditedRecord(AuditedKind.SESSION, id.value());
     }
 
     /**
      * Names a depot.
      *
-     * <p>To Be Implemented.
-     *
      * @param id the depot's ID
      * @return the audited record
      */
     public static AuditedRecord of(DepotId id) {
-        throw new UnsupportedOperationException("To Be Implemented.");
+        return new AuditedRecord(AuditedKind.DEPOT, id.value());
     }
 
     /**
      * Names a vehicle.
      *
-     * <p>To Be Implemented.
-     *
      * @param id the vehicle's ID
      * @return the audited record
      */
     public static AuditedRecord of(VehicleId id) {
-        throw new UnsupportedOperationException("To Be Implemented.");
+        return new AuditedRecord(AuditedKind.VEHICLE, id.value());
     }
 
     /**
      * Names a customer.
      *
-     * <p>To Be Implemented.
-     *
      * @param id the customer's ID
      * @return the audited record
      */
     public static AuditedRecord of(CustomerId id) {
-        throw new UnsupportedOperationException("To Be Implemented.");
+        return new AuditedRecord(AuditedKind.CUSTOMER, id.value());
     }
 
     /**
      * Names an order.
      *
-     * <p>To Be Implemented.
-     *
      * @param id the order's ID
      * @return the audited record
      */
     public static AuditedRecord of(OrderId id) {
-        throw new UnsupportedOperationException("To Be Implemented.");
+        return new AuditedRecord(AuditedKind.ORDER, id.value());
     }
 
     /**
      * Names an import.
      *
-     * <p>To Be Implemented.
-     *
      * @param id the import's ID
      * @return the audited record
      */
     public static AuditedRecord of(ImportBatchId id) {
-        throw new UnsupportedOperationException("To Be Implemented.");
+        return new AuditedRecord(AuditedKind.IMPORT_BATCH, id.value());
     }
 
     /**
      * Names a plan.
      *
-     * <p>To Be Implemented.
-     *
      * @param id the plan's ID
      * @return the audited record
      */
     public static AuditedRecord of(PlanId id) {
-        throw new UnsupportedOperationException("To Be Implemented.");
+        return new AuditedRecord(AuditedKind.PLAN, id.value());
     }
 
     /**
      * Names a route.
      *
-     * <p>To Be Implemented.
-     *
      * @param id the route's ID
      * @return the audited record
      */
     public static AuditedRecord of(RouteId id) {
-        throw new UnsupportedOperationException("To Be Implemented.");
+        return new AuditedRecord(AuditedKind.ROUTE, id.value());
     }
 
     /**
      * Names a stop.
      *
-     * <p>To Be Implemented.
-     *
      * @param id the stop's ID
      * @return the audited record
      */
     public static AuditedRecord of(StopId id) {
-        throw new UnsupportedOperationException("To Be Implemented.");
+        return new AuditedRecord(AuditedKind.STOP, id.value());
     }
 
     /**
      * Names a solve job.
      *
-     * <p>To Be Implemented.
-     *
      * @param id the job's ID
      * @return the audited record
      */
     public static AuditedRecord of(JobId id) {
-        throw new UnsupportedOperationException("To Be Implemented.");
+        return new AuditedRecord(AuditedKind.JOB, id.value());
     }
 
     /**
      * Names a re-optimization proposal.
      *
-     * <p>To Be Implemented.
-     *
      * @param id the proposal's ID
      * @return the audited record
      */
     public static AuditedRecord of(ProposalId id) {
-        throw new UnsupportedOperationException("To Be Implemented.");
+        return new AuditedRecord(AuditedKind.PROPOSAL, id.value());
     }
 
     /**
      * Names an alert.
      *
-     * <p>To Be Implemented.
-     *
      * @param id the alert's ID
      * @return the audited record
      */
     public static AuditedRecord of(AlertId id) {
-        throw new UnsupportedOperationException("To Be Implemented.");
+        return new AuditedRecord(AuditedKind.ALERT, id.value());
     }
 
     /**
      * Names a rating request.
      *
-     * <p>To Be Implemented.
-     *
      * @param id the rating request's ID
      * @return the audited record
      */
     public static AuditedRecord of(RatingRequestId id) {
-        throw new UnsupportedOperationException("To Be Implemented.");
+        return new AuditedRecord(AuditedKind.RATING_REQUEST, id.value());
     }
 }

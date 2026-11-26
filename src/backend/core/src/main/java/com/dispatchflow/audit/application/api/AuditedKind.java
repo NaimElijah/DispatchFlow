@@ -4,8 +4,6 @@ package com.dispatchflow.audit.application.api;
  * What kind of thing an audited operation names (NFR-93): one constant per typed ID of the shared
  * kernel (DL §2.3 rule 5, ADR-110). A driver shares its account's ID, so it is named as an {@link
  * #ACCOUNT}. Audit's domain keeps its own copy, {@code RecordKind}.
- *
- * <p>To Be Implemented.
  */
 public enum AuditedKind {
     /** A person's account, named by an {@code AccountId}. */

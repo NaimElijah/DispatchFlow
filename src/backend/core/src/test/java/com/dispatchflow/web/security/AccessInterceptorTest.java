@@ -746,11 +746,7 @@ class AccessInterceptorTest {
     @Test
     void GivenAPreflightThatReachesAHandlerMethod_WhenTheInterceptorChecksIt_ThenItPassesWithNoPrincipal()
             throws NoSuchMethodException {
-        AccessInterceptor interceptor = new AccessInterceptor(
-                () -> {
-                    throw new AssertionError("a preflight is never audited");
-                },
-                new FixedClock());
+        AccessInterceptor interceptor = new AccessInterceptor(new NeverCalledAuditLog(), new FixedClock());
         MockHttpServletRequest preflight = new MockHttpServletRequest(HttpMethod.OPTIONS.name(), PROBE);
         preflight.addHeader(HttpHeaders.ORIGIN, "http://localhost:5173");
         preflight.addHeader(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST");
@@ -763,7 +759,7 @@ class AccessInterceptorTest {
     @Test
     void GivenTheSameHandlerMethodAndNoPreflight_WhenTheInterceptorChecksIt_ThenItRefusesTheCall()
             throws NoSuchMethodException {
-        AccessInterceptor interceptor = new AccessInterceptor(RecordingAuditLog::new, new FixedClock());
+        AccessInterceptor interceptor = new AccessInterceptor(new RecordingAuditLog(), new FixedClock());
         MDC.put(Problems.TRACE_ID, TestActors.TRACE_ID);
         try {
             assertThatThrownBy(() -> interceptor.preHandle(
@@ -908,6 +904,20 @@ class AccessInterceptorTest {
             }
             assertThat(records).isEmpty();
             refusals.add(new Refusal(call, at, errorCode));
+        }
+    }
+
+    /** An audit log the test expects never to be written to. */
+    private static final class NeverCalledAuditLog implements AuditLog {
+
+        @Override
+        public void succeeded(CallContext call, Instant at, List<AuditedRecord> records) {
+            throw new AssertionError("a preflight is never audited");
+        }
+
+        @Override
+        public void refused(CallContext call, Instant at, List<AuditedRecord> records, String errorCode) {
+            throw new AssertionError("a preflight is never audited");
         }
     }
 
