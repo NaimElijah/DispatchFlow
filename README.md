@@ -30,8 +30,8 @@ enterprise-scale fleets.
 > declared application layer, not features yet.**
 > Every component builds and passes its tests with `just check`, and CI runs the same recipes on
 > every push and on every pull request into `dev` or `main`. The application layer is declared but
-> not built, so the persistence adapters have no caller yet and none of the planning capabilities can
-> be used.
+> not built, beyond the audit log, so the other persistence adapters have no caller yet and none of
+> the planning capabilities can be used.
 > What the system must do is in [requirements.md](docs/requirements/requirements.md); what exists
 > today and what comes next are under [Status and limitations](#status-and-limitations).
 
@@ -138,8 +138,8 @@ probe, the core its health probe, the web app its shell (navigation, routes, and
 right to left once its Settings page says so), and the phone app a heading; the domain layers, in
 the core and in the optimizer, are built and tested, and their application layers are declared but
 not built.
-The core's persistence adapters store every module's aggregates in PostgreSQL, and no use case calls
-them.
+The core's persistence adapters store every module's aggregates in PostgreSQL. Only the audit log,
+which every changing call will write through, calls one.
 [architecture.md](docs/architecture/architecture.md) describes that system as it is, and
 [code-structure.md](docs/architecture/code-structure.md) the repository layout.
 
@@ -346,7 +346,7 @@ for each of those eight modules, with the two database roles and the `migrate` c
 the migrations), and the optimizer's domain for daily solves and re-optimizations
 (the validator, the objective and the drop reasons). The application layer is declared ahead too, in the core and in
 the optimizer: every use case, query, port and module API has its signature, and every body that would
-do work throws "To Be Implemented." ([ADR-119](docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md), [ADR-132](docs/ADRs/ADR-132-unbuilt-bodies-say-to-be-implemented.md)). No use case calls a persistence adapter yet.
+do work throws "To Be Implemented." ([ADR-119](docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md), [ADR-132](docs/ADRs/ADR-132-unbuilt-bodies-say-to-be-implemented.md)), but for the audit log, which writes the audit record of every change, beside the database function that will delete the records older than a year once the nightly retention run calls it ([ADR-149](docs/ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md)). No other use case calls a persistence adapter yet.
 
 Planned: the [roadmap](docs/roadmap.md) has the course calendar, the milestones M0 to M13, and the
 definition and demo script of the Alpha (M0 to M5).

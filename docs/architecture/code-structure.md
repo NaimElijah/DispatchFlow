@@ -202,7 +202,8 @@ src/backend/core/
                                    module, V2 access, V3 audit, V4 fleet, V5 liveops, V6
                                    messaging, V7 orders, V8 planning and V9 reporting; V10 refuses
                                    a negative list position on every list table; V11 grants app
-                                   what each adapter runs (data-model.md)
+                                   what each adapter runs; V12 adds the audit purge and its
+                                   cutoff (data-model.md)
   src/test/java/com/dispatchflow/
     shared/                        the kernel's tests, and DomainAssertions, the refusal helper
                                    every module's domain tests use; AsSaved, which does to an
@@ -302,11 +303,11 @@ Each module also has an `application` package, declared ahead of its milestone a
 ([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)).
 It holds whichever of `api`, `spi`, `port/out` and `service` the module has something for: `access`,
 `audit` and `liveops` have no `spi`, and `messaging` and `reporting` have neither `api` nor `spi`.
-Every body that would do work throws `UnsupportedOperationException("To Be Implemented.")`. Nothing is
-wired: the application layer registers no bean, and no use case calls a port. A use case is wired
-in its module's package-private `<Module>Configuration`, at the module's root, by joining its
-`@Import` list in the pull request that builds its body ([ADR-140][ADR-140]); every list is still
-empty, and `ApplicationRules` rule 15 keeps the root to that class and its `package-info`. The layer's one Spring
+Every body that would do work throws `UnsupportedOperationException("To Be Implemented.")`, but for
+Audit's `AuditLogService`, the one wired use case, which appends through `AuditRecords`. A use case
+is wired in its module's package-private `<Module>Configuration`, at the module's root, by joining
+its `@Import` list in the pull request that builds its body ([ADR-140][ADR-140]); every list but
+`AuditConfiguration`'s is still empty, and `ApplicationRules` rule 15 keeps the root to that class and its `package-info`. The layer's one Spring
 annotation is `@Transactional`: on every service's class, and on the read-only reads of a
 `<UseCase>Change`. A use case with outside calls, or one transaction per item, holds its
 transactional `Change`, and it carries no transaction itself; nor does a service that calls such a

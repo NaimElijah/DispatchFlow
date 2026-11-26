@@ -13,8 +13,9 @@ How DispatchFlow is built, as it is today. What it must do is in
 > each. The web plumbing is built: the `Clock` and `IdGenerator` adapters, `web`'s trace-ID filter,
 > error handlers, call wrapper and error endpoint, the JSON logs and `SchedulingConfiguration`. The
 > web app's shell is built: its routes, layout, languages and Settings page; no screen of it calls
-> the API. The application layers are declared, not built: every body that would do work throws, no
-> use case calls a persistence adapter, and no operation is served. The design the team is heading
+> the API. The application layers are declared, not built, but for Audit's `AuditLogService`, which
+> writes the audit record of every change and is wired: every other body that would do work throws,
+> no other use case calls a persistence adapter, and no operation is served. The design the team is heading
 > for is in [Target design](#target-design); this file describes none of it as built beyond that.
 
 ## Architecture overview
@@ -48,10 +49,11 @@ today.
 | `mobile` (`src/frontend/mobile`) | React Native, Expo SDK 58 | Renders a heading |
 | `research` (`src/research`) | Python, uv; never deployed | Installs `optimizer` and PyVRP in one environment, and imports neither yet: `tests/test_environment.py` only checks that both can be found. `benchmark/`, `simulation/` and `generator/` are declared, empty packages, and `results/` holds only `.gitkeep`. Its benchmark instances will live in the git-ignored `data/` |
 
-`core` has no controller. Its `src/main/resources/db/migration/` holds eleven Flyway migrations:
+`core` has no controller. Its `src/main/resources/db/migration/` holds twelve Flyway migrations:
 `V1` creates the eight module schemas, `V2` to `V9` add one module's tables each, `V10` refuses a
-negative position in every stored list, and `V11` grants `app` what each adapter runs
-([data-model.md](data-model.md)). The 20 aggregate roots are
+negative position in every stored list, `V11` grants `app` what each adapter runs, and `V12` adds
+the audit trail's purge function and its cutoff, owned by `dispatchflow_owner`, of which `app` may
+run the purge alone ([data-model.md](data-model.md)). The 20 aggregate roots are
 JPA entities: their domain classes carry the mapping, and only Hibernate rebuilds an aggregate, its
 `@PostLoad` check refusing a damaged row
 ([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md),
@@ -82,7 +84,8 @@ Hibernate batch-fetches the collections a load reads, 200 roots at a time
 module's `*PersistenceIT` tests its adapters against PostgreSQL. No aggregate keeps a `restore`
 factory or a snapshot record. Three adapter methods still throw: `SolveJobRepository`'s two blanking
 methods (`UnsupportedOperationException("To Be Implemented.")`, because nothing stores a job's input yet)
-and `AuditRecords.purgeExpired`, which waits for the audit purge function. `src/test` also holds two
+and `AuditRecords.purgeExpired`, which waits for the nightly retention run that calls the purge
+function. `src/test` also holds two
 entities that have tables, `Ledger` and its child `LedgerEntry`, and two test-only migrations in
 `src/test/resources/db/fixture/`: `V0_1`, which creates their tables, and `V0_2`, which grants `app`
 what the version helper's tests run. Flyway applies them in every integration-test context and
@@ -121,11 +124,16 @@ built ahead of their milestones, with the `events` packages of the six modules t
 Each core module also has an `application` package, and the kernel has `shared/application`. They
 are declared ahead of their milestones: every use case, query, port and module API has its signature,
 and every body that would do work throws `UnsupportedOperationException("To Be Implemented.")`. They are
-not built. Each module's root package holds only its `package-info` and a package-private
-`<Module>Configuration`, whose `@Import` list is empty: a use case and its `Change` join it in the
+not built, but for Audit's `AuditLogService`, the `AuditLog` every changing use case writes through.
+Each module's root package holds only its `package-info` and a package-private
+`<Module>Configuration`, whose `@Import` list is empty but for `AuditConfiguration`'s, which names
+`AuditLogService`: a use case and its `Change` join it in the
 pull request that builds its body, so no bean wires a throwing one ([ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md),
-decision 10). Nothing calls a port: the persistence adapters implement the repository ports, and no
-use case calls them. `com.dispatchflow.SchedulingConfiguration` turns on the asynchronous listeners
+decision 10). Only `AuditLogService` calls a port, `AuditRecords.append`: the other persistence
+adapters implement the repository ports, and no use case calls them. A success's record joins its
+change's transaction; a refusal's is written once the refused change has rolled back, by the use
+case that called its `Change`, or by the adapter that refused a call no use case saw, so a use case
+whose transaction can refuse is two classes ([ADR-149](../ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md)). `com.dispatchflow.SchedulingConfiguration` turns on the asynchronous listeners
 always, on Spring Boot's executor capped at 4 threads, with `MdcTaskDecorator` copying the caller's
 MDC to each, and the scheduled jobs unless `dispatchflow.scheduling.enabled` is off, as the
 integration tests set it. Each
@@ -204,8 +212,7 @@ Below it, `web.security` knows who the caller is
   function or the 404 of a path no operation has. It keeps the client only when `X-App-Version` is
   three numbers, and puts a signed-in caller's `accountId` and `sessionId` in the MDC, which the
   trace filter puts back on the request's error and async dispatches; a changing call to an
-  operation first writes its refused audit record, which waits for #180, as a race's does (see
-  below). No operation is open yet, and #171 adds the role check's 403 here.
+  operation first writes its refused audit record, as a race's is (see below). No operation is open yet, and #171 adds the role check's 403 here.
 
 `web.stream` and `web.e2e` are declared ahead, empty: the event stream's endpoint and the
 end-to-end tests' control endpoints. Nothing depends on `web`, and it uses only the modules'
@@ -360,7 +367,8 @@ have a `Dockerfile`, and neither runs as root
   adapter runs, and every later migration grants on the tables it creates
   ([ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md),
   decision 8). `DatabaseRolesIT` fails on a table that grants `app` nothing or more than its rows,
-  on a function open to every role, and on a schema `app` may create in
+  on a function open to every role, on a function `app` may execute other than the audit purge,
+  and on a schema `app` may create in
   ([ADR-145](../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md),
   [ADR-146](../ADRs/ADR-146-the-jar-takes-only-options-but-for-its-command-and-the-roles-guards-cover-every-object-and-log.md)).
 - **The core never migrates.** `application.properties` turns Flyway off, so the core, connected as
@@ -431,9 +439,9 @@ have a `Dockerfile`, and neither runs as root
   answers 412, and one that compared a body's version 409, at once (ADR-140, decision 6). A race
   after a read-write commit answers 500 `UNEXPECTED_ERROR` and is neither retried nor audited,
   because the change is stored and a 503 would invite a duplicate ([ADR-142](../ADRs/ADR-142-the-call-wrappers-retry-its-400s-and-its-error-endpoint-as-162-built-them.md), decisions 1
-  and 2). The refused audit record of a 412, 409 or 503, and of a changing call's 401, waits for
-  #180: `CallRetry` and `AccessInterceptor` look `AuditLog` up only when they write one, and no bean
-  exists yet, so until then such a race, or such a 401, answers 500.
+  and 2). `CallRetry` writes the refused audit record of a 412, 409 or 503, and `AccessInterceptor`
+  that of a changing call's 401, each through the injected `AuditLog` once every transaction of the
+  call has ended ([ADR-149](../ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md)).
 - **Every log line is JSON.** The console writes Elastic Common Schema, with the MDC, so every line
   of a request carries its `traceId`, and every line of a signed-in call after the access
   interceptor its `accountId` and `sessionId` too (ADR-140, decision 8).

@@ -89,12 +89,12 @@ only client (`contracts/optimization-api/v1`): Java 25, Spring Boot 4.1, JPA, Fl
   its module's package-private root `<Module>Configuration` (no `@Bean`, no scan: `ApplicationRules`
   15), delete the tag. A changed signature or new class needs every caller in the same pull request.
 - A use case follows [TS §6.2], [ADR-063], [ADR-064] and [ADR-129]:
-  - A use case is one class, or two when a `<UseCase>Change` holds its transaction. A changing one
-    changes one aggregate after its outside calls, and audits in that transaction (NFR-94).
-  - `TransactionRules` checks where transactions start, and that no transactional class or method is
-    `final`, which Spring Boot's class-based proxy can't subclass. Review checks that a service
-    changing nothing is `readOnly`, a `Change` reads in `readOnly` methods, and a refusal audits
-    after it (not a `StaleVersion` or ADR-136's lock waits: the call wrapper writes that record).
+  - A use case is one class, or two when a `<UseCase>Change` holds its transaction, as one that can
+    refuse must: it changes one aggregate after its outside calls, records success in that
+    transaction and, once the `Change` rolls back, its refusal, naming its records (ADR-149).
+  - `TransactionRules` checks where transactions start, that only a transactional class records a
+    success, and that none is `final`. Review checks `readOnly` where nothing changes and on a
+    `Change`'s reads, and each refusal's record (a `StaleVersion` or a lock wait is the wrapper's).
   - `@Retryable` and `@ConcurrencyLimit` sit on the adapter that makes the outside call, where a
     retry is safe. A listener is `@Async` and a job `@Scheduled`, through `SchedulingConfiguration`:
     add no `@Enable*`. A listener is idempotent, and each retry gets a fresh transaction.
