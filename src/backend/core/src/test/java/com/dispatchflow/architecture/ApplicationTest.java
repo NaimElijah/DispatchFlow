@@ -199,8 +199,8 @@ class ApplicationTest {
     }
 
     @Test
-    void GivenTheProductionClasses_WhenRule17IsChecked_ThenOnlyWebSecurityBuildsAnActor() {
-        ApplicationRules.onlyWebSecurityBuildsAnActor(ROOT).check(ProductionClasses.ALL);
+    void GivenTheProductionClasses_WhenRule17IsChecked_ThenOnlyWebSecurityBuildsAnActorOrACallContext() {
+        ApplicationRules.onlyWebSecurityBuildsTheCallersTypes(ROOT).check(ProductionClasses.ALL);
     }
 
     @Test

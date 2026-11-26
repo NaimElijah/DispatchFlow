@@ -1,6 +1,6 @@
 # ADR-133: A step that runs once at startup is a `job` adapter, and Access declares one
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-147
 - **Date:** 2026-11-24
 
 ## Context

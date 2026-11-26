@@ -15,11 +15,21 @@ import org.springframework.test.context.ActiveProfiles;
  * IntegrationTest} has it. It starts a Spring context of its own, so use it only for what MockMvc
  * can't show, such as Tomcat's refusal of a request's parameters or its error dispatch; everything
  * else takes {@link IntegrationTest}. It activates the {@code test} profile alone, as that one
- * does.
+ * does, and pins its server to the loopback interface, {@link #LOOPBACK}, since the stand-in signs
+ * in every call it serves.
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-@SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT, properties = IntegrationTest.STAND_IN_DISPATCHER)
+@SpringBootTest(
+        webEnvironment = WebEnvironment.RANDOM_PORT,
+        properties = {IntegrationTest.STAND_IN_DISPATCHER, TomcatIntegrationTest.LOOPBACK})
 @ActiveProfiles(StandInProfiles.TEST)
 @Import(TestcontainersConfiguration.class)
-public @interface TomcatIntegrationTest {}
+public @interface TomcatIntegrationTest {
+
+    /**
+     * The loopback interface, set where it outranks the environment, so a {@code SERVER_ADDRESS} a
+     * developer exported never lets another machine reach the test's server (ADR-148).
+     */
+    String LOOPBACK = "server.address=127.0.0.1";
+}

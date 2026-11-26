@@ -7,6 +7,8 @@ import com.dispatchflow.archfixture.zeta.ImportsNothing;
 import com.dispatchflow.archfixture.zeta.ImportsPeersUseCase;
 import com.dispatchflow.archfixture.zeta.ZetaApplication;
 import com.dispatchflow.archfixture.zeta.gate.application.api.GateActor;
+import com.dispatchflow.archfixture.zeta.gate.application.api.GateCall;
+import com.dispatchflow.archfixture.zeta.gate.application.api.GateCalls;
 import com.dispatchflow.archfixture.zeta.lower.LowerRootValue;
 import com.dispatchflow.archfixture.zeta.lower.adapter.in.web.LowerForm;
 import com.dispatchflow.archfixture.zeta.lower.adapter.out.ImplementedOutsideTheServiceService;
@@ -112,7 +114,9 @@ import com.dispatchflow.archfixture.zeta.upper.application.service.prefix.UsesAS
 import com.dispatchflow.archfixture.zeta.upper.application.service.prefixed.SiblingWithALongerName;
 import com.dispatchflow.archfixture.zeta.upper.application.service.upward.UsesTheServiceRoot;
 import com.dispatchflow.archfixture.zeta.upper.application.service.used.UsedByTheServiceRoot;
+import com.dispatchflow.archfixture.zeta.web.WebApiTakesTheActor;
 import com.dispatchflow.archfixture.zeta.web.WebBuildsTheActor;
+import com.dispatchflow.archfixture.zeta.web.WebBuildsTheCall;
 import com.dispatchflow.archfixture.zeta.web.WebControllerTakesTheActor;
 import com.dispatchflow.archfixture.zeta.web.WebReadsAModulesDomain;
 import com.dispatchflow.archfixture.zeta.web.WebReadsTheCurrentCaller;
@@ -125,9 +129,12 @@ import com.dispatchflow.archfixture.zeta.web.ZetaCallWrapper;
 import com.dispatchflow.archfixture.zeta.web.ZetaWebEndpoint;
 import com.dispatchflow.archfixture.zeta.web.ZetaWebHandler;
 import com.dispatchflow.archfixture.zeta.web.security.SessionBindsTheCurrentCaller;
+import com.dispatchflow.archfixture.zeta.web.security.SessionBindsThroughTheRead;
 import com.dispatchflow.archfixture.zeta.web.security.SessionBuildsTheActor;
+import com.dispatchflow.archfixture.zeta.web.security.SessionBuildsTheCall;
 import com.dispatchflow.archfixture.zeta.web.security.SessionUsesTheService;
 import com.dispatchflow.archfixture.zeta.web.security.SessionUsesTheWeb;
+import com.dispatchflow.archfixture.zeta.web.securityx.SecurityxBuildsTheCall;
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
@@ -212,11 +219,13 @@ class ApplicationRulesTest {
         return ApplicationRules.onlyTheWebReadsTheCallsHolders(ROOT, CALLS_HOLDERS);
     }
 
-    // The fixtures' stand-in for Access's Actor, which only web.security may build.
+    // The fixtures' stand-ins for Access's Actor and Audit's CallContext, which only web.security
+    // builds, beside the call's own server step.
     private static final String ACTOR = "gate.application.api.GateActor";
+    private static final String CALL = "gate.application.api.GateCall";
 
     private static ArchRule rule17() {
-        return ApplicationRules.onlyWebSecurityBuilds(ROOT, ACTOR);
+        return ApplicationRules.onlyWebSecurityBuilds(ROOT, Set.of(ACTOR, CALL));
     }
 
     // The fixtures' stand-in for web's call wrapper.
@@ -1136,8 +1145,13 @@ class ApplicationRulesTest {
     }
 
     @Test
-    void GivenTheZetaFixtures_WhenRule17Evaluates_ThenExactlyTheClassOutsideWebSecurityBuildingTheActorIsFlagged() {
-        assertThat(violators(rule17(), zeta())).containsExactly(WebBuildsTheActor.class.getName());
+    void GivenTheZetaFixtures_WhenRule17Evaluates_ThenExactlyTheClassesBuildingTheCallersTypesElsewhereAreFlagged() {
+        assertThat(violators(rule17(), zeta()))
+                .containsExactlyInAnyOrder(
+                        WebBuildsTheActor.class.getName(),
+                        WebBuildsTheCall.class.getName(),
+                        GateCalls.class.getName(),
+                        SecurityxBuildsTheCall.class.getName());
     }
 
     @Test
@@ -1156,8 +1170,48 @@ class ApplicationRulesTest {
     }
 
     @Test
-    void GivenTheZetaFixtures_WhenRule18Evaluates_ThenExactlyTheClassOtherThanTheWrapperBindingTheHolderIsFlagged() {
-        assertThat(violators(rule18(), zeta())).containsExactly(SessionBindsTheCurrentCaller.class.getName());
+    void GivenAClassOutsideWebSecurity_WhenItBuildsACall_ThenItIsReported() {
+        List<String> messages = violationMessages(rule17(), FixtureClasses.only(WebBuildsTheCall.class));
+
+        assertThat(messages).hasSize(2);
+        assertThat(messages).anySatisfy(message -> assertThat(message).contains("calls constructor"));
+        assertThat(messages).anySatisfy(message -> assertThat(message).contains("references constructor"));
+    }
+
+    @Test
+    void GivenWebSecurityAndTheCallsOwnServerStepBuildingIt_WhenRule17Evaluates_ThenNothingIsFlagged() {
+        assertThat(violators(rule17(), FixtureClasses.only(SessionBuildsTheCall.class, GateCall.class)))
+                .isEmpty();
+    }
+
+    @Test
+    void GivenAnotherClassOfTheCallsOwnModule_WhenItBuildsACall_ThenItIsReported() {
+        assertThat(violators(rule17(), FixtureClasses.only(GateCalls.class)))
+                .containsExactly(GateCalls.class.getName());
+    }
+
+    @Test
+    void GivenAPackageThatOnlySharesWebSecuritysPrefix_WhenItBuildsACall_ThenItIsReported() {
+        assertThat(violators(rule17(), FixtureClasses.only(SecurityxBuildsTheCall.class)))
+                .containsExactly(SecurityxBuildsTheCall.class.getName());
+    }
+
+    @Test
+    void GivenTheZetaFixtures_WhenRule18Evaluates_ThenExactlyTheClassesOtherThanTheWrapperBindingTheHolderAreFlagged() {
+        assertThat(violators(rule18(), zeta()))
+                .containsExactlyInAnyOrder(
+                        SessionBindsTheCurrentCaller.class.getName(), SessionBindsThroughTheRead.class.getName());
+    }
+
+    @Test
+    void GivenAnOverloadOfTheHoldersRead_WhenAClassOtherThanTheWrapperBindsThroughIt_ThenItIsReported() {
+        JavaClasses binder = FixtureClasses.only(SessionBindsThroughTheRead.class, UpperCurrentCaller.class);
+
+        assertThat(violators(rule18(), binder)).containsExactly(SessionBindsThroughTheRead.class.getName());
+        assertThat(violationMessages(rule18(), binder))
+                .singleElement()
+                .satisfies(
+                        message -> assertThat(message).contains("calls method").contains(".get("));
     }
 
     @Test
@@ -1210,9 +1264,30 @@ class ApplicationRulesTest {
     }
 
     @Test
-    void GivenTheZetaFixtures_WhenRule21Evaluates_ThenExactlyTheControllerTakingTheActorIsFlagged() {
+    void GivenTheZetaFixtures_WhenRule21Evaluates_ThenExactlyTheHandlersTakingTheActorAreFlagged() {
         assertThat(violators(ApplicationRules.noHandlerTakes(ROOT, Set.of(ACTOR)), zeta()))
-                .containsExactly(WebControllerTakesTheActor.class.getName());
+                .containsExactlyInAnyOrder(
+                        WebControllerTakesTheActor.class.getName(), WebApiTakesTheActor.class.getName());
+    }
+
+    @Test
+    void GivenAControllerTakingTheActorItselfInATypeArgumentAndAsAnArray_WhenRule21Evaluates_ThenEachIsReported() {
+        List<String> messages = violationMessages(
+                ApplicationRules.noHandlerTakes(ROOT, Set.of(ACTOR)),
+                FixtureClasses.only(WebControllerTakesTheActor.class));
+
+        assertThat(messages).hasSize(3);
+        assertThat(messages).anySatisfy(message -> assertThat(message).contains(".act(" + ROOT + "." + ACTOR + ")"));
+        assertThat(messages).anySatisfy(message -> assertThat(message).contains(".actIfSignedIn("));
+        assertThat(messages).anySatisfy(message -> assertThat(message).contains(".actForAll("));
+    }
+
+    @Test
+    void GivenAMappedInterfaceMethodTakingTheActor_WhenRule21Evaluates_ThenItIsReported() {
+        assertThat(violators(
+                        ApplicationRules.noHandlerTakes(ROOT, Set.of(ACTOR)),
+                        FixtureClasses.only(WebApiTakesTheActor.class)))
+                .containsExactly(WebApiTakesTheActor.class.getName());
     }
 
     @Test

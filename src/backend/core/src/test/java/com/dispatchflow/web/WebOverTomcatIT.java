@@ -3,6 +3,7 @@ package com.dispatchflow.web;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.TestActors;
 import com.dispatchflow.TomcatIntegrationTest;
 import com.dispatchflow.shared.adapter.in.web.Problems;
 import jakarta.servlet.FilterChain;
@@ -37,10 +38,13 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.annotation.Order;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.mock.http.MockHttpInputMessage;
+import org.springframework.stereotype.Component;
+import org.springframework.web.HttpRequestHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -56,7 +60,11 @@ import tools.jackson.databind.json.JsonMapper;
  * Tomcat (ADR-142 decision 5).
  */
 @TomcatIntegrationTest
-@Import({WebOverTomcatIT.EscapingController.class, WebOverTomcatIT.ParameterReadingFilter.class})
+@Import({
+    WebOverTomcatIT.EscapingController.class,
+    WebOverTomcatIT.ParameterReadingFilter.class,
+    WebOverTomcatIT.LegacyHandler.class
+})
 @ExtendWith(OutputCaptureExtension.class)
 class WebOverTomcatIT {
 
@@ -76,6 +84,9 @@ class WebOverTomcatIT {
 
     @Autowired
     private JsonMapper json;
+
+    @Autowired
+    private Environment environment;
 
     private final HttpClient client =
             HttpClient.newBuilder().connectTimeout(TIMEOUT).build();
@@ -284,6 +295,55 @@ class WebOverTomcatIT {
         assertThat(newOutput()).doesNotContain(SENTINEL).doesNotContain(TOMCATS_OWN_LINE);
     }
 
+    /**
+     * Failsafe exports {@code SERVER_ADDRESS=0.0.0.0} to every integration test, as a developer might
+     * for a phone; the annotation's own setting outranks it, so this server still listens on the
+     * loopback interface alone (ADR-148 decision 3).
+     */
+    @Test
+    void GivenAnExportedServerAddress_WhenTheTestsServerStarts_ThenItListensOnTheLoopbackAlone() {
+        assertThat(environment.getProperty("server.address"))
+                .isEqualTo(InetAddress.getLoopbackAddress().getHostAddress());
+    }
+
+    /**
+     * The trace filter clears the MDC when the request's own dispatch ends; on the error dispatch it
+     * puts the signed-in caller back, so the error endpoint's one ERROR line says whose call failed.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {EscapingController.API_ESCAPING, EscapingController.API_ESCAPING_LATER})
+    void GivenASignedInCallWhoseExceptionEscapesEveryAdvice_WhenTomcatDispatchesIt_ThenTheErrorLineNamesTheCaller(
+            String path) throws Exception {
+        HttpResponse<String> response = send(to(path).GET());
+
+        problemOf(response, 500, WebCodes.UNEXPECTED_ERROR);
+        theOneErrorLine();
+        assertThat(linesMentioning(EscapedEveryAdvice.class.getName()))
+                .singleElement()
+                .satisfies(line -> {
+                    assertThat(line.path("accountId").asString())
+                            .isEqualTo(TestActors.dispatcher().account().value().toString());
+                    assertThat(line.path("sessionId").asString()).hasSize(36);
+                });
+    }
+
+    @Test
+    void GivenNoPrincipal_WhenAnHttpRequestHandlerUnderApiV1IsCalled_ThenTheOne401AndNoErrorLine() throws Exception {
+        // A presented token fails until #199, so the call has no principal.
+        HttpResponse<String> response = send(to(LegacyHandler.PATH)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer not-a-token")
+                .POST(BodyPublishers.noBody()));
+
+        JsonNode problem = problemOf(response, 401, Problems.ACCESS_TOKEN_REFUSED);
+        assertThat(response.headers().allValues(HttpHeaders.WWW_AUTHENTICATE))
+                .containsExactly(Problems.BEARER_CHALLENGE);
+        assertThat(problem.path("params").isObject()).isTrue();
+        assertThat(problem.path("params").isEmpty()).isTrue();
+        assertThat(response.body()).doesNotContain(SENTINEL);
+        assertThat(newErrorLines()).isEmpty();
+        assertThat(newOutput()).doesNotContain(TOMCATS_OWN_LINE);
+    }
+
     @Test
     void GivenAnExceptionThatEscapesEveryAdvice_WhenTomcatDispatchesIt_ThenA500ProblemAndOneJsonErrorLine()
             throws Exception {
@@ -328,15 +388,17 @@ class WebOverTomcatIT {
         static final String ESCAPING = "/web-over-tomcat-it/escaping";
         static final String ESCAPING_LATER = "/web-over-tomcat-it/escaping-later";
         static final String ESCAPING_AFTER_COMMIT = "/web-over-tomcat-it/escaping-after-commit";
+        static final String API_ESCAPING = "/api/v1/web-over-tomcat-it/escaping";
+        static final String API_ESCAPING_LATER = "/api/v1/web-over-tomcat-it/escaping-later";
         static final String FORM = "/web-over-tomcat-it/form";
         static final String BEGUN = "begun";
 
-        @GetMapping(ESCAPING)
+        @GetMapping({ESCAPING, API_ESCAPING})
         String escape() {
             throw escaped();
         }
 
-        @GetMapping(ESCAPING_LATER)
+        @GetMapping({ESCAPING_LATER, API_ESCAPING_LATER})
         Callable<String> escapeLater() {
             return () -> {
                 throw escaped();
@@ -369,6 +431,22 @@ class WebOverTomcatIT {
 
         EscapedEveryAdvice(Throwable cause) {
             super("escaped every advice", cause);
+        }
+    }
+
+    /**
+     * A handler under {@code /api/v1} that is no annotated handler method, which its bean name maps:
+     * Spring's advice never sees an exception of its type, so only the refusal's own status answers
+     * a call to it with no principal (ADR-148 decision 4).
+     */
+    @Component(LegacyHandler.PATH)
+    static class LegacyHandler implements HttpRequestHandler {
+
+        static final String PATH = "/api/v1/web-over-tomcat-it/legacy";
+
+        @Override
+        public void handleRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
+            response.getWriter().write(SENTINEL);
         }
     }
 

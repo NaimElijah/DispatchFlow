@@ -97,6 +97,16 @@ class StandInGuardTest {
     }
 
     @Test
+    void GivenOnlyTheTestProfileAndABlankAccount_WhenTheContextStarts_ThenItRefusesNamingThatProfile() {
+        under(StandInProfiles.TEST)
+                .withPropertyValues(StandInSession.ACCOUNT + "=")
+                .run(context -> {
+                    refusedNaming(context, "is unset");
+                    refusedNaming(context, "[" + StandInProfiles.TEST + "]");
+                });
+    }
+
+    @Test
     void GivenNoGuardBean_WhenTheStandInSessionIsMadeInADeployedEnvironment_ThenItRefusesToStart() {
         new ApplicationContextRunner()
                 .withInitializer(ProcessEnvironment.empty())
@@ -230,6 +240,34 @@ class StandInGuardTest {
         under(StandInProfiles.DEV)
                 .withPropertyValues(StandInSession.ACCOUNT + "=nobody")
                 .run(context -> refusedNaming(context, "nobody"));
+    }
+
+    @Test
+    void GivenAnEntryWithNoRoles_WhenTheContextStarts_ThenItRefusesToStart() {
+        // A seeded account with no role would sign every call in as a caller who may do nothing.
+        under(StandInProfiles.TEST)
+                .withPropertyValues(SeededAccounts.PREFIX + ".dispatcher.roles=")
+                .run(context -> refusedBecause(context, IllegalArgumentException.class, "at least one role"));
+    }
+
+    @Test
+    void GivenAnEntryWithARoleThatDoesNotExist_WhenTheContextStarts_ThenItRefusesToStart() {
+        under(StandInProfiles.TEST)
+                .withPropertyValues(SeededAccounts.PREFIX + ".dispatcher.roles=CAPTAIN")
+                .run(context -> refusedBecause(context, IllegalArgumentException.class, "CAPTAIN"));
+    }
+
+    @Test
+    void GivenAnEntryWithNoId_WhenTheContextStarts_ThenItRefusesToStart() {
+        under(StandInProfiles.TEST)
+                .withPropertyValues(SeededAccounts.PREFIX + ".ghost.roles=DRIVER")
+                .run(context -> refusedBecause(context, NullPointerException.class, "id"));
+    }
+
+    private static void refusedBecause(
+            AssertableApplicationContext context, Class<? extends Throwable> cause, String named) {
+        assertThat(context).hasFailed();
+        assertThat(context.getStartupFailure()).rootCause().isInstanceOf(cause).hasMessageContaining(named);
     }
 
     @Test

@@ -284,10 +284,16 @@ final class ApplicationRules {
      */
     static final Set<String> CALLS_HOLDERS = Set.of(CURRENT_ACTOR, CURRENT_CALL);
 
-    /** The signed-in caller's {@code Actor}, below the root, which only {@code web.security} builds (rule 17). */
+    /**
+     * The signed-in caller's {@code Actor}, below the root, which only {@code web.security} builds
+     * (rule 17), and no handler takes as a parameter (rule 21).
+     */
     static final String ACTOR = "access.application.api.Actor";
 
-    /** The call's {@code CallContext}, below the root, which no handler takes as a parameter (rule 21). */
+    /**
+     * The call's {@code CallContext}, below the root, which only {@code web.security} builds, beside
+     * its own {@code serverStep} (rule 17), and no handler takes as a parameter (rule 21).
+     */
     static final String CALL_CONTEXT = "audit.application.api.CallContext";
 
     /** The one class, below the root, that binds the call's holders (rule 18), with its nested classes. */
@@ -296,7 +302,7 @@ final class ApplicationRules {
     /** The holders' one method that reads; every other binds (rule 18). */
     private static final String HOLDERS_READ = "get";
 
-    /** The package of {@code web} that proves who the caller is (rule 17). */
+    /** The package of {@code web} that proves who the caller is (rules 17 and 20). */
     private static final String SECURITY = "security";
 
     private ApplicationRules() {}
@@ -898,31 +904,36 @@ final class ApplicationRules {
     }
 
     /**
-     * Rule 17, for production's {@link #ACTOR}: only {@code web.security} builds an {@code Actor}
-     * (ADR-140 decision 4).
+     * Rule 17, for production's {@link #ACTOR} and {@link #CALL_CONTEXT}: only {@code web.security}
+     * builds an {@code Actor} or a {@code CallContext}, beside the context's own {@code serverStep}
+     * (ADR-140 decision 4, ADR-148).
      */
-    static ArchRule onlyWebSecurityBuildsAnActor(String root) {
-        return onlyWebSecurityBuilds(root, ACTOR);
+    static ArchRule onlyWebSecurityBuildsTheCallersTypes(String root) {
+        return onlyWebSecurityBuilds(root, Set.of(ACTOR, CALL_CONTEXT));
     }
 
     /**
-     * Rule 17, with the actor's type given, so the fixtures can bring their own: no class outside
-     * {@code web.security}, and below it, calls the actor's constructor or refers to it, as {@code
-     * Actor::new} does. The actor comes from the request's principal, which only {@code
-     * web.security} proves: from the stand-in session now, and from the access token after sign-in.
-     * A use case takes its {@code Actor} as a parameter, and a controller reads {@code CurrentActor}.
-     * The rule reads production classes alone, so a test builds one through {@code TestActors}.
+     * Rule 17, with the types given, so the fixtures can bring their own: no class outside {@code
+     * web.security}, and below it, calls a type's constructor or refers to it, as {@code Actor::new}
+     * does, but the type itself, whose own factory, such as {@code CallContext.serverStep}, names no
+     * one. Both types name the caller, whom only {@code web.security} proves: from the stand-in
+     * session now, and from the access token after sign-in. So a use case takes its {@code Actor} or
+     * {@code CallContext} as a parameter, a controller reads {@code CurrentActor} or {@code
+     * CurrentCall}, and a job or a listener takes {@code CallContext.serverStep}, so no class can
+     * put another account in an audit record (NFR-93): not even another class of Audit. The rule
+     * reads production classes alone, so a test builds them through {@code TestActors}. It sees
+     * calls and references, not reflection, which review checks.
      *
-     * @param actor the actor's type, by its name below the root, such as {@code
+     * @param types the types, by their names below the root, such as {@code
      *     access.application.api.Actor}
      */
-    static ArchRule onlyWebSecurityBuilds(String root, String actor) {
-        String actorName = root + "." + actor;
+    static ArchRule onlyWebSecurityBuilds(String root, Set<String> types) {
+        Set<String> typeNames = types.stream().map(type -> root + "." + type).collect(Collectors.toUnmodifiableSet());
         String security = root + "." + WEB + "." + SECURITY;
         return classes()
                 .that()
                 .resideInAPackage(root + "..")
-                .should(new ArchCondition<>("build no " + actor + " outside web.security") {
+                .should(new ArchCondition<>("build no " + new TreeSet<>(types) + " outside web.security") {
                     @Override
                     public void check(JavaClass item, ConditionEvents events) {
                         if (isIn(item.getPackageName(), security)) {
@@ -931,14 +942,16 @@ final class ApplicationRules {
                         Stream.concat(
                                         item.getConstructorCallsFromSelf().stream(),
                                         item.getConstructorReferencesFromSelf().stream())
+                                .filter(access -> typeNames.contains(
+                                        access.getTargetOwner().getName()))
                                 .filter(access ->
-                                        access.getTargetOwner().getName().equals(actorName))
+                                        !isOrNests(item, access.getTargetOwner().getName()))
                                 .forEach(access ->
                                         events.add(SimpleConditionEvent.violated(item, access.getDescription())));
                     }
                 })
-                .because("ADR-140 decision 4: only web.security proves who the caller is, so only it builds the"
-                        + " Actor a use case takes");
+                .because("ADR-140 decision 4 and ADR-148: only web.security proves who the caller is, so only it"
+                        + " builds what names the caller, beside a type's own factory, which names no one");
     }
 
     /**
@@ -953,9 +966,10 @@ final class ApplicationRules {
      * Rule 18, with the holders and the wrapper given, so the fixtures can bring their own: no class
      * but the wrapper and its nested classes calls, or refers to, a holder's method other than
      * {@code get()} with no parameter, which reads. Every other method binds, so a binding method
-     * added under a new name, or as an overload of {@code get}, is caught too. A holder's own use of its methods is no dependency. Rule 14 already keeps the
-     * holders to {@code web} and the controllers; this keeps a controller, or another class of
-     * {@code web}, from binding a caller of its own choosing.
+     * added under a new name, or as an overload of {@code get}, is caught too. A holder's own use of
+     * its methods is no dependency. Rule 14 already keeps the holders to {@code web} and the
+     * controllers; this keeps a controller, or another class of {@code web}, from binding a caller of
+     * its own choosing. It sees calls and references, not reflection, which review checks.
      *
      * @param holders the holders, by their names below the root
      * @param wrapper the wrapper, by its name below the root, such as {@code web.CallWrapper}
@@ -1039,10 +1053,12 @@ final class ApplicationRules {
     /**
      * Rule 21, with the types given, so the fixtures can bring their own: no handler method, a
      * method of a {@code @Controller} or one annotated {@code @RequestMapping} or a variant, as rule
-     * 16 reads them, declares a parameter of one of the types. Spring MVC would build such a
-     * parameter from the request's own parameters, by its constructor, which rule 17 can't see, so a
-     * client would choose its caller. A controller reads {@code CurrentActor} or {@code CurrentCall}
-     * instead.
+     * 16 reads them, declares a parameter that is one of the types, holds one as a type argument, as
+     * {@code Optional<Actor>} does, or is an array of one. Spring MVC would build such a parameter
+     * from the request's own parameters, by its constructor, which rule 17 can't see, so a client
+     * would choose its caller. A controller reads {@code CurrentActor} or {@code CurrentCall}
+     * instead. A type of the handler's own that holds one as a field is out of the rule's reach, and
+     * left to review.
      *
      * @param types the types, by their names below the root
      */
@@ -1059,12 +1075,13 @@ final class ApplicationRules {
                                 .filter(method -> controller
                                         || method.isAnnotatedWith(REQUEST_MAPPING)
                                         || method.isMetaAnnotatedWith(REQUEST_MAPPING))
-                                .forEach(method -> method.getRawParameterTypes().stream()
-                                        .filter(parameter -> typeNames.contains(parameter.getName()))
-                                        .forEach(parameter -> events.add(SimpleConditionEvent.violated(
-                                                item,
-                                                method.getFullName() + " is a handler that takes a "
-                                                        + parameter.getName()))));
+                                .forEach(method -> method.getParameterTypes().stream()
+                                        .flatMap(parameter -> parameter.getAllInvolvedRawTypes().stream())
+                                        .map(involved -> baseType(involved).getName())
+                                        .filter(typeNames::contains)
+                                        .distinct()
+                                        .forEach(taken -> events.add(SimpleConditionEvent.violated(
+                                                item, method.getFullName() + " is a handler that takes a " + taken))));
                     }
                 })
                 .because("ADR-140 decision 4: the caller comes from the principal web.security proved, never from"

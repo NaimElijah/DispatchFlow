@@ -50,6 +50,7 @@ class WebIT {
     private static final String TRACEPARENT = "00-" + TRACE_ID + "-00f067aa0ba902b7-01";
     private static final String HEALTH = "/actuator/health";
     private static final String NO_SUCH_ROUTE = "/web-it/no-such-route";
+    private static final String API_V1_NO_SUCH_ROUTE = "/api/v1/web-it/no-such-route";
     private static final String BOUNDARY = "web-it-boundary";
     private static final String PAGE_NOT_FOUND = "org.springframework.web.servlet.PageNotFound";
 
@@ -70,6 +71,33 @@ class WebIT {
 
     @Autowired
     private ApplicationContext context;
+
+    /**
+     * A path no operation has under {@code /api/v1} reaches the static-resource handler, which the
+     * access interceptor sees, so a call with no principal gets the one 401 before the 404: here a
+     * presented token, which fails until #199, leaves the call without one (ADR-148 decision 4).
+     */
+    @Test
+    void GivenACallWithNoPrincipalToAPathNoOperationHasUnderApiV1_WhenItArrives_ThenTheOne401() {
+        MvcTestResult result = mvc.get()
+                .uri(API_V1_NO_SUCH_ROUTE)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer not-a-token")
+                .exchange();
+
+        assertThat(result).hasStatus(HttpStatus.UNAUTHORIZED);
+        assertThat(result.getResponse().getHeaders(HttpHeaders.WWW_AUTHENTICATE))
+                .containsExactly(Problems.BEARER_CHALLENGE);
+        assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo(Problems.ACCESS_TOKEN_REFUSED);
+        assertThat(result).bodyJson().extractingPath("$.params").asMap().isEmpty();
+    }
+
+    @Test
+    void GivenTheStandInsCallToAPathNoOperationHasUnderApiV1_WhenItArrives_ThenNoSuchOperation() {
+        MvcTestResult result = mvc.get().uri(API_V1_NO_SUCH_ROUTE).exchange();
+
+        assertThat(result).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo(WebCodes.NO_SUCH_OPERATION);
+    }
 
     @Test
     void GivenTheApplication_WhenItsHandlerAdapterIsRead_ThenItIsTheCallWrappersRetryingAdapter() {

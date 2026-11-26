@@ -3,6 +3,7 @@ package com.dispatchflow.web;
 import com.dispatchflow.shared.adapter.in.web.FilterOrder;
 import com.dispatchflow.shared.adapter.in.web.Problems;
 import com.dispatchflow.shared.adapter.in.web.TraceIds;
+import com.dispatchflow.web.security.Caller;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.RequestDispatcher;
@@ -29,7 +30,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * text in it.
  *
  * <p>An async or error dispatch of the same request runs it again, and puts back the ID the first
- * pass kept in a request attribute, so the request's every line carries one ID.
+ * pass kept in a request attribute, so the request's every line carries one ID, and the signed-in
+ * caller's account and session IDs that the access interceptor named (ADR-148).
  *
  * <p>An exception that escapes every exception handler on a request or async dispatch is handed to
  * Tomcat's error page here, while the MDC still holds the ID, as Spring Boot's {@code
@@ -60,8 +62,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 class TraceIdFilter extends OncePerRequestFilter {
 
     /**
-     * Ahead of Spring Boot's request-context filter (-105) and Spring Security's chain (-100), with
-     * room left before it for ADR-071's rate limiter to run after it ({@link FilterOrder}).
+     * Ahead of Spring Boot's request-context filter (-105) and Spring Security's chain (-100), and
+     * of ADR-071's rate limiter, which runs after it ({@link FilterOrder}).
      */
     static final int ORDER = FilterOrder.TRACE_ID;
 
@@ -86,6 +88,8 @@ class TraceIdFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         MDC.put(Problems.TRACE_ID, traceIdOf(request));
+        // Empty on the request's own dispatch, whose caller the access interceptor names later.
+        Caller.of(request).ifPresent(Caller::putInTheMdc);
         try {
             if (request.getDispatcherType() == DispatcherType.REQUEST && !hasAPathSpringCanParse(request)) {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST);

@@ -62,7 +62,7 @@ public record Caller(CallContext call, Optional<Actor> actor) {
      *
      * @param request the request
      * @return the caller, or empty for a handler outside {@code /api/v1}, which the interceptor
-     *     doesn't see
+     *     doesn't see, and for a signed-in call to a handler that is no annotated handler method
      */
     public static Optional<Caller> of(HttpServletRequest request) {
         return request.getAttribute(ATTRIBUTE) instanceof Caller caller ? Optional.of(caller) : Optional.empty();
@@ -98,8 +98,17 @@ public record Caller(CallContext call, Optional<Actor> actor) {
      */
     void keepFor(HttpServletRequest request) {
         request.setAttribute(ATTRIBUTE, this);
-        // The trace filter clears the MDC when the request ends, and the asynchronous listeners'
-        // decorator copies it, so every later line of the call says who made it.
+        putInTheMdc();
+    }
+
+    /**
+     * Puts a signed-in caller's account and session IDs in the MDC under {@link #ACCOUNT_ID} and
+     * {@link #SESSION_ID}, and nothing for a caller who isn't signed in. The trace filter clears the
+     * MDC when each dispatch ends, so it puts them back on an error or async dispatch of the same
+     * request, and the asynchronous listeners' decorator copies them, so every later line of the
+     * call says who made it.
+     */
+    public void putInTheMdc() {
         call.user().ifPresent(account -> MDC.put(ACCOUNT_ID, account.value().toString()));
         call.session().ifPresent(session -> MDC.put(SESSION_ID, session.value().toString()));
     }

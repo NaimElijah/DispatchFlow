@@ -176,11 +176,13 @@ The application-wide `web` package, `com.dispatchflow.web`, is no module. It hol
 
 Below it, `web.security` knows who the caller is
 ([ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md), decisions 3, 4 and
-7; [ADR-147](../ADRs/ADR-147-the-stand-in-condition-sits-in-the-root-package-and-a-refused-access-token-answers-one-code.md)):
+7; [ADR-147](../ADRs/ADR-147-the-stand-in-condition-sits-in-the-root-package-and-a-refused-access-token-answers-one-code.md),
+[ADR-148](../ADRs/ADR-148-the-stand-in-serves-only-its-own-origin-every-unsigned-api-call-answers-401-and-the-guard-outlives-the-session.md)):
 
-- `StandInSession`, a servlet filter after `TraceIdFilter`, makes every request that presents no
-  credential, neither an `Authorization` header nor the `__Host-refresh` cookie, and comes to a
-  loopback host name from no other site's page, signed in as an entry of
+- `StandInSession`, a servlet filter after `TraceIdFilter`, signs in every request that presents no
+  credential, neither an `Authorization` header nor the `__Host-refresh` cookie, names a loopback
+  host in its own `Host` header, and comes from no other origin's page (its `Sec-Fetch-Site` is
+  absent, `same-origin` or `none`, never `same-site`, `cross-site` or another value), as an entry of
   `seeded-accounts.properties`: the one shared list of seeded accounts, which the `dev` and `test`
   profiles import, each entry a fixed account ID, its roles, an address and a language. It is the
   entry `dispatchflow.stand-in.account` names, which the `test` profile and `just core-run` set to
@@ -188,7 +190,8 @@ Below it, `web.security` knows who the caller is
   mistake. It has a fixed session. It
   exists only when the active profiles are exactly `dev` or exactly `test` (`@StandInOnly`, whose
   condition, `StandInProfiles`, sits in the root package so every module's stand-in adapters can use
-  it too). Sign-in replaces it with a token filter (#199).
+  it too). Sign-in replaces it with a token filter (#199), and keeps `StandInGuard` while any
+  other stand-in exists.
 - `StandInGuard` refuses to boot with the stand-in's configuration under any other set of profiles,
   `dev` beside `e2e` included, or, where a stand-in may run, when `DISPATCHFLOW_DEPLOYED` or a
   provider's credential key is set. Its messages name the keys, never their values.
@@ -196,10 +199,12 @@ Below it, `web.security` knows who the caller is
   principal and the chosen handler: the `CallContext`, with the account and session, the client the
   `X-App` and `X-App-Version` headers declare, the handler's operation and the trace ID, and the
   `Actor` when the caller is signed in. A call with no principal answers 401
-  `ACCESS_TOKEN_REFUSED`, with exactly `WWW-Authenticate: Bearer`, through `NotSignedInHandler`. It
-  keeps the client only when `X-App-Version` is three numbers, and puts a signed-in caller's
-  `accountId` and `sessionId` in the MDC; a
-  changing call first writes its refused audit record, which waits for #180, as a race's does (see
+  `ACCESS_TOKEN_REFUSED`, with exactly `WWW-Authenticate: Bearer`, through `NotSignedInHandler`,
+  whatever handler it reaches, one that isn't an annotated method included, such as a router
+  function or the 404 of a path no operation has. It keeps the client only when `X-App-Version` is
+  three numbers, and puts a signed-in caller's `accountId` and `sessionId` in the MDC, which the
+  trace filter puts back on the request's error and async dispatches; a changing call to an
+  operation first writes its refused audit record, which waits for #180, as a race's does (see
   below). No operation is open yet, and #171 adds the role check's 403 here.
 
 `web.stream` and `web.e2e` are declared ahead, empty: the event stream's endpoint and the
@@ -296,15 +301,18 @@ have a `Dockerfile`, and neither runs as root
   dependency on `web`, so `web` sits above the modules. Rule 14, also ADR-140's, lets only
   `web` and the modules' `adapter.in.web` use `CurrentActor` and `CurrentCall`, the holders of a web
   call's caller, rule 18 lets only `web`'s call wrapper bind them, and rule 17 lets only
-  `web.security` build an `Actor`; a test checks that each holder rule 14 names exists. Rule 15,
+  `web.security` build an `Actor` or a `CallContext`, beside the context's own `serverStep`; a test
+  checks that each
+  holder rule 14 names exists. Rule 15,
   also ADR-140's, keeps each module's root package to its
   `package-info` and its package-private `<Module>Configuration`, which declares no `@Bean` and no
   scan and imports only its own module's `application.service` classes. Rules 19 and 20 are
   [ADR-147](../ADRs/ADR-147-the-stand-in-condition-sits-in-the-root-package-and-a-refused-access-token-answers-one-code.md)'s:
-  the root package uses nothing below it, so the adapters may use its `@StandInOnly` without a
+  the root package uses nothing below it, so the adapters may use its `StandInProfiles` and
+  `@StandInOnly` without a
   cycle, and `web.security` uses no class directly in `web`, which depends on it. Rule 21, also
-  ADR-147's, lets no handler take an `Actor` or a `CallContext`, which Spring would build from the
-  request's parameters.
+  ADR-147's, lets no handler take an `Actor` or a `CallContext`, alone, as a type argument or in an
+  array, which Spring would build from the request's parameters.
   The purity rules also allow the persistence annotations that [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) lists in the domain and the
   kernel, and `PersistenceRules` has nine rules on how the domain is mapped: every aggregate root an
   `@Entity`, relationships only inside

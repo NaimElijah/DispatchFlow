@@ -1,6 +1,6 @@
 # ADR-140: The app-wide `web` package sits above the modules, and what they need from it sits beside the kernel
 
-- **Status:** Accepted; extended by ADR-147; amended by ADR-142 and ADR-147
+- **Status:** Accepted; extended by ADR-147 and ADR-148; amended by ADR-142, ADR-147 and ADR-148
 - **Date:** 2026-11-25
 
 ## Context

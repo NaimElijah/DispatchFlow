@@ -79,6 +79,20 @@ class CallerTest {
     }
 
     @Test
+    void GivenTwoXAppVersionHeaders_WhenTheClientIsRead_ThenItIsLeftOut() {
+        MockHttpServletRequest request = declaring("web", "1.4.0");
+        request.addHeader(Caller.X_APP_VERSION, "1.4.1");
+
+        assertThat(Caller.clientOf(request)).isEmpty();
+    }
+
+    @Test
+    void GivenNineDigitParts_WhenTheClientIsRead_ThenItIsTheRelease() {
+        assertThat(Caller.clientOf(declaring("web", "999999999.0.999999999")))
+                .contains(new ClientRelease(ClientKind.WEB, "999999999.0.999999999"));
+    }
+
+    @Test
     void GivenTwoAppsInOneXAppHeader_WhenTheClientIsRead_ThenItIsLeftOut() {
         assertThat(Caller.clientOf(declaring("web, phone", "1.4.0"))).isEmpty();
     }

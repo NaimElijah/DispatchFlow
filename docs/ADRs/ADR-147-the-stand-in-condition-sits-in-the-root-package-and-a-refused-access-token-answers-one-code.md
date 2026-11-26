@@ -1,6 +1,6 @@
 # ADR-147: The stand-in condition sits in the root package, a deployed environment is told by a marker and three keys, and a refused access token answers one code
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-148
 - **Date:** 2026-11-26
 
 ## Context

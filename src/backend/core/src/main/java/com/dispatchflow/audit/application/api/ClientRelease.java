@@ -8,8 +8,6 @@ import java.util.Objects;
  * it, and a version that doesn't parse leaves the pair out of the record rather than refusing the
  * write (ADR-110).
  *
- * <p>To Be Implemented.
- *
  * @param kind which app the client says it is
  * @param version the version it says it runs, such as {@code 1.4.2}
  */

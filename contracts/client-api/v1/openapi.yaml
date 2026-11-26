@@ -7,9 +7,9 @@ info:
     signed-in caller unless it is marked open, and an open operation ignores any `Authorization`
     header. None is open yet, so a call without a signed-in caller answers 401
     `ACCESS_TOKEN_REFUSED`. Sign-in, and the open marker, arrive with the identity context. Until
-    then, a development or test core signs in as a seeded account every call to its loopback
-    address, from no other site's page, that presents neither an `Authorization` header nor the
-    refresh cookie; any other call is refused.
+    then, a development or test core signs in as a seeded account every call whose `Host` names a
+    loopback host, that carries no `Sec-Fetch-Site` or one of `same-origin` or `none`, and that
+    presents neither an `Authorization` header nor the refresh cookie; any other call is refused.
   license:
     name: Proprietary, all rights reserved
     identifier: LicenseRef-DispatchFlow-Proprietary
@@ -46,7 +46,7 @@ components:
         | 400 | `INVALID_REQUEST` | The request breaks this contract. `errors` names every failing field or parameter of a failed validation at once, up to 100 of them. An unreadable body, an unknown property or a duplicate key is named alone, as the first one found. |
         | 401 | `ACCESS_TOKEN_REFUSED` | The call needs a signed-in caller, and its access token is missing, expired, malformed or revoked, or its session was revoked. With exactly `WWW-Authenticate: Bearer`; `params` is empty, so every such refusal looks the same. Refresh once and retry; sign in again when the refresh is refused or the retried call answers this again. |
         | 404 | `NOT_FOUND` | The record doesn't exist; `params` has its `kind` and `id`. |
-        | 404 | `NO_SUCH_OPERATION` | No operation has this path. |
+        | 404 | `NO_SUCH_OPERATION` | No operation has this path. Answered to a signed-in caller; a call with none gets the 401 first, since a path no operation has is never open. |
         | 405 | `METHOD_NOT_ALLOWED` | With `Allow`. |
         | 406 | `NOT_ACCEPTABLE` | |
         | 415 | `UNSUPPORTED_MEDIA_TYPE` | With `Accept`. |
