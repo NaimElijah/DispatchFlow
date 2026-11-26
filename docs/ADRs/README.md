@@ -45,8 +45,9 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-131](ADR-131-the-declared-structures-review-tightens-its-rules-and-fills-its-gaps.md) | The declared structure's review tightens its rules and fills its gaps | Accepted; extended by ADR-140 |
 | [ADR-132](ADR-132-unbuilt-bodies-say-to-be-implemented.md) | Unbuilt bodies say "To Be Implemented." and name no milestone | Accepted |
 | [ADR-133](ADR-133-a-startup-step-is-a-job-and-access-declares-one.md) | A step that runs once at startup is a `job` adapter, and Access declares one | Accepted |
-| [ADR-140](ADR-140-the-app-wide-web-package-sits-above-the-modules.md) | The app-wide `web` package sits above the modules, and what they need from it sits beside the kernel | Accepted; amended by ADR-142 |
+| [ADR-140](ADR-140-the-app-wide-web-package-sits-above-the-modules.md) | The app-wide `web` package sits above the modules, and what they need from it sits beside the kernel | Accepted; extended by ADR-147; amended by ADR-142 and ADR-147 |
 | [ADR-142](ADR-142-the-call-wrappers-retry-its-400s-and-its-error-endpoint-as-162-built-them.md) | The call wrapper's retry, its 400s and its error endpoint, as #162 built them | Accepted |
+| [ADR-147](ADR-147-the-stand-in-condition-sits-in-the-root-package-and-a-refused-access-token-answers-one-code.md) | The stand-in condition sits in the root package, a deployed environment is told by a marker and three keys, and a refused access token answers one code | Accepted |
 | [ADR-043](ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md) | Code is generated from both contracts on both sides, and errors are RFC 9457 Problem Details | Accepted; extended by ADR-068, ADR-073, ADR-087, ADR-094 and ADR-140; amended by ADR-123 |
 | [ADR-094](ADR-094-each-pull-requests-contract-check-compares-against-its-base-branch.md) | Each pull request's contract check compares against its base branch | Accepted |
 | [ADR-044](ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md) | The solver port takes a start, a budget and a seed, and `Problem` alone judges a solution | Accepted; extended by ADR-050 and ADR-099; amended by ADR-105, ADR-120 and ADR-121 |
@@ -243,4 +244,11 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > the owner owns, `public`, columns, partitions, sequences and Flyway's history included, Flyway's
 > test-only setting never goes into `application-dev.properties`, and an older database runs the
 > script itself.
+> ADR-147, on 2026-11-26, extends and amends ADR-140 with what #170's stand-in session settled:
+> its condition, exactly `dev` or exactly `test`, sits in the root package, which depends on
+> nothing below it, as `@StandInOnly` for every stand-in; a deployed environment is told by
+> `DISPATCHFLOW_DEPLOYED` and three reserved provider-credential keys; every refused access token
+> answers 401 `ACCESS_TOKEN_REFUSED`, `SESSION_REVOKED` included, and that code's Hebrew and English
+> text goes to #173; and the access interceptor builds the call's caller, which the call wrapper only
+> binds, so `web` depends on `web.security` and never the reverse.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.

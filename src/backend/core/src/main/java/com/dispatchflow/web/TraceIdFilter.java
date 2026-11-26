@@ -1,5 +1,6 @@
 package com.dispatchflow.web;
 
+import com.dispatchflow.shared.adapter.in.web.FilterOrder;
 import com.dispatchflow.shared.adapter.in.web.Problems;
 import com.dispatchflow.shared.adapter.in.web.TraceIds;
 import jakarta.servlet.DispatcherType;
@@ -15,7 +16,6 @@ import java.util.Set;
 import org.apache.coyote.BadRequestException;
 import org.apache.tomcat.util.http.InvalidParameterException;
 import org.slf4j.MDC;
-import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.server.RequestPath;
 import org.springframework.stereotype.Component;
@@ -61,9 +61,9 @@ class TraceIdFilter extends OncePerRequestFilter {
 
     /**
      * Ahead of Spring Boot's request-context filter (-105) and Spring Security's chain (-100), with
-     * room left before it for ADR-071's rate limiter to run after it.
+     * room left before it for ADR-071's rate limiter to run after it ({@link FilterOrder}).
      */
-    static final int ORDER = Ordered.HIGHEST_PRECEDENCE + 10;
+    static final int ORDER = FilterOrder.TRACE_ID;
 
     private static final String TRACEPARENT = "traceparent";
     private static final String KEPT_TRACE_ID = TraceIdFilter.class.getName() + ".traceId";

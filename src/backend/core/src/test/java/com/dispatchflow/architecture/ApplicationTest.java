@@ -189,6 +189,43 @@ class ApplicationTest {
     }
 
     @Test
+    void GivenTheCallsHolders_WhenTheirNamesAreLookedUp_ThenEachIsAProductionClass() {
+        assertThat(ApplicationRules.missingHolders(ROOT, ProductionClasses.ALL, ApplicationRules.CALLS_HOLDERS))
+                .isEmpty();
+        assertThat(ProductionClasses.ALL.contain(ROOT + "." + ApplicationRules.ACTOR))
+                .isTrue();
+        assertThat(ProductionClasses.ALL.contain(ROOT + "." + ApplicationRules.CALL_WRAPPER))
+                .isTrue();
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenRule17IsChecked_ThenOnlyWebSecurityBuildsAnActor() {
+        ApplicationRules.onlyWebSecurityBuildsAnActor(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenRule18IsChecked_ThenOnlyTheCallWrapperBindsTheHolders() {
+        ApplicationRules.onlyTheCallWrapperBindsTheHolders(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenRule19IsChecked_ThenTheRootDependsOnNothingBelowIt() {
+        ApplicationRules.theRootDependsOnNothingBelowIt(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenRule20IsChecked_ThenWebSecurityUsesNothingDirectlyInWeb() {
+        ApplicationRules.webSecurityUsesNothingDirectlyInWeb(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenRule21IsChecked_ThenNoHandlerTakesTheCallersTypes() {
+        ApplicationRules.noHandlerTakesTheCallersTypes(ROOT).check(ProductionClasses.ALL);
+        assertThat(ProductionClasses.ALL.contain(ROOT + "." + ApplicationRules.CALL_CONTEXT))
+                .isTrue();
+    }
+
+    @Test
     void GivenTheProductionClasses_WhenRule15IsChecked_ThenEachModuleRootHoldsOnlyItsConfiguration() {
         ApplicationRules.moduleRootsHoldOnlyTheirConfiguration(ROOT).check(ProductionClasses.ALL);
     }

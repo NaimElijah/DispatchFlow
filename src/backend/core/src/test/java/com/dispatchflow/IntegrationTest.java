@@ -19,15 +19,28 @@ import org.springframework.test.context.ActiveProfiles;
  * it, and Flyway runs as the owner ({@link TestcontainersConfiguration}, ADR-145). A test that must
  * write a row the core can't takes the {@link DatabaseOwner} {@code JdbcClient}.
  *
- * <p>It turns the scheduled jobs off, so none runs against the shared database mid-test. #165 or
- * #170, whichever adds the {@code test} profile first, moves this property into it, and with it
- * {@code throwaway-database}'s one setting, which it then deletes: ADR-121 lets the stand-in Actor
- * boot only when {@code test} is the only active profile.
+ * <p>It activates the {@code test} profile alone, whose {@code application-test.properties} turns
+ * Flyway on, turns the scheduled jobs off, so none runs against the shared database mid-test, and
+ * lets the stand-in session act as the seeded Dispatcher (ADR-140 decision 4, ADR-146 decision 4).
+ * So every call under {@code /api/v1} is signed in as that Dispatcher, which {@link
+ * #STAND_IN_DISPATCHER} pins against an exported variable. A test that needs another
+ * role calls its use case with {@link TestActors}. Should several {@code *IT}s need the stand-in to
+ * act as another entry, they share one meta-annotation that sets {@code
+ * dispatchflow.stand-in.account}, never a {@code @TestPropertySource} each, which would start a
+ * context and a container per class.
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-@SpringBootTest(properties = SchedulingConfiguration.SCHEDULING_ENABLED + "=false")
+@SpringBootTest(properties = IntegrationTest.STAND_IN_DISPATCHER)
 @AutoConfigureMockMvc
-@ActiveProfiles(TestcontainersConfiguration.THROWAWAY_DATABASE)
+@ActiveProfiles(StandInProfiles.TEST)
 @Import(TestcontainersConfiguration.class)
-public @interface IntegrationTest {}
+public @interface IntegrationTest {
+
+    /**
+     * The stand-in's entry, set where it outranks the environment, so a {@code
+     * DISPATCHFLOW_STANDIN_ACCOUNT} a developer exported for {@code just core-run} never makes the
+     * suite run as another role. A meta-annotation for another entry sets its own.
+     */
+    String STAND_IN_DISPATCHER = "dispatchflow.stand-in.account=dispatcher";
+}

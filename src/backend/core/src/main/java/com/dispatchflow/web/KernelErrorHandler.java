@@ -11,6 +11,7 @@ import jakarta.persistence.LockTimeoutException;
 import jakarta.persistence.PessimisticLockException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
@@ -41,8 +42,7 @@ class KernelErrorHandler {
 
     /**
      * The refusal codes that answer another status than 422, because a client must act
-     * differently: sign in again (401), or give the password or stop asking (403). {@code
-     * SESSION_REVOKED} stays 422 until #170 maps it with the access token's refusals. A test checks
+     * differently: sign in again (401), or give the password or stop asking (403). A test checks
      * that a module declares each code.
      */
     static final Map<String, HttpStatus> OVERRIDES = Map.of(
@@ -50,6 +50,15 @@ class KernelErrorHandler {
             "NOT_YOUR_ROUTE", HttpStatus.FORBIDDEN,
             "STOP_NOT_ON_YOUR_ROUTE", HttpStatus.FORBIDDEN,
             "REFRESH_REFUSED", HttpStatus.UNAUTHORIZED);
+
+    /**
+     * The refusal codes answered 401 under another code: {@code SESSION_REVOKED} answers the one
+     * code of a refused access token, {@link Problems#ACCESS_TOKEN_REFUSED}, with empty params, so
+     * a revoked session looks like any refused token (ADR-140 decisions 5 and 7). The use case's
+     * own audit record keeps {@code SESSION_REVOKED}, and so does the log line. A test checks that
+     * a module declares each code.
+     */
+    static final Set<String> ANSWERED_AS_A_REFUSED_TOKEN = Set.of("SESSION_REVOKED");
 
     private static final HttpStatus REFUSED = HttpStatus.UNPROCESSABLE_CONTENT;
     private static final String CODE = "code";
@@ -61,6 +70,9 @@ class KernelErrorHandler {
     @ExceptionHandler(RuleViolation.class)
     ResponseEntity<ProblemDetail> refused(RuleViolation violation) {
         String code = violation.error().code();
+        if (ANSWERED_AS_A_REFUSED_TOKEN.contains(code)) {
+            return refusedToken(code);
+        }
         HttpStatus status = OVERRIDES.getOrDefault(code, REFUSED);
         logRefusal(status, code);
         if (status == HttpStatus.UNAUTHORIZED) {
@@ -72,6 +84,9 @@ class KernelErrorHandler {
     @ExceptionHandler(RuleViolations.class)
     ResponseEntity<ProblemDetail> refused(RuleViolations violations) {
         String code = violations.summary().code();
+        if (ANSWERED_AS_A_REFUSED_TOKEN.contains(code)) {
+            return refusedToken(code);
+        }
         HttpStatus status = OVERRIDES.getOrDefault(code, REFUSED);
         logRefusal(status, code);
         if (status == HttpStatus.UNAUTHORIZED) {
@@ -140,6 +155,11 @@ class KernelErrorHandler {
         log.error("Unhandled exception while serving a request", thrown);
         return ResponseEntity.internalServerError()
                 .body(Problems.of(HttpStatus.INTERNAL_SERVER_ERROR, WebCodes.UNEXPECTED_ERROR));
+    }
+
+    private static ResponseEntity<ProblemDetail> refusedToken(String code) {
+        logRefusal(HttpStatus.UNAUTHORIZED, code);
+        return Problems.unauthorized(Problems.ACCESS_TOKEN_REFUSED);
     }
 
     private static void logRefusal(HttpStatus status, String code) {

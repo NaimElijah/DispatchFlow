@@ -55,6 +55,11 @@ class WebCodesTest {
     }
 
     @Test
+    void GivenTheCodesAnsweredAsARefusedToken_WhenComparedWithTheModulesCodes_ThenEachIsDeclaredByAModule() {
+        assertThat(modulesCodes()).containsAll(KernelErrorHandler.ANSWERED_AS_A_REFUSED_TOKEN);
+    }
+
+    @Test
     void GivenTheProductionClasses_WhenTheirCodeConstantsAreRead_ThenTheKernelsExceptionsAreAmongThem() {
         assertThat(ProductionClasses.ALL.stream()
                         .filter(type -> type.tryGetField(CODE_FIELD).isPresent())

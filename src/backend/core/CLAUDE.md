@@ -73,10 +73,10 @@ only client (`contracts/optimization-api/v1`): Java 25, Spring Boot 4.1, JPA, Fl
   number through `PhoneNumber.ofStored`. So a damaged or since-refused value is an incident, never a
   user-facing refusal. No test checks this; review does.
 - A controller in `adapter/in/web` implements a tag's generated `<Tag>Api`, maps web types to domain
-  objects and passes the `Actor` from `CurrentActor`, or the `CallContext` from `CurrentCall` before
-  sign-in, to the use case. Only `web` and the `in/web` adapters use the two (`ApplicationRules` 14,
-  [ADR-140]); neither exists yet (#170). Every use case that changes an aggregate calls its port's
-  `save` or `add`, which publishes its events; a test fake's calls `SaveEvents.publish`.
+  objects and passes `CurrentActor`'s `Actor`, or `CurrentCall`'s `CallContext`, to the use case.
+  Only `web` and `in/web` read the two, the call wrapper alone binds them, and `web.security` alone
+  builds an `Actor` (`ApplicationRules` 14, 18, 17, [ADR-140]; tests use `TestActors`). Changing use
+  cases call their port's `save` or `add`, which publish events; fakes call `SaveEvents.publish`.
 - No handler takes a streaming parameter (`ApplicationRules` 16). A module's handler builds its body
   with `shared.adapter.in.web.Problems` and takes `@Order(HandlerOrder.MODULE)` (ADR-142).
 - Another module is reached only through its `api`, `spi` and `events` packages ([DL §2.3]).
@@ -98,9 +98,9 @@ only client (`contracts/optimization-api/v1`): Java 25, Spring Boot 4.1, JPA, Fl
   - `@Retryable` and `@ConcurrencyLimit` sit on the adapter that makes the outside call, where a
     retry is safe. A listener is `@Async` and a job `@Scheduled`, through `SchedulingConfiguration`:
     add no `@Enable*`. A listener is idempotent, and each retry gets a fresh transaction.
-- Every handler is authorized by role from its `x-capability`, in `web.security`'s interceptor
-  (unbuilt: 401 in #170, 403 in #171), once the handler is chosen, before the body is validated. A
-  token filter of our own (#199) replaces Spring Security's bearer filter and answers none. A check
+- Every handler under `/api/v1` is checked in `web.security`'s interceptor once it is chosen, before
+  the body is validated: no principal answers 401 `ACCESS_TOKEN_REFUSED`, and #171 adds the role
+  check's 403 from `x-capability`. #199's token filter sets the principal and answers none. A check
   on the data, such as a driver's own route, lives in the use case ([ADR-068], [ADR-140]).
 - The schema changes only through a new migration, `src/main/resources/db/migration/V<n>__<x>.sql`:
   never edit an applied one, and `ddl-auto` stays `validate`. `MigrateCommand` runs Flyway as the
@@ -112,14 +112,14 @@ only client (`contracts/optimization-api/v1`): Java 25, Spring Boot 4.1, JPA, Fl
   `If-None-Match`, 409 to a body version, never retried. The call wrapper re-runs any other, and a
   failed lock wait (by thrown type, not cause), up to 3 times until a read-write transaction of the
   try commits, then 503; after such a commit a race answers 500 ([ADR-140], ADR-142).
-- A stand-in session (#170, unbuilt) exists only when the active profiles are exactly `dev` or
-  exactly `test`, and serves only a request with no `Authorization` or refresh cookie. The core
-  refuses to boot with it under other profiles or in a deployed environment (`DISPATCHFLOW_DEPLOYED`
-  or a provider credential). The dev stack binds `127.0.0.1`. A port with no adapter yet gets a
-  `<Port>StandIn` `@Component` in its declared adapter folder, naming its replacing issue, under
-  that condition, never `@Profile({"dev","test"})`. Sign-in deletes the session; #199 refuses to
-  boot with a token lifetime but 15 minutes unless `dev` is alone ([ADR-121], [ADR-140]). Only `e2e`
-  has the `e2e` endpoints, and it refuses a deployed environment (NFR-206). Each refusal has a test.
+- The stand-in session acts as a `seeded-accounts.properties` entry only under exactly `dev` or
+  exactly `test`, for a loopback-host, not cross-site request with no `Authorization` or refresh
+  cookie; `application-dev.properties` names no account, each run does. `StandInGuardTest` proves no
+  boot otherwise, nor with `DISPATCHFLOW_DEPLOYED` or `dispatchflow.<sms|email|push>.credential`,
+  the one key its adapter reads (ADR-147). A port with no adapter yet gets a `<Port>StandIn`, placed
+  and named as `@StandInOnly`'s Javadoc says, never under `@Profile`. Sign-in deletes
+  the session; #199 refuses a token lifetime but 15 minutes unless `dev` is alone ([ADR-140]). Only
+  `e2e` has its endpoints, and refuses a deployed environment (NFR-206). Test each refusal.
 - No Lombok: records and plain classes. Configuration comes from environment variables.
 - Persistence is JPA ([ADR-126], [ADR-127], [TS §6.3]): a port's `@Component` works over a
   package-private Spring Data `Repository<Root, UUID>` with `save` and its queries, never

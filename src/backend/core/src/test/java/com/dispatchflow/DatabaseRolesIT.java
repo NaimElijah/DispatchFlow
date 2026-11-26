@@ -433,10 +433,11 @@ class DatabaseRolesIT {
      * as app. If the files weren't read, Flyway would run, because Spring Boot turns it on unless a
      * property turns it off. A profile named like the command turns nothing on: only the command
      * itself does, so a run of the whole core given that profile and the owner's credential still
-     * migrates nothing.
+     * migrates nothing. The {@code dev} profile, which the Compose core runs as app, turns nothing on
+     * either (ADR-146 decision 4).
      */
     @ParameterizedTest
-    @ValueSource(strings = {"default", MigrateCommand.NAME})
+    @ValueSource(strings = {"default", StandInProfiles.DEV, MigrateCommand.NAME})
     void GivenTheCoresOwnProfiles_WhenItsDatabaseSetupStarts_ThenFlywayDoesNotRun(String profile) {
         new ApplicationContextRunner()
                 .withInitializer(new ConfigDataApplicationContextInitializer())

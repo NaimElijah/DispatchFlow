@@ -108,6 +108,9 @@ src/backend/core/
     SchedulingConfiguration.java   @EnableAsync always, @EnableScheduling behind
                                    dispatchflow.scheduling.enabled, and the executor's cap
     MdcTaskDecorator.java          copies the caller's MDC to an asynchronous listener's thread
+    StandInProfiles.java           the stand-ins' condition, exactly dev or exactly test, and what
+                                   marks a deployed environment; @StandInOnly (StandInOnly.java)
+                                   carries it (ADR-147)
     shared/                        the shared kernel: the typed IDs, the shared values, their
                                    errors, and the building blocks every module's domain uses
       application/                 the ports every module uses: Clock, IdGenerator,
@@ -121,7 +124,8 @@ src/backend/core/
       adapter/out/optimizer/       declared, empty: the client generated from optimization-api,
                                    which Planning's and Reporting's optimizer adapters wrap
       adapter/in/web/              Problems, the factory of every error body, ProblemItem,
-                                   TraceIds, which makes a fresh trace ID, and HandlerOrder; later
+                                   TraceIds, which makes a fresh trace ID, HandlerOrder, and
+                                   FilterOrder, the core's own filters' order; later
                                    the code generated from client-api, at every build and never
                                    committed, and @RequiresCapability; every module's controllers
                                    and handlers use it (ADR-140)
@@ -152,9 +156,12 @@ src/backend/core/
                                    or made fresh, in the MDC; hands an escaped exception to
                                    Tomcat's error dispatch; refuses with 400 a path Spring
                                    can't parse
-      CallWrapper.java             the handler adapter that runs every handler through CallRetry
-      CallRetry.java               re-runs a call that lost a race, and audits the race it answers;
-                                   after a commit it audits nothing and answers 500
+      CallWrapper.java             the handler adapter that runs every handler through CallRetry,
+                                   and binds CurrentCall and CurrentActor around a call under
+                                   /api/v1
+      CallRetry.java               re-runs a call that lost a race, and audits the race it answers,
+                                   naming its caller; after a commit it audits nothing and answers
+                                   500
       CommitWatch.java             marks a try committed, so it isn't re-run
       Race.java                    what a lost race answers: 412, 409 or a retry, then 503
       ContractErrorHandler.java    400, 404, 405, 406, 413 and 415, Spring MVC's other errors and
@@ -165,11 +172,20 @@ src/backend/core/
       UnexpectedErrorHandler.java  answers an unhandled exception with a 500 problem body
       ErrorEndpoint.java           the last resort: answers as a problem an error no handler
                                    answered, or that a servlet filter raised
-      WebCodes.java                the codes web answers of its own
+      WebCodes.java                the codes web answers of its own, 401 ACCESS_TOKEN_REFUSED
+                                   among them
       ServedJson.java              the served JSON converter refuses unknown and duplicate keys
       BodySizeLimit.java           caps at 1 MiB what a converter reads of a request body
-      security/                    declared, empty: the stand-in session, then the filter chain, and
-                                   the capability interceptor
+      security/                    who the caller is (ADR-140, ADR-147): StandInSession, the
+                                   filter that signs a request in as a seeded account under dev or
+                                   test alone; StandInGuard, which refuses to boot with it
+                                   anywhere else; AccessInterceptor, which builds each /api/v1
+                                   call's Caller or answers 401, by throwing NotSignedIn, which
+                                   NotSignedInHandler answers; AccessInterceptorRegistration puts
+                                   it in front of /api/v1; Caller, who makes a call: its
+                                   CallContext and, when signed in, its Actor; SignedInCaller, the
+                                   request's principal; SeededAccounts, the shared list as the
+                                   stand-in reads it
       stream/                      declared, empty: the event stream's endpoint, its heartbeat and
                                    the SessionsRevoked listener
       e2e/                         declared, empty: the end-to-end tests' control endpoints, under
@@ -178,6 +194,10 @@ src/backend/core/
   src/main/resources/
     application.properties         Flyway off: the core never migrates
     application-schema-draft.properties  the profile `just core-schema-draft` runs
+    application-dev.properties     the dev profile: the seeded list's import and the loopback
+                                   address; never Flyway, and no stand-in account (ADR-147)
+    seeded-accounts.properties     the one shared list of seeded accounts, which dev and test
+                                   import (ADR-133, ADR-147)
     db/migration/                  Flyway migrations: V1 creates the eight schemas, then one per
                                    module, V2 access, V3 audit, V4 fleet, V5 liveops, V6
                                    messaging, V7 orders, V8 planning and V9 reporting; V10 refuses
@@ -221,22 +241,25 @@ src/backend/core/
     web/                           a test per class: the handlers, the error endpoint, the trace
                                    filter and the call wrapper through MockMvc; WebIT checks them
                                    wired in the whole application, and WebOverTomcatIT behind a
-                                   real Tomcat
+                                   real Tomcat; security/, the stand-in, its guard under each set
+                                   of profiles, and the access interceptor over a test-only
+                                   controller
     SchedulingConfigurationTest.java     the executor, its MDC copy and the scheduling property
     TransactionalBeanTest.java           a final transactional bean fails the context
     IntegrationTest.java                 the annotation every *IT uses but one that needs a real
-                                         Tomcat: the whole app as app and PostgreSQL, scheduled
-                                         jobs off
+                                         Tomcat: the whole app as app and PostgreSQL, under the
+                                         test profile
     TomcatIntegrationTest.java           the same on a random port, in a context of its own
     CapturedLogs.java                    a unit test's view of a logger's events, read from logback
     DispatchFlowApplicationIT.java       the health probe answers UP against PostgreSQL
     DispatchFlowApplicationTest.java     the jar refuses a bare word, and `migrate` misplaced or
                                          misspelt
     DatabaseRolesIT.java                 the two roles, the migrate command and the grants' guard
-    TestDispatchFlowApplication.java     what `just core-run` starts
+    TestDispatchFlowApplication.java     what `just core-run` starts: the dev profile, Flyway on
+    TestActors.java                      the Actor of any seeded entry, read from the shared list
     TestcontainersConfiguration.java     the PostgreSQL container with both roles, the core's
                                          connection as app and the owner's pool, which Flyway runs
-                                         on under the throwaway-database profile
+                                         on
     DatabaseRoles.java                   the roles' names and a run's passwords, from the init script
     DatabaseOwner.java                   the qualifier of the owner's pool and JdbcClient, which a
                                          test's own damage SQL runs on
@@ -247,7 +270,10 @@ src/backend/core/
                                          location, no archfixture in Hibernate's scan, the
                                          Transactions bean, and a recorder of published events
   src/test/resources/
-    application-throwaway-database.properties  the tests' profile, which runs Flyway in the JVM
+    application-test.properties    the test profile: the seeded list's import, the stand-in's
+                                   account, the loopback address, Flyway in the JVM and the
+                                   scheduled jobs off
+    core-run.properties            `just core-run`'s stand-in account, below the environment
     db/fixture/                    V0_1__persistence_fixture.sql, the test-only schema
                                    persistence_fixture and its two tables behind Ledger and
                                    LedgerEntry, and V0_2, app's grants on them (migration
@@ -585,10 +611,16 @@ Rule 13 is [ADR-140][ADR-140]'s. `web` is no module: rule 2 refuses every module
 it sits above them, and rule 13 limits it to the modules' `application.api` and `events`, besides the
 kernel and the frameworks. Rule 14, also ADR-140's, keeps the two holders of a web call's caller, `CurrentActor` (in
 Access's `application.api`) and `CurrentCall` (in Audit's), to `web` and the modules' `adapter.in.web`:
-a use case takes its `Actor` and `CallContext` as parameters. Neither holder exists yet. Rule 15,
+a use case takes its `Actor` and `CallContext` as parameters. Rule 15,
 also ADR-140's, keeps each module's root to its `package-info` and a package-private
 `<Module>Configuration` that declares no `@Bean` and no scan, and imports only its own module's
-`application.service` classes.
+`application.service` classes. Rule 17, also ADR-140's, lets only `web.security` build an `Actor`,
+and rule 18 lets only `web`'s call wrapper bind the holders, through any method of a holder but
+`get()`. A test checks that each holder rules 14 and 18 name exists. Rules 19 and 20 are
+[ADR-147][ADR-147]'s: no class directly in the root package uses a class below it, so the modules'
+stand-in adapters may use its `@StandInOnly` without a cycle, and `web.security` uses no class
+directly in `web`. Rule 21, also ADR-147's, lets no handler take an `Actor` or a `CallContext`,
+which Spring would build from the request's parameters.
 
 Rule 16 is [ADR-142][ADR-142]'s: no request handler, a method of a `@Controller` or one annotated
 `@RequestMapping` or a variant, declares a streaming parameter (`InputStream`, `Reader`,
@@ -605,5 +637,6 @@ Accepted).
 [ADR-133]: ../ADRs/ADR-133-a-startup-step-is-a-job-and-access-declares-one.md
 [ADR-140]: ../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md
 [ADR-142]: ../ADRs/ADR-142-the-call-wrappers-retry-its-400s-and-its-error-endpoint-as-162-built-them.md
+[ADR-147]: ../ADRs/ADR-147-the-stand-in-condition-sits-in-the-root-package-and-a-refused-access-token-answers-one-code.md
 [NFR-10]: ../requirements/requirements.md#nfr-10
 [NFR-162]: ../requirements/requirements.md#nfr-162

@@ -15,16 +15,14 @@ import org.testcontainers.utility.DockerImageName;
 /**
  * A real PostgreSQL in a container, with DispatchFlow's two database roles (ADR-041, ADR-145), and the
  * test classpath's persistence setup. The core connects as {@code app}, as it does everywhere. Nothing
- * else migrates this throwaway database, so under the {@value #THROWAWAY_DATABASE} profile Flyway
- * runs in the core's JVM, on a pool of its own connected as {@code dispatchflow_owner}: one of the
- * two exceptions ADR-145 makes to the migrate step, for the tests and {@code just core-run} alone.
+ * else migrates this throwaway database, so the {@code test} profile and {@link
+ * TestDispatchFlowApplication} turn Flyway on in the core's JVM, on a pool of its own connected as
+ * {@code dispatchflow_owner}: one of the two exceptions ADR-145 makes to the migrate step, for the
+ * tests and {@code just core-run} alone (ADR-146 decision 4).
  */
 @TestConfiguration(proxyBeanMethods = false)
 @Import(TestPersistenceConfiguration.class)
 public class TestcontainersConfiguration {
-
-    /** The profile that turns Flyway on in the core's JVM, set by every run this class is part of. */
-    public static final String THROWAWAY_DATABASE = "throwaway-database";
 
     private static final DockerImageName POSTGRES_IMAGE = DockerImageName.parse("postgres:18.6");
 

@@ -43,9 +43,10 @@ import org.springframework.transaction.annotation.Transactional;
  * the dev allowance.
  *
  * <p>This use case replaces the stand-in session from which {@code web.security} builds the
- * caller's {@code Actor} before sign-in is built (ADR-140). The stand-in exists only when {@code
- * dev} or {@code test} is the only active profile, and the core refuses to boot with it and any
- * other profile active, which a test proves. Building sign-in deletes the stand-in (ADR-121).
+ * caller's {@code Actor} before sign-in is built (ADR-140). The stand-in exists only when the
+ * active profiles are exactly {@code dev} or exactly {@code test}, and the core refuses to boot with
+ * its configuration otherwise, which {@code StandInGuardTest} proves. Building sign-in deletes the
+ * stand-in (ADR-121, ADR-147).
  *
  * <p>To Be Implemented.
  */

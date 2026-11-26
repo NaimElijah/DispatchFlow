@@ -40,7 +40,8 @@ core-check:
 core-format:
     {{ mvnw }} -B -ntp spotless:apply
 
-# Start the core backend on port 8080 against a throwaway PostgreSQL container. Needs Docker.
+# Start the core backend on 127.0.0.1:8080, under the dev profile, against a throwaway PostgreSQL
+# container. Needs Docker.
 [working-directory('src/backend/core')]
 core-run:
     {{ mvnw }} -B -ntp spring-boot:test-run

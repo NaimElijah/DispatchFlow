@@ -174,10 +174,37 @@ The application-wide `web` package, `com.dispatchflow.web`, is no module. It hol
   form POST's parameters, which Spring reads before any converter, and a multipart body have caps
   of their own (see below).
 
-Beside it, `web.security`, `web.stream` and `web.e2e` are declared ahead, empty: the stand-in
-session and the security filter chain, the event stream's endpoint, and the end-to-end tests'
-control endpoints. Nothing depends on `web`, and it uses only the modules'
-`application.api` and `events` ([ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md)).
+Below it, `web.security` knows who the caller is
+([ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md), decisions 3, 4 and
+7; [ADR-147](../ADRs/ADR-147-the-stand-in-condition-sits-in-the-root-package-and-a-refused-access-token-answers-one-code.md)):
+
+- `StandInSession`, a servlet filter after `TraceIdFilter`, makes every request that presents no
+  credential, neither an `Authorization` header nor the `__Host-refresh` cookie, and comes to a
+  loopback host name from no other site's page, signed in as an entry of
+  `seeded-accounts.properties`: the one shared list of seeded accounts, which the `dev` and `test`
+  profiles import, each entry a fixed account ID, its roles, an address and a language. It is the
+  entry `dispatchflow.stand-in.account` names, which the `test` profile and `just core-run` set to
+  the Dispatcher; the main classpath's `dev` file names none, so the image can't serve it by
+  mistake. It has a fixed session. It
+  exists only when the active profiles are exactly `dev` or exactly `test` (`@StandInOnly`, whose
+  condition, `StandInProfiles`, sits in the root package so every module's stand-in adapters can use
+  it too). Sign-in replaces it with a token filter (#199).
+- `StandInGuard` refuses to boot with the stand-in's configuration under any other set of profiles,
+  `dev` beside `e2e` included, or, where a stand-in may run, when `DISPATCHFLOW_DEPLOYED` or a
+  provider's credential key is set. Its messages name the keys, never their values.
+- `AccessInterceptor`, in front of every handler under `/api/v1`, builds the call's `Caller` from the
+  principal and the chosen handler: the `CallContext`, with the account and session, the client the
+  `X-App` and `X-App-Version` headers declare, the handler's operation and the trace ID, and the
+  `Actor` when the caller is signed in. A call with no principal answers 401
+  `ACCESS_TOKEN_REFUSED`, with exactly `WWW-Authenticate: Bearer`, through `NotSignedInHandler`. It
+  keeps the client only when `X-App-Version` is three numbers, and puts a signed-in caller's
+  `accountId` and `sessionId` in the MDC; a
+  changing call first writes its refused audit record, which waits for #180, as a race's does (see
+  below). No operation is open yet, and #171 adds the role check's 403 here.
+
+`web.stream` and `web.e2e` are declared ahead, empty: the event stream's endpoint and the
+end-to-end tests' control endpoints. Nothing depends on `web`, and it uses only the modules'
+`application.api` and `events`.
 
 ## Communication
 
@@ -186,8 +213,9 @@ Components meet only at the two contracts under `contracts/`
 
 - `contracts/client-api/v1/openapi.yaml` has `/api/v1` as its `servers` entry. Its `paths` is
   empty, so `core` serves no operation from it yet. It defines the `Problem` schema (RFC 9457), with
-  its `code`, `params`, `traceId` and `errors` and the codes any operation can answer, its
-  `ProblemItem` and `ProblemParameter`, and the `UnexpectedProblem` response.
+  its `code`, `params`, `traceId` and `errors` and the codes any operation can answer, 401
+  `ACCESS_TOKEN_REFUSED` among them, its `ProblemItem` and `ProblemParameter`, and the
+  `UnexpectedProblem` response.
 - `contracts/optimization-api/v1/openapi.yaml` is served by `optimizer`. It defines one operation,
   `getLiveness`, which is `GET /health/liveness`.
 
@@ -207,6 +235,12 @@ inside its own component:
 - The `optimizer` liveness probe: `src/backend/optimizer/tests/adapters/inbound/http/test_app.py` asserts
   through `TestClient(create_app())` that `GET /health/liveness` answers 200 with
   `{"status":"UP"}`.
+- The caller of a call under `/api/v1`: under `dev` or `test` alone, `StandInSession` signs the
+  request in as the seeded Dispatcher; `AccessInterceptor` builds its `Caller`, or answers 401 when
+  there is no principal; the call wrapper binds `CurrentCall` and `CurrentActor` from it around the
+  handler, its retries included, and the binding ends with the call. `web.security`'s `*Test`
+  classes drive each step through MockMvc over a test-only controller, and `StandInGuardTest`
+  starts a context under each set of profiles the guard must refuse.
 - An error inside `core`: `TraceIdFilter` gives the request its trace ID, from its `traceparent`
   or made fresh, in the MDC. The call wrapper runs the handler, again while it loses a race and no
   read-write transaction of the try has committed. An exception goes to the first handler, in `HandlerOrder`,
@@ -260,10 +294,17 @@ have a `Dockerfile`, and neither runs as root
   the tree to the adapters ADR-130, ADR-131 and ADR-140 declare. Rule 13 is [ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md)'s: `web`
   uses, of the modules, only their `application.api` and `events`, and rule 2 refuses every module a
   dependency on `web`, so `web` sits above the modules. Rule 14, also ADR-140's, lets only
-  `web` and the modules' `adapter.in.web` use `CurrentActor` and `CurrentCall`, the holders of a web call's caller;
-  neither exists yet (#170). Rule 15, also ADR-140's, keeps each module's root package to its
+  `web` and the modules' `adapter.in.web` use `CurrentActor` and `CurrentCall`, the holders of a web
+  call's caller, rule 18 lets only `web`'s call wrapper bind them, and rule 17 lets only
+  `web.security` build an `Actor`; a test checks that each holder rule 14 names exists. Rule 15,
+  also ADR-140's, keeps each module's root package to its
   `package-info` and its package-private `<Module>Configuration`, which declares no `@Bean` and no
-  scan and imports only its own module's `application.service` classes.
+  scan and imports only its own module's `application.service` classes. Rules 19 and 20 are
+  [ADR-147](../ADRs/ADR-147-the-stand-in-condition-sits-in-the-root-package-and-a-refused-access-token-answers-one-code.md)'s:
+  the root package uses nothing below it, so the adapters may use its `@StandInOnly` without a
+  cycle, and `web.security` uses no class directly in `web`, which depends on it. Rule 21, also
+  ADR-147's, lets no handler take an `Actor` or a `CallContext`, which Spring would build from the
+  request's parameters.
   The purity rules also allow the persistence annotations that [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) lists in the domain and the
   kernel, and `PersistenceRules` has nine rules on how the domain is mapped: every aggregate root an
   `@Entity`, relationships only inside
@@ -320,8 +361,10 @@ have a `Dockerfile`, and neither runs as root
   `dispatchflow_owner` through the same `SPRING_DATASOURCE_*` keys and the core's pool settings, and
   exits non-zero when a migration fails. The jar refuses any other argument that isn't an option, so
   a misplaced or misspelt command can't start the whole core with the owner's credential. The tests
-  and `just core-run` run Flyway in the core's JVM instead, on an owner pool of their own, under the
-  `throwaway-database` profile
+  and `just core-run` run Flyway in the core's JVM instead, on an owner pool of their own: the test
+  classpath's `application-test.properties` turns it on for the tests, and
+  `TestDispatchFlowApplication` for `just core-run`, never `application-dev.properties`, which the
+  Compose core reads too
   ([ADR-145](../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md),
   [ADR-146](../ADRs/ADR-146-the-jar-takes-only-options-but-for-its-command-and-the-roles-guards-cover-every-object-and-log.md)).
 - **Every error body is the contract's `Problem`.** `shared.adapter.in.web.Problems` builds each
@@ -380,10 +423,12 @@ have a `Dockerfile`, and neither runs as root
   answers 412, and one that compared a body's version 409, at once (ADR-140, decision 6). A race
   after a read-write commit answers 500 `UNEXPECTED_ERROR` and is neither retried nor audited,
   because the change is stored and a 503 would invite a duplicate ([ADR-142](../ADRs/ADR-142-the-call-wrappers-retry-its-400s-and-its-error-endpoint-as-162-built-them.md), decisions 1
-  and 2). The refused audit record of a 412, 409 or 503 waits for #180: `CallRetry` looks `AuditLog`
-  up only when it writes one, and no bean exists yet, so until then a race answers 500.
+  and 2). The refused audit record of a 412, 409 or 503, and of a changing call's 401, waits for
+  #180: `CallRetry` and `AccessInterceptor` look `AuditLog` up only when they write one, and no bean
+  exists yet, so until then such a race, or such a 401, answers 500.
 - **Every log line is JSON.** The console writes Elastic Common Schema, with the MDC, so every line
-  of a request carries its `traceId`.
+  of a request carries its `traceId`, and every line of a signed-in call after the access
+  interceptor its `accountId` and `sessionId` too (ADR-140, decision 8).
 
 ## Target design
 

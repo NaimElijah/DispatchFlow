@@ -3,8 +3,10 @@ package com.dispatchflow.architecture;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dispatchflow.archfixture.modulith.NamedInterface;
+import com.dispatchflow.archfixture.zeta.ImportsNothing;
 import com.dispatchflow.archfixture.zeta.ImportsPeersUseCase;
 import com.dispatchflow.archfixture.zeta.ZetaApplication;
+import com.dispatchflow.archfixture.zeta.gate.application.api.GateActor;
 import com.dispatchflow.archfixture.zeta.lower.LowerRootValue;
 import com.dispatchflow.archfixture.zeta.lower.adapter.in.web.LowerForm;
 import com.dispatchflow.archfixture.zeta.lower.adapter.out.ImplementedOutsideTheServiceService;
@@ -110,16 +112,22 @@ import com.dispatchflow.archfixture.zeta.upper.application.service.prefix.UsesAS
 import com.dispatchflow.archfixture.zeta.upper.application.service.prefixed.SiblingWithALongerName;
 import com.dispatchflow.archfixture.zeta.upper.application.service.upward.UsesTheServiceRoot;
 import com.dispatchflow.archfixture.zeta.upper.application.service.used.UsedByTheServiceRoot;
-import com.dispatchflow.archfixture.zeta.web.WebBindsTheCurrentCaller;
+import com.dispatchflow.archfixture.zeta.web.WebBuildsTheActor;
+import com.dispatchflow.archfixture.zeta.web.WebControllerTakesTheActor;
 import com.dispatchflow.archfixture.zeta.web.WebReadsAModulesDomain;
+import com.dispatchflow.archfixture.zeta.web.WebReadsTheCurrentCaller;
 import com.dispatchflow.archfixture.zeta.web.WebUsesAModulesAdapter;
 import com.dispatchflow.archfixture.zeta.web.WebUsesAModulesPort;
 import com.dispatchflow.archfixture.zeta.web.WebUsesAModulesRoot;
 import com.dispatchflow.archfixture.zeta.web.WebUsesAModulesSpi;
 import com.dispatchflow.archfixture.zeta.web.WebUsesAStrayModule;
+import com.dispatchflow.archfixture.zeta.web.ZetaCallWrapper;
 import com.dispatchflow.archfixture.zeta.web.ZetaWebEndpoint;
 import com.dispatchflow.archfixture.zeta.web.ZetaWebHandler;
+import com.dispatchflow.archfixture.zeta.web.security.SessionBindsTheCurrentCaller;
+import com.dispatchflow.archfixture.zeta.web.security.SessionBuildsTheActor;
 import com.dispatchflow.archfixture.zeta.web.security.SessionUsesTheService;
+import com.dispatchflow.archfixture.zeta.web.security.SessionUsesTheWeb;
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
@@ -202,6 +210,20 @@ class ApplicationRulesTest {
 
     private static ArchRule rule14() {
         return ApplicationRules.onlyTheWebReadsTheCallsHolders(ROOT, CALLS_HOLDERS);
+    }
+
+    // The fixtures' stand-in for Access's Actor, which only web.security may build.
+    private static final String ACTOR = "gate.application.api.GateActor";
+
+    private static ArchRule rule17() {
+        return ApplicationRules.onlyWebSecurityBuilds(ROOT, ACTOR);
+    }
+
+    // The fixtures' stand-in for web's call wrapper.
+    private static final String CALL_WRAPPER = "web.ZetaCallWrapper";
+
+    private static ArchRule rule18() {
+        return ApplicationRules.onlyTheCallWrapperBindsTheHolders(ROOT, CALLS_HOLDERS, CALL_WRAPPER);
     }
 
     // Rule 15's fixtures that are package-private, by name.
@@ -1109,12 +1131,102 @@ class ApplicationRulesTest {
                         FixtureClasses.only(
                                 UpperCurrentCaller.class,
                                 ControllerReadsTheCurrentCaller.class,
-                                WebBindsTheCurrentCaller.class)))
+                                WebReadsTheCurrentCaller.class)))
                 .isEmpty();
     }
 
     @Test
-    void GivenHoldersThatNoClassIsYet_WhenRule14Evaluates_ThenItChecksTheClassesAndFlagsNothing() {
+    void GivenTheZetaFixtures_WhenRule17Evaluates_ThenExactlyTheClassOutsideWebSecurityBuildingTheActorIsFlagged() {
+        assertThat(violators(rule17(), zeta())).containsExactly(WebBuildsTheActor.class.getName());
+    }
+
+    @Test
+    void GivenAClassOutsideWebSecurity_WhenItBuildsAnActor_ThenItIsReported() {
+        List<String> messages = violationMessages(rule17(), FixtureClasses.only(WebBuildsTheActor.class));
+
+        assertThat(messages).hasSize(2);
+        assertThat(messages).anySatisfy(message -> assertThat(message).contains("calls constructor"));
+        assertThat(messages).anySatisfy(message -> assertThat(message).contains("references constructor"));
+    }
+
+    @Test
+    void GivenWebSecurityBuildingTheActor_WhenRule17Evaluates_ThenNothingIsFlagged() {
+        assertThat(violators(rule17(), FixtureClasses.only(SessionBuildsTheActor.class, GateActor.class)))
+                .isEmpty();
+    }
+
+    @Test
+    void GivenTheZetaFixtures_WhenRule18Evaluates_ThenExactlyTheClassOtherThanTheWrapperBindingTheHolderIsFlagged() {
+        assertThat(violators(rule18(), zeta())).containsExactly(SessionBindsTheCurrentCaller.class.getName());
+    }
+
+    @Test
+    void GivenAClassOtherThanTheCallWrapper_WhenItBindsAHolder_ThenItIsReported() {
+        // The holder keeps rule 14's subject, the classes outside web, from being empty.
+        JavaClasses binder = FixtureClasses.only(SessionBindsTheCurrentCaller.class, UpperCurrentCaller.class);
+
+        assertThat(violators(rule14(), binder)).isEmpty();
+        assertThat(violators(rule18(), binder)).containsExactly(SessionBindsTheCurrentCaller.class.getName());
+        List<String> messages = violationMessages(rule18(), binder);
+        assertThat(messages).hasSize(2);
+        assertThat(messages).anySatisfy(message -> assertThat(message).contains("calls method"));
+        assertThat(messages).anySatisfy(message -> assertThat(message).contains("references method"));
+    }
+
+    @Test
+    void GivenTheWrappersNestedClassBindingAndAWebClassReading_WhenRule18Evaluates_ThenNothingIsFlagged() {
+        assertThat(violators(
+                        rule18(),
+                        FixtureClasses.only(
+                                ZetaCallWrapper.class,
+                                ZetaCallWrapper.Invocation.class,
+                                WebReadsTheCurrentCaller.class,
+                                UpperCurrentCaller.class)))
+                .isEmpty();
+    }
+
+    @Test
+    void GivenTheZetaFixtures_WhenRule19Evaluates_ThenExactlyTheRootClassesUsingAClassBelowItAreFlagged() {
+        assertThat(violators(ApplicationRules.theRootDependsOnNothingBelowIt(ROOT), zeta()))
+                .containsExactlyInAnyOrder(
+                        ImportsPeersUseCase.class.getName(),
+                        ZetaApplication.class.getName(),
+                        IMPORTS_A_USE_CASE,
+                        MAKES_A_USE_CASE);
+    }
+
+    @Test
+    void GivenARootClassThatImportsNothing_WhenRule19Evaluates_ThenNothingIsFlagged() {
+        assertThat(violators(
+                        ApplicationRules.theRootDependsOnNothingBelowIt(ROOT),
+                        FixtureClasses.only(ImportsNothing.class)))
+                .isEmpty();
+    }
+
+    @Test
+    void GivenTheZetaFixtures_WhenRule20Evaluates_ThenExactlyTheSecurityClassUsingAWebClassIsFlagged() {
+        assertThat(violators(ApplicationRules.webSecurityUsesNothingDirectlyInWeb(ROOT), zeta()))
+                .containsExactly(SessionUsesTheWeb.class.getName());
+    }
+
+    @Test
+    void GivenTheZetaFixtures_WhenRule21Evaluates_ThenExactlyTheControllerTakingTheActorIsFlagged() {
+        assertThat(violators(ApplicationRules.noHandlerTakes(ROOT, Set.of(ACTOR)), zeta()))
+                .containsExactly(WebControllerTakesTheActor.class.getName());
+    }
+
+    @Test
+    void GivenARenamedHolder_WhenTheHoldersRule14NamesAreChecked_ThenItIsReported() {
+        Set<String> renamed =
+                Set.of("upper.application.api.UpperCurrentCaller", "upper.application.api.UpperCurrentCall");
+
+        assertThat(ApplicationRules.missingHolders(ROOT, zeta(), renamed))
+                .containsExactly("upper.application.api.UpperCurrentCall");
+        assertThat(ApplicationRules.missingHolders(ROOT, zeta(), CALLS_HOLDERS)).isEmpty();
+    }
+
+    @Test
+    void GivenProductionsHolderNames_WhenRule14EvaluatesTheZetaFixtures_ThenItChecksTheClassesAndFlagsNothing() {
         assertThat(ApplicationRules.onlyTheWebReadsTheCallsHolders(ROOT)
                         .evaluate(zeta())
                         .hasViolation())
