@@ -3,6 +3,7 @@ package com.dispatchflow.orders.adapter.out.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.DatabaseOwner;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.Transactions;
 import com.dispatchflow.orders.application.port.out.CustomerRepository;
@@ -113,6 +114,10 @@ class CustomerPersistenceIT {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    @DatabaseOwner
+    private JdbcClient owner;
 
     // --- round trips (ADR-127 decision 1)
 
@@ -422,7 +427,8 @@ class CustomerPersistenceIT {
         transactions.inTransaction(() -> repository.add(base.build(n)));
         String subject = detail.startsWith("a stored value") ? "DailyWindow" : "Customer";
 
-        // The damage and the load share a transaction, which the refused load rolls back.
+        // The damage and the load share a transaction, which the refused load rolls back. Only app's
+        // connection can join it, and app may update a customer and add its flags (V11).
         assertThatThrownBy(() -> transactions.inTransaction(() -> {
                     damage.apply(new Rows(jdbc, n));
                     return repository.get(customer(n));
@@ -440,6 +446,7 @@ class CustomerPersistenceIT {
         int n = 1_013;
         transactions.inTransaction(() -> repository.add(registered(n)));
 
+        // As above, the damage shares the load's transaction, on app's connection.
         assertThatThrownBy(() -> transactions.inTransaction(() -> {
                     new Rows(jdbc, n).update("name = ' '");
                     return repository.get(customer(n));
@@ -493,7 +500,7 @@ class CustomerPersistenceIT {
             String broken, int n, Base base, Damage damage) {
         transactions.inTransaction(() -> repository.add(base.build(n)));
 
-        assertThatThrownBy(() -> damage.apply(new Rows(jdbc, n))).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> damage.apply(new Rows(owner, n))).isInstanceOf(DataIntegrityViolationException.class);
         assertThat(transactions.inTransaction(() -> repository.get(customer(n))))
                 .isPresent();
     }

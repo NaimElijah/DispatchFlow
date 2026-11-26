@@ -3,6 +3,7 @@ package com.dispatchflow.orders.adapter.out.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.DatabaseOwner;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.Transactions;
 import com.dispatchflow.orders.application.port.out.ImportBatchRepository;
@@ -62,6 +63,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -104,6 +106,32 @@ class ImportBatchPersistenceIT {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    @DatabaseOwner
+    private JdbcClient owner;
+
+    /** The imports this test damaged with committed SQL, which go once it ends. */
+    private final List<Integer> damaged = new ArrayList<>();
+
+    /**
+     * Deletes each import this test damaged, and its rows, as the owner: app may never delete an
+     * import (V11). A deletion that finds no import fails the test, since the damaged one would
+     * stay for the previews other tests read.
+     */
+    @AfterEach
+    void removeTheDamagedImports() {
+        for (int n : damaged) {
+            owner.sql("DELETE FROM orders.import_row WHERE import_batch_id = ?")
+                    .param(batch(n).value())
+                    .update();
+            assertThat(owner.sql("DELETE FROM orders.import_batch WHERE id = ?")
+                            .param(batch(n).value())
+                            .update())
+                    .as("damaged import %d removed", n)
+                    .isOne();
+        }
+    }
 
     // --- round trips (ADR-127 decision 1)
 
@@ -365,17 +393,17 @@ class ImportBatchPersistenceIT {
             String broken, int n, Base base, Damage damage, String subject, String detail) {
         transactions.inTransaction(() -> repository.add(build(base, n)));
 
-        // The damage and the load share a transaction, which the refused load rolls back, so the
-        // previews other tests read never include a damaged row.
-        assertThatThrownBy(() -> transactions.inTransaction(() -> {
-                    damage.apply(new Rows(jdbc, n));
-                    return repository.get(batch(n));
-                }))
+        // App may not update an import's rows (V11), so the damage runs as the owner and commits,
+        // and the import goes after the test: the previews other tests read never include a
+        // damaged row.
+        damaged.add(n);
+        damage.apply(new Rows(owner, n));
+
+        assertThatThrownBy(() -> transactions.inTransaction(() -> repository.get(batch(n))))
                 .isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
                     assertThat(invalid.subject()).isEqualTo(subject);
                     assertThat(invalid.detail()).isEqualTo(detail);
                 });
-        assertThat(transactions.inTransaction(() -> repository.get(batch(n)))).isPresent();
     }
 
     @Test
@@ -383,10 +411,11 @@ class ImportBatchPersistenceIT {
         int n = 1_010;
         transactions.inTransaction(() -> repository.add(build(Base.PREVIEWED, n)));
 
-        assertThatThrownBy(() -> transactions.inTransaction(() -> {
-                    new Rows(jdbc, n).updateRow(0, "errors = '[{\"type\":\"java.lang.ProcessBuilder\",\"value\":{}}]'");
-                    return repository.get(batch(n));
-                }))
+        // As above: the owner damages the row, and the import goes after the test.
+        damaged.add(n);
+        new Rows(owner, n).updateRow(0, "errors = '[{\"type\":\"java.lang.ProcessBuilder\",\"value\":{}}]'");
+
+        assertThatThrownBy(() -> transactions.inTransaction(() -> repository.get(batch(n))))
                 .satisfies(thrown -> assertThat(StoredStates.invalidIn(thrown)).hasValueSatisfying(invalid -> {
                     assertThat(invalid.subject()).isEqualTo("RowErrors");
                     assertThat(invalid.detail())
@@ -420,7 +449,7 @@ class ImportBatchPersistenceIT {
             String broken, int n, Base base, Damage damage) {
         transactions.inTransaction(() -> repository.add(build(base, n)));
 
-        assertThatThrownBy(() -> damage.apply(new Rows(jdbc, n))).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> damage.apply(new Rows(owner, n))).isInstanceOf(DataIntegrityViolationException.class);
         assertThat(transactions.inTransaction(() -> repository.get(batch(n)))).isPresent();
     }
 

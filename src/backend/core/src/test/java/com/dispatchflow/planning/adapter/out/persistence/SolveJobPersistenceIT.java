@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
+import com.dispatchflow.DatabaseOwner;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.TestPersistenceConfiguration.RecordedEvents;
 import com.dispatchflow.Transactions;
@@ -96,6 +97,10 @@ class SolveJobPersistenceIT {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    @DatabaseOwner
+    private JdbcClient owner;
 
     @Autowired
     private RecordedEvents events;
@@ -450,7 +455,7 @@ class SolveJobPersistenceIT {
         PlanId open = plan(73);
         PlanId later = plan(74);
         transactions.inTransaction(() -> plans.add(opened(cancelled, day)));
-        jdbc.sql("UPDATE planning.plan SET status = 'CANCELLED', revision = 1, cancelled_at = opened_at WHERE id = ?")
+        owner.sql("UPDATE planning.plan SET status = 'CANCELLED', revision = 1, cancelled_at = opened_at WHERE id = ?")
                 .param(cancelled.value())
                 .update();
         transactions.inTransaction(() -> {
@@ -652,7 +657,7 @@ class SolveJobPersistenceIT {
         JobId id = job(n);
         transactions.inTransaction(() -> repository.add(scenario.build(id, plan(n))));
 
-        damage.apply(new Rows(jdbc, id));
+        damage.apply(new Rows(owner, id));
 
         assertThatThrownBy(() -> transactions.inTransaction(() -> repository.get(id)))
                 .isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
@@ -690,7 +695,7 @@ class SolveJobPersistenceIT {
         JobId id = job(n);
         transactions.inTransaction(() -> repository.add(scenario.build(id, plan(n))));
 
-        damage.apply(new Rows(jdbc, id));
+        damage.apply(new Rows(owner, id));
 
         // Hibernate wraps a converter's exception, and Spring wraps Hibernate's.
         Throwable thrown = catchThrowable(() -> transactions.inTransaction(() -> repository.get(id)));
@@ -756,7 +761,7 @@ class SolveJobPersistenceIT {
             String broken, int n, Scenario scenario, Damage damage) {
         JobId id = job(n);
         transactions.inTransaction(() -> repository.add(scenario.build(id, plan(n))));
-        Rows rows = new Rows(jdbc, id);
+        Rows rows = new Rows(owner, id);
 
         assertThatThrownBy(() -> damage.apply(rows)).isInstanceOf(DataIntegrityViolationException.class);
         assertThat(transactions.inTransaction(() -> repository.get(id))).isPresent();

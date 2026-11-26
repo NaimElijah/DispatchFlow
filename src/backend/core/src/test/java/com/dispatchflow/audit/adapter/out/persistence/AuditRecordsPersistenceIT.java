@@ -3,6 +3,7 @@ package com.dispatchflow.audit.adapter.out.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.DatabaseOwner;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.Transactions;
 import com.dispatchflow.audit.application.port.out.AuditRecords;
@@ -56,6 +57,10 @@ class AuditRecordsPersistenceIT {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    @DatabaseOwner
+    private JdbcClient owner;
 
     @Test
     void GivenARefusedRecordWithEveryOptionalPart_WhenAppended_ThenItsRowHoldsEachValueAndItsRecordsInOrder() {
@@ -168,7 +173,7 @@ class AuditRecordsPersistenceIT {
                 AuditOutcome.refused(ErrorCode.of("STALE_VERSION")),
                 trace(n))));
 
-        assertThatThrownBy(() -> jdbc.sql("UPDATE audit.audit_record SET error_code = NULL WHERE trace_id = ?")
+        assertThatThrownBy(() -> owner.sql("UPDATE audit.audit_record SET error_code = NULL WHERE trace_id = ?")
                         .param(trace(n).value())
                         .update())
                 .isInstanceOf(DataIntegrityViolationException.class);
@@ -187,7 +192,7 @@ class AuditRecordsPersistenceIT {
                 AuditOutcome.succeeded(),
                 trace(n))));
 
-        assertThatThrownBy(() -> jdbc.sql("UPDATE audit.audit_record SET app_version = NULL WHERE trace_id = ?")
+        assertThatThrownBy(() -> owner.sql("UPDATE audit.audit_record SET app_version = NULL WHERE trace_id = ?")
                         .param(trace(n).value())
                         .update())
                 .isInstanceOf(DataIntegrityViolationException.class);

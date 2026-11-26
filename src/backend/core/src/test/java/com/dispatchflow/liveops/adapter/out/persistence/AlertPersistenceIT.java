@@ -8,6 +8,7 @@ import static com.dispatchflow.liveops.domain.LiveOpsFixtures.REV_2;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.DatabaseOwner;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.Transactions;
 import com.dispatchflow.liveops.application.port.out.AlertRepository;
@@ -68,6 +69,10 @@ class AlertPersistenceIT {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    @DatabaseOwner
+    private JdbcClient owner;
 
     // --- round trips (ADR-127 decision 1)
 
@@ -279,7 +284,7 @@ class AlertPersistenceIT {
         Alert stored = stopFailed(n, n);
         transactions.inTransaction(() -> repository.addUnlessKeyTaken(stored, dateOf(n)));
 
-        assertThatThrownBy(() -> jdbc.sql("""
+        assertThatThrownBy(() -> owner.sql("""
                                 INSERT INTO liveops.alert
                                     (id, version, kind, plan, route, stop, dedupe_key, raised_at, state)
                                 SELECT ?, 0, kind, plan, route, stop, dedupe_key, raised_at, 'OPEN'
@@ -298,7 +303,7 @@ class AlertPersistenceIT {
         transactions.inTransaction(() -> repository.addUnlessKeyTaken(
                 Alert.raise(alert(n), subjectOf(AlertKind.STOP_AT_RISK, n), NOW), dateOf(n)));
 
-        jdbc.sql("UPDATE liveops.alert SET revision = 0 WHERE id = ?")
+        owner.sql("UPDATE liveops.alert SET revision = 0 WHERE id = ?")
                 .param(alert(n).value())
                 .update();
 
@@ -324,7 +329,7 @@ class AlertPersistenceIT {
             String broken, int n, String damage) {
         transactions.inTransaction(() -> repository.addUnlessKeyTaken(stopFailed(n, n), dateOf(n)));
 
-        jdbc.sql("UPDATE liveops.alert SET " + damage + " WHERE id = ?")
+        owner.sql("UPDATE liveops.alert SET " + damage + " WHERE id = ?")
                 .param(alert(n).value())
                 .update();
 
@@ -341,7 +346,7 @@ class AlertPersistenceIT {
         transactions.inTransaction(() -> repository.addUnlessKeyTaken(
                 Alert.raise(alert(n), subjectOf(AlertKind.STOP_AT_RISK, n), NOW), dateOf(n)));
 
-        assertThatThrownBy(() -> jdbc.sql("UPDATE liveops.alert SET stop = NULL WHERE id = ?")
+        assertThatThrownBy(() -> owner.sql("UPDATE liveops.alert SET stop = NULL WHERE id = ?")
                         .param(alert(n).value())
                         .update())
                 .isInstanceOf(DataIntegrityViolationException.class);

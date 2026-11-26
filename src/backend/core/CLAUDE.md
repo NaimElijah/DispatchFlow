@@ -103,9 +103,9 @@ only client (`contracts/optimization-api/v1`): Java 25, Spring Boot 4.1, JPA, Fl
   token filter of our own (#199) replaces Spring Security's bearer filter and answers none. A check
   on the data, such as a driver's own route, lives in the use case ([ADR-068], [ADR-140]).
 - The schema changes only through a new migration, `src/main/resources/db/migration/V<n>__<x>.sql`:
-  never edit an applied one, and `ddl-auto` stays `validate`. Flyway runs as `dispatchflow_owner` in
-  a one-shot `migrate` step, which alone holds that credential; the core connects as `app`, which
-  owns no table ([ADR-041], [TS §6.3]). Until #160, Spring Boot runs Flyway as the core's own user.
+  never edit an applied one, and `ddl-auto` stays `validate`. `MigrateCommand` runs Flyway as the
+  owner; the core, as `app`, gets only what the adapters run, so a new table, or a mapping that
+  starts to update or delete, needs a grant; test damage goes through `@DatabaseOwner` ([ADR-145]).
 - Optimistic locking is `AggregateRoot`'s `@Version` ([ADR-057]): every `save` but a session's
   contact-only one goes through `VersionedSave`, which moves it by 1; `StaleVersion.requireCurrent`
   checks a sent version and marks the error. `STALE_VERSION` answers 412 to `If-Match` or
@@ -168,7 +168,6 @@ Run `just` recipes from the repository root, and `mvnw` from this folder (`.\mvn
 - Keep `mvnw` executable in git (`git add --chmod=+x mvnw`), or CI fails with "permission denied".
 
 [ADR-040]: ../../../docs/ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md
-[ADR-041]: ../../../docs/ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md
 [ADR-043]: ../../../docs/ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md
 [ADR-057]: ../../../docs/ADRs/ADR-057-concurrent-changes-to-a-plan-use-optimistic-locking.md
 [ADR-063]: ../../../docs/ADRs/ADR-063-a-transaction-changes-one-aggregate-and-every-rule-has-one-owner.md
@@ -187,6 +186,7 @@ Run `just` recipes from the repository root, and `mvnw` from this folder (`.\mvn
 [ADR-130]: ../../../docs/ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md
 [ADR-132]: ../../../docs/ADRs/ADR-132-unbuilt-bodies-say-to-be-implemented.md
 [ADR-140]: ../../../docs/ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md
+[ADR-145]: ../../../docs/ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md
 [DL §2.1]: ../../../docs/architecture/domain_layer/domain_layer_design.md#21-module-graph
 [DL §2.3]: ../../../docs/architecture/domain_layer/domain_layer_design.md#23-rules-between-contexts
 [DL §3.9]: ../../../docs/architecture/domain_layer/domain_layer_design.md#39-purity

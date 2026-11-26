@@ -42,15 +42,16 @@ today.
 
 | Component | Is | Does today |
 |---|---|---|
-| `core` (`src/backend/core`) | Spring Boot 4.1.2, Java 25 | Starts, connects to PostgreSQL and migrates it, answers `GET /actuator/health`, answers every error that reaches Spring MVC's exception handlers or Tomcat's error dispatch as the client API's `Problem` with a `code` and the request's trace ID, re-runs a call that lost a race, and stores every module's aggregates through its persistence adapters |
+| `core` (`src/backend/core`) | Spring Boot 4.1.2, Java 25 | Run as `migrate`, applies the Flyway migrations as `dispatchflow_owner` and exits. Otherwise starts, connects to PostgreSQL as `app`, which owns no table, answers `GET /actuator/health`, answers every error that reaches Spring MVC's exception handlers or Tomcat's error dispatch as the client API's `Problem` with a `code` and the request's trace ID, re-runs a call that lost a race, and stores every module's aggregates through its persistence adapters |
 | `optimizer` (`src/backend/optimizer`) | FastAPI, Python 3.14, NumPy | Answers `GET /health/liveness` with `{"status":"UP"}`, and holds the domain for daily solves and re-optimizations (the validator, the objective and the drop reasons), and a declared application layer; nothing calls either yet |
 | `web` (`src/frontend/web`) | React 19, Vite 8, TanStack Router and Query, Mantine 9, i18next | Renders its shell: a header, the navigation, and pages for planning (`/plans/$date`, where `/` leads to tomorrow's), orders, import, fleet and settings, with not-found and error pages. It is in English, or in Hebrew right to left once its Settings page says so. The planning page shows its date over an empty area for the map (#174), every page but planning and settings says it is not built yet, and no page calls the API ([ADR-143](../ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md)) |
 | `mobile` (`src/frontend/mobile`) | React Native, Expo SDK 58 | Renders a heading |
 | `research` (`src/research`) | Python, uv; never deployed | Installs `optimizer` and PyVRP in one environment, and imports neither yet: `tests/test_environment.py` only checks that both can be found. `benchmark/`, `simulation/` and `generator/` are declared, empty packages, and `results/` holds only `.gitkeep`. Its benchmark instances will live in the git-ignored `data/` |
 
-`core` has no controller. Its `src/main/resources/db/migration/` holds ten Flyway migrations: `V1`
-creates the eight module schemas, `V2` to `V9` add one module's tables each, and `V10` refuses a
-negative position in every stored list ([data-model.md](data-model.md)). The 20 aggregate roots are
+`core` has no controller. Its `src/main/resources/db/migration/` holds eleven Flyway migrations:
+`V1` creates the eight module schemas, `V2` to `V9` add one module's tables each, `V10` refuses a
+negative position in every stored list, and `V11` grants `app` what each adapter runs
+([data-model.md](data-model.md)). The 20 aggregate roots are
 JPA entities: their domain classes carry the mapping, and only Hibernate rebuilds an aggregate, its
 `@PostLoad` check refusing a damaged row
 ([ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md),
@@ -81,12 +82,13 @@ Hibernate batch-fetches the collections a load reads, 200 roots at a time
 module's `*PersistenceIT` tests its adapters against PostgreSQL. No aggregate keeps a `restore`
 factory or a snapshot record. Three adapter methods still throw: `SolveJobRepository`'s two blanking
 methods (`UnsupportedOperationException("To Be Implemented.")`, because nothing stores a job's input yet)
-and `AuditRecords.purgeExpired`, which waits for the database roles. `src/test` also holds two
-entities that have tables, `Ledger` and its child `LedgerEntry`, and the test-only migration
-`src/test/resources/db/fixture/V0_1__persistence_fixture.sql`. Flyway applies it in every
-integration-test context and under `just core-run`, and only the version helper's tests use its
-tables. The `@Entity` classes under `archfixture/` are deliberately wrong fixtures for the mapping
-rules, and no schema maps them. `optimizer`'s solvers, `adapters/outbound/solvers/{ortools,alns,nearest_neighbour}`, its
+and `AuditRecords.purgeExpired`, which waits for the audit purge function. `src/test` also holds two
+entities that have tables, `Ledger` and its child `LedgerEntry`, and two test-only migrations in
+`src/test/resources/db/fixture/`: `V0_1`, which creates their tables, and `V0_2`, which grants `app`
+what the version helper's tests run. Flyway applies them in every integration-test context and
+under `just core-run`, and only those tests use their tables. The `@Entity` classes under
+`archfixture/` are deliberately wrong fixtures for the mapping rules, and no schema maps them.
+`optimizer`'s solvers, `adapters/outbound/solvers/{ortools,alns,nearest_neighbour}`, its
 `adapters/outbound/clock` and its `adapters/inbound/worker` are declared, empty packages; its `domain`
 holds the domain for daily solves and re-optimizations
 ([ADR-098](../ADRs/ADR-098-the-validator-works-in-double-precision-with-a-tolerance.md) fixes its
@@ -227,7 +229,7 @@ calls exist.
 
 | Dependency | Used by | For |
 |---|---|---|
-| PostgreSQL 18.6 | `core` | The database, one schema per module, each with tables. Spring Boot runs the Flyway migrations at startup, until the `migrate` step of [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md) exists. In a Testcontainers container for `*IT` tests and `just core-run`, which need Docker ([ADR-014](../ADRs/ADR-014-real-dependencies-in-containers-for-tests-and-local-runs.md), superseded by [ADR-042](../ADRs/ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md): local runs start their services from `compose.dev.yaml`, the tests keep Testcontainers, and M0 decides whether `just core-run` stays. Not in the code yet). Elsewhere `core` reads `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` from the environment |
+| PostgreSQL 18.6 | `core` | The database, one schema per module, each with tables. The `migrate` command runs the Flyway migrations as `dispatchflow_owner` before the core starts, and the core connects as `app` ([ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md), [ADR-145](../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md)); `infra/deploy/postgres/initdb/create-roles.sql` creates both roles in a new database. In a Testcontainers container for `*IT` tests and `just core-run`, which need Docker ([ADR-014](../ADRs/ADR-014-real-dependencies-in-containers-for-tests-and-local-runs.md), superseded by [ADR-042](../ADRs/ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md): local runs start their services from `compose.dev.yaml`, the tests keep Testcontainers, and M0 decides whether `just core-run` stays. Not in the code yet). The container runs that init script, and Flyway runs in the core's JVM there, as the owner. Elsewhere `core` and `migrate` read `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` from the environment |
 | PyVRP | `research` | A reference solver for benchmarks. Never installed in `optimizer` |
 
 No other outside service is called. The repository has no Compose file; `core` and `optimizer` each
@@ -305,8 +307,18 @@ have a `Dockerfile`, and neither runs as root
   amended by [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md), which replaces jOOQ with JPA). `just core-schema-draft` writes the DDL Hibernate
   would generate to `src/backend/core/target/schema-draft.sql`, as a draft for a migration, without a
   database connection. At startup `validate` checks each mapped table and column against the
-  migrations, which [data-model.md](data-model.md#migrations) lists; no migration grants anything
-  yet ([ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md), decision 8).
+  migrations, which [data-model.md](data-model.md#migrations) lists. `V11` grants `app` what each
+  adapter runs, and every later migration grants on the tables it creates
+  ([ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md),
+  decision 8). `DatabaseRolesIT` fails on a table that grants `app` nothing or more than its rows
+  ([ADR-145](../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md)).
+- **The core never migrates.** `application.properties` turns Flyway off, so the core, connected as
+  `app`, owns no table and can change no schema. The image's `java -jar app.jar migrate` hands the
+  run to `MigrateCommand`, whose context holds only the data source and Flyway, connected as
+  `dispatchflow_owner` through the same `SPRING_DATASOURCE_*` keys and the core's pool settings, and
+  exits non-zero when a migration fails. The tests and `just core-run` run Flyway in the core's JVM
+  instead, on an owner pool of their own, under the `throwaway-database` profile
+  ([ADR-145](../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md)).
 - **Every error body is the contract's `Problem`.** `shared.adapter.in.web.Problems` builds each
   one, with `type` `about:blank`, a `code`, its `params` and the trace ID from the MDC, and never a
   `detail` ([ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md), decision 5).
@@ -384,9 +396,10 @@ the ADRs:
   [ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md) (a
   Spring Modulith monolith, one module per context) and
   [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md) (a
-  schema per module, with its persistence amended to JPA by [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)) give the target shape. Apart from Java 25, and every module's schema, tables and
-  persistence adapters, none of them is in the tree yet: the two database roles and the `migrate`
-  step do not exist, and Spring Modulith is not a dependency. ADR-039 and ADR-042 to ADR-047 record the other tooling, contract, solver-port, token
+  schema per module, with its persistence amended to JPA by [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md)) give the target shape. Apart from Java 25, every module's schema, tables and
+  persistence adapters, and the two database roles and the `migrate` step
+  ([ADR-145](../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md)),
+  none of them is in the tree yet: Spring Modulith is not a dependency. ADR-039 and ADR-042 to ADR-047 record the other tooling, contract, solver-port, token
   and image decisions, and ADR-048 onward the rest.
 - [Roadmap](../roadmap.md#2-milestones): the milestones and dates.
 

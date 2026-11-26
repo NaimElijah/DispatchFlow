@@ -45,7 +45,7 @@ and ADR-014 are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 | `src/research/` | Benchmarks, simulation and the order generator: Python, uv. Never deployed |
 | `contracts/` | `client-api/v1` and `optimization-api/v1` (OpenAPI), and the Redocly lint setup |
 | `tests/` | Tests that span components: `e2e/` and `load/`. Both are placeholders |
-| `infra/` | `osrm/`, `deploy/` (with `backup/` and `observability/`) and `terraform/`. All are placeholders |
+| `infra/` | `osrm/`, `deploy/` and `terraform/`. `deploy/postgres/initdb/create-roles.sql` creates the two database roles in a new PostgreSQL, and `deploy/.env.example` lists its passwords' keys ([ADR-145](../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md)); the rest, `deploy/backup/` and `deploy/observability/` among it, are placeholders |
 | `data/` | The OSM extract, OSRM files, PMTiles and benchmark instances, once built. Git keeps the folder and ignores everything in it |
 | `logs/` | Local log output. Git keeps the folder and ignores everything in it |
 | `docs/` | `CLAUDE.md`, `requirements/` (with `ARD/`), `architecture/` (with `domain_layer/` and `tech_stack.md`), `ADRs/`, `roadmap.md`, `operations/` (with `data-inventory.md`) and `presentations/`; the placeholders are `guides/he/`, `guides/en/`, `research/usability/` and `architecture/generated/` |
@@ -99,9 +99,11 @@ src/backend/core/
   pom.xml, mvnw, mvnw.cmd, .mvn/   Maven and its wrapper
   CLAUDE.md                        the rules for this folder
   Dockerfile, .dockerignore
-  .env.example                     the database connection keys, with no values
+  .env.example                     the database connection keys, app's, with no values
   src/main/java/com/dispatchflow/
-    DispatchFlowApplication.java   the Spring Boot entry point
+    DispatchFlowApplication.java   the Spring Boot entry point, which hands `migrate` to the next
+    MigrateCommand.java            the migrate step: the data source and Flyway alone, run as
+                                   dispatchflow_owner before the core starts (ADR-145)
     SchedulingConfiguration.java   @EnableAsync always, @EnableScheduling behind
                                    dispatchflow.scheduling.enabled, and the executor's cap
     MdcTaskDecorator.java          copies the caller's MDC to an asynchronous listener's thread
@@ -173,12 +175,13 @@ src/backend/core/
                                    the e2e profile
       package-info.java
   src/main/resources/
-    application.properties
+    application.properties         Flyway off: the core never migrates
     application-schema-draft.properties  the profile `just core-schema-draft` runs
     db/migration/                  Flyway migrations: V1 creates the eight schemas, then one per
                                    module, V2 access, V3 audit, V4 fleet, V5 liveops, V6
                                    messaging, V7 orders, V8 planning and V9 reporting; V10 refuses
-                                   a negative list position on every list table (data-model.md)
+                                   a negative list position on every list table; V11 grants app
+                                   what each adapter runs (data-model.md)
   src/test/java/com/dispatchflow/
     shared/                        the kernel's tests, and DomainAssertions, the refusal helper
                                    every module's domain tests use; AsSaved, which does to an
@@ -221,12 +224,19 @@ src/backend/core/
     SchedulingConfigurationTest.java     the executor, its MDC copy and the scheduling property
     TransactionalBeanTest.java           a final transactional bean fails the context
     IntegrationTest.java                 the annotation every *IT uses but one that needs a real
-                                         Tomcat: the whole app and PostgreSQL, scheduled jobs off
+                                         Tomcat: the whole app as app and PostgreSQL, scheduled
+                                         jobs off
     TomcatIntegrationTest.java           the same on a random port, in a context of its own
     CapturedLogs.java                    a unit test's view of a logger's events, read from logback
     DispatchFlowApplicationIT.java       the health probe answers UP against PostgreSQL
+    DatabaseRolesIT.java                 the two roles, the migrate command and the grants' guard
     TestDispatchFlowApplication.java     what `just core-run` starts
-    TestcontainersConfiguration.java     the PostgreSQL container
+    TestcontainersConfiguration.java     the PostgreSQL container with both roles, the core's
+                                         connection as app and the owner's pool, which Flyway runs
+                                         on under the throwaway-database profile
+    DatabaseRoles.java                   the roles' names and a run's passwords, from the init script
+    DatabaseOwner.java                   the qualifier of the owner's pool and JdbcClient, which a
+                                         test's own damage SQL runs on
     Transactions.java                    the ITs' shared transaction helper: it runs work in a
                                          transaction of its own, as a use case would, so a test
                                          can hold two copies of an aggregate and prove a conflict
@@ -234,9 +244,11 @@ src/backend/core/
                                          location, no archfixture in Hibernate's scan, the
                                          Transactions bean, and a recorder of published events
   src/test/resources/
+    application-throwaway-database.properties  the tests' profile, which runs Flyway in the JVM
     db/fixture/                    V0_1__persistence_fixture.sql, the test-only schema
                                    persistence_fixture and its two tables behind Ledger and
-                                   LedgerEntry (migration versions V0_* are reserved for tests)
+                                   LedgerEntry, and V0_2, app's grants on them (migration
+                                   versions V0_* are reserved for tests)
 ```
 
 The shared kernel exists
@@ -332,11 +344,11 @@ are written to tech stack §4.
 [ADR-040](../ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md)
 (Accepted) makes each context a Spring Modulith module, and
 [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md)
-(Accepted, amended by [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) and [ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md)) gives each module its own schema, accessed through JPA with the
+(Accepted, amended by [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md), [ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md) and [ADR-145](../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md)) gives each module its own schema, accessed through JPA with the
 mapping on the domain classes. ADR-040's module packages and adapter layout are in the tree
 (ADR-130 declared them); Spring Modulith, which it also adopts, is not. ADR-041 and ADR-126 are, for every
-module: their schemas, tables, mapped aggregates and persistence adapters exist, but the two
-database roles and the `migrate` step do not.
+module: their schemas, tables, mapped aggregates and persistence adapters exist, and so do the two
+database roles and the `migrate` step.
 [ADR-001](../ADRs/ADR-001-domain-driven-design-with-hexagonal-architecture.md)'s layout (one package
 per context, split into `api`, `domain`, `application` and `adapter`) is amended by ADR-040, which
 is accepted.

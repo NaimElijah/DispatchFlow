@@ -1,25 +1,89 @@
 package com.dispatchflow;
 
+import com.zaxxer.hikari.HikariDataSource;
+import javax.sql.DataSource;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.flyway.autoconfigure.FlywayDataSource;
+import org.springframework.boot.jdbc.autoconfigure.JdbcConnectionDetails;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * A real PostgreSQL in a container, wired in as the application's datasource, with the test
- * classpath's persistence setup.
+ * A real PostgreSQL in a container, with DispatchFlow's two database roles (ADR-041, ADR-145), and the
+ * test classpath's persistence setup. The core connects as {@code app}, as it does everywhere. Nothing
+ * else migrates this throwaway database, so under the {@value #THROWAWAY_DATABASE} profile Flyway
+ * runs in the core's JVM, on a pool of its own connected as {@code dispatchflow_owner}: one of the
+ * two exceptions ADR-145 makes to the migrate step, for the tests and {@code just core-run} alone.
  */
 @TestConfiguration(proxyBeanMethods = false)
 @Import(TestPersistenceConfiguration.class)
 public class TestcontainersConfiguration {
 
+    /** The profile that turns Flyway on in the core's JVM, set by every run this class is part of. */
+    public static final String THROWAWAY_DATABASE = "throwaway-database";
+
     private static final DockerImageName POSTGRES_IMAGE = DockerImageName.parse("postgres:18.6");
 
+    /** Flyway holds both while it migrates, its main and its migration connection; tests reuse them. */
+    private static final int OWNER_POOL_SIZE = 2;
+
+    /**
+     * A new, unstarted PostgreSQL container that creates both roles as it first starts, for a test
+     * that needs an empty database of its own.
+     *
+     * @param roles the roles, with their passwords
+     * @return the container
+     */
+    static PostgreSQLContainer postgres(DatabaseRoles roles) {
+        return roles.createIn(new PostgreSQLContainer(POSTGRES_IMAGE));
+    }
+
     @Bean
-    @ServiceConnection
-    PostgreSQLContainer postgresContainer() {
-        return new PostgreSQLContainer(POSTGRES_IMAGE);
+    DatabaseRoles databaseRoles() {
+        return new DatabaseRoles();
+    }
+
+    @Bean
+    PostgreSQLContainer postgresContainer(DatabaseRoles roles) {
+        return postgres(roles);
+    }
+
+    @Bean
+    JdbcConnectionDetails appConnection(PostgreSQLContainer postgresContainer, DatabaseRoles roles) {
+        return roles.appConnection(postgresContainer);
+    }
+
+    /**
+     * The owner's pool, which Flyway runs on. It binds the core's own pool settings, so its sessions
+     * run as the core's do: in UTC, without the server's error detail, and with the same lock timeout.
+     * Spring Boot binds them after this method returns, so a core pool setting of a name or a size
+     * would replace the ones set here; {@code application.properties} sets neither.
+     */
+    @Bean(defaultCandidate = false)
+    @FlywayDataSource
+    @DatabaseOwner
+    @ConfigurationProperties("spring.datasource.hikari")
+    HikariDataSource ownerDataSource(PostgreSQLContainer postgresContainer, DatabaseRoles roles) {
+        HikariDataSource dataSource = new HikariDataSource();
+        dataSource.setJdbcUrl(postgresContainer.getJdbcUrl());
+        dataSource.setUsername(DatabaseRoles.OWNER);
+        dataSource.setPassword(roles.ownerPassword());
+        dataSource.setPoolName("owner");
+        dataSource.setMaximumPoolSize(OWNER_POOL_SIZE);
+        return dataSource;
+    }
+
+    /**
+     * Runs a test's SQL as the owner, for the rows the core itself must not write or can't read
+     * (ADR-145). It joins no transaction: each statement commits on its own.
+     */
+    @Bean(defaultCandidate = false)
+    @DatabaseOwner
+    JdbcClient ownerJdbcClient(@DatabaseOwner DataSource ownerDataSource) {
+        return JdbcClient.create(ownerDataSource);
     }
 }

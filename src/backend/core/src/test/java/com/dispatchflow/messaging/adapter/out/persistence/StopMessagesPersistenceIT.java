@@ -3,6 +3,7 @@ package com.dispatchflow.messaging.adapter.out.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.DatabaseOwner;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.Transactions;
 import com.dispatchflow.messaging.application.port.out.StopMessagesRepository;
@@ -86,6 +87,10 @@ class StopMessagesPersistenceIT {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    @DatabaseOwner
+    private JdbcClient owner;
 
     // --- round trips (ADR-127 decision 1)
 
@@ -535,7 +540,7 @@ class StopMessagesPersistenceIT {
             String broken, int n, Base base, Damage damage, String detail) {
         transactions.inTransaction(() -> repository.add(base.build(n, tenOn(n), phone(n))));
 
-        damage.apply(new Rows(jdbc, n));
+        damage.apply(new Rows(owner, n));
 
         assertThatThrownBy(() -> transactions.inTransaction(() -> repository.get(stop(n))))
                 .isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
@@ -558,7 +563,7 @@ class StopMessagesPersistenceIT {
     void GivenStoredMessages_WhenARowIsDamagedAsTheSchemaForbids_ThenTheDatabaseRefusesTheWrite(
             String broken, int n, Damage damage) {
         transactions.inTransaction(() -> repository.add(Base.ARRIVING_SOON.build(n, tenOn(n), phone(n))));
-        Rows rows = new Rows(jdbc, n);
+        Rows rows = new Rows(owner, n);
 
         assertThatThrownBy(() -> damage.apply(rows)).isInstanceOf(DataIntegrityViolationException.class);
         assertThat(transactions.inTransaction(() -> repository.get(stop(n)))).isPresent();
@@ -793,7 +798,7 @@ class StopMessagesPersistenceIT {
 
     /** Stores {@code count} answers counted on a day, keyed apart from {@link #answerId}. */
     private void storeCountedAnswers(int n, LocalDate day, int count) {
-        jdbc.sql("""
+        owner.sql("""
                         INSERT INTO messaging.counted_answer (answer_id, day)
                         SELECT CAST('0190a5e2-' || lpad(CAST(? AS text), 4, '0') || '-7000-8000-'
                                     || lpad(CAST(g AS text), 12, '0') AS uuid), ?

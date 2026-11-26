@@ -2,6 +2,7 @@ package com.dispatchflow.shared.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.dispatchflow.DatabaseOwner;
 import com.dispatchflow.IntegrationTest;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -17,7 +18,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 class ListPositionsIT {
 
     @Autowired
-    private JdbcClient jdbc;
+    @DatabaseOwner
+    private JdbcClient owner;
 
     /**
      * A list's order column is named {@code position} in each of the eight module schemas (V1).
@@ -25,13 +27,13 @@ class ListPositionsIT {
      */
     @Test
     void GivenTheModulesSchemas_WhenTheirListTablesAreRead_ThenEachRefusesANegativePosition() {
-        List<String> lists = jdbc.sql("""
+        List<String> lists = owner.sql("""
                         SELECT table_schema || '.' || table_name FROM information_schema.columns
                         WHERE column_name = 'position' AND table_schema IN (
                             'access', 'audit', 'fleet', 'liveops', 'messaging', 'orders', 'planning', 'reporting')
                         """).query(String.class).list();
         List<String> refusingANegativePosition =
-                jdbc.sql("""
+                owner.sql("""
                         SELECT conrelid::regclass::text FROM pg_constraint
                         WHERE contype = 'c' AND replace(pg_get_constraintdef(oid), '"', '') = 'CHECK ((position >= 0))'
                         """).query(String.class).list();

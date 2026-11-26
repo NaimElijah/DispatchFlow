@@ -10,6 +10,7 @@ import static com.dispatchflow.liveops.domain.LiveOpsFixtures.byA;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.DatabaseOwner;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.TestPersistenceConfiguration.RecordedEvents;
 import com.dispatchflow.Transactions;
@@ -66,6 +67,10 @@ class RouteRunPersistenceIT {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    @DatabaseOwner
+    private JdbcClient owner;
 
     @Autowired
     private RecordedEvents events;
@@ -272,7 +277,7 @@ class RouteRunPersistenceIT {
         int n = 12;
         transactions.inTransaction(() -> repository.add(finished(n, List.of(stop(n, 1), stop(n, 2))), dateOf(n)));
 
-        jdbc.sql("UPDATE liveops.route_run_pending_stop SET stop = ? WHERE route_run_id = ? AND position = 1")
+        owner.sql("UPDATE liveops.route_run_pending_stop SET stop = ? WHERE route_run_id = ? AND position = 1")
                 .params(stop(n, 1).value(), route(n).value())
                 .update();
 
@@ -288,7 +293,7 @@ class RouteRunPersistenceIT {
         int n = 18;
         transactions.inTransaction(() -> repository.add(finished(n, List.of(stop(n, 1), stop(n, 2))), dateOf(n)));
 
-        jdbc.sql("UPDATE liveops.route_run_pending_stop SET position = position + 1 WHERE route_run_id = ?")
+        owner.sql("UPDATE liveops.route_run_pending_stop SET position = position + 1 WHERE route_run_id = ?")
                 .param(route(n).value())
                 .update();
 
@@ -304,7 +309,7 @@ class RouteRunPersistenceIT {
         int n = 15;
         transactions.inTransaction(() -> repository.add(started(n), dateOf(n)));
 
-        jdbc.sql("INSERT INTO liveops.route_run_pending_stop (route_run_id, position, stop) VALUES (?, 0, ?)")
+        owner.sql("INSERT INTO liveops.route_run_pending_stop (route_run_id, position, stop) VALUES (?, 0, ?)")
                 .params(route(n).value(), stop(n, 1).value())
                 .update();
 
@@ -320,7 +325,7 @@ class RouteRunPersistenceIT {
         int n = 13;
         transactions.inTransaction(() -> repository.add(started(n), dateOf(n)));
 
-        assertThatThrownBy(() -> jdbc.sql("UPDATE liveops.route_run SET status = 'FINISHED' WHERE id = ?")
+        assertThatThrownBy(() -> owner.sql("UPDATE liveops.route_run SET status = 'FINISHED' WHERE id = ?")
                         .param(route(n).value())
                         .update())
                 .isInstanceOf(DataIntegrityViolationException.class);
@@ -334,7 +339,7 @@ class RouteRunPersistenceIT {
         confirmed.acknowledge(DRIVER_A, DRIVER_A, REV_1, REV_1);
         transactions.inTransaction(() -> repository.add(confirmed, dateOf(n)));
 
-        jdbc.sql("UPDATE liveops.route_run SET confirmed = 0 WHERE id = ?")
+        owner.sql("UPDATE liveops.route_run SET confirmed = 0 WHERE id = ?")
                 .param(route(n).value())
                 .update();
 

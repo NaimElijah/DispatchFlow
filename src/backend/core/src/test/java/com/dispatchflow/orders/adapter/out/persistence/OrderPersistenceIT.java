@@ -3,6 +3,7 @@ package com.dispatchflow.orders.adapter.out.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.DatabaseOwner;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.TestPersistenceConfiguration.RecordedEvents;
 import com.dispatchflow.Transactions;
@@ -93,6 +94,10 @@ class OrderPersistenceIT {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    @DatabaseOwner
+    private JdbcClient owner;
 
     @Autowired
     private RecordedEvents events;
@@ -383,7 +388,7 @@ class OrderPersistenceIT {
 
         // The damage and the load share a transaction, which the refused load rolls back.
         assertThatThrownBy(() -> transactions.inTransaction(() -> {
-                    damage(n, damage);
+                    damage(jdbc, n, damage);
                     return repository.get(order(n, 1));
                 }))
                 .isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
@@ -400,7 +405,7 @@ class OrderPersistenceIT {
         transactions.inTransaction(() -> repository.add(placed(n, 1)));
 
         assertThatThrownBy(() -> transactions.inTransaction(() -> {
-                    damage(n, "reference = ' '");
+                    damage(jdbc, n, "reference = ' '");
                     return repository.get(order(n, 1));
                 }))
                 .satisfies(thrown -> assertThat(StoredStates.invalidIn(thrown))
@@ -440,7 +445,7 @@ class OrderPersistenceIT {
             String broken, int n, Base base, String damage) {
         transactions.inTransaction(() -> repository.add(build(base, n)));
 
-        assertThatThrownBy(() -> damage(n, damage)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> damage(owner, n, damage)).isInstanceOf(DataIntegrityViolationException.class);
         assertThat(transactions.inTransaction(() -> repository.get(order(n, 1))))
                 .isPresent();
     }
@@ -453,7 +458,7 @@ class OrderPersistenceIT {
             repository.add(placed(n, 2));
         });
 
-        assertThatThrownBy(() -> damage(n, "reference = 'SHOP-1001'"))
+        assertThatThrownBy(() -> damage(owner, n, "reference = 'SHOP-1001'"))
                 .isInstanceOf(DataIntegrityViolationException.class);
         assertThat(transactions.inTransaction(
                         () -> repository.get(order(n, 1)).orElseThrow().reference()))
@@ -652,9 +657,13 @@ class OrderPersistenceIT {
         jdbc.sql("SET LOCAL lock_timeout = '200ms'").update();
     }
 
-    /** Sets columns of order {@code (n, 1)}'s row; the assignments are the test's own constant SQL. */
-    private void damage(int n, String assignments) {
-        jdbc.sql("UPDATE orders.customer_order SET " + assignments + " WHERE id = ?")
+    /**
+     * Sets columns of order {@code (n, 1)}'s row; the assignments are the test's own constant SQL.
+     * App's client runs the damage a load shares a transaction with, and the owner's the writes the
+     * database must refuse, so a refusal comes from the schema and never from a missing grant.
+     */
+    private void damage(JdbcClient client, int n, String assignments) {
+        client.sql("UPDATE orders.customer_order SET " + assignments + " WHERE id = ?")
                 .param(order(n, 1).value())
                 .update();
     }

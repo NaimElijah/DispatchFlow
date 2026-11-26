@@ -1,6 +1,6 @@
 # ADR-041: Each module owns a PostgreSQL schema, read and written through jOOQ by a role that owns no table
 
-- **Status:** Accepted; amended by ADR-126 and ADR-127
+- **Status:** Accepted; amended by ADR-126, ADR-127 and ADR-145
 - **Date:** 2026-11-13
 
 ## Context

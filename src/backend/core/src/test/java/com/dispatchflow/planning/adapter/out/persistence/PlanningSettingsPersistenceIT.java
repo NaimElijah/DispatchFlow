@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
+import com.dispatchflow.DatabaseOwner;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.Transactions;
 import com.dispatchflow.planning.application.port.out.settings.PlanningSettingsRepository;
@@ -58,9 +59,13 @@ class PlanningSettingsPersistenceIT {
     @Autowired
     private JdbcClient jdbc;
 
+    @Autowired
+    @DatabaseOwner
+    private JdbcClient owner;
+
     @BeforeEach
     void startWithNoSettings() {
-        jdbc.sql("DELETE FROM planning.planning_settings").update();
+        owner.sql("DELETE FROM planning.planning_settings").update();
     }
 
     @Test
@@ -242,7 +247,7 @@ class PlanningSettingsPersistenceIT {
             String broken, String assignments) {
         transactions.inTransaction(() -> repository.save(repository.current()));
 
-        assertThatThrownBy(() -> jdbc.sql("UPDATE planning.planning_settings SET " + assignments)
+        assertThatThrownBy(() -> owner.sql("UPDATE planning.planning_settings SET " + assignments)
                         .update())
                 .isInstanceOf(DataIntegrityViolationException.class);
         assertThat(transactions.inTransaction(() -> repository.current()).savedVersion())
@@ -263,7 +268,7 @@ class PlanningSettingsPersistenceIT {
     /** Saves the starting values, then changes their row with SQL: the test's own constant assignments. */
     private void storeStartingValuesWith(String assignments) {
         transactions.inTransaction(() -> repository.save(repository.current()));
-        jdbc.sql("UPDATE planning.planning_settings SET " + assignments).update();
+        owner.sql("UPDATE planning.planning_settings SET " + assignments).update();
     }
 
     private long storedVersion() {

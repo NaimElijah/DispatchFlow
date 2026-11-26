@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
+import com.dispatchflow.DatabaseOwner;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.Transactions;
 import com.dispatchflow.planning.application.port.out.proposal.ProposalRepository;
@@ -65,6 +66,10 @@ class ProposalPersistenceIT {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    @DatabaseOwner
+    private JdbcClient owner;
 
     // --- round trips (ADR-127 decision 1)
 
@@ -298,7 +303,7 @@ class ProposalPersistenceIT {
             String broken, int n, Scenario scenario, Damage damage, String subject, String detail) {
         transactions.inTransaction(() -> repository.add(scenario.build(n)));
 
-        damage.apply(new Rows(jdbc, proposal(n)));
+        damage.apply(new Rows(owner, proposal(n)));
 
         assertThatThrownBy(() -> transactions.inTransaction(() -> repository.get(proposal(n))))
                 .isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
@@ -312,7 +317,7 @@ class ProposalPersistenceIT {
         int n = 201;
         transactions.inTransaction(() -> repository.add(Scenario.READY_WITH_EMPTY_LISTS.build(n)));
 
-        new Rows(jdbc, proposal(n)).update("reoptimization_proposal", "basis_revision = 0");
+        new Rows(owner, proposal(n)).update("reoptimization_proposal", "basis_revision = 0");
 
         // Hibernate wraps a converter's exception, and Spring wraps Hibernate's.
         Throwable thrown = catchThrowable(() -> transactions.inTransaction(() -> repository.get(proposal(n))));
@@ -350,7 +355,7 @@ class ProposalPersistenceIT {
     void GivenAStoredProposal_WhenARowIsDamagedAsTheSchemaForbids_ThenTheDatabaseRefusesTheWrite(
             String broken, int n, Damage damage) {
         transactions.inTransaction(() -> repository.add(Scenario.DECLINED.build(n)));
-        Rows rows = new Rows(jdbc, proposal(n));
+        Rows rows = new Rows(owner, proposal(n));
 
         assertThatThrownBy(() -> damage.apply(rows)).isInstanceOf(DataIntegrityViolationException.class);
         assertThat(transactions.inTransaction(() -> repository.get(proposal(n))))

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
+import com.dispatchflow.DatabaseOwner;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.Transactions;
 import com.dispatchflow.fleet.application.port.out.FleetRegisterRepository;
@@ -79,11 +80,15 @@ class FleetRegisterPersistenceIT {
     @Autowired
     private JdbcClient jdbc;
 
+    @Autowired
+    @DatabaseOwner
+    private JdbcClient owner;
+
     @BeforeEach
     void startWithNoRegister() {
-        jdbc.sql("DELETE FROM fleet.vehicle").update();
-        jdbc.sql("DELETE FROM fleet.depot").update();
-        jdbc.sql("DELETE FROM fleet.fleet_register").update();
+        owner.sql("DELETE FROM fleet.vehicle").update();
+        owner.sql("DELETE FROM fleet.depot").update();
+        owner.sql("DELETE FROM fleet.fleet_register").update();
     }
 
     @Test
@@ -258,7 +263,7 @@ class FleetRegisterPersistenceIT {
             String detail, Base base, Damage damage) {
         transactions.inTransaction(() -> repository.add(base.build()));
 
-        damage.apply(new Rows(jdbc));
+        damage.apply(new Rows(owner));
 
         assertThatThrownBy(() -> transactions.inTransaction(() -> repository.get()))
                 .isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
@@ -274,7 +279,7 @@ class FleetRegisterPersistenceIT {
     @Test
     void GivenAStoredDepotWhoseHoursCloseBeforeTheyOpen_WhenTheRegisterIsLoaded_ThenStoredStateInvalidNamesTheHours() {
         transactions.inTransaction(() -> repository.add(Base.TWO_ACTIVE_VEHICLES.build()));
-        new Rows(jdbc).updateDepot(NORTH, "opens = '20:00', closes = '06:00'");
+        new Rows(owner).updateDepot(NORTH, "opens = '20:00', closes = '06:00'");
 
         Throwable thrown = catchThrowable(() -> transactions.inTransaction(() -> repository.get()));
 
@@ -304,7 +309,7 @@ class FleetRegisterPersistenceIT {
     void GivenAStoredRegister_WhenARowIsDamagedAsTheSchemaForbids_ThenTheDatabaseRefusesTheWrite(
             String broken, Damage damage) {
         transactions.inTransaction(() -> repository.add(Base.TWO_ACTIVE_VEHICLES.build()));
-        Rows rows = new Rows(jdbc);
+        Rows rows = new Rows(owner);
 
         assertThatThrownBy(() -> damage.apply(rows)).isInstanceOf(DataIntegrityViolationException.class);
         assertThat(transactions.inTransaction(() -> repository.get())).isPresent();
@@ -312,7 +317,7 @@ class FleetRegisterPersistenceIT {
 
     @Test
     void GivenAnotherKey_WhenARowIsInsertedUnderIt_ThenTheDatabaseRefusesASecondRegister() {
-        assertThatThrownBy(() -> jdbc.sql("INSERT INTO fleet.fleet_register (id, version) VALUES (?, 0)")
+        assertThatThrownBy(() -> owner.sql("INSERT INTO fleet.fleet_register (id, version) VALUES (?, 0)")
                         .param(UUID.fromString("0190a5e2-636f-7000-8000-000000000001"))
                         .update())
                 .isInstanceOf(DataIntegrityViolationException.class)

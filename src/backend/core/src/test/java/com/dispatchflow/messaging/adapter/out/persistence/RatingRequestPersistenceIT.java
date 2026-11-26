@@ -3,6 +3,7 @@ package com.dispatchflow.messaging.adapter.out.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.DatabaseOwner;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.TestPersistenceConfiguration.RecordedEvents;
 import com.dispatchflow.Transactions;
@@ -76,6 +77,10 @@ class RatingRequestPersistenceIT {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    @DatabaseOwner
+    private JdbcClient owner;
 
     @Autowired
     private RecordedEvents events;
@@ -369,7 +374,7 @@ class RatingRequestPersistenceIT {
             repository.add(request);
         });
 
-        jdbc.sql(damage).param(request(n).value()).update();
+        owner.sql(damage).param(request(n).value()).update();
 
         assertThatThrownBy(() -> transactions.inTransaction(() -> repository.get(request(n))))
                 .isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
@@ -401,7 +406,7 @@ class RatingRequestPersistenceIT {
             repository.add(request);
         });
 
-        assertThatThrownBy(() -> jdbc.sql(damage).param(request(n).value()).update())
+        assertThatThrownBy(() -> owner.sql(damage).param(request(n).value()).update())
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("rating_request_rated_whole");
     }
