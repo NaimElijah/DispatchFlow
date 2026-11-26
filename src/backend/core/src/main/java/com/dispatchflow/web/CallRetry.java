@@ -2,16 +2,15 @@ package com.dispatchflow.web;
 
 import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.CallContext;
-import com.dispatchflow.shared.adapter.in.web.Problems;
+import com.dispatchflow.shared.adapter.in.web.TraceIds;
 import com.dispatchflow.shared.application.Clock;
+import com.dispatchflow.web.security.Caller;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -32,7 +31,9 @@ import org.springframework.stereotype.Component;
  * 25 November 2026, ADR-142).
  *
  * <p>A use case never audits a race: this writes the one record, after the answer is chosen and
- * before it is thrown.
+ * before it is thrown. The record names the call's caller, as {@code web.security} built it for a
+ * call under {@code /api/v1} (NFR-93); any other handler is a server step's, with no user, session
+ * or client.
  */
 @Component
 class CallRetry {
@@ -74,8 +75,10 @@ class CallRetry {
     /**
      * Runs a call, again while it loses a race it may retry.
      *
-     * @param request the request, which says whether the call sent a precondition header
-     * @param operation the call's operation, for the log and the audit record
+     * @param request the request, which says whether the call sent a precondition header, and
+     *     holds its caller under {@code /api/v1}
+     * @param operation the call's operation, for the log, and for the audit record of a handler
+     *     outside {@code /api/v1}
      * @param call the handler, invoked with the arguments already read
      * @return what the call returned
      * @throws Exception the last try's exception, checked ones included; an {@link Error} passes
@@ -104,30 +107,23 @@ class CallRetry {
                     continue;
                 }
                 if (race != Race.NONE) {
-                    audit(operation, race, thrown);
+                    audit(request, operation, race, thrown);
                 }
                 throw thrown;
             }
         }
     }
 
-    private void audit(String operation, Race race, Exception answered) {
+    private void audit(HttpServletRequest request, String operation, Race race, Exception answered) {
         try {
-            CallContext call =
-                    new CallContext(Optional.empty(), Optional.empty(), Optional.empty(), operation, traceId());
+            CallContext call = Caller.of(request)
+                    .map(Caller::call)
+                    .orElseGet(() -> CallContext.serverStep(operation, TraceIds.ofTheRunningRequest()));
             auditLog.get().refused(call, clock.now(), List.of(), race.code());
         } catch (RuntimeException failed) {
             failed.addSuppressed(answered);
             throw failed;
         }
-    }
-
-    private static String traceId() {
-        String traceId = MDC.get(Problems.TRACE_ID);
-        if (traceId == null) {
-            throw new IllegalStateException("No trace ID in the MDC: the trace filter didn't run for this call");
-        }
-        return traceId;
     }
 
     /**

@@ -223,8 +223,37 @@ class KernelErrorHandlerTest {
     }
 
     @Test
-    void GivenSessionRevoked_WhenThrown_ThenItStays422UntilTheAccessTokenRefusalIsMapped() {
-        assertThat(get("session-revoked")).hasStatus(HttpStatus.UNPROCESSABLE_CONTENT);
+    void GivenARuleViolationSessionRevoked_WhenThrown_ThenTheOne401CodeWithEmptyParams() {
+        MvcTestResult result = get("session-revoked");
+
+        assertThat(result).hasStatus(HttpStatus.UNAUTHORIZED);
+        assertThat(result.getResponse().getHeaders(HttpHeaders.WWW_AUTHENTICATE))
+                .containsExactly("Bearer");
+        assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo("ACCESS_TOKEN_REFUSED");
+        assertThat(result).bodyJson().extractingPath("$.params").asMap().isEmpty();
+    }
+
+    @Test
+    void GivenRuleViolationsSummarisedBySessionRevoked_WhenThrown_ThenTheOne401CodeWithNoErrorsListed() {
+        MvcTestResult result = get("session-revoked-with-reasons");
+
+        assertThat(result).hasStatus(HttpStatus.UNAUTHORIZED);
+        assertThat(result.getResponse().getHeaders(HttpHeaders.WWW_AUTHENTICATE))
+                .containsExactly("Bearer");
+        assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo("ACCESS_TOKEN_REFUSED");
+        assertThat(result).bodyJson().extractingPath("$.params").asMap().isEmpty();
+        assertThat(result).bodyJson().doesNotHavePath("$.errors");
+    }
+
+    @Test
+    void GivenSessionRevoked_WhenItIsAnswered_ThenTheLogLineKeepsTheSpecificCode() {
+        get("session-revoked");
+
+        assertThat(logs.events())
+                .singleElement()
+                .satisfies(event -> assertThat(CapturedLogs.keyValues(event))
+                        .containsEntry("status", 401)
+                        .containsEntry("code", "SESSION_REVOKED"));
     }
 
     @Test
@@ -297,6 +326,9 @@ class KernelErrorHandlerTest {
                     new RuleViolation(new LiveOpsError.StopNotOnYourRoute(StopId.of(ID), RouteId.of(ID)));
                 case "refresh-refused" -> new RuleViolation(new AccessError.RefreshRefused());
                 case "session-revoked" -> new RuleViolation(new AccessError.SessionRevoked());
+                case "session-revoked-with-reasons" ->
+                    thrown(() -> RuleViolations.throwIfAny(
+                            new AccessError.SessionRevoked(), List.of(new AccessError.SessionRevoked())));
                 case "refresh-refused-with-reasons" ->
                     thrown(() -> RuleViolations.throwIfAny(
                             new AccessError.RefreshRefused(), List.of(new AccessError.SessionRevoked())));

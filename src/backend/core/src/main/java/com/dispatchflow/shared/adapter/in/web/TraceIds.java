@@ -3,6 +3,7 @@ package com.dispatchflow.shared.adapter.in.web;
 import java.security.SecureRandom;
 import java.util.HexFormat;
 import java.util.function.Consumer;
+import org.slf4j.MDC;
 
 /**
  * Makes a fresh W3C trace-id, for a request that brought no valid {@code traceparent} and for a
@@ -19,6 +20,22 @@ public final class TraceIds {
     private static final HexFormat LOWER_CASE_HEX = HexFormat.of();
 
     private TraceIds() {}
+
+    /**
+     * The running request's trace ID, as {@code web}'s trace filter put it in the MDC under {@link
+     * Problems#TRACE_ID}, for a caller's context or an audit record, which may not do without one.
+     *
+     * @return 32 lower-case hex digits
+     * @throws IllegalStateException when the MDC holds none, which means the trace filter didn't run
+     *     for this request
+     */
+    public static String ofTheRunningRequest() {
+        String traceId = MDC.get(Problems.TRACE_ID);
+        if (traceId == null) {
+            throw new IllegalStateException("No trace ID in the MDC: the trace filter didn't run for this call");
+        }
+        return traceId;
+    }
 
     /**
      * A random 128-bit trace-id, never all zeros, which W3C Trace Context and {@code

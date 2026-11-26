@@ -42,6 +42,8 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  *       refuses its parameters; never with no item, and with at most its first {@link
  *       Problems#MAX_ITEMS};
  *   <li>413 {@code BODY_TOO_LARGE} for a body, an upload or a form body over its limit;
+ *   <li>401 {@code ACCESS_TOKEN_REFUSED}, with exactly {@code WWW-Authenticate: Bearer}, for a 401 of
+ *       Spring's own, such as a {@code ResponseStatusException};
  *   <li>404 {@code NO_SUCH_OPERATION}, 405, 406 and 415, each with a code of its own;
  *   <li>503 {@code TRY_AGAIN_LATER} for a timed-out asynchronous request, and 500 {@code
  *       UNEXPECTED_ERROR} for Spring's own server errors;
@@ -53,7 +55,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  * exception that wraps a refusal still answers 400. A 400 or a 413 is logged at WARN with its codes
  * and where each failed (a cut pointer, a parameter or the whole request), the first {@link
  * Problems#MAX_ITEMS} of them and their count; a 503 at WARN; a
- * 404, 405, 406 or 415 at INFO; and a 500 at ERROR. A refusal's line never carries a value nor the
+ * 401, 404, 405, 406 or 415 at INFO; and a 500 at ERROR. A refusal's line never carries a value nor the
  * exception's message.
  */
 @RestControllerAdvice
@@ -141,7 +143,7 @@ class ContractErrorHandler extends ResponseEntityExceptionHandler {
         List<ProblemItem> items = invalid ? itemsOf(thrown) : List.of();
         ProblemDetail problem = invalid ? Problems.invalidRequest(items) : Problems.of(chosen, code);
         log(thrown, chosen, code, items);
-        return super.handleExceptionInternal(thrown, problem, withRetryAfter(headers, chosen), chosen, request);
+        return super.handleExceptionInternal(thrown, problem, withHeadersOf(headers, chosen), chosen, request);
     }
 
     /** The failing items of a 400, never none: the whole request when the exception names none. */
@@ -169,13 +171,19 @@ class ContractErrorHandler extends ResponseEntityExceptionHandler {
         };
     }
 
-    private static HttpHeaders withRetryAfter(HttpHeaders headers, HttpStatusCode status) {
-        if (status.value() != HttpStatus.SERVICE_UNAVAILABLE.value()) {
+    /** Spring's headers, with {@code Retry-After} on a 503 and the bare challenge on a 401. */
+    private static HttpHeaders withHeadersOf(HttpHeaders headers, HttpStatusCode status) {
+        int value = status.value();
+        if (value != HttpStatus.SERVICE_UNAVAILABLE.value() && value != HttpStatus.UNAUTHORIZED.value()) {
             return headers;
         }
         HttpHeaders answered = new HttpHeaders();
         answered.addAll(headers);
-        answered.set(HttpHeaders.RETRY_AFTER, String.valueOf(Race.RETRY_AFTER_SECONDS));
+        if (value == HttpStatus.SERVICE_UNAVAILABLE.value()) {
+            answered.set(HttpHeaders.RETRY_AFTER, String.valueOf(Race.RETRY_AFTER_SECONDS));
+        } else {
+            answered.set(HttpHeaders.WWW_AUTHENTICATE, Problems.BEARER_CHALLENGE);
+        }
         return answered;
     }
 

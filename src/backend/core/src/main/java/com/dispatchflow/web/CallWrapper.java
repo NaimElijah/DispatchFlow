@@ -1,7 +1,13 @@
 package com.dispatchflow.web;
 
+import com.dispatchflow.access.application.api.Actor;
+import com.dispatchflow.access.application.api.CurrentActor;
+import com.dispatchflow.audit.application.api.CurrentCall;
+import com.dispatchflow.web.security.Caller;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Objects;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.webmvc.autoconfigure.WebMvcRegistrations;
 import org.springframework.stereotype.Component;
@@ -22,10 +28,17 @@ import org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHan
  * copies, so a handler must never mutate its arguments, or the next try would see the change;
  * review checks this.
  *
+ * <p>It also binds the call's holders around the handler, its retries included (ADR-140 decision
+ * 4): {@code CurrentCall} for every call to a handler under {@code /api/v1}, and {@code
+ * CurrentActor} on top when its caller is signed in, from the {@link Caller} that {@code
+ * web.security}'s access interceptor kept for the request. A handler outside {@code /api/v1} gets
+ * neither. It is the one class that binds them ({@code ApplicationRules} rule 18). The exception
+ * handlers run after the binding has ended, so none reads them.
+ *
  * <p>Spring Boot takes this bean with {@code getIfUnique}, so a second {@code WebMvcRegistrations}
- * would silently switch both off: #170 extends this class, to bind the call's holders, instead of
- * adding one. Spring's MVC configuration still configures the adapter returned here, its
- * converters, argument resolvers and body advice included, as it does its own.
+ * would silently switch both off: a later concern extends this class instead of adding one.
+ * Spring's MVC configuration still configures the adapter returned here, its converters, argument
+ * resolvers and body advice included, as it does its own.
  */
 @Component
 class CallWrapper implements WebMvcRegistrations {
@@ -79,7 +92,18 @@ class CallWrapper implements WebMvcRegistrations {
         protected @Nullable Object doInvoke(Object... args) throws Exception {
             HttpServletRequest current =
                     Objects.requireNonNull(request, "invokeAndHandle sets the request before any invocation");
-            return retry.run(current, getMethod().getName(), () -> super.doInvoke(args));
+            CallRetry.Call retried = () -> retry.run(current, getMethod().getName(), () -> super.doInvoke(args));
+            // Only the request's own dispatch: an error dispatch keeps the request's attributes, but
+            // its handler is the error endpoint, which acts for no caller.
+            Optional<Caller> caller =
+                    current.getDispatcherType() == DispatcherType.REQUEST ? Caller.of(current) : Optional.empty();
+            if (caller.isEmpty()) {
+                return retried.call();
+            }
+            Optional<Actor> actor = caller.get().actor();
+            return CurrentCall.callWith(
+                    caller.get().call(),
+                    () -> actor.isPresent() ? CurrentActor.callWith(actor.get(), retried::call) : retried.call());
         }
     }
 }

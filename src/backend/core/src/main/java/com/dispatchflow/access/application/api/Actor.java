@@ -15,13 +15,14 @@ import java.util.Set;
  * operation's {@code x-capability}; a check that depends on the data, such as a driver's own
  * route, is the use case's (ADR-068).
  *
- * <p>Sign-in is not built yet. Until it is, {@code web.security} builds the actor from a stand-in
- * session of a seeded account (ADR-121, ADR-140). The stand-in fails closed: it exists only when
- * {@code dev} or {@code test} is the only active profile, and the core refuses to boot with the
- * stand-in and any other profile active, which a test proves. Building sign-in deletes the
- * stand-in. So the calls built before sign-in, which take an actor, run before sign-in exists.
- *
- * <p>To Be Implemented.
+ * <p>Only {@code web.security} builds one ({@code ApplicationRules} rule 17), from the request's
+ * principal and the chosen handler, and a test builds one through {@code TestActors}. Sign-in is
+ * not built yet. Until it is, the principal is a stand-in session of a seeded account (ADR-121,
+ * ADR-140, ADR-147). The stand-in fails closed: it exists only when the active profiles are exactly
+ * {@code dev} or exactly {@code test}, and the core refuses to boot with its configuration under
+ * any other profiles or in a deployed environment, which {@code StandInGuardTest} proves. Building
+ * sign-in deletes the stand-in. So the calls built before sign-in, which take an actor, run before
+ * sign-in exists.
  *
  * @param account the acting user's account
  * @param roles the roles the account held when its access token was issued

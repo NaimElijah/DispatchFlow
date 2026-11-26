@@ -76,7 +76,7 @@ just check    # everything CI checks
 Start a component:
 
 ```bash
-just core-run         # core backend on :8080, against a throwaway PostgreSQL container
+just core-run         # core backend on 127.0.0.1:8080, against a throwaway PostgreSQL container
 just optimizer-run    # optimizer on :8000, reloading on change
 just web-run          # web app (Vite dev server; it prints the URL)
 just mobile-run       # phone app (Expo dev server for phones and the browser)
@@ -187,8 +187,13 @@ keeps the layout and renames three components, which the tree already uses.
 
 ## Configuration
 
-`just core-run` needs no configuration: it starts its own database. To run the core jar against a
-real database, the database needs the two roles that `infra/deploy/postgres/initdb/create-roles.sql`
+`just core-run` needs no configuration: it starts its own database, and runs the `dev` profile,
+whose stand-in session signs every call to `127.0.0.1` or `localhost` in as the seeded Dispatcher,
+until sign-in exists
+([ADR-147](docs/ADRs/ADR-147-the-stand-in-condition-sits-in-the-root-package-and-a-refused-access-token-answers-one-code.md)).
+To try another role for one run, set the stand-in's entry on that command alone, as
+`DISPATCHFLOW_STANDIN_ACCOUNT=driver just core-run`, or `admin`: don't export it, because the core
+refuses to boot with it set under any other profile. To run the core jar against a real database, the database needs the two roles that `infra/deploy/postgres/initdb/create-roles.sql`
 creates from `DISPATCHFLOW_OWNER_PASSWORD` and `DISPATCHFLOW_APP_PASSWORD`
 (`infra/deploy/.env.example`). First run the `migrate` command with the variables below set to
 `dispatchflow_owner`: it applies the migrations and exits, non-zero when one fails. Then start the

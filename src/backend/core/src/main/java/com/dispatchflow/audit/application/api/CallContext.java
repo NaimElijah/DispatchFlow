@@ -15,8 +15,6 @@ import java.util.Optional;
  * <p>The user and the session are each recorded when known, independently: a refused sign-in
  * typically knows neither (ADR-110).
  *
- * <p>To Be Implemented.
- *
  * @param user the acting user's account, when known
  * @param session the acting session, when known
  * @param client the app and version the client declared, or empty for a step no client made
@@ -42,15 +40,17 @@ public record CallContext(
 
     /**
      * The context of a step that no client made and no user started, such as a job, a listener or
-     * FR-292's written-request step (ADR-110): no user, no session and no client.
+     * FR-292's written-request step (ADR-110): no user, no session and no client. A job makes its
+     * trace-id with {@code TraceIds.fresh()}, as the trace filter does for a request that brought
+     * none; a provider callback takes the trace filter's MDC entry (ADR-140 decision 4).
      *
-     * <p>To Be Implemented.
-     *
-     * @param step the step's name, recorded as the operation
-     * @param traceId the step's trace-id
+     * @param step the step's name, recorded as the operation; Audit checks it as it checks an
+     *     operation ID
+     * @param traceId the step's trace-id; Audit checks it
      * @return the context
+     * @throws NullPointerException when either is null
      */
     public static CallContext serverStep(String step, String traceId) {
-        throw new UnsupportedOperationException("To Be Implemented.");
+        return new CallContext(Optional.empty(), Optional.empty(), Optional.empty(), step, traceId);
     }
 }

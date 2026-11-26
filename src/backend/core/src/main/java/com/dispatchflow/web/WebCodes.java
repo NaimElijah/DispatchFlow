@@ -20,6 +20,9 @@ final class WebCodes {
     /** 400: the request breaks the contract. */
     static final String INVALID_REQUEST = Problems.INVALID_REQUEST;
 
+    /** 401, with exactly {@code WWW-Authenticate: Bearer}: the call needs a signed-in caller. */
+    static final String ACCESS_TOKEN_REFUSED = Problems.ACCESS_TOKEN_REFUSED;
+
     /** 404: no operation has the request's path. */
     static final String NO_SUCH_OPERATION = "NO_SUCH_OPERATION";
 
@@ -77,6 +80,7 @@ final class WebCodes {
     /** Every code above. */
     static final Set<String> ALL = Set.of(
             INVALID_REQUEST,
+            ACCESS_TOKEN_REFUSED,
             NO_SUCH_OPERATION,
             METHOD_NOT_ALLOWED,
             NOT_ACCEPTABLE,
@@ -98,6 +102,7 @@ final class WebCodes {
 
     private static final Map<Integer, String> CODE_BY_STATUS = Map.of(
             HttpStatus.BAD_REQUEST.value(), INVALID_REQUEST,
+            HttpStatus.UNAUTHORIZED.value(), ACCESS_TOKEN_REFUSED,
             HttpStatus.NOT_FOUND.value(), NO_SUCH_OPERATION,
             HttpStatus.METHOD_NOT_ALLOWED.value(), METHOD_NOT_ALLOWED,
             HttpStatus.NOT_ACCEPTABLE.value(), NOT_ACCEPTABLE,

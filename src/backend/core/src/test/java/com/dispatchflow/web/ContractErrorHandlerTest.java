@@ -645,6 +645,18 @@ class ContractErrorHandlerTest {
     }
 
     @Test
+    void GivenASpringMvcErrorOf401_WhenAnswered_ThenTheOne401CodeAndExactlyTheBearerChallenge() {
+        MvcTestResult result =
+                mvc.get().uri("/contract-error-handler-test/unauthorized").exchange();
+
+        assertThat(result).hasStatus(HttpStatus.UNAUTHORIZED);
+        assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo(WebCodes.ACCESS_TOKEN_REFUSED);
+        assertThat(result).bodyJson().extractingPath("$.params").asMap().isEmpty();
+        assertThat(result.getResponse().getHeaders(HttpHeaders.WWW_AUTHENTICATE))
+                .containsExactly("Bearer");
+    }
+
+    @Test
     void GivenAnAsynchronousRequestThatTimedOut_WhenSpringAnswersIt_Then503WithRetryAfter() {
         MvcTestResult result =
                 mvc.get().uri("/contract-error-handler-test/timed-out").exchange();
@@ -798,6 +810,11 @@ class ContractErrorHandlerTest {
         @GetMapping("/contract-error-handler-test/gone")
         String gone() {
             throw new ResponseStatusException(HttpStatus.GONE);
+        }
+
+        @GetMapping("/contract-error-handler-test/unauthorized")
+        String unauthorized() {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         }
 
         @GetMapping("/contract-error-handler-test/stops")

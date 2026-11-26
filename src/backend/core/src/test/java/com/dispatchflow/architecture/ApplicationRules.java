@@ -7,6 +7,7 @@ import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaAnnotation;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.domain.JavaCodeUnitAccess;
 import com.tngtech.archunit.core.domain.JavaMethod;
 import com.tngtech.archunit.core.domain.JavaModifier;
 import com.tngtech.archunit.core.domain.JavaPackage;
@@ -150,11 +151,16 @@ final class ApplicationRules {
 
     /**
      * The modules whose {@code api} Reporting may use only in part, and the types of it, by their
-     * names below the root, that it may use: of Access, the {@code Actor} a web call acts for and
-     * its roles, and nothing that reads an account or the company (ADR-120 P5).
+     * names below the root, that it may use: of Access, the {@code Actor} a web call acts for, its
+     * roles and {@code CurrentActor}, which its controllers read, and nothing that reads an account
+     * or the company (ADR-120 P5, ADR-140 decision 4).
      */
-    static final Map<String, Set<String>> REPORTING_NARROWED_APIS =
-            Map.of("access", Set.of("access.application.api.Actor", "access.application.api.ActorRole"));
+    static final Map<String, Set<String>> REPORTING_NARROWED_APIS = Map.of(
+            "access",
+            Set.of(
+                    "access.application.api.Actor",
+                    "access.application.api.ActorRole",
+                    "access.application.api.CurrentActor"));
 
     /**
      * The top-level packages under the root that are no module: the kernel, below every module, and
@@ -271,12 +277,27 @@ final class ApplicationRules {
     static final String CURRENT_CALL = "audit.application.api.CurrentCall";
 
     /**
-     * The holders of what a web call knows of its caller, which rule 14 keeps from the use cases.
-     * Rule 14 matches them by name, so a holder built under another name would pass it unseen: the
-     * issue that builds them (#170) adds a check that each name here is a production class
-     * (ADR-140 decision 4).
+     * The holders of what a web call knows of its caller, which rule 14 keeps from the use cases
+     * and rule 18 lets only the call wrapper bind. Both match them by name, so a holder built under
+     * another name would pass them unseen: {@link #missingHolders} reports a name here that is no
+     * production class (ADR-140 decision 4).
      */
     static final Set<String> CALLS_HOLDERS = Set.of(CURRENT_ACTOR, CURRENT_CALL);
+
+    /** The signed-in caller's {@code Actor}, below the root, which only {@code web.security} builds (rule 17). */
+    static final String ACTOR = "access.application.api.Actor";
+
+    /** The call's {@code CallContext}, below the root, which no handler takes as a parameter (rule 21). */
+    static final String CALL_CONTEXT = "audit.application.api.CallContext";
+
+    /** The one class, below the root, that binds the call's holders (rule 18), with its nested classes. */
+    static final String CALL_WRAPPER = "web.CallWrapper";
+
+    /** The holders' one method that reads; every other binds (rule 18). */
+    private static final String HOLDERS_READ = "get";
+
+    /** The package of {@code web} that proves who the caller is (rule 17). */
+    private static final String SECURITY = "security";
 
     private ApplicationRules() {}
 
@@ -713,9 +734,9 @@ final class ApplicationRules {
     }
 
     /**
-     * Rule 14, for production's holders, {@link #CALLS_HOLDERS}. Neither exists yet, and the rule
-     * holds already: its subject is every class outside {@code web} and the modules' {@code
-     * adapter.in.web}, which is never empty, so {@code archRule.failOnEmptyShould} can't fail it.
+     * Rule 14, for production's holders, {@link #CALLS_HOLDERS}. Its subject is every class outside
+     * {@code web} and the modules' {@code adapter.in.web}, which is never empty, so {@code
+     * archRule.failOnEmptyShould} can't fail it; {@link #missingHolders} checks the holders exist.
      */
     static ArchRule onlyTheWebReadsTheCallsHolders(String root) {
         return onlyTheWebReadsTheCallsHolders(root, CALLS_HOLDERS);
@@ -874,6 +895,204 @@ final class ApplicationRules {
                 })
                 .because("ADR-140 decision 6 and ADR-142: the call wrapper retries a handler with the arguments"
                         + " Spring already read, and only a converter's read is capped");
+    }
+
+    /**
+     * Rule 17, for production's {@link #ACTOR}: only {@code web.security} builds an {@code Actor}
+     * (ADR-140 decision 4).
+     */
+    static ArchRule onlyWebSecurityBuildsAnActor(String root) {
+        return onlyWebSecurityBuilds(root, ACTOR);
+    }
+
+    /**
+     * Rule 17, with the actor's type given, so the fixtures can bring their own: no class outside
+     * {@code web.security}, and below it, calls the actor's constructor or refers to it, as {@code
+     * Actor::new} does. The actor comes from the request's principal, which only {@code
+     * web.security} proves: from the stand-in session now, and from the access token after sign-in.
+     * A use case takes its {@code Actor} as a parameter, and a controller reads {@code CurrentActor}.
+     * The rule reads production classes alone, so a test builds one through {@code TestActors}.
+     *
+     * @param actor the actor's type, by its name below the root, such as {@code
+     *     access.application.api.Actor}
+     */
+    static ArchRule onlyWebSecurityBuilds(String root, String actor) {
+        String actorName = root + "." + actor;
+        String security = root + "." + WEB + "." + SECURITY;
+        return classes()
+                .that()
+                .resideInAPackage(root + "..")
+                .should(new ArchCondition<>("build no " + actor + " outside web.security") {
+                    @Override
+                    public void check(JavaClass item, ConditionEvents events) {
+                        if (isIn(item.getPackageName(), security)) {
+                            return;
+                        }
+                        Stream.concat(
+                                        item.getConstructorCallsFromSelf().stream(),
+                                        item.getConstructorReferencesFromSelf().stream())
+                                .filter(access ->
+                                        access.getTargetOwner().getName().equals(actorName))
+                                .forEach(access ->
+                                        events.add(SimpleConditionEvent.violated(item, access.getDescription())));
+                    }
+                })
+                .because("ADR-140 decision 4: only web.security proves who the caller is, so only it builds the"
+                        + " Actor a use case takes");
+    }
+
+    /**
+     * Rule 18, for production's holders and {@link #CALL_WRAPPER}: only {@code web}'s call wrapper
+     * binds the call's holders (ADR-140 decision 4).
+     */
+    static ArchRule onlyTheCallWrapperBindsTheHolders(String root) {
+        return onlyTheCallWrapperBindsTheHolders(root, CALLS_HOLDERS, CALL_WRAPPER);
+    }
+
+    /**
+     * Rule 18, with the holders and the wrapper given, so the fixtures can bring their own: no class
+     * but the wrapper and its nested classes calls, or refers to, a holder's method other than
+     * {@code get()} with no parameter, which reads. Every other method binds, so a binding method
+     * added under a new name, or as an overload of {@code get}, is caught too. A holder's own use of its methods is no dependency. Rule 14 already keeps the
+     * holders to {@code web} and the controllers; this keeps a controller, or another class of
+     * {@code web}, from binding a caller of its own choosing.
+     *
+     * @param holders the holders, by their names below the root
+     * @param wrapper the wrapper, by its name below the root, such as {@code web.CallWrapper}
+     */
+    static ArchRule onlyTheCallWrapperBindsTheHolders(String root, Set<String> holders, String wrapper) {
+        Set<String> holderNames =
+                holders.stream().map(holder -> root + "." + holder).collect(Collectors.toUnmodifiableSet());
+        String wrapperName = root + "." + wrapper;
+        return classes()
+                .that()
+                .resideInAPackage(root + "..")
+                .should(
+                        new ArchCondition<>("bind no holder of the call's caller " + new TreeSet<>(holders)
+                                + " unless it is " + wrapper) {
+                            @Override
+                            public void check(JavaClass item, ConditionEvents events) {
+                                if (isOrNests(item, wrapperName)
+                                        || holderNames.stream().anyMatch(holder -> isOrNests(item, holder))) {
+                                    return;
+                                }
+                                Stream.concat(
+                                                item.getMethodCallsFromSelf().stream(),
+                                                item.getMethodReferencesFromSelf().stream())
+                                        .filter(access -> holderNames.contains(
+                                                access.getTargetOwner().getName()))
+                                        .filter(access -> !isTheHoldersRead(access))
+                                        .forEach(access -> events.add(
+                                                SimpleConditionEvent.violated(item, access.getDescription())));
+                            }
+                        })
+                .because("ADR-140 decision 4: the call wrapper binds the holders from the principal that"
+                        + " web.security set, so no other class picks the caller a use case sees");
+    }
+
+    /**
+     * Rule 19: the root package depends on nothing below it. No class directly in the root, such as
+     * {@code DispatchFlowApplication} or {@code StandInProfiles}, uses a class of a module, of the
+     * kernel or of {@code web}. Every adapter and {@code web} may use the root's {@code @StandInOnly}
+     * (ADR-147), which rules 2, 10, 11 and 13 leave open, so a root that used them back would close a
+     * cycle that no other rule sees. A module's wiring lives in its own {@code <Module>Configuration}
+     * (rule 15), never in the root.
+     */
+    static ArchRule theRootDependsOnNothingBelowIt(String root) {
+        return classes()
+                .that()
+                .resideInAPackage(root)
+                .should(dependOnlyOn(
+                        "nothing below the root",
+                        (item, target) -> !isIn(target.getPackageName(), root)
+                                || target.getPackageName().equals(root)))
+                .because("ADR-147: the stand-ins of every module use the root's condition, so the root uses none"
+                        + " of them, or the dependency graph would hold a cycle");
+    }
+
+    /**
+     * Rule 20: {@code web.security} uses no class directly in {@code web}. The call wrapper and the
+     * race's audit in {@code web} read the caller that {@code web.security} builds, so a use the other
+     * way would close a cycle between the two, which rule 13, reading {@code web} as one package,
+     * can't see. What both need, such as their filters' order, sits in {@code shared.adapter.in.web}
+     * (ADR-147).
+     */
+    static ArchRule webSecurityUsesNothingDirectlyInWeb(String root) {
+        String web = root + "." + WEB;
+        return classes()
+                .that()
+                .resideInAPackage(web + "." + SECURITY + "..")
+                .should(dependOnlyOn(
+                        "no class directly in web",
+                        (item, target) -> !target.getPackageName().equals(web)))
+                .because("ADR-147: web depends on web.security, never the reverse");
+    }
+
+    /**
+     * Rule 21, for production's {@code Actor} and {@code CallContext}: no handler takes either as a
+     * parameter (ADR-140 decision 4, ADR-147).
+     */
+    static ArchRule noHandlerTakesTheCallersTypes(String root) {
+        return noHandlerTakes(root, Set.of(ACTOR, CALL_CONTEXT));
+    }
+
+    /**
+     * Rule 21, with the types given, so the fixtures can bring their own: no handler method, a
+     * method of a {@code @Controller} or one annotated {@code @RequestMapping} or a variant, as rule
+     * 16 reads them, declares a parameter of one of the types. Spring MVC would build such a
+     * parameter from the request's own parameters, by its constructor, which rule 17 can't see, so a
+     * client would choose its caller. A controller reads {@code CurrentActor} or {@code CurrentCall}
+     * instead.
+     *
+     * @param types the types, by their names below the root
+     */
+    static ArchRule noHandlerTakes(String root, Set<String> types) {
+        Set<String> typeNames = types.stream().map(type -> root + "." + type).collect(Collectors.toUnmodifiableSet());
+        return classes()
+                .that()
+                .resideInAPackage(root + "..")
+                .should(new ArchCondition<>("declare no handler method that takes one of " + new TreeSet<>(types)) {
+                    @Override
+                    public void check(JavaClass item, ConditionEvents events) {
+                        boolean controller = item.isAnnotatedWith(CONTROLLER) || item.isMetaAnnotatedWith(CONTROLLER);
+                        item.getMethods().stream()
+                                .filter(method -> controller
+                                        || method.isAnnotatedWith(REQUEST_MAPPING)
+                                        || method.isMetaAnnotatedWith(REQUEST_MAPPING))
+                                .forEach(method -> method.getRawParameterTypes().stream()
+                                        .filter(parameter -> typeNames.contains(parameter.getName()))
+                                        .forEach(parameter -> events.add(SimpleConditionEvent.violated(
+                                                item,
+                                                method.getFullName() + " is a handler that takes a "
+                                                        + parameter.getName()))));
+                    }
+                })
+                .because("ADR-140 decision 4: the caller comes from the principal web.security proved, never from"
+                        + " the request's parameters");
+    }
+
+    /**
+     * The names of the holders given that are no class among those given, so a renamed holder can't
+     * leave rules 14 and 18 matching nothing.
+     *
+     * @param holders the holders, by their names below the root
+     * @return the names that are no class, sorted; empty when every holder exists
+     */
+    static SortedSet<String> missingHolders(String root, JavaClasses classes, Set<String> holders) {
+        return holders.stream()
+                .filter(holder -> !classes.contain(root + "." + holder))
+                .collect(Collectors.toCollection(TreeSet::new));
+    }
+
+    /** Whether an access to a holder is its one read: {@code get()}, with no parameter. */
+    private static boolean isTheHoldersRead(JavaCodeUnitAccess<?> access) {
+        return access.getName().equals(HOLDERS_READ)
+                && access.getTarget().getRawParameterTypes().isEmpty();
+    }
+
+    /** Whether a class is the named one, or nested in it. */
+    private static boolean isOrNests(JavaClass item, String name) {
+        return item.getName().equals(name) || item.getName().startsWith(name + "$");
     }
 
     /** What a module's configuration does that rule 15 forbids, one message each. */

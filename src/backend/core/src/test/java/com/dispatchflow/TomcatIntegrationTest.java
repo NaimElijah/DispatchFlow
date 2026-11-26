@@ -14,15 +14,12 @@ import org.springframework.test.context.ActiveProfiles;
  * against the same PostgreSQL container setup and with the scheduled jobs off, as {@link
  * IntegrationTest} has it. It starts a Spring context of its own, so use it only for what MockMvc
  * can't show, such as Tomcat's refusal of a request's parameters or its error dispatch; everything
- * else takes {@link IntegrationTest}. Whichever of #165 and #170 moves that annotation's scheduling
- * property and {@code throwaway-database}'s setting into the {@code test} profile moves this one's
- * too, and deletes its {@code throwaway-database} profile.
+ * else takes {@link IntegrationTest}. It activates the {@code test} profile alone, as that one
+ * does.
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-@SpringBootTest(
-        webEnvironment = WebEnvironment.RANDOM_PORT,
-        properties = SchedulingConfiguration.SCHEDULING_ENABLED + "=false")
-@ActiveProfiles(TestcontainersConfiguration.THROWAWAY_DATABASE)
+@SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT, properties = IntegrationTest.STAND_IN_DISPATCHER)
+@ActiveProfiles(StandInProfiles.TEST)
 @Import(TestcontainersConfiguration.class)
 public @interface TomcatIntegrationTest {}

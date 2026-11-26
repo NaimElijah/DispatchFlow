@@ -53,6 +53,15 @@ public final class Problems {
     /** The code of a request that breaks the contract, answered with 400 and its items. */
     public static final String INVALID_REQUEST = "INVALID_REQUEST";
 
+    /**
+     * The one code of a 401 to a call that needs a signed-in caller: its access token is missing,
+     * expired, malformed or revoked, or a use case refused its session with {@code
+     * SESSION_REVOKED}, all with empty params (ADR-140 decision 7, ADR-147). A client refreshes on
+     * it, and signs in again when the refresh answers {@code REFRESH_REFUSED}. The audit record
+     * keeps the specific code.
+     */
+    public static final String ACCESS_TOKEN_REFUSED = "ACCESS_TOKEN_REFUSED";
+
     // Spring Framework 7 leaves a ProblemDetail's type unset, which the body would then omit, but
     // the contract requires the member.
     private static final URI ABOUT_BLANK = URI.create("about:blank");

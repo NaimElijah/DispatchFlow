@@ -31,8 +31,9 @@ import org.springframework.web.bind.annotation.RestController;
  * makes it throw on.
  *
  * <p>The status's code is {@link WebCodes#forStatus}'s, as the contract's handler answers it: a 400
- * names the whole request as its one item, a 503 carries {@code Retry-After}, and a status the
- * contract doesn't list answers 500. A listed 5xx is logged at ERROR with its exception, a listed
+ * names the whole request as its one item, a 503 carries {@code Retry-After}, a 401 exactly {@code
+ * WWW-Authenticate: Bearer} (ADR-140 decision 7), and a status the contract doesn't list answers
+ * 500. A listed 5xx is logged at ERROR with its exception, a listed
  * 4xx at INFO with its status alone, and a status the contract doesn't list at ERROR, answered
  * 500. A request for the error path itself, which carries no error status, is a
  * path no operation has: 404 {@code NO_SUCH_OPERATION}, so a client can't write ERROR lines at will.
@@ -80,6 +81,9 @@ class ErrorEndpoint implements ErrorController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, DOWNLOAD_GUARD);
         if (answered.value() == HttpStatus.SERVICE_UNAVAILABLE.value()) {
             answer.header(HttpHeaders.RETRY_AFTER, String.valueOf(Race.RETRY_AFTER_SECONDS));
+        }
+        if (answered.value() == HttpStatus.UNAUTHORIZED.value()) {
+            answer.header(HttpHeaders.WWW_AUTHENTICATE, Problems.BEARER_CHALLENGE);
         }
         return answer.body(problem);
     }

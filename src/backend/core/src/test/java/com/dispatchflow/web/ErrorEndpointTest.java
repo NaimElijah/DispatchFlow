@@ -139,6 +139,16 @@ class ErrorEndpointTest {
     }
 
     @Test
+    void GivenAnErrorDispatchOfA401_WhenTheEndpointAnswers_ThenTheOne401CodeAndExactlyTheBearerChallenge() {
+        MvcTestResult result = errorDispatch(401);
+
+        isAProblem(result, HttpStatus.UNAUTHORIZED, WebCodes.ACCESS_TOKEN_REFUSED);
+        assertThat(result).bodyJson().extractingPath("$.params").asMap().isEmpty();
+        assertThat(result.getResponse().getHeaders(HttpHeaders.WWW_AUTHENTICATE))
+                .containsExactly("Bearer");
+    }
+
+    @Test
     void GivenAnErrorDispatchOfAStatusTheContractDoesNotList_WhenTheEndpointAnswers_Then500LoggedAtError() {
         MvcTestResult result = errorDispatch(HttpStatus.GONE.value());
 
