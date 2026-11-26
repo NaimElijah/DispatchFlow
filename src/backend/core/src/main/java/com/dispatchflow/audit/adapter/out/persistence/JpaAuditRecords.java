@@ -36,9 +36,9 @@ class JpaAuditRecords implements AuditRecords {
     /**
      * {@inheritDoc}
      *
-     * <p>Built with ADR-041's roles and the {@code migrate} step: the database function it calls
-     * runs with its owner's rights, and that owner is a role the database doesn't have until then
-     * (ADR-127 decision 8).
+     * <p>Built with the nightly retention run that calls it (ADR-121 decision 9, ADR-149 decision
+     * 7). The function it will call, {@code audit.purge_expired_records()}, is migration {@code
+     * V12}'s.
      */
     @Override
     public int purgeExpired() {
