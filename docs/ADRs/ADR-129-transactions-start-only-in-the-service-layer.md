@@ -1,6 +1,6 @@
 # ADR-129: Transactions start only in the service layer
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-149
 - **Date:** 2026-11-24
 
 ## Context
