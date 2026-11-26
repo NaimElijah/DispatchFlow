@@ -232,6 +232,9 @@ public class Baseline extends AggregateRoot {
         List<OrderId> nextAdded = union(this.added, added);
         storeResult(newResult);
         cause = CauseKind.RECOMPUTED;
+        // Both lists keep their stored items first and in order, and are refilled in place, so
+        // Hibernate saves the new items alone, as inserts: V11 lets app neither update nor delete a
+        // row of baseline_withdrawal or baseline_added_order.
         replace(this.withdrawn, nextWithdrawn);
         replace(this.added, nextAdded);
         computedAt = now;
@@ -351,7 +354,10 @@ public class Baseline extends AggregateRoot {
         mapped.addAll(next);
     }
 
-    /** The withdrawals named so far and the new ones, each vehicle once, with its first cause. */
+    /**
+     * The withdrawals named so far, first and in their order, then the new ones, each vehicle once,
+     * with its first cause.
+     */
     private static List<Withdrawal> withdrawalsWith(List<Withdrawal> named, List<Withdrawal> more) {
         List<Withdrawal> all = new ArrayList<>(named);
         for (Withdrawal withdrawal : more) {
@@ -362,6 +368,7 @@ public class Baseline extends AggregateRoot {
         return all;
     }
 
+    /** The items named so far, first and in their order, then the new ones, each once. */
     private static <T> List<T> union(List<T> named, List<T> more) {
         List<T> all = new ArrayList<>(named);
         more.stream().filter(item -> !all.contains(item)).forEach(all::add);

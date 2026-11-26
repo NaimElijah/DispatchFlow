@@ -152,6 +152,32 @@ class BaselinePersistenceIT {
                         REVISED_AGAIN_AT));
     }
 
+    /**
+     * V11 lets app only insert into {@code baseline_withdrawal}, so a recompute over a stored
+     * withdrawal must leave its row as it is and add the new one after it.
+     */
+    @Test
+    void GivenAStoredWithdrawal_WhenRecomputedWithItAgainAndANewOne_ThenItStaysFirstAndTheNewOneFollows() {
+        PlanId plan = plan(13);
+        transactions.inTransaction(() -> repository.add(Baseline.compute(plan, BASELINE_FIGURES, PUBLISHED_AT)));
+        transactions.inTransaction(() -> {
+            Baseline baseline = repository.get(plan).orElseThrow();
+            baseline.recompute(List.of(UNAVAILABLE_1), List.of(), RECOMPUTED_FIGURES, REVISED_AT);
+            repository.save(baseline);
+        });
+
+        transactions.inTransaction(() -> {
+            Baseline baseline = repository.get(plan).orElseThrow();
+            baseline.recompute(
+                    List.of(SHIFT_RAN_OUT_2, UNAVAILABLE_1), List.of(), RECOMPUTED_FIGURES, REVISED_AGAIN_AT);
+            repository.save(baseline);
+        });
+
+        assertThat(transactions.inTransaction(
+                        () -> repository.get(plan).orElseThrow().cause()))
+                .isEqualTo(new BaselineCause.Recomputed(List.of(UNAVAILABLE_1, SHIFT_RAN_OUT_2), List.of()));
+    }
+
     @Test
     void GivenTwoTransactionsOnOneBaseline_WhenTheLaterOneSaves_ThenStaleVersionAndTheFirstRecomputeStands() {
         PlanId plan = plan(11);

@@ -556,6 +556,8 @@ public class SolveJob extends AggregateRoot {
         searchStartedAt = null;
         endedAt = null;
         failureReason = null;
+        // Empty here: only a failed job holds violations, and nothing follows a failure. So this
+        // removes no stored row, which V11 doesn't let app do on solve_job_violation.
         failureViolations.clear();
         switch (next) {
             case Phase.Queued queued -> phase = PhaseKind.QUEUED;

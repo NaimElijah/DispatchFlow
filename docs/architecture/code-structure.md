@@ -101,7 +101,8 @@ src/backend/core/
   Dockerfile, .dockerignore
   .env.example                     the database connection keys, app's, with no values
   src/main/java/com/dispatchflow/
-    DispatchFlowApplication.java   the Spring Boot entry point, which hands `migrate` to the next
+    DispatchFlowApplication.java   the Spring Boot entry point: it hands a first `migrate` to the
+                                   next and refuses any other argument that isn't an option (ADR-146)
     MigrateCommand.java            the migrate step: the data source and Flyway alone, run as
                                    dispatchflow_owner before the core starts (ADR-145)
     SchedulingConfiguration.java   @EnableAsync always, @EnableScheduling behind
@@ -229,6 +230,8 @@ src/backend/core/
     TomcatIntegrationTest.java           the same on a random port, in a context of its own
     CapturedLogs.java                    a unit test's view of a logger's events, read from logback
     DispatchFlowApplicationIT.java       the health probe answers UP against PostgreSQL
+    DispatchFlowApplicationTest.java     the jar refuses a bare word, and `migrate` misplaced or
+                                         misspelt
     DatabaseRolesIT.java                 the two roles, the migrate command and the grants' guard
     TestDispatchFlowApplication.java     what `just core-run` starts
     TestcontainersConfiguration.java     the PostgreSQL container with both roles, the core's

@@ -310,15 +310,20 @@ have a `Dockerfile`, and neither runs as root
   migrations, which [data-model.md](data-model.md#migrations) lists. `V11` grants `app` what each
   adapter runs, and every later migration grants on the tables it creates
   ([ADR-127](../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md),
-  decision 8). `DatabaseRolesIT` fails on a table that grants `app` nothing or more than its rows
-  ([ADR-145](../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md)).
+  decision 8). `DatabaseRolesIT` fails on a table that grants `app` nothing or more than its rows,
+  on a function open to every role, and on a schema `app` may create in
+  ([ADR-145](../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md),
+  [ADR-146](../ADRs/ADR-146-the-jar-takes-only-options-but-for-its-command-and-the-roles-guards-cover-every-object-and-log.md)).
 - **The core never migrates.** `application.properties` turns Flyway off, so the core, connected as
   `app`, owns no table and can change no schema. The image's `java -jar app.jar migrate` hands the
   run to `MigrateCommand`, whose context holds only the data source and Flyway, connected as
   `dispatchflow_owner` through the same `SPRING_DATASOURCE_*` keys and the core's pool settings, and
-  exits non-zero when a migration fails. The tests and `just core-run` run Flyway in the core's JVM
-  instead, on an owner pool of their own, under the `throwaway-database` profile
-  ([ADR-145](../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md)).
+  exits non-zero when a migration fails. The jar refuses any other argument that isn't an option, so
+  a misplaced or misspelt command can't start the whole core with the owner's credential. The tests
+  and `just core-run` run Flyway in the core's JVM instead, on an owner pool of their own, under the
+  `throwaway-database` profile
+  ([ADR-145](../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md),
+  [ADR-146](../ADRs/ADR-146-the-jar-takes-only-options-but-for-its-command-and-the-roles-guards-cover-every-object-and-log.md)).
 - **Every error body is the contract's `Problem`.** `shared.adapter.in.web.Problems` builds each
   one, with `type` `about:blank`, a `code`, its `params` and the trace ID from the MDC, and never a
   `detail` ([ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md), decision 5).

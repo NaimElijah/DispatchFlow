@@ -200,6 +200,7 @@ tests/
   load/                           k6 scripts (NFR-10, NFR-59)
 infra/
   deploy/                         compose.yaml  compose.dev.yaml  Caddyfile  backup/  observability/
+                                  postgres/initdb/
   osrm/                           OSRM configuration
   terraform/                      AWS account resources (from M13)
 data/                             contents git-ignored, but for .gitkeep: OSM extract, OSRM files, PMTiles, benchmark instances
@@ -343,7 +344,11 @@ sets `create` or `update`. `just core-schema-draft` writes the DDL Hibernate wou
   as `app`, which has only the grants it needs, and `INSERT` and `SELECT` alone on `audit_record`. The
   application must never own a table: an owner can always grant itself back whatever was revoked.
   Flyway runs in a one-shot `migrate` step before the core starts, so the core process never holds the
-  owner credentials, which stay deploy-only, in `migrate`'s own environment. A database function
+  owner credentials, which stay deploy-only, in `migrate`'s own environment, but for the two
+  exceptions
+  [ADR-145](../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md)
+  makes: the `postgres` container whose init script creates the roles, and the JVM of the tests and
+  `just core-run`, which migrates their throwaway container. A database function
   owned by `dispatchflow_owner` deletes only audit records older than 1 year and computes its cutoff
   itself. Its `EXECUTE` is revoked from `PUBLIC` and granted only to `app`, and the core's nightly retention job calls it at 03:00 `Asia/Jerusalem`, watched like
   the other jobs ([ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md), [ADR-075](../ADRs/ADR-075-retention-deletes-records-and-anonymizes-people-in-place.md)).

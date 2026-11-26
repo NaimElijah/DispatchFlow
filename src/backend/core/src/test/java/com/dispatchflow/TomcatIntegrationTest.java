@@ -15,7 +15,8 @@ import org.springframework.test.context.ActiveProfiles;
  * IntegrationTest} has it. It starts a Spring context of its own, so use it only for what MockMvc
  * can't show, such as Tomcat's refusal of a request's parameters or its error dispatch; everything
  * else takes {@link IntegrationTest}. Whichever of #165 and #170 moves that annotation's scheduling
- * property into the {@code test} profile moves this one's too.
+ * property and {@code throwaway-database}'s setting into the {@code test} profile moves this one's
+ * too, and deletes its {@code throwaway-database} profile.
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
