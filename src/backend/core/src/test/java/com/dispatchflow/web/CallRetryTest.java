@@ -2,10 +2,17 @@ package com.dispatchflow.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.AuditedRecord;
 import com.dispatchflow.audit.application.api.CallContext;
+import com.dispatchflow.audit.application.service.AppendedAuditRecords;
+import com.dispatchflow.audit.application.service.AuditLogService;
+import com.dispatchflow.audit.domain.AuditOutcome;
+import com.dispatchflow.audit.domain.AuditRecord;
+import com.dispatchflow.audit.domain.ErrorCode;
+import com.dispatchflow.audit.domain.OperationName;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.adapter.in.web.Problems;
 import com.dispatchflow.shared.application.Clock;
@@ -41,7 +48,7 @@ class CallRetryTest {
     private static final Pattern LOCK_TIMEOUT = Pattern.compile("lock_timeout=(\\d+)s");
 
     private final RecordingAuditLog auditLog = new RecordingAuditLog();
-    private final CallRetry retry = new CallRetry(() -> auditLog, new FixedClock());
+    private final CallRetry retry = new CallRetry(auditLog, new FixedClock());
     private final MockHttpServletRequest withoutAVersion = new MockHttpServletRequest();
     private final MockHttpServletRequest withIfMatch = new MockHttpServletRequest();
     private final AtomicInteger tries = new AtomicInteger();
@@ -221,6 +228,27 @@ class CallRetryTest {
     }
 
     @Test
+    void GivenEachRaceItAudits_WhenTheRealAuditLogRecordsIt_ThenAuditAcceptsItsCodeAndOperation() {
+        AppendedAuditRecords records = new AppendedAuditRecords();
+        CallRetry audited = new CallRetry(new AuditLogService(records), new FixedClock());
+
+        assertThatThrownBy(() -> audited.run(withoutAVersion, OPERATION, failingFirst(4, attempt -> savesConflict())))
+                .isInstanceOf(StaleVersion.class);
+        tries.set(0);
+        assertThatThrownBy(() -> audited.run(withIfMatch, OPERATION, failingFirst(1, attempt -> savesConflict())))
+                .isInstanceOf(StaleVersion.class);
+
+        assertThat(records.records())
+                .extracting(AuditRecord::outcome, AuditRecord::operation, AuditRecord::at)
+                .containsExactly(
+                        tuple(
+                                AuditOutcome.refused(ErrorCode.of(WebCodes.TRY_AGAIN_LATER)),
+                                OperationName.of(OPERATION),
+                                NOW),
+                        tuple(AuditOutcome.refused(ErrorCode.of(StaleVersion.CODE)), OperationName.of(OPERATION), NOW));
+    }
+
+    @Test
     void GivenAnExceptionThatIsNoRace_WhenACallRuns_ThenItIsNeitherRetriedNorAudited() {
         assertThatThrownBy(() -> retry.run(
                         withoutAVersion, OPERATION, failingFirst(1, attempt -> new IllegalStateException("broken"))))
@@ -243,11 +271,7 @@ class CallRetryTest {
     void GivenAnAuditLogThatFails_WhenARaceIsAudited_ThenItsFailureIsThrownWithTheRaceSuppressed() {
         IllegalStateException auditDown = new IllegalStateException("the audit store is down");
         StaleVersion race = requireCurrentsRefusal();
-        CallRetry failingAudit = new CallRetry(
-                () -> {
-                    throw auditDown;
-                },
-                new FixedClock());
+        CallRetry failingAudit = new CallRetry(new FailingAuditLog(auditDown), new FixedClock());
 
         assertThatThrownBy(() -> failingAudit.run(withoutAVersion, OPERATION, failingFirst(1, attempt -> race)))
                 .isSameAs(auditDown)
@@ -296,6 +320,26 @@ class CallRetryTest {
             assertThat(call.user()).isEmpty();
             assertThat(records).isEmpty();
             refusals.add(new Refusal(call.operation(), call.traceId(), at, errorCode));
+        }
+    }
+
+    /** An audit log whose store is down: each refused record fails with the given failure. */
+    private static final class FailingAuditLog implements AuditLog {
+
+        private final RuntimeException failure;
+
+        FailingAuditLog(RuntimeException failure) {
+            this.failure = failure;
+        }
+
+        @Override
+        public void succeeded(CallContext call, Instant at, List<AuditedRecord> records) {
+            throw new AssertionError("the call wrapper records no success");
+        }
+
+        @Override
+        public void refused(CallContext call, Instant at, List<AuditedRecord> records, String errorCode) {
+            throw failure;
         }
     }
 

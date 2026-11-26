@@ -4,6 +4,8 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 
 import com.dispatchflow.shared.adapter.out.persistence.OpenTransaction;
 import com.tngtech.archunit.core.domain.JavaClass;
+import com.tngtech.archunit.core.domain.JavaCodeUnit;
+import com.tngtech.archunit.core.domain.JavaCodeUnitAccess;
 import com.tngtech.archunit.core.domain.JavaField;
 import com.tngtech.archunit.core.domain.JavaMember;
 import com.tngtech.archunit.core.domain.JavaMethodCall;
@@ -22,6 +24,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionalEventListener;
 
@@ -145,10 +148,11 @@ final class TransactionRules {
      *   <li>an outside-call port;
      *   <li>a port that stores nothing, {@link #STORELESS_PORTS};
      *   <li>another service;
-     *   <li>an {@code api} or {@code spi} other than {@code AuditLog}.
+     *   <li>an {@code api} or {@code spi}, {@code AuditLog} included.
      * </ul>
-     * Each of those opens its own transaction, or needs none. A repository, a query port or the audit
-     * log here would read or write with no transaction.
+     * Each of those opens its own transaction, or needs none. A repository or a query port here
+     * would read or write with no transaction. The audit log may be held to record a refusal once
+     * the {@code Change} has rolled back, and rule 9 keeps a success off it (ADR-149 decision 3).
      */
     static ArchRule aServiceWithoutATransactionTouchesNoData(String root) {
         return classes()
@@ -195,6 +199,119 @@ final class TransactionRules {
                 .because("ADR-129 decision 7: a listener has no transaction of its own");
     }
 
+    /**
+     * Rule 9: only a transactional service records a success, so the record commits with its change
+     * or not at all (NFR-23, ADR-149 decision 3). A call to {@code AuditLog.succeeded}, or a
+     * reference to it, sits in a class of a module's {@code application.service} packages that
+     * carries {@code @Transactional} itself, at the default propagation, and in no method of it that
+     * is read-only or names another propagation: a read-only transaction never flushes, so its record
+     * would be lost. A class nested in a service, a lambda included, counts as the service, so a
+     * success handed to work that runs later is for review. A service with no transaction, an
+     * adapter or the call wrapper records only a refusal, after every transaction of the call has
+     * ended.
+     */
+    static ArchRule successIsRecordedOnlyInATransactionalService(String root) {
+        return classes()
+                .that()
+                .resideInAPackage(root + "..")
+                .should(new ArchCondition<JavaClass>("record a success only inside a transactional service") {
+                    @Override
+                    public void check(JavaClass item, ConditionEvents events) {
+                        JavaClass outermost = outermost(item);
+                        boolean transactional = isService(root, outermost) && opensAReadWriteTransaction(outermost);
+                        auditAccesses(item, "succeeded")
+                                .filter(access -> !transactional || !keepsTheClassTransaction(access.getOrigin()))
+                                .forEach(access -> events.add(SimpleConditionEvent.violated(
+                                        access,
+                                        access.getDescription()
+                                                + " records a success outside a read-write transaction of a"
+                                                + " service; move it into the " + CHANGE_SUFFIX
+                                                + " that holds the change")));
+                    }
+                })
+                .because("ADR-149 decision 3: a success commits with its change");
+    }
+
+    /**
+     * Rule 10: no transactional class records a refusal, but one of {@code committedHere}, so a
+     * refusal is recorded after its change has rolled back and never lost with it (NFR-23, ADR-129
+     * decision 5, ADR-149 decisions 1 and 2). A one-class service that can refuse splits instead,
+     * and its use case records the refusal. The exceptions are the {@code Change}s that answer a
+     * refusal without letting it leave, so their transaction commits the record: their names are
+     * listed, and each such {@code Change} joins the list in review.
+     */
+    static ArchRule refusalIsNeverRecordedInsideATransaction(String root, Set<String> committedHere) {
+        return classes()
+                .that()
+                .resideInAPackage(root + "..")
+                .should(new ArchCondition<JavaClass>("record a refusal only outside any transaction") {
+                    @Override
+                    public void check(JavaClass item, ConditionEvents events) {
+                        JavaClass outermost = outermost(item);
+                        if (!carries(outermost, Transactional.class)
+                                || committedHere.contains(outermost.getSimpleName())) {
+                            return;
+                        }
+                        auditAccesses(item, "refused")
+                                .forEach(access -> events.add(SimpleConditionEvent.violated(
+                                        access,
+                                        access.getDescription()
+                                                + " records a refusal inside a transaction the refusal rolls"
+                                                + " back; record it in the use case, after its "
+                                                + CHANGE_SUFFIX + " has refused")));
+                    }
+                })
+                .because("ADR-149 decision 1: a refusal is recorded once its change has rolled back");
+    }
+
+    /**
+     * The {@code Change}s whose transaction commits a refused attempt's record on purpose, because
+     * no refusal leaves them (ADR-149 decision 2): the recovery request that answers every address
+     * alike, and the refresh whose refusal revokes the session.
+     */
+    static final Set<String> REFUSALS_COMMITTED_IN_THEIR_CHANGE =
+            Set.of("RequestPasswordRecoveryChange", "RefreshSessionChange");
+
+    /** The calls and method references from {@code item} to this method of the audit log. */
+    private static Stream<JavaCodeUnitAccess<?>> auditAccesses(JavaClass item, String method) {
+        return Stream.<JavaCodeUnitAccess<?>>concat(
+                        item.getMethodCallsFromSelf().stream(), item.getMethodReferencesFromSelf().stream())
+                .filter(access -> access.getName().equals(method) && isTheAuditLog(access.getTargetOwner()));
+    }
+
+    private static boolean isTheAuditLog(JavaClass owner) {
+        return owner.getSimpleName().equals(AUDIT_LOG)
+                || owner.getAllRawInterfaces().stream()
+                        .anyMatch(type -> type.getSimpleName().equals(AUDIT_LOG));
+    }
+
+    /** Whether the class carries {@code @Transactional} at the default propagation, not read-only. */
+    private static boolean opensAReadWriteTransaction(JavaClass type) {
+        return carries(type, Transactional.class)
+                && type.tryGetAnnotationOfType(Transactional.class)
+                        .map(TransactionRules::readWriteAtTheDefaultPropagation)
+                        .orElse(true);
+    }
+
+    /** Whether a method keeps its class's transaction: it names no read-only one and no other propagation. */
+    private static boolean keepsTheClassTransaction(JavaCodeUnit method) {
+        return method.tryGetAnnotationOfType(Transactional.class)
+                .map(TransactionRules::readWriteAtTheDefaultPropagation)
+                .orElse(true);
+    }
+
+    private static boolean readWriteAtTheDefaultPropagation(Transactional transactional) {
+        return !transactional.readOnly() && transactional.propagation() == Propagation.REQUIRED;
+    }
+
+    private static JavaClass outermost(JavaClass item) {
+        JavaClass outermost = item;
+        while (outermost.getEnclosingClass().isPresent()) {
+            outermost = outermost.getEnclosingClass().get();
+        }
+        return outermost;
+    }
+
     private static boolean carries(CanBeAnnotated element, Class<? extends Annotation> type) {
         return element.isAnnotatedWith(type) || element.isMetaAnnotatedWith(type);
     }
@@ -239,9 +356,6 @@ final class TransactionRules {
         String name = type.getSimpleName();
         if (OUTSIDE_CALL_PORTS.contains(name) || STORELESS_PORTS.contains(name)) {
             return true;
-        }
-        if (name.equals(AUDIT_LOG)) {
-            return false;
         }
         if (isService(root, type) || inServices(root, type)) {
             return true;

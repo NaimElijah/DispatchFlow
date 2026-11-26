@@ -7,7 +7,8 @@ import com.dispatchflow.audit.domain.AuditRecord;
  * a year after they were made (NFR-23, NFR-258, ADR-075, ADR-110). The core's role may only insert
  * and select records, and execute that function (TS §6.3).
  *
- * <p>{@link #purgeExpired} is not built yet.
+ * <p>{@link #purgeExpired} is not built yet: it comes with the nightly retention run (ADR-121
+ * decision 9).
  */
 public interface AuditRecords {
 
@@ -20,8 +21,8 @@ public interface AuditRecords {
 
     /**
      * Calls the database function that deletes every record older than a year. The function
-     * computes its own cutoff, which matches {@link AuditRecord#RETENTION} (ADR-075, ADR-110 point
-     * 2).
+     * computes its own cutoff, which matches {@link AuditRecord#retentionCutoff} (ADR-075, ADR-110
+     * point 2, ADR-149).
      *
      * <p>To Be Implemented.
      *

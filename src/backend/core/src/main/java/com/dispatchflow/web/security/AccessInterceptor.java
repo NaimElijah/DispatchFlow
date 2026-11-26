@@ -8,9 +8,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Supplier;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 import org.springframework.web.cors.CorsUtils;
@@ -34,10 +31,6 @@ import org.springframework.web.servlet.HandlerInterceptor;
  * operation (ADR-140 decision 3, ADR-148; {@link NotSignedIn} says how each type is answered). With
  * a principal it passes, with no caller kept, until #171 (stretch) adds the role check's 403 here
  * and the rest of the default refusal. A CORS preflight passes.
- *
- * <p>The audit log is looked up only when a record is written, so a missing one fails that call
- * loudly: Audit's {@code AuditLogService} is no bean until #180 builds it, which replaces this
- * lookup with plain injection, as it does {@code CallRetry}'s.
  */
 @Component
 class AccessInterceptor implements HandlerInterceptor {
@@ -46,27 +39,16 @@ class AccessInterceptor implements HandlerInterceptor {
     private static final Set<String> SAFE_METHODS =
             Set.of(HttpMethod.GET.name(), HttpMethod.HEAD.name(), HttpMethod.OPTIONS.name(), HttpMethod.TRACE.name());
 
-    private final Supplier<AuditLog> auditLog;
+    private final AuditLog auditLog;
     private final Clock clock;
 
     /**
-     * Creates the interceptor for Spring.
+     * Creates the interceptor.
      *
-     * @param auditLog the audit log's provider
+     * @param auditLog where a refused changing call's record is written
      * @param clock the time each refused record carries
      */
-    @Autowired
-    AccessInterceptor(ObjectProvider<AuditLog> auditLog, Clock clock) {
-        this(auditLog::getObject, clock);
-    }
-
-    /**
-     * Creates the interceptor over a given audit log, for tests.
-     *
-     * @param auditLog the audit log, read when a record is written
-     * @param clock the time each refused record carries
-     */
-    AccessInterceptor(Supplier<AuditLog> auditLog, Clock clock) {
+    AccessInterceptor(AuditLog auditLog, Clock clock) {
         this.auditLog = auditLog;
         this.clock = clock;
     }
@@ -94,7 +76,7 @@ class AccessInterceptor implements HandlerInterceptor {
         Caller caller = Caller.build(request, principal, method.getMethod().getName());
         if (principal.isEmpty()) {
             if (!SAFE_METHODS.contains(request.getMethod())) {
-                auditLog.get().refused(caller.call(), clock.now(), List.of(), Problems.ACCESS_TOKEN_REFUSED);
+                auditLog.refused(caller.call(), clock.now(), List.of(), Problems.ACCESS_TOKEN_REFUSED);
             }
             throw new NotSignedIn();
         }

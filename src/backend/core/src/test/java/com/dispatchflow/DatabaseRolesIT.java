@@ -331,7 +331,8 @@ class DatabaseRolesIT {
      * above allows any of the four row privileges; these tables must hold neither of the two that
      * change a row, not even an {@code UPDATE} on one column, which could still rewrite a record, on
      * the table or on a partition of it, which a statement may name directly. Audit's behaviour tests,
-     * a refused {@code UPDATE} and {@code DELETE} and the purge function, come with #180.
+     * a refused {@code UPDATE} and {@code DELETE} and the purge function, are {@code
+     * AuditTrailGuaranteesIT}'s.
      */
     @ParameterizedTest
     @MethodSource("recordsKeptAsWritten")
@@ -684,6 +685,27 @@ class DatabaseRolesIT {
         } finally {
             owner.sql("DROP FUNCTION persistence_fixture.made_by_the_owner()").update();
         }
+    }
+
+    /**
+     * ADR-041 and ADR-075 give app {@code EXECUTE} on one function, the audit trail's purge, and
+     * nothing else on Audit, and ADR-149 grants the purge's cutoff to nobody. So of every function
+     * the owner owns, in whichever schema, app may execute that one alone.
+     */
+    @Test
+    void GivenEveryFunctionTheOwnerOwns_WhenAppsPrivilegesAreRead_ThenAppMayExecuteTheAuditPurgeAlone() {
+        assertThat(owner.sql("""
+                                SELECT p.pronamespace::regnamespace || '.' || p.proname
+                                    || '(' || pg_get_function_identity_arguments(p.oid) || ')'
+                                FROM pg_proc p
+                                WHERE pg_get_userbyid(p.proowner) = :owner
+                                    AND has_function_privilege(:app, p.oid, 'EXECUTE')
+                                """)
+                        .param("owner", DatabaseRoles.OWNER)
+                        .param("app", DatabaseRoles.APP)
+                        .query(String.class)
+                        .list())
+                .containsExactly("audit.purge_expired_records()");
     }
 
     /** Runs the init script again in the shared container, as its superuser, with these {@code env} arguments. */

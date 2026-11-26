@@ -7,12 +7,9 @@ import com.dispatchflow.shared.application.Clock;
 import com.dispatchflow.web.security.Caller;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
-import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -45,29 +42,16 @@ class CallRetry {
     private static final String OPERATION = "operation";
     private static final String NEXT_TRY = "nextTry";
 
-    private final Supplier<AuditLog> auditLog;
+    private final AuditLog auditLog;
     private final Clock clock;
 
     /**
-     * Creates the retry for Spring. The audit log is looked up only when a record is written, so
-     * a missing one fails that call loudly: Audit's {@code AuditLogService} is no bean until #180
-     * builds it, which replaces this lookup with plain injection.
+     * Creates the retry.
      *
-     * @param auditLog the audit log's provider
+     * @param auditLog where each race's refused record is written
      * @param clock the time each record carries
      */
-    @Autowired
-    CallRetry(ObjectProvider<AuditLog> auditLog, Clock clock) {
-        this(auditLog::getObject, clock);
-    }
-
-    /**
-     * Creates the retry over a given audit log, for tests.
-     *
-     * @param auditLog the audit log, read when a record is written
-     * @param clock the time each record carries
-     */
-    CallRetry(Supplier<AuditLog> auditLog, Clock clock) {
+    CallRetry(AuditLog auditLog, Clock clock) {
         this.auditLog = auditLog;
         this.clock = clock;
     }
@@ -119,7 +103,7 @@ class CallRetry {
             CallContext call = Caller.of(request)
                     .map(Caller::call)
                     .orElseGet(() -> CallContext.serverStep(operation, TraceIds.ofTheRunningRequest()));
-            auditLog.get().refused(call, clock.now(), List.of(), race.code());
+            auditLog.refused(call, clock.now(), List.of(), race.code());
         } catch (RuntimeException failed) {
             failed.addSuppressed(answered);
             throw failed;

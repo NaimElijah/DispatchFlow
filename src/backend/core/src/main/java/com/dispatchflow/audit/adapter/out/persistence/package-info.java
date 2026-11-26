@@ -6,8 +6,8 @@
  * package holds the auto-applied converters of Audit's single-column values.
  *
  * <p>The core only appends audit records, and reads none back, so no lookup is declared here.
- * Deleting expired records is ADR-041's database function, which comes with the roles and the
- * {@code migrate} step (ADR-127 decision 8).
+ * Deleting expired records is ADR-041's database function, {@code audit.purge_expired_records()}
+ * (migration {@code V12}, ADR-149), which the nightly retention run will call.
  */
 @NullMarked
 package com.dispatchflow.audit.adapter.out.persistence;

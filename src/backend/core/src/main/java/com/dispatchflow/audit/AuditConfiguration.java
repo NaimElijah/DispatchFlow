@@ -1,5 +1,6 @@
 package com.dispatchflow.audit;
 
+import com.dispatchflow.audit.application.service.AuditLogService;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
@@ -12,5 +13,5 @@ import org.springframework.context.annotation.Import;
  * ApplicationRules} rule 15).
  */
 @Configuration(proxyBeanMethods = false)
-@Import({})
+@Import(AuditLogService.class)
 class AuditConfiguration {}

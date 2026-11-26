@@ -1,6 +1,6 @@
 # ADR-142: The call wrapper's retry, its 400s and its error endpoint, as #162 built them
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-149
 - **Date:** 2026-11-25
 
 ## Context

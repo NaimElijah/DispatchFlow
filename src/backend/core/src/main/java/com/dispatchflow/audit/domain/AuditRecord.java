@@ -6,7 +6,10 @@ import com.dispatchflow.shared.IsraelDateTime;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.SessionId;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.Period;
+import java.time.ZoneOffset;
+import java.time.zone.ZoneOffsetTransition;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -43,9 +46,10 @@ public record AuditRecord(
         TraceId traceId) {
 
     /**
-     * How long an audit record is kept, counted on Israel's calendar from {@link #at()}: a year
-     * (NFR-258, ADR-075, ADR-110 point 2). The database function that deletes audit records
-     * computes its own cutoff, and must match this period.
+     * How long an audit record is kept, counted back on Israel's calendar from the time the
+     * retention run asks: a year (NFR-258, ADR-075, ADR-110 point 2, ADR-149). The database
+     * function that deletes audit records computes its own cutoff, {@code audit.retention_cutoff},
+     * which must match {@link #retentionCutoff}.
      */
     public static final Period RETENTION = Period.ofYears(1);
 
@@ -79,16 +83,44 @@ public record AuditRecord(
 
     /**
      * Whether the record is older than its retention, so the nightly retention run may delete it
-     * (NFR-258). A record exactly a year old is still kept, because only records older than a year
-     * are deleted (ADR-075).
+     * (NFR-258): whether it was made before {@link #retentionCutoff} of {@code now}. A record exactly
+     * a year old is still kept, because only records older than a year are deleted (ADR-075).
      *
      * @param now when the retention run asks
-     * @return true once {@code now} is after the same local time a year after {@link #at()} in
-     *     {@code Asia/Jerusalem}
+     * @return true when {@link #at()} is before the retention cutoff of {@code now}
      */
     public boolean isPastRetention(Instant now) {
+        return at.isBefore(retentionCutoff(now));
+    }
+
+    /**
+     * The instant before which a record is past its retention at {@code now}: the same local time
+     * in {@code Asia/Jerusalem}, {@link #RETENTION} earlier (ADR-149 decision 5). One cutoff serves
+     * every record, so an older record is never kept longer than a newer one, and the database's
+     * {@code audit.retention_cutoff} computes the same instant.
+     *
+     * <p>A year before 29 February is 28 February. A local time the clocks repeated a year earlier,
+     * or skipped, could stand for two instants: the cutoff is the earlier one, the local time read
+     * with the summer offset. So near a clock change a record is kept up to an hour longer, and never
+     * deleted before its year is up. {@code java.time} would otherwise keep the offset of {@code now}
+     * in a repeated hour and move a skipped time forward, and PostgreSQL reads both as standard time:
+     * each picks the later instant at least once.
+     *
+     * @param now when the retention run asks
+     * @return the cutoff instant
+     * @throws NullPointerException when {@code now} is null
+     */
+    public static Instant retentionCutoff(Instant now) {
         Objects.requireNonNull(now, "now");
-        Instant retentionEnds = at.atZone(IsraelDateTime.ZONE).plus(RETENTION).toInstant();
-        return now.isAfter(retentionEnds);
+        LocalDateTime local = LocalDateTime.ofInstant(now, IsraelDateTime.ZONE).minus(RETENTION);
+        ZoneOffsetTransition change = IsraelDateTime.ZONE.getRules().getTransition(local);
+        if (change == null) {
+            return local.atZone(IsraelDateTime.ZONE).toInstant();
+        }
+        // The larger offset puts the same local time at the earlier instant.
+        int larger = Math.max(
+                change.getOffsetBefore().getTotalSeconds(),
+                change.getOffsetAfter().getTotalSeconds());
+        return local.toInstant(ZoneOffset.ofTotalSeconds(larger));
     }
 }

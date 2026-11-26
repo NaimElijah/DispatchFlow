@@ -1,6 +1,6 @@
 # ADR-110: Audit records hold only IDs, codes, enums, numbers and instants, record refusals, and are kept a year
 
-- **Status:** Accepted; extended by ADR-114, ADR-120 and ADR-121
+- **Status:** Accepted; extended by ADR-114, ADR-120 and ADR-121; amended by ADR-149
 - **Date:** 2026-11-14
 
 ## Context

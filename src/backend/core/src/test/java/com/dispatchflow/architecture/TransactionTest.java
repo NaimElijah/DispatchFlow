@@ -94,6 +94,28 @@ class TransactionTest {
     }
 
     @Test
+    void GivenTheProductionClasses_WhenSuccessesAreRecorded_ThenOnlyTransactionalServicesRecordThem() {
+        TransactionRules.successIsRecordedOnlyInATransactionalService(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenRefusalsAreRecorded_ThenNoTransactionalClassButTheListedRecordsOne() {
+        TransactionRules.refusalIsNeverRecordedInsideATransaction(
+                        ROOT, TransactionRules.REFUSALS_COMMITTED_IN_THEIR_CHANGE)
+                .check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheChangesThatCommitARefusal_WhenLookedUp_ThenEachIsOneProductionService() {
+        assertThat(TransactionRules.REFUSALS_COMMITTED_IN_THEIR_CHANGE)
+                .allSatisfy(name -> assertThat(ProductionClasses.ALL.stream()
+                                .filter(type -> type.getSimpleName().equals(name))
+                                .filter(type -> TransactionRules.isService(ROOT, type)))
+                        .as("the listed %s", name)
+                        .hasSize(1));
+    }
+
+    @Test
     void GivenTheProductionClasses_WhenListenersAreChecked_ThenEachIsAsync() {
         TransactionRules.everyListenerIsAsync(ROOT).check(ProductionClasses.ALL);
     }
@@ -140,8 +162,8 @@ class TransactionTest {
     /**
      * What the rules can't see: that Spring builds a class-based proxy for every transactional
      * service, and finds a transaction on each of its public methods, while a split use case has
-     * none of its own. Nothing is wired yet (ADR-119), so this builds each proxy class without a
-     * bean.
+     * none of its own. Only Audit's {@code AuditLogService} is wired yet (ADR-119), so this builds
+     * each proxy class without a bean.
      */
     @Test
     void GivenEveryService_WhenSpringBuildsItsProxy_ThenTransactionalOnesOpenATransactionAndSplitOnesNone()

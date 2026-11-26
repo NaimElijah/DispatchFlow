@@ -16,6 +16,15 @@ import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.audit.application.api.ClientKind;
 import com.dispatchflow.audit.application.api.ClientRelease;
 import com.dispatchflow.audit.application.api.CurrentCall;
+import com.dispatchflow.audit.application.service.AppendedAuditRecords;
+import com.dispatchflow.audit.application.service.AuditLogService;
+import com.dispatchflow.audit.domain.AppVersion;
+import com.dispatchflow.audit.domain.AuditOutcome;
+import com.dispatchflow.audit.domain.AuditRecord;
+import com.dispatchflow.audit.domain.ClientApp;
+import com.dispatchflow.audit.domain.DeclaredApp;
+import com.dispatchflow.audit.domain.ErrorCode;
+import com.dispatchflow.audit.domain.OperationName;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.adapter.in.web.Problems;
 import com.dispatchflow.shared.application.Clock;
@@ -95,6 +104,7 @@ class AccessInterceptorTest {
     private static final String LEGACY = "/api/v1/access-interceptor-test/legacy";
     private static final UUID PLAN = UUID.fromString("0190a5e2-7c3b-7def-8a12-3456789abcde");
     private static final Instant NOW = Instant.parse("2026-03-15T08:00:00Z");
+    private static final String AUDIT_LOG = "auditLog";
     private static final SignedInCaller SIGNED_IN =
             new SignedInCaller(TestActors.dispatcher().account(), StandInSession.SESSION, Set.of(ActorRole.DISPATCHER));
 
@@ -108,7 +118,7 @@ class AccessInterceptorTest {
                     WebMvcAutoConfiguration.class))
             .withUserConfiguration(WebPackage.class)
             .withBean(Clock.class, FixedClock::new)
-            .withBean(AuditLog.class, RecordingAuditLog::new)
+            .withBean(AUDIT_LOG, AuditLog.class, RecordingAuditLog::new)
             .withBean(ProbeController.class);
 
     @RegisterExtension
@@ -351,6 +361,35 @@ class AccessInterceptorTest {
                 assertThat(refusal.call().client()).contains(new ClientRelease(ClientKind.PHONE, "2.0.1"));
             });
         });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"POST", "DELETE"})
+    void GivenNoPrincipal_WhenAChangingOperationIsCalledWithTheRealAuditLog_Then401AndAuditAcceptsItsRecord(
+            String method) {
+        AppendedAuditRecords records = new AppendedAuditRecords();
+        runner.withAllowBeanDefinitionOverriding(true)
+                .withBean(AUDIT_LOG, AuditLog.class, () -> new AuditLogService(records))
+                .run(context -> {
+                    assertThat(context).hasNotFailed().doesNotHaveBean(StandInSession.class);
+                    MvcTestResult result = new Fixture(context)
+                            .mvc()
+                            .method(HttpMethod.valueOf(method))
+                            .uri(PROBE)
+                            .header(Caller.X_APP, "phone")
+                            .header(Caller.X_APP_VERSION, "2.0.1")
+                            .exchange();
+
+                    isTheOne401(result);
+                    AuditRecord record = records.only();
+                    assertThat(record.outcome()).isEqualTo(AuditOutcome.refused(ErrorCode.of("ACCESS_TOKEN_REFUSED")));
+                    assertThat(record.operation())
+                            .isEqualTo(OperationName.of(
+                                    method.equals("POST") ? "changeSomething" : "changeSomethingElse"));
+                    assertThat(record.app()).contains(new DeclaredApp(ClientApp.PHONE, new AppVersion(2, 0, 1)));
+                    assertThat(record.user()).isEmpty();
+                    assertThat(record.at()).isEqualTo(NOW);
+                });
     }
 
     @Test
@@ -746,11 +785,7 @@ class AccessInterceptorTest {
     @Test
     void GivenAPreflightThatReachesAHandlerMethod_WhenTheInterceptorChecksIt_ThenItPassesWithNoPrincipal()
             throws NoSuchMethodException {
-        AccessInterceptor interceptor = new AccessInterceptor(
-                () -> {
-                    throw new AssertionError("a preflight is never audited");
-                },
-                new FixedClock());
+        AccessInterceptor interceptor = new AccessInterceptor(new NeverCalledAuditLog(), new FixedClock());
         MockHttpServletRequest preflight = new MockHttpServletRequest(HttpMethod.OPTIONS.name(), PROBE);
         preflight.addHeader(HttpHeaders.ORIGIN, "http://localhost:5173");
         preflight.addHeader(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST");
@@ -763,7 +798,7 @@ class AccessInterceptorTest {
     @Test
     void GivenTheSameHandlerMethodAndNoPreflight_WhenTheInterceptorChecksIt_ThenItRefusesTheCall()
             throws NoSuchMethodException {
-        AccessInterceptor interceptor = new AccessInterceptor(RecordingAuditLog::new, new FixedClock());
+        AccessInterceptor interceptor = new AccessInterceptor(new RecordingAuditLog(), new FixedClock());
         MDC.put(Problems.TRACE_ID, TestActors.TRACE_ID);
         try {
             assertThatThrownBy(() -> interceptor.preHandle(
@@ -908,6 +943,20 @@ class AccessInterceptorTest {
             }
             assertThat(records).isEmpty();
             refusals.add(new Refusal(call, at, errorCode));
+        }
+    }
+
+    /** An audit log the test expects never to be written to. */
+    private static final class NeverCalledAuditLog implements AuditLog {
+
+        @Override
+        public void succeeded(CallContext call, Instant at, List<AuditedRecord> records) {
+            throw new AssertionError("a preflight is never audited");
+        }
+
+        @Override
+        public void refused(CallContext call, Instant at, List<AuditedRecord> records, String errorCode) {
+            throw new AssertionError("a preflight is never audited");
         }
     }
 

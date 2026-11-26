@@ -3,6 +3,7 @@ package com.dispatchflow.audit.domain;
 import com.dispatchflow.audit.domain.AuditError.InvalidAppVersion;
 import com.dispatchflow.shared.RuleViolation;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -45,12 +46,31 @@ public record AppVersion(int major, int minor, int patch) {
      *     pre-release or build suffix, a {@code v} prefix and surrounding whitespace are refused
      */
     public static AppVersion parse(String text) {
+        return parseIfValid(text).orElseThrow(() -> new RuleViolation(new InvalidAppVersion()));
+    }
+
+    /**
+     * Reads the version a client declared, when it is one, so that an audit record can leave out a
+     * version that isn't (ADR-110).
+     *
+     * @param text the declared version, such as {@code 1.4.2}
+     * @return the version, or empty when the text is not three dot-separated ASCII numbers without
+     *     leading zeros, each within an {@code int}
+     * @throws NullPointerException when {@code text} is null
+     */
+    public static Optional<AppVersion> parseIfValid(String text) {
         Objects.requireNonNull(text, "text");
         Matcher matcher = VERSION.matcher(text);
         if (!matcher.matches()) {
-            throw new RuleViolation(new InvalidAppVersion());
+            return Optional.empty();
         }
-        return new AppVersion(part(matcher, MAJOR), part(matcher, MINOR), part(matcher, PATCH));
+        long major = Long.parseLong(matcher.group(MAJOR));
+        long minor = Long.parseLong(matcher.group(MINOR));
+        long patch = Long.parseLong(matcher.group(PATCH));
+        if (major > Integer.MAX_VALUE || minor > Integer.MAX_VALUE || patch > Integer.MAX_VALUE) {
+            return Optional.empty();
+        }
+        return Optional.of(new AppVersion((int) major, (int) minor, (int) patch));
     }
 
     /**
@@ -60,13 +80,5 @@ public record AppVersion(int major, int minor, int patch) {
      */
     public String text() {
         return major + "." + minor + "." + patch;
-    }
-
-    private static int part(Matcher matcher, int group) {
-        long value = Long.parseLong(matcher.group(group));
-        if (value > Integer.MAX_VALUE) {
-            throw new RuleViolation(new InvalidAppVersion());
-        }
-        return (int) value;
     }
 }

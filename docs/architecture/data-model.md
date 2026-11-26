@@ -31,8 +31,9 @@ named after its package. Each module then adds its tables in one migration of it
 | `V9` | `V9__reporting.sql` | `reporting` |
 | `V10` | `V10__list_positions_start_at_0.sql` | every module's list tables |
 | `V11` | `V11__app_role_grants.sql` | what `app` may do on every module's tables |
+| `V12` | `V12__audit_purge.sql` | `audit`: the purge function and its cutoff |
 
-Every number from `V1` to `V11` is taken, and a later migration takes the next free number. `V0_*`
+Every number from `V1` to `V12` is taken, and a later migration takes the next free number. `V0_*`
 is reserved for the test-only fixture in `src/test/resources/db/fixture/`, which only the tests run.
 
 - **Grants.** Flyway runs as `dispatchflow_owner`, which owns every schema and table, and the core
@@ -43,7 +44,8 @@ is reserved for the test-only fixture in `src/test/resources/db/fixture/`, which
   once, `SELECT` and `INSERT` on the audit trail's two tables, and `INSERT` alone on a published
   plan's revisions. Each later migration grants on the tables it creates ([ADR-127][ADR-127],
   decision 8), and `DatabaseRolesIT` fails on a table that grants `app` nothing or more than its
-  rows, on a function open to every role, and on a schema `app` may create in ([ADR-146][ADR-146]).
+  rows, on a function open to every role, on a function `app` may execute other than the audit
+  purge, and on a schema `app` may create in ([ADR-146][ADR-146], [ADR-149][ADR-149]).
 - **`ddl-auto=validate`.** At startup Hibernate checks every mapping against the migrated schema and
   never changes it (`application.properties`). It checks that each mapped table and column exists
   with a compatible type, not constraints or nullability, so the integration tests are what check
@@ -217,7 +219,7 @@ What the constraints enforce:
 - **Deletion.** An account is anonymized in place, never deleted, so its children have no cascade.
   A session is deleted 30 days after it ends, and its tokens and contacts go with it.
 
-### `audit` (V3)
+### `audit` (V3, V12)
 
 The append-only audit trail ([§4.8](domain_layer/domain_layer_design.md#48-audit),
 [ADR-110][ADR-110]). It holds only IDs, codes, enums, numbers and instants.
@@ -242,11 +244,27 @@ erDiagram
   `PHONE`.
 - `audit_record_refused_has_code`: a `REFUSED` record has an `error_code`, and no other does.
 - `audit_record_named_record_kind_known` lists the 14 kinds a record may name.
-- `audit_record_at` serves the purge of records older than a year. No purge function exists yet,
-  so `JpaAuditRecords.purgeExpired` throws `UnsupportedOperationException`;
-  [tech stack §6.3](tech_stack.md#63-persistence) decides one, owned by `dispatchflow_owner`.
+- `audit_record_at` serves the purge of records older than a year.
 - `app` may only insert and read both tables (`V11`, [ADR-041][ADR-041]), so the core can neither
   change nor delete a record.
+
+Two functions of `V12`, both owned by `dispatchflow_owner`, are the only way a record is deleted
+([ADR-041][ADR-041], [ADR-075][ADR-075], [ADR-149][ADR-149]):
+
+| Function | Does | Who may run it |
+|---|---|---|
+| `audit.purge_expired_records()` | Deletes every record made before `audit.retention_cutoff(now())`, its named records by cascade, and returns how many records it deleted. It takes no date, runs with its owner's rights (`SECURITY DEFINER`) and a `search_path` fixed to `pg_catalog, pg_temp`, and its cutoff, a `STABLE` expression, lets it read `audit_record_at` | `app`, and no other role but the owner |
+| `audit.retention_cutoff(asked_at)` | The instant before which a record is past its year: the same `Asia/Jerusalem` local time a year earlier, which `AuditRecord.retentionCutoff` computes too. A year before 29 February is 28 February. A local time the clocks skipped or repeated stands for the earlier of its two instants, so no record goes before its year is up. `STABLE`, with a SQL-standard body | The owner alone, so only the purge calls it |
+
+- Nothing calls the purge yet: `JpaAuditRecords.purgeExpired` and `PurgeExpiredAuditRecords`
+  throw `UnsupportedOperationException` until the nightly retention run calls it at 03:00
+  ([ADR-121][ADR-121], decision 9).
+- `AuditTrailGuaranteesIT` proves both guarantees as `app`: an `UPDATE` or `DELETE` on either table
+  is refused with SQLSTATE `42501`, the purge keeps a record exactly at its cutoff and deletes one
+  a microsecond older, and another role may run neither function. It also compares the database's
+  cutoff with the domain's at every clock change and leap day up to 2036.
+- `app` may insert, so the trail is append-only, not unforgeable: a compromised core could add a
+  backdated record or a named record ([ADR-149][ADR-149], Risk).
 
 ### `fleet` (V4)
 
@@ -745,7 +763,7 @@ load shares a transaction with, which runs as `app` ([ADR-145][ADR-145], decisio
 | Module | Integration tests |
 |---|---|
 | `access` | `UserAccountPersistenceIT`, `SessionPersistenceIT`, `CompanyProfilePersistenceIT` |
-| `audit` | `AuditRecordsPersistenceIT` |
+| `audit` | `AuditRecordsPersistenceIT`, `AuditTrailGuaranteesIT` (the append-only trail and its purge) |
 | `fleet` | `DriverPersistenceIT`, `FleetRegisterPersistenceIT`, `DayRosterPersistenceIT` |
 | `liveops` | `DeliveryPersistenceIT`, `RouteRunPersistenceIT`, `AlertPersistenceIT`, `PositionLogPersistenceIT` |
 | `messaging` | `StopMessagesPersistenceIT`, `RatingRequestPersistenceIT`, `MessagingSettingsPersistenceIT`, `ReplyLogPersistenceIT`, `OptOutListPersistenceIT` |
@@ -759,14 +777,17 @@ The test helpers they share are in [code-structure.md](code-structure.md#srcback
 [ADR-041]: ../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md
 [ADR-057]: ../ADRs/ADR-057-concurrent-changes-to-a-plan-use-optimistic-locking.md
 [ADR-061]: ../ADRs/ADR-061-capacity-is-weight-and-volume.md
+[ADR-075]: ../ADRs/ADR-075-retention-deletes-records-and-anonymizes-people-in-place.md
 [ADR-088]: ../ADRs/ADR-088-israel-local-time-for-every-date-and-schedule.md
 [ADR-108]: ../ADRs/ADR-108-messaging-appends-opt-ins-holds-its-fixed-wording-and-cuts-comments-to-500-characters.md
 [ADR-109]: ../ADRs/ADR-109-reporting-computes-exact-on-time-shares-from-current-facts-and-keeps-no-personal-data.md
 [ADR-107]: ../ADRs/ADR-107-live-operations-alerts-once-per-key-corrects-a-put-back-by-event-and-treats-a-reschedule-as-a-cancellation.md
 [ADR-110]: ../ADRs/ADR-110-audit-records-hold-only-ids-codes-enums-numbers-and-instants-record-refusals-and-are-kept-a-year.md
+[ADR-121]: ../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md
 [ADR-125]: ../ADRs/ADR-125-a-folder-above-20-files-splits-wherever-a-group-of-four-can-move.md
 [ADR-126]: ../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md
 [ADR-127]: ../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md
 [ADR-128]: ../ADRs/ADR-128-the-persistence-rules-the-mapping-settled-after-adr-127.md
 [ADR-145]: ../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md
 [ADR-146]: ../ADRs/ADR-146-the-jar-takes-only-options-but-for-its-command-and-the-roles-guards-cover-every-object-and-log.md
+[ADR-149]: ../ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md

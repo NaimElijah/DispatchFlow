@@ -3,7 +3,7 @@ package com.dispatchflow.archfixture.theta.application.service;
 import com.dispatchflow.archfixture.theta.application.api.AuditLog;
 import com.dispatchflow.archfixture.theta.application.api.Solve;
 
-/** Rule 7: a service with no transaction that writes an audit record, apart from any change. */
+/** Rule 9: a service with no transaction that records a success, apart from any change. */
 public final class DelegatesAndAudits {
 
     private final Solve solve;
@@ -11,7 +11,7 @@ public final class DelegatesAndAudits {
 
     /**
      * @param solve the other module's use case
-     * @param auditLog the audit trail, written with no transaction
+     * @param auditLog the audit trail, whose success it records with no transaction
      */
     public DelegatesAndAudits(Solve solve, AuditLog auditLog) {
         this.solve = solve;
