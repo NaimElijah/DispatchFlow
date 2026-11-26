@@ -214,13 +214,61 @@ class AuditRecordTest {
         "2027-03-25T10:00:00Z, 2028-03-25T08:59:59Z, false",
         "2027-03-25T10:00:00Z, 2028-03-25T09:00:00Z, false",
         "2027-03-25T10:00:00Z, 2028-03-25T09:00:00.000000001Z, true",
-        // Recorded on 29 February 2028: a year later is 28 February 2029.
-        "2028-02-29T10:00:00Z, 2029-02-28T10:00:00Z, false",
-        "2028-02-29T10:00:00Z, 2029-02-28T10:00:00.000000001Z, true"
+        // Recorded on 29 February 2028: kept through 28 February 2029, and past its retention from
+        // 1 March 2029 at 00:00 Israel time, 22:00Z the day before (ADR-149 decision 5).
+        "2028-02-29T10:00:00Z, 2029-02-28T10:00:00.000000001Z, false",
+        "2028-02-29T10:00:00Z, 2029-02-28T21:59:59.999999999Z, false",
+        "2028-02-29T10:00:00Z, 2029-02-28T22:00:00Z, true"
     })
     void GivenARecordAndTheRetentionJobsTime_WhenAskedWhetherItIsPastRetention_ThenOnlyOneOlderThanAYearIs(
             Instant at, Instant now, boolean expected) {
         assertThat(aPublishedPlanRecordAt(at).isPastRetention(now)).isEqualTo(expected);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        // 30 October 2028 is in standard time and 30 October 2027 in summer time: noon local is
+        // 10:00Z now and 09:00Z a year earlier.
+        "2028-10-30T10:00:00Z, 2027-10-30T09:00:00Z",
+        // 25 March 2028 is in summer time and 25 March 2027 in standard time.
+        "2028-03-25T09:00:00Z, 2027-03-25T10:00:00Z",
+        // 02:30 on 26 March 2027 never happened: the clocks skipped from 02:00 to 03:00, so the
+        // cutoff moves forward by that hour, to 03:30 summer time.
+        "2028-03-25T23:30:00Z, 2027-03-26T00:30:00Z",
+        // 01:30 on 25 October 2026 happened twice, in summer time and then in standard time: the
+        // cutoff takes standard time, as PostgreSQL reads such a time.
+        "2027-10-24T22:30:00Z, 2026-10-24T23:30:00Z",
+        // 29 February 2028 a year earlier is the last day of February 2027.
+        "2028-02-29T08:00:00Z, 2027-02-28T08:00:00Z",
+        // Midnight of 1 March 2029 a year earlier is midnight of 1 March 2028.
+        "2029-02-28T22:00:00Z, 2028-02-29T22:00:00Z",
+        // A time's microseconds and nanoseconds are kept as given.
+        "2027-06-13T07:30:00.123456789Z, 2026-06-13T07:30:00.123456789Z"
+    })
+    void GivenTheTimeAsked_WhenTheRetentionCutoffIsComputed_ThenItIsTheSameIsraelLocalTimeAYearEarlier(
+            Instant now, Instant expected) {
+        assertThat(AuditRecord.retentionCutoff(now)).isEqualTo(expected);
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {"2029-02-28T09:30:00Z", "2029-02-28T10:00:00Z", "2029-02-28T22:00:00Z", "2029-03-01T10:00:00Z"})
+    void GivenARecordAndANewerOne_WhenAskedAtAnyTime_ThenTheNewerIsPastItsRetentionOnlyOnceTheOlderIs(Instant now) {
+        // A "year after each record" rule would delete this newer record first, at 09:30Z on 28
+        // February 2029, while it kept the older one, so that no cutoff could match it (ADR-149).
+        AuditRecord older = aPublishedPlanRecordAt(Instant.parse("2028-02-28T10:00:01Z"));
+        AuditRecord newer = aPublishedPlanRecordAt(Instant.parse("2028-02-29T09:00:00Z"));
+
+        assertThat(!newer.isPastRetention(now) || older.isPastRetention(now))
+                .as("the newer record is past its retention only once the older one is")
+                .isTrue();
+    }
+
+    @Test
+    void GivenNoTimeForTheRetentionCutoff_WhenComputed_ThenItFailsLoudly() {
+        assertThatThrownBy(() -> AuditRecord.retentionCutoff(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("now");
     }
 
     @Test
