@@ -145,10 +145,11 @@ final class TransactionRules {
      *   <li>an outside-call port;
      *   <li>a port that stores nothing, {@link #STORELESS_PORTS};
      *   <li>another service;
-     *   <li>an {@code api} or {@code spi} other than {@code AuditLog}.
+     *   <li>an {@code api} or {@code spi}, {@code AuditLog} included.
      * </ul>
-     * Each of those opens its own transaction, or needs none. A repository, a query port or the audit
-     * log here would read or write with no transaction.
+     * Each of those opens its own transaction, or needs none. A repository or a query port here
+     * would read or write with no transaction. The audit log may be held to record a refusal once
+     * the {@code Change} has rolled back, and rule 9 keeps a success off it (ADR-149 decision 3).
      */
     static ArchRule aServiceWithoutATransactionTouchesNoData(String root) {
         return classes()
@@ -195,6 +196,52 @@ final class TransactionRules {
                 .because("ADR-129 decision 7: a listener has no transaction of its own");
     }
 
+    /**
+     * Rule 9: only a transactional service records a success, so the record commits with its change
+     * or not at all (NFR-23, ADR-149 decision 3). A call to {@code AuditLog.succeeded} sits in a
+     * class of a module's {@code application.service} packages that carries {@code @Transactional}
+     * itself; a class nested in one counts as that class. A service with no transaction, an adapter
+     * or the call wrapper records only a refusal, after every transaction of the call has ended.
+     */
+    static ArchRule successIsRecordedOnlyInATransactionalService(String root) {
+        return classes()
+                .that()
+                .resideInAPackage(root + "..")
+                .should(new ArchCondition<JavaClass>("record a success only inside a transactional service") {
+                    @Override
+                    public void check(JavaClass item, ConditionEvents events) {
+                        JavaClass outermost = outermost(item);
+                        if (isService(root, outermost) && carries(outermost, Transactional.class)) {
+                            return;
+                        }
+                        item.getMethodCallsFromSelf().stream()
+                                .filter(TransactionRules::recordsASuccess)
+                                .forEach(call -> events.add(SimpleConditionEvent.violated(
+                                        call,
+                                        call.getDescription()
+                                                + " records a success outside a transactional service; move it"
+                                                + " into the " + CHANGE_SUFFIX + " that holds the change")));
+                    }
+                })
+                .because("ADR-149 decision 3: a success commits with its change");
+    }
+
+    private static boolean recordsASuccess(JavaMethodCall call) {
+        JavaClass owner = call.getTargetOwner();
+        return call.getName().equals("succeeded")
+                && (owner.getSimpleName().equals(AUDIT_LOG)
+                        || owner.getAllRawInterfaces().stream()
+                                .anyMatch(type -> type.getSimpleName().equals(AUDIT_LOG)));
+    }
+
+    private static JavaClass outermost(JavaClass item) {
+        JavaClass outermost = item;
+        while (outermost.getEnclosingClass().isPresent()) {
+            outermost = outermost.getEnclosingClass().get();
+        }
+        return outermost;
+    }
+
     private static boolean carries(CanBeAnnotated element, Class<? extends Annotation> type) {
         return element.isAnnotatedWith(type) || element.isMetaAnnotatedWith(type);
     }
@@ -239,9 +286,6 @@ final class TransactionRules {
         String name = type.getSimpleName();
         if (OUTSIDE_CALL_PORTS.contains(name) || STORELESS_PORTS.contains(name)) {
             return true;
-        }
-        if (name.equals(AUDIT_LOG)) {
-            return false;
         }
         if (isService(root, type) || inServices(root, type)) {
             return true;

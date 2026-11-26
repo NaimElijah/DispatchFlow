@@ -3,6 +3,7 @@ package com.dispatchflow.architecture;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.archfixture.theta.adapter.in.listen.AuditsASuccess;
 import com.dispatchflow.archfixture.theta.adapter.in.listen.ListenerInATransaction;
 import com.dispatchflow.archfixture.theta.adapter.in.listen.ListensAsync;
 import com.dispatchflow.archfixture.theta.adapter.in.listen.ListensWithoutAsync;
@@ -24,6 +25,7 @@ import com.dispatchflow.archfixture.theta.application.service.CallsASplitApi;
 import com.dispatchflow.archfixture.theta.application.service.CallsASplitUseCase;
 import com.dispatchflow.archfixture.theta.application.service.CountsLedgers;
 import com.dispatchflow.archfixture.theta.application.service.DelegatesAndAudits;
+import com.dispatchflow.archfixture.theta.application.service.DelegatesAndRecordsItsRefusal;
 import com.dispatchflow.archfixture.theta.application.service.DelegatesToASplitApi;
 import com.dispatchflow.archfixture.theta.application.service.FinalMethodService;
 import com.dispatchflow.archfixture.theta.application.service.FinalService;
@@ -163,14 +165,42 @@ class TransactionRulesTest {
                 .isFalse();
     }
 
-    @ParameterizedTest
-    @ValueSource(classes = {SplitButHoldsLedgers.class, DelegatesAndAudits.class})
-    void GivenAServiceWithoutATransactionThatTouchesData_WhenChecked_ThenItIsFlagged(Class<?> fixture) {
+    @Test
+    void GivenAServiceWithoutATransactionThatTouchesData_WhenChecked_ThenItIsFlagged() {
         assertThat(flags(
                         TransactionRules.aServiceWithoutATransactionTouchesNoData(FIXTURE_ROOT),
-                        fixture,
+                        SplitButHoldsLedgers.class,
                         SplitButHoldsLedgersChange.class))
                 .isTrue();
+    }
+
+    @Test
+    void GivenAUseCaseWithoutATransactionThatRecordsItsRefusal_WhenChecked_ThenNothingIsFlagged() {
+        assertThat(flags(
+                        TransactionRules.everyServiceIsTransactional(FIXTURE_ROOT),
+                        DelegatesAndRecordsItsRefusal.class))
+                .isFalse();
+        assertThat(flags(
+                        TransactionRules.aServiceWithoutATransactionTouchesNoData(FIXTURE_ROOT),
+                        DelegatesAndRecordsItsRefusal.class))
+                .isFalse();
+        assertThat(flags(
+                        TransactionRules.successIsRecordedOnlyInATransactionalService(FIXTURE_ROOT),
+                        DelegatesAndRecordsItsRefusal.class))
+                .isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(classes = {DelegatesAndAudits.class, AuditsASuccess.class})
+    void GivenASuccessRecordedOutsideATransactionalService_WhenChecked_ThenItIsFlagged(Class<?> fixture) {
+        assertThat(flags(TransactionRules.successIsRecordedOnlyInATransactionalService(FIXTURE_ROOT), fixture))
+                .isTrue();
+    }
+
+    @Test
+    void GivenSuccessesRecordedOnlyInTransactionalServices_WhenChecked_ThenNothingIsFlagged() {
+        assertThat(flags(TransactionRules.successIsRecordedOnlyInATransactionalService(FIXTURE_ROOT), CLEAN))
+                .isFalse();
     }
 
     @Test

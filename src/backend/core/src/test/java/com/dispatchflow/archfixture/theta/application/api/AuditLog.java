@@ -5,4 +5,7 @@ public interface AuditLog {
 
     /** Records that a call succeeded. */
     void succeeded();
+
+    /** Records that a call was refused. */
+    void refused();
 }

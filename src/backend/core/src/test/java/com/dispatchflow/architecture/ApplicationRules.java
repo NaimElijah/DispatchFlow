@@ -91,8 +91,8 @@ final class ApplicationRules {
     private static final List<String> ALWAYS_ALLOWED = List.of("java", "org.jspecify");
     // TS §2.2: the one Spring annotation the application may carry, so a use case can mark its
     // transaction. ArchUnit counts an annotation's members, defaults included, as dependencies, so
-    // even a bare @Transactional names Propagation and Isolation; ADR-110's REQUIRES_NEW needs them
-    // too.
+    // even a bare @Transactional names Propagation and Isolation; no service names another
+    // propagation (ADR-129 decision 5).
     private static final Set<String> TRANSACTIONAL = Set.of(
             "org.springframework.transaction.annotation.Transactional",
             "org.springframework.transaction.annotation.Propagation",
