@@ -2,6 +2,7 @@ package com.dispatchflow.audit.domain;
 
 import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dispatchflow.audit.domain.AuditError.InvalidAppVersion;
 import java.util.stream.Stream;
@@ -77,6 +78,13 @@ class AppVersionTest {
         assertThat(AppVersion.parseIfValid(text)).contains(new AppVersion(major, minor, patch));
     }
 
+    @Test
+    void GivenNoText_WhenParsedIfValid_ThenItFailsLoudlyNamingIt() {
+        assertThatThrownBy(() -> AppVersion.parseIfValid(nothing()))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("text");
+    }
+
     @ParameterizedTest
     @CsvSource({"-1, 0, 0", "0, -1, 0", "0, 0, -1"})
     void GivenANegativePart_WhenBuilt_ThenInvalidAppVersion(int major, int minor, int patch) {
@@ -86,5 +94,10 @@ class AppVersionTest {
     @Test
     void GivenAVersion_WhenWrittenAsText_ThenItIsTheThreeNumbersJoinedByDots() {
         assertThat(new AppVersion(3, 0, 12).text()).isEqualTo("3.0.12");
+    }
+
+    // A null that the null-marked signature doesn't admit, to test the refusal itself.
+    private static String nothing() {
+        return null;
     }
 }

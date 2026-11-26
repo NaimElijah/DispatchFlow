@@ -2,10 +2,17 @@ package com.dispatchflow.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.audit.application.api.AuditedRecord;
 import com.dispatchflow.audit.application.api.CallContext;
+import com.dispatchflow.audit.application.service.AppendedAuditRecords;
+import com.dispatchflow.audit.application.service.AuditLogService;
+import com.dispatchflow.audit.domain.AuditOutcome;
+import com.dispatchflow.audit.domain.AuditRecord;
+import com.dispatchflow.audit.domain.ErrorCode;
+import com.dispatchflow.audit.domain.OperationName;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.adapter.in.web.Problems;
 import com.dispatchflow.shared.application.Clock;
@@ -218,6 +225,27 @@ class CallRetryTest {
                 .isInstanceOf(StaleVersion.class);
 
         assertThat(auditLog.refusals).containsExactly(new Refusal(OPERATION, TRACE_ID, NOW, WebCodes.TRY_AGAIN_LATER));
+    }
+
+    @Test
+    void GivenEachRaceItAudits_WhenTheRealAuditLogRecordsIt_ThenAuditAcceptsItsCodeAndOperation() {
+        AppendedAuditRecords records = new AppendedAuditRecords();
+        CallRetry audited = new CallRetry(new AuditLogService(records), new FixedClock());
+
+        assertThatThrownBy(() -> audited.run(withoutAVersion, OPERATION, failingFirst(4, attempt -> savesConflict())))
+                .isInstanceOf(StaleVersion.class);
+        tries.set(0);
+        assertThatThrownBy(() -> audited.run(withIfMatch, OPERATION, failingFirst(1, attempt -> savesConflict())))
+                .isInstanceOf(StaleVersion.class);
+
+        assertThat(records.records())
+                .extracting(AuditRecord::outcome, AuditRecord::operation, AuditRecord::at)
+                .containsExactly(
+                        tuple(
+                                AuditOutcome.refused(ErrorCode.of(WebCodes.TRY_AGAIN_LATER)),
+                                OperationName.of(OPERATION),
+                                NOW),
+                        tuple(AuditOutcome.refused(ErrorCode.of(StaleVersion.CODE)), OperationName.of(OPERATION), NOW));
     }
 
     @Test

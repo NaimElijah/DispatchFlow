@@ -17,10 +17,12 @@ import com.dispatchflow.audit.domain.NamedRecord;
 import com.dispatchflow.audit.domain.OperationName;
 import com.dispatchflow.audit.domain.RecordKind;
 import com.dispatchflow.audit.domain.TraceId;
+import com.dispatchflow.shared.RuleViolation;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -30,8 +32,11 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>Its transaction is the default one: {@link #succeeded} joins the change's, and {@link
  * #refused}, called with none open, opens its own (ADR-129 decision 5). Audit's domain refuses a
- * malformed part before anything is appended, so a change that names one rolls back rather than
- * commit without its record (NFR-23).
+ * malformed part before anything is appended, and the service rethrows that refusal as an {@code
+ * IllegalStateException}: every part comes from the server, so a malformed one is a bug, which
+ * answers 500, and a use case that catches its {@code Change}'s {@code RuleViolation} never takes it
+ * for the change's own refusal (ADR-149 decision 1). A change whose record is refused rolls back
+ * rather than commit without it (NFR-23).
  */
 @Transactional
 public class AuditLogService implements AuditLog {
@@ -49,28 +54,34 @@ public class AuditLogService implements AuditLog {
 
     @Override
     public void succeeded(CallContext call, Instant at, List<AuditedRecord> records) {
-        append(call, at, records, AuditOutcome.succeeded());
+        append(call, at, records, AuditOutcome::succeeded);
     }
 
     @Override
     public void refused(CallContext call, Instant at, List<AuditedRecord> records, String errorCode) {
         Objects.requireNonNull(errorCode, "errorCode");
-        append(call, at, records, AuditOutcome.refused(ErrorCode.of(errorCode)));
+        append(call, at, records, () -> AuditOutcome.refused(ErrorCode.of(errorCode)));
     }
 
-    private void append(CallContext call, Instant at, List<AuditedRecord> records, AuditOutcome outcome) {
+    private void append(CallContext call, Instant at, List<AuditedRecord> records, Supplier<AuditOutcome> outcome) {
         Objects.requireNonNull(call, "call");
         Objects.requireNonNull(at, "at");
         Objects.requireNonNull(records, "records");
-        auditRecords.append(new AuditRecord(
-                at,
-                call.user(),
-                call.session(),
-                call.client().flatMap(AuditLogService::declared),
-                OperationName.of(call.operation()),
-                records.stream().map(AuditLogService::named).toList(),
-                outcome,
-                TraceId.of(call.traceId())));
+        AuditRecord record;
+        try {
+            record = new AuditRecord(
+                    at,
+                    call.user(),
+                    call.session(),
+                    call.client().flatMap(AuditLogService::declared),
+                    OperationName.of(call.operation()),
+                    records.stream().map(AuditLogService::named).toList(),
+                    outcome.get(),
+                    TraceId.of(call.traceId()));
+        } catch (RuleViolation malformed) {
+            throw new IllegalStateException("Audit refused a part of the record the server built", malformed);
+        }
+        auditRecords.append(record);
     }
 
     // A version that doesn't parse leaves the app out too, since the two travel as a pair (ADR-110).

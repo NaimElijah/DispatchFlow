@@ -24,6 +24,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.IllegalTransactionStateException;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * The wired {@link AuditLog} against a real PostgreSQL (NFR-23, ADR-110, ADR-129 decision 5,
@@ -32,7 +35,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
  * reads audit records.
  *
  * <p>The database is shared and never cleaned, so test {@code n} finds its rows by its own trace ID,
- * {@code trace(n)}. Every record is dated in 2027, so no purge test deletes one.
+ * {@code trace(n)}, and reads them back in the test that wrote them, before another test's purge
+ * could run.
  */
 @IntegrationTest
 class AuditLogServiceIT {
@@ -51,8 +55,11 @@ class AuditLogServiceIT {
     @Autowired
     private JdbcClient jdbc;
 
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
     @Test
-    void GivenTheAuditLog_WhenSpringWiresIt_ThenItIsAuditLogServiceBehindATransactionalProxy() {
+    void GivenTheAuditLog_WhenSpringWiresIt_ThenItIsAuditLogServiceBehindAProxy() {
         assertThat(AopUtils.isAopProxy(auditLog)).isTrue();
         assertThat(AopUtils.getTargetClass(auditLog)).isEqualTo(AuditLogService.class);
     }
@@ -136,6 +143,22 @@ class AuditLogServiceIT {
         assertThat(storedRows(n))
                 .containsExactly(new StoredRow(
                         AT, null, null, null, null, "signIn", "REFUSED", "ACCOUNT_DEACTIVATED", trace(n)));
+    }
+
+    @Test
+    void GivenAReadOnlyTransaction_WhenARecordIsWrittenInIt_ThenItFailsLoudlyRatherThanLoseIt() {
+        // A read-only transaction never flushes, so a record written in one would vanish silently.
+        int n = 6;
+        TransactionTemplate readOnly = new TransactionTemplate(transactionManager);
+        readOnly.setReadOnly(true);
+
+        assertThatThrownBy(() -> readOnly.executeWithoutResult(
+                        status -> auditLog.refused(aSignedInCall(n), AT, List.of(), PLAN_HAS_VIOLATIONS)))
+                .isInstanceOf(IllegalTransactionStateException.class);
+        assertThatThrownBy(() ->
+                        readOnly.executeWithoutResult(status -> auditLog.succeeded(aSignedInCall(n), AT, List.of())))
+                .isInstanceOf(IllegalTransactionStateException.class);
+        assertThat(storedRows(n)).isEmpty();
     }
 
     /** A dispatcher's call from the web app, version 1.4.2, signed in, as test {@code n}'s. */

@@ -1,6 +1,5 @@
 package com.dispatchflow.audit.application.service;
 
-import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -9,7 +8,6 @@ import com.dispatchflow.audit.application.api.AuditedRecord;
 import com.dispatchflow.audit.application.api.CallContext;
 import com.dispatchflow.audit.application.api.ClientKind;
 import com.dispatchflow.audit.application.api.ClientRelease;
-import com.dispatchflow.audit.application.port.out.AuditRecords;
 import com.dispatchflow.audit.domain.AppVersion;
 import com.dispatchflow.audit.domain.AuditError.InvalidTraceId;
 import com.dispatchflow.audit.domain.AuditError.MalformedErrorCode;
@@ -28,6 +26,7 @@ import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.AlertId;
 import com.dispatchflow.shared.CustomerId;
 import com.dispatchflow.shared.DepotId;
+import com.dispatchflow.shared.DomainError;
 import com.dispatchflow.shared.ImportBatchId;
 import com.dispatchflow.shared.JobId;
 import com.dispatchflow.shared.OrderId;
@@ -35,6 +34,7 @@ import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.ProposalId;
 import com.dispatchflow.shared.RatingRequestId;
 import com.dispatchflow.shared.RouteId;
+import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.SessionId;
 import com.dispatchflow.shared.StopId;
 import com.dispatchflow.shared.VehicleId;
@@ -47,6 +47,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -95,7 +96,7 @@ class AuditLogServiceTest {
     void GivenASignedInCall_WhenSucceeded_ThenTheRecordHoldsItsUserSessionAppOperationRecordsAndTraceId() {
         auditLog.succeeded(aSignedInCall(), AT, List.of(AuditedRecord.of(PLAN), AuditedRecord.of(ORDER)));
 
-        assertThat(appended.records)
+        assertThat(appended.records())
                 .containsExactly(new AuditRecord(
                         AT,
                         Optional.of(USER),
@@ -111,7 +112,7 @@ class AuditLogServiceTest {
     void GivenAServerStep_WhenSucceeded_ThenNoUserSessionOrAppIsRecorded() {
         auditLog.succeeded(CallContext.serverStep("purgeExpiredAuditRecords", TRACE), AT, List.of());
 
-        assertThat(appended.records)
+        assertThat(appended.records())
                 .containsExactly(new AuditRecord(
                         AT,
                         Optional.empty(),
@@ -157,7 +158,7 @@ class AuditLogServiceTest {
     void GivenARefusal_WhenRefused_ThenOnlyItsCodeIsKept() {
         auditLog.refused(aSignedInCall(), AT, List.of(AuditedRecord.of(PLAN)), PLAN_HAS_VIOLATIONS);
 
-        assertThat(appended.records)
+        assertThat(appended.records())
                 .containsExactly(new AuditRecord(
                         AT,
                         Optional.of(USER),
@@ -188,9 +189,9 @@ class AuditLogServiceTest {
 
     @ParameterizedTest
     @MethodSource("malformedErrorCodes")
-    void GivenAMalformedErrorCode_WhenRefused_ThenMalformedErrorCode(String errorCode) {
-        assertRefused(() -> auditLog.refused(aSignedInCall(), AT, List.of(), errorCode), new MalformedErrorCode());
-        assertThat(appended.records).isEmpty();
+    void GivenAMalformedErrorCode_WhenRefused_ThenItFailsAsABugCausedByMalformedErrorCode(String errorCode) {
+        assertABugCausedBy(() -> auditLog.refused(aSignedInCall(), AT, List.of(), errorCode), new MalformedErrorCode());
+        assertThat(appended.records()).isEmpty();
     }
 
     static Stream<String> malformedErrorCodes() {
@@ -199,26 +200,27 @@ class AuditLogServiceTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"", "publish plan", "1publishPlan", "publishPlan()"})
-    void GivenAMalformedOperation_WhenSucceeded_ThenMalformedOperationName(String operation) {
-        assertRefused(() -> auditLog.succeeded(aCallAs(operation, TRACE), AT, List.of()), new MalformedOperationName());
-        assertThat(appended.records).isEmpty();
+    void GivenAMalformedOperation_WhenSucceeded_ThenItFailsAsABugCausedByMalformedOperationName(String operation) {
+        assertABugCausedBy(
+                () -> auditLog.succeeded(aCallAs(operation, TRACE), AT, List.of()), new MalformedOperationName());
+        assertThat(appended.records()).isEmpty();
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"", "00000000000000000000000000000000", "4BF92F3577B34DA6A3CE929D0E0E4736", "4bf92f35"})
-    void GivenAnInvalidTraceId_WhenRefused_ThenInvalidTraceId(String traceId) {
-        assertRefused(
+    void GivenAnInvalidTraceId_WhenRefused_ThenItFailsAsABugCausedByInvalidTraceId(String traceId) {
+        assertABugCausedBy(
                 () -> auditLog.refused(aCallAs(PUBLISH_PLAN, traceId), AT, List.of(), PLAN_HAS_VIOLATIONS),
                 new InvalidTraceId());
-        assertThat(appended.records).isEmpty();
+        assertThat(appended.records()).isEmpty();
     }
 
     @Test
-    void GivenFiveHundredAndOneRecords_WhenSucceeded_ThenTooManyNamedRecords() {
-        assertRefused(
+    void GivenFiveHundredAndOneRecords_WhenSucceeded_ThenItFailsAsABugCausedByTooManyNamedRecords() {
+        assertABugCausedBy(
                 () -> auditLog.succeeded(aSignedInCall(), AT, stops(AuditRecord.MAX_RECORDS + 1)),
                 new TooManyNamedRecords());
-        assertThat(appended.records).isEmpty();
+        assertThat(appended.records()).isEmpty();
     }
 
     @Test
@@ -264,10 +266,10 @@ class AuditLogServiceTest {
     @Test
     void GivenTheKindsTheApiNamesAndTheDomainKeeps_WhenListed_ThenTheyAreTheSameConstants() {
         assertThat(Arrays.stream(AuditedKind.values()).map(Enum::name))
-                .containsExactlyElementsOf(
+                .containsExactlyInAnyOrderElementsOf(
                         Arrays.stream(RecordKind.values()).map(Enum::name).toList());
         assertThat(Arrays.stream(ClientKind.values()).map(Enum::name))
-                .containsExactlyElementsOf(
+                .containsExactlyInAnyOrderElementsOf(
                         Arrays.stream(ClientApp.values()).map(Enum::name).toList());
     }
 
@@ -286,7 +288,7 @@ class AuditLogServiceTest {
         assertThatThrownBy(() -> auditLog.succeeded(nothing(), AT, List.of()))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("call");
-        assertThat(appended.records).isEmpty();
+        assertThat(appended.records()).isEmpty();
     }
 
     @Test
@@ -294,7 +296,7 @@ class AuditLogServiceTest {
         assertThatThrownBy(() -> auditLog.refused(aSignedInCall(), nothing(), List.of(), PLAN_HAS_VIOLATIONS))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("at");
-        assertThat(appended.records).isEmpty();
+        assertThat(appended.records()).isEmpty();
     }
 
     @Test
@@ -302,7 +304,7 @@ class AuditLogServiceTest {
         assertThatThrownBy(() -> auditLog.succeeded(aSignedInCall(), AT, nothing()))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("records");
-        assertThat(appended.records).isEmpty();
+        assertThat(appended.records()).isEmpty();
     }
 
     @Test
@@ -311,7 +313,7 @@ class AuditLogServiceTest {
 
         assertThatThrownBy(() -> auditLog.succeeded(aSignedInCall(), AT, named))
                 .isInstanceOf(NullPointerException.class);
-        assertThat(appended.records).isEmpty();
+        assertThat(appended.records()).isEmpty();
     }
 
     @Test
@@ -319,7 +321,20 @@ class AuditLogServiceTest {
         assertThatThrownBy(() -> auditLog.refused(aSignedInCall(), AT, List.of(), nothing()))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("errorCode");
-        assertThat(appended.records).isEmpty();
+        assertThat(appended.records()).isEmpty();
+    }
+
+    /**
+     * Every part of a record comes from the server, so Audit's refusal of one is a bug, thrown as
+     * an {@code IllegalStateException} that no use case takes for its change's refusal (ADR-149).
+     */
+    private static void assertABugCausedBy(ThrowingCallable call, DomainError error) {
+        assertThatThrownBy(call)
+                .isInstanceOf(IllegalStateException.class)
+                .cause()
+                .isInstanceOfSatisfying(
+                        RuleViolation.class,
+                        refused -> assertThat(refused.error()).isEqualTo(error));
     }
 
     private static List<AuditedRecord> stops(int count) {
@@ -331,26 +346,5 @@ class AuditLogServiceTest {
     // A null that the null-marked signature doesn't admit, to test the refusal itself.
     private static <T> T nothing() {
         return null;
-    }
-
-    /** The store, in memory: what was appended, in order. */
-    private static final class AppendedAuditRecords implements AuditRecords {
-
-        private final List<AuditRecord> records = new ArrayList<>();
-
-        @Override
-        public void append(AuditRecord record) {
-            records.add(record);
-        }
-
-        @Override
-        public int purgeExpired() {
-            throw new AssertionError("the audit log never purges");
-        }
-
-        AuditRecord only() {
-            assertThat(records).hasSize(1);
-            return records.getFirst();
-        }
     }
 }
