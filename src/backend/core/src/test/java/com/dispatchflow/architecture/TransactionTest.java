@@ -99,6 +99,23 @@ class TransactionTest {
     }
 
     @Test
+    void GivenTheProductionClasses_WhenRefusalsAreRecorded_ThenNoTransactionalClassButTheListedRecordsOne() {
+        TransactionRules.refusalIsNeverRecordedInsideATransaction(
+                        ROOT, TransactionRules.REFUSALS_COMMITTED_IN_THEIR_CHANGE)
+                .check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheChangesThatCommitARefusal_WhenLookedUp_ThenEachIsOneProductionService() {
+        assertThat(TransactionRules.REFUSALS_COMMITTED_IN_THEIR_CHANGE)
+                .allSatisfy(name -> assertThat(ProductionClasses.ALL.stream()
+                                .filter(type -> type.getSimpleName().equals(name))
+                                .filter(type -> TransactionRules.isService(ROOT, type)))
+                        .as("the listed %s", name)
+                        .hasSize(1));
+    }
+
+    @Test
     void GivenTheProductionClasses_WhenListenersAreChecked_ThenEachIsAsync() {
         TransactionRules.everyListenerIsAsync(ROOT).check(ProductionClasses.ALL);
     }
