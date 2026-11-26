@@ -14,6 +14,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -43,6 +45,10 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.SimpleDriverDataSource;
 import org.testcontainers.containers.Container.ExecResult;
+import org.testcontainers.containers.output.FrameConsumerResultCallback;
+import org.testcontainers.containers.output.OutputFrame;
+import org.testcontainers.containers.output.ToStringConsumer;
+import org.testcontainers.containers.output.WaitingConsumer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
@@ -75,6 +81,29 @@ class DatabaseRolesIT {
             "planning.plan_revision",
             "planning.plan_revision_route",
             "planning.plan_revision_stop");
+
+    /** Flyway's history, which the owner keeps in public and the core never reads. */
+    private static final String FLYWAY_HISTORY = "public.flyway_schema_history";
+
+    /**
+     * Turns on, for one psql session, the server settings that would log a statement's text, the
+     * ones the init script turns off by name; {@link #everyStatementLogged} adds the parse trees'.
+     */
+    private static final String STATEMENTS_LOGGED = String.join(
+            " ",
+            "-c log_statement=all",
+            "-c log_min_duration_statement=0",
+            "-c log_min_duration_sample=0",
+            "-c log_transaction_sample_rate=1",
+            "-c log_min_error_statement=debug5");
+
+    /** What the server log check logs once the script has run, so it knows it has read that far. */
+    private static final String LOG_CHECK_DONE = "DatabaseRolesIT: the init script log check is done";
+
+    private static final String LOG_THAT_THE_CHECK_IS_DONE = "DO $$ BEGIN RAISE LOG '" + LOG_CHECK_DONE + "'; END $$";
+
+    /** How long the server log check waits for its own line, which a healthy container logs at once. */
+    private static final int LOG_WAIT_SECONDS = 30;
 
     private static final Pattern MIGRATION_FILE = Pattern.compile("V([0-9_]+)__.+\\.sql");
     private static final UUID FIXTURE_LEDGER = UUID.fromString("0190a5e2-0160-7000-8000-000000000001");
@@ -114,21 +143,22 @@ class DatabaseRolesIT {
                         refused -> assertThat(refused.getSQLState()).isEqualTo(INSUFFICIENT_PRIVILEGE));
     }
 
-    /** An owner can always grant itself back whatever was revoked, so app must own nothing at all. */
+    /**
+     * An owner can always grant itself back whatever was revoked, so app must own nothing at all, and
+     * must be no member of the owner, which would give it the owner's rights without owning a thing.
+     * {@code pg_shdepend} records the owner of every object that can have one of its own, large
+     * objects included; an index or a TOAST table takes its table's. The owner's own rows show the
+     * query reads them.
+     */
     @Test
     void GivenTheMigratedDatabase_WhenItsTablesAndSchemasAreListed_ThenAppOwnsNone() {
-        List<String> ownedByApp = owner.sql("""
-                        SELECT 'schema ' || nspname FROM pg_namespace WHERE pg_get_userbyid(nspowner) = :app
-                        UNION ALL
-                        SELECT 'relation ' || oid::regclass::text FROM pg_class WHERE pg_get_userbyid(relowner) = :app
-                        UNION ALL
-                        SELECT 'function ' || oid::regprocedure::text FROM pg_proc WHERE pg_get_userbyid(proowner) = :app
-                        UNION ALL
-                        SELECT 'type ' || oid::regtype::text FROM pg_type WHERE pg_get_userbyid(typowner) = :app
-                        """)
+        List<String> ownedByApp = objectsOwnedBy(DatabaseRoles.APP);
+        List<String> ownedByTheOwner = objectsOwnedBy(DatabaseRoles.OWNER);
+        boolean appIsAMemberOfTheOwner = owner.sql("SELECT pg_has_role(:app, :owner, 'MEMBER')")
                 .param("app", DatabaseRoles.APP)
-                .query(String.class)
-                .list();
+                .param("owner", DatabaseRoles.OWNER)
+                .query(Boolean.class)
+                .single();
         List<String> ownersInTheModuleSchemas = owner.sql("""
                         SELECT pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname IN (:schemas)
                         UNION ALL
@@ -141,9 +171,21 @@ class DatabaseRolesIT {
                 .list();
 
         assertThat(ownedByApp).isEmpty();
+        assertThat(ownedByTheOwner).contains("schema audit", "table audit.audit_record");
+        assertThat(appIsAMemberOfTheOwner).isFalse();
         assertThat(ownersInTheModuleSchemas)
                 .hasSizeGreaterThan(MODULE_SCHEMAS.size())
                 .containsOnly(DatabaseRoles.OWNER);
+    }
+
+    /** Every object {@code role} owns, in this database or the cluster, as PostgreSQL describes it. */
+    private List<String> objectsOwnedBy(String role) {
+        return owner.sql("""
+                        SELECT pg_describe_object(classid, objid, objsubid) FROM pg_shdepend
+                        WHERE refclassid = 'pg_authid'::regclass AND refobjid = CAST(:role AS regrole)
+                            AND deptype = 'o'
+                            AND dbid IN (0, (SELECT oid FROM pg_database WHERE datname = current_database()))
+                        """).param("role", role).query(String.class).list();
     }
 
     @ParameterizedTest
@@ -157,18 +199,22 @@ class DatabaseRolesIT {
     }
 
     /**
-     * ADR-145: a table that grants app nothing is one a migration forgot, and one that lets app
-     * truncate it, reference it from a table of its own, put a trigger on it or maintain it holds more
-     * than the core runs. A function every role may execute is one whose migration forgot to say who
-     * may. It covers every schema the owner owns, the test fixture's too, so a module added later is
-     * covered without editing this test.
+     * ADR-145 and ADR-146: a table that grants app nothing is one a migration forgot, and one that lets
+     * app truncate it, reference it from a table of its own, put a trigger on it, maintain it or pass
+     * a privilege on holds more than the core runs. A function every role may execute, or a sequence
+     * app may use, is one whose migration forgot to say who may. It covers every table, sequence and
+     * function the owner owns, in whichever schema, the fixture's and public's too, so a module added
+     * later is covered without editing this test. A grant on one column counts as one on the table. A
+     * partition answers through its parent, so it needs no grant of its own, but may hold no more than
+     * one; Flyway's history may grant app nothing at all. A temporary table is a session's own.
      */
     @Test
     void GivenEveryTableTheOwnerOwns_WhenAppsPrivilegesAreRead_ThenEachGrantsSomeAndNoneMoreThanItsRows() {
         List<String> functionsOpenToAll = owner.sql("""
-                        SELECT p.oid::regprocedure::text FROM pg_proc p
-                        JOIN pg_namespace n ON n.oid = p.pronamespace
-                        WHERE pg_get_userbyid(n.nspowner) = :owner AND EXISTS (
+                        SELECT p.pronamespace::regnamespace || '.' || p.proname
+                            || '(' || pg_get_function_identity_arguments(p.oid) || ')'
+                        FROM pg_proc p
+                        WHERE pg_get_userbyid(p.proowner) = :owner AND EXISTS (
                             SELECT 1 FROM aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) AS acl
                             WHERE acl.grantee = 0 AND acl.privilege_type = 'EXECUTE')
                         """)
@@ -176,26 +222,50 @@ class DatabaseRolesIT {
                 .query(String.class)
                 .list();
         List<TablePrivileges> tables = owner.sql("""
-                        SELECT c.oid::regclass::text AS table_name,
-                            has_table_privilege(:app, c.oid, 'SELECT, INSERT, UPDATE, DELETE') AS on_rows,
-                            has_table_privilege(:app, c.oid, 'TRUNCATE, REFERENCES, TRIGGER, MAINTAIN')
-                                AS beyond_rows
+                        SELECT n.nspname || '.' || c.relname AS table_name, c.relispartition AS is_partition,
+                            has_table_privilege(:app, c.oid, 'SELECT, INSERT, UPDATE, DELETE')
+                                OR has_any_column_privilege(:app, c.oid, 'SELECT, INSERT, UPDATE') AS on_rows,
+                            has_table_privilege(:app, c.oid, 'TRUNCATE, REFERENCES, TRIGGER, MAINTAIN,
+                                    SELECT WITH GRANT OPTION, INSERT WITH GRANT OPTION,
+                                    UPDATE WITH GRANT OPTION, DELETE WITH GRANT OPTION')
+                                OR has_any_column_privilege(:app, c.oid, 'REFERENCES, SELECT WITH GRANT OPTION,
+                                    INSERT WITH GRANT OPTION, UPDATE WITH GRANT OPTION') AS beyond_rows
                         FROM pg_class c
                         JOIN pg_namespace n ON n.oid = c.relnamespace
-                        WHERE c.relkind IN ('r', 'p', 'v', 'm', 'f') AND pg_get_userbyid(n.nspowner) = :owner
+                        WHERE c.relkind IN ('r', 'p', 'v', 'm', 'f') AND c.relpersistence <> 't'
+                            AND pg_get_userbyid(c.relowner) = :owner
                         """)
                 .param("app", DatabaseRoles.APP)
                 .param("owner", DatabaseRoles.OWNER)
                 .query(TablePrivileges.class)
+                .list();
+        List<String> sequencesAppMayUse = owner.sql("""
+                        SELECT n.nspname || '.' || c.relname FROM pg_class c
+                        JOIN pg_namespace n ON n.oid = c.relnamespace
+                        WHERE c.relkind = 'S' AND pg_get_userbyid(c.relowner) = :owner
+                            -- PostgreSQL may weigh the conditions in any order, and this one refuses
+                            -- anything but a sequence.
+                            AND CASE WHEN c.relkind = 'S'
+                                THEN has_sequence_privilege(:app, c.oid, 'USAGE, SELECT, UPDATE') END
+                        """)
+                .param("app", DatabaseRoles.APP)
+                .param("owner", DatabaseRoles.OWNER)
+                .query(String.class)
                 .list();
 
         // Soft, so one run names every table a migration got wrong, both ways.
         assertSoftly(softly -> {
             softly.assertThat(tables)
                     .extracting(TablePrivileges::tableName)
-                    .contains("audit.audit_record", "planning.plan_revision", "persistence_fixture.ledger");
+                    .contains(
+                            "audit.audit_record",
+                            "planning.plan_revision",
+                            "persistence_fixture.ledger",
+                            FLYWAY_HISTORY);
             softly.assertThat(tables)
-                    .filteredOn(table -> !table.onRows())
+                    .filteredOn(table -> !table.onRows()
+                            && !table.isPartition()
+                            && !table.tableName().equals(FLYWAY_HISTORY))
                     .extracting(TablePrivileges::tableName)
                     .as("tables that grant app nothing")
                     .isEmpty();
@@ -204,8 +274,49 @@ class DatabaseRolesIT {
                     .extracting(TablePrivileges::tableName)
                     .as("tables that grant app more than reading and writing rows")
                     .isEmpty();
+            softly.assertThat(tables)
+                    .filteredOn(table -> table.tableName().equals(FLYWAY_HISTORY) && table.onRows())
+                    .extracting(TablePrivileges::tableName)
+                    .as("Flyway's history, which app may not touch")
+                    .isEmpty();
+            softly.assertThat(sequencesAppMayUse).as("sequences app may use").isEmpty();
             softly.assertThat(functionsOpenToAll)
                     .as("functions every role may execute")
+                    .isEmpty();
+        });
+    }
+
+    /**
+     * The tests above try the eight module schemas one by one; this reads every schema, so one a
+     * module adds later is covered too: app may use each schema the owner owns, and may create in
+     * none.
+     */
+    @Test
+    void GivenEverySchema_WhenAppsPrivilegesOnItAreRead_ThenAppMayUseTheOwnersAndCreateInNone() {
+        List<String> ownersSchemasAppCannotUse = owner.sql("""
+                        SELECT nspname FROM pg_namespace
+                        WHERE pg_get_userbyid(nspowner) = :owner AND NOT has_schema_privilege(:app, oid, 'USAGE')
+                        """)
+                .param("app", DatabaseRoles.APP)
+                .param("owner", DatabaseRoles.OWNER)
+                .query(String.class)
+                .list();
+        // PostgreSQL answers yes for the asking session's own temporary schema, whoever is asked about.
+        List<String> schemasAppMayCreateIn = owner.sql("""
+                        SELECT nspname FROM pg_namespace
+                        WHERE has_schema_privilege(:app, oid, 'CREATE')
+                            AND oid <> pg_my_temp_schema() AND NOT pg_is_other_temp_schema(oid)
+                        """)
+                .param("app", DatabaseRoles.APP)
+                .query(String.class)
+                .list();
+
+        assertSoftly(softly -> {
+            softly.assertThat(ownersSchemasAppCannotUse)
+                    .as("the owner's schemas app may not use")
+                    .isEmpty();
+            softly.assertThat(schemasAppMayCreateIn)
+                    .as("schemas app may create in")
                     .isEmpty();
         });
     }
@@ -218,13 +329,19 @@ class DatabaseRolesIT {
      * The audit trail is append-only (ADR-041) and a published plan's revisions are appended once and
      * never changed (V8, DL §4.4), so the database, not the code, keeps them as written. The guard
      * above allows any of the four row privileges; these tables must hold neither of the two that
-     * change a row. Audit's behaviour tests, a refused {@code UPDATE} and {@code DELETE} and the purge
-     * function, come with #180.
+     * change a row, not even an {@code UPDATE} on one column, which could still rewrite a record, on
+     * the table or on a partition of it, which a statement may name directly. Audit's behaviour tests,
+     * a refused {@code UPDATE} and {@code DELETE} and the purge function, come with #180.
      */
     @ParameterizedTest
     @MethodSource("recordsKeptAsWritten")
     void GivenARecordKeptAsWritten_WhenAppsPrivilegesOnItAreRead_ThenItMayNeitherUpdateNorDeleteIt(String table) {
-        assertThat(owner.sql("SELECT has_table_privilege(:app, CAST(:table AS regclass), 'UPDATE, DELETE')")
+        assertThat(owner.sql("""
+                                SELECT bool_or(has_any_column_privilege(:app, member, 'UPDATE')
+                                    OR has_table_privilege(:app, member, 'DELETE'))
+                                FROM (SELECT CAST(:table AS regclass) AS member
+                                    UNION SELECT relid FROM pg_partition_tree(CAST(:table AS regclass))) AS members
+                                """)
                         .param("app", DatabaseRoles.APP)
                         .param("table", table)
                         .query(Boolean.class)
@@ -472,22 +589,61 @@ class DatabaseRolesIT {
     }
 
     /**
-     * The script's statements carry both passwords, so it turns the server's statement logging off
-     * for its own session before any of them. Here the session logs every statement, and
-     * {@code client_min_messages=log} sends each log line to psql too, so the test reads what the
-     * server logs without waiting for Docker's copy of it. The script stops at its first {@code
-     * CREATE ROLE}, because the roles exist.
+     * The script's statements carry both passwords, so it turns off, for its own session, every
+     * server setting that would log a statement's text or its parse tree. Here the session starts
+     * with all of them on. The script stops at its first {@code CREATE ROLE}, because the roles exist,
+     * and a failed statement is the one PostgreSQL logs by default: it writes that statement to its
+     * own log alone, never to psql, so the test reads the server's log, up to a line it logs after the
+     * script, and psql's own output, which the image's log carries too. Neither statement may show in
+     * any form, a parse tree's included, and a failure names no password.
      */
     @Test
-    void GivenASessionThatLogsEveryStatement_WhenTheInitScriptRuns_ThenNoStatementThatCarriesAPasswordIsLogged()
+    void GivenASessionThatLogsEveryStatement_WhenTheInitScriptRuns_ThenTheServerLogsNoPasswordNotEvenForAFailure()
             throws Exception {
-        ExecResult run = runTheInitScript(List.of("PGOPTIONS=-c log_statement=all -c client_min_messages=log"));
+        ToStringConsumer serverLog = new ToStringConsumer();
+        WaitingConsumer readSoFar = new WaitingConsumer();
+        ExecResult run;
+        try (FrameConsumerResultCallback following = followTheServerLog(serverLog.andThen(readSoFar))) {
+            run = runTheInitScript(List.of("PGOPTIONS=" + everyStatementLogged()));
+            owner.sql(LOG_THAT_THE_CHECK_IS_DONE).update();
+            readSoFar.waitUntil(
+                    line -> line.getUtf8String().contains(LOG_CHECK_DONE), LOG_WAIT_SECONDS, TimeUnit.SECONDS);
+        }
+        String psql = run.getStdout() + run.getStderr();
+        String logged = serverLog.toUtf8String();
 
-        assertThat(run.getStderr())
-                .contains("statement: SET log_statement")
-                .contains("already exists")
-                .doesNotContain(roles.ownerPassword())
-                .doesNotContain(roles.appPassword());
+        // The passwords first, so a setting the script stops turning off fails here, then what proves
+        // the session logged everything until the script's settings took over.
+        assertSoftly(softly -> {
+            for (String password : List.of(roles.ownerPassword(), roles.appPassword())) {
+                softly.assertThat(logged.contains(password))
+                        .withFailMessage("the server's log holds a role's password")
+                        .isFalse();
+                softly.assertThat(psql.contains(password))
+                        .withFailMessage("psql's output holds a role's password")
+                        .isFalse();
+            }
+            softly.assertThat(List.of("CREATE ROLE", ":defname password", "password_missing"))
+                    .as("traces of the statements that carry the passwords")
+                    .noneMatch(logged::contains);
+            softly.assertThat(psql)
+                    .withFailMessage("psql's output doesn't say the roles already exist")
+                    .contains("already exists");
+            softly.assertThat(logged)
+                    .withFailMessage("the server's log lacks what the session's settings would have logged")
+                    .contains("statement: SET ", "LOG:  parse tree:", "LOG:  rewritten parse tree:", "already exists");
+        });
+    }
+
+    /**
+     * {@link #STATEMENTS_LOGGED}, and every {@code debug_print_} setting this server has, each on,
+     * as the init script finds them by name.
+     */
+    private String everyStatementLogged() {
+        return STATEMENTS_LOGGED + " " + owner.sql("""
+                                SELECT string_agg('-c ' || name || '=on', ' ') FROM pg_settings
+                                WHERE name LIKE 'debug\\_print\\_%'
+                                """).query(String.class).single();
     }
 
     /**
@@ -543,6 +699,31 @@ class DatabaseRolesIT {
                 "--file",
                 DatabaseRoles.CONTAINER_INIT_SCRIPT));
         return postgresContainer.execInContainer(command.toArray(String[]::new));
+    }
+
+    /**
+     * Follows the shared container's server log from this second on, into {@code consumer}, until the
+     * returned stream is closed. Docker hands over every line since then, whenever the stream
+     * attaches, so none written after this call is missed. The second is the database's: Docker
+     * stamps each line by the clock of the machine the container runs on, which on Docker Desktop is a
+     * virtual machine whose clock may lag the host's.
+     */
+    private FrameConsumerResultCallback followTheServerLog(Consumer<OutputFrame> consumer) {
+        int since = owner.sql("SELECT floor(extract(epoch FROM clock_timestamp()))::integer")
+                .query(Integer.class)
+                .single();
+        FrameConsumerResultCallback following = new FrameConsumerResultCallback();
+        following.addConsumer(OutputFrame.OutputType.STDOUT, consumer);
+        following.addConsumer(OutputFrame.OutputType.STDERR, consumer);
+        postgresContainer
+                .getDockerClient()
+                .logContainerCmd(postgresContainer.getContainerId())
+                .withStdOut(true)
+                .withStdErr(true)
+                .withFollowStream(true)
+                .withSince(since)
+                .exec(following);
+        return following;
     }
 
     /** How a password is missing from the init script's environment. */
@@ -633,6 +814,9 @@ class DatabaseRolesIT {
                 .collect(Collectors.toSet());
     }
 
-    /** What app may do on one table, as {@code has_table_privilege} reads it. */
-    record TablePrivileges(String tableName, boolean onRows, boolean beyondRows) {}
+    /**
+     * What app may do on one table, as {@code has_table_privilege} and {@code
+     * has_any_column_privilege} read it.
+     */
+    record TablePrivileges(String tableName, boolean isPartition, boolean onRows, boolean beyondRows) {}
 }

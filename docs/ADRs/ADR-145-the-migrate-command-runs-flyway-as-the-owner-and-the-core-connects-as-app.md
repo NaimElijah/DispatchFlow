@@ -1,6 +1,6 @@
 # ADR-145: The migrate command runs Flyway as the owner, and the core connects as app with only what its adapters run
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-146
 - **Date:** 2026-11-26
 
 ## Context
@@ -14,7 +14,7 @@ owner's credential. ADR-041 left open whether that step is "a `migrate` containe
 every table made before it.
 
 Until now Spring Boot ran Flyway inside the core, as the core's own user, which therefore owned all
-72 tables that `V2` to `V10` make. [#160][ISSUE-160] builds the roles and the step. Its open points:
+72 tables that `V2` to `V9` make. [#160][ISSUE-160] builds the roles and the step. Its open points:
 
 - what runs the step, and how the core's jar becomes it;
 - how long a migration waits for a lock: [ADR-136] gave the core's connections 2 seconds, Flyway's
@@ -83,15 +83,16 @@ Decided on 26 November 2026.
      for the table [ADR-127] split off it;
    - `INSERT` alone on a published plan's three revision tables, which nothing reads yet.
 
-   Saving through `VersionedSave` and every `SELECT … FOR UPDATE` take a row lock, which needs
-   `UPDATE`. A foreign key's check and its `ON DELETE CASCADE` run as the table's owner, and an identity
-   column's default needs no grant on its sequence. From `V11` on, each migration grants on the
-   tables it creates (ADR-127 decision 8). A statement an adapter starts to run later, a delete
-   or an update, needs a grant in a migration of its own, and its persistence test fails with
-   SQLSTATE `42501` until it has one; so does a mapping that starts to remove from a collection or
-   replace an element of one. `V11` also revokes `EXECUTE` from every role on the functions the
-   owner creates from then on, which PostgreSQL would otherwise grant to all: the migration that
-   creates a function grants it to whoever may call it.
+   `VersionedSave`'s forced version increment is an `UPDATE` of the root, and every `SELECT … FOR
+   UPDATE` needs `UPDATE` too. A foreign key's check and its `ON DELETE CASCADE` run as the table's
+   owner, and an identity column's default needs no grant on its sequence. From `V11` on, each
+   migration grants on the tables it creates (ADR-127 decision 8). A statement an adapter starts to
+   run later, a delete or an update, needs a grant in a migration of its own, and so does a mapping
+   that starts to remove from a collection or replace an element of one; a persistence test that
+   saves that change over stored rows fails with SQLSTATE `42501` until it has one. `V11` also
+   revokes `EXECUTE` from every role on the functions the owner creates from then on, which
+   PostgreSQL would otherwise grant to all: the migration that creates a function grants it to
+   whoever may call it.
 7. **A test guards the grants.** `DatabaseRolesIT` fails when a table in a schema the owner owns
    grants `app` nothing, or `TRUNCATE`, `REFERENCES`, `TRIGGER` or `MAINTAIN`, and when a function
    there is open to every role. It doesn't pin each table's row privileges, which `V11` and each

@@ -43,7 +43,7 @@ is reserved for the test-only fixture in `src/test/resources/db/fixture/`, which
   once, `SELECT` and `INSERT` on the audit trail's two tables, and `INSERT` alone on a published
   plan's revisions. Each later migration grants on the tables it creates ([ADR-127][ADR-127],
   decision 8), and `DatabaseRolesIT` fails on a table that grants `app` nothing or more than its
-  rows.
+  rows, on a function open to every role, and on a schema `app` may create in ([ADR-146][ADR-146]).
 - **`ddl-auto=validate`.** At startup Hibernate checks every mapping against the migrated schema and
   never changes it (`application.properties`). It checks that each mapped table and column exists
   with a compatible type, not constraints or nullability, so the integration tests are what check
@@ -769,3 +769,4 @@ The test helpers they share are in [code-structure.md](code-structure.md#srcback
 [ADR-127]: ../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md
 [ADR-128]: ../ADRs/ADR-128-the-persistence-rules-the-mapping-settled-after-adr-127.md
 [ADR-145]: ../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md
+[ADR-146]: ../ADRs/ADR-146-the-jar-takes-only-options-but-for-its-command-and-the-roles-guards-cover-every-object-and-log.md

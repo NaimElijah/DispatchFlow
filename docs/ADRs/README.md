@@ -39,7 +39,8 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-128](ADR-128-the-persistence-rules-the-mapping-settled-after-adr-127.md) | The persistence rules the JPA mapping settled after ADR-127 | Accepted |
 | [ADR-129](ADR-129-transactions-start-only-in-the-service-layer.md) | Transactions start only in the service layer | Accepted |
 | [ADR-136](ADR-136-the-core-waits-two-seconds-for-a-lock-and-a-lock-it-cannot-get-is-retried.md) | The core waits at most 2 seconds for a lock, and a call that can't get one is retried | Accepted; extended by ADR-145; amended by ADR-140 |
-| [ADR-145](ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md) | The migrate command runs Flyway as the owner, and the core connects as app with only what its adapters run | Accepted |
+| [ADR-145](ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md) | The migrate command runs Flyway as the owner, and the core connects as app with only what its adapters run | Accepted; amended by ADR-146 |
+| [ADR-146](ADR-146-the-jar-takes-only-options-but-for-its-command-and-the-roles-guards-cover-every-object-and-log.md) | The jar takes only options but for its command, and the roles' guards cover every object and log | Accepted |
 | [ADR-130](ADR-130-every-folder-is-declared-ahead-empty-and-documented.md) | Every folder the design draws is declared ahead, empty and documented | Accepted; extended by ADR-140; amended by ADR-131, ADR-132 and ADR-133 |
 | [ADR-131](ADR-131-the-declared-structures-review-tightens-its-rules-and-fills-its-gaps.md) | The declared structure's review tightens its rules and fills its gaps | Accepted; extended by ADR-140 |
 | [ADR-132](ADR-132-unbuilt-bodies-say-to-be-implemented.md) | Unbuilt bodies say "To Be Implemented." and name no milestone | Accepted |
@@ -236,4 +237,10 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > lock limit. The owner gets `CREATE` on the database and on `public`, an init script creates both
 > roles, `app` gets exactly what each adapter runs, and a test guards the grants. The tests and
 > `just core-run` run Flyway in the core's JVM, as the owner.
+> ADR-146, on 2026-11-26, amends ADR-145 after a review of the roles: the jar refuses any argument
+> but options and a first `migrate`, the init script turns off every setting that would log a
+> statement or its parse tree, `DatabaseRolesIT` reads the server's own log and guards every object
+> the owner owns, `public`, columns, partitions, sequences and Flyway's history included, Flyway's
+> test-only setting never goes into `application-dev.properties`, and an older database runs the
+> script itself.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.
