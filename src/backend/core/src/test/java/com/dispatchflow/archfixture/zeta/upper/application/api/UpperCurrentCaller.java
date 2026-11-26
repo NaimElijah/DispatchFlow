@@ -21,4 +21,9 @@ public final class UpperCurrentCaller {
     public static ZetaKernelValue get() {
         return CALLER.get();
     }
+
+    /** Rule 18: binds under the read's name, an overload that the rule counts as a binding. */
+    public static void get(ZetaKernelValue caller, Runnable call) {
+        runAs(caller, call);
+    }
 }

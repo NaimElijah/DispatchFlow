@@ -1,6 +1,7 @@
 package com.dispatchflow;
 
-import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Stream;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.PropertySource;
@@ -10,14 +11,18 @@ import org.springframework.context.annotation.PropertySource;
  * be installed: {@code ./mvnw spring-boot:test-run}. Needs Docker. The core connects as {@code
  * app}, and Flyway migrates the container as the owner first (ADR-145).
  *
- * <p>It runs the {@code dev} profile, so the stand-in session acts as the seeded Dispatcher on
- * {@code 127.0.0.1}, naming that account itself ({@link CoreRun}), and turns Flyway on here, never in {@code application-dev.properties}: the
- * Compose core reads that file too, and connects as {@code app}, which may not migrate (ADR-146
- * decision 4).
+ * <p>It runs the {@code dev} profile, so the stand-in session acts as the seeded Dispatcher, naming
+ * that account itself ({@link CoreRun}). It turns Flyway on here, never in {@code
+ * application-dev.properties}: the Compose core reads that file too, and connects as {@code app},
+ * which may not migrate (ADR-146 decision 4). And it pins the loopback address here, so that no
+ * exported {@code SERVER_ADDRESS} lets another machine reach a core that signs every call in
+ * (ADR-140 decision 4, ADR-148).
  */
 public class TestDispatchFlowApplication {
 
-    private static final String FLYWAY_ON = "--spring.flyway.enabled=true";
+    // Options, which DispatchFlowApplication.main accepts, and the command line outranks every file
+    // and the environment, so no exported variable turns Flyway off or widens the address.
+    private static final List<String> PINNED = List.of("--spring.flyway.enabled=true", "--server.address=127.0.0.1");
 
     /**
      * Starts the core backend with a containerised database.
@@ -28,7 +33,7 @@ public class TestDispatchFlowApplication {
         SpringApplication.from(DispatchFlowApplication::main)
                 .with(TestcontainersConfiguration.class, CoreRun.class)
                 .withAdditionalProfiles(StandInProfiles.DEV)
-                .run(withFlywayOn(args));
+                .run(withPinnedOptions(args));
     }
 
     /**
@@ -40,11 +45,11 @@ public class TestDispatchFlowApplication {
     @PropertySource("classpath:core-run.properties")
     static class CoreRun {}
 
-    // An option, which DispatchFlowApplication.main accepts, and the command line outranks every
-    // file, so no exported variable turns Flyway off for this run.
-    private static String[] withFlywayOn(String[] args) {
-        String[] withFlyway = Arrays.copyOf(args, args.length + 1);
-        withFlyway[args.length] = FLYWAY_ON;
-        return withFlyway;
+    /**
+     * The command line {@code just core-run} starts with: the given arguments, then the pinned
+     * options.
+     */
+    static String[] withPinnedOptions(String[] args) {
+        return Stream.concat(Stream.of(args), PINNED.stream()).toArray(String[]::new);
     }
 }

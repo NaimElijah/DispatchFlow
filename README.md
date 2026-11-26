@@ -188,9 +188,12 @@ keeps the layout and renames three components, which the tree already uses.
 ## Configuration
 
 `just core-run` needs no configuration: it starts its own database, and runs the `dev` profile,
-whose stand-in session signs every call to `127.0.0.1` or `localhost` in as the seeded Dispatcher,
-until sign-in exists
-([ADR-147](docs/ADRs/ADR-147-the-stand-in-condition-sits-in-the-root-package-and-a-refused-access-token-answers-one-code.md)).
+whose stand-in session signs in as the seeded Dispatcher every call to `localhost` or `127.0.0.1`
+from the web app's own origin or from a client that is no browser, until sign-in exists
+([ADR-147](docs/ADRs/ADR-147-the-stand-in-condition-sits-in-the-root-package-and-a-refused-access-token-answers-one-code.md),
+[ADR-148](docs/ADRs/ADR-148-the-stand-in-serves-only-its-own-origin-every-unsigned-api-call-answers-401-and-the-guard-outlives-the-session.md)).
+It listens on `127.0.0.1` alone, so the phone app reaches it as `localhost`: the iOS simulator does
+so itself, and an Android emulator or device through `adb reverse tcp:8080 tcp:8080`.
 To try another role for one run, set the stand-in's entry on that command alone, as
 `DISPATCHFLOW_STANDIN_ACCOUNT=driver just core-run`, or `admin`: don't export it, because the core
 refuses to boot with it set under any other profile. To run the core jar against a real database, the database needs the two roles that `infra/deploy/postgres/initdb/create-roles.sql`

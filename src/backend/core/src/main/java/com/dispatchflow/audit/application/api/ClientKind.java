@@ -3,8 +3,6 @@ package com.dispatchflow.audit.application.api;
 /**
  * Which app a client says it is, from every call's {@code X-App} (NFR-93, ADR-082). Audit's domain
  * keeps its own copy, {@code ClientApp}.
- *
- * <p>To Be Implemented.
  */
 public enum ClientKind {
     /** The web app, for every role. */

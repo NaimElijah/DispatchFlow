@@ -146,6 +146,13 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-failsafe-plugin</artifactId>
+				<!-- An address a developer might export, so the tests prove that @TomcatIntegrationTest's
+				     loopback pin outranks it: the stand-in signs in every call its server takes (ADR-148). -->
+				<configuration>
+					<environmentVariables>
+						<SERVER_ADDRESS>0.0.0.0</SERVER_ADDRESS>
+					</environmentVariables>
+				</configuration>
 				<executions>
 					<execution>
 						<goals>

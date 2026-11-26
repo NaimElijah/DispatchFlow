@@ -27,9 +27,13 @@ import org.springframework.web.servlet.HandlerInterceptor;
  * and no user or session, since no credential is proven (ADR-120). A refused read leaves none.
  *
  * <p>No operation is open yet: #199 names the contract's open marker, and an open operation then
- * lets a caller without a principal through, ignoring any {@code Authorization} header. #171
- * (stretch) adds the role check's 403 here, and the default refusal of a handler that isn't an
- * annotated handler method. A CORS preflight, and a handler that isn't a handler method, pass.
+ * lets a caller without a principal through, ignoring any {@code Authorization} header. A handler
+ * that isn't an annotated handler method, such as a router function, an {@code HttpRequestHandler}
+ * bean or the static-resource handler of a path no operation has, is no operation, so it is never
+ * open: with no principal it answers the same 401, with no audit record, since it names no
+ * operation (ADR-140 decision 3, ADR-148; {@link NotSignedIn} says how each type is answered). With
+ * a principal it passes, with no caller kept, until #171 (stretch) adds the role check's 403 here
+ * and the rest of the default refusal. A CORS preflight passes.
  *
  * <p>The audit log is looked up only when a record is written, so a missing one fails that call
  * loudly: Audit's {@code AuditLogService} is no bean until #180 builds it, which replaces this
@@ -68,7 +72,8 @@ class AccessInterceptor implements HandlerInterceptor {
     }
 
     /**
-     * Lets a signed-in call through with its caller kept, and refuses any other.
+     * Lets a signed-in call through, with its caller kept when its handler is an annotated handler
+     * method, and refuses any other.
      *
      * @throws NotSignedIn when the call has no principal
      * @throws IllegalStateException when the MDC holds no trace ID, which means the trace filter
@@ -76,10 +81,16 @@ class AccessInterceptor implements HandlerInterceptor {
      */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        if (CorsUtils.isPreFlightRequest(request) || !(handler instanceof HandlerMethod method)) {
+        if (CorsUtils.isPreFlightRequest(request)) {
             return true;
         }
         Optional<SignedInCaller> principal = SignedInCaller.of(request);
+        if (!(handler instanceof HandlerMethod method)) {
+            if (principal.isEmpty()) {
+                throw new NotSignedIn();
+            }
+            return true;
+        }
         Caller caller = Caller.build(request, principal, method.getMethod().getName());
         if (principal.isEmpty()) {
             if (!SAFE_METHODS.contains(request.getMethod())) {

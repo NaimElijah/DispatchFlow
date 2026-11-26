@@ -113,12 +113,12 @@ only client (`contracts/optimization-api/v1`): Java 25, Spring Boot 4.1, JPA, Fl
   failed lock wait (by thrown type, not cause), up to 3 times until a read-write transaction of the
   try commits, then 503; after such a commit a race answers 500 ([ADR-140], ADR-142).
 - The stand-in session acts as a `seeded-accounts.properties` entry only under exactly `dev` or
-  exactly `test`, for a loopback-host, not cross-site request with no `Authorization` or refresh
-  cookie; `application-dev.properties` names no account, each run does. `StandInGuardTest` proves no
-  boot otherwise, nor with `DISPATCHFLOW_DEPLOYED` or `dispatchflow.<sms|email|push>.credential`,
-  the one key its adapter reads (ADR-147). A port with no adapter yet gets a `<Port>StandIn`, placed
-  and named as `@StandInOnly`'s Javadoc says, never under `@Profile`. Sign-in deletes
-  the session; #199 refuses a token lifetime but 15 minutes unless `dev` is alone ([ADR-140]). Only
+  exactly `test`, for a request whose `Host` is loopback, from its own origin or no browser, with no
+  `Authorization` or refresh cookie; each run names its account, the `dev` file none. It boots
+  nowhere else, nor with `DISPATCHFLOW_DEPLOYED` or `dispatchflow.<sms|email|push>.credential`, its
+  adapter's one key (`StandInGuardTest`, ADR-147). A port with no adapter yet gets a
+  `<Port>StandIn`, as `@StandInOnly`'s Javadoc says, never `@Profile`. Sign-in keeps the
+  guard; #199 refuses a token lifetime but 15 minutes unless `dev` is alone ([ADR-140]). Only
   `e2e` has its endpoints, and refuses a deployed environment (NFR-206). Test each refusal.
 - No Lombok: records and plain classes. Configuration comes from environment variables.
 - Persistence is JPA ([ADR-126], [ADR-127], [TS §6.3]): a port's `@Component` works over a

@@ -18,16 +18,20 @@ import org.springframework.stereotype.Component;
  * only when another bean asked for it, and none does:
  *
  * <ul>
- *   <li>the stand-in session's configuration, any property under {@value #STAND_IN} or {@value
- *       SeededAccounts#PREFIX}, is present while the active profiles are anything but exactly
- *       {@code dev} or exactly {@code test}: {@code dev} beside {@code e2e}, {@code test} beside
- *       {@code dev}, or a stand-in property exported where no such profile is active;
+ *   <li>the stand-ins' configuration, any property under {@value #STAND_IN} or {@value
+ *       StandInProfiles#SEEDED_ACCOUNTS}, is present while the active profiles are anything but
+ *       exactly {@code dev} or exactly {@code test}: {@code dev} beside {@code e2e}, {@code test}
+ *       beside {@code dev}, or a stand-in property exported where no such profile is active;
  *   <li>a stand-in may run, and a deployed environment is detected: {@link
  *       StandInProfiles#DEPLOYED_MARKER} or a provider credential is set.
  * </ul>
  *
  * <p>Its messages name the profiles and the keys, never a key's value. {@code StandInGuardTest}
  * proves each refusal.
+ *
+ * <p>It guards every {@code @StandInOnly} bean, the {@code <Port>StandIn} adapters as well as the
+ * stand-in session, so sign-in (#199) deletes the session and its {@code SeededAccounts}, never this
+ * guard, which goes with the last stand-in (ADR-148).
  */
 @Component
 @Lazy(false)
@@ -57,8 +61,8 @@ class StandInGuard {
     static void check(Environment environment) {
         List<String> active = Arrays.asList(environment.getActiveProfiles());
         boolean standInMayRun = StandInProfiles.isActive(environment);
-        if (!standInMayRun && (isSet(environment, STAND_IN) || isSet(environment, SeededAccounts.PREFIX))) {
-            throw new IllegalStateException("The stand-in session's configuration is set, but the active profiles are "
+        if (!standInMayRun && (isSet(environment, STAND_IN) || isSet(environment, StandInProfiles.SEEDED_ACCOUNTS))) {
+            throw new IllegalStateException("The stand-ins' configuration is set, but the active profiles are "
                     + active + ": it runs only when exactly " + StandInProfiles.DEV + " or exactly "
                     + StandInProfiles.TEST + " is active");
         }

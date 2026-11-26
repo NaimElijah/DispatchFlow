@@ -615,12 +615,14 @@ a use case takes its `Actor` and `CallContext` as parameters. Rule 15,
 also ADR-140's, keeps each module's root to its `package-info` and a package-private
 `<Module>Configuration` that declares no `@Bean` and no scan, and imports only its own module's
 `application.service` classes. Rule 17, also ADR-140's, lets only `web.security` build an `Actor`,
+or a `CallContext`, beside the context's own `serverStep` ([ADR-148][ADR-148]),
 and rule 18 lets only `web`'s call wrapper bind the holders, through any method of a holder but
 `get()`. A test checks that each holder rules 14 and 18 name exists. Rules 19 and 20 are
 [ADR-147][ADR-147]'s: no class directly in the root package uses a class below it, so the modules'
-stand-in adapters may use its `@StandInOnly` without a cycle, and `web.security` uses no class
+stand-in adapters may use its `StandInProfiles` and `@StandInOnly` without a cycle, and
+`web.security` uses no class
 directly in `web`. Rule 21, also ADR-147's, lets no handler take an `Actor` or a `CallContext`,
-which Spring would build from the request's parameters.
+alone, as a type argument or in an array, which Spring would build from the request's parameters.
 
 Rule 16 is [ADR-142][ADR-142]'s: no request handler, a method of a `@Controller` or one annotated
 `@RequestMapping` or a variant, declares a streaming parameter (`InputStream`, `Reader`,
@@ -638,5 +640,6 @@ Accepted).
 [ADR-140]: ../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md
 [ADR-142]: ../ADRs/ADR-142-the-call-wrappers-retry-its-400s-and-its-error-endpoint-as-162-built-them.md
 [ADR-147]: ../ADRs/ADR-147-the-stand-in-condition-sits-in-the-root-package-and-a-refused-access-token-answers-one-code.md
+[ADR-148]: ../ADRs/ADR-148-the-stand-in-serves-only-its-own-origin-every-unsigned-api-call-answers-401-and-the-guard-outlives-the-session.md
 [NFR-10]: ../requirements/requirements.md#nfr-10
 [NFR-162]: ../requirements/requirements.md#nfr-162
