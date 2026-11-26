@@ -3,6 +3,7 @@ package com.dispatchflow.access.adapter.out.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.DatabaseOwner;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.Transactions;
 import com.dispatchflow.access.application.port.out.SessionRepository;
@@ -79,6 +80,10 @@ class SessionPersistenceIT {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    @DatabaseOwner
+    private JdbcClient owner;
 
     // --- round trips (ADR-127 decision 1)
 
@@ -754,7 +759,7 @@ class SessionPersistenceIT {
     void GivenAStoredRevokedSessionWithNoCurrentToken_WhenAskedWhenItEnded_ThenItIsTheRevocation() {
         int n = 26;
         transactions.inTransaction(() -> repository.add(Base.REVOKED_EXCHANGED.build(n)));
-        new Rows(jdbc, n).setOnToken(2, "state = 'REPLACED', state_at = issued_at");
+        new Rows(owner, n).setOnToken(2, "state = 'REPLACED', state_at = issued_at");
 
         Session stored =
                 transactions.inTransaction(() -> repository.get(session(n)).orElseThrow());
@@ -821,7 +826,7 @@ class SessionPersistenceIT {
             String broken, int n, Base base, Damage damage, String detail) {
         transactions.inTransaction(() -> repository.add(base.build(n)));
 
-        damage.apply(new Rows(jdbc, n));
+        damage.apply(new Rows(owner, n));
 
         assertThatThrownBy(() -> transactions.inTransaction(() -> repository.get(session(n))))
                 .isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
@@ -854,7 +859,7 @@ class SessionPersistenceIT {
             repository.add(Base.EXCHANGED.build(n));
             repository.add(Base.ONE_TOKEN.build(100 + n));
         });
-        Rows rows = new Rows(jdbc, n);
+        Rows rows = new Rows(owner, n);
 
         assertThatThrownBy(() -> damage.apply(rows)).isInstanceOf(DataIntegrityViolationException.class);
         assertThat(transactions.inTransaction(() -> repository.get(session(n)))).isPresent();

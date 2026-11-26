@@ -3,6 +3,7 @@ package com.dispatchflow.messaging.adapter.out.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.DatabaseOwner;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.Transactions;
 import com.dispatchflow.messaging.application.port.out.OptOutList;
@@ -39,7 +40,8 @@ class OptOutListPersistenceIT {
     private Transactions transactions;
 
     @Autowired
-    private JdbcClient jdbc;
+    @DatabaseOwner
+    private JdbcClient owner;
 
     @Test
     void GivenAPhoneWithNoEntry_WhenItsHistoryIsRead_ThenItIsEmpty() {
@@ -91,7 +93,7 @@ class OptOutListPersistenceIT {
         transactions.inTransaction(
                 () -> optOuts.append(OptOutRecord.ofStored(phone, Change.OPTED_IN, NOON, Optional.of(DISPATCHER))));
 
-        assertThatThrownBy(() -> jdbc.sql("UPDATE messaging.opt_out SET dispatcher = NULL WHERE phone_hash = ?")
+        assertThatThrownBy(() -> owner.sql("UPDATE messaging.opt_out SET dispatcher = NULL WHERE phone_hash = ?")
                         .param(phone.value())
                         .update())
                 .isInstanceOf(DataIntegrityViolationException.class);

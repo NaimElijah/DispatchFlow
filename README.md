@@ -188,15 +188,25 @@ keeps the layout and renames three components, which the tree already uses.
 ## Configuration
 
 `just core-run` needs no configuration: it starts its own database. To run the core jar against a
-real database, set these environment variables. `src/backend/core/.env.example` lists them; Spring
-Boot does not read a `.env` file itself, so export them, or pass the file to Docker with
-`docker run --env-file .env`.
+real database, the database needs the two roles that `infra/deploy/postgres/initdb/create-roles.sql`
+creates from `DISPATCHFLOW_OWNER_PASSWORD` and `DISPATCHFLOW_APP_PASSWORD`
+(`infra/deploy/.env.example`). First run the `migrate` command with the variables below set to
+`dispatchflow_owner`: it applies the migrations and exits, non-zero when one fails. Then start the
+core with them set to `app`
+([ADR-145](docs/ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md)).
+Keep the two in separate files, so the core never gets the owner's password: with the image that
+`src/backend/core/Dockerfile` builds, `docker run --env-file migrate.env <image> migrate`, then
+`docker run --env-file core.env <image>`. With a jar that `./mvnw package` builds, load each file in
+a subshell, for example `(set -a; . ./migrate.env; java -jar target/core-<version>.jar migrate)`,
+rather than typing a password into an `export`.
+`src/backend/core/.env.example` lists the core's; Spring Boot does not read a `.env` file itself, so
+export them, or pass the file to Docker with `docker run --env-file .env`.
 
 | Variable | Purpose | Default | Required |
 |---|---|---|---|
 | `SPRING_DATASOURCE_URL` | JDBC URL of the PostgreSQL database | none | Yes |
-| `SPRING_DATASOURCE_USERNAME` | Database user | none | Yes |
-| `SPRING_DATASOURCE_PASSWORD` | Database password | none | Yes |
+| `SPRING_DATASOURCE_USERNAME` | Database user: `app` for the core, `dispatchflow_owner` for `migrate` | none | Yes |
+| `SPRING_DATASOURCE_PASSWORD` | That user's password | none | Yes |
 
 `.env` files are ignored by git. Never commit real values.
 
@@ -323,8 +333,9 @@ ADR-124 what a `CLAUDE.md` holds, and ADR-125 when a folder splits into subfolde
 linter, tests and CI job; the two contracts; and the optimizer's and the core backend's health probes.
 The domain layer is being built ahead of its milestones: the core's shared kernel with its purity
 rules, the domains of `access`, `audit`, `fleet`, `liveops`, `messaging`, `orders`, `planning` and
-`reporting`, the core's persistence (a Flyway migration, mapped aggregates and a PostgreSQL adapter
-for each of those eight modules), and the optimizer's domain for daily solves and re-optimizations
+`reporting`, the core's persistence (Flyway migrations, mapped aggregates and a PostgreSQL adapter
+for each of those eight modules, with the two database roles and the `migrate` command that applies
+the migrations), and the optimizer's domain for daily solves and re-optimizations
 (the validator, the objective and the drop reasons). The application layer is declared ahead too, in the core and in
 the optimizer: every use case, query, port and module API has its signature, and every body that would
 do work throws "To Be Implemented." ([ADR-119](docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md), [ADR-132](docs/ADRs/ADR-132-unbuilt-bodies-say-to-be-implemented.md)). No use case calls a persistence adapter yet.

@@ -1,6 +1,6 @@
 # ADR-136: The core waits at most 2 seconds for a lock, and a call that can't get one is retried
 
-- **Status:** Accepted; amended by ADR-140
+- **Status:** Accepted; extended by ADR-145; amended by ADR-140
 - **Date:** 2026-11-24
 
 ## Context

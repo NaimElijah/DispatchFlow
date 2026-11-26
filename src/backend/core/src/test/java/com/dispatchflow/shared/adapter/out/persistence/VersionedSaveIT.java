@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
+import com.dispatchflow.DatabaseOwner;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.TestPersistenceConfiguration.RecordedEvents;
 import com.dispatchflow.Transactions;
@@ -75,6 +76,10 @@ class VersionedSaveIT {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    @DatabaseOwner
+    private JdbcClient owner;
 
     @Autowired
     private RecordedEvents events;
@@ -353,7 +358,7 @@ class VersionedSaveIT {
     }
 
     private void insertLedger(UUID id, String name, LocalDateTime windowStart, LocalDateTime windowEnd) {
-        jdbc.sql("""
+        owner.sql("""
                         INSERT INTO persistence_fixture.ledger
                             (id, version, name, status, booked_for, window_start, window_end, priority)
                         VALUES (?, 0, ?, 'OPEN', ?, ?, ?, 3)
@@ -491,7 +496,7 @@ class VersionedSaveIT {
     void GivenAStoredEntryWhoseDueSecondsFallBeforeTheDay_WhenLoaded_ThenTheRegisteredInstantiatorRefusesTheRow() {
         UUID id = key(20);
         insertLedger(id, "Ledger", LocalDateTime.of(2027, 7, 13, 8, 0), LocalDateTime.of(2027, 7, 13, 12, 0));
-        jdbc.sql("""
+        owner.sql("""
                         INSERT INTO persistence_fixture.ledger_entry
                             (id, ledger_id, entry_index, amount, attempt, due_date, due_seconds)
                         VALUES (?, ?, 0, 10, 1, ?, -1)

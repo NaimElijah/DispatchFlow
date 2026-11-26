@@ -3,6 +3,7 @@ package com.dispatchflow.fleet.adapter.out.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.DatabaseOwner;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.Transactions;
 import com.dispatchflow.fleet.application.port.out.DayRosterRepository;
@@ -72,6 +73,10 @@ class DayRosterPersistenceIT {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    @DatabaseOwner
+    private JdbcClient owner;
 
     // --- round trips
 
@@ -299,7 +304,7 @@ class DayRosterPersistenceIT {
             String detail, int n, Damage damage, String subject) {
         transactions.inTransaction(() -> repository.add(twoDriversAndTwoUnavailableVehicles(n, dayOf(n))));
 
-        damage.apply(new Rows(jdbc, n));
+        damage.apply(new Rows(owner, n));
 
         assertThatThrownBy(() -> transactions.inTransaction(() -> repository.get(dayOf(n))))
                 .isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
@@ -313,7 +318,7 @@ class DayRosterPersistenceIT {
         int n = 1_005;
         transactions.inTransaction(() -> repository.add(twoDriversAndTwoUnavailableVehicles(n, NEXT_SPRING_FORWARD)));
 
-        new Rows(jdbc, n).updateEntry(0, "starts_at = '02:30'");
+        new Rows(owner, n).updateEntry(0, "starts_at = '02:30'");
 
         assertThatThrownBy(() -> transactions.inTransaction(() -> repository.get(NEXT_SPRING_FORWARD)))
                 .isInstanceOfSatisfying(
@@ -342,7 +347,7 @@ class DayRosterPersistenceIT {
     void GivenAStoredRoster_WhenARowIsDamagedAsTheSchemaForbids_ThenTheDatabaseRefusesTheWrite(
             String broken, int n, Damage damage) {
         transactions.inTransaction(() -> repository.add(twoDriversAndTwoUnavailableVehicles(n, dayOf(n))));
-        Rows rows = new Rows(jdbc, n);
+        Rows rows = new Rows(owner, n);
 
         assertThatThrownBy(() -> damage.apply(rows)).isInstanceOf(DataIntegrityViolationException.class);
         assertThat(transactions.inTransaction(() -> repository.get(dayOf(n)))).isPresent();

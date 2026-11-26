@@ -11,6 +11,7 @@ import static com.dispatchflow.reporting.domain.ReportingFixtures.VEHICLE_1;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.DatabaseOwner;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.Transactions;
 import com.dispatchflow.reporting.application.port.out.BaselineRepository;
@@ -61,6 +62,10 @@ class BaselinePersistenceIT {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    @DatabaseOwner
+    private JdbcClient owner;
 
     // --- round trips (ADR-127 decision 1)
 
@@ -357,7 +362,7 @@ class BaselinePersistenceIT {
         PlanId plan = plan(n);
         transactions.inTransaction(() -> repository.add(scenario.build(plan)));
 
-        damage.apply(new Rows(jdbc, plan));
+        damage.apply(new Rows(owner, plan));
 
         assertThatThrownBy(() -> transactions.inTransaction(() -> repository.get(plan)))
                 .isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
@@ -391,7 +396,7 @@ class BaselinePersistenceIT {
             String broken, int n, Damage damage) {
         PlanId plan = plan(n);
         transactions.inTransaction(() -> repository.add(Scenario.PUBLISHED.build(plan)));
-        Rows rows = new Rows(jdbc, plan);
+        Rows rows = new Rows(owner, plan);
 
         assertThatThrownBy(() -> damage.apply(rows)).isInstanceOf(DataIntegrityViolationException.class);
         assertThat(transactions.inTransaction(() -> repository.get(plan))).isPresent();
@@ -402,7 +407,7 @@ class BaselinePersistenceIT {
         PlanId plan = plan(1_108);
         transactions.inTransaction(() -> repository.recordRefusal(plan, RefusalCause.SOLVER_FAILED));
 
-        assertThatThrownBy(() -> new Rows(jdbc, plan).run("""
+        assertThatThrownBy(() -> new Rows(owner, plan).run("""
                         INSERT INTO reporting.baseline (id, version, distance, driver_hours, cause, computed_at)
                         VALUES (?, 0, 0, 0, 'PUBLISHED', now())
                         """)).isInstanceOf(DataIntegrityViolationException.class);

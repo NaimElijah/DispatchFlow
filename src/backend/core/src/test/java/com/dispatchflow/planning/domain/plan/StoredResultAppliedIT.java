@@ -20,6 +20,7 @@ import static com.dispatchflow.planning.domain.plan.PlanningFixtures.solved;
 import static com.dispatchflow.shared.AsSaved.asSaved;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.dispatchflow.DatabaseOwner;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.Transactions;
 import com.dispatchflow.planning.application.port.out.solvejob.SolveJobRepository;
@@ -64,7 +65,8 @@ class StoredResultAppliedIT {
     private Transactions transactions;
 
     @Autowired
-    private JdbcClient jdbc;
+    @DatabaseOwner
+    private JdbcClient owner;
 
     @Test
     void GivenAStoredResultServingAnOrderTwice_WhenApplied_ThenOrderAlreadyInPlan() {
@@ -151,8 +153,8 @@ class StoredResultAppliedIT {
      * @return how many rows it changed, so a test sees its damage reached the row it meant
      */
     private int damage(JobId job, String table, String assignments, String condition) {
-        return jdbc.sql("UPDATE planning." + table + " SET " + assignments + " WHERE solve_job_id = ? AND (" + condition
-                        + ")")
+        return owner.sql("UPDATE planning." + table + " SET " + assignments + " WHERE solve_job_id = ? AND ("
+                        + condition + ")")
                 .param(job.value())
                 .update();
     }

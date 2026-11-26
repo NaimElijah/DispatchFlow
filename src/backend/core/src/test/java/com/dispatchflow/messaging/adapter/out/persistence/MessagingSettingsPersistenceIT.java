@@ -3,6 +3,7 @@ package com.dispatchflow.messaging.adapter.out.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.DatabaseOwner;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.Transactions;
 import com.dispatchflow.messaging.application.port.out.MessagingSettingsRepository;
@@ -43,9 +44,13 @@ class MessagingSettingsPersistenceIT {
     @Autowired
     private JdbcClient jdbc;
 
+    @Autowired
+    @DatabaseOwner
+    private JdbcClient owner;
+
     @BeforeEach
     void startWithNoSettings() {
-        jdbc.sql("DELETE FROM messaging.messaging_settings").update();
+        owner.sql("DELETE FROM messaging.messaging_settings").update();
     }
 
     @Test
@@ -130,7 +135,7 @@ class MessagingSettingsPersistenceIT {
 
     @Test
     void GivenAnotherKey_WhenARowIsInsertedUnderIt_ThenTheDatabaseRefusesASecondSettingsRow() {
-        assertThatThrownBy(() -> jdbc.sql("""
+        assertThatThrownBy(() -> owner.sql("""
                                 INSERT INTO messaging.messaging_settings
                                     (id, version, messages, rating_question, dispatch_phone)
                                 VALUES (?, 0, 'OFF', 'OFF', '+97235551234')

@@ -7,6 +7,7 @@ import java.lang.annotation.Target;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 
 /**
  * Marks an integration test that needs a real Tomcat: the whole application on a random port,
@@ -21,5 +22,6 @@ import org.springframework.context.annotation.Import;
 @SpringBootTest(
         webEnvironment = WebEnvironment.RANDOM_PORT,
         properties = SchedulingConfiguration.SCHEDULING_ENABLED + "=false")
+@ActiveProfiles(TestcontainersConfiguration.THROWAWAY_DATABASE)
 @Import(TestcontainersConfiguration.class)
 public @interface TomcatIntegrationTest {}

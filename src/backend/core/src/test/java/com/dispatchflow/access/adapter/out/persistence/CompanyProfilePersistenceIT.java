@@ -3,6 +3,7 @@ package com.dispatchflow.access.adapter.out.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.DatabaseOwner;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.Transactions;
 import com.dispatchflow.access.application.port.out.CompanyProfileRepository;
@@ -52,6 +53,10 @@ class CompanyProfilePersistenceIT {
     @Autowired
     private JdbcClient jdbc;
 
+    @Autowired
+    @DatabaseOwner
+    private JdbcClient owner;
+
     /**
      * What a profile stores, read through its getters, with the version it was stored at.
      *
@@ -80,7 +85,7 @@ class CompanyProfilePersistenceIT {
 
     @BeforeEach
     void startWithNoProfile() {
-        jdbc.sql("DELETE FROM access.company_profile").update();
+        owner.sql("DELETE FROM access.company_profile").update();
     }
 
     @Test
@@ -190,7 +195,7 @@ class CompanyProfilePersistenceIT {
             String damage, String refusedBy) {
         transactions.inTransaction(() -> repository.add(CompanyProfile.create(NAME, Language.HEBREW, NINE_TO_FIVE)));
         // The damage is the test's own constant SQL.
-        jdbc.sql("UPDATE access.company_profile SET " + damage).update();
+        owner.sql("UPDATE access.company_profile SET " + damage).update();
 
         assertThatThrownBy(() -> transactions.inTransaction(() -> repository.get()))
                 .satisfies(thrown -> assertThat(storedStateInvalidIn(thrown))
@@ -200,7 +205,7 @@ class CompanyProfilePersistenceIT {
 
     @Test
     void GivenAnotherKey_WhenARowIsInsertedUnderIt_ThenTheDatabaseRefusesASecondProfile() {
-        assertThatThrownBy(() -> jdbc.sql("""
+        assertThatThrownBy(() -> owner.sql("""
                                 INSERT INTO access.company_profile
                                     (id, version, name, language, default_window_opens, default_window_closes)
                                 VALUES (?, 0, 'Other', 'HEBREW', '09:00', '17:00')

@@ -1,6 +1,6 @@
 # ADR-127: How the 20 aggregates are mapped, and where their stored state is tested
 
-- **Status:** Accepted; extended by ADR-128
+- **Status:** Accepted; extended by ADR-128 and ADR-145
 - **Date:** 2026-11-23
 
 ## Context

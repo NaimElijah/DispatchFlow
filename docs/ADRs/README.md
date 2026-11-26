@@ -33,12 +33,13 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-119](ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md) | The application layer is declared ahead of its milestones, as signatures whose bodies throw | Accepted; extended by ADR-130; amended by ADR-121, ADR-129 and ADR-132 |
 | [ADR-120](ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md) | The application layer takes an Actor and a CallContext, keeps its shared ports in shared.application, and reads through query ports | Accepted; extended by ADR-125, ADR-130, ADR-131 and ADR-140; amended by ADR-121 |
 | [ADR-121](ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md) | The application skeleton's review settles its seams, its conflicts, its retention and its scoring inputs | Accepted; extended by ADR-131, ADR-136 and ADR-140; amended by ADR-126, ADR-132 and ADR-139 |
-| [ADR-041](ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md) | Each module owns a PostgreSQL schema, read and written through jOOQ by a role that owns no table | Accepted; amended by ADR-126 and ADR-127 |
+| [ADR-041](ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md) | Each module owns a PostgreSQL schema, read and written through jOOQ by a role that owns no table | Accepted; amended by ADR-126, ADR-127 and ADR-145 |
 | [ADR-126](ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) | JPA replaces jOOQ in the core, and the domain classes carry their own mapping | Accepted; extended by ADR-130; amended by ADR-127 and ADR-128 |
-| [ADR-127](ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md) | How the 20 aggregates are mapped, and where their stored state is tested | Accepted; extended by ADR-128 |
+| [ADR-127](ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md) | How the 20 aggregates are mapped, and where their stored state is tested | Accepted; extended by ADR-128 and ADR-145 |
 | [ADR-128](ADR-128-the-persistence-rules-the-mapping-settled-after-adr-127.md) | The persistence rules the JPA mapping settled after ADR-127 | Accepted |
 | [ADR-129](ADR-129-transactions-start-only-in-the-service-layer.md) | Transactions start only in the service layer | Accepted |
-| [ADR-136](ADR-136-the-core-waits-two-seconds-for-a-lock-and-a-lock-it-cannot-get-is-retried.md) | The core waits at most 2 seconds for a lock, and a call that can't get one is retried | Accepted; amended by ADR-140 |
+| [ADR-136](ADR-136-the-core-waits-two-seconds-for-a-lock-and-a-lock-it-cannot-get-is-retried.md) | The core waits at most 2 seconds for a lock, and a call that can't get one is retried | Accepted; extended by ADR-145; amended by ADR-140 |
+| [ADR-145](ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md) | The migrate command runs Flyway as the owner, and the core connects as app with only what its adapters run | Accepted |
 | [ADR-130](ADR-130-every-folder-is-declared-ahead-empty-and-documented.md) | Every folder the design draws is declared ahead, empty and documented | Accepted; extended by ADR-140; amended by ADR-131, ADR-132 and ADR-133 |
 | [ADR-131](ADR-131-the-declared-structures-review-tightens-its-rules-and-fills-its-gaps.md) | The declared structure's review tightens its rules and fills its gaps | Accepted; extended by ADR-140 |
 | [ADR-132](ADR-132-unbuilt-bodies-say-to-be-implemented.md) | Unbuilt bodies say "To Be Implemented." and name no milestone | Accepted |
@@ -230,4 +231,9 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > sign-in stands beside the shell with its session in `lib/`, writing HTML into the page fails lint,
 > a generated package generates before lint and test, and a missing subject shows the not-found page
 > inside the shell.
+> ADR-145, on 2026-11-26, builds ADR-041's two roles: the core's own image runs Flyway as the owner
+> through a `migrate` command that starts only the data source and Flyway, with the core's 2-second
+> lock limit. The owner gets `CREATE` on the database and on `public`, an init script creates both
+> roles, `app` gets exactly what each adapter runs, and a test guards the grants. The tests and
+> `just core-run` run Flyway in the core's JVM, as the owner.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.

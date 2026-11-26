@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.assertj.core.api.Assertions.tuple;
 
+import com.dispatchflow.DatabaseOwner;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.TestPersistenceConfiguration.RecordedEvents;
 import com.dispatchflow.Transactions;
@@ -80,6 +81,10 @@ class DriverPersistenceIT {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    @DatabaseOwner
+    private JdbcClient owner;
 
     @Autowired
     private RecordedEvents events;
@@ -325,7 +330,7 @@ class DriverPersistenceIT {
         // The damage and the load share a transaction, which the refused load rolls back, so the
         // registered drivers other tests read never include a damaged row.
         assertThatThrownBy(() -> transactions.inTransaction(() -> {
-                    damage(n, damage);
+                    damage(jdbc, n, damage);
                     return repository.get(account(n));
                 }))
                 .isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
@@ -346,7 +351,7 @@ class DriverPersistenceIT {
 
         // The damage and the load share a transaction, which the refused load rolls back.
         Throwable thrown = catchThrowable(() -> transactions.inTransaction(() -> {
-            damage(n, "default_shift_ends_at = default_shift_starts_at");
+            damage(jdbc, n, "default_shift_ends_at = default_shift_starts_at");
             return repository.get(account(n));
         }));
 
@@ -386,7 +391,7 @@ class DriverPersistenceIT {
             String broken, int n, Base base, String damage) {
         transactions.inTransaction(() -> repository.add(base.build(n)));
 
-        assertThatThrownBy(() -> damage(n, damage)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> damage(owner, n, damage)).isInstanceOf(DataIntegrityViolationException.class);
         assertThat(transactions.inTransaction(() -> repository.get(account(n)))).isPresent();
     }
 
@@ -465,9 +470,13 @@ class DriverPersistenceIT {
         return repository.dueForAnonymization(now);
     }
 
-    /** Sets columns of driver {@code n}'s row; the assignments are the test's own constant SQL. */
-    private void damage(int n, String assignments) {
-        jdbc.sql("UPDATE fleet.driver SET " + assignments + " WHERE id = ?")
+    /**
+     * Sets columns of driver {@code n}'s row; the assignments are the test's own constant SQL. App's
+     * client runs the damage a load shares a transaction with, and the owner's the writes the database
+     * must refuse, so a refusal comes from the schema and never from a missing grant.
+     */
+    private void damage(JdbcClient client, int n, String assignments) {
+        client.sql("UPDATE fleet.driver SET " + assignments + " WHERE id = ?")
                 .param(account(n).value())
                 .update();
     }

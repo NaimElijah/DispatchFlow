@@ -32,6 +32,7 @@ import static com.dispatchflow.liveops.domain.LiveOpsFixtures.byC;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.DatabaseOwner;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.TestPersistenceConfiguration.RecordedEvents;
 import com.dispatchflow.Transactions;
@@ -110,6 +111,10 @@ class DeliveryPersistenceIT {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    @DatabaseOwner
+    private JdbcClient owner;
 
     @Autowired
     private RecordedEvents events;
@@ -718,7 +723,7 @@ class DeliveryPersistenceIT {
             String broken, int n, Base base, Damage damage, String detail) {
         transactions.inTransaction(() -> repository.add(base.build(n)));
 
-        damage.apply(new Rows(jdbc, n));
+        damage.apply(new Rows(owner, n));
 
         assertThatThrownBy(() -> transactions.inTransaction(() -> repository.get(stop(n))))
                 .isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
@@ -746,7 +751,7 @@ class DeliveryPersistenceIT {
     void GivenAStoredDelivery_WhenARowIsDamagedAsTheSchemaForbids_ThenTheDatabaseRefusesTheWrite(
             String broken, int n, Base base, Damage damage) {
         transactions.inTransaction(() -> repository.add(base.build(n)));
-        Rows rows = new Rows(jdbc, n);
+        Rows rows = new Rows(owner, n);
 
         assertThatThrownBy(() -> damage.apply(rows)).isInstanceOf(DataIntegrityViolationException.class);
         assertThat(transactions.inTransaction(() -> repository.get(stop(n)))).isPresent();
@@ -774,7 +779,7 @@ class DeliveryPersistenceIT {
             String broken, int n, Damage damage, String subject, String detail) {
         transactions.inTransaction(() -> repository.add(Base.FAILED.build(n)));
 
-        damage.apply(new Rows(jdbc, n));
+        damage.apply(new Rows(owner, n));
 
         assertThatThrownBy(() -> transactions.inTransaction(() -> repository.get(stop(n))))
                 .satisfies(thrown -> assertThat(storedStateInvalidIn(thrown)).satisfies(invalid -> {

@@ -30,14 +30,20 @@ named after its package. Each module then adds its tables in one migration of it
 | `V8` | `V8__planning.sql` | `planning` |
 | `V9` | `V9__reporting.sql` | `reporting` |
 | `V10` | `V10__list_positions_start_at_0.sql` | every module's list tables |
+| `V11` | `V11__app_role_grants.sql` | what `app` may do on every module's tables |
 
-Every number from `V1` to `V10` is taken, and a later migration takes the next free number. `V0_*`
+Every number from `V1` to `V11` is taken, and a later migration takes the next free number. `V0_*`
 is reserved for the test-only fixture in `src/test/resources/db/fixture/`, which only the tests run.
 
-- **No grants yet.** No migration has a `GRANT`, because [ADR-041][ADR-041]'s roles do not exist
-  ([ADR-127][ADR-127], decision 8). The core reads and writes as the one database user. The change
-  that adds the roles and the `migrate` step grants `app` what it needs on every table made before
-  it.
+- **Grants.** Flyway runs as `dispatchflow_owner`, which owns every schema and table, and the core
+  connects as `app`, which owns none ([ADR-041][ADR-041], [ADR-145][ADR-145]). `V11` grants `app`
+  `USAGE` on the eight schemas and, on each table, only what its adapter runs: all four of `SELECT`,
+  `INSERT`, `UPDATE` and `DELETE` where rows change and go, no `DELETE` where none is ever deleted,
+  no `UPDATE` where rows are only added and removed, `SELECT` and `INSERT` where they are appended
+  once, `SELECT` and `INSERT` on the audit trail's two tables, and `INSERT` alone on a published
+  plan's revisions. Each later migration grants on the tables it creates ([ADR-127][ADR-127],
+  decision 8), and `DatabaseRolesIT` fails on a table that grants `app` nothing or more than its
+  rows.
 - **`ddl-auto=validate`.** At startup Hibernate checks every mapping against the migrated schema and
   never changes it (`application.properties`). It checks that each mapped table and column exists
   with a compatible type, not constraints or nullability, so the integration tests are what check
@@ -237,10 +243,10 @@ erDiagram
 - `audit_record_refused_has_code`: a `REFUSED` record has an `error_code`, and no other does.
 - `audit_record_named_record_kind_known` lists the 14 kinds a record may name.
 - `audit_record_at` serves the purge of records older than a year. No purge function exists yet,
-  so `JpaAuditRecords.purgeExpired` throws `UnsupportedOperationException`, and no `INSERT`-and-
-  `SELECT`-only grant exists yet either, although [tech stack §6.3](tech_stack.md#63-persistence)
-  decides one.
-  Both come with [ADR-041][ADR-041]'s roles and the `migrate` step.
+  so `JpaAuditRecords.purgeExpired` throws `UnsupportedOperationException`;
+  [tech stack §6.3](tech_stack.md#63-persistence) decides one, owned by `dispatchflow_owner`.
+- `app` may only insert and read both tables (`V11`, [ADR-041][ADR-041]), so the core can neither
+  change nor delete a record.
 
 ### `fleet` (V4)
 
@@ -731,7 +737,10 @@ Each module has integration tests against the PostgreSQL container, in its `adap
 folder under `src/test/java/com/dispatchflow/`. Where a root has a stored state to check, they save
 a valid aggregate, damage one stored value with SQL, and load it again. They expect
 `StoredStateInvalid` or, where a `CHECK` already forbids the value, that the database refuses the
-write ([ADR-127][ADR-127], decision 1).
+write ([ADR-127][ADR-127], decision 1). The adapters run as `app`, so passing proves its grants;
+the damage runs as `dispatchflow_owner`, so a refusal comes from the schema, except a damage the
+load shares a transaction with, which runs as `app` ([ADR-145][ADR-145], decision 8).
+`DatabaseRolesIT` tests the roles themselves.
 
 | Module | Integration tests |
 |---|---|
@@ -759,3 +768,4 @@ The test helpers they share are in [code-structure.md](code-structure.md#srcback
 [ADR-126]: ../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md
 [ADR-127]: ../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md
 [ADR-128]: ../ADRs/ADR-128-the-persistence-rules-the-mapping-settled-after-adr-127.md
+[ADR-145]: ../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md

@@ -18,6 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
+import com.dispatchflow.DatabaseOwner;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.TestPersistenceConfiguration.RecordedEvents;
 import com.dispatchflow.Transactions;
@@ -126,6 +127,10 @@ class PlanPersistenceIT {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    @DatabaseOwner
+    private JdbcClient owner;
 
     @Autowired
     private RecordedEvents events;
@@ -860,7 +865,7 @@ class PlanPersistenceIT {
             String broken, int n, State state, Damage damage, String subject, String detail) {
         Plan stored = state.build(builder(n));
 
-        damage.apply(new Rows(jdbc, stored.id()));
+        damage.apply(new Rows(owner, stored.id()));
 
         assertThatThrownBy(() -> transactions.inTransaction(() -> repository.get(stored.id())))
                 .isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
@@ -895,7 +900,7 @@ class PlanPersistenceIT {
             String broken, int n, State state, Damage damage, String subject) {
         Plan stored = state.build(builder(n));
 
-        damage.apply(new Rows(jdbc, stored.id()));
+        damage.apply(new Rows(owner, stored.id()));
 
         // Hibernate wraps a converter's exception, and Spring wraps Hibernate's.
         Throwable thrown = catchThrowable(() -> transactions.inTransaction(() -> repository.get(stored.id())));
@@ -1004,7 +1009,7 @@ class PlanPersistenceIT {
     void GivenAStoredPlan_WhenARowIsDamagedAsTheSchemaForbids_ThenTheDatabaseRefusesTheWrite(
             String broken, int n, State state, Damage damage) {
         Plan stored = state.build(builder(n));
-        Rows rows = new Rows(jdbc, stored.id());
+        Rows rows = new Rows(owner, stored.id());
 
         assertThatThrownBy(() -> damage.apply(rows)).isInstanceOf(DataIntegrityViolationException.class);
         assertThat(transactions.inTransaction(() -> repository.get(stored.id())))
@@ -1021,7 +1026,7 @@ class PlanPersistenceIT {
         Plan other = State.DRAFT.build(builder(1_301));
 
         Throwable refused = catchThrowable(
-                () -> jdbc.sql("UPDATE planning.planned_stop SET plan_id = :other WHERE route_id = " + FIRST_ROUTE)
+                () -> owner.sql("UPDATE planning.planned_stop SET plan_id = :other WHERE route_id = " + FIRST_ROUTE)
                         .param("plan", stored.id().value())
                         .param("other", other.id().value())
                         .update());
@@ -1301,7 +1306,7 @@ class PlanPersistenceIT {
 
     /** Each stored revision as its number and cause, and whether a person made it and it cites a proposal. */
     private List<String> storedRevisions(PlanId plan) {
-        return jdbc.sql("""
+        return owner.sql("""
                         SELECT revision || ' ' || cause
                             || CASE WHEN made_by IS NULL THEN '' ELSE ' by someone' END
                             || CASE WHEN proposal_id IS NULL THEN '' ELSE ' citing a proposal' END
@@ -1310,7 +1315,7 @@ class PlanPersistenceIT {
     }
 
     private List<String> revisionRoutes(PlanId plan, int revision) {
-        return jdbc.sql("""
+        return owner.sql("""
                         SELECT route_id || ' ' || vehicle_id || ' ' || driver_id
                         FROM planning.plan_revision_route
                         WHERE plan_id = ? AND revision = ?
@@ -1319,7 +1324,7 @@ class PlanPersistenceIT {
     }
 
     private List<String> revisionStops(PlanId plan, int revision) {
-        return jdbc.sql("""
+        return owner.sql("""
                         SELECT stop_id || ' ' || order_id || ' ' || coalesce(planned_arrival_seconds::text, 'none')
                         FROM planning.plan_revision_stop
                         WHERE plan_id = ? AND revision = ?

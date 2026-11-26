@@ -4,6 +4,7 @@ import static com.dispatchflow.shared.DomainAssertions.assertRefused;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dispatchflow.DatabaseOwner;
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.TestPersistenceConfiguration.RecordedEvents;
 import com.dispatchflow.Transactions;
@@ -79,6 +80,10 @@ class UserAccountPersistenceIT {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    @DatabaseOwner
+    private JdbcClient owner;
 
     @Autowired
     private RecordedEvents events;
@@ -550,7 +555,7 @@ class UserAccountPersistenceIT {
             String broken, int n, Base base, Damage damage, String detail) {
         transactions.inTransaction(() -> repository.add(base.build(n)));
 
-        damage.apply(new Rows(jdbc, n));
+        damage.apply(new Rows(owner, n));
 
         assertThatThrownBy(() -> transactions.inTransaction(() -> repository.get(account(n))))
                 .isInstanceOfSatisfying(StoredStateInvalid.class, invalid -> {
@@ -594,7 +599,7 @@ class UserAccountPersistenceIT {
             other.issueLink(new LinkPurpose.Recovery(), link(100 + n, 1), hash(100 + n, 1), at(1));
             repository.add(other);
         });
-        Rows rows = new Rows(jdbc, n);
+        Rows rows = new Rows(owner, n);
 
         assertThatThrownBy(() -> damage.apply(rows)).isInstanceOf(DataIntegrityViolationException.class);
         assertThat(transactions.inTransaction(() -> repository.get(account(n)))).isPresent();
