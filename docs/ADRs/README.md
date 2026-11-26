@@ -37,7 +37,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-126](ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) | JPA replaces jOOQ in the core, and the domain classes carry their own mapping | Accepted; extended by ADR-130; amended by ADR-127 and ADR-128 |
 | [ADR-127](ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md) | How the 20 aggregates are mapped, and where their stored state is tested | Accepted; extended by ADR-128 and ADR-145 |
 | [ADR-128](ADR-128-the-persistence-rules-the-mapping-settled-after-adr-127.md) | The persistence rules the JPA mapping settled after ADR-127 | Accepted |
-| [ADR-129](ADR-129-transactions-start-only-in-the-service-layer.md) | Transactions start only in the service layer | Accepted; extended by ADR-149 |
+| [ADR-129](ADR-129-transactions-start-only-in-the-service-layer.md) | Transactions start only in the service layer | Accepted; extended and amended by ADR-149 |
 | [ADR-136](ADR-136-the-core-waits-two-seconds-for-a-lock-and-a-lock-it-cannot-get-is-retried.md) | The core waits at most 2 seconds for a lock, and a call that can't get one is retried | Accepted; extended by ADR-145; amended by ADR-140 |
 | [ADR-145](ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md) | The migrate command runs Flyway as the owner, and the core connects as app with only what its adapters run | Accepted; amended by ADR-146 |
 | [ADR-146](ADR-146-the-jar-takes-only-options-but-for-its-command-and-the-roles-guards-cover-every-object-and-log.md) | The jar takes only options but for its command, and the roles' guards cover every object and log | Accepted |
@@ -46,8 +46,8 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-132](ADR-132-unbuilt-bodies-say-to-be-implemented.md) | Unbuilt bodies say "To Be Implemented." and name no milestone | Accepted |
 | [ADR-133](ADR-133-a-startup-step-is-a-job-and-access-declares-one.md) | A step that runs once at startup is a `job` adapter, and Access declares one | Accepted; extended by ADR-147 |
 | [ADR-140](ADR-140-the-app-wide-web-package-sits-above-the-modules.md) | The app-wide `web` package sits above the modules, and what they need from it sits beside the kernel | Accepted; extended by ADR-147 and ADR-148; amended by ADR-142, ADR-147 and ADR-148 |
-| [ADR-142](ADR-142-the-call-wrappers-retry-its-400s-and-its-error-endpoint-as-162-built-them.md) | The call wrapper's retry, its 400s and its error endpoint, as #162 built them | Accepted |
-| [ADR-147](ADR-147-the-stand-in-condition-sits-in-the-root-package-and-a-refused-access-token-answers-one-code.md) | The stand-in condition sits in the root package, a deployed environment is told by a marker and three keys, and a refused access token answers one code | Accepted; amended by ADR-148 |
+| [ADR-142](ADR-142-the-call-wrappers-retry-its-400s-and-its-error-endpoint-as-162-built-them.md) | The call wrapper's retry, its 400s and its error endpoint, as #162 built them | Accepted; amended by ADR-149 |
+| [ADR-147](ADR-147-the-stand-in-condition-sits-in-the-root-package-and-a-refused-access-token-answers-one-code.md) | The stand-in condition sits in the root package, a deployed environment is told by a marker and three keys, and a refused access token answers one code | Accepted; amended by ADR-148 and ADR-149 |
 | [ADR-148](ADR-148-the-stand-in-serves-only-its-own-origin-every-unsigned-api-call-answers-401-and-the-guard-outlives-the-session.md) | The stand-in serves only its own origin, every unsigned call under `/api/v1` answers 401, and the guard outlives the session | Accepted |
 | [ADR-149](ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md) | The use case records its refusal after the rollback, and the audit purge counts its year back from now | Accepted |
 | [ADR-043](ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md) | Code is generated from both contracts on both sides, and errors are RFC 9457 Problem Details | Accepted; extended by ADR-068, ADR-073, ADR-087, ADR-094 and ADR-140; amended by ADR-123 |
@@ -262,7 +262,9 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > ADR-149, on 2026-11-26, settles who records a refused attempt and how the audit purge counts its
 > year, as #180 builds the audit log: the use case writes the refused record once its `Change` has
 > rolled back, naming what the attempt named, so a use case whose transaction can refuse is two
-> classes, and only a transactional class records a success; a record is past its retention once
-> it was made before the same Israel local time a year earlier, one cutoff that the code and the
-> database's owner-run purge function share, and that `app` alone may run.
+> classes, only a transactional class records a success, and none but two named `Change`s a
+> refusal; a record is past its retention once it was made before the same Israel local time a
+> year earlier, the earlier instant where the clocks skipped or repeated that time, one cutoff
+> that the code and the database's owner-run purge function share, and `app` may run the purge
+> alone. It replaces the lazy lookup of the audit log that ADR-142 and ADR-147 left until #180.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.

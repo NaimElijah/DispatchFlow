@@ -92,9 +92,9 @@ only client (`contracts/optimization-api/v1`): Java 25, Spring Boot 4.1, JPA, Fl
   - A use case is one class, or two when a `<UseCase>Change` holds its transaction, as one that can
     refuse must: it changes one aggregate after its outside calls, records success in that
     transaction and, once the `Change` rolls back, its refusal, naming its records (ADR-149).
-  - `TransactionRules` checks where transactions start, that only a transactional class records a
-    success, and that none is `final`. Review checks `readOnly` where nothing changes and on a
-    `Change`'s reads, and each refusal's record (a `StaleVersion` or a lock wait is the wrapper's).
+  - `TransactionRules` checks where transactions start, that a success is recorded only in a
+    transactional class and a refusal outside one, and that none is `final`. Review checks
+    `readOnly` (no change, a `Change`'s reads) and every refusal's record (a race's: the wrapper).
   - `@Retryable` and `@ConcurrencyLimit` sit on the adapter that makes the outside call, where a
     retry is safe. A listener is `@Async` and a job `@Scheduled`, through `SchedulingConfiguration`:
     add no `@Enable*`. A listener is idempotent, and each retry gets a fresh transaction.

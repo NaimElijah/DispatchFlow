@@ -299,8 +299,8 @@ aggregate too, and an aggregate's package by a concept beneath it: Planning's `s
 & Orders' `service` and `port/out`, and Fleet's `service` are split. A test sits in the package of the type it tests, and a refusal
 test may sit anywhere under its error's package.
 
-Each module also has an `application` package, declared ahead of its milestone and not built
-([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)).
+Each module also has an `application` package, declared ahead of its milestone and, but for Audit's
+`AuditLogService`, not built ([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)).
 It holds whichever of `api`, `spi`, `port/out` and `service` the module has something for: `access`,
 `audit` and `liveops` have no `spi`, and `messaging` and `reporting` have neither `api` nor `spi`.
 Every body that would do work throws `UnsupportedOperationException("To Be Implemented.")`, but for

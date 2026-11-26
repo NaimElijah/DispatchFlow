@@ -51,6 +51,7 @@ report findings.
   - Transactions start only in services ([ADR-129]), which `TransactionRules` checks. Review what it can't:
     - a service that changes nothing is marked `readOnly`. The rules check only that an auditing one isn't, and a read-only one that writes fails at its first write;
     - a refused attempt's record is written after the refused transaction has rolled back, never in a nested `REQUIRES_NEW` (ADR-129 decision 5);
+    - each refusal a use case can raise is recorded once its `Change` has rolled back, naming the records the attempt named, and a `Change` that records a refusal lets none leave (ADR-149);
     - a new port that calls out of the process is added to `TransactionRules.OUTSIDE_CALL_PORTS`, and one that stores nothing to `STORELESS_PORTS`.
   - Listeners have no transaction of their own (`@Async @TransactionalEventListener`, never `@ApplicationModuleListener`), and are idempotent ([ADR-064], [ADR-129]).
   - An error that crosses `api` is an `api` type, since no domain object crosses a boundary ([DL §2.3][DL-23], rule 1). Inside a module, every refusal is a named error of the module's sealed type, with a stable code that the web adapter puts in the problem response ([DL §3.8][DL-38]).

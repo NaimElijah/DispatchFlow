@@ -14,8 +14,9 @@ How DispatchFlow is built, as it is today. What it must do is in
 > error handlers, call wrapper and error endpoint, the JSON logs and `SchedulingConfiguration`. The
 > web app's shell is built: its routes, layout, languages and Settings page; no screen of it calls
 > the API. The application layers are declared, not built, but for Audit's `AuditLogService`, which
-> writes the audit record of every change and is wired: every other body that would do work throws,
-> no other use case calls a persistence adapter, and no operation is served. The design the team is heading
+> is wired and records a changing call's refused 401 and a lost race today, and every changing use
+> case's outcome as each is built: every other body that would do work throws, no other use case
+> calls a persistence adapter, and no operation is served. The design the team is heading
 > for is in [Target design](#target-design); this file describes none of it as built beyond that.
 
 ## Architecture overview
@@ -124,7 +125,8 @@ built ahead of their milestones, with the `events` packages of the six modules t
 Each core module also has an `application` package, and the kernel has `shared/application`. They
 are declared ahead of their milestones: every use case, query, port and module API has its signature,
 and every body that would do work throws `UnsupportedOperationException("To Be Implemented.")`. They are
-not built, but for Audit's `AuditLogService`, the `AuditLog` every changing use case writes through.
+not built, but for Audit's `AuditLogService`, the `AuditLog` every changing use case will write
+through.
 Each module's root package holds only its `package-info` and a package-private
 `<Module>Configuration`, whose `@Import` list is empty but for `AuditConfiguration`'s, which names
 `AuditLogService`: a use case and its `Change` join it in the
@@ -133,7 +135,8 @@ decision 10). Only `AuditLogService` calls a port, `AuditRecords.append`: the ot
 adapters implement the repository ports, and no use case calls them. A success's record joins its
 change's transaction; a refusal's is written once the refused change has rolled back, by the use
 case that called its `Change`, or by the adapter that refused a call no use case saw, so a use case
-whose transaction can refuse is two classes ([ADR-149](../ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md)). `com.dispatchflow.SchedulingConfiguration` turns on the asynchronous listeners
+whose transaction can refuse is two classes, and each one-class skeleton that can refuse splits as
+its body is built ([ADR-149](../ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md)). `com.dispatchflow.SchedulingConfiguration` turns on the asynchronous listeners
 always, on Spring Boot's executor capped at 4 threads, with `MdcTaskDecorator` copying the caller's
 MDC to each, and the scheduled jobs unless `dispatchflow.scheduling.enabled` is off, as the
 integration tests set it. Each
@@ -327,14 +330,22 @@ have a `Dockerfile`, and neither runs as root
   every entity root, no `@GeneratedValue`, no Spring Data interface wider than its port needs, every mapped
   table in its module's schema, and no adapter that uses another module's entity. They check every
   production class, so a module mapped later is covered without editing a rule, and they fire on
-  deliberately wrong fixtures. `TransactionRules` has six on where a transaction starts
-  ([ADR-129](../ADRs/ADR-129-transactions-start-only-in-the-service-layer.md)):
+  deliberately wrong fixtures. `TransactionRules` has ten on where a transaction starts and where
+  an audit record is written ([ADR-129](../ADRs/ADR-129-transactions-start-only-in-the-service-layer.md),
+  [ADR-149](../ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md)):
   - `@Transactional` only in the services, directly or through an annotation;
   - every service transactional at class level, or holding the `<UseCase>Change` that is;
   - no transactional class or method that Spring can't subclass;
   - no outside-call port in a transactional class;
   - no read-only service that writes an audit record;
-  - `OpenTransaction.require` before every transaction-scoped lock.
+  - `OpenTransaction.require` before every transaction-scoped lock;
+  - no data reached by a service with no transaction, which may hold only its `Change`, outside-call
+    and storeless ports, other services, and `api` or `spi` interfaces, `AuditLog` included;
+  - every transactional event listener `@Async`;
+  - a success recorded only in a transactional service, at the default propagation and outside a
+    read-only method;
+  - a refusal recorded in no transactional class but the two named `Change`s that commit one on
+    purpose.
   The other dependency rules are enforced by review.
 - **Every solver sits behind one `Solver` port** and is chosen by name
   ([ADR-004](../ADRs/ADR-004-pluggable-solver-port.md), amended by

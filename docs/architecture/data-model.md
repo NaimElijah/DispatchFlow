@@ -253,16 +253,18 @@ Two functions of `V12`, both owned by `dispatchflow_owner`, are the only way a r
 
 | Function | Does | Who may run it |
 |---|---|---|
-| `audit.purge_expired_records()` | Deletes every record made before `audit.retention_cutoff(now())`, its named records by cascade, and returns how many records it deleted. It takes no date, runs with its owner's rights (`SECURITY DEFINER`) and a `search_path` fixed to `pg_catalog, pg_temp`, and reads `audit_record_at` | `app`, and no other role but the owner |
-| `audit.retention_cutoff(asked_at)` | The instant before which a record is past its year: the same `Asia/Jerusalem` local time a year earlier, which `AuditRecord.retentionCutoff` computes too. A year before 29 February is 28 February, a skipped local time is read with the offset before the change, and a repeated one as standard time. `STABLE`, with a SQL-standard body | The owner alone, so only the purge calls it |
+| `audit.purge_expired_records()` | Deletes every record made before `audit.retention_cutoff(now())`, its named records by cascade, and returns how many records it deleted. It takes no date, runs with its owner's rights (`SECURITY DEFINER`) and a `search_path` fixed to `pg_catalog, pg_temp`, and its cutoff, a `STABLE` expression, lets it read `audit_record_at` | `app`, and no other role but the owner |
+| `audit.retention_cutoff(asked_at)` | The instant before which a record is past its year: the same `Asia/Jerusalem` local time a year earlier, which `AuditRecord.retentionCutoff` computes too. A year before 29 February is 28 February. A local time the clocks skipped or repeated stands for the earlier of its two instants, so no record goes before its year is up. `STABLE`, with a SQL-standard body | The owner alone, so only the purge calls it |
 
 - Nothing calls the purge yet: `JpaAuditRecords.purgeExpired` and `PurgeExpiredAuditRecords`
   throw `UnsupportedOperationException` until the nightly retention run calls it at 03:00
   ([ADR-121][ADR-121], decision 9).
 - `AuditTrailGuaranteesIT` proves both guarantees as `app`: an `UPDATE` or `DELETE` on either table
-  is refused with SQLSTATE `42501`, the purge keeps a record a minute younger than a year and
-  deletes one a minute older, and another role may run neither function. It also compares the
-  database's cutoff with the domain's at every clock change and leap day up to 2036.
+  is refused with SQLSTATE `42501`, the purge keeps a record exactly at its cutoff and deletes one
+  a microsecond older, and another role may run neither function. It also compares the database's
+  cutoff with the domain's at every clock change and leap day up to 2036.
+- `app` may insert, so the trail is append-only, not unforgeable: a compromised core could add a
+  backdated record or a named record ([ADR-149][ADR-149], Risk).
 
 ### `fleet` (V4)
 

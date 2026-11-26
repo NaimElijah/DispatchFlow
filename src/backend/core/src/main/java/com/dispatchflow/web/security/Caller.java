@@ -40,7 +40,8 @@ public record Caller(CallContext call, Optional<Actor> actor) {
 
     private static final String ATTRIBUTE = Caller.class.getName();
     // Three numbers, as a release is (ADR-110), each short enough that no client text of any size
-    // reaches a record; Audit then refuses a leading zero or a number past an int.
+    // reaches a record; Audit then leaves the app and its version out of the record for a leading
+    // zero or a number past an int.
     private static final Pattern RELEASE = Pattern.compile("[0-9]{1,9}\\.[0-9]{1,9}\\.[0-9]{1,9}");
     private static final String WEB = "web";
     private static final String PHONE = "phone";
