@@ -232,12 +232,14 @@ class AuditRecordTest {
         "2028-10-30T10:00:00Z, 2027-10-30T09:00:00Z",
         // 25 March 2028 is in summer time and 25 March 2027 in standard time.
         "2028-03-25T09:00:00Z, 2027-03-25T10:00:00Z",
-        // 02:30 on 26 March 2027 never happened: the clocks skipped from 02:00 to 03:00, so the
-        // cutoff moves forward by that hour, to 03:30 summer time.
-        "2028-03-25T23:30:00Z, 2027-03-26T00:30:00Z",
+        // 02:30 on 26 March 2027 never happened: the clocks skipped from 02:00 to 03:00. Read with
+        // the summer offset, it is the earlier of the two instants it could stand for.
+        "2028-03-25T23:30:00Z, 2027-03-25T23:30:00Z",
         // 01:30 on 25 October 2026 happened twice, in summer time and then in standard time: the
-        // cutoff takes standard time, as PostgreSQL reads such a time.
-        "2027-10-24T22:30:00Z, 2026-10-24T23:30:00Z",
+        // cutoff is the first, asked from summer time...
+        "2027-10-24T22:30:00Z, 2026-10-24T22:30:00Z",
+        // ...and from standard time: 01:30 on 31 October 2027 happened twice too.
+        "2028-10-30T23:30:00Z, 2027-10-30T22:30:00Z",
         // 29 February 2028 a year earlier is the last day of February 2027.
         "2028-02-29T08:00:00Z, 2027-02-28T08:00:00Z",
         // Midnight of 1 March 2029 a year earlier is midnight of 1 March 2028.
@@ -262,6 +264,21 @@ class AuditRecordTest {
         assertThat(!newer.isPastRetention(now) || older.isPastRetention(now))
                 .as("the newer record is past its retention only once the older one is")
                 .isTrue();
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        // Made at 01:30 summer time on 25 October 2026, the first pass of the repeated hour, and
+        // asked at 01:00 summer time on 25 October 2027, half an hour before its year is up.
+        "2026-10-24T22:30:00Z, 2027-10-24T22:00:00Z",
+        // Made at exactly that local time, and asked as its year is up.
+        "2026-10-24T22:30:00Z, 2027-10-24T22:30:00Z",
+        // Made at 03:15 on 27 March 2026, just after the clocks skipped an hour, and asked at 02:30
+        // on 27 March 2027, which reads back into the skipped hour.
+        "2026-03-27T00:15:00Z, 2027-03-26T23:30:00Z"
+    })
+    void GivenARecordMadeNearAClockChange_WhenAskedBeforeItsLocalYearIsUp_ThenItIsKept(Instant at, Instant now) {
+        assertThat(aPublishedPlanRecordAt(at).isPastRetention(now)).isFalse();
     }
 
     @Test

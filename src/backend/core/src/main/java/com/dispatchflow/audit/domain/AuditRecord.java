@@ -6,7 +6,10 @@ import com.dispatchflow.shared.IsraelDateTime;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.SessionId;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.Period;
+import java.time.ZoneOffset;
+import java.time.zone.ZoneOffsetTransition;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -94,12 +97,14 @@ public record AuditRecord(
      * The instant before which a record is past its retention at {@code now}: the same local time
      * in {@code Asia/Jerusalem}, {@link #RETENTION} earlier (ADR-149 decision 5). One cutoff serves
      * every record, so an older record is never kept longer than a newer one, and the database's
-     * {@code audit.retention_cutoff} computes the same instant by the same steps.
+     * {@code audit.retention_cutoff} computes the same instant.
      *
-     * <p>A year before 29 February is 28 February. A local time the clocks skipped a year earlier
-     * moves forward by the skipped hour. A local time they repeated takes standard time, the later of
-     * its two instants, as PostgreSQL reads such a time: {@code java.time} would otherwise keep the
-     * offset of {@code now}, and from a summer time pick the earlier one.
+     * <p>A year before 29 February is 28 February. A local time the clocks repeated a year earlier,
+     * or skipped, could stand for two instants: the cutoff is the earlier one, the local time read
+     * with the summer offset. So near a clock change a record is kept up to an hour longer, and never
+     * deleted before its year is up. {@code java.time} would otherwise keep the offset of {@code now}
+     * in a repeated hour and move a skipped time forward, and PostgreSQL reads both as standard time:
+     * each picks the later instant at least once.
      *
      * @param now when the retention run asks
      * @return the cutoff instant
@@ -107,9 +112,15 @@ public record AuditRecord(
      */
     public static Instant retentionCutoff(Instant now) {
         Objects.requireNonNull(now, "now");
-        return now.atZone(IsraelDateTime.ZONE)
-                .minus(RETENTION)
-                .withLaterOffsetAtOverlap()
-                .toInstant();
+        LocalDateTime local = LocalDateTime.ofInstant(now, IsraelDateTime.ZONE).minus(RETENTION);
+        ZoneOffsetTransition change = IsraelDateTime.ZONE.getRules().getTransition(local);
+        if (change == null) {
+            return local.atZone(IsraelDateTime.ZONE).toInstant();
+        }
+        // The larger offset puts the same local time at the earlier instant.
+        int larger = Math.max(
+                change.getOffsetBefore().getTotalSeconds(),
+                change.getOffsetAfter().getTotalSeconds());
+        return local.toInstant(ZoneOffset.ofTotalSeconds(larger));
     }
 }

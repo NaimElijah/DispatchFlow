@@ -51,8 +51,9 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
  * on Audit; the cutoff function is the owner's alone.
  *
  * <p>The database is shared and never cleaned, so test {@code n} finds its rows by its own trace ID,
- * {@code trace(n)}. Rows planted relative to the database's own {@code now()} are planted as the
- * owner, because only the owner may write an audit row by SQL.
+ * {@code trace(n)}. Rows planted against the cutoff of the database's own {@code now()} are planted
+ * as the owner, which may run the cutoff function, or as {@code app} at the domain's cutoff of that
+ * {@code now()}, inside the one transaction whose {@code now()} the purge then reads.
  */
 @IntegrationTest
 class AuditTrailGuaranteesIT {
@@ -126,9 +127,34 @@ class AuditTrailGuaranteesIT {
 
         assertThat(purged).isEqualTo(expired).isPositive();
         assertThat(storedOperations(older)).isEmpty();
-        assertThat(namedRecordsOf(older)).isZero();
+        assertThat(namedRecordsWithItsKey(older)).isZero();
         assertThat(storedOperations(younger)).containsExactly("purgeProbe");
         assertThat(namedRecordsOf(younger)).isOne();
+    }
+
+    @Test
+    void
+            GivenRecordsAtTheCutoffAndAMicrosecondBefore_WhenAppRunsThePurgeInTheSameTransaction_ThenOnlyTheEarlierIsDeleted() {
+        // now() is the transaction's start, so the purge reads the same instant the rows were planted
+        // against, and the boundary is exact. The transaction rolls back, so no other test's row goes.
+        int atTheCutoff = 20;
+        int justBefore = 21;
+        assertThatThrownBy(() -> transactions.inTransaction(() -> {
+                    Instant now = jdbc.sql("SELECT now()")
+                            .query(OffsetDateTime.class)
+                            .single()
+                            .toInstant();
+                    Instant cutoff = AuditRecord.retentionCutoff(now);
+                    plantAt(atTheCutoff, cutoff);
+                    plantAt(justBefore, cutoff.minus(1, ChronoUnit.MICROS));
+
+                    jdbc.sql(PURGE).query(Integer.class).single();
+
+                    assertThat(storedOperations(atTheCutoff)).containsExactly("purgeProbe");
+                    assertThat(storedOperations(justBefore)).isEmpty();
+                    throw new RolledBack();
+                }))
+                .isInstanceOf(RolledBack.class);
     }
 
     @ParameterizedTest
@@ -295,11 +321,31 @@ class AuditTrailGuaranteesIT {
                         """).param("id", id).param("record", key(n, 1)).update();
     }
 
+    /** Plants test {@code n}'s record at {@code at}, as {@code app}, in the caller's transaction. */
+    private void plantAt(int n, Instant at) {
+        jdbc.sql("""
+                        INSERT INTO audit.audit_record (id, at, operation, outcome, trace_id)
+                        VALUES (:id, :at, 'purgeProbe', 'SUCCEEDED', :trace)
+                        """)
+                .param("id", key(n, 0))
+                .param("at", OffsetDateTime.ofInstant(at, ZoneOffset.UTC))
+                .param("trace", trace(n))
+                .update();
+    }
+
     private List<String> storedOperations(int n) {
         return jdbc.sql("SELECT operation FROM audit.audit_record WHERE trace_id = :trace")
                 .param("trace", trace(n))
                 .query(String.class)
                 .list();
+    }
+
+    /** Test {@code n}'s named records by its record's key, so an orphan left by a missed cascade counts. */
+    private int namedRecordsWithItsKey(int n) {
+        return jdbc.sql("SELECT count(*)::integer FROM audit.audit_record_named_record WHERE audit_record_id = :id")
+                .param("id", key(n, 0))
+                .query(Integer.class)
+                .single();
     }
 
     private int namedRecordsOf(int n) {
@@ -366,6 +412,14 @@ class AuditTrailGuaranteesIT {
 
     private static UUID key(int n, int each) {
         return new UUID(KEY_PREFIX + n, each);
+    }
+
+    /** What a test throws to roll its transaction back. */
+    private static final class RolledBack extends RuntimeException {
+
+        RolledBack() {
+            super("the test's transaction rolls back");
+        }
     }
 
     /** One of Audit's functions, as the catalog describes it. */
