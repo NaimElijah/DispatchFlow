@@ -5,8 +5,8 @@ import com.dispatchflow.archfixture.theta.application.api.Refusals;
 import com.dispatchflow.archfixture.theta.application.api.Solve;
 
 /**
- * Clean: a use case with no transaction that runs the use case it calls through the audit helper,
- * as ADR-150 decision 1 has it.
+ * Clean: a use case with no transaction that runs the transactional step it holds through the audit
+ * helper, as ADR-150 decision 1 has it.
  */
 public final class DelegatesAndRecordsItsRefusalThroughTheHelper {
 

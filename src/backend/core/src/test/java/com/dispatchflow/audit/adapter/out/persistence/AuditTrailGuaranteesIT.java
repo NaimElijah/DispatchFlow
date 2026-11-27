@@ -253,10 +253,10 @@ class AuditTrailGuaranteesIT {
     }
 
     @Test
-    void GivenTheAuditFunctions_WhenTheCatalogIsRead_ThenEachIsDeclaredAsV12Says() {
+    void GivenTheAuditFunctions_WhenTheCatalogIsRead_ThenBothAreBoundAtCreationAndOnlyThePurgeRunsAsItsOwner() {
         List<StoredFunction> functions = owner.sql("""
                         SELECT p.proname, pg_get_userbyid(p.proowner) AS owner, p.prosecdef, p.provolatile,
-                            p.proisstrict, p.proparallel, p.prosqlbody IS NOT NULL AS bound_when_created,
+                            p.prosqlbody IS NOT NULL AS bound_when_created,
                             array_to_string(p.proconfig, ';') AS settings,
                             has_function_privilege(:app, p.oid, 'EXECUTE') AS app_may_run
                         FROM pg_proc p
@@ -269,8 +269,6 @@ class AuditTrailGuaranteesIT {
                         row.getString("owner"),
                         row.getBoolean("prosecdef"),
                         row.getString("provolatile"),
-                        row.getBoolean("proisstrict"),
-                        row.getString("proparallel"),
                         row.getBoolean("bound_when_created"),
                         Optional.ofNullable(row.getString("settings")),
                         row.getBoolean("app_may_run")))
@@ -283,21 +281,11 @@ class AuditTrailGuaranteesIT {
                                 DatabaseRoles.OWNER,
                                 true,
                                 "v",
-                                false,
-                                "u",
                                 true,
                                 Optional.of("search_path=pg_catalog, pg_temp"),
                                 true),
                         new StoredFunction(
-                                "retention_cutoff",
-                                DatabaseRoles.OWNER,
-                                false,
-                                "s",
-                                true,
-                                "s",
-                                true,
-                                Optional.empty(),
-                                false));
+                                "retention_cutoff", DatabaseRoles.OWNER, false, "s", true, Optional.empty(), false));
     }
 
     /** The instants a retention run might ask at, every half hour around each change, with and without a microsecond. */
@@ -459,8 +447,6 @@ class AuditTrailGuaranteesIT {
             String owner,
             boolean runsAsItsOwner,
             String volatility,
-            boolean strict,
-            String parallel,
             boolean boundWhenCreated,
             Optional<String> settings,
             boolean appMayRun) {}

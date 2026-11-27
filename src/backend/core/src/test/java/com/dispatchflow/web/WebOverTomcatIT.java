@@ -24,6 +24,7 @@ import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import org.apache.tomcat.util.http.InvalidParameterException;
 import org.junit.jupiter.api.AfterEach;
@@ -362,13 +363,14 @@ class WebOverTomcatIT {
         assertThat(jdbc.sql(
                                 "SELECT operation, outcome, error_code, account FROM audit.audit_record WHERE trace_id = :trace")
                         .param("trace", trace)
-                        .query((row, index) -> List.of(
+                        .query((row, index) -> new StoredRefusal(
                                 row.getString("operation"),
                                 row.getString("outcome"),
                                 row.getString("error_code"),
-                                String.valueOf(row.getString("account"))))
+                                Optional.ofNullable(row.getString("account"))))
                         .list())
-                .containsExactly(List.of("takeANote", "REFUSED", Problems.ACCESS_TOKEN_REFUSED, "null"));
+                .containsExactly(
+                        new StoredRefusal("takeANote", "REFUSED", Problems.ACCESS_TOKEN_REFUSED, Optional.empty()));
     }
 
     @Test
@@ -455,6 +457,9 @@ class WebOverTomcatIT {
                     new HttpMessageNotReadableException("unreadable", new MockHttpInputMessage(new byte[0])));
         }
     }
+
+    /** A refused call's audit row, as stored. */
+    private record StoredRefusal(String operation, String outcome, String errorCode, Optional<String> account) {}
 
     /**
      * An exception of no advice's, wrapping one of Spring MVC's: the contract's handler matches its

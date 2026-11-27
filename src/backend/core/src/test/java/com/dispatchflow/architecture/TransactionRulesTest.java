@@ -46,8 +46,10 @@ import com.dispatchflow.archfixture.theta.application.service.RecordsASuccessInA
 import com.dispatchflow.archfixture.theta.application.service.RecordsASuccessWithoutATransaction;
 import com.dispatchflow.archfixture.theta.application.service.RecordsInANestedClass;
 import com.dispatchflow.archfixture.theta.application.service.RecordsItsRefusalInANestedClass;
+import com.dispatchflow.archfixture.theta.application.service.RecordsItsRefusalInATransactionalMethod;
 import com.dispatchflow.archfixture.theta.application.service.RecordsItsRefusalInsideItsTransaction;
 import com.dispatchflow.archfixture.theta.application.service.RecordsItsRefusalThroughTheHelperInsideItsTransaction;
+import com.dispatchflow.archfixture.theta.application.service.ReferencesTheRefusalHelperInsideItsTransaction;
 import com.dispatchflow.archfixture.theta.application.service.SolvesLedgers;
 import com.dispatchflow.archfixture.theta.application.service.SolvesLedgersChange;
 import com.dispatchflow.archfixture.theta.application.service.SplitButHoldsLedgers;
@@ -264,6 +266,22 @@ class TransactionRulesTest {
         assertThat(flags(
                         TransactionRules.refusalIsNeverRecordedInsideATransaction(FIXTURE_ROOT, Set.of()),
                         RecordsItsRefusalThroughTheHelperInsideItsTransaction.class))
+                .isTrue();
+    }
+
+    @Test
+    void GivenATransactionalServiceThatReferencesTheRefusalHelper_WhenChecked_ThenItIsFlagged() {
+        assertThat(flags(
+                        TransactionRules.refusalIsNeverRecordedInsideATransaction(FIXTURE_ROOT, Set.of()),
+                        ReferencesTheRefusalHelperInsideItsTransaction.class))
+                .isTrue();
+    }
+
+    @Test
+    void GivenARefusalRecordedInATransactionalMethodOfAClassWithNoTransaction_WhenChecked_ThenItIsFlagged() {
+        assertThat(flags(
+                        TransactionRules.refusalIsNeverRecordedInsideATransaction(FIXTURE_ROOT, Set.of()),
+                        RecordsItsRefusalInATransactionalMethod.class))
                 .isTrue();
     }
 

@@ -246,8 +246,9 @@ final class TransactionRules {
      * refusal without letting it leave, so their transaction commits, carrying the record and only
      * what the refusal itself must store: their names are listed, and a {@code Change} joins the
      * list only by that test, in review. The helper rethrows the refusal, which rolls its record
-     * back, so the list never excuses it. The rule reads a class's own calls: a module's own
-     * intermediary that records for a transactional caller is left to review.
+     * back, so the list never excuses it. A method that carries {@code @Transactional} itself counts
+     * as a transactional class. The rule reads a class's own calls: a module's own intermediary that
+     * records for a transactional caller is left to review.
      */
     static ArchRule refusalIsNeverRecordedInsideATransaction(String root, Set<String> committedHere) {
         return classes()
@@ -257,13 +258,13 @@ final class TransactionRules {
                     @Override
                     public void check(JavaClass item, ConditionEvents events) {
                         JavaClass outermost = outermost(item);
-                        if (!carries(outermost, Transactional.class)) {
-                            return;
-                        }
-                        Stream<JavaCodeUnitAccess<?>> direct = committedHere.contains(outermost.getSimpleName())
-                                ? Stream.empty()
-                                : auditAccesses(item, "refused");
-                        Stream.concat(direct, helperAccesses(item))
+                        boolean classTransaction = carries(outermost, Transactional.class);
+                        boolean listed = committedHere.contains(outermost.getSimpleName());
+                        Stream<JavaCodeUnitAccess<?>> direct = auditAccesses(item, "refused")
+                                .filter(access -> (classTransaction && !listed) || inATransactionalMethod(access));
+                        Stream<JavaCodeUnitAccess<?>> helper = helperAccesses(item)
+                                .filter(access -> classTransaction || inATransactionalMethod(access));
+                        Stream.concat(direct, helper)
                                 .forEach(access -> events.add(SimpleConditionEvent.violated(
                                         access,
                                         access.getDescription()
@@ -291,6 +292,11 @@ final class TransactionRules {
         return Stream.<JavaCodeUnitAccess<?>>concat(
                         item.getMethodCallsFromSelf().stream(), item.getMethodReferencesFromSelf().stream())
                 .filter(access -> access.getName().equals(method) && isTheAuditLog(access.getTargetOwner()));
+    }
+
+    /** Whether the access sits in a method that carries {@code @Transactional} itself. */
+    private static boolean inATransactionalMethod(JavaCodeUnitAccess<?> access) {
+        return carries(access.getOrigin(), Transactional.class);
     }
 
     /** The calls and method references from {@code item} to Audit's {@code Refusals} helper. */
