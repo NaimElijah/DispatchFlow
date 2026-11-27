@@ -21,7 +21,7 @@ only client (`contracts/optimization-api/v1`): Java 25, Spring Boot 4.1, JPA, Fl
   `spi` and `events` package stay flat; new packages are `@NullMarked`. `DomainPackageRules` and
   `ApplicationRules` check cycles, root imports, `@NullMarked` and flatness.
 - `src/test/java/com/dispatchflow/` holds the tests, `TestDispatchFlowApplication` (`just core-run`)
-  and `TestcontainersConfiguration`: PostgreSQL 18.6, with `db/fixture`'s `V0_*` test migrations.
+  and `TestcontainersConfiguration`: PostgreSQL 18.7, with `db/fixture`'s `V0_*` test migrations.
 
 ## Rules
 

@@ -116,7 +116,7 @@ To debug the core in the IDE, stop the stack's two with
 (what `just core-run` starts) and `just web-run` on the laptop.
 
 > [!NOTE]
-> The first `just core-check` or `just core-run` pulls the PostgreSQL 18.6 image, which can take a
+> The first `just core-check` or `just core-run` pulls the PostgreSQL 18.7 image, which can take a
 > few minutes. On Windows, `just` runs recipes in Windows PowerShell, so
 > `C:\Windows\System32\WindowsPowerShell\v1.0` must be on your `PATH`. It is by default; if `just`
 > reports that it cannot find `powershell.exe`, restore Windows' default `PATH` entries.
@@ -192,7 +192,7 @@ progress to the web app over server-sent events
 | Layer | Technology | Version | Why |
 |---|---|---|---|
 | Core backend | Java, Spring Boot, Spring Data JPA; libphonenumber, JTS, JSpecify; uuid-creator | 25, 4.1.2; 9.0.43, 1.20.0, version from the Spring Boot parent; 6.1.1 | The team's strongest stack; mature ecosystem for the adapters. libphonenumber parses phone numbers and JTS checks the service area, both in the pure domain; JSpecify marks null-safe packages; uuid-creator makes the UUIDv7 IDs, which the JDK can't |
-| Database | PostgreSQL 18.6; Flyway (version from the Spring Boot parent) | 18.6 | Relational data with real constraints; versioned SQL migrations |
+| Database | PostgreSQL 18.7; Flyway (version from the Spring Boot parent) | 18.7 | Relational data with real constraints; versioned SQL migrations |
 | Optimizer | Python, FastAPI, NumPy | 3.14, 0.162, 2.5.4 | OR-Tools' richest bindings; algorithm work iterates apart from the backend; NumPy holds the validator's arrays |
 | Web app | React, TypeScript, Vite; TanStack Router and Query, Mantine, i18next | 19.3, 6.0, 8.3; 1.170, 5.108, 9.8, 27.2 | Web app for every role; its driver screens also work in a phone's browser. Typed routes, an in-memory server cache, right to left through one provider, and one strings package for both apps |
 | Phone app | React Native, Expo | 0.88, SDK 58 | One codebase for iOS and Android, for every role |

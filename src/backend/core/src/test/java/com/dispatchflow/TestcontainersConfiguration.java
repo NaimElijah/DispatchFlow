@@ -25,7 +25,7 @@ import org.testcontainers.utility.DockerImageName;
 public class TestcontainersConfiguration {
 
     /** compose.dev.yaml's tag; {@code just infra-check} fails when the two differ (ADR-152). */
-    private static final DockerImageName POSTGRES_IMAGE = DockerImageName.parse("postgres:18.6");
+    private static final DockerImageName POSTGRES_IMAGE = DockerImageName.parse("postgres:18.7");
 
     /**
      * The server's command: Testcontainers' own {@code fsync=off}, which a throwaway database can
