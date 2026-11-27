@@ -2,7 +2,9 @@ package com.dispatchflow;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.ZoneId;
 import java.util.Map;
+import java.util.TimeZone;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.source.ConfigurationPropertySources;
 import org.springframework.core.env.SimpleCommandLinePropertySource;
@@ -12,7 +14,8 @@ import org.springframework.core.env.SystemEnvironmentPropertySource;
 /**
  * {@code just core-run}'s pinned options outrank what a developer exported, as Spring Boot ranks
  * the command line above the environment: no {@code SERVER_ADDRESS} widens a core that signs every
- * call in, and none turns Flyway off (ADR-146 decision 4, ADR-148 decision 3).
+ * call in, and none turns Flyway off (ADR-146 decision 4, ADR-148 decision 3). And it runs in
+ * Israel's zone, however it is started (ADR-152).
  */
 class TestDispatchFlowApplicationTest {
 
@@ -51,5 +54,20 @@ class TestDispatchFlowApplicationTest {
         assertThat(TestDispatchFlowApplication.withPinnedOptions(new String[] {"--debug"}))
                 .startsWith("--debug")
                 .contains("--server.address=127.0.0.1", "--spring.flyway.enabled=true");
+    }
+
+    /** The surefire JVM already runs in Israel's zone, so the test starts the JVM's default elsewhere. */
+    @Test
+    void GivenAJvmInAnotherZone_WhenTheLocalRunPicksItsZone_ThenItIsIsraels() {
+        TimeZone before = TimeZone.getDefault();
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+
+            TestDispatchFlowApplication.useIsraelTime();
+
+            assertThat(ZoneId.systemDefault()).isEqualTo(ZoneId.of("Asia/Jerusalem"));
+        } finally {
+            TimeZone.setDefault(before);
+        }
     }
 }
