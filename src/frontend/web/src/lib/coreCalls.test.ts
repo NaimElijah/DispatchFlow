@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw/http'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { server } from '../test/server.ts'
 import { answerOf, fetchFromCore } from './coreCalls.ts'
 import { RequestError, type Problem } from './problems.ts'
@@ -36,6 +36,46 @@ describe('calls to the core', () => {
     expect((thrown as RequestError).failure).toEqual({ kind: 'network' })
   })
 
+  test('GivenAnAnswerThatBreaksOffWhileItsBodyComesIn_WhenFetched_ThenItRejectsAsUnexpected', async () => {
+    // A browser's fetch resolves once the headers are in, and rejects the body's read with a
+    // TypeError when the connection drops mid-answer. MSW in Node reads a mocked body whole before
+    // fetch resolves, so this one test hands over such an answer itself.
+    let chunks = 0
+    const brokenOff = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        chunks += 1
+        if (chunks === 1) {
+          controller.enqueue(new TextEncoder().encode('{"id":'))
+        } else {
+          controller.error(new TypeError('network error'))
+        }
+      },
+    })
+    vi.stubGlobal('fetch', () => Promise.resolve(new Response(brokenOff, { status: 200 })))
+
+    let thrown: unknown
+    try {
+      thrown = await thrownBy(() => fetchFromCore(address()))
+    } finally {
+      vi.unstubAllGlobals()
+    }
+
+    // The request arrived, so a write may be stored: the user reloads rather than resends.
+    expect(thrown).toBeInstanceOf(RequestError)
+    expect((thrown as RequestError).failure).toEqual({ kind: 'unexpected', problem: undefined })
+  })
+
+  test('GivenAnAbortedRequest_WhenFetched_ThenItRejectsAsTheAbortAndNotAsUnreachable', async () => {
+    server.use(http.get(PATH, () => HttpResponse.json({ id: 'e1' })))
+    const controller = new AbortController()
+    controller.abort()
+
+    const thrown = await thrownBy(() => fetchFromCore(address(), { signal: controller.signal }))
+
+    expect(thrown).not.toBeInstanceOf(RequestError)
+    expect((thrown as Error).name).toBe('AbortError')
+  })
+
   test('GivenAnAnswerThatIsAFailure_WhenFetched_ThenItIsReturnedForTheCallerToRead', async () => {
     server.use(http.get(PATH, () => new HttpResponse(null, { status: 500 })))
 
@@ -48,6 +88,12 @@ describe('calls to the core', () => {
     const response = new Response(null, { status: 200, headers: { ETag: '"7"' } })
 
     expect(answerOf({ response, data: { id: 'e1' } })).toEqual({ data: { id: 'e1' }, etag: '"7"' })
+  })
+
+  test('GivenASuccessWithNoETag_WhenItsAnswerIsRead_ThenItsVersionIsNone', () => {
+    const response = new Response(null, { status: 204 })
+
+    expect(answerOf({ response })).toEqual({ data: undefined, etag: null })
   })
 
   test('GivenARefusal_WhenItsAnswerIsRead_ThenItThrowsHowTheCallFailed', async () => {

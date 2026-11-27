@@ -1,9 +1,10 @@
 import { fetchFromCore, type SendResult } from '../lib/coreCalls.ts'
 
 /**
- * Sends a JSON body as `@dispatchflow/api-client`'s openapi-fetch call will (#148), through
- * `fetchFromCore` as that client does, and answers in its shape: the parsed `data` on a success, the parsed `error` body otherwise, as text when it is
- * no JSON. Tests use it as a versioned save's `send` until the generated client exists.
+ * Sends a JSON body as the web app's openapi-fetch client will (#148): through `fetchFromCore`,
+ * and answering in openapi-fetch's shape, the parsed `data` on a success and the parsed `error`
+ * body otherwise, as text when it is no JSON. Tests use it as a versioned save's `send` until the
+ * generated client exists.
  *
  * @param method the HTTP method, such as `PUT`
  * @param path the path under the app's origin, such as `/api/v1/examples/e1`
