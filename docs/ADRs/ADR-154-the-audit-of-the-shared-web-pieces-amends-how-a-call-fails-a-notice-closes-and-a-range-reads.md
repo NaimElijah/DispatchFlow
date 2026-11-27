@@ -39,7 +39,8 @@ fixes found more. What they found shapes these decisions:
   the group.
 - **A reset that left a half-typed time.** A reset to the empty text a time field already holds
   changes no value, so Mantine's picker kept its digits for the next record. React Hook Form tells
-  a field nothing of such a reset, and one run during a save leaves even `submitCount` as it was.
+  a field nothing of such a reset, and one run during a save leaves even `submitCount` at zero,
+  as it is before a first save.
 - **A table cell that wrote any value.** The default cell wrote `12.5` with no unit and a date in
   the device's zone ([NFR-68], [ADR-088]).
 - **An example that kept its first version.** The example form sent the `ETag` it opened with on
@@ -83,7 +84,8 @@ decisions 1, 2 and 9.
    - A plain notice closes by itself after Mantine's four seconds, with no close button.
    - A notice with an action has no time limit, and a close button named in the interface
      language. Pressing the action closes it too.
-   - When it closes with focus in it, focus goes back to where it was when the notice was shown.
+   - When it closes with focus in it, focus goes back to where it was when the notice was shown,
+     or to the element remounted there since under the same id, such as a time field's hours box.
    - Its text names the kind of record and never a person, since it may outlive the session
      ([ADR-076]).
    - The action is a button that runs the screen's own navigation: notifications render outside
@@ -104,9 +106,11 @@ decisions 1, 2 and 9.
    - A group's own refusal, such as a window's, describes each of the group's inputs and marks
      them invalid, so focus lands on the first of them with the reason.
    - Once the form was first sent, a change to either end of a window checks the window again.
-   - `useSchemaForm` counts the form's resets, and `SchemaForm` hands the count to its fields: a
-     time field starts its picker afresh on each, and moves focus that was in it to the new hours
-     box.
+   - `useSchemaForm` records each reset, of the whole form or of one field's path, and
+     `SchemaForm` hands the record to its fields. A time field starts its picker afresh on each
+     reset that reaches it, and moves focus that was in it to the new hours box, which keeps its
+     id. The form, its `reset` and its `resetField` stay the same objects on every render, as React
+     Hook Form's own do, so an effect that resets the form when its view changes runs once.
 8. **A table's default cell writes text only.** Any other value, a number included, fails the
    table, naming the column, until the column writes it in a cell of its own, through
    `@dispatchflow/formatters` or as plain digits for a row number. This extends [ADR-153]
@@ -130,8 +134,9 @@ decisions 1, 2 and 9.
     use it.
   - Every caller of `ProblemMessage` says whether its call read or wrote.
   - A table column of anything but text needs a cell of its own, a row number included.
-  - A time field needs the `SchemaForm` around it to learn of a reset, and only a reset through
-    `useSchemaForm`'s `reset` or `resetField` is counted.
+  - A time field needs the `SchemaForm` around it to learn of a reset, and throws outside one.
+    Only `useSchemaForm`'s `reset` and `resetField` are counted, so it takes no `values` option,
+    with which React Hook Form resets a form uncounted.
 - **Cost:**
   - Zod parses objects without its compiled fast path. Forms parse once per save, so nothing a
     user can notice.

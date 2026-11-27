@@ -310,12 +310,12 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > come in beside the libraries the tech stack named.
 >
 > ADR-154, on 2026-11-27, amends ADR-153 after an audit of the merged pieces: Zod never compiles
-> code, which ADR-069's policy refuses, and the web app takes it from `@dispatchflow/schemas`;
-> only fetch and the answer's body decide that a call failed on the way; reads and writes read
-> their answers one way, a failed read never says a change may be stored, and only a read that
-> failed on the way is tried again; the form counts its resets for its time fields; a saved notice that offers an action stays until closed, returns focus
-> and names no person; a time range reads left to right in both languages; an optional number has
-> its own block; focus on a refusal follows reading order, a window's included; a table's default
-> cell writes text only; a screen sends the newest version it knows; and the web tests run in New
-> York's zone.
+> code, which ADR-069's policy refuses, and the web app takes it from `@dispatchflow/schemas`; only
+> fetch and the answer's body decide that a call failed on the way; reads and writes read their
+> answers one way, a failed read never says a change may be stored, and only a read that failed on
+> the way is tried again; the form records its resets, field by field, for its time fields; a saved
+> notice that offers an action stays until closed, returns focus and names no person; a time range
+> reads left to right in both languages; an optional number has its own block; focus on a refusal
+> follows reading order, a window's included; a table's default cell writes text only; a screen
+> sends the newest version it knows; and the web tests run in New York's zone.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.
