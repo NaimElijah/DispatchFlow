@@ -7,6 +7,7 @@ import { QueryClient } from '@tanstack/react-query'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App.tsx'
+import { retryRead } from './lib/coreCalls.ts'
 import { browserStorage, createLanguageSetting } from './lib/languageSetting.ts'
 import { createI18n } from './i18n.ts'
 import { createAppRouter } from './router.ts'
@@ -18,8 +19,9 @@ if (root === null) {
 
 const languageSetting = createLanguageSetting(browserStorage())
 const i18n = createI18n(languageSetting.read())
-// Server data lives only here, in memory, and is never persisted (NFR-269, ADR-076).
-const queryClient = new QueryClient()
+// Server data lives only here, in memory, and is never persisted (NFR-269, ADR-076). A read is
+// tried again only when it got no answer or the core was busy (ADR-154).
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: retryRead } } })
 const router = createAppRouter({ queryClient, now: () => new Date(), languageSetting })
 
 createRoot(root).render(

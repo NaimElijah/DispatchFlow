@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw/http'
 import { describe, expect, test, vi } from 'vitest'
 import { server } from '../test/server.ts'
-import { answerOf, fetchFromCore } from './coreCalls.ts'
+import { answerOf, fetchFromCore, retryRead } from './coreCalls.ts'
 import { RequestError, type Problem } from './problems.ts'
 
 const PATH = '/api/v1/examples/e1'
@@ -103,5 +103,30 @@ describe('calls to the core', () => {
 
     expect(thrown).toBeInstanceOf(RequestError)
     expect((thrown as RequestError).failure).toEqual({ kind: 'refused', problem: refusal })
+  })
+
+  test('GivenAReadThatGotNoAnswerOrFoundTheCoreBusy_WhenItFails_ThenItIsTriedAgainUpToThreeTimes', () => {
+    for (const error of [
+      new RequestError({ kind: 'network' }),
+      new RequestError({ kind: 'busy', problem: undefined }),
+    ]) {
+      const kind = error.failure.kind
+      expect(
+        [0, 1, 2].map((failures) => retryRead(failures, error)),
+        kind,
+      ).toEqual([true, true, true])
+      expect(retryRead(3, error), kind).toBe(false)
+    }
+  })
+
+  test('GivenAReadTheCoreRefusedOrFailedOn_WhenItFails_ThenItIsNotTriedAgain', () => {
+    // It would fail the same way again, so the screen shows why at once.
+    for (const error of [
+      new RequestError({ kind: 'refused', problem: refusal }),
+      new RequestError({ kind: 'unexpected', problem: undefined }),
+      new Error('A bug in the screen'),
+    ]) {
+      expect(retryRead(0, error), error.message).toBe(false)
+    }
   })
 })

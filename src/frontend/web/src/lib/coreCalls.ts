@@ -73,3 +73,23 @@ export function answerOf<TData>({ response, data, error }: SendResult<TData>): A
   }
   return { data, etag: response.headers.get('ETag') }
 }
+
+/** The most times a read is tried again: TanStack Query's own default. */
+const READ_RETRIES = 3
+
+/**
+ * Whether a failed read is tried again, as TanStack Query's `retry` asks: only when no answer
+ * arrived or the core was busy, and at most three times. A refusal, an unexpected failure or a bug
+ * would fail the same way again, so the screen shows why at once rather than after seven seconds
+ * of retries. The app's query cache uses it for every query (`main.tsx`); a write is never retried.
+ *
+ * @param failureCount how many times the read has failed so far, less one
+ * @param error how it failed this time
+ */
+export function retryRead(failureCount: number, error: Error): boolean {
+  return (
+    failureCount < READ_RETRIES &&
+    error instanceof RequestError &&
+    (error.failure.kind === 'network' || error.failure.kind === 'busy')
+  )
+}
