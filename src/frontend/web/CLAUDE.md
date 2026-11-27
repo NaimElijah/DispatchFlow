@@ -56,8 +56,8 @@ React 19, TypeScript 6.0, Vite 8, pnpm; TanStack Router and Query, Mantine 9, i1
   from files (NFR-204).
 - Read the event stream with `fetch` and eventsource-parser, not the browser's `EventSource`, which
   cannot send an `Authorization` header ([TS §10]).
-- Build forms, refusals and row lists from `src/components/` ([ADR-153]). ESLint refuses Day.js
-  outside `DatesLanguage.tsx`; `lib/problems.ts` types `Problem` by hand until #148 generates it.
+- Build forms on `@dispatchflow/schemas`, refusals and row lists from `src/components/` ([ADR-153]).
+  Day.js only in `DatesLanguage.tsx` (ESLint); `lib/problems.ts` types `Problem` by hand until #148.
 - Server data lives only in TanStack Query's in-memory cache, never persisted, and a refused refresh
   or an ended session drops it (NFR-269). Sign-out's answer sends `Clear-Site-Data` and deletes the
   refresh cookie, which is HttpOnly, so the app never reads it (NFR-233, [ADR-076]).

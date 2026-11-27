@@ -497,12 +497,13 @@ src/frontend/web/
     features/<context>/  each area's pages and its routes.ts; access/ holds the Settings page,
                          planning/ the /plans and /plans/$date routes and their dates
     components/          the UI no area owns: NotBuiltPage, TextLink, usePageTitle, ProblemMessage,
-                         DataTable, notifySaved, useLanguage; form/, the form, its save button and
+                         DataTable, useNotifySaved, useLanguage; form/, the form, its save button and
                          the summary's placing of a refusal, with the fields in form/fields/;
                          map/, the map's (#174, empty until then)
     lib/                 the code no layer owns: the language setting, the refusal reader
-                         (problems.ts), the refusal texts (problemText.ts) and the versioned
-                         save (versionedSave.ts)
+                         (problems.ts), the refusal texts (problemText.ts), the one fetch and
+                         answer reader of every call (coreCalls.ts) and the versioned save
+                         (versionedSave.ts)
     test/                Vitest's setup, renderApp, renderComponent, the one MSW server, the <style>
                          check, the tests of the lint rules, and the example form
 ```
