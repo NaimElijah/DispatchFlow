@@ -313,7 +313,8 @@ outside Israel, and sends them no company or personal data: the tiles it cuts fr
 runs as root ([ADR-019](../ADRs/ADR-019-container-images-run-as-non-root.md)).
 `infra/deploy/compose.dev.yaml` runs PostgreSQL, the `migrate` step, the core under the `dev`
 profile, the optimizer, the `tiles` service (Caddy 2.11.9, serving the map's files from
-`data/tiles/`) and the web app's dev server (`src/frontend/web/Dockerfile.dev`) on a laptop,
+`data/tiles/`, under the `data` Compose profile, which `just infra-check` doesn't start: ADR-152)
+and the web app's dev server (`src/frontend/web/Dockerfile.dev`) on a laptop,
 each service with only its own credentials and every port bound to `127.0.0.1`. The web app's
 `vite.config.ts` proxies `/api/` to the core, keeping the browser's `Host` and `Sec-Fetch-Site`,
 and `/map/` to the `tiles` service with the prefix removed. `just data` builds the map's files:

@@ -96,12 +96,14 @@ Or start the whole stack, each service in its container, every port on `127.0.0.
 ```bash
 cp infra/deploy/.env.example infra/deploy/.env    # then fill in its three passwords
 just data    # once: the map's files for Be'er Sheva, into data/tiles/ (about 22 MB)
-docker compose -f infra/deploy/compose.dev.yaml up --build --watch
+docker compose -f infra/deploy/compose.dev.yaml --profile data up --build --watch
 ```
 
 The web app is on http://localhost:5173, and proxies `/api/` to the stack's core, which the
 laptop also reaches on 127.0.0.1:8080, and `/map/` to the tiles service on 127.0.0.1:8090, which
-serves what `just data` built; the optimizer is on 127.0.0.1:8081, and PostgreSQL on
+serves what `just data` built. The tiles service starts only with `--profile data`, because its
+files are git-ignored (ADR-152): without it the stack runs with no map. The optimizer is on
+127.0.0.1:8081, and PostgreSQL on
 127.0.0.1:5432. A laptop that runs a PostgreSQL of its own on 5432 sets `DISPATCHFLOW_POSTGRES_HOST_PORT` in that `.env`. `--watch` copies an
 edit to the web app or the optimizer into its container, which reloads it; a change to the core
 needs `--build` again. `docker compose -f infra/deploy/compose.dev.yaml down` stops it, and

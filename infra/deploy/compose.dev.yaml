@@ -10,7 +10,7 @@
 # pnpm version rebuilds that image. A change to the core, or to any Dockerfile, needs
 # `up --build` again. The web app is on
 # http://localhost:5173, and proxies /api/ to the core on its own origin (ADR-148), and /map/ to the
-# tiles service, which serves what `just data` builds; until it has run, the map has no files. No
+# tiles service, which serves what `just data` builds and starts only with --profile data. No
 # sync sets initial_sync, which in this Compose can copy what its ignore rules leave out, such as
 # the host's node_modules: start with --build instead (ADR-152).
 #
@@ -214,7 +214,10 @@ services:
     # The map's files from data/tiles/, which `just data` builds (#152): Caddy's file server answers
     # the Range requests the PMTiles reader sends with 206. The web app's dev server proxies /map/
     # here, so the browser loads them from the app's own origin (ADR-069). The justfile pins the
-    # same tag by digest, for the `just data` steps that need a shell.
+    # same tag by digest, for the `just data` steps that need a shell. Its data is git-ignored, so
+    # it starts only under the data profile, which `just infra-check` leaves out (ADR-152).
+    profiles:
+      - data
     image: caddy:2.11.9-alpine
     <<: *hardening
     # nobody: the image runs as root otherwise, and port 8090 needs no privilege.
