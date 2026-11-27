@@ -23,7 +23,8 @@ const REFUSED_CONTROL = [
 /** A save as the form watches it: a TanStack Query mutation, such as `useVersionedSave`'s. */
 export interface FormSave {
   readonly isPending: boolean
-  readonly error: RequestError | null
+  /** The save's last failure: a `RequestError` for a failed call, any other error for a bug. */
+  readonly error: Error | null
   /** Forgets the save's last failure, so its message goes once the screen reloads the record. */
   readonly reset: () => void
 }
@@ -76,7 +77,9 @@ export function SchemaForm<TValues extends FieldValues, TParsed>({
   children,
 }: SchemaFormProps<TValues, TParsed>) {
   const { t } = useTranslation('problems')
-  const failure: RequestFailure | undefined = save.error?.failure
+  // A bug is no failure the user can act on: it shows nothing here, and fails loudly elsewhere.
+  const failure: RequestFailure | undefined =
+    save.error instanceof RequestError ? save.error.failure : undefined
   const plan = useMemo(
     () =>
       failure?.kind === 'refused' ? planProblem(failure.problem, schema, fieldFor) : undefined,

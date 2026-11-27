@@ -5,7 +5,8 @@ import { userEvent } from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw/http'
 import { describe, expect, onTestFinished, test, vi } from 'vitest'
 import { z } from 'zod'
-import { useVersionedSave, type Saved } from '../../lib/versionedSave.ts'
+import type { Answer } from '../../lib/coreCalls.ts'
+import { useVersionedSave } from '../../lib/versionedSave.ts'
 import { renderComponent } from '../../test/renderComponent.tsx'
 import { sendJson } from '../../test/sendJson.ts'
 import { ExampleForm } from '../../test/ExampleForm.tsx'
@@ -29,7 +30,7 @@ interface ContactFormProps {
   /** The `ETag` the view was read with, or `null` for none yet. */
   readonly etag: string | null
   readonly onReload?: () => void
-  readonly onSaved?: (saved: Saved<unknown>) => void
+  readonly onSaved?: (saved: Answer<unknown>) => void
 }
 
 function ContactForm({ etag, onReload, onSaved }: ContactFormProps) {

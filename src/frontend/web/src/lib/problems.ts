@@ -96,9 +96,10 @@ export function isProblem(value: unknown): value is Problem {
  *   user's input is kept, and the screen offers a reload or refetches.
  * - `busy`: `TRY_AGAIN_LATER`, the core lost a race or a lock four times (ADR-121 decision 4).
  * - `refused`: the core refused the request, for a rule or a malformed request.
- * - `unexpected`: the core failed, or something in front of it did. A change may be stored, so the
- *   screen reloads before the user sends it again.
- * - `network`: no answer arrived.
+ * - `unexpected`: the core failed, something in front of it did, or its answer broke off. A
+ *   write may be stored, so the screen reloads before the user sends it again; a read changed
+ *   nothing, so the user reads again.
+ * - `network`: no answer arrived, or the request could not be sent.
  */
 export type RequestFailure =
   | { readonly kind: 'stale'; readonly problem: Problem }
