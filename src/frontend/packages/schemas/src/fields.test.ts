@@ -98,6 +98,16 @@ describe('dates and times', () => {
     ])
   })
 
+  test('GivenAWindowWithOneEndReadWithSeconds_WhenChecked_ThenItsEndsCompareAsTimes', () => {
+    // A record read from the API may carry seconds, which the time field keeps until it changes.
+    const endsWhenItStarts = [{ path: '', code: 'INVALID_TIME_WINDOW', params: {} }]
+    expect(refusalsOf(timeWindow, { start: '09:30', end: '09:30:00' })).toEqual(endsWhenItStarts)
+    expect(refusalsOf(optionalTimeWindow, { start: '09:30', end: '09:30:00' })).toEqual(
+      endsWhenItStarts,
+    )
+    expect(refusalsOf(timeWindow, { start: '09:30:00', end: '09:31' })).toEqual([])
+  })
+
   test('GivenAWindowWithoutItsStart_WhenChecked_ThenTheStartIsRequired', () => {
     expect(refusalsOf(timeWindow, { start: '', end: '08:00' })).toEqual([
       { path: 'start', code: 'REQUIRED', params: {} },
