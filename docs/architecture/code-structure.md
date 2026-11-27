@@ -165,10 +165,12 @@ src/backend/core/
       CommitWatch.java             marks a try committed, so it isn't re-run
       Race.java                    what a lost race answers: 412, 409 or a retry, then 503
       ContractErrorHandler.java    400, 404, 405, 406, 413 and 415, Spring MVC's other errors and
-                                   Tomcat's parameter refusals; ContractBreaks.java builds the
-                                   failing items
+                                   Tomcat's parameter refusals, and the refused audit record of a
+                                   changing call refused before its handler starts;
+                                   ContractBreaks.java builds the failing items
       KernelErrorHandler.java      the kernel's errors: 401, 403, 404, 409, 412, 422 and 503, and
-                                   500 for a damaged stored value and a race after a commit
+                                   500 for a damaged stored value, a race after a commit and a
+                                   refusal that is only another exception's cause
       UnexpectedErrorHandler.java  answers an unhandled exception with a 500 problem body
       ErrorEndpoint.java           the last resort: answers as a problem an error no handler
                                    answered, or that a servlet filter raised
@@ -300,7 +302,7 @@ aggregate too, and an aggregate's package by a concept beneath it: Planning's `s
 test may sit anywhere under its error's package.
 
 Each module also has an `application` package, declared ahead of its milestone and, but for Audit's
-`AuditLogService`, not built ([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)).
+`AuditLogService` and `Refusals`, not built ([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)).
 It holds whichever of `api`, `spi`, `port/out` and `service` the module has something for: `access`,
 `audit` and `liveops` have no `spi`, and `messaging` and `reporting` have neither `api` nor `spi`.
 Every body that would do work throws `UnsupportedOperationException("To Be Implemented.")`, but for

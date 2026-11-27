@@ -38,12 +38,13 @@ public interface AuditLog {
     /**
      * Records a refused attempt in a transaction of its own, so the refusal's rollback doesn't lose
      * it (NFR-23, ADR-110 point 1). It is called once the refused transaction has rolled back, with
-     * no transaction open, so the one it opens is fresh (ADR-129 decision 5, ADR-149); a use case
-     * calls it through {@link Refusals}, which runs its {@code Change} (ADR-150). Called
-     * inside an open transaction, it joins it, and a rollback there loses the record, so no
-     * transactional class calls it ({@code TransactionRules} rule 10) but a {@code Change} that
-     * records a refusal raised before it changed anything and lets none leave, so that its
-     * transaction commits the record; that rule names each such {@code Change}.
+     * no transaction open, so the one it opens is fresh (ADR-129 decision 5, ADR-149). A use case
+     * calls it through {@link Refusals}, which runs its {@code Change}, and directly for a conflict
+     * it answers itself (ADR-150 decisions 1 and 3). Called inside an open transaction, it joins
+     * it, and a rollback there loses the record, so no transactional class calls it ({@code
+     * TransactionRules} rule 10) but a listed {@code Change} that lets no refusal leave once it has
+     * recorded one, so that its commit carries the record and only what the refused attempt must
+     * store (ADR-150 decision 5).
      *
      * @param call who made the attempt, through which client, as which operation
      * @param at when the attempt was made

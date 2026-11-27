@@ -149,7 +149,9 @@ class ContractErrorHandler extends ResponseEntityExceptionHandler {
     /**
      * Replaces the body Spring chose with the contract's, and keeps Spring's headers and its check
      * for a response already committed. A body over its limit that a converter wrapped answers 413,
-     * whatever status Spring chose, and a status the contract doesn't list answers 500.
+     * whatever status Spring chose, and a status the contract doesn't list answers 500. A changing
+     * call refused before its handler starts first leaves its refused audit record, and answers 500
+     * when that write fails, as the class Javadoc says.
      */
     @Override
     protected @Nullable ResponseEntity<Object> handleExceptionInternal(

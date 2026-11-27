@@ -2,8 +2,9 @@
  * The web concerns of the whole application rather than of one module (ADR-140). This package
  * holds the trace-ID filter, which also hands an exception that escaped every handler to Tomcat's
  * error dispatch and refuses with 400 a path Spring can't parse, the call wrapper that retries a
- * call that lost a race and binds the call's holders, the handler of requests that
- * break the contract and of Tomcat's refusals of their parameters, the handler of the kernel's
+ * call that lost a race and binds the call's holders, the handler of requests that break the
+ * contract and of Tomcat's refusals of their parameters, which also writes the refused audit record
+ * of a changing call it refuses before its handler starts (ADR-150), the handler of the kernel's
  * errors and {@code UnexpectedErrorHandler}, which answers an exception nothing else handled, and
  * {@code ErrorEndpoint}, which answers every error Tomcat dispatches to the error path, with the
  * served JSON converter's strictness and the request body's size limit. {@code web.security} holds

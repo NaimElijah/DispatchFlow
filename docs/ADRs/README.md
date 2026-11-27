@@ -269,9 +269,10 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > that the code and the database's owner-run purge function share, and `app` may run the purge
 > alone. It replaces the lazy lookup of the audit log that ADR-142 and ADR-147 left until #180.
 > ADR-150, on 2026-11-27, amends ADR-149 after a review of #180: one Audit helper, `Refusals`,
-> runs a use case's `Change` and records the refusal that leaves it, a not-found included; a use
-> case that answers a conflict itself records it; the contract's handler records a changing call
-> it refuses before the handler runs; rule 10 also bans the helper in a transaction, and lists a
-> `Change` only when no exception leaves it, so its commit carries the record; and a refusal
-> that is only another exception's cause answers 500.
+> runs a use case's own checks and `Change` and records the refusal that leaves them, a domain
+> refusal or any application refusal the kernel's `ApplicationRefusal` marks, a not-found among
+> them; a use case that answers a conflict itself records it; the contract's handler records a
+> changing call it refuses before the handler starts; rule 10 also bans the helper in a
+> transaction, and lists a `Change` only when no refusal leaves it once recorded, so its commit
+> carries the record; and a refusal that is only another exception's cause answers 500.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.

@@ -127,7 +127,7 @@ Each core module also has an `application` package, and the kernel has `shared/a
 are declared ahead of their milestones: every use case, query, port and module API has its signature,
 and every body that would do work throws `UnsupportedOperationException("To Be Implemented.")`. They are
 not built, but for Audit's `AuditLogService`, the `AuditLog` every changing use case will write
-through.
+through, and its `Refusals` helper.
 Each module's root package holds only its `package-info` and a package-private
 `<Module>Configuration`, whose `@Import` list is empty but for `AuditConfiguration`'s, which names
 `AuditLogService`: a use case and its `Change` join it in the
@@ -137,14 +137,17 @@ adapters implement the repository ports, and no use case calls them. A success's
 change's transaction; a refusal's is written once the refused change has rolled back, so a use case
 whose transaction can refuse is two classes, and each one-class skeleton that can refuse splits as
 its body is built ([ADR-149](../ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md)). Who writes it:
-- the use case that called its `Change`, through Audit's `Refusals.recordedBy`, which records the
-  rule refusal or not-found that leaves the `Change` and rethrows it; and directly, for a conflict
-  the use case answers itself ([ADR-150](../ADRs/ADR-150-one-audit-helper-records-the-refusals-a-use-case-sees-and-the-contracts-handler-records-a-changing-call-it-refuses.md));
+- the use case that called its `Change`, through Audit's `Refusals.recordedBy`, which runs the
+  use case's own checks and its own `Change` and records the refusal that leaves them, a
+  `RuleViolation` or any `ApplicationRefusal` of the kernel's, `NotFound` among them, before it
+  rethrows it; and directly, for a conflict the use case answers itself
+  ([ADR-150](../ADRs/ADR-150-one-audit-helper-records-the-refusals-a-use-case-sees-and-the-contracts-handler-records-a-changing-call-it-refuses.md));
 - the two `Change`s `TransactionRules` rule 10 lists, inside their own transaction, which commits:
   they let no refusal leave, and each alone knows the account or session its record names;
 - the adapter that refused a call no use case saw: the access interceptor's 401, the call wrapper's
-  lost race, and the contract's handler for a changing call it refuses before the handler runs,
-  which the call wrapper marks as it starts the handler.
+  lost race, and the contract's handler for a changing call it refuses after the access interceptor
+  kept its caller and before the handler starts, which the call wrapper marks as it starts it. A
+  refusal raised before a handler is chosen names no operation and leaves no record.
 
 A refusal that is only another exception's cause, such as Audit's refusal of a malformed part,
 answers 500 at ERROR, never the refusal's own status.
@@ -187,7 +190,8 @@ The application-wide `web` package, `com.dispatchflow.web`, is no module. It hol
   audit record, `CommitWatch`, the transaction listener that stops a retry once a try committed, and
   `Race`, which classifies the exception thrown;
 - the handlers: `ContractErrorHandler`, with `ContractBreaks`, of requests that break the contract,
-  of Spring MVC's own errors and of Tomcat's refusals of a request's parameters,
+  of Spring MVC's own errors and of Tomcat's refusals of a request's parameters, which also writes
+  the refused audit record of a changing call it refuses before its handler starts,
   `KernelErrorHandler`, of the kernel's errors, and `UnexpectedErrorHandler`, of the rest, with
   `WebCodes`, the codes they answer of their own;
 - `ErrorEndpoint`, the last resort: the `@RestController` behind Spring Boot's error path, which
@@ -464,9 +468,10 @@ have a `Dockerfile`, and neither runs as root
   answers 412, and one that compared a body's version 409, at once (ADR-140, decision 6). A race
   after a read-write commit answers 500 `UNEXPECTED_ERROR` and is neither retried nor audited,
   because the change is stored and a 503 would invite a duplicate ([ADR-142](../ADRs/ADR-142-the-call-wrappers-retry-its-400s-and-its-error-endpoint-as-162-built-them.md), decisions 1
-  and 2). `CallRetry` writes the refused audit record of a 412, 409 or 503, and `AccessInterceptor`
-  that of a changing call's 401, each through the injected `AuditLog` once every transaction of the
-  call has ended ([ADR-149](../ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md)).
+  and 2). `CallRetry` writes the refused audit record of a 412, 409 or 503, `AccessInterceptor`
+  that of a changing call's 401, and `ContractErrorHandler` that of a signed-in changing call it
+  refuses before the handler starts, each through the injected `AuditLog` once every transaction of
+  the call has ended ([ADR-149](../ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md)).
 - **Every log line is JSON.** The console writes Elastic Common Schema, with the MDC, so every line
   of a request carries its `traceId`, and every line of a signed-in call after the access
   interceptor its `accountId` and `sessionId` too (ADR-140, decision 8).

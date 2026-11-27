@@ -140,8 +140,9 @@ Fleet and Customers & Orders have no relationship. Neither does any pair not in 
 **Splitting a module into a service later** changes adapters only: its API calls become HTTP clients
 generated from a new contract, its events go through a message broker (Spring Modulith can externalize
 them), the ports it implements become endpoints, and its schema moves to its own database. Because no
-domain object crossed the boundary, no domain class changes. The one shared write is the audit record,
-written in the same transaction; a split-off module would write it through an outbox instead.
+domain object crossed the boundary, no domain class changes. The one shared write is the audit record:
+a success's in the same transaction, a refusal's once that transaction has rolled back ([ADR-149]); a
+split-off module would write it through an outbox instead.
 
 ---
 ## 3. Building blocks: the rules every module follows
@@ -825,7 +826,7 @@ declares them, the operation, the records it names, its outcome and its trace ID
 code, an enum, a number or an instant, never free text. The outcome is *succeeded* or *refused* with
 the refusal's error code, so a refused attempt, such as a failed sign-in, is audited too; writing it so
 that the refusal's rollback doesn't lose it is the application layer's job ([ADR-110]). The use case
-records the refusal that leaves its `Change` through Audit's `Refusals` helper, and an adapter records
+records the refusal that leaves its `Change` through an Audit helper, and an adapter records
 a refusal no use case sees, such as a 401 or a lost race ([ADR-149], [ADR-150]). The record
 owns its retention, `AuditRecord.RETENTION`, a year on Israel's calendar. The application's database
 role (`app`) can only insert and read them, and may execute one database function, owned by `dispatchflow_owner`, that
@@ -918,7 +919,8 @@ it may also do two other things:
    contention the rule prevents, and it removes an asynchronous hop that could fail on its own. If two
    dispatchers request a solve at the same moment, the second save fails its version check, and the job
    it created rolls back with it.
-2. **Write technical records:** the audit record (NFR-23), the idempotency record (NFR-65), Spring
+2. **Write technical records:** a success's audit record (NFR-23; a refusal's is written after the
+   rollback, [ADR-149]), the idempotency record (NFR-65), Spring
    Modulith's event publications, and outbox rows such as geocoding requests.
 
 Nothing else. A change to a second existing aggregate always follows by an event (§7) or by a later

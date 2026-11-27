@@ -306,8 +306,8 @@ The domain document's §3 is the full set of rules. In Java they come down to th
   reads of a `Change`, and in no other layer; it is the only Spring annotation allowed in this one. `@Retryable` sits in the adapter
   that makes the outside call, not here.
 - Each changing use case writes its audit record through the `AuditLog` port: a success in its
-  change's transaction, a refusal once that transaction has rolled back, through Audit's `Refusals`
-  helper (NFR-23, NFR-93, [ADR-149](../ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md), [ADR-150](../ADRs/ADR-150-one-audit-helper-records-the-refusals-a-use-case-sees-and-the-contracts-handler-records-a-changing-call-it-refuses.md)).
+  change's transaction, a refusal once that transaction has rolled back, through an Audit helper
+  (NFR-23, NFR-93, [ADR-149](../ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md), [ADR-150](../ADRs/ADR-150-one-audit-helper-records-the-refusals-a-use-case-sees-and-the-contracts-handler-records-a-changing-call-it-refuses.md)).
   Audit records never carry personal data (NFR-94).
 
 ### 6.3 Persistence

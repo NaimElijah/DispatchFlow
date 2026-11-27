@@ -397,7 +397,7 @@ DL [§3.3](domain_layer_design.md#33-value-objects) lists what each checks and t
 
 Most of the 20 roots follow one pattern. The clearest small example with an event is `Driver`
 (`core/fleet/domain/driver/Driver.java`, 428 lines). `Alert` (`core/liveops/domain/alert/Alert.java`,
-301 lines) is a small root that raises none.
+329 lines) is a small root that raises none.
 
 ```mermaid
 classDiagram
@@ -613,8 +613,8 @@ classDiagram
   `requireFreshStepUp` refuses an Admin-only operation once `STEP_UP_LIFETIME` (5 minutes) has passed
   since the password was last given. An Admin-only use case calls it rather than checking by itself.
 - **Events:** `SessionsRevoked` and `AccountAnonymized`, both raised by `UserAccount`.
-- **Start reading:** `CompanyProfile.java` (162 lines) for the pattern, then `Session.java` (693, the
-  refresh-token chain), then `UserAccount.java` (853). Tests: `core-test/access/domain/account/`
+- **Start reading:** `CompanyProfile.java` (162 lines) for the pattern, then `Session.java` (698, the
+  refresh-token chain), then `UserAccount.java` (857). Tests: `core-test/access/domain/account/`
   (`UserAccountTest`, `UserAccountLifecycleTest`, `CapabilityMatrixTest`), `session/` (`SessionTest`,
   `SessionLifecycleTest`) and `companyprofile/`.
 
@@ -717,8 +717,8 @@ classDiagram
 - **Events:** `DriverRetired`, raised by `Driver.retire`. `Driver.anonymize` and
   `anonymizeWithAccount` raise none; the second one is called from the listener for Access's
   `AccountAnonymized`.
-- **Start reading:** `Driver.java` (§4 above), then `FleetRegister.java` (427), then `DayRoster.java`
-  (506). Tests: `core-test/fleet/domain/driver/DriverTest`, `register/FleetRegisterTest`,
+- **Start reading:** `Driver.java` (§4 above), then `FleetRegister.java` (432), then `DayRoster.java`
+  (510). Tests: `core-test/fleet/domain/driver/DriverTest`, `register/FleetRegisterTest`,
   `roster/DayRosterTest`.
 
 ### 5.3 Customers & Orders
@@ -837,7 +837,7 @@ classDiagram
   [§9.4](domain_layer_design.md#94-importbatch).
 - **Events:** `OrderCancelled`, `OrderRescheduled` and `OrderPutBack`, all raised by `Order`.
 - **Start reading:** `Order.java` (689) with `OrderStatus.java` and `DateCapacity.java`, then
-  `Customer.java` (624), then `ImportBatch.java` (554). Tests: `core-test/orders/domain/` (`OrderTest`,
+  `Customer.java` (624), then `ImportBatch.java` (558). Tests: `core-test/orders/domain/` (`OrderTest`,
   `OrderStatusTest`, `CustomerTest`, `ImportBatchTest`, `CustomerMatchTest`, `NormalizedAddressTest`),
   with builders `OrderBuilder`, `CustomerBuilder`, `ImportBatchBuilder`.
 
@@ -1013,8 +1013,8 @@ records), `DroppedOrder`, `ExcludedVehicle` and `ExclusionCause`, which `solutio
 - **Events** (`core/planning/events/`): `PlanPublished`, `PlanRevised`, `RouteHandedOver`, `PlanCancelled`
   from `Plan`; `SolveSucceeded`, `SolveFailed` from `SolveJob`. The package also holds the enums these
   events use: `Lane`, `RevisionCause`, `SolveFailureReason`, `WithdrawalCause`.
-- **Start reading:** `SolveJob.java` (704) and `ReoptimizationProposal.java` (566) first. Then `Plan.java`
-  (2,711 lines) by section: its source has banner comments (`// ---- Solving ----`), and its tests are split
+- **Start reading:** `SolveJob.java` (711) and `ReoptimizationProposal.java` (581) first. Then `Plan.java`
+  (2,718 lines) by section: its source has banner comments (`// ---- Solving ----`), and its tests are split
   by topic, so read a section beside its test. Tests: `core-test/planning/domain/plan/`
   (`PlanLifecycleTest`, `PlanSolvingTest`, `PlanEditingTest`, `PlanPublishingTest`, `PlanPublishedTest`,
   `PlanRoutesAndFactsTest`, `PlanSequenceTest`, `PlanQueriesTest`, `PlanPendingRevisionTest`,
@@ -1181,7 +1181,7 @@ classDiagram
   [§4.5](domain_layer_design.md#45-live-operations)).
 - **Events** (`core/liveops/events/`): `OutcomeRecorded` and `PutBackSuperseded` from `Delivery`;
   `RouteStarted` from `RouteRun.start`. Enums beside them: `OutcomeKind`, `RunStartCause`.
-- **Start reading:** `Alert.java` (329), `RouteRun.java` (427), then `Delivery.java` (811) with
+- **Start reading:** `Alert.java` (329), `RouteRun.java` (431), then `Delivery.java` (823) with
   `DeliveryInvariants.java`. Tests: `core-test/liveops/domain/alert/AlertTest`, `routerun/RouteRunTest`,
   `delivery/` (`DeliveryLifecycleTest`, `DeliveryReportsTest`, `DeliveryCorrectionTest`,
   `DeliveryRefusalsTest`, `DeliverySequenceTest`, `ArrivalProjectionTest`).
@@ -1287,8 +1287,8 @@ classDiagram
 - **`RatingRequest` has a status that is not stored.** `statusAt(now)` returns `OPEN`, `RATED` or
   `CLOSED`, and it is closed once 48 hours have passed (`ANSWER_WINDOW`).
 - **Event:** `RatingReceived`, raised by `RatingRequest.answer` (`core/messaging/events/`).
-- **Start reading:** `MessagingSettings.java` (146), `RatingRequest.java` (439), then `StopMessages.java`
-  (656). Tests: `core-test/messaging/domain/message/` (`StopMessagesTriggersTest`,
+- **Start reading:** `MessagingSettings.java` (146), `RatingRequest.java` (444), then `StopMessages.java`
+  (657). Tests: `core-test/messaging/domain/message/` (`StopMessagesTriggersTest`,
   `StopMessagesSendingTest`), `rating/` (`RatingRequestTest`, `ReplyTest`), `settings/`, and the root
   (`MessageTextTest`, `OptOutStatusTest`).
 
@@ -1356,7 +1356,7 @@ classDiagram
 - **`WithdrawalCause` here is Reporting's own copy**, mapped from Planning's `WithdrawalCause` event enum
   when `PlanRevised` is heard (§11).
 - **No events and no personal data.**
-- **Start reading:** `OnTimeRate.java` (87), then `baseline/Baseline.java` (401). Tests: `core-test/reporting/domain/`
+- **Start reading:** `OnTimeRate.java` (87), then `baseline/Baseline.java` (414). Tests: `core-test/reporting/domain/`
   (`OnTimeRateTest`, `PlannedOnTimeRateTest`, and in `baseline/`, `BaselineTest` and `WithdrawnFleetTest`).
 
 ### 5.8 Audit
