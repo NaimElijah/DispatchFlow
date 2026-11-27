@@ -99,7 +99,7 @@ Audit without a cycle ([ADR-040]).
 | Upstream | Downstream | Relationship | How they talk |
 |---|---|---|---|
 | Access | Every core module | Open host for identity; the others conform to its account IDs and roles | The `Actor` value; Access's `Accounts` query; for Live Operations also the `SessionContacts` query, which answers whether any session of an account made contact within a window (BR-132) |
-| Audit | Every core module | Open host | `AuditLog.record`, in the same transaction as the change (NFR-23) |
+| Audit | Every core module | Open host | `AuditLog.succeeded`, in the same transaction as the change, and `AuditLog.refused`, once that transaction has rolled back (NFR-23, [ADR-149]) |
 | Access | Fleet | Customer and supplier; shared identity: a `Driver` has the ID of the driver's account | Fleet asks `Accounts` whether an account is active and holds the Driver role; Fleet's `DriverRetired` listener calls Access's API to remove the Driver role (FR-307, [ADR-103]); Fleet's `AccountAnonymized` listener anonymizes the driver record (NFR-258, [ADR-103]) |
 | Fleet | Planning | Customer and supplier | Planning reads the roster and the fleet register through Fleet's API, translating them into its own values; calls `MoveVehicleWithRoute`; implements Fleet's `RecordUsage` |
 | Customers & Orders | Planning | Customer and supplier | Planning reads `OrdersForDate`; hears `OrderCancelled`, `OrderRescheduled` and `OrderPutBack` ([ADR-115]); implements `OrderPlacement` and `RecordUsage` |
@@ -818,16 +818,19 @@ personal data, so it has no retention period of its own: a baseline stays with i
 
 ### 4.8 Audit
 
-Audit records are records (§3.2), written through `AuditLog` in the transaction of the change they
-describe (NFR-23). They never carry personal data (NFR-94). An `AuditRecord` holds NFR-93's fields and
+Audit records are records (§3.2), written through `AuditLog`: a success in the transaction of the
+change it describes, a refusal once that transaction has rolled back (NFR-23, [ADR-149]). They never carry personal data (NFR-94). An `AuditRecord` holds NFR-93's fields and
 nothing else: when, the acting user and session when known, the app and its version as the client
 declares them, the operation, the records it names, its outcome and its trace ID. Each is an ID, a
 code, an enum, a number or an instant, never free text. The outcome is *succeeded* or *refused* with
 the refusal's error code, so a refused attempt, such as a failed sign-in, is audited too; writing it so
-that the refusal's rollback doesn't lose it is the application layer's job ([ADR-110]). The record
+that the refusal's rollback doesn't lose it is the application layer's job ([ADR-110]). The use case
+records the refusal that leaves its `Change` through Audit's `Refusals` helper, and an adapter records
+a refusal no use case sees, such as a 401 or a lost race ([ADR-149], [ADR-150]). The record
 owns its retention, `AuditRecord.RETENTION`, a year on Israel's calendar. The application's database
 role (`app`) can only insert and read them, and may execute one database function, owned by `dispatchflow_owner`, that
-deletes only audit records older than 1 year and computes the cutoff itself. The core's nightly retention
+deletes only audit records older than 1 year, counted back from the time it runs in Israel local
+time, and computes the cutoff itself ([ADR-149]). The core's nightly retention
 job calls it (§10.3), so no separate step runs and the owner credential stays deploy-only (NFR-258,
 [ADR-075], [ADR-041]).
 
@@ -1790,3 +1793,5 @@ Nothing. These ADRs record the decisions of this document:
 [ADR-126]: ../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md
 [ADR-128]: ../../ADRs/ADR-128-the-persistence-rules-the-mapping-settled-after-adr-127.md
 [ADR-139]: ../../ADRs/ADR-139-govmap-geocoding-comes-into-the-alpha.md
+[ADR-149]: ../../ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md
+[ADR-150]: ../../ADRs/ADR-150-one-audit-helper-records-the-refusals-a-use-case-sees-and-the-contracts-handler-records-a-changing-call-it-refuses.md
