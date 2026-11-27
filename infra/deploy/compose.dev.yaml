@@ -1,5 +1,6 @@
 # The development stack on one laptop (ADR-042, as ADR-151 amends it): PostgreSQL, the one-shot
-# migrate step, the core, the optimizer and the web app's dev server, each with a health check.
+# migrate step, the core, the optimizer, the map's tiles and the web app's dev server, each with a
+# health check.
 #
 #   cp infra/deploy/.env.example infra/deploy/.env    # then fill in its three passwords
 #   docker compose -f infra/deploy/compose.dev.yaml up --build --watch
@@ -7,7 +8,8 @@
 # --watch is Compose Watch: an edit under the web app, the shared web packages or the optimizer's
 # src/ is copied into its container, where Vite and uvicorn reload it, and a changed lockfile
 # rebuilds that image. A change to the core needs `up --build` again. The web app is on
-# http://localhost:5173, and proxies /api/ to the core on its own origin (ADR-148).
+# http://localhost:5173, and proxies /api/ to the core on its own origin (ADR-148), and /map/ to the
+# tiles service, which serves what `just data` builds; until it has run, the map has no files.
 #
 # Rules for every service here, those still to come included:
 # - Every published port binds 127.0.0.1, written as 127.0.0.1:<host port>:<container port>: the
@@ -21,8 +23,8 @@
 #   setting that is no secret gets its value here, as ${KEY:-value}, so a .env with only its
 #   passwords filled starts the stack; a secret gets no default.
 #
-# Still to join: osrm (#168, 5000), tiles (#152, 8090) and wiremock (#165, 8089), from ADR-042's
-# table, and Mailpit with the first ticket that sends an email.
+# Still to join: osrm (#168, 5000) and wiremock (#165, 8089), from ADR-042's table, and Mailpit
+# with the first ticket that sends an email.
 
 name: dispatchflow
 
@@ -192,6 +194,35 @@ services:
           path: ../../src/backend/optimizer/pyproject.toml
     logging: *logging
 
+  tiles:
+    # The map's files from data/tiles/, which `just data` builds (#152): Caddy's file server answers
+    # the Range requests the PMTiles reader sends with 206. The web app's dev server proxies /map/
+    # here, so the browser loads them from the app's own origin (ADR-069). The justfile pins the
+    # same tag by digest, for the `just data` steps that need a shell.
+    image: caddy:2.11.9-alpine
+    <<: *hardening
+    # nobody: the image runs as root otherwise, and port 8090 needs no privilege.
+    user: "65534:65534"
+    volumes:
+      - ./tiles/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../../data/tiles:/srv:ro
+    ports:
+      - 127.0.0.1:8090:8090
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -q
+        - -O
+        - /dev/null
+        - http://127.0.0.1:8090/healthz
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+      start_interval: 1s
+    logging: *logging
+
   web:
     <<: *hardening
     build:
@@ -200,6 +231,8 @@ services:
     environment:
       # vite.config.ts proxies /api/ here, keeping the browser's Host and Sec-Fetch-Site (ADR-148).
       DISPATCHFLOW_CORE_URL: http://core:8080
+      # vite.config.ts proxies /map/ here.
+      DISPATCHFLOW_TILES_URL: http://tiles:8090
     init: true
     ports:
       - 127.0.0.1:5173:5173

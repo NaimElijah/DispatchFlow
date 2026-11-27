@@ -1,0 +1,18 @@
+{
+  "type": "Feature",
+  "properties": {
+    "name": "Be'er Sheva, Omer and Lehavim"
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [34.71, 31.19],
+        [34.9, 31.19],
+        [34.9, 31.39],
+        [34.71, 31.39],
+        [34.71, 31.19]
+      ]
+    ]
+  }
+}

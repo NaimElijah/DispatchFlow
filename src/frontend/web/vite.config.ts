@@ -31,6 +31,16 @@ const FONT_FILE = /\.(woff2?|ttf|otf)$/
  */
 const CORE_URL = process.env.DISPATCHFLOW_CORE_URL || 'http://127.0.0.1:8080'
 
+/**
+ * The tiles service, which serves the map's files that `just data` builds (#152). The dev server
+ * and `vite preview` proxy `/map/` to it with the prefix removed, so the browser loads
+ * `/map/israel.pmtiles`, `/map/fonts/…` and `/map/sprites/…` from the app's own origin and the
+ * policy's `'self'` covers them. The service publishes this default on the laptop; the Compose web
+ * container sets the service's address. An empty value counts as unset.
+ */
+const TILES_URL = process.env.DISPATCHFLOW_TILES_URL || 'http://127.0.0.1:8090'
+const MAP_PREFIX = /^\/map/
+
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -39,6 +49,7 @@ export default defineConfig({
     cors: false,
     proxy: {
       '/api/': { target: CORE_URL },
+      '/map/': { target: TILES_URL, rewrite: (path) => path.replace(MAP_PREFIX, '') },
     },
   },
   build: {

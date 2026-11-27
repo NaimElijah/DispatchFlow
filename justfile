@@ -15,6 +15,27 @@ maven_mirror := "https://maven-central.storage-download.googleapis.com/maven2"
 # it gets their tools at the versions src/backend/optimizer/uv.lock pins.
 ruff := "uvx --from ruff==0.17.5 ruff"
 mypy := "uvx --python 3.14 --from mypy==2.4.1 mypy"
+# The map's files, which `just data` builds (#152). Protomaps keeps a daily build for a week but the
+# last build of each basemap version for good (https://build-metadata.protomaps.dev/builds.json),
+# so the pin names the newest such build, 4.15.1's, and moves only when a newer version's last build
+# is kept: a daily pin would stop downloading a week later. The fonts and sprite come from a pinned
+# commit of protomaps/basemaps-assets. Both downloads are checked against their SHA-256, because a
+# name or a commit pins the address, not the bytes; the cut is byte-for-byte reproducible from the
+# same build, region and pmtiles image, so a changed source fails the check. A moved pin, a new
+# pmtiles image or a changed boundary needs both hashes taken again from a clean run, in a committed
+# change: `just name=value data` overrides a pin for one run only. The Caddy image is the tiles
+# service's, in compose.dev.yaml; its sh, wget and tar run the steps the pmtiles image can't, as it
+# has no shell.
+pmtiles_image := "protomaps/go-pmtiles:v1.31.2@sha256:06574f01f55a78f78f887bc7ebf729a5c093c0d6e17d9876300cfcb0758b59d3"
+protomaps_build := "20260811"
+protomaps_basemap_version := "4.15.1"
+israel_tiles_sha256 := "f0c0d38f8473a029be9fd8212c9fb1db5d8c6600335bf9142e1366562fc8f359"
+basemaps_assets_commit := "028c18f713baecad011301ff7a69acc39bcc2ae7"
+basemaps_assets_sha256 := "57e40e8c512bd8042d0a3a251f19d0d1c8523ad963c666c3c6643bada4dc92d0"
+caddy_image := "caddy:2.11.9-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0"
+# `just data`'s containers fetch and unpack files from outside, so they run as nobody, holding no
+# capability and unable to gain one, as the stack's own services do (ADR-019).
+data_container := "--rm --user 65534:65534 --cap-drop ALL --security-opt no-new-privileges:true"
 
 # List every recipe.
 default:
@@ -169,6 +190,25 @@ infra-check:
 infra-format:
     {{ ruff }} format infra/deploy
     {{ ruff }} check --fix infra/deploy
+
+# --- data: the files the development stack serves, in data/, which git ignores ---
+
+# Build the map's files into data/tiles/ for compose.dev.yaml's tiles service: Be'er Sheva's tiles,
+# cut from Protomaps' build to infra/osrm/beer-sheva.geojson, the style's fonts and its light sprite,
+# and BUILD, which names their sources and hashes. Each step runs in a container, so the recipe is
+# the same on Windows and macOS (NFR-208). Needs Docker and the network.
+# Each step writes .part files beside the ones the stack serves, and only the last swaps them in,
+# after every check passed, so a failed run leaves the served files and their BUILD as they were.
+#   1. Remove a failed run's .part files, fetch the fonts' archive, check its hash, and copy the
+#      fonts and sprite with links resolved: the tiles service follows a link anywhere in its
+#      container, so data/tiles/ holds none.
+#   2. Cut the tiles.
+#   3. Check the tiles' hash, or remove every .part file and stop; then swap the three in and
+#      write BUILD last, so it names what is there.
+data:
+    docker run {{ data_container }} -v "{{ justfile_directory() }}/data/tiles:/tiles" --entrypoint sh {{ caddy_image }} -c 'set -eo pipefail; rm -rf /tiles/fonts.part /tiles/sprites.part /tiles/israel.pmtiles.part; wget -q -O /tmp/assets.tar.gz https://codeload.github.com/protomaps/basemaps-assets/tar.gz/{{ basemaps_assets_commit }}; [ $(sha256sum /tmp/assets.tar.gz | cut -c1-64) = {{ basemaps_assets_sha256 }} ] || { echo the fonts archive does not match basemaps_assets_sha256 >&2; exit 1; }; tar -xzf /tmp/assets.tar.gz -C /tmp; mkdir /tiles/sprites.part; cp -RL /tmp/basemaps-assets-{{ basemaps_assets_commit }}/fonts /tiles/fonts.part; cp -L /tmp/basemaps-assets-{{ basemaps_assets_commit }}/sprites/v4/light* /tiles/sprites.part/'
+    docker run {{ data_container }} -v "{{ justfile_directory() }}/infra/osrm:/region:ro" -v "{{ justfile_directory() }}/data/tiles:/tiles" {{ pmtiles_image }} extract https://build.protomaps.com/{{ protomaps_build }}.pmtiles /tiles/israel.pmtiles.part --region=/region/beer-sheva.geojson --quiet
+    docker run {{ data_container }} -v "{{ justfile_directory() }}/data/tiles:/tiles" --entrypoint sh {{ caddy_image }} -c 'set -eo pipefail; [ $(sha256sum /tiles/israel.pmtiles.part | cut -c1-64) = {{ israel_tiles_sha256 }} ] || { rm -rf /tiles/fonts.part /tiles/sprites.part /tiles/israel.pmtiles.part; echo the cut tiles do not match israel_tiles_sha256 >&2; exit 1; }; rm -rf /tiles/fonts /tiles/sprites; mv /tiles/fonts.part /tiles/fonts; mv /tiles/sprites.part /tiles/sprites; mv /tiles/israel.pmtiles.part /tiles/israel.pmtiles; printf protomaps-build={{ protomaps_build }}\\nprotomaps-basemap={{ protomaps_basemap_version }}\\nisrael-tiles-sha256={{ israel_tiles_sha256 }}\\nbasemaps-assets={{ basemaps_assets_commit }}\\nbasemaps-assets-sha256={{ basemaps_assets_sha256 }}\\n > /tiles/BUILD'
 
 # Scan every lockfile and the pom for known vulnerabilities. Needs Docker.
 audit:

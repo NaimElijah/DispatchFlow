@@ -304,12 +304,20 @@ calls exist.
 | PostgreSQL 18.6 | `core` | The database, one schema per module, each with tables. The `migrate` command runs the Flyway migrations as `dispatchflow_owner` before the core starts, and the core connects as `app` ([ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md), [ADR-145](../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md)); `infra/deploy/postgres/initdb/create-roles.sql` creates both roles in a new database. In a Testcontainers container for `*IT` tests and `just core-run`, which need Docker ([ADR-014](../ADRs/ADR-014-real-dependencies-in-containers-for-tests-and-local-runs.md), superseded by [ADR-042](../ADRs/ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md): the tests keep Testcontainers, and `just core-run` stays ([ADR-151](../ADRs/ADR-151-the-dev-stack-runs-the-core-as-a-compose-service-and-the-core-checks-its-database-session.md))). The Testcontainers container runs that init script, and Flyway runs in the core's JVM there, as the owner. In the development stack, `infra/deploy/compose.dev.yaml`'s `postgres` service runs it, with #250's log and message settings, and its `migrate` service runs the migrations as the owner before `core` starts. Elsewhere `core` and `migrate` read `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` from the environment |
 | PyVRP | `research` | A reference solver for benchmarks. Never installed in `optimizer` |
 
-No other outside service is called. `core` and `optimizer` each have a `Dockerfile`, and neither
+No other outside service is called at run time. `just data` downloads, once, from two sources
+outside Israel, and sends them no company or personal data: the tiles it cuts from the pinned Protomaps build
+(`build.protomaps.com`) and the archive of the pinned commit of `protomaps/basemaps-assets`
+(GitHub), each checked against its SHA-256. `core` and `optimizer` each have a `Dockerfile`, and neither
 runs as root ([ADR-019](../ADRs/ADR-019-container-images-run-as-non-root.md)).
 `infra/deploy/compose.dev.yaml` runs PostgreSQL, the `migrate` step, the core under the `dev`
-profile, the optimizer and the web app's dev server (`src/frontend/web/Dockerfile.dev`) on a laptop,
+profile, the optimizer, the `tiles` service (Caddy 2.11.9, serving the map's files from
+`data/tiles/`) and the web app's dev server (`src/frontend/web/Dockerfile.dev`) on a laptop,
 each service with only its own credentials and every port bound to `127.0.0.1`. The web app's
-`vite.config.ts` proxies `/api/` to the core, keeping the browser's `Host` and `Sec-Fetch-Site`.
+`vite.config.ts` proxies `/api/` to the core, keeping the browser's `Host` and `Sec-Fetch-Site`,
+and `/map/` to the `tiles` service with the prefix removed. `just data` builds the map's files:
+Be'er Sheva's tiles, cut with the `pmtiles` CLI from a pinned Protomaps build to
+`infra/osrm/beer-sheva.geojson`, and the style's fonts and sprite from a pinned commit of
+`protomaps/basemaps-assets`.
 `just infra-check` validates the file and starts the whole stack in a throwaway project, in
 `just check` and CI. At startup the core's `DatabaseSessionGuard` refuses a database role with an
 attribute that passes the grants, one that owns an object or belongs to a role that does, and a
