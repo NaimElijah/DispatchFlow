@@ -14,7 +14,8 @@ interface Row {
 
 const helper = createDataTableColumns<Row>()
 const columns = helper.columns([
-  helper.accessor('row', { header: 'Row' }),
+  // A number has no one right text, so even a row number writes itself out in a cell of its own.
+  helper.accessor('row', { header: 'Row', cell: ({ getValue }) => String(getValue()) }),
   helper.accessor('customer', { header: 'Customer' }),
   helper.accessor('address', { header: 'Address' }),
 ])
@@ -73,16 +74,23 @@ describe('DataTable', () => {
     }
   })
 
-  test('GivenAColumnOfDecimalsOrDatesWithNoCellOfItsOwn_WhenShown_ThenTheTableFailsNamingTheColumn', () => {
+  test('GivenAColumnOfNumbersOrDatesWithNoCellOfItsOwn_WhenShown_ThenTheTableFailsNamingTheColumn', () => {
     interface Delivery {
       readonly id: string
       readonly weightKg: number
+      readonly stops: number
       readonly due: Date
     }
     const deliveries = createDataTableColumns<Delivery>()
-    const delivery: Delivery = { id: 'd1', weightKg: 12.5, due: new Date('2026-11-27T08:00:00Z') }
+    // A whole number fails too, so a weight column fails on its first render, not on 12.5 kg.
+    const delivery: Delivery = {
+      id: 'd1',
+      weightKg: 12.5,
+      stops: 3,
+      due: new Date('2026-11-27T08:00:00Z'),
+    }
 
-    for (const key of ['weightKg', 'due'] as const) {
+    for (const key of ['weightKg', 'stops', 'due'] as const) {
       expect(
         () =>
           renderComponent(

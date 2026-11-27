@@ -8,15 +8,15 @@ import {
 
 /**
  * How a column with no `cell` of its own shows its value: as text inside `<bdi>`, so an address or
- * a name with numbers keeps its reading order whatever the table's direction (NFR-136). A whole
- * number, such as a row number, shows as its digits, and a missing value, such as an anonymized
- * customer's name, shows nothing.
+ * a name with numbers keeps its reading order whatever the table's direction (NFR-136). A missing
+ * value, such as an anonymized customer's name, shows nothing.
  *
  * Any other value has no one right text: a weight needs its unit, and a date its zone. It fails the
- * table, naming the column, until the column has a cell that writes it through
- * `@dispatchflow/formatters`, rather than show `12.5` or a date in the device's own zone.
+ * table, naming the column, until the column has a cell that writes it, through
+ * `@dispatchflow/formatters` or as plain digits for a row number. A number fails whatever its
+ * value, so a weight column fails on its first render, not on the first row that weighs 12.5 kg.
  *
- * @throws Error when the value is neither text, a whole number nor missing
+ * @throws Error when the value is neither text nor missing
  */
 function textCell<TRow extends RowData>({
   getValue,
@@ -26,11 +26,11 @@ function textCell<TRow extends RowData>({
   if (value === null || value === undefined) {
     return null
   }
-  if (typeof value === 'string' || Number.isInteger(value)) {
-    return <bdi>{String(value)}</bdi>
+  if (typeof value === 'string') {
+    return <bdi>{value}</bdi>
   }
   throw new Error(
-    `DataTable's column "${column.id}" holds a value that is neither text nor a whole number: give the column a cell that writes it through @dispatchflow/formatters`,
+    `DataTable's column "${column.id}" holds a value that is not text: give the column a cell that writes it, through @dispatchflow/formatters`,
   )
 }
 
