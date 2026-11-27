@@ -19,14 +19,18 @@ export type SchemaFormApi<TSchema extends FormSchema> = UseFormReturn<
 /**
  * A React Hook Form form checked by a schema from `@dispatchflow/schemas` (TS §10). Each refusal
  * the schema raises reaches its field already translated, with its next step, from the same texts
- * as the server's refusals: the schema names a code, and this form's error map words it.
+ * as the server's refusals: the schema names a code, and this form's error map words it. Focus on a
+ * refusal is `SchemaForm`'s, which moves it in reading order, so React Hook Form moves none.
  *
  * @param schema the form's schema; keep it at module scope, as the package exports it
  * @param options React Hook Form's options, such as the `defaultValues` the view was read with
  */
 export function useSchemaForm<TSchema extends FormSchema>(
   schema: TSchema,
-  options: Omit<UseFormProps<z.input<TSchema>, unknown, z.output<TSchema>>, 'resolver'> = {},
+  options: Omit<
+    UseFormProps<z.input<TSchema>, unknown, z.output<TSchema>>,
+    'resolver' | 'shouldFocusError'
+  > = {},
 ): SchemaFormApi<TSchema> {
   const { t } = useTranslation('problems')
   const resolver = useMemo(
@@ -39,5 +43,9 @@ export function useSchemaForm<TSchema extends FormSchema>(
       }),
     [schema, t],
   )
-  return useForm<z.input<TSchema>, unknown, z.output<TSchema>>({ ...options, resolver })
+  return useForm<z.input<TSchema>, unknown, z.output<TSchema>>({
+    ...options,
+    resolver,
+    shouldFocusError: false,
+  })
 }

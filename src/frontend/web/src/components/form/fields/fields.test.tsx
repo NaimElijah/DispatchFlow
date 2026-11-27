@@ -5,7 +5,7 @@ import {
   timeOfDay,
   weightKg,
 } from '@dispatchflow/schemas'
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { describe, expect, test } from 'vitest'
 import { z } from 'zod'
@@ -158,6 +158,73 @@ describe('fields', () => {
 
     expect(hours).toHaveProperty('value', '')
     expect(minutes).toHaveProperty('value', '')
+  })
+
+  test('GivenAWindowWithOnlyItsStart_WhenSaved_ThenFocusMovesToItAndEachBoxSaysWhy', async () => {
+    const user = userEvent.setup()
+    renderComponent(<TimesForm />)
+    const bothOrNeither =
+      'The window has only one of its two times. Fill in both times, or leave both empty.'
+
+    await user.type(screen.getByRole('spinbutton', { name: 'Opens at, hours' }), '0900')
+    await user.type(screen.getByRole('spinbutton', { name: 'From, hours' }), '0800')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    // The weight and the date are refused too, but the window comes first in reading order.
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole('spinbutton', { name: 'From, hours', description: bothOrNeither }),
+      ),
+    )
+    for (const name of ['From, minutes', 'To, hours', 'To, minutes']) {
+      expect(screen.getByRole('spinbutton', { name, description: bothOrNeither })).toBeDefined()
+    }
+  })
+
+  test('GivenARefusedSaveWhoseFirstRefusalIsAChoice_WhenSaved_ThenFocusMovesToTheChoice', async () => {
+    const user = userEvent.setup()
+    renderComponent(<ExampleForm etag={null} />)
+    await user.type(screen.getByRole('textbox', { name: strings.name }), 'Ada')
+    await user.type(screen.getByRole('textbox', { name: strings.phone }), '0501234567')
+
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole('combobox', { name: strings.depot, description: REQUIRED }),
+      ),
+    )
+  })
+
+  test('GivenARefusedSaveWhoseFirstRefusalIsADate_WhenSaved_ThenFocusMovesToTheDate', async () => {
+    const user = userEvent.setup()
+    renderComponent(<TimesForm />)
+    await user.type(screen.getByRole('spinbutton', { name: 'Opens at, hours' }), '0900')
+    await user.type(screen.getByRole('textbox', { name: 'Weight (kg)' }), '3')
+
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: 'Delivery date', description: REQUIRED }),
+      ),
+    )
+  })
+
+  test('GivenAWindowRefusedForHavingOnlyItsStart_WhenItsEndIsFilledIn_ThenTheRefusalGoes', async () => {
+    const user = userEvent.setup()
+    renderComponent(<TimesForm />)
+    await user.type(screen.getByRole('spinbutton', { name: 'From, hours' }), '0800')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    const group = await screen.findByRole('group', { name: 'Delivery window' })
+    expect(within(group).getByText(/only one of its two times/)).toBeDefined()
+
+    await user.type(screen.getByRole('spinbutton', { name: 'To, hours' }), '1200')
+
+    await waitFor(() => expect(within(group).queryByText(/only one of its two times/)).toBeNull())
+    for (const box of within(group).getAllByRole('spinbutton')) {
+      expect(box.getAttribute('aria-invalid')).toBe('false')
+    }
   })
 
   test('GivenHebrew_WhenATimeIsShown_ThenItsBoxesStillRunHoursThenMinutesLeftToRight', () => {
