@@ -45,3 +45,7 @@ permissions:
     build: false
   '@tanstack/react-router':
     skills: false
+  '@tanstack/react-table':
+    skills: false
+  '@tanstack/table-core':
+    skills: false

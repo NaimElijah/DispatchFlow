@@ -4,16 +4,18 @@
  * `he/common.ts` must match key for key.
  *
  * In `timeOnDate`, `<date>` marks where the screen puts the date's own element, so each language
- * keeps its own word order around it.
+ * keeps its own word order around it. `withUnit` names a number field with its unit, and `timeOfDay`
+ * names a time field's two boxes after the field, so a screen reader says which time they set.
  */
 export const common = {
   save: 'Save',
   saved: 'Saved.',
   reload: 'Reload',
   tryAgain: 'Try again',
+  withUnit: '{{label}} ({{unit}})',
   timeOfDay: {
-    hours: 'Hours',
-    minutes: 'Minutes',
+    hours: '{{label}}, hours',
+    minutes: '{{label}}, minutes',
   },
   timeWindow: {
     start: 'From',

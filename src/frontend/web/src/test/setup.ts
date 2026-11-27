@@ -1,3 +1,4 @@
+import { notifications } from '@mantine/notifications'
 import { cleanup } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest'
 import { endTest, listen, server } from './server.ts'
@@ -19,9 +20,19 @@ window.matchMedia = (query: string): MediaQueryList => ({
   dispatchEvent: () => false,
 })
 
-// jsdom does not scroll, and says so on the console each time the router scrolls a new page to
-// its top. Nothing in a test depends on the scroll position.
+// jsdom does not scroll: it says so on the console each time the router scrolls a new page to its
+// top, and it has no scrollIntoView, which a select calls on the option the arrow keys reach.
+// Nothing in a test depends on the scroll position.
 window.scrollTo = () => undefined
+Element.prototype.scrollIntoView = () => undefined
+
+// jsdom has no ResizeObserver, and Mantine's select and time picker watch their sizes with one.
+// jsdom lays nothing out, so this one, as Mantine's Vitest guide gives it, never reports a size.
+window.ResizeObserver = class {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
 
 beforeAll(() => {
   listen()
@@ -55,6 +66,9 @@ afterEach(async () => {
   recordingFailure(errors, checkNoStyleElements)
   recordingFailure(errors, cleanup)
   removeStyleElements()
+  // Mantine keeps its notifications in one store for the whole page, which unmounting leaves full.
+  notifications.clean()
+  notifications.cleanQueue()
   // What the app writes outside its React tree, which unmounting leaves behind: the language
   // setting, the one thing it keeps in browser storage (ADR-143), and <html>'s language, direction
   // and the tab's title, so no test passes on what an earlier one set.

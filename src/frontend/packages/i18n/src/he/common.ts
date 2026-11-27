@@ -7,9 +7,10 @@ export const common: Strings<typeof english> = {
   saved: 'נשמר.',
   reload: 'טעינה מחדש',
   tryAgain: 'לנסות שוב',
+  withUnit: '{{label}} ({{unit}})',
   timeOfDay: {
-    hours: 'שעות',
-    minutes: 'דקות',
+    hours: '{{label}}, שעות',
+    minutes: '{{label}}, דקות',
   },
   timeWindow: {
     start: 'משעה',

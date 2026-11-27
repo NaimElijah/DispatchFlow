@@ -1,10 +1,8 @@
-import { DirectionProvider, MantineProvider } from '@mantine/core'
-import { QueryClientProvider, type QueryClient } from '@tanstack/react-query'
+import type { QueryClient } from '@tanstack/react-query'
 import { RouterProvider } from '@tanstack/react-router'
 import type { i18n } from 'i18next'
-import { I18nextProvider } from 'react-i18next'
 import { AppErrorBoundary } from './AppErrorBoundary.tsx'
-import { DocumentLanguage } from './DocumentLanguage.tsx'
+import { AppProviders } from './AppProviders.tsx'
 import type { AppRouter } from './router.ts'
 
 /** What the app runs on: `main.tsx` makes the browser's, and each test makes its own. */
@@ -20,28 +18,13 @@ export interface AppProps {
 /**
  * The web app's root: its providers, then the router, which renders the shell and every page,
  * all inside the last error boundary.
- *
- * Mantine's run-time `<style>` elements are off, because ADR-069's Content Security Policy blocks
- * every one; `src/styles/theme.css` carries what they would hold (ADR-143). Forcing the light colour
- * scheme also keeps Mantine from storing a colour-scheme choice in the browser.
  */
 export function App({ router, i18n, queryClient }: AppProps) {
   return (
     <AppErrorBoundary i18n={i18n}>
-      <I18nextProvider i18n={i18n}>
-        <QueryClientProvider client={queryClient}>
-          <DirectionProvider initialDirection={i18n.dir()}>
-            <MantineProvider
-              withCssVariables={false}
-              withGlobalClasses={false}
-              forceColorScheme="light"
-            >
-              <DocumentLanguage />
-              <RouterProvider router={router} />
-            </MantineProvider>
-          </DirectionProvider>
-        </QueryClientProvider>
-      </I18nextProvider>
+      <AppProviders i18n={i18n} queryClient={queryClient}>
+        <RouterProvider router={router} />
+      </AppProviders>
     </AppErrorBoundary>
   )
 }
