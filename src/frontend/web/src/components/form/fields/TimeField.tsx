@@ -1,5 +1,5 @@
 import { TimePicker } from '@mantine/dates'
-import { useId, useLayoutEffect, useRef, useState } from 'react'
+import { useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useController, type FieldPath, type FieldValues } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { useSchemaFormState } from '../schemaFormState.ts'
@@ -32,6 +32,10 @@ export interface TimeFieldProps<TValues extends FieldValues, TParsed = TValues> 
  * Mantine sets the boxes' `dir` to `ltr` itself. Each box is named after the field, and both are
  * tied to the field's error, which Mantine itself ties only to the picker's outer element, and to
  * the refusal of the group it sits in.
+ *
+ * It sits in a `SchemaForm`, which tells it of the form's resets: a reset to the empty text the
+ * field already holds changes no value, so the picker would keep a half-typed time. It throws
+ * outside one, as `useSchemaFormState` does.
  */
 export function TimeField<TValues extends FieldValues, TParsed = TValues>({
   control,
@@ -56,10 +60,11 @@ export function TimeField<TValues extends FieldValues, TParsed = TValues>({
   // coming back as a reset that empties every box. While the empty text is the picker's own, it
   // gets none back, so the other box keeps what was typed.
   const [sentEmpty, setSentEmpty] = useState(false)
-  // A form reset to the empty text the field already holds changes no value, so the picker would
-  // keep a half-typed time. The form counts its resets, and the picker remounts on each, on the
-  // form's value; focus that was in it moves to the new hours box.
-  const { resetCount } = useSchemaFormState()
+  // The picker remounts, on the form's value, on each reset that reaches the field; focus that was
+  // in it moves to the new hours box, whose id stays the same so a notice can find it again.
+  const { resets } = useSchemaFormState()
+  const resetCount = useSyncExternalStore(resets.subscribe, () => resets.countFor(name))
+  const hoursId = `${id}-hours`
   const [resetsSeen, setResetsSeen] = useState(resetCount)
   if (resetsSeen !== resetCount) {
     setResetsSeen(resetCount)
@@ -113,7 +118,8 @@ export function TimeField<TValues extends FieldValues, TParsed = TValues>({
       }}
       hoursInputLabel={t('timeOfDay.hours', { label })}
       minutesInputLabel={t('timeOfDay.minutes', { label })}
-      hoursInputProps={boxProps}
+      hoursInputProps={{ ...boxProps, id: hoursId }}
+      labelProps={{ htmlFor: hoursId }}
       minutesInputProps={boxProps}
     />
   )

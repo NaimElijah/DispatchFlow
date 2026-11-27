@@ -32,7 +32,8 @@ export interface TimeWindowFieldProps<TValues extends FieldValues, TParsed = TVa
  * From and a To time field. A refusal of the window as a whole, such as an end before the start or
  * only one of the two ends, shows once under the pair. It describes the group and each of the four
  * boxes, which it marks invalid, so the form's focus lands on the window's first box with the
- * reason. Once the form was sent, a change to either end checks the window again.
+ * reason. Once the form was sent, a change to either end checks the window again. Like its time
+ * fields, it sits in a `SchemaForm`, and throws outside one.
  */
 export function TimeWindowField<TValues extends FieldValues, TParsed = TValues>({
   control,

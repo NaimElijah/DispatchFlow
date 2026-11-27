@@ -7,6 +7,7 @@ import {
 } from '@dispatchflow/schemas'
 import { screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
+import { useEffect, useState } from 'react'
 import { describe, expect, onTestFinished, test, vi } from 'vitest'
 import { z } from 'zod'
 import { ExampleForm } from '../../../test/ExampleForm.tsx'
@@ -49,6 +50,51 @@ function TimesForm({ date = '' }: { readonly date?: string }) {
       <NumberField control={control} name="weightKg" label="Weight" unit="kg" decimals={2} />
       <DateField control={control} name="date" label="Delivery date" />
       <SaveButton />
+    </SchemaForm>
+  )
+}
+
+const noteAndTimeSchema = z.object({ note: z.string(), opensAt: z.string() })
+
+/** A form of a note and a time, with a button that resets each field on its own. */
+function TwoFieldForm() {
+  const form = useSchemaForm(noteAndTimeSchema, { defaultValues: { note: '', opensAt: '' } })
+
+  return (
+    <SchemaForm
+      form={form}
+      schema={noteAndTimeSchema}
+      save={{ isPending: false, error: null, reset: () => undefined }}
+      onSubmit={async () => undefined}
+    >
+      <TimeField control={form.control} name="opensAt" label="Opens at" />
+      <button type="button" onClick={() => form.resetField('note')}>
+        Reset the note
+      </button>
+      <button type="button" onClick={() => form.resetField('opensAt')}>
+        Reset the time
+      </button>
+    </SchemaForm>
+  )
+}
+
+/** A screen that puts its view into the form in an effect on the form, as the hooks lint asks. */
+function ReadIntoForm({ onReset }: { readonly onReset: () => void }) {
+  const form = useSchemaForm(noteAndTimeSchema)
+  const [view] = useState({ note: 'Ring twice', opensAt: '08:30' })
+  useEffect(() => {
+    form.reset(view)
+    onReset()
+  }, [view, form, onReset])
+
+  return (
+    <SchemaForm
+      form={form}
+      schema={noteAndTimeSchema}
+      save={{ isPending: false, error: null, reset: () => undefined }}
+      onSubmit={async () => undefined}
+    >
+      <TimeField control={form.control} name="opensAt" label="Opens at" />
     </SchemaForm>
   )
 }
@@ -294,6 +340,35 @@ describe('fields', () => {
       ),
     )
     expect(document.activeElement).toBe(screen.getByRole('spinbutton', { name: 'Opens at, hours' }))
+  })
+
+  test('GivenAHalfTypedTime_WhenAnotherFieldIsReset_ThenItKeepsWhatWasTyped', async () => {
+    const user = userEvent.setup()
+    renderComponent(<TwoFieldForm />)
+    await user.type(screen.getByRole('spinbutton', { name: 'Opens at, hours' }), '08')
+
+    await user.click(screen.getByRole('button', { name: 'Reset the note' }))
+    expect(screen.getByRole('spinbutton', { name: 'Opens at, hours' })).toHaveProperty(
+      'value',
+      '08',
+    )
+    await user.click(screen.getByRole('button', { name: 'Reset the time' }))
+
+    expect(screen.getByRole('spinbutton', { name: 'Opens at, hours' })).toHaveProperty('value', '')
+  })
+
+  test('GivenAScreenThatResetsInAnEffectOnItsForm_WhenItRenders_ThenItResetsOnceAndSettles', async () => {
+    const onReset = vi.fn()
+    renderComponent(<ReadIntoForm onReset={onReset} />)
+
+    await waitFor(() =>
+      expect(screen.getByRole('spinbutton', { name: 'Opens at, hours' })).toHaveProperty(
+        'value',
+        '08',
+      ),
+    )
+    // A form whose identity changed with each reset would reset again on every render.
+    expect(onReset).toHaveBeenCalledOnce()
   })
 
   test('GivenHebrew_WhenATimeIsShown_ThenItsBoxesStillRunHoursThenMinutesLeftToRight', () => {

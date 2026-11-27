@@ -7,6 +7,7 @@ import { RequestError, type RequestFailure } from '../../lib/problems.ts'
 import { ProblemMessage } from '../ProblemMessage.tsx'
 import { fieldErrorText } from '../../lib/problemText.ts'
 import { planProblem, type FieldFor } from './planProblem.ts'
+import type { FormResets } from './formResets.ts'
 import { SchemaFormStateContext } from './schemaFormState.ts'
 
 /**
@@ -32,7 +33,7 @@ export interface FormSave {
 /** What a form is made of. */
 export interface SchemaFormProps<TValues extends FieldValues, TParsed> {
   /** The form, from `useSchemaForm`, whose resets the form's fields are told of. */
-  readonly form: UseFormReturn<TValues, unknown, TParsed> & { readonly resetCount: number }
+  readonly form: UseFormReturn<TValues, unknown, TParsed> & { readonly resets: FormResets }
   /** The schema the form was made with, whose keys say which of a 400's pointers are its fields. */
   readonly schema: z.ZodType
   /**
@@ -134,7 +135,7 @@ export function SchemaForm<TValues extends FieldValues, TParsed>({
     })(event)
 
   return (
-    <SchemaFormStateContext value={{ pending: save.isPending, resetCount: form.resetCount }}>
+    <SchemaFormStateContext value={{ pending: save.isPending, resets: form.resets }}>
       <form
         ref={formElement}
         noValidate
