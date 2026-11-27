@@ -288,6 +288,15 @@ describe('fields', () => {
     expect(phone).toHaveProperty('value', '+972501234567')
   })
 
+  test('GivenAnyForm_WhenRendered_ThenItAndItsPhoneFieldAskTheBrowserToRememberNothing', () => {
+    renderComponent(<ExampleForm etag={null} />)
+
+    const phone = screen.getByRole('textbox', { name: strings.phone })
+    expect(phone.closest('form')?.getAttribute('autocomplete')).toBe('off')
+    // `tel` would offer the dispatcher's own number in a customer's field, even outside a form.
+    expect(phone.getAttribute('autocomplete')).toBe('off')
+  })
+
   test('GivenTheSelectsOptions_WhenOpened_ThenEachSitsInABdi', async () => {
     const user = userEvent.setup()
     renderComponent(<ExampleForm etag={null} />)
