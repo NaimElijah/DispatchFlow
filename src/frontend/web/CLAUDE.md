@@ -57,18 +57,18 @@ React 19, TypeScript 6.0, Vite 8, pnpm; TanStack Router and Query, Mantine 9, i1
 - Read the event stream with `fetch` and eventsource-parser, not the browser's `EventSource`, which
   cannot send an `Authorization` header ([TS §10]).
 - Build forms on `@dispatchflow/schemas`, refusals and row lists from `src/components/` ([ADR-153]).
-  Day.js only in `DatesLanguage.tsx` (ESLint); `lib/problems.ts` types `Problem` by hand until #148.
+  ESLint keeps Day.js in `DatesLanguage.tsx` and takes Zod from `@dispatchflow/schemas` only.
+  `lib/problems.ts` types `Problem` by hand until #148.
 - Server data lives only in TanStack Query's in-memory cache, never persisted, and a refused refresh
   or an ended session drops it (NFR-269). Sign-out's answer sends `Clear-Site-Data` and deletes the
   refresh cookie, which is HttpOnly, so the app never reads it (NFR-233, [ADR-076]).
 
 ## Tests
 
-- Vitest with Testing Library, in jsdom. MSW answers API calls in tests ([TS §10]).
+- Vitest, Testing Library and MSW, in jsdom and New York's zone (`vite.config.ts`) ([TS §10]).
 - Open the whole app with `renderApp({ path, now })`, or one component in its providers with
-  `renderComponent(ui, { language })`, from `src/test/`, and query with `findBy…`: the router
-  renders asynchronously. `setup.ts` empties storage and notifications after each test, and stubs
-  what jsdom lacks.
+  `renderComponent(ui, { language })`, both in `src/test/`, and query with `findBy…`: the router
+  renders asynchronously. `setup.ts` resets storage and notifications, and stubs what jsdom lacks.
 - A request no handler answers, asset-like paths included, fails with a network error, and the
   test that sent it fails, one sent on unmount included (`endTest` in `server.ts`, called by
   `setup.ts`). Happy paths go in `handlers.ts`; a test overrides an answer with `server.use()`,

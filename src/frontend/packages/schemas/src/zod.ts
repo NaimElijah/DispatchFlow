@@ -1,7 +1,12 @@
-// ADR-069's Content Security Policy refuses code compiled at run time. Zod's object parser would
-// compile one, and the probe that asks whether it may is already reported as a violation, though
-// Zod catches the refusal. An object schema reads this setting when it is built, not when it
-// parses, so every schema of this package takes `z` from here, and the setting comes first.
+/**
+ * Zod, set never to compile code at run time: the one `z` this package's schemas and the apps use,
+ * which ESLint holds them to. ADR-069's Content Security Policy refuses compiled code, and the
+ * browser reports even the probe Zod makes to see whether it may, though Zod catches the refusal.
+ * An object schema reads the setting when it is built, not when it parses, so it is set here,
+ * before any schema is built (ADR-154).
+ *
+ * @module
+ */
 import { z } from 'zod'
 
 z.config({ jitless: true })

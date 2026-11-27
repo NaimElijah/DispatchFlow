@@ -8,7 +8,7 @@ import type { FieldProps } from './fieldProps.ts'
 export interface TimeFieldGroup<TValues extends FieldValues> {
   /** The group's path, checked again as the field changes once the form was first sent. */
   readonly name: FieldPath<TValues>
-  /** The ID of the group's refusal while it has one: it marks the field invalid and describes it. */
+  /** The ID of the group's refusal while it has one, which marks the field invalid and says why. */
   readonly errorId: string | undefined
 }
 
@@ -28,9 +28,9 @@ export interface TimeFieldProps<TValues extends FieldValues, TParsed = TValues> 
  * keys step each. The form holds `HH:mm`, or an empty text until both boxes are filled.
  *
  * The boxes run hours then minutes from left to right in both directions, as a clock is read:
- * Mantine sets the boxes' `dir` to `ltr` itself. Each
- * box is named after the field, and both are tied to the field's error, which Mantine itself ties
- * only to the picker's outer element, and to the refusal of the group it sits in.
+ * Mantine sets the boxes' `dir` to `ltr` itself. Each box is named after the field, and both are
+ * tied to the field's error, which Mantine itself ties only to the picker's outer element, and to
+ * the refusal of the group it sits in.
  */
 export function TimeField<TValues extends FieldValues, TParsed = TValues>({
   control,

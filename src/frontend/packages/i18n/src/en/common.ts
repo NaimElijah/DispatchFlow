@@ -1,7 +1,7 @@
 /**
  * The English strings of the shared components every area's screens are built from: form fields,
- * the save button, the saved notice, the table and the date pickers. The source of the namespace's shape, which
- * `he/common.ts` must match key for key.
+ * the save button, the saved notice, the table and the date pickers. The source of the namespace's
+ * shape, which `he/common.ts` must match key for key.
  *
  * `withUnit` names a number field with its unit, and `timeOfDay` names a time field's two boxes
  * after the field, so a screen reader says which time they set.

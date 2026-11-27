@@ -309,11 +309,13 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > Mantine's 24-hour picker, and Day.js is only its peer; and @hookform/resolvers and user-event
 > come in beside the libraries the tech stack named.
 >
-> ADR-154, on 2026-11-27, amends ADR-153 after an audit of the merged pieces: Zod builds every
-> schema without compiling code, which ADR-069's policy refuses; only fetch decides that a request
-> got no answer; reads and writes read their answers one way, and a failed read never says a
-> change may be stored; a saved notice that offers an action stays until closed; a time range reads
-> left to right in both languages; an optional number has its own block; focus on a refusal
-> follows reading order, a window's included; a table's default cell writes only text and whole
-> numbers; a screen keeps the version each save returns; and the web tests run in New York's zone.
+> ADR-154, on 2026-11-27, amends ADR-153 after an audit of the merged pieces: Zod never compiles
+> code, which ADR-069's policy refuses, and the web app takes it from `@dispatchflow/schemas`;
+> only fetch and the answer's body decide that a call failed on the way; reads and writes read
+> their answers one way, a failed read never says a change may be stored, and only a read that got
+> no answer is tried again; a saved notice that offers an action stays until closed, returns focus
+> and names no person; a time range reads left to right in both languages; an optional number has
+> its own block; focus on a refusal follows reading order, a window's included; a table's default
+> cell writes text only; a screen sends the newest version it knows; and the web tests run in New
+> York's zone.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.
