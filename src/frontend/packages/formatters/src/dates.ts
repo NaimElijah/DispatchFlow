@@ -101,7 +101,10 @@ export function formatLocalTime(time: string): string {
 }
 
 /**
- * Writes a time window's two ends as `08:00–12:00`.
+ * Writes a time window's two ends as `08:00–12:00`, which reads left to right in both languages,
+ * as the time field's boxes and a clock do (ADR-154). Show it inside `<bdi>`, as a table's text
+ * cell does: with no Hebrew letter in it, a `<bdi>` runs left to right. Bare in Hebrew text, the
+ * bidirectional algorithm would put `12:00` first.
  *
  * @throws RangeError when either end is not an `HH:mm` or `HH:mm:ss` time of day
  */

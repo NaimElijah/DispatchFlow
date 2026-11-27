@@ -1,4 +1,5 @@
 import { screen, within } from '@testing-library/react'
+import { formatTimeRange } from '@dispatchflow/formatters'
 import { describe, expect, test } from 'vitest'
 import { renderComponent } from '../test/renderComponent.tsx'
 import { DataTable } from './DataTable.tsx'
@@ -96,6 +97,17 @@ describe('DataTable', () => {
         key,
       ).toThrow(`"${key}"`)
     }
+  })
+
+  test('GivenATimeWindowInAHebrewTable_WhenShown_ThenItSitsInABdiThatRunsLeftToRight', () => {
+    const window = formatTimeRange('08:00', '12:00')
+    renderTable('he', [{ row: 2, customer: null, address: window }])
+
+    // A <bdi> with no strong character runs left to right (HTML, the dir attribute's auto state),
+    // so 08:00 stays on the left, as on a clock; nothing must set a direction of its own on it.
+    const shown = screen.getByText(window)
+    expect(shown.tagName).toBe('BDI')
+    expect(shown.hasAttribute('dir')).toBe(false)
   })
 
   test('GivenAMissingValue_WhenShown_ThenItsCellIsEmptyRatherThanNull', () => {
