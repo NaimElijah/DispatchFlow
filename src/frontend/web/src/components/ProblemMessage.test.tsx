@@ -51,6 +51,20 @@ describe('ProblemMessage', () => {
     expect(onRetry).toHaveBeenCalledOnce()
   })
 
+  test('GivenAReadAnsweredByAProxysPage_WhenShown_ThenItOffersToTryAgainWithNoReference', () => {
+    renderComponent(
+      <ProblemMessage
+        operation="read"
+        failure={{ kind: 'unexpected', problem: undefined }}
+        onRetry={() => undefined}
+      />,
+    )
+
+    expect(alertText()).toContain('Something went wrong.')
+    expect(alertText()).not.toContain('Reference')
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined()
+  })
+
   test('GivenAKnownCodeWithParams_WhenShown_ThenItsTextHasThemFilledIn', () => {
     renderComponent(
       <ProblemMessage

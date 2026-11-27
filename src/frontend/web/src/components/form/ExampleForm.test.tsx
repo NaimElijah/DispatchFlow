@@ -2,7 +2,7 @@ import { screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw/http'
 import { useState } from 'react'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, onTestFinished, test, vi } from 'vitest'
 import { ExampleForm } from '../../test/ExampleForm.tsx'
 import { EXAMPLE_PATH, EXAMPLE_STRINGS } from '../../test/exampleFormData.ts'
 import { renderComponent } from '../../test/renderComponent.tsx'
@@ -93,6 +93,12 @@ describe('the example form', () => {
   })
 
   test('GivenADayChosenInTheCalendar_WhenSaved_ThenTheRequestCarriesItAsYYYYMMDD', async () => {
+    // Today falls in another month, so a calendar that opened on today's month would fail here.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2027-03-15T12:00:00+02:00'))
+    onTestFinished(() => {
+      vi.useRealTimers()
+    })
     const user = userEvent.setup()
     const requests = answerSaves()
     renderComponent(<ExampleForm etag='"1"' />)
@@ -171,6 +177,12 @@ describe('the example form', () => {
   })
 
   test('GivenTheDateField_WhenEnterIsPressedOnIt_ThenItsCalendarOpensOnTheMonthItHolds', async () => {
+    // Today falls in another month, so a calendar that opened on today's month would fail here.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2027-03-15T12:00:00+02:00'))
+    onTestFinished(() => {
+      vi.useRealTimers()
+    })
     const user = userEvent.setup()
     renderComponent(<ExampleForm etag={null} />)
     const date = screen.getByRole('button', { name: EXAMPLE_STRINGS.en.date })

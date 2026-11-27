@@ -7,7 +7,7 @@ import {
 } from '@dispatchflow/schemas'
 import { screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, onTestFinished, test, vi } from 'vitest'
 import { z } from 'zod'
 import { ExampleForm } from '../../../test/ExampleForm.tsx'
 import { EXAMPLE_DEPOTS, EXAMPLE_STRINGS } from '../../../test/exampleFormData.ts'
@@ -212,6 +212,21 @@ describe('fields', () => {
     )
   })
 
+  test('GivenAFreshForm_WhenOnlyAWindowsStartIsTyped_ThenNoRefusalShowsBeforeTheFirstSave', async () => {
+    const user = userEvent.setup()
+    renderComponent(<TimesForm />)
+
+    await user.type(screen.getByRole('spinbutton', { name: 'From, hours' }), '0800')
+    await user.tab()
+
+    // The window is checked as it changes only once the form was first sent.
+    const group = screen.getByRole('group', { name: 'Delivery window' })
+    expect(within(group).queryByText(/only one of its two times/)).toBeNull()
+    for (const box of within(group).getAllByRole('spinbutton')) {
+      expect(box.getAttribute('aria-invalid')).toBe('false')
+    }
+  })
+
   test('GivenAWindowRefusedForHavingOnlyItsStart_WhenItsEndIsFilledIn_ThenTheRefusalGoes', async () => {
     const user = userEvent.setup()
     renderComponent(<TimesForm />)
@@ -367,6 +382,12 @@ describe('fields', () => {
   })
 
   test('GivenADateFieldInHebrew_WhenADayIsChosen_ThenTheMonthIsNamedInHebrewAndTheDayShownAsDayMonthYear', async () => {
+    // Today falls in another month, so a calendar that opened on today's month would fail here.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2027-03-15T12:00:00+02:00'))
+    onTestFinished(() => {
+      vi.useRealTimers()
+    })
     const user = userEvent.setup()
     renderComponent(<TimesForm date="2026-11-26" />, { language: 'he' })
     const date = screen.getByRole('button', { name: 'Delivery date' })
