@@ -31,8 +31,8 @@ export interface FormSave {
 
 /** What a form is made of. */
 export interface SchemaFormProps<TValues extends FieldValues, TParsed> {
-  /** The form, from `useSchemaForm`. */
-  readonly form: UseFormReturn<TValues, unknown, TParsed>
+  /** The form, from `useSchemaForm`, whose resets the form's fields are told of. */
+  readonly form: UseFormReturn<TValues, unknown, TParsed> & { readonly resetCount: number }
   /** The schema the form was made with, whose keys say which of a 400's pointers are its fields. */
   readonly schema: z.ZodType
   /**
@@ -134,7 +134,7 @@ export function SchemaForm<TValues extends FieldValues, TParsed>({
     })(event)
 
   return (
-    <SchemaFormStateContext value={{ pending: save.isPending }}>
+    <SchemaFormStateContext value={{ pending: save.isPending, resetCount: form.resetCount }}>
       <form
         ref={formElement}
         noValidate

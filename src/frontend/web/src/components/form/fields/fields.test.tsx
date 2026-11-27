@@ -53,19 +53,29 @@ function TimesForm({ date = '' }: { readonly date?: string }) {
   )
 }
 
-const openingSchema = z.object({ opensAt: timeOfDay })
+// Any text passes, so a half-typed time, which the form holds as empty, can be saved.
+const openingSchema = z.object({ opensAt: z.string() })
 
-/** A form of one time and a button that resets it, as a screen does after a reload. */
+/**
+ * A form of one time, a button that resets it, as a screen does after a reload, and a save that
+ * resets it once done, as a screen does to take the next record.
+ */
 function ResettableTimeForm() {
   const form = useSchemaForm(openingSchema, { defaultValues: { opensAt: '' } })
 
   return (
-    <>
+    <SchemaForm
+      form={form}
+      schema={openingSchema}
+      save={{ isPending: false, error: null, reset: () => undefined }}
+      onSubmit={async () => form.reset()}
+    >
       <TimeField control={form.control} name="opensAt" label="Opens at" />
       <button type="button" onClick={() => form.reset()}>
         Reset
       </button>
-    </>
+      <SaveButton />
+    </SchemaForm>
   )
 }
 
@@ -268,6 +278,22 @@ describe('fields', () => {
 
     // A reset remounts the picker, so its box is looked up again.
     expect(screen.getByRole('spinbutton', { name: 'Opens at, hours' })).toHaveProperty('value', '')
+  })
+
+  test('GivenAHalfTypedTimeSavedWithEnter_WhenTheSaveResetsTheForm_ThenItsBoxEmptiesAndKeepsFocus', async () => {
+    const user = userEvent.setup()
+    renderComponent(<ResettableTimeForm />)
+
+    // The field is never left, so nothing marks it touched before the reset.
+    await user.type(screen.getByRole('spinbutton', { name: 'Opens at, hours' }), '08{Enter}')
+
+    await waitFor(() =>
+      expect(screen.getByRole('spinbutton', { name: 'Opens at, hours' })).toHaveProperty(
+        'value',
+        '',
+      ),
+    )
+    expect(document.activeElement).toBe(screen.getByRole('spinbutton', { name: 'Opens at, hours' }))
   })
 
   test('GivenHebrew_WhenATimeIsShown_ThenItsBoxesStillRunHoursThenMinutesLeftToRight', () => {

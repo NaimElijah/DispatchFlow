@@ -1,7 +1,8 @@
 import { TimePicker } from '@mantine/dates'
-import { useId, useState } from 'react'
+import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { useController, type FieldPath, type FieldValues } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { useSchemaFormState } from '../schemaFormState.ts'
 import type { FieldProps } from './fieldProps.ts'
 
 /** A group around a time field, such as its time window, whose own refusal covers the field. */
@@ -56,19 +57,21 @@ export function TimeField<TValues extends FieldValues, TParsed = TValues>({
   // gets none back, so the other box keeps what was typed.
   const [sentEmpty, setSentEmpty] = useState(false)
   // A form reset to the empty text the field already holds changes no value, so the picker would
-  // keep a half-typed time. A reset is the one thing that makes a touched field untouched again,
-  // so that remounts the picker on the form's value. A reset that keeps touched fields
-  // (`keepTouched`) is not seen.
-  const { isTouched } = fieldState
-  const [wasTouched, setWasTouched] = useState(isTouched)
-  const [mount, setMount] = useState(0)
-  if (wasTouched !== isTouched) {
-    setWasTouched(isTouched)
-    if (!isTouched) {
-      setMount(mount + 1)
-      setSentEmpty(false)
-    }
+  // keep a half-typed time. The form counts its resets, and the picker remounts on each, on the
+  // form's value; focus that was in it moves to the new hours box.
+  const { resetCount } = useSchemaFormState()
+  const [resetsSeen, setResetsSeen] = useState(resetCount)
+  if (resetsSeen !== resetCount) {
+    setResetsSeen(resetCount)
+    setSentEmpty(false)
   }
+  const focused = useRef(false)
+  const hoursBox = useRef<HTMLInputElement | null>(null)
+  useLayoutEffect(() => {
+    if (focused.current) {
+      hoursBox.current?.focus()
+    }
+  }, [resetCount])
   const time: string = value ?? ''
   const error = fieldState.error?.message
   // Mantine's own ids for the error and the description, from the id given to the picker.
@@ -86,7 +89,7 @@ export function TimeField<TValues extends FieldValues, TParsed = TValues>({
 
   return (
     <TimePicker
-      key={mount}
+      key={resetCount}
       id={id}
       label={label}
       description={description}
@@ -97,8 +100,17 @@ export function TimeField<TValues extends FieldValues, TParsed = TValues>({
         setSentEmpty(next === '')
         onChange(next)
       }}
-      onBlur={onBlur}
-      hoursRef={ref}
+      onFocus={() => {
+        focused.current = true
+      }}
+      onBlur={() => {
+        focused.current = false
+        onBlur()
+      }}
+      hoursRef={(box: HTMLInputElement | null) => {
+        hoursBox.current = box
+        ref(box)
+      }}
       hoursInputLabel={t('timeOfDay.hours', { label })}
       minutesInputLabel={t('timeOfDay.minutes', { label })}
       hoursInputProps={boxProps}
