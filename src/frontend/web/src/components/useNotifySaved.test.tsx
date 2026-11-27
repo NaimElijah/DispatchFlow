@@ -1,5 +1,5 @@
 import type { Language } from '@dispatchflow/i18n'
-import { act, fireEvent, screen } from '@testing-library/react'
+import { act, fireEvent, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { renderComponent } from '../test/renderComponent.tsx'
 import { useNotifySaved, type SavedNotice } from './useNotifySaved.ts'
@@ -45,7 +45,8 @@ describe('useNotifySaved', () => {
   test('GivenAPlainNotice_WhenShown_ThenItClosesByItself', () => {
     showNotice({ text: 'The depot is saved.' })
     expect(screen.getByText('The depot is saved.')).toBeDefined()
-    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
+    // Mantine's close button has no name of its own, so the notice is checked for any button.
+    expect(within(screen.getByRole('alert')).queryByRole('button')).toBeNull()
 
     waitWellPastAutoClose()
 
@@ -97,6 +98,54 @@ describe('useNotifySaved', () => {
 
     // The notice sits at the end of the page; focus left with it would drop to the page itself.
     expect(document.activeElement).toBe(storeIt)
+  })
+
+  test('GivenFocusMovedOutOfTheNotice_WhenItCloses_ThenFocusStaysWhereTheUserIs', () => {
+    renderComponent(
+      <>
+        <NotifyProbe
+          notice={{
+            text: 'The customer is saved.',
+            action: { label: 'Add another', onClick: vi.fn() },
+          }}
+        />
+        <input aria-label="Next field" />
+      </>,
+    )
+    const storeIt = screen.getByRole('button', { name: 'Store it' })
+    storeIt.focus()
+    fireEvent.click(storeIt)
+    const nextField = screen.getByRole('textbox', { name: 'Next field' })
+    nextField.focus()
+
+    // A pointer closes the notice while the keyboard's focus is elsewhere.
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    waitWellPastAutoClose()
+
+    expect(document.activeElement).toBe(nextField)
+  })
+
+  test('GivenTheElementFocusedWhenShownIsGone_WhenTheNoticeCloses_ThenFocusStaysOnThePage', () => {
+    const { unmount } = renderComponent(
+      <NotifyProbe
+        notice={{
+          text: 'The customer is saved.',
+          action: { label: 'Add another', onClick: vi.fn() },
+        }}
+      />,
+    )
+    const storeIt = screen.getByRole('button', { name: 'Store it' })
+    storeIt.focus()
+    fireEvent.click(storeIt)
+    const close = screen.getByRole('button', { name: 'Close' })
+    unmount()
+    expect(storeIt.isConnected).toBe(false)
+    close.focus()
+
+    fireEvent.click(close)
+    waitWellPastAutoClose()
+
+    expect(document.activeElement).not.toBe(storeIt)
   })
 
   test('GivenANoticeWithAnActionInHebrew_WhenShown_ThenItsCloseButtonIsNamedInHebrew', () => {

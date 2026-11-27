@@ -357,7 +357,7 @@ describe('fields', () => {
     expect(phone).toHaveProperty('value', '+972501234567')
   })
 
-  test('GivenAnyForm_WhenRendered_ThenItAndItsTextFieldsAskTheBrowserToRememberNothing', () => {
+  test('GivenTheTextFields_WhenRendered_ThenEachAsksForNoAutofillItselfAndSoDoesTheForm', () => {
     renderComponent(<ExampleForm etag={null} />)
 
     const phone = screen.getByRole('textbox', { name: strings.phone })

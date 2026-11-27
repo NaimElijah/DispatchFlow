@@ -38,8 +38,9 @@ describe('calls to the core', () => {
 
   test('GivenAnAnswerThatBreaksOffWhileItsBodyComesIn_WhenFetched_ThenItRejectsAsUnexpected', async () => {
     // A browser's fetch resolves once the headers are in, and rejects the body's read with a
-    // TypeError when the connection drops mid-answer. MSW in Node reads a mocked body whole before
-    // fetch resolves, so this one test hands over such an answer itself.
+    // TypeError when the connection drops mid-answer. With MSW here, a mocked body that breaks off,
+    // even on its second chunk, made fetch itself reject, as though no answer came, so this one
+    // test hands over such an answer itself.
     let chunks = 0
     const brokenOff = new ReadableStream<Uint8Array>({
       pull(controller) {
@@ -63,6 +64,32 @@ describe('calls to the core', () => {
     // The request arrived, so a write may be stored: the user reloads rather than resends.
     expect(thrown).toBeInstanceOf(RequestError)
     expect((thrown as RequestError).failure).toEqual({ kind: 'unexpected', problem: undefined })
+  })
+
+  test('GivenARequestAbortedWhileItsBodyComesIn_WhenFetched_ThenItRejectsAsTheAbort', async () => {
+    // fetch rejects the body's read with an AbortError once the request's signal aborts.
+    let chunks = 0
+    const aborted = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        chunks += 1
+        if (chunks === 1) {
+          controller.enqueue(new TextEncoder().encode('{"id":'))
+        } else {
+          controller.error(new DOMException('The request was aborted.', 'AbortError'))
+        }
+      },
+    })
+    vi.stubGlobal('fetch', () => Promise.resolve(new Response(aborted, { status: 200 })))
+
+    let thrown: unknown
+    try {
+      thrown = await thrownBy(() => fetchFromCore(address()))
+    } finally {
+      vi.unstubAllGlobals()
+    }
+
+    expect(thrown).not.toBeInstanceOf(RequestError)
+    expect((thrown as Error).name).toBe('AbortError')
   })
 
   test('GivenAnAbortedRequest_WhenFetched_ThenItRejectsAsTheAbortAndNotAsUnreachable', async () => {
