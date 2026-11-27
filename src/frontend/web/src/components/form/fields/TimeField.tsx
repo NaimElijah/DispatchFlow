@@ -1,5 +1,5 @@
 import { TimePicker } from '@mantine/dates'
-import { useId } from 'react'
+import { useId, useState } from 'react'
 import { useController, type FieldValues } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import type { FieldProps } from './fieldProps.ts'
@@ -38,6 +38,12 @@ export function TimeField<TValues extends FieldValues, TParsed = TValues>({
     field: { ref, value, onChange, onBlur },
     fieldState,
   } = useController({ control, name })
+  // Mantine's picker sends an empty text as soon as one box is emptied, and reads an empty text
+  // coming back as a reset that empties every box. While the empty text is the picker's own, it
+  // gets none back, so the other box keeps what was typed; one the form sets, as a reset does,
+  // still empties both.
+  const [sentEmpty, setSentEmpty] = useState(false)
+  const time: string = value ?? ''
   const error = fieldState.error?.message
   // Mantine's own ids for the error and the description, from the id given to the picker.
   const describedBy =
@@ -56,8 +62,11 @@ export function TimeField<TValues extends FieldValues, TParsed = TValues>({
       description={description}
       required={required}
       error={error ?? invalid}
-      value={value ?? ''}
-      onChange={onChange}
+      value={time === '' && sentEmpty ? undefined : time}
+      onChange={(next: string) => {
+        setSentEmpty(next === '')
+        onChange(next)
+      }}
       onBlur={onBlur}
       hoursRef={ref}
       hoursInputLabel={t('timeOfDay.hours', { label })}

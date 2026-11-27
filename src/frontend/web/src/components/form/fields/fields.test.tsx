@@ -53,6 +53,22 @@ function TimesForm({ date = '' }: { readonly date?: string }) {
   )
 }
 
+const openingSchema = z.object({ opensAt: timeOfDay })
+
+/** A form of one time and a button that resets it, as a screen does after a reload. */
+function ResettableTimeForm() {
+  const form = useSchemaForm(openingSchema, { defaultValues: { opensAt: '' } })
+
+  return (
+    <>
+      <TimeField control={form.control} name="opensAt" label="Opens at" />
+      <button type="button" onClick={() => form.reset()}>
+        Reset
+      </button>
+    </>
+  )
+}
+
 describe('fields', () => {
   test('GivenAFieldWithAnError_WhenRendered_ThenTheErrorIsTiedToTheField', async () => {
     const user = userEvent.setup()
@@ -115,6 +131,33 @@ describe('fields', () => {
     for (const box of within(group).getAllByRole('spinbutton')) {
       expect(box.getAttribute('aria-invalid')).toBe('true')
     }
+  })
+
+  test('GivenAFilledTime_WhenItsMinutesAreDeleted_ThenItsHoursStay', async () => {
+    const user = userEvent.setup()
+    renderComponent(<TimesForm />)
+    const hours = screen.getByRole('spinbutton', { name: 'Opens at, hours' })
+    const minutes = screen.getByRole('spinbutton', { name: 'Opens at, minutes' })
+    await user.type(hours, '0830')
+    expect(document.activeElement).toBe(minutes)
+
+    await user.keyboard('{Backspace}')
+
+    expect(minutes).toHaveProperty('value', '')
+    expect(hours).toHaveProperty('value', '08')
+  })
+
+  test('GivenAFilledTime_WhenTheFormIsReset_ThenBothItsBoxesEmpty', async () => {
+    const user = userEvent.setup()
+    renderComponent(<ResettableTimeForm />)
+    const hours = screen.getByRole('spinbutton', { name: 'Opens at, hours' })
+    const minutes = screen.getByRole('spinbutton', { name: 'Opens at, minutes' })
+    await user.type(hours, '0830')
+
+    await user.click(screen.getByRole('button', { name: 'Reset' }))
+
+    expect(hours).toHaveProperty('value', '')
+    expect(minutes).toHaveProperty('value', '')
   })
 
   test('GivenHebrew_WhenATimeIsShown_ThenItsBoxesStillRunHoursThenMinutesLeftToRight', () => {
