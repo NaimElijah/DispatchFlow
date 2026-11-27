@@ -213,6 +213,31 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
 
+  packages/formatters:
+    dependencies:
+      '@dispatchflow/i18n':
+        specifier: workspace:*
+        version: link:../i18n
+    devDependencies:
+      '@dispatchflow/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@dispatchflow/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      eslint:
+        specifier: 10.15.0
+        version: 10.15.0
+      prettier:
+        specifier: 3.10.1
+        version: 3.10.1
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 5.1.0
+        version: 5.1.0(@types/node@24.19.2)(jsdom@31.0.1)(msw@3.0.7(@types/node@24.19.2)(typescript@6.0.3)(vite@8.3.8(@types/node@24.19.2)))(vite@8.3.8(@types/node@24.19.2))
+
   packages/i18n:
     devDependencies:
       '@dispatchflow/eslint-config':
