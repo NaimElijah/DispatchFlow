@@ -1,0 +1,91 @@
+import { useMutation, type UseMutationResult } from '@tanstack/react-query'
+import { RequestError, toRequestFailure } from './problems.ts'
+
+/**
+ * The precondition a versioned write sends: the version the view was read at, as its `ETag`
+ * (ADR-057), or none yet.
+ *
+ * `null` is what `response.headers.get('ETag')` gives for a view that has no version, such as the
+ * fleet register before its first depot, and such a view's first change sends `If-None-Match: *`
+ * (ADR-121 P31, as ADR-126 amends it). A read that forgot to pass its `ETag` fails safe: the core
+ * answers `STALE_VERSION` when the record exists (ADR-140), and never overwrites it.
+ *
+ * @param etag the `ETag` the view was read with, sent back exactly as it arrived, quotes included
+ */
+export function preconditionHeaders(etag: string | null): Readonly<Record<string, string>> {
+  return etag === null ? { 'If-None-Match': '*' } : { 'If-Match': etag }
+}
+
+/**
+ * What a call sends back, in openapi-fetch's shape, so the generated client's call (#148) is a
+ * `send` as it stands: `data` on a success, the parsed `error` body otherwise, and the answer.
+ */
+export interface SendResult<TData> {
+  readonly response: Response
+  readonly data?: TData
+  readonly error?: unknown
+}
+
+/** One versioned write: the body, and the `ETag` of the view it changes, or `null` for none yet. */
+export interface SaveRequest<TBody> {
+  readonly body: TBody
+  readonly etag: string | null
+}
+
+/** A stored change: what the core answered, and the record's new `ETag`, for the next write. */
+export interface Saved<TData> {
+  readonly data: TData | undefined
+  readonly etag: string | null
+}
+
+/** How {@link useVersionedSave} sends a write, and what it does once one is stored. */
+export interface VersionedSaveOptions<TBody, TData> {
+  /**
+   * Sends the body with the precondition headers. It is the only part that knows the operation:
+   * once `@dispatchflow/api-client` exists, it is that client's call (TS §10).
+   */
+  readonly send: (
+    body: TBody,
+    headers: Readonly<Record<string, string>>,
+  ) => Promise<SendResult<TData>>
+  /** Called once a write is stored, with what it stored, such as to show a notification. */
+  readonly onSaved?: (saved: Saved<TData>, request: SaveRequest<TBody>) => void
+}
+
+/**
+ * A versioned write as a TanStack Query mutation: `mutate({ body, etag })` sends the body with the
+ * view's version (BR-76), and resolves to the core's answer and the record's new `ETag`.
+ *
+ * A failure rejects with a {@link RequestError} whose `failure` says what the screen shows. Nothing
+ * is ever sent twice on its own: a stale or refused write needs the user, and after an unexpected
+ * one the change may already be stored. The mutation runs whether or not the browser thinks it is
+ * online, so a lost connection fails at once and says so, rather than leaving the save pending.
+ */
+export function useVersionedSave<TBody, TData = unknown>({
+  send,
+  onSaved,
+}: VersionedSaveOptions<TBody, TData>): UseMutationResult<
+  Saved<TData>,
+  RequestError,
+  SaveRequest<TBody>
+> {
+  return useMutation<Saved<TData>, RequestError, SaveRequest<TBody>>({
+    mutationFn: async ({ body, etag }) => {
+      let result: SendResult<TData>
+      try {
+        result = await send(body, preconditionHeaders(etag))
+      } catch (error) {
+        // `send` only calls the client, which rejects only when no answer arrived.
+        throw new RequestError({ kind: 'network' }, { cause: error })
+      }
+      const { response, data, error } = result
+      if (!response.ok) {
+        throw new RequestError(toRequestFailure(response, error))
+      }
+      return { data, etag: response.headers.get('ETag') }
+    },
+    onSuccess: onSaved,
+    retry: false,
+    networkMode: 'always',
+  })
+}
