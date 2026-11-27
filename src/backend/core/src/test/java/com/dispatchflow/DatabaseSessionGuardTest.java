@@ -95,19 +95,24 @@ class DatabaseSessionGuardTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"C", "c", "C.UTF-8", "C.utf8", "POSIX"})
+    @ValueSource(strings = {"C", "POSIX"})
     void GivenAnUntranslatedMessagesSetting_WhenTheGuardReadsIt_ThenItAccepts(String lcMessages) {
         assertThat(DatabaseSessionGuard.leavesMessagesUntranslated(lcMessages)).isTrue();
     }
 
     /**
      * An English locale is refused too: a LANGUAGE variable in the server's environment translates
-     * its messages (ADR-152). An empty setting inherits that environment, which the core can't see.
-     * Czech and Catalan start with the C locale's letter.
+     * its messages, and glibc before 2.39 translates under C with an encoding as well (ADR-152). An
+     * empty setting inherits that environment, which the core can't see. Czech and Catalan start
+     * with the C locale's letter; the server reports C and POSIX in capitals.
      */
     @ParameterizedTest
     @ValueSource(
             strings = {
+                "C.UTF-8",
+                "C.utf8",
+                "c",
+                "posix",
                 "en_US.UTF-8",
                 "en_US.utf8",
                 "en_GB",

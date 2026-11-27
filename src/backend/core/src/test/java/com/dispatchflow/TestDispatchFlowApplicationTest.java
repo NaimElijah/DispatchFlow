@@ -2,6 +2,7 @@ package com.dispatchflow;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.dispatchflow.shared.IsraelDateTime;
 import java.time.ZoneId;
 import java.util.Map;
 import java.util.TimeZone;
@@ -56,7 +57,11 @@ class TestDispatchFlowApplicationTest {
                 .contains("--server.address=127.0.0.1", "--spring.flyway.enabled=true");
     }
 
-    /** The surefire JVM already runs in Israel's zone, so the test starts the JVM's default elsewhere. */
+    /**
+     * The surefire JVM already runs in Israel's zone, so the test starts the JVM's default
+     * elsewhere. That {@code main} calls this first is read, not tested: starting {@code main} needs
+     * a database.
+     */
     @Test
     void GivenAJvmInAnotherZone_WhenTheLocalRunPicksItsZone_ThenItIsIsraels() {
         TimeZone before = TimeZone.getDefault();
@@ -65,7 +70,7 @@ class TestDispatchFlowApplicationTest {
 
             TestDispatchFlowApplication.useIsraelTime();
 
-            assertThat(ZoneId.systemDefault()).isEqualTo(ZoneId.of("Asia/Jerusalem"));
+            assertThat(ZoneId.systemDefault()).isEqualTo(IsraelDateTime.ZONE);
         } finally {
             TimeZone.setDefault(before);
         }

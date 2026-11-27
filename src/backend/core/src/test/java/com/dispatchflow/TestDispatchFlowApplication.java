@@ -1,5 +1,6 @@
 package com.dispatchflow;
 
+import com.dispatchflow.shared.IsraelDateTime;
 import java.util.List;
 import java.util.TimeZone;
 import java.util.stream.Stream;
@@ -25,8 +26,6 @@ import org.springframework.context.annotation.PropertySource;
  * developer's own JVM options, such as a debugger's (ADR-152).
  */
 public class TestDispatchFlowApplication {
-
-    private static final String ISRAEL = "Asia/Jerusalem";
 
     // Options, which DispatchFlowApplication.main accepts, and the command line outranks every file
     // and the environment, so no exported variable turns Flyway off or widens the address.
@@ -56,7 +55,7 @@ public class TestDispatchFlowApplication {
 
     /** Makes Israel's zone the JVM's default, before anything has read it. */
     static void useIsraelTime() {
-        TimeZone.setDefault(TimeZone.getTimeZone(ISRAEL));
+        TimeZone.setDefault(TimeZone.getTimeZone(IsraelDateTime.ZONE));
     }
 
     /**

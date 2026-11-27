@@ -2,8 +2,8 @@ package com.dispatchflow;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Profile;
@@ -18,8 +18,9 @@ import org.springframework.stereotype.Component;
  * <ul>
  *   <li>the session's role is the one it logged in as: a login that switches to {@code app} with
  *       {@code SET ROLE}, or a superuser's with {@code SET SESSION AUTHORIZATION}, can switch back.
- *       Both change {@code session_user} too, so the login is read from {@code pg_stat_activity},
- *       which neither changes (ADR-152);
+ *       The second changes {@code session_user} too, so the login is read from {@code
+ *       pg_stat_activity}, which neither changes. A login's startup options can't set {@code
+ *       session_authorization}: the server fixes it as the login authenticates (ADR-152);
  *   <li>the core's role has none of the attributes that ADR-145's roles leave off and that pass
  *       every grant: {@code SUPERUSER}, {@code CREATEDB}, {@code CREATEROLE}, {@code REPLICATION}
  *       and {@code BYPASSRLS};
@@ -30,9 +31,9 @@ import org.springframework.stereotype.Component;
  *       revoked (ADR-041, ADR-145);
  *   <li>the server leaves its messages untranslated, because Hibernate reads a violated constraint's
  *       name from the English message text, and four of the core's answers to a race depend on it
- *       (#250). Only {@code lc_messages} {@code C} or {@code POSIX} ensures that: under an English
- *       locale, a {@code LANGUAGE} variable in the server's environment still translates every
- *       message (ADR-152).
+ *       (#250). Only {@code lc_messages} {@code C} or {@code POSIX}, as written, ensures that: under
+ *       an English locale, a {@code LANGUAGE} variable in the server's environment still translates
+ *       every message, and before glibc 2.39 so it does under {@code C.UTF-8} (ADR-152).
  * </ul>
  *
  * <p>So a credential mapped to the wrong Compose service, or a deployment that connects the core as
@@ -52,6 +53,9 @@ class DatabaseSessionGuard {
 
     /** The profile of {@code just core-schema-draft}, which writes DDL and opens no connection. */
     static final String SCHEMA_DRAFT = "schema-draft";
+
+    /** The {@code lc_messages} values no environment translates, as the server reports them. */
+    private static final Set<String> UNTRANSLATED_MESSAGES = Set.of("C", "POSIX");
 
     /**
      * The role the session logged in as, its current role's attributes, the roles that one is a
@@ -103,18 +107,17 @@ class DatabaseSessionGuard {
     }
 
     /**
-     * Whether a value of {@code lc_messages} leaves the server's messages untranslated: {@code C},
-     * {@code C} with an encoding, or {@code POSIX}. gettext, which translates them, skips these
-     * alone; under any other locale, an English one included, a {@code LANGUAGE} variable in the
-     * server's environment picks the language. An empty value inherits that environment, which the
-     * core can't see.
+     * Whether a value of {@code lc_messages} leaves the server's messages untranslated: exactly
+     * {@code C} or {@code POSIX}. gettext, which translates them, skips these alone on every glibc;
+     * under any other locale, an English one included, a {@code LANGUAGE} variable in the server's
+     * environment picks the language, and glibc before 2.39 treats {@code C.UTF-8} as any other. An
+     * empty value inherits that environment, which the core can't see.
      *
      * @param lcMessages the setting, as the server reports it
      * @return whether the server's messages stay in English, whatever its environment holds
      */
     static boolean leavesMessagesUntranslated(String lcMessages) {
-        String setting = lcMessages.toLowerCase(Locale.ROOT);
-        return setting.equals("c") || setting.startsWith("c.") || setting.equals("posix");
+        return UNTRANSLATED_MESSAGES.contains(lcMessages);
     }
 
     /**

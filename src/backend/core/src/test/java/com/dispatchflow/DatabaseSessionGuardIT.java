@@ -210,28 +210,30 @@ class DatabaseSessionGuardIT {
 
     /**
      * An English locale isn't enough: a {@code LANGUAGE} variable in the server's environment
-     * translates every message, and the stock image ships the translations (ADR-152). The server's
-     * own log is German too, so the container is ready once its port opens.
+     * translates every message, and the stock image ships the translations (ADR-152).
      */
     @Test
     void GivenAServerWhoseEnvironmentTranslatesAnEnglishLocale_WhenTheGuardChecksAppsSession_ThenItRefuses() {
-        DatabaseRoles roles = new DatabaseRoles();
-        try (PostgreSQLContainer translating = TestcontainersConfiguration.postgres(roles)
-                .withEnv("LANGUAGE", "de")
-                .withCommand("postgres", "-c", "fsync=off", "-c", "lc_messages=" + ENGLISH_LOCALE)
-                .waitingFor(Wait.forListeningPort())) {
-            translating.start();
-            JdbcConnectionDetails app = roles.appConnection(translating);
-            JdbcClient session = JdbcClient.create(
-                    new SimpleDriverDataSource(new Driver(), app.getJdbcUrl(), app.getUsername(), app.getPassword()));
-
+        try (TranslatingServer server = new TranslatingServer(ENGLISH_LOCALE)) {
             assertThatThrownBy(() ->
-                            session.sql("SELECT 1 / 0").query(Integer.class).single())
+                            server.app.sql("SELECT 1 / 0").query(Integer.class).single())
                     .rootCause()
                     .hasMessageContaining("Division durch Null");
-            assertThatThrownBy(() -> DatabaseSessionGuard.check(session))
+            assertThatThrownBy(() -> DatabaseSessionGuard.check(server.app))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("lc_messages is '" + ENGLISH_LOCALE + "'");
+        }
+    }
+
+    /** C keeps the messages English however the server's environment would translate them. */
+    @Test
+    void GivenAServerWhoseEnvironmentTranslates_WhenItsLcMessagesIsC_ThenItsMessagesStayEnglishAndTheGuardPasses() {
+        try (TranslatingServer server = new TranslatingServer("C")) {
+            assertThatThrownBy(() ->
+                            server.app.sql("SELECT 1 / 0").query(Integer.class).single())
+                    .rootCause()
+                    .hasMessageContaining("division by zero");
+            assertThatCode(() -> DatabaseSessionGuard.check(server.app)).doesNotThrowAnyException();
         }
     }
 
@@ -323,6 +325,34 @@ class DatabaseSessionGuardIT {
                 .query(String.class)
                 .single();
         connection.sql(statement).update();
+    }
+
+    /**
+     * A server of its own whose environment holds {@code LANGUAGE=de}, connected as {@code app}. Its
+     * own log may be German, so it counts as ready once {@code pg_isready} answers over TCP, which
+     * the image's temporary init server never does.
+     */
+    private static final class TranslatingServer implements AutoCloseable {
+
+        private final PostgreSQLContainer container;
+        private final JdbcClient app;
+
+        TranslatingServer(String lcMessages) {
+            DatabaseRoles roles = new DatabaseRoles();
+            container = TestcontainersConfiguration.postgres(roles)
+                    .withEnv("LANGUAGE", "de")
+                    .withCommand("postgres", "-c", "fsync=off", "-c", "lc_messages=" + lcMessages)
+                    .waitingFor(Wait.forSuccessfulCommand("pg_isready -q -h 127.0.0.1"));
+            container.start();
+            JdbcConnectionDetails connection = roles.appConnection(container);
+            app = JdbcClient.create(new SimpleDriverDataSource(
+                    new Driver(), connection.getJdbcUrl(), connection.getUsername(), connection.getPassword()));
+        }
+
+        @Override
+        public void close() {
+            container.close();
+        }
     }
 
     /**
