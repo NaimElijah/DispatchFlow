@@ -13,7 +13,7 @@ How DispatchFlow is built, as it is today. What it must do is in
 > each. The web plumbing is built: the `Clock` and `IdGenerator` adapters, `web`'s trace-ID filter,
 > error handlers, call wrapper and error endpoint, the JSON logs and `SchedulingConfiguration`. The
 > web app's shell is built: its routes, layout, languages and Settings page; no screen of it calls
-> the API. The application layers are declared, not built, but for Audit's `AuditLogService`,
+> the API. So are its shared form, refusal and table pieces, which no screen uses yet. The application layers are declared, not built, but for Audit's `AuditLogService`,
 > wired to record a changing call's refused 401, a lost race and a request that breaks the contract,
 > and every changing use case's outcome as each is built, and Audit's static `Refusals` helper:
 > every other body that would do work throws, no other use case calls a persistence adapter, and no
@@ -47,7 +47,7 @@ today.
 |---|---|---|
 | `core` (`src/backend/core`) | Spring Boot 4.1.2, Java 25 | Run as `migrate`, applies the Flyway migrations as `dispatchflow_owner` and exits. Otherwise starts, connects to PostgreSQL as `app`, which owns no table, answers `GET /actuator/health`, answers every error that reaches Spring MVC's exception handlers or Tomcat's error dispatch as the client API's `Problem` with a `code` and the request's trace ID, re-runs a call that lost a race, refuses to start on a database session that could pass its grants or on a server whose messages could be translated, `lc_messages` other than `C` or `POSIX` (`DatabaseSessionGuard`), and stores every module's aggregates through its persistence adapters |
 | `optimizer` (`src/backend/optimizer`) | FastAPI, Python 3.14, NumPy | Answers `GET /health/liveness` with `{"status":"UP"}`, and holds the domain for daily solves and re-optimizations (the validator, the objective and the drop reasons), and a declared application layer; nothing calls either yet |
-| `web` (`src/frontend/web`) | React 19, Vite 8, TanStack Router and Query, Mantine 9, i18next | Renders its shell: a header, the navigation, and pages for planning (`/plans/$date`, where `/` leads to tomorrow's), orders, import, fleet and settings, with not-found and error pages. It is in English, or in Hebrew right to left once its Settings page says so. The planning page shows its date over an empty area for the map (#174), every page but planning and settings says it is not built yet, and no page calls the API ([ADR-143](../ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md)) |
+| `web` (`src/frontend/web`) | React 19, Vite 8, TanStack Router and Query, Mantine 9, i18next | Renders its shell: a header, the navigation, and pages for planning (`/plans/$date`, where `/` leads to tomorrow's), orders, import, fleet and settings, with not-found and error pages. It is in English, or in Hebrew right to left once its Settings page says so. The planning page shows its date over an empty area for the map (#174), every page but planning and settings says it is not built yet, and no page calls the API ([ADR-143](../ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md)). Its shared pieces, which no screen uses yet, are form fields over React Hook Form and the shared Zod schemas, a versioned save that sends the read `ETag`, a summary that words the core's refusals, a table over TanStack Table, and save notifications ([ADR-153](../ADRs/ADR-153-the-web-apps-shared-form-refusal-and-table-pieces.md)) |
 | `mobile` (`src/frontend/mobile`) | React Native, Expo SDK 58 | Renders a heading |
 | `research` (`src/research`) | Python, uv; never deployed | Installs `optimizer` and PyVRP in one environment, and imports neither yet: `tests/test_environment.py` only checks that both can be found. `benchmark/`, `simulation/` and `generator/` are declared, empty packages, and `results/` holds only `.gitkeep`. Its benchmark instances will live in the git-ignored `data/` |
 
@@ -176,7 +176,7 @@ named for the outside system or channel it talks to, `persistence` for the modul
 or the technology it wraps when it calls nothing outside the process. Each module's packages and the
 ports they implement are in [ADR-130](../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md) (decision 4). The phone app's
 `src/features/<context>` folders, the web app's `audit`, `liveops`, `messaging` and `reporting`
-ones and its `src/components/map/`, the four unfilled folders of `src/frontend/packages/` and the
+ones and its `src/components/map/`, the two unfilled folders of `src/frontend/packages/` and the
 infra, docs and data folders the tech stack draws are declared the same way, as `.gitkeep`
 placeholders.
 

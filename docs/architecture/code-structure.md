@@ -39,7 +39,7 @@ and ADR-014 are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 | `src/frontend/` | The pnpm workspace's root, over `web/` and `packages/*` ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)): `package.json`, `pnpm-workspace.yaml` and its one lockfile, `pnpm-lock.yaml`; `.prettierrc.json`, Prettier's one file for the web app and the packages ([ADR-141](../ADRs/ADR-141-prettiers-settings-live-in-one-file-in-src-frontend.md)); and `.dockerignore`, for the web app's dev image |
 | `src/frontend/web/` | The web app, for every role: React, TypeScript, Vite, pnpm |
 | `src/frontend/mobile/` | The phone app, for every role: React Native, Expo SDK 58, TypeScript |
-| `src/frontend/packages/` | The shared TypeScript packages ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)): `eslint-config`, `tsconfig` and `i18n` are workspace packages, and four placeholder folders have no `package.json` yet |
+| `src/frontend/packages/` | The shared TypeScript packages ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)): `eslint-config`, `tsconfig`, `i18n`, `formatters` and `schemas` are workspace packages, and two placeholder folders have no `package.json` yet |
 | `src/research/` | Benchmarks, simulation and the order generator: Python, uv. Never deployed |
 | `contracts/` | `client-api/v1` and `optimization-api/v1` (OpenAPI), and the Redocly lint setup |
 | `tests/` | Tests that span components: `e2e/` and `load/`. Both are placeholders |
@@ -481,7 +481,10 @@ src/frontend/web/
   Dockerfile.dev         the dev server's image for compose.dev.yaml, built from src/frontend
   src/
     main.tsx             reads the language setting, then builds i18next, the query cache and the router
-    App.tsx              the providers: i18next, TanStack Query, Mantine's direction and theme, the router
+    App.tsx              the last error boundary over AppProviders, then the router
+    AppProviders.tsx     the providers the app and the component tests share: i18next, TanStack
+                         Query, Mantine's direction and theme, its notifications, DatesLanguage
+    DatesLanguage.tsx    the date pickers' language and Israel's week; the one file that imports Day.js
     AppErrorBoundary.tsx the last error boundary, around the whole app
     router.ts            createAppRouter, over routeTree.ts
     routeTree.ts         gathers every area's routes under the shell's layout route
@@ -493,11 +496,14 @@ src/frontend/web/
                          route and page, the error page
     features/<context>/  each area's pages and its routes.ts; access/ holds the Settings page,
                          planning/ the /plans and /plans/$date routes and their dates
-    components/          the UI no area owns: NotBuiltPage, TextLink, usePageTitle; map/, the map's
-                         (#174, empty until then)
-    lib/                 the code no layer owns: the language setting
-    test/                Vitest's setup, renderApp, the one MSW server, the <style> check, and the
-                         tests of the lint rules
+    components/          the UI no area owns: NotBuiltPage, TextLink, usePageTitle, ProblemMessage
+                         and its texts, DataTable, notifySaved, useLanguage; form/, the form, its
+                         save button and the summary's placing of a refusal, with the fields in
+                         form/fields/; map/, the map's (#174, empty until then)
+    lib/                 the code no layer owns: the language setting, the refusal reader
+                         (problems.ts) and the versioned save (versionedSave.ts)
+    test/                Vitest's setup, renderApp, renderComponent, the one MSW server, the <style>
+                         check, the tests of the lint rules, and the example form
 ```
 
 Imports point one way, from `src/` itself to `features/`, `routes/`, `components/` and `lib/`:
@@ -531,9 +537,12 @@ that comes with `expo-router` at M10 ([ADR-130][ADR-130]).
 The two apps share no code. `src/frontend/packages/` holds seven folders. Three are workspace
 packages that only the web app uses so far: `eslint-config` (`@dispatchflow/eslint-config`, the
 ESLint 10 flat configs), `tsconfig` (`@dispatchflow/tsconfig`, the `base`, `app` and `node`
-presets) and `i18n` (`@dispatchflow/i18n`, the English and Hebrew strings as TypeScript, one
-namespace per area in `src/en/` and `src/he/`; the app compiles its source, and its `build`
-script is its type check). The other four, `api-client`, `schemas`, `map-style` and `formatters`, are
+presets), `i18n` (`@dispatchflow/i18n`, the English and Hebrew strings as TypeScript, one
+namespace per area in `src/en/` and `src/he/`, with `common` for the shared components and
+`problems` for every refusal's text and next step), `formatters` (`@dispatchflow/formatters`,
+dates, times and quantities as Israel reads them) and `schemas` (`@dispatchflow/schemas`, the
+building blocks of every form's Zod schema) ([ADR-153](../ADRs/ADR-153-the-web-apps-shared-form-refusal-and-table-pieces.md)). Each ships its source, which the app
+compiles, and its `build` script is its type check. The other two, `api-client` and `map-style`, are
 placeholders: a folder is not a package until the ticket that first puts code in it adds its
 `package.json` ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md),
 [ADR-130][ADR-130]). `contracts/client-api/v1` declares no operation yet, so neither app has an
@@ -549,7 +558,8 @@ API client.
 | `core`, integration (`*IT`) | `src/backend/core/src/test/java` | Failsafe, with a PostgreSQL container |
 | `optimizer` | `src/backend/optimizer/tests`, mirroring the package path | pytest |
 | `research` | `src/research/tests` | pytest |
-| `web` | next to the code, in `src/` (`App.test.tsx`, `test/setup.test.ts`, and `test/workspace.test.ts`, which checks the workspace's lockfile) | Vitest, in jsdom, with MSW |
+| `web` | next to the code, in `src/` (`App.test.tsx`, `test/setup.test.ts`, and `test/workspace.test.ts`, which checks the workspace's lockfile) | Vitest, in jsdom, with MSW and user-event |
+| Shared TypeScript packages | next to the code, in each package's `src/` | Vitest |
 | `mobile` | next to the code, in `src/` (`App.test.tsx`) | Jest, through `jest-expo` |
 | End-to-end and load | `tests/e2e`, `tests/load` | No tool is configured yet |
 

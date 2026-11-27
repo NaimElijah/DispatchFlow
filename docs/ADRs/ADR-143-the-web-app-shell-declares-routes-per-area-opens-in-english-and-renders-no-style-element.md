@@ -1,6 +1,6 @@
 # ADR-143: The web app's shell declares routes per area, opens in English, and renders no `<style>` element
 
-- **Status:** Accepted; amended by ADR-144
+- **Status:** Accepted; extended by ADR-153; amended by ADR-144
 - **Date:** 2026-11-25
 
 ## Context

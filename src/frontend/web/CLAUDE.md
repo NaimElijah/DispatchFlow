@@ -6,14 +6,12 @@ React 19, TypeScript 6.0, Vite 8, pnpm; TanStack Router and Query, Mantine 9, i1
 ## Layout
 
 - `src/main.tsx` builds the language setting, i18next, the query cache and the router, and mounts
-  `src/App.tsx`, which holds the providers. `src/routeTree.ts` gathers every area's routes.
+  `src/App.tsx` over `AppProviders.tsx`. `src/routeTree.ts` gathers every area's routes.
 - `src/routes/` is the shell: the root route, `shellRoute` and its layout, `/`, the not-found and
   error pages.
 - `src/features/<context>/` holds an area's pages and its `routes.ts`. `src/components/` holds the
-  UI no area owns, the map's in `components/map/`, and `src/lib/` the code no layer owns.
+  UI no area owns, the forms' in `form/`, the map's in `map/`; `src/lib/` the code no layer owns.
 - `src/styles/theme.css` holds what Mantine would otherwise inject as `<style>` elements.
-- `src/test/setup.ts` configures Vitest; `vite.config.ts` sets the jsdom environment.
-- `src/test/server.ts` is the tests' one MSW server, over the handlers in `src/test/handlers.ts`.
 
 ## Rules
 
@@ -58,6 +56,11 @@ React 19, TypeScript 6.0, Vite 8, pnpm; TanStack Router and Query, Mantine 9, i1
   from files (NFR-204).
 - Read the event stream with `fetch` and eventsource-parser, not the browser's `EventSource`, which
   cannot send an `Authorization` header ([TS §10]).
+- **Forms and lists** ([ADR-153]): a form is a schema from `@dispatchflow/schemas`, its fields from
+  `components/form/fields/` in a `SchemaForm`, and a save such as `useVersionedSave`. A refusal
+  outside a form shows in `ProblemMessage`, rows in `DataTable`, dates, times and quantities
+  through `@dispatchflow/formatters`. ESLint refuses Day.js outside `src/DatesLanguage.tsx`.
+- `lib/problems.ts` types `Problem` by hand, pinned to the contract, until #148 generates it.
 - Server data lives only in TanStack Query's in-memory cache, never persisted, and a refused refresh
   or an ended session drops it (NFR-269). Sign-out's answer sends `Clear-Site-Data` and deletes the
   refresh cookie, which is HttpOnly, so the app never reads it (NFR-233, [ADR-076]).
@@ -65,9 +68,12 @@ React 19, TypeScript 6.0, Vite 8, pnpm; TanStack Router and Query, Mantine 9, i1
 ## Tests
 
 - Vitest with Testing Library, in jsdom. MSW answers API calls in tests ([TS §10]).
-- Open the whole app at an address with `renderApp({ path, now })` from `src/test/renderApp.tsx`,
-  and query it with `findBy…`: the router renders its first route asynchronously. `setup.ts`
-  clears `localStorage` after each test, and stubs `matchMedia` and `scrollTo`, which jsdom lacks.
+- Open the whole app with `renderApp({ path, now })`, or one component in its providers with
+  `renderComponent(ui, { language })`, from `src/test/`, and query with `findBy…`: the router
+  renders asynchronously. `setup.ts` empties storage and notifications after each test, and stubs
+  what jsdom lacks.
+- jsdom runs no CSS transition, so an opening select's list or calendar stays out of the
+  accessibility tree: query its options and days by their text or label.
 - A request no handler answers, asset-like paths included, fails with a network error, and the
   test that sent it fails, one sent on unmount included (`endTest` in `server.ts`, called by
   `setup.ts`). Happy paths go in `handlers.ts`; a test overrides an answer with `server.use()`,
@@ -95,4 +101,5 @@ and fail on a package without the two `src/frontend/CLAUDE.md` requires of every
 [ADR-076]: ../../../docs/ADRs/ADR-076-admin-and-dispatcher-data-stays-in-memory-on-devices.md
 [ADR-143]: ../../../docs/ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md
 [ADR-144]: ../../../docs/ADRs/ADR-144-the-web-apps-features-stay-apart-and-its-lower-folders-never-import-upward.md
+[ADR-153]: ../../../docs/ADRs/ADR-153-the-web-apps-shared-form-refusal-and-table-pieces.md
 [TS §10]: ../../../docs/architecture/tech_stack.md#10-web-app
