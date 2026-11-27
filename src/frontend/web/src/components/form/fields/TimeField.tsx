@@ -53,9 +53,22 @@ export function TimeField<TValues extends FieldValues, TParsed = TValues>({
   })
   // Mantine's picker sends an empty text as soon as one box is emptied, and reads an empty text
   // coming back as a reset that empties every box. While the empty text is the picker's own, it
-  // gets none back, so the other box keeps what was typed; one the form sets, as a reset does,
-  // still empties both.
+  // gets none back, so the other box keeps what was typed.
   const [sentEmpty, setSentEmpty] = useState(false)
+  // A form reset to the empty text the field already holds changes no value, so the picker would
+  // keep a half-typed time. A reset is the one thing that makes a touched field untouched again,
+  // so that remounts the picker on the form's value. A reset that keeps touched fields
+  // (`keepTouched`) is not seen.
+  const { isTouched } = fieldState
+  const [wasTouched, setWasTouched] = useState(isTouched)
+  const [mount, setMount] = useState(0)
+  if (wasTouched !== isTouched) {
+    setWasTouched(isTouched)
+    if (!isTouched) {
+      setMount(mount + 1)
+      setSentEmpty(false)
+    }
+  }
   const time: string = value ?? ''
   const error = fieldState.error?.message
   // Mantine's own ids for the error and the description, from the id given to the picker.
@@ -73,6 +86,7 @@ export function TimeField<TValues extends FieldValues, TParsed = TValues>({
 
   return (
     <TimePicker
+      key={mount}
       id={id}
       label={label}
       description={description}

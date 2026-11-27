@@ -151,13 +151,14 @@ describe('fields', () => {
     const user = userEvent.setup()
     renderComponent(<ResettableTimeForm />)
     const hours = screen.getByRole('spinbutton', { name: 'Opens at, hours' })
-    const minutes = screen.getByRole('spinbutton', { name: 'Opens at, minutes' })
     await user.type(hours, '0830')
 
     await user.click(screen.getByRole('button', { name: 'Reset' }))
 
-    expect(hours).toHaveProperty('value', '')
-    expect(minutes).toHaveProperty('value', '')
+    // A reset remounts the picker, so its boxes are looked up again.
+    for (const name of ['Opens at, hours', 'Opens at, minutes']) {
+      expect(screen.getByRole('spinbutton', { name }), name).toHaveProperty('value', '')
+    }
   })
 
   test('GivenAWindowWithOnlyItsStart_WhenSaved_ThenFocusMovesToItAndEachBoxSaysWhy', async () => {
@@ -225,6 +226,33 @@ describe('fields', () => {
     for (const box of within(group).getAllByRole('spinbutton')) {
       expect(box.getAttribute('aria-invalid')).toBe('false')
     }
+  })
+
+  test('GivenATimeWithOneBoxEmptied_WhenTheFormIsReset_ThenBothItsBoxesEmpty', async () => {
+    const user = userEvent.setup()
+    renderComponent(<ResettableTimeForm />)
+    const hours = screen.getByRole('spinbutton', { name: 'Opens at, hours' })
+    await user.type(hours, '0830')
+    await user.keyboard('{Backspace}')
+
+    await user.click(screen.getByRole('button', { name: 'Reset' }))
+
+    // A reset remounts the picker, so its boxes are looked up again.
+    for (const name of ['Opens at, hours', 'Opens at, minutes']) {
+      expect(screen.getByRole('spinbutton', { name }), name).toHaveProperty('value', '')
+    }
+  })
+
+  test('GivenATimeWithOnlyItsHoursTyped_WhenTheFormIsReset_ThenItsHoursEmpty', async () => {
+    const user = userEvent.setup()
+    renderComponent(<ResettableTimeForm />)
+    const hours = screen.getByRole('spinbutton', { name: 'Opens at, hours' })
+    await user.type(hours, '08')
+
+    await user.click(screen.getByRole('button', { name: 'Reset' }))
+
+    // A reset remounts the picker, so its box is looked up again.
+    expect(screen.getByRole('spinbutton', { name: 'Opens at, hours' })).toHaveProperty('value', '')
   })
 
   test('GivenHebrew_WhenATimeIsShown_ThenItsBoxesStillRunHoursThenMinutesLeftToRight', () => {
