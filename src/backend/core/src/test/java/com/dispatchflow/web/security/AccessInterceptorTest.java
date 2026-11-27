@@ -34,6 +34,7 @@ import jakarta.servlet.Filter;
 import jakarta.servlet.http.Cookie;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -101,6 +102,9 @@ class AccessInterceptorTest {
     private static final String RETRIED = "/api/v1/access-interceptor-test/retried";
     private static final String COUNTED = "/api/v1/access-interceptor-test/counted";
     private static final String ANSWERED = "/api/v1/access-interceptor-test/answered";
+    private static final String SHORT_NOTE = "/api/v1/access-interceptor-test/short-note";
+    // A value the contract refuses, which the refusal's exception quotes in its message.
+    private static final String REFUSED_VALUE = "Dana Levi";
     // A path no operation has, which the static-resource handler serves with a 404.
     private static final String NO_OPERATION = "/api/v1/access-interceptor-test/no-operation";
     private static final String ROUTED = "/api/v1/access-interceptor-test/routed";
@@ -126,6 +130,9 @@ class AccessInterceptorTest {
 
     @RegisterExtension
     final CapturedLogs logs = CapturedLogs.of(NotSignedInHandler.class);
+
+    @RegisterExtension
+    final CapturedLogs everyLine = CapturedLogs.ofEveryLogger();
 
     // What a handler that is no annotated handler method saw: how often it ran, and the caller kept.
     private final AtomicInteger handlerRuns = new AtomicInteger();
@@ -361,19 +368,71 @@ class AccessInterceptorTest {
     }
 
     @Test
-    void GivenTheAuditLogFails_WhenTheContractRefusesASignedInChangingCall_ThenItAnswers500() {
+    void GivenTheAuditLogFails_WhenTheContractRefusesASignedInChangingCall_Then500AndOneErrorLineWithNoRefusedValue() {
         under(StandInProfiles.TEST, fixture -> {
             fixture.auditLog().failing = true;
 
             MvcTestResult result = fixture.mvc()
                     .post()
-                    .uri(NOTE)
+                    .uri(SHORT_NOTE)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"undeclared\":1}")
+                    .content("{\"text\":\"" + REFUSED_VALUE + "\"}")
                     .exchange();
 
             assertThat(result).hasStatus(HttpStatus.INTERNAL_SERVER_ERROR);
             assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo("UNEXPECTED_ERROR");
+            assertThat(everyLine.at(Level.ERROR)).singleElement().satisfies(line -> {
+                assertThat(line.getLoggerName()).isEqualTo("com.dispatchflow.web.ContractErrorHandler");
+                assertThat(line.getThrowableProxy().getMessage()).isEqualTo("the audit log failed");
+                assertThat(CapturedLogs.keyValues(line))
+                        .containsEntry("code", "INVALID_REQUEST")
+                        .containsEntry("exception", "MethodArgumentNotValidException");
+            });
+            assertThat(everyLine.events())
+                    .allSatisfy(line ->
+                            assertThat(CapturedLogs.textsOf(line)).noneMatch(text -> text.contains(REFUSED_VALUE)));
+        });
+    }
+
+    @Test
+    void GivenAnErrorDispatchOfASignedInChangingCall_WhenTheContractRefusesIt_ThenNoRecord() {
+        under(StandInProfiles.TEST, fixture -> {
+            MvcTestResult result = fixture.mvc()
+                    .post()
+                    .uri(NOTE)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"undeclared\":1}")
+                    .with(request -> {
+                        MDC.put(Problems.TRACE_ID, TestActors.TRACE_ID);
+                        Caller.build(request, Optional.of(SIGNED_IN), "sendANote")
+                                .keepFor(request);
+                        MDC.clear();
+                        request.setDispatcherType(DispatcherType.ERROR);
+                        return request;
+                    })
+                    .exchange();
+
+            assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
+            assertThat(fixture.auditLog().refusals).isEmpty();
+        });
+    }
+
+    @Test
+    void GivenASignedInChangingCallOverTheBodyLimit_WhenTheContractRefusesIt_Then413AndOneRecordWithItsCode() {
+        under(StandInProfiles.TEST, fixture -> {
+            String overTheLimit = "{\"text\":\"" + "a".repeat(1_048_576) + "\"}";
+
+            MvcTestResult result = fixture.mvc()
+                    .post()
+                    .uri(NOTE)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(overTheLimit)
+                    .exchange();
+
+            assertThat(result).hasStatus(HttpStatus.CONTENT_TOO_LARGE);
+            assertThat(fixture.auditLog().refusals)
+                    .singleElement()
+                    .satisfies(refusal -> assertThat(refusal.errorCode()).isEqualTo("BODY_TOO_LARGE"));
         });
     }
 
@@ -955,6 +1014,11 @@ class AccessInterceptorTest {
             return note.text();
         }
 
+        @PostMapping(SHORT_NOTE)
+        String sendAShortNote(@Valid @RequestBody ShortNote note) {
+            return note.text();
+        }
+
         // Its answer is JSON only, so a client that accepts none of it gets a 406 after it ran.
         @PostMapping(ANSWERED)
         Note answerWithANote() {
@@ -1002,6 +1066,8 @@ class AccessInterceptorTest {
 
     /** A request body the contract would declare: one required text. */
     record Note(@NotBlank String text) {}
+
+    record ShortNote(@Size(max = 4) String text) {}
 
     record Refusal(CallContext call, Instant at, String errorCode) {}
 

@@ -15,11 +15,23 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.MDC;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 class CallerTest {
+
+    @ParameterizedTest
+    @CsvSource({
+        "GET, false", "HEAD, false", "OPTIONS, false", "TRACE, false",
+        "POST, true", "PUT, true", "PATCH, true", "DELETE, true"
+    })
+    void GivenEachHttpMethod_WhenAskedWhetherItMayChange_ThenOnlyTheFourSafeOnesSayNo(String method, boolean changes) {
+        MockHttpServletRequest request = new MockHttpServletRequest(method, "/api/v1/caller-test");
+
+        assertThat(Caller.mayChange(request)).isEqualTo(changes);
+    }
 
     private static final String TRACE = "4bf92f3577b34da6a3ce929d0e0e4736";
     private static final SignedInCaller DISPATCHER = new SignedInCaller(

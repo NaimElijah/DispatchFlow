@@ -69,9 +69,10 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  * ADR-150 decision 4). That holds for a 4xx of the request's own dispatch whose caller the access
  * interceptor kept, under {@code /api/v1}, whose method may change something, and whose handler
  * the call wrapper hadn't started: a 406 for an answer the handler already produced writes no
- * second record. A failed write answers 500 at ERROR, with the contract's exception suppressed: an
- * exception thrown here would leave only Spring's WARN line, and Spring would then answer the
- * original exception itself.
+ * second record. A failed write answers 500 at ERROR, with the failure, the refusal's code and its
+ * exception's type, never that exception, whose message can quote a refused value: an exception
+ * thrown here would leave only Spring's WARN line, and Spring would then answer the original
+ * exception itself.
  */
 @RestControllerAdvice
 @Order(HandlerOrder.CONTRACT)
@@ -171,8 +172,14 @@ class ContractErrorHandler extends ResponseEntityExceptionHandler {
         try {
             recordTheRefusal(chosen, code, request);
         } catch (RuntimeException failed) {
-            failed.addSuppressed(thrown);
-            log.error("The refused audit record of a call that breaks the contract couldn't be written", failed);
+            // The line names the refusal's type and code, never the exception itself: Spring's
+            // messages quote the values it refused, such as a field's rejected value (NFR-19).
+            log.atError()
+                    .addKeyValue(STATUS, chosen.value())
+                    .addKeyValue(CODE, code)
+                    .addKeyValue(EXCEPTION, thrown.getClass().getSimpleName())
+                    .setCause(failed)
+                    .log("The refused audit record of a call that breaks the contract couldn't be written");
             return super.handleExceptionInternal(
                     thrown,
                     Problems.of(HttpStatus.INTERNAL_SERVER_ERROR, WebCodes.UNEXPECTED_ERROR),
