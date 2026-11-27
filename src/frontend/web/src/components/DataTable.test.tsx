@@ -72,6 +72,32 @@ describe('DataTable', () => {
     }
   })
 
+  test('GivenAColumnOfDecimalsOrDatesWithNoCellOfItsOwn_WhenShown_ThenTheTableFailsNamingTheColumn', () => {
+    interface Delivery {
+      readonly id: string
+      readonly weightKg: number
+      readonly due: Date
+    }
+    const deliveries = createDataTableColumns<Delivery>()
+    const delivery: Delivery = { id: 'd1', weightKg: 12.5, due: new Date('2026-11-27T08:00:00Z') }
+
+    for (const key of ['weightKg', 'due'] as const) {
+      expect(
+        () =>
+          renderComponent(
+            <DataTable
+              caption="Deliveries"
+              columns={deliveries.columns([deliveries.accessor(key, { header: key })])}
+              rows={[delivery]}
+              getRowId={(row) => row.id}
+              emptyText="No delivery."
+            />,
+          ),
+        key,
+      ).toThrow(`"${key}"`)
+    }
+  })
+
   test('GivenAMissingValue_WhenShown_ThenItsCellIsEmptyRatherThanNull', () => {
     renderTable()
 
