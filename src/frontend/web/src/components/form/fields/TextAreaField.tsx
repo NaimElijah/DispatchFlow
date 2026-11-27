@@ -5,7 +5,10 @@ import type { FieldProps } from './fieldProps.ts'
 /** The rows a multi-line field shows before it scrolls: enough for a note to drivers. */
 const VISIBLE_ROWS = 3
 
-/** A multi-line text field bound to the form, such as a customer's notes for drivers. */
+/**
+ * A multi-line text field bound to the form, such as a customer's notes for drivers. Like the
+ * one-line field, it asks for no autofill, inside a form or out of one (ADR-076).
+ */
 export function TextAreaField<TValues extends FieldValues, TParsed = TValues>({
   control,
   name,
@@ -19,6 +22,7 @@ export function TextAreaField<TValues extends FieldValues, TParsed = TValues>({
     <Textarea
       {...field}
       value={field.value ?? ''}
+      autoComplete="off"
       rows={VISIBLE_ROWS}
       label={label}
       description={description}

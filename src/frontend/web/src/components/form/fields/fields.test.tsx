@@ -316,13 +316,16 @@ describe('fields', () => {
     expect(phone).toHaveProperty('value', '+972501234567')
   })
 
-  test('GivenAnyForm_WhenRendered_ThenItAndItsPhoneFieldAskTheBrowserToRememberNothing', () => {
+  test('GivenAnyForm_WhenRendered_ThenItAndItsTextFieldsAskTheBrowserToRememberNothing', () => {
     renderComponent(<ExampleForm etag={null} />)
 
     const phone = screen.getByRole('textbox', { name: strings.phone })
     expect(phone.closest('form')?.getAttribute('autocomplete')).toBe('off')
-    // `tel` would offer the dispatcher's own number in a customer's field, even outside a form.
-    expect(phone.getAttribute('autocomplete')).toBe('off')
+    // Each field asks too, even outside a form: a browser reads `tel` or a field named `name` as
+    // the user's own, and would offer the dispatcher's in a customer's field.
+    for (const name of [strings.phone, strings.name, strings.notes]) {
+      expect(screen.getByRole('textbox', { name }).getAttribute('autocomplete'), name).toBe('off')
+    }
   })
 
   test('GivenANoteOnTwoLines_WhenTyped_ThenItKeepsTheLineBreakAndTheFormIsNotSent', async () => {
