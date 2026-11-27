@@ -67,6 +67,28 @@ describe('the example form', () => {
     })
   })
 
+  test('GivenADayChosenInTheCalendar_WhenSaved_ThenTheRequestCarriesItAsYYYYMMDD', async () => {
+    const user = userEvent.setup()
+    const requests = answerSaves()
+    renderComponent(<ExampleForm etag='"1"' />)
+    const strings = EXAMPLE_STRINGS.en
+    await user.type(screen.getByRole('textbox', { name: strings.name }), 'Ada')
+    await user.type(screen.getByRole('textbox', { name: strings.phone }), '0501234567')
+    await user.click(screen.getByRole('combobox', { name: strings.depot }))
+    await user.click(await screen.findByText('מחסן צפון 2'))
+    await user.type(screen.getByRole('textbox', { name: 'Weight (kg)' }), '3')
+    await user.type(screen.getByRole('textbox', { name: 'Volume (L)' }), '2')
+    await user.type(screen.getByRole('textbox', { name: 'Service time (min)' }), '10')
+
+    await user.click(screen.getByRole('button', { name: strings.date }))
+    // jsdom keeps the opening calendar out of the accessibility tree: its days go by their labels.
+    await user.click(await screen.findByLabelText('27 November 2026'))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('The example is saved.')).toBeDefined()
+    expect(await requests[0].json()).toMatchObject({ date: '2026-11-27' })
+  })
+
   test('GivenTheExampleFormInEnglishAndInHebrew_WhenShown_ThenEachShowsItsOwnWordsAndDirection', () => {
     for (const language of ['en', 'he'] as const) {
       const strings = EXAMPLE_STRINGS[language]
@@ -76,9 +98,13 @@ describe('the example form', () => {
       expect(screen.getByRole('textbox', { name: strings.name })).toBeDefined()
       expect(screen.getByRole('group', { name: strings.window })).toBeDefined()
       expect(screen.getByText('26/11/2026')).toBeDefined()
+      expect(
+        screen.getByRole('textbox', {
+          name: `${strings.weightKg} (${language === 'he' ? 'ק״ג' : 'kg'})`,
+        }),
+      ).toBeDefined()
       unmount()
     }
-    expect(screen.queryByText('ק״ג')).toBeNull()
   })
 
   test('GivenTheExampleFormInHebrew_WhenSavedEmpty_ThenEachRequiredFieldSaysWhyInHebrew', async () => {

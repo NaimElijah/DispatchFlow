@@ -1,5 +1,6 @@
 import contract from '../../../../../contracts/client-api/v1/openapi.yaml?raw'
 import { expect, test } from 'vitest'
+import { PROBLEM_CODE_PATTERN, TRACE_ID_PATTERN } from './problems.ts'
 
 // problems.ts types the contract's Problem by hand until @dispatchflow/api-client generates it
 // (#148, ADR-153). This test pins the parts of the contract that problems.ts reads, so a change to
@@ -49,6 +50,30 @@ test('GivenTheContractsProblem_WhenItsFieldsAreRead_ThenTheyAreTheOnesTheHandWri
   expect(entriesUnder(problem, 'properties')).toEqual(
     ['type', 'title', 'status', 'detail', 'instance', 'code', 'params', 'traceId', 'errors'].sort(),
   )
+})
+
+/** The `pattern` the contract gives a property directly under a schema block's `properties`. */
+function patternOf(block: string[], property: string): string | undefined {
+  const start = block.indexOf(`        ${property}:`)
+  expect(start, `no property ${property}`).toBeGreaterThan(-1)
+  for (const line of block.slice(start + 1)) {
+    if (/^ {8}\S/.test(line)) {
+      return undefined
+    }
+    const pattern = /^ {10}pattern: '(.*)'$/.exec(line)
+    if (pattern !== null) {
+      return pattern[1]
+    }
+  }
+  return undefined
+}
+
+test('GivenTheContractsCodeAndTraceIdPatterns_WhenRead_ThenTheGuardChecksTheSameOnes', () => {
+  const problem = schemaBlock('Problem')
+
+  expect(patternOf(problem, 'code')).toBe(PROBLEM_CODE_PATTERN.source)
+  expect(patternOf(problem, 'traceId')).toBe(TRACE_ID_PATTERN.source)
+  expect(patternOf(schemaBlock('ProblemItem'), 'code')).toBe(PROBLEM_CODE_PATTERN.source)
 })
 
 test('GivenTheContractsProblemItem_WhenItsFieldsAreRead_ThenTheyAreTheOnesTheHandWrittenTypeHolds', () => {

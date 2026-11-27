@@ -19,7 +19,8 @@ export interface TimeFieldProps<TValues extends FieldValues, TParsed = TValues> 
  * picker, with a box for the hours and one for the minutes. Typing `0830` fills both, and the arrow
  * keys step each. The form holds `HH:mm`, or an empty text until both boxes are filled.
  *
- * The boxes run hours then minutes from left to right in both directions, as a clock is read. Each
+ * The boxes run hours then minutes from left to right in both directions, as a clock is read:
+ * Mantine sets the boxes' `dir` to `ltr` itself. Each
  * box is named after the field, and both are tied to the field's error, which Mantine itself ties
  * only to the picker's outer element.
  */
@@ -63,8 +64,6 @@ export function TimeField<TValues extends FieldValues, TParsed = TValues>({
       minutesInputLabel={t('timeOfDay.minutes', { label })}
       hoursInputProps={boxProps}
       minutesInputProps={boxProps}
-      // A time reads hours then minutes from left to right in Hebrew too, so its boxes never flip.
-      attributes={{ fieldsGroup: { dir: 'ltr' } }}
     />
   )
 }

@@ -48,6 +48,15 @@ describe('planProblem', () => {
     expect(plan.onField).toBe(false)
   })
 
+  test('GivenAPointerToAListAsAWhole_WhenPlanned_ThenItStaysForTheSummary', () => {
+    const tooMany = { code: 'WRONG_SIZE', pointer: '/stops', params: { max: 500 } }
+
+    const plan = planProblem<Values>(invalidRequest([tooMany]), schema)
+
+    expect(plan.onFields).toEqual([])
+    expect(plan.items).toEqual([tooMany])
+  })
+
   test('GivenAPointerWithEscapedCharacters_WhenPlanned_ThenItIsUnescapedPerRfc6901', () => {
     const plan = planProblem<Values>(
       invalidRequest([{ code: 'REQUIRED', pointer: '/a~1b~0c' }]),
@@ -70,6 +79,22 @@ describe('planProblem', () => {
 
     expect(plan.onFields).toEqual([])
     expect(plan.items).toEqual(items)
+  })
+
+  test('GivenItemsWithoutAPointer_WhenTheFormMapsTheirCodes_ThenOnlyTheOneNamingNoParameterLandsOnAField', () => {
+    const parameterItem = {
+      code: 'MISSING_PARAMETER',
+      parameter: { name: 'If-Match', in: 'header' as const },
+    }
+
+    const plan = planProblem<Values>(
+      invalidRequest([{ code: 'DUPLICATE_PROPERTY' }, parameterItem]),
+      schema,
+      () => 'name',
+    )
+
+    expect(plan.onFields).toEqual([{ path: 'name', code: 'DUPLICATE_PROPERTY', params: {} }])
+    expect(plan.items).toEqual([parameterItem])
   })
 
   test('GivenARuleRefusalTheFormMapsToAField_WhenPlanned_ThenItLandsThereAndTheSummaryNeedNotRepeatIt', () => {

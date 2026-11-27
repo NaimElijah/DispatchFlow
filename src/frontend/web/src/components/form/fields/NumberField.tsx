@@ -15,20 +15,26 @@ export interface NumberFieldProps<
   readonly unit?: Unit
   /** The decimals the field takes: 2 for a weight or a volume, none for a count or a duration. */
   readonly decimals?: number
+  /** The smallest value the arrow keys step to; the schema, not the box, refuses one below it. */
   readonly min?: number
+  /** The largest value the arrow keys step to; the schema, not the box, refuses one above it. */
   readonly max?: number
 }
 
 /** What the input shows, as Mantine reports it: a number, or text such as `12.` or `0.0`. */
 type Typed = number | string
 
-/** The number a typed value means, if any: `12.` means 12, and an empty box means none. */
-function numberOf(typed: Typed): number | undefined {
+/**
+ * The number a typed value means: `12.` means 12, and an empty box means `null`. Not `undefined`:
+ * React Hook Form reads a field holding `undefined` back as its default value, so a box emptied and
+ * typed again with that same number would never reach the form.
+ */
+function numberOf(typed: Typed): number | null {
   if (typeof typed === 'number') {
     return typed
   }
   const value = typed.trim() === '' ? Number.NaN : Number(typed)
-  return Number.isFinite(value) ? value : undefined
+  return Number.isFinite(value) ? value : null
 }
 
 /**
@@ -39,7 +45,9 @@ function numberOf(typed: Typed): number | undefined {
  * The form holds the number, or nothing while the box is empty. The box keeps what the user typed
  * while it still means the form's number, so `12.` stays on screen on the way to `12.5`. Only a new
  * number reaches the form: Mantine rewrites `1.50` as `1.5` when the user leaves the box, and that
- * must not re-run the field's check and wipe a refusal the server gave.
+ * must not re-run the field's check and wipe a refusal the server gave. For the same reason the box
+ * never clamps a value to `min` or `max` as the user leaves it: it keeps what was typed, and the
+ * schema says it is out of range.
  */
 export function NumberField<TValues extends FieldValues, TParsed = TValues>({
   control,
@@ -56,7 +64,7 @@ export function NumberField<TValues extends FieldValues, TParsed = TValues>({
   const language = useLanguage()
   const { field, fieldState } = useController({ control, name })
   const [typed, setTyped] = useState<Typed>('')
-  const value: number | undefined = field.value
+  const value: number | null = field.value ?? null
   const shown = typed !== '' && numberOf(typed) === value ? typed : (value ?? '')
 
   return (
@@ -81,6 +89,7 @@ export function NumberField<TValues extends FieldValues, TParsed = TValues>({
       allowNegative={false}
       min={min}
       max={max}
+      clampBehavior="none"
       hideControls
     />
   )

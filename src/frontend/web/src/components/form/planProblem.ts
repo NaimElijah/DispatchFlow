@@ -70,7 +70,11 @@ function childOf(schema: z.ZodType, key: string): z.ZodType | undefined {
   return undefined
 }
 
-/** The form's field at a pointer, when its schema has one there; the keys join as the form's path. */
+/**
+ * The form's field at a pointer, when its schema has one there; the keys join as the form's path.
+ * A list is no field: no field shows a refusal of the list as a whole, such as one with too many
+ * stops, so it goes to the summary.
+ */
 function fieldAt<TValues extends FieldValues>(
   schema: z.ZodType,
   pointer: string,
@@ -85,6 +89,9 @@ function fieldAt<TValues extends FieldValues>(
     if (node === undefined) {
       return undefined
     }
+  }
+  if (unwrapped(node) instanceof z.ZodArray) {
+    return undefined
   }
   // The schema's keys are the form's, so a path the schema has is one of the form's fields.
   return keys.join('.') as FieldPath<TValues>

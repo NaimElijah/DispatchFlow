@@ -30,6 +30,7 @@ test.each([
   ['src/components/form/fields/DateField.tsx', 'dayjs/locale/he'],
   ['src/lib/versionedSave.ts', 'dayjs'],
   ['src/AppProviders.tsx', 'dayjs'],
+  ['src/test/ExampleForm.tsx', 'dayjs'],
 ])(
   'GivenAFileAt_%s_WhenItImports_%s_ThenLintRefusesTheImport',
   async (filePath, specifier) => {

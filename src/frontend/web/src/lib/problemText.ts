@@ -38,7 +38,9 @@ function shownValue(value: unknown): string | number | undefined {
     return formatLocalTime(value)
   }
   if (INSTANT.test(value)) {
-    return formatInstantDateTime(new Date(value))
+    // The pattern lets an impossible instant through, such as month 13; it shows as sent.
+    const instant = new Date(value)
+    return Number.isNaN(instant.getTime()) ? value : formatInstantDateTime(instant)
   }
   return value
 }
@@ -76,8 +78,13 @@ export function problemText(
   if (!isProblemCode(code)) {
     return { text: t('unknown.text'), nextStep: t('unknown.nextStep') }
   }
-  const values = shownParams(params)
-  return { text: t(`codes.${code}.text`, values), nextStep: t(`codes.${code}.nextStep`, values) }
+  // The values go under `replace`, never as the options themselves: a param named like one of
+  // i18next's options, such as `lng` or `returnDetails`, would otherwise change the lookup.
+  const replace = shownParams(params)
+  return {
+    text: t(`codes.${code}.text`, { replace }),
+    nextStep: t(`codes.${code}.nextStep`, { replace }),
+  }
 }
 
 /** A refusal in one line, as a field shows it under its input: its text, then its next step. */

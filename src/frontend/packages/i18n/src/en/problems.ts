@@ -1,3 +1,9 @@
+/** A request the server could not read: the app and the server disagree on the contract. */
+const appMismatch = {
+  text: 'The app and the server do not match.',
+  nextStep: 'Reload the page to get the latest version of the app, then try again.',
+} as const
+
 /**
  * What a refused request means and what the user can do next, one entry per code, for both apps
  * (NFR-69, NFR-143, NFR-144, ADR-043). Each code has its `text` and its `nextStep`; a screen shows
@@ -6,13 +12,6 @@
  * with no entry shows the general text. The source of the namespace's shape, which `he/problems.ts`
  * must match.
  */
-
-/** A request the server could not read: the app and the server disagree on the contract. */
-const appMismatch = {
-  text: 'The app and the server do not match.',
-  nextStep: 'Reload the page to get the latest version of the app, then try again.',
-} as const
-
 export const problems = {
   codes: {
     // The contract's own codes (contracts/client-api/v1, Problem).
@@ -31,7 +30,7 @@ export const problems = {
     STALE_VERSION: {
       text: 'Someone else changed this after it was opened here, so your changes were not saved.',
       nextStep:
-        'Your changes are still on the screen. Reload to see the latest version, then make your changes again.',
+        'Your changes are still on the screen. Reload to see the record as it is now, then make your changes again.',
     },
     TRY_AGAIN_LATER: {
       text: 'The server is busy and could not finish this just now.',
@@ -116,6 +115,14 @@ export const problems = {
       text: 'This date is too far in the past or the future.',
       nextStep: 'Choose a nearer date.',
     },
+    PRIORITY_OUT_OF_RANGE: {
+      text: 'This priority is outside the range allowed.',
+      nextStep: 'Choose a priority from the range the field shows.',
+    },
+    INVALID_COORDINATES: {
+      text: 'This is not a point on the map.',
+      nextStep: 'Place the location again.',
+    },
     // Raised only by the app's own checks, before anything is sent.
     INCOMPLETE_TIME_WINDOW: {
       text: 'The window has only one of its two times.',
@@ -126,6 +133,7 @@ export const problems = {
     text: 'Something went wrong.',
     nextStep: 'Try again. If it keeps happening, tell your administrator.',
   },
+  mismatch: appMismatch,
   network: {
     text: 'The server could not be reached.',
     nextStep: 'Check the internet connection, then try again.',

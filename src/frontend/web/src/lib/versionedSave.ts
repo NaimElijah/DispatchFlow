@@ -48,7 +48,10 @@ export interface VersionedSaveOptions<TBody, TData> {
     body: TBody,
     headers: Readonly<Record<string, string>>,
   ) => Promise<SendResult<TData>>
-  /** Called once a write is stored, with what it stored, such as to show a notification. */
+  /**
+   * Called once a write is stored, with what it stored, such as to show a notification. It must not
+   * throw: the write is stored, and the mutation would report the throw as the save's failure.
+   */
   readonly onSaved?: (saved: Saved<TData>, request: SaveRequest<TBody>) => void
 }
 
@@ -75,8 +78,12 @@ export function useVersionedSave<TBody, TData = unknown>({
       try {
         result = await send(body, preconditionHeaders(etag))
       } catch (error) {
-        // `send` only calls the client, which rejects only when no answer arrived.
-        throw new RequestError({ kind: 'network' }, { cause: error })
+        // fetch rejects with a TypeError, and only a TypeError, when no answer arrived. Anything else
+        // `send` throws is a bug, and fails loudly as itself.
+        if (error instanceof TypeError) {
+          throw new RequestError({ kind: 'network' }, { cause: error })
+        }
+        throw error
       }
       const { response, data, error } = result
       if (!response.ok) {

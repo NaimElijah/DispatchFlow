@@ -16,6 +16,7 @@ export interface SelectFieldProps<
   TValues extends FieldValues,
   TParsed = TValues,
 > extends FieldProps<TValues, string, TParsed> {
+  /** The choices, in the order the list shows them. */
   readonly options: readonly SelectOption[]
 }
 

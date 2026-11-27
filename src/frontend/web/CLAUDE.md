@@ -56,11 +56,8 @@ React 19, TypeScript 6.0, Vite 8, pnpm; TanStack Router and Query, Mantine 9, i1
   from files (NFR-204).
 - Read the event stream with `fetch` and eventsource-parser, not the browser's `EventSource`, which
   cannot send an `Authorization` header ([TS §10]).
-- **Forms and lists** ([ADR-153]): a form is a schema from `@dispatchflow/schemas`, its fields from
-  `components/form/fields/` in a `SchemaForm`, and a save such as `useVersionedSave`. A refusal
-  outside a form shows in `ProblemMessage`, rows in `DataTable`, dates, times and quantities
-  through `@dispatchflow/formatters`. ESLint refuses Day.js outside `src/DatesLanguage.tsx`.
-- `lib/problems.ts` types `Problem` by hand, pinned to the contract, until #148 generates it.
+- Build forms, refusals and row lists from `src/components/` ([ADR-153]). ESLint refuses Day.js
+  outside `DatesLanguage.tsx`; `lib/problems.ts` types `Problem` by hand until #148 generates it.
 - Server data lives only in TanStack Query's in-memory cache, never persisted, and a refused refresh
   or an ended session drops it (NFR-269). Sign-out's answer sends `Clear-Site-Data` and deletes the
   refresh cookie, which is HttpOnly, so the app never reads it (NFR-233, [ADR-076]).
@@ -72,8 +69,6 @@ React 19, TypeScript 6.0, Vite 8, pnpm; TanStack Router and Query, Mantine 9, i1
   `renderComponent(ui, { language })`, from `src/test/`, and query with `findBy…`: the router
   renders asynchronously. `setup.ts` empties storage and notifications after each test, and stubs
   what jsdom lacks.
-- jsdom runs no CSS transition, so an opening select's list or calendar stays out of the
-  accessibility tree: query its options and days by their text or label.
 - A request no handler answers, asset-like paths included, fails with a network error, and the
   test that sent it fails, one sent on unmount included (`endTest` in `server.ts`, called by
   `setup.ts`). Happy paths go in `handlers.ts`; a test overrides an answer with `server.use()`,

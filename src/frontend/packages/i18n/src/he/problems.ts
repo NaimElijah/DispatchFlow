@@ -25,7 +25,7 @@ export const problems: Strings<typeof english> = {
     STALE_VERSION: {
       text: 'מישהו אחר שינה את הרשומה אחרי שנפתחה כאן, ולכן השינויים לא נשמרו.',
       nextStep:
-        'השינויים עדיין מופיעים במסך. יש לטעון מחדש כדי לראות את הגרסה העדכנית, ואז לבצע את השינויים שוב.',
+        'השינויים עדיין מופיעים במסך. יש לטעון מחדש כדי לראות את הרשומה כפי שהיא עכשיו, ואז לבצע את השינויים שוב.',
     },
     TRY_AGAIN_LATER: {
       text: 'השרת עמוס ולא הצליח להשלים את הפעולה כרגע.',
@@ -108,6 +108,14 @@ export const problems: Strings<typeof english> = {
       text: 'התאריך רחוק מדי בעבר או בעתיד.',
       nextStep: 'יש לבחור תאריך קרוב יותר.',
     },
+    PRIORITY_OUT_OF_RANGE: {
+      text: 'העדיפות מחוץ לטווח המותר.',
+      nextStep: 'יש לבחור עדיפות מהטווח שהשדה מציג.',
+    },
+    INVALID_COORDINATES: {
+      text: 'זו אינה נקודה על המפה.',
+      nextStep: 'יש למקם את המיקום מחדש.',
+    },
     INCOMPLETE_TIME_WINDOW: {
       text: 'בחלון מולאה רק אחת משתי השעות.',
       nextStep: 'יש למלא את שתי השעות, או להשאיר את שתיהן ריקות.',
@@ -117,6 +125,7 @@ export const problems: Strings<typeof english> = {
     text: 'משהו השתבש.',
     nextStep: 'יש לנסות שוב. אם זה חוזר, יש לפנות למנהל המערכת.',
   },
+  mismatch: appMismatch,
   network: {
     text: 'לא ניתן היה להתחבר לשרת.',
     nextStep: 'יש לבדוק את החיבור לאינטרנט ולנסות שוב.',

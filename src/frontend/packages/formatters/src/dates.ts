@@ -101,9 +101,7 @@ export function formatLocalTime(time: string): string {
 }
 
 /**
- * Writes a time window's two ends as `08:00–12:00`. Left as plain text, not isolated in `<bdi>`: in
- * a right-to-left paragraph the bidirectional algorithm then places the start on the right, where a
- * Hebrew reader begins.
+ * Writes a time window's two ends as `08:00–12:00`.
  *
  * @throws RangeError when either end is not an `HH:mm` or `HH:mm:ss` time of day
  */

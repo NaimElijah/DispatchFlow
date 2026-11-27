@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import { useForm, type FieldValues, type UseFormProps, type UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import type { z } from 'zod'
-import { fieldErrorText } from '../problemText.ts'
+import { fieldErrorText } from '../../lib/problemText.ts'
 
 /** A form's schema: a Zod object over the form's values, from `@dispatchflow/schemas`. */
 export type FormSchema = z.ZodType<FieldValues, FieldValues>

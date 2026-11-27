@@ -3,9 +3,8 @@
  * the save button, the table and the date pickers. The source of the namespace's shape, which
  * `he/common.ts` must match key for key.
  *
- * In `timeOnDate`, `<date>` marks where the screen puts the date's own element, so each language
- * keeps its own word order around it. `withUnit` names a number field with its unit, and `timeOfDay`
- * names a time field's two boxes after the field, so a screen reader says which time they set.
+ * `withUnit` names a number field with its unit, and `timeOfDay` names a time field's two boxes
+ * after the field, so a screen reader says which time they set.
  */
 export const common = {
   save: 'Save',
@@ -21,7 +20,6 @@ export const common = {
     start: 'From',
     end: 'To',
   },
-  timeOnDate: '{{time}} on <date>{{date}}</date>',
   select: {
     nothingFound: 'Nothing matches',
   },

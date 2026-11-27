@@ -67,8 +67,10 @@ afterEach(async () => {
   recordingFailure(errors, cleanup)
   removeStyleElements()
   // Mantine keeps its notifications in one store for the whole page, which unmounting leaves full.
-  notifications.clean()
-  notifications.cleanQueue()
+  recordingFailure(errors, () => {
+    notifications.clean()
+    notifications.cleanQueue()
+  })
   // What the app writes outside its React tree, which unmounting leaves behind: the language
   // setting, the one thing it keeps in browser storage (ADR-143), and <html>'s language, direction
   // and the tab's title, so no test passes on what an earlier one set.

@@ -90,4 +90,6 @@ export default defineConfig([
     [toAppModules, toTestCode, toDayjs, toFolders(['features', 'routes', 'components'])],
   ),
   restrict(['src/*.{ts,tsx}'], [toDayjs], [DAYJS_LOCALE_FILE]),
+  // The tests' own helpers, which no other block covers; the test files themselves stay free.
+  restrict(['src/test/**'], [toDayjs]),
 ])

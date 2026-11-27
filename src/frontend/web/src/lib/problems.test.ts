@@ -39,6 +39,7 @@ describe('isProblem', () => {
       null,
       { ...problem(400, 'INVALID_REQUEST'), code: 'not a code' },
       { ...problem(400, 'INVALID_REQUEST'), params: undefined },
+      { ...problem(400, 'INVALID_REQUEST'), traceId: '<b>not a trace id</b>' },
       { ...problem(400, 'INVALID_REQUEST'), errors: [{ pointer: '/name' }] },
       {
         ...problem(400, 'INVALID_REQUEST'),
@@ -58,21 +59,12 @@ describe('toRequestFailure', () => {
     }
   })
 
-  test('GivenTryAgainLaterWithRetryAfter_WhenRead_ThenItIsBusyForThoseSeconds', () => {
+  test('GivenTryAgainLaterWithRetryAfter_WhenRead_ThenItIsBusy', () => {
     const body = problem(503, 'TRY_AGAIN_LATER')
     expect(toRequestFailure(answer(503, { 'Retry-After': '2' }), body)).toEqual({
       kind: 'busy',
       problem: body,
-      retryAfterSeconds: 2,
     })
-  })
-
-  test('GivenARetryAfterThatIsADate_WhenRead_ThenItIsBusyWithNoDelayRead', () => {
-    const failure = toRequestFailure(
-      answer(503, { 'Retry-After': 'Fri, 27 Nov 2026 10:00:00 GMT' }),
-      problem(503, 'TRY_AGAIN_LATER'),
-    )
-    expect(failure).toMatchObject({ kind: 'busy', retryAfterSeconds: undefined })
   })
 
   test('GivenTheUnexpectedError_WhenRead_ThenItIsUnexpected', () => {
@@ -91,7 +83,6 @@ describe('toRequestFailure', () => {
     expect(toRequestFailure(answer(503, { 'Retry-After': '5' }), '')).toEqual({
       kind: 'busy',
       problem: undefined,
-      retryAfterSeconds: 5,
     })
   })
 

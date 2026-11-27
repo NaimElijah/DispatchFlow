@@ -12,6 +12,12 @@ import {
   israelDateOf,
 } from './dates.ts'
 
+// vitest.config.ts runs these tests in New York's zone, so a formatter that read the computer's
+// zone in place of Israel's would fail them on every computer, an Israeli one included (ADR-088).
+test('GivenTheTestsOwnZone_WhenRead_ThenItIsNotIsraels', () => {
+  expect(new Intl.DateTimeFormat().resolvedOptions().timeZone).not.toBe('Asia/Jerusalem')
+})
+
 describe('instants', () => {
   test('GivenAnInstantAt2230UtcOn31March2026_WhenFormatted_ThenItShows01042026At0130', () => {
     // Israel moved to summer time (UTC+3) on 27 March 2026, so 22:30 UTC is 01:30 the next day.
@@ -52,6 +58,14 @@ describe('formatInstantTimeOn', () => {
     expect(formatInstantTimeOn(new Date('2026-11-26T22:10:00Z'), '2026-11-26')).toEqual({
       time: '00:10',
       date: '27/11/2026',
+    })
+  })
+
+  test('GivenAnInstantOnTheDayBeforeTheDeliveryDateInIsrael_WhenFormatted_ThenItsDateIsShownToo', () => {
+    // 21:30 UTC on 25 November is 23:30 on 25 November in Israel.
+    expect(formatInstantTimeOn(new Date('2026-11-25T21:30:00Z'), '2026-11-26')).toEqual({
+      time: '23:30',
+      date: '25/11/2026',
     })
   })
 

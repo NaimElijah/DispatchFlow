@@ -16,7 +16,6 @@ export const common: Strings<typeof english> = {
     start: 'משעה',
     end: 'עד שעה',
   },
-  timeOnDate: '{{time}} ב־<date>{{date}}</date>',
   select: {
     nothingFound: 'אין התאמות',
   },

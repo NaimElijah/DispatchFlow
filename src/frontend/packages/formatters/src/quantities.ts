@@ -50,6 +50,8 @@ export function formatQuantity(value: number, unit: Unit, language: Language): s
 /**
  * The unit's short symbol in the interface language, as {@link formatQuantity} writes it beside a
  * value: for a field that shows the unit beside the number the user types.
+ *
+ * @throws Error when `Intl` gives the unit no symbol in the language, which no supported runtime does
  */
 export function unitSymbol(unit: Unit, language: Language): string {
   const symbol = formatOf(unit, language)

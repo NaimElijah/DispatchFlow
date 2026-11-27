@@ -43,7 +43,7 @@ export function ExampleForm({ etag }: { readonly etag: string | null }) {
       form={form}
       schema={exampleSchema}
       save={save}
-      onSubmit={(body) => save.mutate({ body, etag })}
+      onSubmit={(body) => save.mutateAsync({ body, etag })}
     >
       <TextField control={control} name="name" label={strings.name} required />
       <TextAreaField control={control} name="notes" label={strings.notes} />

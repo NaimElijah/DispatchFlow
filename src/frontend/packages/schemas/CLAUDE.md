@@ -10,9 +10,10 @@ nothing here touches the DOM, React or a screen.
 - Build a schema from `src/fields.ts`. Its keys are the request body's, so a 400's pointer names the
   field it refused.
 - A check never sets a message, because one set here beats the app's translating error map and
-  reaches the screen untranslated (NFR-143). It names its code with `refusal(code, params)`: the code
-  goes into `SchemaCode`, and its text and next step into `@dispatchflow/i18n`'s `problems`.
-  `src/refusals.test.ts` proves it for `exampleSchema`; add a form's own schema to that test.
+  reaches the screen untranslated (NFR-143). It names its code with `refusal(code, params)`: the
+  code goes into `SchemaCode`, and its text and next step into `@dispatchflow/i18n`'s `problems`.
+  `src/refusals.test.ts` proves it for `exampleSchema`; add a form's own schema to that test. The
+  web app's `src/lib/problemText.test.ts` fails a `SchemaCode` with no text.
 - A schema checks shape for quick feedback only. A rule the server owns, such as a date in the past,
   a duplicate or a full day, stays the server's ([TS §10]).
 - Zod stays at 4.6.6 or later, the same exact version as the web app's ([ADR-095]).

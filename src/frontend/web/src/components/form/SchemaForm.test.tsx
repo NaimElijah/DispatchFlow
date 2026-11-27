@@ -1,5 +1,6 @@
-import { phoneNumber, requiredText } from '@dispatchflow/schemas'
-import { screen, waitFor, within } from '@testing-library/react'
+import { phoneNumber, requiredText, weightKg } from '@dispatchflow/schemas'
+import { onlineManager } from '@tanstack/react-query'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw/http'
 import { describe, expect, test, vi } from 'vitest'
@@ -7,8 +8,11 @@ import { z } from 'zod'
 import { useVersionedSave, type Saved } from '../../lib/versionedSave.ts'
 import { renderComponent } from '../../test/renderComponent.tsx'
 import { sendJson } from '../../test/sendJson.ts'
+import { ExampleForm } from '../../test/ExampleForm.tsx'
+import { EXAMPLE_PATH } from '../../test/exampleFormData.ts'
 import { server } from '../../test/server.ts'
 import { notifySaved } from '../notifySaved.ts'
+import { NumberField } from './fields/NumberField.tsx'
 import { PhoneField } from './fields/PhoneField.tsx'
 import { TextField } from './fields/TextField.tsx'
 import { SaveButton } from './SaveButton.tsx'
@@ -43,12 +47,34 @@ function ContactForm({ etag, onReload, onSaved }: ContactFormProps) {
       form={form}
       schema={contactSchema}
       save={save}
-      onSubmit={(body) => save.mutate({ body, etag })}
+      onSubmit={(body) => save.mutateAsync({ body, etag })}
       onReload={onReload}
       fieldFor={(code) => (code === 'INVALID_PHONE_NUMBER' ? 'phone' : undefined)}
     >
       <TextField control={form.control} name="name" label="Name" required />
       <PhoneField control={form.control} name="phone" label="Phone" required />
+      <SaveButton />
+    </SchemaForm>
+  )
+}
+
+const weightSchema = z.object({ weightKg })
+
+/** A form of one number field, to see what leaving the field does to a refusal on it. */
+function WeightForm() {
+  const form = useSchemaForm(weightSchema)
+  const save = useVersionedSave({
+    send: (body, headers) => sendJson('PUT', CONTACT_PATH, body, headers),
+  })
+
+  return (
+    <SchemaForm
+      form={form}
+      schema={weightSchema}
+      save={save}
+      onSubmit={(body) => save.mutateAsync({ body, etag: '"3"' })}
+    >
+      <NumberField control={form.control} name="weightKg" label="Weight" unit="kg" decimals={2} />
       <SaveButton />
     </SchemaForm>
   )
@@ -165,13 +191,15 @@ describe('SchemaForm', () => {
     await fillAndSave(user)
 
     const summary = await screen.findByRole('alert')
-    expect(within(summary).getByRole('listitem').textContent).toBe('This is required. Fill it in.')
+    expect(within(summary).getByRole('listitem').textContent).toBe(
+      'The app and the server do not match. Reload the page to get the latest version of the app, then try again.',
+    )
   })
 
   test('GivenAStaleVersionAnswer_WhenSaving_ThenTheUserIsToldAndTheirInputIsKept', async () => {
     const user = userEvent.setup()
     const onReload = vi.fn()
-    answerSaves(() =>
+    const requests = answerSaves(() =>
       json(problem(412, 'STALE_VERSION', { params: { kind: 'Contact', id: 'c1' } }), 412),
     )
     renderComponent(<ContactForm etag='"3"' onReload={onReload} />)
@@ -184,6 +212,8 @@ describe('SchemaForm', () => {
     expectInputKept()
     await user.click(within(summary).getByRole('button', { name: 'Reload' }))
     expect(onReload).toHaveBeenCalledOnce()
+    expect(requests).toHaveLength(1)
+    expect(screen.queryByText('Your changes are still on the screen.', { exact: false })).toBeNull()
   })
 
   test('GivenA503WithRetryAfter_WhenSaving_ThenTheUserIsToldToTryAgainAndTheirInputIsKept', async () => {
@@ -205,7 +235,9 @@ describe('SchemaForm', () => {
 
     expect(await screen.findByText('The contact is saved.')).toBeDefined()
     expect(requests).toHaveLength(2)
+    expect(requests[1].headers.get('If-Match')).toBe('"3"')
     expect(await requests[1].json()).toEqual({ name: 'Ada Lovelace', phone: '0501234567' })
+    expect(screen.queryByText('Try again in a few seconds.')).toBeNull()
   })
 
   test('GivenAViewWithNoVersion_WhenSaving_ThenTheRequestSendsIfNoneMatch', async () => {
@@ -249,7 +281,7 @@ describe('SchemaForm', () => {
     expect(requests).toHaveLength(1)
   })
 
-  test('GivenAProxysPageInsteadOfAProblem_WhenSaving_ThenTheGeneralTextIsShown', async () => {
+  test('GivenAProxysPageInsteadOfAProblem_WhenSaving_ThenTheUserIsToldToReloadBeforeSendingAgain', async () => {
     const user = userEvent.setup()
     answerSaves(() => new HttpResponse('<html>502 Bad Gateway</html>', { status: 502 }))
     renderComponent(<ContactForm etag='"3"' />)
@@ -257,7 +289,7 @@ describe('SchemaForm', () => {
     await fillAndSave(user)
 
     const summary = await screen.findByRole('alert')
-    expect(summary.textContent).toContain('Something went wrong.')
+    expect(summary.textContent).toContain('Your change may have been saved.')
     expect(summary.textContent).not.toContain('502')
   })
 
@@ -299,6 +331,121 @@ describe('SchemaForm', () => {
     expect(await screen.findByText('The contact is saved.')).toBeDefined()
     expect(requests).toHaveLength(1)
     await waitFor(() => expect(button.getAttribute('aria-busy')).toBe('false'))
+  })
+
+  test('GivenTheBrowserOffline_WhenSaving_ThenTheUserIsToldAtOnceThatTheServerCouldNotBeReached', async () => {
+    const user = userEvent.setup()
+    answerSaves(() => HttpResponse.error())
+    onlineManager.setOnline(false)
+    try {
+      renderComponent(<ContactForm etag='"3"' />)
+
+      await fillAndSave(user)
+
+      const summary = await screen.findByRole('alert')
+      expect(summary.textContent).toContain('The server could not be reached.')
+    } finally {
+      onlineManager.setOnline(true)
+    }
+  })
+
+  test('GivenTwoSubmissionsWithNoPauseBetween_WhenSaving_ThenOnlyOneRequestIsSent', async () => {
+    const user = userEvent.setup()
+    let release: () => void = () => undefined
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const requests: Request[] = []
+    server.use(
+      http.put(CONTACT_PATH, async ({ request }) => {
+        requests.push(request)
+        await held
+        return new HttpResponse(null, { status: 204, headers: { ETag: '"4"' } })
+      }),
+    )
+    renderComponent(<ContactForm etag='"3"' />)
+    await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Ada Lovelace')
+    await user.type(screen.getByRole('textbox', { name: 'Phone' }), '0501234567')
+    const form = screen.getByRole('button', { name: 'Save' }).closest('form')
+    if (form === null) {
+      throw new Error('The save button sits in no form')
+    }
+
+    fireEvent.submit(form)
+    fireEvent.submit(form)
+    await waitFor(() => expect(requests).toHaveLength(1))
+    release()
+
+    expect(await screen.findByText('The contact is saved.')).toBeDefined()
+    expect(requests).toHaveLength(1)
+  })
+
+  test('GivenTheServersRefusalOfAWeightWithATrailingZero_WhenTheUserLeavesTheField_ThenTheRefusalStays', async () => {
+    const user = userEvent.setup()
+    answerSaves(() =>
+      json(
+        problem(400, 'INVALID_REQUEST', { errors: [{ code: 'TOO_LARGE', pointer: '/weightKg' }] }),
+        400,
+      ),
+    )
+    renderComponent(<WeightForm />)
+    const weight = screen.getByRole('textbox', { name: 'Weight (kg)' })
+
+    await user.type(weight, '1.50{Enter}')
+    const refused = 'This is more than the largest value allowed. Enter a smaller value.'
+    expect(await screen.findByRole('textbox', { name: 'Weight (kg)', description: refused })).toBe(
+      weight,
+    )
+    await user.click(weight)
+    await user.tab()
+
+    expect(screen.getByRole('textbox', { name: 'Weight (kg)', description: refused })).toBe(weight)
+  })
+
+  test('GivenANumberTypedOutsideItsRange_WhenTheUserLeavesTheField_ThenTheBoxKeepsWhatWasTyped', async () => {
+    const user = userEvent.setup()
+    renderComponent(<ExampleForm etag={null} />)
+    const priority = screen.getByRole('textbox', { name: 'Priority' })
+
+    await user.clear(priority)
+    await user.type(priority, '9')
+    await user.tab()
+
+    expect(priority).toHaveProperty('value', '9')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(
+      await screen.findByRole('textbox', {
+        name: 'Priority',
+        description: /This is more than the largest value allowed\. Enter a smaller value\./,
+      }),
+    ).toBe(priority)
+  })
+
+  test('GivenADefaultNumberClearedAndTypedAgain_WhenSaved_ThenTheFormHoldsTheNumberTyped', async () => {
+    const user = userEvent.setup()
+    const requests: Request[] = []
+    server.use(
+      http.put(EXAMPLE_PATH, ({ request }) => {
+        requests.push(request.clone())
+        return new HttpResponse(null, { status: 204, headers: { ETag: '"2"' } })
+      }),
+    )
+    renderComponent(<ExampleForm etag={null} />)
+    await user.type(screen.getByRole('textbox', { name: 'Contact name' }), 'Ada')
+    await user.type(screen.getByRole('textbox', { name: 'Phone' }), '0501234567')
+    await user.click(screen.getByRole('combobox', { name: 'Depot' }))
+    await user.click(await screen.findByText('מחסן צפון 2'))
+    await user.type(screen.getByRole('textbox', { name: 'Weight (kg)' }), '3')
+    await user.type(screen.getByRole('textbox', { name: 'Volume (L)' }), '2')
+    await user.type(screen.getByRole('textbox', { name: 'Service time (min)' }), '10')
+    const priority = screen.getByRole('textbox', { name: 'Priority' })
+
+    await user.clear(priority)
+    await user.type(priority, '3')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('The example is saved.')).toBeDefined()
+    expect(await requests[0].json()).toMatchObject({ priority: 3 })
   })
 
   test('GivenFieldsTheSchemaRefuses_WhenSaved_ThenNothingIsSentAndEachFieldSaysWhy', async () => {

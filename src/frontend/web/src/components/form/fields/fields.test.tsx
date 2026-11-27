@@ -35,8 +35,8 @@ function TimesForm({ date = '' }: { readonly date?: string }) {
     <SchemaForm
       form={form}
       schema={timesSchema}
-      save={{ isPending: false, error: null }}
-      onSubmit={() => undefined}
+      save={{ isPending: false, error: null, reset: () => undefined }}
+      onSubmit={async () => undefined}
     >
       <TimeField control={control} name="opensAt" label="Opens at" required />
       <TimeWindowField control={control} name="window" legend="Delivery window" />
@@ -73,6 +73,25 @@ describe('fields', () => {
       const box = await screen.findByRole('spinbutton', { name, description: REQUIRED })
       expect(box.getAttribute('aria-invalid'), name).toBe('true')
     }
+    expect(
+      screen.getByRole('button', { name: 'Delivery date', description: REQUIRED }),
+    ).toBeDefined()
+  })
+
+  test('GivenANoteLongerThanItsLimit_WhenSaved_ThenTheMultiLineFieldSaysWhy', async () => {
+    const user = userEvent.setup()
+    renderComponent(<ExampleForm etag={null} />)
+
+    await user.click(screen.getByRole('textbox', { name: strings.notes }))
+    await user.paste('x'.repeat(501))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(
+      await screen.findByRole('textbox', {
+        name: strings.notes,
+        description: 'This text is too long. Shorten it to 500 characters or fewer.',
+      }),
+    ).toBeDefined()
   })
 
   test('GivenAWindowWithOnlyItsStart_WhenSaved_ThenTheGroupSaysBothOrNeither', async () => {
@@ -157,6 +176,23 @@ describe('fields', () => {
     // jsdom runs no CSS transition, so the opening calendar stays out of the accessibility tree:
     // its month and its days are found by their text and their labels instead.
     expect(await screen.findByText('נובמבר 2026')).toBeDefined()
+    // Israel's week: 1 November 2026 is a Sunday, so the month opens on its first day, with no
+    // day of October before it, and Friday and Saturday are the weekend.
+    const days = document.querySelectorAll('[role="dialog"] button[aria-label]')
+    expect(
+      [...days]
+        .find((day) => /\d{4}$/.test(day.getAttribute('aria-label') ?? ''))
+        ?.getAttribute('aria-label'),
+    ).toBe('1 נובמבר 2026')
+    for (const [day, weekend] of [
+      ['27', true],
+      ['28', true],
+      ['29', false],
+    ] as const) {
+      expect(screen.getByLabelText(`${day} נובמבר 2026`).hasAttribute('data-weekend'), day).toBe(
+        weekend,
+      )
+    }
     await user.click(screen.getByLabelText('27 נובמבר 2026'))
 
     expect(date.textContent).toBe('27/11/2026')

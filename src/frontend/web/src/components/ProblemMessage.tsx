@@ -3,7 +3,7 @@ import type { TFunction } from 'i18next'
 import type { Ref } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import type { Problem, ProblemItem, RequestFailure } from '../lib/problems.ts'
-import { fieldErrorText, problemText, type ProblemText } from './problemText.ts'
+import { fieldErrorText, problemText, type ProblemText } from '../lib/problemText.ts'
 
 /** What a failed call shows, and what the user can do about it. */
 export interface ProblemMessageProps {
@@ -52,12 +52,10 @@ function shownFor(failure: RequestFailure, onField: boolean, t: TFunction<'probl
         action: 'retry',
       }
     case 'unexpected':
-      // With no problem, something in front of the core answered, and there is no reference.
+      // With no problem, something in front of the core answered, so there is no reference; the
+      // change may be stored all the same, so the user reloads before sending it again.
       return {
-        words:
-          failure.problem === undefined
-            ? { text: t('unknown.text'), nextStep: t('unknown.nextStep') }
-            : problemText(t, 'UNEXPECTED_ERROR'),
+        words: problemText(t, 'UNEXPECTED_ERROR'),
         problem: failure.problem,
         action: 'reload',
       }
@@ -70,6 +68,18 @@ function shownFor(failure: RequestFailure, onField: boolean, t: TFunction<'probl
         action: undefined,
       }
   }
+}
+
+/**
+ * An item no field shows, in one line. One that points into the body names a field this form lacks,
+ * so the app and the server disagree on the request, and it says so rather than ask the user to
+ * fill in a field they cannot see.
+ */
+function itemText(t: TFunction<'problems'>, item: ProblemItem): string {
+  if (item.pointer !== undefined) {
+    return `${t('mismatch.text')} ${t('mismatch.nextStep')}`
+  }
+  return fieldErrorText(t, item.code, item.params)
 }
 
 /**
@@ -102,7 +112,7 @@ export function ProblemMessage({
           <List size="sm">
             {items.map((item, index) => (
               // Items have no identity of their own; their order is the core's and never changes.
-              <List.Item key={index}>{fieldErrorText(t, item.code, item.params)}</List.Item>
+              <List.Item key={index}>{itemText(t, item)}</List.Item>
             ))}
           </List>
         )}

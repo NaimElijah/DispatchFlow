@@ -22,7 +22,9 @@ function textCell<TRow extends RowData>({
 export interface DataTableProps<TRow extends RowData> {
   /** The table's name, which screen readers read first, such as "Refused rows". */
   readonly caption: string
+  /** The columns, from `createDataTableColumns`, at module scope or memoised. */
   readonly columns: DataTableColumns<TRow>
+  /** The rows, in the order the table shows them. */
   readonly rows: readonly TRow[]
   /** A row's stable ID, such as its order's ID or its row number, so React keeps each row's place. */
   readonly getRowId: (row: TRow) => string
@@ -69,7 +71,7 @@ export function DataTable<TRow extends RowData>({
       <Table.Tbody>
         {tableRows.length === 0 ? (
           <Table.Tr>
-            <Table.Td colSpan={columns.length}>{emptyText}</Table.Td>
+            <Table.Td colSpan={table.getAllLeafColumns().length}>{emptyText}</Table.Td>
           </Table.Tr>
         ) : (
           tableRows.map((row) => (

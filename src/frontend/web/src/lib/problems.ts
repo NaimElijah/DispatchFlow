@@ -31,7 +31,11 @@ export interface ProblemParameter {
   readonly in: 'path' | 'query' | 'header' | 'cookie'
 }
 
-const CODE = /^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$/
+/** The contract's pattern for a code (`Problem.code`), which `problems.contract.test.ts` pins. */
+export const PROBLEM_CODE_PATTERN = /^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$/
+
+/** The contract's pattern for a trace ID (`Problem.traceId`), which `problems.contract.test.ts` pins. */
+export const TRACE_ID_PATTERN = /^[0-9a-f]{32}$/
 const PARAMETER_PLACES: ReadonlySet<unknown> = new Set(['path', 'query', 'header', 'cookie'])
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -39,7 +43,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isProblemItem(value: unknown): value is ProblemItem {
-  if (!isRecord(value) || typeof value.code !== 'string' || !CODE.test(value.code)) {
+  if (
+    !isRecord(value) ||
+    typeof value.code !== 'string' ||
+    !PROBLEM_CODE_PATTERN.test(value.code)
+  ) {
     return false
   }
   const { pointer, parameter, params } = value
@@ -67,9 +75,10 @@ export function isProblem(value: unknown): value is Problem {
     typeof title === 'string' &&
     typeof status === 'number' &&
     typeof code === 'string' &&
-    CODE.test(code) &&
+    PROBLEM_CODE_PATTERN.test(code) &&
     isRecord(params) &&
     typeof traceId === 'string' &&
+    TRACE_ID_PATTERN.test(traceId) &&
     (errors === undefined || (Array.isArray(errors) && errors.every(isProblemItem)))
   )
 }
@@ -87,11 +96,7 @@ export function isProblem(value: unknown): value is Problem {
  */
 export type RequestFailure =
   | { readonly kind: 'stale'; readonly problem: Problem }
-  | {
-      readonly kind: 'busy'
-      readonly problem: Problem | undefined
-      readonly retryAfterSeconds: number | undefined
-    }
+  | { readonly kind: 'busy'; readonly problem: Problem | undefined }
   | { readonly kind: 'refused'; readonly problem: Problem }
   | { readonly kind: 'unexpected'; readonly problem: Problem | undefined }
   | { readonly kind: 'network' }
@@ -115,13 +120,6 @@ const STALE_VERSION = 'STALE_VERSION'
 const TRY_AGAIN_LATER = 'TRY_AGAIN_LATER'
 const SERVICE_UNAVAILABLE = 503
 const FIRST_SERVER_ERROR = 500
-const DELAY_SECONDS = /^\d+$/
-
-/** Reads `Retry-After` when it gives seconds, as the core's does (`Retry-After: 2`). */
-function retryAfterSecondsOf(response: Response): number | undefined {
-  const value = response.headers.get('Retry-After')?.trim()
-  return value !== undefined && DELAY_SECONDS.test(value) ? Number(value) : undefined
-}
 
 /**
  * Says how a call failed from its answer. The code decides before the status: `STALE_VERSION`
@@ -134,14 +132,14 @@ function retryAfterSecondsOf(response: Response): number | undefined {
 export function toRequestFailure(response: Response, body: unknown): RequestFailure {
   if (!isProblem(body)) {
     return response.status === SERVICE_UNAVAILABLE
-      ? { kind: 'busy', problem: undefined, retryAfterSeconds: retryAfterSecondsOf(response) }
+      ? { kind: 'busy', problem: undefined }
       : { kind: 'unexpected', problem: undefined }
   }
   if (body.code === STALE_VERSION) {
     return { kind: 'stale', problem: body }
   }
   if (body.code === TRY_AGAIN_LATER) {
-    return { kind: 'busy', problem: body, retryAfterSeconds: retryAfterSecondsOf(response) }
+    return { kind: 'busy', problem: body }
   }
   if (response.status >= FIRST_SERVER_ERROR) {
     return { kind: 'unexpected', problem: body }

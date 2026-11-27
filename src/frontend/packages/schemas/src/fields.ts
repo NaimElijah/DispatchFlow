@@ -18,6 +18,15 @@ const FLOAT_TOLERANCE = 1e-9
 const isFilled = (text: string) => text !== ''
 
 /**
+ * A text's length as the server counts it: in code points, after NFC (ADR-106), so an emoji counts
+ * once, as the server's `PlainText` counts it, and the app never refuses what the server takes.
+ */
+const lengthOf = (text: string) => [...text.normalize('NFC')].length
+
+/** An empty text means none: the request body leaves the field out. */
+const noneWhenEmpty = (text: string) => (isFilled(text) ? text : undefined)
+
+/**
  * A required text, trimmed, of at most `maxLength` characters after trimming.
  *
  * @param maxLength the most characters the server's row allows, such as 100 for a name
@@ -27,11 +36,12 @@ export function requiredText(maxLength: number) {
     .string()
     .trim()
     .refine(isFilled, { ...refusal('REQUIRED'), abort: true })
-    .refine((text) => text.length <= maxLength, refusal('TEXT_TOO_LONG', { maxLength }))
+    .refine((text) => lengthOf(text) <= maxLength, refusal('TEXT_TOO_LONG', { maxLength }))
 }
 
 /**
- * An optional text, trimmed, of at most `maxLength` characters; empty means none.
+ * An optional text, trimmed, of at most `maxLength` characters. Empty means none, and leaves the
+ * field out of the request body.
  *
  * @param maxLength the most characters the server's row allows, such as 500 for a note
  */
@@ -39,7 +49,8 @@ export function optionalText(maxLength: number) {
   return z
     .string()
     .trim()
-    .refine((text) => text.length <= maxLength, refusal('TEXT_TOO_LONG', { maxLength }))
+    .refine((text) => lengthOf(text) <= maxLength, refusal('TEXT_TOO_LONG', { maxLength }))
+    .transform(noneWhenEmpty)
 }
 
 /** A required choice from a select field: the chosen option's value. */
@@ -76,7 +87,7 @@ export const timeWindow = z
 
 /**
  * An optional time window: both ends or neither, where neither is two empty texts and means none,
- * such as an order's "the customer's default".
+ * such as an order's "the customer's default", and leaves the window out of the request body.
  */
 export const optionalTimeWindow = z
   .object({ start: z.string(), end: z.string() })
@@ -91,6 +102,7 @@ export const optionalTimeWindow = z
   .refine((window) => !isFilled(window.start) || endsAfterStart(window), {
     ...refusal('INVALID_TIME_WINDOW'),
   })
+  .transform((window) => (isFilled(window.start) ? window : undefined))
 
 function hasAtMostTwoDecimals(value: number): boolean {
   const hundredths = value * HUNDREDTHS
@@ -143,8 +155,9 @@ export const phoneNumber = z
   .refine(isFilled, { ...refusal('REQUIRED'), abort: true })
   .refine(isPhoneNumber, refusal('INVALID_PHONE_NUMBER'))
 
-/** An optional phone number; empty means none. */
+/** An optional phone number. Empty means none, and leaves the field out of the request body. */
 export const optionalPhoneNumber = z
   .string()
   .trim()
   .refine((text) => !isFilled(text) || isPhoneNumber(text), refusal('INVALID_PHONE_NUMBER'))
+  .transform(noneWhenEmpty)

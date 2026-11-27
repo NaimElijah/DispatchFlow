@@ -13,6 +13,7 @@ export interface AppProvidersProps {
   i18n: i18n
   /** The one server-state cache, in memory only and never persisted (NFR-269). */
   queryClient: QueryClient
+  /** The router, or the one component a test renders. */
   children: ReactNode
 }
 

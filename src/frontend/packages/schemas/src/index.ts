@@ -22,4 +22,4 @@ export {
   weightKg,
   wholeNumber,
 } from './fields.ts'
-export { refusal, refusalOf, type SchemaCode, type SchemaRefusal } from './refusals.ts'
+export { refusal, refusalOf, schemaCodes, type SchemaCode, type SchemaRefusal } from './refusals.ts'

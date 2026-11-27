@@ -39,7 +39,7 @@ describe('ProblemMessage', () => {
 
     expect(alertText()).toContain('This text is too long.')
     expect(alertText()).toContain('Shorten it to 100 characters or fewer.')
-    expect(alertText()).not.toContain('NAME')
+    expect(alertText()).not.toContain('{{')
   })
 
   test('GivenTheReference_WhenShownInHebrew_ThenItSitsInABdi', () => {
@@ -70,11 +70,7 @@ describe('ProblemMessage', () => {
   })
 
   test.each<[string, RequestFailure, string]>([
-    [
-      'busy',
-      { kind: 'busy', problem: problem(503, 'TRY_AGAIN_LATER'), retryAfterSeconds: 2 },
-      'The server is busy',
-    ],
+    ['busy', { kind: 'busy', problem: problem(503, 'TRY_AGAIN_LATER') }, 'The server is busy'],
     ['network', { kind: 'network' }, 'The server could not be reached.'],
   ])('GivenA_%s_Failure_WhenShown_ThenItOffersToTryAgain', async (_kind, failure, text) => {
     const user = userEvent.setup()
@@ -97,10 +93,10 @@ describe('ProblemMessage', () => {
     expect(alertText()).toContain('Reload the page to check, before you send it again.')
   })
 
-  test('GivenAProxysPageInsteadOfAProblem_WhenShown_ThenTheGeneralTextWithNoReference', () => {
+  test('GivenAProxysPageInsteadOfAProblem_WhenShown_ThenItSaysToReloadBeforeSendingAgainWithNoReference', () => {
     renderComponent(<ProblemMessage failure={{ kind: 'unexpected', problem: undefined }} />)
 
-    expect(alertText()).toContain('Something went wrong.')
+    expect(alertText()).toContain('Reload the page to check, before you send it again.')
     expect(alertText()).not.toContain('Reference')
   })
 
@@ -111,14 +107,17 @@ describe('ProblemMessage', () => {
         items={[
           { code: 'REQUIRED', pointer: '/address' },
           { code: 'MISSING_PARAMETER', parameter: { name: 'If-Match', in: 'header' } },
+          { code: 'BRAND_NEW_ITEM' },
         ]}
       />,
     )
 
     const items = within(screen.getByRole('list')).getAllByRole('listitem')
+    // An item pointing into the body names a field this form lacks: the app and server disagree.
     expect(items.map((item) => item.textContent)).toEqual([
-      'This is required. Fill it in.',
       'The app and the server do not match. Reload the page to get the latest version of the app, then try again.',
+      'The app and the server do not match. Reload the page to get the latest version of the app, then try again.',
+      'Something went wrong. Try again. If it keeps happening, tell your administrator.',
     ])
   })
 })

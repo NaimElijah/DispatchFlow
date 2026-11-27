@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest'
 import { formatQuantity, unitSymbol, type Unit } from './quantities.ts'
 
+// The Hebrew symbols are CLDR's, as the ICU in Node and in the browsers carries them: a change in a
+// new ICU shows here as a failure of these tests, not of the formatter.
 describe('formatQuantity', () => {
   test.each<[Unit, number, string, string]>([
     ['kg', 1234.5, '1,234.5 kg', '1,234.5 ק״ג'],

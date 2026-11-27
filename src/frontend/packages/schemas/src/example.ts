@@ -23,9 +23,9 @@ const PRIORITY = { min: 1, max: 5 } as const
 
 /**
  * A form that uses every building block once, for the web app's example-form test, which shows that
- * a form is a schema, a few fields and one save call. No screen uses it: a real form's schema sits
- * beside it in this package, named for what it saves. Its keys are the request body's, so a 400's
- * pointer names the field it refused.
+ * a form is a schema, a few fields and one save call. No screen uses it and nothing saves with it:
+ * copy its shape, not the schema. A real form's schema sits beside it, named for what it saves. Its
+ * keys are the request body's, so a 400's pointer names the field it refused.
  */
 export const exampleSchema = z.object({
   name: requiredText(NAME_LENGTH),

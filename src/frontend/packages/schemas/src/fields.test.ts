@@ -46,8 +46,24 @@ describe('texts', () => {
     expect(requiredText(3).parse('  Ada ')).toBe('Ada')
   })
 
-  test('GivenAnEmptyOptionalText_WhenChecked_ThenItIsAccepted', () => {
+  test('GivenAnEmptyOptionalText_WhenParsed_ThenItIsAcceptedAndLeftOutOfTheBody', () => {
     expect(refusalsOf(optionalText(500), '')).toEqual([])
+    expect(optionalText(500).parse('  ')).toBeUndefined()
+  })
+
+  test('GivenATextOfEmoji_WhenChecked_ThenItsLengthIsCountedAsTheServerCountsIt', () => {
+    // Four emoji are eight UTF-16 units but four code points, the server's count (ADR-106).
+    const trucks = '\u{1F69A}'.repeat(4)
+    expect(refusalsOf(requiredText(4), trucks)).toEqual([])
+    expect(refusalsOf(requiredText(3), trucks)).toEqual([
+      { path: '', code: 'TEXT_TOO_LONG', params: { maxLength: 3 } },
+    ])
+  })
+
+  test('GivenAnOptionalTextLongerThanItsLimit_WhenChecked_ThenItIsTooLongWithTheLimit', () => {
+    expect(refusalsOf(optionalText(3), 'abcd')).toEqual([
+      { path: '', code: 'TEXT_TOO_LONG', params: { maxLength: 3 } },
+    ])
   })
 
   test('GivenNoChoice_WhenChecked_ThenAChoiceIsRequired', () => {
@@ -76,6 +92,12 @@ describe('dates and times', () => {
     ])
   })
 
+  test('GivenAWindowThatEndsWhenItStarts_WhenChecked_ThenTheWindowItselfIsRefused', () => {
+    expect(refusalsOf(timeWindow, { start: '08:00', end: '08:00' })).toEqual([
+      { path: '', code: 'INVALID_TIME_WINDOW', params: {} },
+    ])
+  })
+
   test('GivenAWindowWithoutItsStart_WhenChecked_ThenTheStartIsRequired', () => {
     expect(refusalsOf(timeWindow, { start: '', end: '08:00' })).toEqual([
       { path: 'start', code: 'REQUIRED', params: {} },
@@ -84,6 +106,7 @@ describe('dates and times', () => {
 
   test('GivenAnOptionalWindowWithBothOrNeitherEnd_WhenChecked_ThenItIsAccepted', () => {
     expect(refusalsOf(optionalTimeWindow, { start: '', end: '' })).toEqual([])
+    expect(optionalTimeWindow.parse({ start: '', end: '' })).toBeUndefined()
     expect(refusalsOf(optionalTimeWindow, { start: '08:00', end: '12:00' })).toEqual([])
   })
 
@@ -134,6 +157,11 @@ describe('numbers', () => {
     ])
   })
 
+  test('GivenWholeNumbersAtEitherEndOfTheirRange_WhenChecked_ThenBothAreAccepted', () => {
+    expect(refusalsOf(wholeNumber(1, 5), 1)).toEqual([])
+    expect(refusalsOf(wholeNumber(1, 5), 5)).toEqual([])
+  })
+
   test('GivenADurationOfNoMinutes_WhenChecked_ThenItIsTooSmall', () => {
     expect(refusalsOf(durationMinutes, 0)).toEqual([
       { path: '', code: 'TOO_SMALL', params: { min: 1 } },
@@ -160,5 +188,12 @@ describe('phones', () => {
   test('GivenAnEmptyPhone_WhenChecked_ThenARequiredOneIsRequiredAndAnOptionalOneIsAccepted', () => {
     expect(refusalsOf(phoneNumber, '')).toEqual([{ path: '', code: 'REQUIRED', params: {} }])
     expect(refusalsOf(optionalPhoneNumber, '')).toEqual([])
+    expect(optionalPhoneNumber.parse('')).toBeUndefined()
+  })
+
+  test('GivenAnOptionalPhoneThatIsNoPhoneNumber_WhenChecked_ThenItIsRefusedAsAPhoneNumber', () => {
+    expect(refusalsOf(optionalPhoneNumber, '12345')).toEqual([
+      { path: '', code: 'INVALID_PHONE_NUMBER', params: {} },
+    ])
   })
 })

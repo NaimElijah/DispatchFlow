@@ -35,14 +35,16 @@ const FONT_FILE = /\.(woff2?|ttf|otf)$/
 const CORE_URL = process.env.DISPATCHFLOW_CORE_URL || 'http://127.0.0.1:8080'
 
 /**
- * What Vite may read: the pnpm workspace, the default it finds by itself, and the client API's
+ * What Vitest, and only Vitest, may read beyond Vite's default, the pnpm workspace: the client API's
  * contract, which `src/lib/problems.contract.test.ts` reads until #148 generates the problem types
- * from it. The contract is public, so the dev server may serve it too.
+ * from it. The dev server keeps Vite's default, so it serves nothing new (ADR-153).
  */
-const READABLE_ROOTS = [
-  searchForWorkspaceRoot(process.cwd()),
-  fileURLToPath(new URL('../../../contracts/client-api/v1/', import.meta.url)),
-]
+const READABLE_ROOTS = process.env.VITEST
+  ? [
+      searchForWorkspaceRoot(process.cwd()),
+      fileURLToPath(new URL('../../../contracts/client-api/v1/', import.meta.url)),
+    ]
+  : undefined
 
 export default defineConfig({
   plugins: [react()],
