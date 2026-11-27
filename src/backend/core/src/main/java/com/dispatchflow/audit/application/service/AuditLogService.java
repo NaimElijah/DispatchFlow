@@ -35,8 +35,8 @@ import org.springframework.transaction.annotation.Transactional;
  * malformed part before anything is appended, and the service rethrows that refusal as an {@code
  * IllegalStateException}: every part comes from the server, so a malformed one is a bug, which
  * answers 500, and {@code Refusals}, which records the refusal that leaves a use case's {@code
- * Change}, never takes it for the change's own (ADR-149 decision 1, ADR-150 decision 1). A change whose record is refused rolls back
- * rather than commit without it (NFR-23).
+ * Change}, never takes it for the change's own (ADR-149 decision 1, ADR-150 decision 1). A change
+ * whose record is refused rolls back rather than commit without it (NFR-23).
  */
 @Transactional
 public class AuditLogService implements AuditLog {
