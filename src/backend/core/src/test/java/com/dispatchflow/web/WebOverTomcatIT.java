@@ -42,6 +42,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.mock.http.MockHttpInputMessage;
 import org.springframework.stereotype.Component;
 import org.springframework.web.HttpRequestHandler;
@@ -87,6 +88,9 @@ class WebOverTomcatIT {
 
     @Autowired
     private Environment environment;
+
+    @Autowired
+    private JdbcClient jdbc;
 
     private final HttpClient client =
             HttpClient.newBuilder().connectTimeout(TIMEOUT).build();
@@ -345,6 +349,29 @@ class WebOverTomcatIT {
     }
 
     @Test
+    void GivenNoPrincipal_WhenAChangingOperationUnderApiV1IsCalled_ThenThe401AndItsRefusedRecordIsStored()
+            throws Exception {
+        // Its own trace ID, so the row it reads is this call's alone.
+        String trace = "5a0d7c1f2e3b4a6987c6d5e4f3a2b1c0";
+        HttpResponse<String> response = send(to(EscapingController.API_NOTE)
+                .setHeader("traceparent", "00-" + trace + "-00f067aa0ba902b7-01")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer not-a-token")
+                .POST(BodyPublishers.noBody()));
+
+        assertThat(response.statusCode()).isEqualTo(401);
+        assertThat(jdbc.sql(
+                                "SELECT operation, outcome, error_code, account FROM audit.audit_record WHERE trace_id = :trace")
+                        .param("trace", trace)
+                        .query((row, index) -> List.of(
+                                row.getString("operation"),
+                                row.getString("outcome"),
+                                row.getString("error_code"),
+                                String.valueOf(row.getString("account"))))
+                        .list())
+                .containsExactly(List.of("takeANote", "REFUSED", Problems.ACCESS_TOKEN_REFUSED, "null"));
+    }
+
+    @Test
     void GivenAnExceptionThatEscapesEveryAdvice_WhenTomcatDispatchesIt_ThenA500ProblemAndOneJsonErrorLine()
             throws Exception {
         HttpResponse<String> response = send(to(EscapingController.ESCAPING).GET());
@@ -391,6 +418,7 @@ class WebOverTomcatIT {
         static final String API_ESCAPING = "/api/v1/web-over-tomcat-it/escaping";
         static final String API_ESCAPING_LATER = "/api/v1/web-over-tomcat-it/escaping-later";
         static final String FORM = "/web-over-tomcat-it/form";
+        static final String API_NOTE = "/api/v1/web-over-tomcat-it/note";
         static final String BEGUN = "begun";
 
         @GetMapping({ESCAPING, API_ESCAPING})
@@ -415,6 +443,11 @@ class WebOverTomcatIT {
         @PostMapping(FORM)
         String form(@RequestBody String note) {
             return note;
+        }
+
+        @PostMapping(API_NOTE)
+        String takeANote() {
+            return "taken";
         }
 
         private static EscapedEveryAdvice escaped() {
