@@ -1,6 +1,6 @@
 # ADR-144: The web app's features stay apart, its lower folders never import upward, and sign-in stands beside the shell
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-153
 - **Date:** 2026-11-25
 
 ## Context

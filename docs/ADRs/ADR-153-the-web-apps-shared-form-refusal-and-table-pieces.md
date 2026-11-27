@@ -23,7 +23,9 @@ own". What shaped the design:
   The first change of a view with no version yet sends `If-None-Match: *` ([ADR-121] P31, as
   [ADR-126] amends it).
 - **No client yet.** The contract declares no operation, and `@dispatchflow/api-client`, which
-  generates the `Problem` type with openapi-fetch, is still #148's.
+  generates the `Problem` type with openapi-fetch, is still #148's. Until it exists, the refusal
+  reader can only be typed by hand, which [TS §1] rule 5 ("no hand-written type crosses" a
+  boundary) and [ADR-043] rule out.
 - **The packages.** [TS §10] decides React Hook Form with Zod 4, `@mantine/dates`,
   `@mantine/notifications`, TanStack Table, libphonenumber-js and `Intl` with date-fns, all for the
   Alpha. [TS §12] decides `@dispatchflow/schemas`, `@dispatchflow/formatters` and the error texts
@@ -39,7 +41,8 @@ own". What shaped the design:
 
 ## Decision
 
-Decided on 27 November 2026. This extends [ADR-043], [ADR-057] and [ADR-143].
+Decided on 27 November 2026. This amends [ADR-043] until #148 generates the `Problem` type
+(decision 3), and extends [ADR-057], [ADR-143] and [ADR-144].
 
 1. **The pieces live where their users can reach them.**
    - `@dispatchflow/formatters` shows instants and Israel-local dates and times, a window's range,
@@ -49,25 +52,44 @@ Decided on 27 November 2026. This extends [ADR-043], [ADR-057] and [ADR-143].
    - `@dispatchflow/i18n` gains `problems`, one table of every refusal code's text and next step
      for both apps, and `common`, the components' strings. An area adds its codes to `problems`.
    - In the web app:
-     - `src/lib/` holds the refusal reader and the versioned save;
+     - `src/lib/` holds the refusal reader, the refusal texts (`problemText.ts`) and the versioned
+       save;
      - `src/components/` holds `ProblemMessage`, `DataTable` and `notifySaved`;
-     - `src/components/form/` holds the form and its save button, with the fields in `fields/`.
+     - `src/components/form/` holds the form and its save button, with the fields in `fields/`;
+     - `src/AppProviders.tsx` holds the providers the app and the component tests share, so the two
+       can't drift apart. It and `src/DatesLanguage.tsx` join [ADR-144] decision 2's modules that
+       assemble the app.
+   - The plan date's zone and its DD/MM/YYYY format move into `@dispatchflow/formatters`, as
+     [ADR-144]'s Hard section foresaw: `features/planning/planDate.ts` keeps only the `PlanDate`
+     brand, `isPlanDate` and `tomorrowInIsrael`.
 2. **A schema names its refusal with the server's code, never a message.** A check raises an issue
    whose `params.code` is the code (`REQUIRED`, `INVALID_TIME_WINDOW`, `INVALID_PHONE_NUMBER`, …),
    and the form's error map words it from `problems`.
    - A message set in a schema would beat that map and reach the screen untranslated.
    - The app's own refusals and the server's therefore read the same.
    - A code with no entry shows the general text, and the `traceId` when the core gave one.
-3. **The web app types the `Problem` by hand until #148 generates it.** `lib/problems.ts` checks an
-   answer's body with a guard, which stays after #148: a proxy's 502 page is no problem.
-   `problems.contract.test.ts` pins the hand-written types to the contract, and #148 swaps in the
-   generated type and deletes that test.
+   - A text's length counts code points after NFC, as the core's `PlainText` does ([ADR-106]), so
+     the app never refuses what the server takes.
+   - An optional value left empty is left out of the request body. No operation says otherwise yet;
+     the first contract to need "none" decides it.
+3. **The web app types the `Problem` by hand until #148 generates it,** the one exception to
+   [TS §1] rule 5 and [ADR-043]'s generated types, and only until then.
+   - `lib/problems.ts` checks an answer's body with a guard, which stays after #148: a proxy's 502
+     page is no problem.
+   - `problems.contract.test.ts` pins the hand-written types to the contract: its required fields,
+     its properties, and the patterns of a code and a trace ID.
+   - Vitest, and only Vitest, may read `contracts/client-api/v1/` for that test; the dev server
+     reads nothing new.
+   - #148 swaps in the generated type, deletes that test and drops Vitest's reading of the contract.
 4. **A versioned save sends the `ETag` its view was read with, exactly as it came.** `null`, what
    `headers.get('ETag')` gives for a view with no version, sends `If-None-Match: *`, so a forgotten
    `ETag` fails as `STALE_VERSION` rather than overwriting.
    - The save returns the new `ETag` for the next write.
    - It never sends a write twice on its own, and runs whether or not the browser thinks it is
      online, so a lost connection fails at once.
+   - Only a `TypeError` from `send`, what fetch rejects with when no answer arrived, counts as
+     unreachable; anything else is a bug and fails as itself. `onSaved` must not throw, since the
+     write is already stored.
    - A failure is classified by its code before its status: stale, busy, refused, unexpected or
      unreachable.
    - The save takes a `send` shaped like openapi-fetch's answer, so the generated client's call
@@ -75,18 +97,27 @@ Decided on 27 November 2026. This extends [ADR-043], [ADR-057] and [ADR-143].
 5. **A refusal shows on the field it names, and the rest in the summary.**
    - A 400 item lands on the field its pointer names, when the form's schema has it.
    - A 422's code lands on the field the form's `fieldFor` maps it to.
-   - What lands nowhere, a header or the whole request, goes into `ProblemMessage` at the top,
-     which then takes focus.
-   - The input always stays. Reload, for a stale record, is the screen's own action; Try again
-     resends the same values.
+   - What lands nowhere, a header, the whole request or a list as a whole, goes into
+     `ProblemMessage` at the top, which then takes focus. An item that points into the body but
+     names no field of the form says that the app and the server disagree.
+   - The input always stays. Reload, for a stale record or an unexpected failure, is the screen's
+     own action, and drops the message; Try again resends the same values.
+   - `onSubmit` returns the save's promise, so a second press waits for the first, however close
+     together the two come.
    - No field changes its value as the user leaves it: that re-runs the field's check and wipes
-     the server's refusal. The phone field writes a number out for display only.
+     the server's refusal. The phone field writes a number out for display only, and the number
+     field neither clamps a value to its range nor rewrites it; an emptied number holds `null`.
+   - The form asks the browser to remember nothing it holds, and the phone field asks for no
+     autofill: its values are records the server sent ([ADR-076]), and `tel` means the user's own
+     number.
 6. **The time of day is Mantine's 24-hour `TimePicker`**, with a box for the hours and one for the
    minutes. Each box is named after the field and tied to its error, and both run left to right in
    Hebrew too. The date is `DatePickerInput`, shown as DD/MM/YYYY, holding `YYYY-MM-DD`, with
    Israel's week: Sunday first, and Friday and Saturday the weekend.
-7. **Day.js is only `@mantine/dates`' peer.** It is declared exactly, `src/DatesLanguage.tsx` loads
-   its Hebrew names, and ESLint refuses an import of it anywhere else. Our own dates stay on `Intl`
+7. **Day.js is only `@mantine/dates`' peer.** It is declared exactly, and `src/DatesLanguage.tsx`
+   loads its Hebrew names. ESLint refuses an import of it anywhere else in the web app's source,
+   test helpers included, but for the test files; a shared package cannot resolve it without
+   declaring it. Our own dates stay on `Intl`
    and, from their first arithmetic, date-fns, as [TS §10] decides. date-fns is not added before
    that.
 8. **These dependencies come in, pinned exactly:**
@@ -130,6 +161,8 @@ Decided on 27 November 2026. This extends [ADR-043], [ADR-057] and [ADR-143].
   - TanStack Table 9 is new, and most examples online are v8's.
   - React Hook Form and its resolvers publish without provenance, so their exact pins and pnpm's
     one-day release age stand in.
+  - pnpm keeps each package from importing another it doesn't declare, but no lint rule stops a
+    shared package's relative import into the web app's source.
 
 ## Alternatives considered
 
@@ -137,7 +170,7 @@ Decided on 27 November 2026. This extends [ADR-043], [ADR-057] and [ADR-143].
   parsing ourselves, and Day.js comes with the date picker anyway. Mantine's picker is the default
   of the kit already chosen ([TS §1] rule 3).
 - **The browser's `<input type="time">`.** It shows a 12-hour clock in English on many systems
-  (NFR-68).
+  ([NFR-68]).
 - **A hand-written Zod resolver.** It is small for flat forms but grows with nested fields, arrays
   and the libraries' majors, in code every form shares.
 - **Messages in the schemas.** They would beat the app's error map, reach the screen in one
@@ -159,15 +192,21 @@ Decided on 27 November 2026. This extends [ADR-043], [ADR-057] and [ADR-143].
 - Mantine drops its Day.js peer.
 - A Mantine piece we use renders a `<style>` element ([ADR-143]).
 - The bundle visualizer shows the first load over [NFR-58]'s budget.
+- The first contract operation that takes an optional value says how "none" is sent.
+- The phone app makes its first call: the refusal reader and `problemText` move into a shared
+  package.
 
 [ADR-043]: ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md
 [ADR-057]: ADR-057-concurrent-changes-to-a-plan-use-optimistic-locking.md
+[ADR-076]: ADR-076-admin-and-dispatcher-data-stays-in-memory-on-devices.md
 [ADR-088]: ADR-088-israel-local-time-for-every-date-and-schedule.md
 [ADR-095]: ADR-095-accept-the-zod-and-deepmerge-advisories-until-2027-01-31.md
 [ADR-121]: ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md
+[ADR-106]: ADR-106-free-text-is-normalized-and-capped-by-one-kernel-rule.md
 [ADR-126]: ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md
 [ADR-140]: ADR-140-the-app-wide-web-package-sits-above-the-modules.md
 [ADR-143]: ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md
+[ADR-144]: ADR-144-the-web-apps-features-stay-apart-and-its-lower-folders-never-import-upward.md
 [TS §1]: ../architecture/tech_stack.md#1-what-decides-close-calls
 [TS §10]: ../architecture/tech_stack.md#10-web-app
 [TS §12]: ../architecture/tech_stack.md#12-shared-typescript-packages

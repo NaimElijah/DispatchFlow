@@ -51,7 +51,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-148](ADR-148-the-stand-in-serves-only-its-own-origin-every-unsigned-api-call-answers-401-and-the-guard-outlives-the-session.md) | The stand-in serves only its own origin, every unsigned call under `/api/v1` answers 401, and the guard outlives the session | Accepted |
 | [ADR-149](ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md) | The use case records its refusal after the rollback, and the audit purge counts its year back from now | Accepted; extended and amended by ADR-150 |
 | [ADR-150](ADR-150-one-audit-helper-records-the-refusals-a-use-case-sees-and-the-contracts-handler-records-a-changing-call-it-refuses.md) | One Audit helper records the refusals a use case sees, and the contract's handler records a changing call it refuses | Accepted |
-| [ADR-043](ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md) | Code is generated from both contracts on both sides, and errors are RFC 9457 Problem Details | Accepted; extended by ADR-068, ADR-073, ADR-087, ADR-094, ADR-140 and ADR-153; amended by ADR-123 |
+| [ADR-043](ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md) | Code is generated from both contracts on both sides, and errors are RFC 9457 Problem Details | Accepted; extended by ADR-068, ADR-073, ADR-087, ADR-094 and ADR-140; amended by ADR-123 and ADR-153 |
 | [ADR-094](ADR-094-each-pull-requests-contract-check-compares-against-its-base-branch.md) | Each pull request's contract check compares against its base branch | Accepted |
 | [ADR-044](ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md) | The solver port takes a start, a budget and a seed, and `Problem` alone judges a solution | Accepted; extended by ADR-050 and ADR-099; amended by ADR-105, ADR-120 and ADR-121 |
 | [ADR-045](ADR-045-generation-counters-revoke-tokens.md) | Generation counters on the user and the session revoke tokens | Accepted; extended by ADR-131; amended by ADR-104 |
@@ -100,7 +100,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-088](ADR-088-israel-local-time-for-every-date-and-schedule.md) | Every date, time window, shift and schedule is Israel local time, held as elapsed seconds in a solve | Accepted; amended by ADR-098 |
 | [ADR-089](ADR-089-interface-languages.md) | Both apps are available in Hebrew, right to left, and in English only | Accepted; extended by ADR-143 |
 | [ADR-143](ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md) | The web app's shell declares routes per area, opens in English, and renders no `<style>` element | Accepted; extended by ADR-153; amended by ADR-144 |
-| [ADR-144](ADR-144-the-web-apps-features-stay-apart-and-its-lower-folders-never-import-upward.md) | The web app's features stay apart, its lower folders never import upward, and sign-in stands beside the shell | Accepted |
+| [ADR-144](ADR-144-the-web-apps-features-stay-apart-and-its-lower-folders-never-import-upward.md) | The web app's features stay apart, its lower folders never import upward, and sign-in stands beside the shell | Accepted; extended by ADR-153 |
 | [ADR-153](ADR-153-the-web-apps-shared-form-refusal-and-table-pieces.md) | The web app builds every form, refusal and row list from one set of shared pieces, and its schemas name codes, never messages | Accepted |
 | [ADR-090](ADR-090-scope-cuts-for-the-first-release.md) | The first release cuts ten capabilities, and each has its own trigger to reopen | Accepted |
 | [ADR-091](ADR-091-study-design-for-the-solver-comparison.md) | The solver comparison follows eleven fixed design choices, and a mutation run checks the validator first | Accepted |
@@ -299,9 +299,10 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > tags, and tests its own rules; the Maven wrapper pins its download's SHA-256; and the local
 > run sets its zone in its own `main`.
 >
-> ADR-153, on 2026-11-27, settles #173's shared pieces: the formatters, the schemas and the
-> refusal texts are packages both apps share; a schema names the server's code, never a message;
-> the web app types the `Problem` by hand, pinned to the contract, until #148 generates it; a
+> ADR-153, on 2026-11-27, settles #173's shared pieces, amends ADR-043 until #148 and extends
+> ADR-057, ADR-143 and ADR-144: the formatters, the schemas and the refusal texts are packages
+> both apps share; a schema names the server's code, never a message, and an empty optional value
+> is left out; the web app types the `Problem` by hand, pinned to the contract, until #148; a
 > versioned save sends the `ETag` as it came, or `If-None-Match: *` for none, and never resends;
 > a refusal shows on its field and the rest in a summary that takes focus; the time of day is
 > Mantine's 24-hour picker, and Day.js is only its peer; and @hookform/resolvers and user-event

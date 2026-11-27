@@ -6,19 +6,21 @@ How DispatchFlow is built, as it is today. What it must do is in
 
 > [!NOTE]
 > Only the skeleton, the domain layer, the declared application layer, the persistence of every
-> `core` module, `core`'s web plumbing and the web app's shell exist. Each component builds, passes
-> its checks and runs a first test. The domain layers of `core` and `optimizer` are built and
-> tested. The persistence of `access`, `audit`, `fleet`, `liveops`, `messaging`, `orders`,
-> `planning` and `reporting` is built: a migration, mapped aggregates and a persistence adapter
-> each. The web plumbing is built: the `Clock` and `IdGenerator` adapters, `web`'s trace-ID filter,
-> error handlers, call wrapper and error endpoint, the JSON logs and `SchedulingConfiguration`. The
-> web app's shell is built: its routes, layout, languages and Settings page; no screen of it calls
-> the API. So are its shared form, refusal and table pieces, which no screen uses yet. The application layers are declared, not built, but for Audit's `AuditLogService`,
-> wired to record a changing call's refused 401, a lost race and a request that breaks the contract,
-> and every changing use case's outcome as each is built, and Audit's static `Refusals` helper:
-> every other body that would do work throws, no other use case calls a persistence adapter, and no
-> operation is served, so no record is written yet. The design the team is heading
-> for is in [Target design](#target-design); this file describes none of it as built beyond that.
+> `core` module, `core`'s web plumbing, the web app's shell and its shared pieces exist. Each
+> component builds, passes its checks and runs a first test. The domain layers of `core` and
+> `optimizer` are built and tested. The persistence of `access`, `audit`, `fleet`, `liveops`,
+> `messaging`, `orders`, `planning` and `reporting` is built: a migration, mapped aggregates and a
+> persistence adapter each. The web plumbing is built: the `Clock` and `IdGenerator` adapters,
+> `web`'s trace-ID filter, error handlers, call wrapper and error endpoint, the JSON logs and
+> `SchedulingConfiguration`. The web app's shell is built: its routes, layout, languages and
+> Settings page; no screen of it calls the API. Its shared form, refusal and table pieces are built
+> too, but no screen uses them yet. The application layers are declared, not built, but for Audit's
+> `AuditLogService`, wired to record a changing call's refused 401, a lost race and a request that
+> breaks the contract, and every changing use case's outcome as each is built, and Audit's static
+> `Refusals` helper: every other body that would do work throws, no other use case calls a
+> persistence adapter, and no operation is served, so no record is written yet. The design the team
+> is heading for is in [Target design](#target-design); this file describes none of it as built
+> beyond that.
 
 ## Architecture overview
 

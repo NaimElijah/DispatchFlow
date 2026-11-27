@@ -496,12 +496,13 @@ src/frontend/web/
                          route and page, the error page
     features/<context>/  each area's pages and its routes.ts; access/ holds the Settings page,
                          planning/ the /plans and /plans/$date routes and their dates
-    components/          the UI no area owns: NotBuiltPage, TextLink, usePageTitle, ProblemMessage
-                         and its texts, DataTable, notifySaved, useLanguage; form/, the form, its
-                         save button and the summary's placing of a refusal, with the fields in
-                         form/fields/; map/, the map's (#174, empty until then)
+    components/          the UI no area owns: NotBuiltPage, TextLink, usePageTitle, ProblemMessage,
+                         DataTable, notifySaved, useLanguage; form/, the form, its save button and
+                         the summary's placing of a refusal, with the fields in form/fields/;
+                         map/, the map's (#174, empty until then)
     lib/                 the code no layer owns: the language setting, the refusal reader
-                         (problems.ts) and the versioned save (versionedSave.ts)
+                         (problems.ts), the refusal texts (problemText.ts) and the versioned
+                         save (versionedSave.ts)
     test/                Vitest's setup, renderApp, renderComponent, the one MSW server, the <style>
                          check, the tests of the lint rules, and the example form
 ```
@@ -534,7 +535,7 @@ deepmerge entries in
 are. It has no route folder:
 that comes with `expo-router` at M10 ([ADR-130][ADR-130]).
 
-The two apps share no code. `src/frontend/packages/` holds seven folders. Three are workspace
+The two apps share no code. `src/frontend/packages/` holds seven folders. Five are workspace
 packages that only the web app uses so far: `eslint-config` (`@dispatchflow/eslint-config`, the
 ESLint 10 flat configs), `tsconfig` (`@dispatchflow/tsconfig`, the `base`, `app` and `node`
 presets), `i18n` (`@dispatchflow/i18n`, the English and Hebrew strings as TypeScript, one
