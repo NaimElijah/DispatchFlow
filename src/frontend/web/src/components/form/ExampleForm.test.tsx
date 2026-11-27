@@ -1,6 +1,7 @@
 import { screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw/http'
+import { useState } from 'react'
 import { describe, expect, test } from 'vitest'
 import { ExampleForm } from '../../test/ExampleForm.tsx'
 import { EXAMPLE_PATH, EXAMPLE_STRINGS } from '../../test/exampleFormData.ts'
@@ -28,6 +29,19 @@ async function fillInWhatIsRequired(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByText('מחסן צפון 2'))
   await user.type(screen.getByRole('textbox', { name: 'Weight (kg)' }), '3')
   await user.type(screen.getByRole('textbox', { name: 'Volume (L)' }), '2')
+}
+
+/** The example form under a view that can be read again, which hands it the view's new ETag. */
+function ReadAgainForm() {
+  const [etag, setEtag] = useState<string | null>('"1"')
+  return (
+    <>
+      <button type="button" onClick={() => setEtag('"5"')}>
+        Read again
+      </button>
+      <ExampleForm etag={etag} />
+    </>
+  )
 }
 
 describe('the example form', () => {
@@ -114,6 +128,19 @@ describe('the example form', () => {
     expect(requests[0].headers.get('If-None-Match')).toBe('*')
     expect(requests[1].headers.get('If-Match')).toBe('"2"')
     expect(requests[1].headers.get('If-None-Match')).toBeNull()
+  })
+
+  test('GivenTheViewReadAgain_WhenTheFormIsSaved_ThenItSendsTheVersionItWasHandedLast', async () => {
+    const user = userEvent.setup()
+    const requests = answerSaves()
+    renderComponent(<ReadAgainForm />)
+    await fillInWhatIsRequired(user)
+
+    await user.click(screen.getByRole('button', { name: 'Read again' }))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('The example is saved.')).toBeDefined()
+    expect(requests[0].headers.get('If-Match')).toBe('"5"')
   })
 
   test('GivenTheOptionalServiceTimeLeftEmpty_WhenSaved_ThenTheBodyLeavesItOut', async () => {

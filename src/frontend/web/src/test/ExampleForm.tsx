@@ -18,16 +18,21 @@ import { sendJson } from './sendJson.ts'
 
 /**
  * A form built from the shared pieces alone: its schema, its fields and its strings, and one save
- * call. It shows that a real form, such as the depot form, needs nothing more (#173). It keeps the
- * version each save returns, so its next save sends that one, as a screen does by keeping the
- * answer's `ETag` or reading its view again.
+ * call. It shows that a real form, such as the depot form, needs nothing more (#173). Its next save
+ * sends the newest version it knows: the one each save returns, or a new `etag` the view hands it
+ * once it was read again.
  *
- * @param etag the `ETag` the view was read with, or `null` for a view with no version yet
+ * @param etag the `ETag` the view was last read with, or `null` for a view with no version yet
  */
 export function ExampleForm({ etag }: { readonly etag: string | null }) {
   const strings = EXAMPLE_STRINGS[useLanguage()]
   const notifySaved = useNotifySaved()
   const [version, setVersion] = useState(etag)
+  const [readWith, setReadWith] = useState(etag)
+  if (readWith !== etag) {
+    setReadWith(etag)
+    setVersion(etag)
+  }
   const form = useSchemaForm(exampleSchema, {
     defaultValues: {
       name: '',
