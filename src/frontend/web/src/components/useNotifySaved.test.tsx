@@ -1,5 +1,6 @@
 import type { Language } from '@dispatchflow/i18n'
 import { act, fireEvent, screen, within } from '@testing-library/react'
+import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { renderComponent } from '../test/renderComponent.tsx'
 import { useNotifySaved, type SavedNotice } from './useNotifySaved.ts'
@@ -17,6 +18,32 @@ function NotifyProbe({ notice }: { readonly notice: SavedNotice }) {
     <button type="button" onClick={() => notifySaved(notice)}>
       Store it
     </button>
+  )
+}
+
+/** A notice's button that the screen remounts, under the same id, while the notice is open. */
+function RemountingProbe() {
+  const notifySaved = useNotifySaved()
+  const [mount, setMount] = useState(0)
+  return (
+    <>
+      <button
+        key={mount}
+        id="store-it"
+        type="button"
+        onClick={() =>
+          notifySaved({
+            text: 'The customer is saved.',
+            action: { label: 'Add another', onClick: () => undefined },
+          })
+        }
+      >
+        Store it
+      </button>
+      <button type="button" onClick={() => setMount(mount + 1)}>
+        Remount
+      </button>
+    </>
   )
 }
 
@@ -125,27 +152,21 @@ describe('useNotifySaved', () => {
     expect(document.activeElement).toBe(nextField)
   })
 
-  test('GivenTheElementFocusedWhenShownIsGone_WhenTheNoticeCloses_ThenFocusStaysOnThePage', () => {
-    const { unmount } = renderComponent(
-      <NotifyProbe
-        notice={{
-          text: 'The customer is saved.',
-          action: { label: 'Add another', onClick: vi.fn() },
-        }}
-      />,
-    )
+  test('GivenTheElementFocusedWhenShownWasRemountedSince_WhenTheNoticeCloses_ThenFocusGoesToItsSuccessor', () => {
+    renderComponent(<RemountingProbe />)
     const storeIt = screen.getByRole('button', { name: 'Store it' })
     storeIt.focus()
     fireEvent.click(storeIt)
-    const close = screen.getByRole('button', { name: 'Close' })
-    unmount()
+    // The screen remounts what had focus, as a time field does on a reset, under the same id.
+    fireEvent.click(screen.getByRole('button', { name: 'Remount' }))
     expect(storeIt.isConnected).toBe(false)
+    const close = screen.getByRole('button', { name: 'Close' })
     close.focus()
 
     fireEvent.click(close)
     waitWellPastAutoClose()
 
-    expect(document.activeElement).not.toBe(storeIt)
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Store it' }))
   })
 
   test('GivenANoticeWithAnActionInHebrew_WhenShown_ThenItsCloseButtonIsNamedInHebrew', () => {

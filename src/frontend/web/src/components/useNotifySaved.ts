@@ -35,7 +35,8 @@ export interface SavedNotice {
  * language, because a keyboard or screen-reader user needs time to reach an action at the end of
  * the page (WCAG 2.2.1, NFR-46); pressing the action closes it too. When it closes with focus in
  * it, focus goes back to where it was when the notice was shown, such as the save button, rather
- * than to the page (WCAG 2.4.3). The action is a button and not a link: notifications render
+ * than to the page (WCAG 2.4.3); an element remounted since under the same id, as a time field's
+ * hours box is on a reset, is found again by that id. The action is a button and not a link: notifications render
  * outside the router, so the screen passes its own navigation.
  *
  * @returns the function a screen calls once its save is done, such as in `useVersionedSave`'s
@@ -71,8 +72,12 @@ export function useNotifySaved(): (notice: SavedNotice) => void {
             focused === null ||
             focused === document.body ||
             focused.closest(`[${NOTICE_MARK}]`) !== null
-          if (focusInNotice && returnTo instanceof HTMLElement && returnTo.isConnected) {
-            returnTo.focus()
+          const successor =
+            returnTo instanceof HTMLElement && !returnTo.isConnected && returnTo.id !== ''
+              ? document.getElementById(returnTo.id)
+              : returnTo
+          if (focusInNotice && successor instanceof HTMLElement) {
+            successor.focus()
           }
         },
       })
