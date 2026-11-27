@@ -19,7 +19,9 @@ on the host, so it never meets a running ``just dev`` or another check:
 - every Java connection is ``app``'s, past ``DatabaseSessionGuard``;
 - the core's JVM runs in Israel's zone (ADR-088);
 - through the web app's proxy, the stand-in signs in a same-origin call and refuses a same-site
-  one, and the dev server answers no other origin's CORS request (ADR-148).
+  one, and the dev server answers no other origin's CORS request (ADR-148);
+- the web app's proxy passes /map/ to the tiles service with the prefix removed, and the tiles
+  service's answers carry nosniff and a policy that runs no script (#152).
 
 The project, its volume and its images are removed afterwards, whatever happened. Exits 0 when every
 check passes and 1 when one fails, naming it, or when the removal fails. It prints no password.
@@ -88,11 +90,22 @@ PROBE_PATH = "/api/v1/infra-check"
 SIGNED_IN_UNKNOWN_PATH = 404
 NOT_SIGNED_IN = 401
 OTHER_ORIGIN = "http://localhost:8888"
+# The tiles service's health path, asked for under the proxy's prefix. It needs no file, so it
+# answers before `just data` has run, as in CI. The dev server answers an unknown path with the web
+# app's own page, also 200, so the check reads which server answered. The tiles reach the browser
+# on the app's own origin, so the check also reads the two headers that keep any of them from being
+# read as a page there.
+TILES_PROBE_PATH = "/map/healthz"
+TILES_OK = 200
+TILES_SERVER = "Caddy"
+TILES_NOSNIFF = "nosniff"
+TILES_POLICY = "default-src 'none'; sandbox"
 
 # Asks the web container's own dev server as a browser on the laptop would, with Host
 # localhost:5173: the method, the path and the request's other headers as JSON are its arguments,
-# and it prints the answer's status and its Access-Control-Allow-Origin. node:http, because fetch
-# may refuse to set a Sec- header.
+# and it prints the answer's status, its Access-Control-Allow-Origin, its Server, its
+# X-Content-Type-Options and its Content-Security-Policy. node:http, because fetch may refuse to set
+# a Sec- header.
 PROXY_PROBE = """
 const http = require('node:http');
 const [method, path, headers] = process.argv.slice(1);
@@ -101,7 +114,11 @@ const request = http.request(
     headers: { host: 'localhost:5173', ...JSON.parse(headers) } },
   (answer) => {
     const allowOrigin = answer.headers['access-control-allow-origin'] ?? null;
-    console.log(JSON.stringify({ status: answer.statusCode, allowOrigin }));
+    const server = answer.headers['server'] ?? null;
+    const nosniff = answer.headers['x-content-type-options'] ?? null;
+    const policy = answer.headers['content-security-policy'] ?? null;
+    const status = answer.statusCode;
+    console.log(JSON.stringify({ status, allowOrigin, server, nosniff, policy }));
     answer.resume();
   });
 request.on('error', (error) => { console.error(error.message); process.exit(1); });
@@ -286,9 +303,10 @@ def check_live_stack(environment: dict[str, str]) -> int:
             stack.check_core_runs_in_israels_zone()
             stack.check_proxy_keeps_the_browsers_headers()
             stack.check_dev_server_answers_no_other_origin()
+            stack.check_proxy_reaches_the_tiles()
             print(
-                "ok: the stack starts healthy, and migrate, the roles, the settings and the proxy "
-                "check out"
+                "ok: the stack starts healthy, and migrate, the roles, the settings and both "
+                "proxies check out"
             )
         finally:
             removed = stack.remove()
@@ -396,7 +414,7 @@ class LiveStack:
                 "the core's JVM does not start with -Duser.timezone=Asia/Jerusalem"
             )
 
-    def probe(self, method: str, headers: dict[str, str]) -> dict[str, Any]:
+    def probe(self, method: str, headers: dict[str, str], path: str = PROBE_PATH) -> dict[str, Any]:
         """Sends one request through the web container's dev server, and reads its answer."""
         result = run(
             self.command(
@@ -407,7 +425,7 @@ class LiveStack:
                 "-e",
                 PROXY_PROBE,
                 method,
-                PROBE_PATH,
+                path,
                 json.dumps(headers),
             ),
             self.environment,
@@ -439,6 +457,21 @@ class LiveStack:
                 raise CheckFailedError(
                     f"the dev server lets {OTHER_ORIGIN} read a {method} answer ({allowed})"
                 )
+
+    def check_proxy_reaches_the_tiles(self) -> None:
+        """/map/ reaches the tiles service, prefix removed, and its answers can't run as a page."""
+        answer = self.probe("GET", {}, TILES_PROBE_PATH)
+        if answer["status"] != TILES_OK or answer["server"] != TILES_SERVER:
+            raise CheckFailedError(
+                f"through the web proxy, {TILES_PROBE_PATH} answered {answer['status']} from "
+                f"{answer['server']}, not {TILES_OK} from {TILES_SERVER}"
+            )
+        if answer["nosniff"] != TILES_NOSNIFF or answer["policy"] != TILES_POLICY:
+            raise CheckFailedError(
+                f"through the web proxy, {TILES_PROBE_PATH} answered X-Content-Type-Options "
+                f"{answer['nosniff']} and Content-Security-Policy {answer['policy']}, not "
+                f"{TILES_NOSNIFF} and {TILES_POLICY}"
+            )
 
     def logs(self) -> str:
         """The last lines of every service's log, for a failure's message."""
