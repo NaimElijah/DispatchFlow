@@ -1,8 +1,8 @@
-import type { SendResult } from '../lib/versionedSave.ts'
+import { fetchFromCore, type SendResult } from '../lib/coreCalls.ts'
 
 /**
- * Sends a JSON body as `@dispatchflow/api-client`'s openapi-fetch call will (#148), and answers in
- * its shape: the parsed `data` on a success, the parsed `error` body otherwise, as text when it is
+ * Sends a JSON body as `@dispatchflow/api-client`'s openapi-fetch call will (#148), through
+ * `fetchFromCore` as that client does, and answers in its shape: the parsed `data` on a success, the parsed `error` body otherwise, as text when it is
  * no JSON. Tests use it as a versioned save's `send` until the generated client exists.
  *
  * @param method the HTTP method, such as `PUT`
@@ -16,7 +16,7 @@ export async function sendJson(
   body: unknown,
   headers: Readonly<Record<string, string>>,
 ): Promise<SendResult<unknown>> {
-  const response = await fetch(new URL(path, window.location.origin), {
+  const response = await fetchFromCore(new URL(path, window.location.origin), {
     method,
     headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify(body),
