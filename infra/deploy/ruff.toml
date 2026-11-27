@@ -1,5 +1,5 @@
-# ruff's settings for check_dev_stack.py, the script `just infra-check` runs (ADR-151): the
-# optimizer's line length and its rules for code outside its domain
+# ruff's settings for check_dev_stack.py, the script `just infra-check` runs (ADR-151), and its
+# tests: the optimizer's line length and its rules for code outside its domain
 # (src/backend/optimizer/pyproject.toml). The script prints its results, which is its job.
 line-length = 100
 target-version = "py314"
@@ -9,3 +9,7 @@ select = ["E", "W", "F", "I", "B", "UP", "N", "SIM", "D"]
 
 [lint.pydocstyle]
 convention = "google"
+
+[lint.per-file-ignores]
+# Test names state their purpose; docstrings on them would repeat it, as in the optimizer.
+"test_*.py" = ["D"]
