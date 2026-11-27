@@ -36,6 +36,7 @@ test.each([
   ['src/lib/problems.ts', 'zod/mini'],
   ['src/main.tsx', 'zod'],
   ['src/test/ExampleForm.tsx', 'zod'],
+  ['src/DatesLanguage.tsx', 'zod'],
 ])(
   'GivenAFileAt_%s_WhenItImports_%s_ThenLintRefusesTheImport',
   async (filePath, specifier) => {
@@ -74,6 +75,7 @@ test(
       "import type { z } from 'zod'\nexport type Schema = z.ZodType\n",
       { filePath: 'src/components/form/useSchemaForm.ts' },
     )
+    expect(result.fatalErrorCount).toBe(0)
     expect(result.messages.filter((message) => message.ruleId === 'no-restricted-imports')).toEqual(
       [],
     )

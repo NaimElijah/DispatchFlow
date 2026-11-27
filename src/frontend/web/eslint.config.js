@@ -108,6 +108,8 @@ export default defineConfig([
     [toAppModules, toTestCode, toDayjs, toZod, toFolders(['features', 'routes', 'components'])],
   ),
   restrict(['src/*.{ts,tsx}'], [toDayjs, toZod], [DAYJS_LOCALE_FILE]),
+  // The one file that may load Day.js still takes Zod only from @dispatchflow/schemas.
+  restrict([DAYJS_LOCALE_FILE], [toZod]),
   // The tests' own helpers, which no other block covers; the test files themselves stay free.
   restrict(['src/test/**'], [toDayjs, toZod]),
 ])
