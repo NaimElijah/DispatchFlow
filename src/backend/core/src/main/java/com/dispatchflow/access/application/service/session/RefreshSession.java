@@ -29,7 +29,9 @@ import com.dispatchflow.audit.application.api.CallContext;
  * exchange lands in NFR-178's 30-second grace and gets the token that replaces the one the other
  * exchange issued, revoking nothing. A second exchange that revokes is written as above. A second
  * conflict answers the one refusal, unsaved: only a grant or housekeeping is lost then, never a
- * revocation. So no conflict leaves this use case.
+ * revocation. So no conflict leaves this use case, and the call wrapper, which records a race it
+ * answers, never sees one. The use case records that refused attempt itself, with {@code
+ * STALE_VERSION}, once the second rollback is done (ADR-150 decision 3).
  *
  * <p><b>The transactions.</b> {@link RefreshSessionChange} holds one exchange's transaction: the
  * lookup, the exchange, the save, the push address's removal and the audit record. The use case

@@ -59,7 +59,9 @@ import com.dispatchflow.audit.application.api.CallContext;
  * <p><b>The transaction.</b> {@link RequestPasswordRecoveryChange} holds it: the account's lookup,
  * the link's issue, the take and the save, and the audit record. The use case answers its {@code
  * StaleVersion} as a request that sent nothing, and after its commit hands the link it returns to
- * {@code EmailSender.sendLink} (ADR-129).
+ * {@code EmailSender.sendLink} (ADR-129). The conflict never leaves the use case, so the call
+ * wrapper, which records a race it answers, never sees it: the use case records that refused
+ * attempt itself, with {@code STALE_VERSION}, once the rollback is done (ADR-150 decision 3).
  *
  * <p>Like every changing call it writes its audit record, a refused attempt's in its own
  * transaction (NFR-23, ADR-110).

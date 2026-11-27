@@ -56,10 +56,11 @@ Decided on 27 November 2026.
    - This amends [ADR-149] decision 1, whose `catch` it writes once.
 2. **A not-found is a refusal like any other.** The helper records it with `NOT_FOUND`, naming the
    records the attempt names.
-3. **A use case that answers a conflict itself records it.** When a `StaleVersion` never leaves the
-   use case, the use case writes `AuditLog.refused` with `STALE_VERSION` once the rollback is done.
-   The record names what the use case knows. `RefreshSession` and `RequestPasswordRecovery` do
-   this. Every other race stays the call wrapper's. This amends [ADR-140] decision 6's "A use case
+3. **A use case that answers a conflict itself records it.** When a changing call's `StaleVersion`
+   never leaves its use case, the use case writes `AuditLog.refused` with `STALE_VERSION` once the
+   rollback is done. The record names what the use case knows. `RefreshSession` and
+   `RequestPasswordRecovery` do this. Every other race stays the call wrapper's. A nightly job that
+   leaves a conflicting record for the next night answers no call, so this doesn't apply to it. This amends [ADR-140] decision 6's "A use case
    never audits a `StaleVersion`", and extends [ADR-149] decision 4.
 4. **The contract's handler records a changing call it refuses before the handler runs.**
    - `ContractErrorHandler` writes `AuditLog.refused` for a 4xx it answers, with the answer's code
