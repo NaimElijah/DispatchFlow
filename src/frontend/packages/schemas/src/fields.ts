@@ -155,6 +155,18 @@ export const durationMinutes = z
   .refine(Number.isInteger, { ...refusal('WRONG_FORMAT'), abort: true })
   .refine((value) => value > 0, refusal('TOO_SMALL', { min: 1 }))
 
+/**
+ * An optional number made from one of the blocks above, such as `optionalNumber(durationMinutes)`
+ * for a service time the customer's default may stand in for. Empty means none, and leaves the
+ * field out of the request body: the number field holds `null` once its box is emptied, and
+ * `undefined` before anyone typed in it. A filled-in number passes the block's own checks.
+ *
+ * @param block the number block whose checks a filled-in value must pass
+ */
+export function optionalNumber<TBlock extends z.ZodType<number, number>>(block: TBlock) {
+  return block.nullish().transform((value) => value ?? undefined)
+}
+
 const isPhoneNumber = (text: string) => isValidPhoneNumber(text, PHONE_REGION)
 
 /**

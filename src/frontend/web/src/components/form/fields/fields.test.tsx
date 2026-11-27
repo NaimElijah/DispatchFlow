@@ -1,4 +1,10 @@
-import { localDate, optionalTimeWindow, timeOfDay, weightKg } from '@dispatchflow/schemas'
+import {
+  durationMinutes,
+  localDate,
+  optionalTimeWindow,
+  timeOfDay,
+  weightKg,
+} from '@dispatchflow/schemas'
 import { screen, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { describe, expect, test } from 'vitest'
@@ -54,7 +60,7 @@ describe('fields', () => {
 
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
-    for (const name of [strings.name, strings.phone, 'Weight (kg)', 'Service time (min)']) {
+    for (const name of [strings.name, strings.phone, 'Weight (kg)', 'Volume (L)']) {
       const field = await screen.findByRole('textbox', { name, description: REQUIRED })
       expect(field.getAttribute('aria-invalid'), name).toBe('true')
     }
@@ -130,6 +136,26 @@ describe('fields', () => {
     expect(weight).toHaveProperty('value', '12.')
     await user.type(weight, '5')
     expect(weight).toHaveProperty('value', '12.5')
+  })
+
+  test('GivenANumberWhoseSchemaTakesNoNull_WhenBoundToANumberField_ThenTheFormDoesNotCompile', () => {
+    // `tsc -b` checks this: the field writes `null` to an emptied box, which `.optional()` alone
+    // refuses as missing. The render only keeps the form in use.
+    const minutesSchema = z.object({ minutes: durationMinutes.optional() })
+    function MinutesForm() {
+      const form = useSchemaForm(minutesSchema)
+      return (
+        <NumberField
+          control={form.control}
+          // @ts-expect-error a number that takes no `null` is no number field's
+          name="minutes"
+          label="Minutes"
+        />
+      )
+    }
+    renderComponent(<MinutesForm />)
+
+    expect(screen.getByRole('textbox', { name: 'Minutes' })).toBeDefined()
   })
 
   test('GivenAUnit_WhenTheFieldIsShownInHebrew_ThenItsLabelNamesTheUnitInHebrew', () => {

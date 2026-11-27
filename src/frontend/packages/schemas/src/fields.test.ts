@@ -4,6 +4,7 @@ import {
   choice,
   durationMinutes,
   localDate,
+  optionalNumber,
   optionalPhoneNumber,
   optionalText,
   optionalTimeWindow,
@@ -170,6 +171,21 @@ describe('numbers', () => {
   test('GivenWholeNumbersAtEitherEndOfTheirRange_WhenChecked_ThenBothAreAccepted', () => {
     expect(refusalsOf(wholeNumber(1, 5), 1)).toEqual([])
     expect(refusalsOf(wholeNumber(1, 5), 5)).toEqual([])
+  })
+
+  test('GivenAnOptionalNumberLeftEmpty_WhenParsed_ThenItIsAcceptedAndLeftOutOfTheBody', () => {
+    // `null` is what the number field holds once its box is emptied; `undefined`, before any typing.
+    for (const empty of [null, undefined]) {
+      expect(refusalsOf(optionalNumber(durationMinutes), empty), String(empty)).toEqual([])
+      expect(optionalNumber(durationMinutes).parse(empty), String(empty)).toBeUndefined()
+    }
+  })
+
+  test('GivenAnOptionalNumberFilledIn_WhenChecked_ThenItsBlocksChecksStillApply', () => {
+    expect(refusalsOf(optionalNumber(durationMinutes), 0)).toEqual([
+      { path: '', code: 'TOO_SMALL', params: { min: 1 } },
+    ])
+    expect(optionalNumber(durationMinutes).parse(15)).toBe(15)
   })
 
   test('GivenADurationOfNoMinutes_WhenChecked_ThenItIsTooSmall', () => {

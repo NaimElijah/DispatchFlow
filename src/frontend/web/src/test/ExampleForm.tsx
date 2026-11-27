@@ -78,7 +78,6 @@ export function ExampleForm({ etag }: { readonly etag: string | null }) {
         name="serviceMinutes"
         label={strings.serviceMinutes}
         unit="minutes"
-        required
       />
       <NumberField
         control={control}

@@ -19,6 +19,17 @@ function answerSaves(): Request[] {
   return requests
 }
 
+/** Fills in every field the example requires, by mouse and keyboard, and leaves the rest empty. */
+async function fillInWhatIsRequired(user: ReturnType<typeof userEvent.setup>) {
+  const strings = EXAMPLE_STRINGS.en
+  await user.type(screen.getByRole('textbox', { name: strings.name }), 'Ada')
+  await user.type(screen.getByRole('textbox', { name: strings.phone }), '0501234567')
+  await user.click(screen.getByRole('combobox', { name: strings.depot }))
+  await user.click(await screen.findByText('מחסן צפון 2'))
+  await user.type(screen.getByRole('textbox', { name: 'Weight (kg)' }), '3')
+  await user.type(screen.getByRole('textbox', { name: 'Volume (L)' }), '2')
+}
+
 describe('the example form', () => {
   test('GivenTheExampleForm_WhenFilledInAndSavedByKeyboardAlone_ThenItSendsWhatWasEntered', async () => {
     const user = userEvent.setup()
@@ -87,6 +98,33 @@ describe('the example form', () => {
 
     expect(await screen.findByText('The example is saved.')).toBeDefined()
     expect(await requests[0].json()).toMatchObject({ date: '2026-11-27' })
+  })
+
+  test('GivenTheOptionalServiceTimeLeftEmpty_WhenSaved_ThenTheBodyLeavesItOut', async () => {
+    const user = userEvent.setup()
+    const requests = answerSaves()
+    renderComponent(<ExampleForm etag='"1"' />)
+    await fillInWhatIsRequired(user)
+
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('The example is saved.')).toBeDefined()
+    expect(await requests[0].json()).not.toHaveProperty('serviceMinutes')
+  })
+
+  test('GivenTheOptionalServiceTimeTypedThenEmptied_WhenSaved_ThenTheBodyLeavesItOut', async () => {
+    const user = userEvent.setup()
+    const requests = answerSaves()
+    renderComponent(<ExampleForm etag='"1"' />)
+    await fillInWhatIsRequired(user)
+    const serviceTime = screen.getByRole('textbox', { name: 'Service time (min)' })
+
+    await user.type(serviceTime, '10')
+    await user.clear(serviceTime)
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('The example is saved.')).toBeDefined()
+    expect(await requests[0].json()).not.toHaveProperty('serviceMinutes')
   })
 
   test('GivenTheExampleFormInEnglishAndInHebrew_WhenShown_ThenEachShowsItsOwnWordsAndDirection', () => {

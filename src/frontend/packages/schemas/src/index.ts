@@ -11,6 +11,7 @@ export {
   choice,
   durationMinutes,
   localDate,
+  optionalNumber,
   optionalPhoneNumber,
   optionalText,
   optionalTimeWindow,

@@ -1,4 +1,10 @@
-import type { Control, FieldPathByValue, FieldValues } from 'react-hook-form'
+import type {
+  Control,
+  FieldPath,
+  FieldPathByValue,
+  FieldPathValue,
+  FieldValues,
+} from 'react-hook-form'
 
 /**
  * What every field takes: the form's `control` and the field's `name`, which is type-checked
@@ -18,3 +24,22 @@ export interface FieldProps<TValues extends FieldValues, TValue, TParsed = TValu
   /** Marks the field as one the form needs; the schema is what refuses it empty. */
   readonly required?: boolean
 }
+
+/**
+ * The path of a value a number field can hold: a required number, which the schema refuses empty,
+ * or an optional one that takes `null`, which the field writes while its box is empty. A path whose
+ * value is `number | undefined` and never `null` is left out: its schema would refuse an emptied
+ * box as missing, on a field the user may leave empty. Make an optional number with
+ * `@dispatchflow/schemas`' `optionalNumber`.
+ *
+ * @typeParam TValues the form's values
+ */
+export type NumberFieldPath<TValues extends FieldValues> = {
+  [Path in FieldPath<TValues>]: [FieldPathValue<TValues, Path>] extends [number | null | undefined]
+    ? [FieldPathValue<TValues, Path>] extends [number]
+      ? Path
+      : null extends FieldPathValue<TValues, Path>
+        ? Path
+        : never
+    : never
+}[FieldPath<TValues>]
