@@ -127,7 +127,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-042](ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md) | Local runs start their services from `compose.dev.yaml`; tests keep Testcontainers | Accepted; amended by ADR-123, ADR-139 and ADR-151 |
 | [ADR-151](ADR-151-the-dev-stack-runs-the-core-as-a-compose-service-and-the-core-checks-its-database-session.md) | The dev stack runs the core as a Compose service, and the core checks its database session at startup | Accepted; amended by ADR-152 |
 | [ADR-152](ADR-152-the-session-guard-reads-the-real-login-and-accepts-only-untranslated-messages-and-the-stack-check-checks-what-it-claims.md) | The session guard reads the real login and accepts only untranslated messages, and the stack's check checks what it claims | Accepted |
-| [ADR-046](ADR-046-renovate-replaces-dependabot-and-targets-dev.md) | Renovate replaces Dependabot and keeps opening updates against `dev` | Accepted |
+| [ADR-046](ADR-046-renovate-replaces-dependabot-and-targets-dev.md) | Renovate replaces Dependabot and keeps opening updates against `dev` | Accepted; extended by ADR-152 |
 | [ADR-072](ADR-072-images-scanned-by-pinned-trivy-and-secrets-by-gitleaks.md) | A pinned Trivy scans images and Terraform, and Gitleaks scans the full history for secrets | Accepted |
 | [ADR-074](ADR-074-dependency-licences-checked-against-an-allow-list.md) | Dependency licences are checked in CI against an allow-list, and GPL and AGPL services run unmodified | Accepted |
 | [ADR-081](ADR-081-eas-update-for-javascript-only-fixes-during-the-pilot.md) | JavaScript-only fixes reach the phone app through EAS Update during the pilot | Accepted |
@@ -287,10 +287,12 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > grants, a member of another role, an owner, or on a server whose messages aren't English; the
 > core's JVM runs in Israel's zone; and `just infra-check` checks the file and the running stack,
 > in `just check` and CI's `infra` job, the eighth required check.
-> ADR-152, on 2026-11-27, amends ADR-151 after a review of #146: the guard reads the login
-> from `pg_stat_activity`, so a superuser's `SET SESSION AUTHORIZATION` no longer passes, and
-> accepts only `lc_messages` `C` or `POSIX`, since a `LANGUAGE` variable translates an English
-> locale; the tests' server runs the stack's settings; the guard checks identity, not grants;
+>
+> ADR-152, on 2026-11-27, amends ADR-151 and extends ADR-046 after a review of #146: the guard
+> reads the login from `pg_stat_activity`, so a superuser's `SET SESSION AUTHORIZATION` no
+> longer passes, and accepts only `lc_messages` `C` or `POSIX`, since a `LANGUAGE` variable
+> translates an English locale, and older glibc `C.UTF-8` too; the tests' server runs the
+> stack's settings; `DatabaseSessionGuard` checks identity and `DatabaseRolesIT` the grants;
 > `just infra-check` reads env files from the file as written, maps every secret to its
 > holders, checks hardening, root processes, a rewritten `Host` and the PostgreSQL and Node
 > tags, and tests its own rules; the Maven wrapper pins its download's SHA-256; and the local

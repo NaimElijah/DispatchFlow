@@ -50,6 +50,7 @@ This README is ordered for contributors, so Quick start comes before Architectur
 | uv | 0.12+ | both Python projects; installs Python 3.14 (`.python-version`) by itself |
 | Docker | Docker Desktop on Windows and macOS; on Linux, Engine 28.3.3 or later, whose fix keeps a port published on `127.0.0.1` off the network after a firewalld reload (CVE-2025-54388) | core's integration tests, `just core-run`, `just audit`, `just infra-check`, the whole stack |
 | just | 1.59 | every command below |
+| unzip | any, on Linux and macOS | the Maven wrapper, which checks Maven's zip against its pinned SHA-256 and, without unzip, fetches a .tar.gz that fails the check |
 
 Point `JAVA_HOME`, and your IDE's Java SDK, at that JDK 25: the core does not build on an older one.
 
@@ -97,9 +98,9 @@ cp infra/deploy/.env.example infra/deploy/.env    # then fill in its three passw
 docker compose -f infra/deploy/compose.dev.yaml up --build --watch
 ```
 
-The web app is on http://localhost:5173, and proxies `/api/` to the stack's core, which is also
-on 127.0.0.1:8080; the optimizer is on 127.0.0.1:8081, and PostgreSQL on 127.0.0.1:5432. A laptop that runs a PostgreSQL
-of its own on 5432 sets `DISPATCHFLOW_POSTGRES_HOST_PORT` in that `.env`. `--watch` copies an
+The web app is on http://localhost:5173, and proxies `/api/` to the stack's core, which the
+laptop also reaches on 127.0.0.1:8080; the optimizer is on 127.0.0.1:8081, and PostgreSQL on
+127.0.0.1:5432. A laptop that runs a PostgreSQL of its own on 5432 sets `DISPATCHFLOW_POSTGRES_HOST_PORT` in that `.env`. `--watch` copies an
 edit to the web app or the optimizer into its container, which reloads it; a change to the core
 needs `--build` again. `docker compose -f infra/deploy/compose.dev.yaml down` stops it, and
 `--volumes` also deletes its database. Checked with Docker 29.9.3 and Compose v5.7.1.

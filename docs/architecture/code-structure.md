@@ -105,7 +105,7 @@ src/backend/core/
                                    dispatchflow_owner before the core starts (ADR-145)
     DatabaseSessionGuard.java      refuses to start as a superuser, an owner, a member of any
                                    role, a login that switched role, or on a server whose
-                                   lc_messages isn't C (ADR-151, ADR-152)
+                                   lc_messages isn't C or POSIX (ADR-151, ADR-152)
     SchedulingConfiguration.java   @EnableAsync always, @EnableScheduling behind
                                    dispatchflow.scheduling.enabled, and the executor's cap
     MdcTaskDecorator.java          copies the caller's MDC to an asynchronous listener's thread
@@ -262,9 +262,11 @@ src/backend/core/
     DatabaseRolesIT.java                 the two roles, the migrate command and the grants' guard
     DatabaseSessionGuardIT.java          each session the core refuses to start on, against PostgreSQL;
                                          DatabaseSessionGuardTest, the messages settings
-    TestDispatchFlowApplication.java     what `just core-run` starts: the dev profile, Flyway on
+    TestDispatchFlowApplication.java     what `just core-run` starts: the dev profile, Flyway on,
+                                         Israel's zone set by its own main
     TestActors.java                      the Actor of any seeded entry, read from the shared list
-    TestcontainersConfiguration.java     the PostgreSQL container with both roles, the core's
+    TestcontainersConfiguration.java     the PostgreSQL container with both roles and the dev
+                                         stack's server settings, the core's
                                          connection as app and the owner's pool, which Flyway runs
                                          on
     DatabaseRoles.java                   the roles' names and a run's passwords, from the init script

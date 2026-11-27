@@ -77,6 +77,8 @@ with every caller in the same pull request, and drops the docstring's "To Be Imp
   `tests/test_dependency_boundary.py` fails if it is installed or locked here. import-linter checks
   imports only, so that test keeps its environment and lockfile checks.
 - Docstrings are Google-style; ruff enforces it, and tests are exempt.
+- The dev group's ruff, mypy and pytest also check `infra/deploy`'s stack checker in
+  `just infra-check` (ADR-152): a change to them, or a new pytest plugin, reaches it too.
 
 ## Dependencies
 
