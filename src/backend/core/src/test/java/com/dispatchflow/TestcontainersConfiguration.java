@@ -24,7 +24,28 @@ import org.testcontainers.utility.DockerImageName;
 @Import(TestPersistenceConfiguration.class)
 public class TestcontainersConfiguration {
 
+    /** compose.dev.yaml's tag; {@code just infra-check} fails when the two differ (ADR-152). */
     private static final DockerImageName POSTGRES_IMAGE = DockerImageName.parse("postgres:18.6");
+
+    /**
+     * The server's command: Testcontainers' own {@code fsync=off}, which a throwaway database can
+     * afford, then compose.dev.yaml's server settings (#250), so the tests' server keeps its log as
+     * the stack's does and leaves its messages untranslated, which the core refuses to start without
+     * (ADR-152).
+     */
+    private static final String[] POSTGRES_COMMAND = {
+        "postgres",
+        "-c",
+        "fsync=off",
+        "-c",
+        "log_error_verbosity=terse",
+        "-c",
+        "log_parameter_max_length=0",
+        "-c",
+        "log_parameter_max_length_on_error=0",
+        "-c",
+        "lc_messages=C"
+    };
 
     /** Flyway holds both while it migrates, its main and its migration connection; tests reuse them. */
     private static final int OWNER_POOL_SIZE = 2;
@@ -37,7 +58,7 @@ public class TestcontainersConfiguration {
      * @return the container
      */
     static PostgreSQLContainer postgres(DatabaseRoles roles) {
-        return roles.createIn(new PostgreSQLContainer(POSTGRES_IMAGE));
+        return roles.createIn(new PostgreSQLContainer(POSTGRES_IMAGE).withCommand(POSTGRES_COMMAND));
     }
 
     @Bean

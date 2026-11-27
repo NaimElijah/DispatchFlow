@@ -8,29 +8,35 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.postgresql.Driver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.LazyInitializationBeanFactoryPostProcessor;
+import org.springframework.boot.jdbc.autoconfigure.JdbcConnectionDetails;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.context.ApplicationContext;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.SimpleDriverDataSource;
 import org.springframework.jdbc.datasource.SingleConnectionDataSource;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
  * The guard reads a real PostgreSQL session right, and runs when the core starts: a superuser, a
- * role with an attribute that passes the grants, a member of another role, and an owner of any
- * object are each refused (ADR-145, ADR-151). {@code DatabaseSessionGuardTest} covers the decision
- * for a non-English server, which no stock image can start.
+ * role with an attribute that passes the grants, a member of another role, an owner of any object,
+ * a login that switched role and a server that translates its messages are each refused (ADR-145,
+ * ADR-151, ADR-152).
  */
 @IntegrationTest
 class DatabaseSessionGuardIT {
 
     /** A predefined role that writes every table, and owns nothing PostgreSQL records. */
     private static final String WRITES_EVERY_TABLE = "pg_write_all_data";
+
+    /** The image's English locale, which a {@code LANGUAGE} variable still translates. */
+    private static final String ENGLISH_LOCALE = "en_US.UTF-8";
 
     @Autowired
     private JdbcClient jdbc;
@@ -108,6 +114,28 @@ class DatabaseSessionGuardIT {
         }
     }
 
+    /** A member that doesn't inherit the owner's rights can still take them with SET ROLE. */
+    @Test
+    void GivenARoleThatIsAMemberOfTheOwnerWithoutInheriting_WhenTheGuardChecksItsSession_ThenItRefuses() {
+        try (TemporaryRole role = new TemporaryRole("").memberOf(DatabaseRoles.OWNER, "WITH INHERIT FALSE")) {
+            assertThatThrownBy(() -> DatabaseSessionGuard.check(role.session()))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("member of " + DatabaseRoles.OWNER);
+        }
+    }
+
+    /** A membership through another role counts as one, and both roles are named. */
+    @Test
+    void GivenARoleThatIsAMemberOfTheOwnerThroughAnother_WhenTheGuardChecksItsSession_ThenItRefusesNamingBoth() {
+        try (TemporaryRole middle = new TemporaryRole("").memberOf(DatabaseRoles.OWNER);
+                TemporaryRole role = new TemporaryRole("").memberOf(middle.name)) {
+            assertThatThrownBy(() -> DatabaseSessionGuard.check(role.session()))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining(DatabaseRoles.OWNER)
+                    .hasMessageContaining(middle.name);
+        }
+    }
+
     @Test
     void GivenARoleThatIsAMemberOfAPredefinedRole_WhenTheGuardChecksItsSession_ThenItRefuses() {
         try (TemporaryRole role = new TemporaryRole("").memberOf(WRITES_EVERY_TABLE)) {
@@ -139,7 +167,29 @@ class DatabaseSessionGuardIT {
         }
     }
 
-    /** Ownership counts in any database on the server, not only the core's. */
+    /**
+     * A superuser's login may take app's identity with {@code SET SESSION AUTHORIZATION}, which
+     * changes {@code session_user} as well, and take its own back with {@code RESET SESSION
+     * AUTHORIZATION} (ADR-152).
+     */
+    @Test
+    void GivenASuperuserLoginThatTookAppsIdentity_WhenTheGuardChecksItsSession_ThenItRefusesNamingTheLogin() {
+        SingleConnectionDataSource connection = new SingleConnectionDataSource(
+                postgresContainer.getJdbcUrl(), postgresContainer.getUsername(), postgresContainer.getPassword(), true);
+        try {
+            JdbcClient switched = JdbcClient.create(connection);
+            switched.sql("SET SESSION AUTHORIZATION " + DatabaseRoles.APP).update();
+
+            assertThatThrownBy(() -> DatabaseSessionGuard.check(switched))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining(
+                            "logs in as " + postgresContainer.getUsername() + " and switches to " + DatabaseRoles.APP);
+        } finally {
+            connection.destroy();
+        }
+    }
+
+    /** A database is a shared object; ownership inside another database counts too. */
     @Test
     void GivenARoleThatOwnsAnotherDatabase_WhenTheGuardChecksItsSession_ThenItRefuses() {
         try (TemporaryRole role = new TemporaryRole("").owningADatabase()) {
@@ -150,10 +200,55 @@ class DatabaseSessionGuardIT {
     }
 
     @Test
-    void GivenTheTestServer_WhenItsMessagesLanguageIsRead_ThenItIsEnglish() {
-        assertThat(DatabaseSessionGuard.readsEnglish(
-                        jdbc.sql("SHOW lc_messages").query(String.class).single()))
-                .isTrue();
+    void GivenARoleThatOwnsASchemaInAnotherDatabase_WhenTheGuardChecksItsSession_ThenItRefuses() {
+        try (TemporaryRole role = new TemporaryRole("").owningASchemaInAnotherDatabase()) {
+            assertThatThrownBy(() -> DatabaseSessionGuard.check(role.session()))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("owns an object");
+        }
+    }
+
+    /**
+     * An English locale isn't enough: a {@code LANGUAGE} variable in the server's environment
+     * translates every message, and the stock image ships the translations (ADR-152). The server's
+     * own log is German too, so the container is ready once its port opens.
+     */
+    @Test
+    void GivenAServerWhoseEnvironmentTranslatesAnEnglishLocale_WhenTheGuardChecksAppsSession_ThenItRefuses() {
+        DatabaseRoles roles = new DatabaseRoles();
+        try (PostgreSQLContainer translating = TestcontainersConfiguration.postgres(roles)
+                .withEnv("LANGUAGE", "de")
+                .withCommand("postgres", "-c", "fsync=off", "-c", "lc_messages=" + ENGLISH_LOCALE)
+                .waitingFor(Wait.forListeningPort())) {
+            translating.start();
+            JdbcConnectionDetails app = roles.appConnection(translating);
+            JdbcClient session = JdbcClient.create(
+                    new SimpleDriverDataSource(new Driver(), app.getJdbcUrl(), app.getUsername(), app.getPassword()));
+
+            assertThatThrownBy(() ->
+                            session.sql("SELECT 1 / 0").query(Integer.class).single())
+                    .rootCause()
+                    .hasMessageContaining("Division durch Null");
+            assertThatThrownBy(() -> DatabaseSessionGuard.check(session))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("lc_messages is '" + ENGLISH_LOCALE + "'");
+        }
+    }
+
+    /** The tests' server runs the dev stack's server settings (#250), so it passes as the stack does. */
+    @ParameterizedTest
+    @CsvSource({
+        "lc_messages, C",
+        "log_error_verbosity, terse",
+        "log_parameter_max_length, 0",
+        "log_parameter_max_length_on_error, 0"
+    })
+    void GivenTheTestServer_WhenOneOfTheStacksSettingsIsRead_ThenItHasTheStacksValue(String setting, String value) {
+        assertThat(jdbc.sql("SELECT pg_catalog.current_setting(?)")
+                        .param(setting)
+                        .query(String.class)
+                        .single())
+                .isEqualTo(value);
     }
 
     /**
@@ -196,26 +291,38 @@ class DatabaseSessionGuardIT {
         return connectedAs(postgresContainer.getUsername(), postgresContainer.getPassword());
     }
 
+    /** The superuser, connected to another database on the same server. */
+    private JdbcClient asSuperuserIn(String database) {
+        String url = "jdbc:postgresql://" + postgresContainer.getHost() + ":"
+                + postgresContainer.getMappedPort(PostgreSQLContainer.POSTGRESQL_PORT) + "/" + database;
+        return JdbcClient.create(new SimpleDriverDataSource(
+                new Driver(), url, postgresContainer.getUsername(), postgresContainer.getPassword()));
+    }
+
     private JdbcClient connectedAs(String role, String password) {
         return JdbcClient.create(
                 new SimpleDriverDataSource(new Driver(), postgresContainer.getJdbcUrl(), role, password));
     }
 
+    /** Runs one statement as the superuser on the core's database; see {@link #run}. */
+    private void asSuperuser(String template, Object... arguments) {
+        run(asSuperuser(), template, arguments);
+    }
+
     /**
-     * Runs one statement as the superuser, its identifiers and literals quoted by the server's own
+     * Runs one statement on a connection, its identifiers and literals quoted by the server's own
      * {@code format}, since DDL takes no bind parameters.
      */
-    private void asSuperuser(String template, Object... arguments) {
-        JdbcClient superuser = asSuperuser();
+    private static void run(JdbcClient connection, String template, Object... arguments) {
         Object[] parameters = new Object[arguments.length + 1];
         parameters[0] = template;
         System.arraycopy(arguments, 0, parameters, 1, arguments.length);
-        String statement = superuser
+        String statement = connection
                 .sql("SELECT pg_catalog.format(?" + ", ?".repeat(arguments.length) + ")")
                 .params(parameters)
                 .query(String.class)
                 .single();
-        superuser.sql(statement).update();
+        connection.sql(statement).update();
     }
 
     /**
@@ -240,13 +347,31 @@ class DatabaseSessionGuardIT {
         }
 
         TemporaryRole memberOf(String role) {
-            asSuperuser("GRANT %I TO %I", role, name);
+            return memberOf(role, "");
+        }
+
+        /**
+         * Grants the role membership in another.
+         *
+         * @param role the role it becomes a member of
+         * @param options the grant's {@code WITH} options from this class's tests, or none
+         */
+        TemporaryRole memberOf(String role, String options) {
+            asSuperuser("GRANT %I TO %I " + options, role, name);
             return this;
         }
 
         TemporaryRole owningADatabase() {
             database = name;
             asSuperuser("CREATE DATABASE %I OWNER %I", database, name);
+            return this;
+        }
+
+        /** A database the superuser owns, holding a schema this role owns. */
+        TemporaryRole owningASchemaInAnotherDatabase() {
+            database = name;
+            asSuperuser("CREATE DATABASE %I", database);
+            run(asSuperuserIn(database), "CREATE SCHEMA %I AUTHORIZATION %I", name, name);
             return this;
         }
 

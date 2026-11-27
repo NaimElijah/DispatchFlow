@@ -17,7 +17,9 @@ import org.springframework.stereotype.Component;
  *
  * <ul>
  *   <li>the session's role is the one it logged in as: a login that switches to {@code app} with
- *       {@code SET ROLE} can switch back;
+ *       {@code SET ROLE}, or a superuser's with {@code SET SESSION AUTHORIZATION}, can switch back.
+ *       Both change {@code session_user} too, so the login is read from {@code pg_stat_activity},
+ *       which neither changes (ADR-152);
  *   <li>the core's role has none of the attributes that ADR-145's roles leave off and that pass
  *       every grant: {@code SUPERUSER}, {@code CREATEDB}, {@code CREATEROLE}, {@code REPLICATION}
  *       and {@code BYPASSRLS};
@@ -26,9 +28,11 @@ import org.springframework.stereotype.Component;
  *       pg_write_all_data}, so only membership itself shows that;
  *   <li>it owns no object, in any database. An owner can grant itself back whatever a migration
  *       revoked (ADR-041, ADR-145);
- *   <li>the server writes its messages in English, because Hibernate reads a violated
- *       constraint's name from the message text, and four of the core's answers to a race depend
- *       on it (#250).
+ *   <li>the server leaves its messages untranslated, because Hibernate reads a violated constraint's
+ *       name from the English message text, and four of the core's answers to a race depend on it
+ *       (#250). Only {@code lc_messages} {@code C} or {@code POSIX} ensures that: under an English
+ *       locale, a {@code LANGUAGE} variable in the server's environment still translates every
+ *       message (ADR-152).
  * </ul>
  *
  * <p>So a credential mapped to the wrong Compose service, or a deployment that connects the core as
@@ -50,11 +54,15 @@ class DatabaseSessionGuard {
     static final String SCHEMA_DRAFT = "schema-draft";
 
     /**
-     * The role's attributes, the roles it is a member of, directly or through another, and whether
-     * it owns an object in any database: {@code pg_shdepend} is shared by the whole server.
+     * The role the session logged in as, its current role's attributes, the roles that one is a
+     * member of, directly or through another, and whether it owns an object in any database: {@code
+     * pg_shdepend} is shared by the whole server. Any role may read its own row of {@code
+     * pg_stat_activity}.
      */
     private static final String SESSION_ROLE = """
-            SELECT session_user AS login_role, r.rolname AS role, r.rolsuper AS superuser, r.rolcreatedb AS createdb,
+            SELECT (SELECT a.usename FROM pg_catalog.pg_stat_activity a
+                    WHERE a.pid = pg_catalog.pg_backend_pid()) AS login_role,
+                   r.rolname AS role, r.rolsuper AS superuser, r.rolcreatedb AS createdb,
                    r.rolcreaterole AS createrole, r.rolreplication AS replication, r.rolbypassrls AS bypassrls,
                    (SELECT pg_catalog.string_agg(g.rolname, ', ' ORDER BY g.rolname)
                     FROM pg_catalog.pg_roles g
@@ -95,34 +103,36 @@ class DatabaseSessionGuard {
     }
 
     /**
-     * Whether a value of {@code lc_messages} gives English messages: {@code C}, {@code POSIX}, or an
-     * English locale. An empty value inherits the server's environment, which the core can't see,
-     * so it doesn't count.
+     * Whether a value of {@code lc_messages} leaves the server's messages untranslated: {@code C},
+     * {@code C} with an encoding, or {@code POSIX}. gettext, which translates them, skips these
+     * alone; under any other locale, an English one included, a {@code LANGUAGE} variable in the
+     * server's environment picks the language. An empty value inherits that environment, which the
+     * core can't see.
      *
      * @param lcMessages the setting, as the server reports it
-     * @return whether the server's messages are English
+     * @return whether the server's messages stay in English, whatever its environment holds
      */
-    static boolean readsEnglish(String lcMessages) {
+    static boolean leavesMessagesUntranslated(String lcMessages) {
         String setting = lcMessages.toLowerCase(Locale.ROOT);
-        return setting.equals("c")
-                || setting.startsWith("c.")
-                || setting.equals("posix")
-                || setting.equals("en")
-                || setting.startsWith("en_")
-                || setting.startsWith("en.");
+        return setting.equals("c") || setting.startsWith("c.") || setting.equals("posix");
     }
 
     /**
      * What the guard reads of a session, one row of {@link #SESSION_ROLE}.
      *
-     * @param loginRole the role the session logged in as, {@code session_user}
+     * @param loginRole the role the session logged in as, or null when the server shows none
      * @param role the session's role, {@code current_user}
+     * @param superuser whether that role has {@code SUPERUSER}
+     * @param createdb whether it has {@code CREATEDB}
+     * @param createrole whether it has {@code CREATEROLE}
+     * @param replication whether it has {@code REPLICATION}
+     * @param bypassrls whether it has {@code BYPASSRLS}
      * @param memberOf the other roles it is a member of, comma-separated, or null for none
      * @param owns whether it owns an object in any database
      * @param lcMessages the server's {@code lc_messages} in this session
      */
     record Session(
-            String loginRole,
+            @Nullable String loginRole,
             String role,
             boolean superuser,
             boolean createdb,
@@ -139,6 +149,10 @@ class DatabaseSessionGuard {
          * @return the refusal's message, which names the role and the setting and nothing secret
          */
         Optional<String> refusal() {
+            if (loginRole == null) {
+                return Optional.of("The database server shows no login for the core's connection as " + role
+                        + ", so the guard can't tell whether it switched role (ADR-151, ADR-152)");
+            }
             if (!loginRole.equals(role)) {
                 return Optional.of("The core's database connection logs in as " + loginRole + " and switches to " + role
                         + ": it must log in as its own role, which can't switch back (ADR-145, ADR-151)");
@@ -156,9 +170,9 @@ class DatabaseSessionGuard {
                 return Optional.of("The core's database role " + role
                         + " owns an object: the core connects as app, which owns nothing (ADR-145, ADR-151)");
             }
-            if (!readsEnglish(lcMessages)) {
+            if (!leavesMessagesUntranslated(lcMessages)) {
                 return Optional.of("The database server's lc_messages is '" + lcMessages
-                        + "': set it to C or an English locale, such as en_US.UTF-8 (#250, ADR-151)");
+                        + "': set it to C, which no LANGUAGE variable translates (#250, ADR-152)");
             }
             return Optional.empty();
         }
