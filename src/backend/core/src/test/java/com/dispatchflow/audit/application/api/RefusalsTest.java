@@ -9,6 +9,7 @@ import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.RuleViolations;
+import com.dispatchflow.shared.application.ApplicationRefusal;
 import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 import java.time.Instant;
@@ -76,6 +77,18 @@ class RefusalsTest {
                 .isSameAs(missing);
 
         assertThat(auditLog.refusals).containsExactly(new Refusal(CALL, AT, RECORDS, NotFound.CODE));
+    }
+
+    @Test
+    void GivenAnApplicationRefusalLeavingTheAttempt_WhenRun_ThenItIsRecordedWithItsCodeAndRethrown() {
+        KeyReused refusal = new KeyReused();
+
+        assertThatThrownBy(() -> recorded(() -> {
+                    throw refusal;
+                }))
+                .isSameAs(refusal);
+
+        assertThat(auditLog.refusals).containsExactly(new Refusal(CALL, AT, RECORDS, KeyReused.CODE));
     }
 
     @Test
@@ -170,6 +183,21 @@ class RefusalsTest {
     }
 
     private record Refusal(CallContext call, Instant at, List<AuditedRecord> records, String errorCode) {}
+
+    /** An application layer's own refusal, as a module declares one beside its use cases. */
+    private static final class KeyReused extends RuntimeException implements ApplicationRefusal {
+
+        static final String CODE = "KEY_REUSED";
+
+        KeyReused() {
+            super(CODE);
+        }
+
+        @Override
+        public String code() {
+            return CODE;
+        }
+    }
 
     /** Records every refusal it is given. */
     private static final class RecordingAuditLog implements AuditLog {

@@ -2,7 +2,7 @@ package com.dispatchflow.audit.application.api;
 
 import com.dispatchflow.shared.RuleViolation;
 import com.dispatchflow.shared.RuleViolations;
-import com.dispatchflow.shared.application.NotFound;
+import com.dispatchflow.shared.application.ApplicationRefusal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
@@ -10,21 +10,25 @@ import java.util.function.Supplier;
 
 /**
  * Runs one attempt of a use case and records the refusal that leaves it (NFR-23, ADR-150 decisions
- * 1 and 2). When a {@code RuleViolation}, {@code RuleViolations} or {@code NotFound} leaves the
- * attempt, it writes {@link AuditLog#refused} with the refusal's code and the records the attempt
- * names, then rethrows the refusal. The use case then answers the refusal itself, or the substitute
- * it answers with, such as {@code SignInRefused}, with its record stored.
+ * 1 and 2). When a domain refusal, a {@code RuleViolation} or {@code RuleViolations}, or an {@link
+ * ApplicationRefusal}, such as a {@code NotFound}, leaves the attempt, it writes {@link
+ * AuditLog#refused} with the refusal's code and the records the attempt names, then rethrows the
+ * refusal. The use case then answers the refusal, with its record stored: it throws the substitute
+ * it answers with, such as {@code SignInRefused}, or runs a step of its own and rethrows it.
  *
- * <p>The use case calls it with no transaction open, around its {@code <UseCase>Change} and any
- * check it makes before it. By the time a refusal leaves the attempt, it has rolled the change's
- * transaction back, so the record is written in a transaction of its own (ADR-129 decision 5,
- * ADR-149 decision 1). Called inside a transaction, the refusal it rethrows would roll the record
- * back with it, so no transactional class calls it ({@code TransactionRules} rule 10).
+ * <p>The use case calls it with no transaction open, around its own checks and its own {@code
+ * <UseCase>Change}: never around another use case, which records its own refusals, nor around a
+ * step after the commit, whose failure leaves the success standing. By the time a refusal leaves
+ * the attempt, it has rolled the change's transaction back, so the record is written in a
+ * transaction of its own (ADR-129 decision 5, ADR-149 decision 1). Called inside a transaction, the
+ * refusal it rethrows would roll the record back with it, so no transactional class calls it
+ * ({@code TransactionRules} rule 10).
  *
- * <p>It is a static helper over the port, not a method of the audit log. The audit log's bean is
- * transactional at class level, so a method of it would open one transaction around the whole
- * attempt. The {@code Change} would join it, and the refusal's rollback would take the record with
- * it.
+ * <p>It is a static helper over the port, not a method of the audit log. A method declared in the
+ * audit log's transactional bean would run the {@code Change} inside the bean's transaction, and
+ * the refusal's rollback would take the record with it. A default method of {@code AuditLog} would
+ * call {@code refused} on the bean itself, past its transactional proxy, so the record's append
+ * would find no transaction and be refused.
  *
  * <p>It records no race: a {@code StaleVersion} or a failed lock wait passes through untouched, for
  * the call wrapper, which records the one race it answers once its retries are spent (ADR-140
@@ -48,10 +52,10 @@ public final class Refusals {
      * @return what the attempt returned
      * @throws RuleViolation when one leaves the attempt, rethrown once its record is stored
      * @throws RuleViolations when they leave the attempt, rethrown once their record is stored
-     * @throws NotFound when one leaves the attempt, rethrown once its record is stored
-     * @throws RuntimeException the failed write of a refusal's record, thrown in the refusal's place
+     * @throws RuntimeException an {@link ApplicationRefusal} that leaves the attempt, rethrown once
+     *     its record is stored; the failed write of a refusal's record, thrown in the refusal's place
      *     with the refusal added as suppressed, so the call answers 500 (ADR-149 decision 1); or any
-     *     other exception that leaves the attempt, untouched and unrecorded
+     *     other exception that leaves the attempt, a race included, untouched and unrecorded
      */
     public static <T> T recordedBy(
             AuditLog auditLog, CallContext call, Instant at, List<AuditedRecord> records, Supplier<T> attempt) {
@@ -66,8 +70,11 @@ public final class Refusals {
             throw recorded(auditLog, call, at, records, refusal.error().code(), refusal);
         } catch (RuleViolations refusals) {
             throw recorded(auditLog, call, at, records, refusals.summary().code(), refusals);
-        } catch (NotFound missing) {
-            throw recorded(auditLog, call, at, records, missing.code(), missing);
+        } catch (RuntimeException thrown) {
+            if (thrown instanceof ApplicationRefusal refusal) {
+                throw recorded(auditLog, call, at, records, refusal.code(), thrown);
+            }
+            throw thrown;
         }
     }
 
@@ -82,8 +89,8 @@ public final class Refusals {
      * @param attempt the use case's {@code Change}, and any check the use case makes before it
      * @throws RuleViolation when one leaves the attempt, rethrown once its record is stored
      * @throws RuleViolations when they leave the attempt, rethrown once their record is stored
-     * @throws NotFound when one leaves the attempt, rethrown once its record is stored
-     * @throws RuntimeException the failed write of a refusal's record, thrown in the refusal's place
+     * @throws RuntimeException an {@link ApplicationRefusal} that leaves the attempt, rethrown once
+     *     its record is stored; the failed write of a refusal's record, thrown in the refusal's place
      *     with the refusal added as suppressed; or any other exception that leaves the attempt,
      *     untouched and unrecorded
      */

@@ -2,6 +2,7 @@ package com.dispatchflow.planning.application.service;
 
 import com.dispatchflow.planning.application.port.out.solvejob.RouteOptimizer;
 import com.dispatchflow.planning.domain.plan.SolverName;
+import com.dispatchflow.shared.application.ApplicationRefusal;
 import java.util.Objects;
 
 /**
@@ -14,7 +15,7 @@ import java.util.Objects;
  *
  * <p>To Be Implemented.
  */
-public final class SolverNotOffered extends RuntimeException {
+public final class SolverNotOffered extends RuntimeException implements ApplicationRefusal {
 
     /** The stable code the web adapter answers with, beside the 422 status. */
     public static final String CODE = "SOLVER_NOT_OFFERED";
@@ -37,6 +38,7 @@ public final class SolverNotOffered extends RuntimeException {
      *
      * @return {@value #CODE}
      */
+    @Override
     public String code() {
         return CODE;
     }

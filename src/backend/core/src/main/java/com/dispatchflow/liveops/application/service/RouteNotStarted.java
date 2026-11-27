@@ -1,6 +1,7 @@
 package com.dispatchflow.liveops.application.service;
 
 import com.dispatchflow.shared.RouteId;
+import com.dispatchflow.shared.application.ApplicationRefusal;
 import java.util.Objects;
 
 /**
@@ -11,7 +12,7 @@ import java.util.Objects;
  *
  * <p>To Be Implemented.
  */
-public final class RouteNotStarted extends RuntimeException {
+public final class RouteNotStarted extends RuntimeException implements ApplicationRefusal {
 
     /** The stable code the web adapter answers with, beside the 409 status (ADR-107). */
     public static final String CODE = "ROUTE_NOT_STARTED";
@@ -33,6 +34,7 @@ public final class RouteNotStarted extends RuntimeException {
      *
      * @return {@value #CODE}
      */
+    @Override
     public String code() {
         return CODE;
     }
