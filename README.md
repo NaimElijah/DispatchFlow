@@ -50,6 +50,7 @@ This README is ordered for contributors, so Quick start comes before Architectur
 | uv | 0.12+ | both Python projects; installs Python 3.14 (`.python-version`) by itself |
 | Docker | Docker Desktop on Windows and macOS; on Linux, Engine 28.3.3 or later, whose fix keeps a port published on `127.0.0.1` off the network after a firewalld reload (CVE-2025-54388) | core's integration tests, `just core-run`, `just audit`, `just infra-check`, the whole stack |
 | just | 1.59 | every command below |
+| unzip | any, on Linux and macOS | the Maven wrapper, which checks Maven's zip against its pinned SHA-256 and, without unzip, fetches a .tar.gz that fails the check |
 
 Point `JAVA_HOME`, and your IDE's Java SDK, at that JDK 25: the core does not build on an older one.
 
@@ -97,9 +98,9 @@ cp infra/deploy/.env.example infra/deploy/.env    # then fill in its three passw
 docker compose -f infra/deploy/compose.dev.yaml up --build --watch
 ```
 
-The web app is on http://localhost:5173, and proxies `/api/` to the core on 127.0.0.1:8080; the
-optimizer is on 127.0.0.1:8081, and PostgreSQL on 127.0.0.1:5432. A laptop that runs a PostgreSQL
-of its own on 5432 sets `DISPATCHFLOW_POSTGRES_HOST_PORT` in that `.env`. `--watch` copies an
+The web app is on http://localhost:5173, and proxies `/api/` to the stack's core, which the
+laptop also reaches on 127.0.0.1:8080; the optimizer is on 127.0.0.1:8081, and PostgreSQL on
+127.0.0.1:5432. A laptop that runs a PostgreSQL of its own on 5432 sets `DISPATCHFLOW_POSTGRES_HOST_PORT` in that `.env`. `--watch` copies an
 edit to the web app or the optimizer into its container, which reloads it; a change to the core
 needs `--build` again. `docker compose -f infra/deploy/compose.dev.yaml down` stops it, and
 `--volumes` also deletes its database. Checked with Docker 29.9.3 and Compose v5.7.1.
@@ -115,7 +116,7 @@ To debug the core in the IDE, stop the stack's two with
 (what `just core-run` starts) and `just web-run` on the laptop.
 
 > [!NOTE]
-> The first `just core-check` or `just core-run` pulls the PostgreSQL 18.6 image, which can take a
+> The first `just core-check` or `just core-run` pulls the PostgreSQL 18.7 image, which can take a
 > few minutes. On Windows, `just` runs recipes in Windows PowerShell, so
 > `C:\Windows\System32\WindowsPowerShell\v1.0` must be on your `PATH`. It is by default; if `just`
 > reports that it cannot find `powershell.exe`, restore Windows' default `PATH` entries.
@@ -191,7 +192,7 @@ progress to the web app over server-sent events
 | Layer | Technology | Version | Why |
 |---|---|---|---|
 | Core backend | Java, Spring Boot, Spring Data JPA; libphonenumber, JTS, JSpecify; uuid-creator | 25, 4.1.2; 9.0.43, 1.20.0, version from the Spring Boot parent; 6.1.1 | The team's strongest stack; mature ecosystem for the adapters. libphonenumber parses phone numbers and JTS checks the service area, both in the pure domain; JSpecify marks null-safe packages; uuid-creator makes the UUIDv7 IDs, which the JDK can't |
-| Database | PostgreSQL 18.6; Flyway (version from the Spring Boot parent) | 18.6 | Relational data with real constraints; versioned SQL migrations |
+| Database | PostgreSQL 18.7; Flyway (version from the Spring Boot parent) | 18.7 | Relational data with real constraints; versioned SQL migrations |
 | Optimizer | Python, FastAPI, NumPy | 3.14, 0.162, 2.5.4 | OR-Tools' richest bindings; algorithm work iterates apart from the backend; NumPy holds the validator's arrays |
 | Web app | React, TypeScript, Vite; TanStack Router and Query, Mantine, i18next | 19.3, 6.0, 8.3; 1.170, 5.108, 9.8, 27.2 | Web app for every role; its driver screens also work in a phone's browser. Typed routes, an in-memory server cache, right to left through one provider, and one strings package for both apps |
 | Phone app | React Native, Expo | 0.88, SDK 58 | One codebase for iOS and Android, for every role |
@@ -296,6 +297,7 @@ comments. The rules apply to people and to coding assistants alike.
 | Phone app | Components (Jest + React Native Testing Library) | `just mobile-check` |
 | Contracts | Both OpenAPI documents lint clean | `just contracts-check` |
 | Dependencies | Known vulnerabilities in every lockfile and the pom | `just audit` |
+| Development stack | The checker's own rules; then the Compose file publishes only on `127.0.0.1`, gives each service only its own secrets and hardens every service; the whole stack starts healthy with no main process as root; `migrate`, the roles, #250's server settings, the JVM zone and the web app's proxy check out | `just infra-check` |
 
 Test names follow Given/When/Then. CI runs every row above, on every push and on every pull
 request into `dev` and `main`; any red job fails the run. Browser end-to-end tests (`tests/e2e`)

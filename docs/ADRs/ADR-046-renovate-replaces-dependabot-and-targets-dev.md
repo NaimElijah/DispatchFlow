@@ -1,6 +1,6 @@
 # ADR-046: Renovate replaces Dependabot and keeps opening updates against `dev`
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-152
 - **Date:** 2026-11-13
 
 ## Context
