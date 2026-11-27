@@ -1,9 +1,14 @@
 package com.dispatchflow.web;
 
+import com.dispatchflow.audit.application.api.AuditLog;
 import com.dispatchflow.shared.adapter.in.web.HandlerOrder;
 import com.dispatchflow.shared.adapter.in.web.ProblemItem;
 import com.dispatchflow.shared.adapter.in.web.ProblemItem.Place;
 import com.dispatchflow.shared.adapter.in.web.Problems;
+import com.dispatchflow.shared.application.Clock;
+import com.dispatchflow.web.security.Caller;
+import jakarta.servlet.DispatcherType;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Optional;
 import org.apache.tomcat.util.http.InvalidParameterException;
@@ -24,6 +29,7 @@ import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.multipart.MultipartException;
@@ -57,6 +63,15 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  * Problems#MAX_ITEMS} of them and their count; a 503 at WARN; a
  * 401, 404, 405, 406 or 415 at INFO; and a 500 at ERROR. A refusal's line never carries a value nor the
  * exception's message.
+ *
+ * <p>A changing call it refuses before its handler runs leaves one refused audit record, with the
+ * answer's code and no records, written once every transaction of the call has ended (NFR-23,
+ * ADR-150 decision 4). That holds for a 4xx of the request's own dispatch whose caller the access
+ * interceptor kept, under {@code /api/v1}, whose method may change something, and whose handler
+ * the call wrapper hadn't started: a 406 for an answer the handler already produced writes no
+ * second record. A failed write answers 500 at ERROR, with the contract's exception suppressed: an
+ * exception thrown here would leave only Spring's WARN line, and Spring would then answer the
+ * original exception itself.
  */
 @RestControllerAdvice
 @Order(HandlerOrder.CONTRACT)
@@ -74,6 +89,20 @@ class ContractErrorHandler extends ResponseEntityExceptionHandler {
     // How the log line names an item that has neither a pointer nor a parameter.
     private static final String WHOLE_REQUEST = "the whole request";
     private static final String PARAMETERS_REFUSED = "Tomcat refused the request's parameters";
+
+    private final AuditLog auditLog;
+    private final Clock clock;
+
+    /**
+     * Creates the handler.
+     *
+     * @param auditLog where a refused changing call's record is written
+     * @param clock the time each refused record carries
+     */
+    ContractErrorHandler(AuditLog auditLog, Clock clock) {
+        this.auditLog = auditLog;
+        this.clock = clock;
+    }
 
     /**
      * Answers a body over {@link BodySizeLimit#MAX_BODY_BYTES} that {@link BodySizeLimit} refused
@@ -139,11 +168,43 @@ class ContractErrorHandler extends ResponseEntityExceptionHandler {
                     request);
         }
         String code = listed.get();
+        try {
+            recordTheRefusal(chosen, code, request);
+        } catch (RuntimeException failed) {
+            failed.addSuppressed(thrown);
+            log.error("The refused audit record of a call that breaks the contract couldn't be written", failed);
+            return super.handleExceptionInternal(
+                    thrown,
+                    Problems.of(HttpStatus.INTERNAL_SERVER_ERROR, WebCodes.UNEXPECTED_ERROR),
+                    new HttpHeaders(),
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    request);
+        }
         boolean invalid = chosen.value() == HttpStatus.BAD_REQUEST.value();
         List<ProblemItem> items = invalid ? itemsOf(thrown) : List.of();
         ProblemDetail problem = invalid ? Problems.invalidRequest(items) : Problems.of(chosen, code);
         log(thrown, chosen, code, items);
         return super.handleExceptionInternal(thrown, problem, withHeadersOf(headers, chosen), chosen, request);
+    }
+
+    /**
+     * Writes the refused record of a changing call refused before its handler ran, as the class
+     * Javadoc says, and nothing for any other answer.
+     */
+    private void recordTheRefusal(HttpStatusCode status, String code, WebRequest request) {
+        if (!status.is4xxClientError() || !(request instanceof ServletWebRequest servlet)) {
+            return;
+        }
+        HttpServletRequest http = servlet.getRequest();
+        if (http.getDispatcherType() != DispatcherType.REQUEST
+                || !Caller.mayChange(http)
+                || CallWrapper.handlerStarted(http)) {
+            return;
+        }
+        Optional<Caller> caller = Caller.of(http);
+        if (caller.isPresent()) {
+            auditLog.refused(caller.get().call(), clock.now(), List.of(), code);
+        }
     }
 
     /** The failing items of a 400, never none: the whole request when the exception names none. */

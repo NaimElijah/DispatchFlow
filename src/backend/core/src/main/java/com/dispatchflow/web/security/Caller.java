@@ -10,8 +10,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 import org.slf4j.MDC;
+import org.springframework.http.HttpMethod;
 
 /**
  * Who makes a call to a handler under {@code /api/v1}, as the call wrapper binds it (ADR-140
@@ -39,6 +41,9 @@ public record Caller(CallContext call, Optional<Actor> actor) {
     public static final String SESSION_ID = "sessionId";
 
     private static final String ATTRIBUTE = Caller.class.getName();
+    // RFC 9110's safe methods: a call with any other method may change something (NFR-23).
+    private static final Set<String> SAFE_METHODS =
+            Set.of(HttpMethod.GET.name(), HttpMethod.HEAD.name(), HttpMethod.OPTIONS.name(), HttpMethod.TRACE.name());
     // Three numbers, as a release is (ADR-110), each short enough that no client text of any size
     // reaches a record; Audit then leaves the app and its version out of the record for a leading
     // zero or a number past an int.
@@ -67,6 +72,18 @@ public record Caller(CallContext call, Optional<Actor> actor) {
      */
     public static Optional<Caller> of(HttpServletRequest request) {
         return request.getAttribute(ATTRIBUTE) instanceof Caller caller ? Optional.of(caller) : Optional.empty();
+    }
+
+    /**
+     * Whether a request may change something, so its refusal leaves an audit record (NFR-23): its
+     * method is none of RFC 9110's safe ones, {@code GET}, {@code HEAD}, {@code OPTIONS} and {@code
+     * TRACE}. A read leaves no record.
+     *
+     * @param request the request
+     * @return whether its method may change something
+     */
+    public static boolean mayChange(HttpServletRequest request) {
+        return !SAFE_METHODS.contains(request.getMethod());
     }
 
     /**

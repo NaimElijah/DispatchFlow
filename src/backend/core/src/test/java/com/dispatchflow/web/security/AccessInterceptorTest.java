@@ -78,6 +78,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.filter.ForwardedHeaderFilter;
 import org.springframework.web.method.HandlerMethod;
@@ -98,6 +99,8 @@ class AccessInterceptorTest {
     private static final String OUTSIDE = "/access-interceptor-test/outside";
     private static final String NOTE = "/api/v1/access-interceptor-test/note";
     private static final String RETRIED = "/api/v1/access-interceptor-test/retried";
+    private static final String COUNTED = "/api/v1/access-interceptor-test/counted";
+    private static final String ANSWERED = "/api/v1/access-interceptor-test/answered";
     // A path no operation has, which the static-resource handler serves with a 404.
     private static final String NO_OPERATION = "/api/v1/access-interceptor-test/no-operation";
     private static final String ROUTED = "/api/v1/access-interceptor-test/routed";
@@ -306,6 +309,71 @@ class AccessInterceptorTest {
             assertThat(fixture.auditLog().refusals)
                     .singleElement()
                     .satisfies(refusal -> assertThat(refusal.call().operation()).isEqualTo("sendANote"));
+        });
+    }
+
+    @Test
+    void GivenASignedInChangingCallWithAnInvalidBody_WhenTheContractRefusesIt_Then400AndOneRecordWithItsCode() {
+        under(StandInProfiles.TEST, fixture -> {
+            MvcTestResult result = fixture.mvc()
+                    .post()
+                    .uri(NOTE)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"undeclared\":1}")
+                    .exchange();
+
+            assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
+            assertThat(fixture.controller().actor.get()).isNull();
+            assertThat(fixture.auditLog().refusals).singleElement().satisfies(refusal -> {
+                assertThat(refusal.errorCode()).isEqualTo("INVALID_REQUEST");
+                assertThat(refusal.call().operation()).isEqualTo("sendANote");
+                assertThat(refusal.call().user())
+                        .contains(TestActors.dispatcher().account());
+                assertThat(refusal.at()).isEqualTo(NOW);
+            });
+        });
+    }
+
+    @Test
+    void GivenASignedInReadThatBreaksTheContract_WhenItIsRefused_Then400AndNoRecord() {
+        under(StandInProfiles.TEST, fixture -> {
+            MvcTestResult result =
+                    fixture.mvc().get().uri(COUNTED).param("count", "many").exchange();
+
+            assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
+            assertThat(fixture.auditLog().refusals).isEmpty();
+        });
+    }
+
+    @Test
+    void GivenASignedInChangingCallWhoseAnswerCantBeWritten_WhenRefusedAfterItsHandlerRan_ThenNoRecord() {
+        under(StandInProfiles.TEST, fixture -> {
+            MvcTestResult result = fixture.mvc()
+                    .post()
+                    .uri(ANSWERED)
+                    .accept(MediaType.IMAGE_PNG)
+                    .exchange();
+
+            assertThat(result).hasStatus(HttpStatus.NOT_ACCEPTABLE);
+            assertThat(fixture.controller().actor.get()).isNotNull();
+            assertThat(fixture.auditLog().refusals).isEmpty();
+        });
+    }
+
+    @Test
+    void GivenTheAuditLogFails_WhenTheContractRefusesASignedInChangingCall_ThenItAnswers500() {
+        under(StandInProfiles.TEST, fixture -> {
+            fixture.auditLog().failing = true;
+
+            MvcTestResult result = fixture.mvc()
+                    .post()
+                    .uri(NOTE)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"undeclared\":1}")
+                    .exchange();
+
+            assertThat(result).hasStatus(HttpStatus.INTERNAL_SERVER_ERROR);
+            assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo("UNEXPECTED_ERROR");
         });
     }
 
@@ -885,6 +953,18 @@ class AccessInterceptorTest {
         String sendANote(@Valid @RequestBody Note note) {
             actor.set(CurrentActor.get());
             return note.text();
+        }
+
+        // Its answer is JSON only, so a client that accepts none of it gets a 406 after it ran.
+        @PostMapping(ANSWERED)
+        Note answerWithANote() {
+            actor.set(CurrentActor.get());
+            return new Note("answered");
+        }
+
+        @GetMapping(COUNTED)
+        String readCounted(@RequestParam int count) {
+            return String.valueOf(count);
         }
 
         @GetMapping(RETRIED)
