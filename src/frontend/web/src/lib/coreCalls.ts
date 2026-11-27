@@ -78,18 +78,24 @@ export function answerOf<TData>({ response, data, error }: SendResult<TData>): A
 const READ_RETRIES = 3
 
 /**
- * Whether a failed read is tried again, as TanStack Query's `retry` asks: only when no answer
- * arrived or the core was busy, and at most three times. A refusal, an unexpected failure or a bug
- * would fail the same way again, so the screen shows why at once rather than after seven seconds
- * of retries. The app's query cache uses it for every query (`main.tsx`); a write is never retried.
+ * Whether a failed read is tried again, as TanStack Query's `retry` asks: only when it failed on the
+ * way, and at most three times. A read changes nothing, so trying it again is safe, and a failure on
+ * the way passes: no answer arrived, the core was busy, or something in front of the core answered
+ * or the answer broke off (`unexpected` with no problem). The core's own refusal or failure would
+ * come back the same, and so would a bug, so the screen shows why at once rather than after seven
+ * seconds of retries. `createQueryClient` uses it for every query; a write is never tried again.
  *
  * @param failureCount how many times the read has failed so far, less one
  * @param error how it failed this time
  */
 export function retryRead(failureCount: number, error: Error): boolean {
+  if (failureCount >= READ_RETRIES || !(error instanceof RequestError)) {
+    return false
+  }
+  const { failure } = error
   return (
-    failureCount < READ_RETRIES &&
-    error instanceof RequestError &&
-    (error.failure.kind === 'network' || error.failure.kind === 'busy')
+    failure.kind === 'network' ||
+    failure.kind === 'busy' ||
+    (failure.kind === 'unexpected' && failure.problem === undefined)
   )
 }

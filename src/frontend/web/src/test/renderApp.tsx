@@ -1,5 +1,5 @@
-import { QueryClient } from '@tanstack/react-query'
 import { createMemoryHistory } from '@tanstack/react-router'
+import { createQueryClient } from '../lib/queryClient.ts'
 import { render } from '@testing-library/react'
 import { App } from '../App.tsx'
 import { createLanguageSetting } from '../lib/languageSetting.ts'
@@ -27,7 +27,8 @@ export interface RenderAppOptions {
 export function renderApp({ path = '/', now = TEST_NOW }: RenderAppOptions = {}) {
   const languageSetting = createLanguageSetting(localStorage)
   const i18n = createI18n(languageSetting.read())
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  // The app's own cache, with no wait between a read's tries.
+  const queryClient = createQueryClient({ retryDelay: 0 })
   const router = createAppRouter({
     queryClient,
     now: () => now,

@@ -105,10 +105,13 @@ describe('calls to the core', () => {
     expect((thrown as RequestError).failure).toEqual({ kind: 'refused', problem: refusal })
   })
 
-  test('GivenAReadThatGotNoAnswerOrFoundTheCoreBusy_WhenItFails_ThenItIsTriedAgainUpToThreeTimes', () => {
+  test('GivenAReadThatFailedOnTheWay_WhenItFails_ThenItIsTriedAgainUpToThreeTimes', () => {
+    // No answer, a busy core, or a proxy's page or a broken-off answer: each passes, and a read
+    // changes nothing.
     for (const error of [
       new RequestError({ kind: 'network' }),
       new RequestError({ kind: 'busy', problem: undefined }),
+      new RequestError({ kind: 'unexpected', problem: undefined }),
     ]) {
       const kind = error.failure.kind
       expect(
@@ -121,9 +124,11 @@ describe('calls to the core', () => {
 
   test('GivenAReadTheCoreRefusedOrFailedOn_WhenItFails_ThenItIsNotTriedAgain', () => {
     // It would fail the same way again, so the screen shows why at once.
+    const coreFailure = { ...refusal, status: 500, code: 'UNEXPECTED_ERROR' }
     for (const error of [
       new RequestError({ kind: 'refused', problem: refusal }),
-      new RequestError({ kind: 'unexpected', problem: undefined }),
+      new RequestError({ kind: 'stale', problem: refusal }),
+      new RequestError({ kind: 'unexpected', problem: coreFailure }),
       new Error('A bug in the screen'),
     ]) {
       expect(retryRead(0, error), error.message).toBe(false)
