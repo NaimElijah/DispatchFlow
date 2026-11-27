@@ -21,9 +21,9 @@ import java.util.Optional;
  * secret (NFR-94).
  *
  * <p>It is a record, not an aggregate (DL §3.2): immutable, with no version and no event, and
- * appended through the {@code AuditLog} port in the transaction of the change it describes
- * (DL §4.8). Writing a refused attempt so that its rollback doesn't lose it is the application
- * layer's job (ADR-110).
+ * appended through the {@code AuditLog} port: a success in the transaction of the change it
+ * describes, a refusal once that transaction has rolled back (DL §4.8, ADR-149). Writing a refused
+ * attempt so that its rollback doesn't lose it is the application layer's job (ADR-110).
  *
  * @param at when the attempt was made
  * @param user the acting user's account, when known
@@ -104,7 +104,9 @@ public record AuditRecord(
      * with the summer offset. So near a clock change a record is kept up to an hour longer, and never
      * deleted before its year is up. {@code java.time} would otherwise keep the offset of {@code now}
      * in a repeated hour and move a skipped time forward, and PostgreSQL reads both as standard time:
-     * each picks the later instant at least once.
+     * each picks the later instant at least once. So the cutoff steps back by up to an hour when
+     * {@code now} reaches a year after a skipped hour: a record past its retention a moment before
+     * is kept a little longer, and none is deleted early.
      *
      * @param now when the retention run asks
      * @return the cutoff instant

@@ -86,15 +86,17 @@ An arrow means *depends on*. The sources for each box:
 - **Declared, not built** ([ADR-119](../../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)).
   Each module's `application/` holds the use cases, ports and module APIs as signatures with Javadoc.
   A body that would do work throws `UnsupportedOperationException("To Be Implemented.")`. At this commit
-  there are 386 such bodies in 271 files under `core/`, and 7 `NotImplementedError("To Be Implemented.")`
-  in `optimizer/application/`. Two of the 386 are the blanking methods of Planning's solve-job adapter. `grep -rn "To Be Implemented." src/backend` lists the remaining work.
+  there are 384 such bodies in 274 files under `core/`, and 7 `NotImplementedError("To Be Implemented.")`
+  in `optimizer/application/`. Two of the 384 are the blanking methods of Planning's solve-job adapter. `grep -rn "To Be Implemented." src/backend` lists the remaining work.
   The two kernel errors in `shared/application/` (`NotFound`, `StaleVersion`) are complete classes; its
   three ports (`Clock`, `IdGenerator`, `ProcessedEvents`) are interfaces. `Clock` and `IdGenerator`
   have implementations, `SystemClock` in `shared/adapter/out/clock` and `UuidV7Generator` in
   `shared/adapter/out/uuid`; only `ProcessedEvents` has none.
-- **Wired.** No use case is wired. Each module has a persistence adapter, in
+- **Wired.** One use case is wired: Audit's `AuditLogService`, which `AuditConfiguration` imports
+  ([ADR-149](../../ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md)). Each module has a persistence adapter, in
   `core/<module>/adapter/out/persistence/`, which implements the module's repository and record
-  ports over the module's PostgreSQL schema, and nothing calls it yet. Planning's `Plan` has its own
+  ports over the module's PostgreSQL schema, and nothing calls it yet but Audit's, which
+  `AuditLogService` appends through. Planning's `Plan` has its own
   in `core/planning/adapter/out/persistence/plan/`. The kernel has the shared one,
   `core/shared/adapter/out/persistence/`, and beside it the problem factory in `shared/adapter/in/web/`
   and the clock and ID adapters. Every other adapter package of the core is declared, empty
@@ -1361,7 +1363,8 @@ classDiagram
 
 DL [§4.8](domain_layer_design.md#48-audit). The append-only audit trail. **It has no aggregate.** An
 `AuditRecord` is an immutable record (DL [§3.2](domain_layer_design.md#32-records)), written through the
-`AuditLog` port in the same transaction as the change it describes.
+`AuditLog` port: a success in the same transaction as the change it describes, a refusal once that
+transaction has rolled back ([ADR-149](../../ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md)).
 
 ```mermaid
 classDiagram
@@ -1406,7 +1409,7 @@ classDiagram
   `TraceId`, `AuditError`. Every field is an ID, a code, an enum, a number or an instant, never free text.
 - **Audit depends on nothing but the kernel.** It takes `AccountId` and `SessionId`, never an `Actor`
   (DL [§2.1](domain_layer_design.md#21-module-graph)). It raises no events.
-- **Start reading:** `AuditRecord.java` (94 lines). Tests: `core-test/audit/domain/` (`AuditRecordTest`,
+- **Start reading:** `AuditRecord.java` (128 lines). Tests: `core-test/audit/domain/` (`AuditRecordTest`,
   `AuditOutcomeTest`, `NamedRecordTest`).
 
 ### 5.9 Optimization (Python)

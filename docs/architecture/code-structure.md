@@ -304,15 +304,18 @@ Each module also has an `application` package, declared ahead of its milestone a
 It holds whichever of `api`, `spi`, `port/out` and `service` the module has something for: `access`,
 `audit` and `liveops` have no `spi`, and `messaging` and `reporting` have neither `api` nor `spi`.
 Every body that would do work throws `UnsupportedOperationException("To Be Implemented.")`, but for
-Audit's `AuditLogService`, the one wired use case, which appends through `AuditRecords`. A use case
+Audit's `AuditLogService`, the one wired use case, which appends through `AuditRecords`, and the
+`Refusals` helper in Audit's `api`, which runs a use case's `Change` and records the refusal that
+leaves it ([ADR-150](../ADRs/ADR-150-one-audit-helper-records-the-refusals-a-use-case-sees-and-the-contracts-handler-records-a-changing-call-it-refuses.md)). A use case
 is wired in its module's package-private `<Module>Configuration`, at the module's root, by joining
 its `@Import` list in the pull request that builds its body ([ADR-140][ADR-140]); every list but
 `AuditConfiguration`'s is still empty, and `ApplicationRules` rule 15 keeps the root to that class and its `package-info`. The layer's one Spring
 annotation is `@Transactional`: on every service's class, and on the read-only reads of a
-`<UseCase>Change`. A use case with outside calls, or one transaction per item, holds its
-transactional `Change`, and it carries no transaction itself; nor does a service that calls such a
-use case
-([ADR-129](../ADRs/ADR-129-transactions-start-only-in-the-service-layer.md)). The ports every module uses sit in `shared/application`, and the caller is an `Actor`
+`<UseCase>Change`. A use case with outside calls, one transaction per item, or a transaction that
+can refuse, holds its transactional `Change`, and it carries no transaction itself; nor does a
+service that calls such a use case
+([ADR-129](../ADRs/ADR-129-transactions-start-only-in-the-service-layer.md),
+[ADR-149](../ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md)). The ports every module uses sit in `shared/application`, and the caller is an `Actor`
 and a `CallContext`
 ([ADR-120](../ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)).
 

@@ -5,7 +5,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 /**
  * The check a persistence adapter makes before work that is only safe inside its caller's
- * read-write transaction (ADR-129 decision 6). Two kinds of work need it:
+ * read-write transaction (ADR-129 decision 6). Three kinds of work need it:
  * <ul>
  *   <li>A lock that lasts only as long as the transaction: a {@code pg_advisory_xact_lock}, a {@code
  *       FOR UPDATE} or a {@code SKIP LOCKED}. With no transaction the database releases it when its
@@ -14,6 +14,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  *       nothing.
  *   <li>A write that would otherwise commit on its own, such as a {@code DELETE … RETURNING} that
  *       runs as a query.
+ *   <li>A write a read-only transaction would drop without a word, because it never flushes: an
+ *       audit record's append, which must never be lost (ADR-149 decision 3).
  * </ul>
  *
  * <p>The adapters carry no {@code @Transactional}; the service that calls them opens the

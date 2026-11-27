@@ -2,8 +2,9 @@
 
 Each of the core's eight bounded contexts has its domain built in code, ahead of its milestone. Each
 also has an `application` package, declared and not built, with every body that would do work
-throwing, and a persistence adapter under `adapter/out/persistence/` that stores its aggregates and
-that nothing calls yet ([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)). A module's other
+throwing, but for Audit's audit log and refusal helper ([ADR-149](../ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md),
+[ADR-150](../ADRs/ADR-150-one-audit-helper-records-the-refusals-a-use-case-sees-and-the-contracts-handler-records-a-changing-call-it-refuses.md)), and a persistence adapter under `adapter/out/persistence/` that stores its aggregates and
+that nothing calls yet, but for Audit's, which the audit log appends through ([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)). A module's other
 `adapter/` packages are declared, empty ([ADR-130](../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md)). `src/backend/core/src/main/java/com/dispatchflow/`
 holds a module for each: `access`, `audit`, `fleet`, `liveops`, `messaging`, `orders`, `planning` and
 `reporting`, each with a `domain`, an `application` and an `adapter` package, and an `events` package except
