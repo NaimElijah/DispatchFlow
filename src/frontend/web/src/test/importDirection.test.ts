@@ -31,6 +31,11 @@ test.each([
   ['src/lib/versionedSave.ts', 'dayjs'],
   ['src/AppProviders.tsx', 'dayjs'],
   ['src/test/ExampleForm.tsx', 'dayjs'],
+  ['src/features/planning/routes.ts', 'zod'],
+  ['src/components/form/planProblem.ts', 'zod'],
+  ['src/lib/problems.ts', 'zod/mini'],
+  ['src/main.tsx', 'zod'],
+  ['src/test/ExampleForm.tsx', 'zod'],
 ])(
   'GivenAFileAt_%s_WhenItImports_%s_ThenLintRefusesTheImport',
   async (filePath, specifier) => {
@@ -50,10 +55,28 @@ test.each([
   ['src/routeTree.ts', './features/planning/routes.ts'],
   ['src/DatesLanguage.tsx', 'dayjs/locale/he'],
   ['src/components/form/fields/DateField.test.tsx', 'dayjs'],
+  ['src/components/form/planProblem.ts', '@dispatchflow/schemas'],
+  ['src/components/form/SchemaForm.test.tsx', 'zod'],
 ])(
   'GivenAFileAt_%s_WhenItImports_%s_ThenLintAllowsTheImport',
   async (filePath, specifier) => {
     expect(await isRefused(filePath, specifier)).toBe(false)
+  },
+  LINT_TIMEOUT,
+)
+
+// Zod's setting that keeps it from compiling code is set where @dispatchflow/schemas takes Zod, so
+// the app takes `z` from that package; its types alone may still come from Zod (ADR-154).
+test(
+  'GivenAFileOfTheApp_WhenItImportsOnlyZodsTypes_ThenLintAllowsTheImport',
+  async () => {
+    const [result] = await eslint.lintText(
+      "import type { z } from 'zod'\nexport type Schema = z.ZodType\n",
+      { filePath: 'src/components/form/useSchemaForm.ts' },
+    )
+    expect(result.messages.filter((message) => message.ruleId === 'no-restricted-imports')).toEqual(
+      [],
+    )
   },
   LINT_TIMEOUT,
 )

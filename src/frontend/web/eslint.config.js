@@ -38,6 +38,18 @@ const toDayjs = {
     "Day.js is only @mantine/dates' own helper: show a date through @dispatchflow/formatters and Intl, and do its arithmetic with date-fns (TS §10, ADR-153).",
 }
 
+/**
+ * Zod, whose setting that keeps it from compiling code at run time (ADR-069's policy) is set where
+ * @dispatchflow/schemas takes it, before any schema is built (ADR-154). Its types may still come
+ * from Zod itself.
+ */
+const toZod = {
+  regex: '^zod(/|$)',
+  allowTypeImports: true,
+  message:
+    "Take z from @dispatchflow/schemas, which turns off Zod's run-time compiling before any schema is built (ADR-154).",
+}
+
 const toTestCode = {
   regex: '(^|/)test(/|$)',
   message: 'Test code stays out of the app: only a test file imports src/test/ (ADR-144).',
@@ -77,19 +89,25 @@ export default defineConfig([
   ...FEATURES.map((feature) =>
     restrict(
       [`src/features/${feature}/**`],
-      [toAppModules, toTestCode, toDayjs, toFolders(FEATURES.filter((other) => other !== feature))],
+      [
+        toAppModules,
+        toTestCode,
+        toDayjs,
+        toZod,
+        toFolders(FEATURES.filter((other) => other !== feature)),
+      ],
     ),
   ),
-  restrict(['src/routes/**'], [toAppModules, toTestCode, toDayjs, toFolders(['features'])]),
+  restrict(['src/routes/**'], [toAppModules, toTestCode, toDayjs, toZod, toFolders(['features'])]),
   restrict(
     ['src/components/**'],
-    [toAppModules, toTestCode, toDayjs, toFolders(['features', 'routes'])],
+    [toAppModules, toTestCode, toDayjs, toZod, toFolders(['features', 'routes'])],
   ),
   restrict(
     ['src/lib/**'],
-    [toAppModules, toTestCode, toDayjs, toFolders(['features', 'routes', 'components'])],
+    [toAppModules, toTestCode, toDayjs, toZod, toFolders(['features', 'routes', 'components'])],
   ),
-  restrict(['src/*.{ts,tsx}'], [toDayjs], [DAYJS_LOCALE_FILE]),
+  restrict(['src/*.{ts,tsx}'], [toDayjs, toZod], [DAYJS_LOCALE_FILE]),
   // The tests' own helpers, which no other block covers; the test files themselves stay free.
-  restrict(['src/test/**'], [toDayjs]),
+  restrict(['src/test/**'], [toDayjs, toZod]),
 ])
