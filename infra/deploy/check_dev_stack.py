@@ -4,23 +4,24 @@ The static checks read the file as Compose resolves it, with every profile, .env
 a throwaway value for each secret, never a developer's own infra/deploy/.env or exported settings:
 
 - every published port binds 127.0.0.1, written so rather than through a variable, and no service
-  shares a host namespace, runs privileged or unconfined, adds a capability, sets a root user or
-  mounts Docker's socket, so the stand-in session answers nobody off the laptop (ADR-019, ADR-140
-  decision 4);
+  shares a host namespace, runs privileged or unconfined, adds a capability or a device, sets a root
+  user, or mounts Docker's socket or infra/deploy/.env, so the stand-in session answers nobody off
+  the laptop (ADR-019, ADR-140 decision 4);
 - every service gains no privilege, and each one built from our own images drops every capability;
-- each service holds only its own secrets, and no service reads an env file: the core never sees
-  the owner's password (ADR-041, ADR-145). A key read with no default is a secret, and must name
-  the services that may hold it in SECRET_HOLDERS;
+- each service holds only its own secrets, and no service reads an env file or a Compose secret or
+  config, which the holder rule can't follow: the core never sees the owner's password (ADR-041,
+  ADR-145). A key read with no default, a bare environment entry among them, is a secret, and must
+  name the services that may hold it in SECRET_HOLDERS;
 - .env.example lists every key the file reads;
 - the core waits for the migrate step to succeed, and the migrate step for PostgreSQL to be healthy;
-- the stack's PostgreSQL and Node tags are the tests' and .nvmrc's.
+- the stack's PostgreSQL tag and server settings are the tests', and its Node major is .nvmrc's.
 
 With ``--live``, the whole stack then starts in a project of its own, with a random name and no port
 on the host, so it never meets a running ``just dev`` or another check. It first removes what an
-interrupted earlier check left behind:
+interrupted earlier check left stopped:
 
-- every service turns healthy, none of their main processes runs as root, and the migrate step
-  exits 0;
+- every service turns healthy, no service's main process runs as root inside its container, and
+  the migrate step exits 0;
 - the PostgreSQL server runs with #250's settings, and every Java connection is ``app``'s, past
   ``DatabaseSessionGuard``;
 - the core's JVM runs in Israel's zone (ADR-088);
@@ -28,8 +29,10 @@ interrupted earlier check left behind:
   refuses a same-site one and one whose Host is another name, and the dev server answers no other
   origin's CORS request (ADR-148).
 
-The project, its volume and its images are removed afterwards, whatever happened. Exits 0 when every
-check passes and 1 when one fails, naming it, or when the removal fails. It prints no secret.
+The project, its volume and its images are removed afterwards, when a check fails, on Ctrl-C and on
+SIGTERM or SIGHUP alike. Only SIGKILL, or a kill during the build, leaves anything behind. Exits 0
+when every check passes and 1 when one fails, naming it, or when the removal fails. It prints no
+secret.
 """
 
 from __future__ import annotations
@@ -38,21 +41,26 @@ import json
 import os
 import re
 import secrets
+import signal
 import subprocess
 import sys
 import tempfile
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 from pathlib import Path
+from types import FrameType
 from typing import Any
 
 DEPLOY = Path(__file__).resolve().parent
 REPOSITORY = DEPLOY.parent.parent
 COMPOSE_FILE = DEPLOY / "compose.dev.yaml"
 ENV_EXAMPLE = DEPLOY / ".env.example"
+ENV_FILE = DEPLOY / ".env"
 TESTCONTAINERS_CONFIGURATION = (
     REPOSITORY / "src/backend/core/src/test/java/com/dispatchflow/TestcontainersConfiguration.java"
 )
 WEB_DOCKERFILE = REPOSITORY / "src/frontend/web/Dockerfile.dev"
+# ADR-038 moves the Node pin to mise.toml; the check moves with it.
 NVMRC = REPOSITORY / ".nvmrc"
 LOOPBACK = "127.0.0.1"
 PROJECT_PREFIX = "dispatchflow-check"
@@ -74,10 +82,15 @@ CORE_IMAGE_SERVICES = ("migrate", "core")
 
 # Namespaces a service may not share with the host, and the confinements it may not drop.
 HOST_NAMESPACES = ("network_mode", "pid", "ipc", "userns_mode", "cgroup", "uts")
-UNCONFINED = ("seccomp:unconfined", "apparmor:unconfined")
+UNCONFINED = (
+    "seccomp:unconfined",
+    "apparmor:unconfined",
+    "systempaths:unconfined",
+    "label:disable",
+)
 ROOT_USERS = ("root", "0")
 ROOT_UID = "0"
-DOCKER_SOCKET = "docker.sock"
+DOCKER_SOCKETS = ("/var/run/docker.sock", "/run/docker.sock")
 NO_NEW_PRIVILEGES = "no-new-privileges:true"
 ALL_CAPABILITIES = "ALL"
 
@@ -96,10 +109,17 @@ VARIABLE = re.compile(
 DEFAULT_OPERATORS = ("-", ":-")
 LISTED_KEY = re.compile(r"^([A-Z0-9_]+)=", re.MULTILINE)
 
-# Where the tests' PostgreSQL tag and the web image's Node major are written.
-TESTS_POSTGRES_TAG = re.compile(r'DockerImageName\.parse\("(?P<image>[^"]+)"\)')
+# Where the tests' PostgreSQL tag, the tests' server command and the web image's Node major are
+# written.
+TESTS_POSTGRES_TAG = re.compile(
+    r'POSTGRES_IMAGE\s*=\s*DockerImageName\.parse\("(?P<image>[^"]+)"\)'
+)
+TESTS_POSTGRES_COMMAND = re.compile(r"POSTGRES_COMMAND\s*=\s*\{(?P<body>[^}]*)\}")
+JAVA_STRING = re.compile(r'"([^"]*)"')
 NODE_BASE_MAJOR = re.compile(r"^FROM node:(?P<major>\d+)", re.MULTILINE)
 NVMRC_MAJOR = re.compile(r"\s*v?(?P<major>\d+)")
+# The tests' own server option, which a throwaway database can afford and the stack can't.
+TESTS_ONLY_OPTION = ("-c", "fsync=off")
 
 # --wait-timeout counts from the start of the containers, after the images are built.
 WAIT_SECONDS = 600
@@ -160,12 +180,32 @@ request.end();
 FINISHED_STATES = {"exited", "dead"}
 PROJECT_STATE = re.compile(r"(?P<state>[a-z]+)\(\d+\)")
 
+# The line of /proc/<pid>/status that names a process's real, effective, saved and file-system
+# users, as numbers inside the container's own user namespace.
+STATUS_UID = re.compile(r"^Uid:\s+(?P<real>\d+)\s+(?P<effective>\d+)", re.MULTILINE)
+
+# The signals that end a run without Python's own unwinding, which the run turns into an exit so
+# its project is removed; SIGHUP exists only off Windows.
+ENDING_SIGNALS = ("SIGTERM", "SIGHUP")
+SIGNAL_EXIT_BASE = 128
+
 
 class CheckFailedError(Exception):
     """A check that did not pass, with what it found."""
 
 
 Configuration = dict[str, Any]
+
+
+@dataclass(frozen=True)
+class Sources:
+    """The files the static checks read as text, besides the Compose file as Compose reads it."""
+
+    compose_text: str
+    env_example_text: str
+    testcontainers_text: str
+    dockerfile_text: str
+    nvmrc_text: str
 
 
 def main(arguments: list[str]) -> int:
@@ -177,10 +217,13 @@ def main(arguments: list[str]) -> int:
     Returns:
         The process's exit status: 0 when every check passed and the live stack was removed.
     """
-    environment = throwaway_environment(os.environ, ENV_EXAMPLE.read_text(encoding="utf-8"))
+    for name in ENDING_SIGNALS:
+        if hasattr(signal, name):
+            signal.signal(getattr(signal, name), exit_on_signal)
     try:
+        environment = throwaway_environment(os.environ, read(ENV_EXAMPLE))
         check_static(environment)
-        say("ok: compose.dev.yaml publishes only on 127.0.0.1, and each service gets only its own")
+        say("ok: compose.dev.yaml passes every static check")
         if "--live" in arguments:
             return check_live_stack(environment)
     except CheckFailedError as failure:
@@ -189,9 +232,24 @@ def main(arguments: list[str]) -> int:
     return 0
 
 
+def exit_on_signal(number: int, frame: FrameType | None) -> None:
+    """Ends the run as an exit, so every ``finally`` runs and removes the stack."""
+    raise SystemExit(SIGNAL_EXIT_BASE + number)
+
+
 def say(message: str) -> None:
     """Prints a line at once, so it keeps its place among Compose's own output in CI's log."""
     print(message, flush=True)
+
+
+def read(path: Path) -> str:
+    """A file the checks read, or a failure naming it when it is gone, as after a move."""
+    try:
+        return path.read_text(encoding="utf-8")
+    except FileNotFoundError as missing:
+        raise CheckFailedError(f"{path} is gone: point check_dev_stack.py at its new place") from (
+            missing
+        )
 
 
 def throwaway_environment(inherited: Mapping[str, str], env_example_text: str) -> dict[str, str]:
@@ -247,10 +305,41 @@ def compose_configuration(environment: dict[str, str], *, interpolate: bool) -> 
 
 def check_static(environment: dict[str, str]) -> None:
     """Runs every check that reads the files alone."""
-    resolved = compose_configuration(environment, interpolate=True)
-    written = compose_configuration(environment, interpolate=False)
-    compose_text = COMPOSE_FILE.read_text(encoding="utf-8")
-    secret_values = {key: environment[key] for key in SECRET_HOLDERS}
+    sources = Sources(
+        compose_text=read(COMPOSE_FILE),
+        env_example_text=read(ENV_EXAMPLE),
+        testcontainers_text=read(TESTCONTAINERS_CONFIGURATION),
+        dockerfile_text=read(WEB_DOCKERFILE),
+        nvmrc_text=read(NVMRC),
+    )
+    problems = static_problems(
+        compose_configuration(environment, interpolate=True),
+        compose_configuration(environment, interpolate=False),
+        sources,
+        {key: environment[key] for key in SECRET_HOLDERS},
+    )
+    if problems:
+        raise CheckFailedError("; ".join(problems))
+
+
+def static_problems(
+    resolved: Configuration,
+    written: Configuration,
+    sources: Sources,
+    secret_values: Mapping[str, str],
+) -> list[str]:
+    """Every problem the static rules find, each named once.
+
+    Args:
+        resolved: the file as Compose resolves it, with each secret's throwaway value.
+        written: the file as written, the only one that still names an env_file or a bare key.
+        sources: the files the rules read as text.
+        secret_values: each secret's key and the throwaway value it was given.
+
+    Returns:
+        The problems, in the order the rules run, none repeated.
+    """
+    keys = keys_read(sources.compose_text, written)
     problems = [
         *loopback_problems(resolved),
         *loopback_problems(written),
@@ -258,17 +347,14 @@ def check_static(environment: dict[str, str]) -> None:
         *hardening_problems(resolved),
         *credential_problems(resolved, written, secret_values),
         *start_order_problems(resolved),
-        *unlisted_keys(compose_text, ENV_EXAMPLE.read_text(encoding="utf-8")),
-        *unmapped_secrets(compose_text),
+        *unlisted_keys(keys, sources.env_example_text),
+        *unmapped_secrets(keys),
         *tag_problems(
-            resolved,
-            TESTCONTAINERS_CONFIGURATION.read_text(encoding="utf-8"),
-            WEB_DOCKERFILE.read_text(encoding="utf-8"),
-            NVMRC.read_text(encoding="utf-8"),
+            resolved, sources.testcontainers_text, sources.dockerfile_text, sources.nvmrc_text
         ),
+        *server_command_problems(resolved, sources.testcontainers_text),
     ]
-    if problems:
-        raise CheckFailedError("; ".join(dict.fromkeys(problems)))
+    return list(dict.fromkeys(problems))
 
 
 def loopback_problems(configuration: Configuration) -> list[str]:
@@ -296,8 +382,21 @@ def security_options(service: Configuration) -> set[str]:
     return {str(option).replace("=", ":") for option in service.get("security_opt", [])}
 
 
+def exposes_docker_socket(source: str) -> bool:
+    """Whether a bind mount's source is Docker's socket or a folder above it, such as /var/run."""
+    folder = source.rstrip("/")
+    return any(socket == folder or socket.startswith(f"{folder}/") for socket in DOCKER_SOCKETS)
+
+
+def exposes_env_file(source: str) -> bool:
+    """Whether a bind mount's source is infra/deploy/.env or a folder that holds it."""
+    mounted = os.path.normcase(os.path.abspath(source))
+    held = [ENV_FILE, *ENV_FILE.parents]
+    return any(mounted == os.path.normcase(str(path)) for path in held)
+
+
 def host_access_problems(configuration: Configuration) -> list[str]:
-    """Each setting that would hand a container the host, or root's powers on it."""
+    """Each setting that would hand a container the host, root's powers on it, or a password."""
     problems = []
     for name, service in configuration["services"].items():
         problems += [
@@ -309,6 +408,8 @@ def host_access_problems(configuration: Configuration) -> list[str]:
             problems.append(f"{name} runs privileged")
         if service.get("cap_add"):
             problems.append(f"{name} adds capabilities {service['cap_add']}")
+        if service.get("devices"):
+            problems.append(f"{name} adds devices")
         problems += [
             f"{name} runs {option}"
             for option in sorted(security_options(service) & set(UNCONFINED))
@@ -316,8 +417,11 @@ def host_access_problems(configuration: Configuration) -> list[str]:
         if str(service.get("user", "")).split(":")[0] in ROOT_USERS:
             problems.append(f"{name} runs as root")
         for volume in service.get("volumes", []):
-            if DOCKER_SOCKET in str(volume.get("source", "")):
+            source = str(volume.get("source", ""))
+            if volume.get("type") == "bind" and exposes_docker_socket(source):
                 problems.append(f"{name} mounts Docker's socket")
+            if volume.get("type") == "bind" and exposes_env_file(source):
+                problems.append(f"{name} mounts infra/deploy/.env")
     return problems
 
 
@@ -343,12 +447,19 @@ def credential_problems(
         secret_values: each secret's key and the throwaway value it was given.
 
     Returns:
-        One problem per service and secret, or env file.
+        One problem per service and secret, env file, or Compose secret or config: Compose keeps a
+        secret's or a config's value at the top of the file, apart from the services that read it,
+        so the holder rule can't follow it.
     """
     problems = [
         f"{name} reads an env file"
         for name, service in written["services"].items()
         if service.get("env_file")
+    ]
+    problems += [
+        f"the file declares Compose {kind}, which the holder rule can't follow"
+        for kind in ("secrets", "configs")
+        if resolved.get(kind)
     ]
     for name, service in resolved["services"].items():
         text = json.dumps(service)
@@ -369,7 +480,7 @@ def start_order_problems(configuration: Configuration) -> list[str]:
 
 
 def variables_read(compose_text: str) -> dict[str, bool]:
-    """Each key the file reads, and whether every place that reads it gives a default.
+    """Each key the file interpolates, and whether every place that reads it gives a default.
 
     Comment lines read nothing.
     """
@@ -384,21 +495,38 @@ def variables_read(compose_text: str) -> dict[str, bool]:
     return defaults
 
 
-def unlisted_keys(compose_text: str, env_example_text: str) -> list[str]:
+def passed_through_keys(written: Configuration) -> set[str]:
+    """Each key a service takes from the environment as it is: ``- KEY``, or ``KEY:`` bare."""
+    keys: set[str] = set()
+    for service in written["services"].values():
+        environment = service.get("environment") or {}
+        if isinstance(environment, list):
+            keys.update(entry for entry in environment if "=" not in entry)
+        else:
+            keys.update(key for key, value in environment.items() if value is None)
+    return keys
+
+
+def keys_read(compose_text: str, written: Configuration) -> dict[str, bool]:
+    """Each key the file reads from the environment, and whether it always has a default."""
+    keys = variables_read(compose_text)
+    for key in passed_through_keys(written):
+        keys[key] = False
+    return keys
+
+
+def unlisted_keys(keys: Mapping[str, bool], env_example_text: str) -> list[str]:
     """Each key the file reads that .env.example does not list."""
     listed = set(LISTED_KEY.findall(env_example_text))
-    return [
-        f".env.example does not list {key}"
-        for key in sorted(set(variables_read(compose_text)) - listed)
-    ]
+    return [f".env.example does not list {key}" for key in sorted(set(keys) - listed)]
 
 
-def unmapped_secrets(compose_text: str) -> list[str]:
+def unmapped_secrets(keys: Mapping[str, bool]) -> list[str]:
     """Each key the file reads with no default, a secret, that SECRET_HOLDERS doesn't map."""
     return [
         f"{key} is read with no default, so it is a secret: name the services that may hold it in "
         "SECRET_HOLDERS"
-        for key, has_default in sorted(variables_read(compose_text).items())
+        for key, has_default in sorted(keys.items())
         if not has_default and key not in SECRET_HOLDERS
     ]
 
@@ -421,7 +549,7 @@ def tag_problems(
     stack_postgres = configuration["services"]["postgres"].get("image")
     tests_postgres = TESTS_POSTGRES_TAG.search(testcontainers_text)
     if tests_postgres is None or tests_postgres.group("image") != stack_postgres:
-        found = tests_postgres.group("image") if tests_postgres else "no tag"
+        found = tests_postgres.group("image") if tests_postgres else "no POSTGRES_IMAGE"
         problems.append(
             f"the stack runs {stack_postgres} but the tests {found}: bump both together"
         )
@@ -430,6 +558,30 @@ def tag_problems(
     if node is None or pinned is None or node.group("major") != pinned.group("major"):
         problems.append("Dockerfile.dev's Node major differs from .nvmrc's: bump both together")
     return problems
+
+
+def tests_server_command(testcontainers_text: str) -> list[str] | None:
+    """The tests' PostgreSQL command, without their own fsync=off, or None when it isn't written."""
+    written = TESTS_POSTGRES_COMMAND.search(testcontainers_text)
+    if written is None:
+        return None
+    command = JAVA_STRING.findall(written.group("body"))
+    for index in range(len(command) - 1):
+        if tuple(command[index : index + 2]) == TESTS_ONLY_OPTION:
+            return command[:index] + command[index + 2 :]
+    return command
+
+
+def server_command_problems(configuration: Configuration, testcontainers_text: str) -> list[str]:
+    """The stack's PostgreSQL command when it differs from the tests' (ADR-152 decision 2)."""
+    stack = configuration["services"]["postgres"].get("command")
+    tests = tests_server_command(testcontainers_text)
+    if tests is None or stack != tests:
+        return [
+            "the stack's postgres command differs from TestcontainersConfiguration's "
+            "POSTGRES_COMMAND: change both together"
+        ]
+    return []
 
 
 def check_live_stack(environment: dict[str, str]) -> int:
@@ -493,19 +645,39 @@ def finished_projects(listing: list[dict[str, Any]]) -> list[str]:
     return finished
 
 
+def main_process_uid(status_text: str) -> str:
+    """The effective user of a container's main process, from its /proc/1/status.
+
+    Raises:
+        CheckFailedError: when the status names no user, so the root check can't pass unchecked.
+    """
+    found = STATUS_UID.search(status_text)
+    if found is None:
+        raise CheckFailedError("a container's /proc/1/status names no Uid")
+    return found.group("effective")
+
+
+def proxy_problems(answers: Iterable[tuple[dict[str, str], int, int]]) -> list[str]:
+    """Each call through the proxy whose status isn't the one the core must answer.
+
+    Args:
+        answers: each call's headers, the status the core must answer, and the status it did.
+
+    Returns:
+        One problem per call that answered otherwise.
+    """
+    return [
+        f"through the web proxy, a call to {PROBE_PATH} with {headers} answered {status}, "
+        f"not {expected}"
+        for headers, expected, status in answers
+        if status != expected
+    ]
+
+
 def sweep_interrupted_checks(environment: dict[str, str]) -> None:
     """Removes what an earlier check left when it was killed before it could remove its project."""
     result = run(
-        [
-            "docker",
-            "compose",
-            "ls",
-            "--all",
-            "--format",
-            "json",
-            "--filter",
-            f"name={PROJECT_PREFIX}-",
-        ],
+        ["docker", "compose", "ls", "--all", "--format", "json"],
         environment,
     )
     if result.returncode != 0:
@@ -569,26 +741,23 @@ class LiveStack:
             raise CheckFailedError(f"the stack did not start healthy:\n{self.logs()}")
 
     def check_no_main_process_runs_as_root(self) -> None:
-        """Each running container's main process runs as a user other than root (ADR-019).
+        """Each running service's main process runs as a user other than root (ADR-019).
 
-        Only the main process counts: a health check, or a ``docker compose exec``, runs as the
-        image's user, which for postgres is root until its entrypoint hands over.
+        It reads the user inside the container's own namespace, so a daemon that remaps users
+        can't hide root, and only the main process counts: a health check, or a ``docker compose
+        exec``, runs as the image's user, which for postgres stays root; its entrypoint hands only
+        the main process to the postgres user.
         """
-        containers = parse_json_lines(
+        services = parse_json_lines(
             self.checked(self.command("ps", "--format", "json"), "docker compose ps")
         )
-        for container in containers:
-            identifier = str(container["ID"])
-            main_pid = self.checked(
-                ["docker", "inspect", "--format", "{{.State.Pid}}", identifier], "docker inspect"
-            ).strip()
-            processes = self.checked(
-                ["docker", "top", identifier, "-eo", "pid,uid,comm"], "docker top"
+        for service in services:
+            name = str(service["Service"])
+            status = self.checked(
+                self.command("exec", "-T", name, "cat", "/proc/1/status"), f"reading {name}'s user"
             )
-            for line in processes.splitlines()[1:]:
-                pid, uid, command = line.split(maxsplit=2)
-                if pid == main_pid and uid == ROOT_UID:
-                    raise CheckFailedError(f"{container['Service']} runs {command} as root")
+            if main_process_uid(status) == ROOT_UID:
+                raise CheckFailedError(f"{name}'s main process runs as root")
 
     def check_migrate_succeeded(self) -> None:
         """The one-shot migrate step ran to its end and exited 0."""
@@ -682,13 +851,13 @@ class LiveStack:
         dropped Sec-Fetch-Site would let through, and so is one whose Host is another name, which
         a proxy that set its own Host would turn into a loopback one.
         """
-        for headers, expected in PROXY_CALLS:
-            status = self.probe("GET", headers)["status"]
-            if status != expected:
-                raise CheckFailedError(
-                    f"through the web proxy, a call to {PROBE_PATH} with {headers} answered "
-                    f"{status}, not {expected}"
-                )
+        answers = [
+            (headers, expected, int(self.probe("GET", headers)["status"]))
+            for headers, expected in PROXY_CALLS
+        ]
+        problems = proxy_problems(answers)
+        if problems:
+            raise CheckFailedError("; ".join(problems))
 
     def check_dev_server_answers_no_other_origin(self) -> None:
         """Neither a preflight nor a call from another localhost port is let through by CORS."""
