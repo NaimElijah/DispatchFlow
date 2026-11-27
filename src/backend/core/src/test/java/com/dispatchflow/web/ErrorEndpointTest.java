@@ -36,7 +36,7 @@ class ErrorEndpointTest {
     private final MockMvcTester mvc =
             MockMvcTester.create(MockMvcBuilders.standaloneSetup(new ErrorEndpoint(), new EscapingController())
                     .setControllerAdvice(
-                            new ContractErrorHandler(),
+                            new ContractErrorHandler(new NeverWrittenAuditLog(), new CallRetryTest.FixedClock()),
                             new BodySizeLimit(),
                             new KernelErrorHandler(),
                             new UnexpectedErrorHandler())

@@ -37,6 +37,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.postgresql.Driver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -114,22 +115,30 @@ class AuditTrailGuaranteesIT {
 
     @Test
     void GivenRecordsJustOlderAndJustYoungerThanAYear_WhenAppRunsThePurge_ThenOnlyTheOlderAreDeleted() {
+        // One transaction, so the purge reads the now() the rows were planted against, however long
+        // the test takes and whether or not the clocks change meanwhile. It rolls back, so no other
+        // test's row goes.
         int older = 10;
         int younger = 11;
-        plantAgainstTheCutoff(older, "-1 minute");
-        plantAgainstTheCutoff(younger, "1 minute");
-        int expired = owner.sql(
-                        "SELECT count(*)::integer FROM audit.audit_record WHERE at < audit.retention_cutoff(now())")
-                .query(Integer.class)
-                .single();
+        assertThatThrownBy(() -> transactions.inTransaction(() -> {
+                    Instant cutoff = AuditRecord.retentionCutoff(databaseNow());
+                    plantAt(older, cutoff.minus(1, ChronoUnit.MINUTES));
+                    plantAt(younger, cutoff.plus(1, ChronoUnit.MINUTES));
+                    int expired = jdbc.sql("SELECT count(*)::integer FROM audit.audit_record WHERE at < :cutoff")
+                            .param("cutoff", OffsetDateTime.ofInstant(cutoff, ZoneOffset.UTC))
+                            .query(Integer.class)
+                            .single();
 
-        int purged = jdbc.sql(PURGE).query(Integer.class).single();
+                    int purged = jdbc.sql(PURGE).query(Integer.class).single();
 
-        assertThat(purged).isEqualTo(expired).isPositive();
-        assertThat(storedOperations(older)).isEmpty();
-        assertThat(namedRecordsWithItsKey(older)).isZero();
-        assertThat(storedOperations(younger)).containsExactly("purgeProbe");
-        assertThat(namedRecordsOf(younger)).isOne();
+                    assertThat(purged).isEqualTo(expired).isPositive();
+                    assertThat(storedOperations(older)).isEmpty();
+                    assertThat(namedRecordsWithItsKey(older)).isZero();
+                    assertThat(storedOperations(younger)).containsExactly("purgeProbe");
+                    assertThat(namedRecordsOf(younger)).isOne();
+                    throw new RolledBack();
+                }))
+                .isInstanceOf(RolledBack.class);
     }
 
     @Test
@@ -140,11 +149,7 @@ class AuditTrailGuaranteesIT {
         int atTheCutoff = 20;
         int justBefore = 21;
         assertThatThrownBy(() -> transactions.inTransaction(() -> {
-                    Instant now = jdbc.sql("SELECT now()")
-                            .query(OffsetDateTime.class)
-                            .single()
-                            .toInstant();
-                    Instant cutoff = AuditRecord.retentionCutoff(now);
+                    Instant cutoff = AuditRecord.retentionCutoff(databaseNow());
                     plantAt(atTheCutoff, cutoff);
                     plantAt(justBefore, cutoff.minus(1, ChronoUnit.MICROS));
 
@@ -229,11 +234,29 @@ class AuditTrailGuaranteesIT {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"2027-01-15T10:00:00Z", "2027-07-15T10:00:00Z", "2027-03-26T23:30:00Z"})
+    void GivenASessionInAnotherTimeZone_WhenTheCutoffIsComputed_ThenItIsTheSameInstant(String asked) {
+        // set_config(..., true) lasts until the statement's own transaction ends, so the pooled
+        // connection keeps its zone.
+        List<Object> inNewYork = owner.sql("""
+                        SELECT pg_catalog.current_setting('TimeZone') AS zone, audit.retention_cutoff(:asked) AS cutoff
+                        FROM (SELECT pg_catalog.set_config('TimeZone', 'America/New_York', true)) AS session_zone (name)
+                        """)
+                .param("asked", OffsetDateTime.ofInstant(Instant.parse(asked), ZoneOffset.UTC))
+                .query((row, index) -> List.<Object>of(
+                        row.getString("zone"),
+                        row.getObject("cutoff", OffsetDateTime.class).toInstant()))
+                .single();
+
+        assertThat(inNewYork).containsExactly("America/New_York", AuditRecord.retentionCutoff(Instant.parse(asked)));
+    }
+
     @Test
-    void
-            GivenTheAuditFunctions_WhenTheCatalogIsRead_ThenThePurgeRunsAsTheOwnerWithAFixedSearchPathAndTheCutoffIsStable() {
+    void GivenTheAuditFunctions_WhenTheCatalogIsRead_ThenBothAreBoundAtCreationAndOnlyThePurgeRunsAsItsOwner() {
         List<StoredFunction> functions = owner.sql("""
                         SELECT p.proname, pg_get_userbyid(p.proowner) AS owner, p.prosecdef, p.provolatile,
+                            p.prosqlbody IS NOT NULL AS bound_when_created,
                             array_to_string(p.proconfig, ';') AS settings,
                             has_function_privilege(:app, p.oid, 'EXECUTE') AS app_may_run
                         FROM pg_proc p
@@ -246,6 +269,7 @@ class AuditTrailGuaranteesIT {
                         row.getString("owner"),
                         row.getBoolean("prosecdef"),
                         row.getString("provolatile"),
+                        row.getBoolean("bound_when_created"),
                         Optional.ofNullable(row.getString("settings")),
                         row.getBoolean("app_may_run")))
                 .list();
@@ -257,10 +281,11 @@ class AuditTrailGuaranteesIT {
                                 DatabaseRoles.OWNER,
                                 true,
                                 "v",
+                                true,
                                 Optional.of("search_path=pg_catalog, pg_temp"),
                                 true),
                         new StoredFunction(
-                                "retention_cutoff", DatabaseRoles.OWNER, false, "s", Optional.empty(), false));
+                                "retention_cutoff", DatabaseRoles.OWNER, false, "s", true, Optional.empty(), false));
     }
 
     /** The instants a retention run might ask at, every half hour around each change, with and without a microsecond. */
@@ -303,25 +328,15 @@ class AuditTrailGuaranteesIT {
                 .toInstant();
     }
 
-    /** Plants test {@code n}'s record, with one named record, {@code shift} from the cutoff of now. */
-    private void plantAgainstTheCutoff(int n, String shift) {
-        UUID id = key(n, 0);
-        owner.sql("""
-                        INSERT INTO audit.audit_record (id, at, operation, outcome, trace_id)
-                        VALUES (:id, audit.retention_cutoff(now()) + CAST(:shift AS interval), 'purgeProbe',
-                            'SUCCEEDED', :trace)
-                        """)
-                .param("id", id)
-                .param("shift", shift)
-                .param("trace", trace(n))
-                .update();
-        owner.sql("""
-                        INSERT INTO audit.audit_record_named_record (audit_record_id, position, kind, record_id)
-                        VALUES (:id, 0, 'PLAN', :record)
-                        """).param("id", id).param("record", key(n, 1)).update();
+    /** The database's {@code now()}: the start of the caller's transaction, when there is one. */
+    private Instant databaseNow() {
+        return jdbc.sql("SELECT now()").query(OffsetDateTime.class).single().toInstant();
     }
 
-    /** Plants test {@code n}'s record at {@code at}, as {@code app}, in the caller's transaction. */
+    /**
+     * Plants test {@code n}'s record at {@code at}, with one named record, as {@code app}, in the
+     * caller's transaction.
+     */
     private void plantAt(int n, Instant at) {
         jdbc.sql("""
                         INSERT INTO audit.audit_record (id, at, operation, outcome, trace_id)
@@ -331,6 +346,10 @@ class AuditTrailGuaranteesIT {
                 .param("at", OffsetDateTime.ofInstant(at, ZoneOffset.UTC))
                 .param("trace", trace(n))
                 .update();
+        jdbc.sql("""
+                        INSERT INTO audit.audit_record_named_record (audit_record_id, position, kind, record_id)
+                        VALUES (:id, 0, 'PLAN', :record)
+                        """).param("id", key(n, 0)).param("record", key(n, 1)).update();
     }
 
     private List<String> storedOperations(int n) {
@@ -428,6 +447,7 @@ class AuditTrailGuaranteesIT {
             String owner,
             boolean runsAsItsOwner,
             String volatility,
+            boolean boundWhenCreated,
             Optional<String> settings,
             boolean appMayRun) {}
 }

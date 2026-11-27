@@ -7,8 +7,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
-import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 import org.springframework.web.cors.CorsUtils;
 import org.springframework.web.method.HandlerMethod;
@@ -34,10 +32,6 @@ import org.springframework.web.servlet.HandlerInterceptor;
  */
 @Component
 class AccessInterceptor implements HandlerInterceptor {
-
-    // RFC 9110's safe methods: a call with any other method may change something.
-    private static final Set<String> SAFE_METHODS =
-            Set.of(HttpMethod.GET.name(), HttpMethod.HEAD.name(), HttpMethod.OPTIONS.name(), HttpMethod.TRACE.name());
 
     private final AuditLog auditLog;
     private final Clock clock;
@@ -75,7 +69,7 @@ class AccessInterceptor implements HandlerInterceptor {
         }
         Caller caller = Caller.build(request, principal, method.getMethod().getName());
         if (principal.isEmpty()) {
-            if (!SAFE_METHODS.contains(request.getMethod())) {
+            if (Caller.mayChange(request)) {
                 auditLog.refused(caller.call(), clock.now(), List.of(), Problems.ACCESS_TOKEN_REFUSED);
             }
             throw new NotSignedIn();

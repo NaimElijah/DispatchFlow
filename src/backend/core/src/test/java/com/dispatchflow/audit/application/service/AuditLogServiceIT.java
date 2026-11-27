@@ -26,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.UnexpectedRollbackException;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -59,9 +60,33 @@ class AuditLogServiceIT {
     private PlatformTransactionManager transactionManager;
 
     @Test
-    void GivenTheAuditLog_WhenSpringWiresIt_ThenItIsAuditLogServiceBehindAProxy() {
-        assertThat(AopUtils.isAopProxy(auditLog)).isTrue();
+    void GivenTheAuditLog_WhenSpringWiresIt_ThenItIsAuditLogService() {
         assertThat(AopUtils.getTargetClass(auditLog)).isEqualTo(AuditLogService.class);
+    }
+
+    @Test
+    void GivenAMalformedSuccessThatItsChangeSwallows_WhenTheChangeCommits_ThenTheCommitFailsAndNothingIsStored() {
+        // NFR-23: a change whose record Audit refused never commits without it, even when the change
+        // catches the bug. The change's own write here is a record of its own.
+        int n = 9;
+        CallContext malformed = new CallContext(
+                Optional.of(AccountId.of(key(n, 1))),
+                Optional.of(SessionId.of(key(n, 2))),
+                Optional.empty(),
+                "not an operation name",
+                trace(n));
+
+        assertThatThrownBy(() -> transactions.inTransaction(() -> {
+                    auditLog.succeeded(aSignedInCall(n), AT, List.of());
+                    try {
+                        auditLog.succeeded(malformed, AT, List.of());
+                    } catch (IllegalStateException swallowed) {
+                        // The change goes on as if nothing failed; the transaction is rollback-only.
+                    }
+                }))
+                .isInstanceOf(UnexpectedRollbackException.class);
+
+        assertThat(storedRows(n)).isEmpty();
     }
 
     @Test

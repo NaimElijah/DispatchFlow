@@ -15,6 +15,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.MDC;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -47,6 +48,17 @@ class CallerTest {
     @Test
     void GivenXAppPhoneAndAVersion_WhenTheClientIsRead_ThenItIsThePhoneRelease() {
         assertThat(Caller.clientOf(declaring("phone", "2.0.1"))).contains(new ClientRelease(ClientKind.PHONE, "2.0.1"));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "GET, false", "HEAD, false", "OPTIONS, false", "TRACE, false",
+        "POST, true", "PUT, true", "PATCH, true", "DELETE, true"
+    })
+    void GivenEachHttpMethod_WhenAskedWhetherItMayChange_ThenOnlyTheFourSafeOnesSayNo(String method, boolean changes) {
+        MockHttpServletRequest request = new MockHttpServletRequest(method, "/api/v1/caller-test");
+
+        assertThat(Caller.mayChange(request)).isEqualTo(changes);
     }
 
     @Test

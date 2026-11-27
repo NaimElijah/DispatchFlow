@@ -1,6 +1,7 @@
 package com.dispatchflow.liveops.application.port.out.proof;
 
 import com.dispatchflow.liveops.domain.proof.ProofId;
+import com.dispatchflow.shared.application.ApplicationRefusal;
 import java.util.Objects;
 
 /**
@@ -12,7 +13,7 @@ import java.util.Objects;
  *
  * <p>To Be Implemented.
  */
-public final class ProofIdTaken extends RuntimeException {
+public final class ProofIdTaken extends RuntimeException implements ApplicationRefusal {
 
     /** The stable code the web adapter answers with, beside the 409 status. */
     public static final String CODE = "PROOF_ID_TAKEN";
@@ -34,6 +35,7 @@ public final class ProofIdTaken extends RuntimeException {
      *
      * @return {@value #CODE}
      */
+    @Override
     public String code() {
         return CODE;
     }

@@ -1,6 +1,6 @@
 # ADR-149: The use case records its refusal after the rollback, and the audit purge counts its year back from now
 
-- **Status:** Accepted
+- **Status:** Accepted; extended and amended by ADR-150
 - **Date:** 2026-11-26
 
 ## Context

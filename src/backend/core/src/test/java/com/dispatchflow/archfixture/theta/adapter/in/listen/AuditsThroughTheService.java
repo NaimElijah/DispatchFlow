@@ -1,6 +1,6 @@
 package com.dispatchflow.archfixture.theta.adapter.in.listen;
 
-import com.dispatchflow.archfixture.theta.application.service.AuditLogService;
+import com.dispatchflow.archfixture.theta.application.service.audit.AuditLogService;
 
 /** Rule 9: an adapter that records a success through the audit port's implementation. */
 public class AuditsThroughTheService {

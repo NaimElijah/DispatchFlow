@@ -35,6 +35,10 @@ import org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHan
  * neither. It is the one class that binds them ({@code ApplicationRules} rule 18). The exception
  * handlers run after the binding has ended, so none reads them.
  *
+ * <p>It marks the request once it starts the handler ({@link #handlerStarted}), so the contract's
+ * handler can tell a call refused before its handler ran from one whose answer couldn't be written
+ * afterwards: only the first leaves the contract's refused audit record (ADR-150 decision 4).
+ *
  * <p>Spring Boot takes this bean with {@code getIfUnique}, so a second {@code WebMvcRegistrations}
  * would silently switch both off: a later concern extends this class instead of adding one.
  * Spring's MVC configuration still configures the adapter returned here, its converters, argument
@@ -42,6 +46,8 @@ import org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHan
  */
 @Component
 class CallWrapper implements WebMvcRegistrations {
+
+    private static final String HANDLER_STARTED = CallWrapper.class.getName() + ".handlerStarted";
 
     private final CallRetry retry;
 
@@ -52,6 +58,17 @@ class CallWrapper implements WebMvcRegistrations {
     @Override
     public RequestMappingHandlerAdapter getRequestMappingHandlerAdapter() {
         return new RetryingAdapter(retry);
+    }
+
+    /**
+     * Whether the wrapper has started the request's handler: its arguments were read and validated,
+     * and it ran, or is running.
+     *
+     * @param request the request
+     * @return whether its handler started
+     */
+    static boolean handlerStarted(HttpServletRequest request) {
+        return request.getAttribute(HANDLER_STARTED) != null;
     }
 
     /** Spring MVC's handler adapter, whose handler methods retry. */
@@ -92,6 +109,7 @@ class CallWrapper implements WebMvcRegistrations {
         protected @Nullable Object doInvoke(Object... args) throws Exception {
             HttpServletRequest current =
                     Objects.requireNonNull(request, "invokeAndHandle sets the request before any invocation");
+            current.setAttribute(HANDLER_STARTED, Boolean.TRUE);
             CallRetry.Call retried = () -> retry.run(current, getMethod().getName(), () -> super.doInvoke(args));
             // Only the request's own dispatch: an error dispatch keeps the request's attributes, but
             // its handler is the error endpoint, which acts for no caller.

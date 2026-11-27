@@ -1,15 +1,12 @@
-package com.dispatchflow.archfixture.theta.application.service;
+package com.dispatchflow.archfixture.theta.application.service.audit;
 
 import com.dispatchflow.archfixture.theta.application.api.AuditLog;
 import com.dispatchflow.archfixture.theta.application.port.out.Ledgers;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Rule 10's exception: a {@code Change} that answers a refusal without letting it leave, so its
- * transaction commits the record alone. It is clean only while listed.
- */
+/** Rule 10: a one-class service that records its refusal in the transaction the refusal rolls back. */
 @Transactional
-public class AnswersAlikeChange {
+public class RecordsItsRefusalInsideItsTransaction {
 
     private final Ledgers ledgers;
     private final AuditLog auditLog;
@@ -18,15 +15,18 @@ public class AnswersAlikeChange {
      * @param ledgers the ledgers
      * @param auditLog the audit trail
      */
-    public AnswersAlikeChange(Ledgers ledgers, AuditLog auditLog) {
+    public RecordsItsRefusalInsideItsTransaction(Ledgers ledgers, AuditLog auditLog) {
         this.ledgers = ledgers;
         this.auditLog = auditLog;
     }
 
-    /** Records a refusal raised before anything changed, and answers as if it succeeded. */
+    /** Changes, and loses its refusal's record with the rollback. */
     public void apply() {
-        if (ledgers.count() == 0) {
+        try {
+            ledgers.count();
+        } catch (IllegalStateException refusal) {
             auditLog.refused();
+            throw refusal;
         }
     }
 }

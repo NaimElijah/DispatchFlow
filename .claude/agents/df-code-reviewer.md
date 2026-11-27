@@ -52,6 +52,8 @@ report findings.
     - a service that changes nothing is marked `readOnly`. The rules check only that an auditing one isn't, and a read-only one that writes fails at its first write;
     - a refused attempt's record is written after the refused transaction has rolled back, never in a nested `REQUIRES_NEW` (ADR-129 decision 5);
     - each refusal a use case can raise is recorded once its `Change` has rolled back, naming the records the attempt named, and a `Change` that records a refusal lets none leave (ADR-149);
+    - a use case runs its own checks and its own `Change` through `Refusals.recordedBy`, never another use case or a step after the commit, and records itself, with `STALE_VERSION`, a conflict it answers without letting it leave; a new coded refusal of the application layer implements `ApplicationRefusal` (`ApplicationRefusalsTest` lists the rest); a `Change` joins rule 10's list only when no refusal leaves it once recorded (ADR-150);
+    - every handler that answers a refusal takes the exception thrown and answers 500 when the refusal is only its cause, a module's own handler included (ADR-150 decision 6);
     - a new port that calls out of the process is added to `TransactionRules.OUTSIDE_CALL_PORTS`, and one that stores nothing to `STORELESS_PORTS`.
   - Listeners have no transaction of their own (`@Async @TransactionalEventListener`, never `@ApplicationModuleListener`), and are idempotent ([ADR-064], [ADR-129]).
   - An error that crosses `api` is an `api` type, since no domain object crosses a boundary ([DL §2.3][DL-23], rule 1). Inside a module, every refusal is a named error of the module's sealed type, with a stable code that the web adapter puts in the problem response ([DL §3.8][DL-38]).

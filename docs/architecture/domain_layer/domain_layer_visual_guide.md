@@ -86,15 +86,17 @@ An arrow means *depends on*. The sources for each box:
 - **Declared, not built** ([ADR-119](../../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)).
   Each module's `application/` holds the use cases, ports and module APIs as signatures with Javadoc.
   A body that would do work throws `UnsupportedOperationException("To Be Implemented.")`. At this commit
-  there are 386 such bodies in 271 files under `core/`, and 7 `NotImplementedError("To Be Implemented.")`
-  in `optimizer/application/`. Two of the 386 are the blanking methods of Planning's solve-job adapter. `grep -rn "To Be Implemented." src/backend` lists the remaining work.
+  there are 384 such bodies in 274 files under `core/`, and 7 `NotImplementedError("To Be Implemented.")`
+  in `optimizer/application/`. Two of the 384 are the blanking methods of Planning's solve-job adapter. `grep -rn "To Be Implemented." src/backend` lists the remaining work.
   The two kernel errors in `shared/application/` (`NotFound`, `StaleVersion`) are complete classes; its
   three ports (`Clock`, `IdGenerator`, `ProcessedEvents`) are interfaces. `Clock` and `IdGenerator`
   have implementations, `SystemClock` in `shared/adapter/out/clock` and `UuidV7Generator` in
   `shared/adapter/out/uuid`; only `ProcessedEvents` has none.
-- **Wired.** No use case is wired. Each module has a persistence adapter, in
+- **Wired.** One use case is wired: Audit's `AuditLogService`, which `AuditConfiguration` imports
+  ([ADR-149](../../ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md)). Each module has a persistence adapter, in
   `core/<module>/adapter/out/persistence/`, which implements the module's repository and record
-  ports over the module's PostgreSQL schema, and nothing calls it yet. Planning's `Plan` has its own
+  ports over the module's PostgreSQL schema, and nothing calls it yet but Audit's, which
+  `AuditLogService` appends through. Planning's `Plan` has its own
   in `core/planning/adapter/out/persistence/plan/`. The kernel has the shared one,
   `core/shared/adapter/out/persistence/`, and beside it the problem factory in `shared/adapter/in/web/`
   and the clock and ID adapters. Every other adapter package of the core is declared, empty
@@ -191,26 +193,26 @@ There are 20 roots in Java (`extends AggregateRoot`). Audit has none, and the Py
 
 | Aggregate (module) | Key | Creation factory | Lines |
 |---|---|---|---|
-| `UserAccount` (Access) | `AccountId` | `open`, `openFirstAdmin` | 853 |
-| `Session` (Access) | `SessionId` | `open` | 693 |
+| `UserAccount` (Access) | `AccountId` | `open`, `openFirstAdmin` | 857 |
+| `Session` (Access) | `SessionId` | `open` | 698 |
 | `CompanyProfile` (Access) | none: one per company | `create` | 162 |
-| `FleetRegister` (Fleet) | none: one per company | `empty` | 427 |
+| `FleetRegister` (Fleet) | none: one per company | `empty` | 432 |
 | `Driver` (Fleet) | `AccountId`, the driver's account | `register` | 428 |
-| `DayRoster` (Fleet) | `DeliveryDate` | `open` | 506 |
+| `DayRoster` (Fleet) | `DeliveryDate` | `open` | 510 |
 | `Customer` (Orders) | `CustomerId` | `register` | 624 |
 | `Order` (Orders) | `OrderId` | `place` | 689 |
-| `ImportBatch` (Orders) | `ImportBatchId` | `preview` | 554 |
-| `Plan` (Planning) | `PlanId` | `open` | 2,711 |
-| `SolveJob` (Planning) | `JobId` | `queue`, package-private | 704 |
-| `ReoptimizationProposal` (Planning) | `ProposalId` | `create`, package-private | 566 |
+| `ImportBatch` (Orders) | `ImportBatchId` | `preview` | 558 |
+| `Plan` (Planning) | `PlanId` | `open` | 2,718 |
+| `SolveJob` (Planning) | `JobId` | `queue`, package-private | 711 |
+| `ReoptimizationProposal` (Planning) | `ProposalId` | `create`, package-private | 581 |
 | `PlanningSettings` (Planning) | none: one per company | `startingValues` | 224 |
-| `Delivery` (Live Operations) | `StopId` | `firstFact` | 811 |
-| `RouteRun` (Live Operations) | `RouteId` | `start` | 427 |
+| `Delivery` (Live Operations) | `StopId` | `firstFact` | 823 |
+| `RouteRun` (Live Operations) | `RouteId` | `start` | 431 |
 | `Alert` (Live Operations) | `AlertId` | `raise` | 329 |
-| `StopMessages` (Messaging) | `StopId` | `open` | 656 |
-| `RatingRequest` (Messaging) | `RatingRequestId` | `open` | 439 |
+| `StopMessages` (Messaging) | `StopId` | `open` | 657 |
+| `RatingRequest` (Messaging) | `RatingRequestId` | `open` | 444 |
 | `MessagingSettings` (Messaging) | none: one per company | `create` | 146 |
-| `Baseline` (Reporting) | `PlanId` | `compute` | 401 |
+| `Baseline` (Reporting) | `PlanId` | `compute` | 414 |
 
 Lines are the line counts of the root's file at this commit. Where a root lives: `core/<module>/domain/`
 plus the aggregate's package from the table above (`Plan.java` is in `core/planning/domain/plan/`).
@@ -395,7 +397,7 @@ DL [§3.3](domain_layer_design.md#33-value-objects) lists what each checks and t
 
 Most of the 20 roots follow one pattern. The clearest small example with an event is `Driver`
 (`core/fleet/domain/driver/Driver.java`, 428 lines). `Alert` (`core/liveops/domain/alert/Alert.java`,
-301 lines) is a small root that raises none.
+329 lines) is a small root that raises none.
 
 ```mermaid
 classDiagram
@@ -611,8 +613,8 @@ classDiagram
   `requireFreshStepUp` refuses an Admin-only operation once `STEP_UP_LIFETIME` (5 minutes) has passed
   since the password was last given. An Admin-only use case calls it rather than checking by itself.
 - **Events:** `SessionsRevoked` and `AccountAnonymized`, both raised by `UserAccount`.
-- **Start reading:** `CompanyProfile.java` (162 lines) for the pattern, then `Session.java` (693, the
-  refresh-token chain), then `UserAccount.java` (853). Tests: `core-test/access/domain/account/`
+- **Start reading:** `CompanyProfile.java` (162 lines) for the pattern, then `Session.java` (698, the
+  refresh-token chain), then `UserAccount.java` (857). Tests: `core-test/access/domain/account/`
   (`UserAccountTest`, `UserAccountLifecycleTest`, `CapabilityMatrixTest`), `session/` (`SessionTest`,
   `SessionLifecycleTest`) and `companyprofile/`.
 
@@ -715,8 +717,8 @@ classDiagram
 - **Events:** `DriverRetired`, raised by `Driver.retire`. `Driver.anonymize` and
   `anonymizeWithAccount` raise none; the second one is called from the listener for Access's
   `AccountAnonymized`.
-- **Start reading:** `Driver.java` (§4 above), then `FleetRegister.java` (427), then `DayRoster.java`
-  (506). Tests: `core-test/fleet/domain/driver/DriverTest`, `register/FleetRegisterTest`,
+- **Start reading:** `Driver.java` (§4 above), then `FleetRegister.java` (432), then `DayRoster.java`
+  (510). Tests: `core-test/fleet/domain/driver/DriverTest`, `register/FleetRegisterTest`,
   `roster/DayRosterTest`.
 
 ### 5.3 Customers & Orders
@@ -835,7 +837,7 @@ classDiagram
   [§9.4](domain_layer_design.md#94-importbatch).
 - **Events:** `OrderCancelled`, `OrderRescheduled` and `OrderPutBack`, all raised by `Order`.
 - **Start reading:** `Order.java` (689) with `OrderStatus.java` and `DateCapacity.java`, then
-  `Customer.java` (624), then `ImportBatch.java` (554). Tests: `core-test/orders/domain/` (`OrderTest`,
+  `Customer.java` (624), then `ImportBatch.java` (558). Tests: `core-test/orders/domain/` (`OrderTest`,
   `OrderStatusTest`, `CustomerTest`, `ImportBatchTest`, `CustomerMatchTest`, `NormalizedAddressTest`),
   with builders `OrderBuilder`, `CustomerBuilder`, `ImportBatchBuilder`.
 
@@ -1011,8 +1013,8 @@ records), `DroppedOrder`, `ExcludedVehicle` and `ExclusionCause`, which `solutio
 - **Events** (`core/planning/events/`): `PlanPublished`, `PlanRevised`, `RouteHandedOver`, `PlanCancelled`
   from `Plan`; `SolveSucceeded`, `SolveFailed` from `SolveJob`. The package also holds the enums these
   events use: `Lane`, `RevisionCause`, `SolveFailureReason`, `WithdrawalCause`.
-- **Start reading:** `SolveJob.java` (704) and `ReoptimizationProposal.java` (566) first. Then `Plan.java`
-  (2,711 lines) by section: its source has banner comments (`// ---- Solving ----`), and its tests are split
+- **Start reading:** `SolveJob.java` (711) and `ReoptimizationProposal.java` (581) first. Then `Plan.java`
+  (2,718 lines) by section: its source has banner comments (`// ---- Solving ----`), and its tests are split
   by topic, so read a section beside its test. Tests: `core-test/planning/domain/plan/`
   (`PlanLifecycleTest`, `PlanSolvingTest`, `PlanEditingTest`, `PlanPublishingTest`, `PlanPublishedTest`,
   `PlanRoutesAndFactsTest`, `PlanSequenceTest`, `PlanQueriesTest`, `PlanPendingRevisionTest`,
@@ -1179,7 +1181,7 @@ classDiagram
   [§4.5](domain_layer_design.md#45-live-operations)).
 - **Events** (`core/liveops/events/`): `OutcomeRecorded` and `PutBackSuperseded` from `Delivery`;
   `RouteStarted` from `RouteRun.start`. Enums beside them: `OutcomeKind`, `RunStartCause`.
-- **Start reading:** `Alert.java` (329), `RouteRun.java` (427), then `Delivery.java` (811) with
+- **Start reading:** `Alert.java` (329), `RouteRun.java` (431), then `Delivery.java` (823) with
   `DeliveryInvariants.java`. Tests: `core-test/liveops/domain/alert/AlertTest`, `routerun/RouteRunTest`,
   `delivery/` (`DeliveryLifecycleTest`, `DeliveryReportsTest`, `DeliveryCorrectionTest`,
   `DeliveryRefusalsTest`, `DeliverySequenceTest`, `ArrivalProjectionTest`).
@@ -1285,8 +1287,8 @@ classDiagram
 - **`RatingRequest` has a status that is not stored.** `statusAt(now)` returns `OPEN`, `RATED` or
   `CLOSED`, and it is closed once 48 hours have passed (`ANSWER_WINDOW`).
 - **Event:** `RatingReceived`, raised by `RatingRequest.answer` (`core/messaging/events/`).
-- **Start reading:** `MessagingSettings.java` (146), `RatingRequest.java` (439), then `StopMessages.java`
-  (656). Tests: `core-test/messaging/domain/message/` (`StopMessagesTriggersTest`,
+- **Start reading:** `MessagingSettings.java` (146), `RatingRequest.java` (444), then `StopMessages.java`
+  (657). Tests: `core-test/messaging/domain/message/` (`StopMessagesTriggersTest`,
   `StopMessagesSendingTest`), `rating/` (`RatingRequestTest`, `ReplyTest`), `settings/`, and the root
   (`MessageTextTest`, `OptOutStatusTest`).
 
@@ -1354,14 +1356,15 @@ classDiagram
 - **`WithdrawalCause` here is Reporting's own copy**, mapped from Planning's `WithdrawalCause` event enum
   when `PlanRevised` is heard (§11).
 - **No events and no personal data.**
-- **Start reading:** `OnTimeRate.java` (87), then `baseline/Baseline.java` (401). Tests: `core-test/reporting/domain/`
+- **Start reading:** `OnTimeRate.java` (87), then `baseline/Baseline.java` (414). Tests: `core-test/reporting/domain/`
   (`OnTimeRateTest`, `PlannedOnTimeRateTest`, and in `baseline/`, `BaselineTest` and `WithdrawnFleetTest`).
 
 ### 5.8 Audit
 
 DL [§4.8](domain_layer_design.md#48-audit). The append-only audit trail. **It has no aggregate.** An
 `AuditRecord` is an immutable record (DL [§3.2](domain_layer_design.md#32-records)), written through the
-`AuditLog` port in the same transaction as the change it describes.
+`AuditLog` port: a success in the same transaction as the change it describes, a refusal once that
+transaction has rolled back ([ADR-149](../../ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md)).
 
 ```mermaid
 classDiagram
@@ -1406,7 +1409,7 @@ classDiagram
   `TraceId`, `AuditError`. Every field is an ID, a code, an enum, a number or an instant, never free text.
 - **Audit depends on nothing but the kernel.** It takes `AccountId` and `SessionId`, never an `Actor`
   (DL [§2.1](domain_layer_design.md#21-module-graph)). It raises no events.
-- **Start reading:** `AuditRecord.java` (94 lines). Tests: `core-test/audit/domain/` (`AuditRecordTest`,
+- **Start reading:** `AuditRecord.java` (128 lines). Tests: `core-test/audit/domain/` (`AuditRecordTest`,
   `AuditOutcomeTest`, `NamedRecordTest`).
 
 ### 5.9 Optimization (Python)
@@ -1900,4 +1903,4 @@ component `CLAUDE.md` files).
 | 13. What is next | `core/planning/application/service/plan/RequestSolve.java`, then `grep -rn "To Be Implemented." src/backend` | none: bodies throw |
 
 After step 4 you can read any other aggregate with the §4 pattern in hand. Step 9 is the longest: `Plan.java`
-is 2,711 lines, so read it by the banner comments and keep the matching test open.
+is 2,718 lines, so read it by the banner comments and keep the matching test open.

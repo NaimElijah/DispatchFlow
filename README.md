@@ -110,7 +110,8 @@ flowchart LR
   call. It holds one module per bounded context: Access, Fleet, Customers & Orders, Planning,
   Live Operations, Recipient Messaging, Reporting and Audit
   ([domain design](docs/architecture/domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts)).
-  Each module's domain is built. Its application layer is declared, with bodies that throw
+  Each module's domain is built. Its application layer is declared, with bodies that throw, but
+  for Audit's audit log and its refusal helper
   ([ADR-119](docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md); the conventions are in
   [ADR-120](docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)), and its built adapters store each module's aggregates in its own PostgreSQL schema
   ([data model](docs/architecture/data-model.md)), and the kernel's give the clock, new IDs and
@@ -261,8 +262,8 @@ comments. The rules apply to people and to coding assistants alike.
 
 | Layer | Covers | Command |
 |---|---|---|
-| Core unit (`*Test`) | Domain and use cases, no I/O. Today: the shared kernel's values, the eight modules' domains, the ArchUnit rules (purity, shape, package structure, the application layer's shape and the JPA mapping), the clock and ID adapters, the problem factory, and `web`'s trace filter, error handlers and call wrapper; every use case is declared and none is built, so none has a behaviour test yet | `just core-check` |
-| Core integration (`*IT`) | Against a real PostgreSQL in a container. Today: the application starts, each module's aggregates are saved and loaded, with a damaged stored value refused, the shared version helper's saves, conflicts and storing of the kernel's values are checked, and `web`'s pieces are wired in the whole application | `just core-check` |
+| Core unit (`*Test`) | Domain and use cases, no I/O. Today: the shared kernel's values, the eight modules' domains, the ArchUnit rules (purity, shape, package structure, the application layer's shape and the JPA mapping), the clock and ID adapters, the problem factory, and `web`'s trace filter, error handlers and call wrapper, and Audit's audit log and refusal helper; every other use case is declared and not built, so none has a behaviour test yet | `just core-check` |
+| Core integration (`*IT`) | Against a real PostgreSQL in a container. Today: the application starts, each module's aggregates are saved and loaded, with a damaged stored value refused, the shared version helper's saves, conflicts and storing of the kernel's values are checked, the audit trail is append-only for `app` and its purge deletes nothing a year old or younger, the audit log's records commit or roll back with their transaction, and `web`'s pieces are wired in the whole application | `just core-check` |
 | Optimizer | The domain (the validator's crafted-violation catalogue, Hypothesis properties, Solomon best-known solutions accepted), the HTTP adapter, the dependency boundary and import-linter | `just optimizer-check` |
 | Research | Its environment: the optimizer and PyVRP are installed | `just research-check` |
 | Web app | Components in jsdom (Vitest + Testing Library), with MSW failing any request no handler answers; the shared packages' lint and format | `just web-check` |
@@ -346,7 +347,7 @@ for each of those eight modules, with the two database roles and the `migrate` c
 the migrations), and the optimizer's domain for daily solves and re-optimizations
 (the validator, the objective and the drop reasons). The application layer is declared ahead too, in the core and in
 the optimizer: every use case, query, port and module API has its signature, and every body that would
-do work throws "To Be Implemented." ([ADR-119](docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md), [ADR-132](docs/ADRs/ADR-132-unbuilt-bodies-say-to-be-implemented.md)), but for the audit log, which records a changing call's refused 401 and a lost race today and every changing use case's outcome as each is built, beside the database function that will delete the records older than a year once the nightly retention run calls it ([ADR-149](docs/ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md)). No other use case calls a persistence adapter yet.
+do work throws "To Be Implemented." ([ADR-119](docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md), [ADR-132](docs/ADRs/ADR-132-unbuilt-bodies-say-to-be-implemented.md)), but for the audit log, wired to record a changing call's refused 401, a lost race and a request that breaks the contract, and every changing use case's outcome as each is built, and its `Refusals` helper, beside the database function that will delete the records older than a year once the nightly retention run calls it ([ADR-149](docs/ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md)). No other use case calls a persistence adapter yet.
 
 Planned: the [roadmap](docs/roadmap.md) has the course calendar, the milestones M0 to M13, and the
 definition and demo script of the Alpha (M0 to M5).

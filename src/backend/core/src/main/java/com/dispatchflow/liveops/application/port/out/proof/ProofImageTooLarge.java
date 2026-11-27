@@ -1,5 +1,7 @@
 package com.dispatchflow.liveops.application.port.out.proof;
 
+import com.dispatchflow.shared.application.ApplicationRefusal;
+
 /**
  * An uploaded proof's header gives pixel dimensions above the store's cap, so it is refused before
  * anything decodes it: a file within NFR-37's 5 MB can still unpack into a bitmap that exhausts the
@@ -9,7 +11,7 @@ package com.dispatchflow.liveops.application.port.out.proof;
  *
  * <p>To Be Implemented.
  */
-public final class ProofImageTooLarge extends RuntimeException {
+public final class ProofImageTooLarge extends RuntimeException implements ApplicationRefusal {
 
     /** The stable code the web adapter answers with, beside the 422 status. */
     public static final String CODE = "PROOF_IMAGE_TOO_LARGE";
@@ -24,6 +26,7 @@ public final class ProofImageTooLarge extends RuntimeException {
      *
      * @return {@value #CODE}
      */
+    @Override
     public String code() {
         return CODE;
     }

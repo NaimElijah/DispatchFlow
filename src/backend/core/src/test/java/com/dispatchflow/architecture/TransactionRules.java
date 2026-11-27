@@ -67,6 +67,9 @@ final class TransactionRules {
     /** The port every changing use case writes its audit record through (NFR-23). */
     static final String AUDIT_LOG = "AuditLog";
 
+    /** Audit's helper that runs an attempt and records the refusal that leaves it (ADR-150). */
+    static final String REFUSALS = "Refusals";
+
     /** The suffix of the class that holds a two-class use case's transaction (ADR-129 decision 3). */
     static final String CHANGE_SUFFIX = "Change";
 
@@ -206,9 +209,11 @@ final class TransactionRules {
      * carries {@code @Transactional} itself, at the default propagation, and in no method of it that
      * is read-only or names another propagation: a read-only transaction never flushes, so its record
      * would be lost. A class nested in a service, a lambda included, counts as the service, so a
-     * success handed to work that runs later is for review. A service with no transaction, an
-     * adapter or the call wrapper records only a refusal, after every transaction of the call has
-     * ended.
+     * success handed to work that runs later is for review. The rule reads the method that makes the
+     * call, so a read-only method that reaches the call through a helper of its own passes it; at
+     * runtime {@code JpaAuditRecords.append} then refuses the read-only transaction, loudly. A
+     * service with no transaction, an adapter or the call wrapper records only a refusal, after
+     * every transaction of the call has ended.
      */
     static ArchRule successIsRecordedOnlyInATransactionalService(String root) {
         return classes()
@@ -233,12 +238,18 @@ final class TransactionRules {
     }
 
     /**
-     * Rule 10: no transactional class records a refusal, but one of {@code committedHere}, so a
-     * refusal is recorded after its change has rolled back and never lost with it (NFR-23, ADR-129
-     * decision 5, ADR-149 decisions 1 and 2). A one-class service that can refuse splits instead,
-     * and its use case records the refusal. The exceptions are the {@code Change}s that answer a
-     * refusal without letting it leave, so their transaction commits the record: their names are
-     * listed, and each such {@code Change} joins the list in review.
+     * Rule 10: no transactional class records a refusal, but one of {@code committedHere}, and none
+     * runs work through Audit's {@code Refusals}, so a refusal is recorded after its change has
+     * rolled back and never lost with it (NFR-23, ADR-129 decision 5, ADR-149 decisions 1 and 2,
+     * ADR-150 decision 5). A one-class service that can refuse splits instead, and its use case
+     * records the refusal through the helper. The exceptions are the {@code Change}s that answer a
+     * refusal without letting it leave, so their transaction commits, carrying the record and only
+     * what the refusal itself must store: their names are listed, and a {@code Change} joins the
+     * list only by that test, in review. The helper rethrows the refusal, which rolls its record
+     * back, so the list never excuses it. A method that carries {@code @Transactional} itself counts
+     * as a transactional class, and the list never excuses it either: a listed {@code Change}'s
+     * read-only read can't record a refusal. The rule reads a class's own calls: a module's own
+     * intermediary that records for a transactional caller is left to review.
      */
     static ArchRule refusalIsNeverRecordedInsideATransaction(String root, Set<String> committedHere) {
         return classes()
@@ -248,11 +259,13 @@ final class TransactionRules {
                     @Override
                     public void check(JavaClass item, ConditionEvents events) {
                         JavaClass outermost = outermost(item);
-                        if (!carries(outermost, Transactional.class)
-                                || committedHere.contains(outermost.getSimpleName())) {
-                            return;
-                        }
-                        auditAccesses(item, "refused")
+                        boolean classTransaction = carries(outermost, Transactional.class);
+                        boolean listed = committedHere.contains(outermost.getSimpleName());
+                        Stream<JavaCodeUnitAccess<?>> direct = auditAccesses(item, "refused")
+                                .filter(access -> (classTransaction && !listed) || inATransactionalMethod(access));
+                        Stream<JavaCodeUnitAccess<?>> helper = helperAccesses(item)
+                                .filter(access -> classTransaction || inATransactionalMethod(access));
+                        Stream.concat(direct, helper)
                                 .forEach(access -> events.add(SimpleConditionEvent.violated(
                                         access,
                                         access.getDescription()
@@ -261,13 +274,16 @@ final class TransactionRules {
                                                 + CHANGE_SUFFIX + " has refused")));
                     }
                 })
-                .because("ADR-149 decision 1: a refusal is recorded once its change has rolled back");
+                .because("ADR-149 decision 1 and ADR-150 decision 5: a refusal is recorded once its change"
+                        + " has rolled back");
     }
 
     /**
      * The {@code Change}s whose transaction commits a refused attempt's record on purpose, because
-     * no refusal leaves them (ADR-149 decision 2): the recovery request that answers every address
-     * alike, and the refresh whose refusal revokes the session.
+     * no refusal leaves them, and each alone knows the account or session its record names (ADR-149
+     * decision 2, ADR-150 decision 5): the recovery request that answers every address alike and
+     * stores nothing beside its record, and the refresh whose refusal revokes the session, which
+     * commits with its record or not at all.
      */
     static final Set<String> REFUSALS_COMMITTED_IN_THEIR_CHANGE =
             Set.of("RequestPasswordRecoveryChange", "RefreshSessionChange");
@@ -277,6 +293,19 @@ final class TransactionRules {
         return Stream.<JavaCodeUnitAccess<?>>concat(
                         item.getMethodCallsFromSelf().stream(), item.getMethodReferencesFromSelf().stream())
                 .filter(access -> access.getName().equals(method) && isTheAuditLog(access.getTargetOwner()));
+    }
+
+    /** Whether the access sits in a method that carries {@code @Transactional} itself. */
+    private static boolean inATransactionalMethod(JavaCodeUnitAccess<?> access) {
+        return carries(access.getOrigin(), Transactional.class);
+    }
+
+    /** The calls and method references from {@code item} to Audit's {@code Refusals} helper. */
+    private static Stream<JavaCodeUnitAccess<?>> helperAccesses(JavaClass item) {
+        return Stream.<JavaCodeUnitAccess<?>>concat(
+                        item.getMethodCallsFromSelf().stream(), item.getMethodReferencesFromSelf().stream())
+                .filter(access -> access.getTargetOwner().getSimpleName().equals(REFUSALS)
+                        && access.getTargetOwner().getPackageName().endsWith(".application.api"));
     }
 
     private static boolean isTheAuditLog(JavaClass owner) {

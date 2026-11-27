@@ -1,5 +1,7 @@
 package com.dispatchflow.access.application.api;
 
+import com.dispatchflow.shared.application.ApplicationRefusal;
+
 /**
  * A use case needs the company profile, and no Admin has set one up yet. It is not a domain
  * refusal and not a missing record of the caller's own, so it is no {@code DomainError} and no
@@ -9,7 +11,7 @@ package com.dispatchflow.access.application.api;
  *
  * <p>To Be Implemented.
  */
-public final class CompanyNotSetUp extends RuntimeException {
+public final class CompanyNotSetUp extends RuntimeException implements ApplicationRefusal {
 
     /** The stable code the web adapter answers with, beside the 409 status. */
     public static final String CODE = "COMPANY_NOT_SET_UP";
@@ -24,6 +26,7 @@ public final class CompanyNotSetUp extends RuntimeException {
      *
      * @return {@value #CODE}
      */
+    @Override
     public String code() {
         return CODE;
     }

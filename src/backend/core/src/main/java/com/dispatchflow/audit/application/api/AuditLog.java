@@ -10,9 +10,10 @@ import java.util.List;
  * record (NFR-94).
  *
  * <p>A success is recorded inside its change's transaction, and a refusal after the refused
- * transaction has rolled back: by the use case that called its {@code Change}, or by the adapter
- * that refused a call no use case saw, such as a 401 or a lost race (ADR-129 decision 5,
- * ADR-149).
+ * transaction has rolled back. The use case records the refusal that leaves its {@code Change}
+ * through {@link Refusals}, and a conflict it answers itself directly. The adapter that refused a
+ * call no use case saw records that one: a 401, a lost race, or a changing call that breaks the
+ * contract (ADR-129 decision 5, ADR-149, ADR-150).
  */
 public interface AuditLog {
 
@@ -29,17 +30,21 @@ public interface AuditLog {
      *     {@code MalformedOperationName}, {@code InvalidTraceId} or {@code TooManyNamedRecords}, and
      *     never one a use case would take for its change's refusal (ADR-149); a client version that
      *     doesn't parse leaves the client out of the record instead (ADR-110)
+     * @throws RuntimeException when called inside a read-only transaction, which would never write
+     *     the record, so it fails rather than lose it (ADR-149 decision 3)
      */
     void succeeded(CallContext call, Instant at, List<AuditedRecord> records);
 
     /**
      * Records a refused attempt in a transaction of its own, so the refusal's rollback doesn't lose
      * it (NFR-23, ADR-110 point 1). It is called once the refused transaction has rolled back, with
-     * no transaction open, so the one it opens is fresh (ADR-129 decision 5, ADR-149). Called
-     * inside an open transaction, it joins it, and a rollback there loses the record, so no
-     * transactional class calls it ({@code TransactionRules} rule 10) but a {@code Change} that
-     * records a refusal raised before it changed anything and lets none leave, so that its
-     * transaction commits the record; that rule names each such {@code Change}.
+     * no transaction open, so the one it opens is fresh (ADR-129 decision 5, ADR-149). A use case
+     * calls it through {@link Refusals}, which runs its {@code Change}, and directly for a conflict
+     * it answers itself (ADR-150 decisions 1 and 3). Called inside an open transaction, it joins
+     * it, and a rollback there loses the record, so no transactional class calls it ({@code
+     * TransactionRules} rule 10) but a listed {@code Change} that lets no refusal leave once it has
+     * recorded one, so that its commit carries the record and only what the refused attempt must
+     * store (ADR-150 decision 5).
      *
      * @param call who made the attempt, through which client, as which operation
      * @param at when the attempt was made
@@ -49,6 +54,8 @@ public interface AuditLog {
      * @throws IllegalStateException when a part is malformed: a server's bug, so its cause is
      *     Audit's {@code RuleViolation}, with {@code MalformedOperationName}, {@code InvalidTraceId},
      *     {@code TooManyNamedRecords} or {@code MalformedErrorCode} (ADR-149)
+     * @throws RuntimeException when called inside a read-only transaction, which would never write
+     *     the record, so it fails rather than lose it (ADR-149 decision 3)
      */
     void refused(CallContext call, Instant at, List<AuditedRecord> records, String errorCode);
 }

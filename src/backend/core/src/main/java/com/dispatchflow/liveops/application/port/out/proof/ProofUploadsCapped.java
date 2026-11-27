@@ -1,5 +1,7 @@
 package com.dispatchflow.liveops.application.port.out.proof;
 
+import com.dispatchflow.shared.application.ApplicationRefusal;
+
 /**
  * The uploader already holds as many uploads that no report names as the store's cap allows, so the
  * store refuses another until the store's sweep, or a report naming one, frees a place (ADR-087). It
@@ -9,7 +11,7 @@ package com.dispatchflow.liveops.application.port.out.proof;
  *
  * <p>To Be Implemented.
  */
-public final class ProofUploadsCapped extends RuntimeException {
+public final class ProofUploadsCapped extends RuntimeException implements ApplicationRefusal {
 
     /** The stable code the web adapter answers with, beside the 429 status. */
     public static final String CODE = "PROOF_UPLOADS_CAPPED";
@@ -24,6 +26,7 @@ public final class ProofUploadsCapped extends RuntimeException {
      *
      * @return {@value #CODE}
      */
+    @Override
     public String code() {
         return CODE;
     }

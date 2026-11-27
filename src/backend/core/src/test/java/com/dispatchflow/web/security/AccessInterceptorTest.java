@@ -34,6 +34,7 @@ import jakarta.servlet.Filter;
 import jakarta.servlet.http.Cookie;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -78,6 +79,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.filter.ForwardedHeaderFilter;
 import org.springframework.web.method.HandlerMethod;
@@ -98,6 +100,12 @@ class AccessInterceptorTest {
     private static final String OUTSIDE = "/access-interceptor-test/outside";
     private static final String NOTE = "/api/v1/access-interceptor-test/note";
     private static final String RETRIED = "/api/v1/access-interceptor-test/retried";
+    private static final String COUNTED = "/api/v1/access-interceptor-test/counted";
+    private static final String ANSWERED = "/api/v1/access-interceptor-test/answered";
+    private static final String SHORT_NOTE = "/api/v1/access-interceptor-test/short-note";
+    private static final int SHORT_NOTE_LENGTH = 4;
+    // A value the contract refuses, which the refusal's exception quotes in its message.
+    private static final String REFUSED_VALUE = "Dana Levi";
     // A path no operation has, which the static-resource handler serves with a 404.
     private static final String NO_OPERATION = "/api/v1/access-interceptor-test/no-operation";
     private static final String ROUTED = "/api/v1/access-interceptor-test/routed";
@@ -123,6 +131,9 @@ class AccessInterceptorTest {
 
     @RegisterExtension
     final CapturedLogs logs = CapturedLogs.of(NotSignedInHandler.class);
+
+    @RegisterExtension
+    final CapturedLogs everyLine = CapturedLogs.ofEveryLogger();
 
     // What a handler that is no annotated handler method saw: how often it ran, and the caller kept.
     private final AtomicInteger handlerRuns = new AtomicInteger();
@@ -306,6 +317,124 @@ class AccessInterceptorTest {
             assertThat(fixture.auditLog().refusals)
                     .singleElement()
                     .satisfies(refusal -> assertThat(refusal.call().operation()).isEqualTo("sendANote"));
+        });
+    }
+
+    @Test
+    void GivenASignedInChangingCallWithAnInvalidBody_WhenTheContractRefusesIt_Then400AndOneRecordWithItsCode() {
+        under(StandInProfiles.TEST, fixture -> {
+            MvcTestResult result = fixture.mvc()
+                    .post()
+                    .uri(NOTE)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"undeclared\":1}")
+                    .exchange();
+
+            assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
+            assertThat(fixture.controller().actor.get()).isNull();
+            assertThat(fixture.auditLog().refusals).singleElement().satisfies(refusal -> {
+                assertThat(refusal.errorCode()).isEqualTo("INVALID_REQUEST");
+                assertThat(refusal.call().operation()).isEqualTo("sendANote");
+                assertThat(refusal.call().user())
+                        .contains(TestActors.dispatcher().account());
+                assertThat(refusal.at()).isEqualTo(NOW);
+            });
+        });
+    }
+
+    @Test
+    void GivenASignedInReadThatBreaksTheContract_WhenItIsRefused_Then400AndNoRecord() {
+        under(StandInProfiles.TEST, fixture -> {
+            MvcTestResult result =
+                    fixture.mvc().get().uri(COUNTED).param("count", "many").exchange();
+
+            assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
+            assertThat(fixture.auditLog().refusals).isEmpty();
+        });
+    }
+
+    @Test
+    void GivenASignedInChangingCallWhoseAnswerCantBeWritten_WhenRefusedAfterItsHandlerRan_ThenNoRecord() {
+        under(StandInProfiles.TEST, fixture -> {
+            MvcTestResult result = fixture.mvc()
+                    .post()
+                    .uri(ANSWERED)
+                    .accept(MediaType.IMAGE_PNG)
+                    .exchange();
+
+            assertThat(result).hasStatus(HttpStatus.NOT_ACCEPTABLE);
+            assertThat(fixture.controller().actor.get()).isNotNull();
+            assertThat(fixture.auditLog().refusals).isEmpty();
+        });
+    }
+
+    @Test
+    void GivenTheAuditLogFails_WhenTheContractRefusesASignedInChangingCall_Then500AndOneErrorLineWithNoRefusedValue() {
+        under(StandInProfiles.TEST, fixture -> {
+            fixture.auditLog().failing = true;
+
+            MvcTestResult result = fixture.mvc()
+                    .post()
+                    .uri(SHORT_NOTE)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"text\":\"" + REFUSED_VALUE + "\"}")
+                    .exchange();
+
+            assertThat(result).hasStatus(HttpStatus.INTERNAL_SERVER_ERROR);
+            assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo("UNEXPECTED_ERROR");
+            assertThat(everyLine.at(Level.ERROR)).singleElement().satisfies(line -> {
+                assertThat(line.getLoggerName()).isEqualTo("com.dispatchflow.web.ContractErrorHandler");
+                assertThat(line.getThrowableProxy().getMessage()).isEqualTo("the audit log failed");
+                assertThat(CapturedLogs.keyValues(line))
+                        .containsEntry("code", "INVALID_REQUEST")
+                        .containsEntry("exception", "MethodArgumentNotValidException");
+            });
+            assertThat(everyLine.events())
+                    .allSatisfy(line ->
+                            assertThat(CapturedLogs.textsOf(line)).noneMatch(text -> text.contains(REFUSED_VALUE)));
+        });
+    }
+
+    @Test
+    void GivenAnErrorDispatchOfASignedInChangingCall_WhenTheContractRefusesIt_ThenNoRecord() {
+        under(StandInProfiles.TEST, fixture -> {
+            MvcTestResult result = fixture.mvc()
+                    .post()
+                    .uri(NOTE)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"undeclared\":1}")
+                    .with(request -> {
+                        MDC.put(Problems.TRACE_ID, TestActors.TRACE_ID);
+                        Caller.build(request, Optional.of(SIGNED_IN), "sendANote")
+                                .keepFor(request);
+                        MDC.clear();
+                        request.setDispatcherType(DispatcherType.ERROR);
+                        return request;
+                    })
+                    .exchange();
+
+            assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
+            assertThat(fixture.auditLog().refusals).isEmpty();
+        });
+    }
+
+    @Test
+    void GivenASignedInChangingCallOverTheBodyLimit_WhenTheContractRefusesIt_Then413AndOneRecordWithItsCode() {
+        under(StandInProfiles.TEST, fixture -> {
+            // One byte over BodySizeLimit.MAX_BODY_BYTES, which is package-private to web.
+            String overTheLimit = "{\"text\":\"" + "a".repeat(1_048_576) + "\"}";
+
+            MvcTestResult result = fixture.mvc()
+                    .post()
+                    .uri(NOTE)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(overTheLimit)
+                    .exchange();
+
+            assertThat(result).hasStatus(HttpStatus.CONTENT_TOO_LARGE);
+            assertThat(fixture.auditLog().refusals)
+                    .singleElement()
+                    .satisfies(refusal -> assertThat(refusal.errorCode()).isEqualTo("BODY_TOO_LARGE"));
         });
     }
 
@@ -887,6 +1016,23 @@ class AccessInterceptorTest {
             return note.text();
         }
 
+        @PostMapping(SHORT_NOTE)
+        String sendAShortNote(@Valid @RequestBody ShortNote note) {
+            return note.text();
+        }
+
+        // Its answer is JSON only, so a client that accepts none of it gets a 406 after it ran.
+        @PostMapping(ANSWERED)
+        Note answerWithANote() {
+            actor.set(CurrentActor.get());
+            return new Note("answered");
+        }
+
+        @GetMapping(COUNTED)
+        String readCounted(@RequestParam int count) {
+            return String.valueOf(count);
+        }
+
         @GetMapping(RETRIED)
         String loseOnceThenRead() {
             if (tries.incrementAndGet() == 1) {
@@ -922,6 +1068,9 @@ class AccessInterceptorTest {
 
     /** A request body the contract would declare: one required text. */
     record Note(@NotBlank String text) {}
+
+    /** A note short enough that a name is refused, so the refusal's exception quotes it. */
+    record ShortNote(@Size(max = SHORT_NOTE_LENGTH) String text) {}
 
     record Refusal(CallContext call, Instant at, String errorCode) {}
 

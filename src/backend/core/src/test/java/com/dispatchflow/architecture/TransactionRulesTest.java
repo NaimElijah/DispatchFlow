@@ -20,28 +20,19 @@ import com.dispatchflow.archfixture.theta.adapter.out.persistence.LocksWithoutTh
 import com.dispatchflow.archfixture.theta.adapter.out.persistence.PlainLedgers;
 import com.dispatchflow.archfixture.theta.adapter.out.persistence.TransactionalLedgers;
 import com.dispatchflow.archfixture.theta.application.api.AuditLog;
+import com.dispatchflow.archfixture.theta.application.api.Refusals;
 import com.dispatchflow.archfixture.theta.application.api.Solve;
 import com.dispatchflow.archfixture.theta.application.port.out.Ledgers;
 import com.dispatchflow.archfixture.theta.application.port.out.RouteOptimizer;
-import com.dispatchflow.archfixture.theta.application.service.AnswersAlikeChange;
-import com.dispatchflow.archfixture.theta.application.service.AuditLogService;
 import com.dispatchflow.archfixture.theta.application.service.CallsASplitApi;
 import com.dispatchflow.archfixture.theta.application.service.CallsASplitUseCase;
 import com.dispatchflow.archfixture.theta.application.service.CountsLedgers;
-import com.dispatchflow.archfixture.theta.application.service.DelegatesAndAudits;
-import com.dispatchflow.archfixture.theta.application.service.DelegatesAndRecordsItsRefusal;
 import com.dispatchflow.archfixture.theta.application.service.DelegatesToASplitApi;
 import com.dispatchflow.archfixture.theta.application.service.FinalMethodService;
 import com.dispatchflow.archfixture.theta.application.service.FinalService;
 import com.dispatchflow.archfixture.theta.application.service.ForgetsItsTransaction;
 import com.dispatchflow.archfixture.theta.application.service.LedgerCount;
-import com.dispatchflow.archfixture.theta.application.service.NestsASuccessWithNoTransaction;
-import com.dispatchflow.archfixture.theta.application.service.ReadOnlyButAuditing;
 import com.dispatchflow.archfixture.theta.application.service.ReadsLedgers;
-import com.dispatchflow.archfixture.theta.application.service.RecordsASuccessInAReadOnlyRead;
-import com.dispatchflow.archfixture.theta.application.service.RecordsASuccessWithoutATransaction;
-import com.dispatchflow.archfixture.theta.application.service.RecordsInANestedClass;
-import com.dispatchflow.archfixture.theta.application.service.RecordsItsRefusalInsideItsTransaction;
 import com.dispatchflow.archfixture.theta.application.service.SolvesLedgers;
 import com.dispatchflow.archfixture.theta.application.service.SolvesLedgersChange;
 import com.dispatchflow.archfixture.theta.application.service.SplitButHoldsLedgers;
@@ -53,6 +44,23 @@ import com.dispatchflow.archfixture.theta.application.service.SplitWithATransact
 import com.dispatchflow.archfixture.theta.application.service.TransactionalOnAMethodOnly;
 import com.dispatchflow.archfixture.theta.application.service.TransactionalRecord;
 import com.dispatchflow.archfixture.theta.application.service.WaitsOnTheOptimizer;
+import com.dispatchflow.archfixture.theta.application.service.audit.AnswersAlikeChange;
+import com.dispatchflow.archfixture.theta.application.service.audit.AnswersAlikeThroughTheHelperChange;
+import com.dispatchflow.archfixture.theta.application.service.audit.AuditLogService;
+import com.dispatchflow.archfixture.theta.application.service.audit.DelegatesAndAudits;
+import com.dispatchflow.archfixture.theta.application.service.audit.DelegatesAndRecordsItsRefusal;
+import com.dispatchflow.archfixture.theta.application.service.audit.DelegatesAndRecordsItsRefusalThroughTheHelper;
+import com.dispatchflow.archfixture.theta.application.service.audit.NestsASuccessWithNoTransaction;
+import com.dispatchflow.archfixture.theta.application.service.audit.ReadOnlyButAuditing;
+import com.dispatchflow.archfixture.theta.application.service.audit.RecordsASuccessInALambdaOfAReadOnlyRead;
+import com.dispatchflow.archfixture.theta.application.service.audit.RecordsASuccessInAReadOnlyRead;
+import com.dispatchflow.archfixture.theta.application.service.audit.RecordsASuccessWithoutATransaction;
+import com.dispatchflow.archfixture.theta.application.service.audit.RecordsInANestedClass;
+import com.dispatchflow.archfixture.theta.application.service.audit.RecordsItsRefusalInANestedClass;
+import com.dispatchflow.archfixture.theta.application.service.audit.RecordsItsRefusalInATransactionalMethod;
+import com.dispatchflow.archfixture.theta.application.service.audit.RecordsItsRefusalInsideItsTransaction;
+import com.dispatchflow.archfixture.theta.application.service.audit.RecordsItsRefusalThroughTheHelperInsideItsTransaction;
+import com.dispatchflow.archfixture.theta.application.service.audit.ReferencesTheRefusalHelperInsideItsTransaction;
 import com.tngtech.archunit.lang.ArchRule;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -75,7 +83,13 @@ class TransactionRulesTest {
 
     /** The ports and values every fixture names, so a rule sees the types its fields hold. */
     private static final Class<?>[] PORTS = {
-        Ledgers.class, RouteOptimizer.class, AuditLog.class, Solve.class, LedgerCount.class, SolvesLedgers.class
+        Ledgers.class,
+        RouteOptimizer.class,
+        AuditLog.class,
+        Refusals.class,
+        Solve.class,
+        LedgerCount.class,
+        SolvesLedgers.class
     };
 
     private static Class<?> ledgerRows() {
@@ -208,6 +222,7 @@ class TransactionRulesTest {
                 HandsOnASuccess.class,
                 AuditsThroughTheService.class,
                 RecordsASuccessInAReadOnlyRead.class,
+                RecordsASuccessInALambdaOfAReadOnlyRead.class,
                 RecordsASuccessWithoutATransaction.class
             })
     void GivenASuccessRecordedOutsideAReadWriteTransactionOfAService_WhenChecked_ThenItIsFlagged(Class<?> fixture) {
@@ -247,6 +262,48 @@ class TransactionRulesTest {
     }
 
     @Test
+    void GivenATransactionalServiceThatRunsItsWorkThroughTheRefusalHelper_WhenChecked_ThenItIsFlagged() {
+        assertThat(flags(
+                        TransactionRules.refusalIsNeverRecordedInsideATransaction(FIXTURE_ROOT, Set.of()),
+                        RecordsItsRefusalThroughTheHelperInsideItsTransaction.class))
+                .isTrue();
+    }
+
+    @Test
+    void GivenATransactionalServiceThatReferencesTheRefusalHelper_WhenChecked_ThenItIsFlagged() {
+        assertThat(flags(
+                        TransactionRules.refusalIsNeverRecordedInsideATransaction(FIXTURE_ROOT, Set.of()),
+                        ReferencesTheRefusalHelperInsideItsTransaction.class))
+                .isTrue();
+    }
+
+    @Test
+    void GivenARefusalRecordedInATransactionalMethodOfAClassWithNoTransaction_WhenChecked_ThenItIsFlagged() {
+        assertThat(flags(
+                        TransactionRules.refusalIsNeverRecordedInsideATransaction(FIXTURE_ROOT, Set.of()),
+                        RecordsItsRefusalInATransactionalMethod.class))
+                .isTrue();
+    }
+
+    @Test
+    void GivenAListedChangeThatRunsItsWorkThroughTheRefusalHelper_WhenChecked_ThenTheListDoesNotExcuseIt() {
+        assertThat(flags(
+                        TransactionRules.refusalIsNeverRecordedInsideATransaction(
+                                FIXTURE_ROOT, Set.of(AnswersAlikeThroughTheHelperChange.class.getSimpleName())),
+                        AnswersAlikeThroughTheHelperChange.class))
+                .isTrue();
+    }
+
+    @Test
+    void GivenARefusalRecordedInANestedClassOfATransactionalService_WhenChecked_ThenItCountsAsTheService() {
+        assertThat(flags(
+                        TransactionRules.refusalIsNeverRecordedInsideATransaction(FIXTURE_ROOT, Set.of()),
+                        RecordsItsRefusalInANestedClass.class,
+                        RecordsItsRefusalInANestedClass.Step.class))
+                .isTrue();
+    }
+
+    @Test
     void GivenAChangeThatAnswersARefusalAlike_WhenChecked_ThenItIsFlaggedUnlessListed() {
         assertThat(flags(
                         TransactionRules.refusalIsNeverRecordedInsideATransaction(FIXTURE_ROOT, Set.of()),
@@ -266,6 +323,10 @@ class TransactionRulesTest {
         assertThat(flags(
                         TransactionRules.refusalIsNeverRecordedInsideATransaction(FIXTURE_ROOT, Set.of()),
                         DelegatesAndRecordsItsRefusal.class))
+                .isFalse();
+        assertThat(flags(
+                        TransactionRules.refusalIsNeverRecordedInsideATransaction(FIXTURE_ROOT, Set.of()),
+                        DelegatesAndRecordsItsRefusalThroughTheHelper.class))
                 .isFalse();
     }
 

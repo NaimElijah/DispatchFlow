@@ -1,5 +1,7 @@
 package com.dispatchflow.access.application.api;
 
+import com.dispatchflow.shared.application.ApplicationRefusal;
+
 /**
  * The actor's roles give the capability only with a limited grant, a cell of the permission matrix
  * that starts "Only", and the call asks for more than that grant covers. The web adapter's role
@@ -12,7 +14,7 @@ package com.dispatchflow.access.application.api;
  *
  * <p>To Be Implemented.
  */
-public final class GrantLimitExceeded extends RuntimeException {
+public final class GrantLimitExceeded extends RuntimeException implements ApplicationRefusal {
 
     /** The stable code the web adapter answers with, beside the 403 status. */
     public static final String CODE = "GRANT_LIMIT_EXCEEDED";
@@ -27,6 +29,7 @@ public final class GrantLimitExceeded extends RuntimeException {
      *
      * @return {@value #CODE}
      */
+    @Override
     public String code() {
         return CODE;
     }

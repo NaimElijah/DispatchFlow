@@ -1,6 +1,7 @@
 package com.dispatchflow.liveops.application.service;
 
 import com.dispatchflow.liveops.application.port.out.IdempotencyKey;
+import com.dispatchflow.shared.application.ApplicationRefusal;
 import java.util.Objects;
 
 /**
@@ -11,7 +12,7 @@ import java.util.Objects;
  *
  * <p>To Be Implemented.
  */
-public final class IdempotencyKeyReused extends RuntimeException {
+public final class IdempotencyKeyReused extends RuntimeException implements ApplicationRefusal {
 
     /** The stable code the web adapter answers with, beside the 409 status (ADR-087). */
     public static final String CODE = "IDEMPOTENCY_KEY_REUSED";
@@ -33,6 +34,7 @@ public final class IdempotencyKeyReused extends RuntimeException {
      *
      * @return {@value #CODE}
      */
+    @Override
     public String code() {
         return CODE;
     }
