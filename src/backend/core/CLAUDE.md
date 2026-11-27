@@ -120,8 +120,7 @@ only client (`contracts/optimization-api/v1`): Java 25, Spring Boot 4.1, JPA, Fl
   `<Port>StandIn`, as `@StandInOnly`'s Javadoc says, never `@Profile`. Sign-in keeps the
   guard; #199 refuses a token lifetime but 15 minutes unless `dev` is alone ([ADR-140]). Only
   `e2e` has its endpoints, and refuses a deployed environment (NFR-206). Test each refusal.
-- No Lombok: records and plain classes. Configuration comes from environment variables; one the core
-  can't start without also joins Compose's `core` and both `.env.example` files (ADR-151).
+- No Lombok. Settings come from the environment; a required one joins 3 files (ADR-151 decision 8).
 - Persistence is JPA ([ADR-126], [ADR-127], [TS §6.3]): a port's `@Component` works over a
   package-private Spring Data `Repository<Root, UUID>` with `save` and its queries, never
   `@Repository`, whose exception translation rewraps a port's `IllegalArgumentException`. Native SQL

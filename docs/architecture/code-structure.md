@@ -43,7 +43,7 @@ and ADR-014 are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 | `src/research/` | Benchmarks, simulation and the order generator: Python, uv. Never deployed |
 | `contracts/` | `client-api/v1` and `optimization-api/v1` (OpenAPI), and the Redocly lint setup |
 | `tests/` | Tests that span components: `e2e/` and `load/`. Both are placeholders |
-| `infra/` | `osrm/`, `deploy/` and `terraform/`. `deploy/compose.dev.yaml` runs the development stack, and `deploy/check_dev_stack.py`, with its `ruff.toml`, is `just infra-check` ([ADR-151](../ADRs/ADR-151-the-dev-stack-runs-the-core-as-a-compose-service-and-the-core-checks-its-database-session.md)). `deploy/postgres/initdb/create-roles.sql` creates the two database roles in a new PostgreSQL, and `deploy/.env.example` lists the keys Compose reads ([ADR-145](../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md)); `deploy/backup/` and `deploy/observability/` are placeholders |
+| `infra/` | `osrm/`, `deploy/` and `terraform/`. `deploy/compose.dev.yaml` runs the development stack, and `deploy/check_dev_stack.py`, with its `ruff.toml` and its tests in `deploy/test_check_dev_stack.py`, is `just infra-check` ([ADR-151](../ADRs/ADR-151-the-dev-stack-runs-the-core-as-a-compose-service-and-the-core-checks-its-database-session.md), [ADR-152](../ADRs/ADR-152-the-session-guard-reads-the-real-login-and-accepts-only-untranslated-messages-and-the-stack-check-checks-what-it-claims.md)). `deploy/postgres/initdb/create-roles.sql` creates the two database roles in a new PostgreSQL, and `deploy/.env.example` lists the keys Compose reads ([ADR-145](../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md)); `deploy/backup/` and `deploy/observability/` are placeholders |
 | `data/` | The OSM extract, OSRM files, PMTiles and benchmark instances, once built. Git keeps the folder and ignores everything in it |
 | `logs/` | Local log output. Git keeps the folder and ignores everything in it |
 | `docs/` | `CLAUDE.md`, `requirements/` (with `ARD/`), `architecture/` (with `domain_layer/` and `tech_stack.md`), `ADRs/`, `roadmap.md`, `operations/` (with `data-inventory.md`) and `presentations/`; the placeholders are `guides/he/`, `guides/en/`, `research/usability/` and `architecture/generated/` |
@@ -103,8 +103,9 @@ src/backend/core/
                                    next and refuses any other argument that isn't an option (ADR-146)
     MigrateCommand.java            the migrate step: the data source and Flyway alone, run as
                                    dispatchflow_owner before the core starts (ADR-145)
-    DatabaseSessionGuard.java      refuses to start as a superuser, an owner or a member of one,
-                                   or on a server whose messages aren't English (ADR-151)
+    DatabaseSessionGuard.java      refuses to start as a superuser, an owner, a member of any
+                                   role, a login that switched role, or on a server whose
+                                   lc_messages isn't C (ADR-151, ADR-152)
     SchedulingConfiguration.java   @EnableAsync always, @EnableScheduling behind
                                    dispatchflow.scheduling.enabled, and the executor's cap
     MdcTaskDecorator.java          copies the caller's MDC to an asynchronous listener's thread
@@ -260,7 +261,7 @@ src/backend/core/
                                          misspelt
     DatabaseRolesIT.java                 the two roles, the migrate command and the grants' guard
     DatabaseSessionGuardIT.java          each session the core refuses to start on, against PostgreSQL;
-                                         DatabaseSessionGuardTest, the messages languages
+                                         DatabaseSessionGuardTest, the messages settings
     TestDispatchFlowApplication.java     what `just core-run` starts: the dev profile, Flyway on
     TestActors.java                      the Actor of any seeded entry, read from the shared list
     TestcontainersConfiguration.java     the PostgreSQL container with both roles, the core's

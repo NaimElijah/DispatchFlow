@@ -97,8 +97,8 @@ cp infra/deploy/.env.example infra/deploy/.env    # then fill in its three passw
 docker compose -f infra/deploy/compose.dev.yaml up --build --watch
 ```
 
-The web app is on http://localhost:5173, and proxies `/api/` to the core on 127.0.0.1:8080; the
-optimizer is on 127.0.0.1:8081, and PostgreSQL on 127.0.0.1:5432. A laptop that runs a PostgreSQL
+The web app is on http://localhost:5173, and proxies `/api/` to the stack's core, which is also
+on 127.0.0.1:8080; the optimizer is on 127.0.0.1:8081, and PostgreSQL on 127.0.0.1:5432. A laptop that runs a PostgreSQL
 of its own on 5432 sets `DISPATCHFLOW_POSTGRES_HOST_PORT` in that `.env`. `--watch` copies an
 edit to the web app or the optimizer into its container, which reloads it; a change to the core
 needs `--build` again. `docker compose -f infra/deploy/compose.dev.yaml down` stops it, and
@@ -296,6 +296,7 @@ comments. The rules apply to people and to coding assistants alike.
 | Phone app | Components (Jest + React Native Testing Library) | `just mobile-check` |
 | Contracts | Both OpenAPI documents lint clean | `just contracts-check` |
 | Dependencies | Known vulnerabilities in every lockfile and the pom | `just audit` |
+| Development stack | The checker's own rules; then the Compose file publishes only on `127.0.0.1`, gives each service only its own secrets and hardens every service; the whole stack starts healthy with no main process as root; `migrate`, the roles, #250's server settings, the JVM zone and the web app's proxy check out | `just infra-check` |
 
 Test names follow Given/When/Then. CI runs every row above, on every push and on every pull
 request into `dev` and `main`; any red job fails the run. Browser end-to-end tests (`tests/e2e`)

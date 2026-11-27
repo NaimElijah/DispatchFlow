@@ -743,6 +743,7 @@ Rules are grouped by subject.
 | <a id="nfr-188"></a>NFR-188 | An open event stream ends when its access token expires or its user's sessions are revoked, and the web app reconnects with a fresh token. Priority: Must. |  |  |
 | <a id="nfr-267"></a>NFR-267 | An open event stream re-checks its session at each heartbeat, every 15 seconds, and closes once the session is revoked, which is how [NFR-188] (event stream ends with its token or session) holds for revocation. Priority: Must. |  |  |
 | <a id="nfr-03"></a>NFR-03 | Secrets (provider API keys, token-signing keys, database credentials, the email sender's and the push service's credentials) come from the environment or a secret manager, never from the repository, logs or error messages. |  |  |
+| <a id="nfr-286"></a>NFR-286 | The core connects to the database with an account that reaches only the data its features use and can't change the schema, and refuses to start with any other. ([ADR-145]: the migrate step as the owner, the core as app) Priority: Must. |  | `DatabaseRolesIT`, `DatabaseSessionGuardIT` |
 | <a id="nfr-228"></a>NFR-228 | When a team member leaves, their server access is removed that day and every secret they held is rotated. |  |  |
 | <a id="nfr-22"></a>NFR-22 | A signed-in user stays signed in through refresh tokens. Each is exchanged once, for a new access token and the session's next refresh token. |  |  |
 | <a id="nfr-87"></a>NFR-87 | A refresh token lasts 14 days by default from its issue. |  |  |
@@ -944,7 +945,7 @@ protocol).
 | <a id="nfr-132"></a>NFR-132 | The phone app runs on iOS and Android, from one codebase, and serves Admins, Dispatchers and Drivers. |  |  |
 | <a id="nfr-186"></a>NFR-186 | The phone app reaches the pilot's phones through TestFlight and Google Play internal testing, on the company's developer accounts. ([Q-48]: app store review, [ADR-028](../ADRs/ADR-028-driver-app-through-test-tracks-with-a-device-checklist.md): phone app through test tracks) Priority: Must. |  |  |
 | <a id="nfr-255"></a>NFR-255 | In a staged pilot ([FR-407]: staged pilot), the team's own Apple and Google developer accounts take the place of the company's for [NFR-186] (app distribution through test tracks). ([ADR-080]: team accounts stand in when there is no company) Priority: Must. |  |  |
-| <a id="nfr-16"></a>NFR-16 | Every server-side component starts with one Docker Compose command. |  |  |
+| <a id="nfr-16"></a>NFR-16 | Every server-side component starts with one Docker Compose command. |  | `just infra-check` (`infra/deploy/check_dev_stack.py`), on Linux in CI |
 | <a id="nfr-208"></a>NFR-208 | The server side's linux/amd64 container images start with one command ([NFR-16]: one-command Docker Compose start) and pass their health checks on Linux in CI, and on Windows and macOS through Docker Desktop, checked by hand before each pilot build. Priority: Must. |  | `just infra-check` (`infra/deploy/check_dev_stack.py`), on Linux in CI |
 | <a id="nfr-133"></a>NFR-133 | CI builds and tests every change. |  |  |
 | <a id="nfr-44"></a>NFR-44 | The server states the oldest supported version of the phone app, which is the previous one. ([ADR-082]: supported phone app versions) |  |  |
@@ -1780,3 +1781,4 @@ DispatchFlow deliberately does not:
 [ADR-105]: ../ADRs/ADR-105-a-re-optimizations-problem-carries-its-conventions-and-only-a-vehicle-that-is-out-has-no-driver.md
 [ADR-116]: ../ADRs/ADR-116-only-an-admin-changes-their-own-email.md
 [ADR-126]: ../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md
+[ADR-145]: ../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md

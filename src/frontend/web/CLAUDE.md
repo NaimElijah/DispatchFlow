@@ -35,7 +35,7 @@ React 19, TypeScript 6.0, Vite 8, pnpm; TanStack Router and Query, Mantine 9, i1
   context, and `shellRoute`'s `beforeLoad` guards every page ([ADR-144]).
 - The app calls the core on its own origin, through `vite.config.ts`'s `/api/` proxy. Never turn on
   `changeOrigin`, rewrite `Host` or `Sec-Fetch-Site`, or turn `server.cors` back on: the stand-in
-  signs in only what the browser sent (ADR-148). `just infra-check` proves all three (ADR-151).
+  signs in only what the browser sent (ADR-148). `just infra-check` proves all three (ADR-152).
 - Writing HTML into the page fails ESLint, `dangerouslySetInnerHTML` and `innerHTML` included:
   translations are not HTML-escaped. Render text as text, or markup through `Trans`.
 - **No `<style>` element** (`setup.ts` fails the test that adds one; ADR-069's policy refuses it):
