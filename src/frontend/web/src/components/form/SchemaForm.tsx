@@ -142,6 +142,7 @@ export function SchemaForm<TValues extends FieldValues, TParsed>({
           {failure !== undefined && (
             <ProblemMessage
               ref={summary}
+              operation="write"
               failure={failure}
               items={plan?.items}
               onField={plan?.onField}
