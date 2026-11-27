@@ -1,0 +1,237 @@
+# The development stack on one laptop (ADR-042, as ADR-151 amends it): PostgreSQL, the one-shot
+# migrate step, the core, the optimizer and the web app's dev server, each with a health check.
+#
+#   cp infra/deploy/.env.example infra/deploy/.env    # then fill in its three passwords
+#   docker compose -f infra/deploy/compose.dev.yaml up --build --watch
+#
+# --watch is Compose Watch: an edit under the web app, the shared web packages or the optimizer's
+# src/ is copied into its container, where Vite and uvicorn reload it, and a changed lockfile
+# rebuilds that image. A change to the core needs `up --build` again. The web app is on
+# http://localhost:5173, and proxies /api/ to the core on its own origin (ADR-148).
+#
+# Rules for every service here, those still to come included:
+# - Every published port binds 127.0.0.1, written as 127.0.0.1:<host port>:<container port>: the
+#   stand-in session must answer nobody off the laptop (ADR-140 decision 4). `just infra-check`
+#   fails on any other.
+# - Images stay on tags until January, then on digests (ADR-046), and run as non-root (ADR-019).
+# - Passwords come only from infra/deploy/.env, which git ignores (NFR-03), and each service gets
+#   only its own: the core never sees the owner's (ADR-041, ADR-145).
+# - An issue that adds a setting the core can't start without adds it, in the same pull request, to
+#   the core service here, to infra/deploy/.env.example and to src/backend/core/.env.example. A
+#   setting that is no secret gets its value here, as ${KEY:-value}, so a .env with only its
+#   passwords filled starts the stack; a secret gets no default.
+#
+# Still to join: osrm (#168, 5000), tiles (#152, 8090) and wiremock (#165, 8089), from ADR-042's
+# table, and Mailpit with the first ticket that sends an email.
+
+name: dispatchflow
+
+x-logging: &logging
+  # Docker keeps a container's log without limit by default.
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+# The services built from our own images hold no Linux capability and can't gain one: each runs as
+# the non-root dispatchflow (ADR-019). postgres keeps the image's own, which its entrypoint needs to
+# hand its data folder to the postgres user.
+x-hardening: &hardening
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+
+# The core's image, which both the migrate step and the core run. #161 moves the context to the
+# repository's root, so the build sees contracts/ (ADR-140 decision 2): that is the one line to
+# change, with the Dockerfile's paths.
+x-core-image: &core-image
+  build:
+    context: ../../src/backend/core
+  image: dispatchflow-core:dev
+  logging: *logging
+  <<: *hardening
+
+services:
+  postgres:
+    # TestcontainersConfiguration's tag, so the tests and the stack run the same server.
+    image: postgres:18.6
+    environment:
+      POSTGRES_DB: dispatchflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set it in infra/deploy/.env}
+      # Read by postgres/initdb/create-roles.sql on the first start alone, on an empty volume.
+      DISPATCHFLOW_OWNER_PASSWORD: ${DISPATCHFLOW_OWNER_PASSWORD:?set it in infra/deploy/.env}
+      DISPATCHFLOW_APP_PASSWORD: ${DISPATCHFLOW_APP_PASSWORD:?set it in infra/deploy/.env}
+    # The server log keeps out what the core's own logs leave out (NFR-19), and the messages stay
+    # in English, the text Hibernate reads a violated constraint's name from; the core refuses to
+    # start otherwise (#250, DatabaseSessionGuard).
+    command:
+      - postgres
+      - -c
+      - log_error_verbosity=terse
+      - -c
+      - log_parameter_max_length=0
+      - -c
+      - log_parameter_max_length_on_error=0
+      - -c
+      - lc_messages=C
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - ./postgres/initdb:/docker-entrypoint-initdb.d:ro
+    ports:
+      # A laptop that runs a PostgreSQL of its own on 5432 sets another host port in .env.
+      - 127.0.0.1:${DISPATCHFLOW_POSTGRES_HOST_PORT:-5432}:5432
+    healthcheck:
+      # Over TCP: while the init script runs, the image's temporary server listens on its socket
+      # alone, so a socket check could pass before both roles exist and fail the migrate step.
+      test:
+        - CMD-SHELL
+        - >-
+          pg_isready -q -h 127.0.0.1 -U postgres -d dispatchflow &&
+          [ "$$(psql -h 127.0.0.1 -U postgres -d dispatchflow -tAc
+          "SELECT count(*) FROM pg_catalog.pg_roles WHERE rolname IN ('dispatchflow_owner', 'app')")" = 2 ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+      start_interval: 1s
+    logging: *logging
+
+  # Applies the pending migrations as the owner, then exits; the core starts only after it succeeds
+  # (ADR-041, ADR-145). `migrate` must be the first argument (ADR-146 decision 1).
+  migrate:
+    <<: *core-image
+    command: ["migrate"]
+    restart: "no"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/dispatchflow
+      SPRING_DATASOURCE_USERNAME: dispatchflow_owner
+      SPRING_DATASOURCE_PASSWORD: ${DISPATCHFLOW_OWNER_PASSWORD:?set it in infra/deploy/.env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  core:
+    <<: *core-image
+    environment:
+      # Never DISPATCHFLOW_DEPLOYED or a provider's credential: either stops a dev core (ADR-147).
+      SPRING_PROFILES_ACTIVE: dev
+      # The dev profile listens on 127.0.0.1, which inside a container nothing outside reaches; the
+      # published port below binds 127.0.0.1 on the host instead (ADR-140 decision 4).
+      SERVER_ADDRESS: 0.0.0.0
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/dispatchflow
+      SPRING_DATASOURCE_USERNAME: app
+      SPRING_DATASOURCE_PASSWORD: ${DISPATCHFLOW_APP_PASSWORD:?set it in infra/deploy/.env}
+      # The seeded account the stand-in session acts as, which the dev profile leaves unnamed
+      # (ADR-147): dispatcher, driver or admin.
+      DISPATCHFLOW_STANDIN_ACCOUNT: ${DISPATCHFLOW_STANDIN_ACCOUNT:-dispatcher}
+    ports:
+      - 127.0.0.1:8080:8080
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      # The JRE image has no curl or wget, so bash asks over a socket of its own.
+      test:
+        - CMD
+        - bash
+        - -c
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/8080 &&
+          printf 'GET /actuator/health HTTP/1.0\r\n\r\n' >&3 &&
+          grep -q '"status":"UP"' <&3
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+      start_interval: 2s
+
+  optimizer:
+    <<: *hardening
+    build:
+      context: ../../src/backend/optimizer
+      # The dev stage, whose src/ dispatchflow owns, so Compose Watch can delete and rename in it.
+      target: dev
+    # The image's own command, reloading on a change under src/ alone, not the whole virtualenv.
+    command:
+      - /app/.venv/bin/uvicorn
+      - dispatchflow_optimizer.adapters.inbound.http.app:create_app
+      - --factory
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --reload
+      - --reload-dir
+      - /app/src
+    init: true
+    ports:
+      - 127.0.0.1:8081:8000
+    healthcheck:
+      # The slim image has no curl; urlopen fails on anything but a 2xx answer.
+      test:
+        - CMD
+        - /app/.venv/bin/python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/liveness', timeout=4)"
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+      start_interval: 1s
+    develop:
+      watch:
+        - action: sync
+          path: ../../src/backend/optimizer/src
+          target: /app/src
+          ignore:
+            - "**/__pycache__"
+        - action: rebuild
+          path: ../../src/backend/optimizer/uv.lock
+        - action: rebuild
+          path: ../../src/backend/optimizer/pyproject.toml
+    logging: *logging
+
+  web:
+    <<: *hardening
+    build:
+      context: ../../src/frontend
+      dockerfile: web/Dockerfile.dev
+    environment:
+      # vite.config.ts proxies /api/ here, keeping the browser's Host and Sec-Fetch-Site (ADR-148).
+      DISPATCHFLOW_CORE_URL: http://core:8080
+    init: true
+    ports:
+      - 127.0.0.1:5173:5173
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:5173/').then((answer) => process.exit(answer.ok ? 0 : 1), () => process.exit(1))"
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+      start_interval: 1s
+    develop:
+      watch:
+        - action: sync
+          path: ../../src/frontend/web
+          target: /workspace/web
+          ignore:
+            - node_modules
+            - dist
+        - action: sync
+          path: ../../src/frontend/packages
+          target: /workspace/packages
+          ignore:
+            - "**/node_modules"
+        - action: rebuild
+          path: ../../src/frontend/pnpm-lock.yaml
+        - action: rebuild
+          path: ../../src/frontend/pnpm-workspace.yaml
+    logging: *logging
+
+volumes:
+  postgres-data:

@@ -1,6 +1,6 @@
 # ADR-146: The jar takes only options but for its command, and the roles' guards cover every object and log
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-151
 - **Date:** 2026-11-26
 
 ## Context

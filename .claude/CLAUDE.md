@@ -71,7 +71,7 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 - `just check`: everything CI checks. Run it before every push.
 - `just format`: reformat every component.
 - `just <component>-check`: one component's checks (`core`, `optimizer`, `research`, `web`,
-  `mobile`, `contracts`).
+  `mobile`, `contracts`, `infra`).
 - `just <component>-run`: start `core`, `optimizer`, `web` or `mobile`.
 
 ## How we work

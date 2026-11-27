@@ -141,6 +141,11 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+				<!-- `just core-run` runs in the tests' zone too, as the core's image does, so a bug around a
+				     clock change shows the same under it as in the stack and the tests (ADR-088, ADR-151). -->
+				<configuration>
+					<jvmArguments>-Duser.timezone=Asia/Jerusalem</jvmArguments>
+				</configuration>
 			</plugin>
 			<!-- Surefire runs *Test classes; Failsafe runs *IT classes, the ones that need Docker. -->
 			<plugin>

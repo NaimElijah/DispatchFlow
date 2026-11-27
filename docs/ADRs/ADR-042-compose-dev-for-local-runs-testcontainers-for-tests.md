@@ -1,6 +1,6 @@
 # ADR-042: Local runs start their services from `compose.dev.yaml`; tests keep Testcontainers
 
-- **Status:** Accepted; amended by ADR-123 and ADR-139
+- **Status:** Accepted; amended by ADR-123, ADR-139 and ADR-151
 - **Date:** 2026-11-13
 
 ## Context

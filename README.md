@@ -48,7 +48,7 @@ This README is ordered for contributors, so Quick start comes before Architectur
 | Node.js | 24 LTS (`.nvmrc`) | both frontends, contract lint |
 | pnpm | 12.23.0 (`packageManager` in `src/frontend/package.json`) | the web app and the shared packages |
 | uv | 0.12+ | both Python projects; installs Python 3.14 (`.python-version`) by itself |
-| Docker | running daemon | core's integration tests, `just core-run`, `just audit` |
+| Docker | Docker Desktop on Windows and macOS; on Linux, Engine 28.3.3 or later, whose fix keeps a port published on `127.0.0.1` off the network after a firewalld reload (CVE-2025-54388) | core's integration tests, `just core-run`, `just audit`, `just infra-check`, the whole stack |
 | just | 1.59 | every command below |
 
 Point `JAVA_HOME`, and your IDE's Java SDK, at that JDK 25: the core does not build on an older one.
@@ -88,6 +88,31 @@ Success looks like this:
 curl http://localhost:8080/actuator/health   # {"groups":["liveness","readiness"],"status":"UP"}
 curl http://localhost:8000/health/liveness   # {"status":"UP"}
 ```
+
+Or start the whole stack, each service in its container, every port on `127.0.0.1`
+([ADR-151](docs/ADRs/ADR-151-the-dev-stack-runs-the-core-as-a-compose-service-and-the-core-checks-its-database-session.md)):
+
+```bash
+cp infra/deploy/.env.example infra/deploy/.env    # then fill in its three passwords
+docker compose -f infra/deploy/compose.dev.yaml up --build --watch
+```
+
+The web app is on http://localhost:5173, and proxies `/api/` to the core on 127.0.0.1:8080; the
+optimizer is on 127.0.0.1:8081, and PostgreSQL on 127.0.0.1:5432. A laptop that runs a PostgreSQL
+of its own on 5432 sets `DISPATCHFLOW_POSTGRES_HOST_PORT` in that `.env`. `--watch` copies an
+edit to the web app or the optimizer into its container, which reloads it; a change to the core
+needs `--build` again. `docker compose -f infra/deploy/compose.dev.yaml down` stops it, and
+`--volumes` also deletes its database. Checked with Docker 29.9.3 and Compose v5.7.1.
+
+```bash
+curl http://localhost:8080/actuator/health   # the stack's core: {"groups":["liveness","readiness"],"status":"UP"}
+curl http://localhost:8081/health/liveness   # the stack's optimizer: {"status":"UP"}
+```
+
+The stack and `just core-run` or `just web-run` share ports 8080 and 5173, so run one or the other.
+To debug the core in the IDE, stop the stack's two with
+`docker compose -f infra/deploy/compose.dev.yaml stop core web`, then run `TestDispatchFlowApplication`
+(what `just core-run` starts) and `just web-run` on the laptop.
 
 > [!NOTE]
 > The first `just core-check` or `just core-run` pulls the PostgreSQL 18.6 image, which can take a
@@ -239,7 +264,8 @@ commit, never a squash.
 
 The components are `core`, `optimizer`, `research`, `web` and `mobile`. `just` lists every
 recipe; `just check` and `just format` run them all. The `web` recipes run from the pnpm
-workspace in `src/frontend`, so they also set up and check the shared packages.
+workspace in `src/frontend`, so they also set up and check the shared packages. `just infra-check`
+and `just infra-format` cover the development stack in `infra/deploy`.
 
 **Adding a feature end to end:** start from the requirement it delivers in
 [requirements.md](docs/requirements/requirements.md), the aggregate that owns its rule in the
@@ -321,8 +347,9 @@ never waits on research. Cost: the research solver must earn its place in measur
 **One command runner, one workflow** ([ADR-009](docs/ADRs/ADR-009-just-as-the-single-entry-point.md),
 [ADR-015](docs/ADRs/ADR-015-ci-one-workflow-one-job-per-component.md)): CI calls the same `just`
 recipes developers run, and jobs are never skipped by path filters, so a required check never
-hangs. All seven jobs are required checks on `dev` and `main`
-([ADR-135](docs/ADRs/ADR-135-the-seven-ci-jobs-are-required-checks-and-a-pull-request-needs-one-approval.md)).
+hangs. All eight jobs are required checks on `dev` and `main`
+([ADR-135](docs/ADRs/ADR-135-the-seven-ci-jobs-are-required-checks-and-a-pull-request-needs-one-approval.md),
+[ADR-151](docs/ADRs/ADR-151-the-dev-stack-runs-the-core-as-a-compose-service-and-the-core-checks-its-database-session.md)).
 Cost: every contributor installs `just`, and CI builds every component on every push.
 
 The other decisions, including the repository layout, the two clients and the tooling, are in
@@ -339,7 +366,8 @@ ADR-124 what a `CLAUDE.md` holds, and ADR-125 when a folder splits into subfolde
 ## Status and limitations
 
 **Pre-alpha.** Shipped: a skeleton for each of the five components, with its build, formatter,
-linter, tests and CI job; the two contracts; and the optimizer's and the core backend's health probes.
+linter, tests and CI job; the two contracts; the optimizer's and the core backend's health probes; and
+the Compose development stack, which `just infra-check` checks.
 The domain layer is being built ahead of its milestones: the core's shared kernel with its purity
 rules, the domains of `access`, `audit`, `fleet`, `liveops`, `messaging`, `orders`, `planning` and
 `reporting`, the core's persistence (Flyway migrations, mapped aggregates and a PostgreSQL adapter
@@ -355,8 +383,6 @@ definition and demo script of the Alpha (M0 to M5).
 Known limitations:
 
 - Nothing is deployed; there is no staging or production environment yet.
-- `docker compose` is not set up; each component runs on its own. `compose.dev.yaml` is part of
-  the M0 walking skeleton (ADR-042, Accepted).
 - Four vulnerabilities in the phone app's build, lint and test tooling are ignored by the audit
   until 2027-01-31. All four were accepted: minimatch and glob in ADR-023, zod and deepmerge
   in ADR-095. The reasons are in `src/frontend/mobile/osv-scanner.toml`
@@ -368,7 +394,7 @@ Known limitations:
 
 Work starts from an issue on the [board](https://github.com/users/NaimElijah/projects/9). Use the
 issue templates (feature, bug, spike) and the pull request template. Run `just check` before you
-push. A pull request into `dev` or `main` merges once all seven CI checks pass and one other person
+push. A pull request into `dev` or `main` merges once all eight CI checks pass and one other person
 approves it; a push after the approval, a merge of `dev` included, needs a new one. An Admin can
 merge past both
 ([ADR-135](docs/ADRs/ADR-135-the-seven-ci-jobs-are-required-checks-and-a-pull-request-needs-one-approval.md)).

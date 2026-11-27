@@ -21,8 +21,26 @@ const CONTENT_SECURITY_POLICY = [
 /** Font files, which must stay files: the policy's `font-src` falls back to `'self'`, not `data:`. */
 const FONT_FILE = /\.(woff2?|ttf|otf)$/
 
+/**
+ * The core, which the dev server proxies `/api/` to, so the web app calls it on its own origin:
+ * the core has no CORS configuration, and the stand-in session signs in only a request whose
+ * `Host` is loopback and whose `Sec-Fetch-Site` is absent, `same-origin` or `none` (ADR-147,
+ * ADR-148). The proxy forwards both headers as the browser sent them, because `changeOrigin` stays
+ * off. `just core-run`'s core listens on this default; the Compose web container sets the `core`
+ * service's address instead (ADR-151). An empty value counts as unset.
+ */
+const CORE_URL = process.env.DISPATCHFLOW_CORE_URL || 'http://127.0.0.1:8080'
+
 export default defineConfig({
   plugins: [react()],
+  server: {
+    // Vite's own default answers CORS for any localhost origin, so a page on another local port
+    // could read the proxied core's answers. The app calls only its own origin, so it needs none.
+    cors: false,
+    proxy: {
+      '/api/': { target: CORE_URL },
+    },
+  },
   build: {
     // Vite would inline a file under 4 KB as a data: URI, and the browser would refuse it as a
     // font. No Heebo subset is that small today (the smallest is 12 KB); this keeps it so.
