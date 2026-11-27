@@ -2,7 +2,9 @@
 -- /docker-entrypoint-initdb.d once, through psql as its superuser, and only while the data folder is
 -- empty: a database that already exists keeps the roles it has, so a change here reaches it only
 -- after `just db-reset` (#172). A run that stops leaves the data folder made but the roles missing,
--- and the next start skips this file, so remove the data folder before starting again. Outside the
+-- and the next start skips this file, so remove the data folder before starting again. The roles and
+-- their grants are made in one transaction, so such a run leaves all of them or none, and the
+-- compose.dev.yaml health check that counts both roles proves the file ran to its end. Outside the
 -- image, run it once as a superuser connected to the core's database, which DBNAME names below.
 -- Roles live outside every schema, so no migration can create them. The integration tests run this
 -- same folder in their containers (DatabaseRoles).
@@ -60,6 +62,8 @@ DO $$ BEGIN RAISE EXCEPTION 'DISPATCHFLOW_APP_PASSWORD is not set'; END $$;
 DO $$ BEGIN RAISE EXCEPTION 'DISPATCHFLOW_OWNER_PASSWORD and DISPATCHFLOW_APP_PASSWORD must differ'; END $$;
 \endif
 
+BEGIN;
+
 -- The migrate step runs Flyway as this role, so it owns every schema and table the migrations create.
 -- The attributes are PostgreSQL's defaults, spelled out because neither role may ever pass them.
 CREATE ROLE dispatchflow_owner LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS
@@ -85,3 +89,5 @@ GRANT CREATE ON SCHEMA public TO dispatchflow_owner;
 -- constraint, an index expression, a rule or a function a view calls, still runs with the
 -- superuser's rights when the superuser writes or reads them (ADR-146).
 ALTER ROLE CURRENT_USER IN DATABASE :"DBNAME" SET search_path = pg_catalog, pg_temp;
+
+COMMIT;

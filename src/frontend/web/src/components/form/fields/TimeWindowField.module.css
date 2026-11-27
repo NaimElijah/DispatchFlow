@@ -1,0 +1,6 @@
+/* The two ends side by side, wrapping onto two lines on a narrow screen. */
+.ends {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mantine-spacing-md);
+}

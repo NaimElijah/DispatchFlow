@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { formatPlanDate, isPlanDate, tomorrowInIsrael, type PlanDate } from './planDate.ts'
+import { isPlanDate, tomorrowInIsrael } from './planDate.ts'
 
 describe('tomorrowInIsrael', () => {
   test('GivenMiddayInIsrael_WhenTomorrowIsAsked_ThenItIsTheNextDay', () => {
@@ -53,8 +53,4 @@ describe('isPlanDate', () => {
       expect(isPlanDate(text), text).toBe(false)
     }
   })
-})
-
-test('GivenAPlanDate_WhenFormatted_ThenItIsDayMonthYear', () => {
-  expect(formatPlanDate('2026-03-07' as PlanDate)).toBe('07/03/2026')
 })

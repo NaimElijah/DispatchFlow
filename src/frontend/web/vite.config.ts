@@ -1,4 +1,6 @@
+import { fileURLToPath } from 'node:url'
 import react from '@vitejs/plugin-react'
+import { searchForWorkspaceRoot } from 'vite'
 import { defineConfig } from 'vitest/config'
 
 /**
@@ -25,9 +27,10 @@ const FONT_FILE = /\.(woff2?|ttf|otf)$/
  * The core, which the dev server proxies `/api/` to, so the web app calls it on its own origin:
  * the core has no CORS configuration, and the stand-in session signs in only a request whose
  * `Host` is loopback and whose `Sec-Fetch-Site` is absent, `same-origin` or `none` (ADR-147,
- * ADR-148). The proxy forwards both headers as the browser sent them, because `changeOrigin` stays
- * off. `just core-run`'s core listens on this default; the Compose web container sets the `core`
- * service's address instead (ADR-151). An empty value counts as unset.
+ * ADR-148). The proxy forwards the browser's headers unchanged, `Sec-Fetch-Site` among them, and
+ * keeps its `Host` because `changeOrigin` stays off. `just core-run`'s core listens on this default;
+ * the Compose web container sets the `core` service's address instead (ADR-151). An empty value
+ * counts as unset.
  */
 const CORE_URL = process.env.DISPATCHFLOW_CORE_URL || 'http://127.0.0.1:8080'
 
@@ -41,13 +44,27 @@ const CORE_URL = process.env.DISPATCHFLOW_CORE_URL || 'http://127.0.0.1:8080'
 const TILES_URL = process.env.DISPATCHFLOW_TILES_URL || 'http://127.0.0.1:8090'
 const MAP_PREFIX = /^\/map/
 
+/**
+ * What Vitest, and only Vitest, may read beyond Vite's default, the pnpm workspace: the client API's
+ * contract, which `src/lib/problems.contract.test.ts` reads until #148 generates the problem types
+ * from it. The dev server keeps Vite's default, so it serves nothing new (ADR-153).
+ */
+const READABLE_ROOTS = process.env.VITEST
+  ? [
+      searchForWorkspaceRoot(process.cwd()),
+      fileURLToPath(new URL('../../../contracts/client-api/v1/', import.meta.url)),
+    ]
+  : undefined
+
 export default defineConfig({
   plugins: [react()],
   server: {
     // Vite's own default answers CORS for any localhost origin, so a page on another local port
     // could read the proxied core's answers. The app calls only its own origin, so it needs none.
     cors: false,
+    fs: { allow: READABLE_ROOTS },
     proxy: {
+      // An object, never the string shorthand `'/api/': CORE_URL`, which turns `changeOrigin` on.
       '/api/': { target: CORE_URL },
       '/map/': { target: TILES_URL, rewrite: (path) => path.replace(MAP_PREFIX, '') },
     },

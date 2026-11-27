@@ -1,3 +1,4 @@
+import { notifications, notificationsStore } from '@mantine/notifications'
 import { render } from '@testing-library/react'
 import { http, HttpResponse } from 'msw/http'
 import { createElement, useEffect } from 'react'
@@ -80,6 +81,15 @@ test('GivenAnOverride_WhenItsTestEnds_ThenSetupDropsItBeforeTheNextTest', () => 
   onTestFinished(async () => {
     expect(await rejectionOf('/api/v1/override')).toMatchObject(refusedByMsw)
     expect(takeUnhandledRequests()).toEqual(['GET /api/v1/override'])
+  })
+})
+
+test('GivenANotificationShown_WhenItsTestEnds_ThenSetupClearsItBeforeTheNextTest', () => {
+  notifications.show({ message: 'Shown by this test' })
+
+  onTestFinished(() => {
+    expect(notificationsStore.getState().notifications).toEqual([])
+    expect(notificationsStore.getState().queue).toEqual([])
   })
 })
 

@@ -1,4 +1,6 @@
 import '@mantine/core/styles.css'
+import '@mantine/dates/styles.css'
+import '@mantine/notifications/styles.css'
 import '@fontsource-variable/heebo'
 import './styles/theme.css'
 import { QueryClient } from '@tanstack/react-query'

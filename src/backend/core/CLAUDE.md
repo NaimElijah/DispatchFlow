@@ -21,7 +21,7 @@ only client (`contracts/optimization-api/v1`): Java 25, Spring Boot 4.1, JPA, Fl
   `spi` and `events` package stay flat; new packages are `@NullMarked`. `DomainPackageRules` and
   `ApplicationRules` check cycles, root imports, `@NullMarked` and flatness.
 - `src/test/java/com/dispatchflow/` holds the tests, `TestDispatchFlowApplication` (`just core-run`)
-  and `TestcontainersConfiguration`: PostgreSQL 18.6, with `db/fixture`'s `V0_*` test migrations.
+  and `TestcontainersConfiguration`: PostgreSQL 18.7, with `db/fixture`'s `V0_*` test migrations.
 
 ## Rules
 
@@ -120,8 +120,7 @@ only client (`contracts/optimization-api/v1`): Java 25, Spring Boot 4.1, JPA, Fl
   `<Port>StandIn`, as `@StandInOnly`'s Javadoc says, never `@Profile`. Sign-in keeps the
   guard; #199 refuses a token lifetime but 15 minutes unless `dev` is alone ([ADR-140]). Only
   `e2e` has its endpoints, and refuses a deployed environment (NFR-206). Test each refusal.
-- No Lombok: records and plain classes. Configuration comes from environment variables; one the core
-  can't start without also joins Compose's `core` and both `.env.example` files (ADR-151).
+- No Lombok. Settings come from the environment, by the rule atop `infra/deploy/compose.dev.yaml`.
 - Persistence is JPA ([ADR-126], [ADR-127], [TS §6.3]): a port's `@Component` works over a
   package-private Spring Data `Repository<Root, UUID>` with `save` and its queries, never
   `@Repository`, whose exception translation rewraps a port's `IllegalArgumentException`. Native SQL
@@ -165,7 +164,7 @@ Run `just` recipes from the repository root, and `mvnw` from this folder (`.\mvn
 | `./mvnw -Dtest=FooTest test` | One unit test class |
 | `./mvnw -Dit.test=FooIT verify` | One integration test class, after the unit tests and the format check |
 
-- Spotless checks in `validate`, so any build fails on an unformatted file. Run `just core-format`.
+- Spotless checks in `validate`, failing every build but the image's. Run `just core-format`.
 - Keep `mvnw` executable in git (`git add --chmod=+x mvnw`), or CI fails with "permission denied".
 
 [ADR-040]: ../../../docs/ADRs/ADR-040-core-is-a-spring-modulith-monolith-with-one-module-per-context.md

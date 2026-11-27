@@ -1,0 +1,29 @@
+{
+  "name": "@dispatchflow/schemas",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@dispatchflow/formatters": "workspace:*",
+    "libphonenumber-js": "1.13.17",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@dispatchflow/eslint-config": "workspace:*",
+    "@dispatchflow/tsconfig": "workspace:*",
+    "eslint": "10.15.0",
+    "prettier": "3.10.1",
+    "typescript": "6.0.3",
+    "vitest": "5.1.0"
+  }
+}

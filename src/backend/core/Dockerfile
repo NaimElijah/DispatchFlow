@@ -1,17 +1,28 @@
 FROM eclipse-temurin:25-jdk-noble AS build
 WORKDIR /build
+# Without unzip, the Maven wrapper fetches the .tar.gz, not the zip whose SHA-256 it pins, which
+# Windows, macOS, CI and a Linux machine with unzip fetch (ADR-152). apt checks the package's
+# signature.
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends unzip \
+    && rm -rf /var/lib/apt/lists/*
 # The build fetches Maven and every dependency through Google's mirror of Maven Central, which the
 # audit already reads (ADR-134): Central answers shared CI runners with HTTP 429 now and then, and
 # CI's infra job builds this image on every push. It failed so on its first run (ADR-151). Only this
-# stage reads the two settings; the image below carries neither.
-ENV MVNW_REPOURL=https://maven-central.storage-download.googleapis.com/maven2
-COPY <<'EOF' /root/.m2/settings.xml
+# stage reads the two settings; the image below carries neither. The mirror stands in for every
+# repository, those a dependency's pom names included, so the build reaches no third-party feed, and
+# the wrapper checks Maven's download against its pinned SHA-256 (ADR-152). The ARG names the
+# mirror once for both settings below. ADR-047's pilot image copies CI's jar instead, and drops
+# this build with them.
+ARG MAVEN_MIRROR=https://maven-central.storage-download.googleapis.com/maven2
+ENV MVNW_REPOURL=${MAVEN_MIRROR}
+COPY <<EOF /root/.m2/settings.xml
 <settings>
   <mirrors>
     <mirror>
       <id>google-maven-central</id>
-      <mirrorOf>central</mirrorOf>
-      <url>https://maven-central.storage-download.googleapis.com/maven2</url>
+      <mirrorOf>*</mirrorOf>
+      <url>${MAVEN_MIRROR}</url>
     </mirror>
   </mirrors>
 </settings>
@@ -20,8 +31,9 @@ COPY .mvn/ .mvn/
 COPY mvnw pom.xml ./
 RUN ./mvnw -B -ntp dependency:go-offline
 COPY src/ src/
-# Tests run in CI, where Docker is available for the integration tests; the image only packages.
-RUN ./mvnw -B -ntp package -DskipTests
+# Tests and the formatting check run in CI, where Docker is available for the integration tests; the
+# image only packages, so an unformatted file never stops the dev stack from starting.
+RUN ./mvnw -B -ntp package -DskipTests -Dspotless.check.skip=true
 
 FROM eclipse-temurin:25-jre-noble
 WORKDIR /app

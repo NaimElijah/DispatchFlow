@@ -7,6 +7,8 @@ const APP_MODULES = [
   'main',
   'App',
   'AppErrorBoundary',
+  'AppProviders',
+  'DatesLanguage',
   'DocumentLanguage',
   'i18n',
   'router',
@@ -25,6 +27,15 @@ const toAppModules = {
   regex: `^(\\.\\./)+(${APP_MODULES.join('|')})(\\.tsx?)?$`,
   message:
     'Only src/ itself, the router and the tests assemble the app: import what you need from below, not from src/ (ADR-143, ADR-144).',
+}
+
+/** The one file that loads Day.js's Hebrew names, for Mantine's date pickers (ADR-153). */
+const DAYJS_LOCALE_FILE = 'src/DatesLanguage.tsx'
+
+const toDayjs = {
+  regex: '^dayjs(/|$)',
+  message:
+    "Day.js is only @mantine/dates' own helper: show a date through @dispatchflow/formatters and Intl, and do its arithmetic with date-fns (TS §10, ADR-153).",
 }
 
 const toTestCode = {
@@ -50,9 +61,14 @@ function toFolders(folders) {
  *
  * @param {string[]} files the files the patterns apply to
  * @param {object[]} patterns `no-restricted-imports` patterns; a later block replaces, not merges
+ * @param {string[]} [ignores] files among them the patterns spare, beside the tests
  */
-function restrict(files, patterns) {
-  return { files, ignores: TEST_FILES, rules: { 'no-restricted-imports': ['error', { patterns }] } }
+function restrict(files, patterns, ignores = []) {
+  return {
+    files,
+    ignores: [...TEST_FILES, ...ignores],
+    rules: { 'no-restricted-imports': ['error', { patterns }] },
+  }
 }
 
 export default defineConfig([
@@ -61,13 +77,19 @@ export default defineConfig([
   ...FEATURES.map((feature) =>
     restrict(
       [`src/features/${feature}/**`],
-      [toAppModules, toTestCode, toFolders(FEATURES.filter((other) => other !== feature))],
+      [toAppModules, toTestCode, toDayjs, toFolders(FEATURES.filter((other) => other !== feature))],
     ),
   ),
-  restrict(['src/routes/**'], [toAppModules, toTestCode, toFolders(['features'])]),
-  restrict(['src/components/**'], [toAppModules, toTestCode, toFolders(['features', 'routes'])]),
+  restrict(['src/routes/**'], [toAppModules, toTestCode, toDayjs, toFolders(['features'])]),
+  restrict(
+    ['src/components/**'],
+    [toAppModules, toTestCode, toDayjs, toFolders(['features', 'routes'])],
+  ),
   restrict(
     ['src/lib/**'],
-    [toAppModules, toTestCode, toFolders(['features', 'routes', 'components'])],
+    [toAppModules, toTestCode, toDayjs, toFolders(['features', 'routes', 'components'])],
   ),
+  restrict(['src/*.{ts,tsx}'], [toDayjs], [DAYJS_LOCALE_FILE]),
+  // The tests' own helpers, which no other block covers; the test files themselves stay free.
+  restrict(['src/test/**'], [toDayjs]),
 ])

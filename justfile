@@ -11,10 +11,11 @@ osv_scanner_image := "ghcr.io/google/osv-scanner:v2.7.0@sha256:4f3b7e2c64b9d38a5
 # answers shared CI runners with HTTP 429 now and then, and a parent the scan can't load fails the
 # audit (ADR-134).
 maven_mirror := "https://maven-central.storage-download.googleapis.com/maven2"
-# The checker of the development stack is the one Python file outside the two Python projects, so
-# it gets their tools at the versions src/backend/optimizer/uv.lock pins.
-ruff := "uvx --from ruff==0.17.5 ruff"
-mypy := "uvx --python 3.14 --from mypy==2.4.1 mypy"
+# The checker of the development stack lives outside the two Python projects, so it borrows the
+# optimizer's ruff, mypy and pytest from its lockfile's dev group, hashes and every dependency
+# pinned, and Dependabot's bumps of that lockfile reach it too (ADR-152). --only-dev installs
+# neither the optimizer nor its own dependencies.
+infra_tools := "uv run --project src/backend/optimizer --locked --only-dev"
 # The map's files, which `just data` builds (#152). Protomaps keeps a daily build for a week but the
 # last build of each basemap version for good (https://build-metadata.protomaps.dev/builds.json),
 # so the pin names the newest such build, 4.15.1's, and moves only when a newer version's last build
@@ -178,18 +179,19 @@ contracts-check:
 
 # --- infra: the development stack, infra/deploy/compose.dev.yaml ---
 
-# Format check, lint and strict type check of the checker; then check that the stack's file publishes
-# every port on 127.0.0.1 and gives each service only its own passwords, and start the whole stack
-# in a throwaway project with no port on the host, check it, and remove it. Needs Docker.
+# Format check, lint, strict type check and tests of the checker; then check that the stack's file
+# publishes every port on 127.0.0.1 and gives each service only its own secrets, and start the whole
+# stack in a throwaway project with no port on the host, check it, and remove it. Needs Docker.
 infra-check:
-    {{ ruff }} format --check infra/deploy
-    {{ ruff }} check infra/deploy
-    {{ mypy }} --strict infra/deploy/check_dev_stack.py
+    {{ infra_tools }} ruff format --check infra/deploy
+    {{ infra_tools }} ruff check infra/deploy
+    {{ infra_tools }} mypy --strict infra/deploy
+    {{ infra_tools }} pytest -q infra/deploy
     uv run --no-project --python 3.14 infra/deploy/check_dev_stack.py --live
 
 infra-format:
-    {{ ruff }} format infra/deploy
-    {{ ruff }} check --fix infra/deploy
+    {{ infra_tools }} ruff format infra/deploy
+    {{ infra_tools }} ruff check --fix infra/deploy
 
 # --- data: the files the development stack serves, in data/, which git ignores ---
 

@@ -25,6 +25,12 @@ test.each([
   ['src/components/map/BaseMap.tsx', '../../features/planning/planDate.ts'],
   ['src/lib/languageSetting.ts', '../components/TextLink.tsx'],
   ['src/lib/languageSetting.ts', '../i18n.ts'],
+  ['src/components/form/fields/DateField.tsx', '../../../AppProviders.tsx'],
+  ['src/features/planning/PlanPage.tsx', 'dayjs'],
+  ['src/components/form/fields/DateField.tsx', 'dayjs/locale/he'],
+  ['src/lib/versionedSave.ts', 'dayjs'],
+  ['src/AppProviders.tsx', 'dayjs'],
+  ['src/test/ExampleForm.tsx', 'dayjs'],
 ])(
   'GivenAFileAt_%s_WhenItImports_%s_ThenLintRefusesTheImport',
   async (filePath, specifier) => {
@@ -42,6 +48,8 @@ test.each([
   ['src/routes/NotFoundPage.tsx', '../components/TextLink.tsx'],
   ['src/routes/ErrorPage.test.tsx', '../test/renderApp.tsx'],
   ['src/routeTree.ts', './features/planning/routes.ts'],
+  ['src/DatesLanguage.tsx', 'dayjs/locale/he'],
+  ['src/components/form/fields/DateField.test.tsx', 'dayjs'],
 ])(
   'GivenAFileAt_%s_WhenItImports_%s_ThenLintAllowsTheImport',
   async (filePath, specifier) => {

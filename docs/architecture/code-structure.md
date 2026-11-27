@@ -39,11 +39,11 @@ and ADR-014 are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 | `src/frontend/` | The pnpm workspace's root, over `web/` and `packages/*` ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)): `package.json`, `pnpm-workspace.yaml` and its one lockfile, `pnpm-lock.yaml`; `.prettierrc.json`, Prettier's one file for the web app and the packages ([ADR-141](../ADRs/ADR-141-prettiers-settings-live-in-one-file-in-src-frontend.md)); and `.dockerignore`, for the web app's dev image |
 | `src/frontend/web/` | The web app, for every role: React, TypeScript, Vite, pnpm |
 | `src/frontend/mobile/` | The phone app, for every role: React Native, Expo SDK 58, TypeScript |
-| `src/frontend/packages/` | The shared TypeScript packages ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)): `eslint-config`, `tsconfig` and `i18n` are workspace packages, and four placeholder folders have no `package.json` yet |
+| `src/frontend/packages/` | The shared TypeScript packages ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)): `eslint-config`, `tsconfig`, `i18n`, `formatters` and `schemas` are workspace packages, and two placeholder folders have no `package.json` yet |
 | `src/research/` | Benchmarks, simulation and the order generator: Python, uv. Never deployed |
 | `contracts/` | `client-api/v1` and `optimization-api/v1` (OpenAPI), and the Redocly lint setup |
 | `tests/` | Tests that span components: `e2e/` and `load/`. Both are placeholders |
-| `infra/` | `osrm/`, `deploy/` and `terraform/`. `deploy/compose.dev.yaml` runs the development stack, and `deploy/check_dev_stack.py`, with its `ruff.toml`, is `just infra-check` ([ADR-151](../ADRs/ADR-151-the-dev-stack-runs-the-core-as-a-compose-service-and-the-core-checks-its-database-session.md)). `deploy/postgres/initdb/create-roles.sql` creates the two database roles in a new PostgreSQL, and `deploy/.env.example` lists the keys Compose reads ([ADR-145](../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md)); `deploy/tiles/Caddyfile` configures the stack's `tiles` service; `osrm/beer-sheva.geojson` is the Be'er Sheva boundary that cuts the map's tiles (`just data`) and, later, the road data and the service area; `deploy/backup/` and `deploy/observability/` are placeholders |
+| `infra/` | `osrm/`, `deploy/` and `terraform/`. `deploy/compose.dev.yaml` runs the development stack, and `deploy/check_dev_stack.py`, with its `ruff.toml` and its tests in `deploy/test_check_dev_stack.py`, is `just infra-check` ([ADR-151](../ADRs/ADR-151-the-dev-stack-runs-the-core-as-a-compose-service-and-the-core-checks-its-database-session.md), [ADR-152](../ADRs/ADR-152-the-session-guard-reads-the-real-login-and-accepts-only-untranslated-messages-and-the-stack-check-checks-what-it-claims.md)). `deploy/postgres/initdb/create-roles.sql` creates the two database roles in a new PostgreSQL, and `deploy/.env.example` lists the keys Compose reads ([ADR-145](../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md)); `deploy/tiles/Caddyfile` configures the stack's `tiles` service; `osrm/beer-sheva.geojson` is the Be'er Sheva boundary that cuts the map's tiles (`just data`) and, later, the road data and the service area; `deploy/backup/` and `deploy/observability/` are placeholders |
 | `data/` | The OSM extract, OSRM files, PMTiles and benchmark instances, once built. Git keeps the folder and ignores everything in it |
 | `logs/` | Local log output. Git keeps the folder and ignores everything in it |
 | `docs/` | `CLAUDE.md`, `requirements/` (with `ARD/`), `architecture/` (with `domain_layer/` and `tech_stack.md`), `ADRs/`, `roadmap.md`, `operations/` (with `data-inventory.md`) and `presentations/`; the placeholders are `guides/he/`, `guides/en/`, `research/usability/` and `architecture/generated/` |
@@ -103,8 +103,9 @@ src/backend/core/
                                    next and refuses any other argument that isn't an option (ADR-146)
     MigrateCommand.java            the migrate step: the data source and Flyway alone, run as
                                    dispatchflow_owner before the core starts (ADR-145)
-    DatabaseSessionGuard.java      refuses to start as a superuser, an owner or a member of one,
-                                   or on a server whose messages aren't English (ADR-151)
+    DatabaseSessionGuard.java      refuses to start as a superuser, an owner, a member of any
+                                   role, a login that switched role, or on a server whose
+                                   lc_messages isn't C or POSIX (ADR-151, ADR-152)
     SchedulingConfiguration.java   @EnableAsync always, @EnableScheduling behind
                                    dispatchflow.scheduling.enabled, and the executor's cap
     MdcTaskDecorator.java          copies the caller's MDC to an asynchronous listener's thread
@@ -260,10 +261,12 @@ src/backend/core/
                                          misspelt
     DatabaseRolesIT.java                 the two roles, the migrate command and the grants' guard
     DatabaseSessionGuardIT.java          each session the core refuses to start on, against PostgreSQL;
-                                         DatabaseSessionGuardTest, the messages languages
-    TestDispatchFlowApplication.java     what `just core-run` starts: the dev profile, Flyway on
+                                         DatabaseSessionGuardTest, the messages settings
+    TestDispatchFlowApplication.java     what `just core-run` starts: the dev profile, Flyway on,
+                                         Israel's zone set by its own main
     TestActors.java                      the Actor of any seeded entry, read from the shared list
-    TestcontainersConfiguration.java     the PostgreSQL container with both roles, the core's
+    TestcontainersConfiguration.java     the PostgreSQL container with both roles and the dev
+                                         stack's server settings, the core's
                                          connection as app and the owner's pool, which Flyway runs
                                          on
     DatabaseRoles.java                   the roles' names and a run's passwords, from the init script
@@ -478,7 +481,10 @@ src/frontend/web/
   Dockerfile.dev         the dev server's image for compose.dev.yaml, built from src/frontend
   src/
     main.tsx             reads the language setting, then builds i18next, the query cache and the router
-    App.tsx              the providers: i18next, TanStack Query, Mantine's direction and theme, the router
+    App.tsx              the last error boundary over AppProviders, then the router
+    AppProviders.tsx     the providers the app and the component tests share: i18next, TanStack
+                         Query, Mantine's direction and theme, its notifications, DatesLanguage
+    DatesLanguage.tsx    the date pickers' language and Israel's week; the one file that imports Day.js
     AppErrorBoundary.tsx the last error boundary, around the whole app
     router.ts            createAppRouter, over routeTree.ts
     routeTree.ts         gathers every area's routes under the shell's layout route
@@ -490,11 +496,15 @@ src/frontend/web/
                          route and page, the error page
     features/<context>/  each area's pages and its routes.ts; access/ holds the Settings page,
                          planning/ the /plans and /plans/$date routes and their dates
-    components/          the UI no area owns: NotBuiltPage, TextLink, usePageTitle; map/, the map's
-                         (#174, empty until then)
-    lib/                 the code no layer owns: the language setting
-    test/                Vitest's setup, renderApp, the one MSW server, the <style> check, and the
-                         tests of the lint rules
+    components/          the UI no area owns: NotBuiltPage, TextLink, usePageTitle, ProblemMessage,
+                         DataTable, notifySaved, useLanguage; form/, the form, its save button and
+                         the summary's placing of a refusal, with the fields in form/fields/;
+                         map/, the map's (#174, empty until then)
+    lib/                 the code no layer owns: the language setting, the refusal reader
+                         (problems.ts), the refusal texts (problemText.ts) and the versioned
+                         save (versionedSave.ts)
+    test/                Vitest's setup, renderApp, renderComponent, the one MSW server, the <style>
+                         check, the tests of the lint rules, and the example form
 ```
 
 Imports point one way, from `src/` itself to `features/`, `routes/`, `components/` and `lib/`:
@@ -525,12 +535,15 @@ deepmerge entries in
 are. It has no route folder:
 that comes with `expo-router` at M10 ([ADR-130][ADR-130]).
 
-The two apps share no code. `src/frontend/packages/` holds seven folders. Three are workspace
+The two apps share no code. `src/frontend/packages/` holds seven folders. Five are workspace
 packages that only the web app uses so far: `eslint-config` (`@dispatchflow/eslint-config`, the
 ESLint 10 flat configs), `tsconfig` (`@dispatchflow/tsconfig`, the `base`, `app` and `node`
-presets) and `i18n` (`@dispatchflow/i18n`, the English and Hebrew strings as TypeScript, one
-namespace per area in `src/en/` and `src/he/`; the app compiles its source, and its `build`
-script is its type check). The other four, `api-client`, `schemas`, `map-style` and `formatters`, are
+presets), `i18n` (`@dispatchflow/i18n`, the English and Hebrew strings as TypeScript, one
+namespace per area in `src/en/` and `src/he/`, with `common` for the shared components and
+`problems` for every refusal's text and next step), `formatters` (`@dispatchflow/formatters`,
+dates, times and quantities as Israel reads them) and `schemas` (`@dispatchflow/schemas`, the
+building blocks of every form's Zod schema) ([ADR-153](../ADRs/ADR-153-the-web-apps-shared-form-refusal-and-table-pieces.md)). Each ships its source, which the app
+compiles, and its `build` script is its type check. The other two, `api-client` and `map-style`, are
 placeholders: a folder is not a package until the ticket that first puts code in it adds its
 `package.json` ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md),
 [ADR-130][ADR-130]). `contracts/client-api/v1` declares no operation yet, so neither app has an
@@ -546,7 +559,8 @@ API client.
 | `core`, integration (`*IT`) | `src/backend/core/src/test/java` | Failsafe, with a PostgreSQL container |
 | `optimizer` | `src/backend/optimizer/tests`, mirroring the package path | pytest |
 | `research` | `src/research/tests` | pytest |
-| `web` | next to the code, in `src/` (`App.test.tsx`, `test/setup.test.ts`, and `test/workspace.test.ts`, which checks the workspace's lockfile) | Vitest, in jsdom, with MSW |
+| `web` | next to the code, in `src/` (`App.test.tsx`, `test/setup.test.ts`, and `test/workspace.test.ts`, which checks the workspace's lockfile) | Vitest, in jsdom, with MSW and user-event |
+| Shared TypeScript packages | next to the code, in each package's `src/` | Vitest |
 | `mobile` | next to the code, in `src/` (`App.test.tsx`) | Jest, through `jest-expo` |
 | End-to-end and load | `tests/e2e`, `tests/load` | No tool is configured yet |
 
