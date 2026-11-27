@@ -1,7 +1,7 @@
 import type { Language } from '@dispatchflow/i18n'
-import { createQueryClient } from '../lib/queryClient.ts'
 import { render } from '@testing-library/react'
 import type { ReactElement } from 'react'
+import { createQueryClient } from '../lib/queryClient.ts'
 import { AppProviders } from '../AppProviders.tsx'
 import { createI18n } from '../i18n.ts'
 

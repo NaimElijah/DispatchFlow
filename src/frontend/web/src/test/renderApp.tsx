@@ -1,6 +1,6 @@
 import { createMemoryHistory } from '@tanstack/react-router'
-import { createQueryClient } from '../lib/queryClient.ts'
 import { render } from '@testing-library/react'
+import { createQueryClient } from '../lib/queryClient.ts'
 import { App } from '../App.tsx'
 import { createLanguageSetting } from '../lib/languageSetting.ts'
 import { createI18n } from '../i18n.ts'
