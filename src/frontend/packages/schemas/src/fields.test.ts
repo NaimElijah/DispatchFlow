@@ -203,6 +203,10 @@ describe('phones', () => {
     }
   })
 
+  test('GivenAForeignNumberInItsInternationalForm_WhenChecked_ThenItIsAccepted', () => {
+    expect(refusalsOf(phoneNumber, '+44 20 7946 0958')).toEqual([])
+  })
+
   test('GivenTextsThatAreNotPhoneNumbers_WhenChecked_ThenEachIsRefusedAsAPhoneNumber', () => {
     for (const value of ['12345', '050123456', 'phone']) {
       expect(refusalsOf(phoneNumber, value), value).toEqual([

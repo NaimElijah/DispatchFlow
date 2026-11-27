@@ -143,12 +143,27 @@ describe('the example form', () => {
     expect(await requests[0].json()).not.toHaveProperty('serviceMinutes')
   })
 
-  test('GivenTheExampleFormInEnglishAndInHebrew_WhenShown_ThenEachShowsItsOwnWordsAndDirection', () => {
-    for (const language of ['en', 'he'] as const) {
-      const strings = EXAMPLE_STRINGS[language]
-      const { unmount } = renderComponent(<ExampleForm etag={null} />, { language })
+  test('GivenTheDateField_WhenEnterIsPressedOnIt_ThenItsCalendarOpensOnTheMonthItHolds', async () => {
+    const user = userEvent.setup()
+    renderComponent(<ExampleForm etag={null} />)
+    const date = screen.getByRole('button', { name: EXAMPLE_STRINGS.en.date })
 
-      expect(document.documentElement.dir, language).toBe(language === 'he' ? 'rtl' : 'ltr')
+    date.focus()
+    await user.keyboard('{Enter}')
+
+    // jsdom runs no transition, so the opened calendar stays hidden and its days take no focus:
+    // moving between days with the arrow keys is checked in a browser, not here.
+    expect(date.getAttribute('aria-expanded')).toBe('true')
+    expect(await screen.findByLabelText('26 November 2026')).toBeDefined()
+  })
+
+  test.each(['en', 'he'] as const)(
+    'GivenTheExampleFormIn(%s)_WhenShown_ThenItShowsItsOwnWordsAndDirection',
+    (language) => {
+      const strings = EXAMPLE_STRINGS[language]
+      renderComponent(<ExampleForm etag={null} />, { language })
+
+      expect(document.documentElement.dir).toBe(language === 'he' ? 'rtl' : 'ltr')
       expect(screen.getByRole('textbox', { name: strings.name })).toBeDefined()
       expect(screen.getByRole('group', { name: strings.window })).toBeDefined()
       expect(screen.getByText('26/11/2026')).toBeDefined()
@@ -157,9 +172,8 @@ describe('the example form', () => {
           name: `${strings.weightKg} (${language === 'he' ? 'ק״ג' : 'kg'})`,
         }),
       ).toBeDefined()
-      unmount()
-    }
-  })
+    },
+  )
 
   test('GivenTheExampleFormInHebrew_WhenSavedEmpty_ThenEachRequiredFieldSaysWhyInHebrew', async () => {
     const user = userEvent.setup()

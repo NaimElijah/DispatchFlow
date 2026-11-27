@@ -297,6 +297,30 @@ describe('fields', () => {
     expect(phone.getAttribute('autocomplete')).toBe('off')
   })
 
+  test('GivenANoteOnTwoLines_WhenTyped_ThenItKeepsTheLineBreakAndTheFormIsNotSent', async () => {
+    const user = userEvent.setup()
+    renderComponent(<ExampleForm etag={null} />)
+    const notes = screen.getByRole('textbox', { name: strings.notes })
+
+    await user.type(notes, 'Gate 2{Enter}Ring twice')
+
+    expect(notes.tagName).toBe('TEXTAREA')
+    expect(notes).toHaveProperty('value', 'Gate 2\nRing twice')
+    // Enter in a note adds a line: had it sent the form, the empty required fields would say so.
+    expect(screen.queryAllByText(REQUIRED)).toHaveLength(0)
+  })
+
+  test('GivenAForeignPhone_WhenTheUserLeavesIt_ThenItIsShownInItsInternationalForm', async () => {
+    const user = userEvent.setup()
+    renderComponent(<ExampleForm etag={null} />)
+    const phone = screen.getByRole('textbox', { name: strings.phone })
+
+    await user.type(phone, '+442079460958')
+    await user.tab()
+
+    expect(phone).toHaveProperty('value', '+44 20 7946 0958')
+  })
+
   test('GivenTheSelectsOptions_WhenOpened_ThenEachSitsInABdi', async () => {
     const user = userEvent.setup()
     renderComponent(<ExampleForm etag={null} />)

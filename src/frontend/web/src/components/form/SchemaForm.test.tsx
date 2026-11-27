@@ -3,7 +3,7 @@ import { onlineManager } from '@tanstack/react-query'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw/http'
-import { describe, expect, test, vi } from 'vitest'
+import { describe, expect, onTestFinished, test, vi } from 'vitest'
 import { z } from 'zod'
 import { useVersionedSave, type Saved } from '../../lib/versionedSave.ts'
 import { renderComponent } from '../../test/renderComponent.tsx'
@@ -313,6 +313,8 @@ describe('SchemaForm', () => {
     const held = new Promise<void>((resolve) => {
       release = resolve
     })
+    // Lets the held answer go however the test ends, so a failure reads as itself.
+    onTestFinished(() => release())
     const requests: Request[] = []
     server.use(
       http.put(CONTACT_PATH, async ({ request }) => {
@@ -332,6 +334,37 @@ describe('SchemaForm', () => {
     expect(await screen.findByText('The contact is saved.')).toBeDefined()
     expect(requests).toHaveLength(1)
     await waitFor(() => expect(button.getAttribute('aria-busy')).toBe('false'))
+  })
+
+  test('GivenASaveOnItsWay_WhenTheSaveButtonIsPressedByKeyboard_ThenItKeepsFocusAndNothingMoreIsSent', async () => {
+    const user = userEvent.setup()
+    let release: () => void = () => undefined
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    onTestFinished(() => release())
+    const requests: Request[] = []
+    server.use(
+      http.put(CONTACT_PATH, async ({ request }) => {
+        requests.push(request)
+        await held
+        return new HttpResponse(null, { status: 204, headers: { ETag: '"4"' } })
+      }),
+    )
+    renderComponent(<ContactForm etag='"3"' />)
+
+    await fillAndSave(user)
+    const button = screen.getByRole('button', { name: 'Save' })
+    await waitFor(() => expect(button.getAttribute('aria-busy')).toBe('true'))
+    // A disabled button would drop a keyboard user's focus to the page.
+    expect(button).toHaveProperty('disabled', false)
+    button.focus()
+    await user.keyboard('{Enter}')
+
+    expect(document.activeElement).toBe(button)
+    release()
+    expect(await screen.findByText('The contact is saved.')).toBeDefined()
+    expect(requests).toHaveLength(1)
   })
 
   test('GivenTheBrowserOffline_WhenSaving_ThenTheUserIsToldAtOnceThatTheServerCouldNotBeReached', async () => {
@@ -356,6 +389,8 @@ describe('SchemaForm', () => {
     const held = new Promise<void>((resolve) => {
       release = resolve
     })
+    // Lets the held answer go however the test ends, so a failure reads as itself.
+    onTestFinished(() => release())
     const requests: Request[] = []
     server.use(
       http.put(CONTACT_PATH, async ({ request }) => {

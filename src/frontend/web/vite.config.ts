@@ -71,5 +71,8 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    // Far from Israel and from UTC, where CI runs, so a date or time read in the computer's zone
+    // rather than Israel's fails on every computer, an Israeli one included (ADR-088).
+    env: { TZ: 'America/New_York' },
   },
 })

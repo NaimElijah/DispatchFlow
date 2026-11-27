@@ -1,6 +1,6 @@
 import contract from '../../../../../contracts/client-api/v1/openapi.yaml?raw'
 import { expect, test } from 'vitest'
-import { PROBLEM_CODE_PATTERN, TRACE_ID_PATTERN } from './problems.ts'
+import { PARAMETER_PLACES, PROBLEM_CODE_PATTERN, TRACE_ID_PATTERN } from './problems.ts'
 
 // problems.ts types the contract's Problem by hand until @dispatchflow/api-client generates it
 // (#148, ADR-153). This test pins the parts of the contract that problems.ts reads, so a change to
@@ -89,5 +89,5 @@ test('GivenTheContractsProblemParameter_WhenItsPlacesAreRead_ThenTheyAreTheOnesT
   expect(entriesUnder(parameter, 'required')).toEqual(['in', 'name'])
   expect(
     entriesUnder(parameter.slice(parameter.findIndex((line) => line.trim() === 'in:')), 'enum'),
-  ).toEqual(['cookie', 'header', 'path', 'query'])
+  ).toEqual([...PARAMETER_PLACES].sort())
 })

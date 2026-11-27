@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { isProblem, toRequestFailure, type Problem } from './problems.ts'
+import { isProblem, PARAMETER_PLACES, toRequestFailure, type Problem } from './problems.ts'
 
 const TRACE_ID = '0af7651916cd43dd8448eb211c80319c'
 
@@ -47,6 +47,26 @@ describe('isProblem', () => {
       },
     ]) {
       expect(isProblem(body), JSON.stringify(body)).toBe(false)
+    }
+  })
+})
+
+describe('isProblem against the contract', () => {
+  test('GivenAParameterInEachPlaceTheContractNames_WhenChecked_ThenEachIsAProblem', () => {
+    for (const place of PARAMETER_PLACES) {
+      const body = problem(400, 'INVALID_REQUEST', {
+        errors: [{ code: 'MISSING_PARAMETER', parameter: { name: 'x', in: place } }],
+      })
+      expect(isProblem(body), place).toBe(true)
+    }
+  })
+
+  test('GivenAProblemWithoutAFieldTheContractRequires_WhenChecked_ThenItIsNoProblem', () => {
+    // The contract's required fields, which problems.contract.test.ts pins.
+    for (const field of ['type', 'title', 'status', 'code', 'params', 'traceId']) {
+      const body: Record<string, unknown> = { ...problem(400, 'INVALID_REQUEST') }
+      delete body[field]
+      expect(isProblem(body), field).toBe(false)
     }
   })
 })
