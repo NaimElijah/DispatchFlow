@@ -1,4 +1,4 @@
-package com.dispatchflow.archfixture.theta.application.service;
+package com.dispatchflow.archfixture.theta.application.service.audit;
 
 import com.dispatchflow.archfixture.theta.application.api.AuditLog;
 import org.springframework.transaction.annotation.Transactional;

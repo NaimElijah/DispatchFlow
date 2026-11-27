@@ -1,22 +1,25 @@
-package com.dispatchflow.archfixture.theta.application.service;
+package com.dispatchflow.archfixture.theta.application.service.audit;
 
 import com.dispatchflow.archfixture.theta.application.api.AuditLog;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Clean for rule 9: a transactional service whose nested class records the success it commits. */
+/**
+ * Rule 10: a transactional service whose nested class records the refusal, inside the transaction
+ * the refusal rolls back.
+ */
 @Transactional
-public class RecordsInANestedClass {
+public class RecordsItsRefusalInANestedClass {
 
     private final Step step;
 
     /** @param auditLog the audit trail */
-    public RecordsInANestedClass(AuditLog auditLog) {
+    public RecordsItsRefusalInANestedClass(AuditLog auditLog) {
         this.step = new Step(auditLog);
     }
 
-    /** Changes, and records the change through its step. */
+    /** Changes, and records its refusal through its step. */
     public void apply() {
-        step.record();
+        step.refuse();
     }
 
     /** The service's own step, run in its transaction. */
@@ -29,9 +32,9 @@ public class RecordsInANestedClass {
             this.auditLog = auditLog;
         }
 
-        /** Records a success. */
-        void record() {
-            auditLog.succeeded();
+        /** Records a refusal. */
+        void refuse() {
+            auditLog.refused();
         }
     }
 }
