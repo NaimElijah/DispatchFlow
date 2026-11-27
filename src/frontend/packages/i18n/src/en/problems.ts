@@ -1,8 +1,10 @@
 /**
- * What a refused request means and what the user can do next, for every code the shared components
- * show (NFR-69, NFR-143, NFR-144, ADR-043). Each code has its `text` and its `nextStep`; a screen
- * shows both, and never the code itself. An area's own refusals go into its own namespace, beside its
- * strings. The source of the namespace's shape, which `he/problems.ts` must match.
+ * What a refused request means and what the user can do next, one entry per code, for both apps
+ * (NFR-69, NFR-143, NFR-144, ADR-043). Each code has its `text` and its `nextStep`; a screen shows
+ * both, and never the code itself. Every code a screen can meet has its entry here, the one table
+ * the shared components read: an area adds its own refusals under a comment naming the area. A code
+ * with no entry shows the general text. The source of the namespace's shape, which `he/problems.ts`
+ * must match.
  */
 
 /** A request the server could not read: the app and the server disagree on the contract. */
