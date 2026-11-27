@@ -1,6 +1,6 @@
 import { isLocalDate, isLocalTime } from '@dispatchflow/formatters'
 import { isValidPhoneNumber } from 'libphonenumber-js/min'
-import { z } from 'zod'
+import { z } from './zod.ts'
 import { refusal } from './refusals.ts'
 
 // A check that would refuse again what an earlier one refused, such as a format check after an

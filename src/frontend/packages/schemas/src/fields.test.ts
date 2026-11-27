@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { z } from 'zod'
+import { z } from './zod.ts'
 import {
   choice,
   durationMinutes,
