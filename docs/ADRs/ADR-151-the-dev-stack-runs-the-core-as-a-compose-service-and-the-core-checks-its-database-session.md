@@ -37,7 +37,7 @@ events, so a dev server in the container never sees an edit unless it polls.
 Decided on 27 November 2026. This amends [ADR-042]'s first bullet, which ran the core from the IDE
 through Spring Boot's Compose support, and answers its deferred question. It amends [ADR-135]
 decision 1 and [ADR-015], whose seven jobs become eight, and extends [ADR-145] and [ADR-146] with
-the decisions they left to #146.
+the decisions they left to #146, and [ADR-134], whose mirror the core's image build now reads.
 
 1. **`infra/deploy/compose.dev.yaml` runs five services:**
    - `postgres`;
@@ -100,6 +100,9 @@ the decisions they left to #146.
      - the proxy: a same-origin call is signed in, a same-site one is refused, and another origin
        gets no CORS answer.
    - It removes the project, its volume and its images afterwards, and fails when it can't.
+   - The core's image fetches Maven and every dependency through [ADR-134]'s mirror of Maven
+     Central, in its build stage alone. Central answered the job's first run with HTTP 429, for
+     the Maven distribution itself.
 6. **The core refuses to start on a database session that would undo the roles or the English
    messages.** At startup, `DatabaseSessionGuard` refuses to start when:
    - the session switched from the role it logged in as;
@@ -150,9 +153,8 @@ the decisions they left to #146.
   `TestcontainersConfiguration`, are bumped by hand until Renovate takes over in January
   ([ADR-046]).
 - **Cost:** no money. CI's `infra` job runs on a standard runner, free for this public repository.
-- **Risk:** in CI the core's image downloads its whole dependency tree from Maven Central on every
-  run, with no cache. A 429 from Central, as [ADR-134] met in the audit, turns the job red on a clean
-  tree.
+- **Risk:** in CI the core's image downloads its whole dependency tree on every run, with no
+  cache, now from Google's mirror. When the mirror fails, the job fails on a clean tree.
 - **Risk:** a laptop whose Compose version predates Compose Watch can't reload. This was checked on
   Docker 29.9.3 with Compose v5.7.1, where a sync into the non-root containers works.
 - **Risk:** on Linux, Docker Engine 28.2.0 to 28.3.2 exposes ports published on `127.0.0.1` after a
@@ -191,8 +193,7 @@ the decisions they left to #146.
 - A developer needs a debugger on the Compose core. Publish a JDWP port on `127.0.0.1` alone.
 - The deployed `compose.yaml` is written. Decide `secrets:` there, set #250's server settings
   there, and name its server log in the data inventory.
-- The `infra` job fails on a 429 from Maven Central. Give the image build a layer cache in CI, or
-  [ADR-134]'s mirror.
+- The `infra` job fails on the mirror. Give the image build a layer cache in CI.
 - `just infra-check` becomes the longest step of `just check`. Run its live part in CI alone and
   say so in the root `CLAUDE.md`.
 - A team laptop's Compose can't run Compose Watch. Fall back to mounts with polling on that machine.

@@ -116,7 +116,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-016](ADR-016-dependency-audit-with-osv-scanner.md) | One OSV-Scanner pass audits every lockfile, and an accepted vulnerability expires | Accepted; extended by ADR-023 and ADR-072; amended by ADR-095 and ADR-134 |
 | [ADR-023](ADR-023-accept-minimatch-and-glob-advisories.md) | Accept the minimatch and glob advisories in the frontends' tooling until 2027-01-31 | Accepted; extended by ADR-095 |
 | [ADR-095](ADR-095-accept-the-zod-and-deepmerge-advisories-until-2027-01-31.md) | Accept the zod and deepmerge advisories in the phone app's tooling until 2027-01-31 | Accepted |
-| [ADR-134](ADR-134-the-audit-resolves-the-cores-pom-from-a-mirror-of-maven-central.md) | The audit resolves the core's pom from Google's mirror of Maven Central | Accepted |
+| [ADR-134](ADR-134-the-audit-resolves-the-cores-pom-from-a-mirror-of-maven-central.md) | The audit resolves the core's pom from Google's mirror of Maven Central | Accepted; extended by ADR-151 |
 | [ADR-135](ADR-135-the-seven-ci-jobs-are-required-checks-and-a-pull-request-needs-one-approval.md) | The seven CI jobs are required checks on `dev` and `main`, and a pull request needs one approval | Accepted; amended by ADR-138 and ADR-151 |
 | [ADR-138](ADR-138-the-admin-bypass-returns-to-always-because-a-pull-request-bypass-refuses-the-promotion.md) | The Admin bypass returns to `always`, because a pull-request bypass refuses the merge from `dev` to `main` | Accepted |
 | [ADR-037](ADR-037-flat-layout-under-src-with-deploy-and-infra.md) | The code moves to a flat layout under `src/`, with deployment in `deploy/` and Terraform in `infra/` | Superseded by ADR-123 |
