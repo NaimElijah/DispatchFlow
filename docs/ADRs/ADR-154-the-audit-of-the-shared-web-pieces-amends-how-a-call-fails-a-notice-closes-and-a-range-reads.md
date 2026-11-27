@@ -37,6 +37,9 @@ fixes found more. What they found shapes these decisions:
 - **A window's refusal went unnoticed.** React Hook Form focuses refused fields in the order they
   registered, and a window is no field, so focus stayed on Save, and the refusal was tied only to
   the group.
+- **A reset that left a half-typed time.** A reset to the empty text a time field already holds
+  changes no value, so Mantine's picker kept its digits for the next record. React Hook Form tells
+  a field nothing of such a reset, and one run during a save leaves even `submitCount` as it was.
 - **A table cell that wrote any value.** The default cell wrote `12.5` with no unit and a date in
   the device's zone ([NFR-68], [ADR-088]).
 - **An example that kept its first version.** The example form sent the `ETag` it opened with on
@@ -69,8 +72,11 @@ decisions 1, 2 and 9.
    - `ProblemMessage` takes the call's `operation`. A failed read says that something went wrong,
      with its reference when there is one, and offers Try again. A write keeps [ADR-153]'s wording
      and its Reload after an unexpected failure. `SchemaForm` passes `write`.
-   - A read is tried again only when it got no answer or found the core busy, at most three times
-     (`retryRead`, which the app's query cache uses); a write never is.
+   - A read is tried again only when it failed on the way, at most three times: no answer, a busy
+     core, or something in front of the core that answered or broke off (`retryRead`). The core's
+     own refusal or failure shows at once, and a write is never tried again.
+   - `createQueryClient` makes the one query cache, for the app and for the tests alike, so the
+     two cannot drift apart.
    - A save's error is typed as any `Error`, since a bug in `send` rejects as itself.
 4. **A saved notice that offers an action stays until it is closed.** `useNotifySaved()` replaces
    `notifySaved`, amending [ADR-153] decision 10.
@@ -98,6 +104,9 @@ decisions 1, 2 and 9.
    - A group's own refusal, such as a window's, describes each of the group's inputs and marks
      them invalid, so focus lands on the first of them with the reason.
    - Once the form was first sent, a change to either end of a window checks the window again.
+   - `useSchemaForm` counts the form's resets, and `SchemaForm` hands the count to its fields: a
+     time field starts its picker afresh on each, and moves focus that was in it to the new hours
+     box.
 8. **A table's default cell writes text only.** Any other value, a number included, fails the
    table, naming the column, until the column writes it in a cell of its own, through
    `@dispatchflow/formatters` or as plain digits for a row number. This extends [ADR-153]
@@ -121,8 +130,8 @@ decisions 1, 2 and 9.
     use it.
   - Every caller of `ProblemMessage` says whether its call read or wrote.
   - A table column of anything but text needs a cell of its own, a row number included.
-  - A form reset that keeps touched fields (`keepTouched`) leaves a half-typed time as it was: a
-    time field sees a reset by its field turning untouched.
+  - A time field needs the `SchemaForm` around it to learn of a reset, and only a reset through
+    `useSchemaForm`'s `reset` or `resetField` is counted.
 - **Cost:**
   - Zod parses objects without its compiled fast path. Forms parse once per save, so nothing a
     user can notice.
@@ -152,8 +161,9 @@ decisions 1, 2 and 9.
   would then read an error on either end as the window's, and focus the wrong box.
 - **A default cell that writes whole numbers too.** Whether a column failed would depend on its
   data: a weight column would pass on whole test weights and fail in production on 12.5 kg.
-- **Counting resets in `useSchemaForm` to remount a time field.** It sees a reset that keeps
-  touched fields, but every field would need the count passed down through the form's context.
+- **Reading a field turning untouched, or `submitCount` going back to zero, as a reset.** Both
+  are React Hook Form's own signals, but neither shows a reset of a field never left that runs
+  during the save itself, as a screen's `onSaved` does.
 
 ## Revisit when
 

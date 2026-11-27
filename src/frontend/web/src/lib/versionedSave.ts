@@ -27,7 +27,7 @@ export interface VersionedSaveOptions<TBody, TData> {
   /**
    * Sends the body with the precondition headers. It is the only part that knows the operation:
    * once the generated client exists, it is that client's call (#148, TS §10). It fetches through
-   * `fetchFromCore`, as the web app's client will, so a call that failed rejects with a
+   * `fetchFromCore`, as the web app's client will, so a call that failed on the way rejects with a
    * `RequestError`; anything else it throws is a bug, and the save fails with it as it is.
    */
   readonly send: (

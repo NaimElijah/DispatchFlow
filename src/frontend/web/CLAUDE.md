@@ -7,8 +7,7 @@ React 19, TypeScript 6.0, Vite 8, pnpm; TanStack Router and Query, Mantine 9, i1
 
 - `src/main.tsx` builds the language setting, i18next, the query cache and the router, and mounts
   `src/App.tsx` over `AppProviders.tsx`. `src/routeTree.ts` gathers every area's routes.
-- `src/routes/` is the shell: the root route, `shellRoute` and its layout, `/`, the not-found and
-  error pages.
+- `src/routes/` is the shell: root route, `shellRoute`, its layout, `/`, not-found and error pages.
 - `src/features/<context>/` holds an area's pages and its `routes.ts`. `src/components/` holds the
   UI no area owns, the forms' in `form/`, the map's in `map/`; `src/lib/` the code no layer owns.
 - `src/styles/theme.css` holds what Mantine would otherwise inject as `<style>` elements.
@@ -54,8 +53,9 @@ React 19, TypeScript 6.0, Vite 8, pnpm; TanStack Router and Query, Mantine 9, i1
   marked unavailable, and 1 hour after shift end on a route nobody finished (NFR-30, FR-328). It learns of route
   changes from its event stream (FR-347, [ADR-026]), and takes proof photos with the camera, never
   from files (NFR-204).
-- Read the event stream with `fetch` and eventsource-parser, not the browser's `EventSource`, which
-  cannot send an `Authorization` header ([TS §10]).
+- A call fetches with `lib/coreCalls.ts`'s `fetchFromCore` and reads its answer with `answerOf`
+  (ADR-154). The event stream reads with plain `fetch` and eventsource-parser: `EventSource` cannot
+  send an `Authorization` header ([TS §10]).
 - Build forms on `@dispatchflow/schemas`, refusals and row lists from `src/components/` ([ADR-153]).
   ESLint keeps Day.js in `DatesLanguage.tsx` and takes Zod from `@dispatchflow/schemas` only.
   `lib/problems.ts` types `Problem` by hand until #148.

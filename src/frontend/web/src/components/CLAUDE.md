@@ -9,9 +9,7 @@
   does. A refusal outside a form shows in `ProblemMessage`, a row list in `DataTable`, a stored
   change through `useNotifySaved`, whose text names the kind of record and never a person: a notice
   with an action stays until closed, past the session it was shown in.
-- **A call** fetches through `lib/coreCalls.ts`'s `fetchFromCore`, the web app's client's `fetch`,
-  and reads its answer with `answerOf`, a read's as well as a write's. A failed read shows in
-  `ProblemMessage` with `operation="read"`.
+- A failed read shows in `ProblemMessage` with `operation="read"`, a write's with `"write"`.
 - A field takes the form's `control`, a `name` typed with `FieldPathByValue` so it binds only its
   own kind of value, and a translated `label`. Mantine ties a plain input's error through
   `aria-describedby`; a composite one ties it to each of its own inputs, as `TimeField` does.

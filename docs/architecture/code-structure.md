@@ -502,8 +502,8 @@ src/frontend/web/
                          map/, the map's (#174, empty until then)
     lib/                 the code no layer owns: the language setting, the refusal reader
                          (problems.ts), the refusal texts (problemText.ts), the one fetch and
-                         answer reader of every call (coreCalls.ts) and the versioned save
-                         (versionedSave.ts)
+                         answer reader of every call (coreCalls.ts), the one query cache
+                         (queryClient.ts) and the versioned save (versionedSave.ts)
     test/                Vitest's setup, renderApp, renderComponent, the one MSW server, the <style>
                          check, the tests of the lint rules, and the example form
 ```
