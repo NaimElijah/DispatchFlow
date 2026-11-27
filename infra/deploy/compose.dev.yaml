@@ -5,9 +5,11 @@
 #   docker compose -f infra/deploy/compose.dev.yaml up --build --watch
 #
 # --watch is Compose Watch: an edit under the web app, the shared web packages or the optimizer's
-# src/ is copied into its container, where Vite and uvicorn reload it, and a changed lockfile
-# rebuilds that image. A change to the core needs `up --build` again. The web app is on
-# http://localhost:5173, and proxies /api/ to the core on its own origin (ADR-148).
+# src/ is copied into its container, where Vite and uvicorn reload it, and a changed lockfile or
+# pnpm version rebuilds that image. A change to the core needs `up --build` again. The web app is on
+# http://localhost:5173, and proxies /api/ to the core on its own origin (ADR-148). No sync sets
+# initial_sync, which in this Compose can copy what its ignore rules leave out, such as the host's
+# node_modules: start with --build instead (ADR-152).
 #
 # Rules for every service here, those still to come included:
 # - Every published port binds 127.0.0.1, written as 127.0.0.1:<host port>:<container port>: the
@@ -19,7 +21,13 @@
 # - An issue that adds a setting the core can't start without adds it, in the same pull request, to
 #   the core service here, to infra/deploy/.env.example and to src/backend/core/.env.example. A
 #   setting that is no secret gets its value here, as ${KEY:-value}, so a .env with only its
-#   passwords filled starts the stack; a secret gets no default.
+#   passwords filled starts the stack. A secret gets no default, and its key joins SECRET_HOLDERS in
+#   check_dev_stack.py with the services that may hold it. A key only the dev profile reads, such as
+#   DISPATCHFLOW_STANDIN_ACCOUNT, goes in infra/deploy/.env.example alone: any other profile refuses
+#   to start with it (ADR-147, ADR-152).
+# - A service built from our own images takes <<: *hardening. One whose data git ignores, such as
+#   osrm's data/osrm/ or tiles' data/tiles/, joins under a Compose profile, which `just dev` names and
+#   `just infra-check` doesn't start, since CI has no such data (ADR-152).
 #
 # Still to join: osrm (#168, 5000), tiles (#152, 8090) and wiremock (#165, 8089), from ADR-042's
 # table, and Mailpit with the first ticket that sends an email.
@@ -34,8 +42,8 @@ x-logging: &logging
     max-file: "3"
 
 # The services built from our own images hold no Linux capability and can't gain one: each runs as
-# the non-root dispatchflow (ADR-019). postgres keeps the image's own, which its entrypoint needs to
-# hand its data folder to the postgres user.
+# the non-root dispatchflow (ADR-019). postgres keeps the image's own capabilities, which its
+# entrypoint needs to hand its data folder to the postgres user, but gains none either.
 x-hardening: &hardening
   cap_drop:
     - ALL
@@ -43,8 +51,10 @@ x-hardening: &hardening
     - no-new-privileges:true
 
 # The core's image, which both the migrate step and the core run. #161 moves the context to the
-# repository's root, so the build sees contracts/ (ADR-140 decision 2): that is the one line to
-# change, with the Dockerfile's paths.
+# repository's root, so the build sees contracts/ (ADR-140 decision 2). That changes the context,
+# adds `dockerfile: src/backend/core/Dockerfile`, and moves the core's .dockerignore with it, as
+# Dockerfile.dockerignore beside the Dockerfile: the root has none, and without one the context would
+# carry infra/deploy/.env, every password in it.
 x-core-image: &core-image
   build:
     context: ../../src/backend/core
@@ -81,6 +91,8 @@ services:
     ports:
       # A laptop that runs a PostgreSQL of its own on 5432 sets another host port in .env.
       - 127.0.0.1:${DISPATCHFLOW_POSTGRES_HOST_PORT:-5432}:5432
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       # Over TCP: while the init script runs, the image's temporary server listens on its socket
       # alone, so a socket check could pass before both roles exist and fail the migrate step.
@@ -131,7 +143,9 @@ services:
       migrate:
         condition: service_completed_successfully
     healthcheck:
-      # The JRE image has no curl or wget, so bash asks over a socket of its own.
+      # The JRE image has no curl or wget, so bash asks over a socket of its own. Health answers 200
+      # only while the core is up, and 503 otherwise, whatever its body lists, so the status line
+      # decides.
       test:
         - CMD
         - bash
@@ -139,7 +153,8 @@ services:
         - >-
           exec 3<>/dev/tcp/127.0.0.1/8080 &&
           printf 'GET /actuator/health HTTP/1.0\r\n\r\n' >&3 &&
-          grep -q '"status":"UP"' <&3
+          IFS= read -r status <&3 &&
+          [[ $$status == HTTP/*' 200 '* ]]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -231,6 +246,9 @@ services:
           path: ../../src/frontend/pnpm-lock.yaml
         - action: rebuild
           path: ../../src/frontend/pnpm-workspace.yaml
+        # Its packageManager field pins the pnpm the image installs.
+        - action: rebuild
+          path: ../../src/frontend/package.json
     logging: *logging
 
 volumes:
