@@ -15,14 +15,12 @@ ADR-123 (Accepted) keeps this tree and gives three components the names they hav
 
 Also Accepted and not in the tree yet:
 [ADR-038](../ADRs/ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md) (`mise` pins every
-toolchain; the core already runs its Java 25),
-[ADR-042](../ADRs/ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md) (`compose.dev.yaml`
-for local runs) and
+toolchain; the core already runs its Java 25) and
 [ADR-046](../ADRs/ADR-046-renovate-replaces-dependabot-and-targets-dev.md) (Renovate replaces
 Dependabot).
 [ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md) (one pnpm
 workspace for both apps) is in the tree for the web app and the shared packages; the phone app
-joins it at M10. These four supersede or amend some of ADR-009 to ADR-016 above: ADR-010, ADR-012
+joins it at M10. These three, with ADR-042, supersede or amend some of ADR-009 to ADR-016 above: ADR-010, ADR-012
 and ADR-014 are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 
 > [!NOTE]
@@ -38,14 +36,14 @@ and ADR-014 are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 |---|---|
 | `src/backend/core/` | The REST API and system of record: Java 25, Spring Boot 4.1.2, Maven |
 | `src/backend/optimizer/` | The optimization service: Python 3.14, FastAPI, NumPy, uv |
-| `src/frontend/` | The pnpm workspace's root, over `web/` and `packages/*` ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)): `package.json`, `pnpm-workspace.yaml` and its one lockfile, `pnpm-lock.yaml`; and `.prettierrc.json`, Prettier's one file for the web app and the packages ([ADR-141](../ADRs/ADR-141-prettiers-settings-live-in-one-file-in-src-frontend.md)) |
+| `src/frontend/` | The pnpm workspace's root, over `web/` and `packages/*` ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)): `package.json`, `pnpm-workspace.yaml` and its one lockfile, `pnpm-lock.yaml`; `.prettierrc.json`, Prettier's one file for the web app and the packages ([ADR-141](../ADRs/ADR-141-prettiers-settings-live-in-one-file-in-src-frontend.md)); and `.dockerignore`, for the web app's dev image |
 | `src/frontend/web/` | The web app, for every role: React, TypeScript, Vite, pnpm |
 | `src/frontend/mobile/` | The phone app, for every role: React Native, Expo SDK 58, TypeScript |
 | `src/frontend/packages/` | The shared TypeScript packages ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)): `eslint-config`, `tsconfig` and `i18n` are workspace packages, and four placeholder folders have no `package.json` yet |
 | `src/research/` | Benchmarks, simulation and the order generator: Python, uv. Never deployed |
 | `contracts/` | `client-api/v1` and `optimization-api/v1` (OpenAPI), and the Redocly lint setup |
 | `tests/` | Tests that span components: `e2e/` and `load/`. Both are placeholders |
-| `infra/` | `osrm/`, `deploy/` and `terraform/`. `deploy/postgres/initdb/create-roles.sql` creates the two database roles in a new PostgreSQL, and `deploy/.env.example` lists its passwords' keys ([ADR-145](../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md)); the rest, `deploy/backup/` and `deploy/observability/` among it, are placeholders |
+| `infra/` | `osrm/`, `deploy/` and `terraform/`. `deploy/compose.dev.yaml` runs the development stack, and `deploy/check_dev_stack.py`, with its `ruff.toml`, is `just infra-check` ([ADR-151](../ADRs/ADR-151-the-dev-stack-runs-the-core-as-a-compose-service-and-the-core-checks-its-database-session.md)). `deploy/postgres/initdb/create-roles.sql` creates the two database roles in a new PostgreSQL, and `deploy/.env.example` lists the keys Compose reads ([ADR-145](../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md)); `deploy/backup/` and `deploy/observability/` are placeholders |
 | `data/` | The OSM extract, OSRM files, PMTiles and benchmark instances, once built. Git keeps the folder and ignores everything in it |
 | `logs/` | Local log output. Git keeps the folder and ignores everything in it |
 | `docs/` | `CLAUDE.md`, `requirements/` (with `ARD/`), `architecture/` (with `domain_layer/` and `tech_stack.md`), `ADRs/`, `roadmap.md`, `operations/` (with `data-inventory.md`) and `presentations/`; the placeholders are `guides/he/`, `guides/en/`, `research/usability/` and `architecture/generated/` |
@@ -105,6 +103,8 @@ src/backend/core/
                                    next and refuses any other argument that isn't an option (ADR-146)
     MigrateCommand.java            the migrate step: the data source and Flyway alone, run as
                                    dispatchflow_owner before the core starts (ADR-145)
+    DatabaseSessionGuard.java      refuses to start as a superuser, an owner or a member of one,
+                                   or on a server whose messages aren't English (ADR-151)
     SchedulingConfiguration.java   @EnableAsync always, @EnableScheduling behind
                                    dispatchflow.scheduling.enabled, and the executor's cap
     MdcTaskDecorator.java          copies the caller's MDC to an asynchronous listener's thread
@@ -259,6 +259,8 @@ src/backend/core/
     DispatchFlowApplicationTest.java     the jar refuses a bare word, and `migrate` misplaced or
                                          misspelt
     DatabaseRolesIT.java                 the two roles, the migrate command and the grants' guard
+    DatabaseSessionGuardIT.java          each session the core refuses to start on, against PostgreSQL;
+                                         DatabaseSessionGuardTest, the messages languages
     TestDispatchFlowApplication.java     what `just core-run` starts: the dev profile, Flyway on
     TestActors.java                      the Actor of any seeded entry, read from the shared list
     TestcontainersConfiguration.java     the PostgreSQL container with both roles, the core's
@@ -472,7 +474,8 @@ A Vite project in the pnpm workspace ([ADR-143](../ADRs/ADR-143-the-web-app-shel
 ```text
 src/frontend/web/
   index.html             <html lang="en" dir="ltr">, until DocumentLanguage sets the chosen language
-  vite.config.ts         Vite and Vitest; ADR-069's policy on `vite preview`
+  vite.config.ts         Vite and Vitest; ADR-069's policy on `vite preview`; the /api/ proxy
+  Dockerfile.dev         the dev server's image for compose.dev.yaml, built from src/frontend
   src/
     main.tsx             reads the language setting, then builds i18next, the query cache and the router
     App.tsx              the providers: i18next, TanStack Query, Mantine's direction and theme, the router

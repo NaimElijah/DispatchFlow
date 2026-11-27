@@ -11,6 +11,10 @@ osv_scanner_image := "ghcr.io/google/osv-scanner:v2.7.0@sha256:4f3b7e2c64b9d38a5
 # answers shared CI runners with HTTP 429 now and then, and a parent the scan can't load fails the
 # audit (ADR-134).
 maven_mirror := "https://maven-central.storage-download.googleapis.com/maven2"
+# The checker of the development stack is the one Python file outside the two Python projects, so
+# it gets their tools at the versions src/backend/optimizer/uv.lock pins.
+ruff := "uvx --from ruff==0.17.5 ruff"
+mypy := "uvx --python 3.14 --from mypy==2.4.1 mypy"
 
 # List every recipe.
 default:
@@ -19,11 +23,12 @@ default:
 # Install every component's dependencies.
 setup: core-setup optimizer-setup research-setup web-setup mobile-setup
 
-# Run every check that CI runs. Needs Docker, for the core's integration tests and the audit.
-check: core-check optimizer-check research-check web-check mobile-check contracts-check audit
+# Run every check that CI runs. Needs Docker, for the core's integration tests, the audit and the
+# development stack.
+check: core-check optimizer-check research-check web-check mobile-check contracts-check audit infra-check
 
 # Reformat every component's code.
-format: core-format optimizer-format research-format web-format mobile-format
+format: core-format optimizer-format research-format web-format mobile-format infra-format
 
 # --- backend/core: Java 25, Spring Boot, Maven ---
 
@@ -149,6 +154,21 @@ mobile-run:
 [working-directory('contracts')]
 contracts-check:
     {{ redocly }} lint
+
+# --- infra: the development stack, infra/deploy/compose.dev.yaml ---
+
+# Format check, lint and strict type check of the checker; then check that the stack's file publishes
+# every port on 127.0.0.1 and gives each service only its own passwords, and start the whole stack
+# in a throwaway project with no port on the host, check it, and remove it. Needs Docker.
+infra-check:
+    {{ ruff }} format --check infra/deploy
+    {{ ruff }} check infra/deploy
+    {{ mypy }} --strict infra/deploy/check_dev_stack.py
+    uv run --no-project --python 3.14 infra/deploy/check_dev_stack.py --live
+
+infra-format:
+    {{ ruff }} format infra/deploy
+    {{ ruff }} check --fix infra/deploy
 
 # Scan every lockfile and the pom for known vulnerabilities. Needs Docker.
 audit:

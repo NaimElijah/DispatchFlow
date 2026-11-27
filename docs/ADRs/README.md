@@ -39,8 +39,8 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-128](ADR-128-the-persistence-rules-the-mapping-settled-after-adr-127.md) | The persistence rules the JPA mapping settled after ADR-127 | Accepted |
 | [ADR-129](ADR-129-transactions-start-only-in-the-service-layer.md) | Transactions start only in the service layer | Accepted; extended and amended by ADR-149 |
 | [ADR-136](ADR-136-the-core-waits-two-seconds-for-a-lock-and-a-lock-it-cannot-get-is-retried.md) | The core waits at most 2 seconds for a lock, and a call that can't get one is retried | Accepted; extended by ADR-145; amended by ADR-140 |
-| [ADR-145](ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md) | The migrate command runs Flyway as the owner, and the core connects as app with only what its adapters run | Accepted; amended by ADR-146 |
-| [ADR-146](ADR-146-the-jar-takes-only-options-but-for-its-command-and-the-roles-guards-cover-every-object-and-log.md) | The jar takes only options but for its command, and the roles' guards cover every object and log | Accepted |
+| [ADR-145](ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md) | The migrate command runs Flyway as the owner, and the core connects as app with only what its adapters run | Accepted; extended by ADR-151; amended by ADR-146 |
+| [ADR-146](ADR-146-the-jar-takes-only-options-but-for-its-command-and-the-roles-guards-cover-every-object-and-log.md) | The jar takes only options but for its command, and the roles' guards cover every object and log | Accepted; extended by ADR-151 |
 | [ADR-130](ADR-130-every-folder-is-declared-ahead-empty-and-documented.md) | Every folder the design draws is declared ahead, empty and documented | Accepted; extended by ADR-140; amended by ADR-131, ADR-132 and ADR-133 |
 | [ADR-131](ADR-131-the-declared-structures-review-tightens-its-rules-and-fills-its-gaps.md) | The declared structure's review tightens its rules and fills its gaps | Accepted; extended by ADR-140 |
 | [ADR-132](ADR-132-unbuilt-bodies-say-to-be-implemented.md) | Unbuilt bodies say "To Be Implemented." and name no milestone | Accepted |
@@ -112,19 +112,20 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-012](ADR-012-javascript-tooling-npm-eslint-prettier.md) | Both frontend apps use npm, ESLint and Prettier, with TypeScript held at 6.0 | Superseded by ADR-039 |
 | [ADR-013](ADR-013-java-tooling-maven-wrapper-and-spotless.md) | The core backend builds with the Maven wrapper and formats with Spotless and palantir-java-format | Accepted; amended by ADR-038 |
 | [ADR-014](ADR-014-real-dependencies-in-containers-for-tests-and-local-runs.md) | Integration tests and local runs use a real PostgreSQL in a container | Superseded by ADR-042 |
-| [ADR-015](ADR-015-ci-one-workflow-one-job-per-component.md) | CI is one workflow with one job per component, and Dependabot keeps dependencies current | Accepted; extended by ADR-021; amended by ADR-046 and ADR-135 |
+| [ADR-015](ADR-015-ci-one-workflow-one-job-per-component.md) | CI is one workflow with one job per component, and Dependabot keeps dependencies current | Accepted; extended by ADR-021; amended by ADR-046, ADR-135 and ADR-151 |
 | [ADR-016](ADR-016-dependency-audit-with-osv-scanner.md) | One OSV-Scanner pass audits every lockfile, and an accepted vulnerability expires | Accepted; extended by ADR-023 and ADR-072; amended by ADR-095 and ADR-134 |
 | [ADR-023](ADR-023-accept-minimatch-and-glob-advisories.md) | Accept the minimatch and glob advisories in the frontends' tooling until 2027-01-31 | Accepted; extended by ADR-095 |
 | [ADR-095](ADR-095-accept-the-zod-and-deepmerge-advisories-until-2027-01-31.md) | Accept the zod and deepmerge advisories in the phone app's tooling until 2027-01-31 | Accepted |
-| [ADR-134](ADR-134-the-audit-resolves-the-cores-pom-from-a-mirror-of-maven-central.md) | The audit resolves the core's pom from Google's mirror of Maven Central | Accepted |
-| [ADR-135](ADR-135-the-seven-ci-jobs-are-required-checks-and-a-pull-request-needs-one-approval.md) | The seven CI jobs are required checks on `dev` and `main`, and a pull request needs one approval | Accepted; amended by ADR-138 |
+| [ADR-134](ADR-134-the-audit-resolves-the-cores-pom-from-a-mirror-of-maven-central.md) | The audit resolves the core's pom from Google's mirror of Maven Central | Accepted; extended by ADR-151 |
+| [ADR-135](ADR-135-the-seven-ci-jobs-are-required-checks-and-a-pull-request-needs-one-approval.md) | The seven CI jobs are required checks on `dev` and `main`, and a pull request needs one approval | Accepted; amended by ADR-138 and ADR-151 |
 | [ADR-138](ADR-138-the-admin-bypass-returns-to-always-because-a-pull-request-bypass-refuses-the-promotion.md) | The Admin bypass returns to `always`, because a pull-request bypass refuses the merge from `dev` to `main` | Accepted |
 | [ADR-037](ADR-037-flat-layout-under-src-with-deploy-and-infra.md) | The code moves to a flat layout under `src/`, with deployment in `deploy/` and Terraform in `infra/` | Superseded by ADR-123 |
 | [ADR-123](ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md) | The code keeps its grouped layout, and three components take new names | Accepted; extended by ADR-130 |
 | [ADR-038](ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md) | mise pins every toolchain, and the core moves to Java 25 | Accepted |
 | [ADR-039](ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md) | Both apps and the shared TypeScript packages live in one pnpm workspace | Accepted; extended by ADR-130, ADR-141 and ADR-143; amended by ADR-123 |
 | [ADR-141](ADR-141-prettiers-settings-live-in-one-file-in-src-frontend.md) | Prettier's settings live in one file in `src/frontend`, for the web app and every workspace package | Accepted |
-| [ADR-042](ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md) | Local runs start their services from `compose.dev.yaml`; tests keep Testcontainers | Accepted; amended by ADR-123 and ADR-139 |
+| [ADR-042](ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md) | Local runs start their services from `compose.dev.yaml`; tests keep Testcontainers | Accepted; amended by ADR-123, ADR-139 and ADR-151 |
+| [ADR-151](ADR-151-the-dev-stack-runs-the-core-as-a-compose-service-and-the-core-checks-its-database-session.md) | The dev stack runs the core as a Compose service, and the core checks its database session at startup | Accepted |
 | [ADR-046](ADR-046-renovate-replaces-dependabot-and-targets-dev.md) | Renovate replaces Dependabot and keeps opening updates against `dev` | Accepted |
 | [ADR-072](ADR-072-images-scanned-by-pinned-trivy-and-secrets-by-gitleaks.md) | A pinned Trivy scans images and Terraform, and Gitleaks scans the full history for secrets | Accepted |
 | [ADR-074](ADR-074-dependency-licences-checked-against-an-allow-list.md) | Dependency licences are checked in CI against an allow-list, and GPL and AGPL services run unmodified | Accepted |
@@ -275,4 +276,14 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > changing call it refuses before the handler starts; rule 10 also bans the helper in a
 > transaction, and lists a `Change` only when no refusal leaves it once recorded, so its commit
 > carries the record; and a refusal that is only another exception's cause answers 500.
+>
+> ADR-151, on 2026-11-27, settles #146 and the parts of #250 that have a home today: one Compose
+> file runs PostgreSQL, the migrate step, the core, the optimizer and the web app's dev server on
+> a laptop, each service with only its own passwords and every port on `127.0.0.1`; the core runs
+> as a Compose service, and Spring Boot's Docker Compose support is not adopted, so `just
+> core-run` stays for the IDE; Compose Watch carries edits into the web and optimizer
+> containers; the core refuses to start as a superuser, a role with an attribute that passes the
+> grants, a member of another role, an owner, or on a server whose messages aren't English; the
+> core's JVM runs in Israel's zone; and `just infra-check` checks the file and the running stack,
+> in `just check` and CI's `infra` job, the eighth required check.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.

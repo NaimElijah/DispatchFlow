@@ -1,6 +1,6 @@
 # ADR-145: The migrate command runs Flyway as the owner, and the core connects as app with only what its adapters run
 
-- **Status:** Accepted; amended by ADR-146
+- **Status:** Accepted; extended by ADR-151; amended by ADR-146
 - **Date:** 2026-11-26
 
 ## Context

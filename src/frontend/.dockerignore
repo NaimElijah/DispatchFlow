@@ -1,0 +1,11 @@
+# The context of web/Dockerfile.dev. Installed dependencies and builds come from inside the image,
+# never from the host: a host's node_modules holds another platform's binaries.
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+# The phone app stays outside the pnpm workspace (ADR-039) and out of the web image.
+mobile/
+.env*
+# A .env file anywhere in the build context, not only at its root, never enters an image
+**/.env*
+**/*.env

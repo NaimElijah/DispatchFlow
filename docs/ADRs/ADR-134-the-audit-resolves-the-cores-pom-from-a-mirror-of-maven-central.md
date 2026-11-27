@@ -1,6 +1,6 @@
 # ADR-134: The audit resolves the core's pom from Google's mirror of Maven Central
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-151
 - **Date:** 2026-11-24
 
 ## Context
