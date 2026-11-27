@@ -45,6 +45,7 @@ describe('useNotifySaved', () => {
   test('GivenAPlainNotice_WhenShown_ThenItClosesByItself', () => {
     showNotice({ text: 'The depot is saved.' })
     expect(screen.getByText('The depot is saved.')).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
 
     waitWellPastAutoClose()
 
@@ -74,6 +75,28 @@ describe('useNotifySaved', () => {
 
     expect(onClick).toHaveBeenCalledOnce()
     expect(screen.queryByText('The customer is saved.')).toBeNull()
+  })
+
+  test('GivenANoticeWithAnActionClosedFromItsButton_WhenItCloses_ThenFocusGoesBackWhereItWas', () => {
+    renderComponent(
+      <NotifyProbe
+        notice={{
+          text: 'The customer is saved.',
+          action: { label: 'Add another', onClick: vi.fn() },
+        }}
+      />,
+    )
+    const storeIt = screen.getByRole('button', { name: 'Store it' })
+    storeIt.focus()
+    fireEvent.click(storeIt)
+    const close = screen.getByRole('button', { name: 'Close' })
+    close.focus()
+
+    fireEvent.click(close)
+    waitWellPastAutoClose()
+
+    // The notice sits at the end of the page; focus left with it would drop to the page itself.
+    expect(document.activeElement).toBe(storeIt)
   })
 
   test('GivenANoticeWithAnActionInHebrew_WhenShown_ThenItsCloseButtonIsNamedInHebrew', () => {

@@ -7,7 +7,8 @@
   `useVersionedSave`'s `mutateAsync`, so a second press waits for the first. The screen keeps the
   `ETag` each save returns, or reads its view again, so its next save sends it, as the example form
   does. A refusal outside a form shows in `ProblemMessage`, a row list in `DataTable`, a stored
-  change through `useNotifySaved`.
+  change through `useNotifySaved`, whose text names the kind of record and never a person: a notice
+  with an action stays until closed, past the session it was shown in.
 - A field takes the form's `control`, a `name` typed with `FieldPathByValue` so it binds only its
   own kind of value, and a translated `label`. Mantine ties a plain input's error through
   `aria-describedby`; a composite one ties it to each of its own inputs, as `TimeField` does.
