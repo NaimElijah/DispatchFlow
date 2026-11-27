@@ -11,7 +11,7 @@ import { sendJson } from '../../test/sendJson.ts'
 import { ExampleForm } from '../../test/ExampleForm.tsx'
 import { EXAMPLE_PATH } from '../../test/exampleFormData.ts'
 import { server } from '../../test/server.ts'
-import { notifySaved } from '../notifySaved.ts'
+import { useNotifySaved } from '../useNotifySaved.ts'
 import { NumberField } from './fields/NumberField.tsx'
 import { PhoneField } from './fields/PhoneField.tsx'
 import { TextField } from './fields/TextField.tsx'
@@ -34,10 +34,11 @@ interface ContactFormProps {
 
 function ContactForm({ etag, onReload, onSaved }: ContactFormProps) {
   const form = useSchemaForm(contactSchema, { defaultValues: { name: '', phone: '' } })
+  const notifySaved = useNotifySaved()
   const save = useVersionedSave({
     send: (body, headers) => sendJson('PUT', CONTACT_PATH, body, headers),
     onSaved: (saved) => {
-      notifySaved('The contact is saved.')
+      notifySaved({ text: 'The contact is saved.' })
       onSaved?.(saved)
     },
   })

@@ -9,7 +9,7 @@ import { TimeWindowField } from '../components/form/fields/TimeWindowField.tsx'
 import { SaveButton } from '../components/form/SaveButton.tsx'
 import { SchemaForm } from '../components/form/SchemaForm.tsx'
 import { useSchemaForm } from '../components/form/useSchemaForm.ts'
-import { notifySaved } from '../components/notifySaved.ts'
+import { useNotifySaved } from '../components/useNotifySaved.ts'
 import { useLanguage } from '../components/useLanguage.ts'
 import { useVersionedSave } from '../lib/versionedSave.ts'
 import { EXAMPLE_DATE, EXAMPLE_DEPOTS, EXAMPLE_PATH, EXAMPLE_STRINGS } from './exampleFormData.ts'
@@ -21,6 +21,7 @@ import { sendJson } from './sendJson.ts'
  */
 export function ExampleForm({ etag }: { readonly etag: string | null }) {
   const strings = EXAMPLE_STRINGS[useLanguage()]
+  const notifySaved = useNotifySaved()
   const form = useSchemaForm(exampleSchema, {
     defaultValues: {
       name: '',
@@ -34,7 +35,7 @@ export function ExampleForm({ etag }: { readonly etag: string | null }) {
   })
   const save = useVersionedSave({
     send: (body, headers) => sendJson('PUT', EXAMPLE_PATH, body, headers),
-    onSaved: () => notifySaved(strings.saved),
+    onSaved: () => notifySaved({ text: strings.saved }),
   })
   const { control } = form
 

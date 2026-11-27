@@ -1,6 +1,6 @@
 /**
  * The English strings of the shared components every area's screens are built from: form fields,
- * the save button, the table and the date pickers. The source of the namespace's shape, which
+ * the save button, the saved notice, the table and the date pickers. The source of the namespace's shape, which
  * `he/common.ts` must match key for key.
  *
  * `withUnit` names a number field with its unit, and `timeOfDay` names a time field's two boxes
@@ -8,7 +8,7 @@
  */
 export const common = {
   save: 'Save',
-  saved: 'Saved.',
+  close: 'Close',
   reload: 'Reload',
   tryAgain: 'Try again',
   withUnit: '{{label}} ({{unit}})',
