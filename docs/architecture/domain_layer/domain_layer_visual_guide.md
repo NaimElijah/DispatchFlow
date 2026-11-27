@@ -193,26 +193,26 @@ There are 20 roots in Java (`extends AggregateRoot`). Audit has none, and the Py
 
 | Aggregate (module) | Key | Creation factory | Lines |
 |---|---|---|---|
-| `UserAccount` (Access) | `AccountId` | `open`, `openFirstAdmin` | 853 |
-| `Session` (Access) | `SessionId` | `open` | 693 |
+| `UserAccount` (Access) | `AccountId` | `open`, `openFirstAdmin` | 857 |
+| `Session` (Access) | `SessionId` | `open` | 698 |
 | `CompanyProfile` (Access) | none: one per company | `create` | 162 |
-| `FleetRegister` (Fleet) | none: one per company | `empty` | 427 |
+| `FleetRegister` (Fleet) | none: one per company | `empty` | 432 |
 | `Driver` (Fleet) | `AccountId`, the driver's account | `register` | 428 |
-| `DayRoster` (Fleet) | `DeliveryDate` | `open` | 506 |
+| `DayRoster` (Fleet) | `DeliveryDate` | `open` | 510 |
 | `Customer` (Orders) | `CustomerId` | `register` | 624 |
 | `Order` (Orders) | `OrderId` | `place` | 689 |
-| `ImportBatch` (Orders) | `ImportBatchId` | `preview` | 554 |
-| `Plan` (Planning) | `PlanId` | `open` | 2,711 |
-| `SolveJob` (Planning) | `JobId` | `queue`, package-private | 704 |
-| `ReoptimizationProposal` (Planning) | `ProposalId` | `create`, package-private | 566 |
+| `ImportBatch` (Orders) | `ImportBatchId` | `preview` | 558 |
+| `Plan` (Planning) | `PlanId` | `open` | 2,718 |
+| `SolveJob` (Planning) | `JobId` | `queue`, package-private | 711 |
+| `ReoptimizationProposal` (Planning) | `ProposalId` | `create`, package-private | 581 |
 | `PlanningSettings` (Planning) | none: one per company | `startingValues` | 224 |
-| `Delivery` (Live Operations) | `StopId` | `firstFact` | 811 |
-| `RouteRun` (Live Operations) | `RouteId` | `start` | 427 |
+| `Delivery` (Live Operations) | `StopId` | `firstFact` | 823 |
+| `RouteRun` (Live Operations) | `RouteId` | `start` | 431 |
 | `Alert` (Live Operations) | `AlertId` | `raise` | 329 |
-| `StopMessages` (Messaging) | `StopId` | `open` | 656 |
-| `RatingRequest` (Messaging) | `RatingRequestId` | `open` | 439 |
+| `StopMessages` (Messaging) | `StopId` | `open` | 657 |
+| `RatingRequest` (Messaging) | `RatingRequestId` | `open` | 444 |
 | `MessagingSettings` (Messaging) | none: one per company | `create` | 146 |
-| `Baseline` (Reporting) | `PlanId` | `compute` | 401 |
+| `Baseline` (Reporting) | `PlanId` | `compute` | 414 |
 
 Lines are the line counts of the root's file at this commit. Where a root lives: `core/<module>/domain/`
 plus the aggregate's package from the table above (`Plan.java` is in `core/planning/domain/plan/`).
@@ -1903,4 +1903,4 @@ component `CLAUDE.md` files).
 | 13. What is next | `core/planning/application/service/plan/RequestSolve.java`, then `grep -rn "To Be Implemented." src/backend` | none: bodies throw |
 
 After step 4 you can read any other aggregate with the §4 pattern in hand. Step 9 is the longest: `Plan.java`
-is 2,711 lines, so read it by the banner comments and keep the matching test open.
+is 2,718 lines, so read it by the banner comments and keep the matching test open.

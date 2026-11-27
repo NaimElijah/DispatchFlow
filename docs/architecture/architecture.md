@@ -13,9 +13,9 @@ How DispatchFlow is built, as it is today. What it must do is in
 > each. The web plumbing is built: the `Clock` and `IdGenerator` adapters, `web`'s trace-ID filter,
 > error handlers, call wrapper and error endpoint, the JSON logs and `SchedulingConfiguration`. The
 > web app's shell is built: its routes, layout, languages and Settings page; no screen of it calls
-> the API. The application layers are declared, not built, but for Audit's `AuditLogService`, which
-> is wired to record a changing call's refused 401, a lost race and a request that breaks the
-> contract, and every changing use case's outcome as each is built, and Audit's `Refusals` helper:
+> the API. The application layers are declared, not built, but for Audit's `AuditLogService`,
+> wired to record a changing call's refused 401, a lost race and a request that breaks the contract,
+> and every changing use case's outcome as each is built, and Audit's static `Refusals` helper:
 > every other body that would do work throws, no other use case calls a persistence adapter, and no
 > operation is served, so no record is written yet. The design the team is heading
 > for is in [Target design](#target-design); this file describes none of it as built beyond that.

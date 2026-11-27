@@ -132,7 +132,7 @@ Decided on 27 November 2026.
      it is built ([ADR-140] decision 5).
 
 The tech stack's §6.2 and the domain document's §2.2, §2.3, §4.8 and §6.1 are corrected to point
-at [ADR-149] and this ADR. [#299][ISSUE-299] tracks [ADR-149]'s Risk of a flood of unsigned
+at [ADR-149], and at this ADR where it applies. [#299][ISSUE-299] tracks [ADR-149]'s Risk of a flood of unsigned
 changing calls, and blocks any deployment beyond loopback.
 
 **What this amends and extends.**

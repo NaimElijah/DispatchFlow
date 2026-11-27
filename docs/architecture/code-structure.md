@@ -114,7 +114,8 @@ src/backend/core/
     shared/                        the shared kernel: the typed IDs, the shared values, their
                                    errors, and the building blocks every module's domain uses
       application/                 the ports every module uses: Clock, IdGenerator,
-                                   ProcessedEvents (declared), NotFound, StaleVersion
+                                   ProcessedEvents (declared), NotFound, StaleVersion, and
+                                   ApplicationRefusal, which Audit's Refusals records
       adapter/out/persistence/     the persistence adapter every module shares: VersionedSave, the
                                    converters and instantiators that store the kernel's values,
                                    and id/ with the 14 typed-ID converters; an adapter, not the
@@ -219,7 +220,7 @@ src/backend/core/
     architecture/                  the domain purity, shape and package rules, the application
                                    rules, the JPA mapping rules and the transaction rules
                                    (ArchUnit), and the error-code,
-                                   event-name and refusal-test checks
+                                   event-name, refusal-test and application-refusal checks
     archfixture/                   deliberately wrong classes that each rule must flag, one
                                    subpackage per rule under alpha/domain/ (split by kind above
                                    20 files), epsilon/ for the package rules, zeta/ for the
@@ -307,8 +308,8 @@ It holds whichever of `api`, `spi`, `port/out` and `service` the module has some
 `audit` and `liveops` have no `spi`, and `messaging` and `reporting` have neither `api` nor `spi`.
 Every body that would do work throws `UnsupportedOperationException("To Be Implemented.")`, but for
 Audit's `AuditLogService`, the one wired use case, which appends through `AuditRecords`, and the
-`Refusals` helper in Audit's `api`, which runs a use case's `Change` and records the refusal that
-leaves it ([ADR-150](../ADRs/ADR-150-one-audit-helper-records-the-refusals-a-use-case-sees-and-the-contracts-handler-records-a-changing-call-it-refuses.md)). A use case
+`Refusals` helper in Audit's `api`, which runs a use case's own checks and `Change` and records the
+domain or application refusal that leaves them ([ADR-150](../ADRs/ADR-150-one-audit-helper-records-the-refusals-a-use-case-sees-and-the-contracts-handler-records-a-changing-call-it-refuses.md)). A use case
 is wired in its module's package-private `<Module>Configuration`, at the module's root, by joining
 its `@Import` list in the pull request that builds its body ([ADR-140][ADR-140]); every list but
 `AuditConfiguration`'s is still empty, and `ApplicationRules` rule 15 keeps the root to that class and its `package-info`. The layer's one Spring
