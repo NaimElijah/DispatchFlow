@@ -194,10 +194,10 @@ progress to the web app over server-sent events
 | Core backend | Java, Spring Boot, Spring Data JPA; libphonenumber, JTS, JSpecify; uuid-creator | 25, 4.1.2; 9.0.43, 1.20.0, version from the Spring Boot parent; 6.1.1 | The team's strongest stack; mature ecosystem for the adapters. libphonenumber parses phone numbers and JTS checks the service area, both in the pure domain; JSpecify marks null-safe packages; uuid-creator makes the UUIDv7 IDs, which the JDK can't |
 | Database | PostgreSQL 18.7; Flyway (version from the Spring Boot parent) | 18.7 | Relational data with real constraints; versioned SQL migrations |
 | Optimizer | Python, FastAPI, NumPy | 3.14, 0.162, 2.5.4 | OR-Tools' richest bindings; algorithm work iterates apart from the backend; NumPy holds the validator's arrays |
-| Web app | React, TypeScript, Vite; TanStack Router and Query, Mantine, i18next | 19.3, 6.0, 8.3; 1.170, 5.108, 9.8, 27.2 | Web app for every role; its driver screens also work in a phone's browser. Typed routes, an in-memory server cache, right to left through one provider, and one strings package for both apps |
+| Web app | React, TypeScript, Vite; TanStack Router, Query and Table, Mantine, i18next; React Hook Form, Zod, libphonenumber-js | 19.3, 6.0, 8.3; 1.170, 5.108, 9.3, 9.8, 27.2; 7.92, 4.6, 1.13 | Web app for every role; its driver screens also work in a phone's browser. Typed routes, an in-memory server cache, right to left through one provider, one strings package for both apps, and forms whose schemas both apps share |
 | Phone app | React Native, Expo | 0.88, SDK 58 | One codebase for iOS and Android, for every role |
 | Contracts | OpenAPI, Redocly CLI | 3.1, 2.72 | Each side is built against the contract, not against the other side |
-| Tests | JUnit + Testcontainers, ArchUnit, pytest + Hypothesis, vrplib, import-linter, Vitest, MSW, Jest | ArchUnit 1.5.1, Hypothesis 6.170, vrplib 2.2.0, import-linter 2.16, MSW 3.0 | Real PostgreSQL in tests, never an in-memory stand-in; ArchUnit, import-linter and ruff keep each domain pure; vrplib reads the Solomon instances the validator is checked against |
+| Tests | JUnit + Testcontainers, ArchUnit, pytest + Hypothesis, vrplib, import-linter, Vitest, MSW, user-event, Jest | ArchUnit 1.5.1, Hypothesis 6.170, vrplib 2.2.0, import-linter 2.16, MSW 3.0, user-event 14.6 | Real PostgreSQL in tests, never an in-memory stand-in; ArchUnit, import-linter and ruff keep each domain pure; vrplib reads the Solomon instances the validator is checked against |
 | Tooling | just, uv, pnpm (web app), npm (phone app), OSV-Scanner | 1.59, 0.12, 12.23, 11, 2.7 | One command set locally and in CI; one audit across every ecosystem |
 
 TypeScript is held at 6.0 because typescript-eslint does not support 7 yet
@@ -293,7 +293,7 @@ comments. The rules apply to people and to coding assistants alike.
 | Core integration (`*IT`) | Against a real PostgreSQL in a container. Today: the application starts, each module's aggregates are saved and loaded, with a damaged stored value refused, the shared version helper's saves, conflicts and storing of the kernel's values are checked, the audit trail is append-only for `app` and its purge deletes nothing a year old or younger, the audit log's records commit or roll back with their transaction, and `web`'s pieces are wired in the whole application | `just core-check` |
 | Optimizer | The domain (the validator's crafted-violation catalogue, Hypothesis properties, Solomon best-known solutions accepted), the HTTP adapter, the dependency boundary and import-linter | `just optimizer-check` |
 | Research | Its environment: the optimizer and PyVRP are installed | `just research-check` |
-| Web app | Components in jsdom (Vitest + Testing Library), with MSW failing any request no handler answers; the shared packages' lint and format | `just web-check` |
+| Web app | Components in jsdom (Vitest + Testing Library), with MSW failing any request no handler answers; the shared packages' lint, format and tests | `just web-check` |
 | Phone app | Components (Jest + React Native Testing Library) | `just mobile-check` |
 | Contracts | Both OpenAPI documents lint clean | `just contracts-check` |
 | Dependencies | Known vulnerabilities in every lockfile and the pom | `just audit` |
@@ -311,7 +311,7 @@ src/
   backend/optimizer/   optimization service (FastAPI)
   frontend/web/        web app (React + Vite)
   frontend/mobile/     phone app (Expo)
-  frontend/packages/   shared TypeScript packages: eslint-config, tsconfig and i18n, and four placeholders
+  frontend/packages/   shared TypeScript packages: eslint-config, tsconfig, i18n, formatters and schemas, and two placeholders
   research/            benchmarks, simulation, order generator; never deployed
 contracts/             versioned OpenAPI contracts between the components
 tests/                 cross-component tests only: e2e/, load/

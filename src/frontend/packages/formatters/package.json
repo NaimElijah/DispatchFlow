@@ -1,0 +1,27 @@
+{
+  "name": "@dispatchflow/formatters",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@dispatchflow/i18n": "workspace:*"
+  },
+  "devDependencies": {
+    "@dispatchflow/eslint-config": "workspace:*",
+    "@dispatchflow/tsconfig": "workspace:*",
+    "eslint": "10.15.0",
+    "prettier": "3.10.1",
+    "typescript": "6.0.3",
+    "vitest": "5.1.0"
+  }
+}

@@ -28,7 +28,7 @@ with its layout, rules and commands.
   [ADR-089]).
 - The strings are `@dispatchflow/i18n`'s, one namespace per area: `src/he/<area>.ts` is typed
   against `src/en/<area>.ts` (`tsc`), and `resources.test.ts` fails a gap between them.
-- Times are shown with `Intl` and `timeZone: 'Asia/Jerusalem'` ([ADR-088], [TS §10]).
+- Dates, times and quantities are shown through `@dispatchflow/formatters` ([ADR-088], [TS §10]).
 - Every call carries `X-App-Version` and `X-App`, and a driver's calls also `X-Device-Time`
   ([ADR-082]).
 - Both apps meet WCAG 2.2 AA (NFR-46, [ADR-070]).
