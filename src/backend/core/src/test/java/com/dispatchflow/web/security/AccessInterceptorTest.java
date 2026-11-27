@@ -103,6 +103,7 @@ class AccessInterceptorTest {
     private static final String COUNTED = "/api/v1/access-interceptor-test/counted";
     private static final String ANSWERED = "/api/v1/access-interceptor-test/answered";
     private static final String SHORT_NOTE = "/api/v1/access-interceptor-test/short-note";
+    private static final int SHORT_NOTE_LENGTH = 4;
     // A value the contract refuses, which the refusal's exception quotes in its message.
     private static final String REFUSED_VALUE = "Dana Levi";
     // A path no operation has, which the static-resource handler serves with a 404.
@@ -420,6 +421,7 @@ class AccessInterceptorTest {
     @Test
     void GivenASignedInChangingCallOverTheBodyLimit_WhenTheContractRefusesIt_Then413AndOneRecordWithItsCode() {
         under(StandInProfiles.TEST, fixture -> {
+            // One byte over BodySizeLimit.MAX_BODY_BYTES, which is package-private to web.
             String overTheLimit = "{\"text\":\"" + "a".repeat(1_048_576) + "\"}";
 
             MvcTestResult result = fixture.mvc()
@@ -1067,7 +1069,8 @@ class AccessInterceptorTest {
     /** A request body the contract would declare: one required text. */
     record Note(@NotBlank String text) {}
 
-    record ShortNote(@Size(max = 4) String text) {}
+    /** A note short enough that a name is refused, so the refusal's exception quotes it. */
+    record ShortNote(@Size(max = SHORT_NOTE_LENGTH) String text) {}
 
     record Refusal(CallContext call, Instant at, String errorCode) {}
 

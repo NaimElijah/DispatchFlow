@@ -247,8 +247,9 @@ final class TransactionRules {
      * what the refusal itself must store: their names are listed, and a {@code Change} joins the
      * list only by that test, in review. The helper rethrows the refusal, which rolls its record
      * back, so the list never excuses it. A method that carries {@code @Transactional} itself counts
-     * as a transactional class. The rule reads a class's own calls: a module's own intermediary that
-     * records for a transactional caller is left to review.
+     * as a transactional class, and the list never excuses it either: a listed {@code Change}'s
+     * read-only read can't record a refusal. The rule reads a class's own calls: a module's own
+     * intermediary that records for a transactional caller is left to review.
      */
     static ArchRule refusalIsNeverRecordedInsideATransaction(String root, Set<String> committedHere) {
         return classes()

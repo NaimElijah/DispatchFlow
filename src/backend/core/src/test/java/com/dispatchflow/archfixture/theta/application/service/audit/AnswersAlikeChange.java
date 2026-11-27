@@ -6,7 +6,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Rule 10's exception: a {@code Change} that answers a refusal without letting it leave, so its
- * transaction commits the record alone. It is clean only while listed.
+ * transaction commits the record alone. It is clean only while listed. It also has a read-only read
+ * of its own, as most {@code Change}s do, which doesn't make its own method a flagged one.
  */
 @Transactional
 public class AnswersAlikeChange {
@@ -21,6 +22,16 @@ public class AnswersAlikeChange {
     public AnswersAlikeChange(Ledgers ledgers, AuditLog auditLog) {
         this.ledgers = ledgers;
         this.auditLog = auditLog;
+    }
+
+    /**
+     * Counts the ledgers, in a read-only transaction of its own.
+     *
+     * @return how many ledgers there are
+     */
+    @Transactional(readOnly = true)
+    public long count() {
+        return ledgers.count();
     }
 
     /** Records a refusal raised before anything changed, and answers as if it succeeded. */

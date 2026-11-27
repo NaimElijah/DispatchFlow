@@ -2,10 +2,17 @@ package com.dispatchflow.architecture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.dispatchflow.archfixture.refusal.adapter.CodedAdapterError;
+import com.dispatchflow.archfixture.refusal.application.CodedByAConstant;
+import com.dispatchflow.archfixture.refusal.application.MarkedRefusal;
+import com.dispatchflow.archfixture.refusal.application.UnmarkedRefusal;
 import com.dispatchflow.shared.application.ApplicationRefusal;
 import com.tngtech.archunit.core.domain.JavaClass;
+import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.domain.JavaModifier;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
-import java.util.function.Predicate;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -25,28 +32,44 @@ class ApplicationRefusalsTest {
             "com.dispatchflow.planning.application.port.out.OptimizerRefusedRequest",
             "a defect of the request the core built, which fails loudly");
 
-    private static final Predicate<JavaClass> CODED_EXCEPTION_OF_THE_APPLICATION_LAYER =
-            type -> type.getPackageName().contains(".application")
-                    && type.isAssignableTo(RuntimeException.class)
-                    && type.getAllMethods().stream()
-                            .anyMatch(method -> method.getName().equals("code")
-                                    && method.getRawParameterTypes().isEmpty());
+    /**
+     * The exceptions in an {@code application} package, at any depth, that carry a code, through a
+     * {@code code()} method or a {@code CODE} constant, and don't implement {@link
+     * ApplicationRefusal}.
+     */
+    static List<String> unmarkedCodedExceptionsOfTheApplicationLayer(JavaClasses classes) {
+        return classes.stream()
+                .filter(type ->
+                        Arrays.asList(type.getPackageName().split("\\.")).contains("application"))
+                .filter(type -> type.isAssignableTo(RuntimeException.class))
+                .filter(ApplicationRefusalsTest::carriesACode)
+                .filter(type -> !type.isAssignableTo(ApplicationRefusal.class))
+                .map(JavaClass::getName)
+                .toList();
+    }
+
+    private static boolean carriesACode(JavaClass type) {
+        boolean method = type.getAllMethods().stream()
+                .anyMatch(each -> each.getName().equals("code")
+                        && each.getRawParameterTypes().isEmpty());
+        boolean constant = type.getFields().stream()
+                .anyMatch(field ->
+                        field.getName().equals("CODE") && field.getModifiers().contains(JavaModifier.STATIC));
+        return method || constant;
+    }
 
     @Test
     void GivenEveryCodedExceptionOfTheApplicationLayer_WhenListed_ThenEachIsARefusalOrNamedAsNone() {
-        assertThat(ProductionClasses.ALL.stream()
-                        .filter(CODED_EXCEPTION_OF_THE_APPLICATION_LAYER)
-                        .filter(type -> !type.isAssignableTo(ApplicationRefusal.class))
-                        .map(JavaClass::getName))
+        assertThat(unmarkedCodedExceptionsOfTheApplicationLayer(ProductionClasses.ALL))
                 .containsExactlyInAnyOrderElementsOf(NO_REFUSAL.keySet());
     }
 
     @Test
-    void GivenTheNamedNonRefusals_WhenLookedUp_ThenEachIsACodedExceptionOfTheApplicationLayer() {
-        assertThat(NO_REFUSAL.keySet())
-                .allSatisfy(name -> assertThat(ProductionClasses.ALL.get(name))
-                        .matches(
-                                CODED_EXCEPTION_OF_THE_APPLICATION_LAYER,
-                                "a coded exception of the application layer"));
+    void GivenCodedExceptionsInAndOutOfTheApplicationLayer_WhenChecked_ThenOnlyTheUnmarkedApplicationOnesAreListed() {
+        JavaClasses fixtures = FixtureClasses.only(
+                UnmarkedRefusal.class, CodedByAConstant.class, MarkedRefusal.class, CodedAdapterError.class);
+
+        assertThat(unmarkedCodedExceptionsOfTheApplicationLayer(fixtures))
+                .containsExactlyInAnyOrder(UnmarkedRefusal.class.getName(), CodedByAConstant.class.getName());
     }
 }
