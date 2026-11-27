@@ -1,0 +1,10 @@
+{
+  "extends": "@dispatchflow/tsconfig/base.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tsbuildinfo",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": []
+  },
+  "include": ["src"]
+}
