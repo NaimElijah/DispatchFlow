@@ -1,4 +1,5 @@
 import { exampleSchema } from '@dispatchflow/schemas'
+import { useState } from 'react'
 import { DateField } from '../components/form/fields/DateField.tsx'
 import { NumberField } from '../components/form/fields/NumberField.tsx'
 import { PhoneField } from '../components/form/fields/PhoneField.tsx'
@@ -9,7 +10,7 @@ import { TimeWindowField } from '../components/form/fields/TimeWindowField.tsx'
 import { SaveButton } from '../components/form/SaveButton.tsx'
 import { SchemaForm } from '../components/form/SchemaForm.tsx'
 import { useSchemaForm } from '../components/form/useSchemaForm.ts'
-import { notifySaved } from '../components/notifySaved.ts'
+import { useNotifySaved } from '../components/useNotifySaved.ts'
 import { useLanguage } from '../components/useLanguage.ts'
 import { useVersionedSave } from '../lib/versionedSave.ts'
 import { EXAMPLE_DATE, EXAMPLE_DEPOTS, EXAMPLE_PATH, EXAMPLE_STRINGS } from './exampleFormData.ts'
@@ -17,10 +18,21 @@ import { sendJson } from './sendJson.ts'
 
 /**
  * A form built from the shared pieces alone: its schema, its fields and its strings, and one save
- * call. It shows that a real form, such as the depot form, needs nothing more (#173).
+ * call. It shows that a real form, such as the depot form, needs nothing more (#173). Its next save
+ * sends the newest version it knows: the one each save returns, or a new `etag` the view hands it
+ * once it was read again.
+ *
+ * @param etag the `ETag` the view was last read with, or `null` for a view with no version yet
  */
 export function ExampleForm({ etag }: { readonly etag: string | null }) {
   const strings = EXAMPLE_STRINGS[useLanguage()]
+  const notifySaved = useNotifySaved()
+  const [version, setVersion] = useState(etag)
+  const [readWith, setReadWith] = useState(etag)
+  if (readWith !== etag) {
+    setReadWith(etag)
+    setVersion(etag)
+  }
   const form = useSchemaForm(exampleSchema, {
     defaultValues: {
       name: '',
@@ -34,7 +46,10 @@ export function ExampleForm({ etag }: { readonly etag: string | null }) {
   })
   const save = useVersionedSave({
     send: (body, headers) => sendJson('PUT', EXAMPLE_PATH, body, headers),
-    onSaved: () => notifySaved(strings.saved),
+    onSaved: (saved) => {
+      setVersion(saved.etag)
+      notifySaved({ text: strings.saved })
+    },
   })
   const { control } = form
 
@@ -43,7 +58,7 @@ export function ExampleForm({ etag }: { readonly etag: string | null }) {
       form={form}
       schema={exampleSchema}
       save={save}
-      onSubmit={(body) => save.mutateAsync({ body, etag })}
+      onSubmit={(body) => save.mutateAsync({ body, etag: version })}
     >
       <TextField control={control} name="name" label={strings.name} required />
       <TextAreaField control={control} name="notes" label={strings.notes} />
@@ -78,7 +93,6 @@ export function ExampleForm({ etag }: { readonly etag: string | null }) {
         name="serviceMinutes"
         label={strings.serviceMinutes}
         unit="minutes"
-        required
       />
       <NumberField
         control={control}

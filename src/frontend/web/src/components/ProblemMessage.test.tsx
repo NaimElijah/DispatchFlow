@@ -18,7 +18,10 @@ function alertText(): string {
 describe('ProblemMessage', () => {
   test('GivenAProblemWithAnUnknownCode_WhenShown_ThenAGeneralMessageWithANextStepAndNotTheCode', () => {
     renderComponent(
-      <ProblemMessage failure={{ kind: 'refused', problem: problem(422, 'BRAND_NEW_RULE') }} />,
+      <ProblemMessage
+        operation="write"
+        failure={{ kind: 'refused', problem: problem(422, 'BRAND_NEW_RULE') }}
+      />,
     )
 
     expect(alertText()).toContain('Something went wrong.')
@@ -27,9 +30,45 @@ describe('ProblemMessage', () => {
     expect(alertText()).not.toContain('BRAND_NEW_RULE')
   })
 
+  test('GivenAReadThatFailedUnexpectedly_WhenShown_ThenItSaysSomethingWentWrongAndOffersToReadAgain', async () => {
+    const user = userEvent.setup()
+    const onRetry = vi.fn()
+    renderComponent(
+      <ProblemMessage
+        operation="read"
+        failure={{ kind: 'unexpected', problem: problem(500, 'UNEXPECTED_ERROR') }}
+        onReload={() => undefined}
+        onRetry={onRetry}
+      />,
+    )
+
+    expect(alertText()).toContain('Something went wrong.')
+    expect(alertText()).toContain('Try again. If it keeps happening, tell your administrator.')
+    expect(alertText()).not.toContain('may have been saved')
+    expect(alertText()).toContain(`Reference: ${TRACE_ID}`)
+    expect(screen.queryByRole('button', { name: 'Reload' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(onRetry).toHaveBeenCalledOnce()
+  })
+
+  test('GivenAReadAnsweredByAProxysPage_WhenShown_ThenItOffersToTryAgainWithNoReference', () => {
+    renderComponent(
+      <ProblemMessage
+        operation="read"
+        failure={{ kind: 'unexpected', problem: undefined }}
+        onRetry={() => undefined}
+      />,
+    )
+
+    expect(alertText()).toContain('Something went wrong.')
+    expect(alertText()).not.toContain('Reference')
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined()
+  })
+
   test('GivenAKnownCodeWithParams_WhenShown_ThenItsTextHasThemFilledIn', () => {
     renderComponent(
       <ProblemMessage
+        operation="write"
         failure={{
           kind: 'refused',
           problem: problem(422, 'TEXT_TOO_LONG', { kind: 'NAME', maxLength: 100 }),
@@ -44,7 +83,10 @@ describe('ProblemMessage', () => {
 
   test('GivenTheReference_WhenShownInHebrew_ThenItSitsInABdi', () => {
     renderComponent(
-      <ProblemMessage failure={{ kind: 'stale', problem: problem(412, 'STALE_VERSION') }} />,
+      <ProblemMessage
+        operation="write"
+        failure={{ kind: 'stale', problem: problem(412, 'STALE_VERSION') }}
+      />,
       { language: 'he' },
     )
 
@@ -57,6 +99,7 @@ describe('ProblemMessage', () => {
     const onReload = vi.fn()
     renderComponent(
       <ProblemMessage
+        operation="write"
         failure={{ kind: 'stale', problem: problem(412, 'STALE_VERSION') }}
         onReload={onReload}
         onRetry={() => undefined}
@@ -75,7 +118,7 @@ describe('ProblemMessage', () => {
   ])('GivenA_%s_Failure_WhenShown_ThenItOffersToTryAgain', async (_kind, failure, text) => {
     const user = userEvent.setup()
     const onRetry = vi.fn()
-    renderComponent(<ProblemMessage failure={failure} onRetry={onRetry} />)
+    renderComponent(<ProblemMessage operation="write" failure={failure} onRetry={onRetry} />)
 
     expect(alertText()).toContain(text)
     await user.click(screen.getByRole('button', { name: 'Try again' }))
@@ -85,6 +128,7 @@ describe('ProblemMessage', () => {
   test('GivenAnUnexpectedFailure_WhenShown_ThenItSaysToReloadBeforeSendingAgain', () => {
     renderComponent(
       <ProblemMessage
+        operation="write"
         failure={{ kind: 'unexpected', problem: problem(500, 'UNEXPECTED_ERROR') }}
       />,
     )
@@ -94,7 +138,9 @@ describe('ProblemMessage', () => {
   })
 
   test('GivenAProxysPageInsteadOfAProblem_WhenShown_ThenItSaysToReloadBeforeSendingAgainWithNoReference', () => {
-    renderComponent(<ProblemMessage failure={{ kind: 'unexpected', problem: undefined }} />)
+    renderComponent(
+      <ProblemMessage operation="write" failure={{ kind: 'unexpected', problem: undefined }} />,
+    )
 
     expect(alertText()).toContain('Reload the page to check, before you send it again.')
     expect(alertText()).not.toContain('Reference')
@@ -103,6 +149,7 @@ describe('ProblemMessage', () => {
   test('GivenItemsNoFieldShows_WhenShown_ThenEachIsListedWithItsText', () => {
     renderComponent(
       <ProblemMessage
+        operation="write"
         failure={{ kind: 'refused', problem: problem(400, 'INVALID_REQUEST') }}
         items={[
           { code: 'REQUIRED', pointer: '/address' },

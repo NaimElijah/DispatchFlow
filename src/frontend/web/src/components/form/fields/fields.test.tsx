@@ -1,7 +1,14 @@
-import { localDate, optionalTimeWindow, timeOfDay, weightKg } from '@dispatchflow/schemas'
-import { screen, within } from '@testing-library/react'
+import {
+  durationMinutes,
+  localDate,
+  optionalTimeWindow,
+  timeOfDay,
+  weightKg,
+} from '@dispatchflow/schemas'
+import { screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
-import { describe, expect, test } from 'vitest'
+import { useEffect, useState } from 'react'
+import { describe, expect, onTestFinished, test, vi } from 'vitest'
 import { z } from 'zod'
 import { ExampleForm } from '../../../test/ExampleForm.tsx'
 import { EXAMPLE_DEPOTS, EXAMPLE_STRINGS } from '../../../test/exampleFormData.ts'
@@ -47,6 +54,77 @@ function TimesForm({ date = '' }: { readonly date?: string }) {
   )
 }
 
+const noteAndTimeSchema = z.object({ note: z.string(), opensAt: z.string() })
+
+/** A form of a note and a time, with a button that resets each field on its own. */
+function TwoFieldForm() {
+  const form = useSchemaForm(noteAndTimeSchema, { defaultValues: { note: '', opensAt: '' } })
+
+  return (
+    <SchemaForm
+      form={form}
+      schema={noteAndTimeSchema}
+      save={{ isPending: false, error: null, reset: () => undefined }}
+      onSubmit={async () => undefined}
+    >
+      <TimeField control={form.control} name="opensAt" label="Opens at" />
+      <button type="button" onClick={() => form.resetField('note')}>
+        Reset the note
+      </button>
+      <button type="button" onClick={() => form.resetField('opensAt')}>
+        Reset the time
+      </button>
+    </SchemaForm>
+  )
+}
+
+/** A screen that puts its view into the form in an effect on the form, as the hooks lint asks. */
+function ReadIntoForm({ onReset }: { readonly onReset: () => void }) {
+  const form = useSchemaForm(noteAndTimeSchema)
+  const [view] = useState({ note: 'Ring twice', opensAt: '08:30' })
+  useEffect(() => {
+    form.reset(view)
+    onReset()
+  }, [view, form, onReset])
+
+  return (
+    <SchemaForm
+      form={form}
+      schema={noteAndTimeSchema}
+      save={{ isPending: false, error: null, reset: () => undefined }}
+      onSubmit={async () => undefined}
+    >
+      <TimeField control={form.control} name="opensAt" label="Opens at" />
+    </SchemaForm>
+  )
+}
+
+// Any text passes, so a half-typed time, which the form holds as empty, can be saved.
+const openingSchema = z.object({ opensAt: z.string() })
+
+/**
+ * A form of one time, a button that resets it, as a screen does after a reload, and a save that
+ * resets it once done, as a screen does to take the next record.
+ */
+function ResettableTimeForm() {
+  const form = useSchemaForm(openingSchema, { defaultValues: { opensAt: '' } })
+
+  return (
+    <SchemaForm
+      form={form}
+      schema={openingSchema}
+      save={{ isPending: false, error: null, reset: () => undefined }}
+      onSubmit={async () => form.reset()}
+    >
+      <TimeField control={form.control} name="opensAt" label="Opens at" />
+      <button type="button" onClick={() => form.reset()}>
+        Reset
+      </button>
+      <SaveButton />
+    </SchemaForm>
+  )
+}
+
 describe('fields', () => {
   test('GivenAFieldWithAnError_WhenRendered_ThenTheErrorIsTiedToTheField', async () => {
     const user = userEvent.setup()
@@ -54,7 +132,7 @@ describe('fields', () => {
 
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
-    for (const name of [strings.name, strings.phone, 'Weight (kg)', 'Service time (min)']) {
+    for (const name of [strings.name, strings.phone, 'Weight (kg)', 'Volume (L)']) {
       const field = await screen.findByRole('textbox', { name, description: REQUIRED })
       expect(field.getAttribute('aria-invalid'), name).toBe('true')
     }
@@ -111,6 +189,188 @@ describe('fields', () => {
     }
   })
 
+  test('GivenAFilledTime_WhenItsMinutesAreDeleted_ThenItsHoursStay', async () => {
+    const user = userEvent.setup()
+    renderComponent(<TimesForm />)
+    const hours = screen.getByRole('spinbutton', { name: 'Opens at, hours' })
+    const minutes = screen.getByRole('spinbutton', { name: 'Opens at, minutes' })
+    await user.type(hours, '0830')
+    expect(document.activeElement).toBe(minutes)
+
+    await user.keyboard('{Backspace}')
+
+    expect(minutes).toHaveProperty('value', '')
+    expect(hours).toHaveProperty('value', '08')
+  })
+
+  test('GivenAFilledTime_WhenTheFormIsReset_ThenBothItsBoxesEmpty', async () => {
+    const user = userEvent.setup()
+    renderComponent(<ResettableTimeForm />)
+    const hours = screen.getByRole('spinbutton', { name: 'Opens at, hours' })
+    await user.type(hours, '0830')
+
+    await user.click(screen.getByRole('button', { name: 'Reset' }))
+
+    // A reset remounts the picker, so its boxes are looked up again.
+    for (const name of ['Opens at, hours', 'Opens at, minutes']) {
+      expect(screen.getByRole('spinbutton', { name }), name).toHaveProperty('value', '')
+    }
+  })
+
+  test('GivenAWindowWithOnlyItsStart_WhenSaved_ThenFocusMovesToItAndEachBoxSaysWhy', async () => {
+    const user = userEvent.setup()
+    renderComponent(<TimesForm />)
+    const bothOrNeither =
+      'The window has only one of its two times. Fill in both times, or leave both empty.'
+
+    await user.type(screen.getByRole('spinbutton', { name: 'Opens at, hours' }), '0900')
+    await user.type(screen.getByRole('spinbutton', { name: 'From, hours' }), '0800')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    // The weight and the date are refused too, but the window comes first in reading order.
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole('spinbutton', { name: 'From, hours', description: bothOrNeither }),
+      ),
+    )
+    for (const name of ['From, minutes', 'To, hours', 'To, minutes']) {
+      expect(screen.getByRole('spinbutton', { name, description: bothOrNeither })).toBeDefined()
+    }
+  })
+
+  test('GivenARefusedSaveWhoseFirstRefusalIsAChoice_WhenSaved_ThenFocusMovesToTheChoice', async () => {
+    const user = userEvent.setup()
+    renderComponent(<ExampleForm etag={null} />)
+    await user.type(screen.getByRole('textbox', { name: strings.name }), 'Ada')
+    await user.type(screen.getByRole('textbox', { name: strings.phone }), '0501234567')
+
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole('combobox', { name: strings.depot, description: REQUIRED }),
+      ),
+    )
+  })
+
+  test('GivenARefusedSaveWhoseFirstRefusalIsADate_WhenSaved_ThenFocusMovesToTheDate', async () => {
+    const user = userEvent.setup()
+    renderComponent(<TimesForm />)
+    await user.type(screen.getByRole('spinbutton', { name: 'Opens at, hours' }), '0900')
+    await user.type(screen.getByRole('textbox', { name: 'Weight (kg)' }), '3')
+
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: 'Delivery date', description: REQUIRED }),
+      ),
+    )
+  })
+
+  test('GivenAFreshForm_WhenOnlyAWindowsStartIsTyped_ThenNoRefusalShowsBeforeTheFirstSave', async () => {
+    const user = userEvent.setup()
+    renderComponent(<TimesForm />)
+
+    await user.type(screen.getByRole('spinbutton', { name: 'From, hours' }), '0800')
+    await user.tab()
+
+    // The window is checked as it changes only once the form was first sent.
+    const group = screen.getByRole('group', { name: 'Delivery window' })
+    expect(within(group).queryByText(/only one of its two times/)).toBeNull()
+    for (const box of within(group).getAllByRole('spinbutton')) {
+      expect(box.getAttribute('aria-invalid')).toBe('false')
+    }
+  })
+
+  test('GivenAWindowRefusedForHavingOnlyItsStart_WhenItsEndIsFilledIn_ThenTheRefusalGoes', async () => {
+    const user = userEvent.setup()
+    renderComponent(<TimesForm />)
+    await user.type(screen.getByRole('spinbutton', { name: 'From, hours' }), '0800')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    const group = await screen.findByRole('group', { name: 'Delivery window' })
+    expect(within(group).getByText(/only one of its two times/)).toBeDefined()
+
+    await user.type(screen.getByRole('spinbutton', { name: 'To, hours' }), '1200')
+
+    await waitFor(() => expect(within(group).queryByText(/only one of its two times/)).toBeNull())
+    for (const box of within(group).getAllByRole('spinbutton')) {
+      expect(box.getAttribute('aria-invalid')).toBe('false')
+    }
+  })
+
+  test('GivenATimeWithOneBoxEmptied_WhenTheFormIsReset_ThenBothItsBoxesEmpty', async () => {
+    const user = userEvent.setup()
+    renderComponent(<ResettableTimeForm />)
+    const hours = screen.getByRole('spinbutton', { name: 'Opens at, hours' })
+    await user.type(hours, '0830')
+    await user.keyboard('{Backspace}')
+
+    await user.click(screen.getByRole('button', { name: 'Reset' }))
+
+    // A reset remounts the picker, so its boxes are looked up again.
+    for (const name of ['Opens at, hours', 'Opens at, minutes']) {
+      expect(screen.getByRole('spinbutton', { name }), name).toHaveProperty('value', '')
+    }
+  })
+
+  test('GivenATimeWithOnlyItsHoursTyped_WhenTheFormIsReset_ThenItsHoursEmpty', async () => {
+    const user = userEvent.setup()
+    renderComponent(<ResettableTimeForm />)
+    const hours = screen.getByRole('spinbutton', { name: 'Opens at, hours' })
+    await user.type(hours, '08')
+
+    await user.click(screen.getByRole('button', { name: 'Reset' }))
+
+    // A reset remounts the picker, so its box is looked up again.
+    expect(screen.getByRole('spinbutton', { name: 'Opens at, hours' })).toHaveProperty('value', '')
+  })
+
+  test('GivenAHalfTypedTimeSavedWithEnter_WhenTheSaveResetsTheForm_ThenItsBoxEmptiesAndKeepsFocus', async () => {
+    const user = userEvent.setup()
+    renderComponent(<ResettableTimeForm />)
+
+    // The field is never left, so nothing marks it touched before the reset.
+    await user.type(screen.getByRole('spinbutton', { name: 'Opens at, hours' }), '08{Enter}')
+
+    await waitFor(() =>
+      expect(screen.getByRole('spinbutton', { name: 'Opens at, hours' })).toHaveProperty(
+        'value',
+        '',
+      ),
+    )
+    expect(document.activeElement).toBe(screen.getByRole('spinbutton', { name: 'Opens at, hours' }))
+  })
+
+  test('GivenAHalfTypedTime_WhenAnotherFieldIsReset_ThenItKeepsWhatWasTyped', async () => {
+    const user = userEvent.setup()
+    renderComponent(<TwoFieldForm />)
+    await user.type(screen.getByRole('spinbutton', { name: 'Opens at, hours' }), '08')
+
+    await user.click(screen.getByRole('button', { name: 'Reset the note' }))
+    expect(screen.getByRole('spinbutton', { name: 'Opens at, hours' })).toHaveProperty(
+      'value',
+      '08',
+    )
+    await user.click(screen.getByRole('button', { name: 'Reset the time' }))
+
+    expect(screen.getByRole('spinbutton', { name: 'Opens at, hours' })).toHaveProperty('value', '')
+  })
+
+  test('GivenAScreenThatResetsInAnEffectOnItsForm_WhenItRenders_ThenItResetsOnceAndSettles', async () => {
+    const onReset = vi.fn()
+    renderComponent(<ReadIntoForm onReset={onReset} />)
+
+    await waitFor(() =>
+      expect(screen.getByRole('spinbutton', { name: 'Opens at, hours' })).toHaveProperty(
+        'value',
+        '08',
+      ),
+    )
+    // A form whose identity changed with each reset would reset again on every render.
+    expect(onReset).toHaveBeenCalledOnce()
+  })
+
   test('GivenHebrew_WhenATimeIsShown_ThenItsBoxesStillRunHoursThenMinutesLeftToRight', () => {
     renderComponent(<TimesForm />, { language: 'he' })
 
@@ -130,6 +390,26 @@ describe('fields', () => {
     expect(weight).toHaveProperty('value', '12.')
     await user.type(weight, '5')
     expect(weight).toHaveProperty('value', '12.5')
+  })
+
+  test('GivenANumberWhoseSchemaTakesNoNull_WhenBoundToANumberField_ThenTheFormDoesNotCompile', () => {
+    // `tsc -b` checks this: the field writes `null` to an emptied box, which `.optional()` alone
+    // refuses as missing. The render only keeps the form in use.
+    const minutesSchema = z.object({ minutes: durationMinutes.optional() })
+    function MinutesForm() {
+      const form = useSchemaForm(minutesSchema)
+      return (
+        <NumberField
+          control={form.control}
+          // @ts-expect-error a number that takes no `null` is no number field's
+          name="minutes"
+          label="Minutes"
+        />
+      )
+    }
+    renderComponent(<MinutesForm />)
+
+    expect(screen.getByRole('textbox', { name: 'Minutes' })).toBeDefined()
   })
 
   test('GivenAUnit_WhenTheFieldIsShownInHebrew_ThenItsLabelNamesTheUnitInHebrew', () => {
@@ -152,6 +432,42 @@ describe('fields', () => {
     expect(phone).toHaveProperty('value', '+972501234567')
   })
 
+  test('GivenTheTextFields_WhenRendered_ThenEachAsksForNoAutofillItselfAndSoDoesTheForm', () => {
+    renderComponent(<ExampleForm etag={null} />)
+
+    const phone = screen.getByRole('textbox', { name: strings.phone })
+    expect(phone.closest('form')?.getAttribute('autocomplete')).toBe('off')
+    // Each field asks too, even outside a form: a browser reads `tel` or a field named `name` as
+    // the user's own, and would offer the dispatcher's in a customer's field.
+    for (const name of [strings.phone, strings.name, strings.notes]) {
+      expect(screen.getByRole('textbox', { name }).getAttribute('autocomplete'), name).toBe('off')
+    }
+  })
+
+  test('GivenANoteOnTwoLines_WhenTyped_ThenItKeepsTheLineBreakAndTheFormIsNotSent', async () => {
+    const user = userEvent.setup()
+    renderComponent(<ExampleForm etag={null} />)
+    const notes = screen.getByRole('textbox', { name: strings.notes })
+
+    await user.type(notes, 'Gate 2{Enter}Ring twice')
+
+    expect(notes.tagName).toBe('TEXTAREA')
+    expect(notes).toHaveProperty('value', 'Gate 2\nRing twice')
+    // Enter in a note adds a line: had it sent the form, the empty required fields would say so.
+    expect(screen.queryAllByText(REQUIRED)).toHaveLength(0)
+  })
+
+  test('GivenAForeignPhone_WhenTheUserLeavesIt_ThenItIsShownInItsInternationalForm', async () => {
+    const user = userEvent.setup()
+    renderComponent(<ExampleForm etag={null} />)
+    const phone = screen.getByRole('textbox', { name: strings.phone })
+
+    await user.type(phone, '+442079460958')
+    await user.tab()
+
+    expect(phone).toHaveProperty('value', '+44 20 7946 0958')
+  })
+
   test('GivenTheSelectsOptions_WhenOpened_ThenEachSitsInABdi', async () => {
     const user = userEvent.setup()
     renderComponent(<ExampleForm etag={null} />)
@@ -167,6 +483,12 @@ describe('fields', () => {
   })
 
   test('GivenADateFieldInHebrew_WhenADayIsChosen_ThenTheMonthIsNamedInHebrewAndTheDayShownAsDayMonthYear', async () => {
+    // Today falls in another month, so a calendar that opened on today's month would fail here.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2027-03-15T12:00:00+02:00'))
+    onTestFinished(() => {
+      vi.useRealTimers()
+    })
     const user = userEvent.setup()
     renderComponent(<TimesForm date="2026-11-26" />, { language: 'he' })
     const date = screen.getByRole('button', { name: 'Delivery date' })

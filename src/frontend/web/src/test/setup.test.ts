@@ -84,8 +84,14 @@ test('GivenAnOverride_WhenItsTestEnds_ThenSetupDropsItBeforeTheNextTest', () => 
   })
 })
 
+test('GivenTheTestsOwnZone_WhenRead_ThenItIsNeitherIsraelsNorUtc', () => {
+  // vite.config.ts sets it, so a date read in the computer's zone fails here as well as in Israel.
+  expect(new Intl.DateTimeFormat().resolvedOptions().timeZone).toBe('America/New_York')
+})
+
 test('GivenANotificationShown_WhenItsTestEnds_ThenSetupClearsItBeforeTheNextTest', () => {
   notifications.show({ message: 'Shown by this test' })
+  expect(notificationsStore.getState().notifications).toHaveLength(1)
 
   onTestFinished(() => {
     expect(notificationsStore.getState().notifications).toEqual([])

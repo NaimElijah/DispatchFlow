@@ -10,12 +10,28 @@ import {
  * How a column with no `cell` of its own shows its value: as text inside `<bdi>`, so an address or
  * a name with numbers keeps its reading order whatever the table's direction (NFR-136). A missing
  * value, such as an anonymized customer's name, shows nothing.
+ *
+ * Any other value has no one right text: a weight needs its unit, and a date its zone. It fails the
+ * table, naming the column, until the column has a cell that writes it, through
+ * `@dispatchflow/formatters` or as plain digits for a row number. A number fails whatever its
+ * value, so a weight column fails on its first render, not on the first row that weighs 12.5 kg.
+ *
+ * @throws Error when the value is neither text nor missing
  */
 function textCell<TRow extends RowData>({
   getValue,
+  column,
 }: CellContext<DataTableFeatures, TRow, unknown>) {
   const value = getValue()
-  return value === null || value === undefined ? null : <bdi>{String(value)}</bdi>
+  if (value === null || value === undefined) {
+    return null
+  }
+  if (typeof value === 'string') {
+    return <bdi>{value}</bdi>
+  }
+  throw new Error(
+    `DataTable's column "${column.id}" holds a value that is not text: give the column a cell that writes it, through @dispatchflow/formatters`,
+  )
 }
 
 /** What a table shows. */

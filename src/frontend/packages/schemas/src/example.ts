@@ -1,8 +1,9 @@
-import { z } from 'zod'
+import { z } from './zod.ts'
 import {
   choice,
   durationMinutes,
   localDate,
+  optionalNumber,
   optionalText,
   optionalTimeWindow,
   phoneNumber,
@@ -36,7 +37,7 @@ export const exampleSchema = z.object({
   window: optionalTimeWindow,
   weightKg,
   volumeLitres,
-  serviceMinutes: durationMinutes,
+  serviceMinutes: optionalNumber(durationMinutes),
   priority: wholeNumber(PRIORITY.min, PRIORITY.max),
 })
 

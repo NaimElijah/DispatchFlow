@@ -4,13 +4,15 @@ import { useState } from 'react'
 import { useController, type FieldValues } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../useLanguage.ts'
-import type { FieldProps } from './fieldProps.ts'
+import type { FieldProps, NumberFieldPath } from './fieldProps.ts'
 
 /** What a number field takes beyond every field's props. */
-export interface NumberFieldProps<
-  TValues extends FieldValues,
-  TParsed = TValues,
-> extends FieldProps<TValues, number, TParsed> {
+export interface NumberFieldProps<TValues extends FieldValues, TParsed = TValues> extends Omit<
+  FieldProps<TValues, number, TParsed>,
+  'name'
+> {
+  /** A required number's path, or an optional one's that takes `null` (`optionalNumber`). */
+  readonly name: NumberFieldPath<TValues>
   /** The value's unit, named with the label, such as kilograms for a weight. */
   readonly unit?: Unit
   /** The decimals the field takes: 2 for a weight or a volume, none for a count or a duration. */

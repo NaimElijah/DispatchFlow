@@ -4,7 +4,7 @@ import type { Strings } from '../strings.ts'
 /** The Hebrew strings of the shared components, key for key with `en/common.ts`. */
 export const common: Strings<typeof english> = {
   save: 'שמירה',
-  saved: 'נשמר.',
+  close: 'סגירה',
   reload: 'טעינה מחדש',
   tryAgain: 'לנסות שוב',
   withUnit: '{{label}} ({{unit}})',

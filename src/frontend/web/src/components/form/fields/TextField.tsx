@@ -4,7 +4,9 @@ import type { FieldProps } from './fieldProps.ts'
 
 /**
  * A one-line text field bound to the form. Its label names it, and its error, under it, is tied to
- * it through `aria-describedby` and marks it invalid (NFR-46).
+ * it through `aria-describedby` and marks it invalid (NFR-46). It asks for no autofill, inside a
+ * form or out of one: a browser reads a field named `name` as the user's own, and would keep what
+ * it saw, a customer's record the server sent (ADR-076).
  */
 export function TextField<TValues extends FieldValues, TParsed = TValues>({
   control,
@@ -19,6 +21,7 @@ export function TextField<TValues extends FieldValues, TParsed = TValues>({
     <TextInput
       {...field}
       value={field.value ?? ''}
+      autoComplete="off"
       label={label}
       description={description}
       required={required}

@@ -1,6 +1,6 @@
 import { isLocalDate, isLocalTime } from '@dispatchflow/formatters'
 import { isValidPhoneNumber } from 'libphonenumber-js/min'
-import { z } from 'zod'
+import { z } from './zod.ts'
 import { refusal } from './refusals.ts'
 
 // A check that would refuse again what an earlier one refused, such as a format check after an
@@ -62,20 +62,32 @@ export const localDate = z
   .refine(isFilled, { ...refusal('REQUIRED'), abort: true })
   .refine(isLocalDate, refusal('WRONG_FORMAT'))
 
-/** A time of day on a 24-hour clock, `HH:mm`, as the time field gives it. */
+/**
+ * A time of day on a 24-hour clock: `HH:mm` as the time field gives it, or `HH:mm:ss` as a record
+ * read from the API may hold it until the user changes it.
+ */
 export const timeOfDay = z
   .string()
   .refine(isFilled, { ...refusal('REQUIRED'), abort: true })
   .refine(isLocalTime, refusal('WRONG_FORMAT'))
 
-/** A time window's two ends, both `HH:mm`. */
+/** A time window's two ends, each `HH:mm` or `HH:mm:ss`. */
 interface WindowEnds {
   readonly start: string
   readonly end: string
 }
 
-// `HH:mm` texts compare as their times do, so the end is later exactly when it sorts later.
-const endsAfterStart = ({ start, end }: WindowEnds) => end > start
+const SECONDS_PER_HOUR = 3600
+const SECONDS_PER_MINUTE = 60
+
+/** A checked time of day's seconds since midnight, with or without its seconds written. */
+function secondsOf(time: string): number {
+  const [hours, minutes, seconds = '0'] = time.split(':')
+  return Number(hours) * SECONDS_PER_HOUR + Number(minutes) * SECONDS_PER_MINUTE + Number(seconds)
+}
+
+// Compared as times, never as texts: `09:30:00` sorts after `09:30`, though it is the same time.
+const endsAfterStart = ({ start, end }: WindowEnds) => secondsOf(end) > secondsOf(start)
 
 /**
  * A required time window: both ends, and the end after the start (BR-35). The order check's refusal
@@ -142,6 +154,18 @@ export const durationMinutes = z
   .number()
   .refine(Number.isInteger, { ...refusal('WRONG_FORMAT'), abort: true })
   .refine((value) => value > 0, refusal('TOO_SMALL', { min: 1 }))
+
+/**
+ * An optional number made from one of the blocks above, such as `optionalNumber(durationMinutes)`
+ * for a service time the customer's default may stand in for. Empty means none, and leaves the
+ * field out of the request body: the number field holds `null` once its box is emptied, and
+ * `undefined` before anyone typed in it. A filled-in number passes the block's own checks.
+ *
+ * @param block the number block whose checks a filled-in value must pass
+ */
+export function optionalNumber<TBlock extends z.ZodType<number, number>>(block: TBlock) {
+  return block.nullish().transform((value) => value ?? undefined)
+}
 
 const isPhoneNumber = (text: string) => isValidPhoneNumber(text, PHONE_REGION)
 

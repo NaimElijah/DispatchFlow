@@ -1,26 +1,39 @@
 import { Stack } from '@mantine/core'
 import { useEffect, useMemo, useRef, type BaseSyntheticEvent, type ReactNode } from 'react'
-import type { FieldValues, UseFormReturn } from 'react-hook-form'
+import { useFormState, type FieldValues, type UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import type { z } from 'zod'
 import { RequestError, type RequestFailure } from '../../lib/problems.ts'
 import { ProblemMessage } from '../ProblemMessage.tsx'
 import { fieldErrorText } from '../../lib/problemText.ts'
 import { planProblem, type FieldFor } from './planProblem.ts'
+import type { FormResets } from './formResets.ts'
 import { SchemaFormStateContext } from './schemaFormState.ts'
+
+/**
+ * A control the schema refused, as a field marks it: the inputs and buttons a keyboard can reach,
+ * never a hidden input that only carries a value, nor the wrapper Mantine also marks.
+ */
+const REFUSED_CONTROL = [
+  'input[aria-invalid="true"]:not([type="hidden"])',
+  'textarea[aria-invalid="true"]',
+  'select[aria-invalid="true"]',
+  'button[aria-invalid="true"]',
+].join(', ')
 
 /** A save as the form watches it: a TanStack Query mutation, such as `useVersionedSave`'s. */
 export interface FormSave {
   readonly isPending: boolean
-  readonly error: RequestError | null
+  /** The save's last failure: a `RequestError` for a failed call, any other error for a bug. */
+  readonly error: Error | null
   /** Forgets the save's last failure, so its message goes once the screen reloads the record. */
   readonly reset: () => void
 }
 
 /** What a form is made of. */
 export interface SchemaFormProps<TValues extends FieldValues, TParsed> {
-  /** The form, from `useSchemaForm`. */
-  readonly form: UseFormReturn<TValues, unknown, TParsed>
+  /** The form, from `useSchemaForm`, whose resets the form's fields are told of. */
+  readonly form: UseFormReturn<TValues, unknown, TParsed> & { readonly resets: FormResets }
   /** The schema the form was made with, whose keys say which of a 400's pointers are its fields. */
   readonly schema: z.ZodType
   /**
@@ -44,7 +57,8 @@ export interface SchemaFormProps<TValues extends FieldValues, TParsed> {
 
 /**
  * A form over a schema, whose refusals show the way every form's do (NFR-69). The schema's own
- * refusals sit on their fields as the user submits. The core's go onto the fields they name, and
+ * refusals sit on their fields as the user submits, and focus moves to the first refused control in
+ * reading order, a window's own refusal included. The core's go onto the fields they name, and
  * what names no field goes into the error summary at the top, which then takes focus so a keyboard
  * or screen-reader user meets it first. The user's input stays in the form whatever the failure.
  * Try again, offered when the core was busy or out of reach, sends the same values again.
@@ -64,12 +78,15 @@ export function SchemaForm<TValues extends FieldValues, TParsed>({
   children,
 }: SchemaFormProps<TValues, TParsed>) {
   const { t } = useTranslation('problems')
-  const failure: RequestFailure | undefined = save.error?.failure
+  // A bug is no failure the user can act on: it shows nothing here, and fails loudly elsewhere.
+  const failure: RequestFailure | undefined =
+    save.error instanceof RequestError ? save.error.failure : undefined
   const plan = useMemo(
     () =>
       failure?.kind === 'refused' ? planProblem(failure.problem, schema, fieldFor) : undefined,
     [failure, schema, fieldFor],
   )
+  const formElement = useRef<HTMLFormElement>(null)
   const summary = useRef<HTMLDivElement>(null)
   const applied = useRef<RequestFailure | undefined>(undefined)
   const sending = useRef(false)
@@ -85,6 +102,16 @@ export function SchemaForm<TValues extends FieldValues, TParsed>({
     }
     summary.current?.focus()
   }, [failure, plan, form, t])
+
+  const { submitCount, isSubmitSuccessful } = useFormState({ control: form.control })
+  useEffect(() => {
+    // React Hook Form would focus in the order fields registered, which skips a refusal of a group
+    // such as a window; the first refused control in reading order is the one a user meets first.
+    if (submitCount === 0 || isSubmitSuccessful) {
+      return
+    }
+    formElement.current?.querySelector<HTMLElement>(REFUSED_CONTROL)?.focus()
+  }, [submitCount, isSubmitSuccessful])
 
   // Built on each press rather than while rendering: its callback reads the `sending` flag, which
   // only an event may touch.
@@ -108,12 +135,18 @@ export function SchemaForm<TValues extends FieldValues, TParsed>({
     })(event)
 
   return (
-    <SchemaFormStateContext value={{ pending: save.isPending }}>
-      <form noValidate autoComplete="off" onSubmit={(event) => void submit(event)}>
+    <SchemaFormStateContext value={{ pending: save.isPending, resets: form.resets }}>
+      <form
+        ref={formElement}
+        noValidate
+        autoComplete="off"
+        onSubmit={(event) => void submit(event)}
+      >
         <Stack gap="md">
           {failure !== undefined && (
             <ProblemMessage
               ref={summary}
+              operation="write"
               failure={failure}
               items={plan?.items}
               onField={plan?.onField}

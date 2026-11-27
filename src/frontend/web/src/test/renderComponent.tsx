@@ -1,7 +1,7 @@
 import type { Language } from '@dispatchflow/i18n'
-import { QueryClient } from '@tanstack/react-query'
 import { render } from '@testing-library/react'
 import type { ReactElement } from 'react'
+import { createQueryClient } from '../lib/queryClient.ts'
 import { AppProviders } from '../AppProviders.tsx'
 import { createI18n } from '../i18n.ts'
 
@@ -22,7 +22,8 @@ export function renderComponent(
   { language = 'en' }: RenderComponentOptions = {},
 ) {
   const i18n = createI18n(language)
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  // The app's own cache, with no wait between a read's tries.
+  const queryClient = createQueryClient({ retryDelay: 0 })
   const result = render(
     <AppProviders i18n={i18n} queryClient={queryClient}>
       {ui}

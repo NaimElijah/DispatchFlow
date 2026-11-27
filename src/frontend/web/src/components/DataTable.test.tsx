@@ -1,4 +1,5 @@
 import { screen, within } from '@testing-library/react'
+import { formatTimeRange } from '@dispatchflow/formatters'
 import { describe, expect, test } from 'vitest'
 import { renderComponent } from '../test/renderComponent.tsx'
 import { DataTable } from './DataTable.tsx'
@@ -13,7 +14,8 @@ interface Row {
 
 const helper = createDataTableColumns<Row>()
 const columns = helper.columns([
-  helper.accessor('row', { header: 'Row' }),
+  // A number has no one right text, so even a row number writes itself out in a cell of its own.
+  helper.accessor('row', { header: 'Row', cell: ({ getValue }) => String(getValue()) }),
   helper.accessor('customer', { header: 'Customer' }),
   helper.accessor('address', { header: 'Address' }),
 ])
@@ -70,6 +72,50 @@ describe('DataTable', () => {
       const shown = screen.getByText(sample)
       expect(shown.tagName, sample).toBe('BDI')
     }
+  })
+
+  test('GivenAColumnOfNumbersOrDatesWithNoCellOfItsOwn_WhenShown_ThenTheTableFailsNamingTheColumn', () => {
+    interface Delivery {
+      readonly id: string
+      readonly weightKg: number
+      readonly stops: number
+      readonly due: Date
+    }
+    const deliveries = createDataTableColumns<Delivery>()
+    // A whole number fails too, so a weight column fails on its first render, not on 12.5 kg.
+    const delivery: Delivery = {
+      id: 'd1',
+      weightKg: 12.5,
+      stops: 3,
+      due: new Date('2026-11-27T08:00:00Z'),
+    }
+
+    for (const key of ['weightKg', 'stops', 'due'] as const) {
+      expect(
+        () =>
+          renderComponent(
+            <DataTable
+              caption="Deliveries"
+              columns={deliveries.columns([deliveries.accessor(key, { header: key })])}
+              rows={[delivery]}
+              getRowId={(row) => row.id}
+              emptyText="No delivery."
+            />,
+          ),
+        key,
+      ).toThrow(`"${key}"`)
+    }
+  })
+
+  test('GivenATimeWindowInAHebrewTable_WhenShown_ThenItSitsInABdiThatRunsLeftToRight', () => {
+    const window = formatTimeRange('08:00', '12:00')
+    renderTable('he', [{ row: 2, customer: null, address: window }])
+
+    // A <bdi> with no strong character runs left to right (HTML, the dir attribute's auto state),
+    // so 08:00 stays on the left, as on a clock; nothing must set a direction of its own on it.
+    const shown = screen.getByText(window)
+    expect(shown.tagName).toBe('BDI')
+    expect(shown.hasAttribute('dir')).toBe(false)
   })
 
   test('GivenAMissingValue_WhenShown_ThenItsCellIsEmptyRatherThanNull', () => {

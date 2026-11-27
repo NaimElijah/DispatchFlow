@@ -9,6 +9,8 @@ nothing here touches the DOM, React or a screen.
   feature's folder.
 - Build a schema from `src/fields.ts`. Its keys are the request body's, so a 400's pointer names the
   field it refused.
+- Take `z` from `src/zod.ts`, set never to compile code; an app takes the `z` this package exports
+  (ESLint here and in the web app; `src/zod.test.ts`).
 - A check never sets a message, because one set here beats the app's translating error map and
   reaches the screen untranslated (NFR-143). It names its code with `refusal(code, params)`: the
   code goes into `SchemaCode`, and its text and next step into `@dispatchflow/i18n`'s `problems`.

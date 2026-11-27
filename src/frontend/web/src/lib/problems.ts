@@ -25,10 +25,16 @@ export interface ProblemItem {
   readonly params?: Readonly<Record<string, unknown>>
 }
 
+/**
+ * The places a failing parameter can be in (`ProblemParameter.in`), which
+ * `problems.contract.test.ts` pins.
+ */
+export const PARAMETER_PLACES = ['path', 'query', 'header', 'cookie'] as const
+
 /** A failing parameter of a request: a header such as `If-Match`, a path or query parameter. */
 export interface ProblemParameter {
   readonly name: string
-  readonly in: 'path' | 'query' | 'header' | 'cookie'
+  readonly in: (typeof PARAMETER_PLACES)[number]
 }
 
 /** The contract's pattern for a code (`Problem.code`), which `problems.contract.test.ts` pins. */
@@ -36,7 +42,7 @@ export const PROBLEM_CODE_PATTERN = /^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$/
 
 /** The contract's pattern for a trace ID (`Problem.traceId`), which `problems.contract.test.ts` pins. */
 export const TRACE_ID_PATTERN = /^[0-9a-f]{32}$/
-const PARAMETER_PLACES: ReadonlySet<unknown> = new Set(['path', 'query', 'header', 'cookie'])
+const PARAMETER_PLACE_SET: ReadonlySet<unknown> = new Set(PARAMETER_PLACES)
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -57,7 +63,7 @@ function isProblemItem(value: unknown): value is ProblemItem {
     (parameter === undefined ||
       (isRecord(parameter) &&
         typeof parameter.name === 'string' &&
-        PARAMETER_PLACES.has(parameter.in)))
+        PARAMETER_PLACE_SET.has(parameter.in)))
   )
 }
 
@@ -90,9 +96,10 @@ export function isProblem(value: unknown): value is Problem {
  *   user's input is kept, and the screen offers a reload or refetches.
  * - `busy`: `TRY_AGAIN_LATER`, the core lost a race or a lock four times (ADR-121 decision 4).
  * - `refused`: the core refused the request, for a rule or a malformed request.
- * - `unexpected`: the core failed, or something in front of it did. A change may be stored, so the
- *   screen reloads before the user sends it again.
- * - `network`: no answer arrived.
+ * - `unexpected`: the core failed, something in front of it did, or its answer broke off. A
+ *   write may be stored, so the screen reloads before the user sends it again; a read changed
+ *   nothing, so the user reads again.
+ * - `network`: no answer arrived, or the request could not be sent.
  */
 export type RequestFailure =
   | { readonly kind: 'stale'; readonly problem: Problem }
