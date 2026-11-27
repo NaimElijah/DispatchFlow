@@ -267,6 +267,9 @@ importers:
 
   web:
     dependencies:
+      '@dispatchflow/formatters':
+        specifier: workspace:*
+        version: link:../packages/formatters
       '@dispatchflow/i18n':
         specifier: workspace:*
         version: link:../packages/i18n

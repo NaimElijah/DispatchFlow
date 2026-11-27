@@ -1,9 +1,10 @@
+import { formatLocalDate } from '@dispatchflow/formatters'
 import { Title } from '@mantine/core'
 import { getRouteApi } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { usePageTitle } from '../../components/usePageTitle.ts'
-import { formatPlanDate, type PlanDate } from './planDate.ts'
+import type { PlanDate } from './planDate.ts'
 import classes from './PlanPage.module.css'
 
 // Reached by its ID rather than by importing planRoute, which imports this file.
@@ -25,7 +26,7 @@ function PlanDateText({ date, children }: { date: PlanDate; children?: ReactNode
 export function PlanPage() {
   const { date } = planRouteApi.useParams()
   const { t } = useTranslation('planning')
-  const shown = formatPlanDate(date)
+  const shown = formatLocalDate(date)
   usePageTitle(t('title', { date: shown }))
 
   return (
