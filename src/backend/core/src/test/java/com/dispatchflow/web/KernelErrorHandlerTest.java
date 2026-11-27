@@ -4,7 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import ch.qos.logback.classic.Level;
 import com.dispatchflow.CapturedLogs;
+import com.dispatchflow.TestActors;
 import com.dispatchflow.access.domain.AccessError;
+import com.dispatchflow.audit.application.api.CallContext;
+import com.dispatchflow.audit.application.service.AppendedAuditRecords;
+import com.dispatchflow.audit.application.service.AuditLogService;
 import com.dispatchflow.liveops.domain.LiveOpsError;
 import com.dispatchflow.orders.domain.OrdersError;
 import com.dispatchflow.orders.domain.RowNumber;
@@ -19,12 +23,14 @@ import com.dispatchflow.shared.application.NotFound;
 import com.dispatchflow.shared.application.StaleVersion;
 import jakarta.persistence.LockTimeoutException;
 import jakarta.persistence.PessimisticLockException;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
@@ -41,6 +47,7 @@ class KernelErrorHandlerTest {
     private static final UUID ID = UUID.fromString("0190a5e2-7c3b-7def-8a12-3456789abcde");
     private static final String VERSION_TAG = "\"3\"";
     private static final DeliveryDate DATE = DeliveryDate.of(LocalDate.of(2026, 3, 15));
+    private static final Instant AT = Instant.parse("2026-03-15T08:00:00Z");
 
     @RegisterExtension
     final CapturedLogs logs = CapturedLogs.of(KernelErrorHandler.class);
@@ -276,6 +283,38 @@ class KernelErrorHandlerTest {
         });
     }
 
+    // Spring matches a handler by the thrown type and then by each of its causes, so a refusal that
+    // is only the cause of the thrown exception reached the refusal's handler and answered 422.
+    @ParameterizedTest
+    @CsvSource({
+        "wrapped-rule-violation, com.dispatchflow.shared.RuleViolation",
+        "wrapped-rule-violations, com.dispatchflow.shared.RuleViolations",
+        "wrapped-not-found, com.dispatchflow.shared.application.NotFound"
+    })
+    void GivenARefusalWrappedInAnotherException_WhenThrown_Then500AtErrorNotTheRefusalsCode(
+            String failure, String wrapped) {
+        MvcTestResult result = get(failure);
+
+        assertThat(result).hasStatus(HttpStatus.INTERNAL_SERVER_ERROR);
+        assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo(WebCodes.UNEXPECTED_ERROR);
+        assertThat(logs.events()).singleElement().satisfies(event -> {
+            assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+            assertThat(event.getThrowableProxy().getClassName()).isEqualTo(IllegalStateException.class.getName());
+            assertThat(event.getThrowableProxy().getCause().getClassName()).isEqualTo(wrapped);
+        });
+    }
+
+    @Test
+    void GivenAuditRefusingAPartTheServerBuilt_WhenItLeavesTheHandler_Then500AtErrorNotAuditsCode() {
+        MvcTestResult result = get("audit-refuses-a-part");
+
+        assertThat(result).hasStatus(HttpStatus.INTERNAL_SERVER_ERROR);
+        assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo(WebCodes.UNEXPECTED_ERROR);
+        assertThat(logs.events())
+                .singleElement()
+                .satisfies(event -> assertThat(event.getLevel()).isEqualTo(Level.ERROR));
+    }
+
     @Test
     void GivenStoredStateInvalid_WhenThrown_Then500WithNoCauseInTheBody() throws Exception {
         MvcTestResult result = get("stored-state-invalid");
@@ -338,6 +377,17 @@ class KernelErrorHandlerTest {
                 case "stale-after-lock-wait" -> new StaleVersion("Plan", ID, new PessimisticLockException("lock wait"));
                 case "wrapped-lock" -> new IllegalStateException("wrapped", new PessimisticLockException("lock wait"));
                 case "stored-state-invalid" -> new StoredStateInvalid(ThrowingController.class, BROKEN_RULE);
+                case "wrapped-rule-violation" ->
+                    new IllegalStateException("a bug", new RuleViolation(new OrdersError.DateInPast(DATE)));
+                case "wrapped-rule-violations" -> new IllegalStateException("a bug", violations());
+                case "wrapped-not-found" -> new IllegalStateException("a bug", new NotFound("Plan", ID));
+                case "audit-refuses-a-part" ->
+                    thrown(() -> new AuditLogService(new AppendedAuditRecords())
+                            .refused(
+                                    CallContext.serverStep("kernelErrorHandlerTest", TestActors.TRACE_ID),
+                                    AT,
+                                    List.of(),
+                                    "not upper snake case"));
                 default -> new IllegalArgumentException("no such failure");
             };
         }

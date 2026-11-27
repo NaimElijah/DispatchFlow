@@ -35,6 +35,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * contract. A 500 for an exception that is no race, such as a lock wait wrapped in another
  * exception or a race after a commit, is logged at ERROR with the whole exception on purpose, as
  * {@code UnexpectedErrorHandler} does: it is a bug or an incident, and its stack trace tells which.
+ *
+ * <p>A refusal answers as one only when it is the exception thrown. Spring matches a handler by the
+ * thrown type and then by each of its causes, and binds the cause it matched to the handler's
+ * parameter, so each handler here also takes the exception thrown. A refusal that is only the cause
+ * of another exception, such as Audit's refusal of a malformed part, which {@code AuditLogService}
+ * rethrows as a bug (ADR-149 decision 1), answers 500 at ERROR, never the refusal's status and code.
  */
 @RestControllerAdvice
 @Order(HandlerOrder.KERNEL)
@@ -68,7 +74,10 @@ class KernelErrorHandler {
     private static final Logger log = LoggerFactory.getLogger(KernelErrorHandler.class);
 
     @ExceptionHandler(RuleViolation.class)
-    ResponseEntity<ProblemDetail> refused(RuleViolation violation) {
+    ResponseEntity<ProblemDetail> refused(Exception thrown, RuleViolation violation) {
+        if (thrown != violation) {
+            return unexpected(thrown);
+        }
         String code = violation.error().code();
         if (ANSWERED_AS_A_REFUSED_TOKEN.contains(code)) {
             return refusedToken(code);
@@ -82,7 +91,10 @@ class KernelErrorHandler {
     }
 
     @ExceptionHandler(RuleViolations.class)
-    ResponseEntity<ProblemDetail> refused(RuleViolations violations) {
+    ResponseEntity<ProblemDetail> refused(Exception thrown, RuleViolations violations) {
+        if (thrown != violations) {
+            return unexpected(thrown);
+        }
         String code = violations.summary().code();
         if (ANSWERED_AS_A_REFUSED_TOKEN.contains(code)) {
             return refusedToken(code);
@@ -96,7 +108,10 @@ class KernelErrorHandler {
     }
 
     @ExceptionHandler(NotFound.class)
-    ResponseEntity<ProblemDetail> notFound(NotFound missing) {
+    ResponseEntity<ProblemDetail> notFound(Exception thrown, NotFound missing) {
+        if (thrown != missing) {
+            return unexpected(thrown);
+        }
         logRefusal(HttpStatus.NOT_FOUND, missing.code());
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(Problems.of(
