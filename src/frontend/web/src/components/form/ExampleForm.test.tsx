@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw/http'
 import { describe, expect, test } from 'vitest'
@@ -98,6 +98,22 @@ describe('the example form', () => {
 
     expect(await screen.findByText('The example is saved.')).toBeDefined()
     expect(await requests[0].json()).toMatchObject({ date: '2026-11-27' })
+  })
+
+  test('GivenAChangeSaved_WhenTheFormIsSavedAgain_ThenItSendsTheVersionTheFirstSaveReturned', async () => {
+    const user = userEvent.setup()
+    const requests = answerSaves()
+    renderComponent(<ExampleForm etag={null} />)
+    await fillInWhatIsRequired(user)
+
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByText('The example is saved.')).toBeDefined()
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(requests).toHaveLength(2))
+    expect(requests[0].headers.get('If-None-Match')).toBe('*')
+    expect(requests[1].headers.get('If-Match')).toBe('"2"')
+    expect(requests[1].headers.get('If-None-Match')).toBeNull()
   })
 
   test('GivenTheOptionalServiceTimeLeftEmpty_WhenSaved_ThenTheBodyLeavesItOut', async () => {

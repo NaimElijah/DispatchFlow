@@ -1,4 +1,5 @@
 import { exampleSchema } from '@dispatchflow/schemas'
+import { useState } from 'react'
 import { DateField } from '../components/form/fields/DateField.tsx'
 import { NumberField } from '../components/form/fields/NumberField.tsx'
 import { PhoneField } from '../components/form/fields/PhoneField.tsx'
@@ -17,11 +18,16 @@ import { sendJson } from './sendJson.ts'
 
 /**
  * A form built from the shared pieces alone: its schema, its fields and its strings, and one save
- * call. It shows that a real form, such as the depot form, needs nothing more (#173).
+ * call. It shows that a real form, such as the depot form, needs nothing more (#173). It keeps the
+ * version each save returns, so its next save sends that one, as a screen does by keeping the
+ * answer's `ETag` or reading its view again.
+ *
+ * @param etag the `ETag` the view was read with, or `null` for a view with no version yet
  */
 export function ExampleForm({ etag }: { readonly etag: string | null }) {
   const strings = EXAMPLE_STRINGS[useLanguage()]
   const notifySaved = useNotifySaved()
+  const [version, setVersion] = useState(etag)
   const form = useSchemaForm(exampleSchema, {
     defaultValues: {
       name: '',
@@ -35,7 +41,10 @@ export function ExampleForm({ etag }: { readonly etag: string | null }) {
   })
   const save = useVersionedSave({
     send: (body, headers) => sendJson('PUT', EXAMPLE_PATH, body, headers),
-    onSaved: () => notifySaved({ text: strings.saved }),
+    onSaved: (saved) => {
+      setVersion(saved.etag)
+      notifySaved({ text: strings.saved })
+    },
   })
   const { control } = form
 
@@ -44,7 +53,7 @@ export function ExampleForm({ etag }: { readonly etag: string | null }) {
       form={form}
       schema={exampleSchema}
       save={save}
-      onSubmit={(body) => save.mutateAsync({ body, etag })}
+      onSubmit={(body) => save.mutateAsync({ body, etag: version })}
     >
       <TextField control={control} name="name" label={strings.name} required />
       <TextAreaField control={control} name="notes" label={strings.notes} />

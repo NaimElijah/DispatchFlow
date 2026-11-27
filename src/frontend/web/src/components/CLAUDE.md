@@ -4,8 +4,10 @@
 
 - **A form** ([ADR-153]) is a schema from `@dispatchflow/schemas`, `useSchemaForm`, the fields of
   `form/fields/` in a `SchemaForm`, and a save whose `onSubmit` returns its promise, such as
-  `useVersionedSave`'s `mutateAsync`, so a second press waits for the first. A refusal outside a
-  form shows in `ProblemMessage`, a row list in `DataTable`, a stored change through `notifySaved`.
+  `useVersionedSave`'s `mutateAsync`, so a second press waits for the first. The screen keeps the
+  `ETag` each save returns, or reads its view again, so its next save sends it, as the example form
+  does. A refusal outside a form shows in `ProblemMessage`, a row list in `DataTable`, a stored
+  change through `useNotifySaved`.
 - A field takes the form's `control`, a `name` typed with `FieldPathByValue` so it binds only its
   own kind of value, and a translated `label`. Mantine ties a plain input's error through
   `aria-describedby`; a composite one ties it to each of its own inputs, as `TimeField` does.
