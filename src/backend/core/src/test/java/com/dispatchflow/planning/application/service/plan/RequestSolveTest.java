@@ -20,6 +20,7 @@ import com.dispatchflow.planning.application.port.out.SequentialSeeds;
 import com.dispatchflow.planning.application.port.out.plan.InMemoryPlanRepository;
 import com.dispatchflow.planning.application.port.out.settings.InMemoryPlanningSettingsRepository;
 import com.dispatchflow.planning.application.port.out.solvejob.InMemorySolveJobRepository;
+import com.dispatchflow.planning.application.port.out.solvejob.SolveJobRepository;
 import com.dispatchflow.planning.application.service.SolverNotOffered;
 import com.dispatchflow.planning.domain.PlanningError.DateInPast;
 import com.dispatchflow.planning.domain.PlanningError.PlanNotDraftOrReady;
@@ -34,6 +35,7 @@ import com.dispatchflow.planning.domain.plan.SolveJob;
 import com.dispatchflow.planning.domain.plan.SolverName;
 import com.dispatchflow.planning.domain.settings.PlanningSettings;
 import com.dispatchflow.planning.events.Lane;
+import com.dispatchflow.shared.DeliveryDate;
 import com.dispatchflow.shared.JobId;
 import com.dispatchflow.shared.PlanId;
 import com.dispatchflow.shared.Version;
@@ -78,10 +80,14 @@ class RequestSolveTest {
     private LocalDate today = PLANS_DATE;
 
     private RequestSolve requestSolve() {
+        return requestSolve(jobs);
+    }
+
+    private RequestSolve requestSolve(SolveJobRepository lane) {
         FixedClock clock = new FixedClock(NOW, today);
         AuditLogService auditLog = new AuditLogService(appended);
         RequestSolveChange change = new RequestSolveChange(
-                plans, jobs, settings, new SequentialSeeds(FIRST_SEED), clock, new SequentialIds(ID_PREFIX), auditLog);
+                plans, lane, settings, new SequentialSeeds(FIRST_SEED), clock, new SequentialIds(ID_PREFIX), auditLog);
         return new RequestSolve(liveUpdates, change, auditLog, clock);
     }
 
@@ -222,6 +228,36 @@ class RequestSolveTest {
         assertRefusalRecordedAndNothingSent(AuditOutcome.refused(refusal), plan.id());
     }
 
+    /**
+     * Two requests for one plan at once, with room for one more job in the lane: the first queues
+     * while the second waits for the lane's lock. The second then loads the plan the first saved,
+     * so its version check answers STALE_VERSION, a race the call wrapper owns, and not the full
+     * lane's or the solving plan's refusal (BR-76). Loaded before the lock, it would have passed the
+     * check and met the plan as solving.
+     */
+    @Test
+    void GivenAnotherRequestQueuedWhileThisOneWaitsForTheLanesLock_WhenRequestSolve_ThenStaleVersion() {
+        Plan plan = aDraftPlan();
+        Version seen = plan.version();
+        LongStream.rangeClosed(1, LaneCapacity.QUEUE_LIMIT - 1)
+                .forEach(n -> jobs.add(QueuedJobs.queue(
+                        JobId.of(new UUID(OTHER_PLANS_PREFIX, n)),
+                        PlanId.of(new UUID(OTHER_PLANS_PREFIX, 100 + n)),
+                        Lane.DAILY,
+                        NOW)));
+        RequestSolve first = requestSolve();
+        SolveJobRepository lane = new FirstAtTheLock(
+                jobs, () -> first.request(dispatcher, plan.id(), Optional.empty(), Optional.empty(), seen));
+
+        assertThatThrownBy(() ->
+                        requestSolve(lane).request(dispatcher, plan.id(), Optional.empty(), Optional.empty(), seen))
+                .isInstanceOf(StaleVersion.class);
+
+        assertThat(jobs.all()).hasSize(LaneCapacity.QUEUE_LIMIT);
+        assertThat(appended.only().outcome()).isEqualTo(AuditOutcome.succeeded());
+        assertThat(liveUpdates.sent()).hasSize(2);
+    }
+
     @Test
     void GivenAnUnknownPlan_WhenRequestSolve_ThenNotFound() {
         PlanId unknown = PlanId.of(new UUID(OTHER_PLANS_PREFIX, 1));
@@ -289,5 +325,68 @@ class RequestSolveTest {
         assertThat(record.records()).isEqualTo(named);
         assertThat(record.at()).isEqualTo(NOW);
         assertThat(record.user()).contains(dispatcher.account());
+    }
+
+    /**
+     * The lane's jobs, where another request for the same plan runs first, once, when the lane's
+     * lock is taken: as if it had held the lock while this request waited for it.
+     */
+    private static final class FirstAtTheLock implements SolveJobRepository {
+
+        private final InMemorySolveJobRepository jobs;
+        private Runnable competing;
+
+        FirstAtTheLock(InMemorySolveJobRepository jobs, Runnable competing) {
+            this.jobs = jobs;
+            this.competing = competing;
+        }
+
+        @Override
+        public LaneCapacity capacityUnderLock(Lane lane) {
+            Runnable once = competing;
+            competing = () -> {};
+            once.run();
+            return jobs.capacityUnderLock(lane);
+        }
+
+        @Override
+        public Optional<SolveJob> get(JobId id) {
+            return jobs.get(id);
+        }
+
+        @Override
+        public void add(SolveJob job) {
+            jobs.add(job);
+        }
+
+        @Override
+        public void save(SolveJob job) {
+            jobs.save(job);
+        }
+
+        @Override
+        public Optional<SolveJob> claimNext(Lane lane) {
+            return jobs.claimNext(lane);
+        }
+
+        @Override
+        public List<JobId> unfinished() {
+            return jobs.unfinished();
+        }
+
+        @Override
+        public List<JobId> unfinishedOn(DeliveryDate date) {
+            return jobs.unfinishedOn(date);
+        }
+
+        @Override
+        public int blankCoordinatesDatedBefore(DeliveryDate cutoff) {
+            return jobs.blankCoordinatesDatedBefore(cutoff);
+        }
+
+        @Override
+        public int blankPositionsReceivedBefore(Instant cutoff) {
+            return jobs.blankPositionsReceivedBefore(cutoff);
+        }
     }
 }

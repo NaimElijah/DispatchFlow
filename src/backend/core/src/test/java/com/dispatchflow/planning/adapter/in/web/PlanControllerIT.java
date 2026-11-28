@@ -229,6 +229,17 @@ class PlanControllerIT {
         assertThat(storedJob(job)).containsEntry("solve_limit", 45_000_000_000L);
     }
 
+    /** The contract reads a request's null for an optional field as leaving it out. */
+    @Test
+    void GivenANullLimit_WhenRequestSolve_Then202AndTheJobHasTheDefaultLimit() {
+        String plan = planIdOf(open(dateOf(42)));
+
+        MvcTestResult result = solve(plan, "\"0\"", "{\"limitSeconds\":null}");
+
+        assertThat(result).hasStatus(HttpStatus.ACCEPTED);
+        assertThat(storedJob(read(result, "$.jobId"))).containsEntry("solve_limit", 45_000_000_000L);
+    }
+
     @Test
     void GivenAStaleIfMatch_WhenRequestSolve_Then412() {
         String plan = planIdOf(open(dateOf(12)));
