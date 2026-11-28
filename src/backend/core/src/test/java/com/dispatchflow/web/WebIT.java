@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.shared.adapter.in.web.Problems;
+import com.dispatchflow.shared.adapter.in.web.model.RequestSolveRequestDto;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletInputStream;
@@ -139,6 +140,21 @@ class WebIT {
                 .isFalse();
         assertThat(sharedMapper.isEnabled(StreamReadFeature.STRICT_DUPLICATE_DETECTION))
                 .isFalse();
+    }
+
+    /** The contract promises an optional field with no value is left out, never sent as null. */
+    @Test
+    void GivenAGeneratedModelWithAnAbsentOptionalField_WhenWritten_ThenTheFieldIsLeftOut() {
+        JacksonJsonHttpMessageConverter served = adapter.getMessageConverters().stream()
+                .filter(JacksonJsonHttpMessageConverter.class::isInstance)
+                .map(JacksonJsonHttpMessageConverter.class::cast)
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(served.getMapper().writeValueAsString(new RequestSolveRequestDto(null)))
+                .isEqualTo("{}");
+        assertThat(served.getMapper().writeValueAsString(new RequestSolveRequestDto(30)))
+                .isEqualTo("{\"limitSeconds\":30}");
     }
 
     @Test

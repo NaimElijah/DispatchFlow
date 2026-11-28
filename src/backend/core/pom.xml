@@ -22,6 +22,7 @@
 		<archunit.version>1.5.1</archunit.version>
 		<jts.version>1.20.0</jts.version>
 		<libphonenumber.version>9.0.43</libphonenumber.version>
+		<openapi-generator.version>7.27.0</openapi-generator.version>
 		<palantir-java-format.version>2.103.0</palantir-java-format.version>
 		<spotless-maven-plugin.version>3.11.0</spotless-maven-plugin.version>
 		<uuid-creator.version>6.1.1</uuid-creator.version>
@@ -141,6 +142,54 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+			<!-- The client API's Spring MVC interfaces and models, generated from the contract at every
+			     build into target/generated-sources and never committed (ADR-043, ADR-140 decision 2,
+			     ADR-160). `just gen` runs this execution alone. -->
+			<plugin>
+				<groupId>org.openapitools</groupId>
+				<artifactId>openapi-generator-maven-plugin</artifactId>
+				<version>${openapi-generator.version}</version>
+				<executions>
+					<execution>
+						<id>client-api</id>
+						<goals>
+							<goal>generate</goal>
+						</goals>
+						<configuration>
+							<inputSpec>${project.basedir}/../../../contracts/client-api/v1/openapi.yaml</inputSpec>
+							<generatorName>spring</generatorName>
+							<apiPackage>com.dispatchflow.shared.adapter.in.web.api</apiPackage>
+							<modelPackage>com.dispatchflow.shared.adapter.in.web.model</modelPackage>
+							<modelNameSuffix>Dto</modelNameSuffix>
+							<cleanupOutput>true</cleanupOutput>
+							<!-- The two NullMarked package-info files alone: ApiUtil, the other supporting
+							     file, serves only the default methods skipDefaultInterface leaves out
+							     (ADR-160). -->
+							<supportingFilesToGenerate>package-info.java</supportingFilesToGenerate>
+							<generateApiTests>false</generateApiTests>
+							<generateModelTests>false</generateModelTests>
+							<generateApiDocumentation>false</generateApiDocumentation>
+							<generateModelDocumentation>false</generateModelDocumentation>
+							<configOptions>
+								<interfaceOnly>true</interfaceOnly>
+								<useSpringBoot4>true</useSpringBoot4>
+								<useJackson3>true</useJackson3>
+								<useBeanValidation>true</useBeanValidation>
+								<useTags>true</useTags>
+								<skipDefaultInterface>true</skipDefaultInterface>
+								<openApiNullable>false</openApiNullable>
+								<useJspecify>true</useJspecify>
+								<useRecords>true</useRecords>
+								<annotationLibrary>none</annotationLibrary>
+								<documentationProvider>none</documentationProvider>
+								<!-- No build time in the @Generated annotation, so two builds of one
+								     contract write the same classes. -->
+								<hideGenerationTimestamp>true</hideGenerationTimestamp>
+							</configOptions>
+						</configuration>
+					</execution>
+				</executions>
 			</plugin>
 			<!-- Surefire runs *Test classes; Failsafe runs *IT classes, the ones that need Docker. -->
 			<plugin>

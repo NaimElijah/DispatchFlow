@@ -1,5 +1,9 @@
+# Built from the repository's root, so the build sees the client API's contract, which the core's
+# interfaces are generated from at every build (ADR-140 decision 2, ADR-160). The build keeps the
+# checkout's layout, so the pom's paths up to the root hold here as they do in a checkout:
+# Dockerfile.dockerignore lets in only this folder and that contract.
 FROM eclipse-temurin:25-jdk-noble AS build
-WORKDIR /build
+WORKDIR /build/src/backend/core
 # Without unzip, the Maven wrapper fetches the .tar.gz, not the zip whose SHA-256 it pins, which
 # Windows, macOS, CI and a Linux machine with unzip fetch (ADR-152). apt checks the package's
 # signature.
@@ -27,10 +31,11 @@ COPY <<EOF /root/.m2/settings.xml
   </mirrors>
 </settings>
 EOF
-COPY .mvn/ .mvn/
-COPY mvnw pom.xml ./
+COPY src/backend/core/.mvn/ .mvn/
+COPY src/backend/core/mvnw src/backend/core/pom.xml ./
 RUN ./mvnw -B -ntp dependency:go-offline
-COPY src/ src/
+COPY contracts/client-api/v1/ /build/contracts/client-api/v1/
+COPY src/backend/core/src/ src/
 # Tests and the formatting check run in CI, where Docker is available for the integration tests; the
 # image only packages, so an unformatted file never stops the dev stack from starting.
 RUN ./mvnw -B -ntp package -DskipTests -Dspotless.check.skip=true
@@ -38,7 +43,7 @@ RUN ./mvnw -B -ntp package -DskipTests -Dspotless.check.skip=true
 FROM eclipse-temurin:25-jre-noble
 WORKDIR /app
 RUN useradd --system --uid 10001 dispatchflow
-COPY --from=build /build/target/core-*.jar app.jar
+COPY --from=build /build/src/backend/core/target/core-*.jar app.jar
 USER dispatchflow
 EXPOSE 8080
 # The JVM runs in Israel's zone, as every test does (the pom's argLine), whatever zone the host gives

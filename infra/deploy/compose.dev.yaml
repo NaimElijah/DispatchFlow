@@ -68,14 +68,14 @@ x-hardening: &hardening
   security_opt:
     - no-new-privileges:true
 
-# The core's image, which both the migrate step and the core run. #161 moves the context to the
-# repository's root, so the build sees contracts/ (ADR-140 decision 2). That changes the context,
-# adds `dockerfile: src/backend/core/Dockerfile`, and moves the core's .dockerignore with it, as
-# Dockerfile.dockerignore beside the Dockerfile: the root has none, and without one the context would
-# carry infra/deploy/.env, every password in it.
+# The core's image, which both the migrate step and the core run. Its context is the repository's
+# root, so the build sees contracts/ (ADR-140 decision 2). Its ignore file is Dockerfile.dockerignore
+# beside the Dockerfile, which binds this image only: the root has none, and without one the context
+# would carry infra/deploy/.env, every password in it.
 x-core-image: &core-image
   build:
-    context: ../../src/backend/core
+    context: ../..
+    dockerfile: src/backend/core/Dockerfile
   image: dispatchflow-core:dev
   logging: *logging
   <<: *hardening

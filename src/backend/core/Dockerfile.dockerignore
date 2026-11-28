@@ -1,0 +1,10 @@
+# The core's image is built from the repository's root, so the build sees contracts/ (ADR-140
+# decision 2). Only the core's own files and the client API's contract enter the context: the root
+# also holds data/, every node_modules/ and .venv/, and infra/deploy/.env, every password in it.
+*
+!src/backend/core/
+!contracts/client-api/v1/
+src/backend/core/target/
+# A .env file anywhere in the build context, not only at its root, never enters an image
+**/.env*
+**/*.env

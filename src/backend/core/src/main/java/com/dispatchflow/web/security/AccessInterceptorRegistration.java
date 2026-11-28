@@ -1,5 +1,6 @@
 package com.dispatchflow.web.security;
 
+import com.dispatchflow.shared.adapter.in.web.ClientApi;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -9,7 +10,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 class AccessInterceptorRegistration implements WebMvcConfigurer {
 
     /** The paths of {@code client-api}, whose {@code servers} entry is {@code /api/v1}. */
-    static final String CLIENT_API = "/api/v1/**";
+    static final String CLIENT_API = ClientApi.BASE_PATH + "/**";
 
     private final AccessInterceptor interceptor;
 
