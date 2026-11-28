@@ -176,6 +176,11 @@
 								<useSpringBoot4>true</useSpringBoot4>
 								<useJackson3>true</useJackson3>
 								<useBeanValidation>true</useBeanValidation>
+								<!-- No @Validated on the interfaces: with it, Spring MVC skips its own
+								     argument validation, which answers the contract's 400 before the
+								     handler starts, and an AOP proxy throws a ConstraintViolationException
+								     from inside it instead (ADR-140 decision 9, ADR-160). -->
+								<useSpringBuiltInValidation>true</useSpringBuiltInValidation>
 								<useTags>true</useTags>
 								<skipDefaultInterface>true</skipDefaultInterface>
 								<openApiNullable>false</openApiNullable>
