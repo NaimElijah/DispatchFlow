@@ -16,6 +16,31 @@ maven_mirror := "https://maven-central.storage-download.googleapis.com/maven2"
 # pinned, and Dependabot's bumps of that lockfile reach it too (ADR-152). --only-dev installs
 # neither the optimizer nor its own dependencies.
 infra_tools := "uv run --project src/backend/optimizer --locked --only-dev"
+# The map's files, which `just data` builds (#152). Protomaps keeps a daily build for a week but the
+# last build of each basemap version for good (https://build-metadata.protomaps.dev/builds.json),
+# so the pin names the newest such build, 4.15.1's, and moves only when a newer version's last build
+# is kept: a daily pin would stop downloading a week later (ADR-158). The fonts and sprite come
+# from a pinned commit of protomaps/basemaps-assets. The fonts' archive and the cut are checked
+# against their SHA-256, because a name or a commit pins the address, not the bytes; the cut is
+# byte-for-byte reproducible from the same build, region and pmtiles image, so a changed source
+# fails the check. GitHub keeps an archive's files but not its compression, so the archive's hash
+# can fail on an unchanged commit: then check that its files are the commit's, and retake the hash.
+# A moved build, a new pmtiles image or a changed boundary needs the cut's hash taken again from a
+# clean run, and a moved fonts commit the archive's, in a committed change: `just name=value data`
+# overrides a pin for one run only. The pmtiles image is pinned by digest, because the cut's hash
+# depends on its bytes. The Caddy image is the tiles service's, in compose.dev.yaml, and on a tag
+# until January as that file's images are (ADR-047): its sh, wget and tar run the steps the
+# pmtiles image can't, as it has no shell. The hashes guard the sources, not that image: its own
+# sha256sum runs the checks, so the steps trust the Caddy tag, as the tiles service already does.
+pmtiles_image := "protomaps/go-pmtiles:v1.31.2@sha256:06574f01f55a78f78f887bc7ebf729a5c093c0d6e17d9876300cfcb0758b59d3"
+protomaps_build := "20260811"
+israel_tiles_sha256 := "f0c0d38f8473a029be9fd8212c9fb1db5d8c6600335bf9142e1366562fc8f359"
+basemaps_assets_commit := "028c18f713baecad011301ff7a69acc39bcc2ae7"
+basemaps_assets_sha256 := "57e40e8c512bd8042d0a3a251f19d0d1c8523ad963c666c3c6643bada4dc92d0"
+caddy_image := "caddy:2.11.9-alpine"
+# `just data`'s containers fetch and unpack files from outside, so they run as nobody, holding no
+# capability and unable to gain one, as the stack's own services do (ADR-019).
+data_container := "--rm --user 65534:65534 --cap-drop ALL --security-opt no-new-privileges:true"
 
 # List every recipe.
 default:
@@ -160,8 +185,8 @@ contracts-check:
 
 # The stack's project is the file's own, `dispatchflow`, so every checkout and worktree of the
 # repository runs the one stack and its one database (ADR-156). The `data` profile is where the
-# services whose files git ignores join, osrm (#168) first; `just infra-check` starts none of them,
-# and check_dev_stack.py's DEV_PROFILES holds the same name.
+# services whose files git ignores join, tiles (#152) and then osrm (#168); `just infra-check`
+# starts none of them, and check_dev_stack.py's DEV_PROFILES holds the same name.
 dev_stack := "docker compose -f infra/deploy/compose.dev.yaml --profile data"
 dev_env := justfile_directory() / "infra/deploy/.env"
 
@@ -176,6 +201,7 @@ dev: _dev-env
     @echo "Web app:    http://$({{ dev_stack }} port web 5173)"
     @echo "Core:       http://$({{ dev_stack }} port core 8080)"
     @echo "Optimizer:  http://$({{ dev_stack }} port optimizer 8000)"
+    @echo "Tiles:      http://$({{ dev_stack }} port tiles 8090)"
     @echo "PostgreSQL: $({{ dev_stack }} port postgres 5432)"
     @echo "Watching for edits. Ctrl+C stops only the watch, and just reports it as a failed recipe."
     @echo "Stop it before just dev-down, or a lockfile or manifest change starts a service again."
@@ -215,6 +241,44 @@ infra-check:
 infra-format:
     {{ infra_tools }} ruff format infra/deploy
     {{ infra_tools }} ruff check --fix infra/deploy
+
+# --- data: the files the development stack serves, in data/, which git ignores ---
+
+# Build the map's files into data/tiles/ for compose.dev.yaml's tiles service: Be'er Sheva's tiles,
+# cut from Protomaps' build to infra/osrm/beer-sheva.geojson, the style's fonts and its light
+# sprite, and BUILD, which names their sources, hashes and licences. Each step runs in a container,
+# so the recipe is the same on Windows and macOS (NFR-208). Needs Docker Desktop and the network. A
+# native Linux Docker is untested: its bind mount keeps the host's owner, so the containers' user,
+# nobody, may be unable to write to data/, and the first step then fails before it writes anything.
+# Each step writes .part files, and only the last swaps them in, after every check passed, so a
+# failed run leaves the served files and their BUILD as they were. The cut goes to data/tiles-cut/,
+# which the service doesn't serve, and its step mounts nothing else, so an unchecked cut is never
+# served and the pmtiles image can't reach the files beside it.
+#   1. Remove a failed run's .part files, make the two folders if they are missing, fetch the
+#      fonts' archive, check its hash, and copy the fonts and sprite with links resolved: the
+#      tiles service follows a link anywhere in its container, so data/tiles/ holds none.
+#   2. Cut the tiles into data/tiles-cut/.
+#   3. Check the cut's hash, or remove every .part file and stop; then move the three into
+#      data/tiles/ and write BUILD last, so it names what is there. data/ is one mount, so each
+#      move is a rename.
+# A hash that doesn't match is printed, so a pin that moved on purpose can be retaken from it.
+[doc("Build the map's tiles, fonts and sprite into data/tiles/, from sources checked by hash")]
+data: _data-pins
+    docker run {{ data_container }} -v "{{ justfile_directory() }}/data:/data" --entrypoint sh {{ caddy_image }} -c 'set -eo pipefail; rm -rf /data/tiles/fonts.part /data/tiles/sprites.part /data/tiles-cut/israel.pmtiles.part; mkdir -p /data/tiles /data/tiles-cut; wget -q -O /tmp/assets.tar.gz https://codeload.github.com/protomaps/basemaps-assets/tar.gz/{{ basemaps_assets_commit }}; h=$(sha256sum /tmp/assets.tar.gz | cut -c1-64); [ $h = {{ basemaps_assets_sha256 }} ] || { echo the fonts archive has sha256 $h, not basemaps_assets_sha256: a moved commit needs it retaken >&2; exit 1; }; tar -xzf /tmp/assets.tar.gz -C /tmp; mkdir /data/tiles/sprites.part; cp -RL /tmp/basemaps-assets-{{ basemaps_assets_commit }}/fonts /data/tiles/fonts.part; cp -L /tmp/basemaps-assets-{{ basemaps_assets_commit }}/sprites/v4/light* /data/tiles/sprites.part/'
+    docker run {{ data_container }} -v "{{ justfile_directory() }}/infra/osrm:/region:ro" -v "{{ justfile_directory() }}/data/tiles-cut:/cut" {{ pmtiles_image }} extract https://build.protomaps.com/{{ protomaps_build }}.pmtiles /cut/israel.pmtiles.part --region=/region/beer-sheva.geojson --quiet
+    docker run {{ data_container }} -v "{{ justfile_directory() }}/data:/data" --entrypoint sh {{ caddy_image }} -c 'set -eo pipefail; h=$(sha256sum /data/tiles-cut/israel.pmtiles.part | cut -c1-64); [ $h = {{ israel_tiles_sha256 }} ] || { rm -rf /data/tiles/fonts.part /data/tiles/sprites.part /data/tiles-cut/israel.pmtiles.part; echo the cut tiles have sha256 $h, not israel_tiles_sha256: a moved build, boundary or pmtiles image needs it retaken >&2; exit 1; }; rm -rf /data/tiles/fonts /data/tiles/sprites; mv /data/tiles/fonts.part /data/tiles/fonts; mv /data/tiles/sprites.part /data/tiles/sprites; mv /data/tiles-cut/israel.pmtiles.part /data/tiles/israel.pmtiles; printf protomaps-build={{ protomaps_build }}\\nisrael-tiles-sha256={{ israel_tiles_sha256 }}\\nbasemaps-assets={{ basemaps_assets_commit }}\\nbasemaps-assets-sha256={{ basemaps_assets_sha256 }}\\nsprites-licence=MIT,derived-from-tangrams/icons\\nfonts-licence=OFL-1.1,see-fonts/OFL.txt\\n > /data/tiles/BUILD'
+
+# The pins are pasted into the steps' shell commands, and `just name=value data` overrides them, so
+# each must match its own shape before any step runs. This catches a mistyped override; it guards
+# nothing from the person typing the command, who can also override data_container or skip this
+# recipe with --no-deps.
+_data-pins:
+    @{{ if protomaps_build =~ '^[0-9]{8}$' { "" } else { error("protomaps_build must be a build date, eight digits") } }}
+    @{{ if israel_tiles_sha256 =~ '^[0-9a-f]{64}$' { "" } else { error("israel_tiles_sha256 must be 64 lowercase hex digits") } }}
+    @{{ if basemaps_assets_commit =~ '^[0-9a-f]{40}$' { "" } else { error("basemaps_assets_commit must be a full commit, 40 lowercase hex digits") } }}
+    @{{ if basemaps_assets_sha256 =~ '^[0-9a-f]{64}$' { "" } else { error("basemaps_assets_sha256 must be 64 lowercase hex digits") } }}
+    @{{ if pmtiles_image =~ '^[a-z0-9][a-z0-9./_-]*:[A-Za-z0-9._-]+@sha256:[0-9a-f]{64}$' { "" } else { error("pmtiles_image must be name:tag@sha256:digest") } }}
+    @{{ if caddy_image =~ '^[a-z0-9][a-z0-9./_-]*:[A-Za-z0-9._-]+$' { "" } else { error("caddy_image must be name:tag") } }}
 
 # Scan every lockfile and the pom for known vulnerabilities. Needs Docker.
 audit:

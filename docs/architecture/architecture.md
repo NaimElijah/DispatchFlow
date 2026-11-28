@@ -262,11 +262,15 @@ origin, forwarding the browser's `Host` and `Sec-Fetch-Site` as they were sent a
 other origin's CORS request: no page calls it yet, and `just infra-check` sends its probes
 through it ([ADR-148](../ADRs/ADR-148-the-stand-in-serves-only-its-own-origin-every-unsigned-api-call-answers-401-and-the-guard-outlives-the-session.md),
 [ADR-151](../ADRs/ADR-151-the-dev-stack-runs-the-core-as-a-compose-service-and-the-core-checks-its-database-session.md)).
+It also proxies `/map/` to the `tiles` service with the prefix removed, as `vite preview` does,
+since it inherits the dev server's proxy: the map's files then come from the app's own origin, and
+no page loads them yet.
 
 ## Data flow
 
 No request crosses a component today but `just infra-check`'s probes, which go through the web
-app's dev server to the core. Two probes and the persistence adapters are tested, each inside its
+app's dev server to the core, and, under `just dev`, a `/map/` request, which the dev server passes
+to the `tiles` service. Two probes and the persistence adapters are tested, each inside its
 own component:
 
 - The `core` health probe: a request to `/actuator/health` reaches Spring Boot, and
@@ -305,20 +309,32 @@ calls exist.
 |---|---|---|
 | PostgreSQL 18.7 | `core` | The database, one schema per module, each with tables. The `migrate` command runs the Flyway migrations as `dispatchflow_owner` before the core starts, and the core connects as `app`. The tests' Testcontainers server starts with the dev stack's four server settings ([ADR-152](../ADRs/ADR-152-the-session-guard-reads-the-real-login-and-accepts-only-untranslated-messages-and-the-stack-check-checks-what-it-claims.md)) ([ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md), [ADR-145](../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md)); `infra/deploy/postgres/initdb/create-roles.sql` creates both roles in a new database. In a Testcontainers container for `*IT` tests and `just core-run`, which need Docker ([ADR-014](../ADRs/ADR-014-real-dependencies-in-containers-for-tests-and-local-runs.md), superseded by [ADR-042](../ADRs/ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md): the tests keep Testcontainers, and `just core-run` stays ([ADR-151](../ADRs/ADR-151-the-dev-stack-runs-the-core-as-a-compose-service-and-the-core-checks-its-database-session.md))). The Testcontainers container runs that init script, and Flyway runs in the core's JVM there, as the owner. In the development stack, `infra/deploy/compose.dev.yaml`'s `postgres` service runs it, with #250's log and message settings, and its `migrate` service runs the migrations as the owner before `core` starts. Elsewhere `core` and `migrate` read `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` from the environment |
 | PyVRP | `research` | A reference solver for benchmarks. Never installed in `optimizer` |
+| Caddy 2.11.9 (`caddy:2.11.9-alpine`, on its tag until January: [ADR-047](../ADRs/ADR-047-images-pinned-by-digest-and-core-on-temurin-25-jre.md)) | the development stack's `tiles` service; `just data` | Serves `data/tiles/` and answers the PMTiles reader's range requests ([ADR-084](../ADRs/ADR-084-maplibre-in-both-apps-with-self-hosted-protomaps-tiles.md)). Its shell, `wget` and `tar` run the `just data` steps the pmtiles image can't. Apache License 2.0 |
+| go-pmtiles 1.31.2 (`protomaps/go-pmtiles`, pinned by digest) | `just data` | Cuts Be'er Sheva's tiles from the pinned Protomaps build. A BSD 3-clause licence |
+| Protomaps basemap build 20260811 (basemap 4.15.1, pinned with its hash: [ADR-158](../ADRs/ADR-158-the-alphas-tiles-come-from-a-pinned-protomaps-build-checked-by-hash.md)) and `protomaps/basemaps-assets` at a pinned commit | `just data`, for the web app's map | The tiles are an ODbL Produced Work of OpenStreetMap, which must be credited (NFR-18). The fonts are Noto, under the SIL Open Font License 1.1; the sprite is derived from the MIT-licensed `tangrams/icons` |
 
-No other outside service is called. `core` and `optimizer` each have a `Dockerfile`, and neither
+No other outside service is called at run time. `just data` downloads, on each run, from two sources
+outside Israel, and sends them no company or personal data: the tiles it cuts from the pinned Protomaps build
+(`build.protomaps.com`) and the archive of the pinned commit of `protomaps/basemaps-assets`
+(GitHub), each checked against its SHA-256. `core` and `optimizer` each have a `Dockerfile`, and neither
 runs as root ([ADR-019](../ADRs/ADR-019-container-images-run-as-non-root.md)).
 `infra/deploy/compose.dev.yaml` runs PostgreSQL, the `migrate` step, the core under the `dev`
-profile, the optimizer and the web app's dev server (`src/frontend/web/Dockerfile.dev`) on a laptop,
+profile, the optimizer, the `tiles` service (Caddy 2.11.9, serving the map's files from
+`data/tiles/`, under the `data` Compose profile, which `just infra-check` doesn't start: [ADR-152](../ADRs/ADR-152-the-session-guard-reads-the-real-login-and-accepts-only-untranslated-messages-and-the-stack-check-checks-what-it-claims.md))
+and the web app's dev server (`src/frontend/web/Dockerfile.dev`) on a laptop,
 each service with only its own credentials and every port bound to `127.0.0.1`. The web app's
-`vite.config.ts` proxies `/api/` to the core, keeping the browser's `Host` and `Sec-Fetch-Site`.
-`just dev` starts the stack and waits until every service is healthy and the migrate step has
-finished, then Compose Watch copies edits into the web app and the optimizer; `just dev-down`
-stops it, and `just db-reset` also deletes its database, the stack's only named volume, which
-every checkout of the repository shares
+`vite.config.ts` proxies `/api/` to the core, keeping the browser's `Host` and `Sec-Fetch-Site`,
+and `/map/` to the `tiles` service with the prefix removed. `just data` builds the map's files:
+Be'er Sheva's tiles, cut with the `pmtiles` CLI from a pinned Protomaps build to
+`infra/osrm/beer-sheva.geojson`, and the style's fonts and sprite from a pinned commit of
+`protomaps/basemaps-assets`.
+`just dev` starts the stack, the `data` profile included, and waits until every service is healthy
+and the migrate step has finished, then Compose Watch copies edits into the web app and the
+optimizer; `just dev-down` stops it, and `just db-reset` also deletes its database, the stack's
+only named volume, which every checkout of the repository shares
 ([ADR-156](../ADRs/ADR-156-just-dev-waits-for-a-healthy-stack-then-watches-and-the-stack-outlives-the-watch.md)).
-`just infra-check` validates the file and starts the whole stack in a throwaway project, in
-`just check` and CI. At startup the core's `DatabaseSessionGuard` refuses a
+`just infra-check` validates the file and starts every service outside the `data` profile in a
+throwaway project, in `just check` and CI. At startup the core's `DatabaseSessionGuard` refuses a
 session that logged in as another role and switched, a database role with an attribute that
 passes the grants, one that belongs to any other role or owns an object, and a server whose
 `lc_messages` isn't `C` or `POSIX`, the only settings that keep its messages in English

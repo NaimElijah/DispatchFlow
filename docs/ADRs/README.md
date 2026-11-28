@@ -86,7 +86,8 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-073](ADR-073-runtime-contract-validation.md) | A request that breaks its contract is refused by validation generated from the contract | Accepted; extended by ADR-140 |
 | [ADR-082](ADR-082-supported-phone-app-versions.md) | The server supports the current and the previous phone app version, and an older one still drains its queue | Accepted; extended by ADR-140; amended by ADR-094 |
 | [ADR-083](ADR-083-admins-and-dispatchers-get-alerts-by-stream-and-push-in-the-phone-app.md) | Admins and Dispatchers get alerts in the phone app by event stream while it is open and by push in the background | Accepted |
-| [ADR-084](ADR-084-maplibre-in-both-apps-with-self-hosted-protomaps-tiles.md) | Both apps draw maps with MapLibre, from self-hosted Protomaps tiles | Accepted |
+| [ADR-084](ADR-084-maplibre-in-both-apps-with-self-hosted-protomaps-tiles.md) | Both apps draw maps with MapLibre, from self-hosted Protomaps tiles | Accepted; amended by ADR-158 |
+| [ADR-158](ADR-158-the-alphas-tiles-come-from-a-pinned-protomaps-build-checked-by-hash.md) | The Alpha's tiles come from a pinned Protomaps build, checked by hash, until the monthly refresh keeps its own cut | Accepted |
 | [ADR-085](ADR-085-govmap-geocodes-addresses-with-nominatim-as-the-fallback.md) | GovMap geocodes addresses, and self-hosted Nominatim replaces it only if GovMap's terms fail | Accepted; amended by ADR-121 and ADR-139 |
 | [ADR-086](ADR-086-csv-imports-upload-then-confirm-within-an-hour.md) | An order import is two calls, upload then confirm within an hour, and writes every row or none | Accepted; extended by ADR-102; amended by ADR-139 |
 | [ADR-139](ADR-139-govmap-geocoding-comes-into-the-alpha.md) | GovMap geocoding comes into the Alpha, behind the `Geocoder` port, and the demo reaches the real GovMap | Accepted |
@@ -329,4 +330,10 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > capability outside the root group, and the file creates or mounts no volume but the database's,
 > named or anonymous; and no service shares another container's namespace, takes a security
 > option but no-new-privileges, or reaches the database's files but postgres itself.
+>
+> ADR-158, on 2026-11-28, amends ADR-084 for the Alpha after #152: `just data` cuts the tiles
+> from the last build of a basemap version that Protomaps keeps for good, and checks the cut and
+> the fonts' archive against SHA-256 pins; the monthly rebuild returns with the monthly refresh of
+> the road data, which keeps its own cut in Israel; and the Alpha accepts tiles older than
+> NFR-129's 60 days, until the pin passes 120.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.

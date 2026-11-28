@@ -21,7 +21,11 @@ a throwaway value for each secret, never a developer's own infra/deploy/.env or 
 - the database's is the only named volume the file creates, and no service mounts an anonymous
   one, since `just db-reset` runs `down --volumes`, which deletes both; only postgres mounts the
   database's volume, and no other key names it again (ADR-145);
-- the stack's PostgreSQL tag and server settings are the tests', and its Node major is .nvmrc's.
+- the stack's PostgreSQL tag and server settings are the tests', its Node major is .nvmrc's, and
+  the tiles service's image is the root justfile's caddy_image, which `just data` runs;
+- the tiles service's Caddyfile lets no file it serves be read as a page: every answer carries
+  nosniff and a sandboxing policy, the map's binary files get a type of their own, and no folder
+  is listed.
 
 With ``--live``, the whole stack then starts in a project of its own, with a random name and no port
 on the host, so it never meets a running ``just dev`` or another check. It first removes what an
@@ -63,10 +67,12 @@ REPOSITORY = DEPLOY.parent.parent
 COMPOSE_FILE = DEPLOY / "compose.dev.yaml"
 ENV_EXAMPLE = DEPLOY / ".env.example"
 ENV_FILE = DEPLOY / ".env"
+TILES_CADDYFILE = DEPLOY / "tiles" / "Caddyfile"
 TESTCONTAINERS_CONFIGURATION = (
     REPOSITORY / "src/backend/core/src/test/java/com/dispatchflow/TestcontainersConfiguration.java"
 )
 WEB_DOCKERFILE = REPOSITORY / "src/frontend/web/Dockerfile.dev"
+JUSTFILE = REPOSITORY / "justfile"
 # ADR-038 moves the Node pin to mise.toml; the check moves with it.
 NVMRC = REPOSITORY / ".nvmrc"
 LOOPBACK = "127.0.0.1"
@@ -125,8 +131,8 @@ VARIABLE = re.compile(
 DEFAULT_OPERATORS = ("-", ":-")
 LISTED_KEY = re.compile(r"^([A-Z0-9_]+)=", re.MULTILINE)
 
-# Where the tests' PostgreSQL tag, the tests' server command and the web image's Node major are
-# written.
+# Where the tests' PostgreSQL tag, the tests' server command, the web image's Node major and the
+# justfile's Caddy image are written.
 TESTS_POSTGRES_TAG = re.compile(
     r'POSTGRES_IMAGE\s*=\s*DockerImageName\.parse\("(?P<image>[^"]+)"\)'
 )
@@ -134,6 +140,22 @@ TESTS_POSTGRES_COMMAND = re.compile(r"POSTGRES_COMMAND\s*=\s*\{(?P<body>[^}]*)\}
 JAVA_STRING = re.compile(r'"([^"]*)"')
 NODE_BASE_MAJOR = re.compile(r"^FROM node:(?P<major>\d+)", re.MULTILINE)
 NVMRC_MAJOR = re.compile(r"\s*v?(?P<major>\d+)")
+# What the tiles service's Caddyfile must say, with its comments left out: the headers on every
+# answer, in a `header` with no matcher, block or line; the matchers that name the binary files and
+# the type they get; and a directory listing it must not turn on.
+CADDY_COMMENT = re.compile(r"(?:^|\s)#.*$", re.MULTILINE)
+CADDY_HEADER_BLOCK = re.compile(r"^\s*header\s*\{(?P<body>[^}]*)\}", re.MULTILINE)
+CADDY_HEADER_LINE = re.compile(r"^\s*header\s+(?P<body>[^@{\s][^{\n]*)$", re.MULTILINE)
+CADDY_NOSNIFF = re.compile(r"X-Content-Type-Options\s+nosniff\b")
+CADDY_SANDBOX_POLICY = re.compile(r'Content-Security-Policy\s+"[^"]*\bsandbox\b')
+CADDY_PATH_MATCHER = re.compile(r"^\s*@(?P<name>[\w-]+)\s+path\s+(?P<paths>[^\n]+)$", re.MULTILINE)
+CADDY_BINARY_TYPE = re.compile(
+    r"^\s*header\s+@(?P<name>[\w-]+)\s+Content-Type\s+application/octet-stream\s*$", re.MULTILINE
+)
+CADDY_BROWSE = re.compile(r"\bbrowse\b")
+# The files Caddy gives no type of its own, which a browser could otherwise sniff as a page.
+TILES_BINARY_PATHS = ("*.pmtiles", "*.pbf")
+JUSTFILE_CADDY_IMAGE = re.compile(r'^caddy_image := "(?P<image>[^"]+)"', re.MULTILINE)
 # The tests' own server option, which a throwaway database can afford and the stack can't.
 TESTS_ONLY_OPTION = ("-c", "fsync=off")
 
@@ -222,6 +244,8 @@ class Sources:
     testcontainers_text: str
     dockerfile_text: str
     nvmrc_text: str
+    justfile_text: str
+    caddyfile_text: str
 
 
 def main(arguments: list[str]) -> int:
@@ -327,6 +351,8 @@ def check_static(environment: dict[str, str]) -> None:
         testcontainers_text=read(TESTCONTAINERS_CONFIGURATION),
         dockerfile_text=read(WEB_DOCKERFILE),
         nvmrc_text=read(NVMRC),
+        justfile_text=read(JUSTFILE),
+        caddyfile_text=read(TILES_CADDYFILE),
     )
     problems = static_problems(
         compose_configuration(environment, interpolate=True),
@@ -373,6 +399,8 @@ def static_problems(
         *tag_problems(
             resolved, sources.testcontainers_text, sources.dockerfile_text, sources.nvmrc_text
         ),
+        *caddy_pin_problems(resolved, sources.justfile_text),
+        *caddyfile_problems(sources.caddyfile_text),
         *server_command_problems(resolved, sources.testcontainers_text),
     ]
     return list(dict.fromkeys(problems))
@@ -683,6 +711,73 @@ def tag_problems(
     pinned = NVMRC_MAJOR.match(nvmrc_text)
     if node is None or pinned is None or node.group("major") != pinned.group("major"):
         problems.append("Dockerfile.dev's Node major differs from .nvmrc's: bump both together")
+    return problems
+
+
+def caddy_pin_problems(configuration: Configuration, justfile_text: str) -> list[str]:
+    """The tiles service's image when it differs from the justfile's caddy_image.
+
+    Args:
+        configuration: the file as Compose resolves it.
+        justfile_text: the root justfile, whose `just data` steps run caddy_image's shell.
+
+    Returns:
+        One problem when the two copies differ, so a bump of one fails until the other follows.
+    """
+    stack_caddy = configuration["services"].get("tiles", {}).get("image")
+    pinned = JUSTFILE_CADDY_IMAGE.search(justfile_text)
+    found = pinned.group("image") if pinned else "no caddy_image"
+    if pinned is None or stack_caddy != found:
+        return [
+            f"the tiles service runs {stack_caddy} but the justfile's caddy_image is {found}: "
+            "bump both together"
+        ]
+    return []
+
+
+def caddyfile_problems(caddyfile_text: str) -> list[str]:
+    """Each way the tiles service's Caddyfile would let a file it serves be read as a page.
+
+    The files reach the browser on the web app's own origin, where a page could call /api/
+    (ADR-148), so every answer needs nosniff and a policy that sandboxes it, and the binary files,
+    which Caddy gives no type, need one of their own.
+
+    Args:
+        caddyfile_text: infra/deploy/tiles/Caddyfile.
+
+    Returns:
+        One problem per missing header, per binary path with no type of its own, and for a listing.
+    """
+    text = CADDY_COMMENT.sub("", caddyfile_text)
+    every_answer = "\n".join(
+        [match.group("body") for match in CADDY_HEADER_BLOCK.finditer(text)]
+        + [match.group("body") for match in CADDY_HEADER_LINE.finditer(text)]
+    )
+    problems = []
+    if not CADDY_NOSNIFF.search(every_answer):
+        problems.append(
+            "the tiles Caddyfile sets no X-Content-Type-Options nosniff on every answer"
+        )
+    if not CADDY_SANDBOX_POLICY.search(every_answer):
+        problems.append(
+            "the tiles Caddyfile sets no Content-Security-Policy with sandbox on every answer"
+        )
+    matchers = {
+        match.group("name"): match.group("paths").split()
+        for match in CADDY_PATH_MATCHER.finditer(text)
+    }
+    typed = {
+        path
+        for match in CADDY_BINARY_TYPE.finditer(text)
+        for path in matchers.get(match.group("name"), [])
+    }
+    problems += [
+        f"the tiles Caddyfile gives {path} no Content-Type application/octet-stream"
+        for path in TILES_BINARY_PATHS
+        if path not in typed
+    ]
+    if CADDY_BROWSE.search(text):
+        problems.append("the tiles Caddyfile lists folders with browse")
     return problems
 
 
