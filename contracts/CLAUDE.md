@@ -20,7 +20,8 @@ Both are OpenAPI 3.1. `client-api` is served under `/api/v1`.
 - A breaking change gets a new major version in its own folder (`v2/`), next to `v1/`. Breaking
   changes include removing or renaming an operation or field, changing a type, making a request
   field required or a response field optional, changing the status a code answers with, and a new
-  enum value in a response, except `Problem.code`. Adding an optional field or an operation isn't.
+  enum value or `oneOf` kind in a response, except `Problem.code`. Adding an optional field or an
+  operation isn't.
 - `oasdiff` checks each pull request against its base branch for breaking changes, from January: a
   pull request into `dev` against `dev`, and `dev` into `main` against `main`, which holds what is
   released ([NFR-134]; [ADR-043], [ADR-094]). Until then, the reviewer catches them.
@@ -30,7 +31,7 @@ Both are OpenAPI 3.1. `client-api` is served under `/api/v1`.
   and the optimizer's health-check models are hand-written: the next operation either contract
   gains adds the generator, and the validation generated from it, to the provider and every
   consumer in the same pull request.
-- Every `client-api` operation follows these conventions; [ADR-140] holds the reasons:
+- Every `client-api` operation follows these conventions; [ADR-140] and [ADR-155] hold the reasons:
   - `x-capability` ([ADR-068]) and a stable `operationId`, which names the generated method and the
     audit record's operation. The core reads `traceparent` itself: no operation declares it;
   - exactly one tag, its module's package name and its resource (`planning-proposals`,
@@ -68,6 +69,9 @@ Both are OpenAPI 3.1. `client-api` is served under `/api/v1`.
     accepting a proposal sends the plan's, answers 409 `STALE_VERSION`; neither is retried. A call
     with no precondition header, and any failed lock wait, is retried, then 503 with `Retry-After`
     ([ADR-057], [ADR-121]);
+  - in a body, a moment or a time of a plan's day is an RFC 3339 `date-time` in UTC, worked out
+    from the date's midnight in Israel; a list whose values carry fields is a `oneOf` with a
+    `kind`, and a list of plain values the optimizer decides is a string, values listed ([ADR-155]);
   - `Idempotency-Key` on driver reports, route starts and finishes, problem reports ([ADR-087],
     [ADR-121]) and position batches ([NFR-285]), and the client headers ([ADR-082]).
 - The optimizer API is stateless: each call carries the whole problem. The travel-time matrix is
@@ -93,6 +97,7 @@ Both are OpenAPI 3.1. `client-api` is served under `/api/v1`.
 [ADR-121]: ../docs/ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md
 [ADR-094]: ../docs/ADRs/ADR-094-each-pull-requests-contract-check-compares-against-its-base-branch.md
 [ADR-140]: ../docs/ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md
+[ADR-155]: ../docs/ADRs/ADR-155-the-client-api-sends-times-as-rfc-3339-instants-and-a-list-that-may-grow-as-a-string.md
 [NFR-92]: ../docs/requirements/requirements.md#nfr-92
 [NFR-134]: ../docs/requirements/requirements.md#nfr-134
 [NFR-145]: ../docs/requirements/requirements.md#nfr-145

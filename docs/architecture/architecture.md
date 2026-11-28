@@ -245,8 +245,12 @@ end-to-end tests' control endpoints. Nothing depends on `web`, and it uses only 
 Components meet only at the two contracts under `contracts/`
 ([ADR-006](../ADRs/ADR-006-versioned-openapi-contracts.md)):
 
-- `contracts/client-api/v1/openapi.yaml` has `/api/v1` as its `servers` entry. Its `paths` is
-  empty, so `core` serves no operation from it yet. It defines the `Problem` schema (RFC 9457), with
+- `contracts/client-api/v1/openapi.yaml` has `/api/v1` as its `servers` entry. Its `paths` holds
+  Planning's six operations, `listPlansOnDate`, `openPlan`, `getPlan`, `requestSolve`,
+  `getSolveProgress` and `getRouteShape`, and `core` serves none of them yet. Their times are
+  RFC 3339 instants
+  ([ADR-155](../ADRs/ADR-155-the-client-api-sends-times-as-rfc-3339-instants-and-a-list-that-may-grow-as-a-string.md)).
+  It defines the `Problem` schema (RFC 9457), with
   its `code`, `params`, `traceId` and `errors` and the codes any operation can answer, 401
   `ACCESS_TOKEN_REFUSED` among them, its `ProblemItem` and `ProblemParameter`, and the
   `UnexpectedProblem` response.
