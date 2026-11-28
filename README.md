@@ -99,13 +99,19 @@ just data                                         # once: the map's files for Be
 just dev                                          # build, start, wait until healthy, then watch
 ```
 
+The three passwords must each be filled in, and the two roles' passwords must differ; make all
+three differ, as `.env.example` says. A first start that stopped on them leaves the database
+without its roles, so run `just db-reset` before `just dev` again.
+
 | Command | What it does |
 |---|---|
 | `just dev` | Builds and starts every service, waits until each one is healthy and the migrate step has finished, prints where each listens, then watches for edits |
-| `just dev-down` | Stops the stack and removes its containers; the database stays for the next `just dev` |
+| `just dev-down` | Stops the stack and removes its containers; the database stays for the next `just dev`. Stop the watch first |
 | `just db-reset` | Stops the stack and deletes its database, after asking, so the next `just dev` migrates an empty one. A password changed in `.env` needs it |
 
-All three stop with a message while `infra/deploy/.env` is missing.
+`just dev` and `just dev-down` stop with a message while `infra/deploy/.env` is missing, and
+`just db-reset` does once you've answered its question. Every checkout and worktree of the
+repository runs the same stack and database, so `just db-reset` in any of them deletes it.
 
 The web app is on http://localhost:5173, and proxies `/api/` to the stack's core, which the
 laptop also reaches on 127.0.0.1:8080, and `/map/` to the tiles service, which the laptop reaches
@@ -116,10 +122,12 @@ macOS; a native Linux Docker is untested. `just dev` starts the tiles service un
 optimizer is on 127.0.0.1:8081, and PostgreSQL on 127.0.0.1:5432. A laptop that runs a PostgreSQL
 of its own on 5432 sets
 `DISPATCHFLOW_POSTGRES_HOST_PORT` in that `.env`. While `just dev` watches, an edit to the web app
-or the optimizer is copied into its container, which reloads it. Ctrl+C stops the watch and
-leaves the stack running; a change to the core needs Ctrl+C, then `just dev` again. Compose
-watches a project once, so a second `just dev` beside a running one rebuilds, runs the migrate
-step and restarts the core, then stops with an error at its watch.
+or the optimizer is copied into its container, which reloads it. Ctrl+C stops the watch, which just
+reports as a failed recipe, and leaves the stack running; a change to the core needs Ctrl+C, then
+`just dev` again. Stop the watch before `just dev-down`: one left running rebuilds and starts a
+service again when its lockfile or manifest changes. Compose watches a project once, so a
+second `just dev` beside a running one rebuilds, runs the migrate step and restarts the core,
+then stops with an error at its watch.
 `docker compose -f infra/deploy/compose.dev.yaml logs -f core` follows one service's log. The stack
 starts with no fleet and no orders, and its core's stand-in session signs the laptop's own calls in
 as the seeded Dispatcher (see [Configuration](#configuration)). Checked on Windows with Docker
@@ -318,7 +326,7 @@ comments. The rules apply to people and to coding assistants alike.
 | Phone app | Components (Jest + React Native Testing Library) | `just mobile-check` |
 | Contracts | Both OpenAPI documents lint clean | `just contracts-check` |
 | Dependencies | Known vulnerabilities in every lockfile and the pom | `just audit` |
-| Development stack | The checker's own rules; then the Compose file publishes only on `127.0.0.1`, gives each service only its own secrets, hardens every service, puts any profiled one under `data` and keeps the database's as its only named volume; the whole stack starts healthy with no main process as root; `migrate`, the roles, #250's server settings, the JVM zone and the web app's proxy check out | `just infra-check` |
+| Development stack | The checker's own rules; then the Compose file publishes only on `127.0.0.1`, gives each service only its own secrets, hardens every service, puts any profiled one under `data`, as a numeric non-root user with no capabilities, and creates no volume but the database's; the whole stack starts healthy with no main process as root; `migrate`, the roles, #250's server settings, the JVM zone and the web app's proxy check out | `just infra-check` |
 
 Test names follow Given/When/Then. CI runs every row above, on every push and on every pull
 request into `dev` and `main`; any red job fails the run. Browser end-to-end tests (`tests/e2e`)

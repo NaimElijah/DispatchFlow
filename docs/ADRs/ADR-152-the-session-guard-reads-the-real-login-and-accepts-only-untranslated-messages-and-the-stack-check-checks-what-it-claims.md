@@ -1,6 +1,6 @@
 # ADR-152: The session guard reads the real login and accepts only untranslated messages, and the stack's check checks what it claims
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-156
 - **Date:** 2026-11-27
 
 ## Context

@@ -128,8 +128,9 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-039](ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md) | Both apps and the shared TypeScript packages live in one pnpm workspace | Accepted; extended by ADR-130, ADR-141 and ADR-143; amended by ADR-123 |
 | [ADR-141](ADR-141-prettiers-settings-live-in-one-file-in-src-frontend.md) | Prettier's settings live in one file in `src/frontend`, for the web app and every workspace package | Accepted |
 | [ADR-042](ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md) | Local runs start their services from `compose.dev.yaml`; tests keep Testcontainers | Accepted; amended by ADR-123, ADR-139 and ADR-151 |
-| [ADR-151](ADR-151-the-dev-stack-runs-the-core-as-a-compose-service-and-the-core-checks-its-database-session.md) | The dev stack runs the core as a Compose service, and the core checks its database session at startup | Accepted; amended by ADR-152 |
-| [ADR-152](ADR-152-the-session-guard-reads-the-real-login-and-accepts-only-untranslated-messages-and-the-stack-check-checks-what-it-claims.md) | The session guard reads the real login and accepts only untranslated messages, and the stack's check checks what it claims | Accepted |
+| [ADR-151](ADR-151-the-dev-stack-runs-the-core-as-a-compose-service-and-the-core-checks-its-database-session.md) | The dev stack runs the core as a Compose service, and the core checks its database session at startup | Accepted; amended by ADR-152 and ADR-156 |
+| [ADR-152](ADR-152-the-session-guard-reads-the-real-login-and-accepts-only-untranslated-messages-and-the-stack-check-checks-what-it-claims.md) | The session guard reads the real login and accepts only untranslated messages, and the stack's check checks what it claims | Accepted; extended by ADR-156 |
+| [ADR-156](ADR-156-just-dev-waits-for-a-healthy-stack-then-watches-and-the-stack-outlives-the-watch.md) | `just dev` waits for a healthy stack, then watches, and the stack outlives the watch | Accepted |
 | [ADR-046](ADR-046-renovate-replaces-dependabot-and-targets-dev.md) | Renovate replaces Dependabot and keeps opening updates against `dev` | Accepted; extended by ADR-152 |
 | [ADR-072](ADR-072-images-scanned-by-pinned-trivy-and-secrets-by-gitleaks.md) | A pinned Trivy scans images and Terraform, and Gitleaks scans the full history for secrets | Accepted |
 | [ADR-074](ADR-074-dependency-licences-checked-against-an-allow-list.md) | Dependency licences are checked in CI against an allow-list, and GPL and AGPL services run unmodified | Accepted |
@@ -319,4 +320,14 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > reads left to right in both languages; an optional number has its own block; focus on a refusal
 > follows reading order, a window's included; a table's default cell writes text only; a screen
 > sends the newest version it knows; and the web tests run in New York's zone.
+>
+> ADR-156, on 2026-11-28, amends ADR-151 and extends ADR-152 after an audit of #172's recipes:
+> `just dev` runs `up --build --wait`, prints where each service listens, then watches with
+> `watch --no-up`, so a start that fails fails the command; the stack outlives the watch, so
+> Ctrl+C, which just reports as a failed recipe, stops only the watch, and `just dev-down` comes
+> after it; every checkout runs the one project and database, which `just db-reset`'s prompt
+> says; and a service under the `data` profile sets a numeric non-root user and drops every
+> capability outside the root group, and the file creates or mounts no volume but the database's,
+> named or anonymous; and no service shares another container's namespace, takes a security
+> option but no-new-privileges, or reaches the database's files but postgres itself.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.

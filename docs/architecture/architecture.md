@@ -331,7 +331,8 @@ Be'er Sheva's tiles, cut with the `pmtiles` CLI from a pinned Protomaps build to
 `just dev` starts the stack, the `data` profile included, and waits until every service is healthy
 and the migrate step has finished, then Compose Watch copies edits into the web app and the
 optimizer; `just dev-down` stops it, and `just db-reset` also deletes its database, the stack's
-only named volume.
+only named volume, which every checkout of the repository shares
+([ADR-156](../ADRs/ADR-156-just-dev-waits-for-a-healthy-stack-then-watches-and-the-stack-outlives-the-watch.md)).
 `just infra-check` validates the file and starts every service outside the `data` profile in a
 throwaway project, in `just check` and CI. At startup the core's `DatabaseSessionGuard` refuses a
 session that logged in as another role and switched, a database role with an attribute that
