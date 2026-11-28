@@ -804,6 +804,7 @@ The uuid-creator row was read on 25 November 2026, from Maven Central.
 | React | 19.3.x | |
 | Vite, Vitest | 8.x, 5.x | |
 | MSW | 3.0.7, released 18 November 2026; MIT | Read from npm on 25 November 2026. Needs Node 22.12 or later, and ships ES modules only |
+| openapi-typescript, openapi-fetch, openapi-typescript-helpers | 7.13.0, 0.17.0, 0.1.0, all released 11 February 2026; MIT | Read from npm on 28 November 2026. In maintenance mode since 19 September 2026, with no further release, so pinned exactly; openapi-typescript runs only at build time ([ADR-161](../ADRs/ADR-161-the-apps-client-is-generated-before-every-check-never-committed-from-the-frozen-pair-pinned.md)) |
 | Mantine | 9.x | |
 | TanStack Query, Router, Table | 5.x, 1.x, 9.x | |
 | React Hook Form, @hookform/resolvers, Zod | 7.92.0, 7.0.9, 4.6.7; MIT | Read from npm on 27 November 2026. Zod 4.6.6 or later ([ADR-095](../ADRs/ADR-095-accept-the-zod-and-deepmerge-advisories-until-2027-01-31.md)); React Hook Form and the resolver publish without provenance, so their exact pins and pnpm's one-day release age stand in |

@@ -49,11 +49,13 @@ export function isProblem(value: unknown): value is Problem {
   if (!isRecord(value)) {
     return false
   }
-  const { type, title, status, code, params, traceId, errors } = value
+  const { type, title, status, detail, instance, code, params, traceId, errors } = value
   return (
     type === ABOUT_BLANK &&
     typeof title === 'string' &&
     typeof status === 'number' &&
+    (detail === undefined || typeof detail === 'string') &&
+    (instance === undefined || typeof instance === 'string') &&
     typeof code === 'string' &&
     PROBLEM_CODE_PATTERN.test(code) &&
     isRecord(params) &&

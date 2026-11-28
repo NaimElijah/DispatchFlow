@@ -15,6 +15,9 @@ export default defineConfig([
         'error',
         { patterns: [{ group: ['**/generated/*'], allowTypeImports: true, message: TYPES_ONLY }] },
       ],
+      // `import { type paths }` passes the rule above, but leaves `import './generated/…'` behind,
+      // which Vite's transformer keeps: write `import type` instead.
+      '@typescript-eslint/no-import-type-side-effects': 'error',
     },
   },
 ])

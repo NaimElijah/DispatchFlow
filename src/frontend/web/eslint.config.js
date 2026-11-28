@@ -50,6 +50,23 @@ const toZod = {
     "Take z from @dispatchflow/schemas, which turns off Zod's run-time compiling before any schema is built (ADR-154).",
 }
 
+/**
+ * `fetchFromCore`, the fetch the one client sends through: a call made with it alone names no app
+ * and is checked against no type (ADR-082, ADR-161).
+ */
+const toFetchFromCore = {
+  regex: '(^|/)coreCalls(\\.ts)?$',
+  importNames: ['fetchFromCore'],
+  message:
+    "Call the core through lib/coreClient.ts's coreClient: fetchFromCore alone names no app and checks no type (ADR-161).",
+}
+
+/** The one client of the core, the one file that sends through `fetchFromCore`. */
+const CORE_CLIENT_FILE = 'src/lib/coreClient.ts'
+
+const SERVER_MESSAGE =
+  "Call the core through lib/coreClient.ts's coreClient, which @dispatchflow/api-client builds (ADR-161)."
+
 const toTestCode = {
   regex: '(^|/)test(/|$)',
   message: 'Test code stays out of the app: only a test file imports src/test/ (ADR-144).',
@@ -95,11 +112,17 @@ export default defineConfig([
     rules: {
       'no-restricted-globals': [
         'error',
-        {
-          name: 'fetch',
-          message:
-            "Call the core through lib/coreClient.ts's coreClient, which @dispatchflow/api-client builds.",
-        },
+        { name: 'fetch', message: SERVER_MESSAGE },
+        { name: 'XMLHttpRequest', message: SERVER_MESSAGE },
+      ],
+      'no-restricted-properties': [
+        'error',
+        ...['window', 'globalThis', 'self'].map((object) => ({
+          object,
+          property: 'fetch',
+          message: SERVER_MESSAGE,
+        })),
+        { object: 'navigator', property: 'sendBeacon', message: SERVER_MESSAGE },
       ],
     },
   },
@@ -111,22 +134,39 @@ export default defineConfig([
         toTestCode,
         toDayjs,
         toZod,
+        toFetchFromCore,
         toFolders(FEATURES.filter((other) => other !== feature)),
       ],
     ),
   ),
-  restrict(['src/routes/**'], [toAppModules, toTestCode, toDayjs, toZod, toFolders(['features'])]),
+  restrict(
+    ['src/routes/**'],
+    [toAppModules, toTestCode, toDayjs, toZod, toFetchFromCore, toFolders(['features'])],
+  ),
   restrict(
     ['src/components/**'],
-    [toAppModules, toTestCode, toDayjs, toZod, toFolders(['features', 'routes'])],
+    [toAppModules, toTestCode, toDayjs, toZod, toFetchFromCore, toFolders(['features', 'routes'])],
   ),
   restrict(
     ['src/lib/**'],
+    [
+      toAppModules,
+      toTestCode,
+      toDayjs,
+      toZod,
+      toFetchFromCore,
+      toFolders(['features', 'routes', 'components']),
+    ],
+    [CORE_CLIENT_FILE],
+  ),
+  // The one client sends through fetchFromCore.
+  restrict(
+    [CORE_CLIENT_FILE],
     [toAppModules, toTestCode, toDayjs, toZod, toFolders(['features', 'routes', 'components'])],
   ),
-  restrict(['src/*.{ts,tsx}'], [toDayjs, toZod], [DAYJS_LOCALE_FILE]),
+  restrict(['src/*.{ts,tsx}'], [toDayjs, toZod, toFetchFromCore], [DAYJS_LOCALE_FILE]),
   // The one file that may load Day.js still takes Zod only from @dispatchflow/schemas.
-  restrict([DAYJS_LOCALE_FILE], [toZod]),
+  restrict([DAYJS_LOCALE_FILE], [toZod, toFetchFromCore]),
   // The tests' own helpers, which no other block covers; the test files themselves stay free.
   restrict(['src/test/**'], [toDayjs, toZod]),
 ])

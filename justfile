@@ -144,16 +144,16 @@ research-format:
 
 # Install the web app's and the shared packages' dependencies from the workspace lockfile, then
 # generate the client's types, so the editor and every check see them.
+[doc("Install the web app's and the shared packages' dependencies, then generate the client's types")]
 [working-directory('src/frontend')]
-web-setup:
+web-setup: && web-gen
     pnpm ci
-    pnpm --filter @dispatchflow/api-client run gen
 
 # Generate the client's types first (ADR-144 decision 6), then lint, format check, tests and a
 # production build, in the web app and every shared package.
+[doc("Generate the client's types, then lint, format-check, test and build the web app and its packages")]
 [working-directory('src/frontend')]
-web-check:
-    pnpm --filter @dispatchflow/api-client run gen
+web-check: web-gen
     pnpm -r run lint
     pnpm -r run format:check
     pnpm -r run test

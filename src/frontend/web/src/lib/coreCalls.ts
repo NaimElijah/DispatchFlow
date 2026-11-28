@@ -9,13 +9,18 @@ import { RequestError, toRequestFailure } from './problems.ts'
  * - An answer that broke off while its body came in rejects as `unexpected`: the request arrived,
  *   so a write may be stored, and the user reloads rather than resends. fetch resolves once the
  *   headers are in, so this reads a copy of the body to its end before handing the answer on.
+ * - A success whose body is in a media type the request's `Accept` doesn't name, such as a page
+ *   that something in front of the core serves, rejects as `unexpected` too: the generated client
+ *   would otherwise fail parsing it with a bare `SyntaxError`. A request that names no `Accept`
+ *   takes any answer.
  * - Anything thrown before the request, such as a `TypeError` from a screen reading a missing
  *   record's ID, stays a bug and fails as itself, and an abort stays an abort.
  *
  * `coreClient.ts` hands it to the generated client as its `fetch` (ADR-161); a shared package never
  * imports it. It reads a body to its end, so never use it for the event stream.
  *
- * @throws RequestError when no answer arrived, or the answer broke off
+ * @throws RequestError when no answer arrived, the answer broke off, or a success came in a type
+ *     the request didn't accept
  * @throws DOMException when the request was aborted, as fetch does
  */
 export async function fetchFromCore(
@@ -31,20 +36,62 @@ export async function fetchFromCore(
     }
     throw error
   }
+  const body = await bodyOf(response)
+  if (
+    response.ok &&
+    body.byteLength > 0 &&
+    !isAccepted(acceptOf(input, init), response.headers.get('Content-Type'))
+  ) {
+    throw new RequestError({ kind: 'unexpected', problem: undefined })
+  }
+  return response
+}
+
+/** Reads a copy of the answer's body to its end, failing as `unexpected` if it breaks off. */
+async function bodyOf(response: Response): Promise<ArrayBuffer> {
   try {
-    await response.clone().arrayBuffer()
+    return await response.clone().arrayBuffer()
   } catch (error) {
     if (error instanceof TypeError) {
       throw new RequestError({ kind: 'unexpected', problem: undefined }, { cause: error })
     }
     throw error
   }
-  return response
+}
+
+/** The `Accept` a request sends: an init's headers replace the request's own, as in fetch. */
+function acceptOf(input: RequestInfo | URL, init?: RequestInit): string | null {
+  if (init?.headers !== undefined) {
+    return new Headers(init.headers).get('Accept')
+  }
+  return input instanceof Request ? input.headers.get('Accept') : null
+}
+
+/** Whether an answer's media type is one the `Accept` names; a request that names none takes any. */
+function isAccepted(accept: string | null, contentType: string | null): boolean {
+  if (accept === null) {
+    return true
+  }
+  const type = mediaTypeOf(contentType)
+  return accept
+    .split(',')
+    .map(mediaTypeOf)
+    .some(
+      (range) =>
+        range === '*/*' ||
+        range === type ||
+        (range.endsWith('/*') && type.startsWith(range.slice(0, -1))),
+    )
+}
+
+/** A media type without its parameters, such as `application/json` for `application/json; charset=utf-8`. */
+function mediaTypeOf(value: string | null): string {
+  return (value ?? '').split(';')[0].trim().toLowerCase()
 }
 
 /**
- * What a call sends back, in openapi-fetch's shape, so the generated client's call (#148) is read
- * as it stands: `data` on a success, the parsed `error` body otherwise, and the answer.
+ * What a call sends back, in openapi-fetch's shape, so `coreClient`'s call (ADR-161) is read as it
+ * stands: `data` on a success, the parsed `error` body otherwise, and the answer.
  */
 export interface SendResult<TData> {
   readonly response: Response

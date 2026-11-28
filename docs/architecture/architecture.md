@@ -14,13 +14,14 @@ How DispatchFlow is built, as it is today. What it must do is in
 > `web`'s trace-ID filter, error handlers, call wrapper and error endpoint, the JSON logs and
 > `SchedulingConfiguration`. The web app's shell is built: its routes, layout, languages and
 > Settings page; no screen of it calls the API. Its shared form, refusal and table pieces are built
-> too, and its client of the core, generated from the contract, but no screen uses them yet. The application layers are declared, not built, but for Audit's
-> `AuditLogService`, wired to record a changing call's refused 401, a lost race and a request that
-> breaks the contract, and every changing use case's outcome as each is built, Audit's static
-> `Refusals` helper, and Planning's `OpenPlan` and `RequestSolve`, each with its `Change`: every
-> other body that would do work throws, and `core` serves two operations of the client API,
-> `openPlan` and `requestSolve`, which no screen calls yet. The design the team is heading for is
-> in [Target design](#target-design); this file describes none of it as built beyond that.
+> too, and its client of the core, generated from the contract, but no screen uses them yet. The
+> application layers are declared, not built, but for Audit's `AuditLogService`, wired to record a
+> changing call's refused 401, a lost race and a request that breaks the contract, and every
+> changing use case's outcome as each is built, Audit's static `Refusals` helper, and Planning's
+> `OpenPlan` and `RequestSolve`, each with its `Change`: every other body that would do work throws,
+> and `core` serves two operations of the client API, `openPlan` and `requestSolve`, which no screen
+> calls yet. The design the team is heading for is in [Target design](#target-design); this file
+> describes none of it as built beyond that.
 
 ## Architecture overview
 
@@ -122,8 +123,8 @@ wrap. `shared/adapter/in/web` holds `Problems`, the one factory of every error b
 generated from `client-api` by openapi-generator-maven-plugin 7.27.0: one `<Tag>Api` interface per
 tag and a `…Dto` class per schema, written into `target/generated-sources/openapi` at every build
 and never committed ([ADR-160](../ADRs/ADR-160-the-cores-generated-interfaces-take-a-dto-suffix-leave-absent-fields-out-and-are-served-under-a-literal-api-v1-prefix.md)).
-`just gen` runs that generation alone, with the apps' client's. `@RequiresCapability` will join
-them.
+`just gen` runs that generation, with the apps' client's, which `just web-gen` runs on its own.
+`@RequiresCapability` will join them.
 `shared/adapter/out/sse` is declared, empty: it will hold the registry of open event streams. These
 two sit below `web`, so a module's controllers, handlers and `sse` adapters reach them without
 depending on it ([ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md)). `AggregateRoot` is a `@MappedSuperclass` that holds the `@Version`
@@ -477,12 +478,15 @@ passes the grants, one that belongs to any other role or owns an object, and a s
   `src/test/importDirection.test.ts` pins each rule
   ([ADR-143](../ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md),
   [ADR-144](../ADRs/ADR-144-the-web-apps-features-stay-apart-and-its-lower-folders-never-import-upward.md)).
-- **Only `@dispatchflow/api-client` talks to the server.** ESLint's `no-restricted-globals` refuses
-  the global `fetch` in the web app's source but for `src/lib/coreCalls.ts` and the tests, and
-  `src/test/fetchGlobal.test.ts` pins it. In the package, `no-restricted-imports` refuses a value
-  from the generated file, allowing types, so nothing at run time needs it. Typed ESLint's
-  `switch-exhaustiveness-check` refuses a `switch` that misses a member of its union, in every
-  package and the web app, and `src/test/switchExhaustiveness.test.ts` pins it ([ADR-161](../ADRs/ADR-161-the-apps-client-is-generated-before-every-check-never-committed-from-the-frozen-pair-pinned.md)).
+- **Only `@dispatchflow/api-client` talks to the server.** In the web app's source, ESLint refuses
+  the global `fetch` and `XMLHttpRequest`, `fetch` read from `window`, `globalThis` or `self`, and
+  `navigator.sendBeacon`, but in `src/lib/coreCalls.ts` and the tests, and refuses an import of
+  `fetchFromCore` but in `src/lib/coreClient.ts`; `src/test/fetchGlobal.test.ts` pins each. In the
+  package, `no-restricted-imports` and `no-import-type-side-effects` refuse a value from the
+  generated file, allowing types, so nothing at run time needs it, and `generatedImports.test.ts`
+  pins both. Typed ESLint's `switch-exhaustiveness-check` refuses a `switch` that misses a member of
+  its union, in every package and the web app, and `src/test/switchExhaustiveness.test.ts` pins it
+  ([ADR-161](../ADRs/ADR-161-the-apps-client-is-generated-before-every-check-never-committed-from-the-frozen-pair-pinned.md)).
 - **Flyway owns the schema.** `core` sets `spring.jpa.hibernate.ddl-auto=validate`, so Hibernate
   never changes it ([ADR-007](../ADRs/ADR-007-postgresql-with-flyway-migrations.md), superseded by
   [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md),

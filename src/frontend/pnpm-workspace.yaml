@@ -18,6 +18,13 @@ requiredScripts:
   - format
   - format:check
 
+# openapi-typescript 7.13.0 names TypeScript 5 as its peer. It is frozen there and runs on the
+# workspace's TypeScript 6, generating types that type-check (ADR-161), so that one peer is
+# accepted here; `pnpm peers check` still names any other.
+peerDependencyRules:
+  allowedVersions:
+    openapi-typescript>typescript: '6'
+
 # pnpm refuses a version published less than a day ago. 1440 is pnpm's default, but written out it
 # also turns on minimumReleaseAgeStrict: when no version in range is a day old, pnpm doesn't fall
 # back to a younger one on its own. It fails, or in a terminal asks first, and writes a younger

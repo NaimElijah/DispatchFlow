@@ -68,6 +68,11 @@ updates:
         update-types: [version-update:semver-major]
       - dependency-name: "@types/node"
         update-types: [version-update:semver-major]
+      # Frozen upstream, so any new release of these is unexpected: it comes in by hand, after a
+      # look, never inside the weekly group (ADR-161).
+      - dependency-name: openapi-typescript
+      - dependency-name: openapi-fetch
+      - dependency-name: openapi-typescript-helpers
 
   - package-ecosystem: npm
     directory: /src/frontend/mobile

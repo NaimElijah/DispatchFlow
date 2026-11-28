@@ -29,8 +29,10 @@ Both are OpenAPI 3.1. `client-api` is served under `/api/v1`.
 - Keep the `info.license` block: proprietary, all rights reserved ([ADR-017]).
 - Code is generated on both sides of every contract, so no hand-written type crosses a boundary
   ([TS §1][TS-1], rule 5; [ADR-043]). Nobody edits generated code. The core generates the client
-  API's interfaces and models, with their validation, at every build (`just gen`, [ADR-160]); a
-  consumer gets its generator with the first operation it calls ([ADR-159]). The optimization API
+  API's interfaces and models, with their validation, at every build (`just gen`, [ADR-160]), and
+  the apps' client types come from `just web-gen`, which `just web-setup`, `just web-check` and
+  `just gen` run ([ADR-161]): after a contract change, run `just gen`. A consumer gets its
+  generator with the first operation it calls ([ADR-159]). The optimization API
   has none yet, and its health-check models are hand-written: its next operation adds the
   generator to the provider.
 - Every `client-api` operation follows the conventions in `client-api/CLAUDE.md`.
@@ -53,5 +55,6 @@ Both are OpenAPI 3.1. `client-api` is served under `/api/v1`.
 [ADR-094]: ../docs/ADRs/ADR-094-each-pull-requests-contract-check-compares-against-its-base-branch.md
 [ADR-159]: ../docs/ADRs/ADR-159-a-contract-change-goes-with-its-provider-and-the-consumers-that-call-what-it-changes.md
 [ADR-160]: ../docs/ADRs/ADR-160-the-cores-generated-interfaces-take-a-dto-suffix-leave-absent-fields-out-and-are-served-under-a-literal-api-v1-prefix.md
+[ADR-161]: ../docs/ADRs/ADR-161-the-apps-client-is-generated-before-every-check-never-committed-from-the-frozen-pair-pinned.md
 [NFR-134]: ../docs/requirements/requirements.md#nfr-134
 [TS-1]: ../docs/architecture/tech_stack.md#1-what-decides-close-calls

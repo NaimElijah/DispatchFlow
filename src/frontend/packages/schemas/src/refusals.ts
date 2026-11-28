@@ -86,5 +86,9 @@ export function refusalOf(issue: z.core.$ZodRawIssue): SchemaRefusal {
     case 'not_multiple_of':
     case 'unrecognized_keys':
       return { code: 'WRONG_FORMAT', params: {} }
+    // A code that a later Zod sends and its types don't name yet reads as a wrong format too,
+    // rather than leaving the field with no text.
+    default:
+      return { code: 'WRONG_FORMAT', params: {} }
   }
 }

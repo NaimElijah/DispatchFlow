@@ -495,7 +495,8 @@ A Vite project in the pnpm workspace ([ADR-143](../ADRs/ADR-143-the-web-app-shel
 ```text
 src/frontend/web/
   index.html             <html lang="en" dir="ltr">, until DocumentLanguage sets the chosen language
-  vite.config.ts         Vite and Vitest; ADR-069's policy on `vite preview`; the /api/ proxy
+  vite.config.ts         Vite and Vitest; ADR-069's policy on `vite preview`; the /api/ proxy;
+                         __APP_VERSION__, from package.json
   Dockerfile.dev         the dev server's image for compose.dev.yaml, built from src/frontend
   src/
     main.tsx             reads the language setting, then builds i18next, the query cache and the router
@@ -508,6 +509,7 @@ src/frontend/web/
     routeTree.ts         gathers every area's routes under the shell's layout route
     i18n.ts              createI18n, over @dispatchflow/i18n
     i18next.d.ts         types t() keys against the strings
+    appVersion.d.ts      types __APP_VERSION__, the release every call names
     DocumentLanguage.tsx keeps <html lang> and the direction in step with the language
     styles/theme.css     what Mantine would inject as <style>: the font and the hiddenFrom rules
     routes/              the shell: the root route, shellRoute and its layout, /, the not-found
@@ -524,7 +526,8 @@ src/frontend/web/
                          (coreClient.ts), the one query cache
                          (queryClient.ts) and the versioned save (versionedSave.ts)
     test/                Vitest's setup, renderApp, renderComponent, the one MSW server, the <style>
-                         check, the tests of the lint rules, and the example form
+                         check, the tests of the lint rules and the linter they share (lintAs.ts),
+                         and the example form
 ```
 
 Imports point one way, from `src/` itself to `features/`, `routes/`, `components/` and `lib/`:
@@ -615,9 +618,10 @@ These follow from
 - **In `optimizer`, every solver implements the one `Solver` port** and is chosen by name. The
   registry has no default, and a name it does not hold is rejected.
 - **PyVRP is never a dependency of `optimizer`.** Only `src/research` installs it.
-- **The frontends talk only to `core`.** The API client is generated and never edited.
+- **The frontends talk only to `core`,** through `@dispatchflow/api-client`. Its types in
+  `src/generated/` are generated and never edited or committed.
 
-Three sets of rules are checked automatically today:
+Four sets of rules are checked automatically today:
 - the PyVRP rule;
 - in `core`, the domain's purity rules, the shape rules, the package rules, the application
   rules, the JPA mapping rules and the transaction rules;
@@ -630,7 +634,10 @@ Three sets of rules are checked automatically today:
   domain, ruff's `TID251` also bans `numpy.random`, `datetime64`, `timedelta64`, `numpy.load`,
   `fromfile`, `loadtxt` and `importlib.import_module`, and `PTH123`, `T20`, `S102` and `S307` ban
   `open()`, `print()`, `exec()` and `eval()`
-  ([ADR-113](../ADRs/ADR-113-route-stability-is-its-own-cost-the-rules-read-a-problem-through-a-protocol-and-untimed-outputs-are-documented.md)).
+  ([ADR-113](../ADRs/ADR-113-route-stability-is-its-own-cost-the-rules-read-a-problem-through-a-protocol-and-untimed-outputs-are-documented.md));
+- in the web app and its packages, the ESLint rules that [architecture.md](architecture.md) lists
+  with the tests that pin them: the folders' import direction, the one way to the server, the
+  types-only use of the generated file and the exhaustive `switch`.
 
 The purity rules are ArchUnit tests in `src/test/java/com/dispatchflow/architecture/`, over
 `shared` and every module's `domain` and `events` packages

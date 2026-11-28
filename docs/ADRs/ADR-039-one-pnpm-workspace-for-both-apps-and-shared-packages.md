@@ -1,6 +1,6 @@
 # ADR-039: Both apps and the shared TypeScript packages live in one pnpm workspace
 
-- **Status:** Accepted; extended by ADR-130, ADR-141 and ADR-143; amended by ADR-123
+- **Status:** Accepted; extended by ADR-130, ADR-141, ADR-143 and ADR-161; amended by ADR-123
 - **Date:** 2026-11-13
 
 ## Context

@@ -6,8 +6,6 @@
  * @module @dispatchflow/api-client
  */
 export {
-  ACCEPT,
-  API_BASE_PATH,
   createCoreClient,
   type AppName,
   type CoreClient,

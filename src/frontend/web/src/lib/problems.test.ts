@@ -1,5 +1,10 @@
 import { describe, expect, expectTypeOf, test } from 'vitest'
-import { PARAMETER_PLACES, type Problem } from '@dispatchflow/api-client'
+import {
+  PARAMETER_PLACES,
+  type Problem,
+  type ProblemItem,
+  type ProblemParameter,
+} from '@dispatchflow/api-client'
 import { isProblem, toRequestFailure } from './problems.ts'
 
 const TRACE_ID = '0af7651916cd43dd8448eb211c80319c'
@@ -46,6 +51,8 @@ describe('isProblem', () => {
       null,
       { ...problem(400, 'INVALID_REQUEST'), code: 'not a code' },
       { ...problem(400, 'INVALID_REQUEST'), type: 'https://example.com/probs/out-of-credit' },
+      { ...problem(400, 'INVALID_REQUEST'), instance: 7 },
+      { ...problem(400, 'INVALID_REQUEST'), detail: { text: 'not a string' } },
       { ...problem(400, 'INVALID_REQUEST'), params: undefined },
       { ...problem(400, 'INVALID_REQUEST'), traceId: '<b>not a trace id</b>' },
       { ...problem(400, 'INVALID_REQUEST'), errors: [{ pointer: '/name' }] },
@@ -70,11 +77,31 @@ describe('isProblem against the contract', () => {
   })
 
   test('GivenAProblemWithoutAFieldTheContractRequires_WhenChecked_ThenItIsNoProblem', () => {
+    // `tsc -b`, the web app's build, checks the type assertions; `vitest run` doesn't.
     expectTypeOf<(typeof REQUIRED_FIELDS)[number]>().toEqualTypeOf<RequiredKeys<Problem>>()
     for (const field of REQUIRED_FIELDS) {
       const body: Record<string, unknown> = { ...problem(400, 'INVALID_REQUEST') }
       delete body[field]
       expect(isProblem(body), field).toBe(false)
+    }
+  })
+})
+
+describe('isProblem against the generated types', () => {
+  test('GivenTheGeneratedTypes_WhenTheGuardsFieldsAreCompared_ThenTheyAreTheContracts', () => {
+    // `tsc -b`, the web app's build, checks these; `vitest run` doesn't.
+    expectTypeOf<RequiredKeys<ProblemItem>>().toEqualTypeOf<'code'>()
+    expectTypeOf<RequiredKeys<ProblemParameter>>().toEqualTypeOf<'name' | 'in'>()
+    expectTypeOf<Problem['type']>().toEqualTypeOf<'about:blank'>()
+  })
+
+  test('GivenAFailingParameterWithoutAFieldTheContractRequires_WhenChecked_ThenItIsNoProblem', () => {
+    for (const parameter of [{ in: 'header' }, { name: 'If-Match' }]) {
+      const item = { code: 'MISSING_PARAMETER', parameter } as unknown as ProblemItem
+      expect(
+        isProblem(problem(400, 'INVALID_REQUEST', { errors: [item] })),
+        JSON.stringify(parameter),
+      ).toBe(false)
     }
   })
 })

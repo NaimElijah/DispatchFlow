@@ -65,6 +65,8 @@ export const typescript = defineConfig({
 /**
  * The rules that read the types, over every `.ts` and `.tsx` file of the package or app whose
  * folder is given: typescript-eslint's project service gives each file its own tsconfig's types.
+ * A configuration before it must parse those files with typescript-eslint's parser: `typescript`
+ * parses only `.ts` files, so a package with `.tsx` files puts `reactVite` first.
  *
  * `switch-exhaustiveness-check` fails a `switch` over a union that misses one of its members, a
  * `default` included, so a generated union's new `kind` can't fall through unseen (ADR-155, Risk;

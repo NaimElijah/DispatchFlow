@@ -49,6 +49,7 @@ test('GivenTheContract_WhenAProblemsTraceIdIsDescribed_ThenItsPatternIsTheOnePro
   expect(patternOf('Problem', 'traceId')).toBe(TRACE_ID_PATTERN.source)
 })
 
+// `tsc -b`, the package's build, checks the type assertion; `vitest run` doesn't.
 test('GivenTheGeneratedUnion_WhenThePlacesAreListed_ThenNoneIsMissing', () => {
   expectTypeOf<Exclude<ProblemParameter['in'], (typeof PARAMETER_PLACES)[number]>>().toBeNever()
   expect(new Set(PARAMETER_PLACES).size).toBe(PARAMETER_PLACES.length)

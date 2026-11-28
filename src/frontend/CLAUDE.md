@@ -11,9 +11,9 @@ with its layout, rules and commands.
 
 ## Rules
 
-- `@dispatchflow/api-client` is generated from `contracts/client-api/v1` by `just web-gen`, which
-  `just web-setup` and `just web-check` run: run it after a contract change. Never commit or edit
-  it. It alone talks to the server ([TS §10], ADR-161).
+- `@dispatchflow/api-client` alone talks to the server ([TS §10], ADR-161). `just web-gen`, which
+  `just web-setup` and `just web-check` run, writes its `src/generated/` from
+  `contracts/client-api/v1`: run it after a contract change, and never commit or edit that folder.
 - The client never decides feasibility. Violations come from the server's validator ([TS §10]).
 - An error is translated from its stable `code` through `@dispatchflow/i18n`. No stack trace and no
   bare code reaches a screen ([ADR-043]).
@@ -29,8 +29,7 @@ with its layout, rules and commands.
 - The strings are `@dispatchflow/i18n`'s, one namespace per area: `src/he/<area>.ts` is typed
   against `src/en/<area>.ts` (`tsc`), and `resources.test.ts` fails a gap between them.
 - Dates, times and quantities are shown through `@dispatchflow/formatters` ([ADR-088], [TS §10]).
-- Every call carries `X-App-Version` and `X-App`, and a driver's calls also `X-Device-Time`
-  ([ADR-082]).
+- The client sets `X-App` and `X-App-Version`; a driver's calls add `X-Device-Time` ([ADR-082]).
 - Both apps meet WCAG 2.2 AA (NFR-46, [ADR-070]).
 - Maps use MapLibre with the Protomaps tiles that Caddy serves, and show the attribution
   OpenStreetMap's licence requires ([ADR-084], [TS §9]).
@@ -41,9 +40,10 @@ with its layout, rules and commands.
   ([ADR-039]): `pnpm-workspace.yaml` lists `web` and `packages/*`, with one `pnpm-lock.yaml`, and
   each package is `@dispatchflow/*`. A `packages/` folder is a placeholder until the ticket that
   fills it adds its `package.json` ([ADR-130]).
-- A hand-written package ships its source, as `i18n` does: `exports` points at `src/index.ts`,
-  its imports carry `.ts`, and its `build` is `tsc -b`, a type check. A generated one runs its
-  generation before lint and test ([ADR-143], [ADR-144]).
+- A package ships its source, as `i18n` does: `exports` points at `src/index.ts`, its imports carry
+  `.ts`, its `build` is `tsc -b`, a type check, and its `eslint.config.js` adds
+  `typeChecked(import.meta.dirname, [.ts files outside every tsconfig])` (ADR-161). `just web-check`
+  generates `api-client`'s types first ([ADR-143], [ADR-144]).
 - pnpm fails an import that a package doesn't declare: declare each one in that package's own
   `package.json`.
 - Depend on a `@dispatchflow/*` package only as `workspace:*`, added with `pnpm add --workspace`:
