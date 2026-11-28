@@ -110,7 +110,8 @@ All three stop with a message while `infra/deploy/.env` is missing.
 The web app is on http://localhost:5173, and proxies `/api/` to the stack's core, which the
 laptop also reaches on 127.0.0.1:8080, and `/map/` to the tiles service, which the laptop reaches
 on 127.0.0.1:8090. The tiles service serves what `just data` built: run it once before the first
-`just dev`, or every `/map/` file answers 404. `just dev` starts the tiles service under the
+`just dev`, or every `/map/` file answers 404. `just data` needs Docker Desktop, on Windows or
+macOS; a native Linux Docker is untested. `just dev` starts the tiles service under the
 `data` profile, and `just infra-check` doesn't, because its files are git-ignored (ADR-152). The
 optimizer is on 127.0.0.1:8081, and PostgreSQL on 127.0.0.1:5432. A laptop that runs a PostgreSQL
 of its own on 5432 sets

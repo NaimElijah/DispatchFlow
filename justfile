@@ -237,7 +237,8 @@ infra-format:
 # Build the map's files into data/tiles/ for compose.dev.yaml's tiles service: Be'er Sheva's tiles,
 # cut from Protomaps' build to infra/osrm/beer-sheva.geojson, the style's fonts and its light sprite,
 # and BUILD, which names their sources and hashes. Each step runs in a container, so the recipe is
-# the same on Windows and macOS (NFR-208). Needs Docker and the network.
+# the same on Windows and macOS (NFR-208). Needs Docker Desktop and the network. A native Linux
+# Docker is untested: its bind mount keeps the host's owner, so nobody may not write to data/tiles/.
 # Each step writes .part files beside the ones the stack serves, and only the last swaps them in,
 # after every check passed, so a failed run leaves the served files and their BUILD as they were.
 #   1. Remove a failed run's .part files, fetch the fonts' archive, check its hash, and copy the
