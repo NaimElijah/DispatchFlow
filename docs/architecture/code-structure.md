@@ -80,8 +80,8 @@ build dependency that exists today.
   that contract.
 - Neither side owns a contract, so the contracts sit at the root, outside every component.
 - Today `contracts/client-api/v1`, served under `/api/v1`, declares no operation yet, and
-  `contracts/optimization-api/v1` declares one: `GET /health/liveness`. `core` has no client for
-  the optimization API yet.
+  `contracts/optimization-api/v1` declares two: `GET /health/liveness` and `POST /v1/solve`.
+  `optimizer` serves only the first, and `core` has no client for the optimization API yet.
 - `research` installs `optimizer` from `../backend/optimizer` as an editable path dependency, and adds
   PyVRP. The optimizer's environment never contains PyVRP:
   `src/backend/optimizer/tests/test_dependency_boundary.py` fails if PyVRP is installed there or locked

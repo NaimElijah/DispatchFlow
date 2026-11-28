@@ -250,8 +250,10 @@ Components meet only at the two contracts under `contracts/`
   its `code`, `params`, `traceId` and `errors` and the codes any operation can answer, 401
   `ACCESS_TOKEN_REFUSED` among them, its `ProblemItem` and `ProblemParameter`, and the
   `UnexpectedProblem` response.
-- `contracts/optimization-api/v1/openapi.yaml` is served by `optimizer`. It defines one operation,
-  `getLiveness`, which is `GET /health/liveness`.
+- `contracts/optimization-api/v1/openapi.yaml` is served by `optimizer`. It defines two operations:
+  `getLiveness`, which is `GET /health/liveness`, and `solve`, which is `POST /v1/solve`. `solve`
+  takes one date's problem, with its matrix as base64 `int32`, and answers *solved*, *rejected* or
+  *failed*. No component serves or calls `solve` yet.
 
 No source file in `src/` holds an HTTP client, and the frontends make no request. The `core`
 health probe at `/actuator/health` is in neither contract. The one link between components that
