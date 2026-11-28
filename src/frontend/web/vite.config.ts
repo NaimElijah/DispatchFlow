@@ -46,6 +46,13 @@ const READABLE_ROOTS = process.env.VITEST
     ]
   : undefined
 
+/**
+ * How long one test may run before Vitest fails it as hung. Vitest's default of 5 s failed the
+ * form tests on a slower laptop when the whole suite ran at once (#305): they type key by key into
+ * Mantine fields and take up to about 3 s on a fast machine. A hung test still fails, by name.
+ */
+const TEST_TIMEOUT_MS = 10_000
+
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -71,6 +78,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    testTimeout: TEST_TIMEOUT_MS,
     // Far from Israel and from UTC, where CI runs, so a date or time read in the computer's zone
     // rather than Israel's fails on every computer, an Israeli one included (ADR-088).
     env: { TZ: 'America/New_York' },
