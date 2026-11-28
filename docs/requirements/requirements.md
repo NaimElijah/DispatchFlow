@@ -269,13 +269,13 @@ route included.
 
 | ID | Requirement | Priority | Size | Enforced by |
 |---|---|---|---|---|
-| FR-15 | A dispatcher can create a plan for a date and request a solve over that date's orders, vehicles and driver shifts. | Must |  | `OpenPlanTest`, `RequestSolveTest`, `PlanControllerIT` (opening a plan and requesting its solve) |
+| FR-15 | A dispatcher can create a plan for a date and request a solve over that date's orders, vehicles and driver shifts. | Must |  | `OpenPlanTest`, `RequestSolveTest`, `PlanControllerIT` (opening a plan and queueing its solve) |
 | FR-16 | A solve runs in the background, and the dispatcher sees that the plan is solving. | Must |  |  |
 | FR-222 | The dispatcher is notified when a solve's result is ready, without reloading. | Must |  |  |
 | FR-17 | A solve assigns orders to vehicles, orders the stops of every route, and gives each stop a planned ETA, honouring every rule in [Business rules](#business-rules-and-invariants). | Must |  |  |
 | FR-18 | When not every order fits, the solve still returns a plan and lists every dropped order with the reason it was dropped. | Must |  |  |
 | FR-223 | A dropped order's reason is *capacity*, *time window*, *shift*, *displaced* by other orders, *missing location* for an order whose customer has no coordinates, *no vehicle available* ([ADR-100]: K's door-window bound and the no-vehicle reason), or one that [FR-66] (unreachable locations are dropped), [FR-146] (take a stop off by hand), [FR-195] (depot-hours drops), [FR-201] (vehicle-limit drops) or [FR-228] (an impossible vehicle or driver pin drops the order) adds. | Must |  |  |
-| FR-19 | The solve time limit is configurable within the range in [NFR-06] (solve time limit range), with a default of 45 seconds; the solve returns the best solution found within it. | Must |  |  |
+| FR-19 | The solve time limit is configurable within the range in [NFR-06] (solve time limit range), with a default of 45 seconds; the solve returns the best solution found within it. | Must |  | `RequestSolveTest`, `PlanControllerIT` (the solve's time limit) |
 | FR-20 | A solve or a re-optimization can be run with either solver: OR-Tools, the default, or the DispatchFlow solver (Clarke-Wright + ALNS). | Must |  |  |
 | FR-224 | Outside the optimization service, a solver is known only by its name, and choosing one changes nothing else. | Must |  |  |
 | FR-21 | The company can enable a fixed cost per vehicle used, so the solver also reduces the number of vehicles on the road. | Must |  |  |
@@ -640,10 +640,10 @@ Rules are grouped by subject.
 | BR-32 | **No plan stays `solving`.** A solve that has started and has not returned within 30 seconds past its limit fails, and the failed-solve transition of [BR-59] (a failed solve reverts the plan) then applies. ([ADR-051]: solve job timeout) |  |  |
 | BR-74 | **Solve interrupted.** A solve running when a restart interrupts it fails. |  |  |
 | BR-75 | **Solve limit start.** The limit of a solve runs from the start of its search, after the travel-time matrix is built, and a queued solve still waits its turn ([NFR-12]: queued solves survive restarts). |  |  |
-| BR-112 | **Queue limits.** A queued solve or re-optimization waits at most 5 minutes and then fails, and a request beyond 5 queued is refused. Priority: Must. |  |  |
+| BR-112 | **Queue limits.** A queued solve or re-optimization waits at most 5 minutes and then fails, and a request beyond 5 queued is refused. Priority: Must. |  | `RequestSolveTest`, `PlanControllerIT`, `SolveJobPersistenceIT` (the queue limit of 5) |
 | BR-34 | **One plan per date.** The company has at most one plan for a date, not counting cancelled ones. |  | `PlanPersistenceIT.GivenADatesPlan_WhenAnotherIsAddedPastTheRead_ThenPlanAlreadyExistsNamesTheFirst`, `OpenPlanTest`, `PlanControllerIT` |
 | BR-38 | **One change at a time.** A plan has at most one re-optimization running at a time; a second request is refused with its reason, and an open preview does not count. ([ADR-057]: concurrent changes to a plan) |  |  |
-| BR-76 | **No silent overwrite.** Two dispatchers cannot silently overwrite each other's changes to a plan: an out-of-date change is refused with its reason. |  |  |
+| BR-76 | **No silent overwrite.** Two dispatchers cannot silently overwrite each other's changes to a plan: an out-of-date change is refused with its reason. |  | `RequestSolveTest`, `PlanControllerIT` (requesting a solve) |
 | BR-47 | **Named actions only.** A published route changes only through an accepted re-optimization ([FR-255]: nothing changes until accepted), a hand-over ([FR-55]: hand a route to another driver), a cancelled order or date change ([FR-58]: cancel an order, [FR-315]: date change on a published plan), a cancelled plan ([FR-336]: cancel a published plan), a driver's start, finish or report ([FR-68]: start and finish a route, [FR-29]: report a stop's status, [BR-27]: late outcomes are still accepted), or an outcome recorded or corrected for a driver ([FR-73]: dispatcher records an outcome, [FR-333]: dispatcher corrects an outcome). Priority: Must. |  |  |
 | BR-77 | **Audited changes.** Each change to a published route is audited ([NFR-23]: audit records). Priority: Must. |  |  |
 | BR-78 | **No silent changes.** No background process changes a published route silently. Priority: Must. |  |  |

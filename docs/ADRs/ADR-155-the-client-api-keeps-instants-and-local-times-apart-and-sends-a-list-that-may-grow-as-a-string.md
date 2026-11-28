@@ -8,6 +8,8 @@
 #149 writes the client API's first operations: open a date's plan, request its solve, and read a
 date's plans, a plan, a solve's progress and a route's line. Their bodies carry two things the
 contract had no rule for yet.
+#184's pull request carries the two writes, which carry no time; the reads, which do, follow with
+#214.
 
 - **Times a solve works out.**
   - Planning holds a time of a plan's day as elapsed whole seconds since the delivery date's
@@ -82,11 +84,13 @@ Decided on 28 November 2026.
    - The optimization API keeps its seconds; only the client API converts.
 2. **Whether a list is a `oneOf` or a string depends on whether its values carry fields.**
    - A list whose values carry fields of their own is a `oneOf` with a `kind` discriminator, and it
-     is closed for v1: adding a kind is a breaking change, so it waits for a v2. Today that covers
+     is closed for v1: adding a kind is a breaking change, so it waits for a v2. With #214's reads, that
+     covers
      `PlanStatus`, `SolvePhase`, `DropReason` and `PinTarget`.
    - A list of plain values that the optimizer decides, or that has grown, is a string matching the
      code pattern, with today's values listed in its description, as `Problem.code`'s are. A client
-     shows a generic text for a value it doesn't know. Today that covers `SolveFailed.failureReason`
+     shows a generic text for a value it doesn't know. With #214's reads, that covers
+     `SolveFailed.failureReason`
      and `ExcludedVehicle.cause`.
    - Any other plain list is an `enum`, closed for v1, as the places a problem names a parameter in
      are.

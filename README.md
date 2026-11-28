@@ -264,7 +264,9 @@ Keep the two in separate files, so the core never gets the owner's password: wit
 `src/backend/core/Dockerfile` builds (its context is the repository's root), `docker run --env-file migrate.env <image> migrate`, then
 `docker run --env-file core.env <image>`. With a jar that `./mvnw package` builds, load each file in
 a subshell, for example `(set -a; . ./migrate.env; java -jar target/core-<version>.jar migrate)`,
-rather than typing a password into an `export`.
+rather than typing a password into an `export`. Until #193's adapter replaces `LiveUpdatesStandIn`,
+the core starts only under the `dev` or `test` profile, and refuses to start under any other
+([ADR-140](docs/ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md), decision 10).
 `src/backend/core/.env.example` lists the core's; Spring Boot does not read a `.env` file itself, so
 export them, or pass the file to Docker with `docker run --env-file .env`.
 

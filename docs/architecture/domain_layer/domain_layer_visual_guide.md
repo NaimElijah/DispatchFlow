@@ -4,6 +4,7 @@
 `AggregateRoot` and `Version`, the save sequences and the load check that replaced `restore` and the snapshots
 were brought up to date on 23 November 2026 for [ADR-126](../../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) and [ADR-127](../../ADRs/ADR-127-how-the-aggregates-are-mapped-and-where-their-stored-state-is-tested.md), and the file and line counts
 with them. The placeholder message was brought up to date on 24 November 2026 for [ADR-132](../../ADRs/ADR-132-unbuilt-bodies-say-to-be-implemented.md); the body counts are still those of `6e3028f`.
+Planning's first two use cases, `OpenPlan` and `RequestSolve`, and the adapters they use were brought up to date on 28 November 2026 for #161 and #184: §1, §9, §10 and the last row of §12.
 
 This guide is a map of the domain layer **as it is built today**, for a person learning the repository
 before building a milestone. After reading it you should be able to find any aggregate, value, event or
@@ -60,8 +61,8 @@ paper, but only the inner one holds working code.
 ```mermaid
 flowchart TB
   subgraph CORE["core (Java): one module per context"]
-    CADP["adapters<br/>persistence only; the other packages are declared, empty"]
-    CAPP["application: api, spi, port/out, service<br/>declared, not built"]
+    CADP["adapters<br/>persistence, and Planning's web, random and sse; the other packages are declared, empty"]
+    CAPP["application: api, spi, port/out, service<br/>declared, not built, but for Audit's and Planning's first use cases"]
     CDOM["domain and events<br/>built and tested"]
     CKER["shared: the kernel<br/>and shared/application"]
     CADP --> CAPP
@@ -92,14 +93,18 @@ An arrow means *depends on*. The sources for each box:
   three ports (`Clock`, `IdGenerator`, `ProcessedEvents`) are interfaces. `Clock` and `IdGenerator`
   have implementations, `SystemClock` in `shared/adapter/out/clock` and `UuidV7Generator` in
   `shared/adapter/out/uuid`; only `ProcessedEvents` has none.
-- **Wired.** One use case is wired: Audit's `AuditLogService`, which `AuditConfiguration` imports
-  ([ADR-149](../../ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md)). Each module has a persistence adapter, in
+- **Wired.** Three use cases are wired: Audit's `AuditLogService`, which `AuditConfiguration` imports
+  ([ADR-149](../../ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md)),
+  and Planning's `OpenPlan` and `RequestSolve`, each with its `…Change`, which `PlanningConfiguration`
+  imports. Each module has a persistence adapter, in
   `core/<module>/adapter/out/persistence/`, which implements the module's repository and record
   ports over the module's PostgreSQL schema, and nothing calls it yet but Audit's, which
-  `AuditLogService` appends through. Planning's `Plan` has its own
+  `AuditLogService` appends through, and Planning's plan, solve-job and settings repositories, which
+  `OpenPlanChange` and `RequestSolveChange` call. Planning's `Plan` has its own
   in `core/planning/adapter/out/persistence/plan/`. The kernel has the shared one,
   `core/shared/adapter/out/persistence/`, and beside it the problem factory in `shared/adapter/in/web/`
-  and the clock and ID adapters. Every other adapter package of the core is declared, empty
+  and the clock and ID adapters. Planning also has `PlanController` in `in/web/`, `RandomSeeds` in
+  `out/random/` and `LiveUpdatesStandIn` in `out/sse/`. Every other adapter package of the core is declared, empty
   ([ADR-130](../../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md)). The Spring annotations are `@SpringBootApplication` on the
   entry point `core/DispatchFlowApplication.java`; in `core/web/`, `@RestControllerAdvice` on the three
   error handlers, `@ControllerAdvice` on `BodySizeLimit`, `@RestController` on the error endpoint,
@@ -1737,10 +1742,14 @@ group. The arrows come from the `import` lines of each file in `optimizer/domain
 
 ## 9. How a use case will drive the domain
 
-Nothing runs this today. This sequence follows DL [§6.1](domain_layer_design.md#61-the-rule),
+The request path runs today: `PlanController` takes the call, and `RequestSolve` and
+`RequestSolveChange` are built and wired. The worker's half does not: `RunSolveJob`,
+`RunSolveJobChange`, `ApplySolveResult` and the rest are still declared. This sequence follows DL
+[§6.1](domain_layer_design.md#61-the-rule),
 [§6.2](domain_layer_design.md#62-commands) and [§6.3](domain_layer_design.md#63-outside-calls-happen-before-the-transaction)
-for the command "Request a solve" and shows the classes the code declares for it. **Everything outside
-`Plan`, `SolveJob` and the kernel is declared, not built.**
+for the command "Request a solve" and shows the classes the code has or declares for it. **Outside
+`Plan`, `SolveJob`, the kernel, `PlanController`, `RequestSolve` and `RequestSolveChange`, and the
+adapters they call (the repositories, `Seeds` and `LiveUpdates`), everything is declared, not built.**
 
 The use case is `RequestSolve` (`core/planning/application/service/plan/RequestSolve.java`), and its
 transaction is `RequestSolveChange` beside it. The lane's worker is `RunSolveJob`
@@ -1751,26 +1760,27 @@ outside any transaction, and its `Change` holds the transaction ([ADR-129](../..
 
 ```mermaid
 sequenceDiagram
-  participant Web as Web adapter (absent)
-  participant UC as RequestSolve (declared)
-  participant C as RequestSolveChange (declared)
+  participant Web as PlanController
+  participant UC as RequestSolve (built)
+  participant C as RequestSolveChange (built)
   participant Opt as RouteOptimizer (port)
   participant PR as PlanRepository
   participant JR as SolveJobRepository
+  participant PS as PlanningSettingsRepository
+  participant LU as LiveUpdates
   participant P as Plan
   participant J as SolveJob
   participant W as RunSolveJob (declared)
   participant WC as RunSolveJobChange (declared)
   participant L as ApplySolveResult (declared)
   Web->>UC: request(actor, plan, solver, limit, expected)
-  Note over UC,Opt: From M4: outside calls first, before any transaction (DL 6.3). M0 asks no list and runs OR-Tools
-  UC->>Opt: solvers()
-  Opt-->>UC: the solvers on offer
+  Note over UC,C: From M4: outside calls first, before any transaction (DL 6.3). Today RequestSolve asks the optimizer nothing, runs OR-Tools and refuses another named solver
   UC->>C: apply(...)
   Note over C,J: One transaction: one existing aggregate changes
   C->>PR: get(plan)
   PR-->>C: Plan, loaded whole
   C->>C: StaleVersion.requireCurrent(Plan, id, plan.version(), expected)
+  C->>PS: current(), for the default limit when the request names none
   C->>JR: capacityUnderLock(Lane.DAILY)
   JR-->>C: LaneCapacity
   C->>P: requestSolve(jobId, solver, limit, seed, capacity, today, now)
@@ -1782,6 +1792,7 @@ sequenceDiagram
   C->>JR: add(job)
   Note over C,JR: The audit record is written in this transaction
   C-->>UC: JobId, after the commit
+  UC->>LU: jobChanged, planChanged
   UC-->>Web: JobId
   Note over W,J: Later, in the daily lane's worker. Each phase is its own transaction in RunSolveJobChange
   W->>WC: claim(Lane.DAILY)
@@ -1841,7 +1852,7 @@ pull request closes each one. The ones below are the ones a reader is most likel
 | Orders | `Order.endPutBack`, and a put-back keeping the earlier attempt's date and window ([ADR-121](../../ADRs/ADR-121-the-application-skeletons-review-settles-its-seams-conflicts-retention-and-scoring-inputs.md)) | `orders/application/service/order/EndSupersededPutBackService.java` | M8 |
 | Orders | A `Customer` method that changes the customer's fields; `Customer.activeDefaults()` | `orders/application/service/customer/ChangeCustomer.java`, `order/PlaceOrder.java` | M2 |
 | Orders | A method that copies an order to another date | `orders/application/service/order/CopyOrdersFromDate.java` | unscheduled |
-| Planning | A default solver of each kind in `PlanningSettings` | `planning/application/service/plan/RequestSolve.java` | M4 |
+| Planning | A default solver of each kind in `PlanningSettings`; until then `RequestSolve` runs OR-Tools and refuses another named solver | `planning/application/port/out/settings/SolversView.java`, `planning/application/service/plan/RequestSolveChange.java` | M4 |
 | Planning | `SolveJob.succeed` and `fail` keep no objective and no stats, which NFR-11 records | `planning/application/port/out/solvejob/DailyAnswer.java`, `planning/application/service/solvejob/RunSolveJob.java` | M0 |
 | Planning | Retention periods in Planning's domain | `planning/application/service/EraseExpiredLocations.java` | M13 |
 | Access | `UserAccount.dropOldLinks`, and a method that voids every open link | `access/application/service/account/credentiallink/DropOldLinks.java`, `access/application/service/session/SecureAfterRestore.java` | M13 |
@@ -1900,7 +1911,7 @@ component `CLAUDE.md` files).
 | 10. Messaging and reporting | `core/messaging/domain/rating/RatingRequest.java`, `reporting/domain/OnTimeRate.java`, `baseline/Baseline.java` | `messaging/domain/rating/RatingRequestTest`, `reporting/domain/baseline/BaselineTest` |
 | 11. The optimizer | `optimizer/domain/solution.py`, `problem_view.py`, `feasibility.py`, `problem.py`, `factory.py` | `optimizer-test/domain/test_problem.py`, `test_violation_catalogue.py` |
 | 12. The guards | The rules: `core-test/architecture/DomainPurityRules.java`, `DomainShapeRules.java`, `DomainPackageRules.java`, `ApplicationRules.java`, `PersistenceRules.java`, which `DomainPurityTest`, `DomainShapeTest`, `DomainPackageTest`, `ApplicationTest` and `PersistenceTest` run over the production classes | `DomainPurityRulesTest`, `DomainShapeRulesTest`, `DomainPackageRulesTest`, `ApplicationRulesTest`, `PersistenceRulesTest`: each rule must flag its deliberately wrong fixture in `core-test/archfixture/` |
-| 13. What is next | `core/planning/application/service/plan/RequestSolve.java`, then `grep -rn "To Be Implemented." src/backend` | none: bodies throw |
+| 13. What is next | `core/planning/application/service/solvejob/RunSolveJob.java`, which takes the job `RequestSolve` queues, then `grep -rn "To Be Implemented." src/backend` | none: bodies throw |
 
 After step 4 you can read any other aggregate with the §4 pattern in hand. Step 9 is the longest: `Plan.java`
 is 2,718 lines, so read it by the banner comments and keep the matching test open.

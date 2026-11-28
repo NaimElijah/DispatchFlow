@@ -48,15 +48,15 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-140](ADR-140-the-app-wide-web-package-sits-above-the-modules.md) | The app-wide `web` package sits above the modules, and what they need from it sits beside the kernel | Accepted; extended by ADR-147, ADR-148, ADR-155, ADR-157 and ADR-160; amended by ADR-142, ADR-147, ADR-148 and ADR-150 |
 | [ADR-142](ADR-142-the-call-wrappers-retry-its-400s-and-its-error-endpoint-as-162-built-them.md) | The call wrapper's retry, its 400s and its error endpoint, as #162 built them | Accepted; amended by ADR-149 |
 | [ADR-147](ADR-147-the-stand-in-condition-sits-in-the-root-package-and-a-refused-access-token-answers-one-code.md) | The stand-in condition sits in the root package, a deployed environment is told by a marker and three keys, and a refused access token answers one code | Accepted; amended by ADR-148 and ADR-149 |
-| [ADR-148](ADR-148-the-stand-in-serves-only-its-own-origin-every-unsigned-api-call-answers-401-and-the-guard-outlives-the-session.md) | The stand-in serves only its own origin, every unsigned call under `/api/v1` answers 401, and the guard outlives the session | Accepted |
+| [ADR-148](ADR-148-the-stand-in-serves-only-its-own-origin-every-unsigned-api-call-answers-401-and-the-guard-outlives-the-session.md) | The stand-in serves only its own origin, every unsigned call under `/api/v1` answers 401, and the guard outlives the session | Accepted; extended by ADR-160 |
 | [ADR-149](ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md) | The use case records its refusal after the rollback, and the audit purge counts its year back from now | Accepted; extended and amended by ADR-150 |
 | [ADR-150](ADR-150-one-audit-helper-records-the-refusals-a-use-case-sees-and-the-contracts-handler-records-a-changing-call-it-refuses.md) | One Audit helper records the refusals a use case sees, and the contract's handler records a changing call it refuses | Accepted |
-| [ADR-043](ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md) | Code is generated from both contracts on both sides, and errors are RFC 9457 Problem Details | Accepted; extended by ADR-068, ADR-073, ADR-087, ADR-094 and ADR-140; amended by ADR-123 and ADR-153 |
+| [ADR-043](ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md) | Code is generated from both contracts on both sides, and errors are RFC 9457 Problem Details | Accepted; extended by ADR-068, ADR-073, ADR-087, ADR-094 and ADR-140; amended by ADR-123, ADR-153 and ADR-160 |
 | [ADR-094](ADR-094-each-pull-requests-contract-check-compares-against-its-base-branch.md) | Each pull request's contract check compares against its base branch | Accepted |
 | [ADR-155](ADR-155-the-client-api-keeps-instants-and-local-times-apart-and-sends-a-list-that-may-grow-as-a-string.md) | The client API keeps instants and local times apart, and sends a list that may grow as a string | Accepted |
 | [ADR-157](ADR-157-an-if-match-is-exactly-one-strong-tag-the-core-sent-and-the-proxy-leaves-the-apis-tags-alone.md) | An `If-Match` is exactly one strong tag the core sent, and the proxy leaves the API's tags alone | Accepted |
 | [ADR-159](ADR-159-a-contract-change-goes-with-its-provider-and-the-consumers-that-call-what-it-changes.md) | A contract change goes with its provider and the consumers that call what it changes | Accepted |
-| [ADR-160](ADR-160-the-cores-generated-interfaces-take-a-dto-suffix-leave-absent-fields-out-and-are-served-under-api-v1-by-api-versioning.md) | The core's generated interfaces take a `Dto` suffix, leave absent fields out, and are served under `/api/v1` by API versioning | Accepted |
+| [ADR-160](ADR-160-the-cores-generated-interfaces-take-a-dto-suffix-leave-absent-fields-out-and-are-served-under-a-literal-api-v1-prefix.md) | The core's generated interfaces take a `Dto` suffix, leave absent fields out, and are served under a literal `/api/v1` prefix | Accepted |
 | [ADR-044](ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md) | The solver port takes a start, a budget and a seed, and `Problem` alone judges a solution | Accepted; extended by ADR-050 and ADR-099; amended by ADR-105, ADR-120 and ADR-121 |
 | [ADR-045](ADR-045-generation-counters-revoke-tokens.md) | Generation counters on the user and the session revoke tokens | Accepted; extended by ADR-131; amended by ADR-104 |
 | [ADR-048](ADR-048-travel-times-from-buckets-and-a-buffer-with-no-live-traffic.md) | Travel times come from time-of-day buckets and a buffer, with no live traffic | Accepted; amended by ADR-098 |
@@ -368,6 +368,9 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > so no `ApiUtil`; Spring MVC validates the arguments itself, with no `@Validated` on the
 > interfaces; the error-only media type stays, and both apps send `Accept: application/json,
 > application/problem+json`; the served converter leaves absent values out of every answer; the
-> generated operations sit under `/api/v1` through Spring 7's API versioning, read from paths
-> under `/api/` only; the generator stays at 7.27.0; and `just audit` doesn't scan build plugins.
+> generated operations sit under a literal `/api/v1` prefix, amending ADR-043, since Spring 7's
+> version parser read `/api/1` and `/api/V1` as `v1` past the access check, which now guards all of
+> `/api`, extending ADR-148; a request value only the domain can refuse reaches the use case plain
+> and is built inside its recorded attempt; the generator stays at 7.27.0; and `just audit` doesn't
+> scan build plugins.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.

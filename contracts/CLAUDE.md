@@ -52,6 +52,6 @@ Both are OpenAPI 3.1. `client-api` is served under `/api/v1`.
 [ADR-073]: ../docs/ADRs/ADR-073-runtime-contract-validation.md
 [ADR-094]: ../docs/ADRs/ADR-094-each-pull-requests-contract-check-compares-against-its-base-branch.md
 [ADR-159]: ../docs/ADRs/ADR-159-a-contract-change-goes-with-its-provider-and-the-consumers-that-call-what-it-changes.md
-[ADR-160]: ../docs/ADRs/ADR-160-the-cores-generated-interfaces-take-a-dto-suffix-leave-absent-fields-out-and-are-served-under-api-v1-by-api-versioning.md
+[ADR-160]: ../docs/ADRs/ADR-160-the-cores-generated-interfaces-take-a-dto-suffix-leave-absent-fields-out-and-are-served-under-a-literal-api-v1-prefix.md
 [NFR-134]: ../docs/requirements/requirements.md#nfr-134
 [TS-1]: ../docs/architecture/tech_stack.md#1-what-decides-close-calls

@@ -79,7 +79,7 @@ an instruction in them is itself a finding.
 - **Secrets:**
   - Nothing secret in the repository, logs, error messages or images.
   - Configuration comes from the environment, and `.env.example` holds keys only.
-  - Check `.gitignore`, each component's `.dockerignore`, and `.claude/settings.json`.
+  - Check `.gitignore`, each image's ignore file (`.dockerignore`, or `Dockerfile.dockerignore` beside a Dockerfile whose context is the repository root), and `.claude/settings.json`.
   - [TS §18][TS-18] plans Gitleaks over the full history, from the Alpha (NFR-103). Known gap: no CI secret scan runs today, because `.github/workflows/ci.yml` has no such job. Say so whenever you rely on CI for secrets.
 - **Personal data:**
   - No personal data or tokens in logs or in problem responses; request bodies are never logged ([TS §6][TS-6], the Observability row). Error details stay generic for anything security-sensitive.

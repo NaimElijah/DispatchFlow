@@ -167,7 +167,7 @@ src/backend/core/
                                    can't parse
       CallWrapper.java             the handler adapter that runs every handler through CallRetry,
                                    and binds CurrentCall and CurrentActor around a call under
-                                   /api/v1
+                                   /api
       CallRetry.java               re-runs a call that lost a race, and audits the race it answers,
                                    naming its caller; after a commit it audits nothing and answers
                                    500
@@ -186,19 +186,21 @@ src/backend/core/
       WebCodes.java                the codes web answers of its own, 401 ACCESS_TOKEN_REFUSED
                                    among them
       ClientApiPaths.java          serves a class that implements a generated interface under
-                                   /api/{version}, through API versioning, v1 alone (ADR-160)
-      NoStoreFilter.java           Cache-Control: no-store, no-transform on every /api/v1 answer
-                                   (ADR-157)
+                                   the literal prefix /api/v1, with no Spring API versioning
+                                   (ADR-160)
+      NoStoreFilter.java           Cache-Control: no-store, no-transform on every /api/ answer
+                                   (ADR-157, ADR-160)
       ServedJson.java              the served JSON converter refuses unknown and duplicate keys,
                                    and leaves absent values out
       BodySizeLimit.java           caps at 1 MiB what a converter reads of a request body
       security/                    who the caller is (ADR-140, ADR-147): StandInSession, the
                                    filter that signs a request in as a seeded account under dev or
                                    test alone; StandInGuard, which refuses to boot with it
-                                   anywhere else; AccessInterceptor, which builds each /api/v1
-                                   call's Caller or answers 401, by throwing NotSignedIn, which
+                                   anywhere else; AccessInterceptor, which builds the Caller
+                                   of each call under /api/ or answers 401, by throwing
+                                   NotSignedIn, which
                                    NotSignedInHandler answers; AccessInterceptorRegistration puts
-                                   it in front of /api/v1; Caller, who makes a call: its
+                                   it in front of /api/**; Caller, who makes a call: its
                                    CallContext and, when signed in, its Actor; SignedInCaller, the
                                    request's principal; SeededAccounts, the shared list as the
                                    stand-in reads it

@@ -47,13 +47,15 @@ today.
 
 | Component | Is | Does today |
 |---|---|---|
-| `core` (`src/backend/core`) | Spring Boot 4.1.2, Java 25 | Run as `migrate`, applies the Flyway migrations as `dispatchflow_owner` and exits. Otherwise starts, connects to PostgreSQL as `app`, which owns no table, answers `GET /actuator/health`, serves the client API's `openPlan` and `requestSolve` under `/api/v1`, answers every error that reaches Spring MVC's exception handlers or Tomcat's error dispatch as the client API's `Problem` with a `code` and the request's trace ID, re-runs a call that lost a race, refuses to start on a database session that could pass its grants or on a server whose messages could be translated, `lc_messages` other than `C` or `POSIX` (`DatabaseSessionGuard`), and stores every module's aggregates through its persistence adapters |
+| `core` (`src/backend/core`) | Spring Boot 4.1.2, Java 25 | Run as `migrate`, applies the Flyway migrations as `dispatchflow_owner` and exits. Otherwise starts, connects to PostgreSQL as `app`, which owns no table, answers `GET /actuator/health`, serves the client API's `openPlan` and `requestSolve` under `/api/v1`, starts only when the active profiles are exactly `dev` or exactly `test` until #193's event-stream adapter replaces `LiveUpdatesStandIn` (under any other profile it refuses to start, [ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md), decision 10), answers every error that reaches Spring MVC's exception handlers or Tomcat's error dispatch as the client API's `Problem` with a `code` and the request's trace ID, re-runs a call that lost a race, refuses to start on a database session that could pass its grants or on a server whose messages could be translated, `lc_messages` other than `C` or `POSIX` (`DatabaseSessionGuard`), and stores every module's aggregates through its persistence adapters |
 | `optimizer` (`src/backend/optimizer`) | FastAPI, Python 3.14, NumPy | Answers `GET /health/liveness` with `{"status":"UP"}`, and holds the domain for daily solves and re-optimizations (the validator, the objective and the drop reasons), and a declared application layer; nothing calls either yet |
 | `web` (`src/frontend/web`) | React 19, Vite 8, TanStack Router and Query, Mantine 9, i18next | Renders its shell: a header, the navigation, and pages for planning (`/plans/$date`, where `/` leads to tomorrow's), orders, import, fleet and settings, with not-found and error pages. It is in English, or in Hebrew right to left once its Settings page says so. The planning page shows its date over an empty area for the map (#174), every page but planning and settings says it is not built yet, and no page calls the API ([ADR-143](../ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md)). Its shared pieces, which no screen uses yet, are form fields over React Hook Form and the shared Zod schemas, one fetch and answer reader for every call, a versioned save that sends the read `ETag`, a message that words the core's refusals for a read or a write, a table over TanStack Table, and save notifications, which stay until closed when they offer an action ([ADR-153](../ADRs/ADR-153-the-web-apps-shared-form-refusal-and-table-pieces.md), [ADR-154](../ADRs/ADR-154-the-audit-of-the-shared-web-pieces-amends-how-a-call-fails-a-notice-closes-and-a-range-reads.md)) |
 | `mobile` (`src/frontend/mobile`) | React Native, Expo SDK 58 | Renders a heading |
 | `research` (`src/research`) | Python, uv; never deployed | Installs `optimizer` and PyVRP in one environment, and imports neither yet: `tests/test_environment.py` only checks that both can be found. `benchmark/`, `simulation/` and `generator/` are declared, empty packages, and `results/` holds only `.gitkeep`. Its benchmark instances will live in the git-ignored `data/` |
 
-`core`'s one controller, Planning's `PlanController`, serves the client API's two operations. Its `src/main/resources/db/migration/` holds twelve Flyway migrations:
+`core`'s one controller, Planning's `PlanController`, serves the client API's two operations.
+
+`core`'s `src/main/resources/db/migration/` holds twelve Flyway migrations:
 `V1` creates the eight module schemas, `V2` to `V9` add one module's tables each, `V10` refuses a
 negative position in every stored list, `V11` grants `app` what each adapter runs, and `V12` adds
 the audit trail's purge function and its cutoff, owned by `dispatchflow_owner`, of which `app` may
@@ -119,7 +121,7 @@ wrap. `shared/adapter/in/web` holds `Problems`, the one factory of every error b
 `/api/v1` and the package of the generated interfaces. Its `api` and `model` packages are the code
 generated from `client-api` by openapi-generator-maven-plugin 7.27.0: one `<Tag>Api` interface per
 tag and a `…Dto` class per schema, written into `target/generated-sources/openapi` at every build
-and never committed ([ADR-160](../ADRs/ADR-160-the-cores-generated-interfaces-take-a-dto-suffix-leave-absent-fields-out-and-are-served-under-api-v1-by-api-versioning.md)).
+and never committed ([ADR-160](../ADRs/ADR-160-the-cores-generated-interfaces-take-a-dto-suffix-leave-absent-fields-out-and-are-served-under-a-literal-api-v1-prefix.md)).
 `just gen` runs that generation alone. `@RequiresCapability` will join them.
 `shared/adapter/out/sse` is declared, empty: it will hold the registry of open event streams. These
 two sit below `web`, so a module's controllers, handlers and `sse` adapters reach them without
@@ -203,17 +205,20 @@ The application-wide `web` package, `com.dispatchflow.web`, is no module. It hol
   `Race`, which classifies the exception thrown;
 - the handlers: `ContractErrorHandler`, with `ContractBreaks`, of requests that break the contract,
   of Spring MVC's own errors and of Tomcat's refusals of a request's parameters, which also writes
-  the refused audit record of a changing call it refuses before its handler starts (a version of
-  `/api/` the core doesn't serve answers 404 `NO_SUCH_OPERATION`, where Spring answers 400),
+  the refused audit record of a changing call it refuses before its handler starts (a path under
+  `/api/` that no operation has answers 404 `NO_SUCH_OPERATION`, or 401 first when the call is
+  unsigned),
   `KernelErrorHandler`, of the kernel's errors, and `UnexpectedErrorHandler`, of the rest, with
   `WebCodes`, the codes they answer of their own;
 - `ErrorEndpoint`, the last resort: the `@RestController` behind Spring Boot's error path, which
   answers as a `Problem` an error that no handler answered or that a servlet filter raised;
-- `ClientApiPaths`, which serves every class that implements a generated interface under
-  `/api/{version}` through Spring Framework 7's API versioning, `v1` alone supported, and leaves
-  every other path as its handler maps it, and `NoStoreFilter`, which sets `Cache-Control: no-store,
-  no-transform` on every answer under `/api/v1`, a refusal included
-  ([ADR-160](../ADRs/ADR-160-the-cores-generated-interfaces-take-a-dto-suffix-leave-absent-fields-out-and-are-served-under-api-v1-by-api-versioning.md),
+- `ClientApiPaths`, which serves every class that implements a generated interface under the
+  literal prefix `/api/v1` and leaves every other path as its handler maps it. It configures no
+  Spring API versioning: Spring's version parser read `/api/1`, `/api/V1` and `/api/v1.0` as
+  `v1`, past the access check. A `v2` would get its own contract folder, generated package and
+  `/api/v2` prefix. `NoStoreFilter` sets `Cache-Control: no-store, no-transform` on every answer
+  under `/api/`, a refusal included
+  ([ADR-160](../ADRs/ADR-160-the-cores-generated-interfaces-take-a-dto-suffix-leave-absent-fields-out-and-are-served-under-a-literal-api-v1-prefix.md),
   [ADR-157](../ADRs/ADR-157-an-if-match-is-exactly-one-strong-tag-the-core-sent-and-the-proxy-leaves-the-apis-tags-alone.md));
 - `ServedJson`, which makes the served JSON converter refuse unknown properties and duplicate keys
   and leave an absent value out of what it writes, and `BodySizeLimit`, which caps at 1 MiB a request body that a converter reads. No handler takes
@@ -242,7 +247,7 @@ Below it, `web.security` knows who the caller is
 - `StandInGuard` refuses to boot with the stand-in's configuration under any other set of profiles,
   `dev` beside `e2e` included, or, where a stand-in may run, when `DISPATCHFLOW_DEPLOYED` or a
   provider's credential key is set. Its messages name the keys, never their values.
-- `AccessInterceptor`, in front of every handler under `/api/v1`, builds the call's `Caller` from the
+- `AccessInterceptor`, in front of every handler under `/api/`, builds the call's `Caller` from the
   principal and the chosen handler: the `CallContext`, with the account and session, the client the
   `X-App` and `X-App-Version` headers declare, the handler's operation and the trace ID, and the
   `Actor` when the caller is signed in. A call with no principal answers 401
