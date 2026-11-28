@@ -28,7 +28,7 @@ class HandlerOrderTest {
             .setControllerAdvice(
                     new UnexpectedErrorHandler(),
                     new KernelErrorHandler(),
-                    new ContractErrorHandler(new NeverWrittenAuditLog(), new CallRetryTest.FixedClock()),
+                    new ContractErrorHandler(new NeverWrittenAuditLog(), CallRetryTest.fixedClock()),
                     new BodySizeLimit(),
                     new PlanningHandler())
             .addFilters(new TraceIdFilter())

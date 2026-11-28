@@ -87,7 +87,7 @@ class ContractErrorHandlerTest {
                     ServedJson.strict(JsonMapper.builder().build())))
             .setConversionService(refusingDays())
             .setControllerAdvice(
-                    new ContractErrorHandler(new NeverWrittenAuditLog(), new CallRetryTest.FixedClock()),
+                    new ContractErrorHandler(new NeverWrittenAuditLog(), CallRetryTest.fixedClock()),
                     new BodySizeLimit(),
                     new KernelErrorHandler(),
                     new UnexpectedErrorHandler())
