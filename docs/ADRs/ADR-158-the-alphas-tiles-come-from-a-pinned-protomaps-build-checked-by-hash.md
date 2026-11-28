@@ -1,4 +1,4 @@
-# ADR-156: The Alpha's tiles come from a pinned Protomaps build, checked by hash, until the monthly refresh keeps its own cut
+# ADR-158: The Alpha's tiles come from a pinned Protomaps build, checked by hash, until the monthly refresh keeps its own cut
 
 - **Status:** Proposed; would amend ADR-084
 - **Date:** 2026-11-28

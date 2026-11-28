@@ -19,7 +19,7 @@ infra_tools := "uv run --project src/backend/optimizer --locked --only-dev"
 # The map's files, which `just data` builds (#152). Protomaps keeps a daily build for a week but the
 # last build of each basemap version for good (https://build-metadata.protomaps.dev/builds.json),
 # so the pin names the newest such build, 4.15.1's, and moves only when a newer version's last build
-# is kept: a daily pin would stop downloading a week later (ADR-156). The fonts and sprite come
+# is kept: a daily pin would stop downloading a week later (ADR-158). The fonts and sprite come
 # from a pinned commit of protomaps/basemaps-assets. The fonts' archive and the cut are checked
 # against their SHA-256, because a name or a commit pins the address, not the bytes; the cut is
 # byte-for-byte reproducible from the same build, region and pmtiles image, so a changed source
