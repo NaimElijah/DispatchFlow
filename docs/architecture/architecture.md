@@ -262,11 +262,15 @@ origin, forwarding the browser's `Host` and `Sec-Fetch-Site` as they were sent a
 other origin's CORS request: no page calls it yet, and `just infra-check` sends its probes
 through it ([ADR-148](../ADRs/ADR-148-the-stand-in-serves-only-its-own-origin-every-unsigned-api-call-answers-401-and-the-guard-outlives-the-session.md),
 [ADR-151](../ADRs/ADR-151-the-dev-stack-runs-the-core-as-a-compose-service-and-the-core-checks-its-database-session.md)).
+It also proxies `/map/` to the `tiles` service with the prefix removed, as `vite preview` does,
+since it inherits the dev server's proxy: the map's files then come from the app's own origin, and
+no page loads them yet.
 
 ## Data flow
 
 No request crosses a component today but `just infra-check`'s probes, which go through the web
-app's dev server to the core. Two probes and the persistence adapters are tested, each inside its
+app's dev server to the core, and, under `just dev`, a `/map/` request, which the dev server passes
+to the `tiles` service. Two probes and the persistence adapters are tested, each inside its
 own component:
 
 - The `core` health probe: a request to `/actuator/health` reaches Spring Boot, and
