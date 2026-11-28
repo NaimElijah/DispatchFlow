@@ -33,7 +33,7 @@ report findings.
 2. **Rules.** Read the rules that apply:
    - `.claude/CLAUDE.md`;
    - the `CLAUDE.md` of every side or component the change touches;
-   - `contracts/CLAUDE.md`, if a contract changed;
+   - `contracts/CLAUDE.md`, if a contract changed, and `contracts/client-api/CLAUDE.md` if the client API did;
    - `docs/CLAUDE.md`, if anything under `docs/` changed.
 3. **Context.** Read the ADRs the change relates to (`docs/ADRs/README.md` is the index), and the requirement IDs it cites (`docs/requirements/requirements.md`). Read the sections of the decided design it touches: [DL], [TS] and the ADRs. `docs/roadmap.md` has the milestones. Check new code against their rules, under the precedence rule in `.claude/CLAUDE.md` (Documentation). Flag a pull request that merges code governed by a Proposed ADR without saying which one, as a question for the author.
 

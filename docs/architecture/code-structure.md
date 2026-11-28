@@ -58,8 +58,9 @@ Each component has its own manifest, and each except `core` (Maven) has a lockfi
 lockfile is the workspace's, `src/frontend/pnpm-lock.yaml`, which it shares with the packages. The
 one link at build time is `research`'s path dependency on `optimizer`, below.
 
-`src/backend`, `src/frontend`, each component, `contracts/` and `docs/` also hold a `CLAUDE.md` with
-the rules for that folder.
+`src/backend`, `src/frontend`, each component, `contracts/`, `contracts/client-api/` and `docs/` also
+hold a `CLAUDE.md` with the rules for that folder, and a few narrower folders hold one of their
+own.
 
 ## How the components depend on each other
 

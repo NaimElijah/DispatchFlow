@@ -11,13 +11,17 @@ info:
     loopback host, that carries no `Sec-Fetch-Site` or one of `same-origin` or `none`, and that
     presents neither an `Authorization` header nor the refresh cookie; any other call is refused.
 
-    In a body, a date is an ISO 8601 calendar date in Israel, and a moment or a time of a plan's
-    day is an RFC 3339 `date-time`, which the core writes in UTC with `Z`; a client accepts any
-    offset and shows it in `Asia/Jerusalem` (ADR-088, ADR-155). A problem's `params` keep the forms
-    `Problem.params` names. An optional field with no value is left out, never sent as `null`.
+    In a body, a date is an ISO 8601 calendar date in Israel. A moment, and a time a solve works
+    out for a plan's day, is an RFC 3339 `date-time`, which the core writes in UTC with `Z`; a
+    client accepts any offset and shows it in `Asia/Jerusalem`. A time a person enters for a date
+    is that date and a local `HH:mm`, both ways, which the core resolves in Israel (BR-111). The
+    two are kept apart as the database keeps them (ADR-088, ADR-155). A problem's `params` keep the
+    forms `Problem.params` names. An optional field with no value is left out, never sent as
+    `null`.
 
-    Every answer carries `Cache-Control: no-store`, so no browser or phone keeps a plan or a
-    customer's place in its HTTP cache (ADR-076).
+    Every answer carries `Cache-Control: no-store, no-transform`: `no-store` so no browser or
+    phone keeps an answer in its HTTP cache, since what an app may store is ADR-076's, and
+    `no-transform` so no proxy rewrites an answer or its `ETag` (ADR-157).
   license:
     name: Proprietary, all rights reserved
     identifier: LicenseRef-DispatchFlow-Proprietary
@@ -94,6 +98,7 @@ paths:
           headers:
             Location:
               description: The new plan's path, `/api/v1/plans/{planId}`.
+              required: true
               schema:
                 type: string
                 format: uri-reference
@@ -164,7 +169,7 @@ paths:
       description: >-
         Queues a solve of a draft or ready plan, which turns the plan to solving (FR-16, FR-19,
         BR-12, BR-60, BR-76). The search runs in the background; `getSolveProgress` follows it, at the
-        job's `Location`.
+        job's `Location`. `If-Match` carries the plan's `ETag`, since the solve changes the plan.
       tags:
         - planning-plans
       x-capability: PLAN_AND_RUN_THE_DAY
@@ -184,6 +189,7 @@ paths:
           headers:
             Location:
               description: The solve job's path, `/api/v1/solve-jobs/{jobId}`.
+              required: true
               schema:
                 type: string
                 format: uri-reference
@@ -255,7 +261,8 @@ paths:
       summary: Read a route's line along the roads
       description: >-
         One route's line along the road network, which the map draws in the colour and with the
-        label of its index (FR-24, FR-148, FR-240).
+        label of its index (FR-24, FR-148, FR-240). Its capability gives a Driver none: a driver's
+        own route comes through the driver's operations, under `WORK_OWN_ROUTE`.
       tags:
         - planning-routes
       x-capability: PLAN_AND_RUN_THE_DAY
@@ -317,23 +324,27 @@ components:
       in: header
       required: true
       description: >-
-        The plan's `ETag`, exactly as `openPlan` or `getPlan` answered it (BR-76, ADR-057). A missing
-        one answers 400 `INVALID_REQUEST` with a `MISSING_PARAMETER` item, and a wildcard, a weak tag
-        or a list 400 with a `WRONG_FORMAT` item; one that is no longer current answers 412
-        `STALE_VERSION`.
+        The `ETag` of the record the call changes, exactly as the core sent it: one strong tag
+        (BR-76, ADR-057, ADR-157). A missing one answers 400 `INVALID_REQUEST` with a
+        `MISSING_PARAMETER` item, and a wildcard, a weak tag or a list 400 with a `WRONG_FORMAT`
+        item; one that is no longer current answers 412 `STALE_VERSION`. It is for a record that
+        always exists: an operation whose first save sends `If-None-Match: *` declares its own
+        pair of headers.
       schema:
         type: string
         pattern: '^"(0|[1-9][0-9]{0,17})"$'
   headers:
     ETag:
       description: >-
-        The plan's version, as a strong entity tag, `"<version>"`. The next change to the plan sends
-        it as `If-Match` (BR-76, ADR-057).
+        The record's version, as a strong entity tag, `"<version>"`. The next change to the record
+        sends it back as `If-Match`, exactly as it came (BR-76, ADR-057, ADR-157).
+      required: true
       schema:
         type: string
         pattern: '^"(0|[1-9][0-9]{0,17})"$'
     RetryAfter:
       description: The seconds to wait before trying again.
+      required: true
       schema:
         type: integer
         minimum: 0
@@ -352,6 +363,7 @@ components:
       headers:
         WWW-Authenticate:
           description: Exactly `Bearer`.
+          required: true
           schema:
             type: string
             const: Bearer
@@ -368,8 +380,8 @@ components:
             $ref: '#/components/schemas/Problem'
     StaleVersion:
       description: >-
-        `STALE_VERSION`: `If-Match` isn't the plan's current version, because the plan changed
-        since it was read. `params` has `kind` and `id`. Not retried: reload the plan.
+        `STALE_VERSION`: `If-Match` isn't the record's current version, because the record changed
+        since it was read. `params` has `kind` and `id`. Not retried: read the record again.
       content:
         application/problem+json:
           schema:
@@ -396,6 +408,12 @@ components:
       description: >-
         An error any operation can answer, with one of the codes `Problem` lists. The body never
         says what went wrong inside the server.
+      headers:
+        Retry-After:
+          description: On a 503, the seconds to wait before trying again.
+          schema:
+            type: integer
+            minimum: 0
       content:
         application/problem+json:
           schema:
@@ -566,8 +584,10 @@ components:
       type: string
       format: date-time
       description: >-
-        A point in time, as an RFC 3339 `date-time`. The core writes it in UTC with `Z`; a client
-        accepts any offset, and shows it in Israel's time, `Asia/Jerusalem` (ADR-088, ADR-155).
+        A point in time, as an RFC 3339 `date-time`. The core writes it in UTC with `Z`, and with
+        no fraction of a second or exactly three digits of one, as JavaScript's date format reads
+        it; a client accepts any offset, and shows it in Israel's time, `Asia/Jerusalem` (ADR-088,
+        ADR-155).
     PlanTime:
       type: string
       format: date-time
@@ -575,8 +595,10 @@ components:
         A time of a plan's day, as an RFC 3339 `date-time` that the core works out exactly from the
         elapsed seconds since the delivery date's midnight in Israel. It may fall after the date's
         end, when a route breaks a time rule or a drop's fact passes the day, so a client shows the
-        date beside a time that isn't on the plan's delivery date. Written in UTC with `Z`; a client
-        accepts any offset (ADR-088, ADR-112, ADR-155).
+        date beside a time that isn't on the plan's delivery date. A drop's fact is a `PlanTime`
+        even where it copies a time a person entered, such as a window's end or a depot's closing,
+        because the solve compared it in the day's seconds. Written in UTC with `Z`, in whole
+        seconds; a client accepts any offset (ADR-088, ADR-112, ADR-155).
     Kilograms:
       type: number
       exclusiveMinimum: 0
