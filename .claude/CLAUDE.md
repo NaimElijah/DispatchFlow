@@ -73,6 +73,8 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 - `just <component>-check`: one component's checks (`core`, `optimizer`, `research`, `web`,
   `mobile`, `contracts`, `infra`).
 - `just <component>-run`: start `core`, `optimizer`, `web` or `mobile`.
+- `just dev`: the whole stack in Docker; `just dev-down` stops it, and `just db-reset` also
+  wipes its database.
 
 ## How we work
 

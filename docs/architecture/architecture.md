@@ -312,11 +312,14 @@ runs as root ([ADR-019](../ADRs/ADR-019-container-images-run-as-non-root.md)).
 profile, the optimizer and the web app's dev server (`src/frontend/web/Dockerfile.dev`) on a laptop,
 each service with only its own credentials and every port bound to `127.0.0.1`. The web app's
 `vite.config.ts` proxies `/api/` to the core, keeping the browser's `Host` and `Sec-Fetch-Site`.
+`just dev` starts the stack and waits until every service is healthy and the migrate step has
+finished, then Compose Watch copies edits into the web app and the optimizer; `just dev-down`
+stops it, and `just db-reset` also deletes its database, the stack's only named volume.
 `just infra-check` validates the file and starts the whole stack in a throwaway project, in
-`just check` and CI. At startup the core's `DatabaseSessionGuard` refuses a session that logged
-in as another role and switched, a database role with an attribute that passes the grants, one
-that belongs to any other role or owns an object, and a server whose `lc_messages` isn't `C` or
-`POSIX`, the only settings that keep its messages in English
+`just check` and CI. At startup the core's `DatabaseSessionGuard` refuses a
+session that logged in as another role and switched, a database role with an attribute that
+passes the grants, one that belongs to any other role or owns an object, and a server whose
+`lc_messages` isn't `C` or `POSIX`, the only settings that keep its messages in English
 ([ADR-151](../ADRs/ADR-151-the-dev-stack-runs-the-core-as-a-compose-service-and-the-core-checks-its-database-session.md), [ADR-152](../ADRs/ADR-152-the-session-guard-reads-the-real-login-and-accepts-only-untranslated-messages-and-the-stack-check-checks-what-it-claims.md)).
 
 ## Structural decisions not visible from the file layout

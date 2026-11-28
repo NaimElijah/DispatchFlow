@@ -158,6 +158,44 @@ contracts-check:
 
 # --- infra: the development stack, infra/deploy/compose.dev.yaml ---
 
+# The stack's project is the file's own, `dispatchflow`. The `data` profile is where the services
+# whose files git ignores join, osrm (#168) first; `just infra-check` starts none of them.
+dev_stack := "docker compose -f infra/deploy/compose.dev.yaml --profile data"
+dev_env := justfile_directory() / "infra/deploy/.env"
+
+# Build and start the whole stack, wait until every service is healthy and the migrate step has
+# finished, print where each one listens, then watch: an edit to the web app, the shared web packages
+# or the optimizer reloads in its container (ADR-151). Ctrl+C stops the watch and leaves the stack
+# running; a change to the core needs Ctrl+C and `just dev` again. Needs Docker.
+[doc("Start the whole development stack, healthy, then reload edits until Ctrl+C")]
+dev: _dev-env
+    {{ dev_stack }} up --build --wait
+    @echo "Web app:    http://$({{ dev_stack }} port web 5173)"
+    @echo "Core:       http://$({{ dev_stack }} port core 8080)"
+    @echo "Optimizer:  http://$({{ dev_stack }} port optimizer 8000)"
+    @echo "PostgreSQL: $({{ dev_stack }} port postgres 5432)"
+    @echo "Watching for edits. Ctrl+C stops the watch only; just dev-down stops the stack."
+    {{ dev_stack }} watch --no-up
+
+# Stop the stack and remove its containers. Its database stays for the next `just dev`.
+[doc("Stop the development stack, keeping its database")]
+dev-down: _dev-env
+    {{ dev_stack }} down
+
+# Stop the stack and delete its database, every row of local data with it, so the next `just dev`
+# migrates an empty one and creates the roles again, as a password changed in infra/deploy/.env
+# needs. It is the stack's only named volume, which `just infra-check` holds it to. Asks first;
+# `just --yes db-reset` doesn't.
+[confirm("This deletes the dev stack's database and all its data. Continue? [y/N]")]
+[doc("Stop the development stack and delete its database")]
+db-reset: _dev-env
+    {{ dev_stack }} down --volumes
+
+# Every Compose command reads infra/deploy/.env's passwords, so stop with the fix before Compose
+# stops with its own message.
+_dev-env:
+    @{{ if path_exists(dev_env) == "true" { "" } else { error("infra/deploy/.env is missing: copy infra/deploy/.env.example to infra/deploy/.env and fill in its three passwords") } }}
+
 # Format check, lint, strict type check and tests of the checker; then check that the stack's file
 # publishes every port on 127.0.0.1 and gives each service only its own secrets, and start the whole
 # stack in a throwaway project with no port on the host, check it, and remove it. Needs Docker.
