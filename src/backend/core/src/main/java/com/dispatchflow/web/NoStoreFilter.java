@@ -14,7 +14,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.util.UrlPathHelper;
 
 /**
- * Sets {@code Cache-Control: no-store, no-transform} on every answer under {@code /api/v1}, as the
+ * Sets {@code Cache-Control: no-store, no-transform} on every answer under {@code /api}, the root
+ * of every version of the client API (ADR-160), as the
  * contract's description promises: {@code no-store} so no browser or phone keeps an answer in its
  * HTTP cache, since what an app may store is ADR-076's, and {@code no-transform} so no proxy
  * rewrites an answer or its {@code ETag} (ADR-157).
@@ -33,7 +34,7 @@ class NoStoreFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = PATHS.getPathWithinApplication(request);
-        return !(path.equals(ClientApi.BASE_PATH) || path.startsWith(ClientApi.BASE_PATH + "/"));
+        return !(path.equals(ClientApi.ROOT) || path.startsWith(ClientApi.ROOT + "/"));
     }
 
     @Override

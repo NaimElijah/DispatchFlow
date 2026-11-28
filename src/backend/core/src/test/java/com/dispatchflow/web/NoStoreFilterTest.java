@@ -21,8 +21,16 @@ class NoStoreFilterTest {
             .build());
 
     @ParameterizedTest
-    @ValueSource(strings = {"/api/v1/probe", "/api/v1/failing-probe", "/api/v1/no-such-route", "/api/v1"})
-    void GivenAnyAnswerUnderApiV1_WhenItIsWritten_ThenItIsNoStoreNoTransform(String path) {
+    @ValueSource(
+            strings = {
+                "/api/v1/probe",
+                "/api/v1/failing-probe",
+                "/api/v1/no-such-route",
+                "/api/v1",
+                "/api/v10/probe",
+                "/api"
+            })
+    void GivenAnyAnswerUnderTheApiRoot_WhenItIsWritten_ThenItIsNoStoreNoTransform(String path) {
         MvcTestResult result = mvc.get().uri(path).exchange();
 
         assertThat(result).headers().hasValue(HttpHeaders.CACHE_CONTROL, "no-store, no-transform");
@@ -37,8 +45,8 @@ class NoStoreFilterTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/outside/probe", "/api/v10/probe", "/api/v1probe"})
-    void GivenAPathOutsideApiV1_WhenItIsAnswered_ThenItsCacheControlIsLeftAlone(String path) {
+    @ValueSource(strings = {"/outside/probe", "/apix/probe", "/ap/probe"})
+    void GivenAPathOutsideTheApiRoot_WhenItIsAnswered_ThenItsCacheControlIsLeftAlone(String path) {
         MvcTestResult result = mvc.get().uri(path).exchange();
 
         assertThat(result).headers().doesNotContainHeader(HttpHeaders.CACHE_CONTROL);
@@ -47,7 +55,8 @@ class NoStoreFilterTest {
     @RestController
     static class ProbeController {
 
-        @GetMapping({"/api/v1/probe", "/outside/probe", "/api/v10/probe", "/api/v1probe", "/api/v1"})
+        @GetMapping({"/api/v1/probe", "/outside/probe", "/api/v10/probe", "/apix/probe", "/ap/probe", "/api/v1", "/api"
+        })
         String probe() {
             return "probe";
         }

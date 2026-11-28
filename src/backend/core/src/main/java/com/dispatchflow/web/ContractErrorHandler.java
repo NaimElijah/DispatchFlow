@@ -23,7 +23,6 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.web.accept.InvalidApiVersionException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestCookieException;
 import org.springframework.web.bind.MissingRequestHeaderException;
@@ -51,10 +50,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  *   <li>413 {@code BODY_TOO_LARGE} for a body, an upload or a form body over its limit;
  *   <li>401 {@code ACCESS_TOKEN_REFUSED}, with exactly {@code WWW-Authenticate: Bearer}, for a 401 of
  *       Spring's own, such as a {@code ResponseStatusException};
- *   <li>404 {@code NO_SUCH_OPERATION}, 405, 406 and 415, each with a code of its own. A path under
- *       {@code /api/} whose version the core doesn't serve, such as {@code /api/v2/plans}, is a
- *       path no operation has too, so it answers 404, where Spring's API versioning answers 400
- *       (ADR-160);
+ *   <li>404 {@code NO_SUCH_OPERATION}, 405, 406 and 415, each with a code of its own;
  *   <li>503 {@code TRY_AGAIN_LATER} for a timed-out asynchronous request, and 500 {@code
  *       UNEXPECTED_ERROR} for Spring's own server errors;
  *   <li>500 {@code UNEXPECTED_ERROR} for a status the contract doesn't list, such as the 410 of a
@@ -160,9 +156,7 @@ class ContractErrorHandler extends ResponseEntityExceptionHandler {
     @Override
     protected @Nullable ResponseEntity<Object> handleExceptionInternal(
             Exception thrown, @Nullable Object body, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
-        HttpStatusCode chosen = ContractBreaks.isBodyTooLarge(thrown)
-                ? HttpStatus.CONTENT_TOO_LARGE
-                : thrown instanceof InvalidApiVersionException ? HttpStatus.NOT_FOUND : status;
+        HttpStatusCode chosen = ContractBreaks.isBodyTooLarge(thrown) ? HttpStatus.CONTENT_TOO_LARGE : status;
         Optional<String> listed = WebCodes.forStatus(chosen.value());
         if (listed.isEmpty()) {
             log.atError()

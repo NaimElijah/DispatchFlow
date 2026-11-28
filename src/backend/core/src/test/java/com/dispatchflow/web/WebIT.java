@@ -16,10 +16,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
@@ -107,16 +108,51 @@ class WebIT {
      * at all, are paths no operation has (ADR-160).
      */
     @ParameterizedTest
-    @ValueSource(strings = {"/api/v2/plans", "/api/plans", "/api"})
+    @MethodSource("pathsUnderApiOutsideV1")
     void GivenAPathUnderApiOutsideV1_WhenItArrives_ThenNoSuchOperation(String path) {
         MvcTestResult result = mvc.post()
                 .uri(path)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{}")
+                .content("{\"date\":\"9001-01-01\"}")
                 .exchange();
 
         assertThat(result).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo(WebCodes.NO_SUCH_OPERATION);
+        assertThat(result).headers().hasValue(HttpHeaders.CACHE_CONTROL, "no-store, no-transform");
+    }
+
+    /**
+     * The access check guards the whole {@code /api} root, so another spelling of the version
+     * reaches no handler unchecked: a caller with no principal gets the one 401 first (ADR-160).
+     */
+    @ParameterizedTest
+    @MethodSource("pathsUnderApiOutsideV1")
+    void GivenNoPrincipalAndAPathUnderApiOutsideV1_WhenItArrives_ThenTheOne401(String path) {
+        MvcTestResult result = mvc.post()
+                .uri(path)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer not-a-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"date\":\"9001-01-01\"}")
+                .exchange();
+
+        assertThat(result).hasStatus(HttpStatus.UNAUTHORIZED);
+        assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo(Problems.ACCESS_TOKEN_REFUSED);
+    }
+
+    /**
+     * The paths under {@code /api} that no operation has: another version, none, and the
+     * spellings Spring's API versioning would have read as {@code v1}.
+     */
+    static Stream<String> pathsUnderApiOutsideV1() {
+        return Stream.of(
+                "/api/v2/plans",
+                "/api/plans",
+                "/api",
+                "/api/1/plans",
+                "/api/V1/plans",
+                "/api/v1.0/plans",
+                "/api/v01/plans",
+                "/api/x1/plans");
     }
 
     @Test
