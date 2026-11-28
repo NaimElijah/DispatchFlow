@@ -12,7 +12,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-003](ADR-003-dispatcher-console-and-driver-app.md) | Two clients: a React web app and a React Native phone app | Superseded by ADR-035 |
 | [ADR-004](ADR-004-pluggable-solver-port.md) | Every solver behind one solver port | Accepted; extended by ADR-029; amended by ADR-044 |
 | [ADR-005](ADR-005-or-tools-first-research-solver-for-re-optimization.md) | OR-Tools first, with our own solver as a measured research track aimed at re-optimization | Accepted; extended by ADR-029; amended by ADR-091 |
-| [ADR-006](ADR-006-versioned-openapi-contracts.md) | Every API between components is a versioned OpenAPI contract, written first | Accepted; extended by ADR-026 and ADR-043; amended by ADR-037 and ADR-123 |
+| [ADR-006](ADR-006-versioned-openapi-contracts.md) | Every API between components is a versioned OpenAPI contract, written first | Accepted; extended by ADR-026 and ADR-043; amended by ADR-037, ADR-123 and ADR-159 |
 | [ADR-007](ADR-007-postgresql-with-flyway-migrations.md) | PostgreSQL is the system of record, and Flyway migrations own its schema | Superseded by ADR-041 |
 | [ADR-024](ADR-024-one-delivery-company-no-multi-tenancy.md) | DispatchFlow serves one delivery company, with no multi-tenancy | Accepted |
 | [ADR-026](ADR-026-server-sent-events-and-push-for-live-updates.md) | Live updates use server-sent events and push, and clients act through HTTP POST | Accepted; extended by ADR-035 and ADR-083 |
@@ -55,6 +55,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-094](ADR-094-each-pull-requests-contract-check-compares-against-its-base-branch.md) | Each pull request's contract check compares against its base branch | Accepted |
 | [ADR-155](ADR-155-the-client-api-keeps-instants-and-local-times-apart-and-sends-a-list-that-may-grow-as-a-string.md) | The client API keeps instants and local times apart, and sends a list that may grow as a string | Accepted |
 | [ADR-157](ADR-157-an-if-match-is-exactly-one-strong-tag-the-core-sent-and-the-proxy-leaves-the-apis-tags-alone.md) | An `If-Match` is exactly one strong tag the core sent, and the proxy leaves the API's tags alone | Accepted |
+| [ADR-159](ADR-159-a-contract-change-goes-with-its-provider-and-the-consumers-that-call-what-it-changes.md) | A contract change goes with its provider and the consumers that call what it changes | Accepted |
 | [ADR-044](ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md) | The solver port takes a start, a budget and a seed, and `Problem` alone judges a solution | Accepted; extended by ADR-050 and ADR-099; amended by ADR-105, ADR-120 and ADR-121 |
 | [ADR-045](ADR-045-generation-counters-revoke-tokens.md) | Generation counters on the user and the session revoke tokens | Accepted; extended by ADR-131; amended by ADR-104 |
 | [ADR-048](ADR-048-travel-times-from-buckets-and-a-buffer-with-no-live-traffic.md) | Travel times come from time-of-day buckets and a buffer, with no live traffic | Accepted; amended by ADR-098 |
@@ -355,4 +356,9 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > the fonts' archive against SHA-256 pins; the monthly rebuild returns with the monthly refresh of
 > the road data, which keeps its own cut in Israel; and the Alpha accepts tiles older than
 > NFR-129's 60 days, until the pin passes 120.
+>
+> ADR-159, on 2026-11-28, amends ADR-006: a contract change goes in the same pull request as its
+> provider and each consumer that calls an operation it adds or changes; a consumer that calls none
+> changes nothing, but its generated code still builds; and a consumer's generator arrives with
+> the first operation it calls, the web app's with #148's second pull request.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.
