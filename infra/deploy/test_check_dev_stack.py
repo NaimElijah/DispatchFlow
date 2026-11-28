@@ -363,6 +363,40 @@ def test_given_services_under_data_or_none_when_profiles_are_checked_then_none_i
     assert check.profile_problems(configuration) == []
 
 
+@pytest.mark.parametrize(
+    ("setting", "named"),
+    [
+        ({**HARDENED}, "tiles is under the data profile but sets no numeric non-root user"),
+        ({"user": "caddy", **HARDENED}, "sets no numeric non-root user"),
+        ({"user": "0:0", **HARDENED}, "sets no numeric non-root user"),
+        (
+            {"user": "65534:65534", "security_opt": ["no-new-privileges:true"]},
+            "tiles is under the data profile but keeps its capabilities: take *hardening",
+        ),
+    ],
+)
+def test_given_a_data_profile_service_unhardened_when_checked_then_it_is_named(
+    setting: dict[str, Any], named: str
+) -> None:
+    """The live root check never starts the data profile, so only the file can show its user."""
+    configuration = services(tiles={"profiles": ["data"], **setting})
+
+    problems = check.data_profile_problems(configuration)
+
+    assert len(problems) == 1
+    assert named in problems[0]
+
+
+def test_given_data_profile_services_hardened_when_checked_then_none_is_named() -> None:
+    configuration = services(
+        tiles={"profiles": ["data"], "user": "65534:65534", **HARDENED},
+        osrm={"profiles": ["data"], "user": "10001", **HARDENED},
+        postgres={"image": "postgres:18.7"},
+    )
+
+    assert check.data_profile_problems(configuration) == []
+
+
 def test_given_a_named_volume_beside_the_databases_when_volumes_are_checked_then_it_is_named() -> (
     None
 ):
@@ -398,7 +432,7 @@ def test_given_a_stack_breaking_every_rule_when_checked_statically_then_each_rul
                 "depends_on": {"migrate": {"condition": "service_started"}},
             },
             "osrm": {"profiles": ["osrm"], **HARDENED},
-            "tiles": {"image": "caddy:2.11.10-alpine", **HARDENED},
+            "tiles": {"image": "caddy:2.11.10-alpine", "profiles": ["data"], **HARDENED},
         },
         "secrets": {"owner": {"environment": "DISPATCHFLOW_OWNER_PASSWORD"}},
         "volumes": {"postgres-data": {}, "osrm-data": {}},
@@ -437,6 +471,7 @@ def test_given_a_stack_breaking_every_rule_when_checked_statically_then_each_rul
         "the stack runs postgres:18.6 but the tests postgres:18.7",
         "Dockerfile.dev's Node major differs",
         "the tiles service runs caddy:2.11.10-alpine",
+        "tiles is under the data profile but sets no numeric non-root user",
         "the stack's postgres command differs",
         "osrm is under the osrm profile",
         "the named volume osrm-data",

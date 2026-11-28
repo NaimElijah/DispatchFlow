@@ -7,7 +7,9 @@ a throwaway value for each secret, never a developer's own infra/deploy/.env or 
   shares a host namespace, runs privileged or unconfined, adds a capability or a device, sets a root
   user, or mounts Docker's socket or infra/deploy/.env, so the stand-in session answers nobody off
   the laptop (ADR-019, ADR-140 decision 4);
-- every service gains no privilege, and each one built from our own images drops every capability;
+- every service gains no privilege, and each one built from our own images, or under the data
+  profile, drops every capability; one under the data profile, which the live check doesn't start,
+  also runs as a numeric user that isn't root;
 - each service holds only its own secrets, and no service reads an env file or a Compose secret or
   config, which the holder rule can't follow: the core never sees the owner's password (ADR-041,
   ADR-145). A key read with no default, a bare environment entry among them, is a secret, and must
@@ -359,6 +361,7 @@ def static_problems(
         *loopback_problems(written),
         *host_access_problems(resolved),
         *hardening_problems(resolved),
+        *data_profile_problems(resolved),
         *credential_problems(resolved, written, secret_values),
         *start_order_problems(resolved),
         *profile_problems(resolved),
@@ -450,6 +453,33 @@ def hardening_problems(configuration: Configuration) -> list[str]:
             problems.append(f"{name} lacks {NO_NEW_PRIVILEGES}")
         if "build" in service and ALL_CAPABILITIES not in service.get("cap_drop", []):
             problems.append(f"{name} is built here but keeps its capabilities: take *hardening")
+    return problems
+
+
+def data_profile_problems(configuration: Configuration) -> list[str]:
+    """Each service under a data profile that isn't hardened as the live check can't see.
+
+    The live check starts no data profile, so its root check never reaches these services, and an
+    image with no USER of its own runs as root unless the file names another user.
+
+    Returns:
+        One problem per service that sets no numeric non-root user, and one per service that keeps
+        a capability.
+    """
+    problems = []
+    for name, service in configuration["services"].items():
+        profiles = set(service.get("profiles", [])) & DEV_PROFILES
+        for profile in sorted(profiles):
+            uid = str(service.get("user", "")).split(":")[0]
+            if not uid.isdigit() or uid == ROOT_UID:
+                problems.append(
+                    f"{name} is under the {profile} profile but sets no numeric non-root user"
+                )
+            if ALL_CAPABILITIES not in service.get("cap_drop", []):
+                problems.append(
+                    f"{name} is under the {profile} profile but keeps its capabilities: "
+                    "take *hardening"
+                )
     return problems
 
 

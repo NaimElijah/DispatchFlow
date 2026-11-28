@@ -32,7 +32,8 @@
 # - A service built from our own images takes <<: *hardening. One whose data git ignores, such as
 #   osrm's data/osrm/ or tiles' data/tiles/, joins under the `data` profile, which `just dev`
 #   starts and `just infra-check` doesn't, since CI has no such data (ADR-152). `just infra-check`
-#   fails on any other profile.
+#   fails on any other profile, and on a data-profile service without <<: *hardening or a numeric
+#   user that isn't root, since its live root check never sees one.
 # - postgres-data is the only named volume: `just db-reset` runs `down --volumes`, which deletes
 #   every named volume, so another service keeps its data in a bind mount of a folder git ignores.
 #   `just infra-check` fails on another.
