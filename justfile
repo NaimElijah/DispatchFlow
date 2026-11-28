@@ -241,19 +241,22 @@ infra-format:
 # and BUILD, which names their sources and hashes. Each step runs in a container, so the recipe is
 # the same on Windows and macOS (NFR-208). Needs Docker Desktop and the network. A native Linux
 # Docker is untested: its bind mount keeps the host's owner, so nobody may not write to data/tiles/.
-# Each step writes .part files beside the ones the stack serves, and only the last swaps them in,
-# after every check passed, so a failed run leaves the served files and their BUILD as they were.
-#   1. Remove a failed run's .part files, fetch the fonts' archive, check its hash, and copy the
-#      fonts and sprite with links resolved: the tiles service follows a link anywhere in its
-#      container, so data/tiles/ holds none.
-#   2. Cut the tiles.
-#   3. Check the tiles' hash, or remove every .part file and stop; then swap the three in and
-#      write BUILD last, so it names what is there.
+# Each step writes .part files, and only the last swaps them in, after every check passed, so a
+# failed run leaves the served files and their BUILD as they were. The cut goes to data/tiles-cut/,
+# which the service doesn't serve, and its step mounts nothing else, so an unchecked cut is never
+# served and the pmtiles image can't reach the files beside it.
+#   1. Remove a failed run's .part files, make the two folders if they are missing, fetch the
+#      fonts' archive, check its hash, and copy the fonts and sprite with links resolved: the
+#      tiles service follows a link anywhere in its container, so data/tiles/ holds none.
+#   2. Cut the tiles into data/tiles-cut/.
+#   3. Check the cut's hash, or remove every .part file and stop; then move the three into
+#      data/tiles/ and write BUILD last, so it names what is there. data/ is one mount, so each
+#      move is a rename.
 # A hash that doesn't match is printed, so a pin that moved on purpose can be retaken from it.
 data: _data-pins
-    docker run {{ data_container }} -v "{{ justfile_directory() }}/data/tiles:/tiles" --entrypoint sh {{ caddy_image }} -c 'set -eo pipefail; rm -rf /tiles/fonts.part /tiles/sprites.part /tiles/israel.pmtiles.part; wget -q -O /tmp/assets.tar.gz https://codeload.github.com/protomaps/basemaps-assets/tar.gz/{{ basemaps_assets_commit }}; h=$(sha256sum /tmp/assets.tar.gz | cut -c1-64); [ $h = {{ basemaps_assets_sha256 }} ] || { echo the fonts archive has sha256 $h, not basemaps_assets_sha256: a moved commit needs it retaken >&2; exit 1; }; tar -xzf /tmp/assets.tar.gz -C /tmp; mkdir /tiles/sprites.part; cp -RL /tmp/basemaps-assets-{{ basemaps_assets_commit }}/fonts /tiles/fonts.part; cp -L /tmp/basemaps-assets-{{ basemaps_assets_commit }}/sprites/v4/light* /tiles/sprites.part/'
-    docker run {{ data_container }} -v "{{ justfile_directory() }}/infra/osrm:/region:ro" -v "{{ justfile_directory() }}/data/tiles:/tiles" {{ pmtiles_image }} extract https://build.protomaps.com/{{ protomaps_build }}.pmtiles /tiles/israel.pmtiles.part --region=/region/beer-sheva.geojson --quiet
-    docker run {{ data_container }} -v "{{ justfile_directory() }}/data/tiles:/tiles" --entrypoint sh {{ caddy_image }} -c 'set -eo pipefail; h=$(sha256sum /tiles/israel.pmtiles.part | cut -c1-64); [ $h = {{ israel_tiles_sha256 }} ] || { rm -rf /tiles/fonts.part /tiles/sprites.part /tiles/israel.pmtiles.part; echo the cut tiles have sha256 $h, not israel_tiles_sha256: a moved build, boundary or pmtiles image needs it retaken >&2; exit 1; }; rm -rf /tiles/fonts /tiles/sprites; mv /tiles/fonts.part /tiles/fonts; mv /tiles/sprites.part /tiles/sprites; mv /tiles/israel.pmtiles.part /tiles/israel.pmtiles; printf protomaps-build={{ protomaps_build }}\\nprotomaps-basemap={{ protomaps_basemap_version }}\\nisrael-tiles-sha256={{ israel_tiles_sha256 }}\\nbasemaps-assets={{ basemaps_assets_commit }}\\nbasemaps-assets-sha256={{ basemaps_assets_sha256 }}\\n > /tiles/BUILD'
+    docker run {{ data_container }} -v "{{ justfile_directory() }}/data:/data" --entrypoint sh {{ caddy_image }} -c 'set -eo pipefail; rm -rf /data/tiles/fonts.part /data/tiles/sprites.part /data/tiles-cut/israel.pmtiles.part; mkdir -p /data/tiles /data/tiles-cut; wget -q -O /tmp/assets.tar.gz https://codeload.github.com/protomaps/basemaps-assets/tar.gz/{{ basemaps_assets_commit }}; h=$(sha256sum /tmp/assets.tar.gz | cut -c1-64); [ $h = {{ basemaps_assets_sha256 }} ] || { echo the fonts archive has sha256 $h, not basemaps_assets_sha256: a moved commit needs it retaken >&2; exit 1; }; tar -xzf /tmp/assets.tar.gz -C /tmp; mkdir /data/tiles/sprites.part; cp -RL /tmp/basemaps-assets-{{ basemaps_assets_commit }}/fonts /data/tiles/fonts.part; cp -L /tmp/basemaps-assets-{{ basemaps_assets_commit }}/sprites/v4/light* /data/tiles/sprites.part/'
+    docker run {{ data_container }} -v "{{ justfile_directory() }}/infra/osrm:/region:ro" -v "{{ justfile_directory() }}/data/tiles-cut:/cut" {{ pmtiles_image }} extract https://build.protomaps.com/{{ protomaps_build }}.pmtiles /cut/israel.pmtiles.part --region=/region/beer-sheva.geojson --quiet
+    docker run {{ data_container }} -v "{{ justfile_directory() }}/data:/data" --entrypoint sh {{ caddy_image }} -c 'set -eo pipefail; h=$(sha256sum /data/tiles-cut/israel.pmtiles.part | cut -c1-64); [ $h = {{ israel_tiles_sha256 }} ] || { rm -rf /data/tiles/fonts.part /data/tiles/sprites.part /data/tiles-cut/israel.pmtiles.part; echo the cut tiles have sha256 $h, not israel_tiles_sha256: a moved build, boundary or pmtiles image needs it retaken >&2; exit 1; }; rm -rf /data/tiles/fonts /data/tiles/sprites; mv /data/tiles/fonts.part /data/tiles/fonts; mv /data/tiles/sprites.part /data/tiles/sprites; mv /data/tiles-cut/israel.pmtiles.part /data/tiles/israel.pmtiles; printf protomaps-build={{ protomaps_build }}\\nprotomaps-basemap={{ protomaps_basemap_version }}\\nisrael-tiles-sha256={{ israel_tiles_sha256 }}\\nbasemaps-assets={{ basemaps_assets_commit }}\\nbasemaps-assets-sha256={{ basemaps_assets_sha256 }}\\n > /data/tiles/BUILD'
 
 # The pins are pasted into the steps' shell commands, and `just name=value data` overrides them, so
 # each must match its own shape before any step runs: a value with a shell character never reaches
