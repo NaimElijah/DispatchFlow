@@ -1,6 +1,6 @@
 # ADR-151: The dev stack runs the core as a Compose service, and the core checks its database session at startup
 
-- **Status:** Accepted; amended by ADR-152
+- **Status:** Accepted; amended by ADR-152 and ADR-156
 - **Date:** 2026-11-27
 
 ## Context

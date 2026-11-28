@@ -72,6 +72,9 @@ def test_given_ports_written_on_the_loopback_when_ports_are_checked_then_none_is
         ({"userns_mode": "host"}, "shares the host's userns_mode"),
         ({"cgroup": "host"}, "shares the host's cgroup"),
         ({"uts": "host"}, "shares the host's uts"),
+        ({"network_mode": "service:postgres"}, "shares the network_mode of service:postgres"),
+        ({"pid": "container:abc"}, "shares the pid of container:abc"),
+        ({"ipc": "service:postgres"}, "shares the ipc of service:postgres"),
         ({"privileged": True}, "runs privileged"),
         ({"cap_add": ["NET_ADMIN"]}, "adds capabilities"),
         ({"devices": [{"source": "/dev/kvm", "target": "/dev/kvm"}]}, "adds devices"),
@@ -79,8 +82,14 @@ def test_given_ports_written_on_the_loopback_when_ports_are_checked_then_none_is
         ({"security_opt": ["apparmor:unconfined"]}, "runs apparmor:unconfined"),
         ({"security_opt": ["systempaths=unconfined"]}, "runs systempaths:unconfined"),
         ({"security_opt": ["label:disable"]}, "runs label:disable"),
+        (
+            {"security_opt": ["no-new-privileges:true", "no-new-privileges:false"]},
+            "runs no-new-privileges:false",
+        ),
+        ({"security_opt": ["seccomp=./permissive.json"]}, "runs seccomp:./permissive.json"),
         ({"user": "root"}, "runs as root"),
         ({"user": "0:0"}, "runs as root"),
+        ({"user": "00:1000"}, "runs as root"),
         ({"volumes": [{"type": "bind", "source": "/var/run/docker.sock"}]}, "Docker's socket"),
         ({"volumes": [{"type": "bind", "source": "/var/run"}]}, "Docker's socket"),
         ({"volumes": [{"type": "bind", "source": "/run/"}]}, "Docker's socket"),
@@ -94,6 +103,15 @@ def test_given_a_service_with_access_to_the_host_when_checked_then_it_is_named(
     problems = check.host_access_problems(services(optimizer=setting))
 
     assert any(named in problem for problem in problems), problems
+
+
+@pytest.mark.parametrize(
+    "setting", [{"ipc": "private"}, {"cgroup": "private"}, {"network_mode": "none"}]
+)
+def test_given_a_namespace_of_its_own_when_host_access_is_checked_then_none_is_named(
+    setting: dict[str, Any],
+) -> None:
+    assert check.host_access_problems(services(optimizer=setting)) == []
 
 
 def test_given_a_non_root_confined_service_when_host_access_is_checked_then_none_is_named() -> None:
@@ -330,10 +348,85 @@ def test_given_a_service_under_another_profile_when_profiles_are_checked_then_it
     ]
 
 
+def test_given_a_service_under_two_other_profiles_when_checked_then_both_are_named() -> None:
+    configuration = services(tiles={"profiles": ["tiles", "maps"]})
+
+    assert check.profile_problems(configuration) == [
+        "tiles is under the tiles, maps profiles, which just dev doesn't start"
+    ]
+
+
 def test_given_services_under_data_or_none_when_profiles_are_checked_then_none_is_named() -> None:
     configuration = services(osrm={"profiles": ["data"]}, core={})
 
     assert check.profile_problems(configuration) == []
+
+
+def test_given_a_service_under_data_and_another_profile_when_checked_then_none_is_named() -> None:
+    """`--profile data` starts a service that any of its profiles names."""
+    configuration = services(tiles={"profiles": ["tiles", "data"]})
+
+    assert check.profile_problems(configuration) == []
+
+
+@pytest.mark.parametrize(
+    "user",
+    [None, "root", "0", "0:1000", "00", "\u0661\u0660", "osrm", "${OSRM_USER:-10001}"],
+)
+def test_given_a_profiled_service_with_no_numeric_non_root_user_when_checked_then_named(
+    user: str | None,
+) -> None:
+    service: dict[str, Any] = {"profiles": ["data"], **HARDENED}
+    if user is not None:
+        service["user"] = user
+
+    assert check.profiled_service_problems(services(osrm=service)) == [
+        "osrm is under a profile but sets no numeric non-root user"
+    ]
+
+
+@pytest.mark.parametrize("dropped", [None, ["NET_RAW"]])
+def test_given_a_profiled_service_keeping_capabilities_when_checked_then_it_is_named(
+    dropped: list[str] | None,
+) -> None:
+    service: dict[str, Any] = {"profiles": ["data"], "user": "10001:10001"}
+    if dropped is not None:
+        service["cap_drop"] = dropped
+
+    assert check.profiled_service_problems(services(osrm=service)) == [
+        "osrm is under a profile but keeps its capabilities"
+    ]
+
+
+@pytest.mark.parametrize(
+    "setting", [{"user": "10001:0"}, {"user": "10001:root"}, {"user": "10001", "group_add": ["0"]}]
+)
+def test_given_a_profiled_service_in_the_root_group_when_checked_then_it_is_named(
+    setting: dict[str, Any],
+) -> None:
+    service = {"profiles": ["data"], **HARDENED, **setting}
+
+    assert check.profiled_service_problems(services(osrm=service)) == [
+        "osrm is under a profile but runs in the root group"
+    ]
+
+
+def test_given_a_hardened_non_root_profiled_service_when_checked_then_none_is_named() -> None:
+    configuration = services(osrm={"profiles": ["data"], "user": "10001:10001", **HARDENED})
+
+    assert check.profiled_service_problems(configuration) == []
+
+
+@pytest.mark.parametrize("profiles", [None, []])
+def test_given_a_service_under_no_profile_when_profiled_services_are_checked_then_it_is_left(
+    profiles: list[str] | None,
+) -> None:
+    """The live checks start such a service, and check its user themselves."""
+    service: dict[str, Any] = {"image": "postgres:18.7"}
+    if profiles is not None:
+        service["profiles"] = profiles
+
+    assert check.profiled_service_problems(services(postgres=service)) == []
 
 
 def test_given_a_named_volume_beside_the_databases_when_volumes_are_checked_then_it_is_named() -> (
@@ -350,8 +443,100 @@ def test_given_a_named_volume_beside_the_databases_when_volumes_are_checked_then
 
 
 def test_given_only_the_databases_volume_when_volumes_are_checked_then_none_is_named() -> None:
-    assert check.volume_problems({"services": {}, "volumes": {"postgres-data": {}}}) == []
+    configuration: check.Configuration = {
+        "services": {"postgres": {"volumes": [{"type": "volume", "source": "postgres-data"}]}},
+        "volumes": {"postgres-data": {}},
+    }
+
+    assert check.volume_problems(configuration) == []
+
+
+def test_given_an_external_volume_when_volumes_are_checked_then_none_is_named() -> None:
+    """`down --volumes` leaves a volume the file only uses."""
+    configuration: check.Configuration = {
+        "services": {},
+        "volumes": {"postgres-data": {}, "tiles-cache": {"name": "tiles", "external": True}},
+    }
+
+    assert check.volume_problems(configuration) == []
+
+
+def test_given_another_service_mounting_the_databases_volume_when_checked_then_it_is_named() -> (
+    None
+):
+    configuration: check.Configuration = {
+        "services": {
+            "postgres": {"volumes": [{"type": "volume", "source": "postgres-data"}]},
+            "osrm": {"volumes": [{"type": "volume", "source": "postgres-data"}]},
+        },
+        "volumes": {"postgres-data": {"name": "dispatchflow_postgres-data"}},
+    }
+
+    assert check.database_volume_problems(configuration) == [
+        "osrm mounts the database's volume, which only postgres may"
+    ]
+
+
+def test_given_another_key_naming_the_databases_volume_when_checked_then_it_is_named() -> None:
+    """An external key is exempt from the db-reset rule, so it could reach the database's files."""
+    configuration: check.Configuration = {
+        "services": {},
+        "volumes": {
+            "postgres-data": {"name": "dispatchflow_postgres-data"},
+            "tiles-cache": {"name": "dispatchflow_postgres-data", "external": True},
+        },
+    }
+
+    assert check.database_volume_problems(configuration) == [
+        "the file names the database's volume again, as tiles-cache"
+    ]
+
+
+def test_given_a_service_taking_volumes_from_another_when_checked_then_it_is_named() -> None:
+    configuration: check.Configuration = {
+        "services": {
+            "postgres": {"volumes": [{"type": "volume", "source": "postgres-data"}]},
+            "backup": {"volumes_from": ["postgres"]},
+        },
+        "volumes": {"postgres-data": {"name": "dispatchflow_postgres-data"}},
+    }
+
+    assert check.database_volume_problems(configuration) == [
+        "backup takes another container's volumes through volumes_from"
+    ]
+
+
+def test_given_only_postgres_mounting_the_databases_volume_when_checked_then_none_is_named() -> (
+    None
+):
+    configuration: check.Configuration = {
+        "services": {"postgres": {"volumes": [{"type": "volume", "source": "postgres-data"}]}},
+        "volumes": {
+            "postgres-data": {"name": "dispatchflow_postgres-data"},
+            "tiles-cache": {"name": "tiles", "external": True},
+        },
+    }
+
+    assert check.database_volume_problems(configuration) == []
+
+
+def test_given_no_volume_at_all_when_volumes_are_checked_then_none_is_named() -> None:
     assert check.volume_problems({"services": {}}) == []
+
+
+def test_given_a_service_mounting_an_anonymous_volume_when_checked_then_it_is_named() -> None:
+    """Compose resolves a bare `- /data` to a volume with no source."""
+    service = {
+        "volumes": [
+            {"type": "volume", "target": "/data", "volume": {}},
+            {"type": "bind", "source": "/srv/osrm", "target": "/srv"},
+            {"type": "tmpfs", "target": "/tmp"},
+        ]
+    }
+
+    assert check.volume_problems(services(osrm=service)) == [
+        "osrm mounts an anonymous volume at /data, which just db-reset would delete"
+    ]
 
 
 def test_given_a_stack_breaking_every_rule_when_checked_statically_then_each_rule_is_named() -> (
@@ -362,15 +547,24 @@ def test_given_a_stack_breaking_every_rule_when_checked_statically_then_each_rul
     resolved = {
         "services": {
             "postgres": {"image": "postgres:18.6", "command": ["postgres"], **HARDENED},
-            "migrate": {"depends_on": {"postgres": {"condition": "service_healthy"}}, **HARDENED},
+            "migrate": {
+                "depends_on": {"postgres": {"condition": "service_healthy"}},
+                "volumes": [{"type": "volume", "target": "/cache", "volume": {}}],
+                **HARDENED,
+            },
             "core": {
                 "ports": [{"published": "8080", "target": 8080}],
                 "privileged": True,
                 "build": {"context": "."},
                 "environment": {"SPRING_DATASOURCE_PASSWORD": throwaway},
                 "depends_on": {"migrate": {"condition": "service_started"}},
+                "volumes": [{"type": "volume", "source": "postgres-data"}],
             },
-            "osrm": {"profiles": ["osrm"], **HARDENED},
+            "osrm": {
+                "profiles": ["osrm"],
+                "user": "10001",
+                "security_opt": ["no-new-privileges:true"],
+            },
         },
         "secrets": {"owner": {"environment": "DISPATCHFLOW_OWNER_PASSWORD"}},
         "volumes": {"postgres-data": {}, "osrm-data": {}},
@@ -379,6 +573,7 @@ def test_given_a_stack_breaking_every_rule_when_checked_statically_then_each_rul
         postgres={},
         migrate={},
         core={"env_file": [{"path": ".env"}], "environment": ["DISPATCHFLOW_NEW_TOKEN"]},
+        osrm={"profiles": ["osrm"], "user": "${OSRM_USER:-10001}", **HARDENED},
     )
     sources = check.Sources(
         compose_text="  P: ${POSTGRES_PASSWORD:?x}\n",
@@ -409,7 +604,11 @@ def test_given_a_stack_breaking_every_rule_when_checked_statically_then_each_rul
         "Dockerfile.dev's Node major differs",
         "the stack's postgres command differs",
         "osrm is under the osrm profile",
+        "osrm is under a profile but keeps its capabilities",
+        "osrm is under a profile but sets no numeric non-root user",
         "the named volume osrm-data",
+        "migrate mounts an anonymous volume at /cache",
+        "core mounts the database's volume",
     ]:
         assert named in problems, named
 

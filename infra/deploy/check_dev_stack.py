@@ -1,12 +1,13 @@
-"""Checks infra/deploy/compose.dev.yaml, as `just infra-check` runs it (ADR-151, ADR-152).
+"""Checks infra/deploy/compose.dev.yaml, as `just infra-check` runs it (ADR-151, ADR-152, ADR-156).
 
 The static checks read the file as Compose resolves it, with every profile, .env.example's keys and
 a throwaway value for each secret, never a developer's own infra/deploy/.env or exported settings:
 
 - every published port binds 127.0.0.1, written so rather than through a variable, and no service
-  shares a host namespace, runs privileged or unconfined, adds a capability or a device, sets a root
-  user, or mounts Docker's socket or infra/deploy/.env, so the stand-in session answers nobody off
-  the laptop (ADR-019, ADR-140 decision 4);
+  shares a namespace of the host or of another container, runs privileged or with a security
+  option but no-new-privileges, adds a capability or a device, sets a root user, or mounts
+  Docker's socket or infra/deploy/.env, so the stand-in session answers nobody off the laptop
+  (ADR-019, ADR-140 decision 4);
 - every service gains no privilege, and each one built from our own images drops every capability;
 - each service holds only its own secrets, and no service reads an env file or a Compose secret or
   config, which the holder rule can't follow: the core never sees the owner's password (ADR-041,
@@ -14,8 +15,12 @@ a throwaway value for each secret, never a developer's own infra/deploy/.env or 
   name the services that may hold it in SECRET_HOLDERS;
 - .env.example lists every key the file reads;
 - the core waits for the migrate step to succeed, and the migrate step for PostgreSQL to be healthy;
-- every service under a profile is under `data`, the one `just dev` starts, and the database's is
-  the only named volume, since `just db-reset` runs `down --volumes`, which deletes every one;
+- every service under a profile is under `data`, the one `just dev` starts, and sets a numeric
+  non-root user outside the root group and drops every capability, since the live checks below
+  never start it;
+- the database's is the only named volume the file creates, and no service mounts an anonymous
+  one, since `just db-reset` runs `down --volumes`, which deletes both; only postgres mounts the
+  database's volume, and no other key names it again (ADR-145);
 - the stack's PostgreSQL tag and server settings are the tests', and its Node major is .nvmrc's.
 
 With ``--live``, the whole stack then starts in a project of its own, with a random name and no port
@@ -82,15 +87,11 @@ COMPOSE_SETTINGS_PREFIX = "COMPOSE_"
 # The services that run the core's image, which the live check tags with its own project's name.
 CORE_IMAGE_SERVICES = ("migrate", "core")
 
-# Namespaces a service may not share with the host, and the confinements it may not drop.
+# Namespaces a service may share with neither the host nor another container, and the values that
+# would share one with another container.
 HOST_NAMESPACES = ("network_mode", "pid", "ipc", "userns_mode", "cgroup", "uts")
-UNCONFINED = (
-    "seccomp:unconfined",
-    "apparmor:unconfined",
-    "systempaths:unconfined",
-    "label:disable",
-)
-ROOT_USERS = ("root", "0")
+ROOT_NAME = "root"
+SHARED_NAMESPACE_PREFIXES = ("service:", "container:")
 ROOT_UID = "0"
 DOCKER_SOCKETS = ("/var/run/docker.sock", "/run/docker.sock")
 NO_NEW_PRIVILEGES = "no-new-privileges:true"
@@ -99,9 +100,15 @@ ALL_CAPABILITIES = "ALL"
 # The one profile `just dev` starts, for the services whose files git ignores (ADR-152, #172).
 DEV_PROFILES = frozenset({"data"})
 
-# The stack's only named volume. `just db-reset` runs `down --volumes`, which deletes every named
-# volume, so any other service keeps its data in a bind mount of a folder git ignores (#172).
+# The only volume the stack creates. `just db-reset` runs `down --volumes`, which deletes every
+# named volume the file creates and every anonymous one, so any other service keeps its data in a
+# bind mount of a folder git ignores (ADR-156).
 NAMED_VOLUMES = frozenset({"postgres-data"})
+
+# The database's volume, and the one service that may mount it: any other could read or change
+# the database's files past its roles (ADR-145).
+DATABASE_VOLUME = "postgres-data"
+DATABASE_SERVICE = "postgres"
 
 # The start order ADR-041 and ADR-145 require: (service, the service it waits for, the condition).
 START_ORDER = (
@@ -357,7 +364,10 @@ def static_problems(
         *credential_problems(resolved, written, secret_values),
         *start_order_problems(resolved),
         *profile_problems(resolved),
+        *profiled_service_problems(resolved),
+        *profiled_service_problems(written),
         *volume_problems(resolved),
+        *database_volume_problems(resolved),
         *unlisted_keys(keys, sources.env_example_text),
         *unmapped_secrets(keys),
         *tag_problems(
@@ -410,11 +420,11 @@ def host_access_problems(configuration: Configuration) -> list[str]:
     """Each setting that would hand a container the host, root's powers on it, or a password."""
     problems = []
     for name, service in configuration["services"].items():
-        problems += [
-            f"{name} shares the host's {key}"
-            for key in HOST_NAMESPACES
-            if service.get(key) == "host"
-        ]
+        for key in HOST_NAMESPACES:
+            if service.get(key) == "host":
+                problems.append(f"{name} shares the host's {key}")
+            elif str(service.get(key, "")).startswith(SHARED_NAMESPACE_PREFIXES):
+                problems.append(f"{name} shares the {key} of {service[key]}")
         if service.get("privileged"):
             problems.append(f"{name} runs privileged")
         if service.get("cap_add"):
@@ -423,9 +433,9 @@ def host_access_problems(configuration: Configuration) -> list[str]:
             problems.append(f"{name} adds devices")
         problems += [
             f"{name} runs {option}"
-            for option in sorted(security_options(service) & set(UNCONFINED))
+            for option in sorted(security_options(service) - {NO_NEW_PRIVILEGES})
         ]
-        if str(service.get("user", "")).split(":")[0] in ROOT_USERS:
+        if is_root(user_of(service)):
             problems.append(f"{name} runs as root")
         for volume in service.get("volumes", []):
             source = str(volume.get("source", ""))
@@ -434,6 +444,28 @@ def host_access_problems(configuration: Configuration) -> list[str]:
             if volume.get("type") == "bind" and exposes_env_file(source):
                 problems.append(f"{name} mounts infra/deploy/.env")
     return problems
+
+
+def user_of(service: Configuration) -> str:
+    """The user part of a service's `user:`, before any group: a name, a number, or empty."""
+    return str(service.get("user", "")).split(":")[0]
+
+
+def groups_of(service: Configuration) -> list[str]:
+    """The groups a service runs in: the part of `user:` after the colon, and `group_add`."""
+    user = str(service.get("user", ""))
+    primary = [user.split(":", 1)[1]] if ":" in user else []
+    return primary + [str(group) for group in service.get("group_add", [])]
+
+
+def is_number(user: str) -> bool:
+    """Whether a user is written as a number, in ASCII digits as Docker reads one."""
+    return user.isascii() and user.isdigit()
+
+
+def is_root(user: str) -> bool:
+    """Whether a user is root, by name or by a number however it is written, such as `00`."""
+    return user == ROOT_NAME or (is_number(user) and int(user) == 0)
 
 
 def hardening_problems(configuration: Configuration) -> list[str]:
@@ -491,22 +523,86 @@ def start_order_problems(configuration: Configuration) -> list[str]:
 
 
 def profile_problems(configuration: Configuration) -> list[str]:
-    """Each service under a profile `just dev` doesn't start, so that it would never run."""
+    """Each service under profiles none of which `just dev` starts, so that it would never run."""
     return [
-        f"{name} is under the {profile} profile, which just dev doesn't start"
+        f"{name} is under the {', '.join(profiles)} profile{'s' if len(profiles) > 1 else ''},"
+        " which just dev doesn't start"
         for name, service in configuration["services"].items()
-        for profile in service.get("profiles", [])
-        if profile not in DEV_PROFILES
+        if (profiles := service.get("profiles", [])) and DEV_PROFILES.isdisjoint(profiles)
     ]
+
+
+def profiled_service_problems(configuration: Configuration) -> list[str]:
+    """Each service under a profile that may run as root or keep a capability.
+
+    The live checks start no service under a profile, so the static rules are all that hold one to
+    ADR-019: a user given by name could still be root inside the image, so only a number counts.
+    Run on the file as written too, where a `user:` given through a variable isn't a number, since
+    a developer's own infra/deploy/.env could set that variable to 0.
+    """
+    problems = []
+    for name, service in configuration["services"].items():
+        if not service.get("profiles"):
+            continue
+        user = user_of(service)
+        if not is_number(user) or is_root(user):
+            problems.append(f"{name} is under a profile but sets no numeric non-root user")
+        if any(is_root(group) for group in groups_of(service)):
+            problems.append(f"{name} is under a profile but runs in the root group")
+        if ALL_CAPABILITIES not in service.get("cap_drop", []):
+            problems.append(f"{name} is under a profile but keeps its capabilities")
+    return problems
 
 
 def volume_problems(configuration: Configuration) -> list[str]:
-    """Each named volume but the database's, which `just db-reset` would delete with it."""
-    return [
+    """Each volume but the database's that `just db-reset` would delete with it.
+
+    That is any other named volume the file creates, and any anonymous one a service mounts:
+    `down --volumes` removes both, and leaves an external volume, which the file only uses. An
+    anonymous volume that an image declares with `VOLUME` shows in neither, so the file's rules ask
+    a service to mount its own folder over it.
+    """
+    problems = [
         f"the file declares the named volume {name}, which just db-reset would delete"
-        for name in configuration.get("volumes", {})
-        if name not in NAMED_VOLUMES
+        for name, volume in configuration.get("volumes", {}).items()
+        if name not in NAMED_VOLUMES and not volume.get("external")
     ]
+    problems += [
+        f"{name} mounts an anonymous volume at {volume.get('target')}, which just db-reset would"
+        " delete"
+        for name, service in configuration["services"].items()
+        for volume in service.get("volumes", [])
+        if volume.get("type") == "volume" and not volume.get("source")
+    ]
+    return problems
+
+
+def database_volume_problems(configuration: Configuration) -> list[str]:
+    """Each way to the database's files but its own service's mount (ADR-145).
+
+    That is another service mounting the volume, another key, external or not, that names the
+    same volume Compose resolves the database's to, and any service that takes another one's
+    volumes through `volumes_from`.
+    """
+    volumes = configuration.get("volumes", {})
+    database = volumes.get(DATABASE_VOLUME, {}).get("name")
+    problems = [
+        f"the file names the database's volume again, as {key}"
+        for key, volume in volumes.items()
+        if key != DATABASE_VOLUME and database and volume.get("name") == database
+    ]
+    problems += [
+        f"{name} mounts the database's volume, which only {DATABASE_SERVICE} may"
+        for name, service in configuration["services"].items()
+        for volume in service.get("volumes", [])
+        if volume.get("source") == DATABASE_VOLUME and name != DATABASE_SERVICE
+    ]
+    problems += [
+        f"{name} takes another container's volumes through volumes_from"
+        for name, service in configuration["services"].items()
+        if service.get("volumes_from")
+    ]
+    return problems
 
 
 def variables_read(compose_text: str) -> dict[str, bool]:

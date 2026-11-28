@@ -314,7 +314,9 @@ each service with only its own credentials and every port bound to `127.0.0.1`. 
 `vite.config.ts` proxies `/api/` to the core, keeping the browser's `Host` and `Sec-Fetch-Site`.
 `just dev` starts the stack and waits until every service is healthy and the migrate step has
 finished, then Compose Watch copies edits into the web app and the optimizer; `just dev-down`
-stops it, and `just db-reset` also deletes its database, the stack's only named volume.
+stops it, and `just db-reset` also deletes its database, the stack's only named volume, which
+every checkout of the repository shares
+([ADR-156](../ADRs/ADR-156-just-dev-waits-for-a-healthy-stack-then-watches-and-the-stack-outlives-the-watch.md)).
 `just infra-check` validates the file and starts the whole stack in a throwaway project, in
 `just check` and CI. At startup the core's `DatabaseSessionGuard` refuses a
 session that logged in as another role and switched, a database role with an attribute that
