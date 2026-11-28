@@ -27,8 +27,8 @@ function writtenForm(typed: string): string {
  * field's check and never wipes a refusal the server gave. The server parses the number again and
  * is the authority on it (FR-377, TS §10).
  *
- * It asks for no autofill: `tel` means the user's own number, so the browser would offer the
- * dispatcher's own in a customer's field, and would keep the customers' it was given.
+ * It asks for no autofill, inside a form or out of one: `tel` means the user's own number, so the
+ * browser would offer the dispatcher's own in a customer's field, and keep the customers' it saw.
  */
 export function PhoneField<TValues extends FieldValues, TParsed = TValues>({
   control,
@@ -53,6 +53,7 @@ export function PhoneField<TValues extends FieldValues, TParsed = TValues>({
       }}
       type="tel"
       inputMode="tel"
+      autoComplete="off"
       dir="ltr"
       label={label}
       description={description}

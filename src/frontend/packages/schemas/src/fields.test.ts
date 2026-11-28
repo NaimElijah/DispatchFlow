@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'vitest'
-import { z } from 'zod'
+import { z } from './zod.ts'
 import {
   choice,
   durationMinutes,
   localDate,
+  optionalNumber,
   optionalPhoneNumber,
   optionalText,
   optionalTimeWindow,
@@ -98,6 +99,16 @@ describe('dates and times', () => {
     ])
   })
 
+  test('GivenAWindowWithOneEndReadWithSeconds_WhenChecked_ThenItsEndsCompareAsTimes', () => {
+    // A record read from the API may carry seconds, which the time field keeps until it changes.
+    const endsWhenItStarts = [{ path: '', code: 'INVALID_TIME_WINDOW', params: {} }]
+    expect(refusalsOf(timeWindow, { start: '09:30', end: '09:30:00' })).toEqual(endsWhenItStarts)
+    expect(refusalsOf(optionalTimeWindow, { start: '09:30', end: '09:30:00' })).toEqual(
+      endsWhenItStarts,
+    )
+    expect(refusalsOf(timeWindow, { start: '09:30:00', end: '09:31' })).toEqual([])
+  })
+
   test('GivenAWindowWithoutItsStart_WhenChecked_ThenTheStartIsRequired', () => {
     expect(refusalsOf(timeWindow, { start: '', end: '08:00' })).toEqual([
       { path: 'start', code: 'REQUIRED', params: {} },
@@ -162,6 +173,21 @@ describe('numbers', () => {
     expect(refusalsOf(wholeNumber(1, 5), 5)).toEqual([])
   })
 
+  test('GivenAnOptionalNumberLeftEmpty_WhenParsed_ThenItIsAcceptedAndLeftOutOfTheBody', () => {
+    // `null` is what the number field holds once its box is emptied; `undefined`, before any typing.
+    for (const empty of [null, undefined]) {
+      expect(refusalsOf(optionalNumber(durationMinutes), empty), String(empty)).toEqual([])
+      expect(optionalNumber(durationMinutes).parse(empty), String(empty)).toBeUndefined()
+    }
+  })
+
+  test('GivenAnOptionalNumberFilledIn_WhenChecked_ThenItsBlocksChecksStillApply', () => {
+    expect(refusalsOf(optionalNumber(durationMinutes), 0)).toEqual([
+      { path: '', code: 'TOO_SMALL', params: { min: 1 } },
+    ])
+    expect(optionalNumber(durationMinutes).parse(15)).toBe(15)
+  })
+
   test('GivenADurationOfNoMinutes_WhenChecked_ThenItIsTooSmall', () => {
     expect(refusalsOf(durationMinutes, 0)).toEqual([
       { path: '', code: 'TOO_SMALL', params: { min: 1 } },
@@ -175,6 +201,10 @@ describe('phones', () => {
     for (const value of ['050-123-4567', '0501234567', '+972501234567', '02-6234567']) {
       expect(refusalsOf(phoneNumber, value), value).toEqual([])
     }
+  })
+
+  test('GivenAForeignNumberInItsInternationalForm_WhenChecked_ThenItIsAccepted', () => {
+    expect(refusalsOf(phoneNumber, '+44 20 7946 0958')).toEqual([])
   })
 
   test('GivenTextsThatAreNotPhoneNumbers_WhenChecked_ThenEachIsRefusedAsAPhoneNumber', () => {

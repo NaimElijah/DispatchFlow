@@ -101,7 +101,8 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-089](ADR-089-interface-languages.md) | Both apps are available in Hebrew, right to left, and in English only | Accepted; extended by ADR-143 |
 | [ADR-143](ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md) | The web app's shell declares routes per area, opens in English, and renders no `<style>` element | Accepted; extended by ADR-153; amended by ADR-144 |
 | [ADR-144](ADR-144-the-web-apps-features-stay-apart-and-its-lower-folders-never-import-upward.md) | The web app's features stay apart, its lower folders never import upward, and sign-in stands beside the shell | Accepted; extended by ADR-153 |
-| [ADR-153](ADR-153-the-web-apps-shared-form-refusal-and-table-pieces.md) | The web app builds every form, refusal and row list from one set of shared pieces, and its schemas name codes, never messages | Accepted |
+| [ADR-153](ADR-153-the-web-apps-shared-form-refusal-and-table-pieces.md) | The web app builds every form, refusal and row list from one set of shared pieces, and its schemas name codes, never messages | Accepted; amended by ADR-154 |
+| [ADR-154](ADR-154-the-audit-of-the-shared-web-pieces-amends-how-a-call-fails-a-notice-closes-and-a-range-reads.md) | The audit of the web app's shared pieces amends how a call fails, how a saved notice closes and how a time range reads | Accepted |
 | [ADR-090](ADR-090-scope-cuts-for-the-first-release.md) | The first release cuts ten capabilities, and each has its own trigger to reopen | Accepted |
 | [ADR-091](ADR-091-study-design-for-the-solver-comparison.md) | The solver comparison follows eleven fixed design choices, and a mutation run checks the validator first | Accepted |
 | [ADR-092](ADR-092-the-alns-package-runs-our-solvers-outer-loop.md) | The `alns` package runs our solver's outer loop, and the rest of the solver stays ours | Accepted |
@@ -307,4 +308,14 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > a refusal shows on its field and the rest in a summary that takes focus; the time of day is
 > Mantine's 24-hour picker, and Day.js is only its peer; and @hookform/resolvers and user-event
 > come in beside the libraries the tech stack named.
+>
+> ADR-154, on 2026-11-27, amends ADR-153 after an audit of the merged pieces: Zod never compiles
+> code, which ADR-069's policy refuses, and the web app takes it from `@dispatchflow/schemas`; only
+> fetch and the answer's body decide that a call failed on the way; reads and writes read their
+> answers one way, a failed read never says a change may be stored, and only a read that failed on
+> the way is tried again; the form records its resets, field by field, for its time fields; a saved
+> notice that offers an action stays until closed, returns focus and names no person; a time range
+> reads left to right in both languages; an optional number has its own block; focus on a refusal
+> follows reading order, a window's included; a table's default cell writes text only; a screen
+> sends the newest version it knows; and the web tests run in New York's zone.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.

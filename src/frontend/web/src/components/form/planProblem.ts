@@ -1,5 +1,5 @@
 import type { FieldPath, FieldValues } from 'react-hook-form'
-import { z } from 'zod'
+import { z } from '@dispatchflow/schemas'
 import type { Problem, ProblemItem } from '../../lib/problems.ts'
 
 /**

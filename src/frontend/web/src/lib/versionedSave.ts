@@ -1,5 +1,5 @@
 import { useMutation, type UseMutationResult } from '@tanstack/react-query'
-import { RequestError, toRequestFailure } from './problems.ts'
+import { answerOf, type Answer, type SendResult } from './coreCalls.ts'
 
 /**
  * The precondition a versioned write sends: the version the view was read at, as its `ETag`
@@ -16,25 +16,9 @@ export function preconditionHeaders(etag: string | null): Readonly<Record<string
   return etag === null ? { 'If-None-Match': '*' } : { 'If-Match': etag }
 }
 
-/**
- * What a call sends back, in openapi-fetch's shape, so the generated client's call (#148) is a
- * `send` as it stands: `data` on a success, the parsed `error` body otherwise, and the answer.
- */
-export interface SendResult<TData> {
-  readonly response: Response
-  readonly data?: TData
-  readonly error?: unknown
-}
-
 /** One versioned write: the body, and the `ETag` of the view it changes, or `null` for none yet. */
 export interface SaveRequest<TBody> {
   readonly body: TBody
-  readonly etag: string | null
-}
-
-/** A stored change: what the core answered, and the record's new `ETag`, for the next write. */
-export interface Saved<TData> {
-  readonly data: TData | undefined
   readonly etag: string | null
 }
 
@@ -42,55 +26,42 @@ export interface Saved<TData> {
 export interface VersionedSaveOptions<TBody, TData> {
   /**
    * Sends the body with the precondition headers. It is the only part that knows the operation:
-   * once `@dispatchflow/api-client` exists, it is that client's call (TS §10).
+   * once the generated client exists, it is that client's call (#148, TS §10). It fetches through
+   * `fetchFromCore`, as the web app's client will, so a call that failed on the way rejects with a
+   * `RequestError`; anything else it throws is a bug, and the save fails with it as it is.
    */
   readonly send: (
     body: TBody,
     headers: Readonly<Record<string, string>>,
   ) => Promise<SendResult<TData>>
   /**
-   * Called once a write is stored, with what it stored, such as to show a notification. It must not
-   * throw: the write is stored, and the mutation would report the throw as the save's failure.
+   * Called once a write is stored, with the core's answer and the record's new `ETag`, such as to
+   * keep the version and show a notification. It must not throw: the write is stored, and the
+   * mutation would report the throw as the save's failure.
    */
-  readonly onSaved?: (saved: Saved<TData>, request: SaveRequest<TBody>) => void
+  readonly onSaved?: (saved: Answer<TData>, request: SaveRequest<TBody>) => void
 }
 
 /**
  * A versioned write as a TanStack Query mutation: `mutate({ body, etag })` sends the body with the
  * view's version (BR-76), and resolves to the core's answer and the record's new `ETag`.
  *
- * A failure rejects with a {@link RequestError} whose `failure` says what the screen shows. Nothing
- * is ever sent twice on its own: a stale or refused write needs the user, and after an unexpected
- * one the change may already be stored. The mutation runs whether or not the browser thinks it is
- * online, so a lost connection fails at once and says so, rather than leaving the save pending.
+ * A failed call rejects with a `RequestError` whose `failure` says what the screen shows, and a
+ * bug in `send` rejects as itself, so the error is typed as any `Error`. Nothing is ever sent twice
+ * on its own: a stale or refused write needs the user, and after an unexpected one the change may
+ * already be stored. The mutation runs whether or not the browser thinks it is online, so a lost
+ * connection fails at once and says so, rather than leaving the save pending.
  */
 export function useVersionedSave<TBody, TData = unknown>({
   send,
   onSaved,
 }: VersionedSaveOptions<TBody, TData>): UseMutationResult<
-  Saved<TData>,
-  RequestError,
+  Answer<TData>,
+  Error,
   SaveRequest<TBody>
 > {
-  return useMutation<Saved<TData>, RequestError, SaveRequest<TBody>>({
-    mutationFn: async ({ body, etag }) => {
-      let result: SendResult<TData>
-      try {
-        result = await send(body, preconditionHeaders(etag))
-      } catch (error) {
-        // fetch rejects with a TypeError, and only a TypeError, when no answer arrived. Anything else
-        // `send` throws is a bug, and fails loudly as itself.
-        if (error instanceof TypeError) {
-          throw new RequestError({ kind: 'network' }, { cause: error })
-        }
-        throw error
-      }
-      const { response, data, error } = result
-      if (!response.ok) {
-        throw new RequestError(toRequestFailure(response, error))
-      }
-      return { data, etag: response.headers.get('ETag') }
-    },
+  return useMutation<Answer<TData>, Error, SaveRequest<TBody>>({
+    mutationFn: async ({ body, etag }) => answerOf(await send(body, preconditionHeaders(etag))),
     onSuccess: onSaved,
     retry: false,
     networkMode: 'always',

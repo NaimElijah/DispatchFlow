@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { z } from 'zod'
+import { z } from './zod.ts'
 import { exampleSchema } from './example.ts'
 import { refusalOf } from './refusals.ts'
 

@@ -3,15 +3,16 @@ import { onlineManager } from '@tanstack/react-query'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw/http'
-import { describe, expect, test, vi } from 'vitest'
+import { describe, expect, onTestFinished, test, vi } from 'vitest'
 import { z } from 'zod'
-import { useVersionedSave, type Saved } from '../../lib/versionedSave.ts'
+import type { Answer } from '../../lib/coreCalls.ts'
+import { useVersionedSave } from '../../lib/versionedSave.ts'
 import { renderComponent } from '../../test/renderComponent.tsx'
 import { sendJson } from '../../test/sendJson.ts'
 import { ExampleForm } from '../../test/ExampleForm.tsx'
 import { EXAMPLE_PATH } from '../../test/exampleFormData.ts'
 import { server } from '../../test/server.ts'
-import { notifySaved } from '../notifySaved.ts'
+import { useNotifySaved } from '../useNotifySaved.ts'
 import { NumberField } from './fields/NumberField.tsx'
 import { PhoneField } from './fields/PhoneField.tsx'
 import { TextField } from './fields/TextField.tsx'
@@ -29,15 +30,16 @@ interface ContactFormProps {
   /** The `ETag` the view was read with, or `null` for none yet. */
   readonly etag: string | null
   readonly onReload?: () => void
-  readonly onSaved?: (saved: Saved<unknown>) => void
+  readonly onSaved?: (saved: Answer<unknown>) => void
 }
 
 function ContactForm({ etag, onReload, onSaved }: ContactFormProps) {
   const form = useSchemaForm(contactSchema, { defaultValues: { name: '', phone: '' } })
+  const notifySaved = useNotifySaved()
   const save = useVersionedSave({
     send: (body, headers) => sendJson('PUT', CONTACT_PATH, body, headers),
     onSaved: (saved) => {
-      notifySaved('The contact is saved.')
+      notifySaved({ text: 'The contact is saved.' })
       onSaved?.(saved)
     },
   })
@@ -312,6 +314,8 @@ describe('SchemaForm', () => {
     const held = new Promise<void>((resolve) => {
       release = resolve
     })
+    // Lets the held answer go however the test ends, so a failure reads as itself.
+    onTestFinished(() => release())
     const requests: Request[] = []
     server.use(
       http.put(CONTACT_PATH, async ({ request }) => {
@@ -331,6 +335,37 @@ describe('SchemaForm', () => {
     expect(await screen.findByText('The contact is saved.')).toBeDefined()
     expect(requests).toHaveLength(1)
     await waitFor(() => expect(button.getAttribute('aria-busy')).toBe('false'))
+  })
+
+  test('GivenASaveOnItsWay_WhenTheSaveButtonIsPressedByKeyboard_ThenItKeepsFocusAndNothingMoreIsSent', async () => {
+    const user = userEvent.setup()
+    let release: () => void = () => undefined
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    onTestFinished(() => release())
+    const requests: Request[] = []
+    server.use(
+      http.put(CONTACT_PATH, async ({ request }) => {
+        requests.push(request)
+        await held
+        return new HttpResponse(null, { status: 204, headers: { ETag: '"4"' } })
+      }),
+    )
+    renderComponent(<ContactForm etag='"3"' />)
+
+    await fillAndSave(user)
+    const button = screen.getByRole('button', { name: 'Save' })
+    await waitFor(() => expect(button.getAttribute('aria-busy')).toBe('true'))
+    // A disabled button would drop a keyboard user's focus to the page.
+    expect(button).toHaveProperty('disabled', false)
+    button.focus()
+    await user.keyboard('{Enter}')
+
+    expect(document.activeElement).toBe(button)
+    release()
+    expect(await screen.findByText('The contact is saved.')).toBeDefined()
+    expect(requests).toHaveLength(1)
   })
 
   test('GivenTheBrowserOffline_WhenSaving_ThenTheUserIsToldAtOnceThatTheServerCouldNotBeReached', async () => {
@@ -355,6 +390,8 @@ describe('SchemaForm', () => {
     const held = new Promise<void>((resolve) => {
       release = resolve
     })
+    // Lets the held answer go however the test ends, so a failure reads as itself.
+    onTestFinished(() => release())
     const requests: Request[] = []
     server.use(
       http.put(CONTACT_PATH, async ({ request }) => {

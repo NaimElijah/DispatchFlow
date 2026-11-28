@@ -14,6 +14,8 @@ a throwaway value for each secret, never a developer's own infra/deploy/.env or 
   name the services that may hold it in SECRET_HOLDERS;
 - .env.example lists every key the file reads;
 - the core waits for the migrate step to succeed, and the migrate step for PostgreSQL to be healthy;
+- every service under a profile is under `data`, the one `just dev` starts, and the database's is
+  the only named volume, since `just db-reset` runs `down --volumes`, which deletes every one;
 - the stack's PostgreSQL tag and server settings are the tests', and its Node major is .nvmrc's.
 
 With ``--live``, the whole stack then starts in a project of its own, with a random name and no port
@@ -93,6 +95,13 @@ ROOT_UID = "0"
 DOCKER_SOCKETS = ("/var/run/docker.sock", "/run/docker.sock")
 NO_NEW_PRIVILEGES = "no-new-privileges:true"
 ALL_CAPABILITIES = "ALL"
+
+# The one profile `just dev` starts, for the services whose files git ignores (ADR-152, #172).
+DEV_PROFILES = frozenset({"data"})
+
+# The stack's only named volume. `just db-reset` runs `down --volumes`, which deletes every named
+# volume, so any other service keeps its data in a bind mount of a folder git ignores (#172).
+NAMED_VOLUMES = frozenset({"postgres-data"})
 
 # The start order ADR-041 and ADR-145 require: (service, the service it waits for, the condition).
 START_ORDER = (
@@ -347,6 +356,8 @@ def static_problems(
         *hardening_problems(resolved),
         *credential_problems(resolved, written, secret_values),
         *start_order_problems(resolved),
+        *profile_problems(resolved),
+        *volume_problems(resolved),
         *unlisted_keys(keys, sources.env_example_text),
         *unmapped_secrets(keys),
         *tag_problems(
@@ -477,6 +488,25 @@ def start_order_problems(configuration: Configuration) -> list[str]:
         if waits.get("condition") != condition:
             problems.append(f"{service} does not wait for {dependency} to be {condition}")
     return problems
+
+
+def profile_problems(configuration: Configuration) -> list[str]:
+    """Each service under a profile `just dev` doesn't start, so that it would never run."""
+    return [
+        f"{name} is under the {profile} profile, which just dev doesn't start"
+        for name, service in configuration["services"].items()
+        for profile in service.get("profiles", [])
+        if profile not in DEV_PROFILES
+    ]
+
+
+def volume_problems(configuration: Configuration) -> list[str]:
+    """Each named volume but the database's, which `just db-reset` would delete with it."""
+    return [
+        f"the file declares the named volume {name}, which just db-reset would delete"
+        for name in configuration.get("volumes", {})
+        if name not in NAMED_VOLUMES
+    ]
 
 
 def variables_read(compose_text: str) -> dict[str, bool]:

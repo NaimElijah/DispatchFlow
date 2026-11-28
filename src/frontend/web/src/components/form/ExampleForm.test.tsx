@@ -1,7 +1,8 @@
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw/http'
-import { describe, expect, test } from 'vitest'
+import { useState } from 'react'
+import { describe, expect, onTestFinished, test, vi } from 'vitest'
 import { ExampleForm } from '../../test/ExampleForm.tsx'
 import { EXAMPLE_PATH, EXAMPLE_STRINGS } from '../../test/exampleFormData.ts'
 import { renderComponent } from '../../test/renderComponent.tsx'
@@ -17,6 +18,30 @@ function answerSaves(): Request[] {
     }),
   )
   return requests
+}
+
+/** Fills in every field the example requires, by mouse and keyboard, and leaves the rest empty. */
+async function fillInWhatIsRequired(user: ReturnType<typeof userEvent.setup>) {
+  const strings = EXAMPLE_STRINGS.en
+  await user.type(screen.getByRole('textbox', { name: strings.name }), 'Ada')
+  await user.type(screen.getByRole('textbox', { name: strings.phone }), '0501234567')
+  await user.click(screen.getByRole('combobox', { name: strings.depot }))
+  await user.click(await screen.findByText('מחסן צפון 2'))
+  await user.type(screen.getByRole('textbox', { name: 'Weight (kg)' }), '3')
+  await user.type(screen.getByRole('textbox', { name: 'Volume (L)' }), '2')
+}
+
+/** The example form under a view that can be read again, which hands it the view's new ETag. */
+function ReadAgainForm() {
+  const [etag, setEtag] = useState<string | null>('"1"')
+  return (
+    <>
+      <button type="button" onClick={() => setEtag('"5"')}>
+        Read again
+      </button>
+      <ExampleForm etag={etag} />
+    </>
+  )
 }
 
 describe('the example form', () => {
@@ -68,6 +93,12 @@ describe('the example form', () => {
   })
 
   test('GivenADayChosenInTheCalendar_WhenSaved_ThenTheRequestCarriesItAsYYYYMMDD', async () => {
+    // Today falls in another month, so a calendar that opened on today's month would fail here.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2027-03-15T12:00:00+02:00'))
+    onTestFinished(() => {
+      vi.useRealTimers()
+    })
     const user = userEvent.setup()
     const requests = answerSaves()
     renderComponent(<ExampleForm etag='"1"' />)
@@ -89,12 +120,89 @@ describe('the example form', () => {
     expect(await requests[0].json()).toMatchObject({ date: '2026-11-27' })
   })
 
-  test('GivenTheExampleFormInEnglishAndInHebrew_WhenShown_ThenEachShowsItsOwnWordsAndDirection', () => {
-    for (const language of ['en', 'he'] as const) {
-      const strings = EXAMPLE_STRINGS[language]
-      const { unmount } = renderComponent(<ExampleForm etag={null} />, { language })
+  test('GivenAChangeSaved_WhenTheFormIsSavedAgain_ThenItSendsTheVersionTheFirstSaveReturned', async () => {
+    const user = userEvent.setup()
+    const requests = answerSaves()
+    renderComponent(<ExampleForm etag={null} />)
+    await fillInWhatIsRequired(user)
 
-      expect(document.documentElement.dir, language).toBe(language === 'he' ? 'rtl' : 'ltr')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByText('The example is saved.')).toBeDefined()
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(requests).toHaveLength(2))
+    expect(requests[0].headers.get('If-None-Match')).toBe('*')
+    expect(requests[1].headers.get('If-Match')).toBe('"2"')
+    expect(requests[1].headers.get('If-None-Match')).toBeNull()
+  })
+
+  test('GivenTheViewReadAgain_WhenTheFormIsSaved_ThenItSendsTheVersionItWasHandedLast', async () => {
+    const user = userEvent.setup()
+    const requests = answerSaves()
+    renderComponent(<ReadAgainForm />)
+    await fillInWhatIsRequired(user)
+
+    await user.click(screen.getByRole('button', { name: 'Read again' }))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('The example is saved.')).toBeDefined()
+    expect(requests[0].headers.get('If-Match')).toBe('"5"')
+  })
+
+  test('GivenTheOptionalServiceTimeLeftEmpty_WhenSaved_ThenTheBodyLeavesItOut', async () => {
+    const user = userEvent.setup()
+    const requests = answerSaves()
+    renderComponent(<ExampleForm etag='"1"' />)
+    await fillInWhatIsRequired(user)
+
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('The example is saved.')).toBeDefined()
+    expect(await requests[0].json()).not.toHaveProperty('serviceMinutes')
+  })
+
+  test('GivenTheOptionalServiceTimeTypedThenEmptied_WhenSaved_ThenTheBodyLeavesItOut', async () => {
+    const user = userEvent.setup()
+    const requests = answerSaves()
+    renderComponent(<ExampleForm etag='"1"' />)
+    await fillInWhatIsRequired(user)
+    const serviceTime = screen.getByRole('textbox', { name: 'Service time (min)' })
+
+    await user.type(serviceTime, '10')
+    await user.clear(serviceTime)
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('The example is saved.')).toBeDefined()
+    expect(await requests[0].json()).not.toHaveProperty('serviceMinutes')
+  })
+
+  test('GivenTheDateField_WhenEnterIsPressedOnIt_ThenItsCalendarOpensOnTheMonthItHolds', async () => {
+    // Today falls in another month, so a calendar that opened on today's month would fail here.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2027-03-15T12:00:00+02:00'))
+    onTestFinished(() => {
+      vi.useRealTimers()
+    })
+    const user = userEvent.setup()
+    renderComponent(<ExampleForm etag={null} />)
+    const date = screen.getByRole('button', { name: EXAMPLE_STRINGS.en.date })
+
+    date.focus()
+    await user.keyboard('{Enter}')
+
+    // jsdom runs no transition, so the opened calendar stays hidden and its days take no focus:
+    // moving between days with the arrow keys is checked in a browser, not here.
+    expect(date.getAttribute('aria-expanded')).toBe('true')
+    expect(await screen.findByLabelText('26 November 2026')).toBeDefined()
+  })
+
+  test.each(['en', 'he'] as const)(
+    'GivenTheExampleFormIn(%s)_WhenShown_ThenItShowsItsOwnWordsAndDirection',
+    (language) => {
+      const strings = EXAMPLE_STRINGS[language]
+      renderComponent(<ExampleForm etag={null} />, { language })
+
+      expect(document.documentElement.dir).toBe(language === 'he' ? 'rtl' : 'ltr')
       expect(screen.getByRole('textbox', { name: strings.name })).toBeDefined()
       expect(screen.getByRole('group', { name: strings.window })).toBeDefined()
       expect(screen.getByText('26/11/2026')).toBeDefined()
@@ -103,9 +211,8 @@ describe('the example form', () => {
           name: `${strings.weightKg} (${language === 'he' ? 'ק״ג' : 'kg'})`,
         }),
       ).toBeDefined()
-      unmount()
-    }
-  })
+    },
+  )
 
   test('GivenTheExampleFormInHebrew_WhenSavedEmpty_ThenEachRequiredFieldSaysWhyInHebrew', async () => {
     const user = userEvent.setup()

@@ -2,7 +2,8 @@
  * The Zod 4 schemas of both apps' forms (TS §10, TS §12): the building blocks every form's schema is
  * made of, and each form's own schema beside them. A schema checks shape for quick feedback and
  * raises the server's codes, never a message, so the app translates every refusal from
- * `@dispatchflow/i18n`; the server stays the authority on every rule.
+ * `@dispatchflow/i18n`; the server stays the authority on every rule. It also gives `z`, Zod set
+ * never to compile code at run time, which ADR-069's policy refuses: an app takes Zod from here.
  *
  * @module @dispatchflow/schemas
  */
@@ -11,6 +12,7 @@ export {
   choice,
   durationMinutes,
   localDate,
+  optionalNumber,
   optionalPhoneNumber,
   optionalText,
   optionalTimeWindow,
@@ -23,3 +25,4 @@ export {
   wholeNumber,
 } from './fields.ts'
 export { refusal, refusalOf, schemaCodes, type SchemaCode, type SchemaRefusal } from './refusals.ts'
+export { z } from './zod.ts'

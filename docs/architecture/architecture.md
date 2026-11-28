@@ -49,7 +49,7 @@ today.
 |---|---|---|
 | `core` (`src/backend/core`) | Spring Boot 4.1.2, Java 25 | Run as `migrate`, applies the Flyway migrations as `dispatchflow_owner` and exits. Otherwise starts, connects to PostgreSQL as `app`, which owns no table, answers `GET /actuator/health`, answers every error that reaches Spring MVC's exception handlers or Tomcat's error dispatch as the client API's `Problem` with a `code` and the request's trace ID, re-runs a call that lost a race, refuses to start on a database session that could pass its grants or on a server whose messages could be translated, `lc_messages` other than `C` or `POSIX` (`DatabaseSessionGuard`), and stores every module's aggregates through its persistence adapters |
 | `optimizer` (`src/backend/optimizer`) | FastAPI, Python 3.14, NumPy | Answers `GET /health/liveness` with `{"status":"UP"}`, and holds the domain for daily solves and re-optimizations (the validator, the objective and the drop reasons), and a declared application layer; nothing calls either yet |
-| `web` (`src/frontend/web`) | React 19, Vite 8, TanStack Router and Query, Mantine 9, i18next | Renders its shell: a header, the navigation, and pages for planning (`/plans/$date`, where `/` leads to tomorrow's), orders, import, fleet and settings, with not-found and error pages. It is in English, or in Hebrew right to left once its Settings page says so. The planning page shows its date over an empty area for the map (#174), every page but planning and settings says it is not built yet, and no page calls the API ([ADR-143](../ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md)). Its shared pieces, which no screen uses yet, are form fields over React Hook Form and the shared Zod schemas, a versioned save that sends the read `ETag`, a summary that words the core's refusals, a table over TanStack Table, and save notifications ([ADR-153](../ADRs/ADR-153-the-web-apps-shared-form-refusal-and-table-pieces.md)) |
+| `web` (`src/frontend/web`) | React 19, Vite 8, TanStack Router and Query, Mantine 9, i18next | Renders its shell: a header, the navigation, and pages for planning (`/plans/$date`, where `/` leads to tomorrow's), orders, import, fleet and settings, with not-found and error pages. It is in English, or in Hebrew right to left once its Settings page says so. The planning page shows its date over an empty area for the map (#174), every page but planning and settings says it is not built yet, and no page calls the API ([ADR-143](../ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md)). Its shared pieces, which no screen uses yet, are form fields over React Hook Form and the shared Zod schemas, one fetch and answer reader for every call, a versioned save that sends the read `ETag`, a message that words the core's refusals for a read or a write, a table over TanStack Table, and save notifications, which stay until closed when they offer an action ([ADR-153](../ADRs/ADR-153-the-web-apps-shared-form-refusal-and-table-pieces.md), [ADR-154](../ADRs/ADR-154-the-audit-of-the-shared-web-pieces-amends-how-a-call-fails-a-notice-closes-and-a-range-reads.md)) |
 | `mobile` (`src/frontend/mobile`) | React Native, Expo SDK 58 | Renders a heading |
 | `research` (`src/research`) | Python, uv; never deployed | Installs `optimizer` and PyVRP in one environment, and imports neither yet: `tests/test_environment.py` only checks that both can be found. `benchmark/`, `simulation/` and `generator/` are declared, empty packages, and `results/` holds only `.gitkeep`. Its benchmark instances will live in the git-ignored `data/` |
 
@@ -321,11 +321,15 @@ and `/map/` to the `tiles` service with the prefix removed. `just data` builds t
 Be'er Sheva's tiles, cut with the `pmtiles` CLI from a pinned Protomaps build to
 `infra/osrm/beer-sheva.geojson`, and the style's fonts and sprite from a pinned commit of
 `protomaps/basemaps-assets`.
+`just dev` starts the stack, the `data` profile included, and waits until every service is healthy
+and the migrate step has finished, then Compose Watch copies edits into the web app and the
+optimizer; `just dev-down` stops it, and `just db-reset` also deletes its database, the stack's
+only named volume.
 `just infra-check` validates the file and starts the whole stack in a throwaway project, in
-`just check` and CI. At startup the core's `DatabaseSessionGuard` refuses a session that logged
-in as another role and switched, a database role with an attribute that passes the grants, one
-that belongs to any other role or owns an object, and a server whose `lc_messages` isn't `C` or
-`POSIX`, the only settings that keep its messages in English
+`just check` and CI. At startup the core's `DatabaseSessionGuard` refuses a
+session that logged in as another role and switched, a database role with an attribute that
+passes the grants, one that belongs to any other role or owns an object, and a server whose
+`lc_messages` isn't `C` or `POSIX`, the only settings that keep its messages in English
 ([ADR-151](../ADRs/ADR-151-the-dev-stack-runs-the-core-as-a-compose-service-and-the-core-checks-its-database-session.md), [ADR-152](../ADRs/ADR-152-the-session-guard-reads-the-real-login-and-accepts-only-untranslated-messages-and-the-stack-check-checks-what-it-claims.md)).
 
 ## Structural decisions not visible from the file layout

@@ -29,8 +29,11 @@ export interface TimeWindowFieldProps<TValues extends FieldValues, TParsed = TVa
 
 /**
  * A time window bound to the form, from one time to another: a group named by its legend, with a
- * From and a To time field. An error on the window as a whole, such as an end before the start or
- * only one of the two ends, shows once under the pair, tied to the group, and marks both ends.
+ * From and a To time field. A refusal of the window as a whole, such as an end before the start or
+ * only one of the two ends, shows once under the pair. It describes the group and each of the four
+ * boxes, which it marks invalid, so the form's focus lands on the window's first box with the
+ * reason. Once the form was sent, a change to either end checks the window again. Like its time
+ * fields, it sits in a `SchemaForm`, and throws outside one.
  */
 export function TimeWindowField<TValues extends FieldValues, TParsed = TValues>({
   control,
@@ -45,6 +48,7 @@ export function TimeWindowField<TValues extends FieldValues, TParsed = TValues>(
   const error = windowError?.message
   // The window's own path joined with an end's key is that end's path in the same form.
   const end = (key: keyof TimeWindowValue) => `${name}.${key}` as FieldPathByValue<TValues, string>
+  const group = { name, errorId: error === undefined ? undefined : errorId }
 
   return (
     <Fieldset legend={legend} aria-describedby={error === undefined ? undefined : errorId}>
@@ -54,14 +58,14 @@ export function TimeWindowField<TValues extends FieldValues, TParsed = TValues>(
           name={end('start')}
           label={t('timeWindow.start')}
           required={required}
-          invalid={error !== undefined}
+          group={group}
         />
         <TimeField
           control={control}
           name={end('end')}
           label={t('timeWindow.end')}
           required={required}
-          invalid={error !== undefined}
+          group={group}
         />
       </div>
       {error !== undefined && (

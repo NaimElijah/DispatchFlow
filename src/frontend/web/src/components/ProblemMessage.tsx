@@ -7,6 +7,11 @@ import { fieldErrorText, problemText, type ProblemText } from '../lib/problemTex
 
 /** What a failed call shows, and what the user can do about it. */
 export interface ProblemMessageProps {
+  /**
+   * What the call did: a `read` changed nothing, so an unexpected failure offers to read again; a
+   * `write` may already be stored, so it asks the user to reload before sending it again.
+   */
+  readonly operation: 'read' | 'write'
   /** How the call failed. */
   readonly failure: RequestFailure
   /** A refusal's items that no field shows, listed under the message. */
@@ -16,9 +21,9 @@ export interface ProblemMessageProps {
    * correct the marked fields, rather than repeat it.
    */
   readonly onField?: boolean
-  /** Reloads what the screen shows: offered for a stale record and an unexpected failure. */
+  /** Reloads what the screen shows: offered for a stale record and a write's unexpected failure. */
   readonly onReload?: () => void
-  /** Sends the call again: offered when the core was busy or could not be reached. */
+  /** Sends the call again: offered when the core was busy or out of reach, or a read failed. */
   readonly onRetry?: () => void
   /** The message's element, which takes focus when a form moves the user to it. */
   readonly ref?: Ref<HTMLDivElement>
@@ -31,7 +36,12 @@ interface Shown {
   readonly action: 'reload' | 'retry' | undefined
 }
 
-function shownFor(failure: RequestFailure, onField: boolean, t: TFunction<'problems'>): Shown {
+function shownFor(
+  operation: ProblemMessageProps['operation'],
+  failure: RequestFailure,
+  onField: boolean,
+  t: TFunction<'problems'>,
+): Shown {
   switch (failure.kind) {
     case 'stale':
       return {
@@ -52,6 +62,15 @@ function shownFor(failure: RequestFailure, onField: boolean, t: TFunction<'probl
         action: 'retry',
       }
     case 'unexpected':
+      if (operation === 'read') {
+        // A read stored nothing, so it says only that something went wrong, as an unknown code's
+        // text does, and offers to read again.
+        return {
+          words: { text: t('unknown.text'), nextStep: t('unknown.nextStep') },
+          problem: failure.problem,
+          action: 'retry',
+        }
+      }
       // With no problem, something in front of the core answered, so there is no reference; the
       // change may be stored all the same, so the user reloads before sending it again.
       return {
@@ -89,10 +108,11 @@ function itemText(t: TFunction<'problems'>, item: ProblemItem): string {
  * error summary.
  *
  * A stale record keeps the user's input on the screen, and its Reload is the screen's own: a form
- * reloads its view, a plan refetches itself (ADR-057). An action shows only when the screen offers
- * it.
+ * reloads its view, a plan refetches itself (ADR-057). A failed read never says a change may be
+ * stored. An action shows only when the screen offers it.
  */
 export function ProblemMessage({
+  operation,
   failure,
   items = [],
   onField = false,
@@ -102,7 +122,7 @@ export function ProblemMessage({
 }: ProblemMessageProps) {
   const { t } = useTranslation('problems')
   const { t: tCommon } = useTranslation('common')
-  const { words, problem, action } = shownFor(failure, onField, t)
+  const { words, problem, action } = shownFor(operation, failure, onField, t)
 
   return (
     <Alert ref={ref} tabIndex={-1} color="red" title={words.text}>
