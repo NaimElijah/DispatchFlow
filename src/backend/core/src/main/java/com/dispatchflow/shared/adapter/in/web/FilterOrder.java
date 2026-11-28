@@ -3,8 +3,9 @@ package com.dispatchflow.shared.adapter.in.web;
 import org.springframework.core.Ordered;
 
 /**
- * The order of the core's own servlet filters, for their {@code @Order}: the trace filter, then
- * whatever sets the request's principal (ADR-140 decisions 4 and 8, ADR-147). Both run before
+ * The order of the core's own servlet filters, for their {@code @Order}: the cache-control filter,
+ * the trace filter, then whatever sets the request's principal (ADR-140 decisions 4 and 8,
+ * ADR-147). Both run before
  * Spring Boot's request-context filter, at -105, and Spring Security's chain, at -100. The room
  * between the two is ADR-071's rate limiter's, which ADR-140 decision 9 puts after the trace
  * filter, so its refusals are traced, and before the principal's filter.
@@ -14,6 +15,12 @@ import org.springframework.core.Ordered;
  * web} to come after its trace filter.
  */
 public final class FilterOrder {
+
+    /**
+     * {@code web}'s filter that marks every client-API answer as never stored (ADR-157). It runs
+     * first, so an answer any later filter refuses, the trace filter's own included, carries it.
+     */
+    public static final int NO_STORE = Ordered.HIGHEST_PRECEDENCE + 5;
 
     /** {@code web}'s trace filter, which every other filter's log lines and failures rely on. */
     public static final int TRACE_ID = Ordered.HIGHEST_PRECEDENCE + 10;
