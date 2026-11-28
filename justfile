@@ -25,12 +25,13 @@ infra_tools := "uv run --project src/backend/optimizer --locked --only-dev"
 # byte-for-byte reproducible from the same build, region and pmtiles image, so a changed source
 # fails the check. GitHub keeps an archive's files but not its compression, so the archive's hash
 # can fail on an unchanged commit: then check that its files are the commit's, and retake the hash.
-# A moved pin, a new pmtiles image or a changed boundary needs both hashes taken again from a clean
-# run, in a committed change: `just name=value data` overrides a pin for one run only. The pmtiles
-# image is pinned by digest, because the cut's hash depends on its bytes. The Caddy image is the
-# tiles service's, in compose.dev.yaml, and on a tag until January as that file's images are
-# (ADR-047): its sh, wget and tar run the steps the pmtiles image can't, as it has no shell, on an
-# archive whose hash was checked first.
+# A moved build, a new pmtiles image or a changed boundary needs the cut's hash taken again from a
+# clean run, and a moved fonts commit the archive's, in a committed change: `just name=value data`
+# overrides a pin for one run only. The pmtiles image is pinned by digest, because the cut's hash
+# depends on its bytes. The Caddy image is the tiles service's, in compose.dev.yaml, and on a tag
+# until January as that file's images are (ADR-047): its sh, wget and tar run the steps the
+# pmtiles image can't, as it has no shell. The hashes guard the sources, not that image: its own
+# sha256sum runs the checks, so the steps trust the Caddy tag, as the tiles service already does.
 pmtiles_image := "protomaps/go-pmtiles:v1.31.2@sha256:06574f01f55a78f78f887bc7ebf729a5c093c0d6e17d9876300cfcb0758b59d3"
 protomaps_build := "20260811"
 israel_tiles_sha256 := "f0c0d38f8473a029be9fd8212c9fb1db5d8c6600335bf9142e1366562fc8f359"

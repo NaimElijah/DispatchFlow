@@ -43,8 +43,10 @@ server, its styles, its fonts and its attribution stand.
   pinned.
 - **The hash checks.** `just data` checks the fonts' archive and the cut tiles against their
   SHA-256 pins in the `justfile`, and serves nothing that fails. A moved build, a new `pmtiles`
-  image or a changed region file takes both hashes again from a clean run, in the same change, and
-  a failed check prints the hash it found.
+  image or a changed region file takes the cut's hash again from a clean run, and a moved fonts
+  commit takes the archive's, in the same change; a failed check prints the hash it found. The
+  hashes guard the sources: the checks run in the Caddy image, on its tag until January
+  ([ADR-047]), so the steps trust that tag, as the tiles service does.
 - **The monthly cycle comes back with the monthly refresh,** the job that refreshes OSRM's road
   data each month ([NFR-129]), before the pilot. That job cuts the tiles from that month's
   Protomaps build and keeps the cut, and its hash, in storage of our own in Israel ([NFR-209]),
@@ -63,8 +65,7 @@ server, its styles, its fonts and its attribution stand.
   further from the road data OSRM routes on until the pin moves or the monthly refresh is built.
 - **Hard:** when the pin moves depends on Protomaps' release cadence, which the team doesn't
   control. The gaps between kept builds have been irregular.
-- **Cost:** a pin move is a hand-made change: a clean `just data` run, two new hashes and a
-  commit.
+- **Cost:** a pin move is a hand-made change: a clean `just data` run, a new hash and a commit.
 - **Risk:** Protomaps stops keeping each version's last build, or deletes `20260811`. Every clean
   `just data` then fails until the pin moves to a build that is kept.
 - **Risk:** the arm64 `pmtiles` image, which Docker Desktop pulls on Apple Silicon, might cut
@@ -83,11 +84,12 @@ server, its styles, its fonts and its attribution stand.
 
 - The monthly refresh of the road data is built. It brings back ADR-084's monthly rebuild for the
   deployed tiles, and this ADR then binds only the development stack.
-- Protomaps keeps a newer version's last build. Move the pin and retake both hashes.
+- Protomaps keeps a newer version's last build. Move the pin and retake the cut's hash.
 - The pinned build passes 120 days, twice [NFR-129]'s 60, while no newer one is kept. Decide
   whether the Alpha keeps its own cut of a daily build.
 - Protomaps changes how long it keeps builds, or `just data` fails on a Mac.
 
+[ADR-047]: ADR-047-images-pinned-by-digest-and-core-on-temurin-25-jre.md
 [ADR-084]: ADR-084-maplibre-in-both-apps-with-self-hosted-protomaps-tiles.md
 [NFR-129]: ../requirements/requirements.md#nfr-129
 [NFR-208]: ../requirements/requirements.md#nfr-208

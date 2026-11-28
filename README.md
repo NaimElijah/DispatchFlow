@@ -95,7 +95,7 @@ Or start the whole stack, each service in its container, every port on `127.0.0.
 
 ```bash
 cp infra/deploy/.env.example infra/deploy/.env    # then fill in its three passwords
-just data                                         # once: the map's files for Be'er Sheva, into data/tiles/ (about 22 MB)
+just data                                         # once per checkout: the map's files for Be'er Sheva, into data/tiles/ (about 22 MB)
 just dev                                          # build, start, wait until healthy, then watch
 ```
 
@@ -115,8 +115,9 @@ repository runs the same stack and database, so `just db-reset` in any of them d
 
 The web app is on http://localhost:5173, and proxies `/api/` to the stack's core, which the
 laptop also reaches on 127.0.0.1:8080, and `/map/` to the tiles service, which the laptop reaches
-on 127.0.0.1:8090. The tiles service serves what `just data` built: run it once before the first
-`just dev`, or every `/map/` file answers 404. `just data` needs Docker Desktop, on Windows or
+on 127.0.0.1:8090. The tiles service serves what `just data` built in the checkout that ran
+`just dev`: run it once in each checkout before its first `just dev`, or every `/map/` file
+answers 404. `just data` needs Docker Desktop, on Windows or
 macOS; a native Linux Docker is untested. `just dev` starts the tiles service under the
 `data` profile, and `just infra-check` doesn't, because its files are git-ignored (ADR-152). The
 optimizer is on 127.0.0.1:8081, and PostgreSQL on 127.0.0.1:5432. A laptop that runs a PostgreSQL
@@ -295,7 +296,7 @@ The components are `core`, `optimizer`, `research`, `web` and `mobile`. `just` l
 recipe; `just check` and `just format` run them all. The `web` recipes run from the pnpm
 workspace in `src/frontend`, so they also set up and check the shared packages. `just infra-check`
 and `just infra-format` cover the development stack in `infra/deploy`, which `just dev`,
-`just dev-down` and `just db-reset` run.
+`just dev-down` and `just db-reset` run, and whose map files `just data` builds.
 
 **Adding a feature end to end:** start from the requirement it delivers in
 [requirements.md](docs/requirements/requirements.md), the aggregate that owns its rule in the
@@ -326,7 +327,7 @@ comments. The rules apply to people and to coding assistants alike.
 | Phone app | Components (Jest + React Native Testing Library) | `just mobile-check` |
 | Contracts | Both OpenAPI documents lint clean | `just contracts-check` |
 | Dependencies | Known vulnerabilities in every lockfile and the pom | `just audit` |
-| Development stack | The checker's own rules; then the Compose file publishes only on `127.0.0.1`, gives each service only its own secrets, hardens every service, puts any profiled one under `data`, as a numeric non-root user with no capabilities, and creates no volume but the database's; the whole stack starts healthy with no main process as root; `migrate`, the roles, #250's server settings, the JVM zone and the web app's proxy check out | `just infra-check` |
+| Development stack | The checker's own rules; then the Compose file publishes only on `127.0.0.1`, gives each service only its own secrets, hardens every service, puts any profiled one under `data`, as a numeric non-root user with no capabilities, and creates no volume but the database's; the tiles service runs the justfile's Caddy image, and its Caddyfile sends `nosniff` and a sandboxing policy on every answer, gives `.pmtiles` and `.pbf` a binary type, and lists no folder; the whole stack starts healthy with no main process as root; `migrate`, the roles, #250's server settings, the JVM zone and the web app's proxy check out | `just infra-check` |
 
 Test names follow Given/When/Then. CI runs every row above, on every push and on every pull
 request into `dev` and `main`; any red job fails the run. Browser end-to-end tests (`tests/e2e`)
