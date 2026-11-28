@@ -1,6 +1,6 @@
 # ADR-084: Both apps draw maps with MapLibre, from self-hosted Protomaps tiles
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-158
 - **Date:** 2026-11-13
 
 ## Context

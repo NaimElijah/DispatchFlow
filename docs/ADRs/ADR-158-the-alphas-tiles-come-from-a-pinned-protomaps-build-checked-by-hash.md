@@ -1,6 +1,6 @@
 # ADR-158: The Alpha's tiles come from a pinned Protomaps build, checked by hash, until the monthly refresh keeps its own cut
 
-- **Status:** Proposed; would amend ADR-084
+- **Status:** Accepted
 - **Date:** 2026-11-28
 
 ## Context
@@ -31,6 +31,8 @@ The forces:
   Documentation). The pin rule replaces ADR-084's monthly rebuild for as long as it holds.
 
 ## Decision
+
+Decided on 28 November 2026.
 
 **What changes in [ADR-084]:** its monthly rebuild, for the Alpha only. Its tile source, its
 server, its styles, its fonts and its attribution stand.
