@@ -305,6 +305,9 @@ calls exist.
 |---|---|---|
 | PostgreSQL 18.7 | `core` | The database, one schema per module, each with tables. The `migrate` command runs the Flyway migrations as `dispatchflow_owner` before the core starts, and the core connects as `app`. The tests' Testcontainers server starts with the dev stack's four server settings ([ADR-152](../ADRs/ADR-152-the-session-guard-reads-the-real-login-and-accepts-only-untranslated-messages-and-the-stack-check-checks-what-it-claims.md)) ([ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md), [ADR-145](../ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md)); `infra/deploy/postgres/initdb/create-roles.sql` creates both roles in a new database. In a Testcontainers container for `*IT` tests and `just core-run`, which need Docker ([ADR-014](../ADRs/ADR-014-real-dependencies-in-containers-for-tests-and-local-runs.md), superseded by [ADR-042](../ADRs/ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md): the tests keep Testcontainers, and `just core-run` stays ([ADR-151](../ADRs/ADR-151-the-dev-stack-runs-the-core-as-a-compose-service-and-the-core-checks-its-database-session.md))). The Testcontainers container runs that init script, and Flyway runs in the core's JVM there, as the owner. In the development stack, `infra/deploy/compose.dev.yaml`'s `postgres` service runs it, with #250's log and message settings, and its `migrate` service runs the migrations as the owner before `core` starts. Elsewhere `core` and `migrate` read `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` from the environment |
 | PyVRP | `research` | A reference solver for benchmarks. Never installed in `optimizer` |
+| Caddy 2.11.9 (`caddy:2.11.9-alpine`, pinned by digest) | the development stack's `tiles` service; `just data` | Serves `data/tiles/` and answers the PMTiles reader's range requests ([ADR-084](../ADRs/ADR-084-maplibre-in-both-apps-with-self-hosted-protomaps-tiles.md)). Its shell, `wget` and `tar` run the `just data` steps the pmtiles image can't. Apache License 2.0 |
+| go-pmtiles 1.31.2 (`protomaps/go-pmtiles`, pinned by digest) | `just data` | Cuts Be'er Sheva's tiles from the pinned Protomaps build. A BSD 3-clause licence; v1.31.2 is its newest release |
+| Protomaps basemap build 20260811 (basemap 4.15.1) and `protomaps/basemaps-assets` at a pinned commit | `just data`, for the web app's map | The tiles are an ODbL Produced Work of OpenStreetMap, which must be credited (NFR-18). The fonts are Noto, under the SIL Open Font License 1.1; the sprite is derived from the MIT-licensed `tangrams/icons` |
 
 No other outside service is called at run time. `just data` downloads, once, from two sources
 outside Israel, and sends them no company or personal data: the tiles it cuts from the pinned Protomaps build
@@ -325,8 +328,8 @@ Be'er Sheva's tiles, cut with the `pmtiles` CLI from a pinned Protomaps build to
 and the migrate step has finished, then Compose Watch copies edits into the web app and the
 optimizer; `just dev-down` stops it, and `just db-reset` also deletes its database, the stack's
 only named volume.
-`just infra-check` validates the file and starts the whole stack in a throwaway project, in
-`just check` and CI. At startup the core's `DatabaseSessionGuard` refuses a
+`just infra-check` validates the file and starts every service outside the `data` profile in a
+throwaway project, in `just check` and CI. At startup the core's `DatabaseSessionGuard` refuses a
 session that logged in as another role and switched, a database role with an attribute that
 passes the grants, one that belongs to any other role or owns an object, and a server whose
 `lc_messages` isn't `C` or `POSIX`, the only settings that keep its messages in English
