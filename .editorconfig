@@ -20,3 +20,7 @@ trim_trailing_whitespace = false
 # cmd.exe needs CRLF to run a script.
 [*.{cmd,bat}]
 end_of_line = crlf
+
+# caddy fmt indents with tabs.
+[Caddyfile]
+indent_style = tab
