@@ -26,6 +26,26 @@ TESTS_AT_18_7 = (
 )
 WEB_ON_NODE_24 = "# syntax\nFROM node:24-slim\n"
 JUSTFILE_ON_CADDY = 'pmtiles_image := "p"\ncaddy_image := "caddy:2.11.9-alpine"\n'
+SAFE_CADDYFILE = """\
+{
+\tadmin off
+}
+
+:8090 {
+\t# A comment may say browse or header @binary without counting.
+\theader {
+\t\tX-Content-Type-Options nosniff
+\t\tContent-Security-Policy "default-src 'none'; sandbox"
+\t}
+\t@binary path *.pmtiles *.pbf
+\theader @binary Content-Type application/octet-stream
+
+\trespond /healthz 200
+
+\troot * /srv
+\tfile_server
+}
+"""
 
 
 def services(**by_name: dict[str, Any]) -> check.Configuration:
@@ -318,6 +338,38 @@ def test_given_a_tiles_image_apart_from_the_justfiles_caddy_when_checked_then_it
     ]
 
 
+def test_given_the_tiles_caddyfile_as_written_when_checked_then_none_is_named() -> None:
+    assert check.caddyfile_problems(SAFE_CADDYFILE) == []
+
+
+@pytest.mark.parametrize(
+    ("change", "named"),
+    [
+        (
+            ("\t\tX-Content-Type-Options nosniff\n", ""),
+            "the tiles Caddyfile sets no X-Content-Type-Options nosniff on every answer",
+        ),
+        (("\theader {\n", "\theader @binary {\n"), "on every answer"),
+        (("'none'; sandbox", "'none'"), "no Content-Security-Policy with sandbox"),
+        (("*.pmtiles *.pbf", "*.pmtiles"), "gives *.pbf no Content-Type"),
+        (
+            ("\theader @binary Content-Type application/octet-stream\n", ""),
+            "gives *.pmtiles no Content-Type application/octet-stream",
+        ),
+        (("\tfile_server\n", "\tfile_server browse\n"), "lists folders with browse"),
+    ],
+)
+def test_given_a_tiles_caddyfile_that_lets_a_file_read_as_a_page_when_checked_then_it_is_named(
+    change: tuple[str, str], named: str
+) -> None:
+    """The files reach the browser on the web app's own origin, the one /api/ trusts (ADR-148)."""
+    caddyfile = SAFE_CADDYFILE.replace(*change)
+
+    problems = check.caddyfile_problems(caddyfile)
+
+    assert any(named in problem for problem in problems), problems
+
+
 def test_given_the_tests_command_when_it_is_read_then_their_own_fsync_off_is_left_out() -> None:
     assert check.tests_server_command(TESTS_AT_18_7) == STACK_COMMAND
 
@@ -449,6 +501,7 @@ def test_given_a_stack_breaking_every_rule_when_checked_statically_then_each_rul
         dockerfile_text=WEB_ON_NODE_24,
         nvmrc_text="26\n",
         justfile_text=JUSTFILE_ON_CADDY,
+        caddyfile_text=SAFE_CADDYFILE.replace("file_server\n", "file_server browse\n"),
     )
 
     problems = " | ".join(
@@ -472,6 +525,7 @@ def test_given_a_stack_breaking_every_rule_when_checked_statically_then_each_rul
         "Dockerfile.dev's Node major differs",
         "the tiles service runs caddy:2.11.10-alpine",
         "tiles is under the data profile but sets no numeric non-root user",
+        "the tiles Caddyfile lists folders with browse",
         "the stack's postgres command differs",
         "osrm is under the osrm profile",
         "the named volume osrm-data",

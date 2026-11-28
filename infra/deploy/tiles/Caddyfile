@@ -13,7 +13,8 @@
 	# These files reach the browser on the web app's own origin, where a page could call /api/. No
 	# answer may be read as a page: nosniff stops the browser guessing a type, the policy runs no
 	# script if one is opened anyway, and the binary files get a type of their own, which Caddy
-	# leaves empty for .pmtiles and .pbf.
+	# leaves empty for .pmtiles and .pbf. `just infra-check` fails without any of them, or with a
+	# folder listing (browse).
 	header {
 		X-Content-Type-Options nosniff
 		Content-Security-Policy "default-src 'none'; sandbox"
