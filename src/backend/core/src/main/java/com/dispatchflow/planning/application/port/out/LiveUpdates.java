@@ -9,16 +9,12 @@ import com.dispatchflow.shared.ProposalId;
  * without reloading (FR-16, FR-65, FR-222, TS §6.4). Each call says only what changed; the screen
  * then reads it through Planning's queries. A use case calls it after its transaction commits, so a
  * screen never reads a change that rolled back.
- *
- * <p>To Be Implemented.
  */
 public interface LiveUpdates {
 
     /**
      * A solve job was queued, claimed, started its search, succeeded or failed (FR-16, FR-142,
      * FR-222).
-     *
-     * <p>To Be Implemented.
      *
      * @param job the job
      * @param plan the plan it solves
@@ -27,8 +23,6 @@ public interface LiveUpdates {
 
     /**
      * A plan changed: its state, its routes, its locks, its journal or its revision.
-     *
-     * <p>To Be Implemented.
      *
      * @param plan the plan
      */

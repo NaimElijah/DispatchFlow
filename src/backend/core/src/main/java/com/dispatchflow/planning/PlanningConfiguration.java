@@ -1,5 +1,9 @@
 package com.dispatchflow.planning;
 
+import com.dispatchflow.planning.application.service.plan.OpenPlan;
+import com.dispatchflow.planning.application.service.plan.OpenPlanChange;
+import com.dispatchflow.planning.application.service.plan.RequestSolve;
+import com.dispatchflow.planning.application.service.plan.RequestSolveChange;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
@@ -12,5 +16,5 @@ import org.springframework.context.annotation.Import;
  * ApplicationRules} rule 15).
  */
 @Configuration(proxyBeanMethods = false)
-@Import({})
+@Import({OpenPlan.class, OpenPlanChange.class, RequestSolve.class, RequestSolveChange.class})
 class PlanningConfiguration {}
