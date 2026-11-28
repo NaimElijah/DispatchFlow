@@ -650,6 +650,11 @@ stand-in adapters may use its `StandInProfiles` and `@StandInOnly` without a cyc
 `web.security` uses no class
 directly in `web`. Rule 21, also ADR-147's, lets no handler take an `Actor` or a `CallContext`,
 alone, as a type argument or in an array, which Spring would build from the request's parameters.
+Rule 22, [ADR-140][ADR-140]'s decision 2, is the twin of rule 12 for the code generated from
+`client-api`: only `web` and the modules' `adapter.in.web` use its types, a class that implements a
+generated `<Tag>Api` lies in the `adapter.in.web` of the module its tag starts with, and every
+generated interface has exactly one implementation there, so an operation with no controller fails
+the build.
 
 Rule 16 is [ADR-142][ADR-142]'s: no request handler, a method of a `@Controller` or one annotated
 `@RequestMapping` or a variant, declares a streaming parameter (`InputStream`, `Reader`,

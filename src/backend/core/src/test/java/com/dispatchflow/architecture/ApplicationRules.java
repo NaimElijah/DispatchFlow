@@ -24,12 +24,14 @@ import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.jspecify.annotations.NullMarked;
@@ -37,7 +39,8 @@ import org.jspecify.annotations.NullMarked;
 /**
  * The application layer's rules (TS §2.2, TS §4, DL §2.1, DL §2.3, ADR-120), the adapters' (TS
  * §2.1, ADR-130), {@code web}'s (rules 13 and 14, ADR-140), the modules' configurations' (rule
- * 15, ADR-140 decision 10) and the handlers' (rule 16, ADR-142), built for a root package as {@link
+ * 15, ADR-140 decision 10), the handlers' (rule 16, ADR-142) and the generated client API's (rule
+ * 22, ADR-140 decision 2), built for a root package as {@link
  * DomainPurityRules} is. {@code com.dispatchflow} checks production code; {@code
  * com.dispatchflow.archfixture.zeta} checks the fixtures that prove each rule fires.
  *
@@ -263,6 +266,26 @@ final class ApplicationRules {
     static final Set<String> SOLVING_MODULES = Set.of("planning", REPORTING);
 
     /**
+     * ADR-140 decision 2: the {@code <Tag>Api} interfaces generated from {@code client-api}, one per
+     * tag, below the root, the package {@code ClientApi.GENERATED_API_PACKAGE} names (rule 22).
+     */
+    static final String GENERATED_WEB_API = KERNEL + "." + ADAPTER + "." + IN + "." + WEB + ".api";
+
+    /** ADR-140 decision 2: the models generated from {@code client-api}, below the root (rule 22). */
+    static final String GENERATED_WEB_MODEL = KERNEL + "." + ADAPTER + "." + IN + "." + WEB + ".model";
+
+    /** How each message of rule 22's part (a) starts: a generated type used outside the edge. */
+    static final String GENERATED_TYPE_OUTSIDE_THE_EDGE = "Rule 22 (a), generated types stay at the edge: ";
+
+    /** How each message of rule 22's part (b) starts: a generated interface another module implements. */
+    static final String CONTROLLER_OF_ANOTHER_MODULE =
+            "Rule 22 (b), a controller implements only its own module's interfaces: ";
+
+    /** How each message of rule 22's part (c) starts: a generated interface without its one controller. */
+    static final String NOT_ONE_CONTROLLER =
+            "Rule 22 (c), a generated interface has one implementation, in its tag's module's adapter.in.web: ";
+
+    /**
      * The holder of the signed-in caller's {@code Actor}, below the root: a {@code
      * ScopedValue<Actor>} that {@code web} binds around a signed-in call (ADR-140 decision 4).
      * Only {@code web} and the modules' {@code adapter.in.web} may use it (rule 14).
@@ -304,6 +327,9 @@ final class ApplicationRules {
 
     /** The package of {@code web} that proves who the caller is (rules 17 and 20). */
     private static final String SECURITY = "security";
+
+    /** Where each CamelCase word of a name starts, so a generated {@code <Tag>Api} names its module (rule 22). */
+    private static final Pattern CAMEL_CASE_WORD_START = Pattern.compile("(?=\\p{Lu})");
 
     private ApplicationRules() {}
 
@@ -722,6 +748,70 @@ final class ApplicationRules {
     }
 
     /**
+     * Rule 22, the twin of rule 12 for the code generated from {@code client-api}, in {@link
+     * #GENERATED_WEB_API} and {@link #GENERATED_WEB_MODEL} (ADR-140 decision 2, ADR-160).
+     */
+    static ArchRule generatedWebApiStaysAtTheEdge(String root) {
+        return generatedWebApiStaysAtTheEdge(root, GENERATED_WEB_API, GENERATED_WEB_MODEL);
+    }
+
+    /**
+     * Rule 22, for any generated packages below the root, such as a fixture's: the code generated
+     * from {@code client-api} stays at the web edge, and every operation has its controller
+     * (ADR-140 decision 2, ADR-160). It has three parts, and each message starts with its part's
+     * {@link #GENERATED_TYPE_OUTSIDE_THE_EDGE}, {@link #CONTROLLER_OF_ANOTHER_MODULE} or {@link
+     * #NOT_ONE_CONTROLLER}:
+     *
+     * <ol type="a">
+     *   <li>A class outside the generated packages that uses one of their types lies in, or below,
+     *       {@code web} or a module's {@code adapter.in.web}, so generated types never reach a use
+     *       case or the domain (TS §2.1 rule 4). The kernel's own {@code adapter.in.web} is no
+     *       module's, so it may not either.
+     *   <li>A class that implements a generated {@code <Tag>Api}, directly or through a supertype,
+     *       lies in, or below, the {@code adapter.in.web} of the module its tag starts with, the
+     *       interface's first CamelCase word: {@code PlanningPlansApi} is {@code planning}'s.
+     *   <li>Every interface in the generated api package has exactly one concrete implementation,
+     *       in, or below, its tag's module's {@code adapter.in.web}. {@code skipDefaultInterface}
+     *       leaves every generated method abstract, so an operation with no controller would still
+     *       compile; this part fails it instead.
+     * </ol>
+     *
+     * <p>The event stream's operation is {@code x-internal}, so the generator writes nothing for it,
+     * and {@code web.stream} serves it by hand with no generated interface to implement (#193).
+     *
+     * @param api the package of the generated {@code <Tag>Api} interfaces, below the root
+     * @param model the package of the generated models, below the root
+     */
+    static ArchRule generatedWebApiStaysAtTheEdge(String root, String api, String model) {
+        String apiPackage = root + "." + api;
+        String modelPackage = root + "." + model;
+        return classes()
+                .that()
+                .resideInAPackage(root + "..")
+                .should(
+                        new ArchCondition<>("keep the generated web types at the edge, each interface implemented once,"
+                                + " by its own module's controller") {
+                            @Override
+                            public void check(JavaClass item, ConditionEvents events) {
+                                String itemPackage = item.getPackageName();
+                                Stream<String> violations;
+                                if (isIn(itemPackage, apiPackage)) {
+                                    violations = generatedInterfaceWithoutItsController(root, item);
+                                } else if (isIn(itemPackage, modelPackage)) {
+                                    violations = Stream.empty();
+                                } else {
+                                    violations = Stream.concat(
+                                            generatedTypesUsedOutsideTheEdge(root, item, apiPackage, modelPackage),
+                                            generatedInterfacesOfAnotherModule(root, item, apiPackage));
+                                }
+                                violations.forEach(message -> events.add(SimpleConditionEvent.violated(item, message)));
+                            }
+                        })
+                .because("TS §2.1 rule 4, ADR-140 decision 2 and ADR-160: generated types never reach a use case or"
+                        + " the domain, and each operation is served by one controller of its tag's module");
+    }
+
+    /**
      * Rule 13: {@code web} uses the modules only through what they publish. A class in, or below,
      * {@code web} uses, among the classes of the modules, only those in, or below, a module's
      * {@code application.api} or {@code events}. The kernel, {@code web} itself, the root's own
@@ -763,7 +853,7 @@ final class ApplicationRules {
                 holders.stream().map(holder -> root + "." + holder).collect(Collectors.toUnmodifiableSet());
         return classes()
                 .that(DescribedPredicate.describe(
-                        "lie outside web and the modules' adapter.in.web", type -> !mayReadTheCallsHolders(root, type)))
+                        "lie outside web and the modules' adapter.in.web", type -> !isAtTheWebEdge(root, type)))
                 .should(dependOnlyOn(
                         "no holder of the call's caller but itself " + new TreeSet<>(holders),
                         (item, target) -> !holderNames.contains(target.getName())))
@@ -1197,6 +1287,77 @@ final class ApplicationRules {
     }
 
     /**
+     * Rule 22's part (a): each use of a generated type by a class outside the generated packages,
+     * unless the class lies at the web edge.
+     */
+    private static Stream<String> generatedTypesUsedOutsideTheEdge(
+            String root, JavaClass item, String apiPackage, String modelPackage) {
+        if (isAtTheWebEdge(root, item)) {
+            return Stream.empty();
+        }
+        return item.getDirectDependenciesFromSelf().stream()
+                .filter(dependency -> {
+                    String target = baseType(dependency.getTargetClass()).getPackageName();
+                    return isIn(target, apiPackage) || isIn(target, modelPackage);
+                })
+                .map(dependency -> GENERATED_TYPE_OUTSIDE_THE_EDGE + dependency.getDescription());
+    }
+
+    /**
+     * Rule 22's part (b): each generated interface a class implements outside the {@code
+     * adapter.in.web} of the interface's tag's module.
+     */
+    private static Stream<String> generatedInterfacesOfAnotherModule(String root, JavaClass item, String apiPackage) {
+        return item.getAllRawInterfaces().stream()
+                .filter(type -> isIn(type.getPackageName(), apiPackage))
+                .filter(type -> !isIn(item.getPackageName(), webAdapterOfItsTag(root, type)))
+                .map(type -> CONTROLLER_OF_ANOTHER_MODULE + item.getName() + " implements " + type.getName()
+                        + ", outside " + webAdapterOfItsTag(root, type));
+    }
+
+    /**
+     * Rule 22's part (c): why a class of the generated api package lacks its one controller in its
+     * tag's module's {@code adapter.in.web}; nothing for a class that is no interface.
+     */
+    private static Stream<String> generatedInterfaceWithoutItsController(String root, JavaClass item) {
+        // A package-info compiles to a synthetic interface, which no class implements.
+        if (!item.isInterface() || item.isAnnotation() || item.getSimpleName().equals(PACKAGE_INFO)) {
+            return Stream.empty();
+        }
+        String home = webAdapterOfItsTag(root, item);
+        List<JavaClass> implementations = concreteImplementations(item);
+        if (implementations.size() != 1) {
+            return Stream.of(NOT_ONE_CONTROLLER + item.getName() + " has " + implementations.size()
+                    + " implementations, not one in " + home + ": "
+                    + implementations.stream().map(JavaClass::getName).toList());
+        }
+        JavaClass implementation = implementations.get(0);
+        return isIn(implementation.getPackageName(), home)
+                ? Stream.empty()
+                : Stream.of(NOT_ONE_CONTROLLER + item.getName() + " is implemented by " + implementation.getName()
+                        + ", outside " + home);
+    }
+
+    /**
+     * Where a generated interface's controller lies, or below: the {@code adapter.in.web} of the
+     * module its tag starts with, which is the interface's first CamelCase word, lowercased, as
+     * {@code PlanningPlansApi} gives {@code planning} (ADR-140 decision 2).
+     */
+    private static String webAdapterOfItsTag(String root, JavaClass api) {
+        String module = CAMEL_CASE_WORD_START.split(api.getSimpleName())[0].toLowerCase(Locale.ROOT);
+        return root + "." + module + "." + ADAPTER + "." + IN + "." + WEB;
+    }
+
+    /** The concrete classes that implement an interface, directly or not, sorted by name. */
+    private static List<JavaClass> concreteImplementations(JavaClass type) {
+        return type.getAllSubclasses().stream()
+                .filter(subclass ->
+                        !subclass.isInterface() && !subclass.getModifiers().contains(JavaModifier.ABSTRACT))
+                .sorted((first, second) -> first.getName().compareTo(second.getName()))
+                .toList();
+    }
+
+    /**
      * The adapters under a root that hold a class, by top-level package, each named below its
      * {@code adapter} package as {@link #DECLARED_ADAPTERS} names them. A class directly in {@code
      * adapter.in} or {@code adapter.out} shows as {@code in} or {@code out}, and one directly in
@@ -1354,11 +1515,7 @@ final class ApplicationRules {
                                     + where));
                     return;
                 }
-                List<JavaClass> implementations = item.getAllSubclasses().stream()
-                        .filter(type ->
-                                !type.isInterface() && !type.getModifiers().contains(JavaModifier.ABSTRACT))
-                        .sorted((first, second) -> first.getName().compareTo(second.getName()))
-                        .toList();
+                List<JavaClass> implementations = concreteImplementations(item);
                 if (implementations.size() != 1) {
                     events.add(SimpleConditionEvent.violated(
                             item,
@@ -1433,9 +1590,9 @@ final class ApplicationRules {
 
     /**
      * Whether a class lies in, or below, {@code web} or a module's {@code adapter.in.web}, where
-     * rule 14 lets it read the call's holders.
+     * rule 14 lets it read the call's holders and rule 22 lets it use the generated web types.
      */
-    private static boolean mayReadTheCallsHolders(String root, JavaClass type) {
+    private static boolean isAtTheWebEdge(String root, JavaClass type) {
         String[] segments = segmentsBelow(root, type.getPackageName());
         return (segments.length >= 1 && segments[0].equals(WEB))
                 || (segments.length >= 4

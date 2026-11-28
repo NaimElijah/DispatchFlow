@@ -2,6 +2,7 @@ package com.dispatchflow.architecture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.dispatchflow.shared.adapter.in.web.ClientApi;
 import com.tngtech.archunit.core.domain.JavaClass;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -14,14 +15,24 @@ import org.junit.jupiter.api.Test;
  * <p>A rule whose subject picks no class can't pass on nothing: ArchUnit's {@code
  * archRule.failOnEmptyShould} is on by default, and no {@code archunit.properties} turns it off.
  * Rule 4 skips every type that is not an interface, though, so the api and spi guard checks that
- * its subjects hold the ports themselves, not only the records beside them. The other guards fail
- * when the module graph, the dashed arrows and the tree drift apart.
+ * its subjects hold the ports themselves, not only the records beside them. Rule 22 names the
+ * generated packages itself, so its guard checks they are where the generator writes and hold its
+ * interfaces and models. The other guards fail when the module graph, the dashed arrows and the
+ * tree drift apart.
  */
 class ApplicationTest {
 
     private static final String ROOT = ProductionClasses.ROOT;
     private static final String SPI_PACKAGE = ".application.spi";
     private static final String CONFIGURATION_SUFFIX = "Configuration";
+    private static final String PACKAGE_INFO = "package-info";
+
+    /** The classes directly in a package below the root, its {@code package-info} left out. */
+    private static Stream<JavaClass> classesIn(String packageBelowTheRoot) {
+        return ProductionClasses.ALL.stream()
+                .filter(type -> type.getPackageName().equals(ROOT + "." + packageBelowTheRoot))
+                .filter(type -> !type.getSimpleName().equals(PACKAGE_INFO));
+    }
 
     private static Set<String> topLevelPackages() {
         return ProductionClasses.ALL.stream()
@@ -176,6 +187,22 @@ class ApplicationTest {
     @Test
     void GivenTheProductionClasses_WhenRule12IsChecked_ThenOnlyTheOptimizerAdaptersUseTheGeneratedClient() {
         ApplicationRules.optimizerClientStaysInItsAdapters(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheProductionClasses_WhenGeneratedTypesAreChecked_ThenOnlyWebAdaptersUseThem() {
+        ApplicationRules.generatedWebApiStaysAtTheEdge(ROOT).check(ProductionClasses.ALL);
+    }
+
+    @Test
+    void GivenTheGeneratedPackages_WhenRule22sNamesAreLookedUp_ThenTheyAreTheGeneratorsAndHoldItsCode() {
+        assertThat(ROOT + "." + ApplicationRules.GENERATED_WEB_API).isEqualTo(ClientApi.GENERATED_API_PACKAGE);
+        assertThat(classesIn(ApplicationRules.GENERATED_WEB_API).filter(JavaClass::isInterface))
+                .as("the generated interfaces")
+                .isNotEmpty();
+        assertThat(classesIn(ApplicationRules.GENERATED_WEB_MODEL))
+                .as("the generated models")
+                .isNotEmpty();
     }
 
     @Test
