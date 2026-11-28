@@ -38,13 +38,17 @@ class TypedIdsTest {
                 RatingRequestId::of);
     }
 
-    /** A typed ID is a production record in the kernel whose one component is a UUID. */
+    /**
+     * A typed ID is a production record in the kernel's own package whose one component is a UUID;
+     * the shared adapters below it hold the generated web models, some of which carry one UUID too.
+     */
     @Test
     void GivenTheKernel_WhenItsIdsAreCounted_ThenThereAreFourteenAndThisTestCoversEach() {
         List<String> productionIds = new ClassFileImporter()
                         .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
                         .importPackages(PlanId.class.getPackageName())
                         .stream()
+                        .filter(type -> type.getPackageName().equals(PlanId.class.getPackageName()))
                         .filter(JavaClass::isRecord)
                         .filter(type -> {
                             List<JavaField> components = type.getFields().stream()

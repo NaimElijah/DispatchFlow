@@ -1,5 +1,0 @@
-target/
-.env*
-# A .env file anywhere in the build context, not only at its root, never enters an image
-**/.env*
-**/*.env
