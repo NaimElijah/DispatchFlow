@@ -10,11 +10,19 @@ const A_FILE_OF_THE_PACKAGE = 'src/problems.ts'
 // Loading the configuration and building the typed program take a few seconds the first time.
 const LINT_TIMEOUT = 30_000
 
-/** Lints the code as a file of the package, and says whether lint refused it. */
+/** The rules that keep the generated file to types. */
+const TYPES_ONLY_RULES = new Set([
+  'no-restricted-imports',
+  '@typescript-eslint/no-import-type-side-effects',
+])
+
+/** Lints the code as a file of the package, and says whether a types-only rule refused it. */
 async function isRefused(code: string): Promise<boolean> {
   const [result] = await eslint.lintText(code, { filePath: A_FILE_OF_THE_PACKAGE })
   expect(result.fatalErrorCount, result.messages[0]?.message).toBe(0)
-  return result.errorCount > 0
+  return result.messages.some(
+    (message) => message.ruleId !== null && TYPES_ONLY_RULES.has(message.ruleId),
+  )
 }
 
 test.each([

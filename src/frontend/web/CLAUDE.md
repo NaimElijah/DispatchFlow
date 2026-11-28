@@ -73,7 +73,7 @@ React 19, TypeScript 6.0, Vite 8, pnpm; TanStack Router and Query, Mantine 9, i1
   test that sent it fails, one sent on unmount included (`endTest` in `server.ts`, called by
   `setup.ts`). Happy paths go in `handlers.ts`; a test overrides an answer with `server.use()`,
   and nothing else calls `setupServer`. Import `http` and `HttpResponse` from `msw/http`.
-- A lint test lints through `src/test/lintAs.ts`: typed ESLint can't read a path no file has.
+- A lint test at a path no file has lints through `src/test/lintAs.ts`: typed ESLint can't read it.
 - Vitest globals are off: import every Vitest API you use from `vitest`, as `App.test.tsx` does.
 
 ## Commands

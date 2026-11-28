@@ -67,8 +67,9 @@ Decided on 28 November 2026.
      the package and patched there, keeping its API. A switch to another generator changes this
      package, the shape of each call and the web app's `answerOf`, not the generated types or how
      a problem is read.
-   - Dependabot proposes no release of the three packages: upstream publishes none, so one that
-     appears comes in by hand, after a look. `pnpm-workspace.yaml` accepts openapi-typescript's
+   - Dependabot keeps the three packages out of its weekly group: upstream publishes no release,
+     so one that appears comes as a pull request of its own, for a look. `pnpm-workspace.yaml`
+     accepts openapi-typescript's
      TypeScript 5 peer, so `pnpm peers check` still names any other unmet peer.
 3. **`createCoreClient` takes the app's origin, fetch, name and release.**
    - It serves under `/api/v1` at that origin ([ADR-160]), and refuses an origin that carries a
@@ -78,18 +79,24 @@ Decided on 28 November 2026.
    - It refuses a release the core wouldn't keep, which it would drop from every record without
      saying so: three numbers of one to nine digits, as the core's `Caller` reads them, with no
      leading zero, as its `AppVersion` then requires.
-   - A call whose path value is `..`, `.` or empty throws before anything is sent. A screen passes
-     route parameters, which a link can set, and the URL would resolve such a value to another
-     path.
+   - A call whose path value is `..`, `.`, empty, an object or a list throws before anything is
+     sent. A screen passes route parameters, which a link can set, and the URL would resolve such
+     a value to another path; openapi-fetch writes an object's keys and a list's items into the
+     path as they are.
+   - So does a call that brings its own `baseUrl`, `fetch` or `pathSerializer`, which openapi-fetch
+     would take over the client's: the client's middleware checks the options openapi-fetch hands
+     it.
    - Its type gives `error` as the contract's `Problem`, but nothing checks it: a proxy's page
-     arrives as text, an empty answer as `undefined`. An app reads every answer through its own
-     guard.
+     arrives as text, an empty answer as `''`, or as `undefined` when it says `Content-Length: 0`.
+     An app reads every answer through its own guard.
    - The web app's one client is `src/lib/coreClient.ts`. It uses the page's origin, sends through
      `fetchFromCore` ([ADR-154]) and names the release from `web/package.json`'s version, which
      Vite defines when it builds. A screen reads each answer with `answerOf`.
    - `fetchFromCore` refuses a success whose body is in a media type the request's `Accept`
      doesn't name, such as a page that something in front of the core serves: it fails as
-     `unexpected`, as [ADR-154] reads any answer that isn't the core's, not as a `SyntaxError`.
+     `unexpected`, as [ADR-154] reads any answer that isn't the core's, not as a `SyntaxError`, and
+     its cause names the status and the media type. This amends [ADR-154] decision 2, in which
+     only `fetch` and the answer's body decided that a call failed on the way.
 4. **The problem types come from the contract, and the three values the types can't carry live
    beside them.**
    - `Problem`, `ProblemItem` and `ProblemParameter` are the generated schemas.
@@ -104,12 +111,13 @@ Decided on 28 November 2026.
    - This ends [ADR-153] decision 3: the web app's drift test and Vitest's reading of the contract
      are gone.
 5. **Only the package talks to the server.**
-   - ESLint refuses every other way the web app's source could send a request: the global `fetch`
-     and `XMLHttpRequest`, `fetch` read from `window`, `globalThis` or `self`, and
-     `navigator.sendBeacon`. `lib/coreCalls.ts`, which the client sends through, and the tests,
-     which call `fetch` to try MSW itself, are exempt.
-   - Only `lib/coreClient.ts` and the tests import `fetchFromCore`: a call made with it alone
-     names no app and is checked against no type.
+   - In the web app's source, ESLint refuses the globals `fetch`, `XMLHttpRequest`, `EventSource`
+     and `WebSocket`, and those names and `sendBeacon` read from any object, such as
+     `window.fetch` or `window.navigator.sendBeacon`. `lib/coreCalls.ts`, which the client sends
+     through, and the tests, which call `fetch` to try MSW itself, are exempt.
+   - Only `lib/coreClient.ts` and the tests import `fetchFromCore`, whatever the specifier's
+     extension: a call made with it alone names no app and is checked against no type.
+   - As for every import rule, ESLint checks no `import()` expression ([ADR-144]).
    - `src/test/fetchGlobal.test.ts` pins each form. The event stream reads with plain `fetch`
      ([TS §10]), so #193 adds its one file to the exemption.
 6. **Nothing but types comes from the generated file, so the dev image generates nothing.**
@@ -191,7 +199,7 @@ Decided on 28 November 2026.
 - `just audit` (OSV-Scanner) reports a vulnerability in openapi-fetch 0.17.0, openapi-typescript
   7.13.0 or `openapi-typescript-helpers` 0.1.0. GitHub's dependency graph doesn't read the
   workspace's lockfile.
-- A new release of any of the three appears.
+- Dependabot opens a pull request for a new release of any of the three.
 - The workspace moves to TypeScript 7, and openapi-typescript's output or run breaks on it.
 - A maintained successor reaches a stable 1.0 that generates the same types with no runtime of its
   own, or `@hey-api/openapi-ts` reaches 1.0.

@@ -479,13 +479,14 @@ passes the grants, one that belongs to any other role or owns an object, and a s
   ([ADR-143](../ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md),
   [ADR-144](../ADRs/ADR-144-the-web-apps-features-stay-apart-and-its-lower-folders-never-import-upward.md)).
 - **Only `@dispatchflow/api-client` talks to the server.** In the web app's source, ESLint refuses
-  the global `fetch` and `XMLHttpRequest`, `fetch` read from `window`, `globalThis` or `self`, and
-  `navigator.sendBeacon`, but in `src/lib/coreCalls.ts` and the tests, and refuses an import of
-  `fetchFromCore` but in `src/lib/coreClient.ts`; `src/test/fetchGlobal.test.ts` pins each. In the
-  package, `no-restricted-imports` and `no-import-type-side-effects` refuse a value from the
-  generated file, allowing types, so nothing at run time needs it, and `generatedImports.test.ts`
-  pins both. Typed ESLint's `switch-exhaustiveness-check` refuses a `switch` that misses a member of
-  its union, in every package and the web app, and `src/test/switchExhaustiveness.test.ts` pins it
+  the globals `fetch`, `XMLHttpRequest`, `EventSource` and `WebSocket`, and those names and
+  `sendBeacon` read from any object, but in `src/lib/coreCalls.ts` and the tests, and refuses an
+  import of `fetchFromCore` but in `src/lib/coreClient.ts`; `src/test/fetchGlobal.test.ts` pins
+  each. In the package, `no-restricted-imports` and `no-import-type-side-effects` refuse a value
+  from the generated file, allowing types, so nothing at run time needs it, and
+  `generatedImports.test.ts` pins both. Typed ESLint's `switch-exhaustiveness-check` refuses a
+  `switch` that misses a member of its union, in every package and the web app, and
+  `src/test/switchExhaustiveness.test.ts` pins it
   ([ADR-161](../ADRs/ADR-161-the-apps-client-is-generated-before-every-check-never-committed-from-the-frozen-pair-pinned.md)).
 - **Flyway owns the schema.** `core` sets `spring.jpa.hibernate.ddl-auto=validate`, so Hibernate
   never changes it ([ADR-007](../ADRs/ADR-007-postgresql-with-flyway-migrations.md), superseded by

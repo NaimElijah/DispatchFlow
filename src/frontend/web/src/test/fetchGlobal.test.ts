@@ -1,9 +1,9 @@
 import { expect, test } from 'vitest'
 import { LINT_TIMEOUT, lintAs } from './lintAs.ts'
 
-// Only @dispatchflow/api-client talks to the server (TS §10, ADR-161): every other way a file of
-// the app could send a request is refused, but in the one fetch the client sends through and in
-// tests, which call fetch to try MSW itself.
+// Only @dispatchflow/api-client talks to the server (TS §10, ADR-161): each way below that a file
+// of the app could send a request is refused, but in the one fetch the client sends through and in
+// tests, which call fetch to try MSW itself. ESLint doesn't check import() expressions (ADR-144).
 
 const SERVER_RULES = new Set(['no-restricted-globals', 'no-restricted-properties'])
 
@@ -21,7 +21,12 @@ const SENDS = {
   'a fetch taken from window':
     "const { fetch: send } = window\nexport const answer = send('/api/v1/plans')\n",
   XMLHttpRequest: 'export const request = new XMLHttpRequest()\n',
+  'window.XMLHttpRequest': 'export const request = new window.XMLHttpRequest()\n',
+  EventSource: "export const stream = new EventSource('/api/v1/plans')\n",
+  WebSocket: "export const socket = new WebSocket('/api/v1/plans')\n",
   'navigator.sendBeacon': "export const sent = navigator.sendBeacon('/api/v1/plans')\n",
+  'window.navigator.sendBeacon':
+    "export const sent = window.navigator.sendBeacon('/api/v1/plans')\n",
 }
 
 test.each(
@@ -60,6 +65,8 @@ async function isImportRefused(filePath: string, specifier: string): Promise<boo
 
 test.each([
   ['src/features/planning/PlanPage.tsx', '../../lib/coreCalls.ts'],
+  ['src/features/planning/PlanPage.tsx', '../../lib/coreCalls.js'],
+  ['src/lib/versionedSave.ts', './coreCalls'],
   ['src/routes/AppLayout.tsx', '../lib/coreCalls.ts'],
   ['src/components/form/useSchemaForm.ts', '../../lib/coreCalls.ts'],
   ['src/lib/versionedSave.ts', './coreCalls.ts'],

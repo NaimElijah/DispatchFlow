@@ -55,7 +55,7 @@ const toZod = {
  * and is checked against no type (ADR-082, ADR-161).
  */
 const toFetchFromCore = {
-  regex: '(^|/)coreCalls(\\.ts)?$',
+  regex: '(^|/)coreCalls(\\.[cm]?[jt]s)?$',
   importNames: ['fetchFromCore'],
   message:
     "Call the core through lib/coreClient.ts's coreClient: fetchFromCore alone names no app and checks no type (ADR-161).",
@@ -66,6 +66,9 @@ const CORE_CLIENT_FILE = 'src/lib/coreClient.ts'
 
 const SERVER_MESSAGE =
   "Call the core through lib/coreClient.ts's coreClient, which @dispatchflow/api-client builds (ADR-161)."
+
+/** What the browser sends a request with, but for `navigator.sendBeacon`, a method. */
+const SENDERS = ['fetch', 'XMLHttpRequest', 'EventSource', 'WebSocket']
 
 const toTestCode = {
   regex: '(^|/)test(/|$)',
@@ -112,17 +115,13 @@ export default defineConfig([
     rules: {
       'no-restricted-globals': [
         'error',
-        { name: 'fetch', message: SERVER_MESSAGE },
-        { name: 'XMLHttpRequest', message: SERVER_MESSAGE },
+        ...SENDERS.map((name) => ({ name, message: SERVER_MESSAGE })),
       ],
+      // On any object, so window.fetch, globalThis.navigator.sendBeacon and a destructured fetch
+      // are refused too.
       'no-restricted-properties': [
         'error',
-        ...['window', 'globalThis', 'self'].map((object) => ({
-          object,
-          property: 'fetch',
-          message: SERVER_MESSAGE,
-        })),
-        { object: 'navigator', property: 'sendBeacon', message: SERVER_MESSAGE },
+        ...[...SENDERS, 'sendBeacon'].map((property) => ({ property, message: SERVER_MESSAGE })),
       ],
     },
   },

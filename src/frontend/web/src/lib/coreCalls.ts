@@ -42,7 +42,11 @@ export async function fetchFromCore(
     body.byteLength > 0 &&
     !isAccepted(acceptOf(input, init), response.headers.get('Content-Type'))
   ) {
-    throw new RequestError({ kind: 'unexpected', problem: undefined })
+    const type = response.headers.get('Content-Type') ?? 'no media type'
+    throw new RequestError(
+      { kind: 'unexpected', problem: undefined },
+      { cause: new Error(`A ${response.status} answer in ${type}, which the call didn't accept`) },
+    )
   }
   return response
 }

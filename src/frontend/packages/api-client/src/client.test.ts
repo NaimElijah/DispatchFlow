@@ -141,3 +141,50 @@ test('GivenADotSegmentPathValue_WhenTheClientCalls_ThenItIsRefusedBeforeAnything
   }
   expect(sent).toEqual([])
 })
+
+test('GivenAnObjectOrAListAsAPathValue_WhenTheClientCalls_ThenItIsRefusedBeforeAnythingIsSent', async () => {
+  const sent: string[] = []
+  server.use(
+    http.all(`${ORIGIN}/*`, ({ request }) => {
+      sent.push(request.url)
+      return HttpResponse.json({}, { status: 202 })
+    }),
+  )
+
+  // The contract's path values are strings, so only a cast gets one past the types.
+  for (const planId of [{ '../../admin': 'x' }, ['', '']] as unknown as string[]) {
+    await expect(
+      client().POST('/plans/{planId}/solves', {
+        params: { path: { planId }, header: { 'If-Match': '"0"' } },
+      }),
+      JSON.stringify(planId),
+    ).rejects.toThrow(/object or a list/)
+  }
+  expect(sent).toEqual([])
+})
+
+test('GivenACallThatBringsItsOwnBaseFetchOrPathRule_WhenTheClientCalls_ThenItIsRefusedBeforeAnythingIsSent', async () => {
+  const sent: string[] = []
+  const elsewhere = (request: Request) => {
+    sent.push(request.url)
+    return Promise.resolve(HttpResponse.json({ planId: PLAN_ID }, { status: 201 }))
+  }
+  server.use(
+    http.all('*', ({ request }) => {
+      sent.push(request.url)
+      return HttpResponse.json({ planId: PLAN_ID }, { status: 201 })
+    }),
+  )
+
+  for (const own of [
+    { baseUrl: 'http://elsewhere.test/x' },
+    { fetch: elsewhere },
+    { pathSerializer: (pathname: string) => pathname },
+  ]) {
+    await expect(
+      client().POST('/plans', { body: { date: '2030-01-01' }, ...own }),
+      Object.keys(own)[0],
+    ).rejects.toThrow(/may not replace/)
+  }
+  expect(sent).toEqual([])
+})

@@ -108,7 +108,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-143](ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md) | The web app's shell declares routes per area, opens in English, and renders no `<style>` element | Accepted; extended by ADR-153; amended by ADR-144 |
 | [ADR-144](ADR-144-the-web-apps-features-stay-apart-and-its-lower-folders-never-import-upward.md) | The web app's features stay apart, its lower folders never import upward, and sign-in stands beside the shell | Accepted; extended by ADR-153 and ADR-161 |
 | [ADR-153](ADR-153-the-web-apps-shared-form-refusal-and-table-pieces.md) | The web app builds every form, refusal and row list from one set of shared pieces, and its schemas name codes, never messages | Accepted; amended by ADR-154 and ADR-161 |
-| [ADR-154](ADR-154-the-audit-of-the-shared-web-pieces-amends-how-a-call-fails-a-notice-closes-and-a-range-reads.md) | The audit of the web app's shared pieces amends how a call fails, how a saved notice closes and how a time range reads | Accepted |
+| [ADR-154](ADR-154-the-audit-of-the-shared-web-pieces-amends-how-a-call-fails-a-notice-closes-and-a-range-reads.md) | The audit of the web app's shared pieces amends how a call fails, how a saved notice closes and how a time range reads | Accepted; amended by ADR-161 |
 | [ADR-090](ADR-090-scope-cuts-for-the-first-release.md) | The first release cuts ten capabilities, and each has its own trigger to reopen | Accepted |
 | [ADR-091](ADR-091-study-design-for-the-solver-comparison.md) | The solver comparison follows eleven fixed design choices, and a mutation run checks the validator first | Accepted |
 | [ADR-092](ADR-092-the-alns-package-runs-our-solvers-outer-loop.md) | The `alns` package runs our solver's outer loop, and the rest of the solver stays ours | Accepted |
@@ -375,13 +375,14 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > and is built inside its recorded attempt; the generator stays at 7.27.0; and `just audit` doesn't
 > scan build plugins.
 >
-> ADR-161, on 2026-11-28, settles ADR-043's open point for the apps and extends ADR-144 and
-> ADR-155: `@dispatchflow/api-client` is generated at `just web-setup` and before every check,
+> ADR-161, on 2026-11-28, settles ADR-043's open point for the apps, extends ADR-039, ADR-144 and
+> ADR-155, and amends ADR-154: `@dispatchflow/api-client` is generated at `just web-setup` and before every check,
 > never committed; openapi-typescript 7.13.0 and openapi-fetch 0.17.0 stay, pinned exactly behind
 > the package's `createCoreClient`, although their maintainer froze both on 19 September 2026; the
 > client names the app and its release on every call and accepts both media types; the problem
 > types are generated, and the patterns they can't carry live beside them, pinned to the contract,
-> which ends ADR-153's hand-written `Problem`; only the package talks to the server, and only
-> types come from the generated file, so the dev image generates nothing; and ESLint reads the
-> types, refusing a `switch` that misses a member of its union.
+> which ends ADR-153's hand-written `Problem`; `fetchFromCore` also fails a success in a media
+> type the call didn't accept; only the package talks to the server, and only types come from the
+> generated file, so the dev image generates nothing; and ESLint reads the types, refusing a
+> `switch` that misses a member of its union.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.

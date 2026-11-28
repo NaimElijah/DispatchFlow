@@ -40,8 +40,8 @@ with its layout, rules and commands.
   ([ADR-039]): `pnpm-workspace.yaml` lists `web` and `packages/*`, with one `pnpm-lock.yaml`, and
   each package is `@dispatchflow/*`. A `packages/` folder is a placeholder until the ticket that
   fills it adds its `package.json` ([ADR-130]).
-- A package ships its source, as `i18n` does: `exports` points at `src/index.ts`, its imports carry
-  `.ts`, its `build` is `tsc -b`, a type check, and its `eslint.config.js` adds
+- A TypeScript package ships its source, as `i18n` does: `exports` points at `src/index.ts`, its
+  imports carry `.ts`, its `build` is `tsc -b`, and its `eslint.config.js` adds
   `typeChecked(import.meta.dirname, [.ts files outside every tsconfig])` (ADR-161). `just web-check`
   generates `api-client`'s types first ([ADR-143], [ADR-144]).
 - pnpm fails an import that a package doesn't declare: declare each one in that package's own

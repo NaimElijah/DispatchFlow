@@ -1,6 +1,6 @@
 # ADR-154: The audit of the web app's shared pieces amends how a call fails, how a saved notice closes and how a time range reads
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-161
 - **Date:** 2026-11-27
 
 ## Context
