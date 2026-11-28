@@ -23,6 +23,87 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Probe'
+
+  /v1/solve:
+    post:
+      operationId: solve
+      summary: Solve one date's routes
+      description: >
+        Solves one date with the named solver, within the budget, and judges the result with the
+        validator. Times are seconds since the date's local midnight in Asia/Jerusalem (ADR-088).
+        Every index refers to a position in the request's lists.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DailyRequest'
+            examples:
+              oneOrder:
+                summary: One depot, one vehicle, one order, two locations
+                value:
+                  solver: ortools
+                  seed: 42
+                  budget: { kind: timeLimit, seconds: 45 }
+                  inputs:
+                    matrix:
+                      locationCount: 2
+                      durations: AAAAAKQBAACaAQAAAAAAAA==
+                      distances: AAAAAKwNAABIDQAAAAAAAA==
+                    depots:
+                      - { location: 0, opens: 25200, closes: 72000 }
+                    drivers:
+                      - { shiftStart: 28800, shiftEnd: 57600 }
+                    vehicles:
+                      - startDepot: 0
+                        endDepot: 0
+                        weightCapacityKg: 800
+                        volumeCapacityL: 6000
+                        driver: 0
+                    orders:
+                      - location: 1
+                        weightKg: 12.5
+                        volumeL: 40
+                        serviceS: 300
+                        windowStart: 36000
+                        windowEnd: 43200
+                        priority: 3
+                        leaveAtDoor: false
+                        outsideServiceArea: false
+                    removedByDispatcher: []
+                    travel:
+                      offPeakFactor: 1.0
+                      buffer: 0.1
+                      buckets:
+                        - { start: 25200, end: 32400, factor: 1.4 }
+                    dayLength: 86400
+                    fixedVehicleCost: 0
+                    doorWindowRate: 1.0
+                    breaksReserved: false
+                    departureAllowance: 600
+      responses:
+        '200':
+          description: The search ran. Its outcome is solved, rejected or failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolveOutcome'
+        '422':
+          description: >
+            The request is refused: an unknown solver, an unsupported budget, or an invalid
+            problem. The core turns it into OptimizerRefusedRequest (ADR-121, P16).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '504':
+          description: The solve passed its limit by 30 seconds and was stopped (ADR-051).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
 components:
   schemas:
     Probe:
@@ -34,3 +115,455 @@ components:
           type: string
           enum:
             - UP
+
+    # ---------------------------------------------------------------- the request
+
+    DailyRequest:
+      description: A daily solve, and the solver, budget and seed to solve it with.
+      type: object
+      additionalProperties: false
+      required: [solver, seed, budget, inputs]
+      properties:
+        solver:
+          type: string
+          description: The solver's name. There is no default (ADR-004).
+        seed:
+          type: integer
+          format: int64
+          description: The seed, so the solve can be replayed (ADR-005).
+        budget:
+          $ref: '#/components/schemas/Budget'
+        inputs:
+          $ref: '#/components/schemas/DailyInputs'
+
+    Budget:
+      description: What ends the search (ADR-044). The core sends a time limit; tests do not.
+      oneOf:
+        - $ref: '#/components/schemas/TimeLimit'
+        - $ref: '#/components/schemas/IterationLimit'
+        - $ref: '#/components/schemas/SolutionLimit'
+      discriminator:
+        propertyName: kind
+        mapping:
+          timeLimit: '#/components/schemas/TimeLimit'
+          iterationLimit: '#/components/schemas/IterationLimit'
+          solutionLimit: '#/components/schemas/SolutionLimit'
+    TimeLimit:
+      type: object
+      additionalProperties: false
+      required: [kind, seconds]
+      properties:
+        kind: { type: string, const: timeLimit }
+        seconds: { type: number, exclusiveMinimum: 0 }
+    IterationLimit:
+      type: object
+      additionalProperties: false
+      required: [kind, iterations]
+      properties:
+        kind: { type: string, const: iterationLimit }
+        iterations: { type: integer, minimum: 1 }
+    SolutionLimit:
+      type: object
+      additionalProperties: false
+      required: [kind, solutions]
+      properties:
+        kind: { type: string, const: solutionLimit }
+        solutions: { type: integer, minimum: 1 }
+
+    DailyInputs:
+      description: Everything about the date that the solve needs.
+      type: object
+      additionalProperties: false
+      required:
+        - matrix
+        - orders
+        - depots
+        - vehicles
+        - drivers
+        - removedByDispatcher
+        - travel
+        - dayLength
+        - fixedVehicleCost
+        - doorWindowRate
+        - breaksReserved
+        - departureAllowance
+      properties:
+        matrix:
+          $ref: '#/components/schemas/TravelMatrix'
+        orders:
+          type: array
+          items: { $ref: '#/components/schemas/OrderSpec' }
+        depots:
+          type: array
+          items: { $ref: '#/components/schemas/DepotSpec' }
+        vehicles:
+          type: array
+          items: { $ref: '#/components/schemas/VehicleSpec' }
+        drivers:
+          type: array
+          items: { $ref: '#/components/schemas/DriverSpec' }
+        removedByDispatcher:
+          type: array
+          description: Indices of the orders a dispatcher took off the routes (FR-146).
+          uniqueItems: true
+          items: { type: integer, minimum: 0 }
+        travel:
+          $ref: '#/components/schemas/TravelTimeModel'
+        dayLength:
+          type: number
+          description: The date's length in seconds, 23, 24 or 25 hours (ADR-088).
+        fixedVehicleCost:
+          type: number
+          minimum: 0
+          description: Seconds charged per vehicle used; 0 when disabled (FR-21).
+        doorWindowRate:
+          type: number
+          minimum: 0
+          description: The door-window rate (BR-120).
+        breaksReserved:
+          type: boolean
+          description: Whether routes reserve time for breaks (FR-81, BR-105).
+        departureAllowance:
+          type: number
+          minimum: 0
+          description: Seconds a route may leave after its shift starts (FR-67). Sent as it is.
+
+    TravelMatrix:
+      description: >
+        Base travel times and distances between every pair of distinct locations (ADR-052): base64
+        of little-endian int32, row-major, locationCount by locationCount. Row i, column j is the
+        trip from i to j. -1 means no road.
+      type: object
+      additionalProperties: false
+      required: [locationCount, durations, distances]
+      properties:
+        locationCount: { type: integer, minimum: 1 }
+        durations: { type: string, contentEncoding: base64, description: Seconds. }
+        distances: { type: string, contentEncoding: base64, description: Metres. }
+
+    TravelTimeModel:
+      description: The time-of-day factors and the buffer (ADR-048). Only the optimizer applies them.
+      type: object
+      additionalProperties: false
+      required: [buckets, offPeakFactor, buffer]
+      properties:
+        buckets:
+          type: array
+          items: { $ref: '#/components/schemas/TravelBucket' }
+        offPeakFactor: { type: number, exclusiveMinimum: 0 }
+        buffer: { type: number, minimum: 0 }
+    TravelBucket:
+      type: object
+      additionalProperties: false
+      required: [start, end, factor]
+      properties:
+        start: { type: number, minimum: 0 }
+        end: { type: number, minimum: 0 }
+        factor: { type: number, exclusiveMinimum: 0 }
+
+    OrderSpec:
+      description: One order of the date.
+      type: object
+      additionalProperties: false
+      required:
+        - location
+        - weightKg
+        - volumeL
+        - serviceS
+        - windowStart
+        - windowEnd
+        - priority
+        - leaveAtDoor
+        - outsideServiceArea
+      properties:
+        location:
+          type: [integer, 'null']
+          minimum: 0
+          description: Its row in the matrix; null when its customer has no coordinates.
+        weightKg: { type: number, exclusiveMinimum: 0 }
+        volumeL: { type: number, exclusiveMinimum: 0 }
+        serviceS: { type: number, exclusiveMinimum: 0 }
+        windowStart: { type: number, minimum: 0 }
+        windowEnd: { type: number, minimum: 0 }
+        priority: { type: integer, minimum: 1, maximum: 5, description: 1 is the highest. }
+        leaveAtDoor: { type: boolean, description: Whether it may be left at the door (FR-364). }
+        outsideServiceArea:
+          type: boolean
+          description: >
+            Whether its location lies outside the company's service area (ADR-139). Required, so
+            a sender that forgets it is refused rather than read as inside.
+        pin:
+          $ref: '#/components/schemas/Pin'
+
+    Pin:
+      description: The order is fixed to one vehicle or one driver (FR-91).
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [vehicle]
+          properties:
+            vehicle: { type: integer, minimum: 0 }
+        - type: object
+          additionalProperties: false
+          required: [driver]
+          properties:
+            driver: { type: integer, minimum: 0 }
+
+    DepotSpec:
+      type: object
+      additionalProperties: false
+      required: [location]
+      properties:
+        location:
+          type: [integer, 'null']
+          minimum: 0
+          description: Its row in the matrix; null when it has no coordinates (FR-197).
+        opens: { type: [number, 'null'], minimum: 0 }
+        closes: { type: [number, 'null'], minimum: 0 }
+
+    VehicleSpec:
+      type: object
+      additionalProperties: false
+      required: [startDepot, endDepot, weightCapacityKg, volumeCapacityL, driver]
+      properties:
+        startDepot: { type: integer, minimum: 0, description: Index in depots. }
+        endDepot: { type: integer, minimum: 0, description: Index in depots. }
+        weightCapacityKg: { type: number, exclusiveMinimum: 0 }
+        volumeCapacityL:
+          type: [number, 'null']
+          exclusiveMinimum: 0
+          description: Null for no volume limit (FR-390).
+        driver: { type: integer, minimum: 0, description: "Index in drivers, from the roster." }
+
+    DriverSpec:
+      type: object
+      additionalProperties: false
+      required: [shiftStart, shiftEnd]
+      properties:
+        shiftStart: { type: number, minimum: 0 }
+        shiftEnd: { type: number, minimum: 0 }
+
+    # ---------------------------------------------------------------- the answer
+
+    SolveOutcome:
+      oneOf:
+        - $ref: '#/components/schemas/Solved'
+        - $ref: '#/components/schemas/Rejected'
+        - $ref: '#/components/schemas/Failed'
+      discriminator:
+        propertyName: outcome
+        mapping:
+          solved: '#/components/schemas/Solved'
+          rejected: '#/components/schemas/Rejected'
+          failed: '#/components/schemas/Failed'
+
+    Solved:
+      description: Routes the validator accepted (BR-15).
+      type: object
+      required: [outcome, routes, drops, excludedVehicles, cost, stats]
+      properties:
+        outcome: { type: string, const: solved }
+        routes:
+          type: array
+          items: { $ref: '#/components/schemas/Route' }
+        drops:
+          type: array
+          items: { $ref: '#/components/schemas/Drop' }
+        excludedVehicles:
+          type: array
+          items: { $ref: '#/components/schemas/ExcludedVehicle' }
+        cost:
+          $ref: '#/components/schemas/Cost'
+        stats:
+          $ref: '#/components/schemas/SolveStats'
+
+    Rejected:
+      description: The solver's routes broke rules; nothing may be shown (BR-57).
+      type: object
+      required: [outcome, violations, stats]
+      properties:
+        outcome: { type: string, const: rejected }
+        violations:
+          type: array
+          items: { $ref: '#/components/schemas/Violation' }
+        stats:
+          $ref: '#/components/schemas/SolveStats'
+
+    Failed:
+      description: The search returned no solution.
+      type: object
+      required: [outcome, kind, message, stats]
+      properties:
+        outcome: { type: string, const: failed }
+        kind: { type: string, enum: [SOLVER_FAILED, NO_SOLUTION_WITHIN_BUDGET] }
+        message: { type: string, description: "Names the solver, never the problem's contents." }
+        stats:
+          $ref: '#/components/schemas/SolveStats'
+
+    Route:
+      type: object
+      required: [vehicle, driver, stops, timing]
+      properties:
+        vehicle: { type: integer, description: Index in the request's vehicles. }
+        driver: { type: integer, description: Index in the request's drivers. }
+        stops:
+          type: array
+          description: Indices of the orders served, in order.
+          items: { type: integer }
+        timing:
+          $ref: '#/components/schemas/RouteTiming'
+
+    RouteTiming:
+      description: The validator's own times along the route; one entry per stop.
+      type: object
+      required: [leavesAt, returnsAt, arrival, start, departure, legSeconds, legMetres]
+      properties:
+        leavesAt: { type: number }
+        returnsAt: { type: number }
+        arrival: { type: array, items: { type: number } }
+        start: { type: array, items: { type: number } }
+        departure: { type: array, items: { type: number } }
+        legSeconds:
+          type: array
+          description: The leg into each stop, then the leg back to the end depot.
+          items: { type: number }
+        legMetres: { type: array, items: { type: number } }
+
+    Drop:
+      description: An order no route serves, with its reason and the fact behind it (FR-144, FR-223).
+      oneOf:
+        - $ref: '#/components/schemas/PlainDrop'
+        - $ref: '#/components/schemas/PinNotHonouredDrop'
+        - $ref: '#/components/schemas/CapacityDrop'
+        - $ref: '#/components/schemas/TimeWindowDrop'
+        - $ref: '#/components/schemas/ShiftDrop'
+        - $ref: '#/components/schemas/DepotHoursDrop'
+      discriminator:
+        propertyName: reason
+        mapping:
+          missingLocation: '#/components/schemas/PlainDrop'
+          noVehicleAvailable: '#/components/schemas/PlainDrop'
+          unreachableLocation: '#/components/schemas/PlainDrop'
+          removedByDispatcher: '#/components/schemas/PlainDrop'
+          displaced: '#/components/schemas/PlainDrop'
+          pinNotHonoured: '#/components/schemas/PinNotHonouredDrop'
+          capacity: '#/components/schemas/CapacityDrop'
+          timeWindow: '#/components/schemas/TimeWindowDrop'
+          shift: '#/components/schemas/ShiftDrop'
+          depotHours: '#/components/schemas/DepotHoursDrop'
+    PlainDrop:
+      description: A reason that carries no fact of its own.
+      type: object
+      required: [order, reason]
+      properties:
+        order: { type: integer }
+        reason:
+          type: string
+          enum: [missingLocation, noVehicleAvailable, unreachableLocation, removedByDispatcher, displaced]
+    PinNotHonouredDrop:
+      type: object
+      required: [order, reason, pin, targetOut]
+      properties:
+        order: { type: integer }
+        reason: { type: string, const: pinNotHonoured }
+        pin: { $ref: '#/components/schemas/Pin' }
+        targetOut: { type: boolean }
+    CapacityDrop:
+      type: object
+      required: [order, reason, weightKg, volumeL, largestWeightCapacityKg, largestVolumeCapacityL]
+      properties:
+        order: { type: integer }
+        reason: { type: string, const: capacity }
+        weightKg: { type: number }
+        volumeL: { type: number }
+        largestWeightCapacityKg: { type: number }
+        largestVolumeCapacityL: { type: number }
+    TimeWindowDrop:
+      type: object
+      required: [order, reason, windowEnd, earliestArrival]
+      properties:
+        order: { type: integer }
+        reason: { type: string, const: timeWindow }
+        windowEnd: { type: number }
+        earliestArrival: { type: number }
+    ShiftDrop:
+      type: object
+      required: [order, reason, latestReturn, earliestReturn]
+      properties:
+        order: { type: integer }
+        reason: { type: string, const: shift }
+        latestReturn: { type: number }
+        earliestReturn: { type: number }
+    DepotHoursDrop:
+      type: object
+      required: [order, reason, depotCloses, earliestReturn]
+      properties:
+        order: { type: integer }
+        reason: { type: string, const: depotHours }
+        depotCloses: { type: number }
+        earliestReturn: { type: number }
+
+    ExcludedVehicle:
+      description: A vehicle that can drive no route in this solve (FR-197).
+      type: object
+      required: [vehicle, cause]
+      properties:
+        vehicle: { type: integer }
+        cause: { type: string, enum: [depotWithoutLocation, noRoadBetweenDepots] }
+
+    Violation:
+      description: One broken rule, what it concerns and by how much (BR-16, BR-57).
+      type: object
+      required: [rule]
+      properties:
+        rule: { type: string, description: "The requirement's row ID, such as BR-05." }
+        route: { type: integer }
+        order: { type: integer }
+        vehicle: { type: integer }
+        driver: { type: integer }
+        seconds: { type: number }
+        kilograms: { type: number }
+        litres: { type: number }
+
+    Cost:
+      description: The objective's terms in seconds, and their total.
+      type: object
+      required: [travel, drops, doorWindow, fixedVehicles, total]
+      properties:
+        travel: { type: number }
+        drops: { type: number }
+        doorWindow: { type: number }
+        fixedVehicles: { type: number }
+        total: { type: number }
+
+    SolveStats:
+      description: How the solve ran, so it can be replayed (ADR-121, P17).
+      type: object
+      required: [solver, version, seed, budget, searchSeconds]
+      properties:
+        solver: { type: string }
+        version: { type: string }
+        seed: { type: integer, format: int64 }
+        budget: { $ref: '#/components/schemas/Budget' }
+        searchSeconds: { type: number }
+        reached:
+          description: The iteration or solution count that replays the search, when the solver counts one.
+          oneOf:
+            - $ref: '#/components/schemas/IterationLimit'
+            - $ref: '#/components/schemas/SolutionLimit'
+
+    # ---------------------------------------------------------------- errors
+
+    Problem:
+      description: An RFC 9457 problem with a stable code (ADR-043).
+      type: object
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, default: about:blank }
+        title: { type: string }
+        status: { type: integer }
+        code:
+          type: string
+          description: >
+            UNKNOWN_SOLVER, UNSUPPORTED_BUDGET or INVALID_PROBLEM on a 422; SOLVE_TIMEOUT on a 504.
+            Proposed names, to agree with Naim.
