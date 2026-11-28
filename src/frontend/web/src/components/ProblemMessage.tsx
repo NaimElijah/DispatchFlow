@@ -2,7 +2,8 @@ import { Alert, Button, List, Stack, Text } from '@mantine/core'
 import type { TFunction } from 'i18next'
 import type { Ref } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import type { Problem, ProblemItem, RequestFailure } from '../lib/problems.ts'
+import type { Problem, ProblemItem } from '@dispatchflow/api-client'
+import type { RequestFailure } from '../lib/problems.ts'
 import { fieldErrorText, problemText, type ProblemText } from '../lib/problemText.ts'
 
 /** What a failed call shows, and what the user can do about it. */

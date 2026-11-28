@@ -7,8 +7,10 @@ import { answerOf, type Answer, type SendResult } from './coreCalls.ts'
  *
  * `null` is what `response.headers.get('ETag')` gives for a view that has no version, such as the
  * fleet register before its first depot, and such a view's first change sends `If-None-Match: *`
- * (ADR-121 P31, as ADR-126 amends it). A read that forgot to pass its `ETag` fails safe: the core
- * answers `STALE_VERSION` when the record exists (ADR-140), and never overwrites it.
+ * (ADR-121 P31, as ADR-126 amends it). A read that forgot to pass its `ETag` fails safe, and never
+ * overwrites the record: an operation that takes `If-None-Match: *` answers `STALE_VERSION` when
+ * the record exists (ADR-140), and one that requires `If-Match`, as `requestSolve` does, answers 400
+ * `INVALID_REQUEST` with a `MISSING_PARAMETER` item (ADR-157).
  *
  * @param etag the `ETag` the view was read with, sent back exactly as it arrived, quotes included
  */

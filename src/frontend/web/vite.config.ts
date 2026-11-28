@@ -1,6 +1,5 @@
-import { fileURLToPath } from 'node:url'
+import { readFileSync } from 'node:fs'
 import react from '@vitejs/plugin-react'
-import { searchForWorkspaceRoot } from 'vite'
 import { defineConfig } from 'vitest/config'
 
 /**
@@ -45,16 +44,12 @@ const TILES_URL = process.env.DISPATCHFLOW_TILES_URL || 'http://127.0.0.1:8090'
 const MAP_PREFIX = /^\/map/
 
 /**
- * What Vitest, and only Vitest, may read beyond Vite's default, the pnpm workspace: the client API's
- * contract, which `src/lib/problems.contract.test.ts` reads until #148 generates the problem types
- * from it. The dev server keeps Vite's default, so it serves nothing new (ADR-153).
+ * The web app's release, its `package.json` version, which every call sends as `X-App-Version`
+ * (ADR-082, ADR-161): read when the app is built, so the bundle carries one constant.
  */
-const READABLE_ROOTS = process.env.VITEST
-  ? [
-      searchForWorkspaceRoot(process.cwd()),
-      fileURLToPath(new URL('../../../contracts/client-api/v1/', import.meta.url)),
-    ]
-  : undefined
+const APP_VERSION: string = JSON.parse(
+  readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
+).version
 
 /**
  * How long one test may run before Vitest fails it as hung. Vitest's default of 5 s failed the
@@ -65,11 +60,13 @@ const TEST_TIMEOUT_MS = 10_000
 
 export default defineConfig({
   plugins: [react()],
+  define: {
+    __APP_VERSION__: JSON.stringify(APP_VERSION),
+  },
   server: {
     // Vite's own default answers CORS for any localhost origin, so a page on another local port
     // could read the proxied core's answers. The app calls only its own origin, so it needs none.
     cors: false,
-    fs: { allow: READABLE_ROOTS },
     proxy: {
       // An object, never the string shorthand `'/api/': CORE_URL`, which turns `changeOrigin` on.
       '/api/': { target: CORE_URL },

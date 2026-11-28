@@ -1,6 +1,6 @@
 # ADR-153: The web app builds every form, refusal and row list from one set of shared pieces, and its schemas name codes, never messages
 
-- **Status:** Accepted; amended by ADR-154
+- **Status:** Accepted; amended by ADR-154 and ADR-161
 - **Date:** 2026-11-27
 
 ## Context

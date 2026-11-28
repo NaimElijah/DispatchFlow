@@ -77,7 +77,14 @@ export function refusalOf(issue: z.core.$ZodRawIssue): SchemaRefusal {
         : { code: 'TOO_LARGE', params: { max: issue.maximum } }
     case 'invalid_value':
       return { code: 'INVALID_VALUE', params: {} }
-    default:
+    // Zod's other checks read as a wrong format. They are named, not left to a default, so a code a
+    // later Zod adds fails the lint until it is mapped (switch-exhaustiveness-check).
+    case 'invalid_format':
+    case 'invalid_element':
+    case 'invalid_key':
+    case 'invalid_union':
+    case 'not_multiple_of':
+    case 'unrecognized_keys':
       return { code: 'WRONG_FORMAT', params: {} }
   }
 }

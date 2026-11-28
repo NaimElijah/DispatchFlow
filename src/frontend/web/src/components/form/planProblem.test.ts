@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { z } from 'zod'
-import type { Problem } from '../../lib/problems.ts'
+import type { Problem } from '@dispatchflow/api-client'
 import { planProblem } from './planProblem.ts'
 
 const schema = z.object({

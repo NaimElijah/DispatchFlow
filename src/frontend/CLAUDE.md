@@ -11,9 +11,9 @@ with its layout, rules and commands.
 
 ## Rules
 
-- The API client is generated from `contracts/client-api/v1`, never written by hand, and
-  generated code is never edited. Once `@dispatchflow/api-client` exists, it alone talks to the
-  server ([TS §10]).
+- `@dispatchflow/api-client` is generated from `contracts/client-api/v1` by `just web-gen`, which
+  `just web-setup` and `just web-check` run: run it after a contract change. Never commit or edit
+  it. It alone talks to the server ([TS §10], ADR-161).
 - The client never decides feasibility. Violations come from the server's validator ([TS §10]).
 - An error is translated from its stable `code` through `@dispatchflow/i18n`. No stack trace and no
   bare code reaches a screen ([ADR-043]).

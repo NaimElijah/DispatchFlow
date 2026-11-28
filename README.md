@@ -301,8 +301,10 @@ recipe; `just check` and `just format` run them all. The `web` recipes run from 
 workspace in `src/frontend`, so they also set up and check the shared packages. `just infra-check`
 and `just infra-format` cover the development stack in `infra/deploy`, which `just dev`,
 `just dev-down` and `just db-reset` run, and whose map files `just data` builds. `just gen`
-regenerates the code built from the contracts, today the core's interfaces and models, which every
-core build writes into `src/backend/core/target/generated-sources/openapi` too and never commits.
+regenerates the code built from the contracts, which is never committed: the core's interfaces and
+models, which every core build writes into `src/backend/core/target/generated-sources/openapi` too,
+and the apps' client types, which `just web-setup` and `just web-check` write into
+`src/frontend/packages/api-client/src/generated` too.
 
 **Adding a feature end to end:** start from the requirement it delivers in
 [requirements.md](docs/requirements/requirements.md), the aggregate that owns its rule in the
@@ -347,7 +349,7 @@ src/
   backend/optimizer/   optimization service (FastAPI)
   frontend/web/        web app (React + Vite)
   frontend/mobile/     phone app (Expo)
-  frontend/packages/   shared TypeScript packages: eslint-config, tsconfig, i18n, formatters and schemas, and two placeholders
+  frontend/packages/   shared TypeScript packages: eslint-config, tsconfig, i18n, formatters, schemas and api-client, and one placeholder
   research/            benchmarks, simulation, order generator; never deployed
 contracts/             versioned OpenAPI contracts between the components
 tests/                 cross-component tests only: e2e/, load/

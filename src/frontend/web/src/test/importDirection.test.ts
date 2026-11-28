@@ -1,17 +1,11 @@
-import { ESLint } from 'eslint'
 import { expect, test } from 'vitest'
-
-// The project's own eslint.config.js, read from the web app's folder, where Vitest runs.
-const eslint = new ESLint()
+import { LINT_TIMEOUT, lintAs } from './lintAs.ts'
 
 /** Lints one import line as if it sat in the given file, and says whether the import rule refused it. */
 async function isRefused(filePath: string, specifier: string): Promise<boolean> {
-  const [result] = await eslint.lintText(`import '${specifier}'\n`, { filePath })
-  return result.messages.some((message) => message.ruleId === 'no-restricted-imports')
+  const messages = await lintAs(`import '${specifier}'\n`, filePath)
+  return messages.some((message) => message.ruleId === 'no-restricted-imports')
 }
-
-// Loading the configuration and its plugins takes a few seconds the first time.
-const LINT_TIMEOUT = 30_000
 
 test.each([
   ['src/routes/AppLayout.tsx', '../features/planning/routes.ts'],
@@ -71,14 +65,11 @@ test.each([
 test(
   'GivenAFileOfTheApp_WhenItImportsOnlyZodsTypes_ThenLintAllowsTheImport',
   async () => {
-    const [result] = await eslint.lintText(
+    const messages = await lintAs(
       "import type { z } from 'zod'\nexport type Schema = z.ZodType\n",
-      { filePath: 'src/components/form/useSchemaForm.ts' },
+      'src/components/form/useSchemaForm.ts',
     )
-    expect(result.fatalErrorCount).toBe(0)
-    expect(result.messages.filter((message) => message.ruleId === 'no-restricted-imports')).toEqual(
-      [],
-    )
+    expect(messages.filter((message) => message.ruleId === 'no-restricted-imports')).toEqual([])
   },
   LINT_TIMEOUT,
 )

@@ -1,6 +1,6 @@
 import type { FieldPath, FieldValues } from 'react-hook-form'
 import { z } from '@dispatchflow/schemas'
-import type { Problem, ProblemItem } from '../../lib/problems.ts'
+import type { Problem, ProblemItem } from '@dispatchflow/api-client'
 
 /**
  * Names the field a refusal belongs on when the core gave no pointer to it: a 422's rules name no

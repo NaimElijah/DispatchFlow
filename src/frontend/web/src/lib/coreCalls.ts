@@ -12,8 +12,8 @@ import { RequestError, toRequestFailure } from './problems.ts'
  * - Anything thrown before the request, such as a `TypeError` from a screen reading a missing
  *   record's ID, stays a bug and fails as itself, and an abort stays an abort.
  *
- * The web app hands it to openapi-fetch as `fetch` when it builds its client (#148); a shared
- * package never imports it. It reads a body to its end, so never use it for the event stream.
+ * `coreClient.ts` hands it to the generated client as its `fetch` (ADR-161); a shared package never
+ * imports it. It reads a body to its end, so never use it for the event stream.
  *
  * @throws RequestError when no answer arrived, or the answer broke off
  * @throws DOMException when the request was aborted, as fetch does

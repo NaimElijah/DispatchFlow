@@ -1,48 +1,22 @@
-/**
- * A refusal as the core sends it: the contract's `Problem` (contracts/client-api/v1, ADR-043), RFC
- * 9457 problem details with a stable `code`, the `params` its text needs and the `traceId`. These
- * types are written by hand until `@dispatchflow/api-client` generates them (#148, ADR-153);
- * `problems.contract.test.ts` holds them to the contract meanwhile.
+import {
+  PARAMETER_PLACES,
+  PROBLEM_CODE_PATTERN,
+  TRACE_ID_PATTERN,
+  type Problem,
+  type ProblemItem,
+} from '@dispatchflow/api-client'
+
+/*
+ * A refusal as the core sends it is the contract's `Problem`, generated into
+ * `@dispatchflow/api-client` with its `ProblemItem`, `ProblemParameter` and the patterns the types
+ * can't carry (ADR-161). This file holds what the web app does with one: tell it from what a proxy
+ * sends, and decide how a screen acts on a failed call.
  */
-export interface Problem {
-  readonly type: string
-  readonly title: string
-  readonly status: number
-  readonly code: string
-  readonly params: Readonly<Record<string, unknown>>
-  readonly traceId: string
-  readonly instance?: string
-  /** A 400's failing items, or each refusal of a 422 that lists several. */
-  readonly errors?: readonly ProblemItem[]
-}
 
-/** One failing item of a problem: a field, a parameter, or the request as a whole. */
-export interface ProblemItem {
-  readonly code: string
-  /** An RFC 6901 JSON Pointer into the request body, on a 400 only; empty for the whole body. */
-  readonly pointer?: string
-  readonly parameter?: ProblemParameter
-  readonly params?: Readonly<Record<string, unknown>>
-}
-
-/**
- * The places a failing parameter can be in (`ProblemParameter.in`), which
- * `problems.contract.test.ts` pins.
- */
-export const PARAMETER_PLACES = ['path', 'query', 'header', 'cookie'] as const
-
-/** A failing parameter of a request: a header such as `If-Match`, a path or query parameter. */
-export interface ProblemParameter {
-  readonly name: string
-  readonly in: (typeof PARAMETER_PLACES)[number]
-}
-
-/** The contract's pattern for a code (`Problem.code`), which `problems.contract.test.ts` pins. */
-export const PROBLEM_CODE_PATTERN = /^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$/
-
-/** The contract's pattern for a trace ID (`Problem.traceId`), which `problems.contract.test.ts` pins. */
-export const TRACE_ID_PATTERN = /^[0-9a-f]{32}$/
 const PARAMETER_PLACE_SET: ReadonlySet<unknown> = new Set(PARAMETER_PLACES)
+
+/** The one `type` the core's problems carry: their `code` names the problem (ADR-140 decision 5). */
+const ABOUT_BLANK = 'about:blank'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -77,7 +51,7 @@ export function isProblem(value: unknown): value is Problem {
   }
   const { type, title, status, code, params, traceId, errors } = value
   return (
-    typeof type === 'string' &&
+    type === ABOUT_BLANK &&
     typeof title === 'string' &&
     typeof status === 'number' &&
     typeof code === 'string' &&

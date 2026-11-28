@@ -53,12 +53,12 @@ React 19, TypeScript 6.0, Vite 8, pnpm; TanStack Router and Query, Mantine 9, i1
   marked unavailable, and 1 hour after shift end on a route nobody finished (NFR-30, FR-328). It learns of route
   changes from its event stream (FR-347, [ADR-026]), and takes proof photos with the camera, never
   from files (NFR-204).
-- A call fetches with `lib/coreCalls.ts`'s `fetchFromCore` and reads its answer with `answerOf`
-  (ADR-154). The event stream reads with plain `fetch` and eventsource-parser: `EventSource` cannot
-  send an `Authorization` header ([TS §10]).
+- A call goes through `lib/coreClient.ts`'s `coreClient`, which sends with `fetchFromCore`, and
+  reads its answer with `answerOf` (ADR-154, ADR-161); ESLint refuses `fetch` elsewhere. The event
+  stream reads with plain `fetch` and eventsource-parser: `EventSource` cannot send an
+  `Authorization` header ([TS §10]).
 - Build forms on `@dispatchflow/schemas`, refusals and row lists from `src/components/` ([ADR-153]).
   ESLint keeps Day.js in `DatesLanguage.tsx` and takes Zod from `@dispatchflow/schemas` only.
-  `lib/problems.ts` types `Problem` by hand until #148.
 - Server data lives only in TanStack Query's in-memory cache, never persisted, and a refused refresh
   or an ended session drops it (NFR-269). Sign-out's answer sends `Clear-Site-Data` and deletes the
   refresh cookie, which is HttpOnly, so the app never reads it (NFR-233, [ADR-076]).

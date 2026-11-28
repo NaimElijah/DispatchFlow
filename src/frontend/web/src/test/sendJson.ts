@@ -1,10 +1,11 @@
 import { fetchFromCore, type SendResult } from '../lib/coreCalls.ts'
 
 /**
- * Sends a JSON body as the web app's openapi-fetch client will (#148): through `fetchFromCore`,
- * and answering in openapi-fetch's shape, the parsed `data` on a success and the parsed `error`
- * body otherwise, as text when it is no JSON. Tests use it as a versioned save's `send` until the
- * generated client exists.
+ * Sends a JSON body as the web app's generated client does (ADR-161): through `fetchFromCore`, and
+ * answering in openapi-fetch's shape, the parsed `data` on a success and the parsed `error` body
+ * otherwise, as text when it is no JSON. The form tests send to made-up paths no operation of the
+ * contract has, which the generated client's types refuse, so they use this as a versioned save's
+ * `send` instead.
  *
  * @param method the HTTP method, such as `PUT`
  * @param path the path under the app's origin, such as `/api/v1/examples/e1`

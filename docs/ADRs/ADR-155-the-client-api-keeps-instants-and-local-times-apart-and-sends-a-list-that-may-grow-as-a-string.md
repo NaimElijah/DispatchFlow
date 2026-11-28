@@ -1,6 +1,6 @@
 # ADR-155: The client API keeps instants and local times apart, and sends a list that may grow as a string
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-161
 - **Date:** 2026-11-28
 
 ## Context

@@ -1,5 +1,5 @@
 import { readdirSync } from 'node:fs'
-import { reactVite } from '@dispatchflow/eslint-config'
+import { reactVite, typeChecked } from '@dispatchflow/eslint-config'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 /** The modules directly under `src/` that assemble the app: nothing below them imports them. */
@@ -86,6 +86,23 @@ function restrict(files, patterns, ignores = []) {
 export default defineConfig([
   globalIgnores(['dist']),
   reactVite,
+  typeChecked(import.meta.dirname),
+  // Only @dispatchflow/api-client talks to the server (TS §10, ADR-161): the app's one client sends
+  // through coreCalls.ts's fetchFromCore, and the tests call fetch to try MSW itself.
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/lib/coreCalls.ts', 'src/test/**', '**/*.test.{ts,tsx}'],
+    rules: {
+      'no-restricted-globals': [
+        'error',
+        {
+          name: 'fetch',
+          message:
+            "Call the core through lib/coreClient.ts's coreClient, which @dispatchflow/api-client builds.",
+        },
+      ],
+    },
+  },
   ...FEATURES.map((feature) =>
     restrict(
       [`src/features/${feature}/**`],

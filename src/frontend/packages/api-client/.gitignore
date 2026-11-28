@@ -1,0 +1,3 @@
+# The types openapi-typescript generates from the contract at setup and before every check, never
+# committed (ADR-161). Prettier reads this file too, so it leaves them unformatted.
+src/generated/

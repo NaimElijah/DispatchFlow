@@ -39,7 +39,7 @@ and ADR-014 are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 | `src/frontend/` | The pnpm workspace's root, over `web/` and `packages/*` ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)): `package.json`, `pnpm-workspace.yaml` and its one lockfile, `pnpm-lock.yaml`; `.prettierrc.json`, Prettier's one file for the web app and the packages ([ADR-141](../ADRs/ADR-141-prettiers-settings-live-in-one-file-in-src-frontend.md)); and `.dockerignore`, for the web app's dev image |
 | `src/frontend/web/` | The web app, for every role: React, TypeScript, Vite, pnpm |
 | `src/frontend/mobile/` | The phone app, for every role: React Native, Expo SDK 58, TypeScript |
-| `src/frontend/packages/` | The shared TypeScript packages ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)): `eslint-config`, `tsconfig`, `i18n`, `formatters` and `schemas` are workspace packages, and two placeholder folders have no `package.json` yet |
+| `src/frontend/packages/` | The shared TypeScript packages ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)): `eslint-config`, `tsconfig`, `i18n`, `formatters`, `schemas` and `api-client` are workspace packages, and one placeholder folder, `map-style`, has no `package.json` yet |
 | `src/research/` | Benchmarks, simulation and the order generator: Python, uv. Never deployed |
 | `contracts/` | `client-api/v1` and `optimization-api/v1` (OpenAPI), and the Redocly lint setup |
 | `tests/` | Tests that span components: `e2e/` and `load/`. Both are placeholders |
@@ -520,7 +520,8 @@ src/frontend/web/
                          map/, the map's (#174, empty until then)
     lib/                 the code no layer owns: the language setting, the refusal reader
                          (problems.ts), the refusal texts (problemText.ts), the one fetch and
-                         answer reader of every call (coreCalls.ts), the one query cache
+                         answer reader of every call (coreCalls.ts), the one client of the core
+                         (coreClient.ts), the one query cache
                          (queryClient.ts) and the versioned save (versionedSave.ts)
     test/                Vitest's setup, renderApp, renderComponent, the one MSW server, the <style>
                          check, the tests of the lint rules, and the example form
@@ -554,22 +555,25 @@ deepmerge entries in
 are. It has no route folder:
 that comes with `expo-router` at M10 ([ADR-130][ADR-130]).
 
-The two apps share no code. `src/frontend/packages/` holds seven folders. Five are workspace
+The two apps share no code. `src/frontend/packages/` holds seven folders. Six are workspace
 packages that only the web app uses so far: `eslint-config` (`@dispatchflow/eslint-config`, the
 ESLint 10 flat configs), `tsconfig` (`@dispatchflow/tsconfig`, the `base`, `app` and `node`
 presets), `i18n` (`@dispatchflow/i18n`, the English and Hebrew strings as TypeScript, one
 namespace per area in `src/en/` and `src/he/`, with `common` for the shared components and
 `problems` for every refusal's text and next step), `formatters` (`@dispatchflow/formatters`,
 dates, times and quantities as Israel reads them) and `schemas` (`@dispatchflow/schemas`, the
-building blocks of every form's Zod schema) ([ADR-153](../ADRs/ADR-153-the-web-apps-shared-form-refusal-and-table-pieces.md)). Each ships its source, which the app
-compiles, and its `build` script is its type check. The other two, `api-client` and `map-style`, are
-placeholders: a folder is not a package until the ticket that first puts code in it adds its
+building blocks of every form's Zod schema) ([ADR-153](../ADRs/ADR-153-the-web-apps-shared-form-refusal-and-table-pieces.md)) and `api-client`
+(`@dispatchflow/api-client`, the client of the core: `createCoreClient`, the problem types and the
+patterns they can't carry, over the types generated into its git-ignored `src/generated/`,
+[ADR-161](../ADRs/ADR-161-the-apps-client-is-generated-before-every-check-never-committed-from-the-frozen-pair-pinned.md)). Each ships its source, which the app compiles, and its `build` script is its type check;
+`api-client` generates its types before lint and test. The other one, `map-style`, is a
+placeholder: a folder is not a package until the ticket that first puts code in it adds its
 `package.json` ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md),
-[ADR-130][ADR-130]). `contracts/client-api/v1` declares two operations, and `core` generates its interfaces from them,
-but the web app's generator is not set up yet (#148), so neither app has an API client.
+[ADR-130][ADR-130]). `contracts/client-api/v1` declares two operations: `core` generates its
+interfaces from them and the web app its client, and the phone app has none yet.
 [ADR-043](../ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md)
-(Accepted) generates code from the contracts on both sides: `core`'s is in the tree, the
-consumers' and the optimizer's are not yet.
+(Accepted) generates code from the contracts on both sides: `core`'s and the web app's are built
+from the tree, never committed, and the optimizer's is not yet.
 
 ## Where the tests live
 
@@ -594,8 +598,9 @@ yet.
 
 `just <component>-check` runs a component's tests with its format and lint checks, and
 `just check` runs every component's, plus the contract lint and the dependency audit.
-`just gen` generates the code built from the contracts, which is never committed: today the core's
-interfaces and models, which every core build writes too. See the [`justfile`](../../justfile).
+`just gen` generates the code built from the contracts, which is never committed: the core's
+interfaces and models, which every core build writes too, and the apps' client types, which
+`just web-setup` and `just web-check` write too. See the [`justfile`](../../justfile).
 
 ## Dependency rules
 

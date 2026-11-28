@@ -2,7 +2,8 @@ import { http, HttpResponse } from 'msw/http'
 import { describe, expect, test, vi } from 'vitest'
 import { server } from '../test/server.ts'
 import { answerOf, fetchFromCore, retryRead } from './coreCalls.ts'
-import { RequestError, type Problem } from './problems.ts'
+import type { Problem } from '@dispatchflow/api-client'
+import { RequestError } from './problems.ts'
 
 const PATH = '/api/v1/examples/e1'
 const address = () => new URL(PATH, window.location.origin)
