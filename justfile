@@ -33,7 +33,6 @@ infra_tools := "uv run --project src/backend/optimizer --locked --only-dev"
 # archive whose hash was checked first.
 pmtiles_image := "protomaps/go-pmtiles:v1.31.2@sha256:06574f01f55a78f78f887bc7ebf729a5c093c0d6e17d9876300cfcb0758b59d3"
 protomaps_build := "20260811"
-protomaps_basemap_version := "4.15.1"
 israel_tiles_sha256 := "f0c0d38f8473a029be9fd8212c9fb1db5d8c6600335bf9142e1366562fc8f359"
 basemaps_assets_commit := "028c18f713baecad011301ff7a69acc39bcc2ae7"
 basemaps_assets_sha256 := "57e40e8c512bd8042d0a3a251f19d0d1c8523ad963c666c3c6643bada4dc92d0"
@@ -261,7 +260,7 @@ infra-format:
 data: _data-pins
     docker run {{ data_container }} -v "{{ justfile_directory() }}/data:/data" --entrypoint sh {{ caddy_image }} -c 'set -eo pipefail; rm -rf /data/tiles/fonts.part /data/tiles/sprites.part /data/tiles-cut/israel.pmtiles.part; mkdir -p /data/tiles /data/tiles-cut; wget -q -O /tmp/assets.tar.gz https://codeload.github.com/protomaps/basemaps-assets/tar.gz/{{ basemaps_assets_commit }}; h=$(sha256sum /tmp/assets.tar.gz | cut -c1-64); [ $h = {{ basemaps_assets_sha256 }} ] || { echo the fonts archive has sha256 $h, not basemaps_assets_sha256: a moved commit needs it retaken >&2; exit 1; }; tar -xzf /tmp/assets.tar.gz -C /tmp; mkdir /data/tiles/sprites.part; cp -RL /tmp/basemaps-assets-{{ basemaps_assets_commit }}/fonts /data/tiles/fonts.part; cp -L /tmp/basemaps-assets-{{ basemaps_assets_commit }}/sprites/v4/light* /data/tiles/sprites.part/'
     docker run {{ data_container }} -v "{{ justfile_directory() }}/infra/osrm:/region:ro" -v "{{ justfile_directory() }}/data/tiles-cut:/cut" {{ pmtiles_image }} extract https://build.protomaps.com/{{ protomaps_build }}.pmtiles /cut/israel.pmtiles.part --region=/region/beer-sheva.geojson --quiet
-    docker run {{ data_container }} -v "{{ justfile_directory() }}/data:/data" --entrypoint sh {{ caddy_image }} -c 'set -eo pipefail; h=$(sha256sum /data/tiles-cut/israel.pmtiles.part | cut -c1-64); [ $h = {{ israel_tiles_sha256 }} ] || { rm -rf /data/tiles/fonts.part /data/tiles/sprites.part /data/tiles-cut/israel.pmtiles.part; echo the cut tiles have sha256 $h, not israel_tiles_sha256: a moved build, boundary or pmtiles image needs it retaken >&2; exit 1; }; rm -rf /data/tiles/fonts /data/tiles/sprites; mv /data/tiles/fonts.part /data/tiles/fonts; mv /data/tiles/sprites.part /data/tiles/sprites; mv /data/tiles-cut/israel.pmtiles.part /data/tiles/israel.pmtiles; printf protomaps-build={{ protomaps_build }}\\nprotomaps-basemap={{ protomaps_basemap_version }}\\nisrael-tiles-sha256={{ israel_tiles_sha256 }}\\nbasemaps-assets={{ basemaps_assets_commit }}\\nbasemaps-assets-sha256={{ basemaps_assets_sha256 }}\\n > /data/tiles/BUILD'
+    docker run {{ data_container }} -v "{{ justfile_directory() }}/data:/data" --entrypoint sh {{ caddy_image }} -c 'set -eo pipefail; h=$(sha256sum /data/tiles-cut/israel.pmtiles.part | cut -c1-64); [ $h = {{ israel_tiles_sha256 }} ] || { rm -rf /data/tiles/fonts.part /data/tiles/sprites.part /data/tiles-cut/israel.pmtiles.part; echo the cut tiles have sha256 $h, not israel_tiles_sha256: a moved build, boundary or pmtiles image needs it retaken >&2; exit 1; }; rm -rf /data/tiles/fonts /data/tiles/sprites; mv /data/tiles/fonts.part /data/tiles/fonts; mv /data/tiles/sprites.part /data/tiles/sprites; mv /data/tiles-cut/israel.pmtiles.part /data/tiles/israel.pmtiles; printf protomaps-build={{ protomaps_build }}\\\nisrael-tiles-sha256={{ israel_tiles_sha256 }}\\nbasemaps-assets={{ basemaps_assets_commit }}\\nbasemaps-assets-sha256={{ basemaps_assets_sha256 }}\\n > /data/tiles/BUILD'
 
 # The pins are pasted into the steps' shell commands, and `just name=value data` overrides them, so
 # each must match its own shape before any step runs. This catches a mistyped override; it guards
@@ -269,7 +268,6 @@ data: _data-pins
 # recipe with --no-deps.
 _data-pins:
     @{{ if protomaps_build =~ '^[0-9]{8}$' { "" } else { error("protomaps_build must be a build date, eight digits") } }}
-    @{{ if protomaps_basemap_version =~ '^[0-9]+\.[0-9]+\.[0-9]+$' { "" } else { error("protomaps_basemap_version must be a version, such as 4.15.1") } }}
     @{{ if israel_tiles_sha256 =~ '^[0-9a-f]{64}$' { "" } else { error("israel_tiles_sha256 must be 64 lowercase hex digits") } }}
     @{{ if basemaps_assets_commit =~ '^[0-9a-f]{40}$' { "" } else { error("basemaps_assets_commit must be a full commit, 40 lowercase hex digits") } }}
     @{{ if basemaps_assets_sha256 =~ '^[0-9a-f]{64}$' { "" } else { error("basemaps_assets_sha256 must be 64 lowercase hex digits") } }}
