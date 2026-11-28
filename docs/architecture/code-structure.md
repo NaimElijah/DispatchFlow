@@ -49,7 +49,7 @@ and ADR-014 are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 | `docs/` | `CLAUDE.md`, `requirements/` (with `ARD/`), `architecture/` (with `domain_layer/` and `tech_stack.md`), `ADRs/`, `roadmap.md`, `operations/` (with `data-inventory.md`) and `presentations/`; the placeholders are `guides/he/`, `guides/en/`, `research/usability/` and `architecture/generated/` |
 | `.claude/` | Claude Code's context: the root `CLAUDE.md`, the team agents (`agents/`), the team skills (`skills/`), `settings.json`, and an empty `rules/` folder ([ADR-018](../ADRs/ADR-018-ai-assistant-context-in-the-repository.md), [ADR-020](../ADRs/ADR-020-team-subagents-in-the-repository.md), [ADR-025](../ADRs/ADR-025-team-skills-in-the-repository.md)) |
 | `.github/` | The CI workflow, Dependabot configuration, and issue and pull request templates |
-| `justfile` | Every command. CI runs the same recipes |
+| `justfile` | Every command. CI runs the same recipes. `dev`, `dev-down` and `db-reset` start, stop and reset the development stack on a laptop |
 | `README.md`, `.editorconfig`, `.gitattributes`, `.gitignore` | The readme, and the editor, line-ending and ignore settings |
 | `.java-version`, `.python-version`, `.nvmrc` | Toolchain pins: Java 25, Python 3.14, Node 24 |
 | `LICENSE` | Proprietary, all rights reserved ([ADR-017](../ADRs/ADR-017-proprietary-licence.md)) |

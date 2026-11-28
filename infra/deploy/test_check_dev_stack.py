@@ -322,6 +322,38 @@ def test_given_tests_with_no_written_command_when_the_command_is_checked_then_it
     assert check.server_command_problems(postgres_stack(), "no command here") != []
 
 
+def test_given_a_service_under_another_profile_when_profiles_are_checked_then_it_is_named() -> None:
+    configuration = services(osrm={"profiles": ["osrm"]}, tiles={"profiles": ["data"]})
+
+    assert check.profile_problems(configuration) == [
+        "osrm is under the osrm profile, which just dev doesn't start"
+    ]
+
+
+def test_given_services_under_data_or_none_when_profiles_are_checked_then_none_is_named() -> None:
+    configuration = services(osrm={"profiles": ["data"]}, core={})
+
+    assert check.profile_problems(configuration) == []
+
+
+def test_given_a_named_volume_beside_the_databases_when_volumes_are_checked_then_it_is_named() -> (
+    None
+):
+    configuration: check.Configuration = {
+        "services": {},
+        "volumes": {"postgres-data": {}, "osrm-data": {}},
+    }
+
+    assert check.volume_problems(configuration) == [
+        "the file declares the named volume osrm-data, which just db-reset would delete"
+    ]
+
+
+def test_given_only_the_databases_volume_when_volumes_are_checked_then_none_is_named() -> None:
+    assert check.volume_problems({"services": {}, "volumes": {"postgres-data": {}}}) == []
+    assert check.volume_problems({"services": {}}) == []
+
+
 def test_given_a_stack_breaking_every_rule_when_checked_statically_then_each_rule_is_named() -> (
     None
 ):
@@ -338,8 +370,10 @@ def test_given_a_stack_breaking_every_rule_when_checked_statically_then_each_rul
                 "environment": {"SPRING_DATASOURCE_PASSWORD": throwaway},
                 "depends_on": {"migrate": {"condition": "service_started"}},
             },
+            "osrm": {"profiles": ["osrm"], **HARDENED},
         },
         "secrets": {"owner": {"environment": "DISPATCHFLOW_OWNER_PASSWORD"}},
+        "volumes": {"postgres-data": {}, "osrm-data": {}},
     }
     written = services(
         postgres={},
@@ -374,6 +408,8 @@ def test_given_a_stack_breaking_every_rule_when_checked_statically_then_each_rul
         "the stack runs postgres:18.6 but the tests postgres:18.7",
         "Dockerfile.dev's Node major differs",
         "the stack's postgres command differs",
+        "osrm is under the osrm profile",
+        "the named volume osrm-data",
     ]:
         assert named in problems, named
 
