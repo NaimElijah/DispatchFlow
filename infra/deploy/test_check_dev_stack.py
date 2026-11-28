@@ -25,6 +25,7 @@ TESTS_AT_18_7 = (
     '    "lc_messages=C"\n};\n'
 )
 WEB_ON_NODE_24 = "# syntax\nFROM node:24-slim\n"
+JUSTFILE_ON_CADDY = 'pmtiles_image := "p"\ncaddy_image := "caddy:2.11.9-alpine"\n'
 
 
 def services(**by_name: dict[str, Any]) -> check.Configuration:
@@ -291,6 +292,32 @@ def test_given_a_node_major_apart_from_nvmrc_when_tags_are_checked_then_it_is_na
     ]
 
 
+def test_given_the_tiles_service_on_the_justfiles_caddy_when_checked_then_none_is_named() -> None:
+    configuration = services(tiles={"image": "caddy:2.11.9-alpine"})
+
+    assert check.caddy_pin_problems(configuration, JUSTFILE_ON_CADDY) == []
+
+
+@pytest.mark.parametrize(
+    ("tiles_image", "justfile_text", "found"),
+    [
+        ("caddy:2.11.10-alpine", JUSTFILE_ON_CADDY, "caddy:2.11.9-alpine"),
+        ("caddy:2.11.9-alpine", "# caddy_image is gone\n", "no caddy_image"),
+        (None, JUSTFILE_ON_CADDY, "caddy:2.11.9-alpine"),
+    ],
+)
+def test_given_a_tiles_image_apart_from_the_justfiles_caddy_when_checked_then_it_is_named(
+    tiles_image: str | None, justfile_text: str, found: str
+) -> None:
+    """`just data` runs the justfile's copy, so a bump of one copy alone would go unnoticed."""
+    configuration = services(tiles={"image": tiles_image})
+
+    assert check.caddy_pin_problems(configuration, justfile_text) == [
+        f"the tiles service runs {tiles_image} but the justfile's caddy_image is {found}: "
+        "bump both together"
+    ]
+
+
 def test_given_the_tests_command_when_it_is_read_then_their_own_fsync_off_is_left_out() -> None:
     assert check.tests_server_command(TESTS_AT_18_7) == STACK_COMMAND
 
@@ -371,6 +398,7 @@ def test_given_a_stack_breaking_every_rule_when_checked_statically_then_each_rul
                 "depends_on": {"migrate": {"condition": "service_started"}},
             },
             "osrm": {"profiles": ["osrm"], **HARDENED},
+            "tiles": {"image": "caddy:2.11.10-alpine", **HARDENED},
         },
         "secrets": {"owner": {"environment": "DISPATCHFLOW_OWNER_PASSWORD"}},
         "volumes": {"postgres-data": {}, "osrm-data": {}},
@@ -386,6 +414,7 @@ def test_given_a_stack_breaking_every_rule_when_checked_statically_then_each_rul
         testcontainers_text=TESTS_AT_18_7,
         dockerfile_text=WEB_ON_NODE_24,
         nvmrc_text="26\n",
+        justfile_text=JUSTFILE_ON_CADDY,
     )
 
     problems = " | ".join(
@@ -407,6 +436,7 @@ def test_given_a_stack_breaking_every_rule_when_checked_statically_then_each_rul
         "DISPATCHFLOW_NEW_TOKEN is read with no default",
         "the stack runs postgres:18.6 but the tests postgres:18.7",
         "Dockerfile.dev's Node major differs",
+        "the tiles service runs caddy:2.11.10-alpine",
         "the stack's postgres command differs",
         "osrm is under the osrm profile",
         "the named volume osrm-data",

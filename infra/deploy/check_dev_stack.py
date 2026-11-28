@@ -16,7 +16,8 @@ a throwaway value for each secret, never a developer's own infra/deploy/.env or 
 - the core waits for the migrate step to succeed, and the migrate step for PostgreSQL to be healthy;
 - every service under a profile is under `data`, the one `just dev` starts, and the database's is
   the only named volume, since `just db-reset` runs `down --volumes`, which deletes every one;
-- the stack's PostgreSQL tag and server settings are the tests', and its Node major is .nvmrc's.
+- the stack's PostgreSQL tag and server settings are the tests', its Node major is .nvmrc's, and
+  the tiles service's image is the root justfile's caddy_image, which `just data` runs.
 
 With ``--live``, the whole stack then starts in a project of its own, with a random name and no port
 on the host, so it never meets a running ``just dev`` or another check. It first removes what an
@@ -62,6 +63,7 @@ TESTCONTAINERS_CONFIGURATION = (
     REPOSITORY / "src/backend/core/src/test/java/com/dispatchflow/TestcontainersConfiguration.java"
 )
 WEB_DOCKERFILE = REPOSITORY / "src/frontend/web/Dockerfile.dev"
+JUSTFILE = REPOSITORY / "justfile"
 # ADR-038 moves the Node pin to mise.toml; the check moves with it.
 NVMRC = REPOSITORY / ".nvmrc"
 LOOPBACK = "127.0.0.1"
@@ -118,8 +120,8 @@ VARIABLE = re.compile(
 DEFAULT_OPERATORS = ("-", ":-")
 LISTED_KEY = re.compile(r"^([A-Z0-9_]+)=", re.MULTILINE)
 
-# Where the tests' PostgreSQL tag, the tests' server command and the web image's Node major are
-# written.
+# Where the tests' PostgreSQL tag, the tests' server command, the web image's Node major and the
+# justfile's Caddy image are written.
 TESTS_POSTGRES_TAG = re.compile(
     r'POSTGRES_IMAGE\s*=\s*DockerImageName\.parse\("(?P<image>[^"]+)"\)'
 )
@@ -127,6 +129,7 @@ TESTS_POSTGRES_COMMAND = re.compile(r"POSTGRES_COMMAND\s*=\s*\{(?P<body>[^}]*)\}
 JAVA_STRING = re.compile(r'"([^"]*)"')
 NODE_BASE_MAJOR = re.compile(r"^FROM node:(?P<major>\d+)", re.MULTILINE)
 NVMRC_MAJOR = re.compile(r"\s*v?(?P<major>\d+)")
+JUSTFILE_CADDY_IMAGE = re.compile(r'^caddy_image := "(?P<image>[^"]+)"', re.MULTILINE)
 # The tests' own server option, which a throwaway database can afford and the stack can't.
 TESTS_ONLY_OPTION = ("-c", "fsync=off")
 
@@ -215,6 +218,7 @@ class Sources:
     testcontainers_text: str
     dockerfile_text: str
     nvmrc_text: str
+    justfile_text: str
 
 
 def main(arguments: list[str]) -> int:
@@ -320,6 +324,7 @@ def check_static(environment: dict[str, str]) -> None:
         testcontainers_text=read(TESTCONTAINERS_CONFIGURATION),
         dockerfile_text=read(WEB_DOCKERFILE),
         nvmrc_text=read(NVMRC),
+        justfile_text=read(JUSTFILE),
     )
     problems = static_problems(
         compose_configuration(environment, interpolate=True),
@@ -363,6 +368,7 @@ def static_problems(
         *tag_problems(
             resolved, sources.testcontainers_text, sources.dockerfile_text, sources.nvmrc_text
         ),
+        *caddy_pin_problems(resolved, sources.justfile_text),
         *server_command_problems(resolved, sources.testcontainers_text),
     ]
     return list(dict.fromkeys(problems))
@@ -588,6 +594,27 @@ def tag_problems(
     if node is None or pinned is None or node.group("major") != pinned.group("major"):
         problems.append("Dockerfile.dev's Node major differs from .nvmrc's: bump both together")
     return problems
+
+
+def caddy_pin_problems(configuration: Configuration, justfile_text: str) -> list[str]:
+    """The tiles service's image when it differs from the justfile's caddy_image.
+
+    Args:
+        configuration: the file as Compose resolves it.
+        justfile_text: the root justfile, whose `just data` steps run caddy_image's shell.
+
+    Returns:
+        One problem when the two copies differ, so a bump of one fails until the other follows.
+    """
+    stack_caddy = configuration["services"].get("tiles", {}).get("image")
+    pinned = JUSTFILE_CADDY_IMAGE.search(justfile_text)
+    found = pinned.group("image") if pinned else "no caddy_image"
+    if pinned is None or stack_caddy != found:
+        return [
+            f"the tiles service runs {stack_caddy} but the justfile's caddy_image is {found}: "
+            "bump both together"
+        ]
+    return []
 
 
 def tests_server_command(testcontainers_text: str) -> list[str] | None:
