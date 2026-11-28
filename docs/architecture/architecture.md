@@ -16,11 +16,11 @@ How DispatchFlow is built, as it is today. What it must do is in
 > Settings page; no screen of it calls the API. Its shared form, refusal and table pieces are built
 > too, but no screen uses them yet. The application layers are declared, not built, but for Audit's
 > `AuditLogService`, wired to record a changing call's refused 401, a lost race and a request that
-> breaks the contract, and every changing use case's outcome as each is built, and Audit's static
-> `Refusals` helper: every other body that would do work throws, no other use case calls a
-> persistence adapter, and no operation is served, so no record is written yet. The design the team
-> is heading for is in [Target design](#target-design); this file describes none of it as built
-> beyond that.
+> breaks the contract, and every changing use case's outcome as each is built, Audit's static
+> `Refusals` helper, and Planning's `OpenPlan` and `RequestSolve`, each with its `Change`: every
+> other body that would do work throws, and `core` serves two operations of the client API,
+> `openPlan` and `requestSolve`, which no screen calls yet. The design the team is heading for is
+> in [Target design](#target-design); this file describes none of it as built beyond that.
 
 ## Architecture overview
 
@@ -47,13 +47,15 @@ today.
 
 | Component | Is | Does today |
 |---|---|---|
-| `core` (`src/backend/core`) | Spring Boot 4.1.2, Java 25 | Run as `migrate`, applies the Flyway migrations as `dispatchflow_owner` and exits. Otherwise starts, connects to PostgreSQL as `app`, which owns no table, answers `GET /actuator/health`, answers every error that reaches Spring MVC's exception handlers or Tomcat's error dispatch as the client API's `Problem` with a `code` and the request's trace ID, re-runs a call that lost a race, refuses to start on a database session that could pass its grants or on a server whose messages could be translated, `lc_messages` other than `C` or `POSIX` (`DatabaseSessionGuard`), and stores every module's aggregates through its persistence adapters |
+| `core` (`src/backend/core`) | Spring Boot 4.1.2, Java 25 | Run as `migrate`, applies the Flyway migrations as `dispatchflow_owner` and exits. Otherwise starts, connects to PostgreSQL as `app`, which owns no table, answers `GET /actuator/health`, serves the client API's `openPlan` and `requestSolve` under `/api/v1`, starts only when the active profiles are exactly `dev` or exactly `test` until #193's event-stream adapter replaces `LiveUpdatesStandIn` (under any other profile it refuses to start, [ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md), decision 10), answers every error that reaches Spring MVC's exception handlers or Tomcat's error dispatch as the client API's `Problem` with a `code` and the request's trace ID, re-runs a call that lost a race, refuses to start on a database session that could pass its grants or on a server whose messages could be translated, `lc_messages` other than `C` or `POSIX` (`DatabaseSessionGuard`), and stores every module's aggregates through its persistence adapters |
 | `optimizer` (`src/backend/optimizer`) | FastAPI, Python 3.14, NumPy | Answers `GET /health/liveness` with `{"status":"UP"}`, and holds the domain for daily solves and re-optimizations (the validator, the objective and the drop reasons), and a declared application layer; nothing calls either yet |
 | `web` (`src/frontend/web`) | React 19, Vite 8, TanStack Router and Query, Mantine 9, i18next | Renders its shell: a header, the navigation, and pages for planning (`/plans/$date`, where `/` leads to tomorrow's), orders, import, fleet and settings, with not-found and error pages. It is in English, or in Hebrew right to left once its Settings page says so. The planning page shows its date over an empty area for the map (#174), every page but planning and settings says it is not built yet, and no page calls the API ([ADR-143](../ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md)). Its shared pieces, which no screen uses yet, are form fields over React Hook Form and the shared Zod schemas, one fetch and answer reader for every call, a versioned save that sends the read `ETag`, a message that words the core's refusals for a read or a write, a table over TanStack Table, and save notifications, which stay until closed when they offer an action ([ADR-153](../ADRs/ADR-153-the-web-apps-shared-form-refusal-and-table-pieces.md), [ADR-154](../ADRs/ADR-154-the-audit-of-the-shared-web-pieces-amends-how-a-call-fails-a-notice-closes-and-a-range-reads.md)) |
 | `mobile` (`src/frontend/mobile`) | React Native, Expo SDK 58 | Renders a heading |
 | `research` (`src/research`) | Python, uv; never deployed | Installs `optimizer` and PyVRP in one environment, and imports neither yet: `tests/test_environment.py` only checks that both can be found. `benchmark/`, `simulation/` and `generator/` are declared, empty packages, and `results/` holds only `.gitkeep`. Its benchmark instances will live in the git-ignored `data/` |
 
-`core` has no controller. Its `src/main/resources/db/migration/` holds twelve Flyway migrations:
+`core`'s one controller, Planning's `PlanController`, serves the client API's two operations.
+
+`core`'s `src/main/resources/db/migration/` holds twelve Flyway migrations:
 `V1` creates the eight module schemas, `V2` to `V9` add one module's tables each, `V10` refuses a
 negative position in every stored list, `V11` grants `app` what each adapter runs, and `V12` adds
 the audit trail's purge function and its cutoff, owned by `dispatchflow_owner`, of which `app` may
@@ -115,27 +117,37 @@ Israel, and `shared/adapter/out/uuid` holds `UuidV7Generator`, the `IdGenerator`
 version 7 through `uuid-creator`. `shared/adapter/out/optimizer` is declared, empty: it will hold the
 client generated from `optimization-api`, which Planning's and Reporting's `optimizer` adapters
 wrap. `shared/adapter/in/web` holds `Problems`, the one factory of every error body, its
-`ProblemItem`, and `HandlerOrder`, the order of every exception handler; it will also hold the code
-generated from `client-api`, built at every build and never committed, and `@RequiresCapability`.
+`ProblemItem`, `HandlerOrder`, the order of every exception handler, and `ClientApi`, the base path
+`/api/v1` and the package of the generated interfaces. Its `api` and `model` packages are the code
+generated from `client-api` by openapi-generator-maven-plugin 7.27.0: one `<Tag>Api` interface per
+tag and a `…Dto` class per schema, written into `target/generated-sources/openapi` at every build
+and never committed ([ADR-160](../ADRs/ADR-160-the-cores-generated-interfaces-take-a-dto-suffix-leave-absent-fields-out-and-are-served-under-a-literal-api-v1-prefix.md)).
+`just gen` runs that generation alone. `@RequiresCapability` will join them.
 `shared/adapter/out/sse` is declared, empty: it will hold the registry of open event streams. These
 two sit below `web`, so a module's controllers, handlers and `sse` adapters reach them without
 depending on it ([ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md)). `AggregateRoot` is a `@MappedSuperclass` that holds the `@Version`
 and publishes the events its methods raised when a repository's `save` runs. The `domain` packages
 of `access`, `audit`, `fleet`, `liveops`, `messaging`, `orders`, `planning` and `reporting` are
 built ahead of their milestones, with the `events` packages of the six modules that raise events
-(not `audit` or `reporting`), and no use case calls them yet.
+(not `audit` or `reporting`), and no use case calls them yet but Planning's `OpenPlan` and
+`RequestSolve`.
 
 Each core module also has an `application` package, and the kernel has `shared/application`. They
 are declared ahead of their milestones: every use case, query, port and module API has its signature,
 and every body that would do work throws `UnsupportedOperationException("To Be Implemented.")`. They are
 not built, but for Audit's `AuditLogService`, the `AuditLog` every changing use case will write
-through, and its `Refusals` helper.
+through, and its `Refusals` helper, and Planning's `OpenPlan` and `RequestSolve` with their
+`Change`s, the first use cases a controller serves. `RequestSolve` offers OR-Tools alone and asks
+no `RouteOptimizer` anything until the solver choice is built. `RandomSeeds` draws each job's seed,
+and `LiveUpdatesStandIn` sends nothing, because no event stream exists yet.
 Each module's root package holds only its `package-info` and a package-private
-`<Module>Configuration`, whose `@Import` list is empty but for `AuditConfiguration`'s, which names
-`AuditLogService`: a use case and its `Change` join it in the
+`<Module>Configuration`, whose `@Import` list holds only what is built: `AuditConfiguration`'s names
+`AuditLogService`, and `PlanningConfiguration`'s names `OpenPlan`, `OpenPlanChange`, `RequestSolve`
+and `RequestSolveChange`. A use case and its `Change` join it in the
 pull request that builds its body, so no bean wires a throwing one ([ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md),
-decision 10). Only `AuditLogService` calls a port, `AuditRecords.append`: the other persistence
-adapters implement the repository ports, and no use case calls them. A success's record joins its
+decision 10). `AuditLogService` calls the port `AuditRecords.append`, and Planning's two `Change`s
+call the plan, solve-job and planning-settings repositories: no other use case calls a persistence
+adapter. A success's record joins its
 change's transaction; a refusal's is written once the refused change has rolled back, so a use case
 whose transaction can refuse is two classes, and each one-class skeleton that can refuse splits as
 its body is built ([ADR-149](../ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md)). Who writes it:
@@ -171,8 +183,8 @@ package per aggregate, then into concept packages, and an application package th
 Which modules are split, and into what, is in [bounded-contexts.md](bounded-contexts.md).
 
 Every module's `adapter/` also holds packages declared ahead, empty, as [ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)
-declared the application layer: 53 in all (51 in the modules, 2 beside the kernel), each with a `package-info.java` that says what goes in it and
-carries `@NullMarked`, and no class. An inbound adapter is `adapter/in/<kind>`, of six kinds:
+declared the application layer: 50 still empty (48 in the modules, 2 beside the kernel), each with a `package-info.java` that says what goes in it and
+carries `@NullMarked`, and no class; Planning's `in/web`, `out/random` and `out/sse` now hold one. An inbound adapter is `adapter/in/<kind>`, of six kinds:
 `web`, `listen`, `schedule`, `job`, `callback` and `cli`. An outbound one is `adapter/out/<name>`,
 named for the outside system or channel it talks to, `persistence` for the module's own database,
 or the technology it wraps when it calls nothing outside the process. Each module's packages and the
@@ -193,13 +205,23 @@ The application-wide `web` package, `com.dispatchflow.web`, is no module. It hol
   `Race`, which classifies the exception thrown;
 - the handlers: `ContractErrorHandler`, with `ContractBreaks`, of requests that break the contract,
   of Spring MVC's own errors and of Tomcat's refusals of a request's parameters, which also writes
-  the refused audit record of a changing call it refuses before its handler starts,
+  the refused audit record of a changing call it refuses before its handler starts (a path under
+  `/api/` that no operation has answers 404 `NO_SUCH_OPERATION`, or 401 first when the call is
+  unsigned),
   `KernelErrorHandler`, of the kernel's errors, and `UnexpectedErrorHandler`, of the rest, with
   `WebCodes`, the codes they answer of their own;
 - `ErrorEndpoint`, the last resort: the `@RestController` behind Spring Boot's error path, which
   answers as a `Problem` an error that no handler answered or that a servlet filter raised;
-- `ServedJson`, which makes the served JSON converter refuse unknown properties and duplicate keys,
-  and `BodySizeLimit`, which caps at 1 MiB a request body that a converter reads. No handler takes
+- `ClientApiPaths`, which serves every class that implements a generated interface under the
+  literal prefix `/api/v1` and leaves every other path as its handler maps it. It configures no
+  Spring API versioning: Spring's version parser read `/api/1`, `/api/V1` and `/api/v1.0` as
+  `v1`, past the access check. A `v2` would get its own contract folder, generated package and
+  `/api/v2` prefix. `NoStoreFilter` sets `Cache-Control: no-store, no-transform` on every answer
+  under `/api/`, a refusal included
+  ([ADR-160](../ADRs/ADR-160-the-cores-generated-interfaces-take-a-dto-suffix-leave-absent-fields-out-and-are-served-under-a-literal-api-v1-prefix.md),
+  [ADR-157](../ADRs/ADR-157-an-if-match-is-exactly-one-strong-tag-the-core-sent-and-the-proxy-leaves-the-apis-tags-alone.md));
+- `ServedJson`, which makes the served JSON converter refuse unknown properties and duplicate keys
+  and leave an absent value out of what it writes, and `BodySizeLimit`, which caps at 1 MiB a request body that a converter reads. No handler takes
   a streaming parameter (`ApplicationRules` rule 16), and Spring's form-content filter is off; a
   form POST's parameters, which Spring reads before any converter, and a multipart body have caps
   of their own (see below).
@@ -225,7 +247,7 @@ Below it, `web.security` knows who the caller is
 - `StandInGuard` refuses to boot with the stand-in's configuration under any other set of profiles,
   `dev` beside `e2e` included, or, where a stand-in may run, when `DISPATCHFLOW_DEPLOYED` or a
   provider's credential key is set. Its messages name the keys, never their values.
-- `AccessInterceptor`, in front of every handler under `/api/v1`, builds the call's `Caller` from the
+- `AccessInterceptor`, in front of every handler under `/api/`, builds the call's `Caller` from the
   principal and the chosen handler: the `CallContext`, with the account and session, the client the
   `X-App` and `X-App-Version` headers declare, the handler's operation and the trace ID, and the
   `Actor` when the caller is signed in. A call with no principal answers 401
@@ -245,8 +267,16 @@ end-to-end tests' control endpoints. Nothing depends on `web`, and it uses only 
 Components meet only at the two contracts under `contracts/`
 ([ADR-006](../ADRs/ADR-006-versioned-openapi-contracts.md)):
 
-- `contracts/client-api/v1/openapi.yaml` has `/api/v1` as its `servers` entry. Its `paths` is
-  empty, so `core` serves no operation from it yet. It defines the `Problem` schema (RFC 9457), with
+- `contracts/client-api/v1/openapi.yaml` has `/api/v1` as its `servers` entry. Its `paths` holds
+  Planning's two operations, `openPlan` (`POST /plans`) and `requestSolve`
+  (`POST /plans/{planId}/solves`), both tagged `planning-plans`, and `core` serves both. A contract
+  change goes in the pull request with the consumers that call what it changes
+  ([ADR-159](../ADRs/ADR-159-a-contract-change-goes-with-its-provider-and-the-consumers-that-call-what-it-changes.md)).
+  A moment, and every time a solve works out, travels as an RFC 3339 instant; a time a person types
+  would travel as its date and a local `HH:mm` ([ADR-155](../ADRs/ADR-155-the-client-api-keeps-instants-and-local-times-apart-and-sends-a-list-that-may-grow-as-a-string.md)),
+  and `requestSolve` takes exactly one strong tag as `If-Match`
+  ([ADR-157](../ADRs/ADR-157-an-if-match-is-exactly-one-strong-tag-the-core-sent-and-the-proxy-leaves-the-apis-tags-alone.md)).
+  It defines the `Problem` schema (RFC 9457), with
   its `code`, `params`, `traceId` and `errors` and the codes any operation can answer, 401
   `ACCESS_TOKEN_REFUSED` among them, its `ProblemItem` and `ProblemParameter`, and the
   `UnexpectedProblem` response.
@@ -270,8 +300,8 @@ no page loads them yet.
 
 No request crosses a component today but `just infra-check`'s probes, which go through the web
 app's dev server to the core, and, under `just dev`, a `/map/` request, which the dev server passes
-to the `tiles` service. Two probes and the persistence adapters are tested, each inside its
-own component:
+to the `tiles` service. Two probes, the two operations `core` serves and the persistence adapters
+are tested, each inside its own component:
 
 - The `core` health probe: a request to `/actuator/health` reaches Spring Boot, and
   `src/backend/core/src/test/java/com/dispatchflow/DispatchFlowApplicationIT.java` asserts that
@@ -285,6 +315,18 @@ own component:
   handler, its retries included, and the binding ends with the call. `web.security`'s `*Test`
   classes drive each step through MockMvc over a test-only controller, and `StandInGuardTest`
   starts a context under each set of profiles the guard must refuse.
+- A call to `openPlan` or `requestSolve`: `NoStoreFilter` sets the answer's `Cache-Control`, and the
+  stand-in session and the access interceptor name the caller as above. `ClientApiPaths` puts the
+  `/api/v1` prefix on `PlanController`, which implements the generated `PlanningPlansApi`. Spring MVC
+  validates the request against the generated interface's constraints before the controller starts,
+  and `ContractErrorHandler` answers a failure as 400. `PlanController` maps the generated `…Dto`
+  types to `OpenPlan` or `RequestSolve`, whose `Change` runs one transaction: it reads the date's
+  plans or the plan, adds or saves it, queues the solve job for `requestSolve`, and writes the audit
+  record. After the commit the use case tells `LiveUpdates`, and the controller answers 201 or 202
+  with its `Location`. A refusal answers as a `Problem`, and its audit record is written once the
+  transaction has rolled back. `PlanControllerIT` sends each step through MockMvc against
+  PostgreSQL, and `OpenPlanTest` and `RequestSolveTest` run the use cases against in-memory fakes of
+  their ports.
 - An error inside `core`: `TraceIdFilter` gives the request its trace ID, from its `traceparent`
   or made fresh, in the MDC. The call wrapper runs the handler, again while it loses a race and no
   read-write transaction of the try has committed. An exception goes to the first handler, in `HandlerOrder`,
@@ -317,7 +359,10 @@ No other outside service is called at run time. `just data` downloads, on each r
 outside Israel, and sends them no company or personal data: the tiles it cuts from the pinned Protomaps build
 (`build.protomaps.com`) and the archive of the pinned commit of `protomaps/basemaps-assets`
 (GitHub), each checked against its SHA-256. `core` and `optimizer` each have a `Dockerfile`, and neither
-runs as root ([ADR-019](../ADRs/ADR-019-container-images-run-as-non-root.md)).
+runs as root ([ADR-019](../ADRs/ADR-019-container-images-run-as-non-root.md)). The core's image is
+built from the repository's root, so the build sees the client API's contract, which the interfaces
+are generated from; `src/backend/core/Dockerfile.dockerignore` lets in only `src/backend/core/` and
+`contracts/client-api/v1/`.
 `infra/deploy/compose.dev.yaml` runs PostgreSQL, the `migrate` step, the core under the `dev`
 profile, the optimizer, the `tiles` service (Caddy 2.11.9, serving the map's files from
 `data/tiles/`, under the `data` Compose profile, which `just infra-check` doesn't start: [ADR-152](../ADRs/ADR-152-the-session-guard-reads-the-real-login-and-accepts-only-untranslated-messages-and-the-stack-check-checks-what-it-claims.md))
@@ -377,7 +422,11 @@ passes the grants, one that belongs to any other role or owns an object, and a s
   `@StandInOnly` without a
   cycle, and `web.security` uses no class directly in `web`, which depends on it. Rule 21, also
   ADR-147's, lets no handler take an `Actor` or a `CallContext`, alone, as a type argument or in an
-  array, which Spring would build from the request's parameters.
+  array, which Spring would build from the request's parameters. Rule 22, ADR-140's decision 2, is
+  the twin of rule 12 for the code generated from `client-api`: only `web` and the modules'
+  `adapter.in.web` use its types, a class that implements a generated `<Tag>Api` lies in the
+  `adapter.in.web` of the module its tag starts with, and every generated interface has exactly one
+  implementation there, so an operation with no controller fails the build.
   The purity rules also allow the persistence annotations that [ADR-126](../ADRs/ADR-126-jpa-replaces-jooq-and-the-domain-carries-its-mapping.md) lists in the domain and the
   kernel, and `PersistenceRules` has nine rules on how the domain is mapped: every aggregate root an
   `@Entity`, relationships only inside

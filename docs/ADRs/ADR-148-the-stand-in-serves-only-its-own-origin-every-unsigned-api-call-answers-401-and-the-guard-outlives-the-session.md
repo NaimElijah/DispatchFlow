@@ -1,6 +1,6 @@
 # ADR-148: The stand-in serves only its own origin, every unsigned call under `/api/v1` answers 401, and the guard outlives the session
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by ADR-160
 - **Date:** 2026-11-26
 
 ## Context

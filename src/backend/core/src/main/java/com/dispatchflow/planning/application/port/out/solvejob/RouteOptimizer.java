@@ -24,8 +24,9 @@ import java.util.List;
  *       <em>optimizer unavailable</em> or <em>overran</em> (FR-65, BR-32);
  *   <li>a refused request, a solver the optimizer doesn't hold, a budget it can't honour or a problem
  *       it finds invalid: {@link OptimizerRefusedRequest}. It is a defect of the core's request, or a
- *       race with a redeploy that dropped a solver, since {@code RequestSolve} and {@code
- *       RequestReoptimization} check the name against {@link #solvers()} first; the worker fails the
+ *       race with a redeploy that dropped a solver, since the use cases refuse a solver first:
+ *       {@code RequestReoptimization} checks the name against {@link #solvers()}, and {@code
+ *       RequestSolve} offers OR-Tools alone until the solver choice is built; the worker fails the
  *       job with it, so the plan leaves <em>solving</em>.
  * </ul>
  *

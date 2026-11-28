@@ -1,6 +1,6 @@
 # ADR-057: Concurrent changes to a plan use optimistic locking, and one re-optimization runs at a time
 
-- **Status:** Accepted; extended by ADR-153; amended by ADR-121 and ADR-140
+- **Status:** Accepted; extended by ADR-153 and ADR-157; amended by ADR-121 and ADR-140
 - **Date:** 2026-11-13
 
 ## Context

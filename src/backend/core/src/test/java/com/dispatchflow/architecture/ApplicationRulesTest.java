@@ -11,6 +11,8 @@ import com.dispatchflow.archfixture.zeta.gate.application.api.GateCall;
 import com.dispatchflow.archfixture.zeta.gate.application.api.GateCalls;
 import com.dispatchflow.archfixture.zeta.lower.LowerRootValue;
 import com.dispatchflow.archfixture.zeta.lower.adapter.in.web.LowerForm;
+import com.dispatchflow.archfixture.zeta.lower.adapter.in.web.LowerFormsController;
+import com.dispatchflow.archfixture.zeta.lower.adapter.in.web.LowerServesUpperThings;
 import com.dispatchflow.archfixture.zeta.lower.adapter.out.ImplementedOutsideTheServiceService;
 import com.dispatchflow.archfixture.zeta.lower.adapter.out.LowerAdapterReachesUp;
 import com.dispatchflow.archfixture.zeta.lower.adapter.out.cache.deep.LowerEntry;
@@ -56,11 +58,18 @@ import com.dispatchflow.archfixture.zeta.shared.adapter.out.clock.ZetaClock;
 import com.dispatchflow.archfixture.zeta.shared.adapter.out.clock.system.SystemClockReadsAModule;
 import com.dispatchflow.archfixture.zeta.shared.adapter.out.optimizer.ZetaSolverClient;
 import com.dispatchflow.archfixture.zeta.shared.application.SharedPortUsesSpring;
+import com.dispatchflow.archfixture.zeta.shared.clientapi.api.LowerFormsApi;
+import com.dispatchflow.archfixture.zeta.shared.clientapi.api.LowerReportsApi;
+import com.dispatchflow.archfixture.zeta.shared.clientapi.api.UpperOrphansApi;
+import com.dispatchflow.archfixture.zeta.shared.clientapi.api.UpperPlainsApi;
+import com.dispatchflow.archfixture.zeta.shared.clientapi.api.UpperThingsApi;
+import com.dispatchflow.archfixture.zeta.shared.clientapi.model.ThingDto;
 import com.dispatchflow.archfixture.zeta.side.application.service.CallsAnSpiItDoesNotImplement;
 import com.dispatchflow.archfixture.zeta.side.application.service.UsageImplementedByTheWrongModuleService;
 import com.dispatchflow.archfixture.zeta.stray.StrayValue;
 import com.dispatchflow.archfixture.zeta.upper.UpperConfiguration;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.listen.ListenerReadsTheCurrentCaller;
+import com.dispatchflow.archfixture.zeta.upper.adapter.in.listen.ListenerUsesTheGeneratedModel;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.listen.ListenerUsesTheWebAdapter;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.ControllerReachesTheWeb;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.ControllerReadsTheCurrentCaller;
@@ -74,6 +83,9 @@ import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.ControllerTakesThe
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.HandlerWritesTheResponse;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.InboundUsesTheStore;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.PlainClassTakesAStream;
+import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.ThingsController;
+import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.UpperPlainsWithoutController;
+import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.UpperServesLowerReports;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.WebCallsTheSolverClient;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.WebUsesTheLowerCache;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.form.FormUsesTheRows;
@@ -108,12 +120,14 @@ import com.dispatchflow.archfixture.zeta.upper.application.service.LowerUsageSer
 import com.dispatchflow.archfixture.zeta.upper.application.service.ServiceReadsTheCurrentCaller;
 import com.dispatchflow.archfixture.zeta.upper.application.service.ServiceRootUsingASubpackage;
 import com.dispatchflow.archfixture.zeta.upper.application.service.UpperUseCase;
+import com.dispatchflow.archfixture.zeta.upper.application.service.UsesTheGeneratedModel;
 import com.dispatchflow.archfixture.zeta.upper.application.service.looped.LoopedUseCase;
 import com.dispatchflow.archfixture.zeta.upper.application.service.nested.NestedPackageUsingASubpackage;
 import com.dispatchflow.archfixture.zeta.upper.application.service.prefix.UsesASiblingWithALongerName;
 import com.dispatchflow.archfixture.zeta.upper.application.service.prefixed.SiblingWithALongerName;
 import com.dispatchflow.archfixture.zeta.upper.application.service.upward.UsesTheServiceRoot;
 import com.dispatchflow.archfixture.zeta.upper.application.service.used.UsedByTheServiceRoot;
+import com.dispatchflow.archfixture.zeta.web.WebAnswersWithTheGeneratedModel;
 import com.dispatchflow.archfixture.zeta.web.WebApiTakesTheActor;
 import com.dispatchflow.archfixture.zeta.web.WebBuildsTheActor;
 import com.dispatchflow.archfixture.zeta.web.WebBuildsTheCall;
@@ -215,6 +229,18 @@ class ApplicationRulesTest {
         return ApplicationRules.generatedClientStaysIn(ROOT, CLIENT, SOLVING_MODULES);
     }
 
+    // The fixtures' stand-ins for the code generated from client-api.
+    private static final String GENERATED_API = "shared.clientapi.api";
+    private static final String GENERATED_MODEL = "shared.clientapi.model";
+    private static final Set<String> RULE_22_PARTS = Set.of(
+            ApplicationRules.GENERATED_TYPE_OUTSIDE_THE_EDGE,
+            ApplicationRules.CONTROLLER_OF_ANOTHER_MODULE,
+            ApplicationRules.NOT_ONE_CONTROLLER);
+
+    private static ArchRule rule22() {
+        return ApplicationRules.generatedWebApiStaysAtTheEdge(ROOT, GENERATED_API, GENERATED_MODEL);
+    }
+
     private static ArchRule rule14() {
         return ApplicationRules.onlyTheWebReadsTheCallsHolders(ROOT, CALLS_HOLDERS);
     }
@@ -279,6 +305,18 @@ class ApplicationRulesTest {
         Set<String> names = new TreeSet<>();
         ViolationHandler<JavaClass> collect =
                 (violating, message) -> violating.forEach(type -> names.add(type.getName()));
+        rule.evaluate(classes).handleViolations(collect);
+        return names;
+    }
+
+    /** The fully qualified names of the classes a rule reports in a message that starts with {@code part}. */
+    private static Set<String> violatorsOfPart(String part, ArchRule rule, JavaClasses classes) {
+        Set<String> names = new TreeSet<>();
+        ViolationHandler<JavaClass> collect = (violating, message) -> {
+            if (message.startsWith(part)) {
+                violating.forEach(type -> names.add(type.getName()));
+            }
+        };
         rule.evaluate(classes).handleViolations(collect);
         return names;
     }
@@ -1043,6 +1081,81 @@ class ApplicationRulesTest {
     void GivenTheOptimizerAdapterOfAModuleThatDoesNotSolve_WhenRule12Evaluates_ThenItIsFlagged() {
         assertThat(violators(rule12(), FixtureClasses.only(LowerOptimizer.class)))
                 .containsExactly(LowerOptimizer.class.getName());
+    }
+
+    @Test
+    void GivenTheZetaFixtures_WhenGeneratedTypesAreChecked_ThenAnApplicationClassUsingOneIsReported() {
+        assertThat(violatorsOfPart(ApplicationRules.GENERATED_TYPE_OUTSIDE_THE_EDGE, rule22(), zeta()))
+                .containsExactlyInAnyOrder(namesOf(UsesTheGeneratedModel.class, ListenerUsesTheGeneratedModel.class));
+    }
+
+    @Test
+    void GivenAControllerOfAnotherModule_WhenGeneratedTypesAreChecked_ThenItsUseOfTheInterfaceIsReported() {
+        assertThat(violatorsOfPart(ApplicationRules.CONTROLLER_OF_ANOTHER_MODULE, rule22(), zeta()))
+                .containsExactlyInAnyOrder(namesOf(LowerServesUpperThings.class, UpperServesLowerReports.class));
+    }
+
+    @Test
+    void GivenAGeneratedInterfaceNoControllerImplements_WhenGeneratedTypesAreChecked_ThenItIsReported() {
+        assertThat(violators(rule22(), FixtureClasses.only(UpperOrphansApi.class)))
+                .containsExactly(UpperOrphansApi.class.getName());
+    }
+
+    @Test
+    void
+            GivenTheZetaFixtures_WhenGeneratedTypesAreChecked_ThenExactlyTheInterfacesWithoutOneControllerAtHomeAreReported() {
+        assertThat(violatorsOfPart(ApplicationRules.NOT_ONE_CONTROLLER, rule22(), zeta()))
+                .containsExactlyInAnyOrder(namesOf(
+                        UpperOrphansApi.class, UpperThingsApi.class, LowerReportsApi.class, UpperPlainsApi.class));
+    }
+
+    @Test
+    void GivenAGeneratedInterfaceItsModulesPlainClassImplements_WhenGeneratedTypesAreChecked_ThenItIsReported() {
+        assertThat(violators(rule22(), FixtureClasses.only(UpperPlainsApi.class, UpperPlainsWithoutController.class)))
+                .containsExactly(UpperPlainsApi.class.getName());
+    }
+
+    @Test
+    void GivenAGeneratedInterfaceTwoControllersImplement_WhenGeneratedTypesAreChecked_ThenItIsReported() {
+        assertThat(violators(rule22(), FixtureClasses.only(UpperThingsApi.class)))
+                .containsExactly(UpperThingsApi.class.getName());
+    }
+
+    @Test
+    void
+            GivenAGeneratedInterfaceOnlyAnotherModulesControllerImplements_WhenGeneratedTypesAreChecked_ThenItIsReported() {
+        assertThat(violators(rule22(), FixtureClasses.only(LowerReportsApi.class)))
+                .containsExactly(LowerReportsApi.class.getName());
+    }
+
+    @Test
+    void GivenOwnModulesControllersTheirInterfaceAModelAndWeb_WhenGeneratedTypesAreChecked_ThenNothingIsReported() {
+        assertThat(violators(
+                        rule22(),
+                        FixtureClasses.only(
+                                ThingsController.class,
+                                LowerFormsController.class,
+                                LowerFormsApi.class,
+                                ThingDto.class,
+                                WebAnswersWithTheGeneratedModel.class)))
+                .isEmpty();
+    }
+
+    @Test
+    void GivenTheZetaFixtures_WhenGeneratedTypesAreChecked_ThenEachViolationNamesItsPart() {
+        assertThat(violationMessages(rule22(), zeta()))
+                .isNotEmpty()
+                .allMatch(message -> RULE_22_PARTS.stream().anyMatch(message::startsWith), "names its part");
+        assertThat(violators(rule22(), zeta()))
+                .containsExactlyInAnyOrder(namesOf(
+                        UsesTheGeneratedModel.class,
+                        ListenerUsesTheGeneratedModel.class,
+                        LowerServesUpperThings.class,
+                        UpperServesLowerReports.class,
+                        UpperOrphansApi.class,
+                        UpperThingsApi.class,
+                        LowerReportsApi.class,
+                        UpperPlainsApi.class));
     }
 
     @Test

@@ -49,7 +49,7 @@ and ADR-014 are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 | `docs/` | `CLAUDE.md`, `requirements/` (with `ARD/`), `architecture/` (with `domain_layer/` and `tech_stack.md`), `ADRs/`, `roadmap.md`, `operations/` (with `data-inventory.md`) and `presentations/`; the placeholders are `guides/he/`, `guides/en/`, `research/usability/` and `architecture/generated/` |
 | `.claude/` | Claude Code's context: the root `CLAUDE.md`, the team agents (`agents/`), the team skills (`skills/`), `settings.json`, and an empty `rules/` folder ([ADR-018](../ADRs/ADR-018-ai-assistant-context-in-the-repository.md), [ADR-020](../ADRs/ADR-020-team-subagents-in-the-repository.md), [ADR-025](../ADRs/ADR-025-team-skills-in-the-repository.md)) |
 | `.github/` | The CI workflow, Dependabot configuration, and issue and pull request templates |
-| `justfile` | Every command. CI runs the same recipes. `dev`, `dev-down` and `db-reset` start, stop and reset the development stack on a laptop |
+| `justfile` | Every command. CI runs the same recipes. `dev`, `dev-down` and `db-reset` start, stop and reset the development stack on a laptop, and `gen` regenerates the code built from the contracts |
 | `README.md`, `.editorconfig`, `.gitattributes`, `.gitignore` | The readme, and the editor, line-ending and ignore settings |
 | `.java-version`, `.python-version`, `.nvmrc` | Toolchain pins: Java 25, Python 3.14, Node 24 |
 | `LICENSE` | Proprietary, all rights reserved ([ADR-017](../ADRs/ADR-017-proprietary-licence.md)) |
@@ -58,8 +58,9 @@ Each component has its own manifest, and each except `core` (Maven) has a lockfi
 lockfile is the workspace's, `src/frontend/pnpm-lock.yaml`, which it shares with the packages. The
 one link at build time is `research`'s path dependency on `optimizer`, below.
 
-`src/backend`, `src/frontend`, each component, `contracts/` and `docs/` also hold a `CLAUDE.md` with
-the rules for that folder.
+`src/backend`, `src/frontend`, each component, `contracts/`, `contracts/client-api/` and `docs/` also
+hold a `CLAUDE.md` with the rules for that folder, and a few narrower folders hold one of their
+own.
 
 ## How the components depend on each other
 
@@ -79,9 +80,9 @@ build dependency that exists today.
 - `core` is the only client of `optimizer`, through `contracts/optimization-api/v1`. `optimizer` serves
   that contract.
 - Neither side owns a contract, so the contracts sit at the root, outside every component.
-- Today `contracts/client-api/v1`, served under `/api/v1`, declares no operation yet, and
-  `contracts/optimization-api/v1` declares one: `GET /health/liveness`. `core` has no client for
-  the optimization API yet.
+- Today `contracts/client-api/v1`, served under `/api/v1`, declares Planning's two operations,
+  `openPlan` and `requestSolve`, which `core` serves, and `contracts/optimization-api/v1` declares
+  one: `GET /health/liveness`. `core` has no client for the optimization API yet.
 - `research` installs `optimizer` from `../backend/optimizer` as an editable path dependency, and adds
   PyVRP. The optimizer's environment never contains PyVRP:
   `src/backend/optimizer/tests/test_dependency_boundary.py` fails if PyVRP is installed there or locked
@@ -96,7 +97,9 @@ build dependency that exists today.
 src/backend/core/
   pom.xml, mvnw, mvnw.cmd, .mvn/   Maven and its wrapper
   CLAUDE.md                        the rules for this folder
-  Dockerfile, .dockerignore
+  Dockerfile, Dockerfile.dockerignore   the image, built from the repository's root so the build
+                                   sees contracts/client-api/v1 (ADR-160); the ignore file binds
+                                   this image only
   .env.example                     the database connection keys, app's, with no values
   src/main/java/com/dispatchflow/
     DispatchFlowApplication.java   the Spring Boot entry point: it hands a first `migrate` to the
@@ -126,11 +129,13 @@ src/backend/core/
       adapter/out/optimizer/       declared, empty: the client generated from optimization-api,
                                    which Planning's and Reporting's optimizer adapters wrap
       adapter/in/web/              Problems, the factory of every error body, ProblemItem,
-                                   TraceIds, which makes a fresh trace ID, HandlerOrder, and
-                                   FilterOrder, the core's own filters' order; later
-                                   the code generated from client-api, at every build and never
-                                   committed, and @RequiresCapability; every module's controllers
-                                   and handlers use it (ADR-140)
+                                   TraceIds, which makes a fresh trace ID, HandlerOrder,
+                                   FilterOrder, the core's own filters' order, and ClientApi, the
+                                   base path /api/v1 and the generated package; api/ and model/
+                                   hold the code generated from client-api, which every build
+                                   writes into target/generated-sources/openapi and never commits
+                                   (ADR-160), and @RequiresCapability will join them; every
+                                   module's controllers and handlers use it (ADR-140)
       adapter/out/sse/             declared, empty: the registry of open event streams, which
                                    Planning's and Live Operations' sse adapters send through
                                    (ADR-140)
@@ -144,7 +149,9 @@ src/backend/core/
     orders/                        domain/ (flat), events/, application/ and adapter/
     planning/                      domain/ (plan, solution, drop, basis, revision,
                                    reconciliation, settings), events/, application/ and
-                                   adapter/, with plan/ under out/persistence/ for Plan
+                                   adapter/, with plan/ under out/persistence/ for Plan, and
+                                   PlanController in in/web/, the core's one controller of the
+                                   client API
     audit/                         domain/ (flat), application/ and adapter/; it raises no event
     reporting/                     domain/ (baseline), application/ and adapter/; it raises no
                                    event
@@ -160,7 +167,7 @@ src/backend/core/
                                    can't parse
       CallWrapper.java             the handler adapter that runs every handler through CallRetry,
                                    and binds CurrentCall and CurrentActor around a call under
-                                   /api/v1
+                                   /api
       CallRetry.java               re-runs a call that lost a race, and audits the race it answers,
                                    naming its caller; after a commit it audits nothing and answers
                                    500
@@ -178,15 +185,22 @@ src/backend/core/
                                    answered, or that a servlet filter raised
       WebCodes.java                the codes web answers of its own, 401 ACCESS_TOKEN_REFUSED
                                    among them
-      ServedJson.java              the served JSON converter refuses unknown and duplicate keys
+      ClientApiPaths.java          serves a class that implements a generated interface under
+                                   the literal prefix /api/v1, with no Spring API versioning
+                                   (ADR-160)
+      NoStoreFilter.java           Cache-Control: no-store, no-transform on every /api/ answer
+                                   (ADR-157, ADR-160)
+      ServedJson.java              the served JSON converter refuses unknown and duplicate keys,
+                                   and leaves absent values out
       BodySizeLimit.java           caps at 1 MiB what a converter reads of a request body
       security/                    who the caller is (ADR-140, ADR-147): StandInSession, the
                                    filter that signs a request in as a seeded account under dev or
                                    test alone; StandInGuard, which refuses to boot with it
-                                   anywhere else; AccessInterceptor, which builds each /api/v1
-                                   call's Caller or answers 401, by throwing NotSignedIn, which
+                                   anywhere else; AccessInterceptor, which builds the Caller
+                                   of each call under /api/ or answers 401, by throwing
+                                   NotSignedIn, which
                                    NotSignedInHandler answers; AccessInterceptorRegistration puts
-                                   it in front of /api/v1; Caller, who makes a call: its
+                                   it in front of /api/**; Caller, who makes a call: its
                                    CallContext and, when signed in, its Actor; SignedInCaller, the
                                    request's principal; SeededAccounts, the shared list as the
                                    stand-in reads it
@@ -215,7 +229,8 @@ src/backend/core/
                                    the events and moves the version), so that a domain test
                                    reaches a saved state through commands; SaveEvents, the
                                    helper that in-memory fakes use to publish events as a save
-                                   does;
+                                   does; application/ holds FixedClock and SequentialIds, which the
+                                   use case tests share;
                                    adapter/out/persistence/ holds the shared adapter's tests and
                                    the test-only entities Ledger and its child LedgerEntry
     architecture/                  the domain purity, shape and package rules, the application
@@ -234,7 +249,9 @@ src/backend/core/
     fleet/                         the same as access/
     orders/                        the same as access/
     planning/                      the same as access/; the Plan's is in
-                                   adapter/out/persistence/plan/
+                                   adapter/out/persistence/plan/; adapter/in/web/ holds
+                                   PlanControllerIT, and application/port/out/ the in-memory fakes
+                                   that OpenPlanTest and RequestSolveTest use
     audit/                         the same as access/
     reporting/                     the same as access/
     messaging/                     the same as access/
@@ -308,16 +325,16 @@ aggregate too, and an aggregate's package by a concept beneath it: Planning's `s
 test may sit anywhere under its error's package.
 
 Each module also has an `application` package, declared ahead of its milestone and, but for Audit's
-`AuditLogService` and `Refusals`, not built ([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)).
+`AuditLogService` and `Refusals` and Planning's `OpenPlan` and `RequestSolve`, not built ([ADR-119](../ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md)).
 It holds whichever of `api`, `spi`, `port/out` and `service` the module has something for: `access`,
 `audit` and `liveops` have no `spi`, and `messaging` and `reporting` have neither `api` nor `spi`.
 Every body that would do work throws `UnsupportedOperationException("To Be Implemented.")`, but for
-Audit's `AuditLogService`, the one wired use case, which appends through `AuditRecords`, and the
-`Refusals` helper in Audit's `api`, which runs a use case's own checks and `Change` and records the
+Audit's `AuditLogService`, which appends through `AuditRecords`, and Planning's `OpenPlan` and
+`RequestSolve`, each with its `Change`, which are the wired use cases, and the `Refusals` helper in Audit's `api`, which runs a use case's own checks and `Change` and records the
 domain or application refusal that leaves them ([ADR-150](../ADRs/ADR-150-one-audit-helper-records-the-refusals-a-use-case-sees-and-the-contracts-handler-records-a-changing-call-it-refuses.md)). A use case
 is wired in its module's package-private `<Module>Configuration`, at the module's root, by joining
 its `@Import` list in the pull request that builds its body ([ADR-140][ADR-140]); every list but
-`AuditConfiguration`'s is still empty, and `ApplicationRules` rule 15 keeps the root to that class and its `package-info`. The layer's one Spring
+`AuditConfiguration`'s and `PlanningConfiguration`'s is still empty, and `ApplicationRules` rule 15 keeps the root to that class and its `package-info`. The layer's one Spring
 annotation is `@Transactional`: on every service's class, and on the read-only reads of a
 `<UseCase>Change`. A use case with outside calls, one transaction per item, or a transaction that
 can refuse, holds its transactional `Change`, and it carries no transaction itself; nor does a
@@ -330,10 +347,11 @@ and a `CallContext`
 Each module's `adapter/` holds its persistence adapter, which is built, and packages declared
 ahead, empty ([ADR-130][ADR-130]). Every declared package holds a `package-info.java`, and nothing
 else until its first class (a stand-in, which arrives with its issue): its Javadoc says what goes
-in the package and which ports it implements, and it carries `@NullMarked`. There are 53 of them,
-51 in the eight modules and 2 beside the kernel. The adapter classes beyond the persistence adapters
-are the kernel's: `in/web`'s problem factory, `out/clock`'s `SystemClock` and `out/uuid`'s
-`UuidV7Generator`.
+in the package and which ports it implements, and it carries `@NullMarked`. 50 of them are still
+empty, 48 in the eight modules and 2 beside the kernel. The adapter classes beyond the persistence
+adapters are the kernel's: `in/web`'s problem factory, `out/clock`'s `SystemClock` and `out/uuid`'s
+`UuidV7Generator`, and Planning's: `in/web`'s `PlanController`, `out/random`'s `RandomSeeds` and
+`out/sse`'s `LiveUpdatesStandIn`, the stand-in for the event stream.
 The names follow two rules:
 
 - An inbound adapter is `adapter/in/<kind>`, of six kinds: `web` (a screen calls the client API),
@@ -547,10 +565,11 @@ building blocks of every form's Zod schema) ([ADR-153](../ADRs/ADR-153-the-web-a
 compiles, and its `build` script is its type check. The other two, `api-client` and `map-style`, are
 placeholders: a folder is not a package until the ticket that first puts code in it adds its
 `package.json` ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md),
-[ADR-130][ADR-130]). `contracts/client-api/v1` declares no operation yet, so neither app has an
-API client.
+[ADR-130][ADR-130]). `contracts/client-api/v1` declares two operations, and `core` generates its interfaces from them,
+but the web app's generator is not set up yet (#148), so neither app has an API client.
 [ADR-043](../ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md)
-(Accepted, not in the tree yet) generates code from the contracts on both sides.
+(Accepted) generates code from the contracts on both sides: `core`'s is in the tree, the
+consumers' and the optimizer's are not yet.
 
 ## Where the tests live
 
@@ -575,7 +594,8 @@ yet.
 
 `just <component>-check` runs a component's tests with its format and lint checks, and
 `just check` runs every component's, plus the contract lint and the dependency audit.
-See the [`justfile`](../../justfile).
+`just gen` generates the code built from the contracts, which is never committed: today the core's
+interfaces and models, which every core build writes too. See the [`justfile`](../../justfile).
 
 ## Dependency rules
 
@@ -648,6 +668,11 @@ stand-in adapters may use its `StandInProfiles` and `@StandInOnly` without a cyc
 `web.security` uses no class
 directly in `web`. Rule 21, also ADR-147's, lets no handler take an `Actor` or a `CallContext`,
 alone, as a type argument or in an array, which Spring would build from the request's parameters.
+Rule 22, [ADR-140][ADR-140]'s decision 2, is the twin of rule 12 for the code generated from
+`client-api`: only `web` and the modules' `adapter.in.web` use its types, a class that implements a
+generated `<Tag>Api` lies in the `adapter.in.web` of the module its tag starts with, and every
+generated interface has exactly one implementation there, so an operation with no controller fails
+the build.
 
 Rule 16 is [ADR-142][ADR-142]'s: no request handler, a method of a `@Controller` or one annotated
 `@RequestMapping` or a variant, declares a streaming parameter (`InputStream`, `Reader`,

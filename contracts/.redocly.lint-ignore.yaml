@@ -3,8 +3,3 @@
 optimization-api/v1/openapi.yaml:
   operation-4xx-response:
     - '#/paths/~1health~1liveness/get/responses'
-client-api/v1/openapi.yaml:
-  # The client API's shared error response. No operation uses it until the first bounded context
-  # (#5) adds one; it stays so that the context starts from the same error model.
-  no-unused-components:
-    - '#/components/responses/UnexpectedProblem'

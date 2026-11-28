@@ -7,13 +7,13 @@ import java.util.Objects;
 
 /**
  * A dispatcher chose a solver that the optimizer doesn't offer, so the solve or the re-optimization
- * is refused before any job is queued (FR-20, FR-224, ADR-004). {@code RequestSolve} and {@code
- * RequestReoptimization} check the name against {@link RouteOptimizer#solvers()}, which lists only
- * FR-20's solvers, so the baseline's is refused too. It is not a domain refusal, because only the
- * optimizer knows its solvers, so it is no {@code DomainError}: the web adapter answers it with 422
- * and {@link #code()}. The message names the solver only.
- *
- * <p>To Be Implemented.
+ * is refused before any job is queued (FR-20, FR-224, ADR-004). The solver choice has {@code
+ * RequestSolve} and {@code RequestReoptimization} check the name against {@link
+ * RouteOptimizer#solvers()}, which lists only FR-20's solvers, so the baseline's is refused too;
+ * until it is built, {@code RequestSolve} offers OR-Tools alone and refuses any other name. It is
+ * not a domain refusal, because only the optimizer knows its solvers, so it is no {@code
+ * DomainError}: the web adapter answers it with 422 and {@link #code()}. The message names the
+ * solver only.
  */
 public final class SolverNotOffered extends RuntimeException implements ApplicationRefusal {
 

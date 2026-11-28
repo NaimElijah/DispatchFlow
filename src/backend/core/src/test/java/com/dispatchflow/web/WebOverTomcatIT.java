@@ -301,6 +301,24 @@ class WebOverTomcatIT {
     }
 
     /**
+     * Another spelling of {@code /api/v1}, one Spring's API versioning would have read as {@code v1},
+     * or one percent-encoded, reaches no operation unchecked: the access check guards all of {@code
+     * /api} on the decoded path, so a caller with no principal gets the one 401, never a 500 from a
+     * handler that found no caller (ADR-160).
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/V1/plans", "/api/1/plans", "/api/v1.0/plans", "/api/v01/plans", "/%61pi/v1/plans"})
+    void GivenNoPrincipalAndAnotherSpellingOfTheApiPath_WhenOpenPlanIsCalled_ThenItIsRefusedAndNever500(String path)
+            throws Exception {
+        HttpResponse<String> response = send(to(path).header(HttpHeaders.AUTHORIZATION, "Bearer not-a-token")
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .POST(BodyPublishers.ofString("{\"date\":\"9001-01-01\"}")));
+
+        problemOf(response, 401, Problems.ACCESS_TOKEN_REFUSED);
+        assertThat(response.headers().firstValue(HttpHeaders.CACHE_CONTROL)).contains("no-store, no-transform");
+    }
+
+    /**
      * Failsafe exports {@code SERVER_ADDRESS=0.0.0.0} to every integration test, as a developer might
      * for a phone; the annotation's own setting outranks it, so this server still listens on the
      * loopback interface alone (ADR-148 decision 3).
@@ -322,6 +340,8 @@ class WebOverTomcatIT {
         HttpResponse<String> response = send(to(path).GET());
 
         problemOf(response, 500, WebCodes.UNEXPECTED_ERROR);
+        // Set before the chain ran, the header survives Tomcat's dispatch to the error page (ADR-157).
+        assertThat(response.headers().firstValue(HttpHeaders.CACHE_CONTROL)).contains("no-store, no-transform");
         theOneErrorLine();
         assertThat(linesMentioning(EscapedEveryAdvice.class.getName()))
                 .singleElement()

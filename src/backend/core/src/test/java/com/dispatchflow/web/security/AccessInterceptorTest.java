@@ -28,6 +28,7 @@ import com.dispatchflow.audit.domain.OperationName;
 import com.dispatchflow.shared.AccountId;
 import com.dispatchflow.shared.adapter.in.web.Problems;
 import com.dispatchflow.shared.application.Clock;
+import com.dispatchflow.shared.application.FixedClock;
 import com.dispatchflow.shared.application.StaleVersion;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.Filter;
@@ -112,6 +113,7 @@ class AccessInterceptorTest {
     private static final String LEGACY = "/api/v1/access-interceptor-test/legacy";
     private static final UUID PLAN = UUID.fromString("0190a5e2-7c3b-7def-8a12-3456789abcde");
     private static final Instant NOW = Instant.parse("2026-03-15T08:00:00Z");
+    private static final LocalDate TODAY = LocalDate.of(2026, 3, 15);
     private static final String AUDIT_LOG = "auditLog";
     private static final SignedInCaller SIGNED_IN =
             new SignedInCaller(TestActors.dispatcher().account(), StandInSession.SESSION, Set.of(ActorRole.DISPATCHER));
@@ -125,7 +127,7 @@ class AccessInterceptorTest {
                     ValidationAutoConfiguration.class,
                     WebMvcAutoConfiguration.class))
             .withUserConfiguration(WebPackage.class)
-            .withBean(Clock.class, FixedClock::new)
+            .withBean(Clock.class, () -> new FixedClock(NOW, TODAY))
             .withBean(AUDIT_LOG, AuditLog.class, RecordingAuditLog::new)
             .withBean(ProbeController.class);
 
@@ -914,7 +916,7 @@ class AccessInterceptorTest {
     @Test
     void GivenAPreflightThatReachesAHandlerMethod_WhenTheInterceptorChecksIt_ThenItPassesWithNoPrincipal()
             throws NoSuchMethodException {
-        AccessInterceptor interceptor = new AccessInterceptor(new NeverCalledAuditLog(), new FixedClock());
+        AccessInterceptor interceptor = new AccessInterceptor(new NeverCalledAuditLog(), new FixedClock(NOW, TODAY));
         MockHttpServletRequest preflight = new MockHttpServletRequest(HttpMethod.OPTIONS.name(), PROBE);
         preflight.addHeader(HttpHeaders.ORIGIN, "http://localhost:5173");
         preflight.addHeader(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST");
@@ -927,7 +929,7 @@ class AccessInterceptorTest {
     @Test
     void GivenTheSameHandlerMethodAndNoPreflight_WhenTheInterceptorChecksIt_ThenItRefusesTheCall()
             throws NoSuchMethodException {
-        AccessInterceptor interceptor = new AccessInterceptor(new RecordingAuditLog(), new FixedClock());
+        AccessInterceptor interceptor = new AccessInterceptor(new RecordingAuditLog(), new FixedClock(NOW, TODAY));
         MDC.put(Problems.TRACE_ID, TestActors.TRACE_ID);
         try {
             assertThatThrownBy(() -> interceptor.preHandle(
@@ -1106,19 +1108,6 @@ class AccessInterceptorTest {
         @Override
         public void refused(CallContext call, Instant at, List<AuditedRecord> records, String errorCode) {
             throw new AssertionError("a preflight is never audited");
-        }
-    }
-
-    static final class FixedClock implements Clock {
-
-        @Override
-        public Instant now() {
-            return NOW;
-        }
-
-        @Override
-        public LocalDate today() {
-            return LocalDate.of(2026, 3, 15);
         }
     }
 }

@@ -9,11 +9,12 @@
 #
 # The watch is Compose Watch: an edit under the web app, the shared web packages or the optimizer's
 # src/ is copied into its container, where Vite and uvicorn reload it, and a changed lockfile or
-# manifest rebuilds that image. A change to the core, or to any Dockerfile, needs Ctrl+C and
-# `just dev` again, which builds. The web app is on http://localhost:5173, and proxies /api/ to the
-# core on its own origin (ADR-148), and /map/ to the tiles service, which serves what `just data`
-# builds. No sync sets initial_sync, which in this Compose can copy what its ignore rules leave
-# out, such as the host's node_modules: `just dev` builds first instead (ADR-152).
+# manifest rebuilds that image. A change to the core, to the client API's contract in
+# contracts/client-api/v1/, or to any Dockerfile, needs Ctrl+C and `just dev` again, which builds.
+# The web app is on http://localhost:5173, and proxies /api/ to the core on its own origin
+# (ADR-148), and /map/ to the tiles service, which serves what `just data` builds. No sync sets
+# initial_sync, which in this Compose can copy what its ignore rules leave out, such as the host's
+# node_modules: `just dev` builds first instead (ADR-152).
 #
 # Rules for every service here, those still to come included:
 # - Every published port binds 127.0.0.1, written as 127.0.0.1:<host port>:<container port>: the
@@ -68,14 +69,16 @@ x-hardening: &hardening
   security_opt:
     - no-new-privileges:true
 
-# The core's image, which both the migrate step and the core run. #161 moves the context to the
-# repository's root, so the build sees contracts/ (ADR-140 decision 2). That changes the context,
-# adds `dockerfile: src/backend/core/Dockerfile`, and moves the core's .dockerignore with it, as
-# Dockerfile.dockerignore beside the Dockerfile: the root has none, and without one the context would
-# carry infra/deploy/.env, every password in it.
+# The core's image, which both the migrate step and the core run. Its context is the repository's
+# root, so the build sees contracts/ (ADR-140 decision 2). Its ignore file is Dockerfile.dockerignore
+# beside the Dockerfile, which binds this image only: the root has none, and without one the context
+# would carry infra/deploy/.env, every password in it. `just infra-check` fails unless that file
+# starts with *, lets back in nothing that holds infra/deploy/.env, and has **/.env* after its last
+# ! pattern.
 x-core-image: &core-image
   build:
-    context: ../../src/backend/core
+    context: ../..
+    dockerfile: src/backend/core/Dockerfile
   image: dispatchflow-core:dev
   logging: *logging
   <<: *hardening

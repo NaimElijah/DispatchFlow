@@ -10,6 +10,18 @@ info:
     then, a development or test core signs in as a seeded account every call whose `Host` names a
     loopback host, that carries no `Sec-Fetch-Site` or one of `same-origin` or `none`, and that
     presents neither an `Authorization` header nor the refresh cookie; any other call is refused.
+
+    In a body, a date is an ISO 8601 calendar date in Israel. A moment, and a time a solve works
+    out for a plan's day, is an RFC 3339 `date-time`, which the core writes in UTC with `Z`; a
+    client accepts any offset and shows it in `Asia/Jerusalem`. A time a person enters for a date
+    is that date and a local `HH:mm`, both ways, which the core resolves in Israel (BR-111). The
+    two are kept apart as the database keeps them (ADR-088, ADR-155). A problem's `params` keep the
+    forms `Problem.params` names. An optional field with no value is left out, never sent as
+    `null`; a request may send `null` for an optional field, which reads as leaving it out.
+
+    Every answer carries `Cache-Control: no-store, no-transform`: `no-store` so no browser or
+    phone keeps an answer in its HTTP cache, since what an app may store is ADR-076's, and
+    `no-transform` so no proxy rewrites an answer or its `ETag` (ADR-157).
   license:
     name: Proprietary, all rights reserved
     identifier: LicenseRef-DispatchFlow-Proprietary
@@ -18,13 +30,298 @@ servers:
     description: >-
       Relative to wherever the core backend is deployed. The path carries the contract's major
       version, so a v2 can be served beside v1 (ADR-006).
-paths: {}
+security:
+  - accessToken: []
+tags:
+  - name: planning-plans
+    description: >-
+      A delivery date's plans (Planning): open one, and request its solve.
+paths:
+  /plans:
+    post:
+      operationId: openPlan
+      summary: Open a date's plan
+      description: >-
+        Opens a draft plan for a delivery date that has no plan, or whose plans are all cancelled
+        (FR-15, BR-34). The date is today or later (BR-118).
+      tags:
+        - planning-plans
+      x-capability: PLAN_AND_RUN_THE_DAY
+      parameters:
+        - $ref: '#/components/parameters/XApp'
+        - $ref: '#/components/parameters/XAppVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenPlanRequest'
+      responses:
+        '201':
+          description: The plan is open, as a draft.
+          headers:
+            Location:
+              description: The new plan's path, `/api/v1/plans/{planId}`.
+              required: true
+              schema:
+                type: string
+                format: uri-reference
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenedPlan'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/AccessTokenRefused'
+        '422':
+          description: |-
+            A rule refused the plan:
+
+            | Code | Rule | `params` |
+            |---|---|---|
+            | `DATE_IN_PAST` | The date is before today (BR-118). | `date` |
+            | `PLAN_ALREADY_EXISTS` | The date has a plan that isn't cancelled (BR-34). | `date`, and `existing`, that plan's ID, so the client opens it instead |
+            | `DATE_OUT_OF_RANGE` | The date's year is outside 1 to 9999: a year `0000`, or one written with ISO 8601's expanded form, such as `+10000-01-01`, which the core reads too. | `date` |
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '503':
+          $ref: '#/components/responses/TryAgainLater'
+        default:
+          $ref: '#/components/responses/UnexpectedProblem'
+  /plans/{planId}/solves:
+    post:
+      operationId: requestSolve
+      summary: Request a plan's solve
+      description: >-
+        Queues a solve of a draft or ready plan, which turns the plan to solving (FR-16, FR-19,
+        BR-12, BR-60, BR-76). The search runs in the background, as the solve job at `Location`.
+        `If-Match` carries the plan's `ETag`, since the solve changes the plan.
+      tags:
+        - planning-plans
+      x-capability: PLAN_AND_RUN_THE_DAY
+      parameters:
+        - $ref: '#/components/parameters/PlanId'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/XApp'
+        - $ref: '#/components/parameters/XAppVersion'
+      requestBody:
+        required: false
+        description: Optional; without it, the solve takes the default limit.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestSolveRequest'
+      responses:
+        '202':
+          description: >-
+            The solve is queued, and the plan is solving: its version moved, so the `ETag` the
+            client holds no longer matches, and the plan is read again before its next change.
+          headers:
+            Location:
+              description: The solve job's path, `/api/v1/solve-jobs/{jobId}`.
+              required: true
+              schema:
+                type: string
+                format: uri-reference
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestedSolve'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/AccessTokenRefused'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/StaleVersion'
+        '422':
+          description: |-
+            A rule refused the solve:
+
+            | Code | Rule | `params` |
+            |---|---|---|
+            | `PLAN_NOT_DRAFT_OR_READY` | Only a draft or ready plan is solved, so not one that is solving already, published, completed, cancelled or abandoned (BR-12, BR-60). | `plan`, its ID |
+            | `DATE_IN_PAST` | The plan's delivery date is before today (BR-118). | `date` |
+            | `SOLVE_QUEUE_FULL` | The lane's queue holds its limit of jobs (BR-112). Try again once a queued solve has started. | `lane` and `limit` |
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '503':
+          $ref: '#/components/responses/TryAgainLater'
+        default:
+          $ref: '#/components/responses/UnexpectedProblem'
 components:
+  securitySchemes:
+    accessToken:
+      type: http
+      scheme: bearer
+      description: >-
+        The access token sign-in issues, sent as `Authorization: Bearer <token>`. A missing,
+        expired, malformed or revoked one, or one whose session was revoked, answers 401
+        `ACCESS_TOKEN_REFUSED`. Sign-in arrives with the identity context; until then every
+        presented token is refused, and the stand-in session of a development or test core signs
+        calls in, as the API's description says.
+  parameters:
+    PlanId:
+      name: planId
+      in: path
+      required: true
+      description: The plan's ID.
+      schema:
+        $ref: '#/components/schemas/PlanId'
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: >-
+        The `ETag` of the record the call changes, exactly as the core sent it: one strong tag
+        (BR-76, ADR-057, ADR-157). A missing one answers 400 `INVALID_REQUEST` with a
+        `MISSING_PARAMETER` item, and a wildcard, a weak tag or a list 400 with a `WRONG_FORMAT`
+        item; one that is no longer current answers 412 `STALE_VERSION`. It is for a record that
+        always exists: an operation whose first save sends `If-None-Match: *` declares its own
+        pair of headers.
+      schema:
+        type: string
+        pattern: '^"(0|[1-9][0-9]{0,17})"$'
+    XApp:
+      name: X-App
+      in: header
+      required: false
+      description: >-
+        The app that sends the call: `web` or `phone`, exactly, in lower case (ADR-082). Every call
+        of both apps sends it, with `X-App-Version`. The core keeps the app and its version in the
+        call's audit record. Any other value, a second line or a missing header leaves the client
+        out of the record and is never refused (ADR-110), so the values are listed here and not as
+        an `enum`, whose generated check would answer 400.
+      schema:
+        type: string
+    XAppVersion:
+      name: X-App-Version
+      in: header
+      required: false
+      description: >-
+        The sending app's release, three numbers such as `1.4.0` (ADR-082). As with `X-App`, a
+        version of another form leaves the client out of the record and is never refused
+        (ADR-110), so it carries no `pattern`.
+      schema:
+        type: string
+  headers:
+    ETag:
+      description: >-
+        The record's version, as a strong entity tag, `"<version>"`. The next change to the record
+        sends it back as `If-Match`, exactly as it came (BR-76, ADR-057, ADR-157).
+      required: true
+      schema:
+        type: string
+        pattern: '^"(0|[1-9][0-9]{0,17})"$'
+    RetryAfter:
+      description: The seconds to wait before trying again.
+      required: true
+      schema:
+        type: integer
+        minimum: 0
+    CacheControl:
+      description: >-
+        Exactly `no-store, no-transform`, on every answer: `no-store` so no browser or phone keeps it
+        in its HTTP cache, and `no-transform` so no proxy rewrites it or its `ETag` (ADR-076,
+        ADR-157).
+      required: true
+      schema:
+        type: string
+        const: no-store, no-transform
   responses:
+    InvalidRequest:
+      description: >-
+        `INVALID_REQUEST`: the request breaks this contract. `errors` names each failing field or
+        parameter.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControl'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    AccessTokenRefused:
+      description: >-
+        `ACCESS_TOKEN_REFUSED`: the call has no signed-in caller. `params` is empty.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControl'
+        WWW-Authenticate:
+          description: Exactly `Bearer`.
+          required: true
+          schema:
+            type: string
+            const: Bearer
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: >-
+        `NOT_FOUND`: no record has the ID in the path. `params` has its `kind`, the record's type
+        as the operation names it, such as `Plan`, and its `id`.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControl'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    StaleVersion:
+      description: >-
+        `STALE_VERSION`: `If-Match` isn't the record's current version, because the record changed
+        since it was read. `params` has `kind`, the record's type, such as `Plan`, and `id`. Not
+        retried: read the record again.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControl'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    TryAgainLater:
+      description: >-
+        `TRY_AGAIN_LATER`: the call lost a race for a record, or waited too long for a lock, on
+        every try.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControl'
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
     UnexpectedProblem:
       description: >-
         An error any operation can answer, with one of the codes `Problem` lists. The body never
         says what went wrong inside the server.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControl'
+        Retry-After:
+          description: On a 503, the seconds to wait before trying again.
+          schema:
+            type: integer
+            minimum: 0
       content:
         application/problem+json:
           schema:
@@ -166,3 +463,47 @@ components:
             - query
             - header
             - cookie
+    PlanId:
+      type: string
+      format: uuid
+    JobId:
+      type: string
+      format: uuid
+    DeliveryDate:
+      type: string
+      format: date
+      description: A delivery date, a calendar day in Israel (ADR-088).
+    OpenPlanRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - date
+      properties:
+        date:
+          $ref: '#/components/schemas/DeliveryDate'
+    OpenedPlan:
+      type: object
+      required:
+        - planId
+      properties:
+        planId:
+          $ref: '#/components/schemas/PlanId'
+    RequestSolveRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        limitSeconds:
+          type: integer
+          minimum: 5
+          maximum: 60
+          description: >-
+            How long the search may run, in whole seconds (NFR-06, FR-19). Without it, the planning
+            settings' default, which an Admin sets (FR-183). A limit outside 5 to 60 answers 400
+            before the rule's own `SOLVE_LIMIT_OUT_OF_RANGE` could, so no client meets that code.
+    RequestedSolve:
+      type: object
+      required:
+        - jobId
+      properties:
+        jobId:
+          $ref: '#/components/schemas/JobId'

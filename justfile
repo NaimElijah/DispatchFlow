@@ -56,6 +56,12 @@ check: core-check optimizer-check research-check web-check mobile-check contract
 # Reformat every component's code.
 format: core-format optimizer-format research-format web-format mobile-format infra-format
 
+# Regenerate the code built from the contracts, which is never committed: the core's interfaces and
+# models, which every core build generates too (ADR-043, ADR-160). The web app's client joins with
+# #148.
+[doc("Regenerate the code built from the contracts")]
+gen: core-gen
+
 # --- backend/core: Java 25, Spring Boot, Maven ---
 
 [working-directory('src/backend/core')]
@@ -70,6 +76,14 @@ core-check:
 [working-directory('src/backend/core')]
 core-format:
     {{ mvnw }} -B -ntp spotless:apply
+
+# Generate the core's Spring interfaces and models from the client API's contract into
+# target/generated-sources, running the generator's execution alone, so an unformatted file
+# elsewhere doesn't stop it.
+[doc("Generate the core's interfaces and models from the client API's contract")]
+[working-directory('src/backend/core')]
+core-gen:
+    {{ mvnw }} -B -ntp org.openapitools:openapi-generator-maven-plugin:generate@client-api
 
 # Start the core backend on 127.0.0.1:8080, under the dev profile, against a throwaway PostgreSQL
 # container. Needs Docker.
@@ -193,8 +207,9 @@ dev_env := justfile_directory() / "infra/deploy/.env"
 # Build and start the whole stack, wait until every service is healthy and the migrate step has
 # finished, print where each one listens, then watch: an edit to the web app, the shared web packages
 # or the optimizer reloads in its container (ADR-151, ADR-156). Ctrl+C stops only the watch, which
-# just then reports as a failed recipe, and leaves the stack running; a change to the core needs
-# Ctrl+C and `just dev` again. Needs Docker.
+# just then reports as a failed recipe, and leaves the stack running; a change to the core, or to
+# the client API's contract in contracts/client-api/v1/, needs Ctrl+C and `just dev` again. Needs
+# Docker.
 [doc("Start the whole development stack, healthy, then reload edits until Ctrl+C")]
 dev: _dev-env
     {{ dev_stack }} up --build --wait

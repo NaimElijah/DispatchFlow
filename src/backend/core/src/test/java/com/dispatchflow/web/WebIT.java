@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dispatchflow.IntegrationTest;
 import com.dispatchflow.shared.adapter.in.web.Problems;
+import com.dispatchflow.shared.adapter.in.web.model.RequestSolveRequestDto;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletInputStream;
@@ -15,8 +16,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
@@ -99,6 +103,58 @@ class WebIT {
         assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo(WebCodes.NO_SUCH_OPERATION);
     }
 
+    /**
+     * Only v1 is served: a path under another version, and one under {@code /api/} with no version
+     * at all, are paths no operation has (ADR-160).
+     */
+    @ParameterizedTest
+    @MethodSource("pathsUnderApiOutsideV1")
+    void GivenAPathUnderApiOutsideV1_WhenItArrives_ThenNoSuchOperation(String path) {
+        MvcTestResult result = mvc.post()
+                .uri(path)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"date\":\"9001-01-01\"}")
+                .exchange();
+
+        assertThat(result).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo(WebCodes.NO_SUCH_OPERATION);
+        assertThat(result).headers().hasValue(HttpHeaders.CACHE_CONTROL, "no-store, no-transform");
+    }
+
+    /**
+     * The access check guards the whole {@code /api} root, so another spelling of the version
+     * reaches no handler unchecked: a caller with no principal gets the one 401 first (ADR-160).
+     */
+    @ParameterizedTest
+    @MethodSource("pathsUnderApiOutsideV1")
+    void GivenNoPrincipalAndAPathUnderApiOutsideV1_WhenItArrives_ThenTheOne401(String path) {
+        MvcTestResult result = mvc.post()
+                .uri(path)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer not-a-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"date\":\"9001-01-01\"}")
+                .exchange();
+
+        assertThat(result).hasStatus(HttpStatus.UNAUTHORIZED);
+        assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo(Problems.ACCESS_TOKEN_REFUSED);
+    }
+
+    /**
+     * The paths under {@code /api} that no operation has: another version, none, and the
+     * spellings Spring's API versioning would have read as {@code v1}.
+     */
+    static Stream<String> pathsUnderApiOutsideV1() {
+        return Stream.of(
+                "/api/v2/plans",
+                "/api/plans",
+                "/api",
+                "/api/1/plans",
+                "/api/V1/plans",
+                "/api/v1.0/plans",
+                "/api/v01/plans",
+                "/api/x1/plans");
+    }
+
     @Test
     void GivenTheApplication_WhenItsHandlerAdapterIsRead_ThenItIsTheCallWrappersRetryingAdapter() {
         assertThat(adapter).isInstanceOf(CallWrapper.RetryingAdapter.class);
@@ -139,6 +195,22 @@ class WebIT {
                 .isFalse();
         assertThat(sharedMapper.isEnabled(StreamReadFeature.STRICT_DUPLICATE_DETECTION))
                 .isFalse();
+    }
+
+    /** The contract promises an optional field with no value is left out, never sent as null. */
+    @Test
+    void GivenAGeneratedModelWithAnAbsentOptionalField_WhenWritten_ThenTheFieldIsLeftOut() {
+        JacksonJsonHttpMessageConverter served = adapter.getMessageConverters().stream()
+                .filter(converter -> converter instanceof JacksonJsonHttpMessageConverter json
+                        && json.getMapper().isEnabled(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES))
+                .map(JacksonJsonHttpMessageConverter.class::cast)
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(served.getMapper().writeValueAsString(new RequestSolveRequestDto(null)))
+                .isEqualTo("{}");
+        assertThat(served.getMapper().writeValueAsString(new RequestSolveRequestDto(30)))
+                .isEqualTo("{\"limitSeconds\":30}");
     }
 
     @Test

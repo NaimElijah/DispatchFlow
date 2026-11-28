@@ -12,7 +12,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-003](ADR-003-dispatcher-console-and-driver-app.md) | Two clients: a React web app and a React Native phone app | Superseded by ADR-035 |
 | [ADR-004](ADR-004-pluggable-solver-port.md) | Every solver behind one solver port | Accepted; extended by ADR-029; amended by ADR-044 |
 | [ADR-005](ADR-005-or-tools-first-research-solver-for-re-optimization.md) | OR-Tools first, with our own solver as a measured research track aimed at re-optimization | Accepted; extended by ADR-029; amended by ADR-091 |
-| [ADR-006](ADR-006-versioned-openapi-contracts.md) | Every API between components is a versioned OpenAPI contract, written first | Accepted; extended by ADR-026 and ADR-043; amended by ADR-037 and ADR-123 |
+| [ADR-006](ADR-006-versioned-openapi-contracts.md) | Every API between components is a versioned OpenAPI contract, written first | Accepted; extended by ADR-026 and ADR-043; amended by ADR-037, ADR-123 and ADR-159 |
 | [ADR-007](ADR-007-postgresql-with-flyway-migrations.md) | PostgreSQL is the system of record, and Flyway migrations own its schema | Superseded by ADR-041 |
 | [ADR-024](ADR-024-one-delivery-company-no-multi-tenancy.md) | DispatchFlow serves one delivery company, with no multi-tenancy | Accepted |
 | [ADR-026](ADR-026-server-sent-events-and-push-for-live-updates.md) | Live updates use server-sent events and push, and clients act through HTTP POST | Accepted; extended by ADR-035 and ADR-083 |
@@ -45,14 +45,18 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-131](ADR-131-the-declared-structures-review-tightens-its-rules-and-fills-its-gaps.md) | The declared structure's review tightens its rules and fills its gaps | Accepted; extended by ADR-140 |
 | [ADR-132](ADR-132-unbuilt-bodies-say-to-be-implemented.md) | Unbuilt bodies say "To Be Implemented." and name no milestone | Accepted |
 | [ADR-133](ADR-133-a-startup-step-is-a-job-and-access-declares-one.md) | A step that runs once at startup is a `job` adapter, and Access declares one | Accepted; extended by ADR-147 |
-| [ADR-140](ADR-140-the-app-wide-web-package-sits-above-the-modules.md) | The app-wide `web` package sits above the modules, and what they need from it sits beside the kernel | Accepted; extended by ADR-147 and ADR-148; amended by ADR-142, ADR-147, ADR-148 and ADR-150 |
+| [ADR-140](ADR-140-the-app-wide-web-package-sits-above-the-modules.md) | The app-wide `web` package sits above the modules, and what they need from it sits beside the kernel | Accepted; extended by ADR-147, ADR-148, ADR-155, ADR-157 and ADR-160; amended by ADR-142, ADR-147, ADR-148 and ADR-150 |
 | [ADR-142](ADR-142-the-call-wrappers-retry-its-400s-and-its-error-endpoint-as-162-built-them.md) | The call wrapper's retry, its 400s and its error endpoint, as #162 built them | Accepted; amended by ADR-149 |
 | [ADR-147](ADR-147-the-stand-in-condition-sits-in-the-root-package-and-a-refused-access-token-answers-one-code.md) | The stand-in condition sits in the root package, a deployed environment is told by a marker and three keys, and a refused access token answers one code | Accepted; amended by ADR-148 and ADR-149 |
-| [ADR-148](ADR-148-the-stand-in-serves-only-its-own-origin-every-unsigned-api-call-answers-401-and-the-guard-outlives-the-session.md) | The stand-in serves only its own origin, every unsigned call under `/api/v1` answers 401, and the guard outlives the session | Accepted |
+| [ADR-148](ADR-148-the-stand-in-serves-only-its-own-origin-every-unsigned-api-call-answers-401-and-the-guard-outlives-the-session.md) | The stand-in serves only its own origin, every unsigned call under `/api/v1` answers 401, and the guard outlives the session | Accepted; extended by ADR-160 |
 | [ADR-149](ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md) | The use case records its refusal after the rollback, and the audit purge counts its year back from now | Accepted; extended and amended by ADR-150 |
 | [ADR-150](ADR-150-one-audit-helper-records-the-refusals-a-use-case-sees-and-the-contracts-handler-records-a-changing-call-it-refuses.md) | One Audit helper records the refusals a use case sees, and the contract's handler records a changing call it refuses | Accepted |
-| [ADR-043](ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md) | Code is generated from both contracts on both sides, and errors are RFC 9457 Problem Details | Accepted; extended by ADR-068, ADR-073, ADR-087, ADR-094 and ADR-140; amended by ADR-123 and ADR-153 |
+| [ADR-043](ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md) | Code is generated from both contracts on both sides, and errors are RFC 9457 Problem Details | Accepted; extended by ADR-068, ADR-073, ADR-087, ADR-094 and ADR-140; amended by ADR-123, ADR-153 and ADR-160 |
 | [ADR-094](ADR-094-each-pull-requests-contract-check-compares-against-its-base-branch.md) | Each pull request's contract check compares against its base branch | Accepted |
+| [ADR-155](ADR-155-the-client-api-keeps-instants-and-local-times-apart-and-sends-a-list-that-may-grow-as-a-string.md) | The client API keeps instants and local times apart, and sends a list that may grow as a string | Accepted |
+| [ADR-157](ADR-157-an-if-match-is-exactly-one-strong-tag-the-core-sent-and-the-proxy-leaves-the-apis-tags-alone.md) | An `If-Match` is exactly one strong tag the core sent, and the proxy leaves the API's tags alone | Accepted |
+| [ADR-159](ADR-159-a-contract-change-goes-with-its-provider-and-the-consumers-that-call-what-it-changes.md) | A contract change goes with its provider and the consumers that call what it changes | Accepted |
+| [ADR-160](ADR-160-the-cores-generated-interfaces-take-a-dto-suffix-leave-absent-fields-out-and-are-served-under-a-literal-api-v1-prefix.md) | The core's generated interfaces take a `Dto` suffix, leave absent fields out, and are served under a literal `/api/v1` prefix | Accepted |
 | [ADR-044](ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md) | The solver port takes a start, a budget and a seed, and `Problem` alone judges a solution | Accepted; extended by ADR-050 and ADR-099; amended by ADR-105, ADR-120 and ADR-121 |
 | [ADR-045](ADR-045-generation-counters-revoke-tokens.md) | Generation counters on the user and the session revoke tokens | Accepted; extended by ADR-131; amended by ADR-104 |
 | [ADR-048](ADR-048-travel-times-from-buckets-and-a-buffer-with-no-live-traffic.md) | Travel times come from time-of-day buckets and a buffer, with no live traffic | Accepted; amended by ADR-098 |
@@ -71,7 +75,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-054](ADR-054-publishing-re-checks-every-route-against-the-current-fleet.md) | Publishing re-checks every route against the current fleet and orders | Accepted |
 | [ADR-055](ADR-055-accepting-a-re-optimization-checks-the-vehicles-it-keeps-driving.md) | Accepting a re-optimization checks the vehicles it keeps driving | Accepted |
 | [ADR-056](ADR-056-accepting-a-re-optimization-checks-changes-recorded-since-its-basis.md) | Accepting a re-optimization re-checks every change recorded since its preview | Accepted |
-| [ADR-057](ADR-057-concurrent-changes-to-a-plan-use-optimistic-locking.md) | Concurrent changes to a plan use optimistic locking, and one re-optimization runs at a time | Accepted; extended by ADR-153; amended by ADR-121 and ADR-140 |
+| [ADR-057](ADR-057-concurrent-changes-to-a-plan-use-optimistic-locking.md) | Concurrent changes to a plan use optimistic locking, and one re-optimization runs at a time | Accepted; extended by ADR-153 and ADR-157; amended by ADR-121 and ADR-140 |
 | [ADR-058](ADR-058-routes-changed-while-the-optimizer-is-down-are-checked-when-it-returns.md) | A route changed while the optimizer is down is marked not yet checked, and checked when it returns | Accepted |
 | [ADR-059](ADR-059-plan-revisions-are-stored-as-rows.md) | Each published plan revision is stored as rows, one per stop | Accepted; extended by ADR-121 |
 | [ADR-060](ADR-060-hard-limits-on-fleet-and-plan-size.md) | The system refuses a sixteenth vehicle and a date's 201st order | Accepted |
@@ -98,7 +102,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-107](ADR-107-live-operations-alerts-once-per-key-corrects-a-put-back-by-event-and-treats-a-reschedule-as-a-cancellation.md) | Live Operations alerts once per key, corrects a put-back by event, and treats a reschedule as a cancellation | Accepted; extended by ADR-121; amended by ADR-114 |
 | [ADR-114](ADR-114-live-operations-reaches-planning-from-its-own-listener-and-names-every-fact-it-judges.md) | Live Operations reaches Planning from its own listener, and names every fact it judges | Accepted; extended by ADR-121 |
 | [ADR-109](ADR-109-reporting-computes-exact-on-time-shares-from-current-facts-and-keeps-no-personal-data.md) | Reporting computes exact on-time shares from current facts and keeps no personal data | Accepted; extended by ADR-112 |
-| [ADR-088](ADR-088-israel-local-time-for-every-date-and-schedule.md) | Every date, time window, shift and schedule is Israel local time, held as elapsed seconds in a solve | Accepted; amended by ADR-098 |
+| [ADR-088](ADR-088-israel-local-time-for-every-date-and-schedule.md) | Every date, time window, shift and schedule is Israel local time, held as elapsed seconds in a solve | Accepted; extended by ADR-155; amended by ADR-098 |
 | [ADR-089](ADR-089-interface-languages.md) | Both apps are available in Hebrew, right to left, and in English only | Accepted; extended by ADR-143 |
 | [ADR-143](ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md) | The web app's shell declares routes per area, opens in English, and renders no `<style>` element | Accepted; extended by ADR-153; amended by ADR-144 |
 | [ADR-144](ADR-144-the-web-apps-features-stay-apart-and-its-lower-folders-never-import-upward.md) | The web app's features stay apart, its lower folders never import upward, and sign-in stands beside the shell | Accepted; extended by ADR-153 |
@@ -321,6 +325,15 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > follows reading order, a window's included; a table's default cell writes text only; a screen
 > sends the newest version it knows; and the web tests run in New York's zone.
 >
+> ADR-155, on 2026-11-28, extends ADR-088 and ADR-140 for #149's planning operations: the wire
+> keeps instants and local times apart, as the database does, so a moment, and a time a solve
+> works out from the elapsed seconds since the date's midnight in Israel, is an RFC 3339
+> `date-time` in UTC, while a time a person enters for a date travels as the date and a local
+> `HH:mm` both ways, which the core resolves under BR-111, and a problem's `params` keep their
+> forms; a list whose values carry fields is a `oneOf` with a `kind`, closed for v1; a list of
+> plain values the optimizer decides, or that has grown, is a string with its values listed, as
+> `Problem.code` is; and any other is an `enum`.
+>
 > ADR-156, on 2026-11-28, amends ADR-151 and extends ADR-152 after an audit of #172's recipes:
 > `just dev` runs `up --build --wait`, prints where each service listens, then watches with
 > `watch --no-up`, so a start that fails fails the command; the stack outlives the watch, so
@@ -331,9 +344,33 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > named or anonymous; and no service shares another container's namespace, takes a security
 > option but no-new-privileges, or reaches the database's files but postgres itself.
 >
+> ADR-157, on 2026-11-28, extends ADR-057 and ADR-140: an `If-Match` is exactly one strong tag the
+> core sent, so a wildcard, a weak tag or a list answers 400 with a `WRONG_FORMAT` item, where
+> RFC 9110 would let `*` and a matching list pass and answer 412 to a weak tag, since `*` would
+> let a solve skip the version BR-76 needs and a tag changed on the way would otherwise read as a
+> stale plan on every try; and the proxy leaves the API's tags alone: Caddy's `encode` doesn't
+> apply to `/api/`, because it appends the encoding to a strong `ETag` and strips it only from
+> `If-None-Match`, and every answer carries `no-transform` beside `no-store`.
+>
 > ADR-158, on 2026-11-28, amends ADR-084 for the Alpha after #152: `just data` cuts the tiles
 > from the last build of a basemap version that Protomaps keeps for good, and checks the cut and
 > the fonts' archive against SHA-256 pins; the monthly rebuild returns with the monthly refresh of
 > the road data, which keeps its own cut in Israel; and the Alpha accepts tiles older than
 > NFR-129's 60 days, until the pin passes 120.
+>
+> ADR-159, on 2026-11-28, amends ADR-006: a contract change goes in the same pull request as its
+> provider and each consumer that calls an operation it adds or changes; a consumer that calls none
+> changes nothing, but its generated code still builds; and a consumer's generator arrives with
+> the first operation it calls, the web app's with #148's second pull request.
+>
+> ADR-160, on 2026-11-28, extends ADR-140 with what #161's generator settled: the models take the
+> suffix `Dto`; only the two `@NullMarked` package-info files of its supporting files are written,
+> so no `ApiUtil`; Spring MVC validates the arguments itself, with no `@Validated` on the
+> interfaces; the error-only media type stays, and both apps send `Accept: application/json,
+> application/problem+json`; the served converter leaves absent values out of every answer; the
+> generated operations sit under a literal `/api/v1` prefix, amending ADR-043, since Spring 7's
+> version parser read `/api/1` and `/api/V1` as `v1` past the access check, which now guards all of
+> `/api`, extending ADR-148; a request value only the domain can refuse reaches the use case plain
+> and is built inside its recorded attempt; the generator stays at 7.27.0; and `just audit` doesn't
+> scan build plugins.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.

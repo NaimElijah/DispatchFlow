@@ -25,7 +25,11 @@ a throwaway value for each secret, never a developer's own infra/deploy/.env or 
   the tiles service's image is the root justfile's caddy_image, which `just data` runs;
 - the tiles service's Caddyfile lets no file it serves be read as a page: every answer carries
   nosniff and a sandboxing policy, the map's binary files get a type of their own, and no folder
-  is listed.
+  is listed;
+- an image built from a context that holds infra/deploy/.env, such as the core's from the root, has
+  its own ``<dockerfile>.dockerignore`` beside its Dockerfile, which ignores everything first, lets
+  back in neither the .env file nor a folder that holds it, and ignores every .env file after its
+  last re-include.
 
 With ``--live``, the whole stack then starts in a project of its own, with a random name and no port
 on the host, so it never meets a running ``just dev`` or another check. It first removes what an
@@ -48,8 +52,10 @@ secret.
 
 from __future__ import annotations
 
+import fnmatch
 import json
 import os
+import posixpath
 import re
 import secrets
 import signal
@@ -156,6 +162,14 @@ CADDY_BROWSE = re.compile(r"\bbrowse\b")
 # The files Caddy gives no type of its own, which a browser could otherwise sniff as a page.
 TILES_BINARY_PATHS = ("*.pmtiles", "*.pbf")
 JUSTFILE_CADDY_IMAGE = re.compile(r'^caddy_image := "(?P<image>[^"]+)"', re.MULTILINE)
+# A build's ignore file, beside its Dockerfile as BuildKit looks for it, and the patterns it needs
+# when the context holds infra/deploy/.env: ignore everything first, and every .env file last.
+DEFAULT_DOCKERFILE = "Dockerfile"
+IGNORE_FILE_SUFFIX = ".dockerignore"
+IGNORE_EVERYTHING = "*"
+EVERY_ENV_FILE = "**/.env*"
+# Docker drops a UTF-8 byte-order mark at the start of an ignore file before it reads the patterns.
+BYTE_ORDER_MARK = "\ufeff"
 # The tests' own server option, which a throwaway database can afford and the stack can't.
 TESTS_ONLY_OPTION = ("-c", "fsync=off")
 
@@ -401,6 +415,7 @@ def static_problems(
         ),
         *caddy_pin_problems(resolved, sources.justfile_text),
         *caddyfile_problems(sources.caddyfile_text),
+        *build_context_problems(resolved),
         *server_command_problems(resolved, sources.testcontainers_text),
     ]
     return list(dict.fromkeys(problems))
@@ -438,7 +453,7 @@ def exposes_docker_socket(source: str) -> bool:
 
 
 def exposes_env_file(source: str) -> bool:
-    """Whether a bind mount's source is infra/deploy/.env or a folder that holds it."""
+    """Whether a bind mount's source or a build's context is infra/deploy/.env or holds it."""
     mounted = os.path.normcase(os.path.abspath(source))
     held = [ENV_FILE, *ENV_FILE.parents]
     return any(mounted == os.path.normcase(str(path)) for path in held)
@@ -778,6 +793,109 @@ def caddyfile_problems(caddyfile_text: str) -> list[str]:
     ]
     if CADDY_BROWSE.search(text):
         problems.append("the tiles Caddyfile lists folders with browse")
+    return problems
+
+
+def build_context_problems(configuration: Configuration) -> list[str]:
+    """Each image whose build context holds infra/deploy/.env, unless its ignore file keeps it out.
+
+    BuildKit reads ``<dockerfile>.dockerignore`` beside the Dockerfile in place of the context's own
+    .dockerignore, and the root has none, so for a context at infra/deploy/ or above it that file
+    alone keeps every dev password out of the image.
+
+    Args:
+        configuration: the file as Compose resolves it, with each build's context an absolute path.
+
+    Returns:
+        One problem per such service with no ignore file of its own, and one per way its ignore
+        file may let the .env file in.
+    """
+    problems = []
+    for name, service in configuration["services"].items():
+        build = service.get("build")
+        if not build:
+            continue
+        problems += [
+            f"{name}'s additional context {context} holds infra/deploy/.env, which no ignore file "
+            "filters: name a folder that doesn't hold it"
+            for context, source in additional_contexts(build).items()
+            if exposes_env_file(source)
+        ]
+        if not exposes_env_file(str(build["context"])):
+            continue
+        ignore_name = f"{build.get('dockerfile') or DEFAULT_DOCKERFILE}{IGNORE_FILE_SUFFIX}"
+        ignore_file = Path(build["context"]) / ignore_name
+        if not ignore_file.is_file():
+            problems.append(
+                f"{name} builds from a context that holds infra/deploy/.env, but has no "
+                f"{ignore_name} beside its Dockerfile: write one that starts with "
+                f"{IGNORE_EVERYTHING}"
+            )
+            continue
+        env_file = Path(os.path.relpath(ENV_FILE, build["context"])).as_posix()
+        problems += [
+            f"{name}'s {ignore_name} {problem}"
+            for problem in dockerignore_problems(read(ignore_file), env_file)
+        ]
+    return problems
+
+
+def additional_contexts(build: dict[str, Any]) -> dict[str, str]:
+    """A build's named contexts, which Compose writes as a mapping or as ``name=path`` entries.
+
+    BuildKit sends a named context whole: no ignore file filters it, so one that holds
+    infra/deploy/.env would carry every dev password into the build.
+    """
+    named = build.get("additional_contexts") or {}
+    if isinstance(named, dict):
+        return {str(name): str(source) for name, source in named.items()}
+    return dict(str(entry).split("=", 1) for entry in named)
+
+
+def dockerignore_problems(ignore_text: str, env_file: str) -> list[str]:
+    """Each way an ignore file may let infra/deploy/.env into the build context.
+
+    It must ignore everything first, let back in nothing that is the .env file or a folder holding
+    it, and ignore every .env file again after its last re-include, so a folder let back in brings
+    none. A re-include is matched as Docker cleans it, and with fnmatch, whose ``*`` also crosses
+    a ``/``. Docker's Go patterns also read ``[^...]`` classes and backslash escapes, which
+    fnmatch doesn't, so such a re-include can go unnamed: the ``**/.env*`` the rule requires after
+    the last re-include is what keeps the file out whatever the re-includes match. A UTF-8
+    byte-order mark is dropped first, as Docker drops it.
+
+    Args:
+        ignore_text: the ignore file.
+        env_file: infra/deploy/.env's path relative to the build context, with ``/`` separators.
+
+    Returns:
+        Each problem, worded to follow the ignore file's name.
+    """
+    patterns = [
+        line.strip()
+        for line in ignore_text.removeprefix(BYTE_ORDER_MARK).splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    parts = env_file.split("/")
+    held = ["/".join(parts[: depth + 1]) for depth in range(len(parts))]
+    problems = []
+    if not patterns or patterns[0] != IGNORE_EVERYTHING:
+        problems.append(
+            f"does not start with {IGNORE_EVERYTHING}: make {IGNORE_EVERYTHING} its first pattern"
+        )
+    re_includes = [index for index, pattern in enumerate(patterns) if pattern.startswith("!")]
+    for index in re_includes:
+        cleaned = posixpath.normpath(patterns[index][1:].strip().lstrip("/"))
+        if cleaned == "." or any(fnmatch.fnmatchcase(path, cleaned) for path in held):
+            problems.append(
+                f"lets {patterns[index]} back in, and infra/deploy/.env with it: let in only "
+                "folders that don't hold it"
+            )
+    last_re_include = max(re_includes, default=-1)
+    if EVERY_ENV_FILE not in patterns[last_re_include + 1 :]:
+        problems.append(
+            f"has no {EVERY_ENV_FILE} after its last ! pattern: add it there, so no folder let "
+            "back in brings a .env file"
+        )
     return problems
 
 

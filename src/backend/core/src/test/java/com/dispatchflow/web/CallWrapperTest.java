@@ -60,7 +60,7 @@ class CallWrapperTest {
             .withBean(KernelErrorHandler.class)
             .withBean(UnexpectedErrorHandler.class)
             .withBean(TraceIdFilter.class)
-            .withBean(Clock.class, CallRetryTest.FixedClock::new)
+            .withBean(Clock.class, CallRetryTest::fixedClock)
             .withBean(AuditLog.class, CallRetryTest.RecordingAuditLog::new)
             .withBean(StubTransactionManager.class, StubTransactionManager::new)
             .withBean(RacingController.class);

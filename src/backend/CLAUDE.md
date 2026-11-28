@@ -5,8 +5,8 @@ with its layout, rules and commands.
 
 ## Contracts
 
-- A change to either contract goes in the same PR as every side it touches, and each side is
-  tested against the contract. See `contracts/CLAUDE.md`.
+- A change to either contract goes in the same PR as its provider and every consumer that calls
+  what it changes, and each side is tested against the contract. See `contracts/CLAUDE.md`.
 - Both services generate their boundary types from the contracts, never by hand ([ADR-043]).
   `contracts/CLAUDE.md` says when the generator comes.
 - Only `core` owns a database. `optimizer` keeps no business data of its own.

@@ -16,6 +16,7 @@ import com.dispatchflow.audit.domain.OperationName;
 import com.dispatchflow.shared.Version;
 import com.dispatchflow.shared.adapter.in.web.Problems;
 import com.dispatchflow.shared.application.Clock;
+import com.dispatchflow.shared.application.FixedClock;
 import com.dispatchflow.shared.application.StaleVersion;
 import jakarta.persistence.PessimisticLockException;
 import java.io.IOException;
@@ -45,13 +46,19 @@ class CallRetryTest {
     private static final String OPERATION = "publishPlan";
     private static final String DONE = "done";
     private static final Instant NOW = Instant.parse("2026-03-15T10:00:00Z");
+    private static final LocalDate TODAY = LocalDate.of(2026, 3, 15);
     private static final Pattern LOCK_TIMEOUT = Pattern.compile("lock_timeout=(\\d+)s");
 
     private final RecordingAuditLog auditLog = new RecordingAuditLog();
-    private final CallRetry retry = new CallRetry(auditLog, new FixedClock());
+    private final CallRetry retry = new CallRetry(auditLog, fixedClock());
     private final MockHttpServletRequest withoutAVersion = new MockHttpServletRequest();
     private final MockHttpServletRequest withIfMatch = new MockHttpServletRequest();
     private final AtomicInteger tries = new AtomicInteger();
+
+    /** The clock this package's web tests run at, which every record they check carries. */
+    static Clock fixedClock() {
+        return new FixedClock(NOW, TODAY);
+    }
 
     @BeforeEach
     void setTheTraceId() {
@@ -230,7 +237,7 @@ class CallRetryTest {
     @Test
     void GivenEachRaceItAudits_WhenTheRealAuditLogRecordsIt_ThenAuditAcceptsItsCodeAndOperation() {
         AppendedAuditRecords records = new AppendedAuditRecords();
-        CallRetry audited = new CallRetry(new AuditLogService(records), new FixedClock());
+        CallRetry audited = new CallRetry(new AuditLogService(records), fixedClock());
 
         assertThatThrownBy(() -> audited.run(withoutAVersion, OPERATION, failingFirst(4, attempt -> savesConflict())))
                 .isInstanceOf(StaleVersion.class);
@@ -271,7 +278,7 @@ class CallRetryTest {
     void GivenAnAuditLogThatFails_WhenARaceIsAudited_ThenItsFailureIsThrownWithTheRaceSuppressed() {
         IllegalStateException auditDown = new IllegalStateException("the audit store is down");
         StaleVersion race = requireCurrentsRefusal();
-        CallRetry failingAudit = new CallRetry(new FailingAuditLog(auditDown), new FixedClock());
+        CallRetry failingAudit = new CallRetry(new FailingAuditLog(auditDown), fixedClock());
 
         assertThatThrownBy(() -> failingAudit.run(withoutAVersion, OPERATION, failingFirst(1, attempt -> race)))
                 .isSameAs(auditDown)
@@ -340,19 +347,6 @@ class CallRetryTest {
         @Override
         public void refused(CallContext call, Instant at, List<AuditedRecord> records, String errorCode) {
             throw failure;
-        }
-    }
-
-    static final class FixedClock implements Clock {
-
-        @Override
-        public Instant now() {
-            return NOW;
-        }
-
-        @Override
-        public LocalDate today() {
-            return LocalDate.of(2026, 3, 15);
         }
     }
 }

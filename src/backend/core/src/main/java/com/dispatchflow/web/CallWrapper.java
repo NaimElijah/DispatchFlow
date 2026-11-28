@@ -29,9 +29,9 @@ import org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHan
  * review checks this.
  *
  * <p>It also binds the call's holders around the handler, its retries included (ADR-140 decision
- * 4): {@code CurrentCall} for every call to a handler under {@code /api/v1}, and {@code
+ * 4): {@code CurrentCall} for every call to a handler under {@code /api}, and {@code
  * CurrentActor} on top when its caller is signed in, from the {@link Caller} that {@code
- * web.security}'s access interceptor kept for the request. A handler outside {@code /api/v1} gets
+ * web.security}'s access interceptor kept for the request. A handler outside {@code /api} gets
  * neither. It is the one class that binds them ({@code ApplicationRules} rule 18). The exception
  * handlers run after the binding has ended, so none reads them.
  *
