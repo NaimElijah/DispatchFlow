@@ -45,7 +45,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-131](ADR-131-the-declared-structures-review-tightens-its-rules-and-fills-its-gaps.md) | The declared structure's review tightens its rules and fills its gaps | Accepted; extended by ADR-140 |
 | [ADR-132](ADR-132-unbuilt-bodies-say-to-be-implemented.md) | Unbuilt bodies say "To Be Implemented." and name no milestone | Accepted |
 | [ADR-133](ADR-133-a-startup-step-is-a-job-and-access-declares-one.md) | A step that runs once at startup is a `job` adapter, and Access declares one | Accepted; extended by ADR-147 |
-| [ADR-140](ADR-140-the-app-wide-web-package-sits-above-the-modules.md) | The app-wide `web` package sits above the modules, and what they need from it sits beside the kernel | Accepted; extended by ADR-147, ADR-148, ADR-155 and ADR-157; amended by ADR-142, ADR-147, ADR-148 and ADR-150 |
+| [ADR-140](ADR-140-the-app-wide-web-package-sits-above-the-modules.md) | The app-wide `web` package sits above the modules, and what they need from it sits beside the kernel | Accepted; extended by ADR-147, ADR-148, ADR-155, ADR-157 and ADR-160; amended by ADR-142, ADR-147, ADR-148 and ADR-150 |
 | [ADR-142](ADR-142-the-call-wrappers-retry-its-400s-and-its-error-endpoint-as-162-built-them.md) | The call wrapper's retry, its 400s and its error endpoint, as #162 built them | Accepted; amended by ADR-149 |
 | [ADR-147](ADR-147-the-stand-in-condition-sits-in-the-root-package-and-a-refused-access-token-answers-one-code.md) | The stand-in condition sits in the root package, a deployed environment is told by a marker and three keys, and a refused access token answers one code | Accepted; amended by ADR-148 and ADR-149 |
 | [ADR-148](ADR-148-the-stand-in-serves-only-its-own-origin-every-unsigned-api-call-answers-401-and-the-guard-outlives-the-session.md) | The stand-in serves only its own origin, every unsigned call under `/api/v1` answers 401, and the guard outlives the session | Accepted |
@@ -56,6 +56,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-155](ADR-155-the-client-api-keeps-instants-and-local-times-apart-and-sends-a-list-that-may-grow-as-a-string.md) | The client API keeps instants and local times apart, and sends a list that may grow as a string | Accepted |
 | [ADR-157](ADR-157-an-if-match-is-exactly-one-strong-tag-the-core-sent-and-the-proxy-leaves-the-apis-tags-alone.md) | An `If-Match` is exactly one strong tag the core sent, and the proxy leaves the API's tags alone | Accepted |
 | [ADR-159](ADR-159-a-contract-change-goes-with-its-provider-and-the-consumers-that-call-what-it-changes.md) | A contract change goes with its provider and the consumers that call what it changes | Accepted |
+| [ADR-160](ADR-160-the-cores-generated-interfaces-take-a-dto-suffix-leave-absent-fields-out-and-are-served-under-api-v1-by-api-versioning.md) | The core's generated interfaces take a `Dto` suffix, leave absent fields out, and are served under `/api/v1` by API versioning | Accepted |
 | [ADR-044](ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md) | The solver port takes a start, a budget and a seed, and `Problem` alone judges a solution | Accepted; extended by ADR-050 and ADR-099; amended by ADR-105, ADR-120 and ADR-121 |
 | [ADR-045](ADR-045-generation-counters-revoke-tokens.md) | Generation counters on the user and the session revoke tokens | Accepted; extended by ADR-131; amended by ADR-104 |
 | [ADR-048](ADR-048-travel-times-from-buckets-and-a-buffer-with-no-live-traffic.md) | Travel times come from time-of-day buckets and a buffer, with no live traffic | Accepted; amended by ADR-098 |
@@ -361,4 +362,11 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > provider and each consumer that calls an operation it adds or changes; a consumer that calls none
 > changes nothing, but its generated code still builds; and a consumer's generator arrives with
 > the first operation it calls, the web app's with #148's second pull request.
+>
+> ADR-160, on 2026-11-28, extends ADR-140 with what #161's generator settled: the models take the
+> suffix `Dto`; only the two `@NullMarked` package-info files of its supporting files are written,
+> so no `ApiUtil`; the error-only media type stays, and both apps send `Accept: application/json,
+> application/problem+json`; the served converter leaves absent values out of every answer; the
+> generated operations sit under `/api/v1` through Spring 7's API versioning, read from paths
+> under `/api/` only; the generator stays at 7.27.0; and `just audit` doesn't scan build plugins.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.
