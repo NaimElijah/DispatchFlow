@@ -180,7 +180,8 @@ contracts-check:
 # --- infra: the development stack, infra/deploy/compose.dev.yaml ---
 
 # The stack's project is the file's own, `dispatchflow`. The `data` profile is where the services
-# whose files git ignores join, osrm (#168) first; `just infra-check` starts none of them.
+# whose files git ignores join, tiles (#152) and then osrm (#168); `just infra-check` starts none
+# of them.
 dev_stack := "docker compose -f infra/deploy/compose.dev.yaml --profile data"
 dev_env := justfile_directory() / "infra/deploy/.env"
 

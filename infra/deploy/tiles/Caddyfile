@@ -21,7 +21,7 @@
 	@binary path *.pmtiles *.pbf
 	header @binary Content-Type application/octet-stream
 
-	# The health check's path, which answers before `just data` has built any file, as in CI.
+	# The health check's path, which answers before `just data` has built any file.
 	respond /healthz 200
 
 	root * /srv
