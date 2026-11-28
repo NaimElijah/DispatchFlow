@@ -87,6 +87,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-082](ADR-082-supported-phone-app-versions.md) | The server supports the current and the previous phone app version, and an older one still drains its queue | Accepted; extended by ADR-140; amended by ADR-094 |
 | [ADR-083](ADR-083-admins-and-dispatchers-get-alerts-by-stream-and-push-in-the-phone-app.md) | Admins and Dispatchers get alerts in the phone app by event stream while it is open and by push in the background | Accepted |
 | [ADR-084](ADR-084-maplibre-in-both-apps-with-self-hosted-protomaps-tiles.md) | Both apps draw maps with MapLibre, from self-hosted Protomaps tiles | Accepted |
+| [ADR-156](ADR-156-the-alphas-tiles-come-from-a-pinned-protomaps-build-checked-by-hash.md) | The Alpha's tiles come from a pinned Protomaps build, checked by hash, until the monthly refresh keeps its own cut | Proposed; would amend ADR-084 |
 | [ADR-085](ADR-085-govmap-geocodes-addresses-with-nominatim-as-the-fallback.md) | GovMap geocodes addresses, and self-hosted Nominatim replaces it only if GovMap's terms fail | Accepted; amended by ADR-121 and ADR-139 |
 | [ADR-086](ADR-086-csv-imports-upload-then-confirm-within-an-hour.md) | An order import is two calls, upload then confirm within an hour, and writes every row or none | Accepted; extended by ADR-102; amended by ADR-139 |
 | [ADR-139](ADR-139-govmap-geocoding-comes-into-the-alpha.md) | GovMap geocoding comes into the Alpha, behind the `Geocoder` port, and the demo reaches the real GovMap | Accepted |
