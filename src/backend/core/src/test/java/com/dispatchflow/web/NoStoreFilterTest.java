@@ -2,6 +2,7 @@ package com.dispatchflow.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.net.URI;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -50,6 +51,21 @@ class NoStoreFilterTest {
         MvcTestResult result = mvc.get().uri(path).exchange();
 
         assertThat(result).headers().doesNotContainHeader(HttpHeaders.CACHE_CONTROL);
+    }
+
+    /**
+     * The mapping reads each segment as UTF-8 whatever charset the request declares, so the filter
+     * does too: a percent-encoded spelling it serves is still marked never stored (ADR-160).
+     */
+    @Test
+    void GivenAnEncodedPathAndAnotherCharset_WhenItIsServed_ThenItIsStillNoStoreNoTransform() {
+        MvcTestResult result = mvc.get()
+                .uri(URI.create("/%61pi/v1/probe"))
+                .characterEncoding("UTF-16")
+                .exchange();
+
+        assertThat(result).hasStatusOk();
+        assertThat(result).headers().hasValue(HttpHeaders.CACHE_CONTROL, "no-store, no-transform");
     }
 
     @RestController

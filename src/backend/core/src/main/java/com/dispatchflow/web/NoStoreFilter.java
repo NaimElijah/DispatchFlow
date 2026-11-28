@@ -9,9 +9,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.server.RequestPath;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.web.util.UrlPathHelper;
+import org.springframework.web.util.pattern.PathPattern;
+import org.springframework.web.util.pattern.PathPatternParser;
 
 /**
  * Sets {@code Cache-Control: no-store, no-transform} on every answer under {@code /api}, the root
@@ -22,6 +24,10 @@ import org.springframework.web.util.UrlPathHelper;
  *
  * <p>It sets the header before the rest of the chain runs, so a refusal carries it too, whichever
  * filter, interceptor or handler writes it, and the error page Tomcat dispatches to keeps it.
+ *
+ * <p>It reads the path as the handler mapping and the access interceptor do, each segment decoded
+ * as UTF-8 with its path parameters taken off, so every path they serve under {@code /api} gets the
+ * header, however it is spelled, whatever charset the request declares (ADR-160).
  */
 @Component
 @Order(FilterOrder.NO_STORE)
@@ -29,12 +35,18 @@ class NoStoreFilter extends OncePerRequestFilter {
 
     static final String NO_STORE_NO_TRANSFORM = "no-store, no-transform";
 
-    private static final UrlPathHelper PATHS = UrlPathHelper.defaultInstance;
+    private static final PathPattern CLIENT_API = PathPatternParser.defaultInstance.parse(ClientApi.ROOT + "/**");
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        String path = PATHS.getPathWithinApplication(request);
-        return !(path.equals(ClientApi.ROOT) || path.startsWith(ClientApi.ROOT + "/"));
+        try {
+            RequestPath path = RequestPath.parse(request.getRequestURI(), request.getContextPath());
+            return !CLIENT_API.matches(path.pathWithinApplication());
+        } catch (IllegalArgumentException unparsable) {
+            // A path Spring can't parse reaches no handler, and the trace filter answers it 400;
+            // marking that answer never stored costs nothing.
+            return false;
+        }
     }
 
     @Override
