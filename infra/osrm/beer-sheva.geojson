@@ -1,7 +1,8 @@
 {
   "type": "Feature",
   "properties": {
-    "name": "Be'er Sheva, Omer and Lehavim"
+    "name": "Be'er Sheva, Omer and Lehavim",
+    "description": "A rectangle around Be'er Sheva, Omer and Lehavim, which also covers Tel Sheva, Laqiya and the edge of Rahat. The tile cut (just data), #168's clip and #209's service area share it. Changing it means re-running just data and committing the new israel_tiles_sha256."
   },
   "geometry": {
     "type": "Polygon",
