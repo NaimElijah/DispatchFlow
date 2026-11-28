@@ -19,15 +19,18 @@ infra_tools := "uv run --project src/backend/optimizer --locked --only-dev"
 # The map's files, which `just data` builds (#152). Protomaps keeps a daily build for a week but the
 # last build of each basemap version for good (https://build-metadata.protomaps.dev/builds.json),
 # so the pin names the newest such build, 4.15.1's, and moves only when a newer version's last build
-# is kept: a daily pin would stop downloading a week later (ADR-156). The fonts and sprite come from a pinned
-# commit of protomaps/basemaps-assets. Both downloads are checked against their SHA-256, because a
-# name or a commit pins the address, not the bytes; the cut is byte-for-byte reproducible from the
-# same build, region and pmtiles image, so a changed source fails the check. A moved pin, a new
-# pmtiles image or a changed boundary needs both hashes taken again from a clean run, in a committed
-# change: `just name=value data` overrides a pin for one run only. The pmtiles image is pinned by
-# digest, because the cut's hash depends on its bytes. The Caddy image is the tiles service's, in
-# compose.dev.yaml, and on a tag until January as that file's images are (ADR-047): its sh, wget and
-# tar run the steps the pmtiles image can't, as it has no shell, and what they write is hash-checked.
+# is kept: a daily pin would stop downloading a week later (ADR-156). The fonts and sprite come
+# from a pinned commit of protomaps/basemaps-assets. The fonts' archive and the cut are checked
+# against their SHA-256, because a name or a commit pins the address, not the bytes; the cut is
+# byte-for-byte reproducible from the same build, region and pmtiles image, so a changed source
+# fails the check. GitHub keeps an archive's files but not its compression, so the archive's hash
+# can fail on an unchanged commit: then check that its files are the commit's, and retake the hash.
+# A moved pin, a new pmtiles image or a changed boundary needs both hashes taken again from a clean
+# run, in a committed change: `just name=value data` overrides a pin for one run only. The pmtiles
+# image is pinned by digest, because the cut's hash depends on its bytes. The Caddy image is the
+# tiles service's, in compose.dev.yaml, and on a tag until January as that file's images are
+# (ADR-047): its sh, wget and tar run the steps the pmtiles image can't, as it has no shell, on an
+# archive whose hash was checked first.
 pmtiles_image := "protomaps/go-pmtiles:v1.31.2@sha256:06574f01f55a78f78f887bc7ebf729a5c093c0d6e17d9876300cfcb0758b59d3"
 protomaps_build := "20260811"
 protomaps_basemap_version := "4.15.1"
