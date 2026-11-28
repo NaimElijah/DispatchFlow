@@ -30,8 +30,9 @@ enterprise-scale fleets.
 > declared application layer, not features yet.**
 > Every component builds and passes its tests with `just check`, and CI runs the same recipes on
 > every push and on every pull request into `dev` or `main`. The application layer is declared but
-> not built, beyond the audit log, so the other persistence adapters have no caller yet and none of
-> the planning capabilities can be used.
+> not built, beyond the audit log and Planning's `openPlan` and `requestSolve`, which the core
+> serves and no screen calls yet, so the other persistence adapters have no caller yet and no
+> planning capability can be used from the apps.
 > What the system must do is in [requirements.md](docs/requirements/requirements.md); what exists
 > today and what comes next are under [Status and limitations](#status-and-limitations).
 
@@ -166,7 +167,8 @@ flowchart LR
   Live Operations, Recipient Messaging, Reporting and Audit
   ([domain design](docs/architecture/domain_layer/domain_layer_design.md#1-subdomains-and-bounded-contexts)).
   Each module's domain is built. Its application layer is declared, with bodies that throw, but
-  for Audit's audit log and its refusal helper
+  for Audit's audit log and its refusal helper, and Planning's use cases that open a plan and request
+  its solve, which its one controller serves
   ([ADR-119](docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md); the conventions are in
   [ADR-120](docs/ADRs/ADR-120-the-application-layer-takes-an-actor-and-a-call-context-and-reads-through-query-ports.md)), and its built adapters store each module's aggregates in its own PostgreSQL schema
   ([data model](docs/architecture/data-model.md)), and the kernel's give the clock, new IDs and
@@ -195,7 +197,7 @@ right to left once its Settings page says so), and the phone app a heading; the 
 the core and in the optimizer, are built and tested, and their application layers are declared but
 not built.
 The core's persistence adapters store every module's aggregates in PostgreSQL. Only the audit log,
-which every changing call will write through, calls one.
+which every changing call will write through, and Planning's two use cases call one.
 [architecture.md](docs/architecture/architecture.md) describes that system as it is, and
 [code-structure.md](docs/architecture/code-structure.md) the repository layout.
 
@@ -259,7 +261,7 @@ creates from `DISPATCHFLOW_OWNER_PASSWORD` and `DISPATCHFLOW_APP_PASSWORD`
 core with them set to `app`
 ([ADR-145](docs/ADRs/ADR-145-the-migrate-command-runs-flyway-as-the-owner-and-the-core-connects-as-app.md)).
 Keep the two in separate files, so the core never gets the owner's password: with the image that
-`src/backend/core/Dockerfile` builds, `docker run --env-file migrate.env <image> migrate`, then
+`src/backend/core/Dockerfile` builds (its context is the repository's root), `docker run --env-file migrate.env <image> migrate`, then
 `docker run --env-file core.env <image>`. With a jar that `./mvnw package` builds, load each file in
 a subshell, for example `(set -a; . ./migrate.env; java -jar target/core-<version>.jar migrate)`,
 rather than typing a password into an `export`.
@@ -296,7 +298,9 @@ The components are `core`, `optimizer`, `research`, `web` and `mobile`. `just` l
 recipe; `just check` and `just format` run them all. The `web` recipes run from the pnpm
 workspace in `src/frontend`, so they also set up and check the shared packages. `just infra-check`
 and `just infra-format` cover the development stack in `infra/deploy`, which `just dev`,
-`just dev-down` and `just db-reset` run, and whose map files `just data` builds.
+`just dev-down` and `just db-reset` run, and whose map files `just data` builds. `just gen`
+regenerates the code built from the contracts, today the core's interfaces and models, which every
+core build writes into `src/backend/core/target/generated-sources/openapi` too and never commits.
 
 **Adding a feature end to end:** start from the requirement it delivers in
 [requirements.md](docs/requirements/requirements.md), the aggregate that owns its rule in the
@@ -319,8 +323,8 @@ comments. The rules apply to people and to coding assistants alike.
 
 | Layer | Covers | Command |
 |---|---|---|
-| Core unit (`*Test`) | Domain and use cases, no I/O. Today: the shared kernel's values, the eight modules' domains, the ArchUnit rules (purity, shape, package structure, the application layer's shape and the JPA mapping), the clock and ID adapters, the problem factory, and `web`'s trace filter, error handlers and call wrapper, and Audit's audit log and refusal helper; every other use case is declared and not built, so none has a behaviour test yet | `just core-check` |
-| Core integration (`*IT`) | Against a real PostgreSQL in a container. Today: the application starts, each module's aggregates are saved and loaded, with a damaged stored value refused, the shared version helper's saves, conflicts and storing of the kernel's values are checked, the audit trail is append-only for `app` and its purge deletes nothing a year old or younger, the audit log's records commit or roll back with their transaction, and `web`'s pieces are wired in the whole application | `just core-check` |
+| Core unit (`*Test`) | Domain and use cases, no I/O. Today: the shared kernel's values, the eight modules' domains, the ArchUnit rules (purity, shape, package structure, the application layer's shape and the JPA mapping), the clock and ID adapters, the problem factory, `web`'s trace filter, error handlers and call wrapper, Audit's audit log and refusal helper, and Planning's `OpenPlan` and `RequestSolve`; every other use case is declared and not built, so none has a behaviour test yet | `just core-check` |
+| Core integration (`*IT`) | Against a real PostgreSQL in a container. Today: the application starts, each module's aggregates are saved and loaded, with a damaged stored value refused, the shared version helper's saves, conflicts and storing of the kernel's values are checked, the audit trail is append-only for `app` and its purge deletes nothing a year old or younger, the audit log's records commit or roll back with their transaction, `web`'s pieces are wired in the whole application, and `openPlan` and `requestSolve` answer through the generated interface | `just core-check` |
 | Optimizer | The domain (the validator's crafted-violation catalogue, Hypothesis properties, Solomon best-known solutions accepted), the HTTP adapter, the dependency boundary and import-linter | `just optimizer-check` |
 | Research | Its environment: the optimizer and PyVRP are installed | `just research-check` |
 | Web app | Components in jsdom (Vitest + Testing Library), with MSW failing any request no handler answers; the shared packages' lint, format and tests | `just web-check` |
@@ -407,7 +411,7 @@ for each of those eight modules, with the two database roles and the `migrate` c
 the migrations), and the optimizer's domain for daily solves and re-optimizations
 (the validator, the objective and the drop reasons). The application layer is declared ahead too, in the core and in
 the optimizer: every use case, query, port and module API has its signature, and every body that would
-do work throws "To Be Implemented." ([ADR-119](docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md), [ADR-132](docs/ADRs/ADR-132-unbuilt-bodies-say-to-be-implemented.md)), but for the audit log, wired to record a changing call's refused 401, a lost race and a request that breaks the contract, and every changing use case's outcome as each is built, and its `Refusals` helper, beside the database function that will delete the records older than a year once the nightly retention run calls it ([ADR-149](docs/ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md)). No other use case calls a persistence adapter yet.
+do work throws "To Be Implemented." ([ADR-119](docs/ADRs/ADR-119-the-application-layer-is-declared-ahead-as-signatures-whose-bodies-throw.md), [ADR-132](docs/ADRs/ADR-132-unbuilt-bodies-say-to-be-implemented.md)), but for the audit log, wired to record a changing call's refused 401, a lost race and a request that breaks the contract, and every changing use case's outcome as each is built, and its `Refusals` helper, beside the database function that will delete the records older than a year once the nightly retention run calls it ([ADR-149](docs/ADRs/ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md)), and for Planning's `OpenPlan` and `RequestSolve`, the first use cases a controller serves, through the client API's `openPlan` and `requestSolve`. No other use case calls a persistence adapter yet.
 
 Planned: the [roadmap](docs/roadmap.md) has the course calendar, the milestones M0 to M13, and the
 definition and demo script of the Alpha (M0 to M5).

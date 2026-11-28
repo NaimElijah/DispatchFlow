@@ -269,7 +269,7 @@ route included.
 
 | ID | Requirement | Priority | Size | Enforced by |
 |---|---|---|---|---|
-| FR-15 | A dispatcher can create a plan for a date and request a solve over that date's orders, vehicles and driver shifts. | Must |  |  |
+| FR-15 | A dispatcher can create a plan for a date and request a solve over that date's orders, vehicles and driver shifts. | Must |  | `OpenPlanTest`, `RequestSolveTest`, `PlanControllerIT` (opening a plan and requesting its solve) |
 | FR-16 | A solve runs in the background, and the dispatcher sees that the plan is solving. | Must |  |  |
 | FR-222 | The dispatcher is notified when a solve's result is ready, without reloading. | Must |  |  |
 | FR-17 | A solve assigns orders to vehicles, orders the stops of every route, and gives each stop a planned ETA, honouring every rule in [Business rules](#business-rules-and-invariants). | Must |  |  |
@@ -620,7 +620,7 @@ Rules are grouped by subject.
 | BR-127 | **Abandoned plan.** At midnight, Israel time, at the end of its date, a plan that is `draft`, `solving` or `ready` becomes `abandoned`, which is terminal and read-only. Priority: Must. |  |  |
 | BR-128 | **Solve jobs at midnight.** At midnight after a date, every queued or running solve job of that date fails with the reason "its date passed", before its plan completes or becomes `abandoned` ([BR-127]: an unpublished plan is abandoned at midnight). Priority: Must. |  |  |
 | BR-103 | **Cancelled plan.** A published plan may become `cancelled` ([FR-336]: cancel a published plan) and then makes no further transition. Priority: Should. |  |  |
-| BR-118 | **No past plans.** A plan for a past date cannot be created or published. Priority: Must. |  |  |
+| BR-118 | **No past plans.** A plan for a past date cannot be created or published. Priority: Must. |  | `OpenPlanTest`, `PlanControllerIT` (creating a plan) |
 | BR-16 | **Edits are flagged, never silently fixed.** A manual edit that breaks any of [BR-02] to [BR-15] (driver scope through validated solutions), [BR-39] (one route per vehicle and per driver), [BR-40] (routes start and end at depots), [BR-46] (routes keep to depot hours), [BR-51] (re-optimized routes start where the vehicle is), [BR-52] (a withdrawn route ends at its last reported stop), [BR-79] (re-optimization starts from current locations) or [BR-105] (time reserved for breaks) is kept as the dispatcher made it and flagged with every violation. |  |  |
 | BR-17 | **No publishing with violations.** A plan with any flagged violation cannot be published; the dispatcher fixes it or solves again first. |  |  |
 | BR-20 | **Published as solved.** A plan is published only while, for every route, the vehicle is not marked unavailable and the vehicle's driver holds the Driver role and is the route's driver. |  |  |
@@ -641,7 +641,7 @@ Rules are grouped by subject.
 | BR-74 | **Solve interrupted.** A solve running when a restart interrupts it fails. |  |  |
 | BR-75 | **Solve limit start.** The limit of a solve runs from the start of its search, after the travel-time matrix is built, and a queued solve still waits its turn ([NFR-12]: queued solves survive restarts). |  |  |
 | BR-112 | **Queue limits.** A queued solve or re-optimization waits at most 5 minutes and then fails, and a request beyond 5 queued is refused. Priority: Must. |  |  |
-| BR-34 | **One plan per date.** The company has at most one plan for a date, not counting cancelled ones. |  |  |
+| BR-34 | **One plan per date.** The company has at most one plan for a date, not counting cancelled ones. |  | `PlanPersistenceIT.GivenADatesPlan_WhenAnotherIsAddedPastTheRead_ThenPlanAlreadyExistsNamesTheFirst`, `OpenPlanTest`, `PlanControllerIT` |
 | BR-38 | **One change at a time.** A plan has at most one re-optimization running at a time; a second request is refused with its reason, and an open preview does not count. ([ADR-057]: concurrent changes to a plan) |  |  |
 | BR-76 | **No silent overwrite.** Two dispatchers cannot silently overwrite each other's changes to a plan: an out-of-date change is refused with its reason. |  |  |
 | BR-47 | **Named actions only.** A published route changes only through an accepted re-optimization ([FR-255]: nothing changes until accepted), a hand-over ([FR-55]: hand a route to another driver), a cancelled order or date change ([FR-58]: cancel an order, [FR-315]: date change on a published plan), a cancelled plan ([FR-336]: cancel a published plan), a driver's start, finish or report ([FR-68]: start and finish a route, [FR-29]: report a stop's status, [BR-27]: late outcomes are still accepted), or an outcome recorded or corrected for a driver ([FR-73]: dispatcher records an outcome, [FR-333]: dispatcher corrects an outcome). Priority: Must. |  |  |

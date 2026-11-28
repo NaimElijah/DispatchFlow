@@ -32,8 +32,7 @@ only client (`contracts/optimization-api/v1`): Java 25, Spring Boot 4.1, JPA, Fl
     package only the JDK, JSpecify, the kernel and itself. A domain and the kernel also carry
     [ADR-126]'s persistence annotations, nothing else of JPA. Modulith's go on `package-info` only.
   - They never read the clock (`now()`, `Clock`, `Date`, `System.currentTimeMillis()`,
-    `Thread.sleep` and the like). They never call `UUID.randomUUID()`: factories take the new ID,
-    and a method that creates many children takes a `FreshIds`.
+    `Thread.sleep`) nor call `UUID.randomUUID()`: factories take new IDs, a `FreshIds` for many.
   - They use no randomness, I/O, logging, reflection, threads, system properties or resources
     (`java.net.IDN` is the one allowed `java.net` class), and no default locale: a case change,
     `String.format`, `DateTimeFormatter.ofPattern`, `toFormatter` and the `*Format` classes take a
@@ -72,9 +71,11 @@ only client (`contracts/optimization-api/v1`): Java 25, Spring Boot 4.1, JPA, Fl
 - A value rebuilt from storage goes through `StoredStateInvalid.whileRestoring`, and a stored phone
   number through `PhoneNumber.ofStored`. So a damaged or since-refused value is an incident, never a
   user-facing refusal. No test checks this; review does.
-- A controller in `adapter/in/web` implements a tag's generated `<Tag>Api`, maps web types to domain
-  objects and passes `CurrentActor`'s `Actor`, or `CurrentCall`'s `CallContext`, to the use case.
-  Only `web` and `in/web` read the two, the call wrapper alone binds them, and `web.security` alone
+- A controller in `adapter/in/web` implements its module's generated `<Tag>Api`, each once
+  (`ApplicationRules` 22), maps web types to domain objects and passes `CurrentActor`'s `Actor`, or
+  `CurrentCall`'s `CallContext`, to the use case. The interfaces and `Dto` models are generated into
+  `target/` at every build (`just gen`), never edited, and served under `/api/v1` (ADR-160). Only
+  `web` and `in/web` read the holders, the call wrapper alone binds them, and `web.security` alone
   builds an `Actor` (`ApplicationRules` 14, 18, 17, [ADR-140]; tests use `TestActors`). Changing use
   cases call their port's `save` or `add`, which publish events; fakes call `SaveEvents.publish`.
 - No handler takes a streaming parameter (`ApplicationRules` 16). A module's handler builds its body
@@ -137,9 +138,8 @@ only client (`contracts/optimization-api/v1`): Java 25, Spring Boot 4.1, JPA, Fl
   - Domain tests use no Spring and no mocks. Aggregates take values, `now` and new IDs as
     parameters. Every invariant in [DL §4] has a test that breaks it and asserts the module's named
     error. Each transition has a test that takes it, plus one per other state that must refuse it.
-  - A refusal test asserts through `DomainAssertions.assertRefused` (or `assertAllRefused` for a
-    `RuleViolations`). It is a `@Test` or `@ParameterizedTest` whose name ends in
-    `_Then<ErrorName>`, and may sit anywhere under its error's package.
+  - A refusal test asserts through `DomainAssertions.assertRefused` (or `assertAllRefused`): a
+    `@Test` or `@ParameterizedTest` ending in `_Then<ErrorName>`, under its error's package.
   - Application tests run each use case against in-memory fakes of its ports.
   - Module and event tests (`@ApplicationModuleTest`, `Scenario`) boot Spring, so they aren't
     Surefire unit tests; their suffix and container wiring come with the first module. Publish each

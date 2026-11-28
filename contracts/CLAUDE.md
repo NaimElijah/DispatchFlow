@@ -28,10 +28,11 @@ Both are OpenAPI 3.1. `client-api` is served under `/api/v1`.
   released ([NFR-134]; [ADR-043], [ADR-094]). Until then, the reviewer catches them.
 - Keep the `info.license` block: proprietary, all rights reserved ([ADR-017]).
 - Code is generated on both sides of every contract, so no hand-written type crosses a boundary
-  ([TS §1][TS-1], rule 5; [ADR-043]). Nobody edits generated code. No generator is set up yet,
-  and the optimizer's health-check models are hand-written: the next operation either contract
-  gains adds the generator, and the validation generated from it, to the provider, and a
-  consumer gets its generator with the first operation it calls ([ADR-159]).
+  ([TS §1][TS-1], rule 5; [ADR-043]). Nobody edits generated code. The core generates the client
+  API's interfaces and models, with their validation, at every build (`just gen`, [ADR-160]); a
+  consumer gets its generator with the first operation it calls ([ADR-159]). The optimization API
+  has none yet, and its health-check models are hand-written: its next operation adds the
+  generator to the provider.
 - Every `client-api` operation follows the conventions in `client-api/CLAUDE.md`.
 - The optimizer API is stateless: each call carries the whole problem. The travel-time matrix is
   base64 little-endian `int32` over distinct locations ([ADR-052](../docs/ADRs/ADR-052-each-plan-stores-the-matrix-and-values-it-was-solved-with.md)).
@@ -51,5 +52,6 @@ Both are OpenAPI 3.1. `client-api` is served under `/api/v1`.
 [ADR-073]: ../docs/ADRs/ADR-073-runtime-contract-validation.md
 [ADR-094]: ../docs/ADRs/ADR-094-each-pull-requests-contract-check-compares-against-its-base-branch.md
 [ADR-159]: ../docs/ADRs/ADR-159-a-contract-change-goes-with-its-provider-and-the-consumers-that-call-what-it-changes.md
+[ADR-160]: ../docs/ADRs/ADR-160-the-cores-generated-interfaces-take-a-dto-suffix-leave-absent-fields-out-and-are-served-under-api-v1-by-api-versioning.md
 [NFR-134]: ../docs/requirements/requirements.md#nfr-134
 [TS-1]: ../docs/architecture/tech_stack.md#1-what-decides-close-calls
