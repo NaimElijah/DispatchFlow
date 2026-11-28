@@ -8,7 +8,7 @@
 #
 # The watch is Compose Watch: an edit under the web app, the shared web packages or the optimizer's
 # src/ is copied into its container, where Vite and uvicorn reload it, and a changed lockfile or
-# pnpm version rebuilds that image. A change to the core, or to any Dockerfile, needs Ctrl+C and
+# manifest rebuilds that image. A change to the core, or to any Dockerfile, needs Ctrl+C and
 # `just dev` again, which builds. The web app is on http://localhost:5173, and proxies /api/ to the
 # core on its own origin (ADR-148). No sync sets initial_sync, which in this Compose can copy what
 # its ignore rules leave out, such as the host's node_modules: `just dev` builds first instead
@@ -19,6 +19,10 @@
 #   stand-in session must answer nobody off the laptop (ADR-140 decision 4). `just infra-check`
 #   fails on any other.
 # - Images stay on tags until January, then on digests (ADR-046), and run as non-root (ADR-019).
+#   No service shares a namespace of the host or of another container, takes a security option
+#   but no-new-privileges:true, or reaches the database's files but postgres itself, by its
+#   volume, another name for it or volumes_from (ADR-145, ADR-156). `just infra-check` fails on
+#   each.
 # - Passwords come only from infra/deploy/.env, which git ignores (NFR-03), and each service gets
 #   only its own: the core never sees the owner's (ADR-041, ADR-145).
 # - An issue that adds a setting the core can't start without adds it, in the same pull request, to
@@ -30,11 +34,15 @@
 #   to start with it (ADR-147, ADR-152).
 # - A service built from our own images takes <<: *hardening. One whose data git ignores, such as
 #   osrm's data/osrm/ or tiles' data/tiles/, joins under the `data` profile, which `just dev`
-#   starts and `just infra-check` doesn't, since CI has no such data (ADR-152). `just infra-check`
-#   fails on any other profile.
-# - postgres-data is the only named volume: `just db-reset` runs `down --volumes`, which deletes
-#   every named volume, so another service keeps its data in a bind mount of a folder git ignores.
-#   `just infra-check` fails on another.
+#   starts and `just infra-check` doesn't, since CI has no such data (ADR-152). Since no live check
+#   starts it, it drops every capability, as *hardening does, and sets a numeric non-root `user:`
+#   outside the root group. `just infra-check` fails on a service none of whose profiles is
+#   `data`, and on a profiled service that misses any of these.
+# - postgres-data is the only volume the file creates: `just db-reset` runs `down --volumes`,
+#   which deletes every named volume the file creates and every anonymous one, so another service
+#   keeps its data in a bind mount of a folder git ignores, mounted over any `VOLUME` its image
+#   declares. `just infra-check` fails on another such named volume and on an anonymous one the
+#   file mounts (ADR-156).
 # - A service that publishes a port adds the line that prints its address to `just dev`, in the
 #   root justfile.
 #

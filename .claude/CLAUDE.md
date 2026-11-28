@@ -4,8 +4,7 @@ DispatchFlow plans and re-plans daily delivery routes for one delivery company.
 `docs/requirements/requirements.md` states what it must do; `docs/architecture/` how it is built
 ([`tech_stack.md`][TS] and [`domain_layer/`][DL] hold the decided design, the rest describes what is
 built); `docs/ADRs/` why; [`docs/roadmap.md`][RM] when. Point across; never restate. Read the
-relevant parts before proposing work. Which document wins is the precedence rule under
-Documentation.
+relevant parts before proposing work. Documentation says which document wins.
 
 ## Layout
 
@@ -26,7 +25,7 @@ Documentation.
 
 A folder's `CLAUDE.md` loads once you read or edit a file in it or below ([ADR-018], [ADR-124]). The
 two side files (`src/backend`, `src/frontend`) hold what each side's components share; each
-component has one for its rules, gotchas and commands; `contracts/` and `docs/` have one each.
+component has one for its rules, gotchas and commands.
 
 - A rule goes in the narrowest `CLAUDE.md` whose folder holds every file it governs, and nowhere
   else.
@@ -42,22 +41,22 @@ component has one for its rules, gotchas and commands; `contracts/` and `docs/` 
 
 ## Team agents
 
-`.claude/agents/` holds four subagents, available to everyone: `df-code-reviewer`,
+`.claude/agents/` holds four subagents, for everyone: `df-code-reviewer`,
 `df-security-reviewer`, `df-debugger` and `df-tester` ([ADR-020]). None of them commits or pushes.
-When an agent in the user's `~/.claude/agents/` does the same job as a team agent, use the user's
-agent first: their `code-reviewer` instead of `df-code-reviewer` ([ADR-022]). Use a team agent only
-for a job none of theirs covers, or when the user names it. Never give a personal agent a `df-`
+An agent in the user's `~/.claude/agents/` comes before a team agent that does the same job: their
+`code-reviewer` before `df-code-reviewer` ([ADR-022]). Use a team agent only for a job none of
+theirs covers, or when the user names it. Never give a personal agent a `df-`
 name: Claude Code would load the team agent in its place.
 
 ## Team skills
 
-`.claude/skills/` holds three skills for the branch workflow, available to everyone ([ADR-025]).
-Only a person can start one, by typing its command.
+`.claude/skills/` holds three skills for the branch workflow, for everyone ([ADR-025]).
+Only a person starts one, by typing its command.
 
 | Command | Use it to |
 |---|---|
 | `/finished-work-on-branch-and-making-pr-to-dev` | Commit finished work, merge the latest `dev`, check the commits for secrets, run `just check`, push, and open a pull request into `dev` |
-| `/sync-with-dev` | Merge the latest `dev` into your branch in the middle of work, review the merge and fix what the review finds |
+| `/sync-with-dev` | Merge the latest `dev` into your branch mid-work, review the merge and fix what the review finds |
 | `/fix-pr-feedback` | Act on the review comments on your pull request, push, and reply to them |
 
 The finish skill runs no agent review: if you want one, run it before you type the command
@@ -65,7 +64,7 @@ The finish skill runs no agent review: if you want one, run it before you type t
 
 ## Commands
 
-The root `justfile` is the only entry point, and CI runs the same recipes. `just` lists them.
+The root `justfile` is the only entry point; CI runs the same recipes. `just` lists them.
 
 - `just setup`: install every component's dependencies.
 - `just check`: everything CI checks. Run it before every push.
@@ -73,8 +72,8 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 - `just <component>-check`: one component's checks (`core`, `optimizer`, `research`, `web`,
   `mobile`, `contracts`, `infra`).
 - `just <component>-run`: start `core`, `optimizer`, `web` or `mobile`.
-- `just dev`: the whole stack in Docker; `just dev-down` stops it, and `just db-reset` also
-  wipes its database.
+- `just dev`: the whole stack in Docker, watching until Ctrl+C; `just dev-down` stops it, and
+  `just db-reset` wipes its database, the one every checkout and worktree shares.
 
 ## How we work
 
@@ -103,8 +102,7 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 - Every bug fix starts with a failing test that reproduces it. Cover failure paths: invalid input,
   timeouts, partial failure, empty and boundary cases.
 - Deterministic always: inject the clock, seed the randomness, no `sleep`, no real network.
-- Real dependencies in containers (Testcontainers) for things we do not own; mock only our own
-  ports.
+- Real dependencies in containers (Testcontainers) for what we don't own; mock only our own ports.
 - Never weaken, skip or delete a test to make code pass.
 
 ## Engineering judgment
@@ -116,7 +114,7 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 - Every date, time window, shift and schedule is Israel local time, `Asia/Jerusalem`. No person or
   device has a zone of its own ([ADR-088]).
 - Record every architectural decision, including a decision not to adopt something, as an ADR in
-  `docs/ADRs/`, with the trigger that would make us revisit it.
+  `docs/ADRs/`, with the trigger to revisit it.
 - Dependencies point one way: domain logic never imports frameworks, I/O or transport types, but
   for the persistence annotations [ADR-126] allows.
   Adapters depend on the core, never the reverse. No cyclic dependencies.
@@ -129,11 +127,11 @@ The root `justfile` is the only entry point, and CI runs the same recipes. `just
 
 ## Security
 
-- Secrets never enter the repo, logs, error messages or shell history. They live in `.env`
-  files, which git ignores; commit a `.env.example` with the keys and no values.
+- Secrets never enter the repo, logs, error messages or shell history. They live in
+  git-ignored `.env` files; commit a `.env.example` with the keys and no values.
 - Never log credentials, tokens or personal data.
 - Company and personal data stay in Israel ([NFR-209]). Code sends them to no outside service
-  hosted elsewhere unless [NFR-262] lists it as an accepted exception, and every outside service
+  hosted elsewhere unless [NFR-262] accepts it as an exception, and every outside service
   that receives company data is named in the data inventory (NFR-217). Fonts and map tiles load
   from our own host, and error reports go to our own GlitchTip.
 - Parameterised queries only. Never build a query, command or path by concatenating input.

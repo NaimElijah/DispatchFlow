@@ -158,15 +158,18 @@ contracts-check:
 
 # --- infra: the development stack, infra/deploy/compose.dev.yaml ---
 
-# The stack's project is the file's own, `dispatchflow`. The `data` profile is where the services
-# whose files git ignores join, osrm (#168) first; `just infra-check` starts none of them.
+# The stack's project is the file's own, `dispatchflow`, so every checkout and worktree of the
+# repository runs the one stack and its one database (ADR-156). The `data` profile is where the
+# services whose files git ignores join, osrm (#168) first; `just infra-check` starts none of them,
+# and check_dev_stack.py's DEV_PROFILES holds the same name.
 dev_stack := "docker compose -f infra/deploy/compose.dev.yaml --profile data"
 dev_env := justfile_directory() / "infra/deploy/.env"
 
 # Build and start the whole stack, wait until every service is healthy and the migrate step has
 # finished, print where each one listens, then watch: an edit to the web app, the shared web packages
-# or the optimizer reloads in its container (ADR-151). Ctrl+C stops the watch and leaves the stack
-# running; a change to the core needs Ctrl+C and `just dev` again. Needs Docker.
+# or the optimizer reloads in its container (ADR-151, ADR-156). Ctrl+C stops only the watch, which
+# just then reports as a failed recipe, and leaves the stack running; a change to the core needs
+# Ctrl+C and `just dev` again. Needs Docker.
 [doc("Start the whole development stack, healthy, then reload edits until Ctrl+C")]
 dev: _dev-env
     {{ dev_stack }} up --build --wait
@@ -174,19 +177,22 @@ dev: _dev-env
     @echo "Core:       http://$({{ dev_stack }} port core 8080)"
     @echo "Optimizer:  http://$({{ dev_stack }} port optimizer 8000)"
     @echo "PostgreSQL: $({{ dev_stack }} port postgres 5432)"
-    @echo "Watching for edits. Ctrl+C stops the watch only; just dev-down stops the stack."
+    @echo "Watching for edits. Ctrl+C stops only the watch, and just reports it as a failed recipe."
+    @echo "Stop it before just dev-down, or a lockfile or manifest change starts a service again."
     {{ dev_stack }} watch --no-up
 
-# Stop the stack and remove its containers. Its database stays for the next `just dev`.
+# Stop the stack and remove its containers. Its database stays for the next `just dev`. Stop the
+# watch first: one left running rebuilds and starts a service again when its lockfile or manifest
+# changes.
 [doc("Stop the development stack, keeping its database")]
 dev-down: _dev-env
     {{ dev_stack }} down
 
 # Stop the stack and delete its database, every row of local data with it, so the next `just dev`
 # migrates an empty one and creates the roles again, as a password changed in infra/deploy/.env
-# needs. It is the stack's only named volume, which `just infra-check` holds it to. Asks first;
-# `just --yes db-reset` doesn't.
-[confirm("This deletes the dev stack's database and all its data. Continue? [y/N]")]
+# needs. It is the only volume the stack creates, which `just infra-check` holds it to, and every
+# checkout shares it. Asks first, before the .env check; `just --yes db-reset` doesn't ask.
+[confirm("This deletes the dev stack's database, which every checkout of this repository shares, and all its data. Continue? [y/N]")]
 [doc("Stop the development stack and delete its database")]
 db-reset: _dev-env
     {{ dev_stack }} down --volumes
