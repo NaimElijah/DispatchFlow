@@ -24,16 +24,17 @@ infra_tools := "uv run --project src/backend/optimizer --locked --only-dev"
 # name or a commit pins the address, not the bytes; the cut is byte-for-byte reproducible from the
 # same build, region and pmtiles image, so a changed source fails the check. A moved pin, a new
 # pmtiles image or a changed boundary needs both hashes taken again from a clean run, in a committed
-# change: `just name=value data` overrides a pin for one run only. The Caddy image is the tiles
-# service's, in compose.dev.yaml; its sh, wget and tar run the steps the pmtiles image can't, as it
-# has no shell.
+# change: `just name=value data` overrides a pin for one run only. The pmtiles image is pinned by
+# digest, because the cut's hash depends on its bytes. The Caddy image is the tiles service's, in
+# compose.dev.yaml, and on a tag until January as that file's images are (ADR-047): its sh, wget and
+# tar run the steps the pmtiles image can't, as it has no shell, and what they write is hash-checked.
 pmtiles_image := "protomaps/go-pmtiles:v1.31.2@sha256:06574f01f55a78f78f887bc7ebf729a5c093c0d6e17d9876300cfcb0758b59d3"
 protomaps_build := "20260811"
 protomaps_basemap_version := "4.15.1"
 israel_tiles_sha256 := "f0c0d38f8473a029be9fd8212c9fb1db5d8c6600335bf9142e1366562fc8f359"
 basemaps_assets_commit := "028c18f713baecad011301ff7a69acc39bcc2ae7"
 basemaps_assets_sha256 := "57e40e8c512bd8042d0a3a251f19d0d1c8523ad963c666c3c6643bada4dc92d0"
-caddy_image := "caddy:2.11.9-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0"
+caddy_image := "caddy:2.11.9-alpine"
 # `just data`'s containers fetch and unpack files from outside, so they run as nobody, holding no
 # capability and unable to gain one, as the stack's own services do (ADR-019).
 data_container := "--rm --user 65534:65534 --cap-drop ALL --security-opt no-new-privileges:true"
@@ -263,7 +264,7 @@ _data-pins:
     @{{ if basemaps_assets_commit =~ '^[0-9a-f]{40}$' { "" } else { error("basemaps_assets_commit must be a full commit, 40 lowercase hex digits") } }}
     @{{ if basemaps_assets_sha256 =~ '^[0-9a-f]{64}$' { "" } else { error("basemaps_assets_sha256 must be 64 lowercase hex digits") } }}
     @{{ if pmtiles_image =~ '^[a-z0-9./_-]+:[A-Za-z0-9._-]+@sha256:[0-9a-f]{64}$' { "" } else { error("pmtiles_image must be name:tag@sha256:digest") } }}
-    @{{ if caddy_image =~ '^[a-z0-9./_-]+:[A-Za-z0-9._-]+@sha256:[0-9a-f]{64}$' { "" } else { error("caddy_image must be name:tag@sha256:digest") } }}
+    @{{ if caddy_image =~ '^[a-z0-9./_-]+:[A-Za-z0-9._-]+$' { "" } else { error("caddy_image must be name:tag") } }}
 
 # Scan every lockfile and the pom for known vulnerabilities. Needs Docker.
 audit:

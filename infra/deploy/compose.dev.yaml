@@ -221,12 +221,12 @@ services:
     # The map's files from data/tiles/, which `just data` builds (#152): Caddy's file server answers
     # the Range requests the PMTiles reader sends with 206. The web app's dev server proxies /map/
     # here, so the browser loads them from the app's own origin (ADR-069). The image is the
-    # justfile's caddy_image, pinned by digest (ADR-047), whose shell the `just data` steps use:
-    # bump both together. Its data is git-ignored, so it starts only under the data profile, which
+    # justfile's caddy_image, on its tag until January (ADR-047), whose shell the `just data` steps
+    # use: bump both together. Its data is git-ignored, so it starts only under the data profile, which
     # `just infra-check` leaves out (ADR-152).
     profiles:
       - data
-    image: caddy:2.11.9-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0
+    image: caddy:2.11.9-alpine
     <<: *hardening
     # nobody: the image runs as root otherwise, and port 8090 needs no privilege.
     user: "65534:65534"
