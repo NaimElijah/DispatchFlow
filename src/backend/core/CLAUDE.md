@@ -71,12 +71,12 @@ only client (`contracts/optimization-api/v1`): Java 25, Spring Boot 4.1, JPA, Fl
 - A value rebuilt from storage goes through `StoredStateInvalid.whileRestoring`, and a stored phone
   number through `PhoneNumber.ofStored`. So a damaged or since-refused value is an incident, never a
   user-facing refusal. No test checks this; review does.
-- A controller in `adapter/in/web` implements its module's generated `<Tag>Api`, each once
-  (`ApplicationRules` 22), maps web types to domain objects and passes `CurrentActor`'s `Actor`, or
-  `CurrentCall`'s `CallContext`, to the use case. The interfaces and `Dto` models are generated into
-  `target/` at every build (`just gen`), never edited, and served under `/api/v1` (ADR-160). Only
-  `web` and `in/web` read the holders, the call wrapper alone binds them, and `web.security` alone
-  builds an `Actor` (`ApplicationRules` 14, 18, 17, [ADR-140]; tests use `TestActors`). Changing use
+- A controller in `adapter/in/web` implements its module's generated `<Tag>Api`, one each
+  (`ApplicationRules` 22), and builds only values the contract fully checks: one only the domain can
+  refuse goes plain to the use case, which builds it in its `Refusals` attempt (ADR-160). It passes
+  `CurrentActor`'s `Actor` or `CurrentCall`'s `CallContext`, which only `web` and `in/web` read, the
+  call wrapper alone binds and `web.security` alone builds (`ApplicationRules` 14, 18, 17; tests use
+  `TestActors`). `just gen` writes the interfaces and `Dto` models into `target/`. Changing use
   cases call their port's `save` or `add`, which publish events; fakes call `SaveEvents.publish`.
 - No handler takes a streaming parameter (`ApplicationRules` 16). A module's handler builds its body
   with `shared.adapter.in.web.Problems` and takes `@Order(HandlerOrder.MODULE)` (ADR-142).

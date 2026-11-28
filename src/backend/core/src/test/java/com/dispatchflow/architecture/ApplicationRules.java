@@ -283,7 +283,7 @@ final class ApplicationRules {
 
     /** How each message of rule 22's part (c) starts: a generated interface without its one controller. */
     static final String NOT_ONE_CONTROLLER =
-            "Rule 22 (c), a generated interface has one implementation, in its tag's module's adapter.in.web: ";
+            "Rule 22 (c), a generated interface has one controller, in its tag's module's adapter.in.web: ";
 
     /**
      * The holder of the signed-in caller's {@code Actor}, below the root: a {@code
@@ -771,7 +771,8 @@ final class ApplicationRules {
      *       lies in, or below, the {@code adapter.in.web} of the module its tag starts with, the
      *       interface's first CamelCase word: {@code PlanningPlansApi} is {@code planning}'s.
      *   <li>Every interface in the generated api package has exactly one concrete implementation,
-     *       in, or below, its tag's module's {@code adapter.in.web}. {@code skipDefaultInterface}
+     *       in, or below, its tag's module's {@code adapter.in.web}, and it is a {@code @Controller},
+     *       such as a {@code @RestController}: a plain class would map nothing. {@code skipDefaultInterface}
      *       leaves every generated method abstract, so an operation with no controller would still
      *       compile; this part fails it instead.
      * </ol>
@@ -1332,10 +1333,17 @@ final class ApplicationRules {
                     + implementations.stream().map(JavaClass::getName).toList());
         }
         JavaClass implementation = implementations.get(0);
-        return isIn(implementation.getPackageName(), home)
+        if (!isIn(implementation.getPackageName(), home)) {
+            return Stream.of(NOT_ONE_CONTROLLER + item.getName() + " is implemented by " + implementation.getName()
+                    + ", outside " + home);
+        }
+        // A class that isn't a controller maps nothing, so the operations would answer 404.
+        boolean controller =
+                implementation.isAnnotatedWith(CONTROLLER) || implementation.isMetaAnnotatedWith(CONTROLLER);
+        return controller
                 ? Stream.empty()
                 : Stream.of(NOT_ONE_CONTROLLER + item.getName() + " is implemented by " + implementation.getName()
-                        + ", outside " + home);
+                        + ", which is no controller");
     }
 
     /**

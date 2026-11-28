@@ -61,6 +61,7 @@ import com.dispatchflow.archfixture.zeta.shared.application.SharedPortUsesSpring
 import com.dispatchflow.archfixture.zeta.shared.clientapi.api.LowerFormsApi;
 import com.dispatchflow.archfixture.zeta.shared.clientapi.api.LowerReportsApi;
 import com.dispatchflow.archfixture.zeta.shared.clientapi.api.UpperOrphansApi;
+import com.dispatchflow.archfixture.zeta.shared.clientapi.api.UpperPlainsApi;
 import com.dispatchflow.archfixture.zeta.shared.clientapi.api.UpperThingsApi;
 import com.dispatchflow.archfixture.zeta.shared.clientapi.model.ThingDto;
 import com.dispatchflow.archfixture.zeta.side.application.service.CallsAnSpiItDoesNotImplement;
@@ -83,6 +84,7 @@ import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.HandlerWritesTheRe
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.InboundUsesTheStore;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.PlainClassTakesAStream;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.ThingsController;
+import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.UpperPlainsWithoutController;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.UpperServesLowerReports;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.WebCallsTheSolverClient;
 import com.dispatchflow.archfixture.zeta.upper.adapter.in.web.WebUsesTheLowerCache;
@@ -1103,7 +1105,14 @@ class ApplicationRulesTest {
     void
             GivenTheZetaFixtures_WhenGeneratedTypesAreChecked_ThenExactlyTheInterfacesWithoutOneControllerAtHomeAreReported() {
         assertThat(violatorsOfPart(ApplicationRules.NOT_ONE_CONTROLLER, rule22(), zeta()))
-                .containsExactlyInAnyOrder(namesOf(UpperOrphansApi.class, UpperThingsApi.class, LowerReportsApi.class));
+                .containsExactlyInAnyOrder(namesOf(
+                        UpperOrphansApi.class, UpperThingsApi.class, LowerReportsApi.class, UpperPlainsApi.class));
+    }
+
+    @Test
+    void GivenAGeneratedInterfaceItsModulesPlainClassImplements_WhenGeneratedTypesAreChecked_ThenItIsReported() {
+        assertThat(violators(rule22(), FixtureClasses.only(UpperPlainsApi.class, UpperPlainsWithoutController.class)))
+                .containsExactly(UpperPlainsApi.class.getName());
     }
 
     @Test
@@ -1145,7 +1154,8 @@ class ApplicationRulesTest {
                         UpperServesLowerReports.class,
                         UpperOrphansApi.class,
                         UpperThingsApi.class,
-                        LowerReportsApi.class));
+                        LowerReportsApi.class,
+                        UpperPlainsApi.class));
     }
 
     @Test
