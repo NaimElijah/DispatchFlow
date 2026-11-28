@@ -18,6 +18,8 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
@@ -100,6 +102,23 @@ class WebIT {
         assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo(WebCodes.NO_SUCH_OPERATION);
     }
 
+    /**
+     * Only v1 is served: a path under another version, and one under {@code /api/} with no version
+     * at all, are paths no operation has (ADR-160).
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v2/plans", "/api/plans", "/api"})
+    void GivenAPathUnderApiOutsideV1_WhenItArrives_ThenNoSuchOperation(String path) {
+        MvcTestResult result = mvc.post()
+                .uri(path)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}")
+                .exchange();
+
+        assertThat(result).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo(WebCodes.NO_SUCH_OPERATION);
+    }
+
     @Test
     void GivenTheApplication_WhenItsHandlerAdapterIsRead_ThenItIsTheCallWrappersRetryingAdapter() {
         assertThat(adapter).isInstanceOf(CallWrapper.RetryingAdapter.class);
@@ -146,7 +165,8 @@ class WebIT {
     @Test
     void GivenAGeneratedModelWithAnAbsentOptionalField_WhenWritten_ThenTheFieldIsLeftOut() {
         JacksonJsonHttpMessageConverter served = adapter.getMessageConverters().stream()
-                .filter(JacksonJsonHttpMessageConverter.class::isInstance)
+                .filter(converter -> converter instanceof JacksonJsonHttpMessageConverter json
+                        && json.getMapper().isEnabled(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES))
                 .map(JacksonJsonHttpMessageConverter.class::cast)
                 .findFirst()
                 .orElseThrow();

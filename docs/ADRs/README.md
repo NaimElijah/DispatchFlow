@@ -365,7 +365,8 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 >
 > ADR-160, on 2026-11-28, extends ADR-140 with what #161's generator settled: the models take the
 > suffix `Dto`; only the two `@NullMarked` package-info files of its supporting files are written,
-> so no `ApiUtil`; the error-only media type stays, and both apps send `Accept: application/json,
+> so no `ApiUtil`; Spring MVC validates the arguments itself, with no `@Validated` on the
+> interfaces; the error-only media type stays, and both apps send `Accept: application/json,
 > application/problem+json`; the served converter leaves absent values out of every answer; the
 > generated operations sit under `/api/v1` through Spring 7's API versioning, read from paths
 > under `/api/` only; the generator stays at 7.27.0; and `just audit` doesn't scan build plugins.

@@ -32,6 +32,11 @@ the generator:
   carry `@NullMarked`, which `ApplicationTest` requires of every adapter package. Turning supporting
   files off drops all three, and `ApplicationTest` then fails.
 - **Each class's `@Generated` holds the build's time** unless `hideGenerationTimestamp` is set.
+- **`useBeanValidation` puts `@Validated` on each interface,** unless `useSpringBuiltInValidation`
+  is set. With it, Spring MVC skips its own validation of the arguments, and Spring Boot's
+  method-validation proxy checks them from inside the handler instead. A malformed `If-Match` then
+  answered 500 with a `ConstraintViolationException`, after the call wrapper had started, rather
+  than the contract's 400.
 - **It warns that its OpenAPI 3.1 support is still in beta.**
 - **openapi-typescript 7.13.0 keeps an `x-internal` operation.** It was tried on a throwaway copy
   of the contract with an `x-internal` event-stream operation added, and its output types it. The
@@ -55,7 +60,10 @@ Decided on 28 November 2026.
    only the two `@NullMarked` package-info files are written. `ApiUtil` serves only the default
    methods that `skipDefaultInterface` leaves out. `hideGenerationTimestamp` keeps the build's time
    out, so two builds of one contract write the same classes.
-3. **The error-only media type stays as generated.**
+3. **Spring MVC validates the arguments itself** (`useSpringBuiltInValidation`). The interfaces
+   carry no `@Validated`, so a request that breaks the contract answers 400 through
+   `ContractErrorHandler` before the handler starts, in the order [ADR-140] decision 9 sets.
+4. **The error-only media type stays as generated.**
    - An operation whose only declared body is the error body declares only
      `application/problem+json`, so a client whose `Accept` names only `application/json` would
      get 406.
@@ -64,12 +72,12 @@ Decided on 28 November 2026.
    - The first operation with no success body adds an integration test that calls it with that
      `Accept`.
    - Both of #184's operations answer a JSON body, so each declares both types.
-4. **The served JSON converter leaves an absent value out** (`NON_ABSENT`), in `web.ServedJson`,
+5. **The served JSON converter leaves an absent value out** (`NON_ABSENT`), in `web.ServedJson`,
    beside its strict reading ([ADR-140] decision 9).
    - It covers every answer the core serves in one place: the generated models, the problem body
      and the error endpoint's.
    - The shared mapper, and so the optimizer client, keeps its own settings.
-5. **The generated operations are served under `/api/v1` through Spring Framework 7's API
+6. **The generated operations are served under `/api/v1` through Spring Framework 7's API
    versioning,** as TS §6 decides.
    - `web.ClientApiPaths` adds the prefix `/api/{version}` to every class that implements a
      generated interface.
@@ -78,9 +86,9 @@ Decided on 28 November 2026.
      probes and the `e2e` endpoints keep their paths.
    - `shared.adapter.in.web.ClientApi` names `/api/v1` once, for the controllers' `Location`
      headers and the access interceptor's pattern.
-6. **The generator stays at 7.27.0, the version ADR-140 tried.** 7.28.0 comes as a Dependabot
+7. **The generator stays at 7.27.0, the version ADR-140 tried.** 7.28.0 comes as a Dependabot
    update, and it is taken once its build passes and its generated interfaces are read for changes.
-7. **The x-internal check is done for openapi-typescript and waits for `oasdiff`.** The first pull
+8. **The x-internal check is done for openapi-typescript and waits for `oasdiff`.** The first pull
    request that runs `oasdiff` checks that it keeps the stream's operation. #193 settles whether
    the stream's event payloads are generated models; if they are, rule 22 admits Planning's and Live
    Operations' `sse` adapters.
@@ -97,8 +105,11 @@ Decided on 28 November 2026.
   - Each controller method takes the two client headers the contract declares, `X-App` and
     `X-App-Version`, and ignores them: the access interceptor reads them into the audit record
     ([ADR-082]).
-  - A path under `/api/` whose second segment isn't a version, such as `/api/plans`, answers 400,
-    because Spring reads that segment as one.
+  - Spring's API versioning refuses a version it doesn't serve, such as `POST /api/v2/plans`, with
+    400. `ContractErrorHandler` answers it 404 `NO_SUCH_OPERATION` instead, as any path no operation
+    has, so one more Spring exception is mapped by hand. Such a path still meets Spring's other
+    checks first, as a `v1` path does: a body that isn't JSON answers 415, and a method no
+    operation of the path has answers 405.
 - **Cost:** none in tools. The plugin is [ADR-043]'s.
 - **Risk:**
   - The generator's OpenAPI 3.1 support is in beta. A 3.1 keyword it doesn't map, such as
