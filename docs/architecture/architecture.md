@@ -246,10 +246,9 @@ Components meet only at the two contracts under `contracts/`
 ([ADR-006](../ADRs/ADR-006-versioned-openapi-contracts.md)):
 
 - `contracts/client-api/v1/openapi.yaml` has `/api/v1` as its `servers` entry. Its `paths` holds
-  Planning's six operations, `listPlansOnDate`, `openPlan`, `getPlan`, `requestSolve`,
-  `getSolveProgress` and `getRouteShape`, and `core` serves none of them yet. Their times are
-  RFC 3339 instants, as every time a solve works out is; a time a person types would travel as
-  its date and a local `HH:mm` ([ADR-155](../ADRs/ADR-155-the-client-api-keeps-instants-and-local-times-apart-and-sends-a-list-that-may-grow-as-a-string.md)),
+  Planning's two operations, `openPlan` and `requestSolve`, and `core` serves neither yet. A
+  moment, and every time a solve works out, travels as an RFC 3339 instant; a time a person types
+  would travel as its date and a local `HH:mm` ([ADR-155](../ADRs/ADR-155-the-client-api-keeps-instants-and-local-times-apart-and-sends-a-list-that-may-grow-as-a-string.md)),
   and `requestSolve` takes exactly one strong tag as `If-Match`
   ([ADR-157](../ADRs/ADR-157-an-if-match-is-exactly-one-strong-tag-the-core-sent-and-the-proxy-leaves-the-apis-tags-alone.md)).
   It defines the `Problem` schema (RFC 9457), with
