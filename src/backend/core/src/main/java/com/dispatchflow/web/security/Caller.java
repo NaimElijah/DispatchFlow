@@ -16,7 +16,7 @@ import org.slf4j.MDC;
 import org.springframework.http.HttpMethod;
 
 /**
- * Who makes a call to a handler under {@code /api/v1}, as the call wrapper binds it (ADR-140
+ * Who makes a call to a handler under {@code /api}, as the call wrapper binds it (ADR-140
  * decision 4): the call's {@link CallContext}, which {@code CurrentCall} holds, and, when the
  * caller is signed in, the {@link Actor} that {@code CurrentActor} holds on top. The access
  * interceptor builds it from the request's principal and the chosen handler, once the handler is
@@ -67,7 +67,7 @@ public record Caller(CallContext call, Optional<Actor> actor) {
      * The caller the access interceptor kept for this request.
      *
      * @param request the request
-     * @return the caller, or empty for a handler outside {@code /api/v1}, which the interceptor
+     * @return the caller, or empty for a handler outside {@code /api}, which the interceptor
      *     doesn't see, and for a signed-in call to a handler that is no annotated handler method
      */
     public static Optional<Caller> of(HttpServletRequest request) {

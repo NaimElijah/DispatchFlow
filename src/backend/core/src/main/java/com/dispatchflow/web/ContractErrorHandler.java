@@ -67,7 +67,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  * <p>A changing call it refuses before its handler runs leaves one refused audit record, with the
  * answer's code and no records, written once every transaction of the call has ended (NFR-23,
  * ADR-150 decision 4). That holds for a 4xx of the request's own dispatch whose caller the access
- * interceptor kept, under {@code /api/v1}, whose method may change something, and whose handler
+ * interceptor kept, under {@code /api}, whose method may change something, and whose handler
  * the call wrapper hadn't started: a 406 for an answer the handler already produced writes no
  * second record. A failed write answers 500 at ERROR, with the failure, the refusal's code and its
  * exception's type, never that exception, whose message can quote a refused value: an exception

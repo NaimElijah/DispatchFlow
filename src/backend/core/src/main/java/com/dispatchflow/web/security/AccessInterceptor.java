@@ -13,7 +13,7 @@ import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 /**
- * Checks the caller of every handler under {@code /api/v1}, once the handler is chosen and before
+ * Checks the caller of every handler under {@code /api}, once the handler is chosen and before
  * its arguments are read (ADR-140 decisions 3, 4 and 9). It builds the call's {@link Caller} from
  * the request's principal and the handler, and keeps it for the call wrapper, which binds the
  * call's holders from it. A call with no principal answers 401 {@value

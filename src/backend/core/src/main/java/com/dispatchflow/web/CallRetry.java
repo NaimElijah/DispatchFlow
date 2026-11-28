@@ -29,7 +29,7 @@ import org.springframework.stereotype.Component;
  *
  * <p>A use case never audits a race: this writes the one record, after the answer is chosen and
  * before it is thrown. The record names the call's caller, as {@code web.security} built it for a
- * call under {@code /api/v1} (NFR-93); any other handler is a server step's, with no user, session
+ * call under {@code /api} (NFR-93); any other handler is a server step's, with no user, session
  * or client.
  */
 @Component
@@ -60,9 +60,9 @@ class CallRetry {
      * Runs a call, again while it loses a race it may retry.
      *
      * @param request the request, which says whether the call sent a precondition header, and
-     *     holds its caller under {@code /api/v1}
+     *     holds its caller under {@code /api}
      * @param operation the call's operation, for the log, and for the audit record of a handler
-     *     outside {@code /api/v1}
+     *     outside {@code /api}
      * @param call the handler, invoked with the arguments already read
      * @return what the call returned
      * @throws Exception the last try's exception, checked ones included; an {@link Error} passes

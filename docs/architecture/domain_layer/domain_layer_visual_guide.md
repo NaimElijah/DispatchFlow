@@ -1777,12 +1777,12 @@ sequenceDiagram
   Note over UC,C: From M4: outside calls first, before any transaction (DL 6.3). Today RequestSolve asks the optimizer nothing, runs OR-Tools and refuses another named solver
   UC->>C: apply(...)
   Note over C,J: One transaction: one existing aggregate changes
+  C->>JR: capacityUnderLock(Lane.DAILY), first, so a second request for the plan waits here
+  JR-->>C: LaneCapacity
   C->>PR: get(plan)
-  PR-->>C: Plan, loaded whole
+  PR-->>C: Plan, loaded whole, as the lock's last holder left it
   C->>C: StaleVersion.requireCurrent(Plan, id, plan.version(), expected)
   C->>PS: current(), for the default limit when the request names none
-  C->>JR: capacityUnderLock(Lane.DAILY)
-  JR-->>C: LaneCapacity
   C->>P: requestSolve(jobId, solver, limit, seed, capacity, today, now)
   P->>J: queue(jobId, plan, DAILY, ...)
   J-->>P: SolveJob, queued

@@ -433,6 +433,38 @@ def test_given_a_context_that_cannot_hold_the_env_file_when_checked_then_it_is_l
     assert check.build_context_problems(services(web={"build": build})) == []
 
 
+@pytest.mark.parametrize(
+    "named",
+    [{"tree": str(check.REPOSITORY)}, [f"deploy={check.DEPLOY}"]],
+)
+def test_given_an_additional_context_that_holds_the_env_file_when_checked_then_it_is_named(
+    named: object,
+) -> None:
+    """No ignore file filters a named context, so one at infra/deploy/ or above sends .env."""
+    build = {"context": str(check.REPOSITORY / "src/frontend"), "additional_contexts": named}
+
+    problems = check.build_context_problems(services(web={"build": build}))
+
+    assert len(problems) == 1, problems
+    assert "holds infra/deploy/.env, which no ignore file filters" in problems[0]
+
+
+def test_given_an_additional_context_beside_the_env_file_when_checked_then_none_is_named() -> None:
+    build = {
+        "context": str(check.REPOSITORY / "src/frontend"),
+        "additional_contexts": {"contract": str(check.REPOSITORY / "contracts/client-api/v1")},
+    }
+
+    assert check.build_context_problems(services(web={"build": build})) == []
+
+
+def test_given_the_ignore_file_saved_with_a_byte_order_mark_when_checked_then_none_is_named() -> (
+    None
+):
+    """Docker drops a UTF-8 byte-order mark, so the first pattern is still *."""
+    assert check.dockerignore_problems("\ufeff" + SAFE_DOCKERIGNORE, ENV_FILE_IN_THE_ROOT) == []
+
+
 def test_given_the_ignore_file_as_written_when_checked_then_none_is_named() -> None:
     assert check.dockerignore_problems(SAFE_DOCKERIGNORE, ENV_FILE_IN_THE_ROOT) == []
 

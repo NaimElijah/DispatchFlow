@@ -15,8 +15,9 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  *
  * <p>The prefix is literal, not Spring Framework 7's API versioning, whose parser reads {@code 1},
  * {@code V1} and {@code v1.0} as {@code v1}, so those paths reached the controllers past the access
- * interceptor. Here the mapping, the interceptor and {@code NoStoreFilter} all match one decoded
- * path, and any other spelling is a path no operation has. A {@code v2} gets its own contract
+ * interceptor. Here the mapping, the interceptor and {@code NoStoreFilter} read the path alike, each
+ * segment decoded as UTF-8: a spelling they read as {@code /api/v1}, such as a percent-encoded one,
+ * passes every check, and any other spelling is a path no operation has. A {@code v2} gets its own contract
  * folder, its own generated package and its own prefix beside this one.
  */
 @Configuration(proxyBeanMethods = false)

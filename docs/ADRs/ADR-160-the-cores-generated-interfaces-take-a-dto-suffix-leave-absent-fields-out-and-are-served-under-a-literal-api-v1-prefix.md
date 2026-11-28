@@ -99,8 +99,10 @@ Decided on 28 November 2026.
    parsing.
    - `web.ClientApiPaths` adds `/api/v1` to every class that implements a generated interface, so
      the error endpoint, the health probes and the `e2e` endpoints keep their paths.
-   - The mapping, the access interceptor and the no-store filter all match one decoded path, so any
-     other spelling is a path no operation has.
+   - The mapping, the access interceptor and the no-store filter read the path alike, each segment
+     decoded as UTF-8 with its path parameters taken off. A spelling they read as `/api/v1`, such
+     as `/%61pi/v1/plans`, is that path and passes every check; any other spelling is a path no
+     operation has.
    - A `v2` gets its own contract folder, its own generated package and its own prefix beside this
      one.
    - `shared.adapter.in.web.ClientApi` names `/api` and `/api/v1` once, for the controllers'
@@ -109,8 +111,10 @@ Decided on 28 November 2026.
    This amends [ADR-043]'s *Path versions* point and the TS §6 row that served `/api/v1` "through
    Spring Framework 7's API versioning".
 7. **The access check and the no-store header guard all of `/api`,** the root of every version.
-   - A path under it that no operation has answers a caller with no principal the one 401 before
-     the 404, as [ADR-148] decision 4 has it for `/api/v1`.
+   - A path Spring reads as under it, and that no operation has, answers a caller with no principal
+     the one 401 before the 404, as [ADR-148] decision 4 has it for `/api/v1`. A path whose dot
+     segments or doubled slashes only Tomcat resolves, such as `//api/v1/plans`, reaches no handler
+     and answers 404.
    - A later version's prefix can't fall outside them.
 8. **A request value is checked by the contract where it can be, and built by the use case where
    only the domain can check it.**

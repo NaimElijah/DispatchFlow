@@ -168,6 +168,8 @@ DEFAULT_DOCKERFILE = "Dockerfile"
 IGNORE_FILE_SUFFIX = ".dockerignore"
 IGNORE_EVERYTHING = "*"
 EVERY_ENV_FILE = "**/.env*"
+# Docker drops a UTF-8 byte-order mark at the start of an ignore file before it reads the patterns.
+BYTE_ORDER_MARK = "\ufeff"
 # The tests' own server option, which a throwaway database can afford and the stack can't.
 TESTS_ONLY_OPTION = ("-c", "fsync=off")
 
@@ -451,7 +453,7 @@ def exposes_docker_socket(source: str) -> bool:
 
 
 def exposes_env_file(source: str) -> bool:
-    """Whether a bind mount's source is infra/deploy/.env or a folder that holds it."""
+    """Whether a bind mount's source or a build's context is infra/deploy/.env or holds it."""
     mounted = os.path.normcase(os.path.abspath(source))
     held = [ENV_FILE, *ENV_FILE.parents]
     return any(mounted == os.path.normcase(str(path)) for path in held)
@@ -811,7 +813,15 @@ def build_context_problems(configuration: Configuration) -> list[str]:
     problems = []
     for name, service in configuration["services"].items():
         build = service.get("build")
-        if not build or not exposes_env_file(str(build["context"])):
+        if not build:
+            continue
+        problems += [
+            f"{name}'s additional context {context} holds infra/deploy/.env, which no ignore file "
+            "filters: name a folder that doesn't hold it"
+            for context, source in additional_contexts(build).items()
+            if exposes_env_file(source)
+        ]
+        if not exposes_env_file(str(build["context"])):
             continue
         ignore_name = f"{build.get('dockerfile') or DEFAULT_DOCKERFILE}{IGNORE_FILE_SUFFIX}"
         ignore_file = Path(build["context"]) / ignore_name
@@ -830,13 +840,28 @@ def build_context_problems(configuration: Configuration) -> list[str]:
     return problems
 
 
+def additional_contexts(build: dict[str, Any]) -> dict[str, str]:
+    """A build's named contexts, which Compose writes as a mapping or as ``name=path`` entries.
+
+    BuildKit sends a named context whole: no ignore file filters it, so one that holds
+    infra/deploy/.env would carry every dev password into the build.
+    """
+    named = build.get("additional_contexts") or {}
+    if isinstance(named, dict):
+        return {str(name): str(source) for name, source in named.items()}
+    return dict(str(entry).split("=", 1) for entry in named)
+
+
 def dockerignore_problems(ignore_text: str, env_file: str) -> list[str]:
     """Each way an ignore file may let infra/deploy/.env into the build context.
 
     It must ignore everything first, let back in nothing that is the .env file or a folder holding
     it, and ignore every .env file again after its last re-include, so a folder let back in brings
     none. A re-include is matched as Docker cleans it, and with fnmatch, whose ``*`` also crosses
-    a ``/``, so the rule errs towards naming one.
+    a ``/``. Docker's Go patterns also read ``[^...]`` classes and backslash escapes, which
+    fnmatch doesn't, so such a re-include can go unnamed: the ``**/.env*`` the rule requires after
+    the last re-include is what keeps the file out whatever the re-includes match. A UTF-8
+    byte-order mark is dropped first, as Docker drops it.
 
     Args:
         ignore_text: the ignore file.
@@ -847,7 +872,7 @@ def dockerignore_problems(ignore_text: str, env_file: str) -> list[str]:
     """
     patterns = [
         line.strip()
-        for line in ignore_text.splitlines()
+        for line in ignore_text.removeprefix(BYTE_ORDER_MARK).splitlines()
         if line.strip() and not line.lstrip().startswith("#")
     ]
     parts = env_file.split("/")
